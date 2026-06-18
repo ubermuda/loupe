@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xliff xmlns="urn:oasis:names:tc:xliff:document:1.2" version="1.2">
+    <file source-language="en" target-language="en" datatype="plaintext" original="validators">
+        <body>
+
+            <!-- Registration constraints -->
+            <trans-unit id="account.registration.validator.username_format">
+                <source>account.registration.validator.username_format</source>
+                <target>Username must start with a letter and contain only lowercase letters, numbers, hyphens, or underscores.</target>
+            </trans-unit>
+            <trans-unit id="account.registration.validator.username_reserved">
+                <source>account.registration.validator.username_reserved</source>
+                <target>This username is reserved and cannot be used.</target>
+            </trans-unit>
+            <trans-unit id="account.registration.validator.agree_terms">
+                <source>account.registration.validator.agree_terms</source>
+                <target>You must agree to the terms.</target>
+            </trans-unit>
+
+            <!-- UniqueEntity messages on User entity -->
+            <trans-unit id="account.registration.validator.email_unique">
+                <source>account.registration.validator.email_unique</source>
+                <target>There is already an account with this email.</target>
+            </trans-unit>
+            <trans-unit id="account.registration.validator.username_unique">
+                <source>account.registration.validator.username_unique</source>
+                <target>This username is already taken.</target>
+            </trans-unit>
+
+            <!-- Change password form -->
+            <trans-unit id="account.form.change_password_form.invalid_message">
+                <source>account.form.change_password_form.invalid_message</source>
+                <target>The password fields must match.</target>
+            </trans-unit>
+
+        </body>
+    </file>
+</xliff>

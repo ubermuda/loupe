@@ -1,0 +1,23 @@
+# see https://symfony.com/doc/current/reference/configuration/framework.html
+framework:
+    secret: '%env(APP_SECRET)%'
+    trusted_proxies: 'REMOTE_ADDR,PRIVATE_SUBNETS'
+    trusted_headers: ['x-forwarded-for', 'x-forwarded-host', 'x-forwarded-port', 'x-forwarded-proto', 'x-forwarded-prefix']
+
+    # Note that the session will be started ONLY if you read or write from it.
+    session: true
+
+    #esi: true
+    #fragments: true
+
+    rate_limiter:
+        resend_verification_email:
+            policy: fixed_window
+            limit: 1
+            interval: '60 seconds'
+
+when@test:
+    framework:
+        test: true
+        session:
+            storage_factory_id: session.storage.factory.mock_file

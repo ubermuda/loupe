@@ -1,0 +1,19 @@
+{% extends 'Module/Account/auth_base.html.twig' %}
+
+{% block title %}{{ 'account.reset_password.check_email.page.title'|trans }}{% endblock %}
+
+{% block auth_body %}
+<div class="flex flex-col items-center gap-3 py-4 text-center">
+    <div class="auth-icon-badge">
+        <twig:UX:Icon name="lucide:mail" class="w-5 h-5" aria-hidden="true" />
+    </div>
+    <div>
+        <div class="text-xl font-semibold tracking-tight text-fg">{{ 'account.reset_password.check_email.heading'|trans }}</div>
+        <div class="text-fg-mute text-sm mt-1.5 leading-normal">
+            {{ 'account.reset_password.check_email.body_line1'|trans }}<br>
+            {{ 'account.reset_password.check_email.body_line2'|trans }}
+        </div>
+    </div>
+    <a href="{{ path('app_login') }}" class="text-sm text-accent font-medium hover:underline mt-1">{{ 'account.reset_password.check_email.back'|trans }}</a>
+</div>
+{% endblock %}

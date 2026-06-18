@@ -1,1 +1,58 @@
+
+###> symfony/framework-bundle ###
+/.env.local
+/.env.local.php
+/.env.*.local
+/config/secrets/prod/prod.decrypt.private.php
+/config/reference.php
+/public/bundles/
+/var/
+/vendor/
+###< symfony/framework-bundle ###
+
+###> phpunit/phpunit ###
+/phpunit.xml
+/.phpunit.cache/
+###< phpunit/phpunit ###
+
+###> symfony/asset-mapper ###
+/public/assets/
+/assets/vendor/
+###< symfony/asset-mapper ###
+
+###> symfony/ux-icons ###
+/assets/icons/lucide/
+###< symfony/ux-icons ###
+
+###> friendsofphp/php-cs-fixer ###
+/.php-cs-fixer.php
+/.php-cs-fixer.cache
+###< friendsofphp/php-cs-fixer ###
+
+###> vincentlanglet/twig-cs-fixer ###
+/.twig-cs-fixer.cache
+###< vincentlanglet/twig-cs-fixer ###
+
+###> phpstan/phpstan ###
+phpstan.neon
+###< phpstan/phpstan ###
+
+###> playwright ###
+/e2e/node_modules/
+/e2e/test-results/
+/e2e/playwright-report/
+/e2e/.playwright/
+/e2e/.auth/*.json
+/test-results/
+###< playwright ###
+
+.DS_Store
+.idea/
+.phpactor.json
+/.serena/
+/.claude/worktrees/
+/node_modules
+/docs/superpowers/
+e2e/.step-ca-root.crt
+
 .superpowers/

@@ -1,0 +1,21 @@
+{% apply inline_css(source('@EmailStyles/email.css')) %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ 'account.email.verification.html_title'|trans }}</title>
+</head>
+<body>
+    <div class="card">
+        <h1>{{ 'account.email.verification.heading'|trans }}</h1>
+        <p class="body-text">{{ 'account.email.verification.body'|trans }}</p>
+        <a href="{{ signedUrl }}" class="btn">{{ 'account.email.verification.cta'|trans }}</a>
+        <p class="footer">
+            {{ 'account.email.verification.footer_not_you'|trans }}<br>
+            {{ 'account.email.verification.footer_copy_link'|trans }} {{ signedUrl }}
+        </p>
+    </div>
+</body>
+</html>
+{% endapply %}

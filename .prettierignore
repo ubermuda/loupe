@@ -1,0 +1,12 @@
+assets/icons/
+assets/vendor/
+# Managed by Symfony UX (importmap/asset commands rewrite it, with 4-space
+# indent) — keep prettier from fighting that on every `just cs`.
+assets/controllers.json
+e2e/node_modules/
+e2e/test-results/
+e2e/playwright-report/
+e2e/blob-report/
+e2e/playwright/.cache/
+vendor/
+var/

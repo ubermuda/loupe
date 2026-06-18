@@ -1,0 +1,55 @@
+{% extends 'Module/Account/auth_base.html.twig' %}
+
+{% block title %}{{ 'account.login.page.title'|trans }}{% endblock %}
+
+{% block topbar_nav %}
+<span class="text-sm text-fg-mute">
+    {{ 'account.login.topbar.prompt'|trans }}
+    <a href="{{ path('app_register') }}" class="ml-1.5 text-xs text-accent hover:underline">{{ 'account.login.topbar.link'|trans }}</a>
+</span>
+{% endblock %}
+
+{% block auth_body %}
+<div class="flex flex-col gap-1.5">
+    <h1 class="auth-heading">{{ 'account.login.heading'|trans }}</h1>
+    <p class="auth-subheading">{{ 'account.login.subheading'|trans }}</p>
+</div>
+
+<form method="post" action="{{ path('app_login') }}" class="form-stack" novalidate>
+    <input type="hidden" name="_csrf_token" value="{{ csrf_token('authenticate') }}">
+
+    {% if error %}
+        <div class="auth-error">
+            <twig:UX:Icon name="lucide:x" class="w-3.5 h-3.5 shrink-0 mt-px" aria-hidden="true" />
+            {{ error.messageKey|trans(error.messageData, 'security') }}
+        </div>
+    {% endif %}
+
+    <div class="form-field">
+        <label class="form-label" for="email">{{ 'account.login.form.email.label'|trans }}</label>
+        <input id="email" type="email" name="email" value="{{ last_username }}"
+               autocomplete="email" autofocus placeholder="{{ 'account.login.form.email.placeholder'|trans }}" class="auth-input">
+    </div>
+
+    <div class="form-field">
+        <div class="flex items-baseline justify-between">
+            <label class="form-label" for="password">{{ 'account.login.form.password.label'|trans }}</label>
+            <a href="{{ path('app_forgot_password_request') }}" class="text-xs text-accent hover:underline">{{ 'account.login.form.forgot_password'|trans }}</a>
+        </div>
+        <input id="password" type="password" name="password"
+               autocomplete="current-password" placeholder="{{ 'account.login.form.password.placeholder'|trans }}" class="auth-input">
+    </div>
+
+    <label class="flex items-center gap-2 text-sm text-fg-mute cursor-pointer select-none mt-0.5">
+        <input type="checkbox" name="_remember_me" class="w-3.5 h-3.5 cursor-pointer accent-accent">
+        {{ 'account.login.form.remember_me'|trans }}
+    </label>
+
+    <button type="submit" class="auth-submit mt-1.5">{{ 'account.login.form.submit'|trans }}</button>
+</form>
+
+<div class="text-center text-sm text-fg-mute">
+    {{ 'account.login.footer.prompt'|trans }}
+    <a href="{{ path('app_register') }}" class="pl-1 text-accent font-medium hover:underline">{{ 'account.login.footer.link'|trans }}</a>
+</div>
+{% endblock %}

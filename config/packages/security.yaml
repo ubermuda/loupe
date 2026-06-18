@@ -1,0 +1,49 @@
+security:
+    password_hashers:
+        Symfony\Component\Security\Core\User\PasswordAuthenticatedUserInterface: 'auto'
+
+    providers:
+        app_user_provider:
+            entity:
+                class: App\Module\Account\Entity\User
+
+    firewalls:
+        dev:
+            pattern: ^/(_profiler|_wdt|assets|build)/
+            security: false
+        main:
+            lazy: true
+            provider: app_user_provider
+            form_login:
+                login_path: app_login
+                check_path: app_login
+                username_parameter: email
+                password_parameter: password
+                default_target_path: app_home
+                enable_csrf: true
+            login_throttling:
+                max_attempts: 5
+            logout:
+                path: app_logout
+                target: app_login
+            remember_me:
+                secret: '%env(APP_SECRET)%'
+                lifetime: 2592000
+                path: /
+                always_remember_me: false
+
+    access_control:
+        - { path: ^/login,           roles: PUBLIC_ACCESS }
+        - { path: ^/register,        roles: PUBLIC_ACCESS }
+        - { path: ^/verify,          roles: PUBLIC_ACCESS }
+        - { path: ^/forgot-password, roles: PUBLIC_ACCESS }
+        - { path: ^/,                roles: ROLE_USER }
+
+when@test:
+    security:
+        password_hashers:
+            Symfony\Component\Security\Core\User\PasswordAuthenticatedUserInterface:
+                algorithm: auto
+                cost: 4 # Lowest possible value for bcrypt
+                time_cost: 3 # Lowest possible value for argon
+                memory_cost: 10 # Lowest possible value for argon

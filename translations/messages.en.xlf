@@ -1,0 +1,394 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xliff xmlns="urn:oasis:names:tc:xliff:document:1.2" version="1.2">
+    <file source-language="en" target-language="en" datatype="plaintext" original="messages">
+        <body>
+
+            <!-- Global -->
+            <trans-unit id="app.name">
+                <source>app.name</source>
+                <target>App</target>
+            </trans-unit>
+
+            <!-- Auth layout -->
+            <trans-unit id="account.auth.footer.copyright">
+                <source>account.auth.footer.copyright</source>
+                <target>© Your Company, Inc.</target>
+            </trans-unit>
+            <trans-unit id="account.auth.footer.status">
+                <source>account.auth.footer.status</source>
+                <target>Status</target>
+            </trans-unit>
+            <trans-unit id="account.auth.footer.docs">
+                <source>account.auth.footer.docs</source>
+                <target>Docs</target>
+            </trans-unit>
+            <trans-unit id="account.auth.footer.privacy">
+                <source>account.auth.footer.privacy</source>
+                <target>Privacy</target>
+            </trans-unit>
+            <trans-unit id="account.auth.footer.terms">
+                <source>account.auth.footer.terms</source>
+                <target>Terms</target>
+            </trans-unit>
+
+            <!-- Login page -->
+            <trans-unit id="account.login.page.title">
+                <source>account.login.page.title</source>
+                <target>Sign in — App</target>
+            </trans-unit>
+            <trans-unit id="account.login.topbar.prompt">
+                <source>account.login.topbar.prompt</source>
+                <target>New to App?</target>
+            </trans-unit>
+            <trans-unit id="account.login.topbar.link">
+                <source>account.login.topbar.link</source>
+                <target>Sign up</target>
+            </trans-unit>
+            <trans-unit id="account.login.heading">
+                <source>account.login.heading</source>
+                <target>Welcome back</target>
+            </trans-unit>
+            <trans-unit id="account.login.subheading">
+                <source>account.login.subheading</source>
+                <target>Sign in to continue to your account.</target>
+            </trans-unit>
+            <trans-unit id="account.login.form.email.label">
+                <source>account.login.form.email.label</source>
+                <target>Email</target>
+            </trans-unit>
+            <trans-unit id="account.login.form.email.placeholder">
+                <source>account.login.form.email.placeholder</source>
+                <target>you@company.com</target>
+            </trans-unit>
+            <trans-unit id="account.login.form.password.label">
+                <source>account.login.form.password.label</source>
+                <target>Password</target>
+            </trans-unit>
+            <trans-unit id="account.login.form.password.placeholder">
+                <source>account.login.form.password.placeholder</source>
+                <target>••••••••</target>
+            </trans-unit>
+            <trans-unit id="account.login.form.forgot_password">
+                <source>account.login.form.forgot_password</source>
+                <target>Forgot password?</target>
+            </trans-unit>
+            <trans-unit id="account.login.form.remember_me">
+                <source>account.login.form.remember_me</source>
+                <target>Stay signed in on this device</target>
+            </trans-unit>
+            <trans-unit id="account.login.form.submit">
+                <source>account.login.form.submit</source>
+                <target>Sign in</target>
+            </trans-unit>
+            <trans-unit id="account.login.footer.prompt">
+                <source>account.login.footer.prompt</source>
+                <target>New to App?</target>
+            </trans-unit>
+            <trans-unit id="account.login.footer.link">
+                <source>account.login.footer.link</source>
+                <target>Create an account</target>
+            </trans-unit>
+
+            <!-- Registration page -->
+            <trans-unit id="account.registration.page.title">
+                <source>account.registration.page.title</source>
+                <target>Create account — App</target>
+            </trans-unit>
+            <trans-unit id="account.registration.topbar.prompt">
+                <source>account.registration.topbar.prompt</source>
+                <target>Already have an account?</target>
+            </trans-unit>
+            <trans-unit id="account.registration.topbar.link">
+                <source>account.registration.topbar.link</source>
+                <target>Sign in</target>
+            </trans-unit>
+            <trans-unit id="account.registration.heading">
+                <source>account.registration.heading</source>
+                <target>Create your account</target>
+            </trans-unit>
+            <trans-unit id="account.registration.subheading">
+                <source>account.registration.subheading</source>
+                <target>Get started for free. No credit card required.</target>
+            </trans-unit>
+            <trans-unit id="account.form.registration_form.full_name.label">
+                <source>account.form.registration_form.full_name.label</source>
+                <target>Full name</target>
+            </trans-unit>
+            <trans-unit id="account.form.registration_form.full_name.placeholder">
+                <source>account.form.registration_form.full_name.placeholder</source>
+                <target>Your full name</target>
+            </trans-unit>
+            <trans-unit id="account.form.registration_form.username.label">
+                <source>account.form.registration_form.username.label</source>
+                <target>Username</target>
+            </trans-unit>
+            <trans-unit id="account.form.registration_form.username.placeholder">
+                <source>account.form.registration_form.username.placeholder</source>
+                <target>rileychen</target>
+            </trans-unit>
+            <trans-unit id="account.form.registration_form.email.label">
+                <source>account.form.registration_form.email.label</source>
+                <target>Email</target>
+            </trans-unit>
+            <trans-unit id="account.form.registration_form.email.placeholder">
+                <source>account.form.registration_form.email.placeholder</source>
+                <target>you@company.com</target>
+            </trans-unit>
+            <trans-unit id="account.form.registration_form.password.label">
+                <source>account.form.registration_form.password.label</source>
+                <target>Password</target>
+            </trans-unit>
+            <trans-unit id="account.form.registration_form.password.placeholder">
+                <source>account.form.registration_form.password.placeholder</source>
+                <target>At least 8 characters</target>
+            </trans-unit>
+            <trans-unit id="account.form.registration_form.agree_terms.label">
+                <source>account.form.registration_form.agree_terms.label</source>
+                <target>I agree to the Terms and Privacy Policy</target>
+            </trans-unit>
+            <trans-unit id="account.form.registration_form.agree_terms.prefix">
+                <source>account.form.registration_form.agree_terms.prefix</source>
+                <target>I agree to the</target>
+            </trans-unit>
+            <trans-unit id="account.form.registration_form.agree_terms.terms">
+                <source>account.form.registration_form.agree_terms.terms</source>
+                <target>Terms</target>
+            </trans-unit>
+            <trans-unit id="account.form.registration_form.agree_terms.conjunction">
+                <source>account.form.registration_form.agree_terms.conjunction</source>
+                <target>and</target>
+            </trans-unit>
+            <trans-unit id="account.form.registration_form.agree_terms.privacy">
+                <source>account.form.registration_form.agree_terms.privacy</source>
+                <target>Privacy Policy</target>
+            </trans-unit>
+            <trans-unit id="account.form.registration_form.submit">
+                <source>account.form.registration_form.submit</source>
+                <target>Create account</target>
+            </trans-unit>
+            <trans-unit id="account.registration.footer.prompt">
+                <source>account.registration.footer.prompt</source>
+                <target>Already have an account?</target>
+            </trans-unit>
+            <trans-unit id="account.registration.footer.link">
+                <source>account.registration.footer.link</source>
+                <target>Sign in</target>
+            </trans-unit>
+
+            <!-- Registration check-email page -->
+            <trans-unit id="account.registration.check_email.page.title">
+                <source>account.registration.check_email.page.title</source>
+                <target>Check your email — App</target>
+            </trans-unit>
+            <trans-unit id="account.registration.check_email.heading">
+                <source>account.registration.check_email.heading</source>
+                <target>Check your email</target>
+            </trans-unit>
+            <trans-unit id="account.registration.check_email.body_line1">
+                <source>account.registration.check_email.body_line1</source>
+                <target>We sent a verification link to %email%.</target>
+            </trans-unit>
+            <trans-unit id="account.registration.check_email.body_line2">
+                <source>account.registration.check_email.body_line2</source>
+                <target>Click the link to activate your account. It expires in 1 hour.</target>
+            </trans-unit>
+            <trans-unit id="account.registration.check_email.resend">
+                <source>account.registration.check_email.resend</source>
+                <target>Resend verification email</target>
+            </trans-unit>
+            <trans-unit id="account.registration.check_email.back">
+                <source>account.registration.check_email.back</source>
+                <target>Back to sign in</target>
+            </trans-unit>
+
+            <!-- Registration flash messages -->
+            <trans-unit id="account.registration.flash.email_sent">
+                <source>account.registration.flash.email_sent</source>
+                <target>Check your email to verify your account.</target>
+            </trans-unit>
+            <trans-unit id="account.registration.flash.resend_throttled">
+                <source>account.registration.flash.resend_throttled</source>
+                <target>Please wait before requesting another verification email.</target>
+            </trans-unit>
+            <trans-unit id="account.registration.flash.resent">
+                <source>account.registration.flash.resent</source>
+                <target>Verification email resent.</target>
+            </trans-unit>
+            <trans-unit id="account.registration.flash.verification_invalid">
+                <source>account.registration.flash.verification_invalid</source>
+                <target>This verification link is invalid or has expired. Please request a new one.</target>
+            </trans-unit>
+
+            <!-- Registration form errors (translated in controller) -->
+            <trans-unit id="account.registration.error.email_duplicate">
+                <source>account.registration.error.email_duplicate</source>
+                <target>There is already an account with this email.</target>
+            </trans-unit>
+            <trans-unit id="account.registration.error.username_taken">
+                <source>account.registration.error.username_taken</source>
+                <target>This username is already taken.</target>
+            </trans-unit>
+
+            <!-- Email subjects -->
+            <trans-unit id="account.email.verification.subject">
+                <source>account.email.verification.subject</source>
+                <target>Confirm your account</target>
+            </trans-unit>
+            <trans-unit id="account.email.reset_password.subject">
+                <source>account.email.reset_password.subject</source>
+                <target>Reset your password</target>
+            </trans-unit>
+
+            <!-- Verification email template -->
+            <trans-unit id="account.email.verification.html_title">
+                <source>account.email.verification.html_title</source>
+                <target>Confirm your account</target>
+            </trans-unit>
+            <trans-unit id="account.email.verification.heading">
+                <source>account.email.verification.heading</source>
+                <target>Confirm your email address</target>
+            </trans-unit>
+            <trans-unit id="account.email.verification.body">
+                <source>account.email.verification.body</source>
+                <target>Thanks for signing up! Click the button below to verify your email and activate your account. This link expires in 1 hour.</target>
+            </trans-unit>
+            <trans-unit id="account.email.verification.cta">
+                <source>account.email.verification.cta</source>
+                <target>Verify my email</target>
+            </trans-unit>
+            <trans-unit id="account.email.verification.footer_not_you">
+                <source>account.email.verification.footer_not_you</source>
+                <target>If you didn't create an account, you can safely ignore this email.</target>
+            </trans-unit>
+            <trans-unit id="account.email.verification.footer_copy_link">
+                <source>account.email.verification.footer_copy_link</source>
+                <target>Or copy this link:</target>
+            </trans-unit>
+
+            <!-- Reset password email template -->
+            <trans-unit id="account.email.reset_password.html_title">
+                <source>account.email.reset_password.html_title</source>
+                <target>Reset your password</target>
+            </trans-unit>
+            <trans-unit id="account.email.reset_password.heading">
+                <source>account.email.reset_password.heading</source>
+                <target>Reset your password</target>
+            </trans-unit>
+            <trans-unit id="account.email.reset_password.body">
+                <source>account.email.reset_password.body</source>
+                <target>You requested a password reset for your account. Click the button below to choose a new password. This link expires in 1 hour.</target>
+            </trans-unit>
+            <trans-unit id="account.email.reset_password.cta">
+                <source>account.email.reset_password.cta</source>
+                <target>Reset my password</target>
+            </trans-unit>
+            <trans-unit id="account.email.reset_password.footer_disclaimer">
+                <source>account.email.reset_password.footer_disclaimer</source>
+                <target>If you didn't request a password reset, you can safely ignore this email. Your password won't change.</target>
+            </trans-unit>
+            <trans-unit id="account.email.reset_password.footer_copy_link">
+                <source>account.email.reset_password.footer_copy_link</source>
+                <target>Or copy this link:</target>
+            </trans-unit>
+
+            <!-- Reset password request page -->
+            <trans-unit id="account.reset_password.request.page.title">
+                <source>account.reset_password.request.page.title</source>
+                <target>Reset password — App</target>
+            </trans-unit>
+            <trans-unit id="account.reset_password.request.heading">
+                <source>account.reset_password.request.heading</source>
+                <target>Reset password</target>
+            </trans-unit>
+            <trans-unit id="account.reset_password.request.subheading">
+                <source>account.reset_password.request.subheading</source>
+                <target>Enter your account email and we'll send a reset link.</target>
+            </trans-unit>
+            <trans-unit id="account.form.reset_password_request_form.email.label">
+                <source>account.form.reset_password_request_form.email.label</source>
+                <target>Email</target>
+            </trans-unit>
+            <trans-unit id="account.form.reset_password_request_form.email.placeholder">
+                <source>account.form.reset_password_request_form.email.placeholder</source>
+                <target>you@company.com</target>
+            </trans-unit>
+            <trans-unit id="account.form.reset_password_request_form.submit">
+                <source>account.form.reset_password_request_form.submit</source>
+                <target>Send reset link</target>
+            </trans-unit>
+            <trans-unit id="account.reset_password.request.back">
+                <source>account.reset_password.request.back</source>
+                <target>← Back to sign in</target>
+            </trans-unit>
+
+            <!-- Reset password check-email page -->
+            <trans-unit id="account.reset_password.check_email.page.title">
+                <source>account.reset_password.check_email.page.title</source>
+                <target>Check your email — App</target>
+            </trans-unit>
+            <trans-unit id="account.reset_password.check_email.heading">
+                <source>account.reset_password.check_email.heading</source>
+                <target>Reset link sent</target>
+            </trans-unit>
+            <trans-unit id="account.reset_password.check_email.body_line1">
+                <source>account.reset_password.check_email.body_line1</source>
+                <target>If an account exists for that email, you'll get a reset link within a minute.</target>
+            </trans-unit>
+            <trans-unit id="account.reset_password.check_email.body_line2">
+                <source>account.reset_password.check_email.body_line2</source>
+                <target>It expires in 1 hour.</target>
+            </trans-unit>
+            <trans-unit id="account.reset_password.check_email.back">
+                <source>account.reset_password.check_email.back</source>
+                <target>Back to sign in</target>
+            </trans-unit>
+
+            <!-- Reset password reset page -->
+            <trans-unit id="account.reset_password.reset.page.title">
+                <source>account.reset_password.reset.page.title</source>
+                <target>Set new password — App</target>
+            </trans-unit>
+            <trans-unit id="account.reset_password.reset.heading">
+                <source>account.reset_password.reset.heading</source>
+                <target>Set new password</target>
+            </trans-unit>
+            <trans-unit id="account.reset_password.reset.subheading">
+                <source>account.reset_password.reset.subheading</source>
+                <target>Choose a strong password for your account.</target>
+            </trans-unit>
+            <trans-unit id="account.reset_password.reset.form.submit">
+                <source>account.reset_password.reset.form.submit</source>
+                <target>Reset password</target>
+            </trans-unit>
+
+            <!-- Reset password flash messages -->
+            <trans-unit id="account.reset_password.flash.success">
+                <source>account.reset_password.flash.success</source>
+                <target>Your password has been reset. You can now sign in.</target>
+            </trans-unit>
+            <trans-unit id="account.reset_password.flash.invalid_token">
+                <source>account.reset_password.flash.invalid_token</source>
+                <target>This reset link is invalid or has expired. Please request a new one.</target>
+            </trans-unit>
+
+            <!-- Change password form labels -->
+            <trans-unit id="account.form.change_password_form.new_password.label">
+                <source>account.form.change_password_form.new_password.label</source>
+                <target>New password</target>
+            </trans-unit>
+            <trans-unit id="account.form.change_password_form.new_password.placeholder">
+                <source>account.form.change_password_form.new_password.placeholder</source>
+                <target>At least 8 characters</target>
+            </trans-unit>
+            <trans-unit id="account.form.change_password_form.repeat_new_password.label">
+                <source>account.form.change_password_form.repeat_new_password.label</source>
+                <target>Repeat new password</target>
+            </trans-unit>
+            <trans-unit id="account.form.change_password_form.repeat_new_password.placeholder">
+                <source>account.form.change_password_form.repeat_new_password.placeholder</source>
+                <target>••••••••</target>
+            </trans-unit>
+
+        </body>
+    </file>
+</xliff>

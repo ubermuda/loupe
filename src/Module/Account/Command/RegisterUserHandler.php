@@ -1,0 +1,57 @@
+<?php
+
+namespace App\Module\Account\Command;
+
+use App\Exception\DomainErrors;
+use App\Module\Account\Entity\User;
+use App\Module\Account\Repository\UserRepository;
+use App\Module\Account\Service\VerificationEmailSender;
+use Doctrine\ORM\EntityManagerInterface;
+use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
+
+final readonly class RegisterUserHandler
+{
+    public function __construct(
+        private UserRepository $users,
+        private EntityManagerInterface $em,
+        private UserPasswordHasherInterface $passwordHasher,
+        private VerificationEmailSender $verificationEmailSender,
+    ) {
+    }
+
+    /** @throws DomainErrors */
+    public function __invoke(RegisterUserCommand $command): User
+    {
+        $errors = [];
+
+        if ($this->users->findOneByEmail($command->email)) {
+            $errors['email'] = 'account.registration.error.email_duplicate';
+        }
+
+        if ($this->users->findOneByUsername($command->username)) {
+            $errors['username'] = 'account.registration.error.username_taken';
+        }
+
+        if ([] !== $errors) {
+            throw new DomainErrors($errors);
+        }
+
+        $user = new User(
+            username: $command->username,
+            fullName: $command->fullName,
+            email: $command->email,
+        );
+        $user->password = $this->passwordHasher->hashPassword($user, $command->plainPassword);
+
+        $this->em->persist($user);
+        $this->em->flush();
+
+        try {
+            $this->verificationEmailSender->send($user);
+        } catch (\Throwable) {
+            // Email sending failed; account is created — user can resend from check-email page.
+        }
+
+        return $user;
+    }
+}
