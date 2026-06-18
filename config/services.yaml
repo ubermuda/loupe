@@ -53,3 +53,11 @@ when@test:
             autowire: true
             autoconfigure: true
             public: true
+
+        App\Module\Review\Command\AddCommentHandler:
+            autowire: true
+            public: true
+
+        App\Module\Review\Service\AnchorService:
+            autowire: true
+            public: true

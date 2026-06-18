@@ -12,3 +12,4 @@ framework:
             - resend-verification
             - revoke-api-token
             - submit-review
+            - comment-action
