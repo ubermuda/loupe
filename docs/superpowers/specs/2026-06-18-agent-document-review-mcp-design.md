@@ -59,6 +59,13 @@ Single Symfony application exposing two surfaces over the same domain and databa
 Markdown is rendered with `league/commonmark` and the output is sanitized before
 display.
 
+**Adapter constraint:** every MCP tool is a thin adapter — it dispatches a command
+and returns the handler's result, holding no business logic itself. The web UI
+dispatches the same commands. This keeps the agent interface swappable: adding a
+REST API and a CLI later is additive (new entry points dispatching the same
+commands), not a rewrite. We ship MCP now and defer the public API until there is a
+concrete need for it.
+
 ## 4. Domain model
 
 - **User** — owns documents and PATs. Authenticated for both the web UI and (via
@@ -148,5 +155,7 @@ in full only once at creation. One reviewer — the document owner — per docum
 - `await_review` long-poll and MCP/email push notifications.
 - Mercure-based live updates in the reviewer UI.
 - Multiple reviewers merging into one review.
+- A public REST API and a CLI agent adapter (additive later, given the
+  command/handler pattern; built when a concrete need arises).
 
 These are explicitly excluded from this build and revisited in a later spec.
