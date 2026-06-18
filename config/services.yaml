@@ -32,3 +32,11 @@ when@test:
         App\Module\Review\Command\CreateDocumentHandler:
             autowire: true
             public: true
+
+        App\Module\Review\Query\GetDocument:
+            autowire: true
+            public: true
+
+        App\Module\Review\Query\GetReview:
+            autowire: true
+            public: true

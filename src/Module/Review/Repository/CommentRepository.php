@@ -33,4 +33,20 @@ class CommentRepository extends ServiceEntityRepository
             ->getQuery()
             ->getResult();
     }
+
+    /**
+     * Returns all comments for a version (both resolved and open), ordered by offset then id.
+     *
+     * @return list<Comment>
+     */
+    public function findByVersion(DocumentVersion $version): array
+    {
+        return $this->createQueryBuilder('c')
+            ->where('c.version = :version')
+            ->setParameter('version', $version)
+            ->orderBy('c.anchor.offsetHint', 'ASC')
+            ->addOrderBy('c.id', 'ASC')
+            ->getQuery()
+            ->getResult();
+    }
 }
