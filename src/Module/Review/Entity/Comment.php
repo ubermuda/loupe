@@ -30,7 +30,7 @@ class Comment
 
     public function __construct(
         #[ORM\JoinColumn(nullable: false)]
-        #[ORM\ManyToOne(targetEntity: DocumentVersion::class)]
+        #[ORM\ManyToOne(targetEntity: DocumentVersion::class, inversedBy: 'comments')]
         public readonly DocumentVersion $version,
 
         #[ORM\JoinColumn(nullable: false)]
