@@ -11,6 +11,11 @@ security:
         dev:
             pattern: ^/(_profiler|_wdt|assets|build)/
             security: false
+        mcp:
+            pattern: ^/_mcp
+            stateless: true
+            custom_authenticators:
+                - App\Module\Account\Security\ApiTokenAuthenticator
         main:
             lazy: true
             provider: app_user_provider
@@ -33,6 +38,7 @@ security:
                 always_remember_me: false
 
     access_control:
+        - { path: ^/_mcp,            roles: ROLE_USER }
         - { path: ^/login,           roles: PUBLIC_ACCESS }
         - { path: ^/register,        roles: PUBLIC_ACCESS }
         - { path: ^/verify,          roles: PUBLIC_ACCESS }
