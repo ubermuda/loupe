@@ -60,6 +60,8 @@ final readonly class ReanchoringService
         }
 
         // Resolve parent: if the old parent is among the open comments being copied, map it.
+        // Otherwise the parent was resolved (or never open), so the copied reply is detached
+        // to a root comment (parent stays null).
         $newParent = null;
         if (null !== $old->parent && \in_array($old->parent, $openComments, true)) {
             $newParent = $this->copyComment($old->parent, $openComments, $oldToNew, $newVersion, $carried, $orphaned);

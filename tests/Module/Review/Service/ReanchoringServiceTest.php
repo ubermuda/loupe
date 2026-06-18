@@ -27,5 +27,23 @@ final class ReanchoringServiceTest extends TestCase
 
         self::assertSame(1, $summary['carried']);
         self::assertSame(1, $summary['orphaned']);
+
+        // The copies are attached to the new version as fresh Comment objects.
+        $copies = $v2->comments->toArray();
+        self::assertCount(2, $copies);
+
+        $carriedCopies = array_filter($copies, static fn (Comment $c) => 'why JWT?' === $c->body);
+        $carried = reset($carriedCopies);
+        self::assertInstanceOf(Comment::class, $carried);
+        self::assertFalse($carried->orphaned);
+        self::assertSame('JWTs', $carried->anchor->quote);
+        // The carried anchor is rebuilt at the quote's offset in the NEW text ("use JWTs only").
+        self::assertSame(strpos('use JWTs only', 'JWTs'), $carried->anchor->offsetHint);
+
+        $orphanCopies = array_filter($copies, static fn (Comment $c) => 'limit?' === $c->body);
+        $orphan = reset($orphanCopies);
+        self::assertInstanceOf(Comment::class, $orphan);
+        self::assertTrue($orphan->orphaned);
+        self::assertSame('rate limiting', $orphan->anchor->quote);
     }
 }

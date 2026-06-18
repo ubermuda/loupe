@@ -42,7 +42,11 @@ final readonly class ReviseDocumentHandler
             $this->renderer->render($command->markdown),
         );
 
-        // Collect all open (unresolved) comments from the previous version.
+        // Collect all open (unresolved) comments from the previous version. Orphaned-but-
+        // unresolved comments are intentionally included so they are re-evaluated against the
+        // new text: if the quoted passage reappears in this revision, the copy re-anchors and
+        // is no longer orphaned; otherwise it carries forward still orphaned (one copy per
+        // version, not an accumulating duplicate).
         $openComments = $this->comments->findOpenByVersion($previousVersion);
 
         // Re-anchor them onto the new version; copies are attached to $newVersion->comments.

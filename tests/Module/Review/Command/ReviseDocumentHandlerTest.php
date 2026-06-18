@@ -86,9 +86,14 @@ final class ReviseDocumentHandlerTest extends KernelTestCase
         self::assertCount(1, $carriedCopies);
         self::assertCount(1, $orphanedCopies);
 
-        $carried = array_first($carriedCopies);
+        $carried = reset($carriedCopies);
         self::assertInstanceOf(Comment::class, $carried);
+        self::assertFalse($carried->orphaned);
         self::assertSame('why JWT?', $carried->body);
         self::assertSame('JWTs', $carried->anchor->quote);
+
+        $orphaned = reset($orphanedCopies);
+        self::assertInstanceOf(Comment::class, $orphaned);
+        self::assertTrue($orphaned->orphaned);
     }
 }
