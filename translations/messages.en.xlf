@@ -389,6 +389,37 @@
                 <target>••••••••</target>
             </trans-unit>
 
+
+            <!-- API Tokens -->
+            <trans-unit id="account.form.api_token_form.label.label">
+                <source>account.form.api_token_form.label.label</source>
+                <target>Token label</target>
+            </trans-unit>
+            <trans-unit id="account.form.api_token_form.label.placeholder">
+                <source>account.form.api_token_form.label.placeholder</source>
+                <target>e.g. CI agent</target>
+            </trans-unit>
+            <trans-unit id="account.api_token.page.title">
+                <source>account.api_token.page.title</source>
+                <target>API Tokens</target>
+            </trans-unit>
+            <trans-unit id="account.api_token.form.submit">
+                <source>account.api_token.form.submit</source>
+                <target>Create token</target>
+            </trans-unit>
+            <trans-unit id="account.api_token.table.column.label">
+                <source>account.api_token.table.column.label</source>
+                <target>Label</target>
+            </trans-unit>
+            <trans-unit id="account.api_token.table.column.created">
+                <source>account.api_token.table.column.created</source>
+                <target>Created</target>
+            </trans-unit>
+            <trans-unit id="account.api_token.action.revoke">
+                <source>account.api_token.action.revoke</source>
+                <target>Revoke</target>
+            </trans-unit>
+
         </body>
     </file>
 </xliff>

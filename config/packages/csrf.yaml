@@ -10,3 +10,4 @@ framework:
             - authenticate
             - logout
             - resend-verification
+            - revoke-api-token

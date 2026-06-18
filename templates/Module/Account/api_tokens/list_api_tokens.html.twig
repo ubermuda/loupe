@@ -1,0 +1,56 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}{{ 'account.api_token.page.title'|trans }}{% endblock %}
+
+{% block body %}
+<div class="bp-page">
+    <div class="bp-page-header">
+        <h1 class="bp-page-title">{{ 'account.api_token.page.title'|trans }}</h1>
+    </div>
+
+    {% for label, messages in app.flashes %}
+        {% for message in messages %}
+            <div class="bp-flash bp-flash--{{ label }}">{{ message }}</div>
+        {% endfor %}
+    {% endfor %}
+
+    <div class="bp-card">
+        {{ form_start(form, {'action': path('app_api_token_create'), 'method': 'POST', 'attr': {'class': 'bp-form'}}) }}
+            <div class="bp-form-field">
+                {{ form_label(form.label) }}
+                {{ form_widget(form.label, {'attr': {'class': 'bp-input'}}) }}
+                <div class="bp-field-errors">{{ form_errors(form.label) }}</div>
+            </div>
+            <button type="submit" class="bp-btn bp-btn--primary">{{ 'account.api_token.form.submit'|trans }}</button>
+        {{ form_end(form) }}
+    </div>
+
+    {% if tokens|length > 0 %}
+    <div class="bp-card">
+        <table class="bp-table">
+            <thead>
+                <tr>
+                    <th>{{ 'account.api_token.table.column.label'|trans }}</th>
+                    <th>{{ 'account.api_token.table.column.created'|trans }}</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for token in tokens %}
+                <tr>
+                    <td>{{ token.label }}</td>
+                    <td>{{ token.createdAt|date('Y-m-d H:i') }}</td>
+                    <td>
+                        <form method="POST" action="{{ path('app_api_token_revoke', {tokenId: token.id}) }}">
+                            <input type="hidden" name="_csrf_token" value="{{ csrf_token('revoke-api-token') }}">
+                            <button type="submit" class="bp-btn bp-btn--danger">{{ 'account.api_token.action.revoke'|trans }}</button>
+                        </form>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
