@@ -30,4 +30,5 @@ services:
 when@test:
     services:
         App\Module\Review\Command\CreateDocumentHandler:
+            autowire: true
             public: true
