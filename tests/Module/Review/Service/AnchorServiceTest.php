@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Tests\Module\Review\Service;
 
 use App\Module\Review\Service\AnchorService;
+use App\Module\Review\ValueObject\Anchor;
 use PHPUnit\Framework\TestCase;
 
 final class AnchorServiceTest extends TestCase
@@ -45,6 +46,21 @@ final class AnchorServiceTest extends TestCase
         $secondStart = strrpos($text, 'token');
         self::assertIsInt($secondStart);
         $anchor = $this->service->create($text, $secondStart, 5);
+
+        self::assertSame($secondStart, $this->service->resolve($text, $anchor));
+    }
+
+    public function test_resolve_prefers_context_match_over_closer_offset(): void
+    {
+        // Two "word" occurrences. The anchor carries the SECOND occurrence's context
+        // ("a right " before, " too" after) but an offsetHint near the FIRST. Distance
+        // alone would pick the first; the matching context must override it. If
+        // contextScore were broken (always 0), this would resolve to the first match.
+        $text = 'a wrong word here and a right word too';
+        $secondStart = strrpos($text, 'word');
+        self::assertIsInt($secondStart);
+
+        $anchor = new Anchor('word', 'a right ', ' too', 8);
 
         self::assertSame($secondStart, $this->service->resolve($text, $anchor));
     }

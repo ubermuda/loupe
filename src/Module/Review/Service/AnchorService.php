@@ -10,6 +10,9 @@ final class AnchorService
 {
     private const int CONTEXT = 32;
 
+    /** Number of leading/trailing characters of the captured context used to confirm a match. */
+    private const int FINGERPRINT = 8;
+
     public function create(string $text, int $start, int $length): Anchor
     {
         $quote = substr($text, $start, $length);
@@ -50,10 +53,10 @@ final class AnchorService
         $before = substr($text, max(0, $offset - self::CONTEXT), min(self::CONTEXT, $offset));
         $after = substr($text, $offset + strlen($anchor->quote), self::CONTEXT);
         $score = 0;
-        if ('' !== $anchor->prefix && str_ends_with($before, substr($anchor->prefix, -8))) {
+        if ('' !== $anchor->prefix && str_ends_with($before, substr($anchor->prefix, -self::FINGERPRINT))) {
             ++$score;
         }
-        if ('' !== $anchor->suffix && str_starts_with($after, substr($anchor->suffix, 0, 8))) {
+        if ('' !== $anchor->suffix && str_starts_with($after, substr($anchor->suffix, 0, self::FINGERPRINT))) {
             ++$score;
         }
 
