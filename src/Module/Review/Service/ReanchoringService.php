@@ -67,13 +67,15 @@ final readonly class ReanchoringService
             $newParent = $this->copyComment($old->parent, $openComments, $oldToNew, $newVersion, $carried, $orphaned);
         }
 
-        // Resolve the old anchor quote against the new version's rendered HTML.
-        $resolvedOffset = $this->anchorService->resolve($newVersion->renderedHtml, $old->anchor);
+        // Resolve the old anchor quote against the new version's plain text
+        // (same basis as at add-time: strip_tags then html_entity_decode).
+        $newPlain = $newVersion->plainText();
+        $resolvedOffset = $this->anchorService->resolve($newPlain, $old->anchor);
 
         if (null !== $resolvedOffset) {
             // Quote found in new text — build a fresh anchor at the new offset.
             $newAnchor = $this->anchorService->create(
-                $newVersion->renderedHtml,
+                $newPlain,
                 $resolvedOffset,
                 \strlen($old->anchor->quote),
             );

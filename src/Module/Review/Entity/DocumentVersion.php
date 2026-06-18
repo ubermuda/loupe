@@ -44,4 +44,23 @@ class DocumentVersion
     ) {
         $this->comments = new ArrayCollection();
     }
+
+    /**
+     * Returns the plain-text representation of the rendered HTML — the same string
+     * the browser's textContent property yields: strip_tags first, then decode HTML
+     * entities. This is the SHARED BASIS for all anchor offsets:
+     *   - AddCommentHandler uses it when creating anchors
+     *   - ReanchoringService uses it when resolving and re-creating anchors
+     *   - The JS controller computes offsets by walking text nodes (which also
+     *     gives textContent, NOT innerText — innerText collapses whitespace and
+     *     would desync from this basis).
+     *
+     * Known v1 limitation: AnchorService uses byte offsets (strlen/substr) while
+     * JavaScript string offsets are UTF-16 code units. These agree for ASCII content
+     * but diverge on multibyte text. Anchoring is reliable for ASCII in v1.
+     */
+    public function plainText(): string
+    {
+        return html_entity_decode(strip_tags($this->renderedHtml), ENT_QUOTES | ENT_HTML5, 'UTF-8');
+    }
 }

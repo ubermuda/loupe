@@ -19,38 +19,79 @@
     <h1 class="bp-page-title">{{ document.title }}</h1>
 </div>
 
-<div class="bp-review-layout">
-    <div class="bp-review-doc">
-        {{ version.renderedHtml|raw }}
-    </div>
+<div
+    data-controller="comment-anchor review"
+    data-comment-anchor-add-comment-url-value="{{ path('app_comment_add', {id: document.id}) }}"
+    data-comment-anchor-csrf-token-value="{{ csrf_token('comment-action') }}"
+    data-review-csrf-token-value="{{ csrf_token('comment-action') }}"
+>
+    <div class="bp-review-layout">
+        <div
+            class="bp-review-doc"
+            data-comment-anchor-target="doc"
+            data-action="mouseup->comment-anchor#onDocMouseup"
+        >
+            {{ version.renderedHtml|raw }}
 
-    <div class="bp-review-sidebar">
-        <h2 class="bp-review-sidebar__title">{{ 'review.document.sidebar.title'|trans }}</h2>
-
-        {% set rootComments = comments|filter(c => c.parent is null) %}
-
-        {% if rootComments|length > 0 %}
-            {% for comment in rootComments %}
-                {% set replies = comments|filter(c => c.parent is not null and c.parent.id == comment.id) %}
-                <twig:CommentThread :comment="comment" :replies="replies|map(c => c)" />
-            {% endfor %}
-        {% else %}
-            <p class="bp-empty">{{ 'review.document.sidebar.empty'|trans }}</p>
-        {% endif %}
-
-        <div class="bp-verdict-bar">
-            <h3 class="bp-verdict-bar__title">{{ 'review.document.verdict.title'|trans }}</h3>
-            <form method="POST" action="{{ path('app_document_review_submit', {id: document.id}) }}">
-                <input type="hidden" name="_csrf_token" value="{{ csrf_token('submit-review') }}">
-                <div class="bp-verdict-bar__actions">
-                    <button type="submit" name="verdict" value="approved" class="bp-btn bp-btn--success">
-                        {{ 'review.document.verdict.approve'|trans }}
-                    </button>
-                    <button type="submit" name="verdict" value="changes-requested" class="bp-btn bp-btn--warning">
-                        {{ 'review.document.verdict.request_changes'|trans }}
-                    </button>
+            {# Floating composer — hidden until text is selected #}
+            <div
+                class="bp-comment-composer"
+                data-comment-anchor-target="composer"
+                hidden
+            >
+                <textarea
+                    data-comment-anchor-target="composerBody"
+                    placeholder="{{ 'review.document.comment.placeholder'|trans }}"
+                    rows="3"
+                ></textarea>
+                <div class="bp-comment-composer__actions">
+                    <span
+                        class="bp-comment-composer__error"
+                        data-comment-anchor-target="composerError"
+                    ></span>
+                    <button
+                        type="button"
+                        class="bp-btn bp-btn--ghost bp-btn--sm"
+                        data-action="comment-anchor#onDocumentClick"
+                    >{{ 'review.document.comment.cancel'|trans }}</button>
+                    <button
+                        type="button"
+                        class="bp-btn bp-btn--sm"
+                        data-action="comment-anchor#submitComposer"
+                        style="background:var(--accent);color:white;border-color:var(--accent)"
+                    >{{ 'review.document.comment.submit'|trans }}</button>
                 </div>
-            </form>
+            </div>
+        </div>
+
+        <div class="bp-review-sidebar">
+            <h2 class="bp-review-sidebar__title">{{ 'review.document.sidebar.title'|trans }}</h2>
+
+            {% set rootComments = comments|filter(c => c.parent is null) %}
+
+            {% if rootComments|length > 0 %}
+                {% for comment in rootComments %}
+                    {% set replies = comments|filter(c => c.parent is not null and c.parent.id == comment.id) %}
+                    <twig:CommentThread :comment="comment" :replies="replies|map(c => c)" />
+                {% endfor %}
+            {% else %}
+                <p class="bp-empty">{{ 'review.document.sidebar.empty'|trans }}</p>
+            {% endif %}
+
+            <div class="bp-verdict-bar">
+                <h3 class="bp-verdict-bar__title">{{ 'review.document.verdict.title'|trans }}</h3>
+                <form method="POST" action="{{ path('app_document_review_submit', {id: document.id}) }}">
+                    <input type="hidden" name="_csrf_token" value="{{ csrf_token('submit-review') }}">
+                    <div class="bp-verdict-bar__actions">
+                        <button type="submit" name="verdict" value="approved" class="bp-btn bp-btn--success">
+                            {{ 'review.document.verdict.approve'|trans }}
+                        </button>
+                        <button type="submit" name="verdict" value="changes-requested" class="bp-btn bp-btn--warning">
+                            {{ 'review.document.verdict.request_changes'|trans }}
+                        </button>
+                    </div>
+                </form>
+            </div>
         </div>
     </div>
 </div>

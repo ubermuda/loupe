@@ -320,6 +320,326 @@
     }
 }
 
+/* ── bp- component classes (review UI, dashboard, api-tokens) ──────── */
+
+@layer components {
+    /* ── Page shell ─────────────────────────────────────────────────── */
+
+    .bp-page {
+        @apply max-w-doc mx-auto px-6 py-8;
+    }
+    .bp-page-header {
+        @apply flex items-center justify-between gap-4 mb-6;
+    }
+    .bp-page-title {
+        @apply text-xl font-semibold tracking-tight text-fg m-0;
+    }
+
+    /* ── Card ───────────────────────────────────────────────────────── */
+
+    .bp-card {
+        @apply bg-surface-1 border border-line rounded-xl p-5 shadow-sm;
+    }
+
+    /* ── Table ──────────────────────────────────────────────────────── */
+
+    .bp-table {
+        @apply w-full border-collapse text-sm;
+    }
+    .bp-table th {
+        @apply text-left text-fg-mute font-medium pb-2 border-b border-line;
+    }
+    .bp-table td {
+        @apply py-2.5 border-b border-line align-middle;
+    }
+    .bp-table tr:last-child td {
+        @apply border-b-0;
+    }
+
+    /* ── Badge ──────────────────────────────────────────────────────── */
+
+    .bp-badge {
+        @apply inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border;
+    }
+    .bp-badge--in-review {
+        @apply bg-blue-50 text-blue-700 border-blue-200;
+    }
+    .theme-dark .bp-badge--in-review {
+        background: rgba(59, 130, 246, 0.15);
+        color: #93c5fd;
+        border-color: rgba(59, 130, 246, 0.3);
+    }
+    .bp-badge--approved {
+        @apply bg-green-50 text-green-700 border-green-200;
+    }
+    .theme-dark .bp-badge--approved {
+        background: rgba(22, 163, 74, 0.15);
+        color: #86efac;
+        border-color: rgba(22, 163, 74, 0.3);
+    }
+    .bp-badge--changes-requested {
+        @apply bg-amber-50 text-amber-700 border-amber-200;
+    }
+    .theme-dark .bp-badge--changes-requested {
+        background: rgba(245, 158, 11, 0.15);
+        color: #fcd34d;
+        border-color: rgba(245, 158, 11, 0.3);
+    }
+
+    /* ── Flash messages ─────────────────────────────────────────────── */
+
+    .bp-flash {
+        @apply flex items-start gap-2.5 px-4 py-3 rounded-lg border text-sm mb-4;
+    }
+    .bp-flash--success {
+        @apply bg-green-50 border-green-200 text-green-800;
+    }
+    .theme-dark .bp-flash--success {
+        background: rgba(22, 163, 74, 0.12);
+        border-color: rgba(22, 163, 74, 0.3);
+        color: #86efac;
+    }
+    .bp-flash--danger,
+    .bp-flash--error {
+        @apply bg-red-50 border-red-200 text-red-800;
+    }
+    .theme-dark .bp-flash--danger,
+    .theme-dark .bp-flash--error {
+        background: rgba(220, 38, 38, 0.12);
+        border-color: rgba(220, 38, 38, 0.3);
+        color: #fca5a5;
+    }
+    .bp-flash--warning {
+        @apply bg-amber-50 border-amber-200 text-amber-800;
+    }
+    .theme-dark .bp-flash--warning {
+        background: rgba(245, 158, 11, 0.12);
+        border-color: rgba(245, 158, 11, 0.3);
+        color: #fcd34d;
+    }
+    .bp-flash--info {
+        @apply bg-blue-50 border-blue-200 text-blue-800;
+    }
+    .theme-dark .bp-flash--info {
+        background: rgba(59, 130, 246, 0.12);
+        border-color: rgba(59, 130, 246, 0.3);
+        color: #93c5fd;
+    }
+
+    /* ── Empty state ────────────────────────────────────────────────── */
+
+    .bp-empty {
+        @apply text-fg-dim text-sm italic py-4;
+    }
+
+    /* ── Buttons (bp- namespace) ────────────────────────────────────── */
+
+    .bp-btn {
+        @apply inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-line bg-surface-1 text-fg text-sm font-medium cursor-pointer whitespace-nowrap transition shadow-sm;
+    }
+    .bp-btn:hover {
+        @apply bg-tint border-line-strong;
+    }
+    .bp-btn:active {
+        @apply translate-y-px scale-[0.97]; /* @arbitrary-value-ignore */
+    }
+    .bp-btn--success {
+        @apply bg-green-600 border-green-700 text-white;
+    }
+    .bp-btn--success:hover {
+        @apply bg-green-700 border-green-800;
+    }
+    .bp-btn--warning {
+        @apply bg-amber-500 border-amber-600 text-white;
+    }
+    .bp-btn--warning:hover {
+        @apply bg-amber-600 border-amber-700;
+    }
+    .bp-btn--danger {
+        @apply bg-red-600 border-red-700 text-white;
+    }
+    .bp-btn--danger:hover {
+        @apply bg-red-700 border-red-800;
+    }
+    .bp-btn--ghost {
+        @apply bg-transparent border-transparent text-fg-mute shadow-none;
+    }
+    .bp-btn--ghost:hover {
+        @apply bg-tint text-fg;
+    }
+    .bp-btn--sm {
+        @apply px-2 py-1 text-xs;
+    }
+
+    /* ── Review layout ──────────────────────────────────────────────── */
+
+    .bp-review-layout {
+        @apply grid gap-6;
+        grid-template-columns: 1fr 22rem;
+    }
+
+    /* ── Document column ────────────────────────────────────────────── */
+
+    .bp-review-doc {
+        @apply relative bg-surface-1 border border-line rounded-xl p-6 leading-relaxed text-fg;
+        /* Allow the comment composer to position relative to this column */
+        position: relative;
+    }
+
+    /* Prose styles for rendered Markdown content within the doc column */
+    .bp-review-doc h1,
+    .bp-review-doc h2,
+    .bp-review-doc h3,
+    .bp-review-doc h4,
+    .bp-review-doc h5,
+    .bp-review-doc h6 {
+        @apply font-semibold tracking-tight text-fg mt-6 mb-3;
+    }
+    .bp-review-doc h1 {
+        @apply text-2xl;
+    }
+    .bp-review-doc h2 {
+        @apply text-xl;
+    }
+    .bp-review-doc h3 {
+        @apply text-lg;
+    }
+    .bp-review-doc p {
+        @apply mb-4 leading-relaxed;
+    }
+    .bp-review-doc strong {
+        @apply font-semibold;
+    }
+    .bp-review-doc em {
+        @apply italic;
+    }
+    .bp-review-doc ul,
+    .bp-review-doc ol {
+        @apply mb-4 pl-6;
+    }
+    .bp-review-doc ul {
+        @apply list-disc;
+    }
+    .bp-review-doc ol {
+        @apply list-decimal;
+    }
+    .bp-review-doc code {
+        @apply font-mono text-sm bg-sunken rounded px-1;
+    }
+    .bp-review-doc pre {
+        @apply bg-sunken rounded-lg p-4 overflow-x-auto mb-4;
+    }
+    .bp-review-doc pre code {
+        @apply bg-transparent px-0;
+    }
+
+    /* ── Text selection highlight in the doc ─────────────────────────── */
+
+    .bp-anchor {
+        @apply bg-accent-soft rounded;
+        outline: 1px solid var(--accent-border);
+    }
+    .bp-anchor--orphan {
+        @apply bg-amber-100 rounded;
+        outline: 1px solid rgba(245, 158, 11, 0.3);
+    }
+    .theme-dark .bp-anchor--orphan {
+        background: rgba(245, 158, 11, 0.12);
+        outline-color: rgba(245, 158, 11, 0.3);
+    }
+
+    /* ── Floating comment composer ──────────────────────────────────── */
+
+    .bp-comment-composer {
+        @apply absolute z-20 bg-elev border border-line rounded-xl shadow-md p-3 flex flex-col gap-2;
+        min-width: 18rem;
+        max-width: 24rem;
+    }
+    .bp-comment-composer textarea {
+        @apply w-full text-sm bg-surface-2 border border-line rounded-lg px-3 py-2 text-fg placeholder:text-fg-dim resize-none outline-hidden focus:border-accent focus:shadow-focus transition-colors;
+        min-height: 4.5rem;
+    }
+    .bp-comment-composer__actions {
+        @apply flex items-center justify-end gap-2;
+    }
+    .bp-comment-composer__error {
+        @apply text-xs text-danger;
+    }
+
+    /* ── Sidebar ────────────────────────────────────────────────────── */
+
+    .bp-review-sidebar {
+        @apply flex flex-col gap-4;
+    }
+    .bp-review-sidebar__title {
+        @apply text-sm font-semibold text-fg-mute uppercase tracking-wider m-0;
+    }
+
+    /* ── Comment thread card ─────────────────────────────────────────── */
+
+    .bp-comment-thread {
+        @apply bg-surface-1 border border-line rounded-xl overflow-hidden;
+    }
+    .bp-comment-thread--resolved {
+        @apply opacity-60;
+    }
+    .bp-comment-thread--orphaned {
+        @apply border-amber-300;
+    }
+    .theme-dark .bp-comment-thread--orphaned {
+        border-color: rgba(245, 158, 11, 0.4);
+    }
+
+    .bp-comment {
+        @apply px-4 py-3;
+    }
+    .bp-comment--reply {
+        @apply bg-tint border-t border-line;
+    }
+    .bp-comment-author {
+        @apply text-xs font-semibold text-fg-mute mb-1;
+    }
+    .bp-comment-body {
+        @apply text-sm text-fg leading-snug;
+    }
+    .bp-comment-replies {
+        @apply flex flex-col;
+    }
+    .bp-comment-actions {
+        @apply flex items-center gap-2 px-4 py-2 border-t border-line;
+    }
+    .bp-comment-reply-form {
+        @apply px-4 py-3 border-t border-line flex flex-col gap-2;
+    }
+    .bp-comment-reply-form textarea {
+        @apply w-full text-sm bg-surface-2 border border-line rounded-lg px-3 py-2 text-fg placeholder:text-fg-dim resize-none outline-hidden focus:border-accent focus:shadow-focus transition-colors;
+        min-height: 3rem;
+    }
+
+    /* ── Verdict bar ────────────────────────────────────────────────── */
+
+    .bp-verdict-bar {
+        @apply bg-surface-1 border border-line rounded-xl p-4 flex flex-col gap-3;
+    }
+    .bp-verdict-bar__title {
+        @apply text-sm font-semibold text-fg m-0;
+    }
+    .bp-verdict-bar__actions {
+        @apply flex items-center gap-2;
+    }
+
+    /* ── Orphan banner ──────────────────────────────────────────────── */
+
+    .bp-orphan-banner {
+        @apply flex items-center gap-2.5 px-4 py-3 mb-4 rounded-lg border text-sm bg-amber-50 border-amber-200 text-amber-800;
+    }
+    .theme-dark .bp-orphan-banner {
+        background: rgba(245, 158, 11, 0.12);
+        border-color: rgba(245, 158, 11, 0.3);
+        color: #fcd34d;
+    }
+}
+
 /* ── Keyframes ──────────────────────────────────────────────────────── */
 
 @keyframes spin {

@@ -24,7 +24,7 @@ final readonly class AddCommentHandler
         }
 
         $version = $command->document->currentVersion();
-        $anchor = $this->anchorService->create($version->renderedHtml, $command->start, $command->length);
+        $anchor = $this->anchorService->create($version->plainText(), $command->start, $command->length);
 
         $comment = new Comment(
             version: $version,

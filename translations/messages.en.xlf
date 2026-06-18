@@ -472,6 +472,20 @@
                 <target>%count% comment(s) refer to text that has been removed or changed.</target>
             </trans-unit>
 
+            <!-- Document review comment composer -->
+            <trans-unit id="review.document.comment.placeholder">
+                <source>review.document.comment.placeholder</source>
+                <target>Add a comment…</target>
+            </trans-unit>
+            <trans-unit id="review.document.comment.cancel">
+                <source>review.document.comment.cancel</source>
+                <target>Cancel</target>
+            </trans-unit>
+            <trans-unit id="review.document.comment.submit">
+                <source>review.document.comment.submit</source>
+                <target>Comment</target>
+            </trans-unit>
+
             <!-- Document review flash messages -->
             <trans-unit id="review.document.flash.verdict_submitted">
                 <source>review.document.flash.verdict_submitted</source>
