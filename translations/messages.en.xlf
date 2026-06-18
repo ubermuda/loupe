@@ -472,6 +472,16 @@
                 <target>%count% comment(s) refer to text that has been removed or changed.</target>
             </trans-unit>
 
+            <!-- Document review flash messages -->
+            <trans-unit id="review.document.flash.verdict_submitted">
+                <source>review.document.flash.verdict_submitted</source>
+                <target>Your verdict has been submitted.</target>
+            </trans-unit>
+            <trans-unit id="review.document.flash.verdict_invalid">
+                <source>review.document.flash.verdict_invalid</source>
+                <target>Invalid verdict value submitted.</target>
+            </trans-unit>
+
             <!-- Document status labels -->
             <trans-unit id="document.status.in_review">
                 <source>document.status.in_review</source>

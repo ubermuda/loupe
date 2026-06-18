@@ -3,6 +3,12 @@
 {% block title %}{{ 'review.document.page.title'|trans({'%title%': document.title}) }}{% endblock %}
 
 {% block body %}
+{% for label, messages in app.flashes %}
+    {% for message in messages %}
+        <div class="bp-flash bp-flash--{{ label }}">{{ message }}</div>
+    {% endfor %}
+{% endfor %}
+
 {% if orphanedCount > 0 %}
 <div class="bp-orphan-banner">
     {{ 'review.document.orphan_banner'|trans({'%count%': orphanedCount}) }}
@@ -34,7 +40,7 @@
 
         <div class="bp-verdict-bar">
             <h3 class="bp-verdict-bar__title">{{ 'review.document.verdict.title'|trans }}</h3>
-            <form method="POST" action="/documents/{{ document.id }}/review/submit">
+            <form method="POST" action="{{ path('app_document_review_submit', {id: document.id}) }}">
                 <input type="hidden" name="_csrf_token" value="{{ csrf_token('submit-review') }}">
                 <div class="bp-verdict-bar__actions">
                     <button type="submit" name="verdict" value="approved" class="bp-btn bp-btn--success">

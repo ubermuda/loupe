@@ -69,3 +69,7 @@ when@test:
         App\Module\Review\Command\ResolveCommentHandler:
             autowire: true
             public: true
+
+        App\Module\Review\Command\SubmitReviewHandler:
+            autowire: true
+            public: true
