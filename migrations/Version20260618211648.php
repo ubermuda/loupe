@@ -19,8 +19,7 @@ final class Version20260618211648 extends AbstractMigration
 
     public function up(Schema $schema): void
     {
-        // this up() migration is auto-generated, please modify it to your needs
-        $this->addSql('CREATE TABLE comments (id UUID NOT NULL, resolved BOOLEAN NOT NULL, orphaned BOOLEAN NOT NULL, body TEXT NOT NULL, anchor_quote VARCHAR(255) NOT NULL, anchor_prefix VARCHAR(255) NOT NULL, anchor_suffix VARCHAR(255) NOT NULL, anchor_offset_hint INT NOT NULL, version_id UUID NOT NULL, author_id UUID NOT NULL, parent_id UUID DEFAULT NULL, PRIMARY KEY (id))');
+        $this->addSql('CREATE TABLE comments (id UUID NOT NULL, resolved BOOLEAN NOT NULL, orphaned BOOLEAN NOT NULL, body TEXT NOT NULL, anchor_quote TEXT NOT NULL, anchor_prefix VARCHAR(255) NOT NULL, anchor_suffix VARCHAR(255) NOT NULL, anchor_offset_hint INT NOT NULL, version_id UUID NOT NULL, author_id UUID NOT NULL, parent_id UUID DEFAULT NULL, PRIMARY KEY (id))');
         $this->addSql('CREATE INDEX IDX_5F9E962A4BBC2705 ON comments (version_id)');
         $this->addSql('CREATE INDEX IDX_5F9E962AF675F31B ON comments (author_id)');
         $this->addSql('CREATE INDEX IDX_5F9E962A727ACA70 ON comments (parent_id)');
@@ -36,7 +35,6 @@ final class Version20260618211648 extends AbstractMigration
 
     public function down(Schema $schema): void
     {
-        // this down() migration is auto-generated, please modify it to your needs
         $this->addSql('ALTER TABLE comments DROP CONSTRAINT FK_5F9E962A4BBC2705');
         $this->addSql('ALTER TABLE comments DROP CONSTRAINT FK_5F9E962AF675F31B');
         $this->addSql('ALTER TABLE comments DROP CONSTRAINT FK_5F9E962A727ACA70');

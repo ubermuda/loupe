@@ -7,6 +7,7 @@ namespace App\Module\Review\Entity;
 use App\Module\Account\Entity\User;
 use App\Module\Review\Repository\CommentRepository;
 use App\Module\Review\ValueObject\Anchor;
+use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
 use Symfony\Bridge\Doctrine\Types\UuidType;
 use Symfony\Component\Uid\Uuid;
@@ -36,7 +37,7 @@ class Comment
         #[ORM\ManyToOne(targetEntity: User::class)]
         public readonly User $author,
 
-        #[ORM\Column(type: 'text')]
+        #[ORM\Column(type: Types::TEXT)]
         public string $body,
 
         #[ORM\Embedded(class: Anchor::class)]

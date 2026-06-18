@@ -26,8 +26,9 @@ class CommentRepository extends ServiceEntityRepository
     {
         return $this->createQueryBuilder('c')
             ->where('c.version = :version')
-            ->andWhere('c.resolved = false')
+            ->andWhere('c.resolved = :resolved')
             ->setParameter('version', $version)
+            ->setParameter('resolved', false)
             ->orderBy('c.anchor.offsetHint', 'ASC')
             ->getQuery()
             ->getResult();
