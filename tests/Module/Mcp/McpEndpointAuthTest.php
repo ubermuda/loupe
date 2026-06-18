@@ -20,6 +20,16 @@ final class McpEndpointAuthTest extends WebTestCase
         self::assertSame(401, $client->getResponse()->getStatusCode());
     }
 
+    public function test_invalid_token_is_rejected(): void
+    {
+        $client = static::createClient();
+        $client->request(\Symfony\Component\HttpFoundation\Request::METHOD_POST, '/_mcp', server: [
+            'CONTENT_TYPE' => 'application/json',
+            'HTTP_AUTHORIZATION' => 'Bearer invalid-token-value',
+        ], content: self::INIT);
+        self::assertSame(401, $client->getResponse()->getStatusCode());
+    }
+
     public function test_valid_token_authenticates(): void
     {
         $client = static::createClient();
