@@ -25,7 +25,9 @@ final readonly class GetReviewTool
     }
 
     /**
-     * @param string $documentId The UUID of the document whose review to retrieve
+     * @param string $documentId the UUID of the document whose review to retrieve
+     *
+     * `verdict` is null when no review has been submitted for the current version yet
      *
      * @return array{status: string, verdict: string|null, version: int, comments: list<array{quote: string, body: string, resolved: bool, orphaned: bool, thread: list<array{quote: string, body: string, resolved: bool, orphaned: bool}>}>}
      */
@@ -38,6 +40,8 @@ final readonly class GetReviewTool
             return ($this->getReview)(Uuid::fromString($documentId), $user);
         } catch (DocumentNotFound $e) {
             throw new ToolCallException($e->getMessage(), previous: $e);
+        } catch (\InvalidArgumentException $e) {
+            throw new ToolCallException(\sprintf('"%s" is not a valid document ID.', $documentId), previous: $e);
         }
     }
 }

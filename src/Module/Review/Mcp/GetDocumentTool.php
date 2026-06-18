@@ -38,6 +38,8 @@ final readonly class GetDocumentTool
             return ($this->getDocument)(Uuid::fromString($documentId), $user);
         } catch (DocumentNotFound $e) {
             throw new ToolCallException($e->getMessage(), previous: $e);
+        } catch (\InvalidArgumentException $e) {
+            throw new ToolCallException(\sprintf('"%s" is not a valid document ID.', $documentId), previous: $e);
         }
     }
 }
