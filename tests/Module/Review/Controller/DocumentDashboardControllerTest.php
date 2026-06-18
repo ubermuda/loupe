@@ -48,7 +48,7 @@ final class DocumentDashboardControllerTest extends WebTestCase
 
         self::assertResponseIsSuccessful();
         self::assertSelectorTextContains('body', 'Alice Draft');
-        self::assertSelectorNotExists('body *:contains("Bob Secret")');
+        self::assertStringNotContainsString('Bob Secret', (string) $client->getResponse()->getContent());
     }
 
     public function test_another_users_documents_do_not_appear(): void
