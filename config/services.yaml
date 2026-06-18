@@ -51,4 +51,6 @@ when@test:
 
         App\Module\Review\Repository\DocumentRepository:
             autowire: true
+            autoconfigure: true
             public: true
+            tags: ['doctrine.repository_service']

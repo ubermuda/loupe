@@ -442,6 +442,36 @@
                 <target>Created</target>
             </trans-unit>
 
+            <!-- Document review page -->
+            <trans-unit id="review.document.page.title">
+                <source>review.document.page.title</source>
+                <target>%title% — Review</target>
+            </trans-unit>
+            <trans-unit id="review.document.sidebar.title">
+                <source>review.document.sidebar.title</source>
+                <target>Comments</target>
+            </trans-unit>
+            <trans-unit id="review.document.sidebar.empty">
+                <source>review.document.sidebar.empty</source>
+                <target>No comments yet.</target>
+            </trans-unit>
+            <trans-unit id="review.document.verdict.title">
+                <source>review.document.verdict.title</source>
+                <target>Submit verdict</target>
+            </trans-unit>
+            <trans-unit id="review.document.verdict.approve">
+                <source>review.document.verdict.approve</source>
+                <target>Approve</target>
+            </trans-unit>
+            <trans-unit id="review.document.verdict.request_changes">
+                <source>review.document.verdict.request_changes</source>
+                <target>Request changes</target>
+            </trans-unit>
+            <trans-unit id="review.document.orphan_banner">
+                <source>review.document.orphan_banner</source>
+                <target>%count% comment(s) refer to text that has been removed or changed.</target>
+            </trans-unit>
+
             <!-- Document status labels -->
             <trans-unit id="document.status.in_review">
                 <source>document.status.in_review</source>

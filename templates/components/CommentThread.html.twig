@@ -1,0 +1,22 @@
+{#
+  Props:
+    comment  Comment               The root comment (parent === null).
+    replies  list<Comment>         Direct replies to this comment.
+#}
+<div class="bp-comment-thread{% if comment.resolved %} bp-comment-thread--resolved{% endif %}{% if comment.orphaned %} bp-comment-thread--orphaned{% endif %}">
+    <div class="bp-comment">
+        <div class="bp-comment-author">{{ comment.author.fullName }}</div>
+        <div class="bp-comment-body">{{ comment.body }}</div>
+    </div>
+
+    {% if replies|length > 0 %}
+    <div class="bp-comment-replies">
+        {% for reply in replies %}
+        <div class="bp-comment bp-comment--reply">
+            <div class="bp-comment-author">{{ reply.author.fullName }}</div>
+            <div class="bp-comment-body">{{ reply.body }}</div>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+</div>
