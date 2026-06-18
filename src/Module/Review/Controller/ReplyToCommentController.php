@@ -16,7 +16,10 @@ use Symfony\Component\Routing\Attribute\Route;
 use Ubermuda\SymfonyExtra\Csrf\Attribute\CsrfToken;
 
 /**
- * access is enforced per-branch.
+ * access is enforced per-branch: denyAccessUnlessGranted() is called imperatively
+ * because the subject ($comment->version->document) is derived at runtime from the
+ * resolved Comment entity, not directly available as a route parameter, so
+ * #[IsGranted(subject:)] cannot be used here.
  */
 #[CsrfToken('comment-action')]
 #[Route(
@@ -38,10 +41,15 @@ final class ReplyToCommentController extends AppController
         $user = $this->getUser();
         assert($user instanceof User);
 
+        $rawBody = $request->request->get('body');
+        if (!is_string($rawBody) || '' === trim($rawBody)) {
+            return $this->json(['errors' => ['body' => 'body must not be empty']], JsonResponse::HTTP_UNPROCESSABLE_ENTITY);
+        }
+
         $reply = ($this->replyToCommentHandler)(new ReplyToCommentCommand(
             actor: $user,
             parent: $comment,
-            body: (string) $request->request->get('body', ''),
+            body: $rawBody,
         ));
 
         return $this->json([

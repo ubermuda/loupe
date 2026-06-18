@@ -36,13 +36,31 @@ final class AddCommentController extends AppController
         $user = $this->getUser();
         assert($user instanceof User);
 
+        $rawStart = $request->request->get('start');
+        $rawLength = $request->request->get('length');
+        $rawBody = $request->request->get('body');
+
+        $errors = [];
+        if (!is_numeric($rawStart) || (int) $rawStart < 0) {
+            $errors['start'] = 'start must be a non-negative integer';
+        }
+        if (!is_numeric($rawLength) || (int) $rawLength <= 0) {
+            $errors['length'] = 'length must be a positive integer';
+        }
+        if (!is_string($rawBody) || '' === trim($rawBody)) {
+            $errors['body'] = 'body must not be empty';
+        }
+        if ([] !== $errors) {
+            return $this->json(['errors' => $errors], JsonResponse::HTTP_UNPROCESSABLE_ENTITY);
+        }
+
         try {
             $comment = ($this->addCommentHandler)(new AddCommentCommand(
                 actor: $user,
                 document: $document,
-                start: (int) $request->request->get('start', 0),
-                length: (int) $request->request->get('length', 0),
-                body: (string) $request->request->get('body', ''),
+                start: (int) $rawStart,
+                length: (int) $rawLength,
+                body: (string) $rawBody,
             ));
         } catch (DomainErrors $e) {
             return $this->json(['errors' => $e->errors], JsonResponse::HTTP_UNPROCESSABLE_ENTITY);

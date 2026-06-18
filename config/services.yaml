@@ -61,3 +61,11 @@ when@test:
         App\Module\Review\Service\AnchorService:
             autowire: true
             public: true
+
+        App\Module\Review\Command\ReplyToCommentHandler:
+            autowire: true
+            public: true
+
+        App\Module\Review\Command\ResolveCommentHandler:
+            autowire: true
+            public: true
