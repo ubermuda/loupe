@@ -1,0 +1,82 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Tests\Module\Review\Controller;
+
+use App\Module\Account\Entity\User;
+use App\Module\Review\Entity\Document;
+use Doctrine\ORM\EntityManagerInterface;
+use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
+use Symfony\Component\HttpFoundation\Request;
+
+final class DocumentDashboardControllerTest extends WebTestCase
+{
+    /** @param non-empty-string $email */
+    private function createUser(EntityManagerInterface $em, string $username, string $email): User
+    {
+        $user = new User(
+            username: $username,
+            fullName: ucfirst($username),
+            email: $email,
+            password: 'hashed-password-placeholder',
+        );
+        $user->emailVerifiedAt = new \DateTimeImmutable();
+        $em->persist($user);
+
+        return $user;
+    }
+
+    public function test_authenticated_user_sees_their_own_documents(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+
+        $alice = $this->createUser($em, 'alice', 'alice@example.com');
+        $bob = $this->createUser($em, 'bob', 'bob@example.com');
+
+        $aliceDoc = new Document(owner: $alice, title: 'Alice Draft');
+        $bobDoc = new Document(owner: $bob, title: 'Bob Secret');
+
+        $em->persist($aliceDoc);
+        $em->persist($bobDoc);
+        $em->flush();
+        $em->clear();
+
+        $client->loginUser($alice);
+        $client->request(Request::METHOD_GET, '/documents');
+
+        self::assertResponseIsSuccessful();
+        self::assertSelectorTextContains('body', 'Alice Draft');
+        self::assertSelectorNotExists('body *:contains("Bob Secret")');
+    }
+
+    public function test_another_users_documents_do_not_appear(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+
+        $alice = $this->createUser($em, 'alice2', 'alice2@example.com');
+        $bob = $this->createUser($em, 'bob2', 'bob2@example.com');
+
+        $bobDoc = new Document(owner: $bob, title: 'Bob Private');
+        $em->persist($bobDoc);
+        $em->flush();
+        $em->clear();
+
+        $client->loginUser($alice);
+        $client->request(Request::METHOD_GET, '/documents');
+
+        self::assertResponseIsSuccessful();
+        $content = $client->getResponse()->getContent();
+        self::assertStringNotContainsString('Bob Private', (string) $content);
+    }
+
+    public function test_unauthenticated_user_is_redirected(): void
+    {
+        $client = static::createClient();
+        $client->request(Request::METHOD_GET, '/documents');
+
+        self::assertResponseRedirects('/login');
+    }
+}

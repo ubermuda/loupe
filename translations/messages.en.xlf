@@ -420,6 +420,42 @@
                 <target>Revoke</target>
             </trans-unit>
 
+            <!-- Document dashboard -->
+            <trans-unit id="review.dashboard.page.title">
+                <source>review.dashboard.page.title</source>
+                <target>My Documents</target>
+            </trans-unit>
+            <trans-unit id="review.dashboard.empty">
+                <source>review.dashboard.empty</source>
+                <target>No documents yet.</target>
+            </trans-unit>
+            <trans-unit id="review.dashboard.table.column.title">
+                <source>review.dashboard.table.column.title</source>
+                <target>Title</target>
+            </trans-unit>
+            <trans-unit id="review.dashboard.table.column.status">
+                <source>review.dashboard.table.column.status</source>
+                <target>Status</target>
+            </trans-unit>
+            <trans-unit id="review.dashboard.table.column.created">
+                <source>review.dashboard.table.column.created</source>
+                <target>Created</target>
+            </trans-unit>
+
+            <!-- Document status labels -->
+            <trans-unit id="document.status.in_review">
+                <source>document.status.in_review</source>
+                <target>In review</target>
+            </trans-unit>
+            <trans-unit id="document.status.approved">
+                <source>document.status.approved</source>
+                <target>Approved</target>
+            </trans-unit>
+            <trans-unit id="document.status.changes_requested">
+                <source>document.status.changes_requested</source>
+                <target>Changes requested</target>
+            </trans-unit>
+
         </body>
     </file>
 </xliff>
