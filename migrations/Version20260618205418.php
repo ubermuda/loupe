@@ -14,7 +14,7 @@ final class Version20260618205418 extends AbstractMigration
 {
     public function getDescription(): string
     {
-        return '';
+        return 'Create documents and document_versions tables';
     }
 
     public function up(Schema $schema): void

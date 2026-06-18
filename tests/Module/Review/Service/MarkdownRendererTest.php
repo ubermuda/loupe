@@ -27,4 +27,12 @@ final class MarkdownRendererTest extends TestCase
         self::assertStringContainsString('hi', $html);
         self::assertStringNotContainsString('onclick', $html);
     }
+
+    public function test_strips_javascript_links(): void
+    {
+        $html = new MarkdownRenderer()->render('[click me](javascript:alert(1))');
+
+        self::assertStringContainsString('click me', $html);
+        self::assertStringNotContainsString('javascript:', $html);
+    }
 }
