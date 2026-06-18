@@ -28,7 +28,7 @@ class ApiToken
         public string $label,
 
         #[ORM\Column(length: 64, unique: true)]
-        public string $tokenHash,
+        public readonly string $tokenHash,
 
         #[ORM\Column]
         public readonly \DateTimeImmutable $createdAt = new \DateTimeImmutable(),

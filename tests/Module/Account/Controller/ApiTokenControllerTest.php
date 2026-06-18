@@ -85,6 +85,41 @@ final class ApiTokenControllerTest extends WebTestCase
         self::assertNull($notFound);
     }
 
+    public function test_owner_can_revoke_their_own_token(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+
+        $owner = $this->createVerifiedUser($em, 'alice', 'alice@example.com');
+
+        [$token] = ApiToken::issue($owner, 'my token');
+        $em->persist($token);
+        $em->flush();
+        $tokenId = $token->id;
+        $em->clear();
+
+        // Load the list page to obtain a valid CSRF token
+        $client->loginUser($owner);
+        $client->request(\Symfony\Component\HttpFoundation\Request::METHOD_GET, '/account/api-tokens');
+        self::assertResponseIsSuccessful();
+
+        $csrfTokenValue = $client->getCrawler()->filter('input[name="_csrf_token"]')->first()->attr('value');
+        self::assertNotEmpty($csrfTokenValue, 'CSRF token must be rendered on the list page');
+
+        // POST to revoke
+        $client->request(\Symfony\Component\HttpFoundation\Request::METHOD_POST, '/account/api-tokens/'.(string) $tokenId.'/revoke', [
+            '_csrf_token' => $csrfTokenValue,
+        ]);
+        self::assertResponseRedirects('/account/api-tokens');
+
+        // Assert the token is gone from the DB
+        $em->clear();
+        /** @var ApiTokenRepository $repo */
+        $repo = static::getContainer()->get(ApiTokenRepository::class);
+        $tokens = $repo->findBy(['owner' => $owner]);
+        self::assertCount(0, $tokens);
+    }
+
     public function test_other_user_gets_404_on_revoke(): void
     {
         $client = static::createClient();

@@ -14,7 +14,7 @@ final class Version20260618201309 extends AbstractMigration
 {
     public function getDescription(): string
     {
-        return '';
+        return 'Create api_tokens table';
     }
 
     public function up(Schema $schema): void

@@ -37,7 +37,7 @@ class RevokeApiTokenController extends AppController
 
         $token = $this->apiTokens->find($tokenId);
 
-        if (!$token instanceof ApiToken || $token->owner->id !== $user->id) {
+        if (!$token instanceof ApiToken || null === $token->owner->id || !$token->owner->id->equals($user->id)) {
             throw $this->createNotFoundException('Token not found.');
         }
 
