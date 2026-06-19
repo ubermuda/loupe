@@ -7,6 +7,8 @@ namespace App\Module\Review\Controller;
 use App\Controller\AppController;
 use App\Module\Review\Entity\Comment;
 use App\Module\Review\Entity\Document;
+use App\Module\Review\Form\AddCommentFormType;
+use App\Module\Review\Form\AddCommentRequest;
 use App\Module\Review\Repository\CommentRepository;
 use App\Module\Review\Security\DocumentVoter;
 use Symfony\Component\HttpFoundation\Response;
@@ -31,11 +33,17 @@ final class DocumentReviewController extends AppController
         $version = $document->currentVersion();
         $comments = $this->comments->findByVersion($version);
 
+        $addCommentForm = $this->createForm(AddCommentFormType::class, new AddCommentRequest(), [
+            'action' => $this->generateUrl('app_comment_add', ['id' => (string) $document->id]),
+            'method' => 'POST',
+        ]);
+
         return $this->render('review/review.html.twig', [
             'document' => $document,
             'version' => $version,
             'comments' => $comments,
             'orphanedCount' => count(array_filter($comments, static fn (Comment $c) => $c->orphaned)),
+            'addCommentForm' => $addCommentForm,
         ]);
     }
 }

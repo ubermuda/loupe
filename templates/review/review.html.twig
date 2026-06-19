@@ -31,27 +31,18 @@
         <div class="bp-review-doc" data-action="mouseup->comment-anchor#onDocMouseup">
             <div data-comment-anchor-target="doc">{{ version.renderedHtml|raw }}</div>
 
-            {# Floating composer — a real form, hidden until text is selected.
+            {# Floating composer — a Symfony form, hidden until text is selected.
                The Stimulus controller positions it and fills the offset fields;
                Turbo submits it and applies the returned stream. #}
-            <form
-                class="bp-comment-composer"
-                data-comment-anchor-target="composer"
-                data-action="turbo:submit-end->comment-anchor#onSubmitEnd"
-                action="{{ path('app_comment_add', {id: document.id}) }}"
-                method="post"
-                hidden
-            >
-                <input type="hidden" name="_csrf_token" value="{{ csrf_token('comment-action') }}">
-                <input type="hidden" name="start" data-comment-anchor-target="start">
-                <input type="hidden" name="length" data-comment-anchor-target="length">
-                <textarea
-                    name="body"
-                    data-comment-anchor-target="composerBody"
-                    placeholder="{{ 'review.document.comment.placeholder'|trans }}"
-                    rows="3"
-                    required
-                ></textarea>
+            {{ form_start(addCommentForm, {attr: {
+                class: 'bp-comment-composer',
+                'data-comment-anchor-target': 'composer',
+                'data-action': 'turbo:submit-end->comment-anchor#onSubmitEnd',
+                hidden: true,
+            }}) }}
+                {{ form_widget(addCommentForm.start) }}
+                {{ form_widget(addCommentForm.length) }}
+                {{ form_widget(addCommentForm.body) }}
                 <div class="bp-comment-composer__actions">
                     <span
                         id="composer-error"
@@ -68,7 +59,7 @@
                         class="bp-btn bp-btn--primary bp-btn--sm"
                     >{{ 'review.document.comment.submit'|trans }}</button>
                 </div>
-            </form>
+            {{ form_end(addCommentForm) }}
         </div>
 
         <div class="bp-review-sidebar">

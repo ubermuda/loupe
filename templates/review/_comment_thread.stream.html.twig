@@ -3,12 +3,12 @@
   a reply or resolve. Rendered by ReplyToCommentController / ResolveCommentController.
 
   Vars:
-    comment  Comment            The root comment of the thread to replace.
-    replies  list<Comment>      Its direct replies (re-fetched after the mutation).
-    error    string|null        Validation message to show on the reply form, if any.
+    comment    Comment            The root comment of the thread to replace.
+    replies    list<Comment>      Its direct replies (re-fetched after the mutation).
+    replyForm  FormView|null      A reply form with validation errors, or null.
 #}
 <turbo-stream action="replace" target="comment-thread-{{ comment.id }}">
     <template>
-        <twig:CommentThread :comment="comment" :replies="replies" :error="error ?? null" />
+        <twig:CommentThread :comment="comment" :replies="replies" :replyForm="replyForm ?? null" />
     </template>
 </turbo-stream>

@@ -1,11 +1,12 @@
 {#
   Props:
-    comment  Comment               The root comment (parent === null).
-    replies  list<Comment>         Direct replies to this comment.
-    error    string|null           Validation message for the reply form, if any.
+    comment    Comment           The root comment (parent === null).
+    replies    list<Comment>     Direct replies to this comment.
+    replyForm  FormView|null     Pre-bound reply form (with errors) or null.
 
-  Reply and resolve are plain HTML forms submitted through Turbo; the controllers
-  return a Turbo Stream that replaces this thread (targeted by the id below).
+  Reply is a Symfony form; resolve is a fieldless plain form submitted by the
+  Resolve button via form=. Both post through Turbo; the controllers return a
+  Turbo Stream that replaces this thread (targeted by the id below).
 #}
 <div
     id="comment-thread-{{ comment.id }}"
@@ -32,28 +33,21 @@
 
     {% if not comment.resolved %}
     <div class="bp-comment-reply-form">
-        {% if error %}
-        <p class="bp-comment-error">{{ error }}</p>
-        {% endif %}
+        {% set replyForm = replyForm ?? comment_reply_form(comment) %}
 
         {# Fieldless resolve form — submitted by the Resolve button below via form=. #}
         <form id="resolve-form-{{ comment.id }}" action="{{ path('app_comment_resolve', {id: comment.id}) }}" method="post" hidden>
             <input type="hidden" name="_csrf_token" value="{{ csrf_token('comment-action') }}">
         </form>
 
-        <form class="contents" action="{{ path('app_comment_reply', {id: comment.id}) }}" method="post">
-            <input type="hidden" name="_csrf_token" value="{{ csrf_token('comment-action') }}">
-            <textarea
-                name="body"
-                placeholder="{{ 'review.document.comment.reply_placeholder'|trans }}"
-                rows="2"
-                required
-            ></textarea>
+        {{ form_start(replyForm, {attr: {class: 'contents'}}) }}
+            {{ form_widget(replyForm.body) }}
+            <div class="bp-comment-error">{{ form_errors(replyForm.body) }}</div>
             <div class="bp-comment-actions">
                 <button type="submit" class="bp-btn bp-btn--ghost bp-btn--sm">{{ 'review.document.comment.reply'|trans }}</button>
                 <button type="submit" form="resolve-form-{{ comment.id }}" class="bp-btn bp-btn--sm">{{ 'review.document.comment.resolve'|trans }}</button>
             </div>
-        </form>
+        {{ form_end(replyForm) }}
     </div>
     {% endif %}
 </div>
