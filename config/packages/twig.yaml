@@ -2,6 +2,7 @@ twig:
     file_name_pattern: '*.twig'
     paths:
         '%kernel.project_dir%/templates/Module/Account': 'Account'
+        '%kernel.project_dir%/templates/Module/SiteReview': 'SiteReview'
         '%kernel.project_dir%/var/tailwind': 'tailwind'
         '%kernel.project_dir%/assets/styles': 'EmailStyles'
 
