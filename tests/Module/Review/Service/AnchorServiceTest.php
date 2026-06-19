@@ -64,4 +64,31 @@ final class AnchorServiceTest extends TestCase
 
         self::assertSame($secondStart, $this->service->resolve($text, $anchor));
     }
+
+    public function test_create_keeps_prefix_valid_utf8_when_window_splits_multibyte_char(): void
+    {
+        // The em dash (3 bytes) sits so the 32-byte prefix window's left edge lands
+        // mid-character. A raw substr would keep a dangling 0x80 continuation byte,
+        // which then fails to persist into a UTF8 column (Postgres SQLSTATE[22021]).
+        $text = str_repeat('a', 7).'—'.str_repeat('b', 30).'TARGET'.str_repeat('c', 5);
+        $start = strpos($text, 'TARGET');
+        self::assertIsInt($start);
+
+        $anchor = $this->service->create($text, $start, 6);
+
+        self::assertSame('TARGET', $anchor->quote);
+        self::assertTrue(mb_check_encoding($anchor->prefix, 'UTF-8'), 'prefix must be valid UTF-8');
+        self::assertSame($start, $this->service->resolve($text, $anchor));
+    }
+
+    public function test_create_keeps_suffix_valid_utf8_when_window_splits_multibyte_char(): void
+    {
+        // The em dash sits so the 32-byte suffix window's right edge cuts it.
+        $text = 'TARGET'.str_repeat('c', 31).'—'.str_repeat('d', 5);
+
+        $anchor = $this->service->create($text, 0, 6);
+
+        self::assertSame('TARGET', $anchor->quote);
+        self::assertTrue(mb_check_encoding($anchor->suffix, 'UTF-8'), 'suffix must be valid UTF-8');
+    }
 }

@@ -15,9 +15,13 @@ final class AnchorService
 
     public function create(string $text, int $start, int $length): Anchor
     {
-        $quote = substr($text, $start, $length);
-        $prefix = substr($text, max(0, $start - self::CONTEXT), min(self::CONTEXT, $start));
-        $suffix = substr($text, $start + $length, self::CONTEXT);
+        // mb_strcut (not substr) keeps the byte-offset semantics resolve() relies on
+        // while never splitting a multibyte UTF-8 character at a window boundary. A
+        // raw substr can leave a dangling continuation byte (e.g. 0x80), which then
+        // fails to persist into a UTF8 column (Postgres SQLSTATE[22021]).
+        $quote = mb_strcut($text, $start, $length, 'UTF-8');
+        $prefix = mb_strcut($text, max(0, $start - self::CONTEXT), min(self::CONTEXT, $start), 'UTF-8');
+        $suffix = mb_strcut($text, $start + $length, self::CONTEXT, 'UTF-8');
 
         return new Anchor($quote, $prefix, $suffix, $start);
     }
