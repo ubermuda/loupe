@@ -407,17 +407,9 @@
                 <source>account.api_token.form.submit</source>
                 <target>Create token</target>
             </trans-unit>
-            <trans-unit id="account.api_token.table.column.label">
-                <source>account.api_token.table.column.label</source>
-                <target>Label</target>
-            </trans-unit>
-            <trans-unit id="account.api_token.table.column.created">
-                <source>account.api_token.table.column.created</source>
-                <target>Created</target>
-            </trans-unit>
-            <trans-unit id="account.api_token.table.column.scope">
-                <source>account.api_token.table.column.scope</source>
-                <target>Scope</target>
+            <trans-unit id="account.api_token.empty">
+                <source>account.api_token.empty</source>
+                <target>No API tokens yet.</target>
             </trans-unit>
             <trans-unit id="account.api_token.action.revoke">
                 <source>account.api_token.action.revoke</source>
