@@ -16,6 +16,11 @@ security:
             stateless: true
             custom_authenticators:
                 - App\Module\Account\Security\ApiTokenAuthenticator
+        api:
+            pattern: ^/api
+            stateless: true
+            custom_authenticators:
+                - App\Module\Account\Security\ApiTokenAuthenticator
         main:
             lazy: true
             provider: app_user_provider
@@ -38,7 +43,8 @@ security:
                 always_remember_me: false
 
     access_control:
-        - { path: ^/mcp,            roles: ROLE_USER }
+        - { path: ^/api/site-review, roles: ROLE_API_SITE_REVIEW }
+        - { path: ^/mcp,             roles: ROLE_API_MCP }
         # The /dev/* controllers are #[When('dev')] only, so this path 404s in
         # prod and this rule is inert there. It exists so the e2e seeding endpoint
         # is reachable unauthenticated in the dev environment.
