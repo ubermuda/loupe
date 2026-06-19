@@ -64,6 +64,16 @@ cross-origin API surface, replace these ad-hoc subscribers with a single shared
 mechanism — either `nelmio/cors-bundle` or one app-wide CORS subscriber driven by
 a path/origin allowlist — so CORS policy lives in one place.
 
+## Port php-cs-fixer `ignoreVCSIgnored` fix to the skeleton
+
+`.php-cs-fixer.dist.php` used `->in(__DIR__)->exclude('var')`, so the
+Finder descended into `vendor/` (and `node_modules/` once root npm deps
+arrived), rewriting third-party PHP. Fixed here by switching to
+`->ignoreVCSIgnored(true)` (honours `.gitignore`), plus `--exclude
+node_modules` on `parallel-lint`. This is a generic tooling fix that
+belongs in the skeleton too — open a PR against the symfony-skeleton repo
+(`main`) porting both changes, then update `.skeleton.json`.
+
 ## New `/api` routes must carry their own scope access_control rule
 
 The `api` firewall matches all of `^/api`, but `access_control` only guards
