@@ -35,7 +35,7 @@
                    class="bp-nav__link{% if app.request.attributes.get('_route') == 'app_api_tokens' %} bp-nav__link--active{% endif %}">
                     {{ 'nav.link.api_tokens'|trans }}
                 </a>
-                <a href="{{ path('app_logout') }}" class="bp-nav__logout">{{ 'nav.link.logout'|trans }}</a>
+                <a href="{{ path('app_logout') }}" class="bp-nav__logout" data-turbo-prefetch="false">{{ 'nav.link.logout'|trans }}</a>
             </div>
         </nav>
         {% endif %}

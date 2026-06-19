@@ -64,6 +64,20 @@ cross-origin API surface, replace these ad-hoc subscribers with a single shared
 mechanism — either `nelmio/cors-bundle` or one app-wide CORS subscriber driven by
 a path/origin allowlist — so CORS policy lives in one place.
 
+## Port Turbo prefetch convention to the skeleton
+
+Turbo 8 prefetches links on hover, which silently fires the GET behind any
+side-effecting link — we hit this with the `logout` link logging users out on
+hover. Fixed here by adding `data-turbo-prefetch="false"` to the logout link and
+documenting the convention in `.claude/skills/project-frontend/SKILL.md`
+("Disable prefetch on side-effecting GET links").
+
+The skeleton has **no logout link**, so there's nothing to fix literally — port
+the *convention* instead: copy the SKILL.md note into the skeleton's
+project-frontend skill so future consumers know to opt side-effecting GET links
+out of prefetch. Open a PR against the skeleton (`main`), then update
+`.skeleton.json`.
+
 ## Port php-cs-fixer `ignoreVCSIgnored` fix to the skeleton
 
 `.php-cs-fixer.dist.php` used `->in(__DIR__)->exclude('var')`, so the
