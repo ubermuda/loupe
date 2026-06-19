@@ -6,6 +6,9 @@
     replyUrl    string                POST URL for app_comment_reply.
 #}
 <div class="bp-comment-thread{% if comment.resolved %} bp-comment-thread--resolved{% endif %}{% if comment.orphaned %} bp-comment-thread--orphaned{% endif %}">
+    {% if comment.anchor.quote %}
+    <blockquote class="bp-comment-quote">{{ comment.anchor.quote }}</blockquote>
+    {% endif %}
     <div class="bp-comment">
         <div class="bp-comment-author">{{ comment.author.fullName }}</div>
         <div class="bp-comment-body">{{ comment.body }}</div>

@@ -77,8 +77,8 @@
                     <twig:CommentThread
                         :comment="comment"
                         :replies="replies|map(c => c)"
-                        resolveUrl="{{ path('app_comment_resolve', {commentId: comment.id}) }}"
-                        replyUrl="{{ path('app_comment_reply', {commentId: comment.id}) }}"
+                        resolveUrl="{{ path('app_comment_resolve', {id: comment.id}) }}"
+                        replyUrl="{{ path('app_comment_reply', {id: comment.id}) }}"
                     />
                 {% endfor %}
             {% else %}

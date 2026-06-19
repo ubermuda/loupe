@@ -1,5 +1,5 @@
 import { Controller } from '@hotwired/stimulus';
-import { generateCsrfToken } from './csrf_protection_controller.js';
+import { csrfTokenForField } from './csrf_protection_controller.js';
 
 /**
  * Handles text selection within the review document, showing a comment composer
@@ -19,11 +19,11 @@ import { generateCsrfToken } from './csrf_protection_controller.js';
  * ASCII in v1.
  *
  * CSRF: we use the same double-submit pattern as regular form submissions.
- * generateCsrfToken() creates a cryptographically-random token, sets it as the
- * value of a synthetic form field, and stores the matching cookie — exactly what
- * SameOriginCsrfTokenManager's double-submit validation expects. This avoids the
- * session-based behavioral downgrade check that fires when a previous request used
- * double-submit and the next one supplies only origin info.
+ * csrfTokenForField() creates a cryptographically-random token and stores the
+ * matching cookie — exactly what SameOriginCsrfTokenManager's double-submit
+ * validation expects. This avoids the session-based behavioral downgrade check
+ * that fires when a previous request used double-submit and the next one supplies
+ * only origin info.
  */
 export default class extends Controller {
     static targets = ['doc', 'composer', 'composerBody', 'composerError'];
@@ -107,22 +107,11 @@ export default class extends Controller {
             this.composerErrorTarget.textContent = '';
         }
 
-        // Build a synthetic form with a hidden CSRF input so generateCsrfToken()
-        // can set both the field value and the double-submit cookie — the same
-        // mechanism used by regular form submissions via csrf_protection_controller.js.
-        const syntheticForm = document.createElement('form');
-        const csrfInput = document.createElement('input');
-        csrfInput.type = 'hidden';
-        csrfInput.name = '_csrf_token';
-        csrfInput.value = this.csrfTokenValue; // 'csrf-token' — the cookie name, triggers random generation
-        syntheticForm.appendChild(csrfInput);
-        generateCsrfToken(syntheticForm); // replaces csrfInput.value with a random token + sets cookie
-
         const formData = new URLSearchParams();
         formData.set('start', String(this.#selectionStart));
         formData.set('length', String(this.#selectionLength));
         formData.set('body', body);
-        formData.set('_csrf_token', csrfInput.value);
+        formData.set('_csrf_token', csrfTokenForField(this.csrfTokenValue));
 
         try {
             const response = await fetch(this.addCommentUrlValue, {

@@ -595,6 +595,14 @@
         border-color: rgba(245, 158, 11, 0.4);
     }
 
+    /* Quoted document excerpt a comment thread is anchored to. Shown at the head
+       of every thread — essential for orphaned threads, where the in-document
+       highlight is gone. Clamped to a few lines so a paragraph-length quote can't
+       blow out the sidebar. */
+    .bp-comment-quote {
+        @apply px-4 py-2 bg-tint border-l-2 border-accent text-xs italic text-fg-mute line-clamp-3;
+    }
+
     .bp-comment {
         @apply px-4 py-3;
     }

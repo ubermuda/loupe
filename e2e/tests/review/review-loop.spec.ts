@@ -21,6 +21,7 @@ const DOCUMENT_MARKDOWN = `# E2E Review Test Document
 This paragraph contains a ${KNOWN_PHRASE} in this review.`;
 
 const COMMENT_BODY = 'This is an e2e test comment on the selected text.';
+const REPLY_BODY = 'This is an e2e reply to the comment.';
 
 /** Register a user via the dev endpoint and immediately mark them as verified. */
 async function devRegisterAndVerify(
@@ -177,6 +178,11 @@ test('full review loop: comment, request changes, reload persistence', async ({
     await expect(commentBody).toBeVisible({ timeout: 10000 });
     await expect(commentBody).toContainText(COMMENT_BODY);
 
+    // Step 7b: the thread renders the anchored document text as a quote.
+    await expect(page.locator('.bp-comment-quote').first()).toContainText(
+        KNOWN_PHRASE,
+    );
+
     // Step 8: Assert the stored quote equals exactly the selected phrase
     // via the dev read-back endpoint. This is the critical anchor reconciliation
     // assertion from Task 14 — it would catch a subtly-wrong offset.
@@ -187,6 +193,42 @@ test('full review loop: comment, request changes, reload persistence', async ({
     };
     expect(state.comments).toHaveLength(1);
     expect(state.comments[0].quote).toBe(KNOWN_PHRASE);
+
+    // Step 8b: Reply to the comment. The POST must succeed — regression guard for the
+    // stateless CSRF double-submit token (reply previously returned 403 because the
+    // review controller sent the raw token seed without running the csrfTokenForField()
+    // dance) and for the entity route mapping ({id:comment}, previously {commentId:comment}
+    // which made Doctrine look up a non-existent Comment::$commentId field → 500).
+    const replyResponsePromise = page.waitForResponse(
+        (r) => r.url().includes('/reply') && r.request().method() === 'POST',
+    );
+    await page.locator('[data-reply-input]').first().fill(REPLY_BODY);
+    await page.getByRole('button', { name: 'Reply' }).click();
+    const replyResponse = await replyResponsePromise;
+    expect(replyResponse.status()).toBe(201);
+
+    // On success the controller reloads; the reply appears as a .bp-comment--reply.
+    await expect(
+        page.locator('[data-comment-anchor-target="doc"]'),
+    ).toBeVisible({ timeout: 10000 });
+    await expect(
+        page.locator('.bp-comment--reply .bp-comment-body'),
+    ).toContainText(REPLY_BODY, { timeout: 10000 });
+
+    // Step 8c: Resolve the thread. POST must succeed and the thread becomes resolved.
+    const resolveResponsePromise = page.waitForResponse(
+        (r) => r.url().includes('/resolve') && r.request().method() === 'POST',
+    );
+    await page.getByRole('button', { name: 'Resolve' }).click();
+    const resolveResponse = await resolveResponsePromise;
+    expect(resolveResponse.status()).toBe(200);
+
+    await expect(
+        page.locator('[data-comment-anchor-target="doc"]'),
+    ).toBeVisible({ timeout: 10000 });
+    await expect(page.locator('.bp-comment-thread--resolved')).toBeVisible({
+        timeout: 10000,
+    });
 
     // Step 9: Submit the "Request changes" verdict.
     await page.getByRole('button', { name: 'Request changes' }).click();

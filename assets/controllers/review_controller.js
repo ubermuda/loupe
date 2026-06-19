@@ -1,16 +1,16 @@
 import { Controller } from '@hotwired/stimulus';
+import { csrfTokenForField } from './csrf_protection_controller.js';
 
 /**
  * Handles reply and resolve interactions in the review sidebar.
  *
- * Both actions POST via fetch() to their respective routes.
- * The CSRF token for the comment-action token id is stateless; for same-origin
- * fetch() calls the browser sends Sec-Fetch-Site: same-origin which satisfies
- * origin validation. We still include the _csrf_token body parameter so the
- * ValidateCsrfTokenListener can call isTokenValid() without a length check failure.
+ * Both actions POST via fetch() to their respective routes. The comment-action
+ * token id uses Symfony's stateless double-submit CSRF: the value rendered into
+ * csrfTokenValue is only a seed, so each request must run csrfTokenForField() to
+ * generate a random token and set the matching cookie (same mechanism as the
+ * comment composer in comment_anchor_controller.js).
  *
- * After a successful reply or resolve we do a simple page reload as a first cut;
- * the full browser loop is verified in the Task 15 e2e test.
+ * After a successful reply or resolve we reload the page so the sidebar updates.
  *
  * Verdict buttons are inside a plain HTML form (method="POST") and are submitted
  * normally — no JS intervention needed.
@@ -61,7 +61,7 @@ export default class extends Controller {
 
     async #post(url, extraParams) {
         const formData = new URLSearchParams();
-        formData.set('_csrf_token', this.csrfTokenValue);
+        formData.set('_csrf_token', csrfTokenForField(this.csrfTokenValue));
         for (const [key, value] of Object.entries(extraParams)) {
             formData.set(key, value);
         }

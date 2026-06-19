@@ -71,6 +71,28 @@ export function generateCsrfToken(formElement) {
     }
 }
 
+/**
+ * Produces a ready-to-submit stateless CSRF token from a token-id seed.
+ *
+ * The value rendered by Twig's `csrf_token('some-id')` is only a seed (the cookie
+ * name): the SameOriginCsrfTokenManager validates a *double-submit* pair, so the
+ * client must generate a random token and set the matching cookie before posting.
+ * generateCsrfToken() does that dance against a form field; this wraps it for
+ * fetch()-based callers that have no real form. Returns the random token to send
+ * as the `_csrf_token` parameter.
+ */
+export function csrfTokenForField(seedToken) {
+    const syntheticForm = document.createElement('form');
+    const csrfInput = document.createElement('input');
+    csrfInput.type = 'hidden';
+    csrfInput.name = '_csrf_token';
+    csrfInput.value = seedToken;
+    syntheticForm.appendChild(csrfInput);
+    generateCsrfToken(syntheticForm);
+
+    return csrfInput.value;
+}
+
 export function generateCsrfHeaders(formElement) {
     const headers = {};
     const csrfField = formElement.querySelector(

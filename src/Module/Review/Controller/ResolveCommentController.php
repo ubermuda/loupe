@@ -21,7 +21,7 @@ use Ubermuda\SymfonyExtra\Csrf\Attribute\CsrfToken;
  */
 #[CsrfToken('comment-action')]
 #[Route(
-    '/comments/{commentId:comment}/resolve',
+    '/comments/{id:comment}/resolve',
     name: 'app_comment_resolve',
     methods: ['POST'],
 )]
