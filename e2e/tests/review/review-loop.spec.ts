@@ -197,9 +197,9 @@ test('full review loop: comment, request changes, reload persistence', async ({
         page.locator('[data-comment-anchor-target="doc"]'),
     ).toBeVisible({ timeout: 10000 });
 
-    // Step 10: Assert the status badge on the dashboard.
+    // Step 10: Assert the status badge on the dashboard (scoped to THIS document's row).
     await page.goto('/documents');
-    const badge = page.locator('.bp-badge').first();
+    const badge = page.locator(`[data-document-id="${documentId}"] .bp-badge`);
     await expect(badge).toBeVisible({ timeout: 5000 });
     await expect(badge).toHaveText('Changes requested');
 
@@ -214,6 +214,8 @@ test('full review loop: comment, request changes, reload persistence', async ({
 
     // Step 12: Re-check the status is still "Changes requested" on the dashboard.
     await page.goto('/documents');
-    const reloadedBadge = page.locator('.bp-badge').first();
+    const reloadedBadge = page.locator(
+        `[data-document-id="${documentId}"] .bp-badge`,
+    );
     await expect(reloadedBadge).toHaveText('Changes requested');
 });

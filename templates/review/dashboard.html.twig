@@ -26,7 +26,7 @@
             </thead>
             <tbody>
                 {% for document in documents %}
-                <tr>
+                <tr data-document-id="{{ document.id }}">
                     <td>{{ document.title }}</td>
                     <td>
                         <span class="bp-badge bp-badge--{{ document.status.value }}">

@@ -39,6 +39,9 @@ security:
 
     access_control:
         - { path: ^/_mcp,            roles: ROLE_USER }
+        # The /dev/* controllers are #[When('dev')] only, so this path 404s in
+        # prod and this rule is inert there. It exists so the e2e seeding endpoint
+        # is reachable unauthenticated in the dev environment.
         - { path: ^/dev/register-and-verify$, roles: PUBLIC_ACCESS }
         - { path: ^/login,           roles: PUBLIC_ACCESS }
         - { path: ^/register,        roles: PUBLIC_ACCESS }
