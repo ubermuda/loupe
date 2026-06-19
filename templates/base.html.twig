@@ -19,6 +19,22 @@
         {% endif %}
     </head>
     <body class="{% block body_class %}{% endblock %}">
+        {% if app.user %}
+        <nav class="bp-nav">
+            <a href="{{ path('app_home') }}" class="bp-nav__brand">{{ 'nav.brand'|trans }}</a>
+            <div class="bp-nav__links">
+                <a href="{{ path('app_documents') }}"
+                   class="bp-nav__link{% if app.request.attributes.get('_route') == 'app_documents' %} bp-nav__link--active{% endif %}">
+                    {{ 'nav.link.documents'|trans }}
+                </a>
+                <a href="{{ path('app_api_tokens') }}"
+                   class="bp-nav__link{% if app.request.attributes.get('_route') == 'app_api_tokens' %} bp-nav__link--active{% endif %}">
+                    {{ 'nav.link.api_tokens'|trans }}
+                </a>
+                <a href="{{ path('app_logout') }}" class="bp-nav__logout">{{ 'nav.link.logout'|trans }}</a>
+            </div>
+        </nav>
+        {% endif %}
         {% block body %}{% endblock %}
     </body>
 </html>

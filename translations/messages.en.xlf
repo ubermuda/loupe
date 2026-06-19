@@ -508,6 +508,50 @@
                 <target>Invalid verdict value submitted.</target>
             </trans-unit>
 
+            <!-- Navigation bar -->
+            <trans-unit id="nav.brand">
+                <source>nav.brand</source>
+                <target>betterplans</target>
+            </trans-unit>
+            <trans-unit id="nav.link.documents">
+                <source>nav.link.documents</source>
+                <target>Documents</target>
+            </trans-unit>
+            <trans-unit id="nav.link.api_tokens">
+                <source>nav.link.api_tokens</source>
+                <target>API tokens</target>
+            </trans-unit>
+            <trans-unit id="nav.link.logout">
+                <source>nav.link.logout</source>
+                <target>Log out</target>
+            </trans-unit>
+
+            <!-- MCP connection card -->
+            <trans-unit id="account.mcp.card.heading">
+                <source>account.mcp.card.heading</source>
+                <target>Connect your agent (MCP)</target>
+            </trans-unit>
+            <trans-unit id="account.mcp.card.endpoint_label">
+                <source>account.mcp.card.endpoint_label</source>
+                <target>MCP endpoint</target>
+            </trans-unit>
+            <trans-unit id="account.mcp.card.auth_note">
+                <source>account.mcp.card.auth_note</source>
+                <target>Authenticate with a token created above:</target>
+            </trans-unit>
+            <trans-unit id="account.mcp.card.claude_code_heading">
+                <source>account.mcp.card.claude_code_heading</source>
+                <target>Add via Claude Code</target>
+            </trans-unit>
+            <trans-unit id="account.mcp.card.json_heading">
+                <source>account.mcp.card.json_heading</source>
+                <target>Or add to your MCP client config (HTTP transport)</target>
+            </trans-unit>
+            <trans-unit id="account.mcp.card.tls_note">
+                <source>account.mcp.card.tls_note</source>
+                <target>Note: the dev certificate is issued by a local CA — your MCP client may need to trust it.</target>
+            </trans-unit>
+
             <!-- Document status labels -->
             <trans-unit id="document.status.in_review">
                 <source>document.status.in_review</source>

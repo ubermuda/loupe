@@ -3,6 +3,20 @@
 {% block title %}{{ 'account.api_token.page.title'|trans }}{% endblock %}
 
 {% block body %}
+{%- set mcpUrl = url('_mcp_endpoint') -%}
+{%- set mcpClaudeCmd = "claude mcp add betterplans " ~ mcpUrl ~ " --transport http --header \"Authorization: Bearer YOUR_TOKEN\"" -%}
+{%- set mcpAuthHeader = "Authorization: Bearer YOUR_TOKEN" -%}
+{%- set mcpJsonLine1 = "{" -%}
+{%- set mcpJsonLine2 = "  \"mcpServers\": {" -%}
+{%- set mcpJsonLine3 = "    \"betterplans\": {" -%}
+{%- set mcpJsonLine4 = "      \"type\": \"http\"," -%}
+{%- set mcpJsonLine5 = "      \"url\": \"" ~ mcpUrl ~ "\"," -%}
+{%- set mcpJsonLine6 = "      \"headers\": {" -%}
+{%- set mcpJsonLine7 = "        \"Authorization\": \"Bearer YOUR_TOKEN\"" -%}
+{%- set mcpJsonLine8 = "      }" -%}
+{%- set mcpJsonLine9 = "    }" -%}
+{%- set mcpJsonLine10 = "  }" -%}
+{%- set mcpJsonLine11 = "}" -%}
 <div class="bp-page">
     <div class="bp-page-header">
         <h1 class="bp-page-title">{{ 'account.api_token.page.title'|trans }}</h1>
@@ -52,5 +66,35 @@
         </table>
     </div>
     {% endif %}
+
+    <div class="bp-card" id="mcp-connection">
+        <h2 class="bp-page-title" style="margin-bottom: 1rem;">{{ 'account.mcp.card.heading'|trans }}</h2>
+
+        <p><strong>{{ 'account.mcp.card.endpoint_label'|trans }}:</strong>
+            <code class="bp-code">{{ mcpUrl }}</code>
+        </p>
+
+        <p>{{ 'account.mcp.card.auth_note'|trans }}
+            <code class="bp-code">{{ mcpAuthHeader }}</code>
+        </p>
+
+        <p><strong>{{ 'account.mcp.card.claude_code_heading'|trans }}</strong></p>
+        <pre class="bp-pre"><code>{{ mcpClaudeCmd }}</code></pre>
+
+        <p><strong>{{ 'account.mcp.card.json_heading'|trans }}</strong></p>
+        <pre class="bp-pre"><code>{{ mcpJsonLine1 }}
+{{ mcpJsonLine2 }}
+{{ mcpJsonLine3 }}
+{{ mcpJsonLine4 }}
+{{ mcpJsonLine5 }}
+{{ mcpJsonLine6 }}
+{{ mcpJsonLine7 }}
+{{ mcpJsonLine8 }}
+{{ mcpJsonLine9 }}
+{{ mcpJsonLine10 }}
+{{ mcpJsonLine11 }}</code></pre>
+
+        <p class="bp-empty">{{ 'account.mcp.card.tls_note'|trans }}</p>
+    </div>
 </div>
 {% endblock %}
