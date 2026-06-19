@@ -25,8 +25,9 @@ worktree-down name:
     bin/worktrees/worktree-teardown.sh {{name}}
 
 lint:
-    vendor/bin/parallel-lint --exclude vendor --exclude var .
+    vendor/bin/parallel-lint --exclude vendor --exclude var --exclude node_modules .
     npx prettier --check --log-level warn assets/ e2e/
+    npx eslint public/site-review/widget.js
     cd e2e && npx eslint .
 
 lint-e2e:

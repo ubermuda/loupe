@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Tests\Module\Mcp;
 
 use App\Module\Account\Entity\ApiToken;
+use App\Module\Account\Entity\ApiTokenScope;
 use App\Module\Account\Entity\User;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
@@ -77,7 +78,7 @@ final class McpEndpointAuthTest extends WebTestCase
         $em = static::getContainer()->get(EntityManagerInterface::class);
         $user = new User(username: 'agent', fullName: 'Agent', email: 'agent@example.com', password: 'hashed-placeholder');
         $user->emailVerifiedAt = new \DateTimeImmutable();
-        [$token, $raw] = ApiToken::issue($user, 'test');
+        [$token, $raw] = ApiToken::issue($user, 'test', ApiTokenScope::Mcp);
         $em->persist($user);
         $em->persist($token);
         $em->flush();

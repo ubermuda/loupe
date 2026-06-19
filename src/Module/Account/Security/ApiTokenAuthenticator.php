@@ -13,10 +13,13 @@ use Symfony\Component\Security\Http\Authenticator\AbstractAuthenticator;
 use Symfony\Component\Security\Http\Authenticator\Passport\Badge\UserBadge;
 use Symfony\Component\Security\Http\Authenticator\Passport\Passport;
 use Symfony\Component\Security\Http\Authenticator\Passport\SelfValidatingPassport;
+use Symfony\Component\Security\Http\Authenticator\Token\PostAuthenticationToken;
 use Symfony\Component\Security\Http\EntryPoint\AuthenticationEntryPointInterface;
 
 final class ApiTokenAuthenticator extends AbstractAuthenticator implements AuthenticationEntryPointInterface
 {
+    private const string SCOPE_ROLE_ATTR = 'scopeRole';
+
     public function __construct(
         private readonly ApiTokenRepository $apiTokens,
     ) {
@@ -35,7 +38,20 @@ final class ApiTokenAuthenticator extends AbstractAuthenticator implements Authe
             throw new AuthenticationException('Invalid API token.');
         }
 
-        return new SelfValidatingPassport(new UserBadge($token->owner->getUserIdentifier(), fn () => $token->owner));
+        $passport = new SelfValidatingPassport(new UserBadge($token->owner->getUserIdentifier(), fn () => $token->owner));
+        $passport->setAttribute(self::SCOPE_ROLE_ATTR, $token->scope->role());
+
+        return $passport;
+    }
+
+    #[\Override]
+    public function createToken(Passport $passport, string $firewallName): TokenInterface
+    {
+        $user = $passport->getUser();
+        $scopeRole = $passport->getAttribute(self::SCOPE_ROLE_ATTR);
+        $scopeRole = is_string($scopeRole) ? $scopeRole : throw new \LogicException('scopeRole missing on passport after authentication.');
+
+        return new PostAuthenticationToken($user, $firewallName, [...$user->getRoles(), $scopeRole]);
     }
 
     public function onAuthenticationFailure(Request $request, AuthenticationException $exception): Response

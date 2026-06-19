@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Tests\Module\Account\Controller;
 
 use App\Module\Account\Entity\ApiToken;
+use App\Module\Account\Entity\ApiTokenScope;
 use App\Module\Account\Entity\User;
 use App\Module\Account\Repository\ApiTokenRepository;
 use Doctrine\ORM\EntityManagerInterface;
@@ -49,7 +50,10 @@ final class ApiTokenControllerTest extends WebTestCase
         $client->request(\Symfony\Component\HttpFoundation\Request::METHOD_GET, '/account/api-tokens');
         self::assertResponseIsSuccessful();
 
-        $client->submitForm('Create token', ['api_token_form[label]' => 'Laptop agent']);
+        $client->submitForm('Create token', [
+            'api_token_form[label]' => 'Laptop agent',
+            'api_token_form[scope]' => ApiTokenScope::Mcp->value,
+        ]);
         self::assertResponseRedirects('/account/api-tokens');
         $client->followRedirect();
         self::assertSelectorTextContains('.bp-flash', 'Laptop agent');
@@ -61,6 +65,31 @@ final class ApiTokenControllerTest extends WebTestCase
         $tokens = $repo->findBy(['owner' => $user]);
         self::assertCount(1, $tokens);
         self::assertSame('Laptop agent', $tokens[0]->label);
+        self::assertSame(ApiTokenScope::Mcp, $tokens[0]->scope);
+    }
+
+    public function test_user_can_create_a_site_review_scoped_token(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $user = $this->createVerifiedUser($em, 'bob', 'bob@example.com');
+
+        $client->loginUser($user);
+        $client->request(\Symfony\Component\HttpFoundation\Request::METHOD_GET, '/account/api-tokens');
+        self::assertResponseIsSuccessful();
+
+        $client->submitForm('Create token', [
+            'api_token_form[label]' => 'My widget',
+            'api_token_form[scope]' => ApiTokenScope::SiteReview->value,
+        ]);
+        self::assertResponseRedirects('/account/api-tokens');
+
+        $em->clear();
+        /** @var ApiTokenRepository $repo */
+        $repo = static::getContainer()->get(ApiTokenRepository::class);
+        $tokens = $repo->findBy(['owner' => $user]);
+        self::assertCount(1, $tokens);
+        self::assertSame(ApiTokenScope::SiteReview, $tokens[0]->scope);
     }
 
     public function test_repository_find_one_by_raw_token_returns_token_for_valid_raw(): void
@@ -69,7 +98,7 @@ final class ApiTokenControllerTest extends WebTestCase
         $em = static::getContainer()->get(EntityManagerInterface::class);
         $user = $this->createVerifiedUser($em, 'carol', 'carol@example.com');
 
-        [$token, $raw] = ApiToken::issue($user, 'test token');
+        [$token, $raw] = ApiToken::issue($user, 'test token', ApiTokenScope::Mcp);
         $em->persist($token);
         $em->flush();
         $em->clear();
@@ -92,7 +121,7 @@ final class ApiTokenControllerTest extends WebTestCase
 
         $owner = $this->createVerifiedUser($em, 'alice', 'alice@example.com');
 
-        [$token] = ApiToken::issue($owner, 'my token');
+        [$token] = ApiToken::issue($owner, 'my token', ApiTokenScope::Mcp);
         $em->persist($token);
         $em->flush();
         $tokenId = $token->id;
@@ -129,10 +158,10 @@ final class ApiTokenControllerTest extends WebTestCase
         $other = $this->createVerifiedUser($em, 'eve', 'eve@example.com');
 
         // Give Alice a token that Eve will attempt to revoke
-        [$aliceToken] = ApiToken::issue($owner, 'alice token');
+        [$aliceToken] = ApiToken::issue($owner, 'alice token', ApiTokenScope::Mcp);
         $em->persist($aliceToken);
         // Give Eve a token so her page renders revoke forms (giving us a valid CSRF token)
-        [$eveToken] = ApiToken::issue($other, 'eve token');
+        [$eveToken] = ApiToken::issue($other, 'eve token', ApiTokenScope::Mcp);
         $em->persist($eveToken);
         $em->flush();
         $aliceTokenId = $aliceToken->id;
