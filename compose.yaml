@@ -34,15 +34,25 @@ services:
       - database
 
 ###> symfony/mailer ###
-  # The mailpit container stays on the default network only — the shared traefik
-  # network has no available IPv4 addresses. The API is exposed on host port 8025
-  # so e2e tests can reach it directly (MAILPIT_URL=http://localhost:8025).
+  # mailpit is on traefik (reachable at mailpit.${COMPOSE_PROJECT_NAME}.dev.localhost,
+  # consistent with the other projects) and also publishes host port 8025 so the e2e
+  # suite can reach it directly (MAILPIT_URL=http://localhost:8025).
   mailer:
     image: axllent/mailpit
     restart: unless-stopped
     environment:
       MP_SMTP_AUTH_ACCEPT_ANY: 1
       MP_SMTP_AUTH_ALLOW_INSECURE: 1
+    networks:
+      - traefik
+      - default
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.mailpit-${COMPOSE_PROJECT_NAME}.rule=Host(`mailpit.${COMPOSE_PROJECT_NAME}.dev.localhost`)
+      - traefik.http.routers.mailpit-${COMPOSE_PROJECT_NAME}.entrypoints=websecure
+      - traefik.http.routers.mailpit-${COMPOSE_PROJECT_NAME}.tls=true
+      - traefik.http.routers.mailpit-${COMPOSE_PROJECT_NAME}.tls.certresolver=stepca
+      - traefik.http.services.mailpit-${COMPOSE_PROJECT_NAME}.loadbalancer.server.port=8025
     ports:
       - "8025:8025"
 ###< symfony/mailer ###
