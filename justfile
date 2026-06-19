@@ -27,6 +27,7 @@ worktree-down name:
 lint:
     vendor/bin/parallel-lint --exclude vendor --exclude var .
     npx prettier --check --log-level warn assets/ e2e/
+    npx eslint public/site-review/widget.js
     cd e2e && npx eslint .
 
 lint-e2e:

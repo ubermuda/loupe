@@ -52,6 +52,7 @@ phpstan.neon
 /.serena/
 /.claude/worktrees/
 /node_modules
+/.eslintcache
 /docs/superpowers/
 e2e/.step-ca-root.crt
 
