@@ -457,18 +457,6 @@
                 <source>review.dashboard.empty</source>
                 <target>No documents yet.</target>
             </trans-unit>
-            <trans-unit id="review.dashboard.table.column.title">
-                <source>review.dashboard.table.column.title</source>
-                <target>Title</target>
-            </trans-unit>
-            <trans-unit id="review.dashboard.table.column.status">
-                <source>review.dashboard.table.column.status</source>
-                <target>Status</target>
-            </trans-unit>
-            <trans-unit id="review.dashboard.table.column.created">
-                <source>review.dashboard.table.column.created</source>
-                <target>Created</target>
-            </trans-unit>
 
             <!-- Document review page -->
             <trans-unit id="review.document.page.title">

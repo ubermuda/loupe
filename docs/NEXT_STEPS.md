@@ -2,6 +2,15 @@
 
 Open work and observations worth revisiting. Delete items entirely once resolved.
 
+## Dashboard document search + status/tag filtering
+
+Deferred from the SaaS visual redesign (visual-only phase). The dashboard mockup
+envisioned a search box + status filter + tag filter, but `autosearch_controller`
+submits to the server, so making search real needs backend work: a query param on
+the documents controller and a repository filter (title contains, status equals,
+tag in). Tag filtering further depends on the not-yet-built tag entity. When tags
+land, wire search + status + tag filters into the existing `.bp-doc-list` header.
+
 ## Port the "no fetch — forms + Turbo" convention to the skeleton
 
 Added a convention to the `project-frontend` skill (Turbo patterns section):

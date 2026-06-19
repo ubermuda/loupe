@@ -392,6 +392,36 @@
         @apply inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-tint text-fg-mute border border-line;
     }
 
+    /* ── Document list ──────────────────────────────────────────────── */
+
+    .bp-doc-list {
+        @apply flex flex-col bg-surface-1 border border-line rounded-xl overflow-hidden;
+    }
+    .bp-doc-row {
+        @apply flex items-center gap-4 px-4 py-3.5 border-b border-line transition-colors;
+    }
+    .bp-doc-row:last-child {
+        @apply border-b-0;
+    }
+    .bp-doc-row:hover {
+        @apply bg-tint;
+    }
+    .bp-doc-row__main {
+        @apply min-w-0 flex-1;
+    }
+    .bp-doc-row__title {
+        @apply text-sm font-medium text-fg no-underline;
+    }
+    .bp-doc-row__title:hover {
+        @apply text-accent;
+    }
+    .bp-doc-row__meta {
+        @apply flex items-center gap-2 mt-1 text-xs text-fg-dim;
+    }
+    .bp-doc-row__tags {
+        @apply flex items-center gap-1.5;
+    }
+
     /* ── Flash messages ─────────────────────────────────────────────── */
 
     .bp-flash {
