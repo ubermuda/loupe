@@ -1,0 +1,42 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}{{ 'site_review.batches.page.title'|trans }}{% endblock %}
+
+{% block body %}
+<div class="bp-page">
+    <div class="bp-page-header">
+        <h1 class="bp-page-title">{{ 'site_review.batches.page.title'|trans }}</h1>
+    </div>
+
+    {% if batches|length > 0 %}
+    <div class="bp-card">
+        <table class="bp-table">
+            <thead>
+                <tr>
+                    <th>{{ 'site_review.batches.table.column.created'|trans }}</th>
+                    <th>{{ 'site_review.batches.table.column.comments'|trans }}</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for batch in batches %}
+                <tr>
+                    <td>{{ batch.createdAt|date('Y-m-d H:i') }}</td>
+                    <td>{{ batch.comments|length }}</td>
+                    <td>
+                        <a class="bp-btn" href="{{ path('app_site_review_batch', {id: batch.id}) }}">
+                            {{ 'site_review.batches.action.view'|trans }}
+                        </a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="bp-card">
+        <p class="bp-empty">{{ 'site_review.batches.empty'|trans }}</p>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
