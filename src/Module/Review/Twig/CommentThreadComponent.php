@@ -13,6 +13,7 @@ use Symfony\UX\TwigComponent\Attribute\AsTwigComponent;
  * Props:
  *   comment  Comment               The root comment (parent === null).
  *   replies  list<Comment>         Direct replies to this comment.
+ *   error    string|null           Validation message for the reply form, if any.
  */
 #[AsTwigComponent(name: 'CommentThread', template: 'components/CommentThread.html.twig')]
 final class CommentThreadComponent
@@ -21,4 +22,6 @@ final class CommentThreadComponent
 
     /** @var list<Comment> */
     public array $replies = [];
+
+    public ?string $error = null;
 }

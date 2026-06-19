@@ -2,6 +2,25 @@
 
 Open work and observations worth revisiting. Delete items entirely once resolved.
 
+## Port the "no fetch — forms + Turbo" convention to the skeleton
+
+Added a convention to the `project-frontend` skill (Turbo patterns section):
+never submit via `fetch()`/JS — always use a plain HTML form or (preferred) a
+Symfony form, and rely on Turbo (Streams or a Frame) for the async submit and
+in-place update. This same rule must be ported into `~/Code/symfony-skeleton`
+(its equivalent frontend skill / docs) so new projects inherit it. See
+`.skeleton.json` for the sync baseline.
+
+## Consider converting the add-comment composer off `fetch()`
+
+`assets/controllers/comment_anchor_controller.js` still submits the new-comment
+composer via `fetch()` (it's the last fetch-based mutation after reply/resolve
+were converted to forms + Turbo Streams). It has a partial justification — the
+floating composer is driven by a text selection and needs JS to capture the
+offsets/position — but the actual submit could still be a real `<form>` with
+hidden offset fields, posting via Turbo. Worth converting for consistency with
+the convention above. Not done yet to keep the reply/resolve change focused.
+
 ## Review anchoring — possible enhancement (low priority)
 
 Observed while dogfooding the review loop on the site-review spec: revising a

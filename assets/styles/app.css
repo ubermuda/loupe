@@ -628,6 +628,9 @@
         @apply w-full text-sm bg-surface-2 border border-line rounded-lg px-3 py-2 text-fg placeholder:text-fg-dim resize-none outline-hidden focus:border-accent focus:shadow-focus transition-colors;
         min-height: 3rem;
     }
+    .bp-comment-error {
+        @apply text-xs text-danger;
+    }
 
     /* ── Verdict bar ────────────────────────────────────────────────── */
 

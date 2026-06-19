@@ -20,10 +20,9 @@
 </div>
 
 <div
-    data-controller="comment-anchor review"
+    data-controller="comment-anchor"
     data-comment-anchor-add-comment-url-value="{{ path('app_comment_add', {id: document.id}) }}"
     data-comment-anchor-csrf-token-value="{{ csrf_token('comment-action') }}"
-    data-review-csrf-token-value="{{ csrf_token('comment-action') }}"
 >
     <div class="bp-review-layout">
         {#
@@ -77,8 +76,6 @@
                     <twig:CommentThread
                         :comment="comment"
                         :replies="replies|map(c => c)"
-                        resolveUrl="{{ path('app_comment_resolve', {id: comment.id}) }}"
-                        replyUrl="{{ path('app_comment_reply', {id: comment.id}) }}"
                     />
                 {% endfor %}
             {% else %}

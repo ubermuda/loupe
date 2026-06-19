@@ -10,9 +10,11 @@ use App\Module\Review\Command\ReplyToCommentCommand;
 use App\Module\Review\Command\ReplyToCommentHandler;
 use App\Module\Review\Entity\Comment;
 use App\Module\Review\Security\DocumentVoter;
-use Symfony\Component\HttpFoundation\JsonResponse;
+use App\Module\Review\Service\CommentThreadResponder;
 use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
+use Symfony\Contracts\Translation\TranslatorInterface;
 use Ubermuda\SymfonyExtra\Csrf\Attribute\CsrfToken;
 
 /**
@@ -31,10 +33,12 @@ final class ReplyToCommentController extends AppController
 {
     public function __construct(
         private readonly ReplyToCommentHandler $replyToCommentHandler,
+        private readonly CommentThreadResponder $threadResponder,
+        private readonly TranslatorInterface $translator,
     ) {
     }
 
-    public function __invoke(Comment $comment, Request $request): JsonResponse
+    public function __invoke(Comment $comment, Request $request): Response
     {
         $this->denyAccessUnlessGranted(DocumentVoter::VIEW, $comment->version->document);
 
@@ -43,19 +47,20 @@ final class ReplyToCommentController extends AppController
 
         $rawBody = $request->request->get('body');
         if (!is_string($rawBody) || '' === trim($rawBody)) {
-            return $this->json(['errors' => ['body' => 'body must not be empty']], JsonResponse::HTTP_UNPROCESSABLE_ENTITY);
+            return $this->threadResponder->respond(
+                $request,
+                $comment,
+                $this->translator->trans('review.document.comment.reply_required'),
+                Response::HTTP_UNPROCESSABLE_ENTITY,
+            );
         }
 
-        $reply = ($this->replyToCommentHandler)(new ReplyToCommentCommand(
+        ($this->replyToCommentHandler)(new ReplyToCommentCommand(
             actor: $user,
             parent: $comment,
             body: $rawBody,
         ));
 
-        return $this->json([
-            'id' => (string) $reply->id,
-            'body' => $reply->body,
-            'resolved' => $reply->resolved,
-        ], JsonResponse::HTTP_CREATED);
+        return $this->threadResponder->respond($request, $comment);
     }
 }

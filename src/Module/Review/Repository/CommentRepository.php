@@ -49,4 +49,20 @@ class CommentRepository extends ServiceEntityRepository
             ->getQuery()
             ->getResult();
     }
+
+    /**
+     * Direct replies to a comment, in creation order (matching the sibling
+     * order used when rendering the full version on the review page).
+     *
+     * @return list<Comment>
+     */
+    public function findReplies(Comment $parent): array
+    {
+        return $this->createQueryBuilder('c')
+            ->where('c.parent = :parent')
+            ->setParameter('parent', $parent)
+            ->orderBy('c.id', 'ASC')
+            ->getQuery()
+            ->getResult();
+    }
 }

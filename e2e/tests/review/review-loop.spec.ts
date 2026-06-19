@@ -194,38 +194,39 @@ test('full review loop: comment, request changes, reload persistence', async ({
     expect(state.comments).toHaveLength(1);
     expect(state.comments[0].quote).toBe(KNOWN_PHRASE);
 
-    // Step 8b: Reply to the comment. The POST must succeed — regression guard for the
-    // stateless CSRF double-submit token (reply previously returned 403 because the
-    // review controller sent the raw token seed without running the csrfTokenForField()
-    // dance) and for the entity route mapping ({id:comment}, previously {commentId:comment}
-    // which made Doctrine look up a non-existent Comment::$commentId field → 500).
+    // Step 8b: Reply to the comment. Reply is a plain form submitted through Turbo;
+    // the controller returns a Turbo Stream (HTTP 200, turbo-stream content type)
+    // that replaces the thread in place — no page reload. Asserting both status and
+    // content type guards the whole path: CSRF (the eager submit listener runs the
+    // double-submit dance), the {id:comment} entity mapping, and the stream wiring
+    // (a wrong content type makes Turbo silently no-op).
     const replyResponsePromise = page.waitForResponse(
         (r) => r.url().includes('/reply') && r.request().method() === 'POST',
     );
-    await page.locator('[data-reply-input]').first().fill(REPLY_BODY);
+    await page
+        .locator('.bp-comment-reply-form textarea')
+        .first()
+        .fill(REPLY_BODY);
     await page.getByRole('button', { name: 'Reply' }).click();
     const replyResponse = await replyResponsePromise;
-    expect(replyResponse.status()).toBe(201);
+    expect(replyResponse.status()).toBe(200);
+    expect(replyResponse.headers()['content-type']).toContain('turbo-stream');
 
-    // On success the controller reloads; the reply appears as a .bp-comment--reply.
-    await expect(
-        page.locator('[data-comment-anchor-target="doc"]'),
-    ).toBeVisible({ timeout: 10000 });
+    // The reply appears in place as a .bp-comment--reply (Turbo replaced the thread).
     await expect(
         page.locator('.bp-comment--reply .bp-comment-body'),
     ).toContainText(REPLY_BODY, { timeout: 10000 });
 
-    // Step 8c: Resolve the thread. POST must succeed and the thread becomes resolved.
+    // Step 8c: Resolve the thread. Same form + Turbo Stream path; the thread is
+    // replaced in place and gains the resolved modifier.
     const resolveResponsePromise = page.waitForResponse(
         (r) => r.url().includes('/resolve') && r.request().method() === 'POST',
     );
     await page.getByRole('button', { name: 'Resolve' }).click();
     const resolveResponse = await resolveResponsePromise;
     expect(resolveResponse.status()).toBe(200);
+    expect(resolveResponse.headers()['content-type']).toContain('turbo-stream');
 
-    await expect(
-        page.locator('[data-comment-anchor-target="doc"]'),
-    ).toBeVisible({ timeout: 10000 });
     await expect(page.locator('.bp-comment-thread--resolved')).toBeVisible({
         timeout: 10000,
     });

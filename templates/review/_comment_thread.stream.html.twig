@@ -1,0 +1,14 @@
+{#
+  Turbo Stream that replaces a single comment thread in the review sidebar after
+  a reply or resolve. Rendered by ReplyToCommentController / ResolveCommentController.
+
+  Vars:
+    comment  Comment            The root comment of the thread to replace.
+    replies  list<Comment>      Its direct replies (re-fetched after the mutation).
+    error    string|null        Validation message to show on the reply form, if any.
+#}
+<turbo-stream action="replace" target="comment-thread-{{ comment.id }}">
+    <template>
+        <twig:CommentThread :comment="comment" :replies="replies" :error="error ?? null" />
+    </template>
+</turbo-stream>

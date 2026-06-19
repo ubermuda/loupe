@@ -525,6 +525,10 @@
                 <source>review.document.comment.resolve</source>
                 <target>Resolve</target>
             </trans-unit>
+            <trans-unit id="review.document.comment.reply_required">
+                <source>review.document.comment.reply_required</source>
+                <target>A reply can’t be empty.</target>
+            </trans-unit>
 
             <!-- Document review flash messages -->
             <trans-unit id="review.document.flash.verdict_submitted">

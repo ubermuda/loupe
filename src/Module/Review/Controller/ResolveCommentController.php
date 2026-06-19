@@ -9,7 +9,9 @@ use App\Module\Review\Command\ResolveCommentCommand;
 use App\Module\Review\Command\ResolveCommentHandler;
 use App\Module\Review\Entity\Comment;
 use App\Module\Review\Security\DocumentVoter;
-use Symfony\Component\HttpFoundation\JsonResponse;
+use App\Module\Review\Service\CommentThreadResponder;
+use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
 use Ubermuda\SymfonyExtra\Csrf\Attribute\CsrfToken;
 
@@ -29,10 +31,11 @@ final class ResolveCommentController extends AppController
 {
     public function __construct(
         private readonly ResolveCommentHandler $resolveCommentHandler,
+        private readonly CommentThreadResponder $threadResponder,
     ) {
     }
 
-    public function __invoke(Comment $comment): JsonResponse
+    public function __invoke(Comment $comment, Request $request): Response
     {
         $this->denyAccessUnlessGranted(DocumentVoter::VIEW, $comment->version->document);
 
@@ -40,9 +43,6 @@ final class ResolveCommentController extends AppController
             comment: $comment,
         ));
 
-        return $this->json([
-            'id' => (string) $comment->id,
-            'resolved' => $comment->resolved,
-        ], JsonResponse::HTTP_OK);
+        return $this->threadResponder->respond($request, $comment);
     }
 }

@@ -1,11 +1,16 @@
 {#
   Props:
-    comment     Comment               The root comment (parent === null).
-    replies     list<Comment>         Direct replies to this comment.
-    resolveUrl  string                POST URL for app_comment_resolve.
-    replyUrl    string                POST URL for app_comment_reply.
+    comment  Comment               The root comment (parent === null).
+    replies  list<Comment>         Direct replies to this comment.
+    error    string|null           Validation message for the reply form, if any.
+
+  Reply and resolve are plain HTML forms submitted through Turbo; the controllers
+  return a Turbo Stream that replaces this thread (targeted by the id below).
 #}
-<div class="bp-comment-thread{% if comment.resolved %} bp-comment-thread--resolved{% endif %}{% if comment.orphaned %} bp-comment-thread--orphaned{% endif %}">
+<div
+    id="comment-thread-{{ comment.id }}"
+    class="bp-comment-thread{% if comment.resolved %} bp-comment-thread--resolved{% endif %}{% if comment.orphaned %} bp-comment-thread--orphaned{% endif %}"
+>
     {% if comment.anchor.quote %}
     <blockquote class="bp-comment-quote">{{ comment.anchor.quote }}</blockquote>
     {% endif %}
@@ -27,25 +32,28 @@
 
     {% if not comment.resolved %}
     <div class="bp-comment-reply-form">
-        <textarea
-            data-reply-input
-            placeholder="{{ 'review.document.comment.reply_placeholder'|trans }}"
-            rows="2"
-        ></textarea>
-        <div class="bp-comment-actions">
-            <button
-                type="button"
-                class="bp-btn bp-btn--ghost bp-btn--sm"
-                data-reply-url="{{ replyUrl }}"
-                data-action="review#submitReply"
-            >{{ 'review.document.comment.reply'|trans }}</button>
-            <button
-                type="button"
-                class="bp-btn bp-btn--sm"
-                data-resolve-url="{{ resolveUrl }}"
-                data-action="review#resolveComment"
-            >{{ 'review.document.comment.resolve'|trans }}</button>
-        </div>
+        {% if error %}
+        <p class="bp-comment-error">{{ error }}</p>
+        {% endif %}
+
+        {# Fieldless resolve form — submitted by the Resolve button below via form=. #}
+        <form id="resolve-form-{{ comment.id }}" action="{{ path('app_comment_resolve', {id: comment.id}) }}" method="post" hidden>
+            <input type="hidden" name="_csrf_token" value="{{ csrf_token('comment-action') }}">
+        </form>
+
+        <form class="contents" action="{{ path('app_comment_reply', {id: comment.id}) }}" method="post">
+            <input type="hidden" name="_csrf_token" value="{{ csrf_token('comment-action') }}">
+            <textarea
+                name="body"
+                placeholder="{{ 'review.document.comment.reply_placeholder'|trans }}"
+                rows="2"
+                required
+            ></textarea>
+            <div class="bp-comment-actions">
+                <button type="submit" class="bp-btn bp-btn--ghost bp-btn--sm">{{ 'review.document.comment.reply'|trans }}</button>
+                <button type="submit" form="resolve-form-{{ comment.id }}" class="bp-btn bp-btn--sm">{{ 'review.document.comment.resolve'|trans }}</button>
+            </div>
+        </form>
     </div>
     {% endif %}
 </div>
