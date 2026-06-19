@@ -27,6 +27,10 @@
                    class="bp-nav__link{% if app.request.attributes.get('_route') == 'app_documents' %} bp-nav__link--active{% endif %}">
                     {{ 'nav.link.documents'|trans }}
                 </a>
+                <a href="{{ path('app_site_review_batches') }}"
+                   class="bp-nav__link{% if app.request.attributes.get('_route') starts with 'app_site_review_batch' %} bp-nav__link--active{% endif %}">
+                    {{ 'nav.link.site_reviews'|trans }}
+                </a>
                 <a href="{{ path('app_api_tokens') }}"
                    class="bp-nav__link{% if app.request.attributes.get('_route') == 'app_api_tokens' %} bp-nav__link--active{% endif %}">
                     {{ 'nav.link.api_tokens'|trans }}
