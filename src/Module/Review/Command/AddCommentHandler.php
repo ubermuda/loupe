@@ -24,7 +24,13 @@ final readonly class AddCommentHandler
         }
 
         $version = $command->document->currentVersion();
-        $anchor = $this->anchorService->create($version->plainText(), $command->start, $command->length);
+        $text = $version->plainText();
+
+        if ($command->start + $command->length > strlen($text)) {
+            throw new DomainErrors(['start' => 'comment.error.anchor_out_of_range']);
+        }
+
+        $anchor = $this->anchorService->create($text, $command->start, $command->length);
 
         $comment = new Comment(
             version: $version,

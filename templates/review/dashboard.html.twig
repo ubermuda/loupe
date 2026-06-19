@@ -27,7 +27,7 @@
             <tbody>
                 {% for document in documents %}
                 <tr data-document-id="{{ document.id }}">
-                    <td>{{ document.title }}</td>
+                    <td><a href="{{ path('app_document_review', {id: document.id}) }}">{{ document.title }}</a></td>
                     <td>
                         <span class="bp-badge bp-badge--{{ document.status.value }}">
                             {{ document.status.translationKey()|trans }}

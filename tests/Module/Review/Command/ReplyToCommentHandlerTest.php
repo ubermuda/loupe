@@ -32,10 +32,10 @@ final class ReplyToCommentHandlerTest extends KernelTestCase
         $createHandler = self::getContainer()->get(CreateDocumentHandler::class);
         $doc = $createHandler(new CreateDocumentCommand($owner, 'Reply Test Doc', "# Hello\n\nThis is content for the reply test."));
 
-        $html = $doc->currentVersion()->renderedHtml;
+        $plain = $doc->currentVersion()->plainText();
         $quote = 'content for the reply';
-        $start = strpos((string) $html, $quote);
-        self::assertIsInt($start, 'Quote must exist in rendered HTML');
+        $start = strpos($plain, $quote);
+        self::assertIsInt($start, 'Quote must exist in plain text');
         $length = strlen($quote);
 
         /** @var AddCommentHandler $addHandler */
