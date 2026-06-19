@@ -40,5 +40,8 @@
         </nav>
         {% endif %}
         {% block body %}{% endblock %}
+        {% if app.user and site_review_widget_token %}
+        <script src="/site-review/widget.js" data-token="{{ site_review_widget_token }}"></script>
+        {% endif %}
     </body>
 </html>
