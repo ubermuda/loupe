@@ -683,6 +683,77 @@
         @apply bg-tint text-fg;
     }
 
+    /* ── App shell (sidebar + content) ──────────────────────────────── */
+
+    .bp-app {
+        @apply grid min-h-screen;
+        grid-template-columns: 15rem 1fr;
+    }
+    .bp-app--collapsed {
+        grid-template-columns: 3.75rem 1fr;
+    }
+    .bp-main {
+        @apply min-w-0 overflow-x-hidden;
+    }
+
+    .bp-sidebar {
+        @apply flex flex-col gap-1 bg-surface-1 border-r border-line px-3 py-4;
+    }
+    .bp-sidebar__brand {
+        @apply flex items-center gap-2.5 px-2 mb-4 text-fg no-underline;
+    }
+    .bp-sidebar__brand-mark {
+        @apply w-7 h-7 rounded-lg bg-accent shrink-0;
+    }
+    .bp-sidebar__brand-name {
+        @apply text-sm font-semibold tracking-tight whitespace-nowrap;
+    }
+    .bp-sidebar__nav {
+        @apply flex flex-col gap-0.5;
+    }
+    .bp-sidebar__link {
+        @apply flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-sm font-medium text-fg-mute no-underline transition-colors;
+    }
+    .bp-sidebar__link:hover {
+        @apply bg-tint text-fg;
+    }
+    .bp-sidebar__link--active {
+        @apply bg-accent-soft text-accent;
+    }
+    .bp-sidebar__link svg {
+        @apply w-4 h-4 shrink-0;
+    }
+    .bp-sidebar__spacer {
+        @apply mt-auto;
+    }
+    .bp-sidebar__account {
+        @apply flex items-center gap-2.5 px-2 py-2 border-t border-line;
+    }
+    .bp-sidebar__account-name {
+        @apply text-sm text-fg truncate min-w-0;
+    }
+    .bp-sidebar__toggle {
+        @apply ml-auto inline-flex items-center justify-center w-7 h-7 rounded-md text-fg-dim cursor-pointer border-0 bg-transparent transition-colors;
+    }
+    .bp-sidebar__toggle:hover {
+        @apply bg-tint text-fg;
+    }
+
+    /* Collapsed state: hide labels, center icons */
+    .bp-app--collapsed .bp-sidebar__brand-name,
+    .bp-app--collapsed .bp-sidebar__link-label,
+    .bp-app--collapsed .bp-sidebar__account-name {
+        @apply hidden;
+    }
+    .bp-app--collapsed .bp-sidebar__link,
+    .bp-app--collapsed .bp-sidebar__brand,
+    .bp-app--collapsed .bp-sidebar__account {
+        @apply justify-center px-0;
+    }
+    .bp-app--collapsed .bp-sidebar__toggle {
+        @apply ml-0;
+    }
+
     /* ── Code / pre blocks ──────────────────────────────────────────────── */
 
     .bp-code {
