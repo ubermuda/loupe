@@ -57,7 +57,7 @@ form.
 
 ## Generalize CORS handling if the API surface grows
 
-Site-review uses a small `SiteReviewCorsSubscriber` scoped to `^/site-review/api`
+Site-review uses a small `SiteReviewCorsSubscriber` scoped to `^/api/site-review`
 (reflects `Origin`, answers preflight before the firewall), mirroring how the MCP
 endpoint handles CORS locally. This is intentionally per-endpoint. If we add more
 cross-origin API surface, replace these ad-hoc subscribers with a single shared
