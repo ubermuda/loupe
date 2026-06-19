@@ -415,9 +415,37 @@
                 <source>account.api_token.table.column.created</source>
                 <target>Created</target>
             </trans-unit>
+            <trans-unit id="account.api_token.table.column.scope">
+                <source>account.api_token.table.column.scope</source>
+                <target>Scope</target>
+            </trans-unit>
             <trans-unit id="account.api_token.action.revoke">
                 <source>account.api_token.action.revoke</source>
                 <target>Revoke</target>
+            </trans-unit>
+            <trans-unit id="account.form.api_token_form.scope.label">
+                <source>account.form.api_token_form.scope.label</source>
+                <target>Scope</target>
+            </trans-unit>
+            <trans-unit id="account.form.api_token_form.scope.mcp">
+                <source>account.form.api_token_form.scope.mcp</source>
+                <target>MCP (agent read access)</target>
+            </trans-unit>
+            <trans-unit id="account.form.api_token_form.scope.site-review">
+                <source>account.form.api_token_form.scope.site-review</source>
+                <target>Site review (widget submit only)</target>
+            </trans-unit>
+            <trans-unit id="account.api_token.scope.mcp">
+                <source>account.api_token.scope.mcp</source>
+                <target>MCP</target>
+            </trans-unit>
+            <trans-unit id="account.api_token.scope.site-review">
+                <source>account.api_token.scope.site-review</source>
+                <target>Site review</target>
+            </trans-unit>
+            <trans-unit id="account.api_token.scope.site_review_warning">
+                <source>account.api_token.scope.site_review_warning</source>
+                <target>A site-review token is embedded in your app's page source and visible to anyone who can view-source. Use a dedicated dev token, never a production credential.</target>
             </trans-unit>
 
             <!-- Document dashboard -->

@@ -35,6 +35,12 @@
                 {{ form_widget(form.label, {'attr': {'class': 'bp-input'}}) }}
                 <div class="bp-field-errors">{{ form_errors(form.label) }}</div>
             </div>
+            <div class="bp-form-field">
+                {{ form_label(form.scope) }}
+                {{ form_widget(form.scope, {'attr': {'class': 'bp-input'}}) }}
+                <div class="bp-field-errors">{{ form_errors(form.scope) }}</div>
+                <p class="bp-empty">{{ 'account.api_token.scope.site_review_warning'|trans }}</p>
+            </div>
             <button type="submit" class="bp-btn bp-btn--primary">{{ 'account.api_token.form.submit'|trans }}</button>
         {{ form_end(form) }}
     </div>
@@ -45,6 +51,7 @@
             <thead>
                 <tr>
                     <th>{{ 'account.api_token.table.column.label'|trans }}</th>
+                    <th>{{ 'account.api_token.table.column.scope'|trans }}</th>
                     <th>{{ 'account.api_token.table.column.created'|trans }}</th>
                     <th></th>
                 </tr>
@@ -53,6 +60,7 @@
                 {% for token in tokens %}
                 <tr>
                     <td>{{ token.label }}</td>
+                    <td>{{ ('account.api_token.scope.' ~ token.scope.value)|trans }}</td>
                     <td>{{ token.createdAt|date('Y-m-d H:i') }}</td>
                     <td>
                         <form method="POST" action="{{ path('app_api_token_revoke', {tokenId: token.id}) }}">

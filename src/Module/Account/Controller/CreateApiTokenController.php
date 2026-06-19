@@ -41,7 +41,7 @@ class CreateApiTokenController extends AppController
 
         if ($form->isSubmitted() && $form->isValid()) {
             $label = $data->label ?: throw new \LogicException('Label is required after form validation.');
-            [$token, $raw] = ApiToken::issue($user, $label);
+            [$token, $raw] = ApiToken::issue($user, $label, $data->scope);
             $this->em->persist($token);
             $this->em->flush();
 

@@ -27,6 +27,9 @@ class ApiToken
         #[ORM\Column(length: 100)]
         public string $label,
 
+        #[ORM\Column(enumType: ApiTokenScope::class)]
+        public readonly ApiTokenScope $scope,
+
         #[ORM\Column(length: 64, unique: true)]
         public readonly string $tokenHash,
 
@@ -36,11 +39,11 @@ class ApiToken
     }
 
     /** @return array{0: self, 1: non-empty-string} */
-    public static function issue(User $owner, string $label): array
+    public static function issue(User $owner, string $label, ApiTokenScope $scope): array
     {
         $raw = bin2hex(random_bytes(32));
 
-        return [new self($owner, $label, hash('sha256', $raw)), $raw];
+        return [new self($owner, $label, $scope, hash('sha256', $raw)), $raw];
     }
 
     public function matches(string $rawToken): bool
