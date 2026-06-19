@@ -21,6 +21,7 @@ const DOCUMENT_MARKDOWN = `# E2E Review Test Document
 This paragraph contains a ${KNOWN_PHRASE} in this review.`;
 
 const COMMENT_BODY = 'This is an e2e test comment on the selected text.';
+const REPLY_BODY = 'This is an e2e reply to the comment.';
 
 /** Register a user via the dev endpoint and immediately mark them as verified. */
 async function devRegisterAndVerify(
@@ -164,18 +165,22 @@ test('full review loop: comment, request changes, reload persistence', async ({
 
     await page.getByRole('button', { name: 'Comment' }).click();
 
-    // On success (HTTP 201) the Stimulus controller calls window.location.reload().
-    // The page reloads to the same URL. Wait for the sidebar to show the comment
-    // (the composer disappears and .bp-comment-body appears after the reload).
-    // We assert the doc is visible first to confirm the reload completed.
+    // The composer is a plain form submitted through Turbo; the controller returns
+    // a Turbo Stream that replaces the thread list in place (no reload). The
+    // composer hides on success and the new thread appears in the sidebar.
     await expect(
-        page.locator('[data-comment-anchor-target="doc"]'),
-    ).toBeVisible({ timeout: 10000 });
+        page.locator('[data-comment-anchor-target="composer"]'),
+    ).toBeHidden({ timeout: 10000 });
 
     // Step 7: Assert the comment appears in the sidebar.
     const commentBody = page.locator('.bp-comment-body').first();
     await expect(commentBody).toBeVisible({ timeout: 10000 });
     await expect(commentBody).toContainText(COMMENT_BODY);
+
+    // Step 7b: the thread renders the anchored document text as a quote.
+    await expect(page.locator('.bp-comment-quote').first()).toContainText(
+        KNOWN_PHRASE,
+    );
 
     // Step 8: Assert the stored quote equals exactly the selected phrase
     // via the dev read-back endpoint. This is the critical anchor reconciliation
@@ -188,14 +193,53 @@ test('full review loop: comment, request changes, reload persistence', async ({
     expect(state.comments).toHaveLength(1);
     expect(state.comments[0].quote).toBe(KNOWN_PHRASE);
 
+    // Step 8b: Reply to the comment. Reply is a plain form submitted through Turbo;
+    // the controller returns a Turbo Stream (HTTP 200, turbo-stream content type)
+    // that replaces the thread in place — no page reload. Asserting both status and
+    // content type guards the whole path: CSRF (the eager submit listener runs the
+    // double-submit dance), the {id:comment} entity mapping, and the stream wiring
+    // (a wrong content type makes Turbo silently no-op).
+    const replyResponsePromise = page.waitForResponse(
+        (r) => r.url().includes('/reply') && r.request().method() === 'POST',
+    );
+    await page
+        .locator('.bp-comment-reply-form textarea')
+        .first()
+        .fill(REPLY_BODY);
+    await page.getByRole('button', { name: 'Reply' }).click();
+    const replyResponse = await replyResponsePromise;
+    expect(replyResponse.status()).toBe(200);
+    expect(replyResponse.headers()['content-type']).toContain('turbo-stream');
+
+    // The reply appears in place as a .bp-comment--reply (Turbo replaced the thread).
+    await expect(
+        page.locator('.bp-comment--reply .bp-comment-body'),
+    ).toContainText(REPLY_BODY, { timeout: 10000 });
+
+    // Step 8c: Resolve the thread. Same form + Turbo Stream path; the thread is
+    // replaced in place and gains the resolved modifier.
+    const resolveResponsePromise = page.waitForResponse(
+        (r) => r.url().includes('/resolve') && r.request().method() === 'POST',
+    );
+    await page.getByRole('button', { name: 'Resolve' }).click();
+    const resolveResponse = await resolveResponsePromise;
+    expect(resolveResponse.status()).toBe(200);
+    expect(resolveResponse.headers()['content-type']).toContain('turbo-stream');
+
+    await expect(page.locator('.bp-comment-thread--resolved')).toBeVisible({
+        timeout: 10000,
+    });
+
     // Step 9: Submit the "Request changes" verdict.
     await page.getByRole('button', { name: 'Request changes' }).click();
 
-    // The form POSTs (Turbo Drive) and redirects back to the review page.
-    // Assert the doc is visible to confirm the redirect completed.
-    await expect(
-        page.locator('[data-comment-anchor-target="doc"]'),
-    ).toBeVisible({ timeout: 10000 });
+    // The form POSTs (Turbo Drive) and redirects back to the *same* review URL,
+    // so "doc is visible" proves nothing (it never went away). Wait for the
+    // success flash, which only renders after the verdict is persisted — otherwise
+    // navigating to /documents races the POST and reads a stale "In review" badge.
+    await expect(page.locator('.bp-flash--success')).toBeVisible({
+        timeout: 10000,
+    });
 
     // Step 10: Assert the status badge on the dashboard (scoped to THIS document's row).
     await page.goto('/documents');

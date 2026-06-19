@@ -9,11 +9,16 @@ use App\Module\Account\Entity\User;
 use App\Module\Review\Command\ReplyToCommentCommand;
 use App\Module\Review\Command\ReplyToCommentHandler;
 use App\Module\Review\Entity\Comment;
+use App\Module\Review\Form\ReplyFormType;
+use App\Module\Review\Form\ReplyRequest;
+use App\Module\Review\Repository\CommentRepository;
 use App\Module\Review\Security\DocumentVoter;
-use Symfony\Component\HttpFoundation\JsonResponse;
+use App\Module\Review\Twig\ReviewExtension;
+use Symfony\Component\Form\FormFactoryInterface;
 use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
-use Ubermuda\SymfonyExtra\Csrf\Attribute\CsrfToken;
+use Symfony\UX\Turbo\TurboBundle;
 
 /**
  * access is enforced per-branch: denyAccessUnlessGranted() is called imperatively
@@ -21,9 +26,8 @@ use Ubermuda\SymfonyExtra\Csrf\Attribute\CsrfToken;
  * resolved Comment entity, not directly available as a route parameter, so
  * #[IsGranted(subject:)] cannot be used here.
  */
-#[CsrfToken('comment-action')]
 #[Route(
-    '/comments/{commentId:comment}/reply',
+    '/comments/{id:comment}/reply',
     name: 'app_comment_reply',
     methods: ['POST'],
 )]
@@ -31,31 +35,46 @@ final class ReplyToCommentController extends AppController
 {
     public function __construct(
         private readonly ReplyToCommentHandler $replyToCommentHandler,
+        private readonly CommentRepository $comments,
+        private readonly FormFactoryInterface $formFactory,
     ) {
     }
 
-    public function __invoke(Comment $comment, Request $request): JsonResponse
+    public function __invoke(Comment $comment, Request $request): Response
     {
         $this->denyAccessUnlessGranted(DocumentVoter::VIEW, $comment->version->document);
 
         $user = $this->getUser();
         assert($user instanceof User);
 
-        $rawBody = $request->request->get('body');
-        if (!is_string($rawBody) || '' === trim($rawBody)) {
-            return $this->json(['errors' => ['body' => 'body must not be empty']], JsonResponse::HTTP_UNPROCESSABLE_ENTITY);
+        $data = new ReplyRequest();
+        $form = $this->formFactory->createNamed(ReviewExtension::replyFormName($comment), ReplyFormType::class, $data);
+        $form->handleRequest($request);
+
+        $replyForm = null;
+        $status = Response::HTTP_OK;
+
+        if ($form->isSubmitted() && $form->isValid()) {
+            ($this->replyToCommentHandler)(new ReplyToCommentCommand(
+                actor: $user,
+                parent: $comment,
+                body: $data->body ?: throw new \LogicException('body required after validation'),
+            ));
+        } else {
+            $replyForm = $form->createView();
+            $status = Response::HTTP_UNPROCESSABLE_ENTITY;
         }
 
-        $reply = ($this->replyToCommentHandler)(new ReplyToCommentCommand(
-            actor: $user,
-            parent: $comment,
-            body: $rawBody,
-        ));
+        if (TurboBundle::STREAM_FORMAT !== $request->getPreferredFormat()) {
+            return $this->redirectToRoute('app_document_review', ['id' => (string) $comment->version->document->id]);
+        }
 
-        return $this->json([
-            'id' => (string) $reply->id,
-            'body' => $reply->body,
-            'resolved' => $reply->resolved,
-        ], JsonResponse::HTTP_CREATED);
+        $html = $this->renderView('review/_comment_thread.stream.html.twig', [
+            'comment' => $comment,
+            'replies' => $this->comments->findReplies($comment),
+            'replyForm' => $replyForm,
+        ]);
+
+        return new Response($html, $status, ['Content-Type' => TurboBundle::STREAM_MEDIA_TYPE]);
     }
 }

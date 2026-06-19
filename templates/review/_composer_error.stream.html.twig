@@ -1,0 +1,10 @@
+{#
+  Turbo Stream returned when adding a comment fails validation: show the message
+  in the floating composer (which stays open on a non-2xx response).
+
+  Vars:
+    message  string   The error to display.
+#}
+<turbo-stream action="update" target="composer-error">
+    <template>{{ message }}</template>
+</turbo-stream>

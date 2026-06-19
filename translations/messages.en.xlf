@@ -525,6 +525,18 @@
                 <source>review.document.comment.resolve</source>
                 <target>Resolve</target>
             </trans-unit>
+            <trans-unit id="review.document.comment.add_failed">
+                <source>review.document.comment.add_failed</source>
+                <target>Couldn’t add the comment. Please try selecting the text again.</target>
+            </trans-unit>
+            <trans-unit id="comment.error.not_owner">
+                <source>comment.error.not_owner</source>
+                <target>You can only comment on your own documents.</target>
+            </trans-unit>
+            <trans-unit id="comment.error.anchor_out_of_range">
+                <source>comment.error.anchor_out_of_range</source>
+                <target>That selection is no longer valid. Please select the text again.</target>
+            </trans-unit>
 
             <!-- Document review flash messages -->
             <trans-unit id="review.document.flash.verdict_submitted">

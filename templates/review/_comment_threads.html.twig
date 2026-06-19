@@ -1,0 +1,19 @@
+{#
+  The review sidebar's list of comment threads. Rendered both on initial page
+  load and by the add-comment Turbo Stream (which replaces #comment-threads),
+  so it carries its own wrapper element with the id.
+
+  Vars:
+    comments  list<Comment>   All comments for the version (roots and replies).
+#}
+<div id="comment-threads" class="bp-comment-threads">
+    {% set rootComments = comments|filter(c => c.parent is null) %}
+    {% if rootComments|length > 0 %}
+        {% for comment in rootComments %}
+            {% set replies = comments|filter(c => c.parent is not null and c.parent.id == comment.id) %}
+            <twig:CommentThread :comment="comment" :replies="replies|map(c => c)" />
+        {% endfor %}
+    {% else %}
+        <p class="bp-empty">{{ 'review.document.sidebar.empty'|trans }}</p>
+    {% endif %}
+</div>
