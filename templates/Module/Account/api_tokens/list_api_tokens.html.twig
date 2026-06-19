@@ -3,7 +3,7 @@
 {% block title %}{{ 'account.api_token.page.title'|trans }}{% endblock %}
 
 {% block body %}
-{%- set mcpUrl = url('_mcp_endpoint') -%}
+{%- set mcpUrl = url('app_mcp_endpoint') -%}
 {%- set mcpClaudeCmd = "claude mcp add betterplans " ~ mcpUrl ~ " --transport http --header \"Authorization: Bearer YOUR_TOKEN\"" -%}
 {%- set mcpAuthHeader = "Authorization: Bearer YOUR_TOKEN" -%}
 {%- set mcpJsonLine1 = "{" -%}

@@ -69,7 +69,7 @@ final class NavAndMcpCardTest extends WebTestCase
         self::assertResponseIsSuccessful();
 
         $content = (string) $client->getResponse()->getContent();
-        self::assertStringContainsString('/_mcp', $content, 'MCP card must contain the endpoint path /_mcp');
+        self::assertStringContainsString('/mcp', $content, 'MCP card must contain the endpoint path /mcp');
     }
 
     public function test_login_page_does_not_show_nav(): void

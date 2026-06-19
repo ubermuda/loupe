@@ -32,7 +32,7 @@ final readonly class CreateDocumentTool
      */
     public function __invoke(string $title, string $markdown): array
     {
-        // The ^/_mcp firewall requires ROLE_USER, so an authenticated User is guaranteed here.
+        // The ^/mcp firewall requires ROLE_USER, so an authenticated User is guaranteed here.
         /** @var User $user */
         $user = $this->security->getUser();
         $doc = ($this->createDocument)(new CreateDocumentCommand($user, $title, $markdown));

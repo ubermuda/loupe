@@ -26,7 +26,7 @@ final readonly class ListDocumentsTool
      */
     public function __invoke(): array
     {
-        // The ^/_mcp firewall requires ROLE_USER, so an authenticated User is guaranteed here.
+        // The ^/mcp firewall requires ROLE_USER, so an authenticated User is guaranteed here.
         /** @var User $user */
         $user = $this->security->getUser();
 

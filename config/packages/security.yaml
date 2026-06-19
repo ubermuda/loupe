@@ -12,7 +12,7 @@ security:
             pattern: ^/(_profiler|_wdt|assets|build)/
             security: false
         mcp:
-            pattern: ^/_mcp
+            pattern: ^/mcp
             stateless: true
             custom_authenticators:
                 - App\Module\Account\Security\ApiTokenAuthenticator
@@ -38,7 +38,7 @@ security:
                 always_remember_me: false
 
     access_control:
-        - { path: ^/_mcp,            roles: ROLE_USER }
+        - { path: ^/mcp,            roles: ROLE_USER }
         # The /dev/* controllers are #[When('dev')] only, so this path 404s in
         # prod and this rule is inert there. It exists so the e2e seeding endpoint
         # is reachable unauthenticated in the dev environment.

@@ -16,14 +16,14 @@ final class McpEndpointAuthTest extends WebTestCase
     public function test_missing_token_is_rejected(): void
     {
         $client = static::createClient();
-        $client->request(\Symfony\Component\HttpFoundation\Request::METHOD_POST, '/_mcp', server: ['CONTENT_TYPE' => 'application/json'], content: self::INIT);
+        $client->request(\Symfony\Component\HttpFoundation\Request::METHOD_POST, '/mcp', server: ['CONTENT_TYPE' => 'application/json'], content: self::INIT);
         self::assertSame(401, $client->getResponse()->getStatusCode());
     }
 
     public function test_invalid_token_is_rejected(): void
     {
         $client = static::createClient();
-        $client->request(\Symfony\Component\HttpFoundation\Request::METHOD_POST, '/_mcp', server: [
+        $client->request(\Symfony\Component\HttpFoundation\Request::METHOD_POST, '/mcp', server: [
             'CONTENT_TYPE' => 'application/json',
             'HTTP_AUTHORIZATION' => 'Bearer invalid-token-value',
         ], content: self::INIT);
@@ -33,6 +33,47 @@ final class McpEndpointAuthTest extends WebTestCase
     public function test_valid_token_authenticates(): void
     {
         $client = static::createClient();
+        $raw = $this->persistValidToken();
+
+        $client->request(\Symfony\Component\HttpFoundation\Request::METHOD_POST, '/mcp', server: [
+            'CONTENT_TYPE' => 'application/json',
+            'HTTP_AUTHORIZATION' => 'Bearer '.$raw,
+        ], content: self::INIT);
+        $response = $client->getResponse();
+        self::assertSame(200, $response->getStatusCode(), (string) $response->getContent());
+    }
+
+    public function test_request_on_the_app_host_is_not_blocked_by_dns_rebinding(): void
+    {
+        $client = static::createClient();
+        $raw = $this->persistValidToken();
+
+        // The MCP SDK's DNS-rebinding protection allows only localhost by default;
+        // MCP_ALLOWED_HOSTS adds the app host so real clients can connect.
+        $client->request(\Symfony\Component\HttpFoundation\Request::METHOD_POST, '/mcp', server: [
+            'HTTP_HOST' => 'betterplans.dev.localhost',
+            'CONTENT_TYPE' => 'application/json',
+            'HTTP_AUTHORIZATION' => 'Bearer '.$raw,
+        ], content: self::INIT);
+        $response = $client->getResponse();
+        self::assertSame(200, $response->getStatusCode(), (string) $response->getContent());
+    }
+
+    public function test_request_on_an_unlisted_host_is_rejected(): void
+    {
+        $client = static::createClient();
+        $raw = $this->persistValidToken();
+
+        $client->request(\Symfony\Component\HttpFoundation\Request::METHOD_POST, '/mcp', server: [
+            'HTTP_HOST' => 'evil.example.com',
+            'CONTENT_TYPE' => 'application/json',
+            'HTTP_AUTHORIZATION' => 'Bearer '.$raw,
+        ], content: self::INIT);
+        self::assertSame(403, $client->getResponse()->getStatusCode());
+    }
+
+    private function persistValidToken(): string
+    {
         $em = static::getContainer()->get(EntityManagerInterface::class);
         $user = new User(username: 'agent', fullName: 'Agent', email: 'agent@example.com', password: 'hashed-placeholder');
         $user->emailVerifiedAt = new \DateTimeImmutable();
@@ -41,11 +82,6 @@ final class McpEndpointAuthTest extends WebTestCase
         $em->persist($token);
         $em->flush();
 
-        $client->request(\Symfony\Component\HttpFoundation\Request::METHOD_POST, '/_mcp', server: [
-            'CONTENT_TYPE' => 'application/json',
-            'HTTP_AUTHORIZATION' => 'Bearer '.$raw,
-        ], content: self::INIT);
-        $response = $client->getResponse();
-        self::assertSame(200, $response->getStatusCode(), (string) $response->getContent());
+        return $raw;
     }
 }

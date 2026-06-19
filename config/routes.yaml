@@ -10,6 +10,6 @@
 controllers:
     resource: routing.controllers
 
-mcp:
-    resource: .
-    type: mcp
+# The MCP HTTP endpoint is served by App\Module\Mcp\Controller\McpEndpointController
+# (via the attribute route above) instead of the bundle's controller, so the
+# DNS-rebinding-protection host allowlist can be configured (MCP_ALLOWED_HOSTS).
