@@ -15,7 +15,6 @@ use App\Module\Review\Repository\CommentRepository;
 use App\Module\Review\Security\DocumentVoter;
 use App\Module\Review\Twig\ReviewExtension;
 use Symfony\Component\Form\FormFactoryInterface;
-use Symfony\Component\Form\FormView;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
@@ -52,25 +51,20 @@ final class ReplyToCommentController extends AppController
         $form = $this->formFactory->createNamed(ReviewExtension::replyFormName($comment), ReplyFormType::class, $data);
         $form->handleRequest($request);
 
+        $replyForm = null;
+        $status = Response::HTTP_OK;
+
         if ($form->isSubmitted() && $form->isValid()) {
             ($this->replyToCommentHandler)(new ReplyToCommentCommand(
                 actor: $user,
                 parent: $comment,
                 body: $data->body ?: throw new \LogicException('body required after validation'),
             ));
-
-            return $this->threadStream($request, $comment);
+        } else {
+            $replyForm = $form->createView();
+            $status = Response::HTTP_UNPROCESSABLE_ENTITY;
         }
 
-        return $this->threadStream($request, $comment, $form->createView(), Response::HTTP_UNPROCESSABLE_ENTITY);
-    }
-
-    private function threadStream(
-        Request $request,
-        Comment $comment,
-        ?FormView $replyForm = null,
-        int $status = Response::HTTP_OK,
-    ): Response {
         if (TurboBundle::STREAM_FORMAT !== $request->getPreferredFormat()) {
             return $this->redirectToRoute('app_document_review', ['id' => (string) $comment->version->document->id]);
         }

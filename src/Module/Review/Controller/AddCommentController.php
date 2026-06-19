@@ -47,51 +47,44 @@ final class AddCommentController extends AppController
         $form->handleRequest($request);
 
         if (!$form->isSubmitted() || !$form->isValid()) {
-            return $this->composerErrorStream($request, $document, $this->formErrorMessage($form));
+            $errorMessage = $this->formErrorMessage($form);
+        } else {
+            try {
+                ($this->addCommentHandler)(new AddCommentCommand(
+                    actor: $user,
+                    document: $document,
+                    start: $data->start ?? throw new \LogicException('start required after validation'),
+                    length: $data->length ?? throw new \LogicException('length required after validation'),
+                    body: $data->body ?: throw new \LogicException('body required after validation'),
+                ));
+                $errorMessage = null;
+            } catch (DomainErrors $e) {
+                $errorMessage = implode(' ', array_map(
+                    fn (string $key): string => $this->translator->trans($key),
+                    $e->errors,
+                ));
+            }
         }
 
-        try {
-            ($this->addCommentHandler)(new AddCommentCommand(
-                actor: $user,
-                document: $document,
-                start: $data->start ?? throw new \LogicException('start required after validation'),
-                length: $data->length ?? throw new \LogicException('length required after validation'),
-                body: $data->body ?: throw new \LogicException('body required after validation'),
-            ));
-        } catch (DomainErrors $e) {
-            $message = implode(' ', array_map(
-                fn (string $key): string => $this->translator->trans($key),
-                $e->errors,
-            ));
-
-            return $this->composerErrorStream($request, $document, $message);
-        }
-
-        return $this->threadListStream($request, $document);
-    }
-
-    private function threadListStream(Request $request, Document $document): Response
-    {
         if (TurboBundle::STREAM_FORMAT !== $request->getPreferredFormat()) {
             return $this->redirectToRoute('app_document_review', ['id' => (string) $document->id]);
         }
 
-        $html = $this->renderView('review/_comment_added.stream.html.twig', [
-            'comments' => $this->comments->findByVersion($document->currentVersion()),
-        ]);
-
-        return new Response($html, Response::HTTP_OK, ['Content-Type' => TurboBundle::STREAM_MEDIA_TYPE]);
-    }
-
-    private function composerErrorStream(Request $request, Document $document, string $message): Response
-    {
-        if (TurboBundle::STREAM_FORMAT !== $request->getPreferredFormat()) {
-            return $this->redirectToRoute('app_document_review', ['id' => (string) $document->id]);
+        if (null !== $errorMessage) {
+            return new Response(
+                $this->renderView('review/_composer_error.stream.html.twig', ['message' => $errorMessage]),
+                Response::HTTP_UNPROCESSABLE_ENTITY,
+                ['Content-Type' => TurboBundle::STREAM_MEDIA_TYPE],
+            );
         }
 
-        $html = $this->renderView('review/_composer_error.stream.html.twig', ['message' => $message]);
-
-        return new Response($html, Response::HTTP_UNPROCESSABLE_ENTITY, ['Content-Type' => TurboBundle::STREAM_MEDIA_TYPE]);
+        return new Response(
+            $this->renderView('review/_comment_added.stream.html.twig', [
+                'comments' => $this->comments->findByVersion($document->currentVersion()),
+            ]),
+            Response::HTTP_OK,
+            ['Content-Type' => TurboBundle::STREAM_MEDIA_TYPE],
+        );
     }
 
     /**
