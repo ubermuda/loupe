@@ -100,6 +100,14 @@ return $this->forward(SomeController::class, $params)
 
 **Turbo Stream animations (opt-in):** Hook `turbo:before-stream-render` globally to fade elements in/out. Add a `data-` attribute to any target element to opt it in.
 
+**Disable prefetch on side-effecting GET links:** Turbo 8 prefetches links on hover by default (it issues a real GET to the `href`). For a link whose GET has side effects — `logout` being the canonical case, but also any "magic" GET that mutates state — that prefetch fires just from hovering, e.g. silently logging the user out. Add `data-turbo-prefetch="false"` to such links:
+
+```twig
+<a href="{{ path('app_logout') }}" data-turbo-prefetch="false">Log out</a>
+```
+
+Prefer making state changes POST endpoints; when a GET link with side effects is unavoidable, it must opt out of prefetch.
+
 ## Stimulus `connect()` timing and layout
 
 **`connect()` fires before layout is computed:** During Turbo navigation, `connect()` fires via MutationObserver before the browser has computed layout — `getBoundingClientRect()` returns `(0, 0)`. Never do geometry-dependent setup synchronously in `connect()`. Use a `ResizeObserver` instead: its initial callback always fires after layout, making it the correct entry point for size-dependent canvas or element initialization.
