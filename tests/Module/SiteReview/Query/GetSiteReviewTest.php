@@ -42,10 +42,11 @@ final class GetSiteReviewTest extends KernelTestCase
 
         $id = $batch->id;
         self::assertNotNull($id);
+        $this->em->clear();
 
         $result = ($this->getSiteReview)($id, $owner);
 
-        self::assertNotSame('', $result['createdAt']);
+        self::assertSame($batch->createdAt->format(\DateTimeInterface::ATOM), $result['createdAt']);
         self::assertCount(2, $result['comments']);
         self::assertSame('first', $result['comments'][0]['body']);
         self::assertSame('.a', $result['comments'][0]['selector']);

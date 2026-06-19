@@ -6,7 +6,7 @@ namespace App\Module\SiteReview\Query;
 
 use Symfony\Component\Uid\Uuid;
 
-final class BatchNotFound extends \RuntimeException
+final class BatchNotFound extends \DomainException
 {
     public static function forId(Uuid $id): self
     {
