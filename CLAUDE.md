@@ -17,6 +17,12 @@ These skills contain detailed conventions for specific areas. **Invoke the relev
 | `project-templates` | `.html.twig` files or Twig component PHP classes |
 | `project-translations` | UI strings, translation keys, or adding a new locale |
 
+## Getting feedback on long documents
+
+When you want the user's feedback on a **long-form document** — an implementation plan, a design spec, an RFC, an architecture write-up, or anything substantial they need to read and comment on at their own pace — submit it to the Better Plans app via the `betterplans` MCP (`create_document`, or `revise_document` for follow-ups) and give the user the returned review URL. That is what the app is for; dogfood it.
+
+This applies **only** to documents meant for considered review. Do **not** route ordinary conversation through it — clarifying questions, quick confirmations, short summaries, options you're discussing inline, or anything that belongs in the normal back-and-forth stays in the chat. The test: if it's a document the user would sit down and read, send it to Better Plans; if it's a turn in a discussion, keep it in the terminal.
+
 ## Notes for later
 
 When you identify something worth remembering for a future session — a TODO, a follow-up, a known issue, a design decision to revisit — append it to `docs/NEXT_STEPS.md`. Do not leave such notes in code comments — `docs/NEXT_STEPS.md` is the only place open work is tracked. No `TODO`/`FIXME`/`XXX` in code (gamache-enforced).
