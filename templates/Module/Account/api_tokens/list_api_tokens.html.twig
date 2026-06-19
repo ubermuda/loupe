@@ -28,7 +28,7 @@
         {% endfor %}
     {% endfor %}
 
-    <div class="bp-card">
+    <div class="bp-card mb-6">
         {{ form_start(form, {'action': path('app_api_token_create'), 'method': 'POST', 'attr': {'class': 'bp-form'}}) }}
             <div class="bp-form-field">
                 {{ form_label(form.label) }}
@@ -46,32 +46,28 @@
     </div>
 
     {% if tokens|length > 0 %}
-    <div class="bp-card">
-        <table class="bp-table">
-            <thead>
-                <tr>
-                    <th>{{ 'account.api_token.table.column.label'|trans }}</th>
-                    <th>{{ 'account.api_token.table.column.scope'|trans }}</th>
-                    <th>{{ 'account.api_token.table.column.created'|trans }}</th>
-                    <th></th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for token in tokens %}
-                <tr>
-                    <td>{{ token.label }}</td>
-                    <td>{{ ('account.api_token.scope.' ~ token.scope.value)|trans }}</td>
-                    <td>{{ token.createdAt|date('Y-m-d H:i') }}</td>
-                    <td>
-                        <form method="POST" action="{{ path('app_api_token_revoke', {tokenId: token.id}) }}">
-                            <input type="hidden" name="_csrf_token" value="{{ csrf_token('revoke-api-token') }}">
-                            <button type="submit" class="bp-btn bp-btn--danger">{{ 'account.api_token.action.revoke'|trans }}</button>
-                        </form>
-                    </td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
+    <div class="bp-doc-list mb-6">
+        {% for token in tokens %}
+        <div class="bp-doc-row">
+            <div class="bp-doc-row__main">
+                <span class="bp-doc-row__title">{{ token.label }}</span>
+                <div class="bp-doc-row__meta">
+                    <span>{{ ('account.api_token.scope.' ~ token.scope.value)|trans }}</span>
+                    <span>&middot;</span>
+                    <span>{{ token.createdAt|date('M j, Y') }}</span>
+                </div>
+            </div>
+            <form method="POST" action="{{ path('app_api_token_revoke', {tokenId: token.id}) }}">
+                <input type="hidden" name="_csrf_token" value="{{ csrf_token('revoke-api-token') }}">
+                <button type="submit" class="bp-btn bp-btn--danger">{{ 'account.api_token.action.revoke'|trans }}</button>
+            </form>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="bp-card flex flex-col items-center text-center gap-3 py-12 mb-6">
+        <twig:ux:icon name="lucide:key-round" class="w-8 h-8 text-fg-dim" />
+        <p class="bp-empty not-italic">{{ 'account.api_token.empty'|trans }}</p>
     </div>
     {% endif %}
 

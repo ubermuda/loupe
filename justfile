@@ -61,9 +61,6 @@ gamache:
 
 ci: cs phpstan arkitect gamache lint-e2e phpunit
 
-sort-translations:
-    php bin/sort-translations
-
 migrate-diff: (exec "bin/console doctrine:migrations:diff")
 
 migrate-run: (exec "bin/console doctrine:migrations:migrate")

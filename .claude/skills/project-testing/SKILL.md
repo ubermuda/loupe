@@ -69,3 +69,12 @@ $this->repo->expects($this->once())->method('findOneByEmail')->willReturn(null);
 ```
 
 Update the `use` import to match: `use PHPUnit\Framework\MockObject\Stub;` or `use PHPUnit\Framework\MockObject\MockObject;`. Watch for `N` characters in test output and the "OK, but there were issues!" summary line — these are framework-level notices separate from PHP `E_NOTICE`.
+
+## WebTestCase — assert on stable hooks, not markup structure
+
+`WebTestCase` crawler assertions are coupled to the rendered markup, so a visual refactor silently breaks them — `assertCount(1, $crawler->filter('tbody tr'))` fails the moment a `<table>` becomes `.bp-doc-row` divs. Prefer **stable hooks** over structural/positional selectors:
+
+- ✓ `$crawler->filter('[data-document-id]')`, `'.bp-doc-row'`, `'[data-controller="…"]'` — a `data-*` attribute, a route-bound `id`, or a `.bp-*` component class.
+- ✗ `'tbody tr'`, `'table td'`, `'div > span:first-child'` — tree position and raw HTML tags that a template redesign will move.
+
+This mirrors the Playwright selector-scoping rule in `project-e2e`: assert on intent-carrying hooks the markup is unlikely to drop.

@@ -27,7 +27,7 @@ final class BatchesPageTest extends WebTestCase
 
         self::assertResponseIsSuccessful();
         self::assertSelectorTextContains('.bp-page-title', 'Site reviews');
-        self::assertCount(1, $crawler->filter('tbody tr'));
+        self::assertCount(1, $crawler->filter('.bp-doc-row'));
     }
 
     public function test_show_renders_owned_batch_comments(): void

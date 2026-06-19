@@ -102,3 +102,13 @@ Email subject changes in `src/Module/*/Notifier/` are the most common source of 
 ## Run the spec after a locator refactor
 
 When you change selectors (e.g. swapping `data-*` attribute selectors for `getByRole(...)` / `getByLabel(...)`, or moving from `page.locator(css)` to a semantic locator), neither `just lint` nor `just phpstan` exercises the change. The only validation is running the affected spec: `just e2e tests/<area>/<spec>.spec.ts`. Don't declare a selector refactor done from a clean static-analysis run — Playwright role/name resolution depends on the rendered DOM (icon `aria-hidden`, accessible-name composition) that nothing else checks.
+
+## Dev seed endpoints (manual + visual verification)
+
+For setting up an authenticated browser session or seeding data during **manual / visual** verification (e.g. driving the app with the Chrome MCP), use the dev-only endpoints — all gated `#[When('dev')]` — rather than the full Mailpit registration flow. They are faster and bypass email round-trips:
+
+- `POST /dev/register-and-verify` (form: `username`, `fullName`, `email`, `password`) — creates an already-verified user. Then log in via the `/login` form.
+- `POST /dev/seed/document` (form: `title`, `markdown`) — seeds a review document for the authenticated user; returns `{"documentId": "…"}`.
+- `GET /dev/site-review-harness?email=<user-email>` — issues a SiteReview API token for that user; read it from `data-token="…"` in the response HTML, then `POST /api/site-review/batches` with header `Authorization: Bearer <token>` and a JSON body `{"comments":[{"body","selector","url","text"}, …]}` to seed a batch (returns `{"batchId": "…"}`).
+
+The Playwright helper layer (`createTest`, `registerAndVerify`) remains the path **inside specs**; these endpoints are the fast path for ad-hoc and browser-driven verification. The same endpoints are already used directly by some specs (e.g. `review/review-loop.spec.ts`).

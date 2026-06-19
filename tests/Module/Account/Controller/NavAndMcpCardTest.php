@@ -78,6 +78,6 @@ final class NavAndMcpCardTest extends WebTestCase
         $client->request(Request::METHOD_GET, '/login');
 
         self::assertResponseIsSuccessful();
-        self::assertSelectorNotExists('nav.bp-nav');
+        self::assertSelectorNotExists('.bp-sidebar');
     }
 }

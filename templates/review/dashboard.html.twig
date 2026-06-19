@@ -15,33 +15,27 @@
     {% endfor %}
 
     {% if documents|length > 0 %}
-    <div class="bp-card">
-        <table class="bp-table">
-            <thead>
-                <tr>
-                    <th>{{ 'review.dashboard.table.column.title'|trans }}</th>
-                    <th>{{ 'review.dashboard.table.column.status'|trans }}</th>
-                    <th>{{ 'review.dashboard.table.column.created'|trans }}</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for document in documents %}
-                <tr data-document-id="{{ document.id }}">
-                    <td><a href="{{ path('app_document_review', {id: document.id}) }}">{{ document.title }}</a></td>
-                    <td>
-                        <span class="bp-badge bp-badge--{{ document.status.value }}">
-                            {{ document.status.translationKey()|trans }}
-                        </span>
-                    </td>
-                    <td>{{ document.createdAt|date('Y-m-d H:i') }}</td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
+    <div class="bp-doc-list">
+        {% for document in documents %}
+        <div class="bp-doc-row" data-document-id="{{ document.id }}">
+            <div class="bp-doc-row__main">
+                <a href="{{ path('app_document_review', {id: document.id}) }}" class="bp-doc-row__title">{{ document.title }}</a>
+                <div class="bp-doc-row__meta">
+                    <span>{{ document.createdAt|date('M j, Y') }}</span>
+                    {# tag chips slot — populated when tags ship; intentionally empty for now #}
+                    <span class="bp-doc-row__tags"></span>
+                </div>
+            </div>
+            <span class="bp-badge bp-badge--{{ document.status.value }}">
+                {{ document.status.translationKey()|trans }}
+            </span>
+        </div>
+        {% endfor %}
     </div>
     {% else %}
-    <div class="bp-card">
-        <p class="bp-empty">{{ 'review.dashboard.empty'|trans }}</p>
+    <div class="bp-card flex flex-col items-center text-center gap-3 py-12">
+        <twig:ux:icon name="lucide:file-text" class="w-8 h-8 text-fg-dim" />
+        <p class="bp-empty not-italic">{{ 'review.dashboard.empty'|trans }}</p>
     </div>
     {% endif %}
 </div>

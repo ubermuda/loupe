@@ -74,3 +74,13 @@ Never use server-rendered active state on links inside Turbo frames — only the
 ## Template naming
 
 **Template file names must match the controller's verb prefix.** A controller named `CreateFooController` renders `create_foo.html.twig`; `new_foo.html.twig` is wrong. The verb (create, list, view, edit, delete) must be identical in both names. When you create or rename a controller, rename the template to match in the same commit. Enforced by gamache's `ControllerTemplateNameRule`, which mirrors the controller → template path.
+
+## Page titles
+
+A page `{% block title %}` must compose **two translated strings** — the page-specific part and the brand — never one key with the brand baked in:
+
+```twig
+{% block title %}{{ 'account.login.page.title'|trans }} — {{ 'app.name'|trans }}{% endblock %}
+```
+
+The page-title trans-unit holds only the page part (`account.login.page.title` → `Sign in`). `app.name` is the single source of truth for the brand name in titles — do not write `Sign in — Better Plans` into the title key. This keeps the brand changeable in one place and is what review expects.

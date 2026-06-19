@@ -17,6 +17,12 @@ These skills contain detailed conventions for specific areas. **Invoke the relev
 | `project-templates` | `.html.twig` files or Twig component PHP classes |
 | `project-translations` | UI strings, translation keys, or adding a new locale |
 
+## Getting feedback on long documents
+
+When you want the user's feedback on a **long-form document** — an implementation plan, a design spec, an RFC, an architecture write-up, or anything substantial they need to read and comment on at their own pace — submit it to the Better Plans app via the `betterplans` MCP (`create_document`, or `revise_document` for follow-ups) and give the user the returned review URL. That is what the app is for; dogfood it.
+
+This applies **only** to documents meant for considered review. Do **not** route ordinary conversation through it — clarifying questions, quick confirmations, short summaries, options you're discussing inline, or anything that belongs in the normal back-and-forth stays in the chat. The test: if it's a document the user would sit down and read, send it to Better Plans; if it's a turn in a discussion, keep it in the terminal.
+
 ## Notes for later
 
 When you identify something worth remembering for a future session — a TODO, a follow-up, a known issue, a design decision to revisit — append it to `docs/NEXT_STEPS.md`. Do not leave such notes in code comments — `docs/NEXT_STEPS.md` is the only place open work is tracked. No `TODO`/`FIXME`/`XXX` in code (gamache-enforced).
@@ -102,7 +108,6 @@ just arkitect                 # Check module boundary rules (phparkitect)
 just cs                       # Run rector + cs-fix (pre-commit subset)
 just ci                       # Full static-analysis + unit-test gate: cs, phpstan, arkitect, gamache, ESLint, PHPUnit (e2e is separate)
 just gamache                  # Run Gamache convention checker (replaces the seven custom check scripts)
-just sort-translations        # Sort translation YAML files
 just migrate-diff             # Generate migrations from entities
 just migrate-run              # Run migrations
 just e2e                      # Run Playwright e2e tests
@@ -211,6 +216,6 @@ php bin/console ux:icons:import lucide:ICON_NAME
 {{ ux_icon('lucide:x', {'class': 'w-3.5 h-3.5 shrink-0 mt-px'}) }}
 ```
 
-`assets/icons/` is gitignored. Re-run `ux:icons:import` on a fresh clone if icons are missing. If icon SVGs are accidentally committed, remove them with `git rm --cached` — **not** `git rm`.
+`assets/icons/` is gitignored. UX Icons runs with `iconify.on_demand: true` (dev **and** test), so any Lucide icon resolves at render time from the iconify API — newly used icons render and pass tests/CI **without** being committed or pre-imported. `ux:icons:import` only populates a local cache (handy offline); it is not a prerequisite for a new icon to work, so you never need to commit the SVGs. If icon SVGs are accidentally committed, remove them with `git rm --cached` — **not** `git rm`.
 
 **Stroke colour:** Imported Lucide SVGs use `stroke="currentColor"`. Control the stroke colour via a text colour class on the icon or its parent — never hardcode `stroke="white"` as an attribute.
