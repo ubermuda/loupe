@@ -33,7 +33,16 @@ final class SubmitBatchControllerTest extends WebTestCase
         self::assertArrayHasKey('batchId', $data);
 
         $repo = static::getContainer()->get(SiteReviewBatchRepository::class);
-        self::assertCount(1, $repo->findAll());
+        $batches = $repo->findAll();
+        self::assertCount(1, $batches);
+        $batch = $batches[0];
+        self::assertSame('a@example.com', $batch->owner->email);
+        self::assertCount(1, $batch->comments);
+        $comment = $batch->comments->toArray()[0];
+        self::assertSame('too big', $comment->body);
+        self::assertSame('.card', $comment->selector);
+        self::assertSame('Save', $comment->text);
+        self::assertSame('https://app.localhost/x', $comment->url);
     }
 
     public function test_mcp_token_is_forbidden(): void
