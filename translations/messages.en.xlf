@@ -34,7 +34,7 @@
             <!-- Login page -->
             <trans-unit id="account.login.page.title">
                 <source>account.login.page.title</source>
-                <target>Sign in — Better Plans</target>
+                <target>Sign in</target>
             </trans-unit>
             <trans-unit id="account.login.topbar.prompt">
                 <source>account.login.topbar.prompt</source>
@@ -92,7 +92,7 @@
             <!-- Registration page -->
             <trans-unit id="account.registration.page.title">
                 <source>account.registration.page.title</source>
-                <target>Create account — Better Plans</target>
+                <target>Create account</target>
             </trans-unit>
             <trans-unit id="account.registration.topbar.prompt">
                 <source>account.registration.topbar.prompt</source>
@@ -178,7 +178,7 @@
             <!-- Registration check-email page -->
             <trans-unit id="account.registration.check_email.page.title">
                 <source>account.registration.check_email.page.title</source>
-                <target>Check your email — Better Plans</target>
+                <target>Check your email</target>
             </trans-unit>
             <trans-unit id="account.registration.check_email.heading">
                 <source>account.registration.check_email.heading</source>
@@ -294,7 +294,7 @@
             <!-- Reset password request page -->
             <trans-unit id="account.reset_password.request.page.title">
                 <source>account.reset_password.request.page.title</source>
-                <target>Reset password — Better Plans</target>
+                <target>Reset password</target>
             </trans-unit>
             <trans-unit id="account.reset_password.request.heading">
                 <source>account.reset_password.request.heading</source>
@@ -324,7 +324,7 @@
             <!-- Reset password check-email page -->
             <trans-unit id="account.reset_password.check_email.page.title">
                 <source>account.reset_password.check_email.page.title</source>
-                <target>Check your email — Better Plans</target>
+                <target>Check your email</target>
             </trans-unit>
             <trans-unit id="account.reset_password.check_email.heading">
                 <source>account.reset_password.check_email.heading</source>
@@ -346,7 +346,7 @@
             <!-- Reset password reset page -->
             <trans-unit id="account.reset_password.reset.page.title">
                 <source>account.reset_password.reset.page.title</source>
-                <target>Set new password — Better Plans</target>
+                <target>Set new password</target>
             </trans-unit>
             <trans-unit id="account.reset_password.reset.heading">
                 <source>account.reset_password.reset.heading</source>
