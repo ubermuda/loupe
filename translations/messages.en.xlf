@@ -565,6 +565,10 @@
                 <source>nav.link.api_tokens</source>
                 <target>API tokens</target>
             </trans-unit>
+            <trans-unit id="nav.toggle_sidebar">
+                <source>nav.toggle_sidebar</source>
+                <target>Collapse sidebar</target>
+            </trans-unit>
 
             <!-- Site review batches (human-facing) -->
             <trans-unit id="site_review.batches.page.title">

@@ -20,26 +20,51 @@
     </head>
     <body class="{% block body_class %}{% endblock %}">
         {% if app.user %}
-        <nav class="bp-nav">
-            <a href="{{ path('app_home') }}" class="bp-nav__brand">{{ 'nav.brand'|trans }}</a>
-            <div class="bp-nav__links">
-                <a href="{{ path('app_documents') }}"
-                   class="bp-nav__link{% if app.request.attributes.get('_route') == 'app_documents' %} bp-nav__link--active{% endif %}">
-                    {{ 'nav.link.documents'|trans }}
+        <div class="bp-app" data-controller="sidebar">
+            <aside class="bp-sidebar">
+                <a href="{{ path('app_home') }}" class="bp-sidebar__brand">
+                    <span class="bp-sidebar__brand-mark"></span>
+                    <span class="bp-sidebar__brand-name">{{ 'nav.brand'|trans }}</span>
                 </a>
-                <a href="{{ path('app_site_review_batches') }}"
-                   class="bp-nav__link{% if app.request.attributes.get('_route') starts with 'app_site_review_batch' %} bp-nav__link--active{% endif %}">
-                    {{ 'nav.link.site_reviews'|trans }}
+                <nav class="bp-sidebar__nav">
+                    <a href="{{ path('app_documents') }}"
+                       class="bp-sidebar__link{% if app.request.attributes.get('_route') == 'app_documents' %} bp-sidebar__link--active{% endif %}">
+                        <twig:ux:icon name="lucide:files" />
+                        <span class="bp-sidebar__link-label">{{ 'nav.link.documents'|trans }}</span>
+                    </a>
+                    <a href="{{ path('app_site_review_batches') }}"
+                       class="bp-sidebar__link{% if app.request.attributes.get('_route') starts with 'app_site_review_batch' %} bp-sidebar__link--active{% endif %}">
+                        <twig:ux:icon name="lucide:globe" />
+                        <span class="bp-sidebar__link-label">{{ 'nav.link.site_reviews'|trans }}</span>
+                    </a>
+                    <a href="{{ path('app_api_tokens') }}"
+                       class="bp-sidebar__link{% if app.request.attributes.get('_route') == 'app_api_tokens' %} bp-sidebar__link--active{% endif %}">
+                        <twig:ux:icon name="lucide:key-round" />
+                        <span class="bp-sidebar__link-label">{{ 'nav.link.api_tokens'|trans }}</span>
+                    </a>
+                </nav>
+                <div class="bp-sidebar__spacer"></div>
+                <a href="{{ path('app_logout') }}" class="bp-sidebar__link" data-turbo-prefetch="false">
+                    <twig:ux:icon name="lucide:log-out" />
+                    <span class="bp-sidebar__link-label">{{ 'nav.link.logout'|trans }}</span>
                 </a>
-                <a href="{{ path('app_api_tokens') }}"
-                   class="bp-nav__link{% if app.request.attributes.get('_route') == 'app_api_tokens' %} bp-nav__link--active{% endif %}">
-                    {{ 'nav.link.api_tokens'|trans }}
-                </a>
-                <a href="{{ path('app_logout') }}" class="bp-nav__logout" data-turbo-prefetch="false">{{ 'nav.link.logout'|trans }}</a>
-            </div>
-        </nav>
+                <div class="bp-sidebar__account">
+                    <span class="avatar">{{ app.user.userIdentifier|slice(0, 1)|upper }}</span>
+                    <span class="bp-sidebar__account-name">{{ app.user.userIdentifier }}</span>
+                    <button type="button" class="bp-sidebar__toggle"
+                            data-action="click->sidebar#toggle"
+                            aria-label="{{ 'nav.toggle_sidebar'|trans }}">
+                        <twig:ux:icon name="lucide:panel-left-close" />
+                    </button>
+                </div>
+            </aside>
+            <main class="bp-main">
+                {% block body %}{% endblock %}
+            </main>
+        </div>
+        {% else %}
+        {% block body_unauthenticated %}{{ block('body') }}{% endblock %}
         {% endif %}
-        {% block body %}{% endblock %}
         {% if app.user and site_review_widget_token %}
         <script src="/site-review/widget.js" data-token="{{ site_review_widget_token }}"></script>
         {% endif %}

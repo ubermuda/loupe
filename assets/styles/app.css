@@ -653,36 +653,6 @@
         @apply flex items-center gap-2;
     }
 
-    /* ── Navigation bar ─────────────────────────────────────────────── */
-
-    .bp-nav {
-        @apply flex items-center justify-between px-6 h-12 bg-surface-1 border-b border-line;
-    }
-    .bp-nav__brand {
-        @apply text-sm font-semibold text-fg tracking-tight no-underline;
-    }
-    .bp-nav__brand:hover {
-        @apply text-fg;
-    }
-    .bp-nav__links {
-        @apply flex items-center gap-1;
-    }
-    .bp-nav__link {
-        @apply px-3 py-1.5 rounded-md text-sm text-fg-mute font-medium no-underline transition-colors;
-    }
-    .bp-nav__link:hover {
-        @apply bg-tint text-fg;
-    }
-    .bp-nav__link--active {
-        @apply bg-tint-strong text-fg;
-    }
-    .bp-nav__logout {
-        @apply px-3 py-1.5 rounded-md text-sm text-fg-mute font-medium no-underline transition-colors;
-    }
-    .bp-nav__logout:hover {
-        @apply bg-tint text-fg;
-    }
-
     /* ── App shell (sidebar + content) ──────────────────────────────── */
 
     .bp-app {
