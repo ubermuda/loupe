@@ -14,7 +14,7 @@ final class Version20260619162445 extends AbstractMigration
 {
     public function getDescription(): string
     {
-        return '';
+        return 'Create site_review_batches and site_review_comments tables';
     }
 
     public function up(Schema $schema): void
