@@ -108,7 +108,6 @@ just arkitect                 # Check module boundary rules (phparkitect)
 just cs                       # Run rector + cs-fix (pre-commit subset)
 just ci                       # Full static-analysis + unit-test gate: cs, phpstan, arkitect, gamache, ESLint, PHPUnit (e2e is separate)
 just gamache                  # Run Gamache convention checker (replaces the seven custom check scripts)
-just sort-translations        # Sort translation YAML files
 just migrate-diff             # Generate migrations from entities
 just migrate-run              # Run migrations
 just e2e                      # Run Playwright e2e tests
