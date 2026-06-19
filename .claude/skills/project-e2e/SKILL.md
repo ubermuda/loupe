@@ -13,7 +13,7 @@ description: Use when writing, fixing, or debugging Playwright e2e tests under `
 
 Turbo Drive intercepts form submissions and performs them as XHR requests, pushing state via `history.pushState`. This means standard `page.waitForURL(pattern)` (which waits for a `load` event) will **not** work after form submissions — use `expect(page).toHaveURL(pattern)` instead, which polls without requiring a navigation event.
 
-After a form POST that redirects **to a different page**, the safest way to confirm the navigation completed is to assert that an element from the destination page is visible rather than asserting the URL. When the redirect goes **back to the same URL** (as admin edit controllers do), `toHaveURL` will resolve immediately — assert the updated value in the form instead (see "Admin edit save synchronization" below).
+After a form POST that redirects **to a different page**, the safest way to confirm the navigation completed is to assert that an element from the destination page is visible rather than asserting the URL. When the redirect goes **back to the same URL** (as admin edit controllers do), `toHaveURL` will resolve immediately — assert the updated value in the form instead (see "Forms that redirect to the same URL" below).
 
 ```typescript
 // ✗ fails with Turbo — URL already matches before XHR completes
@@ -26,7 +26,11 @@ await expect(page).toHaveURL(/\/some\/path/);
 await expect(page.getByRole('button', { name: 'Submit' })).toBeVisible();
 ```
 
-## Admin edit save synchronization
+## Forms that redirect to the same URL
+
+Any form whose controller redirects back to the URL it was submitted from — admin edit pages, **and any in-place action that re-renders or returns to the current page** (e.g. a review verdict that PRGs back to the review page) — creates this trap: `toHaveURL`, and "an element is still visible", resolve **immediately** because the page never left. The assertion passes whether the submit succeeded, failed validation, or is still in flight, so it silently races the POST under parallel load. Wait for a **post-submit content signal** instead — a success flash, the newly-added row, or an updated field value — before asserting or navigating away.
+
+The admin-edit case below is the canonical example; the rule applies to every same-URL redirect.
 
 Admin edit controllers redirect back to **the same edit URL** on success. This creates a specific testing trap: `expect(page).toHaveURL(/...\/edit/)` resolves immediately because the page was *already* on that URL before the Save click. The assertion passes whether the form save succeeded, failed validation, or is still in flight.
 

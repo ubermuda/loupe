@@ -93,6 +93,21 @@ Always use full descriptive variable names in JavaScript and TypeScript — neve
 
 **Never submit through `fetch()`/JS — always use a form.** Mutations go through a plain HTML `<form method="POST">` or (preferred) a Symfony form, and Turbo handles the async submit and in-place update. Do not hand-roll `fetch()` POSTs in a Stimulus controller: it bypasses the eager document-level `submit` listener in `csrf_protection_controller.js` (so you have to re-implement the stateless double-submit CSRF dance by hand — a recurring source of silent 403s) and it duplicates error handling Turbo gives for free. The only acceptable reason to reach for `fetch()` is a genuine non-form interaction with no good Turbo equivalent — and that bar is high. A fieldless action (e.g. "resolve") is still a `<form>` (a submit button + CSRF token), just without a Symfony FormType. For in-place updates without a full-page visit, return a Turbo Stream (or scope the form to a `<turbo-frame>`).
 
+**Returning a Turbo Stream from a controller — inline, no bespoke responder.** When a form-backed action updates the page in place, return the stream directly from the controller; do not extract a "responder" / "stream builder" service. The established pattern:
+
+```php
+if (TurboBundle::STREAM_FORMAT !== $request->getPreferredFormat()) {
+    return $this->redirectToRoute('app_…', ['id' => (string) $entity->id]); // no-JS / non-Turbo fallback
+}
+$html = $this->renderView('area/_thing.stream.html.twig', [...]);
+return new Response($html, $status, ['Content-Type' => TurboBundle::STREAM_MEDIA_TYPE]);
+```
+
+- Always provide the redirect fallback (Post/Redirect/Get) for non-Turbo requests.
+- Name stream templates `_<name>.stream.html.twig`. The leading `_` marks them partials so gamache's `ControllerTemplateNameRule` skips the controller; `.stream.` documents intent.
+- A stream template wraps content in `<turbo-stream action="replace|update|append" target="dom-id">…</turbo-stream>`; the targeted element must render its own matching `id` so the stream can find it.
+- Minor per-controller duplication of the format check + redirect is acceptable — it is the conventional shape and reads more clearly than a shared abstraction.
+
 **Turbo Drive form submissions require a 4xx/5xx response to re-render:** When Turbo intercepts a form POST, a 200 response is treated as a successful navigation and silently discarded — the browser stays on the current page without re-rendering anything. Only 4xx/5xx responses cause Turbo to render the response body in place. When a controller handles a form submission and needs to re-display the form with errors, always return HTTP 422. The Symfony pattern:
 
 ```php
