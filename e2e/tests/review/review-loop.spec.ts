@@ -165,13 +165,12 @@ test('full review loop: comment, request changes, reload persistence', async ({
 
     await page.getByRole('button', { name: 'Comment' }).click();
 
-    // On success (HTTP 201) the Stimulus controller calls window.location.reload().
-    // The page reloads to the same URL. Wait for the sidebar to show the comment
-    // (the composer disappears and .bp-comment-body appears after the reload).
-    // We assert the doc is visible first to confirm the reload completed.
+    // The composer is a plain form submitted through Turbo; the controller returns
+    // a Turbo Stream that replaces the thread list in place (no reload). The
+    // composer hides on success and the new thread appears in the sidebar.
     await expect(
-        page.locator('[data-comment-anchor-target="doc"]'),
-    ).toBeVisible({ timeout: 10000 });
+        page.locator('[data-comment-anchor-target="composer"]'),
+    ).toBeHidden({ timeout: 10000 });
 
     // Step 7: Assert the comment appears in the sidebar.
     const commentBody = page.locator('.bp-comment-body').first();
@@ -234,11 +233,13 @@ test('full review loop: comment, request changes, reload persistence', async ({
     // Step 9: Submit the "Request changes" verdict.
     await page.getByRole('button', { name: 'Request changes' }).click();
 
-    // The form POSTs (Turbo Drive) and redirects back to the review page.
-    // Assert the doc is visible to confirm the redirect completed.
-    await expect(
-        page.locator('[data-comment-anchor-target="doc"]'),
-    ).toBeVisible({ timeout: 10000 });
+    // The form POSTs (Turbo Drive) and redirects back to the *same* review URL,
+    // so "doc is visible" proves nothing (it never went away). Wait for the
+    // success flash, which only renders after the verdict is persisted — otherwise
+    // navigating to /documents races the POST and reads a stale "In review" badge.
+    await expect(page.locator('.bp-flash--success')).toBeVisible({
+        timeout: 10000,
+    });
 
     // Step 10: Assert the status badge on the dashboard (scoped to THIS document's row).
     await page.goto('/documents');

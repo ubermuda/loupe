@@ -582,6 +582,9 @@
 
     /* ── Comment thread card ─────────────────────────────────────────── */
 
+    .bp-comment-threads {
+        @apply flex flex-col gap-4;
+    }
     .bp-comment-thread {
         @apply bg-surface-1 border border-line rounded-xl overflow-hidden;
     }

@@ -9,7 +9,7 @@ use App\Module\Review\Command\ResolveCommentCommand;
 use App\Module\Review\Command\ResolveCommentHandler;
 use App\Module\Review\Entity\Comment;
 use App\Module\Review\Security\DocumentVoter;
-use App\Module\Review\Service\CommentThreadResponder;
+use App\Module\Review\Service\ReviewStreamResponder;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
@@ -31,7 +31,7 @@ final class ResolveCommentController extends AppController
 {
     public function __construct(
         private readonly ResolveCommentHandler $resolveCommentHandler,
-        private readonly CommentThreadResponder $threadResponder,
+        private readonly ReviewStreamResponder $streamResponder,
     ) {
     }
 
@@ -43,6 +43,6 @@ final class ResolveCommentController extends AppController
             comment: $comment,
         ));
 
-        return $this->threadResponder->respond($request, $comment);
+        return $this->streamResponder->thread($request, $comment);
     }
 }

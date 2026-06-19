@@ -19,11 +19,7 @@
     <h1 class="bp-page-title">{{ document.title }}</h1>
 </div>
 
-<div
-    data-controller="comment-anchor"
-    data-comment-anchor-add-comment-url-value="{{ path('app_comment_add', {id: document.id}) }}"
-    data-comment-anchor-csrf-token-value="{{ csrf_token('comment-action') }}"
->
+<div data-controller="comment-anchor">
     <div class="bp-review-layout">
         {#
             The outer .bp-review-doc provides position:relative for the floating composer.
@@ -35,19 +31,30 @@
         <div class="bp-review-doc" data-action="mouseup->comment-anchor#onDocMouseup">
             <div data-comment-anchor-target="doc">{{ version.renderedHtml|raw }}</div>
 
-            {# Floating composer — hidden until text is selected #}
-            <div
+            {# Floating composer — a real form, hidden until text is selected.
+               The Stimulus controller positions it and fills the offset fields;
+               Turbo submits it and applies the returned stream. #}
+            <form
                 class="bp-comment-composer"
                 data-comment-anchor-target="composer"
+                data-action="turbo:submit-end->comment-anchor#onSubmitEnd"
+                action="{{ path('app_comment_add', {id: document.id}) }}"
+                method="post"
                 hidden
             >
+                <input type="hidden" name="_csrf_token" value="{{ csrf_token('comment-action') }}">
+                <input type="hidden" name="start" data-comment-anchor-target="start">
+                <input type="hidden" name="length" data-comment-anchor-target="length">
                 <textarea
+                    name="body"
                     data-comment-anchor-target="composerBody"
                     placeholder="{{ 'review.document.comment.placeholder'|trans }}"
                     rows="3"
+                    required
                 ></textarea>
                 <div class="bp-comment-composer__actions">
                     <span
+                        id="composer-error"
                         class="bp-comment-composer__error"
                         data-comment-anchor-target="composerError"
                     ></span>
@@ -57,30 +64,17 @@
                         data-action="comment-anchor#hideComposer"
                     >{{ 'review.document.comment.cancel'|trans }}</button>
                     <button
-                        type="button"
+                        type="submit"
                         class="bp-btn bp-btn--primary bp-btn--sm"
-                        data-action="comment-anchor#submitComposer"
                     >{{ 'review.document.comment.submit'|trans }}</button>
                 </div>
-            </div>
+            </form>
         </div>
 
         <div class="bp-review-sidebar">
             <h2 class="bp-review-sidebar__title">{{ 'review.document.sidebar.title'|trans }}</h2>
 
-            {% set rootComments = comments|filter(c => c.parent is null) %}
-
-            {% if rootComments|length > 0 %}
-                {% for comment in rootComments %}
-                    {% set replies = comments|filter(c => c.parent is not null and c.parent.id == comment.id) %}
-                    <twig:CommentThread
-                        :comment="comment"
-                        :replies="replies|map(c => c)"
-                    />
-                {% endfor %}
-            {% else %}
-                <p class="bp-empty">{{ 'review.document.sidebar.empty'|trans }}</p>
-            {% endif %}
+            {% include 'review/_comment_threads.html.twig' with {comments: comments} only %}
 
             <div class="bp-verdict-bar">
                 <h3 class="bp-verdict-bar__title">{{ 'review.document.verdict.title'|trans }}</h3>

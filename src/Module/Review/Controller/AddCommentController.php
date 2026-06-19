@@ -11,10 +11,12 @@ use App\Module\Review\Command\AddCommentCommand;
 use App\Module\Review\Command\AddCommentHandler;
 use App\Module\Review\Entity\Document;
 use App\Module\Review\Security\DocumentVoter;
-use Symfony\Component\HttpFoundation\JsonResponse;
+use App\Module\Review\Service\ReviewStreamResponder;
 use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
+use Symfony\Contracts\Translation\TranslatorInterface;
 use Ubermuda\SymfonyExtra\Csrf\Attribute\CsrfToken;
 
 #[CsrfToken('comment-action')]
@@ -28,10 +30,12 @@ final class AddCommentController extends AppController
 {
     public function __construct(
         private readonly AddCommentHandler $addCommentHandler,
+        private readonly ReviewStreamResponder $streamResponder,
+        private readonly TranslatorInterface $translator,
     ) {
     }
 
-    public function __invoke(Document $document, Request $request): JsonResponse
+    public function __invoke(Document $document, Request $request): Response
     {
         $user = $this->getUser();
         assert($user instanceof User);
@@ -40,36 +44,34 @@ final class AddCommentController extends AppController
         $rawLength = $request->request->get('length');
         $rawBody = $request->request->get('body');
 
-        $errors = [];
-        if (!is_numeric($rawStart) || (int) $rawStart < 0) {
-            $errors['start'] = 'start must be a non-negative integer';
-        }
-        if (!is_numeric($rawLength) || (int) $rawLength <= 0) {
-            $errors['length'] = 'length must be a positive integer';
-        }
-        if (!is_string($rawBody) || '' === trim($rawBody)) {
-            $errors['body'] = 'body must not be empty';
-        }
-        if ([] !== $errors) {
-            return $this->json(['errors' => $errors], JsonResponse::HTTP_UNPROCESSABLE_ENTITY);
+        if (!is_numeric($rawStart) || (int) $rawStart < 0
+            || !is_numeric($rawLength) || (int) $rawLength <= 0
+            || !is_string($rawBody) || '' === trim($rawBody)
+        ) {
+            return $this->streamResponder->composerError(
+                $request,
+                $document,
+                $this->translator->trans('review.document.comment.add_failed'),
+            );
         }
 
         try {
-            $comment = ($this->addCommentHandler)(new AddCommentCommand(
+            ($this->addCommentHandler)(new AddCommentCommand(
                 actor: $user,
                 document: $document,
                 start: (int) $rawStart,
                 length: (int) $rawLength,
-                body: (string) $rawBody,
+                body: $rawBody,
             ));
         } catch (DomainErrors $e) {
-            return $this->json(['errors' => $e->errors], JsonResponse::HTTP_UNPROCESSABLE_ENTITY);
+            $message = implode(', ', array_map(
+                fn (string $key): string => $this->translator->trans($key),
+                $e->errors,
+            ));
+
+            return $this->streamResponder->composerError($request, $document, $message);
         }
 
-        return $this->json([
-            'id' => (string) $comment->id,
-            'body' => $comment->body,
-            'resolved' => $comment->resolved,
-        ], JsonResponse::HTTP_CREATED);
+        return $this->streamResponder->threadList($request, $document);
     }
 }

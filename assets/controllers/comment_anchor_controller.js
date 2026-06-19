@@ -1,9 +1,10 @@
 import { Controller } from '@hotwired/stimulus';
-import { csrfTokenForField } from './csrf_protection_controller.js';
 
 /**
- * Handles text selection within the review document, showing a comment composer
- * positioned near the selection, and POSTing the new comment to the server.
+ * Handles text selection within the review document: positions the floating
+ * comment composer near the selection and fills its hidden offset fields. The
+ * composer is a real <form> — Turbo submits it and applies the returned stream,
+ * so this controller does no fetch()/CSRF work of its own.
  *
  * Offset basis: we walk the text nodes of the document container and sum their
  * `.textContent.length` values. This matches PHP's `DocumentVersion::plainText()`
@@ -17,24 +18,16 @@ import { csrfTokenForField } from './csrf_protection_controller.js';
  * JavaScript string offsets are UTF-16 code units. These agree for ASCII content
  * but diverge on multibyte (emoji, CJK, etc.) text. Anchoring is reliable for
  * ASCII in v1.
- *
- * CSRF: we use the same double-submit pattern as regular form submissions.
- * csrfTokenForField() creates a cryptographically-random token and stores the
- * matching cookie — exactly what SameOriginCsrfTokenManager's double-submit
- * validation expects. This avoids the session-based behavioral downgrade check
- * that fires when a previous request used double-submit and the next one supplies
- * only origin info.
  */
 export default class extends Controller {
-    static targets = ['doc', 'composer', 'composerBody', 'composerError'];
-
-    static values = {
-        addCommentUrl: String,
-        csrfToken: String,
-    };
-
-    #selectionStart = 0;
-    #selectionLength = 0;
+    static targets = [
+        'doc',
+        'composer',
+        'composerBody',
+        'composerError',
+        'start',
+        'length',
+    ];
 
     connect() {
         this.#hideComposer();
@@ -42,8 +35,8 @@ export default class extends Controller {
 
     /**
      * Called on mouseup within the doc area. Reads the current selection,
-     * computes the offset within the doc container's text content, and shows
-     * the composer near the selection.
+     * computes the offset within the doc container's text content, fills the
+     * composer's hidden fields, and shows it near the selection.
      */
     onDocMouseup(event) {
         const selection = window.getSelection();
@@ -78,8 +71,8 @@ export default class extends Controller {
             return;
         }
 
-        this.#selectionStart = start;
-        this.#selectionLength = length;
+        this.startTarget.value = String(start);
+        this.lengthTarget.value = String(length);
 
         this.#showComposerNearSelection(range);
     }
@@ -93,54 +86,20 @@ export default class extends Controller {
     }
 
     /**
-     * Submits the comment composer form via fetch().
+     * Public action: on a successful Turbo submission the new thread has been
+     * inserted by the returned stream, so clear and hide the composer. On
+     * failure the composer stays open showing the streamed error.
      */
-    async submitComposer(event) {
-        event.preventDefault();
-
-        const body = this.composerBodyTarget.value.trim();
-        if (!body) {
+    onSubmitEnd(event) {
+        if (!event.detail?.success) {
             return;
         }
 
+        this.composerBodyTarget.value = '';
         if (this.hasComposerErrorTarget) {
             this.composerErrorTarget.textContent = '';
         }
-
-        const formData = new URLSearchParams();
-        formData.set('start', String(this.#selectionStart));
-        formData.set('length', String(this.#selectionLength));
-        formData.set('body', body);
-        formData.set('_csrf_token', csrfTokenForField(this.csrfTokenValue));
-
-        try {
-            const response = await fetch(this.addCommentUrlValue, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/x-www-form-urlencoded',
-                },
-                body: formData.toString(),
-            });
-
-            if (response.status === 201) {
-                // Simple first cut: reload the page so the sidebar updates with the new thread.
-                // Task 15 e2e covers this flow; a DOM-insert optimisation can follow.
-                window.location.reload();
-            } else {
-                const data = await response.json();
-                const message = data?.errors
-                    ? Object.values(data.errors).join(', ')
-                    : 'Failed to add comment.';
-                if (this.hasComposerErrorTarget) {
-                    this.composerErrorTarget.textContent = message;
-                }
-            }
-        } catch {
-            if (this.hasComposerErrorTarget) {
-                this.composerErrorTarget.textContent =
-                    'Network error. Please try again.';
-            }
-        }
+        this.#hideComposer();
     }
 
     /**
@@ -195,6 +154,9 @@ export default class extends Controller {
         // preserves whatever the user has typed so far.
         if (wasHidden) {
             this.composerBodyTarget.value = '';
+            if (this.hasComposerErrorTarget) {
+                this.composerErrorTarget.textContent = '';
+            }
         }
         this.composerBodyTarget.focus();
     }

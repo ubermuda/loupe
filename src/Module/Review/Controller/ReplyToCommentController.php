@@ -10,7 +10,7 @@ use App\Module\Review\Command\ReplyToCommentCommand;
 use App\Module\Review\Command\ReplyToCommentHandler;
 use App\Module\Review\Entity\Comment;
 use App\Module\Review\Security\DocumentVoter;
-use App\Module\Review\Service\CommentThreadResponder;
+use App\Module\Review\Service\ReviewStreamResponder;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
@@ -33,7 +33,7 @@ final class ReplyToCommentController extends AppController
 {
     public function __construct(
         private readonly ReplyToCommentHandler $replyToCommentHandler,
-        private readonly CommentThreadResponder $threadResponder,
+        private readonly ReviewStreamResponder $streamResponder,
         private readonly TranslatorInterface $translator,
     ) {
     }
@@ -47,7 +47,7 @@ final class ReplyToCommentController extends AppController
 
         $rawBody = $request->request->get('body');
         if (!is_string($rawBody) || '' === trim($rawBody)) {
-            return $this->threadResponder->respond(
+            return $this->streamResponder->thread(
                 $request,
                 $comment,
                 $this->translator->trans('review.document.comment.reply_required'),
@@ -61,6 +61,6 @@ final class ReplyToCommentController extends AppController
             body: $rawBody,
         ));
 
-        return $this->threadResponder->respond($request, $comment);
+        return $this->streamResponder->thread($request, $comment);
     }
 }
