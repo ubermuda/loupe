@@ -1,0 +1,10 @@
+node_modules/
+vendor/
+var/
+tests/
+.claude/
+.phpunit.cache/
+.serena/
+e2e/
+.env.dev*
+.env.test*

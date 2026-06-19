@@ -1,0 +1,15 @@
+# yaml-language-server: $schema=../vendor/symfony/routing/Loader/schema/routing.schema.json
+
+# This file is the entry point to configure the routes of your app.
+# Methods with the #[Route] attribute are automatically imported.
+# See also https://symfony.com/doc/current/routing.html
+
+# To list all registered routes, run the following command:
+#   bin/console debug:router
+
+controllers:
+    resource: routing.controllers
+
+# The MCP HTTP endpoint is served by App\Module\Mcp\Controller\McpEndpointController
+# (via the attribute route above) instead of the bundle's controller, so the
+# DNS-rebinding-protection host allowlist can be configured (MCP_ALLOWED_HOSTS).

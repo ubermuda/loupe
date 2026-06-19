@@ -1,0 +1,70 @@
+{% extends 'Module/Account/auth_base.html.twig' %}
+
+{% block title %}{{ 'account.registration.page.title'|trans }}{% endblock %}
+
+{% block topbar_nav %}
+<span class="text-sm text-fg-mute">
+    {{ 'account.registration.topbar.prompt'|trans }}
+    <a href="{{ path('app_login') }}" class="ml-1.5 text-xs text-accent hover:underline">{{ 'account.registration.topbar.link'|trans }}</a>
+</span>
+{% endblock %}
+
+{% block auth_body %}
+<div class="flex flex-col gap-1.5">
+    <h1 class="auth-heading">{{ 'account.registration.heading'|trans }}</h1>
+    <p class="auth-subheading">{{ 'account.registration.subheading'|trans }}</p>
+</div>
+
+{{ form_start(form, {'attr': {'class': 'form-stack', 'novalidate': 'novalidate'}}) }}
+
+    {% for label, messages in app.flashes %}
+        {% for message in messages %}
+            <div class="auth-error">
+                {{ ux_icon('lucide:x', {'class': 'w-3.5 h-3.5 shrink-0 mt-px'}) }}
+                {{ message }}
+            </div>
+        {% endfor %}
+    {% endfor %}
+
+    <div class="form-field">
+        {{ form_label(form.fullName, null, {'label_attr': {'class': 'form-label'}}) }}
+        {{ form_widget(form.fullName, {'attr': {'class': 'auth-input', 'placeholder': 'account.form.registration_form.full_name.placeholder'}}) }}
+        <div class="field-errors">{{ form_errors(form.fullName) }}</div>
+    </div>
+
+    <div class="form-field">
+        {{ form_label(form.username, null, {'label_attr': {'class': 'form-label'}}) }}
+        {{ form_widget(form.username, {'attr': {'class': 'auth-input', 'placeholder': 'account.form.registration_form.username.placeholder'}}) }}
+        <div class="field-errors">{{ form_errors(form.username) }}</div>
+    </div>
+
+    <div class="form-field">
+        {{ form_label(form.email, null, {'label_attr': {'class': 'form-label'}}) }}
+        {{ form_widget(form.email, {'attr': {'class': 'auth-input', 'placeholder': 'account.form.registration_form.email.placeholder'}}) }}
+        <div class="field-errors">{{ form_errors(form.email) }}</div>
+    </div>
+
+    <div class="form-field">
+        {{ form_label(form.plainPassword, null, {'label_attr': {'class': 'form-label'}}) }}
+        {{ form_widget(form.plainPassword, {'attr': {
+            'class': 'auth-input',
+            'placeholder': 'account.form.registration_form.password.placeholder',
+        }}) }}
+        <div class="field-errors">{{ form_errors(form.plainPassword) }}</div>
+    </div>
+
+    <label class="flex items-start gap-2 text-sm text-fg-mute cursor-pointer select-none mt-0.5">
+        {{ form_widget(form.agreeTerms, {'attr': {'class': 'w-3.5 h-3.5 cursor-pointer accent-accent mt-0.5'}}) }}
+        <span class="leading-normal">{{ 'account.form.registration_form.agree_terms.prefix'|trans }} <a href="#" class="text-fg underline">{{ 'account.form.registration_form.agree_terms.terms'|trans }}</a> {{ 'account.form.registration_form.agree_terms.conjunction'|trans }} <a href="#" class="text-fg underline">{{ 'account.form.registration_form.agree_terms.privacy'|trans }}</a>.</span>
+    </label>
+    <div class="field-errors">{{ form_errors(form.agreeTerms) }}</div>
+
+    <button type="submit" class="auth-submit mt-1.5">{{ 'account.form.registration_form.submit'|trans }}</button>
+
+{{ form_end(form) }}
+
+<div class="text-center text-sm text-fg-mute">
+    {{ 'account.registration.footer.prompt'|trans }}
+    <a href="{{ path('app_login') }}" class="pl-1 text-accent font-medium hover:underline">{{ 'account.registration.footer.link'|trans }}</a>
+</div>
+{% endblock %}

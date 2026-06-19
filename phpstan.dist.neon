@@ -1,0 +1,29 @@
+parameters:
+    level: 8
+    paths:
+        - bin/
+        - config/
+        - public/
+        - src/
+        - tests/
+
+    excludePaths:
+        - config/reference.php (?)
+
+    treatPhpDocTypesAsCertain: false
+
+    gamache:
+        controllerBaseClass: 'App\Controller\AppController'
+        translationCallSites:
+            - { class: App\Controller\AppController, method: addFlash, argumentIndex: 1 }
+            - { class: Symfony\Component\Mime\Email, method: subject, argumentIndex: 0 }
+        translationAttributeSites:
+            - { class: Symfony\Component\Validator\Constraint, argumentNames: [message, minMessage, maxMessage, exactMessage] }
+
+    symfony:
+        containerXmlPath: var/cache/dev/App_KernelDevDebugContainer.xml
+
+includes:
+    - phpstan-baseline.neon
+    - vendor/phpstan/phpstan-symfony/extension.neon
+    - vendor/ubermuda/gamache/extension.neon

@@ -1,0 +1,136 @@
+#!/usr/bin/env bash
+# Fetches all unresolved review comment threads for a GitHub PR.
+#
+# Usage:
+#   bin/agents/fetch-unresolved-pr-threads <pr-number>
+#   bin/agents/fetch-unresolved-pr-threads <pr-url>
+#
+# Output: one thread per block, with file path, line, and all comments.
+# Requires: gh (GitHub CLI), jq
+
+set -euo pipefail
+
+if [[ $# -lt 1 ]]; then
+  echo "Usage: $(basename "$0") <pr-number|pr-url>" >&2
+  exit 1
+fi
+
+INPUT="$1"
+
+# Accept either a PR number or a full URL like https://github.com/owner/repo/pull/123
+if [[ "$INPUT" =~ ^https://github\.com/([^/]+)/([^/]+)/pull/([0-9]+) ]]; then
+  OWNER="${BASH_REMATCH[1]}"
+  REPO="${BASH_REMATCH[2]}"
+  PR_NUMBER="${BASH_REMATCH[3]}"
+elif [[ "$INPUT" =~ ^[0-9]+$ ]]; then
+  PR_NUMBER="$INPUT"
+  # Derive owner/repo from the current git remote
+  REMOTE_URL=$(git remote get-url origin 2>/dev/null || true)
+  if [[ "$REMOTE_URL" =~ github\.com[:/]([^/]+)/([^/.]+)(\.git)?$ ]]; then
+    OWNER="${BASH_REMATCH[1]}"
+    REPO="${BASH_REMATCH[2]}"
+  else
+    echo "Cannot determine GitHub owner/repo from remote: $REMOTE_URL" >&2
+    exit 1
+  fi
+else
+  echo "Invalid argument: expected a PR number or GitHub PR URL" >&2
+  exit 1
+fi
+
+QUERY='
+query($owner: String!, $repo: String!, $pr: Int!, $cursor: String) {
+  repository(owner: $owner, name: $repo) {
+    pullRequest(number: $pr) {
+      title
+      url
+      reviewThreads(first: 100, after: $cursor) {
+        pageInfo { hasNextPage endCursor }
+        nodes {
+          isResolved
+          isOutdated
+          path
+          line
+          startLine
+          diffSide
+          comments(first: 50) {
+            nodes {
+              databaseId
+              author { login }
+              body
+              url
+              createdAt
+              diffHunk
+              replyTo { url }
+            }
+          }
+        }
+      }
+    }
+  }
+}
+'
+
+# Paginate through all threads
+CURSOR=""
+ALL_THREADS='[]'
+PR_TITLE=""
+PR_URL_OUT=""
+
+while true; do
+  # First page: pass JSON null so GraphQL omits the cursor; subsequent pages: pass the real string value
+  if [[ -z "$CURSOR" ]]; then
+    CURSOR_ARGS=(-F cursor=null)
+  else
+    CURSOR_ARGS=(-f "cursor=$CURSOR")
+  fi
+
+  RESPONSE=$(gh api graphql \
+    -f query="$QUERY" \
+    -f owner="$OWNER" \
+    -f repo="$REPO" \
+    -F pr="$PR_NUMBER" \
+    "${CURSOR_ARGS[@]}")
+
+  PR_TITLE=$(echo "$RESPONSE" | jq -r '.data.repository.pullRequest.title')
+  PR_URL_OUT=$(echo "$RESPONSE" | jq -r '.data.repository.pullRequest.url')
+
+  PAGE_THREADS=$(echo "$RESPONSE" | jq '.data.repository.pullRequest.reviewThreads.nodes')
+  ALL_THREADS=$(echo "$ALL_THREADS $PAGE_THREADS" | jq -s 'add')
+
+  HAS_NEXT=$(echo "$RESPONSE" | jq -r '.data.repository.pullRequest.reviewThreads.pageInfo.hasNextPage')
+  if [[ "$HAS_NEXT" != "true" ]]; then
+    break
+  fi
+  CURSOR=$(echo "$RESPONSE" | jq -r '.data.repository.pullRequest.reviewThreads.pageInfo.endCursor')
+done
+
+UNRESOLVED=$(echo "$ALL_THREADS" | jq '[.[] | select(.isResolved == false)]')
+COUNT=$(echo "$UNRESOLVED" | jq 'length')
+
+echo "PR: $PR_TITLE"
+echo "URL: $PR_URL_OUT"
+echo "Unresolved threads: $COUNT"
+echo ""
+
+if [[ "$COUNT" -eq 0 ]]; then
+  echo "No unresolved threads."
+  exit 0
+fi
+
+echo "$UNRESOLVED" | jq -r '
+  to_entries[] |
+  .key as $i |
+  .value |
+  "── Thread \($i + 1) " + (if .isOutdated then "[OUTDATED] " else "" end) + "──────────────────────────────────────────",
+  "File: \(.path)" + (if .line then ":\(.line)" else "" end),
+  "",
+  (.comments.nodes[0].diffHunk | split("\n") | map("  " + .) | join("\n")),
+  "",
+  (.comments.nodes[] |
+    "  @\(.author.login)" + (if .author.login == "claude-force-one" then " [agent]" else "" end) + " [\(.createdAt | split("T")[0])] (id:\(.databaseId)):",
+    (.body | split("\n") | map("  " + .) | join("\n")),
+    ""
+  ),
+  ""
+'

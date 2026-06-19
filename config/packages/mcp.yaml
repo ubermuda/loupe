@@ -1,0 +1,3 @@
+mcp:
+    client_transports:
+        http: true

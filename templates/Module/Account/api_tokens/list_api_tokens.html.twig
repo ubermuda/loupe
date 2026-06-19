@@ -1,0 +1,100 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}{{ 'account.api_token.page.title'|trans }}{% endblock %}
+
+{% block body %}
+{%- set mcpUrl = url('app_mcp_endpoint') -%}
+{%- set mcpClaudeCmd = "claude mcp add betterplans " ~ mcpUrl ~ " --transport http --header \"Authorization: Bearer YOUR_TOKEN\"" -%}
+{%- set mcpAuthHeader = "Authorization: Bearer YOUR_TOKEN" -%}
+{%- set mcpJsonLine1 = "{" -%}
+{%- set mcpJsonLine2 = "  \"mcpServers\": {" -%}
+{%- set mcpJsonLine3 = "    \"betterplans\": {" -%}
+{%- set mcpJsonLine4 = "      \"type\": \"http\"," -%}
+{%- set mcpJsonLine5 = "      \"url\": \"" ~ mcpUrl ~ "\"," -%}
+{%- set mcpJsonLine6 = "      \"headers\": {" -%}
+{%- set mcpJsonLine7 = "        \"Authorization\": \"Bearer YOUR_TOKEN\"" -%}
+{%- set mcpJsonLine8 = "      }" -%}
+{%- set mcpJsonLine9 = "    }" -%}
+{%- set mcpJsonLine10 = "  }" -%}
+{%- set mcpJsonLine11 = "}" -%}
+<div class="bp-page">
+    <div class="bp-page-header">
+        <h1 class="bp-page-title">{{ 'account.api_token.page.title'|trans }}</h1>
+    </div>
+
+    {% for label, messages in app.flashes %}
+        {% for message in messages %}
+            <div class="bp-flash bp-flash--{{ label }}">{{ message }}</div>
+        {% endfor %}
+    {% endfor %}
+
+    <div class="bp-card">
+        {{ form_start(form, {'action': path('app_api_token_create'), 'method': 'POST', 'attr': {'class': 'bp-form'}}) }}
+            <div class="bp-form-field">
+                {{ form_label(form.label) }}
+                {{ form_widget(form.label, {'attr': {'class': 'bp-input'}}) }}
+                <div class="bp-field-errors">{{ form_errors(form.label) }}</div>
+            </div>
+            <button type="submit" class="bp-btn bp-btn--primary">{{ 'account.api_token.form.submit'|trans }}</button>
+        {{ form_end(form) }}
+    </div>
+
+    {% if tokens|length > 0 %}
+    <div class="bp-card">
+        <table class="bp-table">
+            <thead>
+                <tr>
+                    <th>{{ 'account.api_token.table.column.label'|trans }}</th>
+                    <th>{{ 'account.api_token.table.column.created'|trans }}</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for token in tokens %}
+                <tr>
+                    <td>{{ token.label }}</td>
+                    <td>{{ token.createdAt|date('Y-m-d H:i') }}</td>
+                    <td>
+                        <form method="POST" action="{{ path('app_api_token_revoke', {tokenId: token.id}) }}">
+                            <input type="hidden" name="_csrf_token" value="{{ csrf_token('revoke-api-token') }}">
+                            <button type="submit" class="bp-btn bp-btn--danger">{{ 'account.api_token.action.revoke'|trans }}</button>
+                        </form>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% endif %}
+
+    <div class="bp-card" id="mcp-connection">
+        <h2 class="bp-page-title" style="margin-bottom: 1rem;">{{ 'account.mcp.card.heading'|trans }}</h2>
+
+        <p><strong>{{ 'account.mcp.card.endpoint_label'|trans }}:</strong>
+            <code class="bp-code">{{ mcpUrl }}</code>
+        </p>
+
+        <p>{{ 'account.mcp.card.auth_note'|trans }}
+            <code class="bp-code">{{ mcpAuthHeader }}</code>
+        </p>
+
+        <p><strong>{{ 'account.mcp.card.claude_code_heading'|trans }}</strong></p>
+        <pre class="bp-pre"><code>{{ mcpClaudeCmd }}</code></pre>
+
+        <p><strong>{{ 'account.mcp.card.json_heading'|trans }}</strong></p>
+        <pre class="bp-pre"><code>{{ mcpJsonLine1 }}
+{{ mcpJsonLine2 }}
+{{ mcpJsonLine3 }}
+{{ mcpJsonLine4 }}
+{{ mcpJsonLine5 }}
+{{ mcpJsonLine6 }}
+{{ mcpJsonLine7 }}
+{{ mcpJsonLine8 }}
+{{ mcpJsonLine9 }}
+{{ mcpJsonLine10 }}
+{{ mcpJsonLine11 }}</code></pre>
+
+        <p class="bp-empty">{{ 'account.mcp.card.tls_note'|trans }}</p>
+    </div>
+</div>
+{% endblock %}

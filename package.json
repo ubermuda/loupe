@@ -1,0 +1,7 @@
+{
+  "name": "betterplans",
+  "private": true,
+  "devDependencies": {
+    "prettier": "^3.8.3"
+  }
+}

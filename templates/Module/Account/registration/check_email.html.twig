@@ -1,0 +1,41 @@
+{% extends 'Module/Account/auth_base.html.twig' %}
+
+{% block title %}{{ 'account.registration.check_email.page.title'|trans }}{% endblock %}
+
+{% block auth_body %}
+<div class="flex flex-col items-center gap-3 py-4 text-center">
+    <div class="auth-icon-badge">
+        <twig:UX:Icon name="lucide:mail" class="w-5 h-5" aria-hidden="true" />
+    </div>
+    <div>
+        <h1 class="text-xl font-semibold tracking-tight text-fg">{{ 'account.registration.check_email.heading'|trans }}</h1>
+        <div class="text-fg-mute text-sm mt-1.5 leading-normal">
+            {{ 'account.registration.check_email.body_line1'|trans({'%email%': '<span class="font-medium text-fg">' ~ (email ?? '')|e ~ '</span>'})|raw }}<br>
+            {{ 'account.registration.check_email.body_line2'|trans }}
+        </div>
+    </div>
+
+    {% for label, messages in app.flashes %}
+        {% for message in messages %}
+            <div class="{{ label == 'error' ? 'auth-error' : 'auth-notice' }} w-full text-left">
+                {% if label == 'error' %}
+                    <twig:UX:Icon name="lucide:x" class="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+                {% else %}
+                    <twig:UX:Icon name="lucide:check" class="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+                {% endif %}
+                {{ message }}
+            </div>
+        {% endfor %}
+    {% endfor %}
+
+    <form method="post" action="{{ path('app_register_resend') }}" class="mt-1.5">
+        <input type="hidden" name="_csrf_token" value="{{ csrf_token('resend-verification') }}">
+        <button type="submit" class="btn primary sm">
+            <twig:UX:Icon name="lucide:rotate-cw" class="w-3.5 h-3.5" aria-hidden="true" />
+            {{ 'account.registration.check_email.resend'|trans }}
+        </button>
+    </form>
+
+    <a href="{{ path('app_login') }}" class="text-sm text-accent font-medium hover:underline mt-1">{{ 'account.registration.check_email.back'|trans }}</a>
+</div>
+{% endblock %}
