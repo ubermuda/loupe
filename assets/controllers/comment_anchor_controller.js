@@ -187,10 +187,16 @@ export default class extends Controller {
         const top = rect.bottom - docRect.top + 8;
         const left = Math.max(0, rect.left - docRect.left);
 
+        const wasHidden = this.composerTarget.hidden;
         this.composerTarget.style.top = `${top}px`;
         this.composerTarget.style.left = `${left}px`;
         this.composerTarget.hidden = false;
-        this.composerBodyTarget.value = '';
+        // Only clear an in-progress draft when the composer is newly shown.
+        // Re-positioning on a second selection within the same open session
+        // preserves whatever the user has typed so far.
+        if (wasHidden) {
+            this.composerBodyTarget.value = '';
+        }
         this.composerBodyTarget.focus();
     }
 

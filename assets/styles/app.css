@@ -443,6 +443,12 @@
     .bp-btn:active {
         @apply translate-y-px scale-[0.97]; /* @arbitrary-value-ignore */
     }
+    .bp-btn--primary {
+        @apply bg-accent border-accent text-white;
+    }
+    .bp-btn--primary:hover {
+        @apply bg-accent-hover border-accent-hover;
+    }
     .bp-btn--success {
         @apply bg-green-600 border-green-700 text-white;
     }
@@ -482,8 +488,7 @@
 
     .bp-review-doc {
         @apply relative bg-surface-1 border border-line rounded-xl p-6 leading-relaxed text-fg;
-        /* Allow the comment composer to position relative to this column */
-        position: relative;
+        /* position: relative is set via @apply above; the floating composer positions to this column */
     }
 
     /* Prose styles for rendered Markdown content within the doc column */

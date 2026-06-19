@@ -77,9 +77,19 @@ export default class extends Controller {
 
             if (response.ok) {
                 window.location.reload();
+            } else {
+                console.error(
+                    `[review] POST failed: HTTP ${response.status} ${response.statusText} (${url})`,
+                );
+                window.alert(
+                    'Something went wrong. Please refresh and try again.',
+                );
             }
-        } catch {
-            // Network error — silently fail; the page state is unchanged.
+        } catch (err) {
+            console.error('[review] Network error during POST:', err);
+            window.alert(
+                'Network error. Please check your connection and try again.',
+            );
         }
     }
 }
