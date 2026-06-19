@@ -386,6 +386,12 @@
         border-color: rgba(245, 158, 11, 0.3);
     }
 
+    /* ── Tag chip ───────────────────────────────────────────────────── */
+
+    .bp-tag {
+        @apply inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-tint text-fg-mute border border-line;
+    }
+
     /* ── Flash messages ─────────────────────────────────────────────── */
 
     .bp-flash {

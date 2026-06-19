@@ -551,7 +551,7 @@
             <!-- Navigation bar -->
             <trans-unit id="nav.brand">
                 <source>nav.brand</source>
-                <target>betterplans</target>
+                <target>Better Plans</target>
             </trans-unit>
             <trans-unit id="nav.link.documents">
                 <source>nav.link.documents</source>
