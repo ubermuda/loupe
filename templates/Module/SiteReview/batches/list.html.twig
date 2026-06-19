@@ -9,33 +9,25 @@
     </div>
 
     {% if batches|length > 0 %}
-    <div class="bp-card">
-        <table class="bp-table">
-            <thead>
-                <tr>
-                    <th>{{ 'site_review.batches.table.column.created'|trans }}</th>
-                    <th>{{ 'site_review.batches.table.column.comments'|trans }}</th>
-                    <th></th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for batch in batches %}
-                <tr>
-                    <td>{{ batch.createdAt|date('Y-m-d H:i') }}</td>
-                    <td>{{ batch.comments|length }}</td>
-                    <td>
-                        <a class="bp-btn" href="{{ path('app_site_review_batch', {id: batch.id}) }}">
-                            {{ 'site_review.batches.action.view'|trans }}
-                        </a>
-                    </td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
+    <div class="bp-doc-list">
+        {% for batch in batches %}
+        <div class="bp-doc-row">
+            <div class="bp-doc-row__main">
+                <a href="{{ path('app_site_review_batch', {id: batch.id}) }}" class="bp-doc-row__title">{{ batch.createdAt|date('M j, Y') }}</a>
+                <div class="bp-doc-row__meta">
+                    <span>{{ 'site_review.batches.table.column.comments'|trans }}: {{ batch.comments|length }}</span>
+                </div>
+            </div>
+            <a class="bp-btn" href="{{ path('app_site_review_batch', {id: batch.id}) }}">
+                {{ 'site_review.batches.action.view'|trans }}
+            </a>
+        </div>
+        {% endfor %}
     </div>
     {% else %}
-    <div class="bp-card">
-        <p class="bp-empty">{{ 'site_review.batches.empty'|trans }}</p>
+    <div class="bp-card flex flex-col items-center text-center gap-3 py-12">
+        <twig:ux:icon name="lucide:globe" class="w-8 h-8 text-fg-dim" />
+        <p class="bp-empty not-italic">{{ 'site_review.batches.empty'|trans }}</p>
     </div>
     {% endif %}
 </div>

@@ -563,10 +563,6 @@
                 <source>site_review.batches.page.title</source>
                 <target>Site reviews</target>
             </trans-unit>
-            <trans-unit id="site_review.batches.table.column.created">
-                <source>site_review.batches.table.column.created</source>
-                <target>Sent</target>
-            </trans-unit>
             <trans-unit id="site_review.batches.table.column.comments">
                 <source>site_review.batches.table.column.comments</source>
                 <target>Comments</target>
