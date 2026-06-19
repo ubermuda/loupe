@@ -65,7 +65,11 @@ test('annotate and send a site review batch', async ({ page }) => {
         page.getByRole('button', { name: /Review \(1\)/ }),
     ).toBeVisible();
 
-    // Send the batch and assert a batch id is returned.
+    // Send the batch and assert a real (UUID-shaped) batch id is returned, not just
+    // the success label — a regression returning an empty id would still show the label.
     await page.getByRole('button', { name: 'Send' }).click();
     await expect(page.getByText(/Sent\. Batch id:/)).toBeVisible();
+    await expect(page.locator('#result code')).toHaveText(
+        /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,
+    );
 });
