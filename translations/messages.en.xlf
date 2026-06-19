@@ -485,6 +485,18 @@
                 <source>review.document.comment.submit</source>
                 <target>Comment</target>
             </trans-unit>
+            <trans-unit id="review.document.comment.reply_placeholder">
+                <source>review.document.comment.reply_placeholder</source>
+                <target>Write a reply…</target>
+            </trans-unit>
+            <trans-unit id="review.document.comment.reply">
+                <source>review.document.comment.reply</source>
+                <target>Reply</target>
+            </trans-unit>
+            <trans-unit id="review.document.comment.resolve">
+                <source>review.document.comment.resolve</source>
+                <target>Resolve</target>
+            </trans-unit>
 
             <!-- Document review flash messages -->
             <trans-unit id="review.document.flash.verdict_submitted">

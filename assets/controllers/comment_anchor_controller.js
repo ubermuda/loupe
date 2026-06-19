@@ -83,16 +83,11 @@ export default class extends Controller {
     }
 
     /**
-     * Called when the user clicks outside the composer to dismiss it.
+     * Public action: hide the composer (used by the Cancel button via data-action).
      */
-    onDocumentClick(event) {
-        if (
-            this.hasComposerTarget &&
-            !this.composerTarget.contains(event.target) &&
-            !this.docTarget.contains(event.target)
-        ) {
-            this.#hideComposer();
-        }
+    hideComposer(event) {
+        event?.preventDefault();
+        this.#hideComposer();
     }
 
     /**

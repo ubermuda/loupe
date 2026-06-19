@@ -3,7 +3,7 @@ import { Controller } from '@hotwired/stimulus';
 /**
  * Handles reply and resolve interactions in the review sidebar.
  *
- * Reply and resolve calls POST via fetch() to their respective routes.
+ * Both actions POST via fetch() to their respective routes.
  * The CSRF token for the comment-action token id is stateless; for same-origin
  * fetch() calls the browser sends Sec-Fetch-Site: same-origin which satisfies
  * origin validation. We still include the _csrf_token body parameter so the
@@ -21,51 +21,14 @@ export default class extends Controller {
     };
 
     /**
-     * Submits a reply to a comment thread.
-     *
-     * Expected data attributes on the triggering element:
-     *   data-review-reply-url-param   — the POST URL for app_comment_reply
-     *   data-review-body-param        — the reply body text
-     */
-    async reply(event) {
-        event.preventDefault();
-
-        const url = event.params['replyUrl'];
-        const body = event.params['body'];
-
-        if (!url || !body) {
-            return;
-        }
-
-        await this.#post(url, { body });
-    }
-
-    /**
-     * Resolves a comment thread.
-     *
-     * Expected data attribute on the triggering element:
-     *   data-review-resolve-url-param  — the POST URL for app_comment_resolve
-     */
-    async resolve(event) {
-        event.preventDefault();
-
-        const url = event.params['resolveUrl'];
-        if (!url) {
-            return;
-        }
-
-        await this.#post(url, {});
-    }
-
-    /**
      * Submits a reply from an inline reply form in the sidebar.
-     * The reply body is read from the nearest input[data-reply-input] within the
-     * closest .bp-comment-thread ancestor.
+     * Reads the textarea via [data-reply-input] inside the closest .bp-comment-thread,
+     * and the POST URL from data-reply-url on the button.
      */
     async submitReply(event) {
         event.preventDefault();
 
-        const thread = event.target.closest('.bp-comment-thread');
+        const thread = event.currentTarget.closest('.bp-comment-thread');
         const input = thread?.querySelector('[data-reply-input]');
         const url = event.currentTarget.dataset.replyUrl;
 
@@ -82,8 +45,8 @@ export default class extends Controller {
     }
 
     /**
-     * Resolves a comment from a resolve button in the sidebar.
-     * The URL is read from data-resolve-url on the button.
+     * Resolves a comment thread.
+     * Reads the POST URL from data-resolve-url on the button.
      */
     async resolveComment(event) {
         event.preventDefault();

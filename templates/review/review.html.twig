@@ -26,12 +26,15 @@
     data-review-csrf-token-value="{{ csrf_token('comment-action') }}"
 >
     <div class="bp-review-layout">
-        <div
-            class="bp-review-doc"
-            data-comment-anchor-target="doc"
-            data-action="mouseup->comment-anchor#onDocMouseup"
-        >
-            {{ version.renderedHtml|raw }}
+        {#
+            The outer .bp-review-doc provides position:relative for the floating composer.
+            The inner [data-comment-anchor-target="doc"] is the TreeWalker root — it must
+            contain ONLY the rendered HTML with no surrounding template whitespace, so that
+            its textContent === DocumentVersion::plainText() and JS text-node offsets agree
+            with the PHP anchor basis.
+        #}
+        <div class="bp-review-doc" data-action="mouseup->comment-anchor#onDocMouseup">
+            <div data-comment-anchor-target="doc">{{ version.renderedHtml|raw }}</div>
 
             {# Floating composer — hidden until text is selected #}
             <div
@@ -52,7 +55,7 @@
                     <button
                         type="button"
                         class="bp-btn bp-btn--ghost bp-btn--sm"
-                        data-action="comment-anchor#onDocumentClick"
+                        data-action="comment-anchor#hideComposer"
                     >{{ 'review.document.comment.cancel'|trans }}</button>
                     <button
                         type="button"
@@ -72,7 +75,12 @@
             {% if rootComments|length > 0 %}
                 {% for comment in rootComments %}
                     {% set replies = comments|filter(c => c.parent is not null and c.parent.id == comment.id) %}
-                    <twig:CommentThread :comment="comment" :replies="replies|map(c => c)" />
+                    <twig:CommentThread
+                        :comment="comment"
+                        :replies="replies|map(c => c)"
+                        resolveUrl="{{ path('app_comment_resolve', {commentId: comment.id}) }}"
+                        replyUrl="{{ path('app_comment_reply', {commentId: comment.id}) }}"
+                    />
                 {% endfor %}
             {% else %}
                 <p class="bp-empty">{{ 'review.document.sidebar.empty'|trans }}</p>

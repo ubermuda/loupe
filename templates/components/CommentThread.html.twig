@@ -1,7 +1,9 @@
 {#
   Props:
-    comment  Comment               The root comment (parent === null).
-    replies  list<Comment>         Direct replies to this comment.
+    comment     Comment               The root comment (parent === null).
+    replies     list<Comment>         Direct replies to this comment.
+    resolveUrl  string                POST URL for app_comment_resolve.
+    replyUrl    string                POST URL for app_comment_reply.
 #}
 <div class="bp-comment-thread{% if comment.resolved %} bp-comment-thread--resolved{% endif %}{% if comment.orphaned %} bp-comment-thread--orphaned{% endif %}">
     <div class="bp-comment">
@@ -17,6 +19,30 @@
             <div class="bp-comment-body">{{ reply.body }}</div>
         </div>
         {% endfor %}
+    </div>
+    {% endif %}
+
+    {% if not comment.resolved %}
+    <div class="bp-comment-reply-form">
+        <textarea
+            data-reply-input
+            placeholder="{{ 'review.document.comment.reply_placeholder'|trans }}"
+            rows="2"
+        ></textarea>
+        <div class="bp-comment-composer__actions">
+            <button
+                type="button"
+                class="bp-btn bp-btn--ghost bp-btn--sm"
+                data-reply-url="{{ replyUrl }}"
+                data-action="review#submitReply"
+            >{{ 'review.document.comment.reply'|trans }}</button>
+            <button
+                type="button"
+                class="bp-btn bp-btn--sm"
+                data-resolve-url="{{ resolveUrl }}"
+                data-action="review#resolveComment"
+            >{{ 'review.document.comment.resolve'|trans }}</button>
+        </div>
     </div>
     {% endif %}
 </div>
