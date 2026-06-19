@@ -34,9 +34,8 @@ services:
       - database
 
 ###> symfony/mailer ###
-  # mailpit is on traefik (reachable at mailpit.${COMPOSE_PROJECT_NAME}.dev.localhost,
-  # consistent with the other projects) and also publishes host port 8025 so the e2e
-  # suite can reach it directly (MAILPIT_URL=http://localhost:8025).
+  # mailpit is reached via traefik at mailpit.${COMPOSE_PROJECT_NAME}.dev.localhost
+  # (the e2e suite uses that URL); no host port is published.
   mailer:
     image: axllent/mailpit
     restart: unless-stopped
@@ -53,8 +52,6 @@ services:
       - traefik.http.routers.mailpit-${COMPOSE_PROJECT_NAME}.tls=true
       - traefik.http.routers.mailpit-${COMPOSE_PROJECT_NAME}.tls.certresolver=stepca
       - traefik.http.services.mailpit-${COMPOSE_PROJECT_NAME}.loadbalancer.server.port=8025
-    ports:
-      - "8025:8025"
 ###< symfony/mailer ###
 
 ###> doctrine/doctrine-bundle ###
