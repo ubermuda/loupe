@@ -34,7 +34,7 @@ async function createVerifiedUser(
         /https?:\/\/[^\s"<]+\/register\/verify[^\s"<]*/,
     );
     await page.goto(link);
-    await expect(page).toHaveURL('/');
+    await expect(page).toHaveURL('/documents');
 }
 
 test('requesting reset with unknown email succeeds silently', async ({
@@ -93,7 +93,7 @@ test('valid reset token allows password change', async ({ page, request }) => {
     await page.getByLabel('Email').fill(email);
     await page.getByLabel('Password').fill('NewPassword1!');
     await page.getByRole('button', { name: 'Sign in' }).click();
-    await expect(page).toHaveURL('/');
+    await expect(page).toHaveURL('/documents');
 });
 
 test('used (already-consumed) token redirects to forgot-password with error', async ({

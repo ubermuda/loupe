@@ -13,6 +13,8 @@ class HomeController extends AppController
 {
     public function __invoke(): Response
     {
-        return new Response('<html><body><p>Home (placeholder)</p></body></html>');
+        // The documents dashboard is the app's home for an authenticated user
+        // (the ^/ firewall guarantees authentication before this runs).
+        return $this->redirectToRoute('app_documents');
     }
 }
