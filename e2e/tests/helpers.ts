@@ -1,8 +1,6 @@
 import { APIRequestContext, expect } from '@playwright/test';
 
-const mailpitUrl =
-    process.env['MAILPIT_URL'] ??
-    'https://mailpit.symfony-skeleton.dev.localhost';
+const mailpitUrl = process.env['MAILPIT_URL'] ?? 'http://localhost:8025';
 
 export async function fetchVerificationUrl(
     request: APIRequestContext,

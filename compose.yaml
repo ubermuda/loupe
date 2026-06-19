@@ -34,15 +34,17 @@ services:
       - database
 
 ###> symfony/mailer ###
-  # betterplans uses MAILER_DSN=null (no outbound mail in this app), so the
-  # mailpit container stays on the default network only — it does not consume a
-  # slot on the shared, address-constrained traefik network.
+  # The mailpit container stays on the default network only — the shared traefik
+  # network has no available IPv4 addresses. The API is exposed on host port 8025
+  # so e2e tests can reach it directly (MAILPIT_URL=http://localhost:8025).
   mailer:
     image: axllent/mailpit
     restart: unless-stopped
     environment:
       MP_SMTP_AUTH_ACCEPT_ANY: 1
       MP_SMTP_AUTH_ALLOW_INSECURE: 1
+    ports:
+      - "8025:8025"
 ###< symfony/mailer ###
 
 ###> doctrine/doctrine-bundle ###

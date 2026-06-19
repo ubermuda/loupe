@@ -39,6 +39,7 @@ security:
 
     access_control:
         - { path: ^/_mcp,            roles: ROLE_USER }
+        - { path: ^/dev/register-and-verify$, roles: PUBLIC_ACCESS }
         - { path: ^/login,           roles: PUBLIC_ACCESS }
         - { path: ^/register,        roles: PUBLIC_ACCESS }
         - { path: ^/verify,          roles: PUBLIC_ACCESS }

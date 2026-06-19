@@ -10,8 +10,7 @@ export default defineConfig({
     reporter: [['html', { open: 'never' }]],
     use: {
         baseURL:
-            process.env.E2E_BASE_URL ??
-            'https://symfony-skeleton.dev.localhost',
+            process.env.E2E_BASE_URL ?? 'https://betterplans.dev.localhost',
         ignoreHTTPSErrors: true,
         trace: 'retain-on-failure',
         extraHTTPHeaders: {

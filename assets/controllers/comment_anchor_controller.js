@@ -1,4 +1,5 @@
 import { Controller } from '@hotwired/stimulus';
+import { generateCsrfToken } from './csrf_protection_controller.js';
 
 /**
  * Handles text selection within the review document, showing a comment composer
@@ -17,11 +18,12 @@ import { Controller } from '@hotwired/stimulus';
  * but diverge on multibyte (emoji, CJK, etc.) text. Anchoring is reliable for
  * ASCII in v1.
  *
- * CSRF: the comment-action token id is stateless (SameOriginCsrfTokenManager).
- * For same-origin fetch() the browser automatically sends Sec-Fetch-Site: same-origin,
- * which satisfies origin validation. We still include the csrf_token value (which for
- * stateless tokens equals the cookie name "csrf-token") as _csrf_token in the body
- * so the ValidateCsrfTokenListener can call isTokenValid() without a length error.
+ * CSRF: we use the same double-submit pattern as regular form submissions.
+ * generateCsrfToken() creates a cryptographically-random token, sets it as the
+ * value of a synthetic form field, and stores the matching cookie — exactly what
+ * SameOriginCsrfTokenManager's double-submit validation expects. This avoids the
+ * session-based behavioral downgrade check that fires when a previous request used
+ * double-submit and the next one supplies only origin info.
  */
 export default class extends Controller {
     static targets = ['doc', 'composer', 'composerBody', 'composerError'];
@@ -105,14 +107,22 @@ export default class extends Controller {
             this.composerErrorTarget.textContent = '';
         }
 
+        // Build a synthetic form with a hidden CSRF input so generateCsrfToken()
+        // can set both the field value and the double-submit cookie — the same
+        // mechanism used by regular form submissions via csrf_protection_controller.js.
+        const syntheticForm = document.createElement('form');
+        const csrfInput = document.createElement('input');
+        csrfInput.type = 'hidden';
+        csrfInput.name = '_csrf_token';
+        csrfInput.value = this.csrfTokenValue; // 'csrf-token' — the cookie name, triggers random generation
+        syntheticForm.appendChild(csrfInput);
+        generateCsrfToken(syntheticForm); // replaces csrfInput.value with a random token + sets cookie
+
         const formData = new URLSearchParams();
         formData.set('start', String(this.#selectionStart));
         formData.set('length', String(this.#selectionLength));
         formData.set('body', body);
-        // Include the csrf_token value so ValidateCsrfTokenListener can call isTokenValid().
-        // For stateless tokens this equals the cookie name; origin validation (Sec-Fetch-Site)
-        // carries the request for same-origin fetch() calls.
-        formData.set('_csrf_token', this.csrfTokenValue);
+        formData.set('_csrf_token', csrfInput.value);
 
         try {
             const response = await fetch(this.addCommentUrlValue, {
