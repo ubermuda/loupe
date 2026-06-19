@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "24a173d09694ccbf67f1b895877c3aa9",
+    "content-hash": "68abca7122d59aea7ce625834476af82",
     "packages": [
         {
             "name": "composer/semver",
@@ -13650,12 +13650,12 @@
             "source": {
                 "type": "git",
                 "url": "https://github.com/ubermuda/gamache.git",
-                "reference": "8e9de54792828100d6231e5d345fe466342a7aa8"
+                "reference": "b6ea9aee3a2551aea54bd4bc265aa40f5a36cf59"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/ubermuda/gamache/zipball/8e9de54792828100d6231e5d345fe466342a7aa8",
-                "reference": "8e9de54792828100d6231e5d345fe466342a7aa8",
+                "url": "https://api.github.com/repos/ubermuda/gamache/zipball/b6ea9aee3a2551aea54bd4bc265aa40f5a36cf59",
+                "reference": "b6ea9aee3a2551aea54bd4bc265aa40f5a36cf59",
                 "shasum": ""
             },
             "require": {
@@ -13704,7 +13704,7 @@
                 "source": "https://github.com/ubermuda/gamache/tree/main",
                 "issues": "https://github.com/ubermuda/gamache/issues"
             },
-            "time": "2026-06-17T12:45:09+00:00"
+            "time": "2026-06-19T13:25:35+00:00"
         },
         {
             "name": "vincentlanglet/twig-cs-fixer",
