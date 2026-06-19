@@ -216,6 +216,6 @@ php bin/console ux:icons:import lucide:ICON_NAME
 {{ ux_icon('lucide:x', {'class': 'w-3.5 h-3.5 shrink-0 mt-px'}) }}
 ```
 
-`assets/icons/` is gitignored. Re-run `ux:icons:import` on a fresh clone if icons are missing. If icon SVGs are accidentally committed, remove them with `git rm --cached` — **not** `git rm`.
+`assets/icons/` is gitignored. UX Icons runs with `iconify.on_demand: true` (dev **and** test), so any Lucide icon resolves at render time from the iconify API — newly used icons render and pass tests/CI **without** being committed or pre-imported. `ux:icons:import` only populates a local cache (handy offline); it is not a prerequisite for a new icon to work, so you never need to commit the SVGs. If icon SVGs are accidentally committed, remove them with `git rm --cached` — **not** `git rm`.
 
 **Stroke colour:** Imported Lucide SVGs use `stroke="currentColor"`. Control the stroke colour via a text colour class on the icon or its parent — never hardcode `stroke="white"` as an attribute.

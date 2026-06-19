@@ -27,3 +27,17 @@ assertion).
 - **Caveat:** noisy. Needs an allowlist for dev/test-only controllers and for
   legitimate non-form technical reads (CSRF tokens on hand-rolled fieldless
   forms). Without a good allowlist this will produce false positives.
+
+## 2026-06-19 — SaaS visual redesign retrospective
+
+### Ban the brand name inside page-title translation values
+- **Rule:** page `{% block title %}` must compose two translated strings —
+  `{{ 'x.page.title'|trans }} — {{ 'app.name'|trans }}` — and the page-title
+  trans-unit value must not itself contain the brand name (see
+  `project-templates`, "Page titles").
+- **Mechanism:** a new `ubermuda/gamache` check scanning `translations/*.xlf`
+  for `trans-unit` ids ending in `.page.title` whose `<target>` contains the
+  `app.name` brand value (or a ` — ` separator).
+- **Caveat:** the brand string is itself a translation value; the check must
+  read `app.name`'s target and match against it rather than hard-coding
+  "Better Plans".
