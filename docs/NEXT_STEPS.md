@@ -11,6 +11,26 @@ in-place update. This same rule must be ported into `~/Code/symfony-skeleton`
 (its equivalent frontend skill / docs) so new projects inherit it. See
 `.skeleton.json` for the sync baseline.
 
+## Add cross-account isolation tests for the MCP tools
+
+The MCP tools are all correctly owner-scoped in code (the API token resolves to
+its `owner`, and every tool looks up via `findOneByIdAndOwner` / `findBy owner`),
+but negative-test coverage is uneven:
+
+- `list_documents` — has a direct tool test
+  (`ListDocumentsToolTest::test_returns_only_authenticated_users_documents`).
+- `get_review` / `get_document` — cross-account denial is tested only at the
+  query-handler level (`GetReviewTest`), not at the tool entry point.
+- `revise_document` — **no** cross-account negative test at all, and it's a
+  mutation. Highest priority: add a test that user B's token revising user A's
+  document is denied (`DocumentNotFound`).
+- `create_document` — cross-account create isn't expressible (owner is always the
+  caller), so no test needed.
+
+Suggested: add a negative test for `ReviseDocumentHandler`, and optionally thin
+tool-level tests for `GetReviewTool` / `GetDocumentTool` mirroring
+`ListDocumentsToolTest` so isolation is asserted at the actual agent entry point.
+
 ## Review anchoring — possible enhancement (low priority)
 
 Observed while dogfooding the review loop on the site-review spec: revising a
