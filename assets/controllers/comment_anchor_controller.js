@@ -462,6 +462,7 @@ export default class extends Controller {
             range,
             this.toolbarTarget.offsetWidth,
         );
+        this.toolbarPosition = pos; // reused so the composer opens in this spot
         this.toolbarTarget.style.top = `${pos.top}px`;
         this.toolbarTarget.style.left = `${pos.left}px`;
     }
@@ -472,20 +473,24 @@ export default class extends Controller {
         }
     }
 
-    // Opens at the same spot the toolbar occupied (same anchor, right-aligned to
-    // the selection's end) so the composer appears where the button was.
+    // Opens with its top-left at the toolbar's top-left (the composer is wider, so
+    // it extends rightward from there), clamped to stay within the doc column.
     #showComposerNear(range) {
         if (!this.hasComposerTarget) {
             return;
         }
         this.composerTarget.classList.remove('bp-comment-composer--untargeted');
         this.composerTarget.hidden = false; // unhide so offsetWidth is measurable
-        const pos = this.#anchorBelowSelection(
-            range,
-            this.composerTarget.offsetWidth,
+        const base =
+            this.toolbarPosition ??
+            this.#anchorBelowSelection(range, this.composerTarget.offsetWidth);
+        const host = this.docTarget.parentElement;
+        const maxLeft = Math.max(
+            0,
+            host.clientWidth - this.composerTarget.offsetWidth,
         );
-        this.composerTarget.style.top = `${pos.top}px`;
-        this.composerTarget.style.left = `${pos.left}px`;
+        this.composerTarget.style.top = `${base.top}px`;
+        this.composerTarget.style.left = `${Math.min(base.left, maxLeft)}px`;
         this.#openComposer();
     }
 
