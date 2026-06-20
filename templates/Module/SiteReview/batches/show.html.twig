@@ -32,16 +32,18 @@
     <div class="flex flex-col gap-3 mt-4">
         {% for comment in batch.comments %}
         <div class="bp-review-comment">
-            <div class="flex items-start justify-between gap-2">
-                <p class="bp-review-comment__body">{{ comment.body }}</p>
+            {% if comment.text is not empty %}
+            <blockquote class="bp-review-comment__quote">{{ comment.text }}</blockquote>
+            {% endif %}
+
+            <div class="bp-review-comment__head">
+                <span class="bp-review-comment__author">{{ batch.owner.fullName }}</span>
                 {% if comment.selector is empty %}
                 <span class="bp-tag shrink-0">{{ 'site_review.batch.comment.general'|trans }}</span>
                 {% endif %}
             </div>
 
-            {% if comment.text is not empty %}
-            <p class="bp-review-comment__quote">&ldquo;{{ comment.text }}&rdquo;</p>
-            {% endif %}
+            <p class="bp-review-comment__body">{{ comment.body }}</p>
 
             <a class="bp-review-comment__url" href="{{ comment.url }}" target="_blank" rel="noopener noreferrer">
                 <twig:ux:icon name="lucide:external-link" class="w-3.5 h-3.5 shrink-0" />

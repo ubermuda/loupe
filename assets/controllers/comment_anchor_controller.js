@@ -49,18 +49,17 @@ export default class extends Controller {
         this.resizeObserver = new ResizeObserver(() => this.#scheduleLayout());
         this.resizeObserver.observe(this.docTarget);
 
-        // The thread list is replaced in place by Turbo Streams on add / reply /
-        // resolve; re-layout whenever it changes.
-        const threadsContainer = this.#threadsContainer();
-        if (threadsContainer) {
-            this.threadObserver = new MutationObserver(() =>
-                this.#scheduleLayout(),
-            );
-            this.threadObserver.observe(threadsContainer, {
-                childList: true,
-                subtree: true,
-            });
-        }
+        // Turbo Streams swap the thread list (add/delete replace the whole
+        // #comment-threads container; reply/resolve replace a single thread), so
+        // observe the stable controller root — observing the container itself
+        // would miss its own replacement and stop firing after the first change.
+        this.threadObserver = new MutationObserver(() =>
+            this.#scheduleLayout(),
+        );
+        this.threadObserver.observe(this.element, {
+            childList: true,
+            subtree: true,
+        });
     }
 
     disconnect() {
@@ -425,9 +424,17 @@ export default class extends Controller {
         }
         const rect = range.getBoundingClientRect();
         const docRect = this.docTarget.getBoundingClientRect();
-        this.toolbarTarget.style.top = `${rect.bottom - docRect.top + 6}px`;
-        this.toolbarTarget.style.left = `${Math.max(0, rect.left - docRect.left)}px`;
+        // Unhide first so offsetHeight is measurable, then sit above the selection
+        // (so it doesn't cover the text). Fall back to below when there's no room.
         this.toolbarTarget.hidden = false;
+        const gap = 6;
+        let top =
+            rect.top - docRect.top - this.toolbarTarget.offsetHeight - gap;
+        if (top < 0) {
+            top = rect.bottom - docRect.top + gap;
+        }
+        this.toolbarTarget.style.top = `${top}px`;
+        this.toolbarTarget.style.left = `${Math.max(0, rect.left - docRect.left)}px`;
     }
 
     #hideToolbar() {

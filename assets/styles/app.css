@@ -87,10 +87,10 @@
     --accent-hover: #3460c4;
     --accent-soft: rgba(59, 111, 220, 0.1);
     --accent-border: rgba(59, 111, 220, 0.3);
-    /* In-document anchor highlights (CSS Custom Highlight API). Translucent so
-       the underlying text stays legible on both themes. */
-    --anchor-highlight: rgba(59, 111, 220, 0.22);
-    --anchor-highlight-active: rgba(59, 111, 220, 0.4);
+    /* In-document anchor highlights (CSS Custom Highlight API). Highlighter
+       yellow, translucent so the underlying text stays legible on both themes. */
+    --anchor-highlight: rgba(250, 204, 21, 0.45);
+    --anchor-highlight-active: rgba(250, 204, 21, 0.7);
 }
 
 .theme-light {
@@ -724,11 +724,17 @@
     .bp-review-comment {
         @apply bg-surface-1 border border-line rounded-xl p-4 flex flex-col gap-2.5;
     }
+    .bp-review-comment__head {
+        @apply flex items-center justify-between gap-2;
+    }
+    .bp-review-comment__author {
+        @apply text-xs font-semibold text-fg-mute;
+    }
     .bp-review-comment__body {
         @apply text-sm text-fg leading-snug m-0;
     }
     .bp-review-comment__quote {
-        @apply text-xs text-fg-mute italic border-l-2 border-line pl-3 m-0;
+        @apply px-3 py-2 bg-tint border-l-2 border-accent rounded text-xs italic text-fg-mute line-clamp-3 m-0;
     }
     .bp-review-comment__url {
         @apply inline-flex items-center gap-1.5 max-w-full min-w-0 text-xs text-fg-dim no-underline transition-colors hover:text-accent;
@@ -840,6 +846,16 @@
     .bp-app--collapsed .bp-sidebar__toggle {
         @apply ml-0;
     }
+    /* Toggle icon: "collapse" when expanded, "expand" when collapsed. */
+    .bp-sidebar__toggle-icon--expand {
+        @apply hidden;
+    }
+    .bp-app--collapsed .bp-sidebar__toggle-icon--collapse {
+        @apply hidden;
+    }
+    .bp-app--collapsed .bp-sidebar__toggle-icon--expand {
+        @apply block;
+    }
 
     /* ── Code / pre blocks ──────────────────────────────────────────────── */
 
@@ -867,6 +883,15 @@
     }
     .bp-key-values dd {
         @apply m-0;
+    }
+    .bp-copy-row {
+        @apply flex items-center gap-2;
+    }
+    .bp-copy-row .bp-code {
+        @apply min-w-0 truncate;
+    }
+    .bp-copy-row .bp-btn {
+        @apply shrink-0;
     }
     .bp-code-block {
         @apply mb-4;

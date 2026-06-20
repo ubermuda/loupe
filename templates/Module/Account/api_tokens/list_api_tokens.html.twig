@@ -87,11 +87,19 @@
         <dl class="bp-key-values">
             <div class="bp-key-values__row">
                 <dt>{{ 'account.mcp.card.endpoint_label'|trans }}</dt>
-                <dd><code class="bp-code">{{ mcpUrl }}</code></dd>
+                <dd class="bp-copy-row" data-controller="clipboard" data-clipboard-text-value="{{ mcpUrl }}"
+                    data-clipboard-copied-label-value="{{ 'account.mcp.card.copied'|trans }}">
+                    <code class="bp-code">{{ mcpUrl }}</code>
+                    <button type="button" class="bp-btn bp-btn--ghost bp-btn--sm" data-clipboard-target="button" data-action="clipboard#copy">{{ 'account.mcp.card.copy'|trans }}</button>
+                </dd>
             </div>
             <div class="bp-key-values__row">
                 <dt>{{ 'account.mcp.card.auth_label'|trans }}</dt>
-                <dd><code class="bp-code">{{ mcpAuthHeader }}</code></dd>
+                <dd class="bp-copy-row" data-controller="clipboard" data-clipboard-text-value="{{ mcpAuthHeader }}"
+                    data-clipboard-copied-label-value="{{ 'account.mcp.card.copied'|trans }}">
+                    <code class="bp-code">{{ mcpAuthHeader }}</code>
+                    <button type="button" class="bp-btn bp-btn--ghost bp-btn--sm" data-clipboard-target="button" data-action="clipboard#copy">{{ 'account.mcp.card.copy'|trans }}</button>
+                </dd>
             </div>
         </dl>
 
