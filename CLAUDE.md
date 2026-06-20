@@ -196,11 +196,23 @@ To adjust the threshold or ignored call sites, edit the `TranslationCheck` entry
 
 ## Gamache Checks
 
-`just gamache` runs convention checks from the `ubermuda/gamache` package (`vendor/ubermuda/gamache/src/Check/`). Checks are configured in `gamache.php` at the project root.
+`ubermuda/gamache` enforces project conventions through **five** layers, each wired into a different tool. Before concluding "gamache has no rule for X," check **all five** — and note that most of them run under `just ci`, **not** `just gamache`:
 
-**Adding or modifying a check:** gamache is an external package. To add a new check or change an existing one, open a PR on https://github.com/ubermuda/gamache. Do not add check classes directly to this project — `src/Utils/Gamache/` no longer exists.
+| Layer | Package dir | Wired via | Run by |
+|---|---|---|---|
+| Convention checks | `src/Check/` | `gamache.php` | `just gamache` (`vendor/bin/gamache`) |
+| PHPStan rules | `src/PHPStan/` | `extension.neon` + `parameters.gamache:` in `phpstan.dist.neon` | `just phpstan` / `just ci` |
+| Rector rules | `src/Rector/` | `GamacheSetList::CONVENTIONS` in `rector.php` | `just rector` |
+| PHP-CS-Fixer rules | `src/PhpCsFixer/` | `Gamache\PhpCsFixer\Fixers` in `.php-cs-fixer.dist.php` | `just cs-fix` |
+| Twig-CS-Fixer rules | `src/TwigCsFixer/` | `GamacheStandard` in `.twig-cs-fixer.php` | twig-cs-fixer |
 
-**Configuring checks:** each check class accepts constructor parameters (see `gamache.php`). To pass custom options (e.g. `ignoredCallSites` on `TranslationCheck`), edit the constructor call in `gamache.php`.
+`just gamache` runs **only** the `src/Check/` layer (advisory/structural convention checks). The other four are part of the normal static-analysis pipeline. So "is gamache working / does a check exist?" is answered by grepping the package's `src/Check/`, `src/PHPStan/`, `src/Rector/`, `src/PhpCsFixer/`, and `src/TwigCsFixer/` — not just `src/Check/`.
+
+**PHPStan-rule layer only sees files in PHPStan's `paths:`** (`phpstan.dist.neon`). `migrations/` **must** stay in that list or migration-targeting rules (e.g. `MigrationDescriptionRule`) silently never run. When adding a new top-level source dir a rule should police, add it to `paths:`.
+
+**Adding or modifying any gamache rule:** gamache is an external package. To add or change a rule in **any** of the five layers, open a PR on https://github.com/ubermuda/gamache. Do not add rule/check/fixer classes directly to this project — `src/Utils/Gamache/` no longer exists.
+
+**Configuring checks:** each `src/Check/` class accepts constructor parameters (see `gamache.php`). To pass custom options (e.g. `ignoredCallSites` on `TranslationCheck`), edit the constructor call in `gamache.php`. The PHPStan layer is configured under `parameters.gamache:` in `phpstan.dist.neon`.
 
 ## Icons
 
