@@ -418,23 +418,37 @@ export default class extends Controller {
 
     // ── Toolbar / composer positioning ──────────────────────────────────────
 
+    /**
+     * Origin (viewport coords) of the absolute-positioning containing block for
+     * the toolbar/composer: the padding-box top-left of .bp-review-doc (their
+     * offset parent). Using the inner doc element here would be wrong by that
+     * element's offset within the padded .bp-review-doc.
+     */
+    #positioningOrigin() {
+        const host = this.docTarget.parentElement;
+        const rect = host.getBoundingClientRect();
+        return {
+            top: rect.top + host.clientTop,
+            left: rect.left + host.clientLeft,
+        };
+    }
+
     #showToolbarNear(range) {
         if (!this.hasToolbarTarget) {
             return;
         }
         const rect = range.getBoundingClientRect();
-        const docRect = this.docTarget.getBoundingClientRect();
+        const origin = this.#positioningOrigin();
         // Unhide first so offsetHeight is measurable, then sit above the selection
         // (so it doesn't cover the text). Fall back to below when there's no room.
         this.toolbarTarget.hidden = false;
         const gap = 6;
-        let top =
-            rect.top - docRect.top - this.toolbarTarget.offsetHeight - gap;
+        let top = rect.top - origin.top - this.toolbarTarget.offsetHeight - gap;
         if (top < 0) {
-            top = rect.bottom - docRect.top + gap;
+            top = rect.bottom - origin.top + gap;
         }
         this.toolbarTarget.style.top = `${top}px`;
-        this.toolbarTarget.style.left = `${Math.max(0, rect.left - docRect.left)}px`;
+        this.toolbarTarget.style.left = `${Math.max(0, rect.left - origin.left)}px`;
     }
 
     #hideToolbar() {
@@ -448,10 +462,10 @@ export default class extends Controller {
             return;
         }
         const rect = range.getBoundingClientRect();
-        const docRect = this.docTarget.getBoundingClientRect();
+        const origin = this.#positioningOrigin();
         this.composerTarget.classList.remove('bp-comment-composer--untargeted');
-        this.composerTarget.style.top = `${rect.bottom - docRect.top + 8}px`;
-        this.composerTarget.style.left = `${Math.max(0, rect.left - docRect.left)}px`;
+        this.composerTarget.style.top = `${rect.bottom - origin.top + 8}px`;
+        this.composerTarget.style.left = `${Math.max(0, rect.left - origin.left)}px`;
         this.#openComposer();
     }
 
