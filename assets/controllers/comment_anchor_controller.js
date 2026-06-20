@@ -433,27 +433,37 @@ export default class extends Controller {
         };
     }
 
-    #showToolbarNear(range) {
-        if (!this.hasToolbarTarget) {
-            return;
-        }
-        // Anchor to the LAST line of the selection (its own client rect), not the
-        // bounding box — the box's right edge is the widest line, which for a
-        // multi-line selection can sit well past where the selection actually
-        // ends on the last line.
+    /**
+     * Position (relative to the offset parent) just below the selection's LAST
+     * line, right-aligned to where the selection ends there. Anchoring to the
+     * last client rect — not the bounding box, whose right edge is the widest
+     * line — keeps it next to the actual end of a multi-line selection. The
+     * element must be visible so its width is measurable.
+     */
+    #anchorBelowSelection(range, width) {
         const rects = range.getClientRects();
         const rect = rects.length
             ? rects[rects.length - 1]
             : range.getBoundingClientRect();
         const origin = this.#positioningOrigin();
-        // Unhide first so offsetWidth is measurable. Sit just below the last line,
-        // right-aligned to where the selection ends on it.
-        this.toolbarTarget.hidden = false;
         const gap = 10;
-        const top = rect.bottom - origin.top + gap;
-        const left = rect.right - origin.left - this.toolbarTarget.offsetWidth;
-        this.toolbarTarget.style.top = `${top}px`;
-        this.toolbarTarget.style.left = `${Math.max(0, left)}px`;
+        return {
+            top: rect.bottom - origin.top + gap,
+            left: Math.max(0, rect.right - origin.left - width),
+        };
+    }
+
+    #showToolbarNear(range) {
+        if (!this.hasToolbarTarget) {
+            return;
+        }
+        this.toolbarTarget.hidden = false; // unhide so offsetWidth is measurable
+        const pos = this.#anchorBelowSelection(
+            range,
+            this.toolbarTarget.offsetWidth,
+        );
+        this.toolbarTarget.style.top = `${pos.top}px`;
+        this.toolbarTarget.style.left = `${pos.left}px`;
     }
 
     #hideToolbar() {
@@ -462,15 +472,20 @@ export default class extends Controller {
         }
     }
 
+    // Opens at the same spot the toolbar occupied (same anchor, right-aligned to
+    // the selection's end) so the composer appears where the button was.
     #showComposerNear(range) {
         if (!this.hasComposerTarget) {
             return;
         }
-        const rect = range.getBoundingClientRect();
-        const origin = this.#positioningOrigin();
         this.composerTarget.classList.remove('bp-comment-composer--untargeted');
-        this.composerTarget.style.top = `${rect.bottom - origin.top + 8}px`;
-        this.composerTarget.style.left = `${Math.max(0, rect.left - origin.left)}px`;
+        this.composerTarget.hidden = false; // unhide so offsetWidth is measurable
+        const pos = this.#anchorBelowSelection(
+            range,
+            this.composerTarget.offsetWidth,
+        );
+        this.composerTarget.style.top = `${pos.top}px`;
+        this.composerTarget.style.left = `${pos.left}px`;
         this.#openComposer();
     }
 
