@@ -1,6 +1,7 @@
 /* ── Tailwind ──────────────────────────────────────────────────────── */
 
 @import 'tailwindcss';
+@plugin "@tailwindcss/typography";
 
 /* ── Content sources for Tailwind v4 ──────────────────────────────── */
 
@@ -569,82 +570,32 @@
     /* ── Document column ────────────────────────────────────────────── */
 
     .bp-review-doc {
-        @apply relative bg-surface-1 border border-line rounded-xl p-6 leading-relaxed text-fg;
-        /* position: relative is set via @apply above; the floating composer positions to this column */
+        @apply relative bg-surface-1 border border-line rounded-xl p-6;
+        /* position: relative anchors the floating composer/toolbar to this column */
     }
 
-    /* Prose styles for rendered Markdown content within the doc column */
-    .bp-review-doc h1,
-    .bp-review-doc h2,
-    .bp-review-doc h3,
-    .bp-review-doc h4,
-    .bp-review-doc h5,
-    .bp-review-doc h6 {
-        @apply font-semibold tracking-tight text-fg mt-6 mb-3;
-    }
-    .bp-review-doc h1 {
-        @apply text-2xl;
-    }
-    .bp-review-doc h2 {
-        @apply text-xl;
-    }
-    .bp-review-doc h3 {
-        @apply text-lg;
-    }
-    .bp-review-doc p {
-        @apply mb-4 leading-relaxed;
-    }
-    .bp-review-doc strong {
-        @apply font-semibold;
-    }
-    .bp-review-doc em {
-        @apply italic;
-    }
-    .bp-review-doc ul,
-    .bp-review-doc ol {
-        @apply mb-4 pl-6;
-    }
-    .bp-review-doc ul {
-        @apply list-disc;
-    }
-    .bp-review-doc ol {
-        @apply list-decimal;
-    }
-    .bp-review-doc code {
-        @apply font-mono text-sm bg-sunken rounded px-1;
-    }
-    .bp-review-doc pre {
-        @apply bg-sunken rounded-lg p-4 overflow-x-auto mb-4;
-    }
-    .bp-review-doc pre code {
-        @apply bg-transparent px-0;
-    }
-    .bp-review-doc a {
-        @apply text-accent underline underline-offset-2;
-    }
-    .bp-review-doc blockquote {
-        @apply border-l-2 border-line pl-4 my-4 text-fg-mute italic;
-    }
-    .bp-review-doc hr {
-        @apply my-6 border-0 border-t border-line;
-    }
-    .bp-review-doc li {
-        @apply mb-1;
-    }
-    .bp-review-doc li > ul,
-    .bp-review-doc li > ol {
-        @apply mt-1 mb-0;
-    }
-    /* GitHub-flavored Markdown tables (TableExtension output) */
-    .bp-review-doc table {
-        @apply w-full border-collapse text-sm my-4;
-    }
-    .bp-review-doc th,
-    .bp-review-doc td {
-        @apply border border-line px-3 py-2 text-left align-top;
-    }
-    .bp-review-doc th {
-        @apply bg-tint font-semibold;
+    /* Rendered Markdown (incl. GFM tables) is styled by the Tailwind typography
+       plugin via `prose`, themed to the app's design tokens so light and dark
+       both render correctly. Applied only to the inner rendered-HTML container,
+       so it never styles the floating composer/toolbar that also live inside
+       .bp-review-doc. */
+    .bp-prose {
+        --tw-prose-body: var(--text);
+        --tw-prose-headings: var(--text);
+        --tw-prose-lead: var(--text-mute);
+        --tw-prose-links: var(--accent);
+        --tw-prose-bold: var(--text);
+        --tw-prose-counters: var(--text-dim);
+        --tw-prose-bullets: var(--text-dim);
+        --tw-prose-hr: var(--border);
+        --tw-prose-quotes: var(--text-mute);
+        --tw-prose-quote-borders: var(--border);
+        --tw-prose-captions: var(--text-dim);
+        --tw-prose-code: var(--text);
+        --tw-prose-pre-code: var(--text);
+        --tw-prose-pre-bg: var(--bg-sunken);
+        --tw-prose-th-borders: var(--border);
+        --tw-prose-td-borders: var(--border);
     }
 
     /* ── Text selection highlight in the doc ─────────────────────────── */

@@ -36,7 +36,7 @@
             with the PHP anchor basis.
         #}
         <div class="bp-review-doc" data-action="mouseup->comment-anchor#onDocMouseup">
-            <div data-comment-anchor-target="doc">{{ version.renderedHtml|raw }}</div>
+            <div class="prose max-w-none bp-prose" data-comment-anchor-target="doc">{{ version.renderedHtml|raw }}</div>
 
             {# Floating toolbar — appears on text selection so selecting text no
                longer steals focus or blocks copying. Clicking it opens the
