@@ -521,6 +521,14 @@
                 <source>review.document.comment.resolve</source>
                 <target>Resolve</target>
             </trans-unit>
+            <trans-unit id="review.document.comment.delete">
+                <source>review.document.comment.delete</source>
+                <target>Delete</target>
+            </trans-unit>
+            <trans-unit id="review.document.comment.delete_confirm">
+                <source>review.document.comment.delete_confirm</source>
+                <target>Delete this comment and its replies? This can’t be undone.</target>
+            </trans-unit>
             <trans-unit id="review.document.comment.add_failed">
                 <source>review.document.comment.add_failed</source>
                 <target>Couldn’t add the comment. Please try selecting the text again.</target>

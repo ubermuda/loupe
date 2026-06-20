@@ -556,6 +556,15 @@
     .bp-btn--ghost:hover {
         @apply bg-tint text-fg;
     }
+    .bp-btn--danger-ghost {
+        @apply bg-transparent border-transparent text-danger shadow-none;
+    }
+    .bp-btn--danger-ghost:hover {
+        @apply bg-red-50 text-danger;
+    }
+    .theme-dark .bp-btn--danger-ghost:hover {
+        background: rgba(220, 38, 38, 0.12);
+    }
     .bp-btn--sm {
         @apply px-2 py-1 text-xs;
     }

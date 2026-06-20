@@ -341,6 +341,10 @@ export default class extends Controller {
         }
         this.anchorHighlight.clear();
         for (const thread of this.threadTargets) {
+            // Resolved threads are settled — don't highlight their anchor.
+            if (thread.classList.contains('bp-comment-thread--resolved')) {
+                continue;
+            }
             const range = this.#findRange(
                 thread.dataset.anchorQuote ?? '',
                 thread.dataset.anchorPrefix ?? '',

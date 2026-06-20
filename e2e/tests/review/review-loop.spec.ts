@@ -268,4 +268,24 @@ test('full review loop: comment, request changes, reload persistence', async ({
         `[data-document-id="${documentId}"] .bp-badge`,
     );
     await expect(reloadedBadge).toHaveText('Changes requested');
+
+    // Step 13: Delete the (resolved) comment. Delete is a fieldless form guarded
+    // by a data-turbo-confirm dialog; accept it, then the Turbo Stream re-renders
+    // the thread list without the comment.
+    await page.goto(reviewUrl);
+    await expect(page.locator('.bp-comment-thread')).toHaveCount(1, {
+        timeout: 5000,
+    });
+    page.on('dialog', (dialog) => dialog.accept());
+    await page.getByRole('button', { name: 'Delete' }).click();
+    await expect(page.locator('.bp-comment-thread')).toHaveCount(0, {
+        timeout: 10000,
+    });
+
+    // Step 14: Reload and confirm the deletion persisted.
+    await page.goto(reviewUrl);
+    await expect(
+        page.locator('[data-comment-anchor-target="doc"]'),
+    ).toBeVisible();
+    await expect(page.locator('.bp-comment-thread')).toHaveCount(0);
 });
