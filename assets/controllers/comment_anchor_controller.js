@@ -439,16 +439,18 @@ export default class extends Controller {
         }
         const rect = range.getBoundingClientRect();
         const origin = this.#positioningOrigin();
-        // Unhide first so offsetHeight is measurable, then sit above the selection
-        // (so it doesn't cover the text). Fall back to below when there's no room.
+        // Unhide first so offset size is measurable, then sit above the selection
+        // (so it doesn't cover the text), right-aligned to the selection's end.
+        // Fall back to below when there's no room above.
         this.toolbarTarget.hidden = false;
-        const gap = 6;
+        const gap = 10;
         let top = rect.top - origin.top - this.toolbarTarget.offsetHeight - gap;
         if (top < 0) {
             top = rect.bottom - origin.top + gap;
         }
+        const left = rect.right - origin.left - this.toolbarTarget.offsetWidth;
         this.toolbarTarget.style.top = `${top}px`;
-        this.toolbarTarget.style.left = `${Math.max(0, rect.left - origin.left)}px`;
+        this.toolbarTarget.style.left = `${Math.max(0, left)}px`;
     }
 
     #hideToolbar() {

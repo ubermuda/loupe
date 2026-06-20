@@ -780,11 +780,12 @@
         @apply min-w-0 overflow-x-hidden overflow-y-auto;
     }
 
-    /* Full-height sticky sidebar: pinned to the viewport, scrolls internally only
-       if its own content overflows a short viewport. The bottom section (logout +
-       account) is pushed down by .bp-sidebar__spacer (mt-auto). */
+    /* Full-height sticky sidebar: pinned to the viewport. Overflow stays visible
+       (its handful of items never need scrolling) so collapsed-mode tooltips can
+       escape past its right edge. The bottom section (logout + account) is pushed
+       down by .bp-sidebar__spacer (mt-auto). */
     .bp-sidebar {
-        @apply flex flex-col gap-1 bg-surface-1 border-r border-line px-3 py-4 overflow-y-auto;
+        @apply flex flex-col gap-1 bg-surface-1 border-r border-line px-3 py-4;
     }
     .bp-sidebar__brand {
         @apply flex items-center gap-2.5 px-2 mb-4 text-fg no-underline;
@@ -855,6 +856,19 @@
     }
     .bp-app--collapsed .bp-sidebar__toggle-icon--expand {
         @apply block;
+    }
+
+    /* Instant tooltips for icon-only items in collapsed mode (native `title` is
+       too slow to be useful). Shown immediately on hover/focus; they escape the
+       sidebar because it no longer clips overflow. */
+    .bp-app--collapsed .bp-sidebar [data-tooltip] {
+        @apply relative;
+    }
+    .bp-app--collapsed .bp-sidebar [data-tooltip]:hover::after,
+    .bp-app--collapsed .bp-sidebar [data-tooltip]:focus-visible::after {
+        content: attr(data-tooltip);
+        @apply absolute left-full top-1/2 ml-2 px-2 py-1 rounded-md text-xs font-medium whitespace-nowrap bg-surface-3 text-fg shadow-md pointer-events-none z-50;
+        transform: translateY(-50%);
     }
 
     /* ── Code / pre blocks ──────────────────────────────────────────────── */
