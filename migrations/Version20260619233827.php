@@ -14,7 +14,7 @@ final class Version20260619233827 extends AbstractMigration
 {
     public function getDescription(): string
     {
-        return '';
+        return 'Add last_used_at column to api_tokens';
     }
 
     public function up(Schema $schema): void

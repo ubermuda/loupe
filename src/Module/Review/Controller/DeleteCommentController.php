@@ -9,23 +9,20 @@ use App\Module\Review\Command\DeleteCommentCommand;
 use App\Module\Review\Command\DeleteCommentHandler;
 use App\Module\Review\Entity\Comment;
 use App\Module\Review\Repository\CommentRepository;
-use App\Module\Review\Security\DocumentVoter;
+use App\Module\Review\Security\CommentVoter;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
+use Symfony\Component\Security\Http\Attribute\IsGranted;
 use Symfony\UX\Turbo\TurboBundle;
 use Ubermuda\SymfonyExtra\Csrf\Attribute\CsrfToken;
 
 /**
  * Delete is a fieldless action, so it stays a plain HTML form guarded by the
  * stateless #[CsrfToken] attribute.
- *
- * access is enforced per-branch: denyAccessUnlessGranted() is called
- * imperatively because the subject ($comment->version->document) is derived at
- * runtime from the resolved Comment entity, not a route parameter, so
- * #[IsGranted(subject:)] cannot be used here.
  */
 #[CsrfToken('comment-action')]
+#[IsGranted(CommentVoter::DELETE, subject: 'comment')]
 #[Route(
     '/comments/{id:comment}/delete',
     name: 'app_comment_delete',
@@ -41,8 +38,6 @@ final class DeleteCommentController extends AppController
 
     public function __invoke(Comment $comment, Request $request): Response
     {
-        $this->denyAccessUnlessGranted(DocumentVoter::VIEW, $comment->version->document);
-
         $version = $comment->version;
         $document = $version->document;
 

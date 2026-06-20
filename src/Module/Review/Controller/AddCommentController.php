@@ -53,9 +53,9 @@ final class AddCommentController extends AppController
                 ($this->addCommentHandler)(new AddCommentCommand(
                     actor: $user,
                     document: $document,
-                    quote: $data->quote ?? '',
-                    prefix: $data->prefix ?? '',
-                    suffix: $data->suffix ?? '',
+                    quote: $data->quote,
+                    prefix: $data->prefix,
+                    suffix: $data->suffix,
                     body: $data->body ?: throw new \LogicException('body required after validation'),
                 ));
                 $errorMessage = null;

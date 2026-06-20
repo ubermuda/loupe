@@ -51,13 +51,18 @@ final class AnchorService
      * (the document's plain text), so it is found exactly — no offset arithmetic
      * crosses the wire, which sidesteps the byte/UTF-16 drift of the old path.
      *
-     * An empty quote denotes an untargeted comment and yields an empty anchor.
+     * A null or empty quote denotes an untargeted comment and yields an empty anchor.
      */
-    public function fromSelection(string $text, string $quote, string $prefix, string $suffix): Anchor
+    public function fromSelection(string $text, ?string $quote, ?string $prefix, ?string $suffix): Anchor
     {
-        if ('' === $quote) {
+        if (null === $quote || '' === $quote) {
             return new Anchor('', '', '', 0);
         }
+
+        // The Anchor value object stores non-null context; coerce null to '' at
+        // this final boundary (empty quote is the storage sentinel for unanchored).
+        $prefix ??= '';
+        $suffix ??= '';
 
         $anchor = new Anchor($quote, $prefix, $suffix, 0);
         $offset = $this->locate($text, $anchor) ?? 0;

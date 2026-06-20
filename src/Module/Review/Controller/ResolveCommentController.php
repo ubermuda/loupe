@@ -9,23 +9,20 @@ use App\Module\Review\Command\ResolveCommentCommand;
 use App\Module\Review\Command\ResolveCommentHandler;
 use App\Module\Review\Entity\Comment;
 use App\Module\Review\Repository\CommentRepository;
-use App\Module\Review\Security\DocumentVoter;
+use App\Module\Review\Security\CommentVoter;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
+use Symfony\Component\Security\Http\Attribute\IsGranted;
 use Symfony\UX\Turbo\TurboBundle;
 use Ubermuda\SymfonyExtra\Csrf\Attribute\CsrfToken;
 
 /**
  * Resolve is a fieldless action, so it stays a plain HTML form guarded by the
  * stateless #[CsrfToken] attribute rather than a Symfony form.
- *
- * access is enforced per-branch: denyAccessUnlessGranted() is called imperatively
- * because the subject ($comment->version->document) is derived at runtime from the
- * resolved Comment entity, not directly available as a route parameter, so
- * #[IsGranted(subject:)] cannot be used here.
  */
 #[CsrfToken('comment-action')]
+#[IsGranted(CommentVoter::RESOLVE, subject: 'comment')]
 #[Route(
     '/comments/{id:comment}/resolve',
     name: 'app_comment_resolve',
@@ -41,8 +38,6 @@ final class ResolveCommentController extends AppController
 
     public function __invoke(Comment $comment, Request $request): Response
     {
-        $this->denyAccessUnlessGranted(DocumentVoter::VIEW, $comment->version->document);
-
         ($this->resolveCommentHandler)(new ResolveCommentCommand(
             comment: $comment,
         ));

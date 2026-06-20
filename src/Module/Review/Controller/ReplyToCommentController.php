@@ -12,20 +12,16 @@ use App\Module\Review\Entity\Comment;
 use App\Module\Review\Form\ReplyFormType;
 use App\Module\Review\Form\ReplyRequest;
 use App\Module\Review\Repository\CommentRepository;
-use App\Module\Review\Security\DocumentVoter;
+use App\Module\Review\Security\CommentVoter;
 use App\Module\Review\Twig\ReviewExtension;
 use Symfony\Component\Form\FormFactoryInterface;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
+use Symfony\Component\Security\Http\Attribute\IsGranted;
 use Symfony\UX\Turbo\TurboBundle;
 
-/**
- * access is enforced per-branch: denyAccessUnlessGranted() is called imperatively
- * because the subject ($comment->version->document) is derived at runtime from the
- * resolved Comment entity, not directly available as a route parameter, so
- * #[IsGranted(subject:)] cannot be used here.
- */
+#[IsGranted(CommentVoter::REPLY, subject: 'comment')]
 #[Route(
     '/comments/{id:comment}/reply',
     name: 'app_comment_reply',
@@ -42,8 +38,6 @@ final class ReplyToCommentController extends AppController
 
     public function __invoke(Comment $comment, Request $request): Response
     {
-        $this->denyAccessUnlessGranted(DocumentVoter::VIEW, $comment->version->document);
-
         $user = $this->getUser();
         assert($user instanceof User);
 
