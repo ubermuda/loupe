@@ -29,13 +29,16 @@ class CommentRepository extends ServiceEntityRepository
             ->andWhere('c.resolved = :resolved')
             ->setParameter('version', $version)
             ->setParameter('resolved', false)
+            // Document order: offsetHint is the quote's position in plainText(),
+            // so threads list top-to-bottom as they appear in the document.
             ->orderBy('c.anchor.offsetHint', 'ASC')
             ->getQuery()
             ->getResult();
     }
 
     /**
-     * Returns all comments for a version (both resolved and open), ordered by offset then id.
+     * Returns all comments for a version (both resolved and open), in document
+     * order (by anchor offset, then id for stable ties).
      *
      * @return list<Comment>
      */
@@ -44,6 +47,7 @@ class CommentRepository extends ServiceEntityRepository
         return $this->createQueryBuilder('c')
             ->where('c.version = :version')
             ->setParameter('version', $version)
+            // Document order — see findOpenByVersion().
             ->orderBy('c.anchor.offsetHint', 'ASC')
             ->addOrderBy('c.id', 'ASC')
             ->getQuery()

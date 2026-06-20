@@ -215,6 +215,11 @@ export default class extends Controller {
      * Finds a DOM Range for an anchor's quote in the live document, picking the
      * occurrence whose surrounding text best matches prefix/suffix (mirrors the
      * server's locate()). Returns null if the quote is absent.
+     *
+     * Deliberately re-locates by quote+context rather than using the anchor's
+     * stored offsetHint: that's a PHP byte offset, and walking it with JS
+     * (UTF-16) would drift on multibyte text — the exact bug content anchoring
+     * exists to avoid. The server doesn't even send offsetHint to the client.
      */
     #findRange(quote, prefix, suffix) {
         if (quote === '') {

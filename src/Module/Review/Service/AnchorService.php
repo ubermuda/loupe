@@ -6,6 +6,25 @@ namespace App\Module\Review\Service;
 
 use App\Module\Review\ValueObject\Anchor;
 
+/**
+ * Builds and relocates {@see Anchor}s against a document's plain text
+ * (DocumentVersion::plainText()). Two entry points by use case:
+ *
+ *  - fromSelection(): the add-comment path. The browser captured the exact
+ *    quote/prefix/suffix, so this only needs to find WHERE they sit
+ *    (locate(), context-first — offsetHint isn't known yet) and record that
+ *    offset. No character offset crosses the wire, which avoids the
+ *    PHP-byte vs JS-UTF16 drift.
+ *  - create() + resolve(): the reanchoring path (see ReanchoringService). When
+ *    a new version is created, resolve() finds the old quote in the new text —
+ *    leaning on offsetHint to prefer the nearest occurrence — and create()
+ *    rebuilds the anchor there. Both stay server-side, so byte offsets are
+ *    internally consistent.
+ *
+ * locate() vs resolve(): both pick the best occurrence of a repeated quote, but
+ * locate() trusts the (fresh, exact) captured context alone, while resolve()
+ * also weighs proximity to the previous version's offsetHint.
+ */
 final class AnchorService
 {
     private const int CONTEXT = 32;
