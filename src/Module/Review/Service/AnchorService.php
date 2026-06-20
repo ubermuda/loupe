@@ -26,6 +26,50 @@ final class AnchorService
         return new Anchor($quote, $prefix, $suffix, $start);
     }
 
+    /**
+     * Builds an anchor from the client-captured quote and surrounding context,
+     * locating the offset server-side. The quote is a verbatim slice of $text
+     * (the document's plain text), so it is found exactly — no offset arithmetic
+     * crosses the wire, which sidesteps the byte/UTF-16 drift of the old path.
+     *
+     * An empty quote denotes an untargeted comment and yields an empty anchor.
+     */
+    public function fromSelection(string $text, string $quote, string $prefix, string $suffix): Anchor
+    {
+        if ('' === $quote) {
+            return new Anchor('', '', '', 0);
+        }
+
+        $anchor = new Anchor($quote, $prefix, $suffix, 0);
+        $offset = $this->locate($text, $anchor) ?? 0;
+
+        return new Anchor($quote, $prefix, $suffix, $offset);
+    }
+
+    /**
+     * Picks the occurrence of the quote whose surrounding context best matches
+     * the captured prefix/suffix, breaking ties by earliest position. Unlike
+     * resolve(), it does not lean on offsetHint — at add-time the captured
+     * context is exact, so it is the most reliable disambiguator.
+     */
+    private function locate(string $text, Anchor $anchor): ?int
+    {
+        $offsets = [];
+        $from = 0;
+        while (false !== ($pos = strpos($text, $anchor->quote, $from))) {
+            $offsets[] = $pos;
+            $from = $pos + 1;
+        }
+        if ([] === $offsets) {
+            return null;
+        }
+
+        usort($offsets, fn (int $a, int $b): int => [$this->contextScore($text, $b, $anchor), $a]
+            <=> [$this->contextScore($text, $a, $anchor), $b]);
+
+        return $offsets[0];
+    }
+
     public function resolve(string $text, Anchor $anchor): ?int
     {
         if ('' === $anchor->quote) {

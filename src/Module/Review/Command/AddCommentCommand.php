@@ -12,8 +12,9 @@ final readonly class AddCommentCommand
     public function __construct(
         public User $actor,
         public Document $document,
-        public int $start,
-        public int $length,
+        public string $quote,
+        public string $prefix,
+        public string $suffix,
         public string $body,
     ) {
     }

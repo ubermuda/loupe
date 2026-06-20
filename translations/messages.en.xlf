@@ -415,6 +415,14 @@
                 <source>account.api_token.action.revoke</source>
                 <target>Revoke</target>
             </trans-unit>
+            <trans-unit id="account.api_token.last_used">
+                <source>account.api_token.last_used</source>
+                <target>Last used</target>
+            </trans-unit>
+            <trans-unit id="account.api_token.never_used">
+                <source>account.api_token.never_used</source>
+                <target>Never used</target>
+            </trans-unit>
             <trans-unit id="account.form.api_token_form.scope.label">
                 <source>account.form.api_token_form.scope.label</source>
                 <target>Scope</target>
@@ -443,7 +451,7 @@
             <!-- Document dashboard -->
             <trans-unit id="review.dashboard.page.title">
                 <source>review.dashboard.page.title</source>
-                <target>My Documents</target>
+                <target>Documents</target>
             </trans-unit>
             <trans-unit id="review.dashboard.empty">
                 <source>review.dashboard.empty</source>
@@ -491,7 +499,15 @@
             </trans-unit>
             <trans-unit id="review.document.comment.submit">
                 <source>review.document.comment.submit</source>
+                <target>Post</target>
+            </trans-unit>
+            <trans-unit id="review.document.comment.add">
+                <source>review.document.comment.add</source>
                 <target>Comment</target>
+            </trans-unit>
+            <trans-unit id="review.document.comment.untargeted">
+                <source>review.document.comment.untargeted</source>
+                <target>Add comment</target>
             </trans-unit>
             <trans-unit id="review.document.comment.reply_placeholder">
                 <source>review.document.comment.reply_placeholder</source>
@@ -512,10 +528,6 @@
             <trans-unit id="comment.error.not_owner">
                 <source>comment.error.not_owner</source>
                 <target>You can only comment on your own documents.</target>
-            </trans-unit>
-            <trans-unit id="comment.error.anchor_out_of_range">
-                <source>comment.error.anchor_out_of_range</source>
-                <target>That selection is no longer valid. Please select the text again.</target>
             </trans-unit>
 
             <!-- Document review flash messages -->
@@ -559,10 +571,6 @@
                 <source>site_review.batches.table.column.comments</source>
                 <target>Comments</target>
             </trans-unit>
-            <trans-unit id="site_review.batches.action.view">
-                <source>site_review.batches.action.view</source>
-                <target>View</target>
-            </trans-unit>
             <trans-unit id="site_review.batches.empty">
                 <source>site_review.batches.empty</source>
                 <target>No site reviews yet. Use the widget on your app to capture and send annotations.</target>
@@ -583,9 +591,9 @@
                 <source>site_review.batch.field.id</source>
                 <target>Batch id</target>
             </trans-unit>
-            <trans-unit id="site_review.batch.comment.element_text">
-                <source>site_review.batch.comment.element_text</source>
-                <target>Element text</target>
+            <trans-unit id="site_review.batch.comment.show_selector">
+                <source>site_review.batch.comment.show_selector</source>
+                <target>CSS selector</target>
             </trans-unit>
             <trans-unit id="nav.link.logout">
                 <source>nav.link.logout</source>
@@ -601,9 +609,9 @@
                 <source>account.mcp.card.endpoint_label</source>
                 <target>MCP endpoint</target>
             </trans-unit>
-            <trans-unit id="account.mcp.card.auth_note">
-                <source>account.mcp.card.auth_note</source>
-                <target>Authenticate with a token created above:</target>
+            <trans-unit id="account.mcp.card.auth_label">
+                <source>account.mcp.card.auth_label</source>
+                <target>Authentication</target>
             </trans-unit>
             <trans-unit id="account.mcp.card.claude_code_heading">
                 <source>account.mcp.card.claude_code_heading</source>
@@ -612,6 +620,14 @@
             <trans-unit id="account.mcp.card.json_heading">
                 <source>account.mcp.card.json_heading</source>
                 <target>Or add to your MCP client config (HTTP transport)</target>
+            </trans-unit>
+            <trans-unit id="account.mcp.card.copy">
+                <source>account.mcp.card.copy</source>
+                <target>Copy</target>
+            </trans-unit>
+            <trans-unit id="account.mcp.card.copied">
+                <source>account.mcp.card.copied</source>
+                <target>Copied!</target>
             </trans-unit>
             <trans-unit id="account.mcp.card.tls_note">
                 <source>account.mcp.card.tls_note</source>

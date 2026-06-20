@@ -32,15 +32,9 @@ final class ReplyToCommentHandlerTest extends KernelTestCase
         $createHandler = self::getContainer()->get(CreateDocumentHandler::class);
         $doc = $createHandler(new CreateDocumentCommand($owner, 'Reply Test Doc', "# Hello\n\nThis is content for the reply test."));
 
-        $plain = $doc->currentVersion()->plainText();
-        $quote = 'content for the reply';
-        $start = strpos($plain, $quote);
-        self::assertIsInt($start, 'Quote must exist in plain text');
-        $length = strlen($quote);
-
         /** @var AddCommentHandler $addHandler */
         $addHandler = self::getContainer()->get(AddCommentHandler::class);
-        $parent = $addHandler(new AddCommentCommand($owner, $doc, $start, $length, 'Parent comment body'));
+        $parent = $addHandler(new AddCommentCommand($owner, $doc, 'content for the reply', '', '', 'Parent comment body'));
 
         /** @var ReplyToCommentHandler $replyHandler */
         $replyHandler = self::getContainer()->get(ReplyToCommentHandler::class);

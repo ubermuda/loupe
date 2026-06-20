@@ -86,6 +86,10 @@
     --accent-hover: #3460c4;
     --accent-soft: rgba(59, 111, 220, 0.1);
     --accent-border: rgba(59, 111, 220, 0.3);
+    /* In-document anchor highlights (CSS Custom Highlight API). Translucent so
+       the underlying text stays legible on both themes. */
+    --anchor-highlight: rgba(59, 111, 220, 0.22);
+    --anchor-highlight-active: rgba(59, 111, 220, 0.4);
 }
 
 .theme-light {
@@ -341,6 +345,41 @@
         @apply bg-surface-1 border border-line rounded-xl p-5 shadow-sm;
     }
 
+    /* ── Form controls (bp- namespace) ──────────────────────────────── */
+
+    .bp-form {
+        @apply flex flex-col gap-4;
+    }
+    .bp-form-field {
+        @apply flex flex-col gap-1.5;
+    }
+    .bp-label {
+        @apply text-sm font-medium text-fg;
+    }
+    .bp-input {
+        @apply w-full font-sans text-sm text-fg bg-surface-2 border border-line rounded-md px-3 py-2 outline-hidden transition-colors placeholder:text-fg-dim focus:bg-surface-1 focus:border-accent focus:shadow-focus;
+    }
+    /* Native <select>: hide the OS arrow and draw a design-system chevron.
+       Defined after .bp-input so it can layer the chevron on top. */
+    .bp-select {
+        @apply appearance-none bg-no-repeat pr-9 cursor-pointer;
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+        background-position: right calc(var(--spacing) * 2.5) center;
+        background-size: calc(var(--spacing) * 4);
+    }
+    .bp-field-errors {
+        @apply empty:hidden;
+    }
+    .bp-field-errors ul {
+        @apply list-none p-0 m-0;
+    }
+    .bp-field-errors li {
+        @apply text-xs mt-1 text-danger;
+    }
+    .bp-form-hint {
+        @apply text-xs text-fg-dim;
+    }
+
     /* ── Table ──────────────────────────────────────────────────────── */
 
     .bp-table {
@@ -398,7 +437,7 @@
         @apply flex flex-col bg-surface-1 border border-line rounded-xl overflow-hidden;
     }
     .bp-doc-row {
-        @apply flex items-center gap-4 px-4 py-3.5 border-b border-line transition-colors;
+        @apply relative flex items-center gap-4 px-4 py-3.5 border-b border-line transition-colors;
     }
     .bp-doc-row:last-child {
         @apply border-b-0;
@@ -414,6 +453,13 @@
     }
     .bp-doc-row__title:hover {
         @apply text-accent;
+    }
+    /* Stretches the title link's hit area across the whole row, so clicking
+       anywhere on the row follows the title's href. Interactive siblings that
+       must stay clickable need their own stacking context (relative z-10). */
+    .bp-doc-row__title--stretched::after {
+        @apply absolute inset-0;
+        content: '';
     }
     .bp-doc-row__meta {
         @apply flex items-center gap-2 mt-1 text-xs text-fg-dim;
@@ -573,6 +619,33 @@
     .bp-review-doc pre code {
         @apply bg-transparent px-0;
     }
+    .bp-review-doc a {
+        @apply text-accent underline underline-offset-2;
+    }
+    .bp-review-doc blockquote {
+        @apply border-l-2 border-line pl-4 my-4 text-fg-mute italic;
+    }
+    .bp-review-doc hr {
+        @apply my-6 border-0 border-t border-line;
+    }
+    .bp-review-doc li {
+        @apply mb-1;
+    }
+    .bp-review-doc li > ul,
+    .bp-review-doc li > ol {
+        @apply mt-1 mb-0;
+    }
+    /* GitHub-flavored Markdown tables (TableExtension output) */
+    .bp-review-doc table {
+        @apply w-full border-collapse text-sm my-4;
+    }
+    .bp-review-doc th,
+    .bp-review-doc td {
+        @apply border border-line px-3 py-2 text-left align-top;
+    }
+    .bp-review-doc th {
+        @apply bg-tint font-semibold;
+    }
 
     /* ── Text selection highlight in the doc ─────────────────────────── */
 
@@ -606,11 +679,24 @@
     .bp-comment-composer__error {
         @apply text-xs text-danger;
     }
+    /* Untargeted composer: a centred panel (no anchor to point at). */
+    .bp-comment-composer--untargeted {
+        @apply fixed left-1/2 top-1/2 z-30;
+        transform: translate(-50%, -50%);
+    }
+
+    /* Floating "Comment" toolbar shown on text selection. */
+    .bp-anchor-toolbar {
+        @apply absolute z-20;
+    }
 
     /* ── Sidebar ────────────────────────────────────────────────────── */
 
     .bp-review-sidebar {
         @apply flex flex-col gap-4;
+    }
+    .bp-review-sidebar__header {
+        @apply flex items-center justify-between gap-2;
     }
     .bp-review-sidebar__title {
         @apply text-sm font-semibold text-fg-mute uppercase tracking-wider m-0;
@@ -658,10 +744,10 @@
         @apply flex flex-col;
     }
     .bp-comment-actions {
-        @apply flex items-center gap-2 px-4 py-2 border-t border-line;
+        @apply flex items-center gap-2 px-4 py-2;
     }
     .bp-comment-reply-form {
-        @apply px-4 py-3 border-t border-line flex flex-col gap-2;
+        @apply px-4 py-3 flex flex-col gap-2;
     }
     .bp-comment-reply-form textarea {
         @apply w-full text-sm bg-surface-2 border border-line rounded-lg px-3 py-2 text-fg placeholder:text-fg-dim resize-none outline-hidden focus:border-accent focus:shadow-focus transition-colors;
@@ -669,6 +755,35 @@
     }
     .bp-comment-error {
         @apply text-xs text-danger;
+    }
+
+    /* ── Site-review comment card (batch detail page) ───────────────────
+       Hierarchy: the comment body is primary; the captured URL and element
+       text are secondary; the raw CSS selector is tucked into a disclosure. */
+
+    .bp-review-comment {
+        @apply bg-surface-1 border border-line rounded-xl p-4 flex flex-col gap-2.5;
+    }
+    .bp-review-comment__body {
+        @apply text-sm text-fg leading-snug m-0;
+    }
+    .bp-review-comment__quote {
+        @apply text-xs text-fg-mute italic border-l-2 border-line pl-3 m-0;
+    }
+    .bp-review-comment__url {
+        @apply inline-flex items-center gap-1.5 max-w-full min-w-0 text-xs text-fg-dim no-underline transition-colors hover:text-accent;
+    }
+    .bp-review-comment__selector {
+        @apply text-xs;
+    }
+    .bp-review-comment__selector summary {
+        @apply text-fg-dim cursor-pointer select-none transition-colors hover:text-fg;
+    }
+    .bp-review-comment__selector[open] summary {
+        @apply mb-1.5;
+    }
+    .bp-review-comment__selector code {
+        @apply block overflow-x-auto;
     }
 
     /* ── Verdict bar ────────────────────────────────────────────────── */
@@ -686,24 +801,33 @@
     /* ── App shell (sidebar + content) ──────────────────────────────── */
 
     .bp-app {
-        @apply grid min-h-screen;
+        @apply grid;
         grid-template-columns: 15rem 1fr;
+        /* Lock the shell to the viewport so the sidebar stays put and the main
+           column scrolls on its own (see .bp-main overflow-y-auto below). */
+        height: 100dvh;
     }
     .bp-app--collapsed {
         grid-template-columns: 3.75rem 1fr;
     }
     .bp-main {
-        @apply min-w-0 overflow-x-hidden;
+        @apply min-w-0 overflow-x-hidden overflow-y-auto;
     }
 
+    /* Full-height sticky sidebar: pinned to the viewport, scrolls internally only
+       if its own content overflows a short viewport. The bottom section (logout +
+       account) is pushed down by .bp-sidebar__spacer (mt-auto). */
     .bp-sidebar {
-        @apply flex flex-col gap-1 bg-surface-1 border-r border-line px-3 py-4;
+        @apply flex flex-col gap-1 bg-surface-1 border-r border-line px-3 py-4 overflow-y-auto;
     }
     .bp-sidebar__brand {
         @apply flex items-center gap-2.5 px-2 mb-4 text-fg no-underline;
     }
     .bp-sidebar__brand-mark {
-        @apply w-7 h-7 rounded-lg bg-accent shrink-0;
+        @apply w-7 h-7 rounded-lg bg-accent shrink-0 inline-flex items-center justify-center text-white;
+    }
+    .bp-sidebar__brand-mark svg {
+        @apply w-4 h-4;
     }
     .bp-sidebar__brand-name {
         @apply text-sm font-semibold tracking-tight whitespace-nowrap;
@@ -738,6 +862,9 @@
     .bp-sidebar__toggle:hover {
         @apply bg-tint text-fg;
     }
+    .bp-sidebar__toggle svg {
+        @apply w-5 h-5 shrink-0;
+    }
 
     /* Collapsed state: hide labels, center icons */
     .bp-app--collapsed .bp-sidebar__brand-name,
@@ -764,6 +891,33 @@
         white-space: pre;
     }
 
+    /* ── MCP connection card ─────────────────────────────────────────── */
+
+    .bp-section-title {
+        @apply text-base font-semibold tracking-tight text-fg m-0 mb-4;
+    }
+    .bp-key-values {
+        @apply flex flex-col gap-3 m-0 mb-5;
+    }
+    .bp-key-values__row {
+        @apply flex flex-col gap-1;
+    }
+    .bp-key-values dt {
+        @apply text-xs font-medium text-fg-mute;
+    }
+    .bp-key-values dd {
+        @apply m-0;
+    }
+    .bp-code-block {
+        @apply mb-4;
+    }
+    .bp-code-block__header {
+        @apply flex items-center justify-between gap-2 mb-1.5;
+    }
+    .bp-code-block__label {
+        @apply text-xs font-medium text-fg-mute;
+    }
+
     /* ── Orphan banner ──────────────────────────────────────────────── */
 
     .bp-orphan-banner {
@@ -774,6 +928,19 @@
         border-color: rgba(245, 158, 11, 0.3);
         color: #fcd34d;
     }
+}
+
+/* ── In-document anchor highlights (CSS Custom Highlight API) ─────────────
+   Unlayered so they reliably paint over the rendered prose. The controller
+   registers `bp-anchor` (every thread's anchor) and `bp-anchor-active` (the
+   selection being composed). ::highlight() only honours a small set of
+   properties — background-color is one of them. */
+
+::highlight(bp-anchor) {
+    background-color: var(--anchor-highlight);
+}
+::highlight(bp-anchor-active) {
+    background-color: var(--anchor-highlight-active);
 }
 
 /* ── Keyframes ──────────────────────────────────────────────────────── */

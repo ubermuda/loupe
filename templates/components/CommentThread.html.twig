@@ -11,6 +11,10 @@
 <div
     id="comment-thread-{{ comment.id }}"
     class="bp-comment-thread{% if comment.resolved %} bp-comment-thread--resolved{% endif %}{% if comment.orphaned %} bp-comment-thread--orphaned{% endif %}"
+    data-comment-anchor-target="thread"
+    data-anchor-quote="{{ comment.anchor.quote }}"
+    data-anchor-prefix="{{ comment.anchor.prefix }}"
+    data-anchor-suffix="{{ comment.anchor.suffix }}"
 >
     {% if comment.anchor.quote %}
     <blockquote class="bp-comment-quote">{{ comment.anchor.quote }}</blockquote>

@@ -118,11 +118,10 @@ async function selectKnownPhrase(page: Page, phrase: string): Promise<void> {
         sel.removeAllRanges();
         sel.addRange(range);
 
-        // Dispatch mouseup on the bp-review-doc element so the Stimulus
-        // comment-anchor controller's onDocMouseup handler fires.
-        const reviewDoc = document.querySelector('.bp-review-doc');
-        if (!reviewDoc) throw new Error('.bp-review-doc not found');
-        reviewDoc.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }));
+        // Dispatch mouseup from inside the doc target (the controller ignores
+        // mouseups whose target is outside it) so onDocMouseup fires; it bubbles
+        // up to the .bp-review-doc listener with target === docEl.
+        docEl.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }));
     }, phrase);
 }
 
@@ -152,18 +151,25 @@ test('full review loop: comment, request changes, reload persistence', async ({
         page.locator('[data-comment-anchor-target="doc"]'),
     ).toBeVisible();
 
-    // Step 5: Select the known phrase and wait for the composer to appear.
+    // Step 5: Select the known phrase. Selecting text now shows a floating
+    // toolbar (not the composer, so selecting/copying isn't hijacked); clicking
+    // "Comment" opens the composer. Use exact match so it doesn't also pick up
+    // the sidebar's "Add comment" (untargeted) button.
     await selectKnownPhrase(page, KNOWN_PHRASE);
+    await expect(
+        page.locator('[data-comment-anchor-target="toolbar"]'),
+    ).toBeVisible({ timeout: 5000 });
+    await page.getByRole('button', { name: 'Comment', exact: true }).click();
     await expect(
         page.locator('[data-comment-anchor-target="composer"]'),
     ).toBeVisible({ timeout: 5000 });
 
-    // Step 6: Fill the comment body and submit.
+    // Step 6: Fill the comment body and post.
     await page
         .locator('[data-comment-anchor-target="composerBody"]')
         .fill(COMMENT_BODY);
 
-    await page.getByRole('button', { name: 'Comment' }).click();
+    await page.getByRole('button', { name: 'Post' }).click();
 
     // The composer is a plain form submitted through Turbo; the controller returns
     // a Turbo Stream that replaces the thread list in place (no reload). The

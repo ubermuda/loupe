@@ -23,12 +23,12 @@
         <div class="bp-app" data-controller="sidebar">
             <aside class="bp-sidebar">
                 <a href="{{ path('app_home') }}" class="bp-sidebar__brand">
-                    <span class="bp-sidebar__brand-mark"></span>
+                    <span class="bp-sidebar__brand-mark"><twig:ux:icon name="lucide:clipboard-check" /></span>
                     <span class="bp-sidebar__brand-name">{{ 'nav.brand'|trans }}</span>
                 </a>
                 <nav class="bp-sidebar__nav">
                     <a href="{{ path('app_documents') }}"
-                       class="bp-sidebar__link{% if app.request.attributes.get('_route') == 'app_documents' %} bp-sidebar__link--active{% endif %}">
+                       class="bp-sidebar__link{% if app.request.attributes.get('_route') starts with 'app_document' %} bp-sidebar__link--active{% endif %}">
                         <twig:ux:icon name="lucide:files" />
                         <span class="bp-sidebar__link-label">{{ 'nav.link.documents'|trans }}</span>
                     </a>
