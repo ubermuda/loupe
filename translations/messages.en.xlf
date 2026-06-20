@@ -569,6 +569,10 @@
                 <source>nav.toggle_sidebar</source>
                 <target>Collapse sidebar</target>
             </trans-unit>
+            <trans-unit id="nav.expand_sidebar">
+                <source>nav.expand_sidebar</source>
+                <target>Expand sidebar</target>
+            </trans-unit>
 
             <!-- Site review batches (human-facing) -->
             <trans-unit id="site_review.batches.page.title">

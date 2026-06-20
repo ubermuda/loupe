@@ -20,7 +20,9 @@
     </head>
     <body class="{% block body_class %}{% endblock %}">
         {% if app.user %}
-        <div class="bp-app" data-controller="sidebar">
+        <div class="bp-app" data-controller="sidebar"
+             data-sidebar-collapse-label-value="{{ 'nav.toggle_sidebar'|trans }}"
+             data-sidebar-expand-label-value="{{ 'nav.expand_sidebar'|trans }}">
             <aside class="bp-sidebar">
                 <a href="{{ path('app_home') }}" class="bp-sidebar__brand">
                     <span class="bp-sidebar__brand-mark"><twig:ux:icon name="lucide:clipboard-check" /></span>
@@ -52,6 +54,7 @@
                     <span class="avatar">{{ app.user.userIdentifier|slice(0, 1)|upper }}</span>
                     <span class="bp-sidebar__account-name">{{ app.user.userIdentifier }}</span>
                     <button type="button" class="bp-sidebar__toggle"
+                            data-sidebar-target="toggleButton"
                             data-action="click->sidebar#toggle"
                             data-tooltip="{{ 'nav.toggle_sidebar'|trans }}"
                             aria-label="{{ 'nav.toggle_sidebar'|trans }}">

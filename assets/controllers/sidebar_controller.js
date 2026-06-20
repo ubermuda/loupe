@@ -13,14 +13,33 @@ import { Controller } from '@hotwired/stimulus';
 const STORAGE_KEY = 'bp.sidebar.collapsed';
 
 export default class extends Controller {
+    static targets = ['toggleButton'];
+    static values = { collapseLabel: String, expandLabel: String };
+
     connect() {
-        if (localStorage.getItem(STORAGE_KEY) === '1') {
+        const collapsed = localStorage.getItem(STORAGE_KEY) === '1';
+        if (collapsed) {
             this.element.classList.add('bp-app--collapsed');
         }
+        this.#syncToggleLabel(collapsed);
     }
 
     toggle() {
         const collapsed = this.element.classList.toggle('bp-app--collapsed');
         localStorage.setItem(STORAGE_KEY, collapsed ? '1' : '0');
+        this.#syncToggleLabel(collapsed);
+    }
+
+    // The toggle's tooltip + aria-label must describe the action it performs,
+    // which flips with state: "Expand sidebar" when collapsed, else "Collapse".
+    #syncToggleLabel(collapsed) {
+        if (!this.hasToggleButtonTarget) {
+            return;
+        }
+        const label = collapsed
+            ? this.expandLabelValue
+            : this.collapseLabelValue;
+        this.toggleButtonTarget.setAttribute('aria-label', label);
+        this.toggleButtonTarget.setAttribute('data-tooltip', label);
     }
 }
