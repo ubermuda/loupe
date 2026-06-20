@@ -437,11 +437,17 @@ export default class extends Controller {
         if (!this.hasToolbarTarget) {
             return;
         }
-        const rect = range.getBoundingClientRect();
+        // Anchor to the LAST line of the selection (its own client rect), not the
+        // bounding box — the box's right edge is the widest line, which for a
+        // multi-line selection can sit well past where the selection actually
+        // ends on the last line.
+        const rects = range.getClientRects();
+        const rect = rects.length
+            ? rects[rects.length - 1]
+            : range.getBoundingClientRect();
         const origin = this.#positioningOrigin();
-        // Unhide first so offsetWidth is measurable. Sit just below the selection
-        // (below the last line for a multi-line selection — rect.bottom is the
-        // box bottom), right-aligned to the selection's right edge.
+        // Unhide first so offsetWidth is measurable. Sit just below the last line,
+        // right-aligned to where the selection ends on it.
         this.toolbarTarget.hidden = false;
         const gap = 10;
         const top = rect.bottom - origin.top + gap;
