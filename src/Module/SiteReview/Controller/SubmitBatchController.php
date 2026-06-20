@@ -45,8 +45,9 @@ final class SubmitBatchController extends AppController
             $selector = is_string($raw['selector'] ?? null) ? $raw['selector'] : '';
             $url = is_string($raw['url'] ?? null) ? $raw['url'] : '';
             $text = is_string($raw['text'] ?? null) ? $raw['text'] : '';
-            if ('' === $body || '' === $selector || '' === $url) {
-                return $this->json(['errors' => ["comments.$i" => 'body, selector and url are required']], JsonResponse::HTTP_UNPROCESSABLE_ENTITY);
+            // selector/text are optional — an unanchored comment carries neither.
+            if ('' === $body || '' === $url) {
+                return $this->json(['errors' => ["comments.$i" => 'body and url are required']], JsonResponse::HTTP_UNPROCESSABLE_ENTITY);
             }
             $comments[] = ['body' => $body, 'selector' => $selector, 'text' => $text, 'url' => $url];
         }

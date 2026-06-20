@@ -57,7 +57,10 @@
     <button class="btn" id="toggle">Review (0)</button>
     <div class="panel" id="panel">
       <div class="row"><strong>Site review</strong>
-        <button class="btn secondary" id="target">Target mode</button></div>
+        <span style="display:flex;gap:6px">
+          <button class="btn secondary" id="general">Add comment</button>
+          <button class="btn secondary" id="target">Target mode</button>
+        </span></div>
       <div id="list"></div>
       <div class="row" style="margin-top:8px">
         <button class="btn secondary" id="clear">Clear</button>
@@ -74,7 +77,7 @@
     byId('list').innerHTML = pending
       .map(
         (comment, index) =>
-          `<div class="item"><code>${comment.selector}</code><br>${comment.body}
+          `<div class="item">${comment.selector ? `<code>${comment.selector}</code>` : '<em style="color:#6b7280">General</em>'}<br>${comment.body}
         <button class="btn secondary" data-del="${index}" style="padding:2px 6px;font-size:11px">x</button></div>`
       )
       .join('');
@@ -131,10 +134,14 @@
     }
   };
 
+  // element === null → an unanchored ("general") comment with no selector/text.
   const openComment = (element) => {
-    const selector = selectorFor(element);
-    const text = (element.innerText || '').trim().slice(0, 200);
-    byId('result').innerHTML = `<div class="item"><code>${selector}</code>
+    const selector = element ? selectorFor(element) : '';
+    const text = element ? (element.innerText || '').trim().slice(0, 200) : '';
+    const label = selector
+      ? `<code>${selector}</code>`
+      : '<em style="color:#6b7280">General comment (no element)</em>';
+    byId('result').innerHTML = `<div class="item">${label}
       <textarea id="body" placeholder="Comment… (⌘/Ctrl+Enter to save)"></textarea>
       <div class="row"><button class="btn secondary" id="cancel">Cancel</button>
       <button class="btn" id="add">Save</button></div></div>`;
@@ -163,6 +170,11 @@
   });
   byId('toggle').addEventListener('click', () => byId('panel').classList.toggle('open'));
   byId('target').addEventListener('click', () => setTargeting(!targeting));
+  byId('general').addEventListener('click', () => {
+    setTargeting(false);
+    byId('panel').classList.add('open');
+    openComment(null);
+  });
   byId('clear').addEventListener('click', () => {
     pending = [];
     save(pending);

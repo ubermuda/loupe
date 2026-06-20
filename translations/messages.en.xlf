@@ -603,6 +603,10 @@
                 <source>site_review.batch.comment.show_selector</source>
                 <target>CSS selector</target>
             </trans-unit>
+            <trans-unit id="site_review.batch.comment.general">
+                <source>site_review.batch.comment.general</source>
+                <target>General</target>
+            </trans-unit>
             <trans-unit id="nav.link.logout">
                 <source>nav.link.logout</source>
                 <target>Log out</target>

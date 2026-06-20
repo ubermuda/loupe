@@ -65,6 +65,18 @@ test('annotate and send a site review batch', async ({ page }) => {
         page.getByRole('button', { name: /Review \(1\)/ }),
     ).toBeVisible();
 
+    // Add an unanchored ("general") comment — no element targeting. Because the
+    // widget sends the whole batch in one request, the "Sent" assertion below
+    // also proves the backend accepts a comment with no selector.
+    await page.getByRole('button', { name: 'Add comment' }).click();
+    await page
+        .getByPlaceholder(/Comment/)
+        .fill('A general note about the page');
+    await page.getByRole('button', { name: 'Save' }).click();
+    await expect(
+        page.getByRole('button', { name: /Review \(2\)/ }),
+    ).toBeVisible();
+
     // Send the batch and assert a real (UUID-shaped) batch id is returned, not just
     // the success label — a regression returning an empty id would still show the label.
     await page.getByRole('button', { name: 'Send' }).click();
