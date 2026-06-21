@@ -30,9 +30,14 @@ An imperative `denyAccessUnlessGranted()` call is a smell that you have not yet 
 
 Then declare it on the class: `#[IsGranted(CommentVoter::DELETE, subject: 'comment')]`. Do this even for fieldless POST actions guarded by `#[CsrfToken]` — CSRF and authorization are separate concerns.
 
-**The genuine exception — subject only available as a *query* parameter** (e.g. a Mercure authorize endpoint keyed on `?workspace=UUID`): Symfony cannot resolve the subject at attribute time, so there is no argument for `subject:` to reference. Call `denyAccessUnlessGranted()` from a **private helper method**, never from `__invoke()`, with a class-level comment explaining why the attribute form is impossible. gamache's `controller.denyAccessUnlessGranted` rule only scans `__invoke()`, so the helper-method form passes cleanly — no magic comment required.
+**What the rule actually flags.** gamache's `controller.denyAccessUnlessGranted` fires on a `denyAccessUnlessGranted()` call in `__invoke()` only when it carries a **subject** (2nd argument) **and** `__invoke()` receives a **route-resolved parameter** to hang that subject on — i.e. exactly the case that should be `#[IsGranted(Voter::ACTION, subject: 'param')]`. Two cases it deliberately leaves alone, because there is no route-resolved subject to declare:
 
-**There is no docblock bypass.** A prose phrase in the class docblock does **not** exempt a controller (the old `"access is enforced per-branch"` escape hatch has been removed). If — and only if — a case genuinely needs imperative deny *inside* `__invoke()`, the sole permitted suppression is an explicit, reviewed `// @phpstan-ignore controller.denyAccessUnlessGranted (reason)` on the call line, with a real reason a reviewer can weigh. Reach for that essentially never; the helper-method form above covers the real exception.
+- a **role-only** check with no subject argument (`denyAccessUnlessGranted('ROLE_ADMIN')`); and
+- a subject **only resolvable at runtime** because `__invoke()` takes no route parameter — e.g. a Mercure authorize endpoint keyed on `?workspace=UUID`, with `__invoke(Request $request)`. Resolve the subject and deny inside the action; there is no route argument for `subject:` to reference, so the attribute form is genuinely impossible.
+
+`createAccessDeniedException()` and `new AccessDenied*Exception()` are **always** flagged — express a 403 as a denied Voter vote, not by throwing imperatively.
+
+**There is no docblock bypass and no sanctioned suppression.** A prose phrase in the class docblock does **not** exempt a controller (the old `"access is enforced per-branch"` escape hatch was removed). If the rule fires, the fix is to express the check as `#[IsGranted(Voter::ACTION, subject: 'param')]` — not to silence it.
 
 ## Mercure SSE Authorization
 
