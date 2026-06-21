@@ -8,8 +8,6 @@ use App\Controller\AppController;
 use App\Module\Account\Entity\User;
 use App\Module\SiteReview\Command\SubmitBatchCommand;
 use App\Module\SiteReview\Command\SubmitBatchHandler;
-use App\Module\SiteReview\Dto\SiteReviewCommentRequest;
-use App\Module\SiteReview\Dto\SubmitBatchRequest;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpKernel\Attribute\MapRequestPayload;
 use Symfony\Component\Routing\Attribute\Route;

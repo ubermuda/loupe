@@ -206,7 +206,7 @@ A controller that consumes/produces JSON for a machine client (a widget, an SPA,
   ```php
   public function __invoke(#[MapRequestPayload] SubmitBatchRequest $payload): JsonResponse
   ```
-- **Where the DTO lives:** in the module's `Dto/` directory (not `Form/` — there is no form), named with the `*Request` suffix (gamache `dto.requestSuffix`).
+- **Where the DTO lives:** alongside the controller — in the same `Controller/Api/` directory and namespace (not a separate `Dto/` or `Form/` directory), named with the `*Request` suffix (gamache `dto.requestSuffix`).
 - **DTO shape:** plain class with constructor-promoted public properties and validation constraints. `#[Assert\NotBlank]` properties must be `?string` (gamache `dto.notBlankNotNullable`); narrow them at the boundary where you map to the command (`$dto->field ?? ''`, or `?: throw` for `non-empty-string`). A nested collection needs `#[Assert\Valid]` to cascade **plus** a PHPDoc `@param list<ItemRequest> $items` so the Serializer knows the element class to hydrate. Use `#[Assert\Count(min: 1)]` to reject an empty collection (→ 422).
 - **CORS / auth** are handled by path-scoped subscribers and firewall rules, not the controller — see the firewall notes in `project-authz` and the per-endpoint CORS subscriber pattern. The `401`/`403`/preflight paths run before the controller, so `#[MapRequestPayload]` never sees an unauthenticated request.
 

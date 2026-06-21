@@ -33,13 +33,15 @@ assertion).
   derive the expected name/namespace from it; emit one error per mismatch. Handle
   classes carrying more than one `#[Route]`.
 
-### (Weak) API request DTOs live in `Dto/`, not `Form/`
-- **Rule:** DTOs consumed by `#[MapRequestPayload]` live in the module's `Dto/`
-  directory with a `*Request` suffix, not `Form/`.
+### (Weak) API request DTOs live alongside the controller
+- **Rule:** a DTO consumed by `#[MapRequestPayload]` lives in the same namespace
+  as the controller that references it (the `Controller/Api/` directory), with a
+  `*Request` suffix — not a separate `Dto/` or `Form/` directory.
 - **Mechanism:** gamache PHPStan rule — a class referenced by a
-  `#[MapRequestPayload]` parameter must reside in a `\Dto\` namespace.
+  `#[MapRequestPayload]` parameter must share the referencing controller's
+  namespace.
 - **Caveat:** low value; the `dto.requestSuffix` rule already covers naming and
-  only the directory is new. The trigger is indirect (trace the payload type back
+  only the location is new. The trigger is indirect (trace the payload type back
   to its class). Probably not worth building.
 
 ## 2026-06-19 — review-comment forms + Turbo retrospective
