@@ -2,11 +2,15 @@
 
 declare(strict_types=1);
 
-namespace App\Module\SiteReview\Form;
+namespace App\Module\SiteReview\Dto;
 
 use Symfony\Component\Validator\Constraints as Assert;
 
-class SubmitBatchRequest
+/**
+ * The site-review submit-batch payload, deserialized from the JSON request body
+ * via #[MapRequestPayload]. Not form-bound.
+ */
+final class SubmitBatchRequest
 {
     /**
      * @param list<SiteReviewCommentRequest> $comments
