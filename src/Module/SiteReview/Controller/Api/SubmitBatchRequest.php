@@ -13,7 +13,7 @@ use Symfony\Component\Validator\Constraints as Assert;
 final class SubmitBatchRequest
 {
     /**
-     * @param list<SiteReviewCommentRequest> $comments
+     * @param list<SiteReviewCommentInput> $comments
      */
     public function __construct(
         #[Assert\Count(min: 1)]

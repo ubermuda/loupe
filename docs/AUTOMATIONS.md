@@ -40,9 +40,10 @@ assertion).
 - **Mechanism:** gamache PHPStan rule — a class referenced by a
   `#[MapRequestPayload]` parameter must share the referencing controller's
   namespace.
-- **Caveat:** low value; the `dto.requestSuffix` rule already covers naming and
-  only the location is new. The trigger is indirect (trace the payload type back
-  to its class). Probably not worth building.
+- **Caveat:** low value, and the trigger is indirect (trace the payload type
+  back to its class). Note the existing `dto.requestSuffix` rule does **not**
+  apply here — it only fires for DTOs in a `Form/` namespace, so colocated API
+  payloads are unchecked on naming. Probably not worth building either way.
 
 ## 2026-06-19 — review-comment forms + Turbo retrospective
 

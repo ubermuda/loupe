@@ -32,7 +32,7 @@ final class SubmitBatchController extends AppController
         }
 
         $comments = array_map(
-            static fn (SiteReviewCommentRequest $comment): array => [
+            static fn (SiteReviewCommentInput $comment): array => [
                 'body' => trim($comment->body ?? ''),
                 'selector' => $comment->selector,
                 'text' => $comment->text,
