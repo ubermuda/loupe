@@ -4,18 +4,24 @@ declare(strict_types=1);
 
 namespace App\Module\Review\Service;
 
-use League\CommonMark\CommonMarkConverter;
+use League\CommonMark\Environment\Environment;
+use League\CommonMark\Extension\CommonMark\CommonMarkCoreExtension;
+use League\CommonMark\Extension\Table\TableExtension;
+use League\CommonMark\MarkdownConverter;
 use Symfony\Component\HtmlSanitizer\HtmlSanitizer;
 use Symfony\Component\HtmlSanitizer\HtmlSanitizerConfig;
 
 final readonly class MarkdownRenderer
 {
-    private CommonMarkConverter $converter;
+    private MarkdownConverter $converter;
     private HtmlSanitizer $sanitizer;
 
     public function __construct()
     {
-        $this->converter = new CommonMarkConverter(['html_input' => 'allow', 'allow_unsafe_links' => false]);
+        $environment = new Environment(['html_input' => 'allow', 'allow_unsafe_links' => false]);
+        $environment->addExtension(new CommonMarkCoreExtension());
+        $environment->addExtension(new TableExtension());
+        $this->converter = new MarkdownConverter($environment);
         $config = new HtmlSanitizerConfig()
             ->allowSafeElements()
             ->allowElement('h1')

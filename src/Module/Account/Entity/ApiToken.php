@@ -38,6 +38,9 @@ class ApiToken
     ) {
     }
 
+    #[ORM\Column(nullable: true)]
+    public ?\DateTimeImmutable $lastUsedAt = null;
+
     /** @return array{0: self, 1: non-empty-string} */
     public static function issue(User $owner, string $label, ApiTokenScope $scope): array
     {
@@ -49,5 +52,10 @@ class ApiToken
     public function matches(string $rawToken): bool
     {
         return hash_equals($this->tokenHash, hash('sha256', $rawToken));
+    }
+
+    public function markUsed(): void
+    {
+        $this->lastUsedAt = new \DateTimeImmutable();
     }
 }

@@ -21,7 +21,18 @@ The rules below are project policy on top of that layer.
 #[IsGranted(ProjectVoter::WORKSPACE_MANAGE, subject: 'workspace')]
 ```
 
-**`#[IsGranted]` on the class is the required form** (gamache's `controller.isGrantedNotClassLevel` rule fails a method-level `#[IsGranted]` on a single-action controller) **— `denyAccessUnlessGranted()` inside `__invoke()` is forbidden.** The one documented exception: when the subject must be resolved from a *query parameter* (not a route parameter), Symfony cannot evaluate the subject at attribute time. In that case, call `denyAccessUnlessGranted()` inside a private helper method, not inside `__invoke()`, and add a class-level comment explaining why the attribute form is not applicable.
+**`#[IsGranted]` on the class is the required form** (gamache's `controller.isGrantedNotClassLevel` rule fails a method-level `#[IsGranted]` on a single-action controller) **— `denyAccessUnlessGranted()` inside `__invoke()` is forbidden.**
+
+An imperative `denyAccessUnlessGranted()` call is a smell that you have not yet found the right **(subject, permission)** pair. Before reaching for it, resolve those two things:
+
+- **Subject:** the most-specific entity the route already resolves (`__invoke(Comment $comment)` → subject `'comment'`). The subject does *not* have to be the entity the policy ultimately checks — the voter walks from `Comment` to `comment.version.document.owner`. "The document isn't a route parameter" is **not** a reason to go imperative: make the `Comment` the subject and let the voter walk up. (`CommentVoter` does exactly this for `comment.delete` / `comment.resolve` / `comment.reply`.)
+- **Permission:** a Voter constant for the action (`CommentVoter::DELETE`), per the dotted naming in `symfony-authorization`.
+
+Then declare it on the class: `#[IsGranted(CommentVoter::DELETE, subject: 'comment')]`. Do this even for fieldless POST actions guarded by `#[CsrfToken]` — CSRF and authorization are separate concerns.
+
+**The genuine exception — subject only available as a *query* parameter** (e.g. a Mercure authorize endpoint keyed on `?workspace=UUID`): Symfony cannot resolve the subject at attribute time, so there is no argument for `subject:` to reference. Call `denyAccessUnlessGranted()` from a **private helper method**, never from `__invoke()`, with a class-level comment explaining why the attribute form is impossible. gamache's `controller.denyAccessUnlessGranted` rule only scans `__invoke()`, so the helper-method form passes cleanly — no magic comment required.
+
+**There is no docblock bypass.** A prose phrase in the class docblock does **not** exempt a controller (the old `"access is enforced per-branch"` escape hatch has been removed). If — and only if — a case genuinely needs imperative deny *inside* `__invoke()`, the sole permitted suppression is an explicit, reviewed `// @phpstan-ignore controller.denyAccessUnlessGranted (reason)` on the call line, with a real reason a reviewer can weigh. Reach for that essentially never; the helper-method form above covers the real exception.
 
 ## Mercure SSE Authorization
 

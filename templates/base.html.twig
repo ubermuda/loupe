@@ -20,31 +20,33 @@
     </head>
     <body class="{% block body_class %}{% endblock %}">
         {% if app.user %}
-        <div class="bp-app" data-controller="sidebar">
+        <div class="bp-app" data-controller="sidebar"
+             data-sidebar-collapse-label-value="{{ 'nav.toggle_sidebar'|trans }}"
+             data-sidebar-expand-label-value="{{ 'nav.expand_sidebar'|trans }}">
             <aside class="bp-sidebar">
                 <a href="{{ path('app_home') }}" class="bp-sidebar__brand">
-                    <span class="bp-sidebar__brand-mark"></span>
+                    <span class="bp-sidebar__brand-mark"><twig:ux:icon name="lucide:clipboard-check" /></span>
                     <span class="bp-sidebar__brand-name">{{ 'nav.brand'|trans }}</span>
                 </a>
                 <nav class="bp-sidebar__nav">
-                    <a href="{{ path('app_documents') }}"
-                       class="bp-sidebar__link{% if app.request.attributes.get('_route') == 'app_documents' %} bp-sidebar__link--active{% endif %}">
+                    <a href="{{ path('app_documents') }}" data-tooltip="{{ 'nav.link.documents'|trans }}"
+                       class="bp-sidebar__link{% if app.request.attributes.get('_route') starts with 'app_document' %} bp-sidebar__link--active{% endif %}">
                         <twig:ux:icon name="lucide:files" />
                         <span class="bp-sidebar__link-label">{{ 'nav.link.documents'|trans }}</span>
                     </a>
-                    <a href="{{ path('app_site_review_batches') }}"
+                    <a href="{{ path('app_site_review_batches') }}" data-tooltip="{{ 'nav.link.site_reviews'|trans }}"
                        class="bp-sidebar__link{% if app.request.attributes.get('_route') starts with 'app_site_review_batch' %} bp-sidebar__link--active{% endif %}">
                         <twig:ux:icon name="lucide:globe" />
                         <span class="bp-sidebar__link-label">{{ 'nav.link.site_reviews'|trans }}</span>
                     </a>
-                    <a href="{{ path('app_api_tokens') }}"
+                    <a href="{{ path('app_api_tokens') }}" data-tooltip="{{ 'nav.link.api_tokens'|trans }}"
                        class="bp-sidebar__link{% if app.request.attributes.get('_route') == 'app_api_tokens' %} bp-sidebar__link--active{% endif %}">
                         <twig:ux:icon name="lucide:key-round" />
                         <span class="bp-sidebar__link-label">{{ 'nav.link.api_tokens'|trans }}</span>
                     </a>
                 </nav>
                 <div class="bp-sidebar__spacer"></div>
-                <a href="{{ path('app_logout') }}" class="bp-sidebar__link" data-turbo-prefetch="false">
+                <a href="{{ path('app_logout') }}" data-tooltip="{{ 'nav.link.logout'|trans }}" class="bp-sidebar__link" data-turbo-prefetch="false">
                     <twig:ux:icon name="lucide:log-out" />
                     <span class="bp-sidebar__link-label">{{ 'nav.link.logout'|trans }}</span>
                 </a>
@@ -52,9 +54,12 @@
                     <span class="avatar">{{ app.user.userIdentifier|slice(0, 1)|upper }}</span>
                     <span class="bp-sidebar__account-name">{{ app.user.userIdentifier }}</span>
                     <button type="button" class="bp-sidebar__toggle"
+                            data-sidebar-target="toggleButton"
                             data-action="click->sidebar#toggle"
+                            data-tooltip="{{ 'nav.toggle_sidebar'|trans }}"
                             aria-label="{{ 'nav.toggle_sidebar'|trans }}">
-                        <twig:ux:icon name="lucide:panel-left-close" />
+                        <twig:ux:icon name="lucide:panel-left-close" class="bp-sidebar__toggle-icon bp-sidebar__toggle-icon--collapse" />
+                        <twig:ux:icon name="lucide:panel-left-open" class="bp-sidebar__toggle-icon bp-sidebar__toggle-icon--expand" />
                     </button>
                 </div>
             </aside>

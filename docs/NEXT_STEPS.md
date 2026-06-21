@@ -147,3 +147,13 @@ authenticator for now and revisit later. Note: `access_token` has **no** native
 scope→role mapping (verified against current Symfony docs), so the migration is
 a modernization, not a scope win; per-token scope roles are slightly more
 awkward there (you don't own `createToken()`), so weigh that when revisiting.
+
+## Bump gamache pin once the deny-access hardening lands
+
+gamache PR https://github.com/ubermuda/gamache/pull/19 removes the
+`"access is enforced per-branch"` docblock escape hatch from
+`DenyAccessUnlessGrantedRule` (it was too easy to bypass; it now nudges toward a
+proper `#[IsGranted]` or a private-helper deny). Once it merges, bump the
+`ubermuda/gamache` commit pin in `composer.json` + `composer update` so the
+hardened rule runs in CI. Safe to bump now: this branch already removed every
+imperative `denyAccessUnlessGranted()` from a controller `__invoke()`.

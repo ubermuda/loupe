@@ -67,6 +67,17 @@ final readonly class ReanchoringService
             $newParent = $this->copyComment($old->parent, $openComments, $oldToNew, $newVersion, $carried, $orphaned);
         }
 
+        // An untargeted comment (empty-quote anchor) has nothing to relocate —
+        // carry it forward unchanged; it is never orphaned.
+        if ('' === $old->anchor->quote) {
+            $copy = new Comment($newVersion, $old->author, $old->body, $old->anchor, $newParent);
+            $newVersion->comments->add($copy);
+            $oldToNew[$old] = $copy;
+            ++$carried;
+
+            return $copy;
+        }
+
         // Resolve the old anchor quote against the new version's plain text
         // (same basis as at add-time: strip_tags then html_entity_decode).
         $newPlain = $newVersion->plainText();

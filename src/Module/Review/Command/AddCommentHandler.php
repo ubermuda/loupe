@@ -7,6 +7,7 @@ namespace App\Module\Review\Command;
 use App\Exception\DomainErrors;
 use App\Module\Review\Entity\Comment;
 use App\Module\Review\Service\AnchorService;
+use App\Module\Review\ValueObject\Anchor;
 use Doctrine\ORM\EntityManagerInterface;
 
 final readonly class AddCommentHandler
@@ -26,11 +27,10 @@ final readonly class AddCommentHandler
         $version = $command->document->currentVersion();
         $text = $version->plainText();
 
-        if ($command->start + $command->length > strlen($text)) {
-            throw new DomainErrors(['start' => 'comment.error.anchor_out_of_range']);
-        }
-
-        $anchor = $this->anchorService->create($text, $command->start, $command->length);
+        $quote = $command->quote;
+        $anchor = null === $quote || '' === $quote
+            ? Anchor::unanchored()
+            : $this->anchorService->fromSelection($text, $quote, $command->prefix ?? '', $command->suffix ?? '');
 
         $comment = new Comment(
             version: $version,

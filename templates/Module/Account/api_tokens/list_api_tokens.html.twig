@@ -4,19 +4,21 @@
 
 {% block body %}
 {%- set mcpUrl = url('app_mcp_endpoint') -%}
-{%- set mcpClaudeCmd = "claude mcp add betterplans " ~ mcpUrl ~ " --transport http --header \"Authorization: Bearer YOUR_TOKEN\"" -%}
 {%- set mcpAuthHeader = "Authorization: Bearer YOUR_TOKEN" -%}
-{%- set mcpJsonLine1 = "{" -%}
-{%- set mcpJsonLine2 = "  \"mcpServers\": {" -%}
-{%- set mcpJsonLine3 = "    \"betterplans\": {" -%}
-{%- set mcpJsonLine4 = "      \"type\": \"http\"," -%}
-{%- set mcpJsonLine5 = "      \"url\": \"" ~ mcpUrl ~ "\"," -%}
-{%- set mcpJsonLine6 = "      \"headers\": {" -%}
-{%- set mcpJsonLine7 = "        \"Authorization\": \"Bearer YOUR_TOKEN\"" -%}
-{%- set mcpJsonLine8 = "      }" -%}
-{%- set mcpJsonLine9 = "    }" -%}
-{%- set mcpJsonLine10 = "  }" -%}
-{%- set mcpJsonLine11 = "}" -%}
+{%- set mcpClaudeCmd = "claude mcp add betterplans " ~ mcpUrl ~ " \\\n  --transport http \\\n  --header \"" ~ mcpAuthHeader ~ "\"" -%}
+{%- set mcpJson = [
+    "{",
+    "  \"mcpServers\": {",
+    "    \"betterplans\": {",
+    "      \"type\": \"http\",",
+    "      \"url\": \"" ~ mcpUrl ~ "\",",
+    "      \"headers\": {",
+    "        \"Authorization\": \"Bearer YOUR_TOKEN\"",
+    "      }",
+    "    }",
+    "  }",
+    "}"
+]|join("\n") -%}
 <div class="bp-page">
     <div class="bp-page-header">
         <h1 class="bp-page-title">{{ 'account.api_token.page.title'|trans }}</h1>
@@ -31,17 +33,19 @@
     <div class="bp-card mb-6">
         {{ form_start(form, {'action': path('app_api_token_create'), 'method': 'POST', 'attr': {'class': 'bp-form'}}) }}
             <div class="bp-form-field">
-                {{ form_label(form.label) }}
+                {{ form_label(form.label, null, {'label_attr': {'class': 'bp-label'}}) }}
                 {{ form_widget(form.label, {'attr': {'class': 'bp-input'}}) }}
                 <div class="bp-field-errors">{{ form_errors(form.label) }}</div>
             </div>
             <div class="bp-form-field">
-                {{ form_label(form.scope) }}
-                {{ form_widget(form.scope, {'attr': {'class': 'bp-input'}}) }}
+                {{ form_label(form.scope, null, {'label_attr': {'class': 'bp-label'}}) }}
+                {{ form_widget(form.scope, {'attr': {'class': 'bp-input bp-select'}}) }}
                 <div class="bp-field-errors">{{ form_errors(form.scope) }}</div>
-                <p class="bp-empty">{{ 'account.api_token.scope.site_review_warning'|trans }}</p>
+                <p class="bp-form-hint">{{ 'account.api_token.scope.site_review_warning'|trans }}</p>
             </div>
-            <button type="submit" class="bp-btn bp-btn--primary">{{ 'account.api_token.form.submit'|trans }}</button>
+            <div class="flex items-center justify-end gap-3 pt-2">
+                <button type="submit" class="bp-btn bp-btn--primary">{{ 'account.api_token.form.submit'|trans }}</button>
+            </div>
         {{ form_end(form) }}
     </div>
 
@@ -55,6 +59,12 @@
                     <span>{{ ('account.api_token.scope.' ~ token.scope.value)|trans }}</span>
                     <span>&middot;</span>
                     <span>{{ token.createdAt|date('M j, Y') }}</span>
+                    <span>&middot;</span>
+                    {% if token.lastUsedAt %}
+                    <span>{{ 'account.api_token.last_used'|trans }} {{ token.lastUsedAt|date('M j, Y') }}</span>
+                    {% else %}
+                    <span class="text-fg-dim">{{ 'account.api_token.never_used'|trans }}</span>
+                    {% endif %}
                 </div>
             </div>
             <form method="POST" action="{{ path('app_api_token_revoke', {tokenId: token.id}) }}">
@@ -72,33 +82,46 @@
     {% endif %}
 
     <div class="bp-card" id="mcp-connection">
-        <h2 class="bp-page-title" style="margin-bottom: 1rem;">{{ 'account.mcp.card.heading'|trans }}</h2>
+        <h2 class="bp-section-title">{{ 'account.mcp.card.heading'|trans }}</h2>
 
-        <p><strong>{{ 'account.mcp.card.endpoint_label'|trans }}:</strong>
-            <code class="bp-code">{{ mcpUrl }}</code>
-        </p>
+        <dl class="bp-key-values">
+            <div class="bp-key-values__row">
+                <dt>{{ 'account.mcp.card.endpoint_label'|trans }}</dt>
+                <dd class="bp-copy-row" data-controller="clipboard" data-clipboard-text-value="{{ mcpUrl }}"
+                    data-clipboard-copied-label-value="{{ 'account.mcp.card.copied'|trans }}">
+                    <code class="bp-code">{{ mcpUrl }}</code>
+                    <button type="button" class="bp-btn bp-btn--ghost bp-btn--sm" data-clipboard-target="button" data-action="clipboard#copy">{{ 'account.mcp.card.copy'|trans }}</button>
+                </dd>
+            </div>
+            <div class="bp-key-values__row">
+                <dt>{{ 'account.mcp.card.auth_label'|trans }}</dt>
+                <dd class="bp-copy-row" data-controller="clipboard" data-clipboard-text-value="{{ mcpAuthHeader }}"
+                    data-clipboard-copied-label-value="{{ 'account.mcp.card.copied'|trans }}">
+                    <code class="bp-code">{{ mcpAuthHeader }}</code>
+                    <button type="button" class="bp-btn bp-btn--ghost bp-btn--sm" data-clipboard-target="button" data-action="clipboard#copy">{{ 'account.mcp.card.copy'|trans }}</button>
+                </dd>
+            </div>
+        </dl>
 
-        <p>{{ 'account.mcp.card.auth_note'|trans }}
-            <code class="bp-code">{{ mcpAuthHeader }}</code>
-        </p>
+        <div class="bp-code-block" data-controller="clipboard" data-clipboard-text-value="{{ mcpClaudeCmd }}"
+             data-clipboard-copied-label-value="{{ 'account.mcp.card.copied'|trans }}">
+            <div class="bp-code-block__header">
+                <span class="bp-code-block__label">{{ 'account.mcp.card.claude_code_heading'|trans }}</span>
+                <button type="button" class="bp-btn bp-btn--ghost bp-btn--sm" data-clipboard-target="button" data-action="clipboard#copy">{{ 'account.mcp.card.copy'|trans }}</button>
+            </div>
+            <pre class="bp-pre"><code>{{ mcpClaudeCmd }}</code></pre>
+        </div>
 
-        <p><strong>{{ 'account.mcp.card.claude_code_heading'|trans }}</strong></p>
-        <pre class="bp-pre"><code>{{ mcpClaudeCmd }}</code></pre>
+        <div class="bp-code-block" data-controller="clipboard" data-clipboard-text-value="{{ mcpJson }}"
+             data-clipboard-copied-label-value="{{ 'account.mcp.card.copied'|trans }}">
+            <div class="bp-code-block__header">
+                <span class="bp-code-block__label">{{ 'account.mcp.card.json_heading'|trans }}</span>
+                <button type="button" class="bp-btn bp-btn--ghost bp-btn--sm" data-clipboard-target="button" data-action="clipboard#copy">{{ 'account.mcp.card.copy'|trans }}</button>
+            </div>
+            <pre class="bp-pre"><code>{{ mcpJson }}</code></pre>
+        </div>
 
-        <p><strong>{{ 'account.mcp.card.json_heading'|trans }}</strong></p>
-        <pre class="bp-pre"><code>{{ mcpJsonLine1 }}
-{{ mcpJsonLine2 }}
-{{ mcpJsonLine3 }}
-{{ mcpJsonLine4 }}
-{{ mcpJsonLine5 }}
-{{ mcpJsonLine6 }}
-{{ mcpJsonLine7 }}
-{{ mcpJsonLine8 }}
-{{ mcpJsonLine9 }}
-{{ mcpJsonLine10 }}
-{{ mcpJsonLine11 }}</code></pre>
-
-        <p class="bp-empty">{{ 'account.mcp.card.tls_note'|trans }}</p>
+        <p class="bp-form-hint">{{ 'account.mcp.card.tls_note'|trans }}</p>
     </div>
 </div>
 {% endblock %}

@@ -45,6 +45,26 @@ final class SubmitBatchControllerTest extends WebTestCase
         self::assertSame('https://app.localhost/x', $comment->url);
     }
 
+    public function test_unanchored_comment_is_accepted(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $raw = $this->issue($em, ApiTokenScope::SiteReview, 'e@example.com');
+
+        $client->request(Request::METHOD_POST, '/api/site-review/batches',
+            server: ['HTTP_AUTHORIZATION' => 'Bearer '.$raw, 'CONTENT_TYPE' => 'application/json'],
+            content: '{"comments":[{"body":"a general note","url":"https://app.localhost/x"}]}');
+
+        self::assertResponseStatusCodeSame(201);
+
+        $repo = static::getContainer()->get(SiteReviewBatchRepository::class);
+        $comment = $repo->findAll()[0]->comments->toArray()[0];
+        self::assertSame('a general note', $comment->body);
+        self::assertSame('', $comment->selector, 'unanchored comment has no selector');
+        self::assertSame('', $comment->text);
+        self::assertSame('https://app.localhost/x', $comment->url);
+    }
+
     public function test_mcp_token_is_forbidden(): void
     {
         $client = static::createClient();

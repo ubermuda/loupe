@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace App\Module\Review\Controller;
 
 use App\Controller\AppController;
-use App\Module\Review\Command\ResolveCommentCommand;
-use App\Module\Review\Command\ResolveCommentHandler;
+use App\Module\Review\Command\DeleteCommentCommand;
+use App\Module\Review\Command\DeleteCommentHandler;
 use App\Module\Review\Entity\Comment;
 use App\Module\Review\Repository\CommentRepository;
 use App\Module\Review\Security\CommentVoter;
@@ -18,38 +18,39 @@ use Symfony\UX\Turbo\TurboBundle;
 use Ubermuda\SymfonyExtra\Csrf\Attribute\CsrfToken;
 
 /**
- * Resolve is a fieldless action, so it stays a plain HTML form guarded by the
- * stateless #[CsrfToken] attribute rather than a Symfony form.
+ * Delete is a fieldless action, so it stays a plain HTML form guarded by the
+ * stateless #[CsrfToken] attribute.
  */
 #[CsrfToken('comment-action')]
-#[IsGranted(CommentVoter::RESOLVE, subject: 'comment')]
+#[IsGranted(CommentVoter::DELETE, subject: 'comment')]
 #[Route(
-    '/comments/{id:comment}/resolve',
-    name: 'app_comment_resolve',
+    '/comments/{id:comment}/delete',
+    name: 'app_comment_delete',
     methods: ['POST'],
 )]
-final class ResolveCommentController extends AppController
+final class DeleteCommentController extends AppController
 {
     public function __construct(
-        private readonly ResolveCommentHandler $resolveCommentHandler,
+        private readonly DeleteCommentHandler $deleteCommentHandler,
         private readonly CommentRepository $comments,
     ) {
     }
 
     public function __invoke(Comment $comment, Request $request): Response
     {
-        ($this->resolveCommentHandler)(new ResolveCommentCommand(
-            comment: $comment,
-        ));
+        $version = $comment->version;
+        $document = $version->document;
+
+        ($this->deleteCommentHandler)(new DeleteCommentCommand(comment: $comment));
 
         if (TurboBundle::STREAM_FORMAT !== $request->getPreferredFormat()) {
-            return $this->redirectToRoute('app_document_review', ['id' => (string) $comment->version->document->id]);
+            return $this->redirectToRoute('app_document_review', ['id' => (string) $document->id]);
         }
 
-        $html = $this->renderView('review/_comment_thread.stream.html.twig', [
-            'comment' => $comment,
-            'replies' => $this->comments->findReplies($comment),
-            'replyForm' => null,
+        // Re-render the whole thread list (restores the empty state when the last
+        // comment is gone).
+        $html = $this->renderView('review/_comment_added.stream.html.twig', [
+            'comments' => $this->comments->findByVersion($version),
         ]);
 
         return new Response($html, Response::HTTP_OK, ['Content-Type' => TurboBundle::STREAM_MEDIA_TYPE]);

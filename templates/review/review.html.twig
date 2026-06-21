@@ -36,10 +36,20 @@
             with the PHP anchor basis.
         #}
         <div class="bp-review-doc" data-action="mouseup->comment-anchor#onDocMouseup">
-            <div data-comment-anchor-target="doc">{{ version.renderedHtml|raw }}</div>
+            <div class="prose max-w-none bp-prose" data-comment-anchor-target="doc">{{ version.renderedHtml|raw }}</div>
 
-            {# Floating composer — a Symfony form, hidden until text is selected.
-               The Stimulus controller positions it and fills the offset fields;
+            {# Floating toolbar — appears on text selection so selecting text no
+               longer steals focus or blocks copying. Clicking it opens the
+               composer and highlights the selection. #}
+            <div class="bp-anchor-toolbar" data-comment-anchor-target="toolbar" hidden>
+                <button type="button" class="bp-btn bp-btn--primary bp-btn--sm" data-action="comment-anchor#startComment">
+                    <twig:ux:icon name="lucide:message-square-plus" class="w-3.5 h-3.5 shrink-0" />
+                    {{ 'review.document.comment.add'|trans }}
+                </button>
+            </div>
+
+            {# Floating composer — a Symfony form, hidden until the user opts in.
+               The Stimulus controller positions it and fills the anchor fields;
                Turbo submits it and applies the returned stream. #}
             {{ form_start(addCommentForm, {attr: {
                 class: 'bp-comment-composer',
@@ -47,8 +57,9 @@
                 'data-action': 'turbo:submit-end->comment-anchor#onSubmitEnd',
                 hidden: true,
             }}) }}
-                {{ form_widget(addCommentForm.start) }}
-                {{ form_widget(addCommentForm.length) }}
+                {{ form_widget(addCommentForm.quote) }}
+                {{ form_widget(addCommentForm.prefix) }}
+                {{ form_widget(addCommentForm.suffix) }}
                 {{ form_widget(addCommentForm.body) }}
                 <div class="bp-comment-composer__actions">
                     <span
@@ -70,7 +81,13 @@
         </div>
 
         <div class="bp-review-sidebar">
-            <h2 class="bp-review-sidebar__title">{{ 'review.document.sidebar.title'|trans }}</h2>
+            <div class="bp-review-sidebar__header">
+                <h2 class="bp-review-sidebar__title">{{ 'review.document.sidebar.title'|trans }}</h2>
+                <button type="button" class="bp-btn bp-btn--ghost bp-btn--sm" data-action="comment-anchor#startUntargeted">
+                    <twig:ux:icon name="lucide:plus" class="w-3.5 h-3.5 shrink-0" />
+                    {{ 'review.document.comment.untargeted'|trans }}
+                </button>
+            </div>
 
             {% include 'review/_comment_threads.html.twig' with {comments: comments} only %}
 

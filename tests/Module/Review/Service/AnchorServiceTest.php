@@ -65,6 +65,59 @@ final class AnchorServiceTest extends TestCase
         self::assertSame($secondStart, $this->service->resolve($text, $anchor));
     }
 
+    public function test_from_selection_locates_exact_quote_and_sets_offset_hint(): void
+    {
+        $text = 'We will issue short-lived JWTs signed with a rotating key.';
+        $start = strpos($text, 'short-lived JWTs');
+        self::assertIsInt($start);
+
+        $anchor = $this->service->fromSelection($text, 'short-lived JWTs', 'issue ', ' signed');
+
+        self::assertSame('short-lived JWTs', $anchor->quote);
+        self::assertSame($start, $anchor->offsetHint);
+        self::assertSame($start, $this->service->resolve($text, $anchor));
+    }
+
+    public function test_from_selection_uses_context_to_disambiguate_repeats(): void
+    {
+        // "word" appears twice; the captured context belongs to the second one.
+        $text = 'a wrong word here and a right word too';
+        $secondStart = strrpos($text, 'word');
+        self::assertIsInt($secondStart);
+
+        $anchor = $this->service->fromSelection($text, 'word', 'a right ', ' too');
+
+        self::assertSame($secondStart, $anchor->offsetHint);
+    }
+
+    public function test_unanchored_yields_empty_anchor(): void
+    {
+        $anchor = Anchor::unanchored();
+
+        self::assertSame('', $anchor->quote);
+        self::assertSame('', $anchor->prefix);
+        self::assertSame('', $anchor->suffix);
+        self::assertSame(0, $anchor->offsetHint);
+    }
+
+    public function test_from_selection_stores_exact_quote_after_multibyte_char(): void
+    {
+        // Regression: the old offset-based path drifted after a multibyte char
+        // (JS UTF-16 code units vs PHP byte offsets), storing a garbled quote.
+        // fromSelection takes the verbatim string, so a quote sitting after an
+        // em dash is stored and located exactly.
+        $text = 'Redesign — Implementation Plan. Goal: replace the top-nav shell.';
+        $quote = 'replace the top-nav shell';
+        $start = strpos($text, $quote);
+        self::assertIsInt($start);
+
+        $anchor = $this->service->fromSelection($text, $quote, 'Goal: ', '.');
+
+        self::assertSame($quote, $anchor->quote);
+        self::assertSame($start, $anchor->offsetHint);
+        self::assertSame($start, $this->service->resolve($text, $anchor));
+    }
+
     public function test_create_keeps_prefix_valid_utf8_when_window_splits_multibyte_char(): void
     {
         // The em dash (3 bytes) sits so the 32-byte prefix window's left edge lands

@@ -11,6 +11,10 @@
 <div
     id="comment-thread-{{ comment.id }}"
     class="bp-comment-thread{% if comment.resolved %} bp-comment-thread--resolved{% endif %}{% if comment.orphaned %} bp-comment-thread--orphaned{% endif %}"
+    data-comment-anchor-target="thread"
+    data-anchor-quote="{{ comment.anchor.quote }}"
+    data-anchor-prefix="{{ comment.anchor.prefix }}"
+    data-anchor-suffix="{{ comment.anchor.suffix }}"
 >
     {% if comment.anchor.quote %}
     <blockquote class="bp-comment-quote">{{ comment.anchor.quote }}</blockquote>
@@ -31,6 +35,13 @@
     </div>
     {% endif %}
 
+    {# Fieldless delete form — available on any thread (resolved or not),
+       submitted by a Delete button via form=. Confirmed before submit. #}
+    <form id="delete-form-{{ comment.id }}" action="{{ path('app_comment_delete', {id: comment.id}) }}" method="post" hidden
+          data-turbo-confirm="{{ 'review.document.comment.delete_confirm'|trans }}">
+        <input type="hidden" name="_csrf_token" value="{{ csrf_token('comment-action') }}">
+    </form>
+
     {% if not comment.resolved %}
     <div class="bp-comment-reply-form">
         {% set replyForm = replyForm ?? comment_reply_form(comment) %}
@@ -46,8 +57,13 @@
             <div class="bp-comment-actions">
                 <button type="submit" class="bp-btn bp-btn--ghost bp-btn--sm">{{ 'review.document.comment.reply'|trans }}</button>
                 <button type="submit" form="resolve-form-{{ comment.id }}" class="bp-btn bp-btn--sm">{{ 'review.document.comment.resolve'|trans }}</button>
+                <button type="submit" form="delete-form-{{ comment.id }}" class="bp-btn bp-btn--danger-ghost bp-btn--sm">{{ 'review.document.comment.delete'|trans }}</button>
             </div>
         {{ form_end(replyForm) }}
+    </div>
+    {% else %}
+    <div class="bp-comment-actions">
+        <button type="submit" form="delete-form-{{ comment.id }}" class="bp-btn bp-btn--danger-ghost bp-btn--sm">{{ 'review.document.comment.delete'|trans }}</button>
     </div>
     {% endif %}
 </div>

@@ -35,11 +35,10 @@ final class AddCommentHandlerTest extends KernelTestCase
         $quote = 'body text here';
         $start = strpos($plain, $quote);
         self::assertIsInt($start, 'Quote must exist in plain text');
-        $length = strlen($quote);
 
         /** @var AddCommentHandler $handler */
         $handler = self::getContainer()->get(AddCommentHandler::class);
-        $comment = $handler(new AddCommentCommand($owner, $doc, $start, $length, 'Great point!'));
+        $comment = $handler(new AddCommentCommand($owner, $doc, $quote, '', '', 'Great point!'));
 
         self::assertInstanceOf(Comment::class, $comment);
         self::assertSame($version, $comment->version);
@@ -80,14 +79,36 @@ final class AddCommentHandlerTest extends KernelTestCase
 
         $start = strpos($plain, 'JWTs');
         self::assertIsInt($start, '"JWTs" must be found in the plain text');
-        $length = 4;
 
         /** @var AddCommentHandler $handler */
         $handler = self::getContainer()->get(AddCommentHandler::class);
-        $comment = $handler(new AddCommentCommand($owner, $doc, $start, $length, 'Why JWTs?'));
+        $comment = $handler(new AddCommentCommand($owner, $doc, 'JWTs', '', '', 'Why JWTs?'));
 
         // The stored anchor quote must be exactly the selected phrase, not a slice of raw HTML
         self::assertSame('JWTs', $comment->anchor->quote, 'Anchor quote must match the plain-text selection, not a raw-HTML slice');
+    }
+
+    public function test_unanchored_comment_gets_an_empty_anchor(): void
+    {
+        self::bootKernel();
+        $em = self::getContainer()->get(EntityManagerInterface::class);
+
+        $owner = new User(username: 'owner4', fullName: 'Owner', email: 'owner4@example.com', password: 'hashed');
+        $em->persist($owner);
+        $em->flush();
+
+        /** @var CreateDocumentHandler $createHandler */
+        $createHandler = self::getContainer()->get(CreateDocumentHandler::class);
+        $doc = $createHandler(new CreateDocumentCommand($owner, 'Doc', "# Hello\n\nSome body."));
+
+        /** @var AddCommentHandler $handler */
+        $handler = self::getContainer()->get(AddCommentHandler::class);
+        $comment = $handler(new AddCommentCommand($owner, $doc, null, null, null, 'A general note'));
+
+        self::assertSame('', $comment->anchor->quote, 'unanchored comment has no quote');
+        self::assertSame('', $comment->anchor->prefix);
+        self::assertSame('', $comment->anchor->suffix);
+        self::assertSame(0, $comment->anchor->offsetHint);
     }
 
     public function test_rejects_when_actor_does_not_own_document(): void
@@ -105,15 +126,10 @@ final class AddCommentHandlerTest extends KernelTestCase
         $createHandler = self::getContainer()->get(CreateDocumentHandler::class);
         $doc = $createHandler(new CreateDocumentCommand($owner, 'Private Doc', "# Secret\n\nConfidential content."));
 
-        $plain = $doc->currentVersion()->plainText();
-        $start = strpos($plain, 'Confidential');
-        self::assertIsInt($start);
-        $length = strlen('Confidential');
-
         /** @var AddCommentHandler $handler */
         $handler = self::getContainer()->get(AddCommentHandler::class);
 
         $this->expectException(DomainErrors::class);
-        $handler(new AddCommentCommand($nonOwner, $doc, $start, $length, 'I should not comment here'));
+        $handler(new AddCommentCommand($nonOwner, $doc, 'Confidential', '', '', 'I should not comment here'));
     }
 }

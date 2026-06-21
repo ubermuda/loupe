@@ -19,7 +19,7 @@ No code in `src/Module/X/` may import from `src/Module/Y/` — not entities, not
 
 ## Forms and DTOs
 
-- **User input is bound through a Symfony form (DTO + FormType), never hand-parsed from the `Request`.** This includes Turbo / AJAX / stream endpoints — there is no "it's just a small POST" exception. Do not write `$request->request->get('x')` + ad-hoc `is_numeric` / `trim` validation in a controller; create a `FooRequest` DTO with constraints and a `FooFormType`, then `createForm()` / `handleRequest()` / `isSubmitted() && isValid()`. The only raw-request reads that remain acceptable are non-form technical values such as a CSRF token on a hand-rolled fieldless form (see "Stateless CSRF tokens for hand-rolled forms") and dev/test-only controllers.
+- **User input for HTML/Turbo endpoints is bound through a Symfony form (DTO + FormType), never hand-parsed from the `Request`.** This includes Turbo / AJAX / stream endpoints that render UI — there is no "it's just a small POST" exception. Do not write `$request->request->get('x')` + ad-hoc `is_numeric` / `trim` validation in a controller; create a `FooRequest` DTO with constraints and a `FooFormType`, then `createForm()` / `handleRequest()` / `isSubmitted() && isValid()`. The only raw-request reads that remain acceptable are non-form technical values such as a CSRF token on a hand-rolled fieldless form (see "Stateless CSRF tokens for hand-rolled forms") and dev/test-only controllers. **JSON API endpoints are the exception — they use `#[MapRequestPayload]`, not forms (see "API controllers" below).**
 - Forms must not bind directly to Doctrine entities
 - Instead, create a DTO named with a `Request` suffix (e.g. `FooRequest`) that lives alongside the form file
 - DTOs use constructor promoted properties with sensible defaults
@@ -196,6 +196,20 @@ Existing examples: `ResendVerificationEmailController`, `config/packages/csrf.ya
 Any controller action that does more than render a template or redirect must be backed by a command + handler pair (`Command/FooCommand.php` + `Command/FooHandler.php`, no Symfony Messenger involved). **The pattern — command/handler shapes, calling the handler as a callable, `DomainErrors`, handler composition, sealed-parameter commands, ID-only commands for external-system data — is documented in the `project-command-handler` skill. Invoke it before writing a command or handler.**
 
 Admin-facing controllers for a given feature live under `Controller/Admin/` within that feature's module directory. The `Admin` module (if present) is the shell for the admin area (layout, dashboard, auth promotion) — it does not own feature logic.
+
+## API controllers (JSON endpoints)
+
+A controller that consumes/produces JSON for a machine client (a widget, an SPA, a third party) is an **API controller**, and it follows different conventions from UI controllers:
+
+- **Location & naming:** live under a `Controller/Api/` sub-namespace within the module (`App\Module\X\Controller\Api`). The route **name** is prefixed `api_` (e.g. `api_site_review_submit`) and the route **path** is prefixed `/api/` (e.g. `/api/site-review/batches`). Keep an existing public path stable even after moving the class — external callers, CORS subscribers, and firewall `access_control` rules key on the path.
+- **Input binding — `#[MapRequestPayload]`, never a Symfony form.** Type-hint the action parameter with a request DTO and the `#[MapRequestPayload]` attribute; Symfony deserializes the JSON body into the DTO and runs the validator automatically, returning **422** on validation failure with no manual error assembly. Do **not** build a `FormType` + `$form->submit($decodedArray)` for JSON, and do **not** hand-roll `json_decode` + `is_array` checks.
+  ```php
+  public function __invoke(#[MapRequestPayload] SubmitBatchRequest $payload): JsonResponse
+  ```
+- **Where the DTO lives:** alongside the controller — in the same `Controller/Api/` directory and namespace (not a separate `Dto/` or `Form/` directory). The top-level payload bound by `#[MapRequestPayload]` is named `<Action>Request` to mirror its controller (`SubmitBatchController` → `SubmitBatchRequest`). This is convention only — gamache's `dto.requestSuffix` rule enforces the suffix solely for DTOs in a `Form/` namespace, so it does not apply to colocated API payloads.
+- **Nested DTOs are not requests.** A collection item or sub-object *inside* the payload — needed so the Serializer hydrates a typed element and `#[Assert\Valid]` can cascade per-item — has no controller of its own, so do **not** give it a `*Request` suffix (that wrongly implies a top-level payload). Name it for what it holds: `SiteReviewCommentInput`, not `SiteReviewCommentRequest`. It lives alongside the payload.
+- **DTO shape:** plain class with constructor-promoted public properties and validation constraints. `#[Assert\NotBlank]` properties must be `?string` (gamache `dto.notBlankNotNullable`); narrow them at the boundary where you map to the command (`$dto->field ?? ''`, or `?: throw` for `non-empty-string`). A nested collection needs `#[Assert\Valid]` to cascade **plus** a PHPDoc `@param list<ItemInput> $items` so the Serializer knows the element class to hydrate. Use `#[Assert\Count(min: 1)]` to reject an empty collection (→ 422).
+- **CORS / auth** are handled by path-scoped subscribers and firewall rules, not the controller — see the firewall notes in `project-authz` and the per-endpoint CORS subscriber pattern. The `401`/`403`/preflight paths run before the controller, so `#[MapRequestPayload]` never sees an unauthenticated request.
 
 ## Route conventions
 

@@ -29,15 +29,9 @@ final class ResolveCommentHandlerTest extends KernelTestCase
         $createHandler = self::getContainer()->get(CreateDocumentHandler::class);
         $doc = $createHandler(new CreateDocumentCommand($owner, 'Resolve Test Doc', "# Hello\n\nThis content will be resolved after commenting."));
 
-        $html = $doc->currentVersion()->renderedHtml;
-        $quote = 'will be resolved';
-        $start = strpos((string) $html, $quote);
-        self::assertIsInt($start, 'Quote must exist in rendered HTML');
-        $length = strlen($quote);
-
         /** @var AddCommentHandler $addHandler */
         $addHandler = self::getContainer()->get(AddCommentHandler::class);
-        $comment = $addHandler(new AddCommentCommand($owner, $doc, $start, $length, 'This needs resolving'));
+        $comment = $addHandler(new AddCommentCommand($owner, $doc, 'will be resolved', '', '', 'This needs resolving'));
 
         self::assertFalse($comment->resolved, 'Comment must start unresolved');
 

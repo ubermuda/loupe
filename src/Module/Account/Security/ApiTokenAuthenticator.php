@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Module\Account\Security;
 
 use App\Module\Account\Repository\ApiTokenRepository;
+use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Security\Core\Authentication\Token\TokenInterface;
@@ -22,6 +23,7 @@ final class ApiTokenAuthenticator extends AbstractAuthenticator implements Authe
 
     public function __construct(
         private readonly ApiTokenRepository $apiTokens,
+        private readonly EntityManagerInterface $entityManager,
     ) {
     }
 
@@ -37,6 +39,9 @@ final class ApiTokenAuthenticator extends AbstractAuthenticator implements Authe
         if (null === $token) {
             throw new AuthenticationException('Invalid API token.');
         }
+
+        $token->markUsed();
+        $this->entityManager->flush();
 
         $passport = new SelfValidatingPassport(new UserBadge($token->owner->getUserIdentifier(), fn () => $token->owner));
         $passport->setAttribute(self::SCOPE_ROLE_ATTR, $token->scope->role());
