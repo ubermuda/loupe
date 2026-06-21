@@ -7,6 +7,7 @@ namespace App\Module\Review\Command;
 use App\Exception\DomainErrors;
 use App\Module\Review\Entity\Comment;
 use App\Module\Review\Service\AnchorService;
+use App\Module\Review\ValueObject\Anchor;
 use Doctrine\ORM\EntityManagerInterface;
 
 final readonly class AddCommentHandler
@@ -26,7 +27,10 @@ final readonly class AddCommentHandler
         $version = $command->document->currentVersion();
         $text = $version->plainText();
 
-        $anchor = $this->anchorService->fromSelection($text, $command->quote, $command->prefix, $command->suffix);
+        $quote = $command->quote;
+        $anchor = null === $quote || '' === $quote
+            ? Anchor::unanchored()
+            : $this->anchorService->fromSelection($text, $quote, $command->prefix ?? '', $command->suffix ?? '');
 
         $comment = new Comment(
             version: $version,

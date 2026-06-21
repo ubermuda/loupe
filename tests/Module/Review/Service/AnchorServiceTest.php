@@ -90,9 +90,9 @@ final class AnchorServiceTest extends TestCase
         self::assertSame($secondStart, $anchor->offsetHint);
     }
 
-    public function test_from_selection_empty_quote_yields_untargeted_anchor(): void
+    public function test_unanchored_yields_empty_anchor(): void
     {
-        $anchor = $this->service->fromSelection('Any document text.', '', '', '');
+        $anchor = Anchor::unanchored();
 
         self::assertSame('', $anchor->quote);
         self::assertSame('', $anchor->prefix);

@@ -53,4 +53,13 @@ final readonly class Anchor
         public int $offsetHint,
     ) {
     }
+
+    /**
+     * An untargeted (un-anchored) comment: empty quote/context is the storage
+     * sentinel for "not attached to any span of the document".
+     */
+    public static function unanchored(): self
+    {
+        return new self('', '', '', 0);
+    }
 }

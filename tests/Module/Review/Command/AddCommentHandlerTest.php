@@ -88,6 +88,29 @@ final class AddCommentHandlerTest extends KernelTestCase
         self::assertSame('JWTs', $comment->anchor->quote, 'Anchor quote must match the plain-text selection, not a raw-HTML slice');
     }
 
+    public function test_unanchored_comment_gets_an_empty_anchor(): void
+    {
+        self::bootKernel();
+        $em = self::getContainer()->get(EntityManagerInterface::class);
+
+        $owner = new User(username: 'owner4', fullName: 'Owner', email: 'owner4@example.com', password: 'hashed');
+        $em->persist($owner);
+        $em->flush();
+
+        /** @var CreateDocumentHandler $createHandler */
+        $createHandler = self::getContainer()->get(CreateDocumentHandler::class);
+        $doc = $createHandler(new CreateDocumentCommand($owner, 'Doc', "# Hello\n\nSome body."));
+
+        /** @var AddCommentHandler $handler */
+        $handler = self::getContainer()->get(AddCommentHandler::class);
+        $comment = $handler(new AddCommentCommand($owner, $doc, null, null, null, 'A general note'));
+
+        self::assertSame('', $comment->anchor->quote, 'unanchored comment has no quote');
+        self::assertSame('', $comment->anchor->prefix);
+        self::assertSame('', $comment->anchor->suffix);
+        self::assertSame(0, $comment->anchor->offsetHint);
+    }
+
     public function test_rejects_when_actor_does_not_own_document(): void
     {
         self::bootKernel();
