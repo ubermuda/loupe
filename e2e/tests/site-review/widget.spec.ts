@@ -65,6 +65,52 @@ test('annotate and send a site review batch', async ({ page }) => {
         page.getByRole('button', { name: /Review \(1\)/ }),
     ).toBeVisible();
 
+    // The anchored comment renders as a numbered on-screen pin pinned to the element's
+    // top-right corner. Playwright pierces the overlay's open shadow root automatically.
+    const pin = page.locator('.pin');
+    await expect(pin).toHaveText('1');
+    const pinBox = await pin.boundingBox();
+    const targetBox = await page.locator('#target-me').boundingBox();
+    expect(pinBox).not.toBeNull();
+    expect(targetBox).not.toBeNull();
+    // Pin sits near the target's top-right corner (not stuck at 0,0).
+    expect(pinBox!.x).toBeGreaterThan(targetBox!.x);
+    expect(
+        Math.abs(pinBox!.x - (targetBox!.x + targetBox!.width - 10)),
+    ).toBeLessThan(4);
+    expect(Math.abs(pinBox!.y - (targetBox!.y - 10))).toBeLessThan(4);
+
+    // SPA navigation must not leave stale pins behind: a client-side URL change (no full
+    // reload) hides pins whose annotation belongs to the previous page, and navigating
+    // back restores them.
+    const originalUrl = page.url();
+    await page.evaluate(() =>
+        history.pushState({}, '', '/some-other-spa-route'),
+    );
+    await expect(pin).toBeHidden();
+    await page.evaluate((url) => history.pushState({}, '', url), originalUrl);
+    await expect(pin).toBeVisible();
+
+    // The toolbar buttons are now icons (inline SVG), the "Site review" header is gone,
+    // and the list no longer shows the raw CSS selector.
+    await expect(page.locator('#general svg')).toHaveCount(1);
+    await expect(page.locator('#target svg')).toHaveCount(1);
+    await expect(page.locator('#panel')).not.toContainText('Site review');
+    await expect(page.locator('#list code')).toHaveCount(0);
+
+    // Hovering the list row highlights its anchor element on the page.
+    const highlight = page.locator('.highlight');
+    await expect(highlight).toBeHidden();
+    await page.locator('#list .item').first().hover();
+    await expect(highlight).toBeVisible();
+
+    // Keyboard shortcut: 't' toggles target mode while the panel is open; Escape cancels.
+    const targetButton = page.getByRole('button', { name: 'Target mode' });
+    await page.keyboard.press('t');
+    await expect(targetButton).toHaveAttribute('aria-pressed', 'true');
+    await page.keyboard.press('Escape');
+    await expect(targetButton).toHaveAttribute('aria-pressed', 'false');
+
     // Add an unanchored ("general") comment — no element targeting. Because the
     // widget sends the whole batch in one request, the "Sent" assertion below
     // also proves the backend accepts a comment with no selector.
@@ -84,4 +130,10 @@ test('annotate and send a site review batch', async ({ page }) => {
     await expect(page.locator('#result code')).toHaveText(
         /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,
     );
+
+    // Copying the batch id gives visual confirmation only on a real copy: the button
+    // shows "Copied" on success or "Copy failed" otherwise (never false success). The
+    // execCommand fallback copies even where the async Clipboard API is unavailable.
+    await page.getByRole('button', { name: 'Copy' }).click();
+    await expect(page.getByRole('button', { name: 'Copied' })).toBeVisible();
 });
