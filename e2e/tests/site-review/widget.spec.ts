@@ -215,3 +215,73 @@ test('a failed send keeps the batch and offers retry', async ({ page }) => {
     await expect.poll(() => calls).toBe(2);
     await expect(page.locator('#bp-head-count')).toHaveText('1');
 });
+
+test('deleting a list comment uses a sliding confirm overlay', async ({
+    page,
+}) => {
+    await suppressToolbar(page);
+    await page.request.post('/dev/register-and-verify', {
+        form: {
+            username: E2E_USERNAME,
+            fullName: 'E2E Site Review',
+            email: E2E_EMAIL,
+            password: E2E_PASSWORD,
+        },
+    });
+    await page.goto(
+        `/dev/site-review-harness?email=${encodeURIComponent(E2E_EMAIL)}`,
+    );
+    await page.evaluate(() =>
+        localStorage.setItem(
+            'betterplans.siteReview.pending',
+            JSON.stringify([
+                {
+                    body: 'First note',
+                    selector: '',
+                    text: '',
+                    url: location.href,
+                },
+                {
+                    body: 'Second note',
+                    selector: '',
+                    text: '',
+                    url: location.href,
+                },
+            ]),
+        ),
+    );
+    await page.reload();
+    await page.getByRole('button', { name: 'Review' }).click();
+    await page.getByRole('button', { name: /Show .* comments/ }).click();
+
+    const row = page.locator('#bp-list .bp-item').first();
+    // Tag the row node so we can prove it is not rebuilt while arming/cancelling.
+    await row.evaluate((el: HTMLElement) => {
+        el.dataset.tag = 'orig';
+    });
+
+    // Arming delete slides a confirm overlay over the row (not an inline swap).
+    await row.locator('.bp-del').click();
+    const confirm = row.locator('.bp-item-confirm');
+    await expect(confirm).toBeVisible();
+    await expect(confirm).toContainText('Delete this comment?');
+    expect(await row.evaluate((el: HTMLElement) => el.dataset.tag)).toBe(
+        'orig',
+    );
+
+    // Cancel removes the overlay (after sliding out) and deletes nothing.
+    await confirm.locator('button', { hasText: 'Cancel' }).click();
+    await expect(row.locator('.bp-item-confirm')).toHaveCount(0);
+    expect(await row.evaluate((el: HTMLElement) => el.dataset.tag)).toBe(
+        'orig',
+    );
+    await expect(page.locator('#bp-head-count')).toHaveText('2');
+
+    // Confirming actually deletes the comment.
+    await row.locator('.bp-del').click();
+    await row
+        .locator('.bp-item-confirm')
+        .locator('button', { hasText: 'Delete' })
+        .click();
+    await expect(page.locator('#bp-head-count')).toHaveText('1');
+});

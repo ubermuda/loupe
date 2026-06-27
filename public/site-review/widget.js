@@ -258,6 +258,8 @@
       :host{all:initial}
       @keyframes bp-spin{to{transform:rotate(360deg)}}
       @keyframes bp-pop{from{transform:translateY(8px) scale(.985)}to{transform:none}}
+      @keyframes bp-slide-left{from{transform:translateX(-100%)}to{transform:translateX(0)}}
+      @keyframes bp-slide-left-out{from{transform:translateX(0)}to{transform:translateX(-100%)}}
       .bp-scroll::-webkit-scrollbar{width:10px;height:10px}
       .bp-scroll::-webkit-scrollbar-thumb{background:var(--faint);border-radius:9px;border:3px solid transparent;background-clip:content-box}
       .bp-scroll::-webkit-scrollbar-track{background:transparent}
@@ -312,8 +314,10 @@
       .bp-list-wrap{flex:0 1 auto;display:flex;flex-direction:column;min-height:0}
       .bp-list-anim{overflow:hidden;transition:max-height .3s cubic-bezier(.4,0,.2,1),opacity .2s ease}
       .bp-list{max-height:248px;overflow:auto;border-top:1px solid var(--hairline)}
-      .bp-item{display:flex;gap:11px;padding:12px 15px;border-bottom:1px solid var(--hairline);cursor:default}
+      .bp-item{position:relative;overflow:hidden;display:flex;gap:11px;padding:12px 15px;border-bottom:1px solid var(--hairline);cursor:default}
       .bp-item:hover{background:var(--panel-elev)}
+      .bp-item-confirm{position:absolute;inset:0;display:flex;align-items:center;gap:8px;padding:0 15px;background:var(--panel-bg);animation:bp-slide-left .18s cubic-bezier(.4,0,.2,1)}
+      .bp-item-confirm-text{flex:1;font-size:12px;color:var(--text);font-weight:500}
       .bp-badge{flex:0 0 auto;width:22px;height:22px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:600}
       .bp-badge.element{border-radius:50% 50% 50% 2px;background:var(--accent);color:var(--on-accent)}
       .bp-badge.general{border-radius:50%;border:1.5px dashed var(--faint);color:var(--faint)}
@@ -322,8 +326,7 @@
       .bp-chip{display:inline-flex;align-items:center;gap:4px;margin-top:6px;height:19px;padding:0 7px;background:var(--chip-bg);color:var(--chip-text);border-radius:5px;font-size:10.5px;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
       .bp-del{flex:0 0 auto;width:24px;height:24px;border:0;background:transparent;color:var(--faint);border-radius:6px;display:flex;align-items:center;justify-content:center;cursor:pointer;opacity:.55;transition:opacity .12s ease}
       .bp-del:hover{opacity:1;background:var(--chip-bg);color:var(--danger)}
-      .bp-confirm-inline{flex:0 0 auto;display:flex;align-items:center;gap:5px}
-      .bp-danger-sm{height:25px;padding:0 9px;background:var(--danger);color:#fff;border:0;border-radius:6px;font-family:inherit;font-size:11.5px;font-weight:600;cursor:pointer}
+      .bp-danger-sm{flex:0 0 auto;height:25px;padding:0 9px;background:var(--danger);color:#fff;border:0;border-radius:6px;font-family:inherit;font-size:11.5px;font-weight:600;cursor:pointer}
       .bp-ghost-sm{height:25px;padding:0 7px;background:transparent;border:0;color:var(--muted);font-family:inherit;font-size:11.5px;font-weight:500;border-radius:6px;cursor:pointer}
       .bp-ghost-sm:hover{background:var(--chip-bg);color:var(--text)}
 
@@ -427,6 +430,7 @@
       :host{all:initial}
       @keyframes bp-fade{from{opacity:0}to{opacity:1}}
       @keyframes bp-slide-left{from{transform:translateX(-100%)}to{transform:translateX(0)}}
+      @keyframes bp-slide-left-out{from{transform:translateX(0)}to{transform:translateX(-100%)}}
       @keyframes bp-pin{from{transform:scale(.4)}to{transform:scale(1)}}
       @keyframes bp-pop{from{transform:translateY(8px) scale(.985)}to{transform:none}}
       @keyframes bp-spin{to{transform:rotate(360deg)}}
@@ -576,6 +580,15 @@
     }
   };
 
+  // Slide a confirm overlay back out to the left, then remove it. Marked exiting so
+  // repeated renders don't restart the animation or double-remove.
+  const slideOut = (el) => {
+    if (!el || el.dataset.exiting) return;
+    el.dataset.exiting = '1';
+    el.style.animation = 'bp-slide-left-out .18s cubic-bezier(.4,0,.2,1) forwards';
+    el.addEventListener('animationend', () => el.remove(), { once: true });
+  };
+
   // Pin nodes are reconciled (not rebuilt) so the bp-pin drop-in animation plays
   // once per pin; hovering and scrolling reposition existing nodes rather than
   // recreating them (recreating would replay the scale-in and make the pin shrink).
@@ -613,10 +626,10 @@
         renderPins();
       });
   };
-  const bindConfirm = (card, index) => {
-    const yes = card.querySelector('[data-pin-yes]');
+  const bindConfirm = (el, index) => {
+    const yes = el.querySelector('[data-pin-yes]');
     if (yes) yes.addEventListener('click', () => removeComment(index));
-    const no = card.querySelector('[data-pin-no]');
+    const no = el.querySelector('[data-pin-no]');
     if (no)
       no.addEventListener('click', () => {
         state.pinConfirmId = null;
@@ -685,12 +698,13 @@
           bindPopover(holder, index);
         }
         const card = holder.querySelector('.bp-pop-card');
-        const confirmEl = card.querySelector('.bp-pop-confirm');
-        if (confirming && !confirmEl) {
+        const liveConfirm = card.querySelector('.bp-pop-confirm:not([data-exiting])');
+        if (confirming && !liveConfirm) {
+          card.querySelectorAll('.bp-pop-confirm').forEach((node) => node.remove());
           card.insertAdjacentHTML('beforeend', buildConfirm(index));
-          bindConfirm(card, index);
-        } else if (!confirming && confirmEl) {
-          confirmEl.remove();
+          bindConfirm(card.querySelector('.bp-pop-confirm'), index);
+        } else if (!confirming && liveConfirm) {
+          slideOut(liveConfirm);
         }
       }
     });
@@ -759,7 +773,7 @@
     listWrap.style.display = n > 0 ? 'flex' : 'none';
     listAnim.style.maxHeight = state.listExpanded ? '260px' : '0px';
     listAnim.style.opacity = state.listExpanded ? '1' : '0';
-    if (n > 0) renderList();
+    renderList();
 
     // footer
     footerNode.style.display = n > 0 ? 'flex' : 'none';
@@ -781,58 +795,76 @@
     }
   };
 
-  const renderList = () => {
-    listNode.innerHTML = pending
-      .map((comment, index) => {
-        const isElement = !!comment.selector;
-        const label = isElement ? firstLineLabel(comment.text) : '';
-        const chip = isElement ? label : 'General comment';
-        const showChip = isElement ? !!label : true;
-        const confirming = state.confirmDeleteId === index;
-        return `<div class="bp-item" data-row="${index}">
-            <span class="bp-badge ${isElement ? 'element' : 'general'}">${index + 1}</span>
-            <div class="bp-item-body">
-              <div class="bp-item-text">${escapeHtml(comment.body)}</div>
-              ${showChip ? `<span class="bp-chip">${escapeHtml(chip)}</span>` : ''}
-            </div>
-            ${
-              confirming
-                ? `<div class="bp-confirm-inline">
-                     <button class="bp-danger-sm" data-del-yes="${index}">Delete</button>
-                     <button class="bp-ghost-sm" data-del-no="${index}">Cancel</button>
-                   </div>`
-                : `<button class="bp-del" data-del="${index}" aria-label="Delete comment">${ICON.trash(14)}</button>`
-            }
-          </div>`;
-      })
-      .join('');
-    listNode.querySelectorAll('[data-row]').forEach((row) => {
-      const index = +row.dataset.row;
-      row.addEventListener('mouseenter', () => {
-        if (state.target || !pending[index] || !pending[index].selector) return;
-        state.hoverId = index;
-        updateHighlight();
-      });
-      row.addEventListener('mouseleave', () => {
-        state.hoverId = null;
-        updateHighlight();
-      });
+  // List rows are reconciled (not rebuilt) so arming/cancelling a delete only toggles
+  // that row's confirm overlay in place — it slides in, and Cancel slides it back out
+  // — without re-rendering the row (which would interrupt the animation).
+  const rowNodes = new Map();
+  const buildItemConfirm = (index) =>
+    `<div class="bp-item-confirm">
+       <span class="bp-item-confirm-text">Delete this comment?</span>
+       <button class="bp-danger-sm" data-del-yes="${index}">Delete</button>
+       <button class="bp-ghost-sm" data-del-no="${index}">Cancel</button>
+     </div>`;
+  const bindItemConfirm = (el, index) => {
+    el.querySelector('[data-del-yes]').addEventListener('click', () => removeComment(index));
+    el.querySelector('[data-del-no]').addEventListener('click', () => {
+      state.confirmDeleteId = null;
+      renderList();
     });
-    listNode.querySelectorAll('[data-del]').forEach((button) =>
-      button.addEventListener('click', () => {
-        state.confirmDeleteId = +button.dataset.del;
-        sync();
-      }),
-    );
-    listNode.querySelectorAll('[data-del-yes]').forEach((button) =>
-      button.addEventListener('click', () => removeComment(+button.dataset.delYes)),
-    );
-    listNode.querySelectorAll('[data-del-no]').forEach((button) =>
-      button.addEventListener('click', () => {
-        state.confirmDeleteId = null;
-        sync();
-      }),
-    );
+  };
+  const renderList = () => {
+    rowNodes.forEach((row, index) => {
+      if (index >= pending.length) {
+        row.remove();
+        rowNodes.delete(index);
+      }
+    });
+    pending.forEach((comment, index) => {
+      let row = rowNodes.get(index);
+      if (!row) {
+        row = document.createElement('div');
+        row.className = 'bp-item';
+        row.innerHTML =
+          `<span class="bp-badge"></span>` +
+          `<div class="bp-item-body"><div class="bp-item-text"></div><span class="bp-chip" style="display:none"></span></div>` +
+          `<button class="bp-del" aria-label="Delete comment">${ICON.trash(14)}</button>`;
+        row.addEventListener('mouseenter', () => {
+          if (state.target || !pending[index] || !pending[index].selector) return;
+          state.hoverId = index;
+          updateHighlight();
+        });
+        row.addEventListener('mouseleave', () => {
+          state.hoverId = null;
+          updateHighlight();
+        });
+        row.querySelector('.bp-del').addEventListener('click', () => {
+          state.confirmDeleteId = index;
+          renderList();
+        });
+        listNode.appendChild(row);
+        rowNodes.set(index, row);
+      }
+      const isElement = !!comment.selector;
+      const badge = row.querySelector('.bp-badge');
+      badge.className = 'bp-badge ' + (isElement ? 'element' : 'general');
+      badge.textContent = String(index + 1);
+      row.querySelector('.bp-item-text').textContent = comment.body;
+      const chipEl = row.querySelector('.bp-chip');
+      const label = isElement ? firstLineLabel(comment.text) : '';
+      const showChip = isElement ? !!label : true;
+      chipEl.style.display = showChip ? '' : 'none';
+      if (showChip) chipEl.textContent = isElement ? label : 'General comment';
+      // Toggle the confirm overlay in place (slide in on arm, slide out on cancel).
+      const confirming = state.confirmDeleteId === index;
+      const liveConfirm = row.querySelector('.bp-item-confirm:not([data-exiting])');
+      if (confirming && !liveConfirm) {
+        row.querySelectorAll('.bp-item-confirm').forEach((node) => node.remove());
+        row.insertAdjacentHTML('beforeend', buildItemConfirm(index));
+        bindItemConfirm(row.querySelector('.bp-item-confirm'), index);
+      } else if (!confirming && liveConfirm) {
+        slideOut(liveConfirm);
+      }
+    });
   };
 
   const renderSent = () => {
