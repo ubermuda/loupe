@@ -1,10 +1,10 @@
 /**
- * End-to-end happy path for the site-review annotation widget.
+ * End-to-end happy path for the (redesigned) site-review annotation widget.
  *
  * The dev-only harness page (/dev/site-review-harness) issues a SiteReview API token
  * for a seeded user and loads public/site-review/widget.js with that token. The test
- * enters target mode, clicks a targetable element, types a comment, sends the batch,
- * and asserts a batch id is returned.
+ * opens the panel, enters pick mode, clicks a targetable element, types a comment,
+ * adds a general note, sends the batch, and asserts a real batch id is returned.
  *
  * User creation uses the dev-only /dev/register-and-verify endpoint (registers and
  * immediately marks the email as verified). No login is needed: the harness is
@@ -49,21 +49,25 @@ test('annotate and send a site review batch', async ({ page }) => {
     );
     await page.reload();
 
-    // Open the widget panel and enter target mode.
-    await page.getByRole('button', { name: /Review \(0\)/ }).click();
-    await page.getByRole('button', { name: 'Target mode' }).click();
+    // The collapsed launcher carries no count badge when empty.
+    const launcher = page.getByRole('button', { name: 'Review' });
+    await expect(launcher).toBeVisible();
+    await expect(page.locator('#bp-launch-count')).toBeHidden();
+
+    // Open the widget panel and enter pick (element-target) mode.
+    await launcher.click();
+    await expect(page.locator('#bp-panel')).toBeVisible();
+    await page.getByRole('button', { name: 'Pick element' }).click();
 
     // Click the targetable element. The widget's capture-phase click listener resolves
-    // the element under the pointer via document.elementFromPoint; the highlight overlay
-    // is pointer-events:none so it does not intercept.
+    // the element under the pointer via document.elementFromPoint; the scrim/highlight
+    // overlay is pointer-events:none so it does not intercept.
     await page.locator('#target-me').click();
 
     // Type a comment and save it.
-    await page.getByPlaceholder(/Comment/).fill('Make this bigger');
+    await page.getByPlaceholder(/Describe the issue/).fill('Make this bigger');
     await page.getByRole('button', { name: 'Save' }).click();
-    await expect(
-        page.getByRole('button', { name: /Review \(1\)/ }),
-    ).toBeVisible();
+    await expect(page.locator('#bp-head-count')).toHaveText('1');
 
     // The anchored comment renders as a numbered on-screen pin pinned to the element's
     // top-right corner. Playwright pierces the overlay's open shadow root automatically.
@@ -76,9 +80,9 @@ test('annotate and send a site review batch', async ({ page }) => {
     // Pin sits near the target's top-right corner (not stuck at 0,0).
     expect(pinBox!.x).toBeGreaterThan(targetBox!.x);
     expect(
-        Math.abs(pinBox!.x - (targetBox!.x + targetBox!.width - 10)),
+        Math.abs(pinBox!.x - (targetBox!.x + targetBox!.width - 12)),
     ).toBeLessThan(4);
-    expect(Math.abs(pinBox!.y - (targetBox!.y - 10))).toBeLessThan(4);
+    expect(Math.abs(pinBox!.y - (targetBox!.y - 12))).toBeLessThan(4);
 
     // SPA navigation must not leave stale pins behind: a client-side URL change (no full
     // reload) hides pins whose annotation belongs to the previous page, and navigating
@@ -91,43 +95,45 @@ test('annotate and send a site review batch', async ({ page }) => {
     await page.evaluate((url) => history.pushState({}, '', url), originalUrl);
     await expect(pin).toBeVisible();
 
-    // The toolbar buttons are now icons (inline SVG), the "Site review" header is gone,
-    // and the list no longer shows the raw CSS selector.
+    // The action buttons are icon + label (inline SVG), the panel title is "Review"
+    // (no "Site review" header), and the list never shows the raw CSS selector.
     await expect(page.locator('#general svg')).toHaveCount(1);
     await expect(page.locator('#target svg')).toHaveCount(1);
-    await expect(page.locator('#panel')).not.toContainText('Site review');
-    await expect(page.locator('#list code')).toHaveCount(0);
+    await expect(page.locator('#bp-panel')).not.toContainText('Site review');
+    await expect(page.locator('#bp-list code')).toHaveCount(0);
 
-    // Hovering the list row highlights its anchor element on the page.
+    // Hovering the list row highlights its anchor element on the page. (Saving a comment
+    // auto-expands the list, so the row is already visible.) Park the pointer on a
+    // neutral element first so the subsequent hover crosses a boundary and emits the
+    // mouseenter the highlight listens for.
     const highlight = page.locator('.highlight');
+    await page.locator('#bp-close').hover();
     await expect(highlight).toBeHidden();
-    await page.locator('#list .item').first().hover();
+    await page.locator('#bp-list .bp-item').first().hover();
     await expect(highlight).toBeVisible();
 
-    // Keyboard shortcut: 't' toggles target mode while the panel is open; Escape cancels.
-    const targetButton = page.getByRole('button', { name: 'Target mode' });
+    // Keyboard shortcut: 't' toggles pick mode while the panel is open; Escape cancels.
+    const pickButton = page.getByRole('button', { name: 'Pick element' });
     await page.keyboard.press('t');
-    await expect(targetButton).toHaveAttribute('aria-pressed', 'true');
+    await expect(pickButton).toHaveAttribute('aria-pressed', 'true');
     await page.keyboard.press('Escape');
-    await expect(targetButton).toHaveAttribute('aria-pressed', 'false');
+    await expect(pickButton).toHaveAttribute('aria-pressed', 'false');
 
     // Add an unanchored ("general") comment — no element targeting. Because the
     // widget sends the whole batch in one request, the "Sent" assertion below
     // also proves the backend accepts a comment with no selector.
-    await page.getByRole('button', { name: 'Add comment' }).click();
+    await page.getByRole('button', { name: 'Add note' }).click();
     await page
-        .getByPlaceholder(/Comment/)
+        .getByPlaceholder(/Describe the issue/)
         .fill('A general note about the page');
     await page.getByRole('button', { name: 'Save' }).click();
-    await expect(
-        page.getByRole('button', { name: /Review \(2\)/ }),
-    ).toBeVisible();
+    await expect(page.locator('#bp-head-count')).toHaveText('2');
 
     // Send the batch and assert a real (UUID-shaped) batch id is returned, not just
     // the success label — a regression returning an empty id would still show the label.
     await page.getByRole('button', { name: 'Send' }).click();
-    await expect(page.getByText(/Sent\. Batch id:/)).toBeVisible();
-    await expect(page.locator('#result code')).toHaveText(
+    await expect(page.getByText('Review sent')).toBeVisible();
+    await expect(page.locator('#bp-panel code')).toHaveText(
         /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,
     );
 
