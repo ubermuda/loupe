@@ -580,9 +580,11 @@
   // once per pin; hovering and scrolling reposition existing nodes rather than
   // recreating them (recreating would replay the scale-in and make the pin shrink).
   const pinNodes = new Map();
+  // The card (body + chip + delete) is built once on hover; the confirm overlay is
+  // a separate node toggled in place, so arming/cancelling delete never rebuilds the
+  // card (which would replay its fade-in and flicker).
   const buildPopover = (comment, index) => {
     const label = firstLineLabel(comment.text);
-    const confirming = state.pinConfirmId === index;
     return `<div class="bp-pop">
         <div class="bp-pop-card">
           <div class="bp-pop-body">${escapeHtml(comment.body)}</div>
@@ -591,21 +593,18 @@
             <div style="flex:1"></div>
             <button class="bp-pop-del" data-pin-del="${index}" aria-label="Delete">${ICON.trash(14)}</button>
           </div>
-          ${
-            confirming
-              ? `<div class="bp-pop-confirm">
-                   <div class="bp-pop-confirm-title">Delete this note?</div>
-                   <div class="bp-pop-confirm-sub">The pin will be removed from the page.</div>
-                   <div class="bp-pop-confirm-row">
-                     <button class="bp-pop-yes" data-pin-yes="${index}">Delete</button>
-                     <button class="bp-pop-no" data-pin-no="${index}">Cancel</button>
-                   </div>
-                 </div>`
-              : ''
-          }
         </div>
       </div>`;
   };
+  const buildConfirm = (index) =>
+    `<div class="bp-pop-confirm">
+       <div class="bp-pop-confirm-title">Delete this note?</div>
+       <div class="bp-pop-confirm-sub">The pin will be removed from the page.</div>
+       <div class="bp-pop-confirm-row">
+         <button class="bp-pop-yes" data-pin-yes="${index}">Delete</button>
+         <button class="bp-pop-no" data-pin-no="${index}">Cancel</button>
+       </div>
+     </div>`;
   const bindPopover = (holder, index) => {
     const del = holder.querySelector('[data-pin-del]');
     if (del)
@@ -613,9 +612,11 @@
         state.pinConfirmId = index;
         renderPins();
       });
-    const yes = holder.querySelector('[data-pin-yes]');
+  };
+  const bindConfirm = (card, index) => {
+    const yes = card.querySelector('[data-pin-yes]');
     if (yes) yes.addEventListener('click', () => removeComment(index));
-    const no = holder.querySelector('[data-pin-no]');
+    const no = card.querySelector('[data-pin-no]');
     if (no)
       no.addEventListener('click', () => {
         state.pinConfirmId = null;
@@ -667,15 +668,30 @@
       wrap.style.top = info.top + 'px';
       wrap.style.display = info.onScreen ? '' : 'none';
       wrap.querySelector('.pin').textContent = String(index + 1);
-      // Only (re)build the popover when its visible/confirm state changes, so
-      // repositioning on scroll doesn't replay the popover's fade-in.
+      // Build the card once on hover; toggle the confirm overlay in place. Neither
+      // is rebuilt on scroll, so nothing re-animates while repositioning.
       const hovered = state.hoverPinId === index;
-      const sig = hovered ? (state.pinConfirmId === index ? 'confirm' : 'open') : 'none';
-      if (wrap.dataset.popSig !== sig) {
-        wrap.dataset.popSig = sig;
-        const holder = wrap.querySelector('.bp-pop-holder');
-        holder.innerHTML = hovered ? buildPopover(info.comment, index) : '';
-        if (hovered) bindPopover(holder, index);
+      const confirming = hovered && state.pinConfirmId === index;
+      const holder = wrap.querySelector('.bp-pop-holder');
+      if (!hovered) {
+        if (holder.dataset.shown) {
+          holder.innerHTML = '';
+          delete holder.dataset.shown;
+        }
+      } else {
+        if (!holder.dataset.shown) {
+          holder.innerHTML = buildPopover(info.comment, index);
+          holder.dataset.shown = '1';
+          bindPopover(holder, index);
+        }
+        const card = holder.querySelector('.bp-pop-card');
+        const confirmEl = card.querySelector('.bp-pop-confirm');
+        if (confirming && !confirmEl) {
+          card.insertAdjacentHTML('beforeend', buildConfirm(index));
+          bindConfirm(card, index);
+        } else if (!confirming && confirmEl) {
+          confirmEl.remove();
+        }
       }
     });
   };
