@@ -89,6 +89,16 @@ test('annotate and send a site review batch', async ({ page }) => {
     ).toBeLessThan(4);
     expect(Math.abs(pinBox!.y - (targetBox!.y - 12))).toBeLessThan(4);
 
+    // Hovering a pin reveals its popover (with the comment body) and grows — never
+    // shrinks — the badge. (Regression: a re-render that recreated the pin replayed
+    // the scale-in animation and made it briefly collapse.)
+    await pin.hover();
+    const popover = page.locator('.bp-pop');
+    await expect(popover).toBeVisible();
+    await expect(popover).toContainText('Make this bigger');
+    const hoveredBox = await pin.boundingBox();
+    expect(hoveredBox!.width).toBeGreaterThanOrEqual(pinBox!.width - 0.5);
+
     // SPA navigation must not leave stale pins behind: a client-side URL change (no full
     // reload) hides pins whose annotation belongs to the previous page, and navigating
     // back restores them.

@@ -575,80 +575,108 @@
     }
   };
 
-  const renderPins = () => {
-    ovRoot.classList.toggle('targeting', state.target);
-    const markup = pending
-      .map((comment, index) => {
-        const el = resolveElement(comment);
-        if (!el) return '';
-        const r = rectOf(el);
-        if (!r) return '';
-        if (r.bottom < 0 || r.top > window.innerHeight || r.right < 0 || r.left > window.innerWidth) {
-          return '';
-        }
-        const label = firstLineLabel(comment.text);
-        const hovered = state.hoverPinId === index;
-        const confirming = state.pinConfirmId === index;
-        const left = r.left + r.width - 12;
-        const top = r.top - 12;
-        const popover = hovered
-          ? `<div class="bp-pop">
-               <div class="bp-pop-card">
-                 <div class="bp-pop-body">${escapeHtml(comment.body)}</div>
-                 <div class="bp-pop-row">
-                   ${label ? `<span class="bp-pop-chip">${escapeHtml(label)}</span>` : ''}
-                   <div style="flex:1"></div>
-                   <button class="bp-pop-del" data-pin-del="${index}" aria-label="Delete">${ICON.trash(14)}</button>
-                 </div>
-                 ${
-                   confirming
-                     ? `<div class="bp-pop-confirm">
-                          <div class="bp-pop-confirm-title">Delete this note?</div>
-                          <div class="bp-pop-confirm-sub">The pin will be removed from the page.</div>
-                          <div class="bp-pop-confirm-row">
-                            <button class="bp-pop-yes" data-pin-yes="${index}">Delete</button>
-                            <button class="bp-pop-no" data-pin-no="${index}">Cancel</button>
-                          </div>
-                        </div>`
-                     : ''
-                 }
-               </div>
-             </div>`
-          : '';
-        return `<div class="bp-pin-wrap" data-pin-wrap="${index}" style="left:${left}px;top:${top}px">
-                  <button class="pin" data-pin="${index}">${index + 1}</button>
-                  ${popover}
-                </div>`;
-      })
-      .join('');
-    pinsNode.innerHTML = markup;
-    pinsNode.querySelectorAll('[data-pin-wrap]').forEach((wrap) => {
-      const index = +wrap.dataset.pinWrap;
-      wrap.addEventListener('mouseenter', () => hoverPin(index));
-      wrap.addEventListener('mouseleave', unhoverPin);
-    });
-    pinsNode.querySelectorAll('[data-pin]').forEach((button) =>
-      button.addEventListener('click', () => {
-        state.open = true;
-        state.listExpanded = true;
-        sync();
-      }),
-    );
-    pinsNode.querySelectorAll('[data-pin-del]').forEach((button) =>
-      button.addEventListener('click', () => {
-        state.pinConfirmId = +button.dataset.pinDel;
+  // Pin nodes are reconciled (not rebuilt) so the bp-pin drop-in animation plays
+  // once per pin; hovering and scrolling reposition existing nodes rather than
+  // recreating them (recreating would replay the scale-in and make the pin shrink).
+  const pinNodes = new Map();
+  const buildPopover = (comment, index) => {
+    const label = firstLineLabel(comment.text);
+    const confirming = state.pinConfirmId === index;
+    return `<div class="bp-pop">
+        <div class="bp-pop-card">
+          <div class="bp-pop-body">${escapeHtml(comment.body)}</div>
+          <div class="bp-pop-row">
+            ${label ? `<span class="bp-pop-chip">${escapeHtml(label)}</span>` : ''}
+            <div style="flex:1"></div>
+            <button class="bp-pop-del" data-pin-del="${index}" aria-label="Delete">${ICON.trash(14)}</button>
+          </div>
+          ${
+            confirming
+              ? `<div class="bp-pop-confirm">
+                   <div class="bp-pop-confirm-title">Delete this note?</div>
+                   <div class="bp-pop-confirm-sub">The pin will be removed from the page.</div>
+                   <div class="bp-pop-confirm-row">
+                     <button class="bp-pop-yes" data-pin-yes="${index}">Delete</button>
+                     <button class="bp-pop-no" data-pin-no="${index}">Cancel</button>
+                   </div>
+                 </div>`
+              : ''
+          }
+        </div>
+      </div>`;
+  };
+  const bindPopover = (holder, index) => {
+    const del = holder.querySelector('[data-pin-del]');
+    if (del)
+      del.addEventListener('click', () => {
+        state.pinConfirmId = index;
         renderPins();
-      }),
-    );
-    pinsNode.querySelectorAll('[data-pin-yes]').forEach((button) =>
-      button.addEventListener('click', () => removeComment(+button.dataset.pinYes)),
-    );
-    pinsNode.querySelectorAll('[data-pin-no]').forEach((button) =>
-      button.addEventListener('click', () => {
+      });
+    const yes = holder.querySelector('[data-pin-yes]');
+    if (yes) yes.addEventListener('click', () => removeComment(index));
+    const no = holder.querySelector('[data-pin-no]');
+    if (no)
+      no.addEventListener('click', () => {
         state.pinConfirmId = null;
         renderPins();
-      }),
-    );
+      });
+  };
+  const renderPins = () => {
+    ovRoot.classList.toggle('targeting', state.target);
+    const wanted = new Map();
+    pending.forEach((comment, index) => {
+      const el = resolveElement(comment);
+      if (!el) return;
+      const r = rectOf(el);
+      if (!r) return;
+      const onScreen = !(
+        r.bottom < 0 ||
+        r.top > window.innerHeight ||
+        r.right < 0 ||
+        r.left > window.innerWidth
+      );
+      wanted.set(index, { comment, left: r.left + r.width - 12, top: r.top - 12, onScreen });
+    });
+    // Drop pins whose element is gone (deleted, or anchored to another page).
+    pinNodes.forEach((wrap, index) => {
+      if (!wanted.has(index)) {
+        wrap.remove();
+        pinNodes.delete(index);
+      }
+    });
+    wanted.forEach((info, index) => {
+      let wrap = pinNodes.get(index);
+      if (!wrap) {
+        wrap = document.createElement('div');
+        wrap.className = 'bp-pin-wrap';
+        wrap.innerHTML =
+          `<button class="pin" style="animation:bp-pin .22s cubic-bezier(.2,1.3,.5,1)"></button>` +
+          `<div class="bp-pop-holder"></div>`;
+        wrap.querySelector('.pin').addEventListener('click', () => {
+          state.open = true;
+          state.listExpanded = true;
+          sync();
+        });
+        wrap.addEventListener('mouseenter', () => hoverPin(index));
+        wrap.addEventListener('mouseleave', unhoverPin);
+        pinsNode.appendChild(wrap);
+        pinNodes.set(index, wrap);
+      }
+      wrap.style.left = info.left + 'px';
+      wrap.style.top = info.top + 'px';
+      wrap.style.display = info.onScreen ? '' : 'none';
+      wrap.querySelector('.pin').textContent = String(index + 1);
+      // Only (re)build the popover when its visible/confirm state changes, so
+      // repositioning on scroll doesn't replay the popover's fade-in.
+      const hovered = state.hoverPinId === index;
+      const sig = hovered ? (state.pinConfirmId === index ? 'confirm' : 'open') : 'none';
+      if (wrap.dataset.popSig !== sig) {
+        wrap.dataset.popSig = sig;
+        const holder = wrap.querySelector('.bp-pop-holder');
+        holder.innerHTML = hovered ? buildPopover(info.comment, index) : '';
+        if (hovered) bindPopover(holder, index);
+      }
+    });
   };
 
   const renderOverlay = () => {
