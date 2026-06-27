@@ -73,6 +73,11 @@ test('annotate and send a site review batch', async ({ page }) => {
     // top-right corner. Playwright pierces the overlay's open shadow root automatically.
     const pin = page.locator('.pin');
     await expect(pin).toHaveText('1');
+    // The pin drops in with a scale animation; wait for it to settle before measuring
+    // position, otherwise boundingBox() captures a mid-transform (scaled) rect.
+    await expect
+        .poll(() => pin.evaluate((el) => getComputedStyle(el).transform))
+        .toBe('none');
     const pinBox = await pin.boundingBox();
     const targetBox = await page.locator('#target-me').boundingBox();
     expect(pinBox).not.toBeNull();
@@ -142,4 +147,61 @@ test('annotate and send a site review batch', async ({ page }) => {
     // execCommand fallback copies even where the async Clipboard API is unavailable.
     await page.getByRole('button', { name: 'Copy' }).click();
     await expect(page.getByRole('button', { name: 'Copied' })).toBeVisible();
+});
+
+test('a failed send keeps the batch and offers retry', async ({ page }) => {
+    await suppressToolbar(page);
+
+    // Seed the user (idempotent) and open the harness with one pending comment.
+    await page.request.post('/dev/register-and-verify', {
+        form: {
+            username: E2E_USERNAME,
+            fullName: 'E2E Site Review',
+            email: E2E_EMAIL,
+            password: E2E_PASSWORD,
+        },
+    });
+    await page.goto(
+        `/dev/site-review-harness?email=${encodeURIComponent(E2E_EMAIL)}`,
+    );
+    await page.evaluate(() =>
+        localStorage.setItem(
+            'betterplans.siteReview.pending',
+            JSON.stringify([
+                {
+                    body: 'A general note about the page',
+                    selector: '',
+                    text: '',
+                    url: location.href,
+                },
+            ]),
+        ),
+    );
+    await page.reload();
+
+    // Make the backend reject the batch.
+    let calls = 0;
+    await page.route('**/api/site-review/batches', (route) => {
+        calls += 1;
+        void route.fulfill({
+            status: 500,
+            contentType: 'application/json',
+            body: JSON.stringify({ error: 'boom' }),
+        });
+    });
+
+    await page.getByRole('button', { name: 'Review' }).click();
+    await page.getByRole('button', { name: 'Send' }).click();
+
+    // The error banner appears, and — critically — the pending batch is NOT cleared,
+    // so the reviewer can retry rather than losing their feedback.
+    await expect(page.getByText(/send your review/i)).toBeVisible();
+    await expect(page.locator('#bp-head-count')).toHaveText('1');
+    expect(calls).toBe(1);
+
+    // "Try again" re-fires the send.
+    await page.getByRole('button', { name: 'Try again' }).click();
+    await expect(page.getByText(/send your review/i)).toBeVisible();
+    await expect.poll(() => calls).toBe(2);
+    await expect(page.locator('#bp-head-count')).toHaveText('1');
 });
