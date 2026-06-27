@@ -285,3 +285,36 @@ test('deleting a list comment uses a sliding confirm overlay', async ({
         .click();
     await expect(page.locator('#bp-head-count')).toHaveText('1');
 });
+
+test('re-executing the script does not stack a second widget', async ({
+    page,
+}) => {
+    await suppressToolbar(page);
+    await page.request.post('/dev/register-and-verify', {
+        form: {
+            username: E2E_USERNAME,
+            fullName: 'E2E Site Review',
+            email: E2E_EMAIL,
+            password: E2E_PASSWORD,
+        },
+    });
+    await page.goto(
+        `/dev/site-review-harness?email=${encodeURIComponent(E2E_EMAIL)}`,
+    );
+    await expect(page.locator('#bp-launcher')).toHaveCount(1);
+
+    // SPA frameworks (e.g. Turbo) re-execute body <script> tags on navigation. The
+    // widget's hosts live on <html> and survive a <body> swap, so a second init would
+    // stack another launcher (and its shadow). Re-injecting the script must be a no-op.
+    await page.evaluate(
+        () =>
+            new Promise<void>((resolve) => {
+                const s = document.createElement('script');
+                s.src = '/site-review/widget.js';
+                s.setAttribute('data-token', 'x');
+                s.onload = () => resolve();
+                document.body.appendChild(s);
+            }),
+    );
+    await expect(page.locator('#bp-launcher')).toHaveCount(1);
+});

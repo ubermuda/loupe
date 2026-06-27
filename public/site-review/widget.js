@@ -1,4 +1,12 @@
 (() => {
+  // Idempotency guard. The widget's host elements are attached to <html>, so they
+  // survive a Turbo (or any SPA) <body> swap; without this, every navigation that
+  // re-executes the script tag would append another launcher/overlay and the
+  // shadows would stack up. The flag lives on window, which persists across such
+  // navigations, so only the first execution initializes.
+  if (window.__betterplansSiteReviewLoaded) return;
+  window.__betterplansSiteReviewLoaded = true;
+
   const script = document.currentScript;
   const BACKEND = new URL(script.src).origin;
   const TOKEN = script.getAttribute('data-token') || '';
