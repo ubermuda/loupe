@@ -332,3 +332,140 @@ test('re-executing the script does not stack a second widget', async ({
     );
     await expect(page.locator('#bp-launcher')).toHaveCount(1);
 });
+
+test("the 't' shortcut still works immediately after saving a comment", async ({
+    page,
+}) => {
+    await suppressToolbar(page);
+    await page.request.post('/dev/register-and-verify', {
+        form: {
+            username: E2E_USERNAME,
+            fullName: 'E2E Site Review',
+            email: E2E_EMAIL,
+            password: E2E_PASSWORD,
+        },
+    });
+    await page.goto(
+        `/dev/site-review-harness?email=${encodeURIComponent(E2E_EMAIL)}`,
+    );
+    await page.evaluate(() =>
+        localStorage.removeItem('betterplans.siteReview.pending'),
+    );
+    await page.reload();
+
+    // Pick an element, type a comment, and save it.
+    await page.getByRole('button', { name: 'Review' }).click();
+    await page.getByRole('button', { name: 'Pick element' }).click();
+    await page.locator('#target-me').click();
+    await page.getByPlaceholder(/Describe the issue/).fill('Make this bigger');
+    await page.getByRole('button', { name: 'Save' }).click();
+    await expect(page.locator('#bp-head-count')).toHaveText('1');
+
+    // Regression: saving left focus trapped in the now-hidden textarea, so isTyping()
+    // reported true and the single-key shortcuts were suppressed. Pressing 't' with no
+    // intervening click that would steal focus must still enter pick mode.
+    await page.keyboard.press('t');
+    await expect(page.locator('#bp-panel')).toBeHidden();
+    await expect(page.locator('#bp-toast')).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expect(page.locator('#bp-panel')).toBeVisible();
+});
+
+test('editing an anchored comment updates its body in place', async ({
+    page,
+}) => {
+    await suppressToolbar(page);
+    await page.request.post('/dev/register-and-verify', {
+        form: {
+            username: E2E_USERNAME,
+            fullName: 'E2E Site Review',
+            email: E2E_EMAIL,
+            password: E2E_PASSWORD,
+        },
+    });
+    await page.goto(
+        `/dev/site-review-harness?email=${encodeURIComponent(E2E_EMAIL)}`,
+    );
+    // Seed an *anchored* comment so editing exercises the element branch — the
+    // composeTarget rebuilt from the stored selector/text, not just the general path.
+    await page.evaluate(() =>
+        localStorage.setItem(
+            'betterplans.siteReview.pending',
+            JSON.stringify([
+                {
+                    body: 'Original note',
+                    selector: '#target-me',
+                    text: 'A button to comment on',
+                    url: location.href,
+                },
+            ]),
+        ),
+    );
+    await page.reload();
+
+    await page.getByRole('button', { name: 'Review' }).click();
+    await page.getByRole('button', { name: /Show .* comment/ }).click();
+
+    const row = page.locator('#bp-list .bp-item').first();
+    await row.locator('.bp-edit').click();
+
+    // The composer reopens pre-filled with the stored body and keeps the element chip
+    // (selector/text are rebuilt from storage, so the anchor label still shows).
+    const textarea = page.getByPlaceholder(/Describe the issue/);
+    await expect(textarea).toHaveValue('Original note');
+    await expect(page.locator('#bp-compose-head')).toContainText(
+        'A button to comment on',
+    );
+
+    await textarea.fill('Edited note');
+    await page.getByRole('button', { name: 'Save' }).click();
+
+    // The row shows the new body, no comment was added (still one), and the anchor (pin)
+    // is preserved — editing changes the body only.
+    await expect(page.locator('#bp-list .bp-item').first()).toContainText(
+        'Edited note',
+    );
+    await expect(page.locator('#bp-head-count')).toHaveText('1');
+    await expect(page.locator('.pin')).toHaveText('1');
+});
+
+test('the pick-mode toast dodges away from the top edge', async ({ page }) => {
+    await suppressToolbar(page);
+    await page.request.post('/dev/register-and-verify', {
+        form: {
+            username: E2E_USERNAME,
+            fullName: 'E2E Site Review',
+            email: E2E_EMAIL,
+            password: E2E_PASSWORD,
+        },
+    });
+    await page.goto(
+        `/dev/site-review-harness?email=${encodeURIComponent(E2E_EMAIL)}`,
+    );
+    await page.evaluate(() =>
+        localStorage.removeItem('betterplans.siteReview.pending'),
+    );
+    await page.reload();
+
+    await page.getByRole('button', { name: 'Review' }).click();
+    await page.getByRole('button', { name: 'Pick element' }).click();
+    const toast = page.locator('#bp-toast');
+    await expect(toast).toBeVisible();
+
+    const viewport = page.viewportSize()!;
+    // The toast starts docked at the top.
+    expect((await toast.boundingBox())!.y).toBeLessThan(viewport.height / 2);
+
+    // Moving the cursor into the top band makes the toast slide to the bottom half so it
+    // no longer covers the element being picked. The slide is animated — poll geometry.
+    await page.mouse.move(60, 20);
+    await expect
+        .poll(async () => (await toast.boundingBox())!.y)
+        .toBeGreaterThan(viewport.height / 2);
+
+    // Moving back out of the band restores it to the top.
+    await page.mouse.move(60, viewport.height / 2);
+    await expect
+        .poll(async () => (await toast.boundingBox())!.y)
+        .toBeLessThan(viewport.height / 2);
+});

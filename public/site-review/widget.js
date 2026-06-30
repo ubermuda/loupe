@@ -230,8 +230,10 @@
     composing: false,
     composeTarget: null, // { type:'general' } | { type:'element', el, selector, text, label }
     draft: '',
+    editIndex: null, // index of the comment being edited in place, or null for a new one
     listExpanded: false,
     expandLevel: 0,
+    toastDock: 'top', // 'top' | 'bottom' — the pick-mode toast dodges to the bottom near the top edge
     moveHL: null, // { left, top, width, height, label } while picking
     hoverId: null, // hovered comment index (list row)
     hoverPinId: null, // hovered pin index
@@ -278,9 +280,8 @@
       .bp-scroll::-webkit-scrollbar-thumb{background:var(--faint);border-radius:9px;border:3px solid transparent;background-clip:content-box}
       .bp-scroll::-webkit-scrollbar-track{background:transparent}
 
-      .bp-launcher{position:fixed;right:20px;bottom:20px;height:46px;padding:0 16px 0 13px;display:flex;align-items:center;gap:10px;background:var(--panel-bg);border:1px solid var(--panel-border);border-radius:23px;box-shadow:var(--launch-shadow);color:var(--text);font-family:'Geist',system-ui,-apple-system,sans-serif;font-size:13.5px;font-weight:550;cursor:pointer;pointer-events:auto;transition:transform .14s ease,box-shadow .14s ease,background .25s ease}
+      .bp-launcher{position:fixed;right:20px;bottom:20px;height:46px;padding:0 16px;display:flex;align-items:center;gap:10px;background:var(--panel-bg);border:1px solid var(--panel-border);border-radius:23px;box-shadow:var(--launch-shadow);color:var(--text);font-family:'Geist',system-ui,-apple-system,sans-serif;font-size:13.5px;font-weight:550;cursor:pointer;pointer-events:auto;transition:transform .14s ease,box-shadow .14s ease,background .25s ease}
       .bp-launcher:hover{transform:translateY(-1px)}
-      .bp-launch-icon{width:26px;height:26px;border-radius:8px;background:var(--accent-soft);color:var(--accent);display:flex;align-items:center;justify-content:center}
       .bp-count{display:inline-flex;align-items:center;justify-content:center;min-width:20px;height:20px;padding:0 6px;border-radius:10px;font-size:11.5px;font-weight:600}
       .bp-count.solid{background:var(--accent);color:var(--on-accent)}
       .bp-count.soft{background:var(--accent-soft);color:var(--accent)}
@@ -310,7 +311,7 @@
       .bp-ghost:hover{background:var(--chip-bg);color:var(--text)}
       .bp-primary{height:30px;padding:0 13px;margin-left:4px;background:var(--accent);color:var(--on-accent);border:0;border-radius:8px;font-family:inherit;font-size:12.5px;font-weight:500;cursor:pointer}
 
-      .bp-actions{flex:0 0 auto;display:flex;gap:8px;padding:0 14px 12px}
+      .bp-actions{flex:0 0 auto;display:flex;gap:8px;padding:10px 14px 12px}
       .bp-action{flex:1;height:38px;display:flex;align-items:center;justify-content:center;gap:7px;border-radius:10px;font-family:inherit;font-size:13px;font-weight:500;cursor:pointer;border:1px solid var(--field-border);background:var(--panel-elev);color:var(--text);transition:background .15s ease,border-color .15s ease,color .15s ease}
       .bp-action:hover{border-color:var(--faint)}
       .bp-action.active{background:var(--accent-soft);color:var(--accent);border-color:var(--accent)}
@@ -338,6 +339,8 @@
       .bp-item-body{flex:1;min-width:0}
       .bp-item-text{font-size:13px;line-height:1.5;color:var(--text);word-break:break-word}
       .bp-chip{display:inline-flex;align-items:center;gap:4px;margin-top:6px;height:19px;padding:0 7px;background:var(--chip-bg);color:var(--chip-text);border-radius:5px;font-size:10.5px;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+      .bp-edit{flex:0 0 auto;width:24px;height:24px;border:0;background:transparent;color:var(--faint);border-radius:6px;display:flex;align-items:center;justify-content:center;cursor:pointer;opacity:.55;transition:opacity .12s ease}
+      .bp-edit:hover{opacity:1;background:var(--chip-bg);color:var(--accent)}
       .bp-del{flex:0 0 auto;width:24px;height:24px;border:0;background:transparent;color:var(--faint);border-radius:6px;display:flex;align-items:center;justify-content:center;cursor:pointer;opacity:.55;transition:opacity .12s ease}
       .bp-del:hover{opacity:1;background:var(--chip-bg);color:var(--danger)}
       .bp-danger-sm{flex:0 0 auto;height:25px;padding:0 9px;background:var(--danger);color:#fff;border:0;border-radius:6px;font-family:inherit;font-size:11.5px;font-weight:600;cursor:pointer}
@@ -372,7 +375,6 @@
       .bp-new:hover{border-color:var(--accent)}
     </style>
     <button class="bp-launcher" id="bp-launcher" aria-label="Review" title="Review">
-      <span class="bp-launch-icon">${ICON.comment(15)}</span>
       <span>Review</span>
       <span class="bp-count solid" id="bp-launch-count" style="display:none">0</span>
     </button>
@@ -398,10 +400,6 @@
             </div>
           </div>
         </div>
-        <div class="bp-actions">
-          <button class="bp-action" id="general" aria-pressed="false">${ICON.comment(15)}<span>Add note</span><span class="bp-kbd" aria-hidden="true">C</span></button>
-          <button class="bp-action" id="target" aria-pressed="false">${ICON.target(15)}<span>Pick element</span><span class="bp-kbd" aria-hidden="true">T</span></button>
-        </div>
         <div class="bp-error" id="bp-error" style="display:none"></div>
         <div id="bp-body">
           <div class="bp-empty" id="bp-empty" style="display:none">
@@ -416,6 +414,10 @@
               </div>
             </div>
           </div>
+        </div>
+        <div class="bp-actions">
+          <button class="bp-action" id="general" aria-pressed="false">${ICON.comment(15)}<span>Add note</span><span class="bp-kbd" aria-hidden="true">C</span></button>
+          <button class="bp-action" id="target" aria-pressed="false">${ICON.target(15)}<span>Pick element</span><span class="bp-kbd" aria-hidden="true">T</span></button>
         </div>
         <div class="bp-footer" id="bp-footer" style="display:none">
           <div class="bp-footer-row" id="bp-footer-main">
@@ -461,6 +463,8 @@
       .bp-pop-body{font-size:12.5px;line-height:1.5;color:var(--text);word-break:break-word}
       .bp-pop-row{display:flex;align-items:center;gap:8px;margin-top:auto;padding-top:10px}
       .bp-pop-chip{display:inline-flex;align-items:center;height:19px;padding:0 7px;background:var(--chip-bg);color:var(--chip-text);border-radius:5px;font-size:10.5px;max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+      .bp-pop-edit{flex:0 0 auto;width:24px;height:24px;border:0;background:transparent;color:var(--faint);border-radius:6px;display:flex;align-items:center;justify-content:center;cursor:pointer;opacity:.6;transition:opacity .12s ease}
+      .bp-pop-edit:hover{opacity:1;background:var(--chip-bg);color:var(--accent)}
       .bp-pop-del{flex:0 0 auto;width:24px;height:24px;border:0;background:transparent;color:var(--faint);border-radius:6px;display:flex;align-items:center;justify-content:center;cursor:pointer;opacity:.6;transition:opacity .12s ease}
       .bp-pop-del:hover{opacity:1;background:var(--chip-bg);color:var(--danger)}
       .bp-pop-confirm{position:absolute;inset:0;background:var(--panel-bg);border-radius:12px;padding:12px;display:flex;flex-direction:column;justify-content:center;animation:bp-slide-left .18s cubic-bezier(.4,0,.2,1)}
@@ -469,7 +473,7 @@
       .bp-pop-confirm-row{display:flex;gap:7px;margin-top:11px}
       .bp-pop-yes{flex:1;height:30px;background:var(--danger);color:#fff;border:0;border-radius:8px;font-family:inherit;font-size:12px;font-weight:600;cursor:pointer}
       .bp-pop-no{flex:1;height:30px;background:var(--panel-elev);border:1px solid var(--field-border);color:var(--text);border-radius:8px;font-family:inherit;font-size:12px;font-weight:500;cursor:pointer}
-      .bp-toast{position:fixed;top:18px;left:50%;transform:translateX(-50%);z-index:6;display:flex;align-items:center;gap:10px;padding:9px 12px 9px 14px;background:var(--tooltip-bg);color:var(--tooltip-text);border-radius:11px;font-size:13px;font-weight:500;box-shadow:0 8px 26px rgba(0,0,0,.34);animation:bp-pop .2s ease;pointer-events:auto}
+      .bp-toast{position:fixed;top:18px;left:50%;transform:translate(-50%,0);z-index:6;display:flex;align-items:center;gap:10px;padding:9px 12px 9px 14px;background:var(--tooltip-bg);color:var(--tooltip-text);border-radius:11px;font-size:13px;font-weight:500;box-shadow:0 8px 26px rgba(0,0,0,.34);animation:bp-fade .18s ease;transition:transform .22s cubic-bezier(.4,0,.2,1);pointer-events:auto}
       .bp-toast-sep{opacity:.5}
       .bp-toast-dim{opacity:.65;font-size:12px}
       .bp-toast-key{margin-left:2px;padding:3px 7px;background:rgba(255,255,255,.16);border-radius:6px;font-size:11px;font-weight:500;cursor:pointer}
@@ -618,6 +622,7 @@
           <div class="bp-pop-row">
             ${label ? `<span class="bp-pop-chip">${escapeHtml(label)}</span>` : ''}
             <div style="flex:1"></div>
+            <button class="bp-pop-edit" data-pin-edit="${index}" aria-label="Edit">${ICON.edit(14)}</button>
             <button class="bp-pop-del" data-pin-del="${index}" aria-label="Delete">${ICON.trash(14)}</button>
           </div>
         </div>
@@ -639,6 +644,8 @@
         state.pinConfirmId = index;
         renderPins();
       });
+    const edit = holder.querySelector('[data-pin-edit]');
+    if (edit) edit.addEventListener('click', () => openEditComposer(index));
   };
   const bindConfirm = (el, index) => {
     const yes = el.querySelector('[data-pin-yes]');
@@ -724,9 +731,30 @@
     });
   };
 
+  // The pick-mode toast lives at the top centre, where it can cover the very element
+  // the reviewer wants to click. Rather than add controls, it auto-dodges: when the
+  // cursor enters the top band it slides to the bottom, and slides back when it leaves.
+  const TOAST_DODGE_BAND = 140; // px from the top edge
+  const positionToast = () => {
+    if (state.toastDock === 'bottom') {
+      const offset = window.innerHeight - toastNode.offsetHeight - 36;
+      toastNode.style.transform = `translate(-50%, ${offset}px)`;
+    } else {
+      toastNode.style.transform = 'translate(-50%, 0)';
+    }
+  };
+  const updateToastDodge = (clientY) => {
+    const dock = clientY != null && clientY < TOAST_DODGE_BAND ? 'bottom' : 'top';
+    if (state.toastDock === dock) return;
+    state.toastDock = dock;
+    positionToast();
+  };
+
   const renderOverlay = () => {
     scrimNode.style.display = state.target ? 'block' : 'none';
     toastNode.style.display = state.target ? 'flex' : 'none';
+    // offsetHeight only reads correctly once the toast is shown, so position after.
+    if (state.target) positionToast();
     renderPins();
     updateHighlight();
   };
@@ -768,6 +796,9 @@
           ? `<span class="bp-compose-general"><span class="bp-dot"></span>General comment</span>`
           : `<span class="bp-compose-chip">${ICON.glyph(11)}<span>${escapeHtml(ct.label || 'Selected element')}</span></span>`;
     }
+    // Composer just closed but the textarea kept focus would keep isTyping() true and
+    // trap the single-key shortcuts (t/c). Blur it once the composer is hidden.
+    if (!state.composing && root.activeElement === textareaNode) textareaNode.blur();
 
     // action buttons
     const noteActive = state.composing && (state.composeTarget || {}).type === 'general';
@@ -844,6 +875,7 @@
         row.innerHTML =
           `<span class="bp-badge"></span>` +
           `<div class="bp-item-body"><div class="bp-item-text"></div><span class="bp-chip" style="display:none"></span></div>` +
+          `<button class="bp-edit" aria-label="Edit comment">${ICON.edit(14)}</button>` +
           `<button class="bp-del" aria-label="Delete comment">${ICON.trash(14)}</button>`;
         row.addEventListener('mouseenter', () => {
           if (state.target || !pending[index] || !pending[index].selector) return;
@@ -854,6 +886,7 @@
           state.hoverId = null;
           updateHighlight();
         });
+        row.querySelector('.bp-edit').addEventListener('click', () => openEditComposer(index));
         row.querySelector('.bp-del').addEventListener('click', () => {
           state.confirmDeleteId = index;
           renderList();
@@ -931,6 +964,7 @@
   const openNoteComposer = () => {
     state.composing = true;
     state.composeTarget = { type: 'general' };
+    state.editIndex = null;
     state.draft = '';
     textareaNode.value = '';
     state.open = true;
@@ -943,6 +977,7 @@
     if (state.composing && ct.type === 'general') {
       state.composing = false;
       state.composeTarget = null;
+      state.editIndex = null;
       state.draft = '';
       textareaNode.value = '';
       sync();
@@ -959,8 +994,32 @@
       text: (el.innerText || '').trim().slice(0, 200),
       label: firstLineLabel(el.innerText),
     };
+    state.editIndex = null;
     state.draft = '';
     textareaNode.value = '';
+    state.open = true;
+    setTargeting(false);
+    sync();
+    focusTextarea();
+  };
+  // Re-open the composer pre-filled to edit an existing comment in place. The anchor
+  // (selector/text) is preserved and rebuilt from storage; only the body is editable.
+  const openEditComposer = (index) => {
+    const comment = pending[index];
+    if (!comment) return;
+    state.composing = true;
+    state.editIndex = index;
+    state.composeTarget = comment.selector
+      ? {
+          type: 'element',
+          el: resolveElement(comment), // may be null when the anchor is off-page — fine
+          selector: comment.selector,
+          text: comment.text,
+          label: firstLineLabel(comment.text),
+        }
+      : { type: 'general' };
+    state.draft = comment.body;
+    textareaNode.value = comment.body;
     state.open = true;
     setTargeting(false);
     sync();
@@ -969,6 +1028,7 @@
   const cancelCompose = () => {
     state.composing = false;
     state.composeTarget = null;
+    state.editIndex = null;
     state.draft = '';
     textareaNode.value = '';
     sync();
@@ -976,15 +1036,22 @@
   const saveComment = () => {
     const body = state.draft.trim();
     if (!body) return;
-    const ct = state.composeTarget || { type: 'general' };
-    const comment =
-      ct.type === 'element'
-        ? { body, selector: ct.selector, text: ct.text, url: location.href }
-        : { body, selector: '', text: '', url: location.href };
-    pending.push(comment);
-    save(pending);
+    if (state.editIndex != null && pending[state.editIndex]) {
+      // Editing in place: only the body changes; keep selector/text/url as stored.
+      pending[state.editIndex].body = body;
+      save(pending);
+    } else {
+      const ct = state.composeTarget || { type: 'general' };
+      const comment =
+        ct.type === 'element'
+          ? { body, selector: ct.selector, text: ct.text, url: location.href }
+          : { body, selector: '', text: '', url: location.href };
+      pending.push(comment);
+      save(pending);
+    }
     state.composing = false;
     state.composeTarget = null;
+    state.editIndex = null;
     state.draft = '';
     textareaNode.value = '';
     sync();
@@ -1016,6 +1083,7 @@
     state.listExpanded = false;
     state.composing = false;
     state.composeTarget = null;
+    state.editIndex = null;
     state.hoverId = null;
     state.hoverPinId = null;
     state.confirmDeleteId = null;
@@ -1047,6 +1115,8 @@
       state.moveHL = null;
       state.expandLevel = 0;
       moveBase = null;
+    } else {
+      state.toastDock = 'top';
     }
     cursorStyle.textContent = on ? '*{cursor:crosshair !important}' : '';
     if (on) {
@@ -1066,6 +1136,7 @@
     if (on) {
       state.composing = false;
       state.composeTarget = null;
+      state.editIndex = null;
       state.draft = '';
       textareaNode.value = '';
       state.open = true;
@@ -1075,6 +1146,7 @@
   };
   const onMove = (event) => {
     if (!state.target) return;
+    updateToastDodge(event.clientY);
     const base = pickEl(event);
     if (!base) {
       moveBase = null;
@@ -1181,6 +1253,7 @@
         sendError: null,
         composing: false,
         composeTarget: null,
+        editIndex: null,
         draft: '',
         listExpanded: false,
         confirmClear: false,
@@ -1226,6 +1299,7 @@
       setTargeting(false);
       state.composing = false;
       state.composeTarget = null;
+      state.editIndex = null;
       state.draft = '';
       textareaNode.value = '';
     }
@@ -1311,6 +1385,10 @@
   // so a client-side route change must rebuild them — otherwise stale pins linger and
   // appear to "follow" onto the new page. History methods are wrapped (and popstate /
   // hashchange listened to) to catch every same-document navigation across browsers.
+  const rerenderAnchors = () => {
+    renderPins();
+    updateHighlight();
+  };
   let lastSeenUrl = location.href;
   const handleLocationChange = () => {
     if (location.href === lastSeenUrl) return;
@@ -1318,8 +1396,13 @@
     state.hoverId = null;
     state.hoverPinId = null;
     state.pinConfirmId = null;
-    renderPins();
-    updateHighlight();
+    rerenderAnchors();
+    // Under Turbo the <body> is swapped *after* the URL changes, so the new page's
+    // anchors resolve to null on this tick and would never reappear until a scroll.
+    // Re-run as the new DOM settles.
+    requestAnimationFrame(rerenderAnchors);
+    setTimeout(rerenderAnchors, 60);
+    setTimeout(rerenderAnchors, 240);
   };
   ['pushState', 'replaceState'].forEach((method) => {
     const original = history[method];
@@ -1331,6 +1414,11 @@
   });
   window.addEventListener('popstate', handleLocationChange);
   window.addEventListener('hashchange', handleLocationChange);
+  // Turbo swaps the body without a history method we wrap; re-anchor on its render
+  // events too (harmless no-ops when Turbo is absent).
+  ['turbo:load', 'turbo:render', 'turbo:frame-load'].forEach((evt) =>
+    document.addEventListener(evt, rerenderAnchors),
+  );
 
   sync();
 })();
