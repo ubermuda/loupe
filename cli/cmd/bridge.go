@@ -34,7 +34,7 @@ func newBridgeCmd() *cobra.Command {
 
 func newBridgeRunCmd() *cobra.Command {
 	var dir, session string
-	var useMCP, noAttach bool
+	var useMCP, attach bool
 
 	cmd := &cobra.Command{
 		Use:   "run",
@@ -43,8 +43,8 @@ func newBridgeRunCmd() *cobra.Command {
 			"review into a Claude Code session running in tmux.\n\n" +
 			"Use --dir to spawn `claude` in a new tmux session in that directory, or " +
 			"--session to attach to a tmux session you already have running. By default " +
-			"the command attaches you to the session; pass --no-attach to run the bridge " +
-			"in the foreground instead (e.g. headless).",
+			"the command attaches you to the session; pass --attach=false to run the " +
+			"bridge in the foreground instead (e.g. headless).",
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			if !tmux.Available() {
 				return fmt.Errorf("tmux is not installed or not on PATH")
@@ -68,9 +68,8 @@ func newBridgeRunCmd() *cobra.Command {
 				mode = inject.IDOnly
 			}
 
-			attach := !noAttach
 			if attach && !isTerminal(os.Stdin) {
-				fmt.Fprintln(cmd.ErrOrStderr(), "stdin is not a terminal; running in the foreground (pass --no-attach to silence this)")
+				fmt.Fprintln(cmd.ErrOrStderr(), "stdin is not a terminal; running in the foreground (pass --attach=false to silence this)")
 				attach = false
 			}
 
@@ -94,7 +93,7 @@ func newBridgeRunCmd() *cobra.Command {
 	cmd.Flags().StringVar(&dir, "dir", "", "spawn `claude` in a new tmux session in this directory")
 	cmd.Flags().StringVar(&session, "session", "", "attach to an existing tmux session or target")
 	cmd.Flags().BoolVar(&useMCP, "mcp", false, "inject only the review id and let Claude load it via the Better Plans MCP")
-	cmd.Flags().BoolVar(&noAttach, "no-attach", false, "run the bridge in the foreground instead of attaching to the tmux session")
+	cmd.Flags().BoolVar(&attach, "attach", true, "attach to the tmux session and watch Claude; use --attach=false to run headless")
 
 	return cmd
 }
