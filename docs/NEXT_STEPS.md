@@ -147,3 +147,21 @@ authenticator for now and revisit later. Note: `access_token` has **no** native
 scope→role mapping (verified against current Symfony docs), so the migration is
 a modernization, not a scope win; per-token scope roles are slightly more
 awkward there (you don't own `createToken()`), so weigh that when revisiting.
+
+## Site-review bridge: harden Mercure publish against a hung hub
+
+`SubmitBatchHandler::publish()` makes a synchronous HTTP call to the Mercure hub
+after `flush()`. Failures are caught and swallowed (best-effort, by design), but
+`symfony/mercure-bundle` exposes no per-hub `http_client` config option, so the
+call uses the default HttpClient timeout — a hung hub could add latency to every
+review submit before the catch fires. Wire the default hub to a scoped HttpClient
+with a low `timeout`/`max_duration` (custom hub service or a decorated
+HttpClient) so a slow hub can never noticeably delay a submit.
+
+## Site-review bridge: set a lifetime on subscriber JWTs
+
+`StreamCredentialsController` mints subscriber JWTs via the Lcobucci factory with
+no `exp` claim (the bundle's `jwt_lifetime` is unset), so stream tokens are
+effectively long-lived. Once the bridge CLI handles re-fetching creds on expiry,
+set a finite `jwt_lifetime` (or pass an `exp` claim) so a leaked subscriber token
+is not valid forever.
