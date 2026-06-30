@@ -165,3 +165,21 @@ no `exp` claim (the bundle's `jwt_lifetime` is unset), so stream tokens are
 effectively long-lived. Once the bridge CLI handles re-fetching creds on expiry,
 set a finite `jwt_lifetime` (or pass an `exp` claim) so a leaked subscriber token
 is not valid forever.
+
+## Site-review bridge CLI (`cli/`): polish before shipping
+
+The Go bridge is functional (`betterplans login` + `betterplans bridge run`).
+Remaining work before it's a turnkey distributable:
+
+- **Re-fetch stream creds on auth failure.** `bridge run` fetches the subscriber
+  JWT once and reuses it across reconnects. Harmless while JWTs have no `exp`, but
+  once a lifetime is set (see above) the bridge must re-call `/api/site-review/stream`
+  on a `401` and resubscribe.
+- **No-echo token prompt.** `login` reads the token from stdin with the terminal
+  still echoing. Use `golang.org/x/term` (or equivalent) to read without echo.
+- **OS keychain storage.** The token is stored in `~/.config/betterplans/config.json`
+  (mode 0600). Move it to the OS keychain (e.g. `go-keyring`) with the file as a fallback.
+- **CI + release.** Wire `just cli-test` into the gate, and add goreleaser for a
+  multi-platform release matrix (current `just cli-build` only cross-compiles one target).
+- **`--attach` convenience.** Optional `bridge run --attach` that spawns the session
+  then hands the terminal to `tmux attach`, running the bridge loop in the background.

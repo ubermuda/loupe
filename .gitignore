@@ -57,3 +57,6 @@ phpstan.neon
 e2e/.step-ca-root.crt
 
 .superpowers/
+
+# Go CLI build output
+/cli/dist/
