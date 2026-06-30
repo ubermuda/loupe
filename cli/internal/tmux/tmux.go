@@ -4,6 +4,7 @@ package tmux
 
 import (
 	"fmt"
+	"os"
 	"os/exec"
 	"strings"
 )
@@ -31,8 +32,16 @@ func HasSession(target string) bool {
 }
 
 // Spawn creates a detached session named session, running `claude` in dir.
+//
+// claude is launched through an interactive shell (`$SHELL -i -c claude`) so the
+// user's aliases, shell functions, and rc-defined PATH are honored — tmux would
+// otherwise exec `claude` directly via PATH, bypassing shell aliases.
 func Spawn(session, dir string) error {
-	if err := exec.Command("tmux", "new-session", "-d", "-s", session, "-c", dir, "claude").Run(); err != nil {
+	shell := os.Getenv("SHELL")
+	if shell == "" {
+		shell = "/bin/sh"
+	}
+	if err := exec.Command("tmux", "new-session", "-d", "-s", session, "-c", dir, shell, "-i", "-c", "claude").Run(); err != nil {
 		return fmt.Errorf("create tmux session: %w", err)
 	}
 
