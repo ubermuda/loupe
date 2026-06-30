@@ -211,6 +211,12 @@
         '<rect x="9" y="9" width="11" height="11" rx="2.5"/><path d="M5 15H4.5A2.5 2.5 0 0 1 2 12.5v-8A2.5 2.5 0 0 1 4.5 2h8A2.5 2.5 0 0 1 15 4.5V5"/>',
         2,
       ),
+    edit: (s) =>
+      svg(
+        s,
+        '<path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z"/>',
+        1.9,
+      ),
     glyph: (s) =>
       `<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" ` +
       `stroke-linecap="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="2.4" fill="currentColor" stroke="none"/></svg>`,
@@ -732,8 +738,11 @@
     launchCount.style.display = n > 0 ? 'inline-flex' : 'none';
     launchCount.textContent = String(n);
 
-    panelNode.style.display = state.open ? 'flex' : 'none';
-    if (!state.open) return;
+    // While picking an element, hide the whole widget (launcher + panel) so it does
+    // not obscure the page; the scrim + toast are the only pick-mode UI.
+    $('bp-launcher').style.display = state.target ? 'none' : '';
+    panelNode.style.display = state.open && !state.target ? 'flex' : 'none';
+    if (!state.open || state.target) return;
 
     const sent = state.sent;
     const headCount = $('bp-head-count');
@@ -875,7 +884,23 @@
     });
   };
 
+  const copyButtonLabel = () =>
+    state.copied
+      ? `${ICON.check(12, 2.6, 'var(--success)')}Copied`
+      : state.copyFailed
+        ? 'Copy failed'
+        : `${ICON.copy(12)}Copy`;
+  // Reconcile rather than rebuild: re-assigning sentNode.innerHTML recreates the
+  // .bp-sent element and replays its entrance animation, so clicking Copy (which
+  // re-renders) would flash the whole panel. Build the markup once per batch and only
+  // swap the Copy button's label on subsequent renders.
   const renderSent = () => {
+    if (sentNode.dataset.batch === state.sent) {
+      const copyBtn = $('bp-copy');
+      if (copyBtn) copyBtn.innerHTML = copyButtonLabel();
+      return;
+    }
+    sentNode.dataset.batch = state.sent;
     sentNode.innerHTML = `<div class="bp-sent">
         <div class="bp-sent-disc">${ICON.check(22, 2.4)}</div>
         <div class="bp-sent-title">Review sent</div>
@@ -883,13 +908,7 @@
         <div class="bp-batch">
           <span class="bp-batch-label">Batch</span>
           <code class="bp-batch-id">${escapeHtml(state.sent)}</code>
-          <button class="bp-copy" id="bp-copy">${
-            state.copied
-              ? `${ICON.check(12, 2.6, 'var(--success)')}Copied`
-              : state.copyFailed
-                ? 'Copy failed'
-                : `${ICON.copy(12)}Copy`
-          }</button>
+          <button class="bp-copy" id="bp-copy">${copyButtonLabel()}</button>
         </div>
         <button class="bp-new" id="bp-new">Start a new review</button>
       </div>`;
@@ -968,7 +987,6 @@
     state.composeTarget = null;
     state.draft = '';
     textareaNode.value = '';
-    state.listExpanded = true;
     sync();
   };
 

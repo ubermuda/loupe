@@ -117,22 +117,27 @@ test('annotate and send a site review batch', async ({ page }) => {
     await expect(page.locator('#bp-panel')).not.toContainText('Site review');
     await expect(page.locator('#bp-list code')).toHaveCount(0);
 
-    // Hovering the list row highlights its anchor element on the page. (Saving a comment
-    // auto-expands the list, so the row is already visible.) Park the pointer on a
+    // Hovering the list row highlights its anchor element on the page. The list is
+    // collapsed by default, so expand it first to reveal the row. Park the pointer on a
     // neutral element first so the subsequent hover crosses a boundary and emits the
     // mouseenter the highlight listens for.
     const highlight = page.locator('.highlight');
+    await page.locator('#bp-list-toggle').click();
     await page.locator('#bp-close').hover();
     await expect(highlight).toBeHidden();
     await page.locator('#bp-list .bp-item').first().hover();
     await expect(highlight).toBeVisible();
 
-    // Keyboard shortcut: 't' toggles pick mode while the panel is open; Escape cancels.
-    const pickButton = page.getByRole('button', { name: 'Pick element' });
+    // Keyboard shortcut: 't' toggles pick mode while the panel is open. Entering pick
+    // mode hides the whole widget (launcher + panel) so it does not obscure the page and
+    // shows the pick toast; Escape cancels and restores the panel.
     await page.keyboard.press('t');
-    await expect(pickButton).toHaveAttribute('aria-pressed', 'true');
+    await expect(page.locator('#bp-panel')).toBeHidden();
+    await expect(page.locator('#bp-launcher')).toBeHidden();
+    await expect(page.locator('#bp-toast')).toBeVisible();
     await page.keyboard.press('Escape');
-    await expect(pickButton).toHaveAttribute('aria-pressed', 'false');
+    await expect(page.locator('#bp-panel')).toBeVisible();
+    await expect(page.locator('#bp-toast')).toBeHidden();
 
     // Add an unanchored ("general") comment — no element targeting. Because the
     // widget sends the whole batch in one request, the "Sent" assertion below
@@ -157,6 +162,15 @@ test('annotate and send a site review batch', async ({ page }) => {
     // execCommand fallback copies even where the async Clipboard API is unavailable.
     await page.getByRole('button', { name: 'Copy' }).click();
     await expect(page.getByRole('button', { name: 'Copied' })).toBeVisible();
+
+    // Re-rendering the sent panel (clicking Copy again) must reconcile, not rebuild:
+    // re-assigning innerHTML would recreate .bp-sent and replay its entrance animation
+    // across the whole panel. Tag the node and confirm a second render preserves it.
+    await page.locator('.bp-sent').evaluate((el: HTMLElement) => {
+        el.dataset.tag = 'orig';
+    });
+    await page.locator('#bp-copy').click();
+    await expect(page.locator('.bp-sent[data-tag="orig"]')).toHaveCount(1);
 });
 
 test('a failed send keeps the batch and offers retry', async ({ page }) => {
