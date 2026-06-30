@@ -15,15 +15,19 @@ func Available() bool {
 	return err == nil
 }
 
+// SessionName returns the session portion of a "session:window.pane" target.
+func SessionName(target string) string {
+	if i := strings.IndexAny(target, ":."); i >= 0 {
+		return target[:i]
+	}
+
+	return target
+}
+
 // HasSession reports whether the session in target exists. target may be a bare
 // session name or a "session:window.pane" target; only the session is checked.
 func HasSession(target string) bool {
-	session := target
-	if i := strings.IndexAny(session, ":."); i >= 0 {
-		session = session[:i]
-	}
-
-	return exec.Command("tmux", "has-session", "-t", session).Run() == nil
+	return exec.Command("tmux", "has-session", "-t", SessionName(target)).Run() == nil
 }
 
 // Spawn creates a detached session named session, running `claude` in dir.

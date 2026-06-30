@@ -181,5 +181,3 @@ Remaining work before it's a turnkey distributable:
   (mode 0600). Move it to the OS keychain (e.g. `go-keyring`) with the file as a fallback.
 - **CI + release.** Wire `just cli-test` into the gate, and add goreleaser for a
   multi-platform release matrix (current `just cli-build` only cross-compiles one target).
-- **`--attach` convenience.** Optional `bridge run --attach` that spawns the session
-  then hands the terminal to `tmux attach`, running the bridge loop in the background.
