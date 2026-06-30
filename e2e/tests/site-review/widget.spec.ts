@@ -57,7 +57,10 @@ test('annotate and send a site review batch', async ({ page }) => {
     // Open the widget panel and enter pick (element-target) mode.
     await launcher.click();
     await expect(page.locator('#bp-panel')).toBeVisible();
-    await page.getByRole('button', { name: 'Pick element' }).click();
+    await page
+        .locator('#bp-panel')
+        .getByRole('button', { name: 'Pick element' })
+        .click();
 
     // Click the targetable element. The widget's capture-phase click listener resolves
     // the element under the pointer via document.elementFromPoint; the scrim/highlight
@@ -142,7 +145,10 @@ test('annotate and send a site review batch', async ({ page }) => {
     // Add an unanchored ("general") comment — no element targeting. Because the
     // widget sends the whole batch in one request, the "Sent" assertion below
     // also proves the backend accepts a comment with no selector.
-    await page.getByRole('button', { name: 'Add note' }).click();
+    await page
+        .locator('#bp-panel')
+        .getByRole('button', { name: 'Add note' })
+        .click();
     await page
         .getByPlaceholder(/Describe the issue/)
         .fill('A general note about the page');
@@ -355,7 +361,10 @@ test("the 't' shortcut still works immediately after saving a comment", async ({
 
     // Pick an element, type a comment, and save it.
     await page.getByRole('button', { name: 'Review' }).click();
-    await page.getByRole('button', { name: 'Pick element' }).click();
+    await page
+        .locator('#bp-panel')
+        .getByRole('button', { name: 'Pick element' })
+        .click();
     await page.locator('#target-me').click();
     await page.getByPlaceholder(/Describe the issue/).fill('Make this bigger');
     await page.getByRole('button', { name: 'Save' }).click();
@@ -448,7 +457,10 @@ test('the pick-mode toast dodges away from the top edge', async ({ page }) => {
     await page.reload();
 
     await page.getByRole('button', { name: 'Review' }).click();
-    await page.getByRole('button', { name: 'Pick element' }).click();
+    await page
+        .locator('#bp-panel')
+        .getByRole('button', { name: 'Pick element' })
+        .click();
     const toast = page.locator('#bp-toast');
     await expect(toast).toBeVisible();
 
@@ -468,4 +480,59 @@ test('the pick-mode toast dodges away from the top edge', async ({ page }) => {
     await expect
         .poll(async () => (await toast.boundingBox())!.y)
         .toBeLessThan(viewport.height / 2);
+});
+
+test('the launcher exposes icon-only quick actions for note and pick', async ({
+    page,
+}) => {
+    await suppressToolbar(page);
+    await page.request.post('/dev/register-and-verify', {
+        form: {
+            username: E2E_USERNAME,
+            fullName: 'E2E Site Review',
+            email: E2E_EMAIL,
+            password: E2E_PASSWORD,
+        },
+    });
+    await page.goto(
+        `/dev/site-review-harness?email=${encodeURIComponent(E2E_EMAIL)}`,
+    );
+    await page.evaluate(() =>
+        localStorage.removeItem('betterplans.siteReview.pending'),
+    );
+    await page.reload();
+
+    const launcher = page.locator('#bp-launcher');
+
+    // "Add note" on the launcher opens the panel straight into the general composer,
+    // without first having to open the panel and click the in-panel action.
+    await launcher.getByRole('button', { name: 'Add note' }).click();
+    await expect(page.locator('#bp-panel')).toBeVisible();
+    await expect(page.getByPlaceholder(/Describe the issue/)).toBeVisible();
+    await expect(page.locator('#bp-compose-head')).toContainText(
+        'General comment',
+    );
+
+    // With the panel open the launcher's quick actions are hidden (they duplicate the
+    // in-panel ones); only the Review toggle remains.
+    await expect(
+        launcher.getByRole('button', { name: 'Add note' }),
+    ).toBeHidden();
+    await expect(
+        launcher.getByRole('button', { name: 'Pick element' }),
+    ).toBeHidden();
+
+    // Closing the panel brings the quick actions back.
+    await page.getByRole('button', { name: 'Review' }).click();
+    await expect(page.locator('#bp-panel')).toBeHidden();
+    await expect(
+        launcher.getByRole('button', { name: 'Pick element' }),
+    ).toBeVisible();
+
+    // "Pick element" on the launcher enters pick mode directly: the widget chrome hides
+    // and the pick toast shows.
+    await launcher.getByRole('button', { name: 'Pick element' }).click();
+    await expect(page.locator('#bp-toast')).toBeVisible();
+    await expect(page.locator('#bp-panel')).toBeHidden();
+    await expect(launcher).toBeHidden();
 });

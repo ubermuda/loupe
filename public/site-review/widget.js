@@ -280,8 +280,22 @@
       .bp-scroll::-webkit-scrollbar-thumb{background:var(--faint);border-radius:9px;border:3px solid transparent;background-clip:content-box}
       .bp-scroll::-webkit-scrollbar-track{background:transparent}
 
-      .bp-launcher{position:fixed;right:20px;bottom:20px;height:46px;padding:0 16px;display:flex;align-items:center;gap:10px;background:var(--panel-bg);border:1px solid var(--panel-border);border-radius:23px;box-shadow:var(--launch-shadow);color:var(--text);font-family:'Geist',system-ui,-apple-system,sans-serif;font-size:13.5px;font-weight:550;cursor:pointer;pointer-events:auto;transition:transform .14s ease,box-shadow .14s ease,background .25s ease}
-      .bp-launcher:hover{transform:translateY(-1px)}
+      .bp-launcher{position:fixed;right:20px;bottom:20px;height:46px;padding:0 7px;display:flex;align-items:center;gap:0;background:var(--panel-bg);border:1px solid var(--panel-border);border-radius:23px;box-shadow:var(--launch-shadow);font-family:'Geist',system-ui,-apple-system,sans-serif;pointer-events:auto;transition:box-shadow .14s ease,background .25s ease}
+      /* The quick actions collapse as one unit when the panel opens. max-width + opacity
+         animate the slide-away; visibility flips to hidden only after the collapse (the
+         .24s delay) so the buttons are genuinely non-interactive once gone, and back
+         immediately on expand. */
+      .bp-launch-quick{display:flex;align-items:center;gap:3px;overflow:hidden;max-width:120px;opacity:1;visibility:visible;transition:max-width .24s cubic-bezier(.4,0,.2,1),opacity .18s ease,visibility 0s 0s}
+      .bp-launcher.open .bp-launch-quick{max-width:0;opacity:0;visibility:hidden;transition:max-width .24s cubic-bezier(.4,0,.2,1),opacity .18s ease,visibility 0s .24s}
+      .bp-launch-action{flex:0 0 auto;width:34px;height:34px;border:0;background:transparent;color:var(--muted);border-radius:50%;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:background .14s ease,color .14s ease}
+      .bp-launch-action:hover{background:var(--panel-elev);color:var(--accent)}
+      .bp-launch-div{flex:0 0 auto;width:1px;height:22px;background:var(--panel-border);margin:0 3px}
+      .bp-launch-main{display:flex;align-items:center;gap:9px;height:38px;padding:0 10px 0 9px;background:transparent;border:0;color:var(--text);font-family:inherit;font-size:13.5px;font-weight:550;cursor:pointer;border-radius:19px;transition:background .14s ease}
+      .bp-launch-main:hover{background:var(--panel-elev)}
+      /* Styled tooltips for the launcher buttons, above each on hover. */
+      [data-tip]{position:relative}
+      [data-tip]::after{content:attr(data-tip);position:absolute;bottom:calc(100% + 8px);left:50%;transform:translateX(-50%) translateY(3px);padding:5px 8px;background:var(--tooltip-bg);color:var(--tooltip-text);font-size:11.5px;font-weight:500;line-height:1;white-space:nowrap;border-radius:6px;box-shadow:0 6px 18px rgba(0,0,0,.28);opacity:0;pointer-events:none;transition:opacity .12s ease,transform .12s ease}
+      [data-tip]:hover::after{opacity:1;transform:translateX(-50%) translateY(0)}
       .bp-count{display:inline-flex;align-items:center;justify-content:center;min-width:20px;height:20px;padding:0 6px;border-radius:10px;font-size:11.5px;font-weight:600}
       .bp-count.solid{background:var(--accent);color:var(--on-accent)}
       .bp-count.soft{background:var(--accent-soft);color:var(--accent)}
@@ -311,7 +325,7 @@
       .bp-ghost:hover{background:var(--chip-bg);color:var(--text)}
       .bp-primary{height:30px;padding:0 13px;margin-left:4px;background:var(--accent);color:var(--on-accent);border:0;border-radius:8px;font-family:inherit;font-size:12.5px;font-weight:500;cursor:pointer}
 
-      .bp-actions{flex:0 0 auto;display:flex;gap:8px;padding:10px 14px 12px}
+      .bp-actions{flex:0 0 auto;display:flex;gap:8px;padding:0 14px 12px}
       .bp-action{flex:1;height:38px;display:flex;align-items:center;justify-content:center;gap:7px;border-radius:10px;font-family:inherit;font-size:13px;font-weight:500;cursor:pointer;border:1px solid var(--field-border);background:var(--panel-elev);color:var(--text);transition:background .15s ease,border-color .15s ease,color .15s ease}
       .bp-action:hover{border-color:var(--faint)}
       .bp-action.active{background:var(--accent-soft);color:var(--accent);border-color:var(--accent)}
@@ -321,7 +335,8 @@
       .bp-error button{margin-left:auto;background:transparent;border:0;color:var(--danger);font-family:inherit;font-size:12px;font-weight:600;cursor:pointer;border-radius:6px;padding:3px 6px}
       .bp-error button:hover{background:color-mix(in srgb,var(--danger) 14%,transparent)}
 
-      .bp-empty{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:22px 26px 28px;gap:4px}
+      .bp-empty-anim{flex:0 0 auto;overflow:hidden;transition:max-height .27s cubic-bezier(.4,0,.2,1),opacity .2s ease}
+      .bp-empty{display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:22px 26px 28px;gap:4px}
       .bp-empty-icon{width:42px;height:42px;border-radius:12px;background:var(--panel-elev);border:1px solid var(--hairline);display:flex;align-items:center;justify-content:center;color:var(--faint);margin-bottom:8px}
       .bp-empty-title{font-size:13.5px;font-weight:550;color:var(--text)}
       .bp-empty-sub{font-size:12.5px;color:var(--muted);line-height:1.5;max-width:210px}
@@ -374,10 +389,17 @@
       .bp-new{margin-top:10px;height:34px;width:100%;background:var(--panel-elev);border:1px solid var(--field-border);border-radius:9px;color:var(--text);font-family:inherit;font-size:13px;font-weight:500;cursor:pointer}
       .bp-new:hover{border-color:var(--accent)}
     </style>
-    <button class="bp-launcher" id="bp-launcher" aria-label="Review" title="Review">
-      <span>Review</span>
-      <span class="bp-count solid" id="bp-launch-count" style="display:none">0</span>
-    </button>
+    <div class="bp-launcher" id="bp-launcher">
+      <div class="bp-launch-quick" id="bp-launch-quick">
+        <button class="bp-launch-action" id="bp-launch-note" aria-label="Add note" data-tip="Add note">${ICON.comment(16)}</button>
+        <button class="bp-launch-action" id="bp-launch-target" aria-label="Pick element" data-tip="Pick element">${ICON.target(16)}</button>
+        <span class="bp-launch-div"></span>
+      </div>
+      <button class="bp-launch-main" id="bp-launch-main" aria-label="Review">
+        <span>Review</span>
+        <span class="bp-count solid" id="bp-launch-count" style="display:none">0</span>
+      </button>
+    </div>
     <div class="bp-panel" id="bp-panel" style="display:none">
       <div class="bp-header">
         <span class="bp-title">Review</span>
@@ -400,13 +422,21 @@
             </div>
           </div>
         </div>
+        <div class="bp-empty-anim" id="bp-empty-anim" style="max-height:0;opacity:0">
+          <div style="overflow:hidden;min-height:0">
+            <div class="bp-empty" id="bp-empty">
+              <div class="bp-empty-icon">${ICON.comment(20)}</div>
+              <div class="bp-empty-title">No comments yet</div>
+              <div class="bp-empty-sub">Add a note, or pick an element on the page to anchor your feedback.</div>
+            </div>
+          </div>
+        </div>
+        <div class="bp-actions">
+          <button class="bp-action" id="general" aria-pressed="false">${ICON.comment(15)}<span>Add note</span><span class="bp-kbd" aria-hidden="true">C</span></button>
+          <button class="bp-action" id="target" aria-pressed="false">${ICON.target(15)}<span>Pick element</span><span class="bp-kbd" aria-hidden="true">T</span></button>
+        </div>
         <div class="bp-error" id="bp-error" style="display:none"></div>
         <div id="bp-body">
-          <div class="bp-empty" id="bp-empty" style="display:none">
-            <div class="bp-empty-icon">${ICON.comment(20)}</div>
-            <div class="bp-empty-title">No comments yet</div>
-            <div class="bp-empty-sub">Add a note, or pick an element on the page to anchor your feedback.</div>
-          </div>
           <div class="bp-list-wrap" id="bp-list-wrap" style="display:none">
             <div class="bp-list-anim" id="bp-list-anim" style="max-height:0;opacity:0">
               <div style="overflow:hidden;min-height:0">
@@ -414,10 +444,6 @@
               </div>
             </div>
           </div>
-        </div>
-        <div class="bp-actions">
-          <button class="bp-action" id="general" aria-pressed="false">${ICON.comment(15)}<span>Add note</span><span class="bp-kbd" aria-hidden="true">C</span></button>
-          <button class="bp-action" id="target" aria-pressed="false">${ICON.target(15)}<span>Pick element</span><span class="bp-kbd" aria-hidden="true">T</span></button>
         </div>
         <div class="bp-footer" id="bp-footer" style="display:none">
           <div class="bp-footer-row" id="bp-footer-main">
@@ -507,7 +533,8 @@
   const composeHead = $('bp-compose-head');
   const textareaNode = $('bp-textarea');
   const errorNode = $('bp-error');
-  const emptyNode = $('bp-empty');
+  const emptyAnim = $('bp-empty-anim');
+  const launchQuick = $('bp-launch-quick');
   const listWrap = $('bp-list-wrap');
   const listAnim = $('bp-list-anim');
   const listNode = $('bp-list');
@@ -593,6 +620,15 @@
     if (hl.label) {
       hlLabel.style.display = 'inline-flex';
       hlLabel.textContent = hl.label;
+      // The label normally sits just above the box's left corner; when the box hugs an
+      // edge of the viewport that placement clips off-screen, so flip to the other side.
+      // Vertical: drop below the box when there's no room above.
+      hlLabel.style.top = hl.top >= 26 ? '-25px' : hl.height + 4 + 'px';
+      // Horizontal: anchor to the box's right edge (extending left) when a left-anchored
+      // label would run off the right of the viewport.
+      const overflowRight = hl.left - 2 + hlLabel.offsetWidth > window.innerWidth;
+      hlLabel.style.left = overflowRight ? 'auto' : '-2px';
+      hlLabel.style.right = overflowRight ? '-2px' : 'auto';
     } else {
       hlLabel.style.display = 'none';
     }
@@ -768,7 +804,14 @@
 
     // While picking an element, hide the whole widget (launcher + panel) so it does
     // not obscure the page; the scrim + toast are the only pick-mode UI.
-    $('bp-launcher').style.display = state.target ? 'none' : '';
+    const launcherNode = $('bp-launcher');
+    launcherNode.style.display = state.target ? 'none' : '';
+    // The launcher's quick actions duplicate the in-panel ones, so hide them (keeping
+    // only the Review toggle) whenever the panel is open.
+    launcherNode.classList.toggle('open', state.open);
+    // Clip the quick actions while they collapse; once expanded and idle, allow overflow
+    // so their hover tooltips can escape upward (see the transitionend handler).
+    if (state.open) launchQuick.style.overflow = 'hidden';
     panelNode.style.display = state.open && !state.target ? 'flex' : 'none';
     if (!state.open || state.target) return;
 
@@ -817,7 +860,12 @@
     }
 
     // empty vs list
-    emptyNode.style.display = n === 0 && !state.composing ? 'flex' : 'none';
+    // Animate the empty state the same way the composer/list do, so cancelling a compose
+    // on an empty panel cross-fades (composer slides out as this slides in) instead of
+    // the empty state popping back instantly mid-animation.
+    const showEmpty = n === 0 && !state.composing;
+    emptyAnim.style.maxHeight = showEmpty ? '220px' : '0px';
+    emptyAnim.style.opacity = showEmpty ? '1' : '0';
     listWrap.style.display = n > 0 ? 'flex' : 'none';
     listAnim.style.maxHeight = state.listExpanded ? '260px' : '0px';
     listAnim.style.opacity = state.listExpanded ? '1' : '0';
@@ -1307,7 +1355,17 @@
   };
 
   // ---- static bindings (persistent nodes) ----
-  $('bp-launcher').addEventListener('click', togglePanel);
+  $('bp-launch-main').addEventListener('click', togglePanel);
+  $('bp-launch-note').addEventListener('click', openNoteComposer);
+  $('bp-launch-target').addEventListener('click', toggleTarget);
+  // The launcher starts expanded (panel closed), so allow tooltip overflow now; it is
+  // re-clipped on collapse and re-opened here once the expand transition finishes.
+  launchQuick.style.overflow = 'visible';
+  launchQuick.addEventListener('transitionend', (event) => {
+    if (event.propertyName === 'max-width' && !state.open) {
+      launchQuick.style.overflow = 'visible';
+    }
+  });
   $('bp-close').addEventListener('click', togglePanel);
   generalBtn.addEventListener('click', toggleNote);
   targetBtn.addEventListener('click', toggleTarget);
