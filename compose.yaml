@@ -54,6 +54,29 @@ services:
       - traefik.http.services.mailpit-${COMPOSE_PROJECT_NAME}.loadbalancer.server.port=8025
 ###< symfony/mailer ###
 
+###> symfony/mercure-bundle ###
+  # In-memory Mercure hub (no history — best-effort delivery by design).
+  # Reached internally by php-fpm at http://mercure, publicly via Traefik at
+  # mercure.${COMPOSE_PROJECT_NAME}.dev.localhost.
+  mercure:
+    image: dunglas/mercure
+    restart: unless-stopped
+    environment:
+      SERVER_NAME: ':80'
+      MERCURE_PUBLISHER_JWT_KEY: '${MERCURE_JWT_SECRET:-ChangeThisMercureDevSecretChangeThisMercureDev}'
+      MERCURE_SUBSCRIBER_JWT_KEY: '${MERCURE_JWT_SECRET:-ChangeThisMercureDevSecretChangeThisMercureDev}'
+    networks:
+      - traefik
+      - default
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.mercure-${COMPOSE_PROJECT_NAME}.rule=Host(`mercure.${COMPOSE_PROJECT_NAME}.dev.localhost`)
+      - traefik.http.routers.mercure-${COMPOSE_PROJECT_NAME}.entrypoints=websecure
+      - traefik.http.routers.mercure-${COMPOSE_PROJECT_NAME}.tls=true
+      - traefik.http.routers.mercure-${COMPOSE_PROJECT_NAME}.tls.certresolver=stepca
+      - traefik.http.services.mercure-${COMPOSE_PROJECT_NAME}.loadbalancer.server.port=80
+###< symfony/mercure-bundle ###
+
 ###> doctrine/doctrine-bundle ###
   database:
     image: postgres:${POSTGRES_VERSION:-16}-alpine

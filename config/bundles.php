@@ -20,4 +20,5 @@ return [
     Ubermuda\DoctrineExtra\UbermudaDoctrineExtraBundle::class => ['all' => true],
     Ubermuda\SymfonyExtra\UbermudaSymfonyExtraBundle::class => ['all' => true],
     Symfony\AI\McpBundle\McpBundle::class => ['all' => true],
+    Symfony\Bundle\MercureBundle\MercureBundle::class => ['all' => true],
 ];

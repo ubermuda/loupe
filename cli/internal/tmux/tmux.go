@@ -1,0 +1,63 @@
+// Package tmux drives a local tmux session: checking it exists, spawning one
+// running `claude`, and injecting text into it.
+package tmux
+
+import (
+	"fmt"
+	"os"
+	"os/exec"
+	"strings"
+)
+
+// Available reports whether the tmux binary is on PATH.
+func Available() bool {
+	_, err := exec.LookPath("tmux")
+
+	return err == nil
+}
+
+// SessionName returns the session portion of a "session:window.pane" target.
+func SessionName(target string) string {
+	if i := strings.IndexAny(target, ":."); i >= 0 {
+		return target[:i]
+	}
+
+	return target
+}
+
+// HasSession reports whether the session in target exists. target may be a bare
+// session name or a "session:window.pane" target; only the session is checked.
+func HasSession(target string) bool {
+	return exec.Command("tmux", "has-session", "-t", SessionName(target)).Run() == nil
+}
+
+// Spawn creates a detached session named session, running `claude` in dir.
+//
+// claude is launched through an interactive shell (`$SHELL -i -c claude`) so the
+// user's aliases, shell functions, and rc-defined PATH are honored — tmux would
+// otherwise exec `claude` directly via PATH, bypassing shell aliases.
+func Spawn(session, dir string) error {
+	shell := os.Getenv("SHELL")
+	if shell == "" {
+		shell = "/bin/sh"
+	}
+	if err := exec.Command("tmux", "new-session", "-d", "-s", session, "-c", dir, shell, "-i", "-c", "claude").Run(); err != nil {
+		return fmt.Errorf("create tmux session: %w", err)
+	}
+
+	return nil
+}
+
+// Send injects text into target followed by Enter. text is sent literally (-l)
+// and Enter separately, so arbitrary review content is never interpreted as a
+// tmux key name (e.g. "Enter", ";", "C-c").
+func Send(target, text string) error {
+	if err := exec.Command("tmux", "send-keys", "-t", target, "-l", "--", text).Run(); err != nil {
+		return fmt.Errorf("send text: %w", err)
+	}
+	if err := exec.Command("tmux", "send-keys", "-t", target, "Enter").Run(); err != nil {
+		return fmt.Errorf("send Enter: %w", err)
+	}
+
+	return nil
+}
