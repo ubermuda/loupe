@@ -11,7 +11,7 @@ use App\Module\SiteReview\Command\CommentNotFound;
 use App\Module\SiteReview\Command\UpdateCommentCommand;
 use App\Module\SiteReview\Command\UpdateCommentHandler;
 use App\Module\SiteReview\Entity\Site;
-use App\Module\SiteReview\Entity\SiteReviewStatus;
+use App\Module\SiteReview\Entity\SiteReviewComment;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 
@@ -39,17 +39,21 @@ final class UpdateCommentHandlerTest extends KernelTestCase
     {
         $site = $this->site('upd-a@example.com');
         $comment = ($this->addHandler)(new AddCommentCommand($site, 'orig', '', '', 'https://app/x'));
+        $commentId = $comment->id ?? throw new \LogicException('comment id must not be null');
 
-        $updated = ($this->handler)(new UpdateCommentCommand($site, $comment->id ?? throw new \LogicException('comment id must not be null'), 'edited'));
+        ($this->handler)(new UpdateCommentCommand($site, $commentId, 'edited'));
 
-        self::assertSame('edited', $updated->body);
+        $this->em->clear();
+        $persisted = $this->em->find(SiteReviewComment::class, $commentId);
+        self::assertNotNull($persisted);
+        self::assertSame('edited', $persisted->body);
     }
 
     public function test_submitted_comment_is_not_editable(): void
     {
         $site = $this->site('upd-b@example.com');
         $comment = ($this->addHandler)(new AddCommentCommand($site, 'orig', '', '', 'https://app/x'));
-        $comment->review->status = SiteReviewStatus::Submitted;
+        $comment->review->markSubmitted();
         $this->em->flush();
 
         $this->expectException(CommentNotFound::class);

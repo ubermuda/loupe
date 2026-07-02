@@ -52,8 +52,7 @@ final class AddCommentHandlerTest extends KernelTestCase
     {
         $site = $this->site('add-c@example.com');
         $first = ($this->handler)(new AddCommentCommand($site, 'one', '', '', 'https://app/x'));
-        $first->review->status = SiteReviewStatus::Submitted;
-        $first->review->submittedAt = new \DateTimeImmutable();
+        $first->review->markSubmitted();
         $this->em->flush();
 
         $next = ($this->handler)(new AddCommentCommand($site, 'two', '', '', 'https://app/y'));

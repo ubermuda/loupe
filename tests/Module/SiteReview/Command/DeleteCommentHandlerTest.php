@@ -12,7 +12,6 @@ use App\Module\SiteReview\Command\DeleteCommentCommand;
 use App\Module\SiteReview\Command\DeleteCommentHandler;
 use App\Module\SiteReview\Entity\Site;
 use App\Module\SiteReview\Entity\SiteReviewComment;
-use App\Module\SiteReview\Entity\SiteReviewStatus;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 
@@ -52,7 +51,7 @@ final class DeleteCommentHandlerTest extends KernelTestCase
     {
         $site = $this->site('del-b@example.com');
         $comment = ($this->addHandler)(new AddCommentCommand($site, 'orig', '', '', 'https://app/x'));
-        $comment->review->status = SiteReviewStatus::Submitted;
+        $comment->review->markSubmitted();
         $this->em->flush();
 
         $this->expectException(CommentNotFound::class);

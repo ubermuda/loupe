@@ -7,7 +7,6 @@ namespace App\Module\SiteReview\Command;
 use App\Exception\DomainErrors;
 use App\Module\SiteReview\Entity\SiteReview;
 use App\Module\SiteReview\Entity\SiteReviewComment;
-use App\Module\SiteReview\Entity\SiteReviewStatus;
 use App\Module\SiteReview\Repository\SiteReviewRepository;
 use App\Module\SiteReview\Service\SiteReviewTopicBuilder;
 use Doctrine\ORM\EntityManagerInterface;
@@ -33,8 +32,7 @@ final readonly class SubmitReviewHandler
             throw new DomainErrors(['review' => 'site_review.error.nothing_to_submit']);
         }
 
-        $review->status = SiteReviewStatus::Submitted;
-        $review->submittedAt = new \DateTimeImmutable();
+        $review->markSubmitted();
         $this->em->flush();
 
         $this->publish($review);
@@ -52,7 +50,7 @@ final readonly class SubmitReviewHandler
     {
         $site = $review->site;
         $topic = $this->topicBuilder->forSite(
-            $site->id ?? throw new \LogicException('Site has no id after flush.'),
+            $site->id ?? throw new \LogicException('Managed site has no id.'),
         );
 
         $urls = array_values(array_unique(

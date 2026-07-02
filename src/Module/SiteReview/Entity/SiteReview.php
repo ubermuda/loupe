@@ -44,6 +44,12 @@ class SiteReview
         $this->comments = new ArrayCollection();
     }
 
+    public function markSubmitted(): void
+    {
+        $this->status = SiteReviewStatus::Submitted;
+        $this->submittedAt = new \DateTimeImmutable();
+    }
+
     public function addComment(string $body, string $selector, string $text, string $url): SiteReviewComment
     {
         // max+1, not count(): after a delete-then-add, count() would reuse an

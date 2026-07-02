@@ -7,12 +7,14 @@ namespace App\Module\SiteReview\Command;
 use App\Module\SiteReview\Entity\SiteReviewComment;
 use App\Module\SiteReview\Repository\SiteReviewCommentRepository;
 use Doctrine\ORM\EntityManagerInterface;
+use Psr\Log\LoggerInterface;
 
 final readonly class UpdateCommentHandler
 {
     public function __construct(
         private SiteReviewCommentRepository $siteReviewComments,
         private EntityManagerInterface $em,
+        private LoggerInterface $logger,
     ) {
     }
 
@@ -23,6 +25,11 @@ final readonly class UpdateCommentHandler
 
         $comment->body = $command->body;
         $this->em->flush();
+
+        $this->logger->info('site_review.comment.updated', [
+            'siteId' => (string) $command->site->id,
+            'commentId' => (string) $command->commentId,
+        ]);
 
         return $comment;
     }

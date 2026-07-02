@@ -81,8 +81,7 @@ final class SiteReviewPersistenceTest extends KernelTestCase
         $site = $this->site('many-submitted@example.com');
         foreach ([1, 2] as $i) {
             $review = new SiteReview($site);
-            $review->status = SiteReviewStatus::Submitted;
-            $review->submittedAt = new \DateTimeImmutable();
+            $review->markSubmitted();
             $this->em->persist($review);
         }
         $this->em->flush();
@@ -96,8 +95,7 @@ final class SiteReviewPersistenceTest extends KernelTestCase
     {
         $site = $this->site('after-submit@example.com');
         $submitted = new SiteReview($site);
-        $submitted->status = SiteReviewStatus::Submitted;
-        $submitted->submittedAt = new \DateTimeImmutable();
+        $submitted->markSubmitted();
         $this->em->persist($submitted);
         $this->em->flush();
 
