@@ -14,8 +14,6 @@ use Symfony\Component\Uid\Uuid;
  * the publisher (SubmitReviewHandler) and the subscriber-JWT issuer
  * (StreamCredentialsController) — so the topic string is guaranteed to match
  * regardless of the configured base URL.
- *
- * forUser() is the legacy per-user topic and will be removed in Task 7.
  */
 final readonly class SiteReviewTopicBuilder
 {
@@ -23,11 +21,6 @@ final readonly class SiteReviewTopicBuilder
         #[Autowire(param: 'app.url')]
         private string $appUrl,
     ) {
-    }
-
-    public function forUser(Uuid $userId): string
-    {
-        return rtrim($this->appUrl, '/').'/users/'.$userId.'/site-reviews';
     }
 
     public function forSite(Uuid $siteId): string

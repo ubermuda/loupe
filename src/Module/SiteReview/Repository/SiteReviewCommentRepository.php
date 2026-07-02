@@ -69,6 +69,7 @@ class SiteReviewCommentRepository extends ServiceEntityRepository
     {
         return $this->createQueryBuilder('c')
             ->join('c.review', 'r')
+            ->addSelect('r')
             ->join('r.site', 's')
             ->andWhere('c.id = :id')
             ->andWhere('s.owner = :owner')

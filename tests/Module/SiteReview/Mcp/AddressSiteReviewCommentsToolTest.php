@@ -85,7 +85,8 @@ final class AddressSiteReviewCommentsToolTest extends KernelTestCase
         self::assertContains((string) $id1, $result['addressed']);
         self::assertContains((string) $id2, $result['addressed']);
 
-        // Verify DB state.
+        // Verify DB state. The MCP layer structurally never assigns Resolved —
+        // only Addressed — so asserting Addressed here also covers that invariant.
         $this->em->clear();
         $c1 = $this->em->find(SiteReviewComment::class, $id1);
         $c2 = $this->em->find(SiteReviewComment::class, $id2);
@@ -128,7 +129,7 @@ final class AddressSiteReviewCommentsToolTest extends KernelTestCase
 
         $this->actAs($user);
         $result = ($this->tool)([
-            (string) $resolvedId, // not_pending
+            (string) $resolvedId, // resolved
             $randomUuid,           // unknown
             'not-a-uuid',          // invalid_id
             (string) $draftId,     // not_submitted
@@ -142,12 +143,12 @@ final class AddressSiteReviewCommentsToolTest extends KernelTestCase
             $skippedByReason[$s['reason']] = $s['id'];
         }
 
-        self::assertArrayHasKey('not_pending', $skippedByReason);
+        self::assertArrayHasKey('resolved', $skippedByReason);
         self::assertArrayHasKey('unknown', $skippedByReason);
         self::assertArrayHasKey('invalid_id', $skippedByReason);
         self::assertArrayHasKey('not_submitted', $skippedByReason);
 
-        self::assertSame((string) $resolvedId, $skippedByReason['not_pending']);
+        self::assertSame((string) $resolvedId, $skippedByReason['resolved']);
         self::assertSame($randomUuid, $skippedByReason['unknown']);
         self::assertSame('not-a-uuid', $skippedByReason['invalid_id']);
         self::assertSame((string) $draftId, $skippedByReason['not_submitted']);
@@ -186,36 +187,5 @@ final class AddressSiteReviewCommentsToolTest extends KernelTestCase
         $refetched = $this->em->find(SiteReviewComment::class, $commentId);
         self::assertNotNull($refetched);
         self::assertSame(SiteReviewCommentStatus::Pending, $refetched->status);
-    }
-
-    public function test_never_resolves(): void
-    {
-        $email = 'addr-never@example.com';
-        [$site, $review] = $this->siteWithSubmittedReview($email, 'addr-never-site');
-        $user = $site->owner;
-
-        $comments = $review->comments->toArray();
-        self::assertCount(2, $comments);
-
-        $id1 = $comments[0]->id;
-        $id2 = $comments[1]->id;
-        self::assertNotNull($id1);
-        self::assertNotNull($id2);
-
-        $this->actAs($user);
-        $result = ($this->tool)([(string) $id1, (string) $id2]);
-
-        self::assertCount(2, $result['addressed']);
-
-        // After addressing, status must be Addressed — never Resolved.
-        $this->em->clear();
-        $c1 = $this->em->find(SiteReviewComment::class, $id1);
-        $c2 = $this->em->find(SiteReviewComment::class, $id2);
-        self::assertNotNull($c1);
-        self::assertNotNull($c2);
-        self::assertSame(SiteReviewCommentStatus::Addressed, $c1->status);
-        self::assertSame(SiteReviewCommentStatus::Addressed, $c2->status);
-        self::assertNotSame(SiteReviewCommentStatus::Resolved, $c1->status);
-        self::assertNotSame(SiteReviewCommentStatus::Resolved, $c2->status);
     }
 }

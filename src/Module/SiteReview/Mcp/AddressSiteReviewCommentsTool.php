@@ -57,7 +57,7 @@ final readonly class AddressSiteReviewCommentsTool
                 continue;
             }
             if (SiteReviewCommentStatus::Pending !== $comment->status) {
-                $skipped[] = ['id' => $id, 'reason' => 'not_pending'];
+                $skipped[] = ['id' => $id, 'reason' => SiteReviewCommentStatus::Addressed === $comment->status ? 'already_addressed' : 'resolved'];
                 continue;
             }
 
