@@ -553,6 +553,10 @@
                 <source>nav.brand</source>
                 <target>Better Plans</target>
             </trans-unit>
+            <trans-unit id="nav.link.projects">
+                <source>nav.link.projects</source>
+                <target>Projects</target>
+            </trans-unit>
             <trans-unit id="nav.link.documents">
                 <source>nav.link.documents</source>
                 <target>Documents</target>

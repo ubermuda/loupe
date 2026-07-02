@@ -27,17 +27,17 @@ final class NavAndMcpCardTest extends WebTestCase
         return $user;
     }
 
-    public function test_authenticated_user_sees_nav_links_on_dashboard(): void
+    public function test_authenticated_user_sees_nav_links_on_projects_page(): void
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
         $user = $this->createVerifiedUser($em, 'navtest', 'navtest@example.com');
 
         $client->loginUser($user);
-        $client->request(Request::METHOD_GET, '/documents');
+        $client->request(Request::METHOD_GET, '/projects');
 
         self::assertResponseIsSuccessful();
-        self::assertSelectorExists('a[href="/documents"]');
+        self::assertSelectorExists('a[href="/projects"]');
         self::assertSelectorExists('a[href="/account/api-tokens"]');
         self::assertSelectorExists('a[href="/logout"]');
     }
@@ -52,7 +52,7 @@ final class NavAndMcpCardTest extends WebTestCase
         $client->request(Request::METHOD_GET, '/account/api-tokens');
 
         self::assertResponseIsSuccessful();
-        self::assertSelectorExists('a[href="/documents"]');
+        self::assertSelectorExists('a[href="/projects"]');
         self::assertSelectorExists('a[href="/account/api-tokens"]');
         self::assertSelectorExists('a[href="/logout"]');
     }

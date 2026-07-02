@@ -206,3 +206,24 @@ a unique constraint or `SELECT … FOR UPDATE` if project-bound tokens multiply.
 the `site_review.site.token.*` translation-key family (template ↔ controller
 pairs are consistent). Rename both to `project.*` when the Connect page (Loop
 redesign PR 4) takes over the token UI.
+
+## E2E specs still reference the pre-/projects URL space
+
+The route restructure (Loop redesign PR 1, Task 4) moved the web URL space
+under `/projects/...` and changed the post-login landing (HomeController now
+redirects to `app_projects` or `app_project_documents`, never `/documents`).
+Several Playwright specs still hardcode the old paths and will fail the PR-gate
+`just e2e` until updated:
+
+- `e2e/tests/account/{login,email-verification,forgot-password}.spec.ts` — assert
+  `toHaveURL('/documents')` after auth; new landing is `/projects` (0 projects)
+  or `/projects/{id}/documents` (exactly 1).
+- `e2e/tests/review/review-loop.spec.ts` — navigates to `/documents` and builds
+  `reviewUrl` as `/documents/${id}/review`; the review URL now needs the project
+  id (`/projects/{projectId}/documents/{documentId}/review`). The `/dev/seed/document`
+  endpoint may need to return the project id for the spec to build the URL.
+- `e2e/tests/site-review/site-page.spec.ts` — uses `/documents` and
+  `/site-review/sites`; now `/projects` and `/projects/{id}/site-review`.
+
+Task 4's commit scope deliberately excluded `e2e/`; fold these fixes into the
+task/step that runs `just e2e` before opening the PR.

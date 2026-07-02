@@ -9,7 +9,7 @@
     </div>
 
     <div class="bp-card mb-6">
-        {{ form_start(form, {'action': path('app_site_review_site_create'), 'method': 'POST', 'attr': {'class': 'bp-form'}}) }}
+        {{ form_start(form, {'action': path('app_project_create'), 'method': 'POST', 'attr': {'class': 'bp-form'}}) }}
             <div class="bp-form-field">
                 {{ form_label(form.name, null, {'label_attr': {'class': 'bp-label'}}) }}
                 {{ form_widget(form.name, {'attr': {'class': 'bp-input'}}) }}
@@ -31,7 +31,7 @@
         {% for project in projects %}
         <div class="bp-doc-row" data-project-id="{{ project.id }}">
             <div class="bp-doc-row__main">
-                <a href="{{ path('app_site_review_site', {id: project.id}) }}" class="bp-doc-row__title bp-doc-row__title--stretched">{{ project.name }}</a>
+                <a href="{{ path('app_project_documents', {id: project.id}) }}" class="bp-doc-row__title bp-doc-row__title--stretched">{{ project.name }}</a>
                 <div class="bp-doc-row__meta">
                     {% if project.domain %}
                     <span>{{ project.domain }}</span>

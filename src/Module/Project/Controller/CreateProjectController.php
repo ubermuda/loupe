@@ -19,8 +19,8 @@ use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Contracts\Translation\TranslatorInterface;
 
 #[Route(
-    '/site-review/sites',
-    name: 'app_site_review_site_create',
+    '/projects',
+    name: 'app_project_create',
     methods: ['POST'],
 )]
 class CreateProjectController extends AppController
@@ -49,7 +49,7 @@ class CreateProjectController extends AppController
                     domain: trim($data->domain ?? '') ?: null,
                 ));
 
-                return $this->redirectToRoute('app_site_review_sites');
+                return $this->redirectToRoute('app_projects');
             } catch (DomainErrors $e) {
                 foreach ($e->errors as $field => $translationKey) {
                     $form->get($field)->addError(new FormError($this->translator->trans($translationKey)));

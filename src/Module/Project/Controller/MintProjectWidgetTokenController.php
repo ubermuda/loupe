@@ -19,8 +19,8 @@ use Ubermuda\SymfonyExtra\Csrf\Attribute\CsrfToken;
 #[CsrfToken('mint-site-token')]
 #[IsGranted(ProjectVoter::MANAGE, subject: 'project')]
 #[Route(
-    '/site-review/sites/{id:project}/token',
-    name: 'app_site_review_site_token_mint',
+    '/projects/{id:project}/widget-token',
+    name: 'app_project_widget_token_mint',
     methods: ['POST'],
 )]
 class MintProjectWidgetTokenController extends AppController
@@ -46,6 +46,6 @@ class MintProjectWidgetTokenController extends AppController
             }
         }
 
-        return $this->redirectToRoute('app_site_review_site', ['id' => (string) $project->id]);
+        return $this->redirectToRoute('app_project_site_review', ['id' => (string) $project->id]);
     }
 }

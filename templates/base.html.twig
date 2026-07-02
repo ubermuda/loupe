@@ -29,15 +29,10 @@
                     <span class="bp-sidebar__brand-name">{{ 'nav.brand'|trans }}</span>
                 </a>
                 <nav class="bp-sidebar__nav">
-                    <a href="{{ path('app_documents') }}" data-tooltip="{{ 'nav.link.documents'|trans }}"
-                       class="bp-sidebar__link{% if app.request.attributes.get('_route') starts with 'app_document' %} bp-sidebar__link--active{% endif %}">
-                        <twig:ux:icon name="lucide:files" />
-                        <span class="bp-sidebar__link-label">{{ 'nav.link.documents'|trans }}</span>
-                    </a>
-                    <a href="{{ path('app_site_review_sites') }}" data-tooltip="{{ 'nav.link.site_reviews'|trans }}"
-                       class="bp-sidebar__link{% if app.request.attributes.get('_route') starts with 'app_site_review_site' %} bp-sidebar__link--active{% endif %}">
-                        <twig:ux:icon name="lucide:globe" />
-                        <span class="bp-sidebar__link-label">{{ 'nav.link.site_reviews'|trans }}</span>
+                    <a href="{{ path('app_projects') }}" data-tooltip="{{ 'nav.link.projects'|trans }}"
+                       class="bp-sidebar__link{% if app.request.attributes.get('_route') starts with 'app_project' %} bp-sidebar__link--active{% endif %}">
+                        <twig:ux:icon name="lucide:folder" />
+                        <span class="bp-sidebar__link-label">{{ 'nav.link.projects'|trans }}</span>
                     </a>
                     <a href="{{ path('app_api_tokens') }}" data-tooltip="{{ 'nav.link.api_tokens'|trans }}"
                        class="bp-sidebar__link{% if app.request.attributes.get('_route') == 'app_api_tokens' %} bp-sidebar__link--active{% endif %}">

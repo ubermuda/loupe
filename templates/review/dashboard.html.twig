@@ -19,7 +19,7 @@
         {% for document in documents %}
         <div class="bp-doc-row" data-document-id="{{ document.id }}">
             <div class="bp-doc-row__main">
-                <a href="{{ path('app_document_review', {id: document.id}) }}" class="bp-doc-row__title bp-doc-row__title--stretched">{{ document.title }}</a>
+                <a href="{{ path('app_document_review', {projectId: project.id, documentId: document.id}) }}" class="bp-doc-row__title bp-doc-row__title--stretched">{{ document.title }}</a>
                 <div class="bp-doc-row__meta">
                     <span>{{ document.createdAt|date('M j, Y') }}</span>
                     {# tag chips slot — populated when tags ship; intentionally empty for now #}

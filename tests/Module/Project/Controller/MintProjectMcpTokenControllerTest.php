@@ -29,10 +29,10 @@ final class MintProjectMcpTokenControllerTest extends WebTestCase
         $em->clear();
 
         $client->loginUser($owner);
-        $client->request(Request::METHOD_GET, '/site-review/sites/'.$projectId);
+        $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/site-review');
         $client->submitForm('Mint MCP token');
 
-        self::assertResponseRedirects('/site-review/sites/'.$projectId);
+        self::assertResponseRedirects('/projects/'.$projectId.'/site-review');
         $em->clear();
         $fresh = $em->find(Project::class, $projectId);
         self::assertInstanceOf(Project::class, $fresh);
@@ -49,7 +49,7 @@ final class MintProjectMcpTokenControllerTest extends WebTestCase
         self::assertTrue($fresh->mcpToken->matches($matches[0]), 'flashed raw token must match the stored hash');
 
         // ...and gone on the next request.
-        $client->request(Request::METHOD_GET, '/site-review/sites/'.$projectId);
+        $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/site-review');
         self::assertStringNotContainsString($matches[0], (string) $client->getResponse()->getContent());
     }
 
@@ -67,8 +67,8 @@ final class MintProjectMcpTokenControllerTest extends WebTestCase
         $client->loginUser($other);
         // GET a page the non-owner can access to establish BrowserKit history for the
         // same-origin CSRF check, then POST the mint route with the cookie sentinel.
-        $client->request(Request::METHOD_GET, '/site-review/sites');
-        $client->request(Request::METHOD_POST, '/site-review/sites/'.$projectId.'/mcp-token', ['_csrf_token' => 'csrf-token']);
+        $client->request(Request::METHOD_GET, '/projects');
+        $client->request(Request::METHOD_POST, '/projects/'.$projectId.'/mcp-token', ['_csrf_token' => 'csrf-token']);
 
         self::assertResponseStatusCodeSame(403);
         $em->clear();
@@ -88,7 +88,7 @@ final class MintProjectMcpTokenControllerTest extends WebTestCase
         $projectId = $project->id;
 
         $client->loginUser($owner);
-        $client->request(Request::METHOD_GET, '/site-review/sites/'.$projectId);
+        $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/site-review');
         $client->submitForm('Mint MCP token');
         $em->clear();
         $freshAfterFirstMint = $em->find(Project::class, $projectId);
@@ -99,9 +99,9 @@ final class MintProjectMcpTokenControllerTest extends WebTestCase
         // The page now shows Revoke, not Mint — POST the mint route directly to simulate a race.
         // 'csrf-token' is the SameOriginCsrfTokenManager sentinel: the preceding GET establishes
         // BrowserKit history so the Referer header passes the same-origin check automatically.
-        $client->request(Request::METHOD_POST, '/site-review/sites/'.$projectId.'/mcp-token', ['_csrf_token' => 'csrf-token']);
+        $client->request(Request::METHOD_POST, '/projects/'.$projectId.'/mcp-token', ['_csrf_token' => 'csrf-token']);
 
-        self::assertResponseRedirects('/site-review/sites/'.$projectId);
+        self::assertResponseRedirects('/projects/'.$projectId.'/site-review');
         $em->clear();
         $freshAfterSecondMint = $em->find(Project::class, $projectId);
         self::assertInstanceOf(Project::class, $freshAfterSecondMint);
@@ -125,7 +125,7 @@ final class MintProjectMcpTokenControllerTest extends WebTestCase
         $projectId = $project->id;
 
         $client->loginUser($owner);
-        $client->request(Request::METHOD_GET, '/site-review/sites/'.$projectId);
+        $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/site-review');
         $client->submitForm('Mint MCP token');
         $em->clear();
         $fresh = $em->find(Project::class, $projectId);

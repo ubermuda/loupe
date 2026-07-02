@@ -42,17 +42,19 @@ final class DocumentReviewControllerTest extends WebTestCase
         $em = static::getContainer()->get(EntityManagerInterface::class);
 
         $owner = $this->createUser($em, 'owner1', 'owner1@example.com');
+        $project = $this->project($em, $owner);
 
-        $doc = new Document(owner: $owner, project: $this->project($em, $owner), title: 'My Review Doc');
+        $doc = new Document(owner: $owner, project: $project, title: 'My Review Doc');
         $doc->addVersion('# Hello', '<h1>Hello</h1>');
         $em->persist($doc);
         $em->flush();
 
+        $projectId = (string) $project->id;
         $id = (string) $doc->id;
         $em->clear();
 
         $client->loginUser($owner);
-        $client->request(Request::METHOD_GET, '/documents/'.$id.'/review');
+        $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/documents/'.$id.'/review');
 
         self::assertResponseIsSuccessful();
         self::assertSelectorTextContains('body', 'My Review Doc');
@@ -67,24 +69,53 @@ final class DocumentReviewControllerTest extends WebTestCase
         $owner = $this->createUser($em, 'owner2', 'owner2@example.com');
         $other = $this->createUser($em, 'other2', 'other2@example.com');
 
-        $doc = new Document(owner: $owner, project: $this->project($em, $owner), title: 'Owner Only Doc');
+        $project = $this->project($em, $owner);
+        $doc = new Document(owner: $owner, project: $project, title: 'Owner Only Doc');
         $doc->addVersion('# Private', '<h1>Private</h1>');
         $em->persist($doc);
         $em->flush();
 
+        $projectId = (string) $project->id;
         $id = (string) $doc->id;
         $em->clear();
 
         $client->loginUser($other);
-        $client->request(Request::METHOD_GET, '/documents/'.$id.'/review');
+        $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/documents/'.$id.'/review');
 
         self::assertResponseStatusCodeSame(403);
+    }
+
+    public function test_document_under_the_wrong_project_is_not_found(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+
+        $owner = $this->createUser($em, 'owner3', 'owner3@example.com');
+        $projectA = $this->project($em, $owner);
+        $projectB = $this->project($em, $owner);
+
+        $doc = new Document(owner: $owner, project: $projectA, title: 'Belongs To A');
+        $doc->addVersion('# A', '<h1>A</h1>');
+        $em->persist($doc);
+        $em->flush();
+
+        $projectBId = (string) $projectB->id;
+        $id = (string) $doc->id;
+        $em->clear();
+
+        $client->loginUser($owner);
+        $client->request(Request::METHOD_GET, '/projects/'.$projectBId.'/documents/'.$id.'/review');
+
+        self::assertResponseStatusCodeSame(404);
     }
 
     public function test_unauthenticated_user_is_redirected(): void
     {
         $client = static::createClient();
-        $client->request(Request::METHOD_GET, '/documents/00000000-0000-0000-0000-000000000000/review');
+        $client->request(
+            Request::METHOD_GET,
+            '/projects/00000000-0000-0000-0000-000000000000/documents/00000000-0000-0000-0000-000000000000/review',
+        );
 
         self::assertResponseRedirects('/login');
     }

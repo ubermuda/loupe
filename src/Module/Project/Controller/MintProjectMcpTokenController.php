@@ -19,7 +19,7 @@ use Ubermuda\SymfonyExtra\Csrf\Attribute\CsrfToken;
 #[CsrfToken('mint-project-mcp-token')]
 #[IsGranted(ProjectVoter::MANAGE, subject: 'project')]
 #[Route(
-    '/site-review/sites/{id:project}/mcp-token',
+    '/projects/{id:project}/mcp-token',
     name: 'app_project_mcp_token_mint',
     methods: ['POST'],
 )]
@@ -46,6 +46,6 @@ class MintProjectMcpTokenController extends AppController
             }
         }
 
-        return $this->redirectToRoute('app_site_review_site', ['id' => (string) $project->id]);
+        return $this->redirectToRoute('app_project_site_review', ['id' => (string) $project->id]);
     }
 }

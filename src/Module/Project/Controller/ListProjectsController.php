@@ -13,8 +13,8 @@ use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
 
 #[Route(
-    '/site-review/sites',
-    name: 'app_site_review_sites',
+    '/projects',
+    name: 'app_projects',
     methods: ['GET'],
 )]
 class ListProjectsController extends AppController

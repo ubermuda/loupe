@@ -58,7 +58,7 @@ final class SiteReviewsPageTest extends WebTestCase
         $em->clear();
 
         $client->loginUser($owner);
-        $crawler = $client->request(Request::METHOD_GET, '/site-review/sites/'.$project->id);
+        $crawler = $client->request(Request::METHOD_GET, '/projects/'.$project->id.'/site-review');
 
         self::assertResponseIsSuccessful();
         self::assertCount(1, $crawler->filter('[data-review-id="'.$reviewId.'"]'));
@@ -79,12 +79,12 @@ final class SiteReviewsPageTest extends WebTestCase
         $em->clear();
 
         $client->loginUser($owner);
-        $client->request(Request::METHOD_GET, '/site-review/sites/'.$project->id);
+        $client->request(Request::METHOD_GET, '/projects/'.$project->id.'/site-review');
         self::assertResponseIsSuccessful();
 
         $client->submitForm('Resolve');
 
-        self::assertResponseRedirects('/site-review/sites/'.$project->id);
+        self::assertResponseRedirects('/projects/'.$project->id.'/site-review');
 
         $em->clear();
         $fresh = $em->find(SiteReviewComment::class, $commentId);
@@ -109,12 +109,12 @@ final class SiteReviewsPageTest extends WebTestCase
         $em->clear();
 
         $client->loginUser($owner);
-        $client->request(Request::METHOD_GET, '/site-review/sites/'.$project->id);
+        $client->request(Request::METHOD_GET, '/projects/'.$project->id.'/site-review');
         self::assertResponseIsSuccessful();
 
         $client->submitForm('Reopen');
 
-        self::assertResponseRedirects('/site-review/sites/'.$project->id);
+        self::assertResponseRedirects('/projects/'.$project->id.'/site-review');
 
         $em->clear();
         $fresh = $em->find(SiteReviewComment::class, $commentId);
@@ -137,7 +137,7 @@ final class SiteReviewsPageTest extends WebTestCase
 
         // The non-owner needs a valid CSRF context: GET a page they can access.
         $client->loginUser($other);
-        $client->request(Request::METHOD_GET, '/site-review/sites');
+        $client->request(Request::METHOD_GET, '/projects');
         self::assertResponseIsSuccessful();
 
         // Direct POST with the sentinel CSRF token (valid stateless token).
@@ -174,7 +174,7 @@ final class SiteReviewsPageTest extends WebTestCase
         $em->clear();
 
         $client->loginUser($owner);
-        $crawler = $client->request(Request::METHOD_GET, '/site-review/sites/'.$project->id);
+        $crawler = $client->request(Request::METHOD_GET, '/projects/'.$project->id.'/site-review');
 
         self::assertResponseIsSuccessful();
         self::assertCount(1, $crawler->filter('[data-review-id="'.$reviewId.'"]'));
@@ -204,7 +204,7 @@ final class SiteReviewsPageTest extends WebTestCase
         $em->clear();
 
         $client->loginUser($owner);
-        $crawler = $client->request(Request::METHOD_GET, '/site-review/sites/'.$project->id);
+        $crawler = $client->request(Request::METHOD_GET, '/projects/'.$project->id.'/site-review');
 
         self::assertResponseIsSuccessful();
         $commentBlock = $crawler->filter('[data-comment-id="'.$commentId.'"]');
@@ -231,7 +231,7 @@ final class SiteReviewsPageTest extends WebTestCase
         $em->clear();
 
         $client->loginUser($owner);
-        $client->request(Request::METHOD_GET, '/site-review/sites/'.$project->id);
+        $client->request(Request::METHOD_GET, '/projects/'.$project->id.'/site-review');
         self::assertResponseIsSuccessful();
 
         // The UI hides the buttons on drafts -- POST the route directly. The handler
@@ -242,7 +242,7 @@ final class SiteReviewsPageTest extends WebTestCase
             ['_csrf_token' => 'csrf-token'],
         );
 
-        self::assertResponseRedirects('/site-review/sites/'.$project->id);
+        self::assertResponseRedirects('/projects/'.$project->id.'/site-review');
 
         $em->clear();
         $fresh = $em->find(SiteReviewComment::class, $commentId);

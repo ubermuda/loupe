@@ -43,7 +43,10 @@ final class ResolveCommentController extends AppController
         ));
 
         if (TurboBundle::STREAM_FORMAT !== $request->getPreferredFormat()) {
-            return $this->redirectToRoute('app_document_review', ['id' => (string) $comment->version->document->id]);
+            return $this->redirectToRoute('app_document_review', [
+                'projectId' => (string) $comment->version->document->project->id,
+                'documentId' => (string) $comment->version->document->id,
+            ]);
         }
 
         $html = $this->renderView('review/_comment_thread.stream.html.twig', [

@@ -24,7 +24,7 @@ final class ProjectsPageTest extends WebTestCase
         $em->flush();
 
         $client->loginUser($owner);
-        $crawler = $client->request(Request::METHOD_GET, '/site-review/sites');
+        $crawler = $client->request(Request::METHOD_GET, '/projects');
 
         self::assertResponseIsSuccessful();
         self::assertCount(1, $crawler->filter('[data-project-id]'));
@@ -39,13 +39,13 @@ final class ProjectsPageTest extends WebTestCase
         $em->flush();
 
         $client->loginUser($owner);
-        $client->request(Request::METHOD_GET, '/site-review/sites');
+        $client->request(Request::METHOD_GET, '/projects');
         $client->submitForm('Add project', [
             'create_project_form[name]' => 'my-app',
             'create_project_form[domain]' => 'my-app.example.com',
         ]);
 
-        self::assertResponseRedirects('/site-review/sites');
+        self::assertResponseRedirects('/projects');
         $project = static::getContainer()->get(ProjectRepository::class)->findOneByOwnerAndName($owner, 'my-app');
         self::assertNotNull($project);
         self::assertSame('my-app.example.com', $project->domain);
@@ -61,10 +61,10 @@ final class ProjectsPageTest extends WebTestCase
         $em->flush();
 
         $client->loginUser($owner);
-        $client->request(Request::METHOD_GET, '/site-review/sites');
+        $client->request(Request::METHOD_GET, '/projects');
         $client->submitForm('Add project', ['create_project_form[name]' => 'domainless']);
 
-        self::assertResponseRedirects('/site-review/sites');
+        self::assertResponseRedirects('/projects');
         $project = static::getContainer()->get(ProjectRepository::class)->findOneByOwnerAndName($owner, 'domainless');
         self::assertNotNull($project);
         self::assertNull($project->domain);
@@ -79,7 +79,7 @@ final class ProjectsPageTest extends WebTestCase
         $em->flush();
 
         $client->loginUser($owner);
-        $client->request(Request::METHOD_GET, '/site-review/sites');
+        $client->request(Request::METHOD_GET, '/projects');
         $client->submitForm('Add project', ['create_project_form[name]' => 'dup']);
 
         self::assertResponseStatusCodeSame(422);
@@ -96,10 +96,10 @@ final class ProjectsPageTest extends WebTestCase
         $em->flush();
 
         $client->loginUser($b);
-        $client->request(Request::METHOD_GET, '/site-review/sites');
+        $client->request(Request::METHOD_GET, '/projects');
         $client->submitForm('Add project', ['create_project_form[name]' => 'shared-name']);
 
-        self::assertResponseRedirects('/site-review/sites');
+        self::assertResponseRedirects('/projects');
         self::assertNotNull(static::getContainer()->get(ProjectRepository::class)->findOneByOwnerAndName($b, 'shared-name'));
     }
 

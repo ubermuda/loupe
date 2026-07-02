@@ -14,11 +14,11 @@ use Symfony\Component\Security\Http\Attribute\IsGranted;
 
 #[IsGranted(ProjectVoter::VIEW, subject: 'project')]
 #[Route(
-    '/site-review/sites/{id:project}',
-    name: 'app_site_review_site',
+    '/projects/{id:project}/site-review',
+    name: 'app_project_site_review',
     methods: ['GET'],
 )]
-class ShowSiteController extends AppController
+class ShowSiteReviewController extends AppController
 {
     public function __construct(
         private readonly SiteReviewRepository $siteReviews,
@@ -27,7 +27,7 @@ class ShowSiteController extends AppController
 
     public function __invoke(Project $project): Response
     {
-        return $this->render('@SiteReview/sites/show_site.html.twig', [
+        return $this->render('@SiteReview/show_site_review.html.twig', [
             'project' => $project,
             'reviews' => $this->siteReviews->findForProject($project),
         ]);
