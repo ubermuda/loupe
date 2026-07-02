@@ -46,7 +46,14 @@ class SiteReview
 
     public function addComment(string $body, string $selector, string $text, string $url): SiteReviewComment
     {
-        $comment = new SiteReviewComment($this, $this->comments->count(), $body, $selector, $text, $url);
+        // max+1, not count(): after a delete-then-add, count() would reuse an
+        // existing position and make the OrderBy tie order nondeterministic.
+        $position = -1;
+        foreach ($this->comments as $existing) {
+            $position = max($position, $existing->position);
+        }
+
+        $comment = new SiteReviewComment($this, $position + 1, $body, $selector, $text, $url);
         $this->comments->add($comment);
 
         return $comment;

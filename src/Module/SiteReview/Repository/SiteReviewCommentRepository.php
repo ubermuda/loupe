@@ -32,6 +32,7 @@ class SiteReviewCommentRepository extends ServiceEntityRepository
     {
         return $this->createQueryBuilder('c')
             ->join('c.review', 'r')
+            ->addSelect('r')
             ->andWhere('r.site = :site')
             ->andWhere('r.status = :reviewStatus')
             ->andWhere('c.status = :commentStatus')
@@ -39,6 +40,7 @@ class SiteReviewCommentRepository extends ServiceEntityRepository
             ->setParameter('reviewStatus', SiteReviewStatus::Submitted)
             ->setParameter('commentStatus', SiteReviewCommentStatus::Pending)
             ->orderBy('r.submittedAt', 'ASC')
+            ->addOrderBy('r.createdAt', 'ASC')
             ->addOrderBy('c.position', 'ASC')
             ->getQuery()
             ->getResult();

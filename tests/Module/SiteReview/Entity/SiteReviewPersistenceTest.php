@@ -49,6 +49,22 @@ final class SiteReviewPersistenceTest extends KernelTestCase
         self::assertSame(0, $firstComment->position);
     }
 
+    public function test_positions_do_not_collide_after_delete_then_add(): void
+    {
+        $site = $this->site('positions@example.com');
+        $review = new SiteReview($site);
+        $review->addComment('a', '.a', 'A', 'https://app/a');
+        $review->addComment('b', '.b', 'B', 'https://app/b');
+        $review->addComment('c', '.c', 'C', 'https://app/c');
+
+        $first = $review->comments->first();
+        self::assertNotFalse($first);
+        $review->comments->removeElement($first);
+
+        $added = $review->addComment('d', '.d', 'D', 'https://app/d');
+        self::assertSame(3, $added->position);
+    }
+
     public function test_only_one_in_progress_review_per_site(): void
     {
         $site = $this->site('one-draft@example.com');
@@ -69,6 +85,23 @@ final class SiteReviewPersistenceTest extends KernelTestCase
             $review->submittedAt = new \DateTimeImmutable();
             $this->em->persist($review);
         }
+        $this->em->flush();
+
+        $reviews = self::getContainer()->get(SiteReviewRepository::class);
+        self::assertInstanceOf(SiteReviewRepository::class, $reviews);
+        self::assertCount(2, $reviews->findBy(['site' => $site]));
+    }
+
+    public function test_new_in_progress_review_allowed_alongside_submitted(): void
+    {
+        $site = $this->site('after-submit@example.com');
+        $submitted = new SiteReview($site);
+        $submitted->status = SiteReviewStatus::Submitted;
+        $submitted->submittedAt = new \DateTimeImmutable();
+        $this->em->persist($submitted);
+        $this->em->flush();
+
+        $this->em->persist(new SiteReview($site));
         $this->em->flush();
 
         $reviews = self::getContainer()->get(SiteReviewRepository::class);
