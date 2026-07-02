@@ -2,20 +2,20 @@
 
 declare(strict_types=1);
 
-namespace App\Module\SiteReview\Security;
+namespace App\Module\Project\Security;
 
-use App\Module\SiteReview\Entity\Site;
+use App\Module\Project\Entity\Project;
 use Symfony\Component\Security\Core\Authentication\Token\TokenInterface;
 use Symfony\Component\Security\Core\Authorization\Voter\Vote;
 use Symfony\Component\Security\Core\Authorization\Voter\Voter;
 
 /**
- * @extends Voter<'site.view'|'site.manage', Site>
+ * @extends Voter<'project.view'|'project.manage', Project>
  */
-final class SiteVoter extends Voter
+final class ProjectVoter extends Voter
 {
-    public const string VIEW = 'site.view';
-    public const string MANAGE = 'site.manage';
+    public const string VIEW = 'project.view';
+    public const string MANAGE = 'project.manage';
 
     private const array SUPPORTED_ATTRIBUTES = [
         self::VIEW,
@@ -26,7 +26,7 @@ final class SiteVoter extends Voter
     protected function supports(string $attribute, mixed $subject): bool
     {
         return in_array($attribute, self::SUPPORTED_ATTRIBUTES, strict: true)
-            && $subject instanceof Site;
+            && $subject instanceof Project;
     }
 
     #[\Override]

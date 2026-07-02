@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace App\Tests\Module\SiteReview\Entity;
 
 use App\Module\Account\Entity\User;
-use App\Module\SiteReview\Entity\Site;
+use App\Module\Project\Entity\Project;
 use App\Module\SiteReview\Entity\SiteReview;
 use App\Module\SiteReview\Entity\SiteReviewCommentStatus;
 use App\Module\SiteReview\Entity\SiteReviewStatus;
@@ -88,7 +88,7 @@ final class SiteReviewPersistenceTest extends KernelTestCase
 
         $reviews = self::getContainer()->get(SiteReviewRepository::class);
         self::assertInstanceOf(SiteReviewRepository::class, $reviews);
-        self::assertCount(2, $reviews->findBy(['site' => $site]));
+        self::assertCount(2, $reviews->findBy(['project' => $site]));
     }
 
     public function test_new_in_progress_review_allowed_alongside_submitted(): void
@@ -104,15 +104,15 @@ final class SiteReviewPersistenceTest extends KernelTestCase
 
         $reviews = self::getContainer()->get(SiteReviewRepository::class);
         self::assertInstanceOf(SiteReviewRepository::class, $reviews);
-        self::assertCount(2, $reviews->findBy(['site' => $site]));
+        self::assertCount(2, $reviews->findBy(['project' => $site]));
     }
 
     /** @param non-empty-string $email */
-    private function site(string $email): Site
+    private function site(string $email): Project
     {
         $user = new User(username: $email, fullName: 'U', email: $email, password: 'x');
         $this->em->persist($user);
-        $site = new Site($user, 'test-site');
+        $site = new Project($user, 'test-site');
         $this->em->persist($site);
         $this->em->flush();
 

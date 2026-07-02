@@ -7,7 +7,7 @@ namespace App\Module\SiteReview\Controller\Api;
 use App\Controller\AppController;
 use App\Module\SiteReview\Entity\SiteReviewComment;
 use App\Module\SiteReview\Repository\SiteReviewRepository;
-use App\Module\SiteReview\Security\AuthenticatedSiteResolver;
+use App\Module\Project\Security\AuthenticatedProjectResolver;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\Routing\Attribute\Route;
 
@@ -20,18 +20,18 @@ final class CurrentReviewController extends AppController
 {
     public function __construct(
         private readonly SiteReviewRepository $siteReviews,
-        private readonly AuthenticatedSiteResolver $siteResolver,
+        private readonly AuthenticatedProjectResolver $projectResolver,
     ) {
     }
 
     public function __invoke(): JsonResponse
     {
-        $site = $this->siteResolver->resolve();
-        if (null === $site) {
+        $project = $this->projectResolver->resolveWidgetProject();
+        if (null === $project) {
             return $this->json(['error' => 'token_not_bound_to_site'], JsonResponse::HTTP_FORBIDDEN);
         }
 
-        $review = $this->siteReviews->findOneInProgress($site);
+        $review = $this->siteReviews->findOneInProgress($project);
         if (null === $review) {
             return $this->json(['review' => null]);
         }

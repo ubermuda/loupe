@@ -2,16 +2,16 @@
 
 declare(strict_types=1);
 
-namespace App\Module\SiteReview\Controller;
+namespace App\Module\Project\Controller;
 
 use App\Controller\AppController;
 use App\Exception\DomainErrors;
 use App\Module\Account\Entity\User;
-use App\Module\SiteReview\Command\CreateSiteCommand;
-use App\Module\SiteReview\Command\CreateSiteHandler;
-use App\Module\SiteReview\Form\CreateSiteFormType;
-use App\Module\SiteReview\Form\CreateSiteRequest;
-use App\Module\SiteReview\Repository\SiteRepository;
+use App\Module\Project\Command\CreateProjectCommand;
+use App\Module\Project\Command\CreateProjectHandler;
+use App\Module\Project\Form\CreateProjectFormType;
+use App\Module\Project\Form\CreateProjectRequest;
+use App\Module\Project\Repository\ProjectRepository;
 use Symfony\Component\Form\FormError;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -23,11 +23,11 @@ use Symfony\Contracts\Translation\TranslatorInterface;
     name: 'app_site_review_site_create',
     methods: ['POST'],
 )]
-class CreateSiteController extends AppController
+class CreateProjectController extends AppController
 {
     public function __construct(
-        private readonly CreateSiteHandler $createSiteHandler,
-        private readonly SiteRepository $sites,
+        private readonly CreateProjectHandler $createProjectHandler,
+        private readonly ProjectRepository $projects,
         private readonly TranslatorInterface $translator,
     ) {
     }
@@ -37,15 +37,16 @@ class CreateSiteController extends AppController
         $user = $this->getUser();
         assert($user instanceof User);
 
-        $data = new CreateSiteRequest();
-        $form = $this->createForm(CreateSiteFormType::class, $data);
+        $data = new CreateProjectRequest();
+        $form = $this->createForm(CreateProjectFormType::class, $data);
         $form->handleRequest($request);
 
         if ($form->isSubmitted() && $form->isValid()) {
             try {
-                ($this->createSiteHandler)(new CreateSiteCommand(
+                ($this->createProjectHandler)(new CreateProjectCommand(
                     owner: $user,
                     name: trim($data->name ?? '') ?: throw new \LogicException('name required after validation'),
+                    domain: trim($data->domain ?? '') ?: null,
                 ));
 
                 return $this->redirectToRoute('app_site_review_sites');
@@ -56,8 +57,8 @@ class CreateSiteController extends AppController
             }
         }
 
-        return $this->renderFormResponse('@SiteReview/sites/list_sites.html.twig', $form, [
-            'sites' => $this->sites->findByOwner($user),
+        return $this->renderFormResponse('@Project/list_projects.html.twig', $form, [
+            'projects' => $this->projects->findByOwner($user),
         ]);
     }
 }

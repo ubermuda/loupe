@@ -20,14 +20,14 @@ final readonly class UpdateCommentHandler
 
     public function __invoke(UpdateCommentCommand $command): SiteReviewComment
     {
-        $comment = $this->siteReviewComments->findOneInDraftReview($command->commentId, $command->site)
+        $comment = $this->siteReviewComments->findOneInDraftReview($command->commentId, $command->project)
             ?? throw CommentNotFound::forId($command->commentId);
 
         $comment->body = $command->body;
         $this->em->flush();
 
         $this->logger->info('site_review.comment.updated', [
-            'siteId' => (string) $command->site->id,
+            'projectId' => (string) $command->project->id,
             'commentId' => (string) $command->commentId,
         ]);
 

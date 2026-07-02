@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace App\Tests\Module\SiteReview\Controller;
 
 use App\Module\Account\Entity\User;
-use App\Module\SiteReview\Entity\Site;
+use App\Module\Project\Entity\Project;
 use App\Module\SiteReview\Entity\SiteReview;
 use App\Module\SiteReview\Entity\SiteReviewComment;
 use App\Module\SiteReview\Entity\SiteReviewCommentStatus;
@@ -28,12 +28,12 @@ final class SiteReviewsPageTest extends WebTestCase
     /**
      * @param non-empty-string $email
      *
-     * @return array{Site, SiteReview} site + one submitted review with 2 pending comments
+     * @return array{Project, SiteReview} project + one submitted review with 2 pending comments
      */
     private function siteWithSubmittedReview(EntityManagerInterface $em, string $email, string $siteName): array
     {
         $owner = $this->user($em, $email);
-        $site = new Site($owner, $siteName);
+        $site = new Project($owner, $siteName);
         $em->persist($site);
         $review = new SiteReview($site);
         $review->addComment('First comment', '.selector', 'Selected text', 'https://example.com/page');
@@ -164,7 +164,7 @@ final class SiteReviewsPageTest extends WebTestCase
         $em = static::getContainer()->get(EntityManagerInterface::class);
 
         $owner = $this->user($em, 'reviews-page-e@example.com');
-        $site = new Site($owner, 'reviews-site-e');
+        $site = new Project($owner, 'reviews-site-e');
         $em->persist($site);
         $review = new SiteReview($site);
         $review->addComment('Draft comment', '.a', 'text', 'https://example.com');
@@ -192,7 +192,7 @@ final class SiteReviewsPageTest extends WebTestCase
 
         // Build the malicious comment via the entity directly, bypassing API validation.
         $owner = $this->user($em, 'reviews-page-f@example.com');
-        $site = new Site($owner, 'reviews-site-f');
+        $site = new Project($owner, 'reviews-site-f');
         $em->persist($site);
         $review = new SiteReview($site);
         $review->addComment('sneaky', '.x', 'text', 'javascript:alert(1)');
@@ -220,7 +220,7 @@ final class SiteReviewsPageTest extends WebTestCase
         $em = static::getContainer()->get(EntityManagerInterface::class);
 
         $owner = $this->user($em, 'reviews-page-g@example.com');
-        $site = new Site($owner, 'reviews-site-g');
+        $site = new Project($owner, 'reviews-site-g');
         $em->persist($site);
         $review = new SiteReview($site);
         $review->addComment('Draft comment', '.a', 'text', 'https://example.com');

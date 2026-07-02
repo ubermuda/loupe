@@ -8,7 +8,7 @@ use App\Controller\AppController;
 use App\Exception\DomainErrors;
 use App\Module\SiteReview\Command\SubmitReviewCommand;
 use App\Module\SiteReview\Command\SubmitReviewHandler;
-use App\Module\SiteReview\Security\AuthenticatedSiteResolver;
+use App\Module\Project\Security\AuthenticatedProjectResolver;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\Routing\Attribute\Route;
 
@@ -21,19 +21,19 @@ final class SubmitReviewController extends AppController
 {
     public function __construct(
         private readonly SubmitReviewHandler $handler,
-        private readonly AuthenticatedSiteResolver $siteResolver,
+        private readonly AuthenticatedProjectResolver $projectResolver,
     ) {
     }
 
     public function __invoke(): JsonResponse
     {
-        $site = $this->siteResolver->resolve();
-        if (null === $site) {
+        $project = $this->projectResolver->resolveWidgetProject();
+        if (null === $project) {
             return $this->json(['error' => 'token_not_bound_to_site'], JsonResponse::HTTP_FORBIDDEN);
         }
 
         try {
-            $review = ($this->handler)(new SubmitReviewCommand($site));
+            $review = ($this->handler)(new SubmitReviewCommand($project));
         } catch (DomainErrors $e) {
             return $this->json(['errors' => $e->errors], JsonResponse::HTTP_UNPROCESSABLE_ENTITY);
         }

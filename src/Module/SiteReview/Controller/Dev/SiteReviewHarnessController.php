@@ -8,8 +8,8 @@ use App\Controller\AppController;
 use App\Module\Account\Entity\ApiToken;
 use App\Module\Account\Entity\ApiTokenScope;
 use App\Module\Account\Repository\UserRepository;
-use App\Module\SiteReview\Entity\Site;
-use App\Module\SiteReview\Repository\SiteRepository;
+use App\Module\Project\Entity\Project;
+use App\Module\Project\Repository\ProjectRepository;
 use App\Module\SiteReview\Repository\SiteReviewRepository;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\DependencyInjection\Attribute\When;
@@ -20,13 +20,13 @@ use Symfony\Component\Routing\Attribute\Route;
 /**
  * Dev-only page that loads the site-review widget against a freshly issued site-bound
  * SiteReview API token. Used exclusively by Playwright e2e tests — not available in
- * production (When('dev')). Issues a bound token for the `e2e-harness` site and resets
+ * production (When('dev')). Issues a bound token for the `e2e-harness` project and resets
  * the draft on every load so each e2e run starts from a clean state.
  *
  * Pass `?keep=1` to skip the draft purge, so a test can reload the harness and assert
  * the widget rehydrates an existing server-side draft. A fresh token is still minted on
  * every load (the raw value of the previous one is unrecoverable from its hash); that is
- * fine because the draft belongs to the site, not the token.
+ * fine because the draft belongs to the project, not the token.
  */
 #[Route(
     '/dev/site-review-harness',
@@ -39,7 +39,7 @@ final class SiteReviewHarnessController extends AppController
     public function __construct(
         private readonly EntityManagerInterface $em,
         private readonly UserRepository $users,
-        private readonly SiteRepository $sites,
+        private readonly ProjectRepository $projects,
         private readonly SiteReviewRepository $siteReviews,
     ) {
     }
@@ -50,25 +50,25 @@ final class SiteReviewHarnessController extends AppController
         $user = $this->users->findOneByEmail($email)
             ?? throw new \LogicException('Seed the e2e user via /dev/register-and-verify before loading the harness.');
 
-        $site = $this->sites->findOneByOwnerAndName($user, 'e2e-harness');
-        if (null === $site) {
-            $site = new Site($user, 'e2e-harness');
-            $this->em->persist($site);
+        $project = $this->projects->findOneByOwnerAndName($user, 'e2e-harness');
+        if (null === $project) {
+            $project = new Project($user, 'e2e-harness');
+            $this->em->persist($project);
         }
 
         // Deterministic starting state for every e2e run: no draft review (unless the
         // test explicitly keeps it to exercise the widget's rehydrate path)…
         if (!$request->query->getBoolean('keep')) {
-            $draft = $this->siteReviews->findOneInProgress($site);
+            $draft = $this->siteReviews->findOneInProgress($project);
             if (null !== $draft) {
                 $this->em->remove($draft);
             }
         }
 
         // …and a fresh bound token (the old one, if any, is discarded).
-        $previous = $site->token;
+        $previous = $project->widgetToken;
         [$token, $raw] = ApiToken::issue($user, 'e2e site-review', ApiTokenScope::SiteReview);
-        $site->token = $token;
+        $project->widgetToken = $token;
         $this->em->persist($token);
         if (null !== $previous) {
             $this->em->remove($previous);

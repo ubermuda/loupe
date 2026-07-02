@@ -8,7 +8,7 @@ use App\Exception\DomainErrors;
 use App\Module\Account\Entity\User;
 use App\Module\SiteReview\Command\SubmitReviewCommand;
 use App\Module\SiteReview\Command\SubmitReviewHandler;
-use App\Module\SiteReview\Entity\Site;
+use App\Module\Project\Entity\Project;
 use App\Module\SiteReview\Entity\SiteReview;
 use App\Module\SiteReview\Entity\SiteReviewStatus;
 use App\Module\SiteReview\Repository\SiteReviewRepository;
@@ -52,7 +52,7 @@ final class SubmitReviewHandlerTest extends KernelTestCase
             ->with(self::callback(function (Update $update) use ($site, $review): bool {
                 $data = json_decode($update->getData(), true, flags: \JSON_THROW_ON_ERROR);
 
-                return str_ends_with((string) $update->getTopics()[0], '/sites/'.$site->id.'/site-reviews')
+                return str_ends_with((string) $update->getTopics()[0], '/projects/'.$site->id.'/site-reviews')
                     && 'site_review.submitted' === $data['type']
                     && (string) $review->id === $data['reviewId']
                     && $site->name === $data['siteName']
@@ -101,11 +101,11 @@ final class SubmitReviewHandlerTest extends KernelTestCase
     }
 
     /** @param non-empty-string $email */
-    private function site(string $email, string $name = 'handler-site'): Site
+    private function site(string $email, string $name = 'handler-site'): Project
     {
         $user = new User(username: $email, fullName: 'U', email: $email, password: 'x');
         $this->em->persist($user);
-        $site = new Site($user, $name);
+        $site = new Project($user, $name);
         $this->em->persist($site);
         $this->em->flush();
 

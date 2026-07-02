@@ -4,12 +4,12 @@ declare(strict_types=1);
 
 namespace App\Module\SiteReview\Command;
 
-use App\Module\SiteReview\Entity\Site;
+use App\Module\Project\Entity\Project;
 
 final readonly class AddCommentCommand
 {
     public function __construct(
-        public Site $site,
+        public Project $project,
         /** @phpstan-var non-empty-string */
         public string $body,
         public string $selector,

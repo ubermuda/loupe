@@ -2,14 +2,14 @@
 
 declare(strict_types=1);
 
-namespace App\Module\SiteReview\Controller;
+namespace App\Module\Project\Controller;
 
 use App\Controller\AppController;
 use App\Exception\DomainErrors;
-use App\Module\SiteReview\Command\MintSiteTokenCommand;
-use App\Module\SiteReview\Command\MintSiteTokenHandler;
-use App\Module\SiteReview\Entity\Site;
-use App\Module\SiteReview\Security\SiteVoter;
+use App\Module\Project\Command\MintProjectWidgetTokenCommand;
+use App\Module\Project\Command\MintProjectWidgetTokenHandler;
+use App\Module\Project\Entity\Project;
+use App\Module\Project\Security\ProjectVoter;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
@@ -17,24 +17,24 @@ use Symfony\Contracts\Translation\TranslatorInterface;
 use Ubermuda\SymfonyExtra\Csrf\Attribute\CsrfToken;
 
 #[CsrfToken('mint-site-token')]
-#[IsGranted(SiteVoter::MANAGE, subject: 'site')]
+#[IsGranted(ProjectVoter::MANAGE, subject: 'project')]
 #[Route(
-    '/site-review/sites/{id:site}/token',
+    '/site-review/sites/{id:project}/token',
     name: 'app_site_review_site_token_mint',
     methods: ['POST'],
 )]
-class MintSiteTokenController extends AppController
+class MintProjectWidgetTokenController extends AppController
 {
     public function __construct(
-        private readonly MintSiteTokenHandler $mintSiteTokenHandler,
+        private readonly MintProjectWidgetTokenHandler $mintProjectWidgetTokenHandler,
         private readonly TranslatorInterface $translator,
     ) {
     }
 
-    public function __invoke(Site $site): Response
+    public function __invoke(Project $project): Response
     {
         try {
-            $raw = ($this->mintSiteTokenHandler)(new MintSiteTokenCommand($site));
+            $raw = ($this->mintProjectWidgetTokenHandler)(new MintProjectWidgetTokenCommand($project));
             $this->addFlash('success', sprintf(
                 '%s %s',
                 $this->translator->trans('site_review.site.token.flash_minted'),
@@ -46,6 +46,6 @@ class MintSiteTokenController extends AppController
             }
         }
 
-        return $this->redirectToRoute('app_site_review_site', ['id' => (string) $site->id]);
+        return $this->redirectToRoute('app_site_review_site', ['id' => (string) $project->id]);
     }
 }

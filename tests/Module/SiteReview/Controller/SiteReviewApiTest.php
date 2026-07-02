@@ -7,7 +7,7 @@ namespace App\Tests\Module\SiteReview\Controller;
 use App\Module\Account\Entity\ApiToken;
 use App\Module\Account\Entity\ApiTokenScope;
 use App\Module\Account\Entity\User;
-use App\Module\SiteReview\Entity\Site;
+use App\Module\Project\Entity\Project;
 use App\Module\SiteReview\Entity\SiteReviewStatus;
 use App\Module\SiteReview\Repository\SiteReviewRepository;
 use Doctrine\ORM\EntityManagerInterface;
@@ -20,7 +20,7 @@ final class SiteReviewApiTest extends WebTestCase
     /**
      * @param non-empty-string $email
      *
-     * @return array{0: string, 1: Site} raw token + its site
+     * @return array{0: string, 1: Project} raw token + its project
      */
     private function siteWithToken(EntityManagerInterface $em, string $email, string $name = 'api-site'): array
     {
@@ -29,8 +29,8 @@ final class SiteReviewApiTest extends WebTestCase
         $em->persist($user);
         [$token, $raw] = ApiToken::issue($user, 'widget', ApiTokenScope::SiteReview);
         $em->persist($token);
-        $site = new Site($user, $name);
-        $site->token = $token;
+        $site = new Project($user, $name);
+        $site->widgetToken = $token;
         $em->persist($site);
         $em->flush();
 
@@ -103,7 +103,7 @@ final class SiteReviewApiTest extends WebTestCase
         $this->api($client, Request::METHOD_POST, '/api/site-review/review/submit', $raw);
         self::assertResponseIsSuccessful();
         $em->clear();
-        $submitted = static::getContainer()->get(SiteReviewRepository::class)->findForSite($site);
+        $submitted = static::getContainer()->get(SiteReviewRepository::class)->findForProject($site);
         self::assertSame(SiteReviewStatus::Submitted, $submitted[0]->status);
 
         // No draft anymore: a second submit is a 422, and GET review is null again.

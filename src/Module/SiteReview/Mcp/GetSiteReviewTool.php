@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace App\Module\SiteReview\Mcp;
 
 use App\Module\Account\Entity\User;
+use App\Module\Project\Repository\ProjectRepository;
 use App\Module\SiteReview\Entity\SiteReviewComment;
-use App\Module\SiteReview\Repository\SiteRepository;
 use App\Module\SiteReview\Repository\SiteReviewCommentRepository;
 use Mcp\Capability\Attribute\McpTool;
 use Mcp\Exception\ToolCallException;
@@ -16,7 +16,7 @@ use Symfony\Bundle\SecurityBundle\Security;
 final readonly class GetSiteReviewTool
 {
     public function __construct(
-        private SiteRepository $sites,
+        private ProjectRepository $projects,
         private SiteReviewCommentRepository $siteReviewComments,
         private Security $security,
     ) {
@@ -32,10 +32,10 @@ final readonly class GetSiteReviewTool
         /** @var User $user */
         $user = $this->security->getUser();
 
-        $resolved = $this->sites->findOneByIdOrNameForOwner($site, $user)
+        $resolved = $this->projects->findOneByIdOrNameForOwner($site, $user)
             ?? throw new ToolCallException(\sprintf('No site "%s" found.', $site));
 
-        $pending = $this->siteReviewComments->findPendingForSite($resolved);
+        $pending = $this->siteReviewComments->findPendingForProject($resolved);
 
         return [
             'site' => ['id' => (string) $resolved->id, 'name' => $resolved->name],

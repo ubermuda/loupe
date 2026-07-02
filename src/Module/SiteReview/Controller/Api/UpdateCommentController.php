@@ -8,7 +8,7 @@ use App\Controller\AppController;
 use App\Module\SiteReview\Command\CommentNotFound;
 use App\Module\SiteReview\Command\UpdateCommentCommand;
 use App\Module\SiteReview\Command\UpdateCommentHandler;
-use App\Module\SiteReview\Security\AuthenticatedSiteResolver;
+use App\Module\Project\Security\AuthenticatedProjectResolver;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpKernel\Attribute\MapRequestPayload;
 use Symfony\Component\Routing\Attribute\Route;
@@ -23,14 +23,14 @@ final class UpdateCommentController extends AppController
 {
     public function __construct(
         private readonly UpdateCommentHandler $handler,
-        private readonly AuthenticatedSiteResolver $siteResolver,
+        private readonly AuthenticatedProjectResolver $projectResolver,
     ) {
     }
 
     public function __invoke(string $id, #[MapRequestPayload] UpdateCommentRequest $payload): JsonResponse
     {
-        $site = $this->siteResolver->resolve();
-        if (null === $site) {
+        $project = $this->projectResolver->resolveWidgetProject();
+        if (null === $project) {
             return $this->json(['error' => 'token_not_bound_to_site'], JsonResponse::HTTP_FORBIDDEN);
         }
 
@@ -42,7 +42,7 @@ final class UpdateCommentController extends AppController
 
         try {
             $comment = ($this->handler)(new UpdateCommentCommand(
-                site: $site,
+                project: $project,
                 commentId: $commentId,
                 body: trim($payload->body ?? '') ?: throw new \LogicException('body required after validation'),
             ));

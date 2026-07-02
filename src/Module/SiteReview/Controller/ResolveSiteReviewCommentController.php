@@ -41,6 +41,6 @@ final class ResolveSiteReviewCommentController extends AppController
             }
         }
 
-        return $this->redirectToRoute('app_site_review_site', ['id' => (string) $comment->review->site->id]);
+        return $this->redirectToRoute('app_site_review_site', ['id' => (string) $comment->review->project->id]);
     }
 }

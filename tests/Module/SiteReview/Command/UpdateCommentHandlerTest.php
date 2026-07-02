@@ -10,7 +10,7 @@ use App\Module\SiteReview\Command\AddCommentHandler;
 use App\Module\SiteReview\Command\CommentNotFound;
 use App\Module\SiteReview\Command\UpdateCommentCommand;
 use App\Module\SiteReview\Command\UpdateCommentHandler;
-use App\Module\SiteReview\Entity\Site;
+use App\Module\Project\Entity\Project;
 use App\Module\SiteReview\Entity\SiteReviewComment;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
@@ -71,11 +71,11 @@ final class UpdateCommentHandlerTest extends KernelTestCase
     }
 
     /** @param non-empty-string $email */
-    private function site(string $email, string $name = 'handler-site'): Site
+    private function site(string $email, string $name = 'handler-site'): Project
     {
         $user = new User(username: $email, fullName: 'U', email: $email, password: 'x');
         $this->em->persist($user);
-        $site = new Site($user, $name);
+        $site = new Project($user, $name);
         $this->em->persist($site);
         $this->em->flush();
 

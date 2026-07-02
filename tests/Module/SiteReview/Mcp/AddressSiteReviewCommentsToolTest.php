@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace App\Tests\Module\SiteReview\Mcp;
 
 use App\Module\Account\Entity\User;
-use App\Module\SiteReview\Entity\Site;
+use App\Module\Project\Entity\Project;
 use App\Module\SiteReview\Entity\SiteReview;
 use App\Module\SiteReview\Entity\SiteReviewComment;
 use App\Module\SiteReview\Entity\SiteReviewCommentStatus;
@@ -45,13 +45,13 @@ final class AddressSiteReviewCommentsToolTest extends KernelTestCase
     /**
      * @param non-empty-string $email
      *
-     * @return array{Site, SiteReview} site + one submitted review with 2 pending comments
+     * @return array{Project, SiteReview} project + one submitted review with 2 pending comments
      */
     private function siteWithSubmittedReview(string $email, string $name = 'tool-site'): array
     {
         $user = new User(username: $email, fullName: 'U', email: $email, password: 'x');
         $this->em->persist($user);
-        $site = new Site($user, $name);
+        $site = new Project($user, $name);
         $this->em->persist($site);
         $review = new SiteReview($site);
         $review->addComment('first', '.a', 'A', 'https://app/x');
@@ -109,7 +109,7 @@ final class AddressSiteReviewCommentsToolTest extends KernelTestCase
         $email = 'addr-skip@example.com';
         $user = new User(username: $email, fullName: 'U', email: $email, password: 'x');
         $this->em->persist($user);
-        $site = new Site($user, 'addr-skip-site');
+        $site = new Project($user, 'addr-skip-site');
         $this->em->persist($site);
 
         // Submitted review with one resolved comment (not_pending).

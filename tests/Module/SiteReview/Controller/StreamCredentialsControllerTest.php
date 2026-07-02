@@ -7,7 +7,7 @@ namespace App\Tests\Module\SiteReview\Controller;
 use App\Module\Account\Entity\ApiToken;
 use App\Module\Account\Entity\ApiTokenScope;
 use App\Module\Account\Entity\User;
-use App\Module\SiteReview\Entity\Site;
+use App\Module\Project\Entity\Project;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use Symfony\Component\HttpFoundation\Request;
@@ -29,7 +29,7 @@ final class StreamCredentialsControllerTest extends WebTestCase
         self::assertIsArray($data);
         self::assertSame('https://mercure.betterplans.dev.localhost/.well-known/mercure', $data['hubUrl']);
 
-        $expectedTopic = 'https://betterplans.dev.localhost/sites/'.$site->id.'/site-reviews';
+        $expectedTopic = 'https://betterplans.dev.localhost/projects/'.$site->id.'/site-reviews';
         self::assertSame($expectedTopic, $data['topic']);
         self::assertSame((string) $site->id, $data['site']['id']);
         self::assertSame($site->name, $data['site']['name']);
@@ -147,8 +147,8 @@ final class StreamCredentialsControllerTest extends WebTestCase
         $em->persist($user);
         [$token, $raw] = ApiToken::issue($user, 'widget-tok', ApiTokenScope::SiteReview);
         $em->persist($token);
-        $site = new Site($user, 'stream-widget-site');
-        $site->token = $token;
+        $site = new Project($user, 'stream-widget-site');
+        $site->widgetToken = $token;
         $em->persist($site);
         $em->flush();
 
@@ -165,7 +165,7 @@ final class StreamCredentialsControllerTest extends WebTestCase
     /**
      * @param non-empty-string $email
      *
-     * @return array{0: string, 1: User, 2: Site}
+     * @return array{0: string, 1: User, 2: Project}
      */
     private function issue(EntityManagerInterface $em, ApiTokenScope $scope, string $email): array
     {
@@ -174,7 +174,7 @@ final class StreamCredentialsControllerTest extends WebTestCase
         $em->persist($user);
         [$token, $raw] = ApiToken::issue($user, 'tok', $scope);
         $em->persist($token);
-        $site = new Site($user, 'site-'.substr(md5($email), 0, 8));
+        $site = new Project($user, 'site-'.substr(md5($email), 0, 8));
         $em->persist($site);
         $em->flush();
 

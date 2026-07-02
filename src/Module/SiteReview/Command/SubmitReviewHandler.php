@@ -27,7 +27,7 @@ final readonly class SubmitReviewHandler
 
     public function __invoke(SubmitReviewCommand $command): SiteReview
     {
-        $review = $this->siteReviews->findOneInProgress($command->site);
+        $review = $this->siteReviews->findOneInProgress($command->project);
         if (null === $review || $review->comments->isEmpty()) {
             throw new DomainErrors(['review' => 'site_review.error.nothing_to_submit']);
         }
@@ -38,7 +38,7 @@ final readonly class SubmitReviewHandler
         $this->publish($review);
 
         $this->logger->info('site_review.review.submitted', [
-            'siteId' => (string) $command->site->id,
+            'projectId' => (string) $command->project->id,
             'reviewId' => (string) $review->id,
             'commentCount' => $review->comments->count(),
         ]);
@@ -48,9 +48,9 @@ final readonly class SubmitReviewHandler
 
     private function publish(SiteReview $review): void
     {
-        $site = $review->site;
-        $topic = $this->topicBuilder->forSite(
-            $site->id ?? throw new \LogicException('Managed site has no id.'),
+        $project = $review->project;
+        $topic = $this->topicBuilder->forProject(
+            $project->id ?? throw new \LogicException('Managed project has no id.'),
         );
 
         $urls = array_values(array_unique(
@@ -59,8 +59,8 @@ final readonly class SubmitReviewHandler
 
         $payload = json_encode([
             'type' => 'site_review.submitted',
-            'siteId' => (string) $site->id,
-            'siteName' => $site->name,
+            'siteId' => (string) $project->id,
+            'siteName' => $project->name,
             'reviewId' => (string) $review->id,
             'commentCount' => $review->comments->count(),
             'urls' => $urls,

@@ -8,7 +8,7 @@ use App\Controller\AppController;
 use App\Module\SiteReview\Command\CommentNotFound;
 use App\Module\SiteReview\Command\DeleteCommentCommand;
 use App\Module\SiteReview\Command\DeleteCommentHandler;
-use App\Module\SiteReview\Security\AuthenticatedSiteResolver;
+use App\Module\Project\Security\AuthenticatedProjectResolver;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Uid\Uuid;
@@ -22,14 +22,14 @@ final class DeleteCommentController extends AppController
 {
     public function __construct(
         private readonly DeleteCommentHandler $handler,
-        private readonly AuthenticatedSiteResolver $siteResolver,
+        private readonly AuthenticatedProjectResolver $projectResolver,
     ) {
     }
 
     public function __invoke(string $id): JsonResponse
     {
-        $site = $this->siteResolver->resolve();
-        if (null === $site) {
+        $project = $this->projectResolver->resolveWidgetProject();
+        if (null === $project) {
             return $this->json(['error' => 'token_not_bound_to_site'], JsonResponse::HTTP_FORBIDDEN);
         }
 
@@ -41,7 +41,7 @@ final class DeleteCommentController extends AppController
 
         try {
             ($this->handler)(new DeleteCommentCommand(
-                site: $site,
+                project: $project,
                 commentId: $commentId,
             ));
         } catch (CommentNotFound) {

@@ -10,7 +10,7 @@ use Symfony\Component\Uid\Uuid;
 /**
  * Builds Mercure topic strings for site-review events.
  *
- * Topics are per-site. The same builder is used on both sides of the channel —
+ * Topics are per-project. The same builder is used on both sides of the channel —
  * the publisher (SubmitReviewHandler) and the subscriber-JWT issuer
  * (StreamCredentialsController) — so the topic string is guaranteed to match
  * regardless of the configured base URL.
@@ -23,8 +23,8 @@ final readonly class SiteReviewTopicBuilder
     ) {
     }
 
-    public function forSite(Uuid $siteId): string
+    public function forProject(Uuid $projectId): string
     {
-        return rtrim($this->appUrl, '/').'/sites/'.$siteId.'/site-reviews';
+        return rtrim($this->appUrl, '/').'/projects/'.$projectId.'/site-reviews';
     }
 }

@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace App\Tests\Module\SiteReview\Mcp;
 
 use App\Module\Account\Entity\User;
-use App\Module\SiteReview\Entity\Site;
+use App\Module\Project\Entity\Project;
 use App\Module\SiteReview\Entity\SiteReview;
 use App\Module\SiteReview\Entity\SiteReviewCommentStatus;
 use App\Module\SiteReview\Entity\SiteReviewStatus;
@@ -45,13 +45,13 @@ final class GetSiteReviewToolTest extends KernelTestCase
     /**
      * @param non-empty-string $email
      *
-     * @return array{Site, SiteReview} site + one submitted review with 2 pending comments
+     * @return array{Project, SiteReview} project + one submitted review with 2 pending comments
      */
     private function siteWithSubmittedReview(string $email, string $name = 'tool-site'): array
     {
         $user = new User(username: $email, fullName: 'U', email: $email, password: 'x');
         $this->em->persist($user);
-        $site = new Site($user, $name);
+        $site = new Project($user, $name);
         $this->em->persist($site);
         $review = new SiteReview($site);
         $review->addComment('first', '.a', 'A', 'https://app/x');
@@ -68,7 +68,7 @@ final class GetSiteReviewToolTest extends KernelTestCase
         $userEmail = 'get-order@example.com';
         $user = new User(username: $userEmail, fullName: 'U', email: $userEmail, password: 'x');
         $this->em->persist($user);
-        $site = new Site($user, 'order-site');
+        $site = new Project($user, 'order-site');
         $this->em->persist($site);
 
         // Older review — will appear first in results.
@@ -126,7 +126,7 @@ final class GetSiteReviewToolTest extends KernelTestCase
         $userEmail = 'get-status@example.com';
         $user = new User(username: $userEmail, fullName: 'U', email: $userEmail, password: 'x');
         $this->em->persist($user);
-        $site = new Site($user, 'status-site');
+        $site = new Project($user, 'status-site');
         $this->em->persist($site);
         $review = new SiteReview($site);
         $c1 = $review->addComment('pending', '.a', 'A', 'https://app/x');

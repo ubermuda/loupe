@@ -6,19 +6,19 @@ namespace App\Module\SiteReview\Controller\Api;
 
 use App\Controller\AppController;
 use App\Module\Account\Entity\User;
-use App\Module\SiteReview\Entity\Site;
-use App\Module\SiteReview\Repository\SiteRepository;
-use App\Module\SiteReview\Security\AuthenticatedSiteResolver;
+use App\Module\Project\Entity\Project;
+use App\Module\Project\Repository\ProjectRepository;
+use App\Module\Project\Security\AuthenticatedProjectResolver;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\Routing\Attribute\Route;
 
 /**
- * Lists the caller's sites for the bridge CLI's site picker.
+ * Lists the caller's projects for the bridge CLI's site picker.
  *
- * Account-level tokens only. Site-bound widget tokens (embedded in page HTML,
- * public by design) are rejected with 403 — their contract is "one site,
- * drafts + submit, nothing else"; letting one enumerate the owner's sites
- * would leak the site inventory to any page visitor.
+ * Account-level tokens only. Project-bound widget tokens (embedded in page
+ * HTML, public by design) are rejected with 403 — their contract is "one
+ * project, drafts + submit, nothing else"; letting one enumerate the owner's
+ * projects would leak the project inventory to any page visitor.
  */
 #[Route(
     '/api/site-review/sites',
@@ -28,14 +28,14 @@ use Symfony\Component\Routing\Attribute\Route;
 final class ListSitesController extends AppController
 {
     public function __construct(
-        private readonly AuthenticatedSiteResolver $siteResolver,
-        private readonly SiteRepository $sites,
+        private readonly AuthenticatedProjectResolver $projectResolver,
+        private readonly ProjectRepository $projects,
     ) {
     }
 
     public function __invoke(): JsonResponse
     {
-        if (null !== $this->siteResolver->resolve()) {
+        if (null !== $this->projectResolver->resolveWidgetProject()) {
             return $this->json(['error' => 'site_bound_token_not_allowed'], JsonResponse::HTTP_FORBIDDEN);
         }
 
@@ -45,8 +45,8 @@ final class ListSitesController extends AppController
         }
 
         return $this->json(['sites' => array_values(array_map(
-            static fn (Site $site): array => ['id' => (string) $site->id, 'name' => $site->name],
-            $this->sites->findByOwner($user),
+            static fn (Project $project): array => ['id' => (string) $project->id, 'name' => $project->name],
+            $this->projects->findByOwner($user),
         ))]);
     }
 }
