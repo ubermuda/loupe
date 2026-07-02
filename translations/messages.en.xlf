@@ -574,44 +574,6 @@
                 <target>Expand sidebar</target>
             </trans-unit>
 
-            <!-- Site review batches (human-facing) -->
-            <trans-unit id="site_review.batches.page.title">
-                <source>site_review.batches.page.title</source>
-                <target>Site reviews</target>
-            </trans-unit>
-            <trans-unit id="site_review.batches.table.column.comments">
-                <source>site_review.batches.table.column.comments</source>
-                <target>Comments</target>
-            </trans-unit>
-            <trans-unit id="site_review.batches.empty">
-                <source>site_review.batches.empty</source>
-                <target>No site reviews yet. Use the widget on your app to capture and send annotations.</target>
-            </trans-unit>
-            <trans-unit id="site_review.batch.page.title">
-                <source>site_review.batch.page.title</source>
-                <target>Site review</target>
-            </trans-unit>
-            <trans-unit id="site_review.batch.action.back">
-                <source>site_review.batch.action.back</source>
-                <target>Back to site reviews</target>
-            </trans-unit>
-            <trans-unit id="site_review.batch.field.created">
-                <source>site_review.batch.field.created</source>
-                <target>Sent</target>
-            </trans-unit>
-            <trans-unit id="site_review.batch.field.id">
-                <source>site_review.batch.field.id</source>
-                <target>Batch id</target>
-            </trans-unit>
-            <trans-unit id="site_review.batch.comment.show_selector">
-                <source>site_review.batch.comment.show_selector</source>
-                <target>CSS selector</target>
-            </trans-unit>
-            <trans-unit id="site_review.batch.comment.general">
-                <source>site_review.batch.comment.general</source>
-                <target>General</target>
-            </trans-unit>
-
             <!-- Site review sites (per-site model) -->
             <trans-unit id="site_review.sites.page.title">
                 <source>site_review.sites.page.title</source>
