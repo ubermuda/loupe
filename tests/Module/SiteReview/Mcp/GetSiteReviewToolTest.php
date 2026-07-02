@@ -109,6 +109,11 @@ final class GetSiteReviewToolTest extends KernelTestCase
         self::assertSame($newerReviewId, $result['comments'][1]['reviewId']);
         self::assertSame($newerReviewId, $result['comments'][2]['reviewId']);
 
+        // Pin intra-review position ordering (position ASC within each review).
+        self::assertSame('older-comment', $result['comments'][0]['body']);
+        self::assertSame('newer-first', $result['comments'][1]['body']);
+        self::assertSame('newer-second', $result['comments'][2]['body']);
+
         // Each entry carries a non-empty id and reviewId.
         foreach ($result['comments'] as $comment) {
             self::assertNotEmpty($comment['id']);
