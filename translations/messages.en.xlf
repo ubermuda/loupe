@@ -678,6 +678,48 @@
                 <target>Changes requested</target>
             </trans-unit>
 
+            <!-- Site review labels -->
+            <trans-unit id="site_review.review.status.draft">
+                <source>site_review.review.status.draft</source>
+                <target>Draft</target>
+            </trans-unit>
+            <trans-unit id="site_review.review.status.submitted">
+                <source>site_review.review.status.submitted</source>
+                <target>Submitted</target>
+            </trans-unit>
+            <trans-unit id="site_review.review.comments_label">
+                <source>site_review.review.comments_label</source>
+                <target>comments</target>
+            </trans-unit>
+            <trans-unit id="site_review.comment.status.pending">
+                <source>site_review.comment.status.pending</source>
+                <target>Pending</target>
+            </trans-unit>
+            <trans-unit id="site_review.comment.status.addressed">
+                <source>site_review.comment.status.addressed</source>
+                <target>Addressed</target>
+            </trans-unit>
+            <trans-unit id="site_review.comment.status.resolved">
+                <source>site_review.comment.status.resolved</source>
+                <target>Resolved</target>
+            </trans-unit>
+            <trans-unit id="site_review.comment.general">
+                <source>site_review.comment.general</source>
+                <target>General comment</target>
+            </trans-unit>
+            <trans-unit id="site_review.comment.action.resolve">
+                <source>site_review.comment.action.resolve</source>
+                <target>Resolve</target>
+            </trans-unit>
+            <trans-unit id="site_review.comment.action.reopen">
+                <source>site_review.comment.action.reopen</source>
+                <target>Reopen</target>
+            </trans-unit>
+            <trans-unit id="site_review.site.reviews.empty">
+                <source>site_review.site.reviews.empty</source>
+                <target>No reviews yet. Embed the widget and send your first review.</target>
+            </trans-unit>
+
         </body>
     </file>
 </xliff>

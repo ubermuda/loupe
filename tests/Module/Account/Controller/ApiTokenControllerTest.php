@@ -149,6 +149,37 @@ final class ApiTokenControllerTest extends WebTestCase
         self::assertCount(0, $tokens);
     }
 
+    public function test_revoke_with_return_to_redirects_there(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+
+        $owner = $this->createVerifiedUser($em, 'returnto-owner', 'returnto@example.com');
+        $site = new \App\Module\SiteReview\Entity\Site($owner, 'return-site');
+        $em->persist($site);
+        [$token] = ApiToken::issue($owner, 'site-tok', ApiTokenScope::SiteReview);
+        $em->persist($token);
+        $em->flush();
+        $tokenId = $token->id;
+        $siteId = $site->id;
+        $em->clear();
+
+        $client->loginUser($owner);
+        $client->request(\Symfony\Component\HttpFoundation\Request::METHOD_GET, '/account/api-tokens');
+        self::assertResponseIsSuccessful();
+
+        $csrfTokenValue = $client->getCrawler()->filter('input[name="_csrf_token"]')->first()->attr('value');
+        self::assertNotEmpty($csrfTokenValue);
+
+        $returnTo = '/site-review/sites/'.(string) $siteId;
+        $client->request(\Symfony\Component\HttpFoundation\Request::METHOD_POST, '/account/api-tokens/'.(string) $tokenId.'/revoke', [
+            '_csrf_token' => $csrfTokenValue,
+            'returnTo' => $returnTo,
+        ]);
+
+        self::assertResponseRedirects($returnTo);
+    }
+
     public function test_other_user_gets_404_on_revoke(): void
     {
         $client = static::createClient();

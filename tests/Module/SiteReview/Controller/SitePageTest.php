@@ -9,6 +9,7 @@ use App\Module\Account\Entity\User;
 use App\Module\SiteReview\Entity\Site;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
+use Symfony\Component\HttpFoundation\Request;
 
 final class SitePageTest extends WebTestCase
 {
@@ -22,10 +23,11 @@ final class SitePageTest extends WebTestCase
         $em->flush();
 
         $client->loginUser($owner);
-        $client->request(\Symfony\Component\HttpFoundation\Request::METHOD_GET, '/site-review/sites/'.$site->id);
+        $crawler = $client->request(Request::METHOD_GET, '/site-review/sites/'.$site->id);
 
         self::assertResponseIsSuccessful();
         self::assertStringContainsString('my-app', (string) $client->getResponse()->getContent());
+        self::assertCount(1, $crawler->selectButton('Mint widget token'));
     }
 
     public function test_non_owner_is_forbidden(): void
@@ -39,7 +41,7 @@ final class SitePageTest extends WebTestCase
         $em->flush();
 
         $client->loginUser($other);
-        $client->request(\Symfony\Component\HttpFoundation\Request::METHOD_GET, '/site-review/sites/'.$site->id);
+        $client->request(Request::METHOD_GET, '/site-review/sites/'.$site->id);
 
         self::assertResponseStatusCodeSame(403);
     }
@@ -56,7 +58,7 @@ final class SitePageTest extends WebTestCase
         $em->clear();
 
         $client->loginUser($owner);
-        $client->request(\Symfony\Component\HttpFoundation\Request::METHOD_GET, '/site-review/sites/'.$siteId);
+        $client->request(Request::METHOD_GET, '/site-review/sites/'.$siteId);
         $client->submitForm('Mint widget token');
 
         self::assertResponseRedirects('/site-review/sites/'.$siteId);
@@ -78,7 +80,7 @@ final class SitePageTest extends WebTestCase
         $siteId = $site->id;
 
         $client->loginUser($owner);
-        $client->request(\Symfony\Component\HttpFoundation\Request::METHOD_GET, '/site-review/sites/'.$siteId);
+        $client->request(Request::METHOD_GET, '/site-review/sites/'.$siteId);
         $client->submitForm('Mint widget token');
         $em->clear();
         $freshAfterFirstMint = $em->find(Site::class, $siteId);
@@ -87,7 +89,9 @@ final class SitePageTest extends WebTestCase
         self::assertNotNull($tokenId);
 
         // The page now shows Revoke, not Mint — POST the mint route directly to simulate a race.
-        $client->request(\Symfony\Component\HttpFoundation\Request::METHOD_POST, '/site-review/sites/'.$siteId.'/token', ['_csrf_token' => 'csrf-token']);
+        // 'csrf-token' is the SameOriginCsrfTokenManager sentinel: the preceding GET establishes
+        // BrowserKit history so the Referer header passes the same-origin check automatically.
+        $client->request(Request::METHOD_POST, '/site-review/sites/'.$siteId.'/token', ['_csrf_token' => 'csrf-token']);
 
         self::assertResponseRedirects('/site-review/sites/'.$siteId);
         $em->clear();

@@ -10,6 +10,7 @@ use App\Module\Account\Entity\User;
 use App\Module\Account\Repository\ApiTokenRepository;
 use Doctrine\ORM\EntityManagerInterface;
 use Psr\Log\LoggerInterface;
+use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Uid\Uuid;
@@ -30,7 +31,7 @@ class RevokeApiTokenController extends AppController
     ) {
     }
 
-    public function __invoke(Uuid $tokenId): Response
+    public function __invoke(Uuid $tokenId, Request $request): Response
     {
         $user = $this->getUser();
         assert($user instanceof User);
@@ -52,6 +53,11 @@ class RevokeApiTokenController extends AppController
             'tokenId' => (string) $tokenId,
             'label' => $label,
         ]);
+
+        $returnTo = $request->request->get('returnTo');
+        if (is_string($returnTo) && (str_starts_with($returnTo, '/site-review/') || str_starts_with($returnTo, '/account/'))) {
+            return $this->redirect($returnTo);
+        }
 
         return $this->redirectToRoute('app_api_tokens');
     }

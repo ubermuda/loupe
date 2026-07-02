@@ -61,10 +61,24 @@ final class StreamCredentialsControllerTest extends WebTestCase
         $em = static::getContainer()->get(EntityManagerInterface::class);
         [$raw] = $this->issue($em, ApiTokenScope::SiteReview, 'stream-no-site@example.com');
 
+        // Missing site parameter → 400.
         $client->request(Request::METHOD_GET, '/api/site-review/stream',
             server: ['HTTP_AUTHORIZATION' => 'Bearer '.$raw]);
 
         self::assertResponseStatusCodeSame(400);
+        $data = json_decode((string) $client->getResponse()->getContent(), true);
+        self::assertIsArray($data);
+        self::assertSame('missing_site_parameter', $data['error']);
+
+        // Blank-after-trim site parameter (a space) is also a 400.
+        $client->request(Request::METHOD_GET, '/api/site-review/stream',
+            ['site' => ' '],
+            server: ['HTTP_AUTHORIZATION' => 'Bearer '.$raw]);
+
+        self::assertResponseStatusCodeSame(400);
+        $data = json_decode((string) $client->getResponse()->getContent(), true);
+        self::assertIsArray($data);
+        self::assertSame('missing_site_parameter', $data['error']);
     }
 
     public function test_unknown_site_is_404(): void
@@ -78,6 +92,9 @@ final class StreamCredentialsControllerTest extends WebTestCase
             server: ['HTTP_AUTHORIZATION' => 'Bearer '.$raw]);
 
         self::assertResponseStatusCodeSame(404);
+        $data = json_decode((string) $client->getResponse()->getContent(), true);
+        self::assertIsArray($data);
+        self::assertSame('site_not_found', $data['error']);
     }
 
     public function test_other_owners_site_is_404(): void

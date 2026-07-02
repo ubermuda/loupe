@@ -34,14 +34,16 @@
             </div>
             <form method="POST" action="{{ path('app_api_token_revoke', {tokenId: site.token.id}) }}">
                 <input type="hidden" name="_csrf_token" value="{{ csrf_token('revoke-api-token') }}">
+                <input type="hidden" name="returnTo" value="{{ path('app_site_review_site', {id: site.id}) }}">
                 <button type="submit" class="bp-btn bp-btn--danger">{{ 'account.api_token.action.revoke'|trans }}</button>
             </form>
         </div>
+        {% set widgetSnippet %}<script src="{{ absolute_url('/site-review/widget.js') }}" data-token="YOUR_TOKEN"></script>{% endset %}
         <div class="bp-code-block mt-4">
             <div class="bp-code-block__header">
                 <span class="bp-code-block__label">{{ 'site_review.site.token.snippet_heading'|trans }}</span>
             </div>
-            <pre class="bp-pre"><code>&lt;script src="{{ absolute_url('/site-review/widget.js') }}" data-token="YOUR_TOKEN"&gt;&lt;/script&gt;</code></pre> {# twig-cs-fixer-disable-line #}
+            <pre class="bp-pre"><code>{{ widgetSnippet }}</code></pre>
         </div>
         {% else %}
         <form method="POST" action="{{ path('app_site_review_site_token_mint', {id: site.id}) }}">
@@ -49,6 +51,67 @@
             <button type="submit" class="bp-btn bp-btn--primary">{{ 'site_review.site.token.mint'|trans }}</button>
         </form>
         {% endif %}
+    </div>
+
+    <div class="flex flex-col gap-4 mt-2">
+        {% for review in reviews %}
+        <div class="bp-card" data-review-id="{{ review.id }}">
+            <div class="flex items-center gap-2 mb-3">
+                {% if review.status.value == 'in-progress' %}
+                <span class="bp-tag">{{ 'site_review.review.status.draft'|trans }}</span>
+                <span class="text-xs text-fg-dim">{{ review.createdAt|date('M j, Y H:i') }}</span>
+                {% else %}
+                <span class="bp-tag">{{ 'site_review.review.status.submitted'|trans }}</span>
+                <span class="text-xs text-fg-dim">{{ review.submittedAt|date('M j, Y H:i') }}</span>
+                {% endif %}
+                <span class="text-xs text-fg-dim">· {{ review.comments|length }} {{ 'site_review.review.comments_label'|trans }}</span>
+            </div>
+
+            {% for comment in review.comments %}
+            <div class="bp-review-comment" data-comment-id="{{ comment.id }}" data-comment-status="{{ comment.status.value }}">
+                {% if comment.text is not empty %}
+                <blockquote class="bp-review-comment__quote">{{ comment.text }}</blockquote>
+                {% endif %}
+
+                <div class="bp-review-comment__head">
+                    <span class="bp-tag shrink-0">{{ ('site_review.comment.status.' ~ comment.status.value)|trans }}</span>
+                    {% if comment.selector is empty %}
+                    <span class="bp-tag shrink-0">{{ 'site_review.comment.general'|trans }}</span>
+                    {% endif %}
+                </div>
+
+                <p class="bp-review-comment__body">{{ comment.body }}</p>
+
+                <a class="bp-review-comment__url" href="{{ comment.url }}" target="_blank" rel="noopener noreferrer">
+                    <twig:ux:icon name="lucide:external-link" class="w-3.5 h-3.5 shrink-0" />
+                    <span class="truncate">{{ comment.url }}</span>
+                </a>
+
+                {% if review.status.value == 'submitted' %}
+                <div class="flex items-center gap-2 mt-2">
+                    {% if comment.status.value != 'resolved' %}
+                    <form method="POST" action="{{ path('app_site_review_comment_resolve', {id: comment.id}) }}">
+                        <input type="hidden" name="_csrf_token" value="{{ csrf_token('site-review-comment-action') }}">
+                        <button type="submit" class="bp-btn bp-btn--sm">{{ 'site_review.comment.action.resolve'|trans }}</button>
+                    </form>
+                    {% endif %}
+                    {% if comment.status.value != 'pending' %}
+                    <form method="POST" action="{{ path('app_site_review_comment_reopen', {id: comment.id}) }}">
+                        <input type="hidden" name="_csrf_token" value="{{ csrf_token('site-review-comment-action') }}">
+                        <button type="submit" class="bp-btn bp-btn--ghost bp-btn--sm">{{ 'site_review.comment.action.reopen'|trans }}</button>
+                    </form>
+                    {% endif %}
+                </div>
+                {% endif %}
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="bp-card flex flex-col items-center text-center gap-3 py-12">
+            <twig:ux:icon name="lucide:message-square" class="w-8 h-8 text-fg-dim" />
+            <p class="bp-empty not-italic">{{ 'site_review.site.reviews.empty'|trans }}</p>
+        </div>
+        {% endfor %}
     </div>
 </div>
 {% endblock %}

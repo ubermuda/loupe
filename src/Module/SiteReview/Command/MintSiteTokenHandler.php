@@ -25,6 +25,9 @@ final readonly class MintSiteTokenHandler
     {
         $site = $command->site;
         if (null !== $site->token) {
+            $this->logger->info('site_review.site.token_mint_rejected', [
+                'siteId' => (string) $site->id,
+            ]);
             throw new DomainErrors(['token' => 'site_review.error.token_already_minted']);
         }
 

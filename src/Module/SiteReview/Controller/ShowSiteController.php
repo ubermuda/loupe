@@ -6,6 +6,7 @@ namespace App\Module\SiteReview\Controller;
 
 use App\Controller\AppController;
 use App\Module\SiteReview\Entity\Site;
+use App\Module\SiteReview\Repository\SiteReviewRepository;
 use App\Module\SiteReview\Security\SiteVoter;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
@@ -19,10 +20,16 @@ use Symfony\Component\Security\Http\Attribute\IsGranted;
 )]
 class ShowSiteController extends AppController
 {
+    public function __construct(
+        private readonly SiteReviewRepository $siteReviews,
+    ) {
+    }
+
     public function __invoke(Site $site): Response
     {
         return $this->render('@SiteReview/sites/show_site.html.twig', [
             'site' => $site,
+            'reviews' => $this->siteReviews->findForSite($site),
         ]);
     }
 }

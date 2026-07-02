@@ -58,4 +58,22 @@ final class ListSitesApiTest extends WebTestCase
         $client->request(Request::METHOD_GET, '/api/site-review/sites');
         self::assertResponseStatusCodeSame(401);
     }
+
+    public function test_mcp_scoped_token_is_forbidden(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+
+        $user = new User(username: 'list-sites-mcp@example.com', fullName: 'MCP', email: 'list-sites-mcp@example.com', password: 'x');
+        $user->emailVerifiedAt = new \DateTimeImmutable();
+        $em->persist($user);
+        [$token, $raw] = ApiToken::issue($user, 'mcp-tok', ApiTokenScope::Mcp);
+        $em->persist($token);
+        $em->flush();
+
+        $client->request(Request::METHOD_GET, '/api/site-review/sites',
+            server: ['HTTP_AUTHORIZATION' => 'Bearer '.$raw]);
+
+        self::assertResponseStatusCodeSame(403);
+    }
 }

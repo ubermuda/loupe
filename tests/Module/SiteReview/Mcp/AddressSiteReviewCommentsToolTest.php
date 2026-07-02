@@ -85,6 +85,14 @@ final class AddressSiteReviewCommentsToolTest extends KernelTestCase
         self::assertContains((string) $id1, $result['addressed']);
         self::assertContains((string) $id2, $result['addressed']);
 
+        // Second invocation with the same ids — both must be skipped as already_addressed.
+        $result2 = ($this->tool)([(string) $id1, (string) $id2]);
+        self::assertCount(0, $result2['addressed']);
+        self::assertCount(2, $result2['skipped']);
+        foreach ($result2['skipped'] as $skipped) {
+            self::assertSame('already_addressed', $skipped['reason']);
+        }
+
         // Verify DB state. The MCP layer structurally never assigns Resolved —
         // only Addressed — so asserting Addressed here also covers that invariant.
         $this->em->clear();
