@@ -190,12 +190,6 @@
     check: (s, stroke, color) =>
       `<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="${color || 'currentColor'}" ` +
       `stroke-width="${stroke || 2.4}" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>`,
-    copy: (s) =>
-      svg(
-        s,
-        '<rect x="9" y="9" width="11" height="11" rx="2.5"/><path d="M5 15H4.5A2.5 2.5 0 0 1 2 12.5v-8A2.5 2.5 0 0 1 4.5 2h8A2.5 2.5 0 0 1 15 4.5V5"/>',
-        2,
-      ),
     edit: (s) =>
       svg(
         s,
@@ -215,7 +209,7 @@
     composing: false,
     composeTarget: null, // { type:'general' } | { type:'element', el, selector, text, label }
     draft: '',
-    editIndex: null, // index of the comment being edited in place, or null for a new one
+    editId: null, // server id of the comment being edited in place, or null for a new one
     listExpanded: false,
     expandLevel: 0,
     toastDock: 'top', // 'top' | 'bottom' — the pick-mode toast dodges to the bottom near the top edge
@@ -226,6 +220,7 @@
     confirmClear: false,
     pinConfirmId: null, // armed pin-popover delete
     saving: false,
+    deleting: false,
     sending: false,
     sent: false, // true after a successful submit
     sendError: null,
@@ -833,7 +828,7 @@
       errorNode.innerHTML =
         state.sendError === 'send'
           ? `<span>Couldn’t send your review. Please try again.</span><button id="bp-retry">Try again</button>`
-          : `<span>Couldn’t save that change. Please try again.</span><button id="bp-retry-dismiss">Dismiss</button>`;
+          : `<span>Couldn’t apply that change. Please try again.</span><button id="bp-retry-dismiss">Dismiss</button>`;
       const retry = root.getElementById('bp-retry');
       if (retry) retry.addEventListener('click', send);
       const dismiss = root.getElementById('bp-retry-dismiss');
@@ -871,7 +866,7 @@
           : `Show ${n} comments`;
       $('bp-clear-confirm-text').textContent =
         n === 1 ? 'Remove this comment?' : `Remove all ${n} comments?`;
-      sendBtn.disabled = state.sending || n === 0;
+      sendBtn.disabled = state.sending || state.saving || n === 0;
       sendBtn.innerHTML = state.sending
         ? `<span class="bp-spin"></span>Sending…`
         : `${ICON.send(14)}Send`;
@@ -986,7 +981,7 @@
   const openNoteComposer = () => {
     state.composing = true;
     state.composeTarget = { type: 'general' };
-    state.editIndex = null;
+    state.editId = null;
     state.draft = '';
     textareaNode.value = '';
     state.open = true;
@@ -999,7 +994,7 @@
     if (state.composing && ct.type === 'general') {
       state.composing = false;
       state.composeTarget = null;
-      state.editIndex = null;
+      state.editId = null;
       state.draft = '';
       textareaNode.value = '';
       sync();
@@ -1016,7 +1011,7 @@
       text: (el.innerText || '').trim().slice(0, 200),
       label: firstLineLabel(el.innerText),
     };
-    state.editIndex = null;
+    state.editId = null;
     state.draft = '';
     textareaNode.value = '';
     state.open = true;
@@ -1030,7 +1025,7 @@
     const comment = pending[index];
     if (!comment) return;
     state.composing = true;
-    state.editIndex = index;
+    state.editId = comment.id;
     state.composeTarget = comment.selector
       ? {
           type: 'element',
@@ -1050,7 +1045,7 @@
   const cancelCompose = () => {
     state.composing = false;
     state.composeTarget = null;
-    state.editIndex = null;
+    state.editId = null;
     state.draft = '';
     textareaNode.value = '';
     sync();
@@ -1062,10 +1057,15 @@
     state.sendError = null;
     updatePanel();
     try {
-      if (state.editIndex != null && pending[state.editIndex]) {
-        const target = pending[state.editIndex];
-        await api('PATCH', `/api/site-review/comments/${target.id}`, { body });
-        target.body = body;
+      await ready; // don't let the boot refresh clobber an early save
+      if (state.editId != null) {
+        // Resolve by server id — a concurrent delete may have shifted indices. If the
+        // comment is gone, skip the PATCH and just close the composer gracefully.
+        const target = pending.find((c) => c.id === state.editId);
+        if (target) {
+          await api('PATCH', `/api/site-review/comments/${target.id}`, { body });
+          target.body = body;
+        }
       } else {
         const ct = state.composeTarget || { type: 'general' };
         const comment =
@@ -1077,7 +1077,7 @@
       }
       state.composing = false;
       state.composeTarget = null;
-      state.editIndex = null;
+      state.editId = null;
       state.draft = '';
       textareaNode.value = '';
     } catch {
@@ -1092,12 +1092,16 @@
   const removeComment = async (index) => {
     const target = pending[index];
     if (!target) return;
+    if (state.deleting) return;
+    state.deleting = true;
     try {
+      await ready; // don't let the boot refresh clobber an early delete
       await api('DELETE', `/api/site-review/comments/${target.id}`);
       pending.splice(index, 1);
     } catch {
       state.sendError = 'delete';
     }
+    state.deleting = false;
     state.confirmDeleteId = null;
     state.pinConfirmId = null;
     state.hoverId = null;
@@ -1114,18 +1118,22 @@
     sync();
   };
   const confirmClearYes = async () => {
+    if (state.deleting) return;
+    state.deleting = true;
     try {
+      await ready; // don't let the boot refresh clobber an early clear
       await Promise.all(pending.map((comment) => api('DELETE', `/api/site-review/comments/${comment.id}`)));
       pending = [];
     } catch {
       state.sendError = 'delete';
       await refresh(); // reconcile: some deletes may have landed
     }
+    state.deleting = false;
     state.confirmClear = false;
     state.listExpanded = false;
     state.composing = false;
     state.composeTarget = null;
-    state.editIndex = null;
+    state.editId = null;
     state.hoverId = null;
     state.hoverPinId = null;
     state.confirmDeleteId = null;
@@ -1178,7 +1186,7 @@
     if (on) {
       state.composing = false;
       state.composeTarget = null;
-      state.editIndex = null;
+      state.editId = null;
       state.draft = '';
       textareaNode.value = '';
       state.open = true;
@@ -1274,11 +1282,12 @@
 
   // ---- send ----
   const send = async () => {
-    if (!pending.length || state.sending) return;
+    if (!pending.length || state.sending || state.saving) return;
     state.sending = true;
     state.sendError = null;
     updatePanel();
     try {
+      await ready; // don't submit before the boot refresh has settled
       await api('POST', '/api/site-review/review/submit');
       pending = [];
       setTargeting(false);
@@ -1288,7 +1297,7 @@
         sendError: null,
         composing: false,
         composeTarget: null,
-        editIndex: null,
+        editId: null,
         draft: '',
         listExpanded: false,
         confirmClear: false,
@@ -1315,7 +1324,7 @@
       setTargeting(false);
       state.composing = false;
       state.composeTarget = null;
-      state.editIndex = null;
+      state.editId = null;
       state.draft = '';
       textareaNode.value = '';
     }
@@ -1446,6 +1455,7 @@
     document.addEventListener(evt, rerenderAnchors),
   );
 
+  const ready = refresh();
   sync();
-  refresh().then(sync);
+  ready.then(sync);
 })();
