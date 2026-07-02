@@ -201,7 +201,7 @@
       `stroke-linecap="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="2.4" fill="currentColor" stroke="none"/></svg>`,
   };
 
-  // ---- widget state (the pending batch lives in `pending`; this is UI state) ----
+  // ---- widget state (the in-progress review's comments live in `pending`; this is UI state) ----
   // Comments are identified by their index in `pending`; every mutation re-renders.
   const state = {
     open: false,

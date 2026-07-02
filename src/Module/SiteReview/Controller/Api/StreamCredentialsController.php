@@ -7,6 +7,7 @@ namespace App\Module\SiteReview\Controller\Api;
 use App\Controller\AppController;
 use App\Module\Account\Entity\User;
 use App\Module\SiteReview\Repository\SiteRepository;
+use App\Module\SiteReview\Security\AuthenticatedSiteResolver;
 use App\Module\SiteReview\Service\SiteReviewTopicBuilder;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -21,6 +22,11 @@ use Symfony\Component\Routing\Attribute\Route;
  * and a ?site= handle (site id or name), then opens an SSE connection to
  * {hubUrl}?topic={topic} with the returned JWT.
  *
+ * Account-level tokens only. Site-bound widget tokens (embedded in page HTML,
+ * public by design) are rejected with 403 — their contract is "one site,
+ * drafts + submit, nothing else"; letting one mint subscriber JWTs would let
+ * any page visitor spy on the owner's review streams.
+ *
  * Role gating (ROLE_API_SITE_REVIEW) comes from the firewall access_control on
  * ^/api/site-review; site ownership is enforced here via the owner-scoped
  * repository lookup — the caller can only ever obtain creds for its own sites.
@@ -33,6 +39,7 @@ use Symfony\Component\Routing\Attribute\Route;
 final class StreamCredentialsController extends AppController
 {
     public function __construct(
+        private readonly AuthenticatedSiteResolver $siteResolver,
         private readonly SiteRepository $sites,
         private readonly SiteReviewTopicBuilder $topicBuilder,
 
@@ -46,6 +53,10 @@ final class StreamCredentialsController extends AppController
 
     public function __invoke(Request $request): JsonResponse
     {
+        if (null !== $this->siteResolver->resolve()) {
+            return $this->json(['error' => 'site_bound_token_not_allowed'], JsonResponse::HTTP_FORBIDDEN);
+        }
+
         $user = $this->getUser();
         if (!$user instanceof User) {
             throw new \LogicException('Stream endpoint reached without an authenticated User.');

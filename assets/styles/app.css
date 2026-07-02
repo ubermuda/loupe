@@ -717,7 +717,7 @@
         @apply text-xs text-danger;
     }
 
-    /* ── Site-review comment card (batch detail page) ───────────────────
+    /* ── Site-review comment card (site page) ───────────────────────────
        Hierarchy: the comment body is primary; the captured URL and element
        text are secondary; the raw CSS selector is tucked into a disclosure. */
 

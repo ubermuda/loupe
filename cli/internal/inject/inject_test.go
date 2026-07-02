@@ -6,11 +6,11 @@ import (
 )
 
 func TestParse(t *testing.T) {
-	e, err := Parse([]byte(`{"type":"site_review.submitted","siteId":"site-1","siteName":"acme","reviewId":"rev-42","commentCount":2,"urls":["https://x/a","https://x/b"],"submittedAt":"2026-07-01T00:00:00Z"}`))
+	e, err := Parse([]byte(`{"type":"site_review.submitted","siteId":"site-1","siteName":"acme","reviewId":"rev-42","commentCount":2,"urls":["https://x/a","https://x/b"],"submittedAt":"2026-07-01T00:00:00+00:00"}`))
 	if err != nil {
 		t.Fatalf("Parse: %v", err)
 	}
-	if e.Type != "site_review.submitted" || e.SiteID != "site-1" || e.SiteName != "acme" || e.ReviewID != "rev-42" || e.CommentCount != 2 || len(e.URLs) != 2 || e.SubmittedAt != "2026-07-01T00:00:00Z" {
+	if e.Type != "site_review.submitted" || e.SiteID != "site-1" || e.SiteName != "acme" || e.ReviewID != "rev-42" || e.CommentCount != 2 || len(e.URLs) != 2 || e.SubmittedAt != "2026-07-01T00:00:00+00:00" {
 		t.Fatalf("unexpected event: %+v", e)
 	}
 }

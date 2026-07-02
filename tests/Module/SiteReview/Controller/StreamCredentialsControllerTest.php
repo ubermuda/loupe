@@ -133,6 +133,35 @@ final class StreamCredentialsControllerTest extends WebTestCase
         self::assertResponseStatusCodeSame(401);
     }
 
+    public function test_site_bound_widget_token_is_forbidden(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+
+        // A widget token: SiteReview-scoped but BOUND to a site. It is embedded
+        // in public page HTML, so it must never mint subscriber JWTs — not even
+        // for its own site.
+        $email = 'stream-widget@example.com';
+        $user = new User(username: $email, fullName: 'U', email: $email, password: 'x');
+        $user->emailVerifiedAt = new \DateTimeImmutable();
+        $em->persist($user);
+        [$token, $raw] = ApiToken::issue($user, 'widget-tok', ApiTokenScope::SiteReview);
+        $em->persist($token);
+        $site = new Site($user, 'stream-widget-site');
+        $site->token = $token;
+        $em->persist($site);
+        $em->flush();
+
+        $client->request(Request::METHOD_GET, '/api/site-review/stream',
+            ['site' => $site->name],
+            server: ['HTTP_AUTHORIZATION' => 'Bearer '.$raw]);
+
+        self::assertResponseStatusCodeSame(403);
+        $data = json_decode((string) $client->getResponse()->getContent(), true);
+        self::assertIsArray($data);
+        self::assertSame('site_bound_token_not_allowed', $data['error'] ?? null);
+    }
+
     /**
      * @param non-empty-string $email
      *
