@@ -18,10 +18,10 @@ final class StreamCredentialsControllerTest extends WebTestCase
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
-        [$raw, , $site] = $this->issue($em, ApiTokenScope::SiteReview, 'stream@example.com');
+        [$raw, , $project] = $this->issue($em, ApiTokenScope::SiteReview, 'stream@example.com');
 
         $client->request(Request::METHOD_GET, '/api/site-review/stream',
-            ['site' => $site->name],
+            ['site' => $project->name],
             server: ['HTTP_AUTHORIZATION' => 'Bearer '.$raw]);
 
         self::assertResponseIsSuccessful();
@@ -29,10 +29,10 @@ final class StreamCredentialsControllerTest extends WebTestCase
         self::assertIsArray($data);
         self::assertSame('https://mercure.betterplans.dev.localhost/.well-known/mercure', $data['hubUrl']);
 
-        $expectedTopic = 'https://betterplans.dev.localhost/projects/'.$site->id.'/site-reviews';
+        $expectedTopic = 'https://betterplans.dev.localhost/projects/'.$project->id.'/site-reviews';
         self::assertSame($expectedTopic, $data['topic']);
-        self::assertSame((string) $site->id, $data['site']['id']);
-        self::assertSame($site->name, $data['site']['name']);
+        self::assertSame((string) $project->id, $data['site']['id']);
+        self::assertSame($project->name, $data['site']['name']);
 
         // The JWT must be a subscriber token scoped to exactly this site's topic.
         $claims = $this->decodeJwtClaims((string) $data['jwt']);
@@ -43,16 +43,16 @@ final class StreamCredentialsControllerTest extends WebTestCase
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
-        [$raw, , $site] = $this->issue($em, ApiTokenScope::SiteReview, 'stream-by-id@example.com');
+        [$raw, , $project] = $this->issue($em, ApiTokenScope::SiteReview, 'stream-by-id@example.com');
 
         $client->request(Request::METHOD_GET, '/api/site-review/stream',
-            ['site' => (string) $site->id],
+            ['site' => (string) $project->id],
             server: ['HTTP_AUTHORIZATION' => 'Bearer '.$raw]);
 
         self::assertResponseIsSuccessful();
         $data = json_decode((string) $client->getResponse()->getContent(), true);
         self::assertIsArray($data);
-        self::assertSame((string) $site->id, $data['site']['id']);
+        self::assertSame((string) $project->id, $data['site']['id']);
     }
 
     public function test_missing_site_is_400(): void
@@ -147,13 +147,13 @@ final class StreamCredentialsControllerTest extends WebTestCase
         $em->persist($user);
         [$token, $raw] = ApiToken::issue($user, 'widget-tok', ApiTokenScope::SiteReview);
         $em->persist($token);
-        $site = new Project($user, 'stream-widget-site');
-        $site->widgetToken = $token;
-        $em->persist($site);
+        $project = new Project($user, 'stream-widget-site');
+        $project->widgetToken = $token;
+        $em->persist($project);
         $em->flush();
 
         $client->request(Request::METHOD_GET, '/api/site-review/stream',
-            ['site' => $site->name],
+            ['site' => $project->name],
             server: ['HTTP_AUTHORIZATION' => 'Bearer '.$raw]);
 
         self::assertResponseStatusCodeSame(403);
@@ -174,11 +174,11 @@ final class StreamCredentialsControllerTest extends WebTestCase
         $em->persist($user);
         [$token, $raw] = ApiToken::issue($user, 'tok', $scope);
         $em->persist($token);
-        $site = new Project($user, 'site-'.substr(md5($email), 0, 8));
-        $em->persist($site);
+        $project = new Project($user, 'site-'.substr(md5($email), 0, 8));
+        $em->persist($project);
         $em->flush();
 
-        return [$raw, $user, $site];
+        return [$raw, $user, $project];
     }
 
     /**

@@ -35,6 +35,9 @@ final class Version20260702190847 extends AbstractMigration
         $this->addSql('ALTER TABLE site_review_reviews DROP CONSTRAINT fk_b3c886f0f6bd1646');
         $this->addSql('ALTER TABLE site_review_sites DROP CONSTRAINT fk_64041bcb41dee7b9');
         $this->addSql('ALTER TABLE site_review_sites DROP CONSTRAINT fk_64041bcb7e3c61f9');
+        // Bound widget tokens are public by design (embedded in page HTML); merely
+        // dropping the binding would silently promote them to account-level tokens.
+        $this->addSql('DELETE FROM api_tokens WHERE id IN (SELECT token_id FROM site_review_sites WHERE token_id IS NOT NULL)');
         $this->addSql('DROP TABLE site_review_sites');
         $this->addSql('DROP INDEX uniq_site_review_in_progress');
         $this->addSql('DROP INDEX idx_b3c886f0f6bd1646');
@@ -53,10 +56,7 @@ final class Version20260702190847 extends AbstractMigration
         $this->addSql('CREATE UNIQUE INDEX uniq_site_review_site_owner_name ON site_review_sites (owner_id, name)');
         $this->addSql('ALTER TABLE site_review_sites ADD CONSTRAINT fk_64041bcb41dee7b9 FOREIGN KEY (token_id) REFERENCES api_tokens (id) ON DELETE SET NULL NOT DEFERRABLE INITIALLY IMMEDIATE');
         $this->addSql('ALTER TABLE site_review_sites ADD CONSTRAINT fk_64041bcb7e3c61f9 FOREIGN KEY (owner_id) REFERENCES users (id) NOT DEFERRABLE INITIALLY IMMEDIATE');
-        $this->addSql('ALTER TABLE projects DROP CONSTRAINT FK_5C93B3A4ADB33A98');
-        $this->addSql('ALTER TABLE projects DROP CONSTRAINT FK_5C93B3A47B40685F');
-        $this->addSql('ALTER TABLE projects DROP CONSTRAINT FK_5C93B3A47E3C61F9');
-        $this->addSql('DROP TABLE projects');
+        // The FK on site_review_reviews must be gone before projects can be dropped.
         $this->addSql('ALTER TABLE site_review_reviews DROP CONSTRAINT FK_B3C886F0166D1F9C');
         $this->addSql('DROP INDEX IDX_B3C886F0166D1F9C');
         $this->addSql('DROP INDEX uniq_site_review_in_progress');
@@ -64,5 +64,9 @@ final class Version20260702190847 extends AbstractMigration
         $this->addSql('ALTER TABLE site_review_reviews ADD CONSTRAINT fk_b3c886f0f6bd1646 FOREIGN KEY (site_id) REFERENCES site_review_sites (id) NOT DEFERRABLE INITIALLY IMMEDIATE');
         $this->addSql('CREATE INDEX idx_b3c886f0f6bd1646 ON site_review_reviews (site_id)');
         $this->addSql('CREATE UNIQUE INDEX uniq_site_review_in_progress ON site_review_reviews (site_id) WHERE ((status)::text = \'in-progress\'::text)');
+        $this->addSql('ALTER TABLE projects DROP CONSTRAINT FK_5C93B3A4ADB33A98');
+        $this->addSql('ALTER TABLE projects DROP CONSTRAINT FK_5C93B3A47B40685F');
+        $this->addSql('ALTER TABLE projects DROP CONSTRAINT FK_5C93B3A47E3C61F9');
+        $this->addSql('DROP TABLE projects');
     }
 }

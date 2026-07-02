@@ -210,3 +210,19 @@ work before it's a turnkey distributable:
   (mode 0600). Move it to the OS keychain (e.g. `go-keyring`) with the file as a fallback.
 - **CI + release.** Wire `just cli-test` into the gate, and add goreleaser for a
   multi-platform release matrix (current `just cli-build` only cross-compiles one target).
+
+## Account-level API guards now key on the widget binding specifically
+
+`ListSitesController` and `StreamCredentialsController` reject site-bound
+widget tokens by checking `AuthenticatedProjectResolver::resolveWidgetProject()`.
+Once the project MCP token mint lands, a token bound as `mcpToken` will pass
+these account-level endpoints. That may be the intended design (MCP tokens are
+private, unlike public-by-design widget tokens) — but decide deliberately when
+implementing the MCP mint, and encode the decision in a test either way.
+
+## Widget-token mint flow still uses site-era CSRF id and translation keys
+
+`MintProjectWidgetTokenController` keeps CSRF token id `mint-site-token` and
+the `site_review.site.token.*` translation-key family (template ↔ controller
+pairs are consistent). Rename both to `project.*` when the Connect page (Loop
+redesign PR 4) takes over the token UI.

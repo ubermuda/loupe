@@ -47,27 +47,27 @@ final class AddressSiteReviewCommentsToolTest extends KernelTestCase
      *
      * @return array{Project, SiteReview} project + one submitted review with 2 pending comments
      */
-    private function siteWithSubmittedReview(string $email, string $name = 'tool-site'): array
+    private function projectWithSubmittedReview(string $email, string $name = 'tool-site'): array
     {
         $user = new User(username: $email, fullName: 'U', email: $email, password: 'x');
         $this->em->persist($user);
-        $site = new Project($user, $name);
-        $this->em->persist($site);
-        $review = new SiteReview($site);
+        $project = new Project($user, $name);
+        $this->em->persist($project);
+        $review = new SiteReview($project);
         $review->addComment('first', '.a', 'A', 'https://app/x');
         $review->addComment('second', '', '', 'https://app/y');
         $review->markSubmitted();
         $this->em->persist($review);
         $this->em->flush();
 
-        return [$site, $review];
+        return [$project, $review];
     }
 
     public function test_addresses_pending_comments(): void
     {
         $email = 'addr-pending@example.com';
-        [$site, $review] = $this->siteWithSubmittedReview($email, 'addr-pending-site');
-        $user = $site->owner;
+        [$project, $review] = $this->projectWithSubmittedReview($email, 'addr-pending-site');
+        $user = $project->owner;
 
         $comments = $review->comments->toArray();
         self::assertCount(2, $comments);
@@ -109,11 +109,11 @@ final class AddressSiteReviewCommentsToolTest extends KernelTestCase
         $email = 'addr-skip@example.com';
         $user = new User(username: $email, fullName: 'U', email: $email, password: 'x');
         $this->em->persist($user);
-        $site = new Project($user, 'addr-skip-site');
-        $this->em->persist($site);
+        $project = new Project($user, 'addr-skip-site');
+        $this->em->persist($project);
 
         // Submitted review with one resolved comment (not_pending).
-        $submittedReview = new SiteReview($site);
+        $submittedReview = new SiteReview($project);
         $resolvedComment = $submittedReview->addComment('resolved', '.a', 'A', 'https://app/x');
         $submittedReview->markSubmitted();
         $this->em->persist($submittedReview);
@@ -123,7 +123,7 @@ final class AddressSiteReviewCommentsToolTest extends KernelTestCase
         $this->em->flush();
 
         // Draft review with a pending comment (not_submitted).
-        $draftReview = new SiteReview($site);
+        $draftReview = new SiteReview($project);
         $draftComment = $draftReview->addComment('draft', '.b', 'B', 'https://app/y');
         $this->em->persist($draftReview);
         $this->em->flush();
@@ -171,7 +171,7 @@ final class AddressSiteReviewCommentsToolTest extends KernelTestCase
     public function test_other_users_comment_is_skipped_as_unknown(): void
     {
         $ownerEmail = 'addr-owner@example.com';
-        [, $review] = $this->siteWithSubmittedReview($ownerEmail, 'addr-owner-site');
+        [, $review] = $this->projectWithSubmittedReview($ownerEmail, 'addr-owner-site');
 
         $comments = $review->comments->toArray();
         $commentId = $comments[0]->id;

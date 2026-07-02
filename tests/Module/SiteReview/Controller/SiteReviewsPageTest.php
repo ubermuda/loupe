@@ -30,19 +30,19 @@ final class SiteReviewsPageTest extends WebTestCase
      *
      * @return array{Project, SiteReview} project + one submitted review with 2 pending comments
      */
-    private function siteWithSubmittedReview(EntityManagerInterface $em, string $email, string $siteName): array
+    private function projectWithSubmittedReview(EntityManagerInterface $em, string $email, string $siteName): array
     {
         $owner = $this->user($em, $email);
-        $site = new Project($owner, $siteName);
-        $em->persist($site);
-        $review = new SiteReview($site);
+        $project = new Project($owner, $siteName);
+        $em->persist($project);
+        $review = new SiteReview($project);
         $review->addComment('First comment', '.selector', 'Selected text', 'https://example.com/page');
         $review->addComment('Second comment', '', '', 'https://example.com/other');
         $review->markSubmitted();
         $em->persist($review);
         $em->flush();
 
-        return [$site, $review];
+        return [$project, $review];
     }
 
     public function test_page_shows_submitted_review_with_statuses(): void
@@ -50,15 +50,15 @@ final class SiteReviewsPageTest extends WebTestCase
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
 
-        [$site, $review] = $this->siteWithSubmittedReview($em, 'reviews-page-a@example.com', 'reviews-site-a');
-        $owner = $site->owner;
+        [$project, $review] = $this->projectWithSubmittedReview($em, 'reviews-page-a@example.com', 'reviews-site-a');
+        $owner = $project->owner;
         $reviewId = $review->id;
         $comments = $review->comments->toArray();
         $commentId = $comments[0]->id;
         $em->clear();
 
         $client->loginUser($owner);
-        $crawler = $client->request(Request::METHOD_GET, '/site-review/sites/'.$site->id);
+        $crawler = $client->request(Request::METHOD_GET, '/site-review/sites/'.$project->id);
 
         self::assertResponseIsSuccessful();
         self::assertCount(1, $crawler->filter('[data-review-id="'.$reviewId.'"]'));
@@ -71,20 +71,20 @@ final class SiteReviewsPageTest extends WebTestCase
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
 
-        [$site, $review] = $this->siteWithSubmittedReview($em, 'reviews-page-b@example.com', 'reviews-site-b');
-        $owner = $site->owner;
+        [$project, $review] = $this->projectWithSubmittedReview($em, 'reviews-page-b@example.com', 'reviews-site-b');
+        $owner = $project->owner;
         $comments = $review->comments->toArray();
         $comment = $comments[0];
         $commentId = $comment->id;
         $em->clear();
 
         $client->loginUser($owner);
-        $client->request(Request::METHOD_GET, '/site-review/sites/'.$site->id);
+        $client->request(Request::METHOD_GET, '/site-review/sites/'.$project->id);
         self::assertResponseIsSuccessful();
 
         $client->submitForm('Resolve');
 
-        self::assertResponseRedirects('/site-review/sites/'.$site->id);
+        self::assertResponseRedirects('/site-review/sites/'.$project->id);
 
         $em->clear();
         $fresh = $em->find(SiteReviewComment::class, $commentId);
@@ -97,8 +97,8 @@ final class SiteReviewsPageTest extends WebTestCase
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
 
-        [$site, $review] = $this->siteWithSubmittedReview($em, 'reviews-page-c@example.com', 'reviews-site-c');
-        $owner = $site->owner;
+        [$project, $review] = $this->projectWithSubmittedReview($em, 'reviews-page-c@example.com', 'reviews-site-c');
+        $owner = $project->owner;
         $comments = $review->comments->toArray();
         $comment = $comments[0];
         $commentId = $comment->id;
@@ -109,12 +109,12 @@ final class SiteReviewsPageTest extends WebTestCase
         $em->clear();
 
         $client->loginUser($owner);
-        $client->request(Request::METHOD_GET, '/site-review/sites/'.$site->id);
+        $client->request(Request::METHOD_GET, '/site-review/sites/'.$project->id);
         self::assertResponseIsSuccessful();
 
         $client->submitForm('Reopen');
 
-        self::assertResponseRedirects('/site-review/sites/'.$site->id);
+        self::assertResponseRedirects('/site-review/sites/'.$project->id);
 
         $em->clear();
         $fresh = $em->find(SiteReviewComment::class, $commentId);
@@ -127,7 +127,7 @@ final class SiteReviewsPageTest extends WebTestCase
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
 
-        [$site, $review] = $this->siteWithSubmittedReview($em, 'reviews-page-d@example.com', 'reviews-site-d');
+        [$project, $review] = $this->projectWithSubmittedReview($em, 'reviews-page-d@example.com', 'reviews-site-d');
         $other = $this->user($em, 'rvw-page-d-oth@example.com');
         $comments = $review->comments->toArray();
         $comment = $comments[0];
@@ -164,9 +164,9 @@ final class SiteReviewsPageTest extends WebTestCase
         $em = static::getContainer()->get(EntityManagerInterface::class);
 
         $owner = $this->user($em, 'reviews-page-e@example.com');
-        $site = new Project($owner, 'reviews-site-e');
-        $em->persist($site);
-        $review = new SiteReview($site);
+        $project = new Project($owner, 'reviews-site-e');
+        $em->persist($project);
+        $review = new SiteReview($project);
         $review->addComment('Draft comment', '.a', 'text', 'https://example.com');
         $em->persist($review);
         $em->flush();
@@ -174,7 +174,7 @@ final class SiteReviewsPageTest extends WebTestCase
         $em->clear();
 
         $client->loginUser($owner);
-        $crawler = $client->request(Request::METHOD_GET, '/site-review/sites/'.$site->id);
+        $crawler = $client->request(Request::METHOD_GET, '/site-review/sites/'.$project->id);
 
         self::assertResponseIsSuccessful();
         self::assertCount(1, $crawler->filter('[data-review-id="'.$reviewId.'"]'));
@@ -192,9 +192,9 @@ final class SiteReviewsPageTest extends WebTestCase
 
         // Build the malicious comment via the entity directly, bypassing API validation.
         $owner = $this->user($em, 'reviews-page-f@example.com');
-        $site = new Project($owner, 'reviews-site-f');
-        $em->persist($site);
-        $review = new SiteReview($site);
+        $project = new Project($owner, 'reviews-site-f');
+        $em->persist($project);
+        $review = new SiteReview($project);
         $review->addComment('sneaky', '.x', 'text', 'javascript:alert(1)');
         $review->markSubmitted();
         $em->persist($review);
@@ -204,7 +204,7 @@ final class SiteReviewsPageTest extends WebTestCase
         $em->clear();
 
         $client->loginUser($owner);
-        $crawler = $client->request(Request::METHOD_GET, '/site-review/sites/'.$site->id);
+        $crawler = $client->request(Request::METHOD_GET, '/site-review/sites/'.$project->id);
 
         self::assertResponseIsSuccessful();
         $commentBlock = $crawler->filter('[data-comment-id="'.$commentId.'"]');
@@ -220,9 +220,9 @@ final class SiteReviewsPageTest extends WebTestCase
         $em = static::getContainer()->get(EntityManagerInterface::class);
 
         $owner = $this->user($em, 'reviews-page-g@example.com');
-        $site = new Project($owner, 'reviews-site-g');
-        $em->persist($site);
-        $review = new SiteReview($site);
+        $project = new Project($owner, 'reviews-site-g');
+        $em->persist($project);
+        $review = new SiteReview($project);
         $review->addComment('Draft comment', '.a', 'text', 'https://example.com');
         $em->persist($review);
         $em->flush();
@@ -231,7 +231,7 @@ final class SiteReviewsPageTest extends WebTestCase
         $em->clear();
 
         $client->loginUser($owner);
-        $client->request(Request::METHOD_GET, '/site-review/sites/'.$site->id);
+        $client->request(Request::METHOD_GET, '/site-review/sites/'.$project->id);
         self::assertResponseIsSuccessful();
 
         // The UI hides the buttons on drafts -- POST the route directly. The handler
@@ -242,7 +242,7 @@ final class SiteReviewsPageTest extends WebTestCase
             ['_csrf_token' => 'csrf-token'],
         );
 
-        self::assertResponseRedirects('/site-review/sites/'.$site->id);
+        self::assertResponseRedirects('/site-review/sites/'.$project->id);
 
         $em->clear();
         $fresh = $em->find(SiteReviewComment::class, $commentId);

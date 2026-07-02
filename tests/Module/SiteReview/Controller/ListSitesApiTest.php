@@ -90,9 +90,9 @@ final class ListSitesApiTest extends WebTestCase
         $em->persist($user);
         [$token, $raw] = ApiToken::issue($user, 'widget-tok', ApiTokenScope::SiteReview);
         $em->persist($token);
-        $site = new Project($user, 'list-widget-site');
-        $site->widgetToken = $token;
-        $em->persist($site);
+        $project = new Project($user, 'list-widget-site');
+        $project->widgetToken = $token;
+        $em->persist($project);
         $em->flush();
 
         $client->request(Request::METHOD_GET, '/api/site-review/sites',
