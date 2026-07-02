@@ -4,13 +4,13 @@ declare(strict_types=1);
 
 namespace App\Module\SiteReview\Mcp;
 
-use App\Module\Account\Entity\User;
+use App\Module\Project\Security\AuthenticatedProjectResolver;
 use App\Module\SiteReview\Entity\SiteReviewCommentStatus;
 use App\Module\SiteReview\Entity\SiteReviewStatus;
 use App\Module\SiteReview\Repository\SiteReviewCommentRepository;
 use Doctrine\ORM\EntityManagerInterface;
 use Mcp\Capability\Attribute\McpTool;
-use Symfony\Bundle\SecurityBundle\Security;
+use Mcp\Exception\ToolCallException;
 use Symfony\Component\Uid\Uuid;
 
 /**
@@ -23,7 +23,7 @@ final readonly class AddressSiteReviewCommentsTool
     public function __construct(
         private SiteReviewCommentRepository $siteReviewComments,
         private EntityManagerInterface $em,
-        private Security $security,
+        private AuthenticatedProjectResolver $projectResolver,
     ) {
     }
 
@@ -34,8 +34,10 @@ final readonly class AddressSiteReviewCommentsTool
      */
     public function __invoke(array $commentIds): array
     {
-        /** @var User $user */
-        $user = $this->security->getUser();
+        $project = $this->projectResolver->resolveMcpProject();
+        if (null === $project) {
+            throw new ToolCallException('MCP token is not bound to a project. Mint a project token from the Connect page.');
+        }
 
         $addressed = [];
         $skipped = [];
@@ -47,7 +49,7 @@ final readonly class AddressSiteReviewCommentsTool
                 continue;
             }
 
-            $comment = $this->siteReviewComments->findOneForOwner($uuid, $user);
+            $comment = $this->siteReviewComments->findOneForProject($uuid, $project);
             if (null === $comment) {
                 $skipped[] = ['id' => $id, 'reason' => 'unknown'];
                 continue;

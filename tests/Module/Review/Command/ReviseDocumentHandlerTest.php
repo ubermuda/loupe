@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Tests\Module\Review\Command;
 
 use App\Module\Account\Entity\User;
+use App\Module\Project\Entity\Project;
 use App\Module\Review\Command\CreateDocumentCommand;
 use App\Module\Review\Command\CreateDocumentHandler;
 use App\Module\Review\Command\ReviseDocumentCommand;
@@ -27,12 +28,14 @@ final class ReviseDocumentHandlerTest extends KernelTestCase
 
         $user = new User(username: 'agent', fullName: 'Agent', email: 'agent@example.com', password: 'hashed');
         $em->persist($user);
+        $project = new Project($user, 'p-'.uniqid());
+        $em->persist($project);
         $em->flush();
 
         // Create document with first version containing "use JWTs and rate limiting".
         /** @var CreateDocumentHandler $createHandler */
         $createHandler = self::getContainer()->get(CreateDocumentHandler::class);
-        $doc = $createHandler(new CreateDocumentCommand($user, 'Auth PRD', 'use JWTs and rate limiting'));
+        $doc = $createHandler(new CreateDocumentCommand($project, 'Auth PRD', 'use JWTs and rate limiting'));
 
         $v1 = $doc->currentVersion();
 
@@ -60,7 +63,7 @@ final class ReviseDocumentHandlerTest extends KernelTestCase
         // Revise with new markdown that keeps "JWTs" but removes "rate limiting".
         /** @var ReviseDocumentHandler $reviseHandler */
         $reviseHandler = self::getContainer()->get(ReviseDocumentHandler::class);
-        $summary = $reviseHandler(new ReviseDocumentCommand($docId, $user, 'use JWTs only'));
+        $summary = $reviseHandler(new ReviseDocumentCommand($docId, $project, 'use JWTs only'));
 
         self::assertSame(1, $summary['carried']);
         self::assertSame(1, $summary['orphaned']);

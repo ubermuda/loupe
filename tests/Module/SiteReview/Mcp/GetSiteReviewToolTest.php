@@ -10,14 +10,15 @@ use App\Module\SiteReview\Entity\SiteReview;
 use App\Module\SiteReview\Entity\SiteReviewCommentStatus;
 use App\Module\SiteReview\Entity\SiteReviewStatus;
 use App\Module\SiteReview\Mcp\GetSiteReviewTool;
+use App\Tests\Support\McpTokenScenario;
 use Doctrine\ORM\EntityManagerInterface;
 use Mcp\Exception\ToolCallException;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
-use Symfony\Component\Security\Core\Authentication\Token\Storage\TokenStorageInterface;
-use Symfony\Component\Security\Core\Authentication\Token\UsernamePasswordToken;
 
 final class GetSiteReviewToolTest extends KernelTestCase
 {
+    use McpTokenScenario;
+
     private EntityManagerInterface $em;
     private GetSiteReviewTool $tool;
 
@@ -32,14 +33,6 @@ final class GetSiteReviewToolTest extends KernelTestCase
         $tool = self::getContainer()->get(GetSiteReviewTool::class);
         self::assertInstanceOf(GetSiteReviewTool::class, $tool);
         $this->tool = $tool;
-    }
-
-    private function actAs(User $user): void
-    {
-        $token = new UsernamePasswordToken($user, 'main', $user->getRoles());
-        $tokenStorage = self::getContainer()->get('security.token_storage');
-        self::assertInstanceOf(TokenStorageInterface::class, $tokenStorage);
-        $tokenStorage->setToken($token);
     }
 
     /**
@@ -92,8 +85,8 @@ final class GetSiteReviewToolTest extends KernelTestCase
 
         $this->em->flush();
 
-        $this->actAs($user);
-        $result = ($this->tool)('order-site');
+        $this->actAsMcpTokenBoundTo($project);
+        $result = ($this->tool)();
 
         self::assertSame((string) $project->id, $result['site']['id']);
         self::assertSame('order-site', $result['site']['name']);
@@ -140,43 +133,71 @@ final class GetSiteReviewToolTest extends KernelTestCase
         $c3->status = SiteReviewCommentStatus::Resolved;
         $this->em->flush();
 
-        $this->actAs($user);
-        $result = ($this->tool)('status-site');
+        $this->actAsMcpTokenBoundTo($project);
+        $result = ($this->tool)();
 
         self::assertCount(1, $result['comments']);
         self::assertSame('pending', $result['comments'][0]['body']);
     }
 
-    public function test_resolves_site_by_name_and_by_id(): void
+    public function test_matching_handle_by_name_or_id_returns_the_bound_project(): void
     {
         $userEmail = 'get-resolve@example.com';
         [$project] = $this->projectWithSubmittedReview($userEmail, 'resolve-site');
-        $user = $project->owner;
 
-        $this->actAs($user);
+        $this->actAsMcpTokenBoundTo($project);
 
+        $withoutHandle = ($this->tool)();
         $byName = ($this->tool)($project->name);
         $siteId = $project->id;
         self::assertNotNull($siteId);
         $byId = ($this->tool)((string) $siteId);
 
+        self::assertSame($withoutHandle['comments'], $byName['comments']);
+        self::assertSame($withoutHandle['site'], $byName['site']);
         self::assertSame($byName['comments'], $byId['comments']);
         self::assertSame($byName['site'], $byId['site']);
     }
 
-    public function test_other_users_site_is_not_found(): void
+    public function test_handle_naming_another_project_of_the_same_owner_is_rejected(): void
     {
-        $ownerEmail = 'get-owner@example.com';
-        [$project] = $this->projectWithSubmittedReview($ownerEmail, 'private-site');
+        $userEmail = 'get-mismatch@example.com';
+        [$boundProject] = $this->projectWithSubmittedReview($userEmail, 'bound-site');
 
-        $otherEmail = 'get-other@example.com';
-        $other = new User(username: $otherEmail, fullName: 'Other', email: $otherEmail, password: 'x');
-        $this->em->persist($other);
+        $otherProject = new Project($boundProject->owner, 'other-site');
+        $this->em->persist($otherProject);
         $this->em->flush();
 
-        $this->actAs($other);
+        $this->actAsMcpTokenBoundTo($boundProject);
 
         $this->expectException(ToolCallException::class);
-        ($this->tool)($project->name);
+        $this->expectExceptionMessage('Token is not bound to that project.');
+        ($this->tool)('other-site');
+    }
+
+    public function test_unknown_handle_is_not_found(): void
+    {
+        $userEmail = 'get-unknown@example.com';
+        [$project] = $this->projectWithSubmittedReview($userEmail, 'known-site');
+
+        $this->actAsMcpTokenBoundTo($project);
+
+        $this->expectException(ToolCallException::class);
+        $this->expectExceptionMessage('No site "nope" found.');
+        ($this->tool)('nope');
+    }
+
+    public function test_unbound_mcp_token_is_rejected(): void
+    {
+        $userEmail = 'get-unbound@example.com';
+        $user = new User(username: $userEmail, fullName: 'U', email: $userEmail, password: 'x');
+        $this->em->persist($user);
+        $this->em->flush();
+
+        $this->actAsUnboundMcpToken($user);
+
+        $this->expectException(ToolCallException::class);
+        $this->expectExceptionMessage('MCP token is not bound to a project. Mint a project token from the Connect page.');
+        ($this->tool)();
     }
 }

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Tests\Module\Review\Command;
 
 use App\Module\Account\Entity\User;
+use App\Module\Project\Entity\Project;
 use App\Module\Review\Command\AddCommentCommand;
 use App\Module\Review\Command\AddCommentHandler;
 use App\Module\Review\Command\CreateDocumentCommand;
@@ -26,11 +27,13 @@ final class DeleteCommentHandlerTest extends KernelTestCase
 
         $owner = new User(username: 'del-owner', fullName: 'Delete Owner', email: 'del-owner@example.com', password: 'hashed');
         $em->persist($owner);
+        $project = new Project($owner, 'p-'.uniqid());
+        $em->persist($project);
         $em->flush();
 
         /** @var CreateDocumentHandler $createHandler */
         $createHandler = self::getContainer()->get(CreateDocumentHandler::class);
-        $doc = $createHandler(new CreateDocumentCommand($owner, 'Delete Test Doc', "# Hello\n\nSome content to comment on here."));
+        $doc = $createHandler(new CreateDocumentCommand($project, 'Delete Test Doc', "# Hello\n\nSome content to comment on here."));
 
         /** @var AddCommentHandler $addHandler */
         $addHandler = self::getContainer()->get(AddCommentHandler::class);

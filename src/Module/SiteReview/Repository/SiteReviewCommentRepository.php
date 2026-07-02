@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Module\SiteReview\Repository;
 
-use App\Module\Account\Entity\User;
 use App\Module\Project\Entity\Project;
 use App\Module\SiteReview\Entity\SiteReviewComment;
 use App\Module\SiteReview\Entity\SiteReviewCommentStatus;
@@ -64,17 +63,16 @@ class SiteReviewCommentRepository extends ServiceEntityRepository
             ->getOneOrNullResult();
     }
 
-    /** Owner-scoped lookup for the MCP addressing tool. */
-    public function findOneForOwner(Uuid $id, User $owner): ?SiteReviewComment
+    /** Project-scoped lookup for the MCP addressing tool. */
+    public function findOneForProject(Uuid $id, Project $project): ?SiteReviewComment
     {
         return $this->createQueryBuilder('c')
             ->join('c.review', 'r')
             ->addSelect('r')
-            ->join('r.project', 'p')
             ->andWhere('c.id = :id')
-            ->andWhere('p.owner = :owner')
+            ->andWhere('r.project = :project')
             ->setParameter('id', $id)
-            ->setParameter('owner', $owner)
+            ->setParameter('project', $project)
             ->getQuery()
             ->getOneOrNullResult();
     }

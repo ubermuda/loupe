@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Tests\Module\Review\Query;
 
 use App\Module\Account\Entity\User;
+use App\Module\Project\Entity\Project;
 use App\Module\Review\Entity\Comment;
 use App\Module\Review\Entity\Document;
 use App\Module\Review\Entity\Review;
@@ -23,6 +24,7 @@ final class GetReviewTest extends KernelTestCase
     private GetReview $getReview;
     private GetDocument $getDocument;
     private User $owner;
+    private Project $project;
 
     protected function setUp(): void
     {
@@ -47,12 +49,15 @@ final class GetReviewTest extends KernelTestCase
             password: 'hashed',
         );
         $this->em->persist($this->owner);
+
+        $this->project = new Project($this->owner, 'p-'.uniqid());
+        $this->em->persist($this->project);
         $this->em->flush();
     }
 
     public function test_returns_review_shape_with_verdict_and_threaded_comments(): void
     {
-        $doc = new Document($this->owner, 'Auth PRD');
+        $doc = new Document(owner: $this->owner, project: $this->project, title: 'Auth PRD');
         $version = $doc->addVersion(
             'Use JWTs for authentication and rate limiting.',
             '<p>Use JWTs for authentication and rate limiting.</p>',
@@ -84,7 +89,7 @@ final class GetReviewTest extends KernelTestCase
         $docId = $doc->id;
         self::assertNotNull($docId);
 
-        $result = ($this->getReview)($docId, $this->owner);
+        $result = ($this->getReview)($docId, $this->project);
 
         self::assertSame('in-review', $result['status']);
         self::assertSame('changes-requested', $result['verdict']);
@@ -111,7 +116,7 @@ final class GetReviewTest extends KernelTestCase
 
     public function test_verdict_is_null_when_no_review_submitted(): void
     {
-        $doc = new Document($this->owner, 'No Review Yet');
+        $doc = new Document(owner: $this->owner, project: $this->project, title: 'No Review Yet');
         $doc->addVersion('Some content.', '<p>Some content.</p>');
 
         $this->em->persist($doc);
@@ -119,7 +124,7 @@ final class GetReviewTest extends KernelTestCase
 
         $docId = $doc->id;
         self::assertNotNull($docId);
-        $result = ($this->getReview)($docId, $this->owner);
+        $result = ($this->getReview)($docId, $this->project);
 
         self::assertNull($result['verdict']);
         self::assertSame('in-review', $result['status']);
@@ -130,7 +135,7 @@ final class GetReviewTest extends KernelTestCase
     {
         $this->expectException(DocumentNotFound::class);
 
-        ($this->getReview)(Uuid::v7(), $this->owner);
+        ($this->getReview)(Uuid::v7(), $this->project);
     }
 
     public function test_throws_document_not_found_for_foreign_document(): void
@@ -143,22 +148,25 @@ final class GetReviewTest extends KernelTestCase
         );
         $this->em->persist($otherUser);
 
-        $foreignDoc = new Document($otherUser, 'Foreign Doc');
+        $otherProject = new Project($otherUser, 'p-'.uniqid());
+        $this->em->persist($otherProject);
+
+        $foreignDoc = new Document(owner: $otherUser, project: $otherProject, title: 'Foreign Doc');
         $foreignDoc->addVersion('Content.', '<p>Content.</p>');
         $this->em->persist($foreignDoc);
         $this->em->flush();
 
         $this->expectException(DocumentNotFound::class);
 
-        // Authenticated as $this->owner, but document belongs to $otherUser.
+        // Scoped to $this->project, but the document belongs to $otherProject.
         $foreignDocId = $foreignDoc->id;
         self::assertNotNull($foreignDocId);
-        ($this->getReview)($foreignDocId, $this->owner);
+        ($this->getReview)($foreignDocId, $this->project);
     }
 
     public function test_get_document_returns_correct_shape(): void
     {
-        $doc = new Document($this->owner, 'Shape Test');
+        $doc = new Document(owner: $this->owner, project: $this->project, title: 'Shape Test');
         $doc->addVersion('# Hello', '<h1>Hello</h1>');
 
         $this->em->persist($doc);
@@ -166,7 +174,7 @@ final class GetReviewTest extends KernelTestCase
 
         $docId = $doc->id;
         self::assertNotNull($docId);
-        $result = ($this->getDocument)($docId, $this->owner);
+        $result = ($this->getDocument)($docId, $this->project);
 
         self::assertSame((string) $docId, $result['documentId']);
         self::assertSame('Shape Test', $result['title']);
@@ -175,17 +183,13 @@ final class GetReviewTest extends KernelTestCase
         self::assertSame('# Hello', $result['markdown']);
     }
 
-    public function test_get_document_throws_for_foreign_owner(): void
+    public function test_get_document_throws_for_foreign_project(): void
     {
-        $otherUser = new User(
-            username: 'other2',
-            fullName: 'Other User 2',
-            email: 'other2@example.com',
-            password: 'hashed',
-        );
-        $this->em->persist($otherUser);
+        // Same owner, different project — project scoping alone must deny access.
+        $otherProject = new Project($this->owner, 'p-'.uniqid());
+        $this->em->persist($otherProject);
 
-        $foreignDoc = new Document($otherUser, 'Foreign');
+        $foreignDoc = new Document(owner: $this->owner, project: $otherProject, title: 'Foreign');
         $foreignDoc->addVersion('X', '<p>X</p>');
         $this->em->persist($foreignDoc);
         $this->em->flush();
@@ -194,6 +198,6 @@ final class GetReviewTest extends KernelTestCase
 
         $foreignDocId = $foreignDoc->id;
         self::assertNotNull($foreignDocId);
-        ($this->getDocument)($foreignDocId, $this->owner);
+        ($this->getDocument)($foreignDocId, $this->project);
     }
 }

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Tests\Module\Review\Controller;
 
 use App\Module\Account\Entity\User;
+use App\Module\Project\Entity\Project;
 use App\Module\Review\Entity\Document;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
@@ -27,6 +28,14 @@ final class DocumentDashboardControllerTest extends WebTestCase
         return $user;
     }
 
+    private function project(EntityManagerInterface $em, User $owner): Project
+    {
+        $project = new Project($owner, 'p-'.uniqid());
+        $em->persist($project);
+
+        return $project;
+    }
+
     public function test_authenticated_user_sees_their_own_documents(): void
     {
         $client = static::createClient();
@@ -35,8 +44,8 @@ final class DocumentDashboardControllerTest extends WebTestCase
         $alice = $this->createUser($em, 'alice', 'alice@example.com');
         $bob = $this->createUser($em, 'bob', 'bob@example.com');
 
-        $aliceDoc = new Document(owner: $alice, title: 'Alice Draft');
-        $bobDoc = new Document(owner: $bob, title: 'Bob Secret');
+        $aliceDoc = new Document(owner: $alice, project: $this->project($em, $alice), title: 'Alice Draft');
+        $bobDoc = new Document(owner: $bob, project: $this->project($em, $bob), title: 'Bob Secret');
 
         $em->persist($aliceDoc);
         $em->persist($bobDoc);
@@ -59,7 +68,7 @@ final class DocumentDashboardControllerTest extends WebTestCase
         $alice = $this->createUser($em, 'alice2', 'alice2@example.com');
         $bob = $this->createUser($em, 'bob2', 'bob2@example.com');
 
-        $bobDoc = new Document(owner: $bob, title: 'Bob Private');
+        $bobDoc = new Document(owner: $bob, project: $this->project($em, $bob), title: 'Bob Private');
         $em->persist($bobDoc);
         $em->flush();
         $em->clear();

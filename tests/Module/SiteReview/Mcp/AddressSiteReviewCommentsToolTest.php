@@ -10,14 +10,16 @@ use App\Module\SiteReview\Entity\SiteReview;
 use App\Module\SiteReview\Entity\SiteReviewComment;
 use App\Module\SiteReview\Entity\SiteReviewCommentStatus;
 use App\Module\SiteReview\Mcp\AddressSiteReviewCommentsTool;
+use App\Tests\Support\McpTokenScenario;
 use Doctrine\ORM\EntityManagerInterface;
+use Mcp\Exception\ToolCallException;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
-use Symfony\Component\Security\Core\Authentication\Token\Storage\TokenStorageInterface;
-use Symfony\Component\Security\Core\Authentication\Token\UsernamePasswordToken;
 use Symfony\Component\Uid\Uuid;
 
 final class AddressSiteReviewCommentsToolTest extends KernelTestCase
 {
+    use McpTokenScenario;
+
     private EntityManagerInterface $em;
     private AddressSiteReviewCommentsTool $tool;
 
@@ -32,14 +34,6 @@ final class AddressSiteReviewCommentsToolTest extends KernelTestCase
         $tool = self::getContainer()->get(AddressSiteReviewCommentsTool::class);
         self::assertInstanceOf(AddressSiteReviewCommentsTool::class, $tool);
         $this->tool = $tool;
-    }
-
-    private function actAs(User $user): void
-    {
-        $token = new UsernamePasswordToken($user, 'main', $user->getRoles());
-        $tokenStorage = self::getContainer()->get('security.token_storage');
-        self::assertInstanceOf(TokenStorageInterface::class, $tokenStorage);
-        $tokenStorage->setToken($token);
     }
 
     /**
@@ -67,17 +61,14 @@ final class AddressSiteReviewCommentsToolTest extends KernelTestCase
     {
         $email = 'addr-pending@example.com';
         [$project, $review] = $this->projectWithSubmittedReview($email, 'addr-pending-site');
-        $user = $project->owner;
 
         $comments = $review->comments->toArray();
-        self::assertCount(2, $comments);
-
         $id1 = $comments[0]->id;
         $id2 = $comments[1]->id;
         self::assertNotNull($id1);
         self::assertNotNull($id2);
 
-        $this->actAs($user);
+        $this->actAsMcpTokenBoundTo($project);
         $result = ($this->tool)([(string) $id1, (string) $id2]);
 
         self::assertCount(2, $result['addressed']);
@@ -135,7 +126,7 @@ final class AddressSiteReviewCommentsToolTest extends KernelTestCase
 
         $randomUuid = (string) Uuid::v4();
 
-        $this->actAs($user);
+        $this->actAsMcpTokenBoundTo($project);
         $result = ($this->tool)([
             (string) $resolvedId, // resolved
             $randomUuid,           // unknown
@@ -168,7 +159,7 @@ final class AddressSiteReviewCommentsToolTest extends KernelTestCase
         self::assertSame(SiteReviewCommentStatus::Resolved, $refetched->status);
     }
 
-    public function test_other_users_comment_is_skipped_as_unknown(): void
+    public function test_another_users_comment_is_skipped_as_unknown(): void
     {
         $ownerEmail = 'addr-owner@example.com';
         [, $review] = $this->projectWithSubmittedReview($ownerEmail, 'addr-owner-site');
@@ -180,9 +171,11 @@ final class AddressSiteReviewCommentsToolTest extends KernelTestCase
         $otherEmail = 'addr-other@example.com';
         $other = new User(username: $otherEmail, fullName: 'Other', email: $otherEmail, password: 'x');
         $this->em->persist($other);
+        $otherProject = new Project($other, 'addr-other-site');
+        $this->em->persist($otherProject);
         $this->em->flush();
 
-        $this->actAs($other);
+        $this->actAsMcpTokenBoundTo($otherProject);
         $result = ($this->tool)([(string) $commentId]);
 
         self::assertCount(0, $result['addressed']);
@@ -195,5 +188,47 @@ final class AddressSiteReviewCommentsToolTest extends KernelTestCase
         $refetched = $this->em->find(SiteReviewComment::class, $commentId);
         self::assertNotNull($refetched);
         self::assertSame(SiteReviewCommentStatus::Pending, $refetched->status);
+    }
+
+    public function test_comment_in_another_project_of_the_same_owner_is_skipped_as_unknown(): void
+    {
+        $ownerEmail = 'addr-cross@example.com';
+        [$project, $review] = $this->projectWithSubmittedReview($ownerEmail, 'addr-cross-site');
+
+        $comments = $review->comments->toArray();
+        $commentId = $comments[0]->id;
+        self::assertNotNull($commentId);
+
+        // Token bound to a DIFFERENT project of the very same owner.
+        $otherProject = new Project($project->owner, 'addr-cross-other');
+        $this->em->persist($otherProject);
+        $this->em->flush();
+
+        $this->actAsMcpTokenBoundTo($otherProject);
+        $result = ($this->tool)([(string) $commentId]);
+
+        self::assertCount(0, $result['addressed']);
+        self::assertCount(1, $result['skipped']);
+        self::assertSame('unknown', $result['skipped'][0]['reason']);
+
+        // Status must remain Pending.
+        $this->em->clear();
+        $refetched = $this->em->find(SiteReviewComment::class, $commentId);
+        self::assertNotNull($refetched);
+        self::assertSame(SiteReviewCommentStatus::Pending, $refetched->status);
+    }
+
+    public function test_unbound_mcp_token_is_rejected(): void
+    {
+        $email = 'addr-unbound@example.com';
+        $user = new User(username: $email, fullName: 'U', email: $email, password: 'x');
+        $this->em->persist($user);
+        $this->em->flush();
+
+        $this->actAsUnboundMcpToken($user);
+
+        $this->expectException(ToolCallException::class);
+        $this->expectExceptionMessage('MCP token is not bound to a project. Mint a project token from the Connect page.');
+        ($this->tool)([]);
     }
 }

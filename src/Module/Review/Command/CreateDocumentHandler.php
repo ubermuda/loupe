@@ -18,7 +18,7 @@ final readonly class CreateDocumentHandler
 
     public function __invoke(CreateDocumentCommand $command): Document
     {
-        $document = new Document($command->owner, $command->title);
+        $document = new Document(owner: $command->project->owner, project: $command->project, title: $command->title);
         $document->addVersion($command->markdown, $this->renderer->render($command->markdown));
 
         $this->em->persist($document);

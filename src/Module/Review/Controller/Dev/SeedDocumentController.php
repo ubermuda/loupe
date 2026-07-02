@@ -6,8 +6,11 @@ namespace App\Module\Review\Controller\Dev;
 
 use App\Controller\AppController;
 use App\Module\Account\Entity\User;
+use App\Module\Project\Entity\Project;
+use App\Module\Project\Repository\ProjectRepository;
 use App\Module\Review\Command\CreateDocumentCommand;
 use App\Module\Review\Command\CreateDocumentHandler;
+use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\DependencyInjection\Attribute\When;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -27,6 +30,8 @@ final class SeedDocumentController extends AppController
 {
     public function __construct(
         private readonly CreateDocumentHandler $createDocument,
+        private readonly ProjectRepository $projects,
+        private readonly EntityManagerInterface $em,
     ) {
     }
 
@@ -38,10 +43,18 @@ final class SeedDocumentController extends AppController
         $title = $request->request->getString('title', 'E2E Test Document');
         $markdown = $request->request->getString('markdown', '# Hello World');
 
-        $document = ($this->createDocument)(new CreateDocumentCommand($user, $title, $markdown));
+        $project = $this->projects->findOneByOwnerAndName($user, 'e2e-harness');
+        if (null === $project) {
+            $project = new Project($user, 'e2e-harness');
+            $this->em->persist($project);
+            $this->em->flush();
+        }
+
+        $document = ($this->createDocument)(new CreateDocumentCommand($project, $title, $markdown));
 
         return $this->json([
             'documentId' => (string) $document->id,
+            'projectId' => (string) $project->id,
         ], JsonResponse::HTTP_CREATED);
     }
 }

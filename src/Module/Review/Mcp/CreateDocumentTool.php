@@ -4,11 +4,11 @@ declare(strict_types=1);
 
 namespace App\Module\Review\Mcp;
 
-use App\Module\Account\Entity\User;
+use App\Module\Project\Security\AuthenticatedProjectResolver;
 use App\Module\Review\Command\CreateDocumentCommand;
 use App\Module\Review\Command\CreateDocumentHandler;
 use Mcp\Capability\Attribute\McpTool;
-use Symfony\Bundle\SecurityBundle\Security;
+use Mcp\Exception\ToolCallException;
 use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 
 /**
@@ -19,7 +19,7 @@ final readonly class CreateDocumentTool
 {
     public function __construct(
         private CreateDocumentHandler $createDocument,
-        private Security $security,
+        private AuthenticatedProjectResolver $projectResolver,
         private UrlGeneratorInterface $urls,
     ) {
     }
@@ -32,10 +32,12 @@ final readonly class CreateDocumentTool
      */
     public function __invoke(string $title, string $markdown): array
     {
-        // The ^/mcp firewall requires ROLE_USER, so an authenticated User is guaranteed here.
-        /** @var User $user */
-        $user = $this->security->getUser();
-        $doc = ($this->createDocument)(new CreateDocumentCommand($user, $title, $markdown));
+        $project = $this->projectResolver->resolveMcpProject();
+        if (null === $project) {
+            throw new ToolCallException('MCP token is not bound to a project. Mint a project token from the Connect page.');
+        }
+
+        $doc = ($this->createDocument)(new CreateDocumentCommand($project, $title, $markdown));
 
         return [
             'documentId' => (string) $doc->id,

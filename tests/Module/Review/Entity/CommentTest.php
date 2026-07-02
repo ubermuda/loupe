@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Tests\Module\Review\Entity;
 
 use App\Module\Account\Entity\User;
+use App\Module\Project\Entity\Project;
 use App\Module\Review\Entity\Comment;
 use App\Module\Review\Entity\Document;
 use App\Module\Review\ValueObject\Anchor;
@@ -15,7 +16,7 @@ final class CommentTest extends TestCase
     public function test_comment_defaults_and_reply(): void
     {
         $user = new User(username: 'rev', fullName: 'Rev', email: 'rev@example.com');
-        $doc = new Document($user, 'Doc');
+        $doc = new Document(owner: $user, project: new Project($user, 'p'), title: 'Doc');
         $version = $doc->addVersion('hello world', '<p>hello world</p>');
 
         $comment = new Comment($version, $user, 'why?', new Anchor('hello', '', ' world', 0));

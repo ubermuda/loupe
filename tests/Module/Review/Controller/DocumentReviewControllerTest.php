@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Tests\Module\Review\Controller;
 
 use App\Module\Account\Entity\User;
+use App\Module\Project\Entity\Project;
 use App\Module\Review\Entity\Document;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
@@ -27,6 +28,14 @@ final class DocumentReviewControllerTest extends WebTestCase
         return $user;
     }
 
+    private function project(EntityManagerInterface $em, User $owner): Project
+    {
+        $project = new Project($owner, 'p-'.uniqid());
+        $em->persist($project);
+
+        return $project;
+    }
+
     public function test_owner_sees_review_page(): void
     {
         $client = static::createClient();
@@ -34,7 +43,7 @@ final class DocumentReviewControllerTest extends WebTestCase
 
         $owner = $this->createUser($em, 'owner1', 'owner1@example.com');
 
-        $doc = new Document(owner: $owner, title: 'My Review Doc');
+        $doc = new Document(owner: $owner, project: $this->project($em, $owner), title: 'My Review Doc');
         $doc->addVersion('# Hello', '<h1>Hello</h1>');
         $em->persist($doc);
         $em->flush();
@@ -58,7 +67,7 @@ final class DocumentReviewControllerTest extends WebTestCase
         $owner = $this->createUser($em, 'owner2', 'owner2@example.com');
         $other = $this->createUser($em, 'other2', 'other2@example.com');
 
-        $doc = new Document(owner: $owner, title: 'Owner Only Doc');
+        $doc = new Document(owner: $owner, project: $this->project($em, $owner), title: 'Owner Only Doc');
         $doc->addVersion('# Private', '<h1>Private</h1>');
         $em->persist($doc);
         $em->flush();

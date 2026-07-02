@@ -4,13 +4,12 @@ declare(strict_types=1);
 
 namespace App\Module\Review\Mcp;
 
-use App\Module\Account\Entity\User;
+use App\Module\Project\Security\AuthenticatedProjectResolver;
 use App\Module\Review\Command\ReviseDocumentCommand;
 use App\Module\Review\Command\ReviseDocumentHandler;
 use App\Module\Review\Query\DocumentNotFound;
 use Mcp\Capability\Attribute\McpTool;
 use Mcp\Exception\ToolCallException;
-use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\Uid\Uuid;
 
 /**
@@ -22,7 +21,7 @@ final readonly class ReviseDocumentTool
 {
     public function __construct(
         private ReviseDocumentHandler $handler,
-        private Security $security,
+        private AuthenticatedProjectResolver $projectResolver,
     ) {
     }
 
@@ -34,8 +33,10 @@ final readonly class ReviseDocumentTool
      */
     public function __invoke(string $documentId, string $markdown): array
     {
-        /** @var User $user */
-        $user = $this->security->getUser();
+        $project = $this->projectResolver->resolveMcpProject();
+        if (null === $project) {
+            throw new ToolCallException('MCP token is not bound to a project. Mint a project token from the Connect page.');
+        }
 
         try {
             $uuid = Uuid::fromString($documentId);
@@ -44,7 +45,7 @@ final readonly class ReviseDocumentTool
         }
 
         try {
-            return ($this->handler)(new ReviseDocumentCommand($uuid, $user, $markdown));
+            return ($this->handler)(new ReviseDocumentCommand($uuid, $project, $markdown));
         } catch (DocumentNotFound $e) {
             throw new ToolCallException($e->getMessage(), previous: $e);
         }

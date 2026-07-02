@@ -6,6 +6,7 @@ namespace App\Tests\Module\Review\Command;
 
 use App\Exception\DomainErrors;
 use App\Module\Account\Entity\User;
+use App\Module\Project\Entity\Project;
 use App\Module\Review\Command\AddCommentCommand;
 use App\Module\Review\Command\AddCommentHandler;
 use App\Module\Review\Command\CreateDocumentCommand;
@@ -24,11 +25,13 @@ final class AddCommentHandlerTest extends KernelTestCase
 
         $owner = new User(username: 'owner', fullName: 'Owner User', email: 'owner@example.com', password: 'hashed');
         $em->persist($owner);
+        $project = new Project($owner, 'p-'.uniqid());
+        $em->persist($project);
         $em->flush();
 
         /** @var CreateDocumentHandler $createHandler */
         $createHandler = self::getContainer()->get(CreateDocumentHandler::class);
-        $doc = $createHandler(new CreateDocumentCommand($owner, 'Test Doc', "# Hello\n\nThis is the body text here for the comment."));
+        $doc = $createHandler(new CreateDocumentCommand($project, 'Test Doc', "# Hello\n\nThis is the body text here for the comment."));
 
         $version = $doc->currentVersion();
         $plain = $version->plainText();
@@ -64,12 +67,14 @@ final class AddCommentHandlerTest extends KernelTestCase
 
         $owner = new User(username: 'owner3', fullName: 'Tag Owner', email: 'owner3@example.com', password: 'hashed');
         $em->persist($owner);
+        $project = new Project($owner, 'p-'.uniqid());
+        $em->persist($project);
         $em->flush();
 
         /** @var CreateDocumentHandler $createHandler */
         $createHandler = self::getContainer()->get(CreateDocumentHandler::class);
         // This markdown renders to <h1>Title</h1><p>We use <strong>JWTs</strong> here for auth</p>
-        $doc = $createHandler(new CreateDocumentCommand($owner, 'Tagged Doc', "# Title\n\nWe use **JWTs** here for auth"));
+        $doc = $createHandler(new CreateDocumentCommand($project, 'Tagged Doc', "# Title\n\nWe use **JWTs** here for auth"));
 
         $version = $doc->currentVersion();
         $plain = $version->plainText();
@@ -95,11 +100,13 @@ final class AddCommentHandlerTest extends KernelTestCase
 
         $owner = new User(username: 'owner4', fullName: 'Owner', email: 'owner4@example.com', password: 'hashed');
         $em->persist($owner);
+        $project = new Project($owner, 'p-'.uniqid());
+        $em->persist($project);
         $em->flush();
 
         /** @var CreateDocumentHandler $createHandler */
         $createHandler = self::getContainer()->get(CreateDocumentHandler::class);
-        $doc = $createHandler(new CreateDocumentCommand($owner, 'Doc', "# Hello\n\nSome body."));
+        $doc = $createHandler(new CreateDocumentCommand($project, 'Doc', "# Hello\n\nSome body."));
 
         /** @var AddCommentHandler $handler */
         $handler = self::getContainer()->get(AddCommentHandler::class);
@@ -119,12 +126,14 @@ final class AddCommentHandlerTest extends KernelTestCase
         $owner = new User(username: 'owner2', fullName: 'Owner', email: 'owner2@example.com', password: 'hashed');
         $nonOwner = new User(username: 'intruder', fullName: 'Intruder', email: 'intruder@example.com', password: 'hashed');
         $em->persist($owner);
+        $project = new Project($owner, 'p-'.uniqid());
+        $em->persist($project);
         $em->persist($nonOwner);
         $em->flush();
 
         /** @var CreateDocumentHandler $createHandler */
         $createHandler = self::getContainer()->get(CreateDocumentHandler::class);
-        $doc = $createHandler(new CreateDocumentCommand($owner, 'Private Doc', "# Secret\n\nConfidential content."));
+        $doc = $createHandler(new CreateDocumentCommand($project, 'Private Doc', "# Secret\n\nConfidential content."));
 
         /** @var AddCommentHandler $handler */
         $handler = self::getContainer()->get(AddCommentHandler::class);

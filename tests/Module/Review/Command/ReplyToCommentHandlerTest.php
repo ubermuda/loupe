@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Tests\Module\Review\Command;
 
 use App\Module\Account\Entity\User;
+use App\Module\Project\Entity\Project;
 use App\Module\Review\Command\AddCommentCommand;
 use App\Module\Review\Command\AddCommentHandler;
 use App\Module\Review\Command\CreateDocumentCommand;
@@ -25,12 +26,14 @@ final class ReplyToCommentHandlerTest extends KernelTestCase
         $owner = new User(username: 'reply-owner', fullName: 'Reply Owner', email: 'reply-owner@example.com', password: 'hashed');
         $replier = new User(username: 'replier', fullName: 'Replier User', email: 'replier@example.com', password: 'hashed');
         $em->persist($owner);
+        $project = new Project($owner, 'p-'.uniqid());
+        $em->persist($project);
         $em->persist($replier);
         $em->flush();
 
         /** @var CreateDocumentHandler $createHandler */
         $createHandler = self::getContainer()->get(CreateDocumentHandler::class);
-        $doc = $createHandler(new CreateDocumentCommand($owner, 'Reply Test Doc', "# Hello\n\nThis is content for the reply test."));
+        $doc = $createHandler(new CreateDocumentCommand($project, 'Reply Test Doc', "# Hello\n\nThis is content for the reply test."));
 
         /** @var AddCommentHandler $addHandler */
         $addHandler = self::getContainer()->get(AddCommentHandler::class);

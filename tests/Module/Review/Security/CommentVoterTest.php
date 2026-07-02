@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Tests\Module\Review\Security;
 
 use App\Module\Account\Entity\User;
+use App\Module\Project\Entity\Project;
 use App\Module\Review\Entity\Comment;
 use App\Module\Review\Entity\Document;
 use App\Module\Review\Entity\DocumentVersion;
@@ -44,7 +45,7 @@ final class CommentVoterTest extends TestCase
 
     private function makeComment(User $owner, User $author): Comment
     {
-        $document = new Document(owner: $owner, title: 'My doc');
+        $document = new Document(owner: $owner, project: new Project($owner, 'p'), title: 'My doc');
         $version = new DocumentVersion(
             document: $document,
             versionNumber: 1,

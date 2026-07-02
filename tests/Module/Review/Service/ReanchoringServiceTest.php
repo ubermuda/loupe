@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Tests\Module\Review\Service;
 
 use App\Module\Account\Entity\User;
+use App\Module\Project\Entity\Project;
 use App\Module\Review\Entity\Comment;
 use App\Module\Review\Entity\Document;
 use App\Module\Review\Service\AnchorService;
@@ -17,7 +18,7 @@ final class ReanchoringServiceTest extends TestCase
     public function test_remaps_reply_parent_to_the_copied_parent_on_new_version(): void
     {
         $user = new User(username: 'r2', fullName: 'R2', email: 'r2@example.com');
-        $doc = new Document($user, 'Doc');
+        $doc = new Document(owner: $user, project: new Project($user, 'p'), title: 'Doc');
         $v1 = $doc->addVersion('use JWTs and rate limiting', 'use JWTs and rate limiting');
 
         $parent = new Comment($v1, $user, 'why JWT?', new Anchor('JWTs', 'use ', ' and', 4));
@@ -49,7 +50,7 @@ final class ReanchoringServiceTest extends TestCase
     public function test_carries_surviving_comment_and_orphans_the_rest(): void
     {
         $user = new User(username: 'r', fullName: 'R', email: 'r@example.com');
-        $doc = new Document($user, 'Doc');
+        $doc = new Document(owner: $user, project: new Project($user, 'p'), title: 'Doc');
         $v1 = $doc->addVersion('use JWTs and rate limiting', 'use JWTs and rate limiting');
         $kept = new Comment($v1, $user, 'why JWT?', new Anchor('JWTs', 'use ', ' and', 4));
         $gone = new Comment($v1, $user, 'limit?', new Anchor('rate limiting', 'and ', '', 13));
