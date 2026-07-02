@@ -59,6 +59,12 @@ class RevokeApiTokenController extends AppController
             return $this->redirect($returnTo);
         }
 
+        if (null !== $returnTo) {
+            $this->logger->info('account.api_token.return_to_rejected', [
+                'returnTo' => (string) $returnTo,
+            ]);
+        }
+
         return $this->redirectToRoute('app_api_tokens');
     }
 }

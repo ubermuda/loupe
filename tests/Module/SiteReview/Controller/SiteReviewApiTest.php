@@ -173,6 +173,10 @@ final class SiteReviewApiTest extends WebTestCase
         [$raw] = $this->siteWithToken($em, 'api-h@example.com');
         $this->api($client, Request::METHOD_POST, '/api/site-review/comments', $raw, ['body' => '  ', 'url' => 'https://app/x']);
         self::assertResponseStatusCodeSame(422);
+
+        // Non-http(s) URL (javascript: scheme) → 422 (stored-XSS guard).
+        $this->api($client, Request::METHOD_POST, '/api/site-review/comments', $raw, ['body' => 'x', 'url' => 'javascript:alert(1)']);
+        self::assertResponseStatusCodeSame(422);
         $this->api($client, Request::METHOD_PATCH, '/api/site-review/comments/not-a-uuid', $raw, ['body' => 'x']);
         self::assertResponseStatusCodeSame(404);
     }

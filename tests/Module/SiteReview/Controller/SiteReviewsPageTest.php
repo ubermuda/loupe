@@ -184,4 +184,69 @@ final class SiteReviewsPageTest extends WebTestCase
         self::assertCount(0, $reviewCard->filter('button:contains("Resolve")'));
         self::assertCount(0, $reviewCard->filter('button:contains("Reopen")'));
     }
+
+    public function test_javascript_url_renders_without_anchor(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+
+        // Build the malicious comment via the entity directly, bypassing API validation.
+        $owner = $this->user($em, 'reviews-page-f@example.com');
+        $site = new Site($owner, 'reviews-site-f');
+        $em->persist($site);
+        $review = new SiteReview($site);
+        $review->addComment('sneaky', '.x', 'text', 'javascript:alert(1)');
+        $review->markSubmitted();
+        $em->persist($review);
+        $em->flush();
+        $comments = $review->comments->toArray();
+        $commentId = $comments[0]->id;
+        $em->clear();
+
+        $client->loginUser($owner);
+        $crawler = $client->request(Request::METHOD_GET, '/site-review/sites/'.$site->id);
+
+        self::assertResponseIsSuccessful();
+        $commentBlock = $crawler->filter('[data-comment-id="'.$commentId.'"]');
+        self::assertCount(1, $commentBlock);
+        // The url must render as plain text, never as a clickable anchor.
+        self::assertCount(0, $commentBlock->filter('a.bp-review-comment__url'));
+        self::assertStringContainsString('javascript:alert(1)', $commentBlock->text());
+    }
+
+    public function test_resolve_on_draft_comment_is_rejected(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+
+        $owner = $this->user($em, 'reviews-page-g@example.com');
+        $site = new Site($owner, 'reviews-site-g');
+        $em->persist($site);
+        $review = new SiteReview($site);
+        $review->addComment('Draft comment', '.a', 'text', 'https://example.com');
+        $em->persist($review);
+        $em->flush();
+        $comments = $review->comments->toArray();
+        $commentId = $comments[0]->id;
+        $em->clear();
+
+        $client->loginUser($owner);
+        $client->request(Request::METHOD_GET, '/site-review/sites/'.$site->id);
+        self::assertResponseIsSuccessful();
+
+        // The UI hides the buttons on drafts -- POST the route directly. The handler
+        // precondition must reject the transition and redirect back with a flash.
+        $client->request(
+            Request::METHOD_POST,
+            '/site-review/comments/'.(string) $commentId.'/resolve',
+            ['_csrf_token' => 'csrf-token'],
+        );
+
+        self::assertResponseRedirects('/site-review/sites/'.$site->id);
+
+        $em->clear();
+        $fresh = $em->find(SiteReviewComment::class, $commentId);
+        self::assertNotNull($fresh);
+        self::assertSame(SiteReviewCommentStatus::Pending, $fresh->status);
+    }
 }

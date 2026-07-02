@@ -689,7 +689,7 @@
             </trans-unit>
             <trans-unit id="site_review.review.comments_label">
                 <source>site_review.review.comments_label</source>
-                <target>comments</target>
+                <target>{0} no comments|{1} 1 comment|]1,Inf[ %count% comments</target>
             </trans-unit>
             <trans-unit id="site_review.comment.status.pending">
                 <source>site_review.comment.status.pending</source>
@@ -718,6 +718,10 @@
             <trans-unit id="site_review.site.reviews.empty">
                 <source>site_review.site.reviews.empty</source>
                 <target>No reviews yet. Embed the widget and send your first review.</target>
+            </trans-unit>
+            <trans-unit id="site_review.error.comment_not_actionable">
+                <source>site_review.error.comment_not_actionable</source>
+                <target>Comments on an unsent review cannot be resolved or reopened.</target>
             </trans-unit>
 
         </body>

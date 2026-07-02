@@ -67,6 +67,12 @@ final class SitePageTest extends WebTestCase
         self::assertInstanceOf(Site::class, $fresh);
         self::assertNotNull($fresh->token);
         self::assertSame(ApiTokenScope::SiteReview, $fresh->token->scope);
+
+        // The embed snippet must render as escaped text, never as a live <script> tag.
+        $client->followRedirect();
+        $content = (string) $client->getResponse()->getContent();
+        self::assertStringContainsString('&lt;script', $content);
+        self::assertStringNotContainsString('data-token="YOUR_TOKEN"></script>', $content);
     }
 
     public function test_second_mint_is_rejected(): void

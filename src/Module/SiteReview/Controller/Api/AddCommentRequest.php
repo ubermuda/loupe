@@ -19,6 +19,7 @@ final class AddCommentRequest
         public string $text = '',
 
         #[Assert\NotBlank(normalizer: 'trim')]
+        #[Assert\Url(protocols: ['http', 'https'], requireTld: false)]
         public ?string $url = null,
     ) {
     }

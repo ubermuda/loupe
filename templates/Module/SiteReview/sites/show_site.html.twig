@@ -38,7 +38,7 @@
                 <button type="submit" class="bp-btn bp-btn--danger">{{ 'account.api_token.action.revoke'|trans }}</button>
             </form>
         </div>
-        {% set widgetSnippet %}<script src="{{ absolute_url('/site-review/widget.js') }}" data-token="YOUR_TOKEN"></script>{% endset %}
+        {% set widgetSnippet = '<script src="' ~ absolute_url('/site-review/widget.js') ~ '" data-token="YOUR_TOKEN"></script>' %}
         <div class="bp-code-block mt-4">
             <div class="bp-code-block__header">
                 <span class="bp-code-block__label">{{ 'site_review.site.token.snippet_heading'|trans }}</span>
@@ -64,7 +64,7 @@
                 <span class="bp-tag">{{ 'site_review.review.status.submitted'|trans }}</span>
                 <span class="text-xs text-fg-dim">{{ review.submittedAt|date('M j, Y H:i') }}</span>
                 {% endif %}
-                <span class="text-xs text-fg-dim">· {{ review.comments|length }} {{ 'site_review.review.comments_label'|trans }}</span>
+                <span class="text-xs text-fg-dim">· {{ 'site_review.review.comments_label'|trans({'%count%': review.comments|length}) }}</span>
             </div>
 
             {% for comment in review.comments %}
@@ -82,10 +82,14 @@
 
                 <p class="bp-review-comment__body">{{ comment.body }}</p>
 
+                {% if comment.url starts with 'http://' or comment.url starts with 'https://' %}
                 <a class="bp-review-comment__url" href="{{ comment.url }}" target="_blank" rel="noopener noreferrer">
                     <twig:ux:icon name="lucide:external-link" class="w-3.5 h-3.5 shrink-0" />
                     <span class="truncate">{{ comment.url }}</span>
                 </a>
+                {% else %}
+                <span class="truncate">{{ comment.url }}</span>
+                {% endif %}
 
                 {% if review.status.value == 'submitted' %}
                 <div class="flex items-center gap-2 mt-2">
