@@ -260,7 +260,10 @@ func pickSite(cmd *cobra.Command, client *api.Client) (string, error) {
 	}
 	fmt.Fprint(cmd.OutOrStdout(), "Site number: ")
 	var choice int
-	if _, err := fmt.Fscanln(os.Stdin, &choice); err != nil || choice < 1 || choice > len(sites) {
+	if _, err := fmt.Fscanln(cmd.InOrStdin(), &choice); err != nil {
+		return "", fmt.Errorf("read choice: %w", err)
+	}
+	if choice < 1 || choice > len(sites) {
 		return "", fmt.Errorf("invalid choice")
 	}
 

@@ -10,7 +10,7 @@ func TestParse(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Parse: %v", err)
 	}
-	if e.SiteID != "site-1" || e.SiteName != "acme" || e.ReviewID != "rev-42" || e.CommentCount != 2 || len(e.URLs) != 2 {
+	if e.Type != "site_review.submitted" || e.SiteID != "site-1" || e.SiteName != "acme" || e.ReviewID != "rev-42" || e.CommentCount != 2 || len(e.URLs) != 2 || e.SubmittedAt != "2026-07-01T00:00:00Z" {
 		t.Fatalf("unexpected event: %+v", e)
 	}
 }

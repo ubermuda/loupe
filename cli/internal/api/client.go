@@ -93,7 +93,12 @@ func (c *Client) Sites(ctx context.Context) ([]Site, error) {
 		return nil, fmt.Errorf("request sites: %w", err)
 	}
 	defer resp.Body.Close()
-	if resp.StatusCode != http.StatusOK {
+
+	switch resp.StatusCode {
+	case http.StatusOK:
+	case http.StatusUnauthorized, http.StatusForbidden:
+		return nil, fmt.Errorf("sites request rejected (HTTP %d): the API token must have the site-review scope", resp.StatusCode)
+	default:
 		body, _ := io.ReadAll(io.LimitReader(resp.Body, 512))
 		return nil, fmt.Errorf("sites request failed (HTTP %d): %s", resp.StatusCode, strings.TrimSpace(string(body)))
 	}
