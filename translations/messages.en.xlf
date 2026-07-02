@@ -628,6 +628,26 @@
                 <source>project.error.widget_token_already_minted</source>
                 <target>This project already has a widget token. Revoke it first.</target>
             </trans-unit>
+            <trans-unit id="project.mcp_token.heading">
+                <source>project.mcp_token.heading</source>
+                <target>MCP token</target>
+            </trans-unit>
+            <trans-unit id="project.mcp_token.hint">
+                <source>project.mcp_token.hint</source>
+                <target>Lets MCP clients act on this project. Keep it secret.</target>
+            </trans-unit>
+            <trans-unit id="project.mcp_token.mint">
+                <source>project.mcp_token.mint</source>
+                <target>Mint MCP token</target>
+            </trans-unit>
+            <trans-unit id="project.mcp_token.flash_minted">
+                <source>project.mcp_token.flash_minted</source>
+                <target>Token created. Copy it now — it will not be shown again:</target>
+            </trans-unit>
+            <trans-unit id="project.error.mcp_token_already_minted">
+                <source>project.error.mcp_token_already_minted</source>
+                <target>This project already has an MCP token. Revoke it first.</target>
+            </trans-unit>
             <trans-unit id="site_review.error.nothing_to_submit">
                 <source>site_review.error.nothing_to_submit</source>
                 <target>There is no in-progress review with comments to send.</target>

@@ -53,6 +53,32 @@
         {% endif %}
     </div>
 
+    <div class="bp-card mb-6" id="mcp-token">
+        <h2 class="bp-section-title">{{ 'project.mcp_token.heading'|trans }}</h2>
+        <p class="bp-form-hint">{{ 'project.mcp_token.hint'|trans }}</p>
+
+        {% if project.mcpToken %}
+        <div class="bp-doc-row">
+            <div class="bp-doc-row__main">
+                <span class="bp-doc-row__title">{{ project.mcpToken.label }}</span>
+                <div class="bp-doc-row__meta">
+                    <span>{{ project.mcpToken.createdAt|date('M j, Y') }}</span>
+                </div>
+            </div>
+            <form method="POST" action="{{ path('app_api_token_revoke', {tokenId: project.mcpToken.id}) }}">
+                <input type="hidden" name="_csrf_token" value="{{ csrf_token('revoke-api-token') }}">
+                <input type="hidden" name="returnTo" value="{{ path('app_site_review_site', {id: project.id}) }}">
+                <button type="submit" class="bp-btn bp-btn--danger">{{ 'account.api_token.action.revoke'|trans }}</button>
+            </form>
+        </div>
+        {% else %}
+        <form method="POST" action="{{ path('app_project_mcp_token_mint', {id: project.id}) }}">
+            <input type="hidden" name="_csrf_token" value="{{ csrf_token('mint-project-mcp-token') }}">
+            <button type="submit" class="bp-btn bp-btn--primary">{{ 'project.mcp_token.mint'|trans }}</button>
+        </form>
+        {% endif %}
+    </div>
+
     <div class="flex flex-col gap-4 mt-2">
         {% for review in reviews %}
         <div class="bp-card" data-review-id="{{ review.id }}">
