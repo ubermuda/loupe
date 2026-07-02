@@ -587,12 +587,12 @@
                 <source>site_review.sites.empty</source>
                 <target>No sites yet. Add the app you want to review.</target>
             </trans-unit>
-            <trans-unit id="site_review.form.create_site_form.name.label">
-                <source>site_review.form.create_site_form.name.label</source>
+            <trans-unit id="sitereview.form.create_site_form.name.label">
+                <source>sitereview.form.create_site_form.name.label</source>
                 <target>Site name</target>
             </trans-unit>
-            <trans-unit id="site_review.form.create_site_form.name.placeholder">
-                <source>site_review.form.create_site_form.name.placeholder</source>
+            <trans-unit id="sitereview.form.create_site_form.name.placeholder">
+                <source>sitereview.form.create_site_form.name.placeholder</source>
                 <target>my-app</target>
             </trans-unit>
             <trans-unit id="site_review.error.site_name_taken">

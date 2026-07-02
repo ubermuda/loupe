@@ -16,8 +16,8 @@ class CreateSiteFormType extends AbstractType
     public function buildForm(FormBuilderInterface $builder, array $options): void
     {
         $builder->add('name', TextType::class, [
-            'label' => 'site_review.form.create_site_form.name.label',
-            'attr' => ['placeholder' => 'site_review.form.create_site_form.name.placeholder'],
+            'label' => 'sitereview.form.create_site_form.name.label',
+            'attr' => ['placeholder' => 'sitereview.form.create_site_form.name.placeholder'],
         ]);
     }
 
