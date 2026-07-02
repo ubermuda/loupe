@@ -33,7 +33,7 @@ func newBridgeCmd() *cobra.Command {
 }
 
 func newBridgeRunCmd() *cobra.Command {
-	var dir, session string
+	var dir, session, site string
 	var useMCP, attach bool
 
 	cmd := &cobra.Command{
@@ -41,10 +41,11 @@ func newBridgeRunCmd() *cobra.Command {
 		Short: "Pipe submitted site reviews into a local Claude Code tmux session",
 		Long: "Subscribes to your Better Plans site-review stream and injects each new " +
 			"review into a Claude Code session running in tmux.\n\n" +
-			"Use --dir to spawn `claude` in a new tmux session in that directory, or " +
-			"--session to attach to a tmux session you already have running. By default " +
-			"the command attaches you to the session; pass --attach=false to run the " +
-			"bridge in the foreground instead (e.g. headless).",
+			"Use --site to specify which site to bridge (by name or id); omit it to pick " +
+			"interactively from your list of sites. Use --dir to spawn `claude` in a new " +
+			"tmux session in that directory, or --session to attach to a tmux session you " +
+			"already have running. By default the command attaches you to the session; pass " +
+			"--attach=false to run the bridge in the foreground instead (e.g. headless).",
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			if !tmux.Available() {
 				return fmt.Errorf("tmux is not installed or not on PATH")
@@ -56,6 +57,18 @@ func newBridgeRunCmd() *cobra.Command {
 			cfg, err := config.Load()
 			if err != nil {
 				return err
+			}
+
+			client := api.New(cfg.BaseURL, cfg.Token, nil)
+			if site == "" {
+				if !isTerminal(os.Stdin) {
+					return fmt.Errorf("--site is required when not running interactively")
+				}
+				picked, err := pickSite(cmd, client)
+				if err != nil {
+					return err
+				}
+				site = picked
 			}
 
 			target, err := ensureSession(cmd, dir, session)
@@ -84,14 +97,15 @@ func newBridgeRunCmd() *cobra.Command {
 				}
 				defer logFile.Close()
 				out, errOut = logFile, logFile
-				return runAttached(cmd, cfg, target, buildHandler(out, errOut, target, mode), logPath)
+				return runAttached(cmd, cfg, site, target, buildHandler(out, errOut, target, mode), logPath)
 			}
 
-			return runForeground(cmd, cfg, target, buildHandler(out, errOut, target, mode), out)
+			return runForeground(cmd, cfg, site, target, buildHandler(out, errOut, target, mode), out)
 		},
 	}
 	cmd.Flags().StringVar(&dir, "dir", "", "spawn `claude` in a new tmux session in this directory")
 	cmd.Flags().StringVar(&session, "session", "", "attach to an existing tmux session or target")
+	cmd.Flags().StringVar(&site, "site", "", "the Better Plans site to bridge (name or id); omitted: pick interactively")
 	cmd.Flags().BoolVar(&useMCP, "mcp", false, "inject only the review id and let Claude load it via the Better Plans MCP")
 	cmd.Flags().BoolVar(&attach, "attach", true, "attach to the tmux session and watch Claude; use --attach=false to run headless")
 
@@ -100,15 +114,15 @@ func newBridgeRunCmd() *cobra.Command {
 
 // runForeground subscribes and blocks in the foreground, logging to out. Ctrl-C
 // or SIGTERM stops it.
-func runForeground(cmd *cobra.Command, cfg config.Config, target string, h transport.Handler, out io.Writer) error {
+func runForeground(cmd *cobra.Command, cfg config.Config, site, target string, h transport.Handler, out io.Writer) error {
 	ctx, stop := signal.NotifyContext(cmd.Context(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
-	creds, err := fetchCreds(ctx, cfg)
+	creds, err := fetchCreds(ctx, cfg, site)
 	if err != nil {
 		return err
 	}
-	fmt.Fprintf(out, "Bridging site reviews into tmux session %q (topic %s)\n", tmux.SessionName(target), creds.Topic)
+	fmt.Fprintf(out, "Bridging site reviews for site %q into tmux session %q (topic %s)\n", creds.Site.Name, tmux.SessionName(target), creds.Topic)
 
 	if err := transport.Subscribe(ctx, &http.Client{}, creds.HubURL, creds.Topic, creds.JWT, h); err != nil && ctx.Err() == nil {
 		return err
@@ -119,11 +133,11 @@ func runForeground(cmd *cobra.Command, cfg config.Config, target string, h trans
 
 // runAttached starts the subscribe loop in the background and hands the terminal
 // to `tmux attach`. When the user detaches (or the session ends), the loop stops.
-func runAttached(cmd *cobra.Command, cfg config.Config, target string, h transport.Handler, logPath string) error {
+func runAttached(cmd *cobra.Command, cfg config.Config, site, target string, h transport.Handler, logPath string) error {
 	ctx, cancel := context.WithCancel(cmd.Context())
 	defer cancel()
 
-	creds, err := fetchCreds(ctx, cfg)
+	creds, err := fetchCreds(ctx, cfg, site)
 	if err != nil {
 		return err
 	}
@@ -137,8 +151,8 @@ func runAttached(cmd *cobra.Command, cfg config.Config, target string, h transpo
 	signal.Ignore(syscall.SIGINT)
 
 	fmt.Fprintf(cmd.OutOrStdout(),
-		"Bridging site reviews into %q — attaching now (detach with Ctrl-b d). Bridge log: %s\n",
-		tmux.SessionName(target), logPath)
+		"Bridging site reviews for site %q into %q — attaching now (detach with Ctrl-b d). Bridge log: %s\n",
+		creds.Site.Name, tmux.SessionName(target), logPath)
 
 	attachCmd := exec.CommandContext(ctx, "tmux", "attach", "-t", tmux.SessionName(target))
 	attachCmd.Stdin, attachCmd.Stdout, attachCmd.Stderr = os.Stdin, os.Stdout, os.Stderr
@@ -163,22 +177,22 @@ func buildHandler(out, errOut io.Writer, target string, mode inject.Mode) transp
 				return
 			}
 			if !tmux.HasSession(target) {
-				fmt.Fprintf(errOut, "tmux session %q is gone; dropping review %s\n", tmux.SessionName(target), event.BatchID)
+				fmt.Fprintf(errOut, "tmux session %q is gone; dropping review %s\n", tmux.SessionName(target), event.ReviewID)
 
 				return
 			}
 			if err := tmux.Send(target, inject.Directive(event, mode)); err != nil {
-				fmt.Fprintf(errOut, "failed to inject review %s: %v\n", event.BatchID, err)
+				fmt.Fprintf(errOut, "failed to inject review %s: %v\n", event.ReviewID, err)
 
 				return
 			}
-			fmt.Fprintf(out, "Injected review %s\n", event.BatchID)
+			fmt.Fprintf(out, "Injected review %s\n", event.ReviewID)
 		},
 	}
 }
 
-func fetchCreds(ctx context.Context, cfg config.Config) (api.StreamCredentials, error) {
-	return api.New(cfg.BaseURL, cfg.Token, nil).StreamCredentials(ctx)
+func fetchCreds(ctx context.Context, cfg config.Config, site string) (api.StreamCredentials, error) {
+	return api.New(cfg.BaseURL, cfg.Token, nil).StreamCredentials(ctx, site)
 }
 
 // ensureSession spawns or validates the tmux session and returns the target.
@@ -224,4 +238,31 @@ func openBridgeLog() (*os.File, string, error) {
 	}
 
 	return f, path, nil
+}
+
+// pickSite lists the user's sites and prompts for a numbered choice.
+func pickSite(cmd *cobra.Command, client *api.Client) (string, error) {
+	sites, err := client.Sites(cmd.Context())
+	if err != nil {
+		return "", err
+	}
+	if len(sites) == 0 {
+		return "", fmt.Errorf("no sites found: create one in Better Plans first (Site reviews → Add site)")
+	}
+	if len(sites) == 1 {
+		fmt.Fprintf(cmd.OutOrStdout(), "Using your only site %q\n", sites[0].Name)
+		return sites[0].ID, nil
+	}
+
+	fmt.Fprintln(cmd.OutOrStdout(), "Which site should this bridge follow?")
+	for i, s := range sites {
+		fmt.Fprintf(cmd.OutOrStdout(), "  %d) %s\n", i+1, s.Name)
+	}
+	fmt.Fprint(cmd.OutOrStdout(), "Site number: ")
+	var choice int
+	if _, err := fmt.Fscanln(os.Stdin, &choice); err != nil || choice < 1 || choice > len(sites) {
+		return "", fmt.Errorf("invalid choice")
+	}
+
+	return sites[choice-1].ID, nil
 }
