@@ -7,7 +7,7 @@
  *
  * Document seeding uses a dev-only POST endpoint (/dev/seed/document).
  * Quote read-back uses a dev-only GET endpoint (/dev/review/{id}/state).
- * The status badge is asserted on the dashboard (/documents) after verdict submission.
+ * The status badge is asserted on the project dashboard (/projects/{projectId}/documents) after verdict submission.
  */
 
 import { test, expect, type Page } from '@playwright/test';
@@ -51,14 +51,19 @@ async function login(
     await page.getByLabel('Email').fill(email);
     await page.getByLabel('Password').fill(password);
     await page.getByRole('button', { name: 'Sign in' }).click();
-    await expect(page).toHaveURL('/documents');
+    // A freshly-registered user owns no projects yet, so HomeController lands
+    // them on the projects index (a single-project user would go straight to
+    // that project's documents dashboard instead).
+    await expect(page).toHaveURL('/projects');
 }
 
 /**
- * Seed a document via the dev-only endpoint. Returns the document UUID.
- * Must be called while the page session is authenticated.
+ * Seed a document via the dev-only endpoint. Returns the document and its
+ * owning project UUIDs. Must be called while the page session is authenticated.
  */
-async function seedDocument(page: Page): Promise<string> {
+async function seedDocument(
+    page: Page,
+): Promise<{ documentId: string; projectId: string }> {
     const response = await page.request.post('/dev/seed/document', {
         form: {
             title: 'E2E Review Test Document',
@@ -67,7 +72,10 @@ async function seedDocument(page: Page): Promise<string> {
     });
     expect(response.status()).toBe(201);
     const body = await response.json();
-    return body.documentId as string;
+    return {
+        documentId: body.documentId as string,
+        projectId: body.projectId as string,
+    };
 }
 
 /**
@@ -142,8 +150,9 @@ test('full review loop: comment, request changes, reload persistence', async ({
     await login(page, email, password);
 
     // Step 3: Seed a fresh document for this test run.
-    const documentId = await seedDocument(page);
-    const reviewUrl = `/documents/${documentId}/review`;
+    const { documentId, projectId } = await seedDocument(page);
+    const reviewUrl = `/projects/${projectId}/documents/${documentId}/review`;
+    const dashboardUrl = `/projects/${projectId}/documents`;
 
     // Step 4: Open the review page.
     await page.goto(reviewUrl);
@@ -242,13 +251,13 @@ test('full review loop: comment, request changes, reload persistence', async ({
     // The form POSTs (Turbo Drive) and redirects back to the *same* review URL,
     // so "doc is visible" proves nothing (it never went away). Wait for the
     // success flash, which only renders after the verdict is persisted — otherwise
-    // navigating to /documents races the POST and reads a stale "In review" badge.
+    // navigating to the dashboard races the POST and reads a stale "In review" badge.
     await expect(page.locator('.bp-flash--success')).toBeVisible({
         timeout: 10000,
     });
 
     // Step 10: Assert the status badge on the dashboard (scoped to THIS document's row).
-    await page.goto('/documents');
+    await page.goto(dashboardUrl);
     const badge = page.locator(`[data-document-id="${documentId}"] .bp-badge`);
     await expect(badge).toBeVisible({ timeout: 5000 });
     await expect(badge).toHaveText('Changes requested');
@@ -263,7 +272,7 @@ test('full review loop: comment, request changes, reload persistence', async ({
     await expect(persistedCommentBody).toContainText(COMMENT_BODY);
 
     // Step 12: Re-check the status is still "Changes requested" on the dashboard.
-    await page.goto('/documents');
+    await page.goto(dashboardUrl);
     const reloadedBadge = page.locator(
         `[data-document-id="${documentId}"] .bp-badge`,
     );

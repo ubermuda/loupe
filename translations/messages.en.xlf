@@ -561,10 +561,6 @@
                 <source>nav.link.documents</source>
                 <target>Documents</target>
             </trans-unit>
-            <trans-unit id="nav.link.site_reviews">
-                <source>nav.link.site_reviews</source>
-                <target>Site reviews</target>
-            </trans-unit>
             <trans-unit id="nav.link.api_tokens">
                 <source>nav.link.api_tokens</source>
                 <target>API tokens</target>

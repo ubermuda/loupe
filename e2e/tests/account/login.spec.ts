@@ -34,7 +34,7 @@ async function createVerifiedUser(
         /https?:\/\/[^\s"<]+\/register\/verify[^\s"<]*/,
     );
     await page.goto(link);
-    await expect(page).toHaveURL('/documents');
+    await expect(page).toHaveURL('/projects');
 }
 
 test('valid credentials log in and redirect to home', async ({
@@ -56,7 +56,7 @@ test('valid credentials log in and redirect to home', async ({
     await page.getByLabel('Password').fill('SecurePassword1!');
     await page.getByRole('button', { name: 'Sign in' }).click();
 
-    await expect(page).toHaveURL('/documents');
+    await expect(page).toHaveURL('/projects');
 });
 
 test('wrong password shows auth-error', async ({ page, request }) => {
@@ -99,7 +99,7 @@ test('remember-me cookie survives browser restart', async ({
     await page.getByLabel('Password').fill('SecurePassword1!');
     await page.getByLabel('Stay signed in on this device').check();
     await page.getByRole('button', { name: 'Sign in' }).click();
-    await expect(page).toHaveURL('/documents');
+    await expect(page).toHaveURL('/projects');
 
     // Grab cookies from the current context
     const cookies = await context.cookies();
@@ -114,7 +114,7 @@ test('remember-me cookie survives browser restart', async ({
 
     await newPage.goto('/');
     // With remember-me cookie, should be authenticated (no redirect to /login)
-    await expect(newPage).toHaveURL('/documents');
+    await expect(newPage).toHaveURL('/projects');
 });
 
 test('unverified user after login is redirected to check-email', async ({
