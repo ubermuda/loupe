@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Module\SiteReview\Mcp;
 
+use App\Mcp\ResolvesBoundProject;
+
 use App\Module\Project\Repository\ProjectRepository;
 use App\Module\Project\Security\AuthenticatedProjectResolver;
 use App\Module\SiteReview\Entity\SiteReviewComment;
@@ -14,6 +16,8 @@ use Mcp\Exception\ToolCallException;
 #[McpTool(name: 'get_site_review', description: 'Fetch all unaddressed site-review comments (DOM-anchored feedback captured in the browser) for the project bound to your MCP token. Address each comment, then mark it with address_site_review_comments.')]
 final readonly class GetSiteReviewTool
 {
+    use ResolvesBoundProject;
+
     public function __construct(
         private ProjectRepository $projects,
         private SiteReviewCommentRepository $siteReviewComments,
@@ -28,10 +32,7 @@ final readonly class GetSiteReviewTool
      */
     public function __invoke(?string $site = null): array
     {
-        $project = $this->projectResolver->resolveMcpProject();
-        if (null === $project) {
-            throw new ToolCallException('MCP token is not bound to a project. Mint a project token from the Connect page.');
-        }
+        $project = $this->requireBoundProject($this->projectResolver);
 
         if (null !== $site) {
             $resolved = $this->projects->findOneByIdOrNameForOwner($site, $project->owner)

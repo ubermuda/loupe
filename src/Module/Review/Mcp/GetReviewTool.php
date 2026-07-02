@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Module\Review\Mcp;
 
+use App\Mcp\ResolvesBoundProject;
+
 use App\Module\Project\Security\AuthenticatedProjectResolver;
 use App\Module\Review\Query\DocumentNotFound;
 use App\Module\Review\Query\GetReview;
@@ -17,6 +19,8 @@ use Symfony\Component\Uid\Uuid;
 #[McpTool(name: 'get_review', description: 'Fetch the review state (verdict, status, and threaded comments) for a document\'s current version.')]
 final readonly class GetReviewTool
 {
+    use ResolvesBoundProject;
+
     public function __construct(
         private GetReview $getReview,
         private AuthenticatedProjectResolver $projectResolver,
@@ -32,10 +36,7 @@ final readonly class GetReviewTool
      */
     public function __invoke(string $documentId): array
     {
-        $project = $this->projectResolver->resolveMcpProject();
-        if (null === $project) {
-            throw new ToolCallException('MCP token is not bound to a project. Mint a project token from the Connect page.');
-        }
+        $project = $this->requireBoundProject($this->projectResolver);
 
         try {
             return ($this->getReview)(Uuid::fromString($documentId), $project);

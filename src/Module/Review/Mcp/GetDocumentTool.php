@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Module\Review\Mcp;
 
+use App\Mcp\ResolvesBoundProject;
+
 use App\Module\Project\Security\AuthenticatedProjectResolver;
 use App\Module\Review\Query\DocumentNotFound;
 use App\Module\Review\Query\GetDocument;
@@ -17,6 +19,8 @@ use Symfony\Component\Uid\Uuid;
 #[McpTool(name: 'get_document', description: 'Fetch a document\'s current Markdown source, title, status, and version number.')]
 final readonly class GetDocumentTool
 {
+    use ResolvesBoundProject;
+
     public function __construct(
         private GetDocument $getDocument,
         private AuthenticatedProjectResolver $projectResolver,
@@ -30,10 +34,7 @@ final readonly class GetDocumentTool
      */
     public function __invoke(string $documentId): array
     {
-        $project = $this->projectResolver->resolveMcpProject();
-        if (null === $project) {
-            throw new ToolCallException('MCP token is not bound to a project. Mint a project token from the Connect page.');
-        }
+        $project = $this->requireBoundProject($this->projectResolver);
 
         try {
             return ($this->getDocument)(Uuid::fromString($documentId), $project);

@@ -4,11 +4,12 @@ declare(strict_types=1);
 
 namespace App\Module\Review\Mcp;
 
+use App\Mcp\ResolvesBoundProject;
+
 use App\Module\Project\Security\AuthenticatedProjectResolver;
 use App\Module\Review\Command\CreateDocumentCommand;
 use App\Module\Review\Command\CreateDocumentHandler;
 use Mcp\Capability\Attribute\McpTool;
-use Mcp\Exception\ToolCallException;
 use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 
 /**
@@ -17,6 +18,8 @@ use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 #[McpTool(name: 'create_document', description: 'Create a Markdown document for human review.')]
 final readonly class CreateDocumentTool
 {
+    use ResolvesBoundProject;
+
     public function __construct(
         private CreateDocumentHandler $createDocument,
         private AuthenticatedProjectResolver $projectResolver,
@@ -32,10 +35,7 @@ final readonly class CreateDocumentTool
      */
     public function __invoke(string $title, string $markdown): array
     {
-        $project = $this->projectResolver->resolveMcpProject();
-        if (null === $project) {
-            throw new ToolCallException('MCP token is not bound to a project. Mint a project token from the Connect page.');
-        }
+        $project = $this->requireBoundProject($this->projectResolver);
 
         $doc = ($this->createDocument)(new CreateDocumentCommand($project, $title, $markdown));
 

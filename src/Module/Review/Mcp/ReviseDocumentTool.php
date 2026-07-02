@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Module\Review\Mcp;
 
+use App\Mcp\ResolvesBoundProject;
+
 use App\Module\Project\Security\AuthenticatedProjectResolver;
 use App\Module\Review\Command\ReviseDocumentCommand;
 use App\Module\Review\Command\ReviseDocumentHandler;
@@ -19,6 +21,8 @@ use Symfony\Component\Uid\Uuid;
 #[McpTool(name: 'revise_document', description: 'Submit a new Markdown version of a document. Open comments are re-anchored onto the new version; those whose quoted text no longer appears are flagged orphaned.')]
 final readonly class ReviseDocumentTool
 {
+    use ResolvesBoundProject;
+
     public function __construct(
         private ReviseDocumentHandler $handler,
         private AuthenticatedProjectResolver $projectResolver,
@@ -33,10 +37,7 @@ final readonly class ReviseDocumentTool
      */
     public function __invoke(string $documentId, string $markdown): array
     {
-        $project = $this->projectResolver->resolveMcpProject();
-        if (null === $project) {
-            throw new ToolCallException('MCP token is not bound to a project. Mint a project token from the Connect page.');
-        }
+        $project = $this->requireBoundProject($this->projectResolver);
 
         try {
             $uuid = Uuid::fromString($documentId);
