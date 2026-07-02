@@ -1,0 +1,45 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}{{ 'site_review.sites.page.title'|trans }} — {{ 'app.name'|trans }}{% endblock %}
+
+{% block body %}
+<div class="bp-page">
+    <div class="bp-page-header">
+        <h1 class="bp-page-title">{{ 'site_review.sites.page.title'|trans }}</h1>
+    </div>
+
+    <div class="bp-card mb-6">
+        {{ form_start(form, {'action': path('app_site_review_site_create'), 'method': 'POST', 'attr': {'class': 'bp-form'}}) }}
+            <div class="bp-form-field">
+                {{ form_label(form.name, null, {'label_attr': {'class': 'bp-label'}}) }}
+                {{ form_widget(form.name, {'attr': {'class': 'bp-input'}}) }}
+                <div class="bp-field-errors">{{ form_errors(form.name) }}</div>
+            </div>
+            <div class="flex items-center justify-end gap-3 pt-2">
+                <button type="submit" class="bp-btn bp-btn--primary">{{ 'site_review.sites.form.submit'|trans }}</button>
+            </div>
+        {{ form_end(form) }}
+    </div>
+
+    {% if sites|length > 0 %}
+    <div class="bp-doc-list">
+        {% for site in sites %}
+        <div class="bp-doc-row" data-site-id="{{ site.id }}">
+            <div class="bp-doc-row__main">
+                <span class="bp-doc-row__title">{{ site.name }}</span>
+                <div class="bp-doc-row__meta">
+                    <span>{{ site.createdAt|date('M j, Y') }}</span>
+                </div>
+            </div>
+            <twig:ux:icon name="lucide:chevron-right" class="w-4 h-4 text-fg-dim shrink-0" />
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="bp-card flex flex-col items-center text-center gap-3 py-12">
+        <twig:ux:icon name="lucide:globe" class="w-8 h-8 text-fg-dim" />
+        <p class="bp-empty not-italic">{{ 'site_review.sites.empty'|trans }}</p>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
