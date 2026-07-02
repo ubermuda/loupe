@@ -43,10 +43,22 @@ class SiteRepository extends ServiceEntityRepository
      */
     public function findOneByIdOrNameForOwner(string $handle, User $owner): ?Site
     {
+        // A handle can be both UUID-shaped and a legitimate site name, and an
+        // id miss must still fall through to the name lookup — so never let a
+        // successful parse short-circuit the fallback.
         try {
-            return $this->findOneBy(['id' => Uuid::fromString($handle), 'owner' => $owner]);
+            $id = Uuid::fromString($handle);
         } catch (\InvalidArgumentException) {
-            return $this->findOneByOwnerAndName($owner, $handle);
+            $id = null;
         }
+
+        if (null !== $id) {
+            $site = $this->findOneBy(['id' => $id, 'owner' => $owner]);
+            if (null !== $site) {
+                return $site;
+            }
+        }
+
+        return $this->findOneByOwnerAndName($owner, $handle);
     }
 }

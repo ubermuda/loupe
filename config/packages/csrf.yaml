@@ -13,3 +13,4 @@ framework:
             - revoke-api-token
             - submit-review
             - comment-action
+            - mint-site-token

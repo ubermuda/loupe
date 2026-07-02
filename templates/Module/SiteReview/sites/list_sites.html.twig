@@ -26,7 +26,7 @@
         {% for site in sites %}
         <div class="bp-doc-row" data-site-id="{{ site.id }}">
             <div class="bp-doc-row__main">
-                <span class="bp-doc-row__title">{{ site.name }}</span>
+                <a href="{{ path('app_site_review_site', {id: site.id}) }}" class="bp-doc-row__title bp-doc-row__title--stretched">{{ site.name }}</a>
                 <div class="bp-doc-row__meta">
                     <span>{{ site.createdAt|date('M j, Y') }}</span>
                 </div>

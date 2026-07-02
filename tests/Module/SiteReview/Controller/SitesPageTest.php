@@ -27,8 +27,7 @@ final class SitesPageTest extends WebTestCase
 
         self::assertResponseIsSuccessful();
         self::assertCount(1, $crawler->filter('[data-site-id]'));
-        self::assertStringContainsString('mine', (string) $client->getResponse()->getContent());
-        self::assertStringNotContainsString('theirs', (string) $client->getResponse()->getContent());
+        self::assertSame('mine', trim($crawler->filter('[data-site-id] .bp-doc-row__title')->text()));
     }
 
     public function test_create_site_persists_and_redirects(): void
@@ -78,6 +77,7 @@ final class SitesPageTest extends WebTestCase
         $client->submitForm('Add site', ['create_site_form[name]' => 'shared-name']);
 
         self::assertResponseRedirects('/site-review/sites');
+        self::assertNotNull(static::getContainer()->get(SiteRepository::class)->findOneByOwnerAndName($b, 'shared-name'));
     }
 
     /** @param non-empty-string $email */

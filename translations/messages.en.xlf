@@ -638,6 +638,27 @@
                 <target>You already have a site with this name.</target>
             </trans-unit>
 
+            <trans-unit id="site_review.site.token.heading">
+                <source>site_review.site.token.heading</source>
+                <target>Widget token</target>
+            </trans-unit>
+            <trans-unit id="site_review.site.token.mint">
+                <source>site_review.site.token.mint</source>
+                <target>Mint widget token</target>
+            </trans-unit>
+            <trans-unit id="site_review.site.token.flash_minted">
+                <source>site_review.site.token.flash_minted</source>
+                <target>Token created. Copy it now — it will not be shown again:</target>
+            </trans-unit>
+            <trans-unit id="site_review.site.token.snippet_heading">
+                <source>site_review.site.token.snippet_heading</source>
+                <target>Embed snippet</target>
+            </trans-unit>
+            <trans-unit id="site_review.error.token_already_minted">
+                <source>site_review.error.token_already_minted</source>
+                <target>This site already has a token. Revoke it first.</target>
+            </trans-unit>
+
             <trans-unit id="nav.link.logout">
                 <source>nav.link.logout</source>
                 <target>Log out</target>

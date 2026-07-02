@@ -9,7 +9,7 @@ use Symfony\Component\Validator\Constraints as Assert;
 class CreateSiteRequest
 {
     public function __construct(
-        #[Assert\Length(max: 100)]
+        #[Assert\Length(max: 100, normalizer: 'trim')]
         #[Assert\NotBlank(normalizer: 'trim')]
         public ?string $name = null,
     ) {
