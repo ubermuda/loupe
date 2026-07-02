@@ -40,7 +40,7 @@ func newLoginCmd() *cobra.Command {
 
 			ctx, cancel := context.WithTimeout(cmd.Context(), 10*time.Second)
 			defer cancel()
-			if _, err := api.New(cfg.BaseURL, cfg.Token, nil).StreamCredentials(ctx); err != nil {
+			if _, err := api.New(cfg.BaseURL, cfg.Token, nil).Sites(ctx); err != nil {
 				return err
 			}
 

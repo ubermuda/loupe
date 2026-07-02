@@ -16,6 +16,18 @@ file alone. Each entry is tagged `Added` / `Changed` / `Removed` / `Fixed`.
 
 ## [Unreleased]
 
+- `6eb95f6` … `690bc04` (the `site-review-per-site` branch; exhaustive list via
+  `git log 4e7b5b0..690bc04`) — **Changed:** site review rebuilt from ephemeral
+  batches to a persistent per-site model: a `Site` entity with site-bound widget
+  tokens; comments save immediately into an in-progress `SiteReview` and an
+  explicit "Send the review" submits it (comment ladder
+  `pending → addressed → resolved`; the agent can only address, humans
+  resolve/reopen on the site page); the widget is server-backed (no more
+  localStorage batch); Mercure publishes per-site topics with per-site
+  stream-credential and sites-list endpoints; MCP tools `get_site_review` /
+  `address_site_review_comments` replace the batch fetch (breaking MCP change);
+  the bridge CLI binds to one site (`bridge run --site`, interactive picker
+  when omitted). Batch-era entities, endpoints, and data are dropped.
 - `7618557` — **Removed:** generic slash commands (`port-to-skeleton`,
   `pr-feedback`, `retro`) promoted out of the template to user-level
   `~/.claude/commands`, shared across all skeleton-derived projects rather than

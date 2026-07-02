@@ -11,10 +11,12 @@ import (
 // Event mirrors the Mercure update payload the server publishes on submit.
 type Event struct {
 	Type         string   `json:"type"`
-	BatchID      string   `json:"batchId"`
+	SiteID       string   `json:"siteId"`
+	SiteName     string   `json:"siteName"`
+	ReviewID     string   `json:"reviewId"`
 	CommentCount int      `json:"commentCount"`
 	URLs         []string `json:"urls"`
-	CreatedAt    string   `json:"createdAt"`
+	SubmittedAt  string   `json:"submittedAt"`
 }
 
 // Parse decodes a Mercure data payload into an Event.
@@ -34,8 +36,8 @@ const (
 	// SelfContained injects a full prompt from the event — works on a vanilla
 	// `claude` with no Better Plans MCP configured.
 	SelfContained Mode = iota
-	// IDOnly injects just the batch id and asks Claude to load details via the
-	// get_site_review MCP tool.
+	// IDOnly injects just the site handle and asks Claude to load the pending
+	// comments via the get_site_review MCP tool.
 	IDOnly
 )
 
@@ -43,13 +45,13 @@ const (
 func Directive(e Event, m Mode) string {
 	if m == IDOnly {
 		return fmt.Sprintf(
-			"A new site review (batch %s) was just submitted. Load it with the get_site_review MCP tool and address the comments.",
-			e.BatchID,
+			"A site review for site %q was just submitted (%d comment(s)). Fetch the pending comments with the get_site_review MCP tool (site %q), address them, and mark each one with address_site_review_comments.",
+			e.SiteName, e.CommentCount, e.SiteName,
 		)
 	}
 
 	var b strings.Builder
-	fmt.Fprintf(&b, "A new site review was just submitted (batch %s, %d comment(s)).", e.BatchID, e.CommentCount)
+	fmt.Fprintf(&b, "A site review for site %q was just submitted (%d comment(s)).", e.SiteName, e.CommentCount)
 	if len(e.URLs) > 0 {
 		fmt.Fprintf(&b, " Affected pages: %s.", strings.Join(e.URLs, ", "))
 	}

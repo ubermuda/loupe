@@ -12,17 +12,29 @@
   const TOKEN = script.getAttribute('data-token') || '';
   // Optional brand accent override; the design ships violet as the default.
   const ACCENT = script.getAttribute('data-accent') || '#6E56CF';
-  const STORAGE_KEY = 'betterplans.siteReview.pending';
+  // Comments now live server-side in the site's in-progress review; `pending`
+  // mirrors it. Each item: { id, body, selector, text, url }.
+  let pending = [];
 
-  const load = () => {
+  const api = async (method, path, body) => {
+    const response = await fetch(`${BACKEND}${path}`, {
+      method,
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${TOKEN}` },
+      body: body === undefined ? undefined : JSON.stringify(body),
+    });
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    return response.status === 204 ? null : response.json();
+  };
+
+  // Rehydrate the pending list from the server's in-progress review.
+  const refresh = async () => {
     try {
-      return JSON.parse(localStorage.getItem(STORAGE_KEY)) || [];
+      const { review } = await api('GET', '/api/site-review/review');
+      pending = review ? review.comments : [];
     } catch {
-      return [];
+      pending = [];
     }
   };
-  const save = (items) => localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
-  let pending = load();
 
   // Comment bodies and anchor labels are arbitrary host-page text rendered into
   // innerHTML on a third-party page — every dynamic value MUST go through this.
@@ -32,33 +44,6 @@
       (character) =>
         ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[character],
     );
-
-  // Copy text to the clipboard, returning whether it actually succeeded. The async
-  // Clipboard API is unavailable on insecure origins, so fall back to execCommand;
-  // only report failure when both paths fail (never show false success to the user).
-  const copyToClipboard = async (value) => {
-    try {
-      if (navigator.clipboard && navigator.clipboard.writeText) {
-        await navigator.clipboard.writeText(value);
-        return true;
-      }
-    } catch {
-      /* fall through to the legacy fallback below */
-    }
-    try {
-      const textarea = document.createElement('textarea');
-      textarea.value = value;
-      textarea.setAttribute('readonly', '');
-      textarea.style.cssText = 'position:fixed;top:-9999px;opacity:0';
-      document.documentElement.appendChild(textarea);
-      textarea.select();
-      const copied = document.execCommand('copy');
-      textarea.remove();
-      return copied;
-    } catch {
-      return false;
-    }
-  };
 
   // Build a stable-ish CSS selector for an element (used for re-anchoring on revisit).
   const selectorFor = (element) => {
@@ -205,12 +190,6 @@
     check: (s, stroke, color) =>
       `<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="${color || 'currentColor'}" ` +
       `stroke-width="${stroke || 2.4}" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>`,
-    copy: (s) =>
-      svg(
-        s,
-        '<rect x="9" y="9" width="11" height="11" rx="2.5"/><path d="M5 15H4.5A2.5 2.5 0 0 1 2 12.5v-8A2.5 2.5 0 0 1 4.5 2h8A2.5 2.5 0 0 1 15 4.5V5"/>',
-        2,
-      ),
     edit: (s) =>
       svg(
         s,
@@ -222,7 +201,7 @@
       `stroke-linecap="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="2.4" fill="currentColor" stroke="none"/></svg>`,
   };
 
-  // ---- widget state (the pending batch lives in `pending`; this is UI state) ----
+  // ---- widget state (the in-progress review's comments live in `pending`; this is UI state) ----
   // Comments are identified by their index in `pending`; every mutation re-renders.
   const state = {
     open: false,
@@ -230,7 +209,7 @@
     composing: false,
     composeTarget: null, // { type:'general' } | { type:'element', el, selector, text, label }
     draft: '',
-    editIndex: null, // index of the comment being edited in place, or null for a new one
+    editId: null, // server id of the comment being edited in place, or null for a new one
     listExpanded: false,
     expandLevel: 0,
     toastDock: 'top', // 'top' | 'bottom' — the pick-mode toast dodges to the bottom near the top edge
@@ -240,15 +219,14 @@
     confirmDeleteId: null, // armed inline list-row delete
     confirmClear: false,
     pinConfirmId: null, // armed pin-popover delete
+    saving: false,
+    deleting: false,
     sending: false,
-    sent: null, // batch id string after a successful send
+    sent: false, // true after a successful submit
     sendError: null,
-    copied: false,
-    copyFailed: false,
   };
   let moveBase = null; // deepest element under the cursor while picking
   let pinCloseTimer = 0;
-  let copyTimer = 0;
 
   // --- Shadow-DOM UI host (launcher + panel), isolated from host-page CSS. ---
   const host = document.createElement('div');
@@ -381,11 +359,6 @@
       .bp-sent-disc{width:46px;height:46px;margin:8px auto 12px;border-radius:50%;background:color-mix(in srgb,var(--success) 16%,transparent);display:flex;align-items:center;justify-content:center;color:var(--success)}
       .bp-sent-title{font-size:14.5px;font-weight:600}
       .bp-sent-sub{font-size:12.5px;color:var(--muted);margin-top:3px}
-      .bp-batch{display:flex;align-items:center;gap:8px;margin:16px 0 4px;padding:9px 11px;background:var(--panel-elev);border:1px solid var(--hairline);border-radius:10px}
-      .bp-batch-label{font-size:11px;color:var(--faint);flex:0 0 auto}
-      .bp-batch-id{flex:1;font-family:'Geist Mono',ui-monospace,monospace;font-size:11.5px;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:left}
-      .bp-copy{flex:0 0 auto;height:26px;padding:0 9px;display:flex;align-items:center;gap:5px;background:var(--card-bg);border:1px solid var(--field-border);border-radius:7px;color:var(--muted);font-family:inherit;font-size:11.5px;font-weight:500;cursor:pointer}
-      .bp-copy:hover{color:var(--text)}
       .bp-new{margin-top:10px;height:34px;width:100%;background:var(--panel-elev);border:1px solid var(--field-border);border-radius:9px;color:var(--text);font-family:inherit;font-size:13px;font-weight:500;cursor:pointer}
       .bp-new:hover{border-color:var(--accent)}
     </style>
@@ -850,11 +823,20 @@
     targetBtn.classList.toggle('active', state.target);
     targetBtn.setAttribute('aria-pressed', state.target ? 'true' : 'false');
 
-    // error banner
     if (state.sendError) {
       errorNode.style.display = 'flex';
-      errorNode.innerHTML = `<span>Couldn’t send your review. Please try again.</span><button id="bp-retry">Try again</button>`;
-      $('bp-retry').addEventListener('click', send);
+      errorNode.innerHTML =
+        state.sendError === 'send'
+          ? `<span>Couldn’t send your review. Please try again.</span><button id="bp-retry">Try again</button>`
+          : `<span>Couldn’t apply that change. Please try again.</span><button id="bp-retry-dismiss">Dismiss</button>`;
+      const retry = root.getElementById('bp-retry');
+      if (retry) retry.addEventListener('click', send);
+      const dismiss = root.getElementById('bp-retry-dismiss');
+      if (dismiss)
+        dismiss.addEventListener('click', () => {
+          state.sendError = null;
+          updatePanel();
+        });
     } else {
       errorNode.style.display = 'none';
     }
@@ -884,7 +866,7 @@
           : `Show ${n} comments`;
       $('bp-clear-confirm-text').textContent =
         n === 1 ? 'Remove this comment?' : `Remove all ${n} comments?`;
-      sendBtn.disabled = state.sending || n === 0;
+      sendBtn.disabled = state.sending || state.saving || n === 0;
       sendBtn.innerHTML = state.sending
         ? `<span class="bp-spin"></span>Sending…`
         : `${ICON.send(14)}Send`;
@@ -965,36 +947,23 @@
     });
   };
 
-  const copyButtonLabel = () =>
-    state.copied
-      ? `${ICON.check(12, 2.6, 'var(--success)')}Copied`
-      : state.copyFailed
-        ? 'Copy failed'
-        : `${ICON.copy(12)}Copy`;
-  // Reconcile rather than rebuild: re-assigning sentNode.innerHTML recreates the
-  // .bp-sent element and replays its entrance animation, so clicking Copy (which
-  // re-renders) would flash the whole panel. Build the markup once per batch and only
-  // swap the Copy button's label on subsequent renders.
+  // Built once per submit; `sent` is boolean so re-renders reconcile via the flag.
   const renderSent = () => {
-    if (sentNode.dataset.batch === state.sent) {
-      const copyBtn = $('bp-copy');
-      if (copyBtn) copyBtn.innerHTML = copyButtonLabel();
-      return;
-    }
-    sentNode.dataset.batch = state.sent;
+    if (sentNode.dataset.shown) return;
+    sentNode.dataset.shown = '1';
     sentNode.innerHTML = `<div class="bp-sent">
         <div class="bp-sent-disc">${ICON.check(22, 2.4)}</div>
         <div class="bp-sent-title">Review sent</div>
-        <div class="bp-sent-sub">Your team will see it in the workspace.</div>
-        <div class="bp-batch">
-          <span class="bp-batch-label">Batch</span>
-          <code class="bp-batch-id">${escapeHtml(state.sent)}</code>
-          <button class="bp-copy" id="bp-copy">${copyButtonLabel()}</button>
-        </div>
+        <div class="bp-sent-sub">Your agent has been notified and will pick it up from here.</div>
         <button class="bp-new" id="bp-new">Start a new review</button>
       </div>`;
-    $('bp-copy').addEventListener('click', copyBatch);
     $('bp-new').addEventListener('click', dismissSent);
+  };
+  const dismissSent = () => {
+    state.sent = false;
+    delete sentNode.dataset.shown;
+    state.listExpanded = false;
+    sync();
   };
 
   const sync = () => {
@@ -1012,7 +981,7 @@
   const openNoteComposer = () => {
     state.composing = true;
     state.composeTarget = { type: 'general' };
-    state.editIndex = null;
+    state.editId = null;
     state.draft = '';
     textareaNode.value = '';
     state.open = true;
@@ -1025,7 +994,7 @@
     if (state.composing && ct.type === 'general') {
       state.composing = false;
       state.composeTarget = null;
-      state.editIndex = null;
+      state.editId = null;
       state.draft = '';
       textareaNode.value = '';
       sync();
@@ -1042,7 +1011,7 @@
       text: (el.innerText || '').trim().slice(0, 200),
       label: firstLineLabel(el.innerText),
     };
-    state.editIndex = null;
+    state.editId = null;
     state.draft = '';
     textareaNode.value = '';
     state.open = true;
@@ -1056,7 +1025,7 @@
     const comment = pending[index];
     if (!comment) return;
     state.composing = true;
-    state.editIndex = index;
+    state.editId = comment.id;
     state.composeTarget = comment.selector
       ? {
           type: 'element',
@@ -1076,39 +1045,63 @@
   const cancelCompose = () => {
     state.composing = false;
     state.composeTarget = null;
-    state.editIndex = null;
+    state.editId = null;
     state.draft = '';
     textareaNode.value = '';
     sync();
   };
-  const saveComment = () => {
+  const saveComment = async () => {
     const body = state.draft.trim();
-    if (!body) return;
-    if (state.editIndex != null && pending[state.editIndex]) {
-      // Editing in place: only the body changes; keep selector/text/url as stored.
-      pending[state.editIndex].body = body;
-      save(pending);
-    } else {
-      const ct = state.composeTarget || { type: 'general' };
-      const comment =
-        ct.type === 'element'
-          ? { body, selector: ct.selector, text: ct.text, url: location.href }
-          : { body, selector: '', text: '', url: location.href };
-      pending.push(comment);
-      save(pending);
+    if (!body || state.saving) return;
+    state.saving = true;
+    state.sendError = null;
+    updatePanel();
+    try {
+      await ready; // don't let the boot refresh clobber an early save
+      if (state.editId != null) {
+        // Resolve by server id — a concurrent delete may have shifted indices. If the
+        // comment is gone, skip the PATCH and just close the composer gracefully.
+        const target = pending.find((c) => c.id === state.editId);
+        if (target) {
+          await api('PATCH', `/api/site-review/comments/${target.id}`, { body });
+          target.body = body;
+        }
+      } else {
+        const ct = state.composeTarget || { type: 'general' };
+        const comment =
+          ct.type === 'element'
+            ? { body, selector: ct.selector, text: ct.text, url: location.href }
+            : { body, selector: '', text: '', url: location.href };
+        const { commentId } = await api('POST', '/api/site-review/comments', comment);
+        pending.push({ id: commentId, ...comment });
+      }
+      state.composing = false;
+      state.composeTarget = null;
+      state.editId = null;
+      state.draft = '';
+      textareaNode.value = '';
+    } catch {
+      // Keep the composer open with the draft intact so nothing is lost.
+      state.sendError = 'save';
     }
-    state.composing = false;
-    state.composeTarget = null;
-    state.editIndex = null;
-    state.draft = '';
-    textareaNode.value = '';
+    state.saving = false;
     sync();
   };
 
   // ---- destructive actions (every one is confirmed) ----
-  const removeComment = (index) => {
-    pending.splice(index, 1);
-    save(pending);
+  const removeComment = async (index) => {
+    const target = pending[index];
+    if (!target) return;
+    if (state.deleting) return;
+    state.deleting = true;
+    try {
+      await ready; // don't let the boot refresh clobber an early delete
+      await api('DELETE', `/api/site-review/comments/${target.id}`);
+      pending.splice(index, 1);
+    } catch {
+      state.sendError = 'delete';
+    }
+    state.deleting = false;
     state.confirmDeleteId = null;
     state.pinConfirmId = null;
     state.hoverId = null;
@@ -1124,14 +1117,23 @@
     state.confirmClear = false;
     sync();
   };
-  const confirmClearYes = () => {
-    pending = [];
-    save(pending);
+  const confirmClearYes = async () => {
+    if (state.deleting) return;
+    state.deleting = true;
+    try {
+      await ready; // don't let the boot refresh clobber an early clear
+      await Promise.all(pending.map((comment) => api('DELETE', `/api/site-review/comments/${comment.id}`)));
+      pending = [];
+    } catch {
+      state.sendError = 'delete';
+      await refresh(); // reconcile: some deletes may have landed
+    }
+    state.deleting = false;
     state.confirmClear = false;
     state.listExpanded = false;
     state.composing = false;
     state.composeTarget = null;
-    state.editIndex = null;
+    state.editId = null;
     state.hoverId = null;
     state.hoverPinId = null;
     state.confirmDeleteId = null;
@@ -1184,7 +1186,7 @@
     if (on) {
       state.composing = false;
       state.composeTarget = null;
-      state.editIndex = null;
+      state.editId = null;
       state.draft = '';
       textareaNode.value = '';
       state.open = true;
@@ -1280,28 +1282,22 @@
 
   // ---- send ----
   const send = async () => {
-    if (!pending.length || state.sending) return;
+    if (!pending.length || state.sending || state.saving) return;
     state.sending = true;
     state.sendError = null;
     updatePanel();
     try {
-      const response = await fetch(`${BACKEND}/api/site-review/batches`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${TOKEN}` },
-        body: JSON.stringify({ comments: pending }),
-      });
-      if (!response.ok) throw new Error(`HTTP ${response.status}`);
-      const { batchId } = await response.json();
+      await ready; // don't submit before the boot refresh has settled
+      await api('POST', '/api/site-review/review/submit');
       pending = [];
-      save(pending);
       setTargeting(false);
       Object.assign(state, {
         sending: false,
-        sent: batchId,
+        sent: true,
         sendError: null,
         composing: false,
         composeTarget: null,
-        editIndex: null,
+        editId: null,
         draft: '',
         listExpanded: false,
         confirmClear: false,
@@ -1313,31 +1309,12 @@
       });
       textareaNode.value = '';
       sync();
-    } catch (error) {
-      // Keep the pending batch intact so the reviewer can retry.
+    } catch {
+      // The draft stays server-side; the reviewer can retry.
       state.sending = false;
-      state.sendError = error && error.message ? error.message : 'Send failed';
+      state.sendError = 'send';
       updatePanel();
     }
-  };
-  const copyBatch = async () => {
-    const ok = await copyToClipboard(state.sent);
-    state.copied = ok;
-    state.copyFailed = !ok;
-    updatePanel();
-    clearTimeout(copyTimer);
-    copyTimer = setTimeout(() => {
-      state.copied = false;
-      state.copyFailed = false;
-      updatePanel();
-    }, 1500);
-  };
-  const dismissSent = () => {
-    state.sent = null;
-    state.copied = false;
-    state.copyFailed = false;
-    state.listExpanded = false;
-    sync();
   };
 
   // ---- panel open/close ----
@@ -1347,7 +1324,7 @@
       setTargeting(false);
       state.composing = false;
       state.composeTarget = null;
-      state.editIndex = null;
+      state.editId = null;
       state.draft = '';
       textareaNode.value = '';
     }
@@ -1478,5 +1455,7 @@
     document.addEventListener(evt, rerenderAnchors),
   );
 
+  const ready = refresh();
   sync();
+  ready.then(sync);
 })();

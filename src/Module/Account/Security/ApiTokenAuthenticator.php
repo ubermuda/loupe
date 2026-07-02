@@ -21,6 +21,8 @@ final class ApiTokenAuthenticator extends AbstractAuthenticator implements Authe
 {
     private const string SCOPE_ROLE_ATTR = 'scopeRole';
 
+    public const string API_TOKEN_ID_ATTR = 'apiTokenId';
+
     public function __construct(
         private readonly ApiTokenRepository $apiTokens,
         private readonly EntityManagerInterface $entityManager,
@@ -45,6 +47,7 @@ final class ApiTokenAuthenticator extends AbstractAuthenticator implements Authe
 
         $passport = new SelfValidatingPassport(new UserBadge($token->owner->getUserIdentifier(), fn () => $token->owner));
         $passport->setAttribute(self::SCOPE_ROLE_ATTR, $token->scope->role());
+        $passport->setAttribute(self::API_TOKEN_ID_ATTR, (string) $token->id);
 
         return $passport;
     }
@@ -56,7 +59,13 @@ final class ApiTokenAuthenticator extends AbstractAuthenticator implements Authe
         $scopeRole = $passport->getAttribute(self::SCOPE_ROLE_ATTR);
         $scopeRole = is_string($scopeRole) ? $scopeRole : throw new \LogicException('scopeRole missing on passport after authentication.');
 
-        return new PostAuthenticationToken($user, $firewallName, [...$user->getRoles(), $scopeRole]);
+        $authenticatedToken = new PostAuthenticationToken($user, $firewallName, [...$user->getRoles(), $scopeRole]);
+        $apiTokenId = $passport->getAttribute(self::API_TOKEN_ID_ATTR);
+        if (is_string($apiTokenId)) {
+            $authenticatedToken->setAttribute(self::API_TOKEN_ID_ATTR, $apiTokenId);
+        }
+
+        return $authenticatedToken;
     }
 
     public function onAuthenticationFailure(Request $request, AuthenticationException $exception): Response

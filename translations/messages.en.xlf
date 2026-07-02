@@ -574,43 +574,57 @@
                 <target>Expand sidebar</target>
             </trans-unit>
 
-            <!-- Site review batches (human-facing) -->
-            <trans-unit id="site_review.batches.page.title">
-                <source>site_review.batches.page.title</source>
-                <target>Site reviews</target>
+            <!-- Site review sites (per-site model) -->
+            <trans-unit id="site_review.sites.page.title">
+                <source>site_review.sites.page.title</source>
+                <target>Sites</target>
             </trans-unit>
-            <trans-unit id="site_review.batches.table.column.comments">
-                <source>site_review.batches.table.column.comments</source>
-                <target>Comments</target>
+            <trans-unit id="site_review.sites.form.submit">
+                <source>site_review.sites.form.submit</source>
+                <target>Add site</target>
             </trans-unit>
-            <trans-unit id="site_review.batches.empty">
-                <source>site_review.batches.empty</source>
-                <target>No site reviews yet. Use the widget on your app to capture and send annotations.</target>
+            <trans-unit id="site_review.sites.empty">
+                <source>site_review.sites.empty</source>
+                <target>No sites yet. Add the app you want to review.</target>
             </trans-unit>
-            <trans-unit id="site_review.batch.page.title">
-                <source>site_review.batch.page.title</source>
-                <target>Site review</target>
+            <trans-unit id="sitereview.form.create_site_form.name.label">
+                <source>sitereview.form.create_site_form.name.label</source>
+                <target>Site name</target>
             </trans-unit>
-            <trans-unit id="site_review.batch.action.back">
-                <source>site_review.batch.action.back</source>
-                <target>Back to site reviews</target>
+            <trans-unit id="sitereview.form.create_site_form.name.placeholder">
+                <source>sitereview.form.create_site_form.name.placeholder</source>
+                <target>my-app</target>
             </trans-unit>
-            <trans-unit id="site_review.batch.field.created">
-                <source>site_review.batch.field.created</source>
-                <target>Sent</target>
+            <trans-unit id="site_review.error.site_name_taken">
+                <source>site_review.error.site_name_taken</source>
+                <target>You already have a site with this name.</target>
             </trans-unit>
-            <trans-unit id="site_review.batch.field.id">
-                <source>site_review.batch.field.id</source>
-                <target>Batch id</target>
+
+            <trans-unit id="site_review.site.token.heading">
+                <source>site_review.site.token.heading</source>
+                <target>Widget token</target>
             </trans-unit>
-            <trans-unit id="site_review.batch.comment.show_selector">
-                <source>site_review.batch.comment.show_selector</source>
-                <target>CSS selector</target>
+            <trans-unit id="site_review.site.token.mint">
+                <source>site_review.site.token.mint</source>
+                <target>Mint widget token</target>
             </trans-unit>
-            <trans-unit id="site_review.batch.comment.general">
-                <source>site_review.batch.comment.general</source>
-                <target>General</target>
+            <trans-unit id="site_review.site.token.flash_minted">
+                <source>site_review.site.token.flash_minted</source>
+                <target>Token created. Copy it now — it will not be shown again:</target>
             </trans-unit>
+            <trans-unit id="site_review.site.token.snippet_heading">
+                <source>site_review.site.token.snippet_heading</source>
+                <target>Embed snippet</target>
+            </trans-unit>
+            <trans-unit id="site_review.error.token_already_minted">
+                <source>site_review.error.token_already_minted</source>
+                <target>This site already has a token. Revoke it first.</target>
+            </trans-unit>
+            <trans-unit id="site_review.error.nothing_to_submit">
+                <source>site_review.error.nothing_to_submit</source>
+                <target>There is no in-progress review with comments to send.</target>
+            </trans-unit>
+
             <trans-unit id="nav.link.logout">
                 <source>nav.link.logout</source>
                 <target>Log out</target>
@@ -662,6 +676,52 @@
             <trans-unit id="document.status.changes_requested">
                 <source>document.status.changes_requested</source>
                 <target>Changes requested</target>
+            </trans-unit>
+
+            <!-- Site review labels -->
+            <trans-unit id="site_review.review.status.draft">
+                <source>site_review.review.status.draft</source>
+                <target>Draft</target>
+            </trans-unit>
+            <trans-unit id="site_review.review.status.submitted">
+                <source>site_review.review.status.submitted</source>
+                <target>Submitted</target>
+            </trans-unit>
+            <trans-unit id="site_review.review.comments_label">
+                <source>site_review.review.comments_label</source>
+                <target>{0} no comments|{1} 1 comment|]1,Inf[ %count% comments</target>
+            </trans-unit>
+            <trans-unit id="site_review.comment.status.pending">
+                <source>site_review.comment.status.pending</source>
+                <target>Pending</target>
+            </trans-unit>
+            <trans-unit id="site_review.comment.status.addressed">
+                <source>site_review.comment.status.addressed</source>
+                <target>Addressed</target>
+            </trans-unit>
+            <trans-unit id="site_review.comment.status.resolved">
+                <source>site_review.comment.status.resolved</source>
+                <target>Resolved</target>
+            </trans-unit>
+            <trans-unit id="site_review.comment.general">
+                <source>site_review.comment.general</source>
+                <target>General comment</target>
+            </trans-unit>
+            <trans-unit id="site_review.comment.action.resolve">
+                <source>site_review.comment.action.resolve</source>
+                <target>Resolve</target>
+            </trans-unit>
+            <trans-unit id="site_review.comment.action.reopen">
+                <source>site_review.comment.action.reopen</source>
+                <target>Reopen</target>
+            </trans-unit>
+            <trans-unit id="site_review.site.reviews.empty">
+                <source>site_review.site.reviews.empty</source>
+                <target>No reviews yet. Embed the widget and send your first review.</target>
+            </trans-unit>
+            <trans-unit id="site_review.error.comment_not_actionable">
+                <source>site_review.error.comment_not_actionable</source>
+                <target>Comments on an unsent review cannot be resolved or reopened.</target>
             </trans-unit>
 
         </body>

@@ -10,6 +10,7 @@ use App\Module\Account\Entity\User;
 use App\Module\Account\Repository\ApiTokenRepository;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
+use Symfony\Component\HttpFoundation\Request;
 
 final class ApiTokenControllerTest extends WebTestCase
 {
@@ -36,7 +37,7 @@ final class ApiTokenControllerTest extends WebTestCase
         $user = $this->createVerifiedUser($em, 'bob', 'bob@example.com');
 
         $client->loginUser($user);
-        $client->request(\Symfony\Component\HttpFoundation\Request::METHOD_GET, '/account/api-tokens');
+        $client->request(Request::METHOD_GET, '/account/api-tokens');
         self::assertResponseIsSuccessful();
     }
 
@@ -47,7 +48,7 @@ final class ApiTokenControllerTest extends WebTestCase
         $user = $this->createVerifiedUser($em, 'bob', 'bob@example.com');
 
         $client->loginUser($user);
-        $client->request(\Symfony\Component\HttpFoundation\Request::METHOD_GET, '/account/api-tokens');
+        $client->request(Request::METHOD_GET, '/account/api-tokens');
         self::assertResponseIsSuccessful();
 
         $client->submitForm('Create token', [
@@ -75,7 +76,7 @@ final class ApiTokenControllerTest extends WebTestCase
         $user = $this->createVerifiedUser($em, 'bob', 'bob@example.com');
 
         $client->loginUser($user);
-        $client->request(\Symfony\Component\HttpFoundation\Request::METHOD_GET, '/account/api-tokens');
+        $client->request(Request::METHOD_GET, '/account/api-tokens');
         self::assertResponseIsSuccessful();
 
         $client->submitForm('Create token', [
@@ -129,14 +130,14 @@ final class ApiTokenControllerTest extends WebTestCase
 
         // Load the list page to obtain a valid CSRF token
         $client->loginUser($owner);
-        $client->request(\Symfony\Component\HttpFoundation\Request::METHOD_GET, '/account/api-tokens');
+        $client->request(Request::METHOD_GET, '/account/api-tokens');
         self::assertResponseIsSuccessful();
 
         $csrfTokenValue = $client->getCrawler()->filter('input[name="_csrf_token"]')->first()->attr('value');
         self::assertNotEmpty($csrfTokenValue, 'CSRF token must be rendered on the list page');
 
         // POST to revoke
-        $client->request(\Symfony\Component\HttpFoundation\Request::METHOD_POST, '/account/api-tokens/'.(string) $tokenId.'/revoke', [
+        $client->request(Request::METHOD_POST, '/account/api-tokens/'.(string) $tokenId.'/revoke', [
             '_csrf_token' => $csrfTokenValue,
         ]);
         self::assertResponseRedirects('/account/api-tokens');
@@ -147,6 +148,35 @@ final class ApiTokenControllerTest extends WebTestCase
         $repo = static::getContainer()->get(ApiTokenRepository::class);
         $tokens = $repo->findBy(['owner' => $owner]);
         self::assertCount(0, $tokens);
+    }
+
+    public function test_revoke_with_return_to_redirects_there(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+
+        $owner = $this->createVerifiedUser($em, 'returnto-owner', 'returnto@example.com');
+        [$token] = ApiToken::issue($owner, 'site-tok', ApiTokenScope::SiteReview);
+        $em->persist($token);
+        $em->flush();
+        $tokenId = $token->id;
+        $em->clear();
+
+        $client->loginUser($owner);
+        $client->request(Request::METHOD_GET, '/account/api-tokens');
+        self::assertResponseIsSuccessful();
+
+        $csrfTokenValue = $client->getCrawler()->filter('input[name="_csrf_token"]')->first()->attr('value');
+        self::assertNotEmpty($csrfTokenValue);
+
+        // Only the path prefix matters for the redirect — no Site fixture needed.
+        $returnTo = '/site-review/sites/some-site';
+        $client->request(Request::METHOD_POST, '/account/api-tokens/'.(string) $tokenId.'/revoke', [
+            '_csrf_token' => $csrfTokenValue,
+            'returnTo' => $returnTo,
+        ]);
+
+        self::assertResponseRedirects($returnTo);
     }
 
     public function test_other_user_gets_404_on_revoke(): void
@@ -169,7 +199,7 @@ final class ApiTokenControllerTest extends WebTestCase
 
         // Eve loads her list page (which renders revoke forms with valid CSRF tokens)
         $client->loginUser($other);
-        $client->request(\Symfony\Component\HttpFoundation\Request::METHOD_GET, '/account/api-tokens');
+        $client->request(Request::METHOD_GET, '/account/api-tokens');
         self::assertResponseIsSuccessful();
 
         // Extract the CSRF token from Eve's revoke form
@@ -177,7 +207,7 @@ final class ApiTokenControllerTest extends WebTestCase
         self::assertNotEmpty($csrfTokenValue, 'CSRF token must be rendered on the list page');
 
         // Eve tries to revoke Alice's token — must get 404 (ownership check), not 403
-        $client->request(\Symfony\Component\HttpFoundation\Request::METHOD_POST, '/account/api-tokens/'.(string) $aliceTokenId.'/revoke', [
+        $client->request(Request::METHOD_POST, '/account/api-tokens/'.(string) $aliceTokenId.'/revoke', [
             '_csrf_token' => $csrfTokenValue,
         ]);
         self::assertResponseStatusCodeSame(404);

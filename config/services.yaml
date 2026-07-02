@@ -74,3 +74,31 @@ when@test:
         App\Module\Review\Command\SubmitReviewHandler:
             autowire: true
             public: true
+
+        App\Module\SiteReview\Command\AddCommentHandler:
+            autowire: true
+            public: true
+
+        App\Module\SiteReview\Command\UpdateCommentHandler:
+            autowire: true
+            public: true
+
+        App\Module\SiteReview\Command\DeleteCommentHandler:
+            autowire: true
+            public: true
+
+        App\Module\SiteReview\Repository\SiteReviewRepository:
+            autowire: true
+            public: true
+
+        App\Module\SiteReview\Service\SiteReviewTopicBuilder:
+            autowire: true
+            public: true
+
+        App\Module\SiteReview\Mcp\GetSiteReviewTool:
+            autowire: true
+            public: true
+
+        App\Module\SiteReview\Mcp\AddressSiteReviewCommentsTool:
+            autowire: true
+            public: true

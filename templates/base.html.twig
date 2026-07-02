@@ -34,8 +34,8 @@
                         <twig:ux:icon name="lucide:files" />
                         <span class="bp-sidebar__link-label">{{ 'nav.link.documents'|trans }}</span>
                     </a>
-                    <a href="{{ path('app_site_review_batches') }}" data-tooltip="{{ 'nav.link.site_reviews'|trans }}"
-                       class="bp-sidebar__link{% if app.request.attributes.get('_route') starts with 'app_site_review_batch' %} bp-sidebar__link--active{% endif %}">
+                    <a href="{{ path('app_site_review_sites') }}" data-tooltip="{{ 'nav.link.site_reviews'|trans }}"
+                       class="bp-sidebar__link{% if app.request.attributes.get('_route') starts with 'app_site_review_site' %} bp-sidebar__link--active{% endif %}">
                         <twig:ux:icon name="lucide:globe" />
                         <span class="bp-sidebar__link-label">{{ 'nav.link.site_reviews'|trans }}</span>
                     </a>

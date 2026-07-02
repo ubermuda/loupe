@@ -1,17 +1,22 @@
 /**
- * End-to-end happy path for the (redesigned) site-review annotation widget.
+ * End-to-end tests for the server-backed site-review annotation widget.
  *
- * The dev-only harness page (/dev/site-review-harness) issues a SiteReview API token
- * for a seeded user and loads public/site-review/widget.js with that token. The test
- * opens the panel, enters pick mode, clicks a targetable element, types a comment,
- * adds a general note, sends the batch, and asserts a real batch id is returned.
+ * The dev-only harness page (/dev/site-review-harness) finds-or-creates the
+ * `e2e-harness` site for the user, deletes any in-progress draft review and
+ * mints a fresh site-bound token on every load — so each test starts from a
+ * clean draft simply by loading the harness (no localStorage involved).
+ *
+ * The widget is server-backed: every saved comment POSTs immediately to
+ * /api/site-review/comments, the list rehydrates from GET /api/site-review/review
+ * on load, edits PATCH, deletes DELETE, and "Send" submits the in-progress
+ * review via POST /api/site-review/review/submit.
  *
  * User creation uses the dev-only /dev/register-and-verify endpoint (registers and
  * immediately marks the email as verified). No login is needed: the harness is
  * PUBLIC_ACCESS and looks the user up by the known e2e email passed in the query string.
  */
 
-import { test, expect } from '@playwright/test';
+import { test, expect, type Page } from '@playwright/test';
 import { suppressToolbar } from '../fixtures';
 
 // Guest flow — no session cookie should be carried in.
@@ -21,11 +26,12 @@ const E2E_EMAIL = 'e2e-site-review@example.com';
 const E2E_USERNAME = 'e2esitereview';
 const E2E_PASSWORD = 'E2eSiteReview1!';
 
-test('annotate and send a site review batch', async ({ page }) => {
+/**
+ * Seed the user (idempotent — re-registering an existing user is handled by the
+ * dev endpoint) and load the harness. Every load resets the draft server-side.
+ */
+const openHarness = async (page: Page): Promise<void> => {
     await suppressToolbar(page);
-
-    // Seed the user the harness will issue a token for (idempotent — re-registering
-    // an existing user is handled by the dev endpoint).
     const registerResponse = await page.request.post(
         '/dev/register-and-verify',
         {
@@ -38,18 +44,60 @@ test('annotate and send a site review batch', async ({ page }) => {
         },
     );
     expect(registerResponse.status()).toBe(200);
-
     await page.goto(
         `/dev/site-review-harness?email=${encodeURIComponent(E2E_EMAIL)}`,
     );
+};
 
-    // Clear any pending annotations from a previous run so the counter starts at 0.
-    await page.evaluate(() =>
-        localStorage.removeItem('betterplans.siteReview.pending'),
-    );
-    await page.reload();
+/**
+ * Add a general (unanchored) note through the panel UI. The panel must already
+ * be open. Waits for the head count so the server POST has landed before the
+ * test moves on.
+ */
+const addGeneralNote = async (
+    page: Page,
+    body: string,
+    expectedCount: string,
+): Promise<void> => {
+    await page
+        .locator('#bp-panel')
+        .getByRole('button', { name: 'Add note' })
+        .click();
+    await page.getByPlaceholder(/Describe the issue/).fill(body);
+    await page.getByRole('button', { name: 'Save' }).click();
+    await expect(page.locator('#bp-head-count')).toHaveText(expectedCount);
+};
 
-    // The collapsed launcher carries no count badge when empty.
+/**
+ * Read the in-progress review straight from the API using the widget's own
+ * token (from the script tag). This proves server persistence without
+ * reloading — a harness reload deliberately purges the draft, so "survives
+ * reload" cannot be asserted against the harness.
+ */
+const fetchReviewComments = (
+    page: Page,
+): Promise<Array<{ body: string; selector: string }>> =>
+    page.evaluate(async () => {
+        const script = document.querySelector(
+            'script[src*="site-review/widget.js"]',
+        )!;
+        const token = script.getAttribute('data-token')!;
+        const response = await fetch('/api/site-review/review', {
+            headers: { Authorization: `Bearer ${token}` },
+        });
+        const { review } = (await response.json()) as {
+            review: {
+                comments: Array<{ body: string; selector: string }>;
+            } | null;
+        };
+        return review ? review.comments : [];
+    });
+
+test('annotate and send a site review', async ({ page }) => {
+    await openHarness(page);
+
+    // The collapsed launcher carries no count badge when empty (the harness
+    // reset the draft, so the boot rehydrate finds nothing).
     const launcher = page.getByRole('button', { name: 'Review' });
     await expect(launcher).toBeVisible();
     await expect(page.locator('#bp-launch-count')).toBeHidden();
@@ -67,7 +115,7 @@ test('annotate and send a site review batch', async ({ page }) => {
     // overlay is pointer-events:none so it does not intercept.
     await page.locator('#target-me').click();
 
-    // Type a comment and save it.
+    // Type a comment and save it (the save POSTs to the server immediately).
     await page.getByPlaceholder(/Describe the issue/).fill('Make this bigger');
     await page.getByRole('button', { name: 'Save' }).click();
     await expect(page.locator('#bp-head-count')).toHaveText('1');
@@ -142,76 +190,95 @@ test('annotate and send a site review batch', async ({ page }) => {
     await expect(page.locator('#bp-panel')).toBeVisible();
     await expect(page.locator('#bp-toast')).toBeHidden();
 
-    // Add an unanchored ("general") comment — no element targeting. Because the
-    // widget sends the whole batch in one request, the "Sent" assertion below
-    // also proves the backend accepts a comment with no selector.
-    await page
-        .locator('#bp-panel')
-        .getByRole('button', { name: 'Add note' })
-        .click();
-    await page
-        .getByPlaceholder(/Describe the issue/)
-        .fill('A general note about the page');
-    await page.getByRole('button', { name: 'Save' }).click();
-    await expect(page.locator('#bp-head-count')).toHaveText('2');
+    // Add an unanchored ("general") comment — no element targeting. The count
+    // reaching 2 proves the backend accepted a comment with no selector.
+    await addGeneralNote(page, 'A general note about the page', '2');
 
-    // Send the batch and assert a real (UUID-shaped) batch id is returned, not just
-    // the success label — a regression returning an empty id would still show the label.
+    // Both comments were persisted server-side as they were saved — the core new
+    // behaviour. Read the in-progress review back through the widget's token.
+    const persisted = await fetchReviewComments(page);
+    expect(persisted.map((comment) => comment.body).sort()).toEqual([
+        'A general note about the page',
+        'Make this bigger',
+    ]);
+
+    // Send the review. The sent panel confirms and hands off to the agent — it
+    // exposes no batch id and no Copy button (both are gone in the server-backed
+    // flow), only a way to start over.
     await page.getByRole('button', { name: 'Send' }).click();
     await expect(page.getByText('Review sent')).toBeVisible();
-    await expect(page.locator('#bp-panel code')).toHaveText(
-        /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,
-    );
-
-    // Copying the batch id gives visual confirmation only on a real copy: the button
-    // shows "Copied" on success or "Copy failed" otherwise (never false success). The
-    // execCommand fallback copies even where the async Clipboard API is unavailable.
-    await page.getByRole('button', { name: 'Copy' }).click();
-    await expect(page.getByRole('button', { name: 'Copied' })).toBeVisible();
-
-    // Re-rendering the sent panel (clicking Copy again) must reconcile, not rebuild:
-    // re-assigning innerHTML would recreate .bp-sent and replay its entrance animation
-    // across the whole panel. Tag the node and confirm a second render preserves it.
-    await page.locator('.bp-sent').evaluate((el: HTMLElement) => {
-        el.dataset.tag = 'orig';
-    });
-    await page.locator('#bp-copy').click();
-    await expect(page.locator('.bp-sent[data-tag="orig"]')).toHaveCount(1);
+    await expect(page.getByText('Your agent has been notified')).toBeVisible();
+    await expect(page.locator('#bp-panel code')).toHaveCount(0); // no id to copy
+    await expect(page.getByRole('button', { name: 'Copy' })).toHaveCount(0);
+    await expect(
+        page.getByRole('button', { name: 'Start a new review' }),
+    ).toBeVisible();
 });
 
-test('a failed send keeps the batch and offers retry', async ({ page }) => {
-    await suppressToolbar(page);
+test('a keep=1 reload rehydrates the server draft into pins and list', async ({
+    page,
+}) => {
+    // First load purges any leftover draft; then move to the keep=1 URL and do
+    // all the annotating THERE — pins only render when the comment's stored url
+    // matches location.href, so the save and the reload must share the URL.
+    await openHarness(page);
+    const keepUrl = `/dev/site-review-harness?email=${encodeURIComponent(E2E_EMAIL)}&keep=1`;
+    await page.goto(keepUrl);
 
-    // Seed the user (idempotent) and open the harness with one pending comment.
-    await page.request.post('/dev/register-and-verify', {
-        form: {
-            username: E2E_USERNAME,
-            fullName: 'E2E Site Review',
-            email: E2E_EMAIL,
-            password: E2E_PASSWORD,
-        },
-    });
-    await page.goto(
-        `/dev/site-review-harness?email=${encodeURIComponent(E2E_EMAIL)}`,
-    );
-    await page.evaluate(() =>
-        localStorage.setItem(
-            'betterplans.siteReview.pending',
-            JSON.stringify([
-                {
-                    body: 'A general note about the page',
-                    selector: '',
-                    text: '',
-                    url: location.href,
-                },
-            ]),
-        ),
-    );
-    await page.reload();
+    // Seed one anchored comment + one general note through the UI.
+    await page.getByRole('button', { name: 'Review' }).click();
+    await page
+        .locator('#bp-panel')
+        .getByRole('button', { name: 'Pick element' })
+        .click();
+    await page.locator('#target-me').click();
+    await page.getByPlaceholder(/Describe the issue/).fill('Make this bigger');
+    await page.getByRole('button', { name: 'Save' }).click();
+    await expect(page.locator('#bp-head-count')).toHaveText('1');
+    await addGeneralNote(page, 'A general note about the page', '2');
 
-    // Make the backend reject the batch.
+    // Reload the harness with keep=1: the draft survives (only the token is
+    // re-minted; the draft belongs to the site, not the token) and the widget
+    // boots by rehydrating from GET /api/site-review/review.
+    await page.goto(keepUrl);
+
+    // The launcher badge shows the rehydrated count without any interaction.
+    await expect(page.locator('#bp-launch-count')).toHaveText('2');
+
+    // Expanding the list shows both bodies.
+    await page.getByRole('button', { name: 'Review' }).click();
+    await page.getByRole('button', { name: /Show .* comments/ }).click();
+    await expect(page.locator('#bp-list')).toContainText('Make this bigger');
+    await expect(page.locator('#bp-list')).toContainText(
+        'A general note about the page',
+    );
+
+    // The anchored comment's pin re-appears, positioned on #target-me.
+    const pin = page.locator('.pin');
+    await expect(pin).toHaveText('1');
+    await expect
+        .poll(() => pin.evaluate((el) => getComputedStyle(el).transform))
+        .toBe('none');
+    const pinBox = await pin.boundingBox();
+    const targetBox = await page.locator('#target-me').boundingBox();
+    expect(pinBox).not.toBeNull();
+    expect(targetBox).not.toBeNull();
+    expect(
+        Math.abs(pinBox!.x - (targetBox!.x + targetBox!.width - 12)),
+    ).toBeLessThan(4);
+    expect(Math.abs(pinBox!.y - (targetBox!.y - 12))).toBeLessThan(4);
+});
+
+test('a failed send keeps the review and offers retry', async ({ page }) => {
+    await openHarness(page);
+
+    // Seed one comment through the UI (it POSTs to the server immediately).
+    await page.getByRole('button', { name: 'Review' }).click();
+    await addGeneralNote(page, 'A general note about the page', '1');
+
+    // Make the backend reject the submit.
     let calls = 0;
-    await page.route('**/api/site-review/batches', (route) => {
+    await page.route('**/api/site-review/review/submit', (route) => {
         calls += 1;
         void route.fulfill({
             status: 500,
@@ -220,18 +287,18 @@ test('a failed send keeps the batch and offers retry', async ({ page }) => {
         });
     });
 
-    await page.getByRole('button', { name: 'Review' }).click();
     await page.getByRole('button', { name: 'Send' }).click();
 
-    // The error banner appears, and — critically — the pending batch is NOT cleared,
+    // The error banner appears, and — critically — the draft is NOT cleared,
     // so the reviewer can retry rather than losing their feedback.
-    await expect(page.getByText(/send your review/i)).toBeVisible();
+    const panel = page.locator('#bp-panel');
+    await expect(panel.getByText(/send your review/i)).toBeVisible();
     await expect(page.locator('#bp-head-count')).toHaveText('1');
     expect(calls).toBe(1);
 
     // "Try again" re-fires the send.
     await page.getByRole('button', { name: 'Try again' }).click();
-    await expect(page.getByText(/send your review/i)).toBeVisible();
+    await expect(panel.getByText(/send your review/i)).toBeVisible();
     await expect.poll(() => calls).toBe(2);
     await expect(page.locator('#bp-head-count')).toHaveText('1');
 });
@@ -239,39 +306,13 @@ test('a failed send keeps the batch and offers retry', async ({ page }) => {
 test('deleting a list comment uses a sliding confirm overlay', async ({
     page,
 }) => {
-    await suppressToolbar(page);
-    await page.request.post('/dev/register-and-verify', {
-        form: {
-            username: E2E_USERNAME,
-            fullName: 'E2E Site Review',
-            email: E2E_EMAIL,
-            password: E2E_PASSWORD,
-        },
-    });
-    await page.goto(
-        `/dev/site-review-harness?email=${encodeURIComponent(E2E_EMAIL)}`,
-    );
-    await page.evaluate(() =>
-        localStorage.setItem(
-            'betterplans.siteReview.pending',
-            JSON.stringify([
-                {
-                    body: 'First note',
-                    selector: '',
-                    text: '',
-                    url: location.href,
-                },
-                {
-                    body: 'Second note',
-                    selector: '',
-                    text: '',
-                    url: location.href,
-                },
-            ]),
-        ),
-    );
-    await page.reload();
+    await openHarness(page);
+
+    // Seed two general notes through the UI.
     await page.getByRole('button', { name: 'Review' }).click();
+    await addGeneralNote(page, 'First note', '1');
+    await addGeneralNote(page, 'Second note', '2');
+
     await page.getByRole('button', { name: /Show .* comments/ }).click();
 
     const row = page.locator('#bp-list .bp-item').first();
@@ -290,18 +331,19 @@ test('deleting a list comment uses a sliding confirm overlay', async ({
     );
 
     // Cancel removes the overlay (after sliding out) and deletes nothing.
-    await confirm.locator('button', { hasText: 'Cancel' }).click();
+    await confirm.getByRole('button', { name: 'Cancel' }).click();
     await expect(row.locator('.bp-item-confirm')).toHaveCount(0);
     expect(await row.evaluate((el: HTMLElement) => el.dataset.tag)).toBe(
         'orig',
     );
     await expect(page.locator('#bp-head-count')).toHaveText('2');
 
-    // Confirming actually deletes the comment.
+    // Confirming actually deletes the comment (a DELETE to the server; the
+    // count only drops once it lands).
     await row.locator('.bp-del').click();
     await row
         .locator('.bp-item-confirm')
-        .locator('button', { hasText: 'Delete' })
+        .getByRole('button', { name: 'Delete' })
         .click();
     await expect(page.locator('#bp-head-count')).toHaveText('1');
 });
@@ -309,18 +351,7 @@ test('deleting a list comment uses a sliding confirm overlay', async ({
 test('re-executing the script does not stack a second widget', async ({
     page,
 }) => {
-    await suppressToolbar(page);
-    await page.request.post('/dev/register-and-verify', {
-        form: {
-            username: E2E_USERNAME,
-            fullName: 'E2E Site Review',
-            email: E2E_EMAIL,
-            password: E2E_PASSWORD,
-        },
-    });
-    await page.goto(
-        `/dev/site-review-harness?email=${encodeURIComponent(E2E_EMAIL)}`,
-    );
+    await openHarness(page);
     await expect(page.locator('#bp-launcher')).toHaveCount(1);
 
     // SPA frameworks (e.g. Turbo) re-execute body <script> tags on navigation. The
@@ -342,22 +373,7 @@ test('re-executing the script does not stack a second widget', async ({
 test("the 't' shortcut still works immediately after saving a comment", async ({
     page,
 }) => {
-    await suppressToolbar(page);
-    await page.request.post('/dev/register-and-verify', {
-        form: {
-            username: E2E_USERNAME,
-            fullName: 'E2E Site Review',
-            email: E2E_EMAIL,
-            password: E2E_PASSWORD,
-        },
-    });
-    await page.goto(
-        `/dev/site-review-harness?email=${encodeURIComponent(E2E_EMAIL)}`,
-    );
-    await page.evaluate(() =>
-        localStorage.removeItem('betterplans.siteReview.pending'),
-    );
-    await page.reload();
+    await openHarness(page);
 
     // Pick an element, type a comment, and save it.
     await page.getByRole('button', { name: 'Review' }).click();
@@ -383,43 +399,28 @@ test("the 't' shortcut still works immediately after saving a comment", async ({
 test('editing an anchored comment updates its body in place', async ({
     page,
 }) => {
-    await suppressToolbar(page);
-    await page.request.post('/dev/register-and-verify', {
-        form: {
-            username: E2E_USERNAME,
-            fullName: 'E2E Site Review',
-            email: E2E_EMAIL,
-            password: E2E_PASSWORD,
-        },
-    });
-    await page.goto(
-        `/dev/site-review-harness?email=${encodeURIComponent(E2E_EMAIL)}`,
-    );
-    // Seed an *anchored* comment so editing exercises the element branch — the
-    // composeTarget rebuilt from the stored selector/text, not just the general path.
-    await page.evaluate(() =>
-        localStorage.setItem(
-            'betterplans.siteReview.pending',
-            JSON.stringify([
-                {
-                    body: 'Original note',
-                    selector: '#target-me',
-                    text: 'A button to comment on',
-                    url: location.href,
-                },
-            ]),
-        ),
-    );
-    await page.reload();
+    await openHarness(page);
 
+    // Seed an *anchored* comment through the UI so editing exercises the element
+    // branch — the composeTarget rebuilt from the stored selector/text, not just
+    // the general path.
     await page.getByRole('button', { name: 'Review' }).click();
+    await page
+        .locator('#bp-panel')
+        .getByRole('button', { name: 'Pick element' })
+        .click();
+    await page.locator('#target-me').click();
+    await page.getByPlaceholder(/Describe the issue/).fill('Original note');
+    await page.getByRole('button', { name: 'Save' }).click();
+    await expect(page.locator('#bp-head-count')).toHaveText('1');
+
     await page.getByRole('button', { name: /Show .* comment/ }).click();
 
     const row = page.locator('#bp-list .bp-item').first();
     await row.locator('.bp-edit').click();
 
     // The composer reopens pre-filled with the stored body and keeps the element chip
-    // (selector/text are rebuilt from storage, so the anchor label still shows).
+    // (selector/text are rebuilt from the stored comment, so the anchor label shows).
     const textarea = page.getByPlaceholder(/Describe the issue/);
     await expect(textarea).toHaveValue('Original note');
     await expect(page.locator('#bp-compose-head')).toContainText(
@@ -436,25 +437,15 @@ test('editing an anchored comment updates its body in place', async ({
     );
     await expect(page.locator('#bp-head-count')).toHaveText('1');
     await expect(page.locator('.pin')).toHaveText('1');
+
+    // The PATCH landed server-side: the in-progress review holds the edited body.
+    // (Asserted via the API — a harness reload would purge the draft.)
+    const persisted = await fetchReviewComments(page);
+    expect(persisted.map((comment) => comment.body)).toEqual(['Edited note']);
 });
 
 test('the pick-mode toast dodges away from the top edge', async ({ page }) => {
-    await suppressToolbar(page);
-    await page.request.post('/dev/register-and-verify', {
-        form: {
-            username: E2E_USERNAME,
-            fullName: 'E2E Site Review',
-            email: E2E_EMAIL,
-            password: E2E_PASSWORD,
-        },
-    });
-    await page.goto(
-        `/dev/site-review-harness?email=${encodeURIComponent(E2E_EMAIL)}`,
-    );
-    await page.evaluate(() =>
-        localStorage.removeItem('betterplans.siteReview.pending'),
-    );
-    await page.reload();
+    await openHarness(page);
 
     await page.getByRole('button', { name: 'Review' }).click();
     await page
@@ -485,22 +476,7 @@ test('the pick-mode toast dodges away from the top edge', async ({ page }) => {
 test('the launcher exposes icon-only quick actions for note and pick', async ({
     page,
 }) => {
-    await suppressToolbar(page);
-    await page.request.post('/dev/register-and-verify', {
-        form: {
-            username: E2E_USERNAME,
-            fullName: 'E2E Site Review',
-            email: E2E_EMAIL,
-            password: E2E_PASSWORD,
-        },
-    });
-    await page.goto(
-        `/dev/site-review-harness?email=${encodeURIComponent(E2E_EMAIL)}`,
-    );
-    await page.evaluate(() =>
-        localStorage.removeItem('betterplans.siteReview.pending'),
-    );
-    await page.reload();
+    await openHarness(page);
 
     const launcher = page.locator('#bp-launcher');
 

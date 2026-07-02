@@ -16,6 +16,7 @@ final class WidgetFileTest extends TestCase
         $src = (string) file_get_contents($path);
         self::assertStringContainsString('attachShadow', $src);
         self::assertStringContainsString('data-token', $src);
-        self::assertStringContainsString('/api/site-review/batches', $src);
+        self::assertStringContainsString('/api/site-review/review/submit', $src);
+        self::assertStringNotContainsString('localStorage', $src);
     }
 }
