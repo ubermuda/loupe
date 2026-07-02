@@ -148,15 +148,43 @@ scope→role mapping (verified against current Symfony docs), so the migration i
 a modernization, not a scope win; per-token scope roles are slightly more
 awkward there (you don't own `createToken()`), so weigh that when revisiting.
 
-## Site-review bridge: harden Mercure publish against a hung hub
+## Site-review: harden Mercure publish against a hung hub
 
-`SubmitBatchHandler::publish()` makes a synchronous HTTP call to the Mercure hub
+`SubmitReviewHandler::publish()` makes a synchronous HTTP call to the Mercure hub
 after `flush()`. Failures are caught and swallowed (best-effort, by design), but
 `symfony/mercure-bundle` exposes no per-hub `http_client` config option, so the
 call uses the default HttpClient timeout — a hung hub could add latency to every
 review submit before the catch fires. Wire the default hub to a scoped HttpClient
 with a low `timeout`/`max_duration` (custom hub service or a decorated
-HttpClient) so a slow hub can never noticeably delay a submit.
+HttpClient) so a slow hub can never noticeably delay a review submit.
+
+## Site-review: double-mint race can orphan a token
+
+`MintSiteTokenHandler` rejects minting when `site->token` is already set, but two
+concurrent mints can both pass that check before either flushes — one of the two
+`SiteReview`-scoped tokens ends up attached to no site (it authenticates but
+cannot submit). No DB-level guard exists. Low stakes (single-owner action); if it
+ever bites, add a unique constraint or lock the site row during mint.
+
+## Site-review widget: send during an in-flight delete
+
+`send()` doesn't check `state.deleting` — a Send clicked while a delete is
+in flight could submit a review that still contains the being-deleted comment.
+Minor for a single-reviewer tool; track only.
+
+## Site-review widget: surface per-comment save errors more granularly
+
+All widget API failures render into the single `#bp-error` banner. Fine for a
+one-reviewer tool; if bulk operations ever appear, attach errors to the affected
+list row instead.
+
+## e2e tsconfig triggers TS5107 under bare tsc
+
+`e2e/tsconfig.json` uses `moduleResolution: node` (node10), deprecated in
+TypeScript 5.x — a bare `npx tsc --noEmit` in `e2e/` fails with TS5107. Nothing
+in the gates runs bare tsc today (Playwright transpiles specs itself), so this is
+latent. Modernize the tsconfig (`module`/`moduleResolution` `nodenext`, or
+`bundler`) when convenient.
 
 ## Site-review bridge: set a lifetime on subscriber JWTs
 
@@ -168,13 +196,14 @@ is not valid forever.
 
 ## Site-review bridge CLI (`cli/`): polish before shipping
 
-The Go bridge is functional (`betterplans login` + `betterplans bridge run`).
-Remaining work before it's a turnkey distributable:
+The Go bridge is functional (`betterplans login` + `betterplans bridge run
+--site <name>`, with an interactive picker when the flag is omitted). Remaining
+work before it's a turnkey distributable:
 
 - **Re-fetch stream creds on auth failure.** `bridge run` fetches the subscriber
   JWT once and reuses it across reconnects. Harmless while JWTs have no `exp`, but
-  once a lifetime is set (see above) the bridge must re-call `/api/site-review/stream`
-  on a `401` and resubscribe.
+  once a lifetime is set (see above) the bridge must re-call
+  `/api/site-review/stream?site=…` on a `401` and resubscribe.
 - **No-echo token prompt.** `login` reads the token from stdin with the terminal
   still echoing. Use `golang.org/x/term` (or equivalent) to read without echo.
 - **OS keychain storage.** The token is stored in `~/.config/betterplans/config.json`
