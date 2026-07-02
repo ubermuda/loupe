@@ -30,7 +30,6 @@ class SiteReviewCommentRepository extends ServiceEntityRepository
      */
     public function findPendingForSite(Site $site): array
     {
-        /* @var list<SiteReviewComment> */
         return $this->createQueryBuilder('c')
             ->join('c.review', 'r')
             ->andWhere('r.site = :site')
@@ -51,7 +50,6 @@ class SiteReviewCommentRepository extends ServiceEntityRepository
      */
     public function findOneInDraftReview(Uuid $id, Site $site): ?SiteReviewComment
     {
-        /* @var ?SiteReviewComment */
         return $this->createQueryBuilder('c')
             ->join('c.review', 'r')
             ->andWhere('c.id = :id')
@@ -67,7 +65,6 @@ class SiteReviewCommentRepository extends ServiceEntityRepository
     /** Owner-scoped lookup for the MCP addressing tool. */
     public function findOneForOwner(Uuid $id, User $owner): ?SiteReviewComment
     {
-        /* @var ?SiteReviewComment */
         return $this->createQueryBuilder('c')
             ->join('c.review', 'r')
             ->join('r.site', 's')
