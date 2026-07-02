@@ -620,6 +620,10 @@
                 <source>site_review.error.token_already_minted</source>
                 <target>This site already has a token. Revoke it first.</target>
             </trans-unit>
+            <trans-unit id="site_review.error.nothing_to_submit">
+                <source>site_review.error.nothing_to_submit</source>
+                <target>There is no in-progress review with comments to send.</target>
+            </trans-unit>
 
             <trans-unit id="nav.link.logout">
                 <source>nav.link.logout</source>
