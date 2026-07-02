@@ -94,3 +94,11 @@ when@test:
         App\Module\SiteReview\Service\SiteReviewTopicBuilder:
             autowire: true
             public: true
+
+        App\Module\SiteReview\Mcp\GetSiteReviewTool:
+            autowire: true
+            public: true
+
+        App\Module\SiteReview\Mcp\AddressSiteReviewCommentsTool:
+            autowire: true
+            public: true

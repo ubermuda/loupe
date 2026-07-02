@@ -11,6 +11,7 @@ use App\Module\SiteReview\Entity\Site;
 use App\Module\SiteReview\Entity\SiteReviewStatus;
 use App\Module\SiteReview\Repository\SiteReviewRepository;
 use Doctrine\ORM\EntityManagerInterface;
+use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use Symfony\Component\HttpFoundation\Request;
 
@@ -37,7 +38,7 @@ final class SiteReviewApiTest extends WebTestCase
     }
 
     /** @param array<string, mixed>|null $json */
-    private function api(mixed $client, string $method, string $path, string $raw, ?array $json = null): void
+    private function api(KernelBrowser $client, string $method, string $path, string $raw, ?array $json = null): void
     {
         $client->request($method, $path,
             server: ['HTTP_AUTHORIZATION' => 'Bearer '.$raw, 'CONTENT_TYPE' => 'application/json', 'HTTP_ORIGIN' => 'https://app.localhost'],

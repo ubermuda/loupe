@@ -37,7 +37,7 @@ final class AddCommentController extends AppController
             body: trim($payload->body ?? '') ?: throw new \LogicException('body required after validation'),
             selector: $payload->selector,
             text: $payload->text,
-            url: $payload->url ?? '',
+            url: trim($payload->url ?? ''),
         ));
 
         return $this->json(['commentId' => (string) $comment->id], JsonResponse::HTTP_CREATED);

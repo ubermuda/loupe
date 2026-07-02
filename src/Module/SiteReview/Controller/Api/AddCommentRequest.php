@@ -18,7 +18,7 @@ final class AddCommentRequest
         public string $selector = '',
         public string $text = '',
 
-        #[Assert\NotBlank]
+        #[Assert\NotBlank(normalizer: 'trim')]
         public ?string $url = null,
     ) {
     }
