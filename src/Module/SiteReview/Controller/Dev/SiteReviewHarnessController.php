@@ -22,6 +22,11 @@ use Symfony\Component\Routing\Attribute\Route;
  * SiteReview API token. Used exclusively by Playwright e2e tests — not available in
  * production (When('dev')). Issues a bound token for the `e2e-harness` site and resets
  * the draft on every load so each e2e run starts from a clean state.
+ *
+ * Pass `?keep=1` to skip the draft purge, so a test can reload the harness and assert
+ * the widget rehydrates an existing server-side draft. A fresh token is still minted on
+ * every load (the raw value of the previous one is unrecoverable from its hash); that is
+ * fine because the draft belongs to the site, not the token.
  */
 #[Route(
     '/dev/site-review-harness',
@@ -51,10 +56,13 @@ final class SiteReviewHarnessController extends AppController
             $this->em->persist($site);
         }
 
-        // Deterministic starting state for every e2e run: no draft review…
-        $draft = $this->siteReviews->findOneInProgress($site);
-        if (null !== $draft) {
-            $this->em->remove($draft);
+        // Deterministic starting state for every e2e run: no draft review (unless the
+        // test explicitly keeps it to exercise the widget's rehydrate path)…
+        if (!$request->query->getBoolean('keep')) {
+            $draft = $this->siteReviews->findOneInProgress($site);
+            if (null !== $draft) {
+                $this->em->remove($draft);
+            }
         }
 
         // …and a fresh bound token (the old one, if any, is discarded).

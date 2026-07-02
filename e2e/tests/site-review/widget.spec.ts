@@ -207,14 +207,66 @@ test('annotate and send a site review', async ({ page }) => {
     // flow), only a way to start over.
     await page.getByRole('button', { name: 'Send' }).click();
     await expect(page.getByText('Review sent')).toBeVisible();
-    await expect(
-        page.getByText('Your agent has been notified'),
-    ).toBeVisible();
+    await expect(page.getByText('Your agent has been notified')).toBeVisible();
     await expect(page.locator('#bp-panel code')).toHaveCount(0); // no id to copy
     await expect(page.getByRole('button', { name: 'Copy' })).toHaveCount(0);
     await expect(
         page.getByRole('button', { name: 'Start a new review' }),
     ).toBeVisible();
+});
+
+test('a keep=1 reload rehydrates the server draft into pins and list', async ({
+    page,
+}) => {
+    // First load purges any leftover draft; then move to the keep=1 URL and do
+    // all the annotating THERE — pins only render when the comment's stored url
+    // matches location.href, so the save and the reload must share the URL.
+    await openHarness(page);
+    const keepUrl = `/dev/site-review-harness?email=${encodeURIComponent(E2E_EMAIL)}&keep=1`;
+    await page.goto(keepUrl);
+
+    // Seed one anchored comment + one general note through the UI.
+    await page.getByRole('button', { name: 'Review' }).click();
+    await page
+        .locator('#bp-panel')
+        .getByRole('button', { name: 'Pick element' })
+        .click();
+    await page.locator('#target-me').click();
+    await page.getByPlaceholder(/Describe the issue/).fill('Make this bigger');
+    await page.getByRole('button', { name: 'Save' }).click();
+    await expect(page.locator('#bp-head-count')).toHaveText('1');
+    await addGeneralNote(page, 'A general note about the page', '2');
+
+    // Reload the harness with keep=1: the draft survives (only the token is
+    // re-minted; the draft belongs to the site, not the token) and the widget
+    // boots by rehydrating from GET /api/site-review/review.
+    await page.goto(keepUrl);
+
+    // The launcher badge shows the rehydrated count without any interaction.
+    await expect(page.locator('#bp-launch-count')).toHaveText('2');
+
+    // Expanding the list shows both bodies.
+    await page.getByRole('button', { name: 'Review' }).click();
+    await page.getByRole('button', { name: /Show .* comments/ }).click();
+    await expect(page.locator('#bp-list')).toContainText('Make this bigger');
+    await expect(page.locator('#bp-list')).toContainText(
+        'A general note about the page',
+    );
+
+    // The anchored comment's pin re-appears, positioned on #target-me.
+    const pin = page.locator('.pin');
+    await expect(pin).toHaveText('1');
+    await expect
+        .poll(() => pin.evaluate((el) => getComputedStyle(el).transform))
+        .toBe('none');
+    const pinBox = await pin.boundingBox();
+    const targetBox = await page.locator('#target-me').boundingBox();
+    expect(pinBox).not.toBeNull();
+    expect(targetBox).not.toBeNull();
+    expect(
+        Math.abs(pinBox!.x - (targetBox!.x + targetBox!.width - 12)),
+    ).toBeLessThan(4);
+    expect(Math.abs(pinBox!.y - (targetBox!.y - 12))).toBeLessThan(4);
 });
 
 test('a failed send keeps the review and offers retry', async ({ page }) => {
@@ -239,13 +291,14 @@ test('a failed send keeps the review and offers retry', async ({ page }) => {
 
     // The error banner appears, and — critically — the draft is NOT cleared,
     // so the reviewer can retry rather than losing their feedback.
-    await expect(page.getByText(/send your review/i)).toBeVisible();
+    const panel = page.locator('#bp-panel');
+    await expect(panel.getByText(/send your review/i)).toBeVisible();
     await expect(page.locator('#bp-head-count')).toHaveText('1');
     expect(calls).toBe(1);
 
     // "Try again" re-fires the send.
     await page.getByRole('button', { name: 'Try again' }).click();
-    await expect(page.getByText(/send your review/i)).toBeVisible();
+    await expect(panel.getByText(/send your review/i)).toBeVisible();
     await expect.poll(() => calls).toBe(2);
     await expect(page.locator('#bp-head-count')).toHaveText('1');
 });
@@ -278,7 +331,7 @@ test('deleting a list comment uses a sliding confirm overlay', async ({
     );
 
     // Cancel removes the overlay (after sliding out) and deletes nothing.
-    await confirm.locator('button', { hasText: 'Cancel' }).click();
+    await confirm.getByRole('button', { name: 'Cancel' }).click();
     await expect(row.locator('.bp-item-confirm')).toHaveCount(0);
     expect(await row.evaluate((el: HTMLElement) => el.dataset.tag)).toBe(
         'orig',
@@ -290,7 +343,7 @@ test('deleting a list comment uses a sliding confirm overlay', async ({
     await row.locator('.bp-del').click();
     await row
         .locator('.bp-item-confirm')
-        .locator('button', { hasText: 'Delete' })
+        .getByRole('button', { name: 'Delete' })
         .click();
     await expect(page.locator('#bp-head-count')).toHaveText('1');
 });
