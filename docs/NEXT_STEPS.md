@@ -211,14 +211,14 @@ work before it's a turnkey distributable:
 - **CI + release.** Wire `just cli-test` into the gate, and add goreleaser for a
   multi-platform release matrix (current `just cli-build` only cross-compiles one target).
 
-## Account-level API guards now key on the widget binding specifically
+## Mint handlers are check-then-set without locking
 
-`ListSitesController` and `StreamCredentialsController` reject site-bound
-widget tokens by checking `AuthenticatedProjectResolver::resolveWidgetProject()`.
-Once the project MCP token mint lands, a token bound as `mcpToken` will pass
-these account-level endpoints. That may be the intended design (MCP tokens are
-private, unlike public-by-design widget tokens) — but decide deliberately when
-implementing the MCP mint, and encode the decision in a test either way.
+`MintProjectWidgetTokenHandler` and `MintProjectMcpTokenHandler` both guard
+with `null !== $project->xxxToken` and then persist — two concurrent mints can
+both pass the guard, and the loser's token ends up unbound (an account-level
+token whose raw value was flashed to a user). Impact is low today: an unbound
+token resolves no project, so project-scoped consumers reject it. Revisit with
+a unique constraint or `SELECT … FOR UPDATE` if project-bound tokens multiply.
 
 ## Widget-token mint flow still uses site-era CSRF id and translation keys
 

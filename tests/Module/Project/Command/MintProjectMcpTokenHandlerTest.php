@@ -70,6 +70,17 @@ final class MintProjectMcpTokenHandlerTest extends KernelTestCase
         self::assertNull($this->projects->findOneByWidgetToken($token), 'MCP token must not resolve through the widget binding');
     }
 
+    public function test_label_is_truncated_to_fit_the_column_for_long_project_names(): void
+    {
+        $project = $this->project('mint-mcp-d@example.com', str_repeat('n', 100));
+
+        ($this->handler)(new MintProjectMcpTokenCommand($project));
+
+        self::assertNotNull($project->mcpToken);
+        self::assertSame('MCP: '.str_repeat('n', 95), $project->mcpToken->label);
+        self::assertLessThanOrEqual(100, mb_strlen($project->mcpToken->label));
+    }
+
     /** @param non-empty-string $email */
     private function project(string $email, string $name): Project
     {

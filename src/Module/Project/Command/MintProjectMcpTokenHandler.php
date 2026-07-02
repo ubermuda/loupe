@@ -31,7 +31,8 @@ final readonly class MintProjectMcpTokenHandler
             throw new DomainErrors(['token' => 'project.error.mcp_token_already_minted']);
         }
 
-        [$token, $raw] = ApiToken::issue($project->owner, 'MCP: '.$project->name, ApiTokenScope::Mcp);
+        // ApiToken.label is a 100-char column while Project.name allows 100 — truncate to fit.
+        [$token, $raw] = ApiToken::issue($project->owner, 'MCP: '.mb_substr($project->name, 0, 95), ApiTokenScope::Mcp);
         $project->mcpToken = $token;
         $this->em->persist($token);
         $this->em->flush();

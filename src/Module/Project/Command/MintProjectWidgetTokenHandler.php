@@ -31,7 +31,8 @@ final readonly class MintProjectWidgetTokenHandler
             throw new DomainErrors(['token' => 'project.error.widget_token_already_minted']);
         }
 
-        [$token, $raw] = ApiToken::issue($project->owner, 'Widget: '.$project->name, ApiTokenScope::SiteReview);
+        // ApiToken.label is a 100-char column while Project.name allows 100 — truncate to fit.
+        [$token, $raw] = ApiToken::issue($project->owner, 'Widget: '.mb_substr($project->name, 0, 92), ApiTokenScope::SiteReview);
         $project->widgetToken = $token;
         $this->em->persist($token);
         $this->em->flush();
