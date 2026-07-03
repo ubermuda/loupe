@@ -7,6 +7,7 @@ namespace App\Module\Project\Controller;
 use App\Controller\AppController;
 use App\Module\Project\Entity\Project;
 use App\Module\Project\Security\ProjectVoter;
+use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
@@ -36,11 +37,18 @@ class ConnectAgentController extends AppController
         ['name' => 'address_site_review_comments', 'descriptionKey' => 'project.connect.tool.address_site_review_comments'],
     ];
 
+    public function __construct(
+        #[Autowire(param: 'app.mcp.server_name')]
+        private readonly string $mcpServerName,
+    ) {
+    }
+
     public function __invoke(Project $project): Response
     {
         return $this->render('@Project/connect_agent.html.twig', [
             'project' => $project,
             'tools' => self::TOOLS,
+            'mcpServerName' => $this->mcpServerName,
         ]);
     }
 }
