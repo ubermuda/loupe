@@ -674,6 +674,10 @@
                 <source>project.connect.token.one_time_warning</source>
                 <target>Copy this token now — it will not be shown again.</target>
             </trans-unit>
+            <trans-unit id="project.connect.token.regenerate">
+                <source>project.connect.token.regenerate</source>
+                <target>Regenerate</target>
+            </trans-unit>
             <trans-unit id="project.connect.mcp_json.eyebrow">
                 <source>project.connect.mcp_json.eyebrow</source>
                 <target>.mcp.json</target>
