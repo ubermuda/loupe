@@ -15,7 +15,7 @@
 {%- set mcpJson = [
     "{",
     "  \"mcpServers\": {",
-    "    \"better-plans\": {",
+    "    \"betterplans\": {",
     "      \"type\": \"http\",",
     "      \"url\": \"" ~ mcpUrl ~ "\",",
     "      \"headers\": {",
@@ -26,7 +26,7 @@
     "}"
 ]|join("\n") -%}
 {%- set widgetSnippet = '<script src="' ~ absolute_url('/site-review/widget.js') ~ '" data-token="' ~ widgetTokenValue ~ '"></script>' -%}
-{%- set claudeCommand = 'claude mcp add --transport http better-plans ' ~ mcpUrl ~ ' --header "Authorization: Bearer ' ~ mcpTokenValue ~ '"' -%}
+{%- set claudeCommand = 'claude mcp add --transport http betterplans ' ~ mcpUrl ~ ' --header "Authorization: Bearer ' ~ mcpTokenValue ~ '"' -%}
 <div class="bp-connect">
     <nav class="bp-crumbs">
         <a href="{{ path('app_project_documents', {id: project.id}) }}" class="bp-crumbs__link">{{ project.name }}</a>
