@@ -86,6 +86,31 @@ final class RevokeApiTokenControllerTest extends WebTestCase
         self::assertResponseRedirects($returnTo);
     }
 
+    public function test_revoke_rejects_off_site_return_to_and_falls_back(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+
+        $owner = $this->createVerifiedUser($em, 'reject-owner', 'reject@example.com');
+        [$token] = ApiToken::issue($owner, 'project-tok', ApiTokenScope::SiteReview);
+        $em->persist($token);
+        $em->flush();
+        $tokenId = $token->id;
+        $em->clear();
+
+        $client->loginUser($owner);
+        $client->request(Request::METHOD_GET, '/projects');
+
+        // A returnTo outside the /projects/ allow-list must be rejected (open-redirect
+        // guard) and fall back to the projects index rather than honoured.
+        $client->request(Request::METHOD_POST, '/account/api-tokens/'.(string) $tokenId.'/revoke', [
+            '_csrf_token' => 'csrf-token',
+            'returnTo' => '/account/settings',
+        ]);
+
+        self::assertResponseRedirects('/projects');
+    }
+
     public function test_other_user_gets_404_on_revoke(): void
     {
         $client = static::createClient();
