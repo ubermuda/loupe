@@ -118,6 +118,25 @@ final class ProjectsPageTest extends WebTestCase
         self::assertCount(1, static::getContainer()->get(ProjectRepository::class)->findBy(['name' => 'dup']));
     }
 
+    public function test_create_form_reopens_on_validation_error(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $owner = $this->user($em, 'projects-reopen@example.com');
+        $em->persist(new Project($owner, 'taken'));
+        $em->flush();
+
+        $client->loginUser($owner);
+        $client->request(Request::METHOD_GET, '/projects');
+        $client->submitForm('Add project', ['create_project_form[name]' => 'taken']);
+
+        self::assertResponseStatusCodeSame(422);
+        // The disclosure must re-open so the user sees their rejected input and
+        // the error, instead of a collapsed panel hiding both.
+        self::assertSelectorExists('.bp-project-new.disclosure-open');
+        self::assertSelectorExists('.bp-project-new__panel.open');
+    }
+
     public function test_same_name_for_different_owner_is_allowed(): void
     {
         $client = static::createClient();
