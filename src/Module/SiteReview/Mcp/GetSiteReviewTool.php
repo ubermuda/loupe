@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Module\SiteReview\Mcp;
 
 use App\Mcp\ResolvesBoundProject;
-
 use App\Module\Project\Repository\ProjectRepository;
 use App\Module\Project\Security\AuthenticatedProjectResolver;
 use App\Module\SiteReview\Entity\SiteReviewComment;

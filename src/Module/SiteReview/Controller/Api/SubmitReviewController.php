@@ -6,9 +6,9 @@ namespace App\Module\SiteReview\Controller\Api;
 
 use App\Controller\AppController;
 use App\Exception\DomainErrors;
+use App\Module\Project\Security\AuthenticatedProjectResolver;
 use App\Module\SiteReview\Command\SubmitReviewCommand;
 use App\Module\SiteReview\Command\SubmitReviewHandler;
-use App\Module\Project\Security\AuthenticatedProjectResolver;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\Routing\Attribute\Route;
 

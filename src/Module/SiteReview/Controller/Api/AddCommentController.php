@@ -5,9 +5,9 @@ declare(strict_types=1);
 namespace App\Module\SiteReview\Controller\Api;
 
 use App\Controller\AppController;
+use App\Module\Project\Security\AuthenticatedProjectResolver;
 use App\Module\SiteReview\Command\AddCommentCommand;
 use App\Module\SiteReview\Command\AddCommentHandler;
-use App\Module\Project\Security\AuthenticatedProjectResolver;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpKernel\Attribute\MapRequestPayload;
 use Symfony\Component\Routing\Attribute\Route;
