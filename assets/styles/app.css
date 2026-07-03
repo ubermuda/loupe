@@ -1498,6 +1498,16 @@
         padding: 2px 8px;
     }
 
+    /* One-time raw-secret reveal shown once after minting: warning + copyable field. */
+    .bp-connect-secret {
+        @apply flex flex-col gap-2;
+    }
+    .bp-connect-secret__warn {
+        @apply text-status-pending-deep font-medium m-0;
+        font-size: 13px;
+        line-height: 1.5;
+    }
+
     /* Dark .mcp.json block — header bar + syntax-neutral body. */
     .bp-code-dark {
         @apply rounded-lg overflow-hidden border border-line-strong;

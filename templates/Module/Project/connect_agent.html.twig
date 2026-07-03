@@ -18,6 +18,11 @@
     "}"
 ]|join("\n") -%}
 {%- set widgetSnippet = '<script src="' ~ absolute_url('/site-review/widget.js') ~ '" data-token="YOUR_TOKEN"></script>' -%}
+{%- set claudeCommand = 'claude mcp add --transport http --header "Authorization: Bearer YOUR_TOKEN" better-plans ' ~ mcpUrl -%}
+{#- A freshly minted raw secret is flashed under a dedicated key so it renders once
+    in a copyable field (and is cleared before the generic flash loop below). -#}
+{%- set mintedMcpToken = app.flashes('minted_mcp_token')|first -%}
+{%- set mintedWidgetToken = app.flashes('minted_widget_token')|first -%}
 <div class="bp-connect">
     <nav class="bp-crumbs">
         <a href="{{ path('app_project_documents', {id: project.id}) }}" class="bp-crumbs__link">{{ project.name }}</a>
@@ -49,6 +54,17 @@
     <section class="bp-connect-block">
         <p class="bp-eyebrow">{{ 'project.connect.token.eyebrow'|trans }}</p>
         {% if project.mcpToken %}
+        {% if mintedMcpToken %}
+        <div class="bp-connect-secret">
+            <p class="bp-connect-secret__warn">{{ 'project.connect.token.one_time_warning'|trans }}</p>
+            <div class="bp-connect-field" data-controller="clipboard" data-clipboard-text-value="{{ mintedMcpToken }}"
+                 data-clipboard-copied-label-value="{{ 'project.connect.copied'|trans }}">
+                <twig:ux:icon name="lucide:key" class="bp-connect-field__glyph w-4 h-4" />
+                <code class="bp-connect-field__value">{{ mintedMcpToken }}</code>
+                <button type="button" class="bp-btn bp-btn--ghost bp-btn--sm" data-clipboard-target="button" data-action="clipboard#copy">{{ 'project.connect.copy'|trans }}</button>
+            </div>
+        </div>
+        {% endif %}
         <div class="bp-connect-field">
             <twig:ux:icon name="lucide:key" class="bp-connect-field__glyph w-4 h-4" />
             <span class="bp-connect-field__value">
@@ -84,10 +100,34 @@
         </div>
     </section>
 
+    {# ── claude mcp add — CLI one-liner (Claude Code) ── #}
+    <section class="bp-connect-block">
+        <p class="bp-eyebrow">{{ 'project.connect.cli.eyebrow'|trans }}</p>
+        <div class="bp-code-dark" data-controller="clipboard" data-clipboard-text-value="{{ claudeCommand }}"
+             data-clipboard-copied-label-value="{{ 'project.connect.copied'|trans }}">
+            <div class="bp-code-dark__header">
+                <span class="bp-code-dark__label">{{ 'project.connect.cli.label'|trans }}</span>
+                <button type="button" class="bp-code-dark__copy" data-clipboard-target="button" data-action="clipboard#copy">{{ 'project.connect.copy'|trans }}</button>
+            </div>
+            <pre class="bp-code-dark__body"><code>{{ claudeCommand }}</code></pre>
+        </div>
+    </section>
+
     {# ── Review widget — moved from the site-review page ── #}
     <section class="bp-connect-block">
         <p class="bp-eyebrow">{{ 'project.connect.widget.eyebrow'|trans }}</p>
         {% if project.widgetToken %}
+        {% if mintedWidgetToken %}
+        <div class="bp-connect-secret">
+            <p class="bp-connect-secret__warn">{{ 'project.connect.token.one_time_warning'|trans }}</p>
+            <div class="bp-connect-field" data-controller="clipboard" data-clipboard-text-value="{{ mintedWidgetToken }}"
+                 data-clipboard-copied-label-value="{{ 'project.connect.copied'|trans }}">
+                <twig:ux:icon name="lucide:key" class="bp-connect-field__glyph w-4 h-4" />
+                <code class="bp-connect-field__value">{{ mintedWidgetToken }}</code>
+                <button type="button" class="bp-btn bp-btn--ghost bp-btn--sm" data-clipboard-target="button" data-action="clipboard#copy">{{ 'project.connect.copy'|trans }}</button>
+            </div>
+        </div>
+        {% endif %}
         <div class="bp-connect-field">
             <twig:ux:icon name="lucide:key" class="bp-connect-field__glyph w-4 h-4" />
             <span class="bp-connect-field__value">

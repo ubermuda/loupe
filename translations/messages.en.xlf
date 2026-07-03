@@ -628,10 +628,6 @@
                 <source>site_review.site.token.mint</source>
                 <target>Mint widget token</target>
             </trans-unit>
-            <trans-unit id="site_review.site.token.flash_minted">
-                <source>site_review.site.token.flash_minted</source>
-                <target>Token created. Copy it now — it will not be shown again:</target>
-            </trans-unit>
             <trans-unit id="site_review.site.token.snippet_heading">
                 <source>site_review.site.token.snippet_heading</source>
                 <target>Embed snippet</target>
@@ -647,10 +643,6 @@
             <trans-unit id="project.mcp_token.mint">
                 <source>project.mcp_token.mint</source>
                 <target>Mint MCP token</target>
-            </trans-unit>
-            <trans-unit id="project.mcp_token.flash_minted">
-                <source>project.mcp_token.flash_minted</source>
-                <target>Token created. Copy it now — it will not be shown again:</target>
             </trans-unit>
             <trans-unit id="project.error.mcp_token_already_minted">
                 <source>project.error.mcp_token_already_minted</source>
@@ -678,6 +670,10 @@
                 <source>project.connect.token.eyebrow</source>
                 <target>Access token</target>
             </trans-unit>
+            <trans-unit id="project.connect.token.one_time_warning">
+                <source>project.connect.token.one_time_warning</source>
+                <target>Copy this token now — it will not be shown again.</target>
+            </trans-unit>
             <trans-unit id="project.connect.mcp_json.eyebrow">
                 <source>project.connect.mcp_json.eyebrow</source>
                 <target>.mcp.json</target>
@@ -685,6 +681,14 @@
             <trans-unit id="project.connect.mcp_json.label">
                 <source>project.connect.mcp_json.label</source>
                 <target>claude · project config</target>
+            </trans-unit>
+            <trans-unit id="project.connect.cli.eyebrow">
+                <source>project.connect.cli.eyebrow</source>
+                <target>Install with the Claude Code CLI</target>
+            </trans-unit>
+            <trans-unit id="project.connect.cli.label">
+                <source>project.connect.cli.label</source>
+                <target>claude · terminal</target>
             </trans-unit>
             <trans-unit id="project.connect.widget.eyebrow">
                 <source>project.connect.widget.eyebrow</source>
