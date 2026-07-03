@@ -5,10 +5,10 @@ declare(strict_types=1);
 namespace App\Module\SiteReview\Controller\Api;
 
 use App\Controller\AppController;
+use App\Module\Project\Security\AuthenticatedProjectResolver;
 use App\Module\SiteReview\Command\CommentNotFound;
 use App\Module\SiteReview\Command\UpdateCommentCommand;
 use App\Module\SiteReview\Command\UpdateCommentHandler;
-use App\Module\Project\Security\AuthenticatedProjectResolver;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpKernel\Attribute\MapRequestPayload;
 use Symfony\Component\Routing\Attribute\Route;

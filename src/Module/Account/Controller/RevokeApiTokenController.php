@@ -55,7 +55,7 @@ class RevokeApiTokenController extends AppController
         ]);
 
         $returnTo = $request->request->get('returnTo');
-        if (is_string($returnTo) && (str_starts_with($returnTo, '/site-review/') || str_starts_with($returnTo, '/account/'))) {
+        if (is_string($returnTo) && str_starts_with($returnTo, '/projects/')) {
             return $this->redirect($returnTo);
         }
 
@@ -65,6 +65,6 @@ class RevokeApiTokenController extends AppController
             ]);
         }
 
-        return $this->redirectToRoute('app_api_tokens');
+        return $this->redirectToRoute('app_projects');
     }
 }

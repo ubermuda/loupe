@@ -391,57 +391,9 @@
 
 
             <!-- API Tokens -->
-            <trans-unit id="account.form.api_token_form.label.label">
-                <source>account.form.api_token_form.label.label</source>
-                <target>Token label</target>
-            </trans-unit>
-            <trans-unit id="account.form.api_token_form.label.placeholder">
-                <source>account.form.api_token_form.label.placeholder</source>
-                <target>e.g. CI agent</target>
-            </trans-unit>
-            <trans-unit id="account.api_token.page.title">
-                <source>account.api_token.page.title</source>
-                <target>API Tokens</target>
-            </trans-unit>
-            <trans-unit id="account.api_token.form.submit">
-                <source>account.api_token.form.submit</source>
-                <target>Create token</target>
-            </trans-unit>
-            <trans-unit id="account.api_token.empty">
-                <source>account.api_token.empty</source>
-                <target>No API tokens yet.</target>
-            </trans-unit>
             <trans-unit id="account.api_token.action.revoke">
                 <source>account.api_token.action.revoke</source>
                 <target>Revoke</target>
-            </trans-unit>
-            <trans-unit id="account.api_token.last_used">
-                <source>account.api_token.last_used</source>
-                <target>Last used</target>
-            </trans-unit>
-            <trans-unit id="account.api_token.never_used">
-                <source>account.api_token.never_used</source>
-                <target>Never used</target>
-            </trans-unit>
-            <trans-unit id="account.form.api_token_form.scope.label">
-                <source>account.form.api_token_form.scope.label</source>
-                <target>Scope</target>
-            </trans-unit>
-            <trans-unit id="account.form.api_token_form.scope.mcp">
-                <source>account.form.api_token_form.scope.mcp</source>
-                <target>MCP (agent read access)</target>
-            </trans-unit>
-            <trans-unit id="account.form.api_token_form.scope.site-review">
-                <source>account.form.api_token_form.scope.site-review</source>
-                <target>Site review (widget submit only)</target>
-            </trans-unit>
-            <trans-unit id="account.api_token.scope.mcp">
-                <source>account.api_token.scope.mcp</source>
-                <target>MCP</target>
-            </trans-unit>
-            <trans-unit id="account.api_token.scope.site-review">
-                <source>account.api_token.scope.site-review</source>
-                <target>Site review</target>
             </trans-unit>
             <trans-unit id="account.api_token.scope.site_review_warning">
                 <source>account.api_token.scope.site_review_warning</source>
@@ -609,6 +561,10 @@
                 <source>nav.link.site_review</source>
                 <target>Site review</target>
             </trans-unit>
+            <trans-unit id="nav.link.connect">
+                <source>nav.link.connect</source>
+                <target>Connect agent</target>
+            </trans-unit>
             <trans-unit id="nav.account.role">
                 <source>nav.account.role</source>
                 <target>Reviewer</target>
@@ -668,17 +624,9 @@
                 <target>You already have a project with this name.</target>
             </trans-unit>
 
-            <trans-unit id="site_review.site.token.heading">
-                <source>site_review.site.token.heading</source>
-                <target>Widget token</target>
-            </trans-unit>
             <trans-unit id="site_review.site.token.mint">
                 <source>site_review.site.token.mint</source>
                 <target>Mint widget token</target>
-            </trans-unit>
-            <trans-unit id="site_review.site.token.flash_minted">
-                <source>site_review.site.token.flash_minted</source>
-                <target>Token created. Copy it now — it will not be shown again:</target>
             </trans-unit>
             <trans-unit id="site_review.site.token.snippet_heading">
                 <source>site_review.site.token.snippet_heading</source>
@@ -688,10 +636,6 @@
                 <source>project.error.widget_token_already_minted</source>
                 <target>This project already has a widget token. Revoke it first.</target>
             </trans-unit>
-            <trans-unit id="project.mcp_token.heading">
-                <source>project.mcp_token.heading</source>
-                <target>MCP token</target>
-            </trans-unit>
             <trans-unit id="project.mcp_token.hint">
                 <source>project.mcp_token.hint</source>
                 <target>Lets MCP clients act on this project. Keep it secret.</target>
@@ -699,10 +643,6 @@
             <trans-unit id="project.mcp_token.mint">
                 <source>project.mcp_token.mint</source>
                 <target>Mint MCP token</target>
-            </trans-unit>
-            <trans-unit id="project.mcp_token.flash_minted">
-                <source>project.mcp_token.flash_minted</source>
-                <target>Token created. Copy it now — it will not be shown again:</target>
             </trans-unit>
             <trans-unit id="project.error.mcp_token_already_minted">
                 <source>project.error.mcp_token_already_minted</source>
@@ -713,43 +653,95 @@
                 <target>There is no in-progress review with comments to send.</target>
             </trans-unit>
 
+            <!-- Connect agent (handoff §5) -->
+            <trans-unit id="project.connect.page.title">
+                <source>project.connect.page.title</source>
+                <target>Connect agent</target>
+            </trans-unit>
+            <trans-unit id="project.connect.description">
+                <source>project.connect.description</source>
+                <target>Point your coding agent at this project over MCP so it can submit documents for review and read the comments you leave.</target>
+            </trans-unit>
+            <trans-unit id="project.connect.endpoint.eyebrow">
+                <source>project.connect.endpoint.eyebrow</source>
+                <target>MCP endpoint</target>
+            </trans-unit>
+            <trans-unit id="project.connect.token.eyebrow">
+                <source>project.connect.token.eyebrow</source>
+                <target>Access token</target>
+            </trans-unit>
+            <trans-unit id="project.connect.token.one_time_warning">
+                <source>project.connect.token.one_time_warning</source>
+                <target>Copy this token now — it will not be shown again.</target>
+            </trans-unit>
+            <trans-unit id="project.connect.mcp_json.eyebrow">
+                <source>project.connect.mcp_json.eyebrow</source>
+                <target>.mcp.json</target>
+            </trans-unit>
+            <trans-unit id="project.connect.mcp_json.label">
+                <source>project.connect.mcp_json.label</source>
+                <target>claude · project config</target>
+            </trans-unit>
+            <trans-unit id="project.connect.cli.eyebrow">
+                <source>project.connect.cli.eyebrow</source>
+                <target>Install with the Claude Code CLI</target>
+            </trans-unit>
+            <trans-unit id="project.connect.cli.label">
+                <source>project.connect.cli.label</source>
+                <target>claude · terminal</target>
+            </trans-unit>
+            <trans-unit id="project.connect.widget.eyebrow">
+                <source>project.connect.widget.eyebrow</source>
+                <target>Review widget</target>
+            </trans-unit>
+            <trans-unit id="project.connect.tools.eyebrow">
+                <source>project.connect.tools.eyebrow</source>
+                <target>Agent tools</target>
+            </trans-unit>
+            <trans-unit id="project.connect.copy">
+                <source>project.connect.copy</source>
+                <target>Copy</target>
+            </trans-unit>
+            <trans-unit id="project.connect.copied">
+                <source>project.connect.copied</source>
+                <target>Copied ✓</target>
+            </trans-unit>
+            <trans-unit id="project.connect.tag.project_scoped">
+                <source>project.connect.tag.project_scoped</source>
+                <target>project-scoped</target>
+            </trans-unit>
+            <trans-unit id="project.connect.tool.create_document">
+                <source>project.connect.tool.create_document</source>
+                <target>Create a Markdown document for human review.</target>
+            </trans-unit>
+            <trans-unit id="project.connect.tool.list_documents">
+                <source>project.connect.tool.list_documents</source>
+                <target>List all documents in the token's project, with their current status and version.</target>
+            </trans-unit>
+            <trans-unit id="project.connect.tool.get_document">
+                <source>project.connect.tool.get_document</source>
+                <target>Fetch a document's current Markdown source, title, status, and version number.</target>
+            </trans-unit>
+            <trans-unit id="project.connect.tool.get_review">
+                <source>project.connect.tool.get_review</source>
+                <target>Fetch the review state (verdict, status, and threaded comments) for a document's current version.</target>
+            </trans-unit>
+            <trans-unit id="project.connect.tool.revise_document">
+                <source>project.connect.tool.revise_document</source>
+                <target>Submit a new Markdown version of a document. Open comments are re-anchored onto the new version; those whose quoted text no longer appears are flagged orphaned.</target>
+            </trans-unit>
+            <trans-unit id="project.connect.tool.get_site_review">
+                <source>project.connect.tool.get_site_review</source>
+                <target>Fetch all unaddressed site-review comments (DOM-anchored feedback captured in the browser) for the project bound to your MCP token. Address each comment, then mark it with address_site_review_comments.</target>
+            </trans-unit>
+            <trans-unit id="project.connect.tool.address_site_review_comments">
+                <source>project.connect.tool.address_site_review_comments</source>
+                <target>Mark site-review comments as addressed after fixing them. Accepts the comment ids returned by get_site_review. Comments that are unknown, already addressed, or resolved are skipped, not fatal.</target>
+            </trans-unit>
+
             <trans-unit id="nav.link.logout">
                 <source>nav.link.logout</source>
                 <target>Log out</target>
-            </trans-unit>
-
-            <!-- MCP connection card -->
-            <trans-unit id="account.mcp.card.heading">
-                <source>account.mcp.card.heading</source>
-                <target>Connect your agent (MCP)</target>
-            </trans-unit>
-            <trans-unit id="account.mcp.card.endpoint_label">
-                <source>account.mcp.card.endpoint_label</source>
-                <target>MCP endpoint</target>
-            </trans-unit>
-            <trans-unit id="account.mcp.card.auth_label">
-                <source>account.mcp.card.auth_label</source>
-                <target>Authentication</target>
-            </trans-unit>
-            <trans-unit id="account.mcp.card.claude_code_heading">
-                <source>account.mcp.card.claude_code_heading</source>
-                <target>Add via Claude Code</target>
-            </trans-unit>
-            <trans-unit id="account.mcp.card.json_heading">
-                <source>account.mcp.card.json_heading</source>
-                <target>Or add to your MCP client config (HTTP transport)</target>
-            </trans-unit>
-            <trans-unit id="account.mcp.card.copy">
-                <source>account.mcp.card.copy</source>
-                <target>Copy</target>
-            </trans-unit>
-            <trans-unit id="account.mcp.card.copied">
-                <source>account.mcp.card.copied</source>
-                <target>Copied!</target>
-            </trans-unit>
-            <trans-unit id="account.mcp.card.tls_note">
-                <source>account.mcp.card.tls_note</source>
-                <target>Note: the dev certificate is issued by a local CA — your MCP client may need to trust it.</target>
             </trans-unit>
 
             <!-- Document status labels -->
@@ -816,10 +808,6 @@
             <trans-unit id="site_review.comment.via_widget">
                 <source>site_review.comment.via_widget</source>
                 <target>via review widget</target>
-            </trans-unit>
-            <trans-unit id="site_review.setup.summary">
-                <source>site_review.setup.summary</source>
-                <target>Connection &amp; widget setup</target>
             </trans-unit>
             <trans-unit id="site_review.comment.action.resolve">
                 <source>site_review.comment.action.resolve</source>

@@ -29,10 +29,10 @@ final class MintProjectMcpTokenControllerTest extends WebTestCase
         $em->clear();
 
         $client->loginUser($owner);
-        $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/site-review');
+        $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/connect');
         $client->submitForm('Mint MCP token');
 
-        self::assertResponseRedirects('/projects/'.$projectId.'/site-review');
+        self::assertResponseRedirects('/projects/'.$projectId.'/connect');
         $em->clear();
         $fresh = $em->find(Project::class, $projectId);
         self::assertInstanceOf(Project::class, $fresh);
@@ -88,7 +88,7 @@ final class MintProjectMcpTokenControllerTest extends WebTestCase
         $projectId = $project->id;
 
         $client->loginUser($owner);
-        $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/site-review');
+        $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/connect');
         $client->submitForm('Mint MCP token');
         $em->clear();
         $freshAfterFirstMint = $em->find(Project::class, $projectId);
@@ -101,7 +101,7 @@ final class MintProjectMcpTokenControllerTest extends WebTestCase
         // BrowserKit history so the Referer header passes the same-origin check automatically.
         $client->request(Request::METHOD_POST, '/projects/'.$projectId.'/mcp-token', ['_csrf_token' => 'csrf-token']);
 
-        self::assertResponseRedirects('/projects/'.$projectId.'/site-review');
+        self::assertResponseRedirects('/projects/'.$projectId.'/connect');
         $em->clear();
         $freshAfterSecondMint = $em->find(Project::class, $projectId);
         self::assertInstanceOf(Project::class, $freshAfterSecondMint);
@@ -125,7 +125,7 @@ final class MintProjectMcpTokenControllerTest extends WebTestCase
         $projectId = $project->id;
 
         $client->loginUser($owner);
-        $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/site-review');
+        $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/connect');
         $client->submitForm('Mint MCP token');
         $em->clear();
         $fresh = $em->find(Project::class, $projectId);

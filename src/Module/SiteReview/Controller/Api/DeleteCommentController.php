@@ -5,10 +5,10 @@ declare(strict_types=1);
 namespace App\Module\SiteReview\Controller\Api;
 
 use App\Controller\AppController;
+use App\Module\Project\Security\AuthenticatedProjectResolver;
 use App\Module\SiteReview\Command\CommentNotFound;
 use App\Module\SiteReview\Command\DeleteCommentCommand;
 use App\Module\SiteReview\Command\DeleteCommentHandler;
-use App\Module\Project\Security\AuthenticatedProjectResolver;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Uid\Uuid;

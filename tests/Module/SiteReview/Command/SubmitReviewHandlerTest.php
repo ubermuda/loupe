@@ -6,9 +6,9 @@ namespace App\Tests\Module\SiteReview\Command;
 
 use App\Exception\DomainErrors;
 use App\Module\Account\Entity\User;
+use App\Module\Project\Entity\Project;
 use App\Module\SiteReview\Command\SubmitReviewCommand;
 use App\Module\SiteReview\Command\SubmitReviewHandler;
-use App\Module\Project\Entity\Project;
 use App\Module\SiteReview\Entity\SiteReview;
 use App\Module\SiteReview\Entity\SiteReviewStatus;
 use App\Module\SiteReview\Repository\SiteReviewRepository;

@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Module\Review\Mcp;
 
 use App\Mcp\ResolvesBoundProject;
-
 use App\Module\Project\Security\AuthenticatedProjectResolver;
 use App\Module\Review\Command\CreateDocumentCommand;
 use App\Module\Review\Command\CreateDocumentHandler;

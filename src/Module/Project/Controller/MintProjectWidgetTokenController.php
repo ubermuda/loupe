@@ -35,17 +35,13 @@ class MintProjectWidgetTokenController extends AppController
     {
         try {
             $raw = ($this->mintProjectWidgetTokenHandler)(new MintProjectWidgetTokenCommand($project));
-            $this->addFlash('success', sprintf(
-                '%s %s',
-                $this->translator->trans('site_review.site.token.flash_minted'),
-                $raw,
-            ));
+            $this->addFlash('minted_widget_token', $raw);
         } catch (DomainErrors $e) {
             foreach ($e->errors as $translationKey) {
                 $this->addFlash('error', $this->translator->trans($translationKey));
             }
         }
 
-        return $this->redirectToRoute('app_project_site_review', ['id' => (string) $project->id]);
+        return $this->redirectToRoute('app_project_connect', ['id' => (string) $project->id]);
     }
 }

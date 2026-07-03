@@ -13,15 +13,6 @@ still has the same gap — any future controller test that resolves a SiteReview
 a `{id:siteReview}` route will hit the same "entity repository ... service could
 not be found" error. Add `autoconfigure: true` to that override when it bites.
 
-## Account-level API tokens page is unreachable from the UI
-
-Loop redesign PR 2, Task 2 rebuilt the app shell and removed the sidebar's
-"API tokens" nav link. The `app_api_tokens` route (`/account/api-tokens`) still
-exists and works, but nothing in the navigation links to it anymore — it is
-reachable only by typing the URL. This is expected on the Loop path: token setup
-moves to a per-project "Connect agent" page (PR 4). Until PR 4 ships, decide
-whether to keep a temporary link or leave it URL-only, then remove this note.
-
 ## Dashboard document search + status/tag filtering
 
 Deferred from the SaaS visual redesign (visual-only phase). The dashboard mockup
@@ -224,29 +215,10 @@ a unique constraint or `SELECT … FOR UPDATE` if project-bound tokens multiply.
 
 `MintProjectWidgetTokenController` keeps CSRF token id `mint-site-token` and
 the `site_review.site.token.*` translation-key family (template ↔ controller
-pairs are consistent). Rename both to `project.*` when the Connect page (Loop
-redesign PR 4) takes over the token UI.
+pairs are consistent). The Connect page now owns the token UI, so these can be
+renamed to `project.*` as a cosmetic follow-up (coordinated template + controller
++ csrf.yaml + xlf change).
 
-## E2E specs still reference the pre-/projects URL space
-
-The route restructure (Loop redesign PR 1, Task 4) moved the web URL space
-under `/projects/...` and changed the post-login landing (HomeController now
-redirects to `app_projects` or `app_project_documents`, never `/documents`).
-Several Playwright specs still hardcode the old paths and will fail the PR-gate
-`just e2e` until updated:
-
-- `e2e/tests/account/{login,email-verification,forgot-password}.spec.ts` — assert
-  `toHaveURL('/documents')` after auth; new landing is `/projects` (0 projects)
-  or `/projects/{id}/documents` (exactly 1).
-- `e2e/tests/review/review-loop.spec.ts` — navigates to `/documents` and builds
-  `reviewUrl` as `/documents/${id}/review`; the review URL now needs the project
-  id (`/projects/{projectId}/documents/{documentId}/review`). The `/dev/seed/document`
-  endpoint may need to return the project id for the spec to build the URL.
-- `e2e/tests/site-review/site-page.spec.ts` — uses `/documents` and
-  `/site-review/sites`; now `/projects` and `/projects/{id}/site-review`.
-
-Task 4's commit scope deliberately excluded `e2e/`; fold these fixes into the
-task/step that runs `just e2e` before opening the PR.
 
 ## Site-review comments have no agent-reply data model
 
