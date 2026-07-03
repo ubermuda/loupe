@@ -640,10 +640,6 @@
                 <source>project.error.widget_token_already_minted</source>
                 <target>This project already has a widget token. Revoke it first.</target>
             </trans-unit>
-            <trans-unit id="project.mcp_token.heading">
-                <source>project.mcp_token.heading</source>
-                <target>MCP token</target>
-            </trans-unit>
             <trans-unit id="project.mcp_token.hint">
                 <source>project.mcp_token.hint</source>
                 <target>Lets MCP clients act on this project. Keep it secret.</target>
