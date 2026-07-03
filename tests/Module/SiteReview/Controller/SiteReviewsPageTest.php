@@ -52,7 +52,6 @@ final class SiteReviewsPageTest extends WebTestCase
 
         [$project, $review] = $this->projectWithSubmittedReview($em, 'reviews-page-a@example.com', 'reviews-site-a');
         $owner = $project->owner;
-        $reviewId = $review->id;
         $comments = $review->comments->toArray();
         $commentId = $comments[0]->id;
         $em->clear();
@@ -61,7 +60,11 @@ final class SiteReviewsPageTest extends WebTestCase
         $crawler = $client->request(Request::METHOD_GET, '/projects/'.$project->id.'/site-review');
 
         self::assertResponseIsSuccessful();
-        self::assertCount(1, $crawler->filter('[data-review-id="'.$reviewId.'"]'));
+        // Loop ribbon derives from comments — two pending → In review stage present.
+        self::assertCount(1, $crawler->filter('.bp-ribbon'));
+        // Flat comment list: both comments rendered with a status-colored index.
+        self::assertCount(2, $crawler->filter('[data-comment-id]'));
+        self::assertCount(2, $crawler->filter('.bp-sr-index'));
         self::assertGreaterThanOrEqual(1, $crawler->filter('[data-comment-status="pending"]')->count());
         self::assertCount(1, $crawler->filter('[data-comment-id="'.$commentId.'"]'));
     }
@@ -170,19 +173,21 @@ final class SiteReviewsPageTest extends WebTestCase
         $review->addComment('Draft comment', '.a', 'text', 'https://example.com');
         $em->persist($review);
         $em->flush();
-        $reviewId = $review->id;
+        $comments = $review->comments->toArray();
+        $commentId = $comments[0]->id;
         $em->clear();
 
         $client->loginUser($owner);
         $crawler = $client->request(Request::METHOD_GET, '/projects/'.$project->id.'/site-review');
 
         self::assertResponseIsSuccessful();
-        self::assertCount(1, $crawler->filter('[data-review-id="'.$reviewId.'"]'));
+        // The draft comment still renders in the flat list...
+        $commentBlock = $crawler->filter('[data-comment-id="'.$commentId.'"]');
+        self::assertCount(1, $commentBlock);
 
-        // Draft reviews must not render resolve/reopen forms.
-        $reviewCard = $crawler->filter('[data-review-id="'.$reviewId.'"]');
-        self::assertCount(0, $reviewCard->filter('button:contains("Resolve")'));
-        self::assertCount(0, $reviewCard->filter('button:contains("Reopen")'));
+        // ...but a draft review must not render resolve/reopen forms.
+        self::assertCount(0, $commentBlock->filter('button:contains("Resolve")'));
+        self::assertCount(0, $commentBlock->filter('button:contains("Reopen")'));
     }
 
     public function test_javascript_url_renders_without_anchor(): void
@@ -210,7 +215,7 @@ final class SiteReviewsPageTest extends WebTestCase
         $commentBlock = $crawler->filter('[data-comment-id="'.$commentId.'"]');
         self::assertCount(1, $commentBlock);
         // The url must render as plain text, never as a clickable anchor.
-        self::assertCount(0, $commentBlock->filter('a.bp-review-comment__url'));
+        self::assertCount(0, $commentBlock->filter('a.bp-sr-context__url'));
         self::assertStringContainsString('javascript:alert(1)', $commentBlock->text());
     }
 

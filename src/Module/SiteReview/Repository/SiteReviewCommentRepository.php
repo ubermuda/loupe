@@ -66,6 +66,35 @@ class SiteReviewCommentRepository extends ServiceEntityRepository
     }
 
     /**
+     * Status tally of comments on the project's Submitted reviews, used to derive
+     * the site-review loop stage. Scoped to Submitted reviews (mirroring
+     * {@see countOpenForProject}) so draft-review comments never move the ribbon.
+     *
+     * @return array{pending: int, addressed: int, resolved: int}
+     */
+    public function statusCountsForProject(Project $project): array
+    {
+        /** @var list<array{status: SiteReviewCommentStatus, count: int|string}> $rows */
+        $rows = $this->createQueryBuilder('c')
+            ->select('c.status AS status', 'COUNT(c.id) AS count')
+            ->join('c.review', 'r')
+            ->andWhere('r.project = :project')
+            ->andWhere('r.status = :reviewStatus')
+            ->setParameter('project', $project)
+            ->setParameter('reviewStatus', SiteReviewStatus::Submitted)
+            ->groupBy('c.status')
+            ->getQuery()
+            ->getResult();
+
+        $counts = ['pending' => 0, 'addressed' => 0, 'resolved' => 0];
+        foreach ($rows as $row) {
+            $counts[$row['status']->value] = (int) $row['count'];
+        }
+
+        return $counts;
+    }
+
+    /**
      * A comment inside the project's current in-progress review — the only
      * comments the widget may edit or delete.
      */

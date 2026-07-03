@@ -1072,6 +1072,14 @@
     .bp-status-chip--resolved .bp-status-chip__dot {
         @apply bg-fg-faint;
     }
+    /* Green chip — site-review addressed/resolved comments (handoff §4 pins both
+       to the green trio, unlike the document-review grey "resolved"). */
+    .bp-status-chip--ok {
+        @apply bg-status-ok-bg text-status-ok-deep border-status-ok-border;
+    }
+    .bp-status-chip--ok .bp-status-chip__dot {
+        @apply bg-status-ok;
+    }
 
     /* Quoted document excerpt a comment thread is anchored to. Shown at the head
        of every thread — essential for orphaned threads, where the in-document
@@ -1115,39 +1123,118 @@
         @apply text-xs text-danger;
     }
 
-    /* ── Site-review comment card (site page) ───────────────────────────
-       Hierarchy: the comment body is primary; the captured URL and element
-       text are secondary; the raw CSS selector is tucked into a disclosure. */
+    /* ── Site-review page (comment-list only; the customer site is never rendered)
+       Handoff §4: left-aligned, max-width 820, a flat hairline divider list. Each
+       item leads with a status-colored mono index, then the element quote, status
+       chip, body, and a captured-context row (URL + selector). Off-scale sizes are
+       plain CSS, matching the ribbon/review conventions. */
 
-    .bp-review-comment {
-        @apply bg-surface-1 border border-line rounded-xl p-4 flex flex-col gap-2.5;
+    .bp-sr-page {
+        @apply max-w-full flex flex-col;
+        max-width: 820px;
+        padding: 22px 32px 60px;
+        gap: 0.875rem;
     }
-    .bp-review-comment__head {
-        @apply flex items-center justify-between gap-2;
+    .bp-sr-breadcrumb {
+        @apply flex items-center gap-1.5 font-mono text-fg-dim;
+        font-size: 0.75rem;
     }
-    .bp-review-comment__author {
-        @apply text-xs font-semibold text-fg-mute;
+    .bp-sr-breadcrumb a {
+        @apply text-fg-dim no-underline transition-colors hover:text-fg;
     }
-    .bp-review-comment__body {
-        @apply text-sm text-fg leading-snug m-0;
+    .bp-sr-breadcrumb__sep {
+        @apply text-fg-faint;
     }
-    .bp-review-comment__quote {
-        @apply px-3 py-2 bg-tint border-l-2 border-accent rounded text-xs italic text-fg-mute line-clamp-3 m-0;
+    .bp-sr-breadcrumb__current {
+        @apply text-fg-mute;
     }
-    .bp-review-comment__url {
-        @apply inline-flex items-center gap-1.5 max-w-full min-w-0 text-xs text-fg-dim no-underline transition-colors hover:text-accent;
+    .bp-sr-header {
+        @apply flex flex-col gap-1.5;
     }
-    .bp-review-comment__selector {
-        @apply text-xs;
+    .bp-sr-title {
+        @apply font-semibold text-ink m-0;
+        font-size: 22px;
     }
-    .bp-review-comment__selector summary {
-        @apply text-fg-dim cursor-pointer select-none transition-colors hover:text-fg;
+    .bp-sr-meta-line {
+        @apply font-mono text-fg-dim m-0;
+        font-size: 0.75rem;
     }
-    .bp-review-comment__selector[open] summary {
-        @apply mb-1.5;
+    .bp-sr-desc {
+        @apply text-fg-mute m-0;
+        font-size: 14px;
+        line-height: 1.55;
     }
-    .bp-review-comment__selector code {
-        @apply block overflow-x-auto;
+
+    /* Flush hairline divider list — top hairline, each item a bottom hairline. */
+    .bp-sr-list {
+        @apply flex flex-col border-t border-line mt-1;
+    }
+    .bp-sr-item {
+        @apply flex gap-4 border-b border-line;
+        padding: 20px 2px;
+    }
+    /* Status-colored mono index — the primary left differentiator. */
+    .bp-sr-index {
+        @apply font-mono font-medium shrink-0 leading-none pt-0.5;
+        font-size: 0.8125rem;
+    }
+    .bp-sr-index--pending {
+        @apply text-status-pending-deep;
+    }
+    .bp-sr-index--ok {
+        @apply text-status-ok-deep;
+    }
+    .bp-sr-main {
+        @apply min-w-0 flex-1 flex flex-col gap-2;
+    }
+    .bp-sr-title-row {
+        @apply flex items-start justify-between gap-3;
+    }
+    .bp-sr-quote {
+        @apply font-semibold text-ink m-0;
+        font-size: 15px;
+        line-height: 1.4;
+    }
+    .bp-sr-widget-meta {
+        @apply font-mono text-fg-dim m-0;
+        font-size: 0.6875rem;
+        margin-top: -0.25rem;
+    }
+    .bp-sr-body {
+        @apply text-fg m-0;
+        font-size: 14px;
+        line-height: 1.55;
+    }
+    /* Captured context — one wrapping mono row: external-link + URL, code + selector. */
+    .bp-sr-context {
+        @apply flex flex-wrap items-center font-mono;
+        gap: 0.25rem 1rem;
+        font-size: 0.71875rem;
+    }
+    .bp-sr-context__url {
+        @apply inline-flex items-center gap-1.5 min-w-0 max-w-full text-fg-mute no-underline break-all transition-colors hover:text-accent;
+    }
+    .bp-sr-context__selector {
+        @apply inline-flex items-center gap-1.5 min-w-0 max-w-full text-fg-dim;
+    }
+    .bp-sr-context__selector code {
+        @apply break-all;
+    }
+    .bp-sr-actions {
+        @apply flex items-center gap-2 mt-1;
+    }
+    .bp-sr-empty {
+        @apply flex flex-col items-center text-center gap-3 border-t border-line text-fg-dim mt-1;
+        padding: 3rem 0;
+    }
+    /* Interim connection/setup — collapsed, visually subordinate to the list. */
+    .bp-sr-setup {
+        @apply border-t border-line pt-5 mt-4;
+    }
+    .bp-sr-setup > summary {
+        @apply font-mono uppercase text-fg-dim cursor-pointer select-none transition-colors hover:text-fg;
+        font-size: 10.5px;
+        letter-spacing: 0.08em;
     }
 
     /* ── Verdict bar (pinned bottom of the comment margin) ──────────────── */
