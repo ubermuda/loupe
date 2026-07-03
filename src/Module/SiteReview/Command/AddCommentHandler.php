@@ -21,9 +21,9 @@ final readonly class AddCommentHandler
 
     public function __invoke(AddCommentCommand $command): SiteReviewComment
     {
-        $review = $this->siteReviews->findOneInProgress($command->site);
+        $review = $this->siteReviews->findOneInProgress($command->project);
         if (null === $review) {
-            $review = new SiteReview($command->site);
+            $review = new SiteReview($command->project);
             $this->em->persist($review);
         }
 
@@ -31,7 +31,7 @@ final readonly class AddCommentHandler
         $this->em->flush();
 
         $this->logger->info('site_review.comment.added', [
-            'siteId' => (string) $command->site->id,
+            'projectId' => (string) $command->project->id,
             'reviewId' => (string) $review->id,
             'commentId' => (string) $comment->id,
         ]);

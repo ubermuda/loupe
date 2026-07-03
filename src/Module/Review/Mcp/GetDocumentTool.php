@@ -4,12 +4,13 @@ declare(strict_types=1);
 
 namespace App\Module\Review\Mcp;
 
-use App\Module\Account\Entity\User;
+use App\Mcp\ResolvesBoundProject;
+
+use App\Module\Project\Security\AuthenticatedProjectResolver;
 use App\Module\Review\Query\DocumentNotFound;
 use App\Module\Review\Query\GetDocument;
 use Mcp\Capability\Attribute\McpTool;
 use Mcp\Exception\ToolCallException;
-use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\Uid\Uuid;
 
 /**
@@ -18,9 +19,11 @@ use Symfony\Component\Uid\Uuid;
 #[McpTool(name: 'get_document', description: 'Fetch a document\'s current Markdown source, title, status, and version number.')]
 final readonly class GetDocumentTool
 {
+    use ResolvesBoundProject;
+
     public function __construct(
         private GetDocument $getDocument,
-        private Security $security,
+        private AuthenticatedProjectResolver $projectResolver,
     ) {
     }
 
@@ -31,11 +34,10 @@ final readonly class GetDocumentTool
      */
     public function __invoke(string $documentId): array
     {
-        /** @var User $user */
-        $user = $this->security->getUser();
+        $project = $this->requireBoundProject($this->projectResolver);
 
         try {
-            return ($this->getDocument)(Uuid::fromString($documentId), $user);
+            return ($this->getDocument)(Uuid::fromString($documentId), $project);
         } catch (DocumentNotFound $e) {
             throw new ToolCallException($e->getMessage(), previous: $e);
         } catch (\InvalidArgumentException $e) {

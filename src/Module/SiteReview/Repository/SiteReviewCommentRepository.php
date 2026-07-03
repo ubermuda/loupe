@@ -4,8 +4,7 @@ declare(strict_types=1);
 
 namespace App\Module\SiteReview\Repository;
 
-use App\Module\Account\Entity\User;
-use App\Module\SiteReview\Entity\Site;
+use App\Module\Project\Entity\Project;
 use App\Module\SiteReview\Entity\SiteReviewComment;
 use App\Module\SiteReview\Entity\SiteReviewCommentStatus;
 use App\Module\SiteReview\Entity\SiteReviewStatus;
@@ -28,15 +27,15 @@ class SiteReviewCommentRepository extends ServiceEntityRepository
      *
      * @return list<SiteReviewComment>
      */
-    public function findPendingForSite(Site $site): array
+    public function findPendingForProject(Project $project): array
     {
         return $this->createQueryBuilder('c')
             ->join('c.review', 'r')
             ->addSelect('r')
-            ->andWhere('r.site = :site')
+            ->andWhere('r.project = :project')
             ->andWhere('r.status = :reviewStatus')
             ->andWhere('c.status = :commentStatus')
-            ->setParameter('site', $site)
+            ->setParameter('project', $project)
             ->setParameter('reviewStatus', SiteReviewStatus::Submitted)
             ->setParameter('commentStatus', SiteReviewCommentStatus::Pending)
             ->orderBy('r.submittedAt', 'ASC')
@@ -47,34 +46,33 @@ class SiteReviewCommentRepository extends ServiceEntityRepository
     }
 
     /**
-     * A comment inside the site's current in-progress review — the only
+     * A comment inside the project's current in-progress review — the only
      * comments the widget may edit or delete.
      */
-    public function findOneInDraftReview(Uuid $id, Site $site): ?SiteReviewComment
+    public function findOneInDraftReview(Uuid $id, Project $project): ?SiteReviewComment
     {
         return $this->createQueryBuilder('c')
             ->join('c.review', 'r')
             ->andWhere('c.id = :id')
-            ->andWhere('r.site = :site')
+            ->andWhere('r.project = :project')
             ->andWhere('r.status = :status')
             ->setParameter('id', $id)
-            ->setParameter('site', $site)
+            ->setParameter('project', $project)
             ->setParameter('status', SiteReviewStatus::InProgress)
             ->getQuery()
             ->getOneOrNullResult();
     }
 
-    /** Owner-scoped lookup for the MCP addressing tool. */
-    public function findOneForOwner(Uuid $id, User $owner): ?SiteReviewComment
+    /** Project-scoped lookup for the MCP addressing tool. */
+    public function findOneForProject(Uuid $id, Project $project): ?SiteReviewComment
     {
         return $this->createQueryBuilder('c')
             ->join('c.review', 'r')
             ->addSelect('r')
-            ->join('r.site', 's')
             ->andWhere('c.id = :id')
-            ->andWhere('s.owner = :owner')
+            ->andWhere('r.project = :project')
             ->setParameter('id', $id)
-            ->setParameter('owner', $owner)
+            ->setParameter('project', $project)
             ->getQuery()
             ->getOneOrNullResult();
     }

@@ -44,7 +44,10 @@ final class DeleteCommentController extends AppController
         ($this->deleteCommentHandler)(new DeleteCommentCommand(comment: $comment));
 
         if (TurboBundle::STREAM_FORMAT !== $request->getPreferredFormat()) {
-            return $this->redirectToRoute('app_document_review', ['id' => (string) $document->id]);
+            return $this->redirectToRoute('app_document_review', [
+                'projectId' => (string) $document->project->id,
+                'documentId' => (string) $document->id,
+            ]);
         }
 
         // Re-render the whole thread list (restores the empty state when the last

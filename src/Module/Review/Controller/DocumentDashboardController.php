@@ -5,14 +5,17 @@ declare(strict_types=1);
 namespace App\Module\Review\Controller;
 
 use App\Controller\AppController;
-use App\Module\Account\Entity\User;
+use App\Module\Project\Entity\Project;
+use App\Module\Project\Security\ProjectVoter;
 use App\Module\Review\Repository\DocumentRepository;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
+use Symfony\Component\Security\Http\Attribute\IsGranted;
 
+#[IsGranted(ProjectVoter::VIEW, subject: 'project')]
 #[Route(
-    '/documents',
-    name: 'app_documents',
+    '/projects/{id:project}/documents',
+    name: 'app_project_documents',
     methods: ['GET'],
 )]
 class DocumentDashboardController extends AppController
@@ -22,15 +25,11 @@ class DocumentDashboardController extends AppController
     ) {
     }
 
-    public function __invoke(): Response
+    public function __invoke(Project $project): Response
     {
-        $user = $this->getUser();
-        assert($user instanceof User);
-
-        $documents = $this->documents->findBy(['owner' => $user], ['createdAt' => 'DESC']);
-
         return $this->render('review/dashboard.html.twig', [
-            'documents' => $documents,
+            'project' => $project,
+            'documents' => $this->documents->findByProject($project),
         ]);
     }
 }

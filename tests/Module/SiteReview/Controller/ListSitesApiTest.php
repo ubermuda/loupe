@@ -7,7 +7,7 @@ namespace App\Tests\Module\SiteReview\Controller;
 use App\Module\Account\Entity\ApiToken;
 use App\Module\Account\Entity\ApiTokenScope;
 use App\Module\Account\Entity\User;
-use App\Module\SiteReview\Entity\Site;
+use App\Module\Project\Entity\Project;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use Symfony\Component\HttpFoundation\Request;
@@ -24,15 +24,15 @@ final class ListSitesApiTest extends WebTestCase
         $em->persist($owner);
         [$token, $raw] = ApiToken::issue($owner, 'tok', ApiTokenScope::SiteReview);
         $em->persist($token);
-        $site1 = new Site($owner, 'my-site-one');
-        $site2 = new Site($owner, 'my-site-two');
+        $site1 = new Project($owner, 'my-site-one');
+        $site2 = new Project($owner, 'my-site-two');
         $em->persist($site1);
         $em->persist($site2);
 
         $other = new User(username: 'list-sites-other@example.com', fullName: 'Other', email: 'list-sites-other@example.com', password: 'x');
         $other->emailVerifiedAt = new \DateTimeImmutable();
         $em->persist($other);
-        $otherSite = new Site($other, 'other-site');
+        $otherSite = new Project($other, 'other-site');
         $em->persist($otherSite);
 
         $em->flush();
@@ -90,9 +90,9 @@ final class ListSitesApiTest extends WebTestCase
         $em->persist($user);
         [$token, $raw] = ApiToken::issue($user, 'widget-tok', ApiTokenScope::SiteReview);
         $em->persist($token);
-        $site = new Site($user, 'list-widget-site');
-        $site->token = $token;
-        $em->persist($site);
+        $project = new Project($user, 'list-widget-site');
+        $project->widgetToken = $token;
+        $em->persist($project);
         $em->flush();
 
         $client->request(Request::METHOD_GET, '/api/site-review/sites',

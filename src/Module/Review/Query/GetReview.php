@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Module\Review\Query;
 
-use App\Module\Account\Entity\User;
+use App\Module\Project\Entity\Project;
 use App\Module\Review\Entity\Comment;
 use App\Module\Review\Repository\CommentRepository;
 use App\Module\Review\Repository\DocumentRepository;
@@ -21,7 +21,7 @@ final readonly class GetReview
     }
 
     /**
-     * Returns the review state for the current version of a document, scoped to the authenticated owner.
+     * Returns the review state for the current version of a document, scoped to the given project.
      *
      * Comments are grouped into threads: the top-level list contains only root comments (no parent);
      * each root comment carries its direct replies in the `thread` key.
@@ -33,11 +33,11 @@ final readonly class GetReview
      *     comments: list<array{quote: string, body: string, resolved: bool, orphaned: bool, thread: list<array{quote: string, body: string, resolved: bool, orphaned: bool}>}>
      * }
      *
-     * @throws DocumentNotFound if no document with the given id belongs to $owner
+     * @throws DocumentNotFound if no document with the given id belongs to $project
      */
-    public function __invoke(Uuid $documentId, User $owner): array
+    public function __invoke(Uuid $documentId, Project $project): array
     {
-        $document = $this->documents->findOneByIdAndOwner($documentId, $owner);
+        $document = $this->documents->findOneByIdAndProject($documentId, $project);
 
         if (null === $document) {
             throw DocumentNotFound::forId($documentId);

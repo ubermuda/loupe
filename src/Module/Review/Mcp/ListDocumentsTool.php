@@ -4,20 +4,23 @@ declare(strict_types=1);
 
 namespace App\Module\Review\Mcp;
 
-use App\Module\Account\Entity\User;
+use App\Mcp\ResolvesBoundProject;
+
+use App\Module\Project\Security\AuthenticatedProjectResolver;
 use App\Module\Review\Repository\DocumentRepository;
 use Mcp\Capability\Attribute\McpTool;
-use Symfony\Bundle\SecurityBundle\Security;
 
 /**
- * List all documents owned by the authenticated user.
+ * List all documents in the project bound to the authenticated MCP token.
  */
-#[McpTool(name: 'list_documents', description: 'List all documents owned by the authenticated user, with their current status and version.')]
+#[McpTool(name: 'list_documents', description: 'List all documents in the token\'s project, with their current status and version.')]
 final readonly class ListDocumentsTool
 {
+    use ResolvesBoundProject;
+
     public function __construct(
         private DocumentRepository $documents,
-        private Security $security,
+        private AuthenticatedProjectResolver $projectResolver,
     ) {
     }
 
@@ -26,11 +29,9 @@ final readonly class ListDocumentsTool
      */
     public function __invoke(): array
     {
-        // The ^/mcp firewall requires ROLE_USER, so an authenticated User is guaranteed here.
-        /** @var User $user */
-        $user = $this->security->getUser();
+        $project = $this->requireBoundProject($this->projectResolver);
 
-        $documents = $this->documents->findBy(['owner' => $user], ['createdAt' => 'DESC']);
+        $documents = $this->documents->findByProject($project);
 
         return array_map(
             static fn ($doc) => [

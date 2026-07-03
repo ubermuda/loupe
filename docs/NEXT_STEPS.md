@@ -20,26 +20,6 @@ in-place update. This same rule must be ported into `~/Code/symfony-skeleton`
 (its equivalent frontend skill / docs) so new projects inherit it. See
 `.skeleton.json` for the sync baseline.
 
-## Add cross-account isolation tests for the MCP tools
-
-The MCP tools are all correctly owner-scoped in code (the API token resolves to
-its `owner`, and every tool looks up via `findOneByIdAndOwner` / `findBy owner`),
-but negative-test coverage is uneven:
-
-- `list_documents` — has a direct tool test
-  (`ListDocumentsToolTest::test_returns_only_authenticated_users_documents`).
-- `get_review` / `get_document` — cross-account denial is tested only at the
-  query-handler level (`GetReviewTest`), not at the tool entry point.
-- `revise_document` — **no** cross-account negative test at all, and it's a
-  mutation. Highest priority: add a test that user B's token revising user A's
-  document is denied (`DocumentNotFound`).
-- `create_document` — cross-account create isn't expressible (owner is always the
-  caller), so no test needed.
-
-Suggested: add a negative test for `ReviseDocumentHandler`, and optionally thin
-tool-level tests for `GetReviewTool` / `GetDocumentTool` mirroring
-`ListDocumentsToolTest` so isolation is asserted at the actual agent entry point.
-
 ## Review anchoring — possible enhancement (low priority)
 
 Observed while dogfooding the review loop on the site-review spec: revising a
@@ -210,3 +190,40 @@ work before it's a turnkey distributable:
   (mode 0600). Move it to the OS keychain (e.g. `go-keyring`) with the file as a fallback.
 - **CI + release.** Wire `just cli-test` into the gate, and add goreleaser for a
   multi-platform release matrix (current `just cli-build` only cross-compiles one target).
+
+## Mint handlers are check-then-set without locking
+
+`MintProjectWidgetTokenHandler` and `MintProjectMcpTokenHandler` both guard
+with `null !== $project->xxxToken` and then persist — two concurrent mints can
+both pass the guard, and the loser's token ends up unbound (an account-level
+token whose raw value was flashed to a user). Impact is low today: an unbound
+token resolves no project, so project-scoped consumers reject it. Revisit with
+a unique constraint or `SELECT … FOR UPDATE` if project-bound tokens multiply.
+
+## Widget-token mint flow still uses site-era CSRF id and translation keys
+
+`MintProjectWidgetTokenController` keeps CSRF token id `mint-site-token` and
+the `site_review.site.token.*` translation-key family (template ↔ controller
+pairs are consistent). Rename both to `project.*` when the Connect page (Loop
+redesign PR 4) takes over the token UI.
+
+## E2E specs still reference the pre-/projects URL space
+
+The route restructure (Loop redesign PR 1, Task 4) moved the web URL space
+under `/projects/...` and changed the post-login landing (HomeController now
+redirects to `app_projects` or `app_project_documents`, never `/documents`).
+Several Playwright specs still hardcode the old paths and will fail the PR-gate
+`just e2e` until updated:
+
+- `e2e/tests/account/{login,email-verification,forgot-password}.spec.ts` — assert
+  `toHaveURL('/documents')` after auth; new landing is `/projects` (0 projects)
+  or `/projects/{id}/documents` (exactly 1).
+- `e2e/tests/review/review-loop.spec.ts` — navigates to `/documents` and builds
+  `reviewUrl` as `/documents/${id}/review`; the review URL now needs the project
+  id (`/projects/{projectId}/documents/{documentId}/review`). The `/dev/seed/document`
+  endpoint may need to return the project id for the spec to build the URL.
+- `e2e/tests/site-review/site-page.spec.ts` — uses `/documents` and
+  `/site-review/sites`; now `/projects` and `/projects/{id}/site-review`.
+
+Task 4's commit scope deliberately excluded `e2e/`; fold these fixes into the
+task/step that runs `just e2e` before opening the PR.

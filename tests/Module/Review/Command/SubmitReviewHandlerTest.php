@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Tests\Module\Review\Command;
 
 use App\Module\Account\Entity\User;
+use App\Module\Project\Entity\Project;
 use App\Module\Review\Command\CreateDocumentCommand;
 use App\Module\Review\Command\CreateDocumentHandler;
 use App\Module\Review\Command\SubmitReviewCommand;
@@ -29,11 +30,13 @@ final class SubmitReviewHandlerTest extends KernelTestCase
             password: 'hashed-placeholder',
         );
         $em->persist($user);
+        $project = new Project($user, 'p-'.uniqid());
+        $em->persist($project);
         $em->flush();
 
         /** @var CreateDocumentHandler $createHandler */
         $createHandler = self::getContainer()->get(CreateDocumentHandler::class);
-        $doc = $createHandler(new CreateDocumentCommand($user, 'Auth PRD', '# Auth'));
+        $doc = $createHandler(new CreateDocumentCommand($project, 'Auth PRD', '# Auth'));
 
         return [$user, $doc];
     }

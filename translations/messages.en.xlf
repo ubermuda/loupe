@@ -553,13 +553,13 @@
                 <source>nav.brand</source>
                 <target>Better Plans</target>
             </trans-unit>
+            <trans-unit id="nav.link.projects">
+                <source>nav.link.projects</source>
+                <target>Projects</target>
+            </trans-unit>
             <trans-unit id="nav.link.documents">
                 <source>nav.link.documents</source>
                 <target>Documents</target>
-            </trans-unit>
-            <trans-unit id="nav.link.site_reviews">
-                <source>nav.link.site_reviews</source>
-                <target>Site reviews</target>
             </trans-unit>
             <trans-unit id="nav.link.api_tokens">
                 <source>nav.link.api_tokens</source>
@@ -574,30 +574,38 @@
                 <target>Expand sidebar</target>
             </trans-unit>
 
-            <!-- Site review sites (per-site model) -->
-            <trans-unit id="site_review.sites.page.title">
-                <source>site_review.sites.page.title</source>
-                <target>Sites</target>
+            <!-- Projects -->
+            <trans-unit id="project.list.page.title">
+                <source>project.list.page.title</source>
+                <target>Projects</target>
             </trans-unit>
-            <trans-unit id="site_review.sites.form.submit">
-                <source>site_review.sites.form.submit</source>
-                <target>Add site</target>
+            <trans-unit id="project.list.form.submit">
+                <source>project.list.form.submit</source>
+                <target>Add project</target>
             </trans-unit>
-            <trans-unit id="site_review.sites.empty">
-                <source>site_review.sites.empty</source>
-                <target>No sites yet. Add the app you want to review.</target>
+            <trans-unit id="project.list.empty">
+                <source>project.list.empty</source>
+                <target>No projects yet. Add the app you want to review.</target>
             </trans-unit>
-            <trans-unit id="sitereview.form.create_site_form.name.label">
-                <source>sitereview.form.create_site_form.name.label</source>
-                <target>Site name</target>
+            <trans-unit id="project.form.create_project_form.name.label">
+                <source>project.form.create_project_form.name.label</source>
+                <target>Project name</target>
             </trans-unit>
-            <trans-unit id="sitereview.form.create_site_form.name.placeholder">
-                <source>sitereview.form.create_site_form.name.placeholder</source>
+            <trans-unit id="project.form.create_project_form.name.placeholder">
+                <source>project.form.create_project_form.name.placeholder</source>
                 <target>my-app</target>
             </trans-unit>
-            <trans-unit id="site_review.error.site_name_taken">
-                <source>site_review.error.site_name_taken</source>
-                <target>You already have a site with this name.</target>
+            <trans-unit id="project.form.create_project_form.domain.label">
+                <source>project.form.create_project_form.domain.label</source>
+                <target>Domain</target>
+            </trans-unit>
+            <trans-unit id="project.form.create_project_form.domain.placeholder">
+                <source>project.form.create_project_form.domain.placeholder</source>
+                <target>example.com</target>
+            </trans-unit>
+            <trans-unit id="project.error.name_taken">
+                <source>project.error.name_taken</source>
+                <target>You already have a project with this name.</target>
             </trans-unit>
 
             <trans-unit id="site_review.site.token.heading">
@@ -616,9 +624,29 @@
                 <source>site_review.site.token.snippet_heading</source>
                 <target>Embed snippet</target>
             </trans-unit>
-            <trans-unit id="site_review.error.token_already_minted">
-                <source>site_review.error.token_already_minted</source>
-                <target>This site already has a token. Revoke it first.</target>
+            <trans-unit id="project.error.widget_token_already_minted">
+                <source>project.error.widget_token_already_minted</source>
+                <target>This project already has a widget token. Revoke it first.</target>
+            </trans-unit>
+            <trans-unit id="project.mcp_token.heading">
+                <source>project.mcp_token.heading</source>
+                <target>MCP token</target>
+            </trans-unit>
+            <trans-unit id="project.mcp_token.hint">
+                <source>project.mcp_token.hint</source>
+                <target>Lets MCP clients act on this project. Keep it secret.</target>
+            </trans-unit>
+            <trans-unit id="project.mcp_token.mint">
+                <source>project.mcp_token.mint</source>
+                <target>Mint MCP token</target>
+            </trans-unit>
+            <trans-unit id="project.mcp_token.flash_minted">
+                <source>project.mcp_token.flash_minted</source>
+                <target>Token created. Copy it now — it will not be shown again:</target>
+            </trans-unit>
+            <trans-unit id="project.error.mcp_token_already_minted">
+                <source>project.error.mcp_token_already_minted</source>
+                <target>This project already has an MCP token. Revoke it first.</target>
             </trans-unit>
             <trans-unit id="site_review.error.nothing_to_submit">
                 <source>site_review.error.nothing_to_submit</source>

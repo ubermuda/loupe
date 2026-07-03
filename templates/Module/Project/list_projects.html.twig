@@ -1,0 +1,54 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}{{ 'project.list.page.title'|trans }} — {{ 'app.name'|trans }}{% endblock %}
+
+{% block body %}
+<div class="bp-page">
+    <div class="bp-page-header">
+        <h1 class="bp-page-title">{{ 'project.list.page.title'|trans }}</h1>
+    </div>
+
+    <div class="bp-card mb-6">
+        {{ form_start(form, {'action': path('app_project_create'), 'method': 'POST', 'attr': {'class': 'bp-form'}}) }}
+            <div class="bp-form-field">
+                {{ form_label(form.name, null, {'label_attr': {'class': 'bp-label'}}) }}
+                {{ form_widget(form.name, {'attr': {'class': 'bp-input'}}) }}
+                <div class="bp-field-errors">{{ form_errors(form.name) }}</div>
+            </div>
+            <div class="bp-form-field">
+                {{ form_label(form.domain, null, {'label_attr': {'class': 'bp-label'}}) }}
+                {{ form_widget(form.domain, {'attr': {'class': 'bp-input'}}) }}
+                <div class="bp-field-errors">{{ form_errors(form.domain) }}</div>
+            </div>
+            <div class="flex items-center justify-end gap-3 pt-2">
+                <button type="submit" class="bp-btn bp-btn--primary">{{ 'project.list.form.submit'|trans }}</button>
+            </div>
+        {{ form_end(form) }}
+    </div>
+
+    {% if projects|length > 0 %}
+    <div class="bp-doc-list">
+        {% for project in projects %}
+        <div class="bp-doc-row" data-project-id="{{ project.id }}">
+            <div class="bp-doc-row__main">
+                <a href="{{ path('app_project_documents', {id: project.id}) }}" class="bp-doc-row__title bp-doc-row__title--stretched">{{ project.name }}</a>
+                <div class="bp-doc-row__meta">
+                    {% if project.domain %}
+                    <span>{{ project.domain }}</span>
+                    <span>·</span>
+                    {% endif %}
+                    <span>{{ project.createdAt|date('M j, Y') }}</span>
+                </div>
+            </div>
+            <twig:ux:icon name="lucide:chevron-right" class="w-4 h-4 text-fg-dim shrink-0" />
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="bp-card flex flex-col items-center text-center gap-3 py-12">
+        <twig:ux:icon name="lucide:globe" class="w-8 h-8 text-fg-dim" />
+        <p class="bp-empty not-italic">{{ 'project.list.empty'|trans }}</p>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

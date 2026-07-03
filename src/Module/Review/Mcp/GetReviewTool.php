@@ -4,12 +4,13 @@ declare(strict_types=1);
 
 namespace App\Module\Review\Mcp;
 
-use App\Module\Account\Entity\User;
+use App\Mcp\ResolvesBoundProject;
+
+use App\Module\Project\Security\AuthenticatedProjectResolver;
 use App\Module\Review\Query\DocumentNotFound;
 use App\Module\Review\Query\GetReview;
 use Mcp\Capability\Attribute\McpTool;
 use Mcp\Exception\ToolCallException;
-use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\Uid\Uuid;
 
 /**
@@ -18,9 +19,11 @@ use Symfony\Component\Uid\Uuid;
 #[McpTool(name: 'get_review', description: 'Fetch the review state (verdict, status, and threaded comments) for a document\'s current version.')]
 final readonly class GetReviewTool
 {
+    use ResolvesBoundProject;
+
     public function __construct(
         private GetReview $getReview,
-        private Security $security,
+        private AuthenticatedProjectResolver $projectResolver,
     ) {
     }
 
@@ -33,11 +36,10 @@ final readonly class GetReviewTool
      */
     public function __invoke(string $documentId): array
     {
-        /** @var User $user */
-        $user = $this->security->getUser();
+        $project = $this->requireBoundProject($this->projectResolver);
 
         try {
-            return ($this->getReview)(Uuid::fromString($documentId), $user);
+            return ($this->getReview)(Uuid::fromString($documentId), $project);
         } catch (DocumentNotFound $e) {
             throw new ToolCallException($e->getMessage(), previous: $e);
         } catch (\InvalidArgumentException $e) {

@@ -14,4 +14,5 @@ framework:
             - submit-review
             - comment-action
             - mint-site-token
+            - mint-project-mcp-token
             - site-review-comment-action

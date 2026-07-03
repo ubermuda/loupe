@@ -57,9 +57,16 @@ test('a sent review is resolvable on the site page', async ({ page }) => {
     await page.getByLabel('Email').fill(E2E_EMAIL);
     await page.getByLabel('Password').fill(E2E_PASSWORD);
     await page.getByRole('button', { name: 'Sign in' }).click();
-    await expect(page).toHaveURL('/documents');
-    await page.goto('/site-review/sites');
-    await page.getByRole('link', { name: 'e2e-harness' }).click();
+    // The harness created the `e2e-harness` project above, so this owner has
+    // exactly one project and HomeController lands them on its documents
+    // dashboard. Capture the project id from that URL to reach the site-review
+    // page (which has no nav link yet — that arrives in a later Loop PR).
+    await expect(page).toHaveURL(/\/projects\/[0-9a-f-]+\/documents$/);
+    const projectId = /\/projects\/([0-9a-f-]+)\/documents$/.exec(
+        page.url(),
+    )?.[1];
+    expect(projectId).toBeTruthy();
+    await page.goto(`/projects/${projectId}/site-review`);
 
     // The submitted review shows the comment as Pending.
     const comment = page.locator('[data-comment-id]', {

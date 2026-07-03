@@ -32,6 +32,6 @@ final class SiteReviewCommentVoter extends Voter
     #[\Override]
     protected function voteOnAttribute(string $attribute, mixed $subject, TokenInterface $token, ?Vote $vote = null): bool
     {
-        return $subject->review->site->owner === $token->getUser();
+        return $subject->review->project->owner === $token->getUser();
     }
 }

@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Module\SiteReview\Repository;
 
-use App\Module\SiteReview\Entity\Site;
+use App\Module\Project\Entity\Project;
 use App\Module\SiteReview\Entity\SiteReview;
 use App\Module\SiteReview\Entity\SiteReviewStatus;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
@@ -20,14 +20,14 @@ class SiteReviewRepository extends ServiceEntityRepository
         parent::__construct($registry, SiteReview::class);
     }
 
-    public function findOneInProgress(Site $site): ?SiteReview
+    public function findOneInProgress(Project $project): ?SiteReview
     {
-        return $this->findOneBy(['site' => $site, 'status' => SiteReviewStatus::InProgress]);
+        return $this->findOneBy(['project' => $project, 'status' => SiteReviewStatus::InProgress]);
     }
 
     /** @return list<SiteReview> */
-    public function findForSite(Site $site): array
+    public function findForProject(Project $project): array
     {
-        return $this->findBy(['site' => $site], ['createdAt' => 'DESC']);
+        return $this->findBy(['project' => $project], ['createdAt' => 'DESC']);
     }
 }

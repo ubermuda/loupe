@@ -7,7 +7,7 @@ namespace App\Tests\Module\SiteReview\Controller;
 use App\Module\Account\Entity\ApiToken;
 use App\Module\Account\Entity\ApiTokenScope;
 use App\Module\Account\Entity\User;
-use App\Module\SiteReview\Entity\Site;
+use App\Module\Project\Entity\Project;
 use App\Module\SiteReview\Entity\SiteReviewStatus;
 use App\Module\SiteReview\Repository\SiteReviewRepository;
 use Doctrine\ORM\EntityManagerInterface;
@@ -20,21 +20,21 @@ final class SiteReviewApiTest extends WebTestCase
     /**
      * @param non-empty-string $email
      *
-     * @return array{0: string, 1: Site} raw token + its site
+     * @return array{0: string, 1: Project} raw token + its project
      */
-    private function siteWithToken(EntityManagerInterface $em, string $email, string $name = 'api-site'): array
+    private function projectWithToken(EntityManagerInterface $em, string $email, string $name = 'api-site'): array
     {
         $user = new User(username: $email, fullName: 'U', email: $email, password: 'x');
         $user->emailVerifiedAt = new \DateTimeImmutable();
         $em->persist($user);
         [$token, $raw] = ApiToken::issue($user, 'widget', ApiTokenScope::SiteReview);
         $em->persist($token);
-        $site = new Site($user, $name);
-        $site->token = $token;
-        $em->persist($site);
+        $project = new Project($user, $name);
+        $project->widgetToken = $token;
+        $em->persist($project);
         $em->flush();
 
-        return [$raw, $site];
+        return [$raw, $project];
     }
 
     /** @param array<string, mixed>|null $json */
@@ -49,7 +49,7 @@ final class SiteReviewApiTest extends WebTestCase
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
-        [$raw, $site] = $this->siteWithToken($em, 'api-a@example.com');
+        [$raw, $project] = $this->projectWithToken($em, 'api-a@example.com');
 
         $this->api($client, Request::METHOD_POST, '/api/site-review/comments', $raw,
             ['body' => 'too big', 'selector' => '.card', 'text' => 'Save', 'url' => 'https://app/x']);
@@ -59,7 +59,7 @@ final class SiteReviewApiTest extends WebTestCase
         self::assertIsArray($data);
         self::assertArrayHasKey('commentId', $data);
 
-        $review = static::getContainer()->get(SiteReviewRepository::class)->findOneInProgress($site);
+        $review = static::getContainer()->get(SiteReviewRepository::class)->findOneInProgress($project);
         self::assertNotNull($review);
         self::assertCount(1, $review->comments);
     }
@@ -85,7 +85,7 @@ final class SiteReviewApiTest extends WebTestCase
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
-        [$raw, $site] = $this->siteWithToken($em, 'api-c@example.com');
+        [$raw, $project] = $this->projectWithToken($em, 'api-c@example.com');
 
         $this->api($client, Request::METHOD_GET, '/api/site-review/review', $raw);
         self::assertSame(['review' => null], json_decode((string) $client->getResponse()->getContent(), true));
@@ -103,7 +103,7 @@ final class SiteReviewApiTest extends WebTestCase
         $this->api($client, Request::METHOD_POST, '/api/site-review/review/submit', $raw);
         self::assertResponseIsSuccessful();
         $em->clear();
-        $submitted = static::getContainer()->get(SiteReviewRepository::class)->findForSite($site);
+        $submitted = static::getContainer()->get(SiteReviewRepository::class)->findForProject($project);
         self::assertSame(SiteReviewStatus::Submitted, $submitted[0]->status);
 
         // No draft anymore: a second submit is a 422, and GET review is null again.
@@ -115,7 +115,7 @@ final class SiteReviewApiTest extends WebTestCase
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
-        [$raw] = $this->siteWithToken($em, 'api-d@example.com');
+        [$raw] = $this->projectWithToken($em, 'api-d@example.com');
 
         $this->api($client, Request::METHOD_POST, '/api/site-review/comments', $raw, ['body' => 'orig', 'url' => 'https://app/x']);
         $id = json_decode((string) $client->getResponse()->getContent(), true)['commentId'];
@@ -137,8 +137,8 @@ final class SiteReviewApiTest extends WebTestCase
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
-        [$rawA] = $this->siteWithToken($em, 'api-e@example.com', 'site-a');
-        [$rawB] = $this->siteWithToken($em, 'api-f@example.com', 'site-b');
+        [$rawA] = $this->projectWithToken($em, 'api-e@example.com', 'site-a');
+        [$rawB] = $this->projectWithToken($em, 'api-f@example.com', 'site-b');
 
         $this->api($client, Request::METHOD_POST, '/api/site-review/comments', $rawA, ['body' => 'mine', 'url' => 'https://app/x']);
         $id = json_decode((string) $client->getResponse()->getContent(), true)['commentId'];
@@ -170,7 +170,7 @@ final class SiteReviewApiTest extends WebTestCase
         self::assertResponseStatusCodeSame(403);
 
         // Blank body → 422; malformed comment id → 404.
-        [$raw] = $this->siteWithToken($em, 'api-h@example.com');
+        [$raw] = $this->projectWithToken($em, 'api-h@example.com');
         $this->api($client, Request::METHOD_POST, '/api/site-review/comments', $raw, ['body' => '  ', 'url' => 'https://app/x']);
         self::assertResponseStatusCodeSame(422);
 

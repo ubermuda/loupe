@@ -5,19 +5,20 @@ declare(strict_types=1);
 namespace App\Tests\Module\SiteReview\Mcp;
 
 use App\Module\Account\Entity\User;
-use App\Module\SiteReview\Entity\Site;
+use App\Module\Project\Entity\Project;
 use App\Module\SiteReview\Entity\SiteReview;
 use App\Module\SiteReview\Entity\SiteReviewCommentStatus;
 use App\Module\SiteReview\Entity\SiteReviewStatus;
 use App\Module\SiteReview\Mcp\GetSiteReviewTool;
+use App\Tests\Support\McpTokenScenario;
 use Doctrine\ORM\EntityManagerInterface;
 use Mcp\Exception\ToolCallException;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
-use Symfony\Component\Security\Core\Authentication\Token\Storage\TokenStorageInterface;
-use Symfony\Component\Security\Core\Authentication\Token\UsernamePasswordToken;
 
 final class GetSiteReviewToolTest extends KernelTestCase
 {
+    use McpTokenScenario;
+
     private EntityManagerInterface $em;
     private GetSiteReviewTool $tool;
 
@@ -34,33 +35,25 @@ final class GetSiteReviewToolTest extends KernelTestCase
         $this->tool = $tool;
     }
 
-    private function actAs(User $user): void
-    {
-        $token = new UsernamePasswordToken($user, 'main', $user->getRoles());
-        $tokenStorage = self::getContainer()->get('security.token_storage');
-        self::assertInstanceOf(TokenStorageInterface::class, $tokenStorage);
-        $tokenStorage->setToken($token);
-    }
-
     /**
      * @param non-empty-string $email
      *
-     * @return array{Site, SiteReview} site + one submitted review with 2 pending comments
+     * @return array{Project, SiteReview} project + one submitted review with 2 pending comments
      */
-    private function siteWithSubmittedReview(string $email, string $name = 'tool-site'): array
+    private function projectWithSubmittedReview(string $email, string $name = 'tool-site'): array
     {
         $user = new User(username: $email, fullName: 'U', email: $email, password: 'x');
         $this->em->persist($user);
-        $site = new Site($user, $name);
-        $this->em->persist($site);
-        $review = new SiteReview($site);
+        $project = new Project($user, $name);
+        $this->em->persist($project);
+        $review = new SiteReview($project);
         $review->addComment('first', '.a', 'A', 'https://app/x');
         $review->addComment('second', '', '', 'https://app/y');
         $review->markSubmitted();
         $this->em->persist($review);
         $this->em->flush();
 
-        return [$site, $review];
+        return [$project, $review];
     }
 
     public function test_returns_pending_comments_of_submitted_reviews_in_order(): void
@@ -68,34 +61,34 @@ final class GetSiteReviewToolTest extends KernelTestCase
         $userEmail = 'get-order@example.com';
         $user = new User(username: $userEmail, fullName: 'U', email: $userEmail, password: 'x');
         $this->em->persist($user);
-        $site = new Site($user, 'order-site');
-        $this->em->persist($site);
+        $project = new Project($user, 'order-site');
+        $this->em->persist($project);
 
         // Older review — will appear first in results.
-        $olderReview = new SiteReview($site);
+        $olderReview = new SiteReview($project);
         $olderReview->addComment('older-comment', '.b', 'B', 'https://app/old');
         $olderReview->status = SiteReviewStatus::Submitted;
         $olderReview->submittedAt = new \DateTimeImmutable('-1 hour');
         $this->em->persist($olderReview);
 
         // Newer review — 2 pending comments.
-        $newerReview = new SiteReview($site);
+        $newerReview = new SiteReview($project);
         $newerReview->addComment('newer-first', '.c', 'C', 'https://app/new1');
         $newerReview->addComment('newer-second', '.d', 'D', 'https://app/new2');
         $newerReview->markSubmitted();
         $this->em->persist($newerReview);
 
         // Draft review — comments must NOT appear.
-        $draftReview = new SiteReview($site);
+        $draftReview = new SiteReview($project);
         $draftReview->addComment('draft-comment', '.e', 'E', 'https://app/draft');
         $this->em->persist($draftReview);
 
         $this->em->flush();
 
-        $this->actAs($user);
-        $result = ($this->tool)('order-site');
+        $this->actAsMcpTokenBoundTo($project);
+        $result = ($this->tool)();
 
-        self::assertSame((string) $site->id, $result['site']['id']);
+        self::assertSame((string) $project->id, $result['site']['id']);
         self::assertSame('order-site', $result['site']['name']);
 
         // Draft comment must be absent; only 3 pending comments from 2 submitted reviews.
@@ -126,9 +119,9 @@ final class GetSiteReviewToolTest extends KernelTestCase
         $userEmail = 'get-status@example.com';
         $user = new User(username: $userEmail, fullName: 'U', email: $userEmail, password: 'x');
         $this->em->persist($user);
-        $site = new Site($user, 'status-site');
-        $this->em->persist($site);
-        $review = new SiteReview($site);
+        $project = new Project($user, 'status-site');
+        $this->em->persist($project);
+        $review = new SiteReview($project);
         $c1 = $review->addComment('pending', '.a', 'A', 'https://app/x');
         $c2 = $review->addComment('addressed', '.b', 'B', 'https://app/y');
         $c3 = $review->addComment('resolved', '.c', 'C', 'https://app/z');
@@ -140,43 +133,71 @@ final class GetSiteReviewToolTest extends KernelTestCase
         $c3->status = SiteReviewCommentStatus::Resolved;
         $this->em->flush();
 
-        $this->actAs($user);
-        $result = ($this->tool)('status-site');
+        $this->actAsMcpTokenBoundTo($project);
+        $result = ($this->tool)();
 
         self::assertCount(1, $result['comments']);
         self::assertSame('pending', $result['comments'][0]['body']);
     }
 
-    public function test_resolves_site_by_name_and_by_id(): void
+    public function test_matching_handle_by_name_or_id_returns_the_bound_project(): void
     {
         $userEmail = 'get-resolve@example.com';
-        [$site] = $this->siteWithSubmittedReview($userEmail, 'resolve-site');
-        $user = $site->owner;
+        [$project] = $this->projectWithSubmittedReview($userEmail, 'resolve-site');
 
-        $this->actAs($user);
+        $this->actAsMcpTokenBoundTo($project);
 
-        $byName = ($this->tool)($site->name);
-        $siteId = $site->id;
+        $withoutHandle = ($this->tool)();
+        $byName = ($this->tool)($project->name);
+        $siteId = $project->id;
         self::assertNotNull($siteId);
         $byId = ($this->tool)((string) $siteId);
 
+        self::assertSame($withoutHandle['comments'], $byName['comments']);
+        self::assertSame($withoutHandle['site'], $byName['site']);
         self::assertSame($byName['comments'], $byId['comments']);
         self::assertSame($byName['site'], $byId['site']);
     }
 
-    public function test_other_users_site_is_not_found(): void
+    public function test_handle_naming_another_project_of_the_same_owner_is_rejected(): void
     {
-        $ownerEmail = 'get-owner@example.com';
-        [$site] = $this->siteWithSubmittedReview($ownerEmail, 'private-site');
+        $userEmail = 'get-mismatch@example.com';
+        [$boundProject] = $this->projectWithSubmittedReview($userEmail, 'bound-site');
 
-        $otherEmail = 'get-other@example.com';
-        $other = new User(username: $otherEmail, fullName: 'Other', email: $otherEmail, password: 'x');
-        $this->em->persist($other);
+        $otherProject = new Project($boundProject->owner, 'other-site');
+        $this->em->persist($otherProject);
         $this->em->flush();
 
-        $this->actAs($other);
+        $this->actAsMcpTokenBoundTo($boundProject);
 
         $this->expectException(ToolCallException::class);
-        ($this->tool)($site->name);
+        $this->expectExceptionMessage('Token is not bound to that project.');
+        ($this->tool)('other-site');
+    }
+
+    public function test_unknown_handle_is_not_found(): void
+    {
+        $userEmail = 'get-unknown@example.com';
+        [$project] = $this->projectWithSubmittedReview($userEmail, 'known-site');
+
+        $this->actAsMcpTokenBoundTo($project);
+
+        $this->expectException(ToolCallException::class);
+        $this->expectExceptionMessage('No site "nope" found.');
+        ($this->tool)('nope');
+    }
+
+    public function test_unbound_mcp_token_is_rejected(): void
+    {
+        $userEmail = 'get-unbound@example.com';
+        $user = new User(username: $userEmail, fullName: 'U', email: $userEmail, password: 'x');
+        $this->em->persist($user);
+        $this->em->flush();
+
+        $this->actAsUnboundMcpToken($user);
+
+        $this->expectException(ToolCallException::class);
+        $this->expectExceptionMessage('MCP token is not bound to a project. Mint a project token from the Connect page.');
+        ($this->tool)();
     }
 }

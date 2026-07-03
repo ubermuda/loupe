@@ -4,13 +4,14 @@ declare(strict_types=1);
 
 namespace App\Module\SiteReview\Mcp;
 
-use App\Module\Account\Entity\User;
+use App\Mcp\ResolvesBoundProject;
+
+use App\Module\Project\Security\AuthenticatedProjectResolver;
 use App\Module\SiteReview\Entity\SiteReviewCommentStatus;
 use App\Module\SiteReview\Entity\SiteReviewStatus;
 use App\Module\SiteReview\Repository\SiteReviewCommentRepository;
 use Doctrine\ORM\EntityManagerInterface;
 use Mcp\Capability\Attribute\McpTool;
-use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\Uid\Uuid;
 
 /**
@@ -20,10 +21,12 @@ use Symfony\Component\Uid\Uuid;
 #[McpTool(name: 'address_site_review_comments', description: 'Mark site-review comments as addressed after fixing them. Accepts the comment ids returned by get_site_review. Comments that are unknown, already addressed, or resolved are skipped, not fatal.')]
 final readonly class AddressSiteReviewCommentsTool
 {
+    use ResolvesBoundProject;
+
     public function __construct(
         private SiteReviewCommentRepository $siteReviewComments,
         private EntityManagerInterface $em,
-        private Security $security,
+        private AuthenticatedProjectResolver $projectResolver,
     ) {
     }
 
@@ -34,8 +37,7 @@ final readonly class AddressSiteReviewCommentsTool
      */
     public function __invoke(array $commentIds): array
     {
-        /** @var User $user */
-        $user = $this->security->getUser();
+        $project = $this->requireBoundProject($this->projectResolver);
 
         $addressed = [];
         $skipped = [];
@@ -47,7 +49,7 @@ final readonly class AddressSiteReviewCommentsTool
                 continue;
             }
 
-            $comment = $this->siteReviewComments->findOneForOwner($uuid, $user);
+            $comment = $this->siteReviewComments->findOneForProject($uuid, $project);
             if (null === $comment) {
                 $skipped[] = ['id' => $id, 'reason' => 'unknown'];
                 continue;

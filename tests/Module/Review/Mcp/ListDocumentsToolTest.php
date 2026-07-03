@@ -5,17 +5,20 @@ declare(strict_types=1);
 namespace App\Tests\Module\Review\Mcp;
 
 use App\Module\Account\Entity\User;
+use App\Module\Project\Entity\Project;
 use App\Module\Review\Entity\Document;
 use App\Module\Review\Mcp\ListDocumentsTool;
-use App\Module\Review\Repository\DocumentRepository;
+use App\Tests\Support\McpTokenScenario;
 use Doctrine\ORM\EntityManagerInterface;
+use Mcp\Exception\ToolCallException;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
-use Symfony\Bundle\SecurityBundle\Security;
 
 final class ListDocumentsToolTest extends KernelTestCase
 {
+    use McpTokenScenario;
+
     private EntityManagerInterface $em;
-    private DocumentRepository $documentRepository;
+    private ListDocumentsTool $tool;
 
     protected function setUp(): void
     {
@@ -25,57 +28,86 @@ final class ListDocumentsToolTest extends KernelTestCase
         self::assertInstanceOf(EntityManagerInterface::class, $em);
         $this->em = $em;
 
-        $repo = self::getContainer()->get(DocumentRepository::class);
-        self::assertInstanceOf(DocumentRepository::class, $repo);
-        $this->documentRepository = $repo;
+        $tool = self::getContainer()->get(ListDocumentsTool::class);
+        self::assertInstanceOf(ListDocumentsTool::class, $tool);
+        $this->tool = $tool;
     }
 
-    public function test_returns_only_authenticated_users_documents(): void
+    /** @param non-empty-string $email */
+    private function user(string $email): User
     {
-        $userA = new User(
-            username: 'user_a',
-            fullName: 'User A',
-            email: 'user_a@example.com',
-            password: 'hashed',
-        );
-        $userB = new User(
-            username: 'user_b',
-            fullName: 'User B',
-            email: 'user_b@example.com',
-            password: 'hashed',
-        );
-        $this->em->persist($userA);
-        $this->em->persist($userB);
+        $user = new User(username: $email, fullName: 'U', email: $email, password: 'hashed');
+        $this->em->persist($user);
 
-        $docA = new Document($userA, 'User A Document');
+        return $user;
+    }
+
+    private function project(User $owner): Project
+    {
+        $project = new Project($owner, 'p-'.uniqid());
+        $this->em->persist($project);
+
+        return $project;
+    }
+
+    public function test_returns_only_the_bound_projects_documents_even_for_the_same_owner(): void
+    {
+        $owner = $this->user('list-owner@example.com');
+        $projectA = $this->project($owner);
+        $projectB = $this->project($owner);
+
+        $docA = new Document(owner: $owner, project: $projectA, title: 'Project A Document');
         $docA->addVersion('# Content A', '<h1>Content A</h1>');
         $this->em->persist($docA);
 
-        $docB = new Document($userB, 'User B Document');
+        $docB = new Document(owner: $owner, project: $projectB, title: 'Project B Document');
         $docB->addVersion('# Content B', '<h1>Content B</h1>');
         $this->em->persist($docB);
 
         $this->em->flush();
 
-        // Stub Security to return user A as the authenticated user.
-        $security = $this->createStub(Security::class);
-        $security->method('getUser')->willReturn($userA);
+        $this->actAsMcpTokenBoundTo($projectA);
 
-        $tool = new ListDocumentsTool($this->documentRepository, $security);
+        $result = ($this->tool)();
 
-        $result = $tool();
-
-        // Should return exactly one document — user A's.
+        // Exactly one document — project A's, despite both belonging to the same owner.
         self::assertCount(1, $result);
 
         $item = $result[0];
         self::assertSame((string) $docA->id, $item['documentId']);
-        self::assertSame('User A Document', $item['title']);
+        self::assertSame('Project A Document', $item['title']);
         self::assertSame('in-review', $item['status']);
         self::assertSame(1, $item['currentVersion']);
 
-        // User B's document must not appear.
         $returnedIds = array_column($result, 'documentId');
         self::assertNotContains((string) $docB->id, $returnedIds);
+    }
+
+    public function test_another_users_documents_are_not_visible(): void
+    {
+        $ownerA = $this->user('list-a@example.com');
+        $ownerB = $this->user('list-b@example.com');
+        $projectA = $this->project($ownerA);
+        $projectB = $this->project($ownerB);
+
+        $docB = new Document(owner: $ownerB, project: $projectB, title: 'Foreign Document');
+        $docB->addVersion('# B', '<h1>B</h1>');
+        $this->em->persist($docB);
+        $this->em->flush();
+
+        $this->actAsMcpTokenBoundTo($projectA);
+
+        self::assertSame([], ($this->tool)());
+    }
+
+    public function test_unbound_mcp_token_is_rejected(): void
+    {
+        $owner = $this->user('list-unbound@example.com');
+
+        $this->actAsUnboundMcpToken($owner);
+
+        $this->expectException(ToolCallException::class);
+        $this->expectExceptionMessage('MCP token is not bound to a project. Mint a project token from the Connect page.');
+        ($this->tool)();
     }
 }

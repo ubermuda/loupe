@@ -7,7 +7,7 @@ namespace App\Tests\Module\SiteReview\Command;
 use App\Module\Account\Entity\User;
 use App\Module\SiteReview\Command\AddCommentCommand;
 use App\Module\SiteReview\Command\AddCommentHandler;
-use App\Module\SiteReview\Entity\Site;
+use App\Module\Project\Entity\Project;
 use App\Module\SiteReview\Entity\SiteReviewStatus;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
@@ -30,8 +30,8 @@ final class AddCommentHandlerTest extends KernelTestCase
 
     public function test_first_comment_opens_a_review(): void
     {
-        $site = $this->site('add-a@example.com');
-        $comment = ($this->handler)(new AddCommentCommand($site, 'hello', '.a', 'A', 'https://app/x'));
+        $project = $this->project('add-a@example.com');
+        $comment = ($this->handler)(new AddCommentCommand($project, 'hello', '.a', 'A', 'https://app/x'));
 
         self::assertNotNull($comment->id);
         self::assertSame(SiteReviewStatus::InProgress, $comment->review->status);
@@ -40,9 +40,9 @@ final class AddCommentHandlerTest extends KernelTestCase
 
     public function test_second_comment_reuses_the_open_review(): void
     {
-        $site = $this->site('add-b@example.com');
-        $first = ($this->handler)(new AddCommentCommand($site, 'one', '', '', 'https://app/x'));
-        $second = ($this->handler)(new AddCommentCommand($site, 'two', '', '', 'https://app/y'));
+        $project = $this->project('add-b@example.com');
+        $first = ($this->handler)(new AddCommentCommand($project, 'one', '', '', 'https://app/x'));
+        $second = ($this->handler)(new AddCommentCommand($project, 'two', '', '', 'https://app/y'));
 
         self::assertSame((string) $first->review->id, (string) $second->review->id);
         self::assertSame(1, $second->position);
@@ -50,26 +50,26 @@ final class AddCommentHandlerTest extends KernelTestCase
 
     public function test_comment_after_submit_opens_a_new_review(): void
     {
-        $site = $this->site('add-c@example.com');
-        $first = ($this->handler)(new AddCommentCommand($site, 'one', '', '', 'https://app/x'));
+        $project = $this->project('add-c@example.com');
+        $first = ($this->handler)(new AddCommentCommand($project, 'one', '', '', 'https://app/x'));
         $first->review->markSubmitted();
         $this->em->flush();
 
-        $next = ($this->handler)(new AddCommentCommand($site, 'two', '', '', 'https://app/y'));
+        $next = ($this->handler)(new AddCommentCommand($project, 'two', '', '', 'https://app/y'));
 
         self::assertNotSame((string) $first->review->id, (string) $next->review->id);
         self::assertSame(0, $next->position);
     }
 
     /** @param non-empty-string $email */
-    private function site(string $email, string $name = 'handler-site'): Site
+    private function project(string $email, string $name = 'handler-site'): Project
     {
         $user = new User(username: $email, fullName: 'U', email: $email, password: 'x');
         $this->em->persist($user);
-        $site = new Site($user, $name);
-        $this->em->persist($site);
+        $project = new Project($user, $name);
+        $this->em->persist($project);
         $this->em->flush();
 
-        return $site;
+        return $project;
     }
 }

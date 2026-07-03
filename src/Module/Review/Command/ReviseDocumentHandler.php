@@ -28,7 +28,7 @@ final readonly class ReviseDocumentHandler
      */
     public function __invoke(ReviseDocumentCommand $command): array
     {
-        $document = $this->documents->findOneByIdAndOwner($command->documentId, $command->owner);
+        $document = $this->documents->findOneByIdAndProject($command->documentId, $command->project);
         if (null === $document) {
             throw DocumentNotFound::forId($command->documentId);
         }

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Module\SiteReview\Entity;
 
+use App\Module\Project\Entity\Project;
 use App\Module\SiteReview\Repository\SiteReviewRepository;
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
@@ -13,7 +14,7 @@ use Symfony\Component\Uid\Uuid;
 
 #[ORM\Entity(repositoryClass: SiteReviewRepository::class)]
 #[ORM\Table(name: 'site_review_reviews')]
-#[ORM\UniqueConstraint(name: 'uniq_site_review_in_progress', columns: ['site_id'], options: ['where' => "((status)::text = 'in-progress'::text)"])]
+#[ORM\UniqueConstraint(name: 'uniq_site_review_in_progress', columns: ['project_id'], options: ['where' => "((status)::text = 'in-progress'::text)"])]
 class SiteReview
 {
     #[ORM\Column(type: UuidType::NAME, unique: true)]
@@ -35,8 +36,8 @@ class SiteReview
 
     public function __construct(
         #[ORM\JoinColumn(nullable: false)]
-        #[ORM\ManyToOne(targetEntity: Site::class)]
-        public readonly Site $site,
+        #[ORM\ManyToOne(targetEntity: Project::class)]
+        public readonly Project $project,
 
         #[ORM\Column]
         public readonly \DateTimeImmutable $createdAt = new \DateTimeImmutable(),

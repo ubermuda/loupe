@@ -4,41 +4,49 @@ declare(strict_types=1);
 
 namespace App\Module\SiteReview\Mcp;
 
-use App\Module\Account\Entity\User;
+use App\Mcp\ResolvesBoundProject;
+
+use App\Module\Project\Repository\ProjectRepository;
+use App\Module\Project\Security\AuthenticatedProjectResolver;
 use App\Module\SiteReview\Entity\SiteReviewComment;
-use App\Module\SiteReview\Repository\SiteRepository;
 use App\Module\SiteReview\Repository\SiteReviewCommentRepository;
 use Mcp\Capability\Attribute\McpTool;
 use Mcp\Exception\ToolCallException;
-use Symfony\Bundle\SecurityBundle\Security;
 
-#[McpTool(name: 'get_site_review', description: 'Fetch all unaddressed site-review comments (DOM-anchored feedback captured in the browser) for one of your sites, by site id or site name. Address each comment, then mark it with address_site_review_comments.')]
+#[McpTool(name: 'get_site_review', description: 'Fetch all unaddressed site-review comments (DOM-anchored feedback captured in the browser) for the project bound to your MCP token. Address each comment, then mark it with address_site_review_comments.')]
 final readonly class GetSiteReviewTool
 {
+    use ResolvesBoundProject;
+
     public function __construct(
-        private SiteRepository $sites,
+        private ProjectRepository $projects,
         private SiteReviewCommentRepository $siteReviewComments,
-        private Security $security,
+        private AuthenticatedProjectResolver $projectResolver,
     ) {
     }
 
     /**
-     * @param string $site the site id or site name shown in the Better Plans sites page
+     * @param string|null $site optional site id or site name; must match the project your MCP token is bound to
      *
      * @return array{site: array{id: string, name: string}, comments: list<array{id: string, url: string, selector: string, text: string, body: string, reviewId: string, submittedAt: ?string}>}
      */
-    public function __invoke(string $site): array
+    public function __invoke(?string $site = null): array
     {
-        /** @var User $user */
-        $user = $this->security->getUser();
+        $project = $this->requireBoundProject($this->projectResolver);
 
-        $resolved = $this->sites->findOneByIdOrNameForOwner($site, $user)
-            ?? throw new ToolCallException(\sprintf('No site "%s" found.', $site));
+        if (null !== $site) {
+            $resolved = $this->projects->findOneByIdOrNameForOwner($site, $project->owner)
+                ?? throw new ToolCallException(\sprintf('No site "%s" found.', $site));
 
-        $pending = $this->siteReviewComments->findPendingForSite($resolved);
+            if ($resolved !== $project) {
+                throw new ToolCallException('Token is not bound to that project.');
+            }
+        }
+
+        $pending = $this->siteReviewComments->findPendingForProject($project);
 
         return [
-            'site' => ['id' => (string) $resolved->id, 'name' => $resolved->name],
+            'site' => ['id' => (string) $project->id, 'name' => $project->name],
             'comments' => array_values(array_map(
                 static fn (SiteReviewComment $c): array => [
                     'id' => (string) $c->id,

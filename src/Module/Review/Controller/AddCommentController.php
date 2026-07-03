@@ -7,6 +7,7 @@ namespace App\Module\Review\Controller;
 use App\Controller\AppController;
 use App\Exception\DomainErrors;
 use App\Module\Account\Entity\User;
+use App\Module\Project\Entity\Project;
 use App\Module\Review\Command\AddCommentCommand;
 use App\Module\Review\Command\AddCommentHandler;
 use App\Module\Review\Entity\Document;
@@ -14,6 +15,7 @@ use App\Module\Review\Form\AddCommentFormType;
 use App\Module\Review\Form\AddCommentRequest;
 use App\Module\Review\Repository\CommentRepository;
 use App\Module\Review\Security\DocumentVoter;
+use Symfony\Bridge\Doctrine\Attribute\MapEntity;
 use Symfony\Component\Form\FormInterface;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -24,7 +26,7 @@ use Symfony\UX\Turbo\TurboBundle;
 
 #[IsGranted(DocumentVoter::VIEW, subject: 'document')]
 #[Route(
-    '/documents/{id:document}/comments',
+    '/projects/{projectId}/documents/{documentId}/comments',
     name: 'app_comment_add',
     methods: ['POST'],
 )]
@@ -37,8 +39,11 @@ final class AddCommentController extends AppController
     ) {
     }
 
-    public function __invoke(Document $document, Request $request): Response
-    {
+    public function __invoke(
+        #[MapEntity(mapping: ['projectId' => 'id'])] Project $project,
+        #[MapEntity(expr: 'repository.findOneByIdAndProjectId(documentId, projectId)')] Document $document,
+        Request $request,
+    ): Response {
         $user = $this->getUser();
         assert($user instanceof User);
 
@@ -68,7 +73,10 @@ final class AddCommentController extends AppController
         }
 
         if (TurboBundle::STREAM_FORMAT !== $request->getPreferredFormat()) {
-            return $this->redirectToRoute('app_document_review', ['id' => (string) $document->id]);
+            return $this->redirectToRoute('app_document_review', [
+                'projectId' => (string) $project->id,
+                'documentId' => (string) $document->id,
+            ]);
         }
 
         if (null !== $errorMessage) {

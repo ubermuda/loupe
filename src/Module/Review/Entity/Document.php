@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Module\Review\Entity;
 
 use App\Module\Account\Entity\User;
+use App\Module\Project\Entity\Project;
 use App\Module\Review\Repository\DocumentRepository;
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
@@ -34,6 +35,10 @@ class Document
         #[ORM\JoinColumn(nullable: false)]
         #[ORM\ManyToOne(targetEntity: User::class)]
         public readonly User $owner,
+
+        #[ORM\JoinColumn(nullable: false)]
+        #[ORM\ManyToOne(targetEntity: Project::class)]
+        public readonly Project $project,
 
         #[ORM\Column(length: 255)]
         public string $title,

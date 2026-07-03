@@ -4,6 +4,7 @@ twig:
         site_review_widget_token: '%env(SITE_REVIEW_WIDGET_TOKEN)%'
     paths:
         '%kernel.project_dir%/templates/Module/Account': 'Account'
+        '%kernel.project_dir%/templates/Module/Project': 'Project'
         '%kernel.project_dir%/templates/Module/SiteReview': 'SiteReview'
         '%kernel.project_dir%/var/tailwind': 'tailwind'
         '%kernel.project_dir%/assets/styles': 'EmailStyles'

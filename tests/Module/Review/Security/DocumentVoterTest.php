@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Tests\Module\Review\Security;
 
 use App\Module\Account\Entity\User;
+use App\Module\Project\Entity\Project;
 use App\Module\Review\Entity\Document;
 use App\Module\Review\Security\DocumentVoter;
 use PHPUnit\Framework\MockObject\Stub;
@@ -42,7 +43,7 @@ final class DocumentVoterTest extends TestCase
     public function test_owner_is_granted_document_view(): void
     {
         $owner = $this->makeUser('alice');
-        $document = new Document(owner: $owner, title: 'My doc');
+        $document = new Document(owner: $owner, project: new Project($owner, 'p'), title: 'My doc');
         $token = $this->makeToken($owner);
 
         $result = $this->voter->vote($token, $document, [DocumentVoter::VIEW]);
@@ -54,7 +55,7 @@ final class DocumentVoterTest extends TestCase
     {
         $owner = $this->makeUser('alice');
         $other = $this->makeUser('eve');
-        $document = new Document(owner: $owner, title: 'Alice doc');
+        $document = new Document(owner: $owner, project: new Project($owner, 'p'), title: 'Alice doc');
         $token = $this->makeToken($other);
 
         $result = $this->voter->vote($token, $document, [DocumentVoter::VIEW]);
@@ -65,7 +66,7 @@ final class DocumentVoterTest extends TestCase
     public function test_unsupported_attribute_abstains(): void
     {
         $owner = $this->makeUser('alice');
-        $document = new Document(owner: $owner, title: 'My doc');
+        $document = new Document(owner: $owner, project: new Project($owner, 'p'), title: 'My doc');
         $token = $this->makeToken($owner);
 
         $result = $this->voter->vote($token, $document, ['document.delete']);
