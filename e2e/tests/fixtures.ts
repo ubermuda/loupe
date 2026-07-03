@@ -19,6 +19,24 @@ export async function suppressToolbar(page: Page): Promise<void> {
     });
 }
 
+/**
+ * Prevents the dogfooding site-review widget from mounting. The widget only
+ * loads in envs where `SITE_REVIEW_WIDGET_TOKEN` is set (dev/e2e), and its
+ * launcher is a `position:fixed` bottom-right shadow host that overlaps the
+ * review console's bottom-pinned verdict bar — a dev-only overlay, like the
+ * debug toolbar. Set the widget's own idempotency flag before its script runs
+ * so it returns early and never appends the host. Use on review-console pages
+ * whose controls sit under the launcher; never on `site-review/widget.spec.ts`,
+ * which tests the widget itself.
+ */
+export async function suppressWidget(page: Page): Promise<void> {
+    await page.addInitScript(() => {
+        (
+            window as unknown as { __betterplansSiteReviewLoaded?: boolean }
+        ).__betterplansSiteReviewLoaded = true;
+    });
+}
+
 type StorageState = Awaited<ReturnType<BrowserContext['storageState']>>;
 
 interface Credentials {

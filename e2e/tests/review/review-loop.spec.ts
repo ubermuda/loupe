@@ -11,7 +11,7 @@
  */
 
 import { test, expect, type Page } from '@playwright/test';
-import { suppressToolbar } from '../fixtures';
+import { suppressToolbar, suppressWidget } from '../fixtures';
 
 const RUN = Date.now();
 
@@ -137,6 +137,7 @@ test('full review loop: comment, request changes, reload persistence', async ({
     page,
 }) => {
     await suppressToolbar(page);
+    await suppressWidget(page);
 
     const email = `e2e+review+${RUN}@example.com`;
     const username = `e2erev${RUN}`;

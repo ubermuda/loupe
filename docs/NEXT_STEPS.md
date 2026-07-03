@@ -259,3 +259,16 @@ response field (or a related entity) to `SiteReviewComment`, have the addressing
 tool persist the reply body, and render it in
 `templates/Module/SiteReview/show_site_review.html.twig` (a placeholder comment
 marks where it goes).
+
+## Site-review widget overlaps the review console's pinned controls (dogfooding)
+
+The site-review widget (loaded on Better Plans' own authenticated pages when
+`SITE_REVIEW_WIDGET_TOKEN` is set — dev/dogfooding) mounts a `position:fixed`
+bottom-right launcher (z-index max). PR 3 pinned the document-review verdict bar
+to the bottom of the 388px margin, so the launcher can overlap the "Request
+changes"/"Approve" buttons in dogfooding mode. The e2e `review-loop` spec
+suppresses the widget (`suppressWidget`, like the debug toolbar) to test the
+review screen in isolation. Product decision to make later: the widget isn't part
+of the review/site-review console screens' design — consider not loading it on
+those routes (scope the `base.html.twig` widget include out of the review console)
+so dogfooding a review doesn't cover the console's own controls.

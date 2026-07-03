@@ -924,6 +924,14 @@
         @apply absolute z-20 bg-elev border border-line-strong rounded-xl shadow-composer p-3 flex flex-col gap-2;
         width: 21.25rem;
     }
+    /* The `flex`/`display` in the rules above outranks the UA `[hidden]` rule
+       (equal specificity, later source order), so a `hidden` composer/toolbar
+       would stay laid out and its absolutely-positioned box would swallow
+       clicks. Restore `display:none` with a higher-specificity attribute rule. */
+    .bp-comment-composer[hidden],
+    .bp-anchor-toolbar[hidden] {
+        display: none;
+    }
     .bp-comment-composer textarea {
         @apply w-full text-sm bg-surface-2 border border-line rounded-lg px-3 py-2 text-fg placeholder:text-fg-dim resize-none outline-hidden focus:border-accent focus:shadow-focus transition-colors;
         min-height: 4.5rem;
