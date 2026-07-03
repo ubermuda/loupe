@@ -108,13 +108,17 @@ final class DocumentDashboardControllerTest extends WebTestCase
         $current = $document->addVersion('# v2', '<h1>v2</h1>');
         $em->persist($document);
 
-        // One open top-level thread + one resolved top-level thread on the current
-        // version → the meta line should read "1 open thread".
+        // One open top-level thread + one resolved top-level thread + one
+        // unresolved reply (parent set) on the current version. The meta counts
+        // only unresolved *top-level* threads, so the reply must NOT bump the
+        // count → the meta line should read "1 open thread".
         $open = new Comment($current, $alice, 'Please rethink the window.', Anchor::unanchored());
         $resolved = new Comment($current, $alice, 'Fixed, thanks.', Anchor::unanchored());
         $resolved->resolved = true;
+        $reply = new Comment($current, $alice, 'Agreed — and one more thing.', Anchor::unanchored(), $open);
         $em->persist($open);
         $em->persist($resolved);
+        $em->persist($reply);
 
         $em->flush();
         $projectId = (string) $project->id;

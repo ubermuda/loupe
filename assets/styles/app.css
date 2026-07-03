@@ -483,6 +483,13 @@
         font-size: 26px;
         letter-spacing: -0.01em;
     }
+    /* Documents/Connect page H1: 24px/600, no letter-spacing (handoff type
+       scale) — smaller than the 26px Projects index title. Defined after the
+       base so it wins on the overridden properties. */
+    .bp-workspace-title--doc {
+        font-size: 24px;
+        letter-spacing: normal;
+    }
     .bp-workspace-desc {
         @apply text-fg-mute m-0 mt-2 mb-6;
         font-size: 14px;
