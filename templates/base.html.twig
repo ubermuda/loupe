@@ -41,13 +41,16 @@
                     <twig:ux:icon name="lucide:chevrons-up-down" class="bp-sidebar__switcher-chevron" />
                 </a>
                 <nav class="bp-sidebar__nav">
+                    {% set documentsActive = route == 'app_project_documents' or route starts with 'app_document' %}
                     <a href="{{ path('app_project_documents', {id: project.id}) }}"
-                       class="bp-sidebar__link{% if route == 'app_project_documents' %} bp-sidebar__link--active{% endif %}">
+                       class="bp-sidebar__link{% if documentsActive %} bp-sidebar__link--active{% endif %}"
+                       {% if documentsActive %}aria-current="page"{% endif %}>
                         <twig:ux:icon name="lucide:file-text" />
                         <span class="bp-sidebar__link-label">{{ 'nav.link.documents'|trans }}</span>
                     </a>
                     <a href="{{ path('app_project_site_review', {id: project.id}) }}"
-                       class="bp-sidebar__link{% if route == 'app_project_site_review' %} bp-sidebar__link--active{% endif %}">
+                       class="bp-sidebar__link{% if route == 'app_project_site_review' %} bp-sidebar__link--active{% endif %}"
+                       {% if route == 'app_project_site_review' %}aria-current="page"{% endif %}>
                         <twig:ux:icon name="lucide:globe" />
                         <span class="bp-sidebar__link-label">{{ 'nav.link.site_review'|trans }}</span>
                         {% set openCount = project_open_review_count(project) %}
