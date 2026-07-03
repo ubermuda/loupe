@@ -1,0 +1,133 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}{{ 'project.connect.page.title'|trans }} — {{ 'app.name'|trans }}{% endblock %}
+
+{% block body %}
+{%- set mcpUrl = url('app_mcp_endpoint') -%}
+{%- set mcpJson = [
+    "{",
+    "  \"mcpServers\": {",
+    "    \"better-plans\": {",
+    "      \"type\": \"http\",",
+    "      \"url\": \"" ~ mcpUrl ~ "\",",
+    "      \"headers\": {",
+    "        \"Authorization\": \"Bearer YOUR_TOKEN\"",
+    "      }",
+    "    }",
+    "  }",
+    "}"
+]|join("\n") -%}
+{%- set widgetSnippet = '<script src="' ~ absolute_url('/site-review/widget.js') ~ '" data-token="YOUR_TOKEN"></script>' -%}
+<div class="bp-connect">
+    <nav class="bp-crumbs">
+        <a href="{{ path('app_project_documents', {id: project.id}) }}" class="bp-crumbs__link">{{ project.name }}</a>
+        <span class="bp-crumbs__sep">/</span>
+        <span class="bp-crumbs__here">{{ 'project.connect.page.title'|trans }}</span>
+    </nav>
+
+    <h1 class="bp-workspace-title bp-workspace-title--doc">{{ 'project.connect.page.title'|trans }}</h1>
+    <p class="bp-workspace-desc">{{ 'project.connect.description'|trans }}</p>
+
+    {% for label, messages in app.flashes %}
+        {% for message in messages %}
+            <div class="bp-flash bp-flash--{{ label }}">{{ message }}</div>
+        {% endfor %}
+    {% endfor %}
+
+    {# ── MCP endpoint (global; project inferred from the bearer token) ── #}
+    <section class="bp-connect-block">
+        <p class="bp-eyebrow">{{ 'project.connect.endpoint.eyebrow'|trans }}</p>
+        <div class="bp-connect-field" data-controller="clipboard" data-clipboard-text-value="{{ mcpUrl }}"
+             data-clipboard-copied-label-value="{{ 'project.connect.copied'|trans }}">
+            <twig:ux:icon name="lucide:code" class="bp-connect-field__glyph w-4 h-4" />
+            <code class="bp-connect-field__value">{{ mcpUrl }}</code>
+            <button type="button" class="bp-btn bp-btn--ghost bp-btn--sm" data-clipboard-target="button" data-action="clipboard#copy">{{ 'project.connect.copy'|trans }}</button>
+        </div>
+    </section>
+
+    {# ── Access token — the project MCP token ── #}
+    <section class="bp-connect-block">
+        <p class="bp-eyebrow">{{ 'project.connect.token.eyebrow'|trans }}</p>
+        {% if project.mcpToken %}
+        <div class="bp-connect-field">
+            <twig:ux:icon name="lucide:key" class="bp-connect-field__glyph w-4 h-4" />
+            <span class="bp-connect-field__value">
+                {{ project.mcpToken.label }}
+                <span class="bp-connect-field__meta">{{ project.mcpToken.createdAt|date('M j, Y') }}</span>
+            </span>
+            <span class="bp-connect-tag">{{ 'project.connect.tag.project_scoped'|trans }}</span>
+            <form method="POST" action="{{ path('app_api_token_revoke', {tokenId: project.mcpToken.id}) }}">
+                <input type="hidden" name="_csrf_token" value="{{ csrf_token('revoke-api-token') }}">
+                <input type="hidden" name="returnTo" value="{{ path('app_project_connect', {id: project.id}) }}">
+                <button type="submit" class="bp-btn bp-btn--danger bp-btn--sm">{{ 'account.api_token.action.revoke'|trans }}</button>
+            </form>
+        </div>
+        {% else %}
+        <p class="bp-connect-hint">{{ 'project.mcp_token.hint'|trans }}</p>
+        <form method="POST" action="{{ path('app_project_mcp_token_mint', {id: project.id}) }}">
+            <input type="hidden" name="_csrf_token" value="{{ csrf_token('mint-project-mcp-token') }}">
+            <button type="submit" class="bp-btn bp-btn--primary">{{ 'project.mcp_token.mint'|trans }}</button>
+        </form>
+        {% endif %}
+    </section>
+
+    {# ── .mcp.json — dark project-config block ── #}
+    <section class="bp-connect-block">
+        <p class="bp-eyebrow">{{ 'project.connect.mcp_json.eyebrow'|trans }}</p>
+        <div class="bp-code-dark" data-controller="clipboard" data-clipboard-text-value="{{ mcpJson }}"
+             data-clipboard-copied-label-value="{{ 'project.connect.copied'|trans }}">
+            <div class="bp-code-dark__header">
+                <span class="bp-code-dark__label">{{ 'project.connect.mcp_json.label'|trans }}</span>
+                <button type="button" class="bp-code-dark__copy" data-clipboard-target="button" data-action="clipboard#copy">{{ 'project.connect.copy'|trans }}</button>
+            </div>
+            <pre class="bp-code-dark__body"><code>{{ mcpJson }}</code></pre>
+        </div>
+    </section>
+
+    {# ── Review widget — moved from the site-review page ── #}
+    <section class="bp-connect-block">
+        <p class="bp-eyebrow">{{ 'project.connect.widget.eyebrow'|trans }}</p>
+        {% if project.widgetToken %}
+        <div class="bp-connect-field">
+            <twig:ux:icon name="lucide:key" class="bp-connect-field__glyph w-4 h-4" />
+            <span class="bp-connect-field__value">
+                {{ project.widgetToken.label }}
+                <span class="bp-connect-field__meta">{{ project.widgetToken.createdAt|date('M j, Y') }}</span>
+            </span>
+            <form method="POST" action="{{ path('app_api_token_revoke', {tokenId: project.widgetToken.id}) }}">
+                <input type="hidden" name="_csrf_token" value="{{ csrf_token('revoke-api-token') }}">
+                <input type="hidden" name="returnTo" value="{{ path('app_project_connect', {id: project.id}) }}">
+                <button type="submit" class="bp-btn bp-btn--danger bp-btn--sm">{{ 'account.api_token.action.revoke'|trans }}</button>
+            </form>
+        </div>
+        <div class="bp-code-block mt-4" data-controller="clipboard" data-clipboard-text-value="{{ widgetSnippet }}"
+             data-clipboard-copied-label-value="{{ 'project.connect.copied'|trans }}">
+            <div class="bp-code-block__header">
+                <span class="bp-code-block__label">{{ 'site_review.site.token.snippet_heading'|trans }}</span>
+                <button type="button" class="bp-btn bp-btn--ghost bp-btn--sm" data-clipboard-target="button" data-action="clipboard#copy">{{ 'project.connect.copy'|trans }}</button>
+            </div>
+            <pre class="bp-pre"><code>{{ widgetSnippet }}</code></pre>
+        </div>
+        {% else %}
+        <p class="bp-connect-hint">{{ 'account.api_token.scope.site_review_warning'|trans }}</p>
+        <form method="POST" action="{{ path('app_project_widget_token_mint', {id: project.id}) }}">
+            <input type="hidden" name="_csrf_token" value="{{ csrf_token('mint-site-token') }}">
+            <button type="submit" class="bp-btn bp-btn--primary">{{ 'site_review.site.token.mint'|trans }}</button>
+        </form>
+        {% endif %}
+    </section>
+
+    {# ── Agent tools ── #}
+    <section class="bp-connect-block">
+        <p class="bp-eyebrow">{{ 'project.connect.tools.eyebrow'|trans }}</p>
+        <div class="bp-tools">
+            {% for tool in tools %}
+            <div class="bp-tools__row">
+                <code class="bp-tools__name">{{ tool.name }}</code>
+                <p class="bp-tools__desc">{{ tool.descriptionKey|trans }}</p>
+            </div>
+            {% endfor %}
+        </div>
+    </section>
+</div>
+{% endblock %}

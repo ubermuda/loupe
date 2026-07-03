@@ -56,6 +56,12 @@
                         {% set openCount = project_open_review_count(project) %}
                         <span class="bp-sidebar__pill{% if openCount > 0 %} bp-sidebar__pill--amber{% endif %}">{{ openCount }}</span>
                     </a>
+                    <a href="{{ path('app_project_connect', {id: project.id}) }}"
+                       class="bp-sidebar__link{% if route == 'app_project_connect' %} bp-sidebar__link--active{% endif %}"
+                       {% if route == 'app_project_connect' %}aria-current="page"{% endif %}>
+                        <twig:ux:icon name="lucide:code" />
+                        <span class="bp-sidebar__link-label">{{ 'nav.link.connect'|trans }}</span>
+                    </a>
                 </nav>
                 {% endif %}
                 <div class="bp-sidebar__spacer"></div>

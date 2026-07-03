@@ -32,7 +32,7 @@ final class MintProjectMcpTokenControllerTest extends WebTestCase
         $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/site-review');
         $client->submitForm('Mint MCP token');
 
-        self::assertResponseRedirects('/projects/'.$projectId.'/site-review');
+        self::assertResponseRedirects('/projects/'.$projectId.'/connect');
         $em->clear();
         $fresh = $em->find(Project::class, $projectId);
         self::assertInstanceOf(Project::class, $fresh);
@@ -101,7 +101,7 @@ final class MintProjectMcpTokenControllerTest extends WebTestCase
         // BrowserKit history so the Referer header passes the same-origin check automatically.
         $client->request(Request::METHOD_POST, '/projects/'.$projectId.'/mcp-token', ['_csrf_token' => 'csrf-token']);
 
-        self::assertResponseRedirects('/projects/'.$projectId.'/site-review');
+        self::assertResponseRedirects('/projects/'.$projectId.'/connect');
         $em->clear();
         $freshAfterSecondMint = $em->find(Project::class, $projectId);
         self::assertInstanceOf(Project::class, $freshAfterSecondMint);

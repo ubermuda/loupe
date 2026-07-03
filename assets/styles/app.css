@@ -52,6 +52,11 @@
     --color-status-ok-bg: var(--status-ok-bg);
     --color-status-ok-border: var(--status-ok-border);
 
+    /* Dark .mcp.json code block (Connect page) */
+    --color-code-dark-header: var(--code-dark-header);
+    --color-code-dark-bg: var(--code-dark-bg);
+    --color-code-dark-text: var(--code-dark-text);
+
     --color-danger: #c83a3a;
 
     /* Shadows — the only three the design allows: selection toolbar (dark
@@ -140,6 +145,12 @@
     --status-ok-deep: #3d8a5c;
     --status-ok-bg: #f0f9f3;
     --status-ok-border: #d4ecdd;
+
+    /* Dark code block (Connect page .mcp.json) — handoff §5. Intentionally a
+       dark component on the otherwise light Connect screen, not a theme. */
+    --code-dark-header: #17172a;
+    --code-dark-bg: #1c1c30;
+    --code-dark-text: #c7c6f0;
 }
 
 /* ── Global resets ──────────────────────────────────────────────────── */
@@ -1454,6 +1465,91 @@
     }
     .bp-code-block__label {
         @apply text-xs font-medium text-fg-mute;
+    }
+
+    /* ── Connect agent (handoff §5) ─────────────────────────────────────
+       Left-aligned single column (max 760px). Each labeled block is a mono
+       uppercase eyebrow (.bp-eyebrow) over a bordered field / code block. */
+
+    .bp-connect {
+        @apply max-w-full flex flex-col;
+        max-width: 760px;
+        padding: 40px 44px 60px;
+        gap: 1.5rem;
+    }
+    .bp-connect-block {
+        @apply flex flex-col gap-2.5;
+    }
+    .bp-connect-hint {
+        @apply text-fg-mute m-0;
+        font-size: 13px;
+        line-height: 1.5;
+    }
+    /* Bordered field row: subtle fill, glyph + value + trailing control. */
+    .bp-connect-field {
+        @apply flex items-center gap-2.5 bg-sidebar border border-line-strong rounded-lg;
+        padding: 10px 12px;
+    }
+    .bp-connect-field__glyph {
+        @apply text-fg-dim shrink-0;
+    }
+    .bp-connect-field__value {
+        @apply font-mono text-fg min-w-0 truncate flex-1 m-0 flex items-baseline gap-2;
+        font-size: 13px;
+    }
+    .bp-connect-field__meta {
+        @apply font-mono text-fg-dim shrink-0;
+        font-size: 11px;
+    }
+    /* Green "project-scoped" tag on the access-token field. */
+    .bp-connect-tag {
+        @apply inline-flex items-center rounded-full font-medium bg-status-ok-bg text-status-ok-deep shrink-0;
+        font-size: 11px;
+        padding: 2px 8px;
+    }
+
+    /* Dark .mcp.json block — header bar + syntax-neutral body. */
+    .bp-code-dark {
+        @apply rounded-lg overflow-hidden border border-line-strong;
+    }
+    .bp-code-dark__header {
+        @apply flex items-center justify-between gap-2 bg-code-dark-header;
+        padding: 8px 12px;
+    }
+    .bp-code-dark__label {
+        @apply font-mono uppercase text-fg-faint m-0;
+        font-size: 10.5px;
+        letter-spacing: 0.08em;
+    }
+    .bp-code-dark__copy {
+        @apply font-mono text-fg-faint bg-transparent border-none cursor-pointer transition-colors hover:text-white;
+        font-size: 12px;
+    }
+    .bp-code-dark__body {
+        @apply bg-code-dark-bg text-code-dark-text font-mono overflow-x-auto m-0;
+        padding: 16px;
+        font-size: 13px;
+        line-height: 1.6;
+        white-space: pre;
+    }
+
+    /* Agent tools — hairline divider list: mono accent-soft pill + description. */
+    .bp-tools {
+        @apply flex flex-col border-t border-line;
+    }
+    .bp-tools__row {
+        @apply flex items-start gap-3 border-b border-line;
+        padding: 14px 2px;
+    }
+    .bp-tools__name {
+        @apply inline-flex items-center rounded-md font-mono bg-accent-soft text-accent shrink-0;
+        font-size: 12px;
+        padding: 3px 8px;
+    }
+    .bp-tools__desc {
+        @apply text-fg-mute m-0;
+        font-size: 13.5px;
+        line-height: 1.5;
     }
 
     /* ── Orphan banner ──────────────────────────────────────────────── */

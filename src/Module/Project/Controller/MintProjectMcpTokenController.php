@@ -46,6 +46,6 @@ class MintProjectMcpTokenController extends AppController
             }
         }
 
-        return $this->redirectToRoute('app_project_site_review', ['id' => (string) $project->id]);
+        return $this->redirectToRoute('app_project_connect', ['id' => (string) $project->id]);
     }
 }
