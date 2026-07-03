@@ -140,11 +140,6 @@
     --status-ok-deep: #3d8a5c;
     --status-ok-bg: #f0f9f3;
     --status-ok-border: #d4ecdd;
-
-    /* In-document anchor highlights (CSS Custom Highlight API). Highlighter
-       yellow, translucent so the underlying text stays legible. */
-    --anchor-highlight: rgba(250, 204, 21, 0.45);
-    --anchor-highlight-active: rgba(250, 204, 21, 0.7);
 }
 
 /* ── Global resets ──────────────────────────────────────────────────── */
@@ -427,6 +422,64 @@
 
     .bp-tag {
         @apply inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-tint text-fg-mute border border-line;
+    }
+
+    /* ── Loop ribbon ────────────────────────────────────────────────────
+       Horizontal 4-step progress indicator (Proposed → In review → Revise →
+       Approved). Each step is a 22px numbered circle + label, joined by 2px
+       connector bars. State (completed / current / upcoming) is derived in the
+       LoopRibbon component from the step ordinal vs. the current stage; the
+       filled track (accent-border bars + accent-soft circles) runs up to and
+       including the current step. 22px/2px are off-scale sizes → plain CSS. */
+    .bp-ribbon {
+        @apply flex items-center;
+        gap: 0.625rem;
+    }
+    .bp-ribbon__step {
+        @apply inline-flex items-center;
+        gap: 0.5rem;
+    }
+    .bp-ribbon__circle {
+        @apply inline-flex items-center justify-center shrink-0 rounded-full border font-mono font-medium;
+        width: 1.375rem;
+        height: 1.375rem;
+        font-size: 0.6875rem;
+    }
+    .bp-ribbon__circle--current {
+        @apply bg-accent text-white border-accent;
+    }
+    .bp-ribbon__circle--completed {
+        @apply bg-accent-soft text-accent-hover border-accent-border;
+    }
+    .bp-ribbon__circle--upcoming {
+        @apply bg-elev text-fg-faint border-line-strong;
+    }
+    .bp-ribbon__label {
+        font-size: 0.8125rem;
+        line-height: 1;
+    }
+    .bp-ribbon__label--current {
+        @apply text-ink font-semibold;
+    }
+    .bp-ribbon__label--completed {
+        @apply text-accent-hover;
+    }
+    .bp-ribbon__label--upcoming {
+        @apply text-fg-dim;
+    }
+    .bp-ribbon__bar {
+        @apply shrink-0 rounded-full;
+        width: 1.75rem;
+        height: 2px;
+    }
+    /* Bars leading into a completed or current step are filled (accent-border);
+       only bars leading into an upcoming step stay the light hairline. */
+    .bp-ribbon__bar--current,
+    .bp-ribbon__bar--completed {
+        @apply bg-accent-border;
+    }
+    .bp-ribbon__bar--upcoming {
+        @apply bg-line;
     }
 
     /* ── Document list ──────────────────────────────────────────────── */
@@ -736,19 +789,82 @@
     .bp-btn--sm {
         @apply px-2 py-1 text-xs;
     }
-
-    /* ── Review layout ──────────────────────────────────────────────── */
-
-    .bp-review-layout {
-        @apply grid gap-6;
-        grid-template-columns: 1fr 22rem;
+    /* Amber-outline "Request changes" verdict button. */
+    .bp-btn--outline-amber {
+        @apply bg-status-pending-bg border-status-pending-border text-status-pending-deep;
+    }
+    .bp-btn--outline-amber:hover {
+        @apply bg-status-pending-border border-status-pending;
     }
 
-    /* ── Document column ────────────────────────────────────────────── */
+    /* ── Review screen shell ────────────────────────────────────────────
+       Full-height column: a fixed header band (breadcrumb + loop ribbon) above
+       a two-pane row that fills the remaining height. Each pane scrolls on its
+       own; the page itself never scrolls. Off-scale paddings/sizes from the
+       handoff are written as plain CSS (as the ribbon does). */
+    .bp-review {
+        @apply flex flex-col min-w-0;
+        height: 100%;
+    }
 
+    .bp-review-header {
+        @apply flex flex-col gap-3.5 shrink-0;
+        padding: 1.375rem 2rem 0;
+    }
+    .bp-review-breadcrumb {
+        @apply flex items-center gap-1.5 font-mono text-fg-dim;
+        font-size: 0.75rem;
+    }
+    .bp-review-breadcrumb a {
+        @apply text-fg-dim no-underline transition-colors hover:text-fg;
+    }
+    .bp-review-breadcrumb__sep {
+        @apply text-fg-faint;
+    }
+    .bp-review-breadcrumb__current {
+        @apply text-fg-mute;
+    }
+
+    /* Two-pane row: document pane (flex) + fixed 388px comment margin, no
+       divider. Left-aligned within a 1160px max width. */
+    .bp-review-layout {
+        @apply grid flex-1 min-h-0 w-full;
+        grid-template-columns: minmax(0, 1fr) 24.25rem;
+        /* Cap the single implicit row at the definite flex height so both panes
+           fill it and their internal overflow-y engages (the verdict bar pins).
+           An `auto` track would grow to the document's content height instead,
+           spilling the whole page into .bp-main's scroll. */
+        grid-template-rows: minmax(0, 1fr);
+        max-width: 72.5rem;
+    }
+
+    /* ── Document pane ──────────────────────────────────────────────────
+       Its own scroll container and the position:relative offset parent for the
+       floating composer/toolbar. Plain prose — no card, no line numbers. */
     .bp-review-doc {
-        @apply relative bg-surface-1 border border-line rounded-xl p-6;
-        /* position: relative anchors the floating composer/toolbar to this column */
+        @apply relative min-h-0 overflow-y-auto;
+        padding: 0.5rem 2.5rem 5rem;
+    }
+    .bp-review-doc__head {
+        @apply max-w-2xl mb-6;
+    }
+    .bp-review-doc__title {
+        @apply flex items-center gap-2.5 flex-wrap text-ink font-semibold m-0;
+        font-size: 1.75rem;
+        letter-spacing: -0.02em;
+    }
+    .bp-version-pill {
+        @apply inline-flex items-center rounded-full font-mono bg-accent-soft text-accent-hover;
+        font-size: 0.75rem;
+        padding: 0.125rem 0.5rem;
+    }
+    .bp-review-doc__byline {
+        @apply font-mono text-fg-dim m-0;
+        font-size: 0.78125rem;
+        margin-top: 0.5rem;
+    }
+    .bp-review-doc__prose {
+        @apply mt-0;
     }
 
     /* Rendered Markdown (incl. GFM tables) is styled by the Tailwind typography
@@ -786,90 +902,226 @@
         outline: 1px solid var(--status-pending-border);
     }
 
-    /* ── Floating comment composer ──────────────────────────────────── */
+    /* ── Floating "Comment" toolbar (dark pill) ─────────────────────────
+       Shown on text selection: a dark pill floating above the selection with
+       the selection-toolbar shadow. */
+    .bp-anchor-toolbar {
+        @apply absolute z-20 shadow-toolbar;
+    }
+    .bp-anchor-toolbar__btn {
+        @apply inline-flex items-center gap-1.5 rounded-lg bg-ink text-white font-medium cursor-pointer border-0 transition;
+        padding: 0.375rem 0.625rem;
+        font-size: 0.8125rem;
+    }
+    .bp-anchor-toolbar__btn:hover {
+        @apply opacity-90;
+    }
 
+    /* ── Floating comment composer ──────────────────────────────────────
+       A 340px white card anchored at the selection. Shows the quoted selection
+       (targeted) or a "General comment" label (untargeted). */
     .bp-comment-composer {
-        @apply absolute z-20 bg-elev border border-line rounded-xl shadow-composer p-3 flex flex-col gap-2;
-        min-width: 18rem;
-        max-width: 24rem;
+        @apply absolute z-20 bg-elev border border-line-strong rounded-xl shadow-composer p-3 flex flex-col gap-2;
+        width: 21.25rem;
+    }
+    /* The `flex`/`display` in the rules above outranks the UA `[hidden]` rule
+       (equal specificity, later source order), so a `hidden` composer/toolbar
+       would stay laid out and its absolutely-positioned box would swallow
+       clicks. Restore `display:none` with a higher-specificity attribute rule. */
+    .bp-comment-composer[hidden],
+    .bp-anchor-toolbar[hidden] {
+        display: none;
     }
     .bp-comment-composer textarea {
         @apply w-full text-sm bg-surface-2 border border-line rounded-lg px-3 py-2 text-fg placeholder:text-fg-dim resize-none outline-hidden focus:border-accent focus:shadow-focus transition-colors;
         min-height: 4.5rem;
     }
+    .bp-composer-quote {
+        @apply bg-accent-faint-2 border-l-2 border-accent-border text-fg-mute rounded-r line-clamp-3 m-0;
+        padding: 0.375rem 0.625rem;
+        font-size: 0.78125rem;
+    }
+    .bp-composer-general {
+        @apply font-mono text-fg-dim;
+        font-size: 0.71875rem;
+    }
     .bp-comment-composer__actions {
         @apply flex items-center justify-end gap-2;
+    }
+    .bp-composer-hint {
+        @apply mr-auto font-mono text-fg-faint;
+        font-size: 0.6875rem;
     }
     .bp-comment-composer__error {
         @apply text-xs text-danger;
     }
-    /* Untargeted composer: a centred panel (no anchor to point at). */
+    /* Untargeted composer: a centred panel + a "General comment" label instead
+       of the quoted selection. */
     .bp-comment-composer--untargeted {
         @apply fixed left-1/2 top-1/2 z-30;
         transform: translate(-50%, -50%);
     }
-
-    /* Floating "Comment" toolbar shown on text selection — a dark pill that
-       floats above the selection with the selection-toolbar shadow. */
-    .bp-anchor-toolbar {
-        @apply absolute z-20 shadow-toolbar;
+    .bp-composer-general {
+        display: none;
+    }
+    .bp-comment-composer--untargeted .bp-composer-quote {
+        display: none;
+    }
+    .bp-comment-composer--untargeted .bp-composer-general {
+        display: block;
     }
 
-    /* ── Sidebar ────────────────────────────────────────────────────── */
-
+    /* ── Comment margin (right pane, 388px) ─────────────────────────────
+       A white column: threads header + progress bar (both fixed), a scrolling
+       grouped ladder, and a pinned verdict bar at the bottom. */
     .bp-review-sidebar {
-        @apply flex flex-col gap-4;
+        @apply flex flex-col min-h-0 bg-surface-1;
     }
     .bp-review-sidebar__header {
-        @apply flex items-center justify-between gap-2;
+        @apply flex items-start justify-between gap-2 shrink-0;
+        padding: 1.375rem 1.25rem 0.625rem;
+    }
+    .bp-review-sidebar__heading {
+        @apply flex items-center gap-2;
     }
     .bp-review-sidebar__title {
-        @apply text-sm font-semibold text-fg-mute uppercase tracking-wider m-0;
+        @apply text-ink font-semibold m-0;
+        font-size: 0.8125rem;
+    }
+    .bp-review-sidebar__count {
+        @apply font-mono text-fg-dim;
+        font-size: 0.6875rem;
+    }
+    .bp-progress {
+        @apply shrink-0 mx-5 rounded-full overflow-hidden bg-line;
+        height: 4px;
+    }
+    .bp-progress__fill {
+        @apply h-full bg-status-ok rounded-full transition-[width] duration-300;
+    }
+    .bp-review-sidebar__scroll {
+        @apply flex flex-col flex-1 min-h-0 gap-5 overflow-y-auto px-5 py-4;
+    }
+
+    /* ── Ladder groups (PENDING / ADDRESSED BY AGENT / RESOLVED) ───────────
+       #comment-threads is the whole-list region the Turbo Stream replaces on
+       add / delete / resolve: header (count), progress bar, then the scrolling
+       ladder — so all three refresh together. */
+    .bp-comment-threads {
+        @apply flex flex-col flex-1 min-h-0;
+    }
+    .bp-ladder-group {
+        @apply flex flex-col gap-2.5;
+    }
+    .bp-ladder-group__eyebrow {
+        @apply flex items-center gap-1.5 font-mono uppercase;
+        font-size: 0.65625rem;
+        letter-spacing: 0.08em;
+    }
+    .bp-ladder-dot {
+        @apply inline-block rounded-full shrink-0;
+        width: 0.375rem;
+        height: 0.375rem;
+    }
+    .bp-ladder-group__eyebrow--pending {
+        @apply text-status-pending-deep;
+    }
+    .bp-ladder-group__eyebrow--pending .bp-ladder-dot {
+        @apply bg-status-pending;
+    }
+    .bp-ladder-group__eyebrow--addressed {
+        @apply text-status-ok-deep;
+    }
+    .bp-ladder-group__eyebrow--addressed .bp-ladder-dot {
+        @apply bg-status-ok;
+    }
+    .bp-ladder-group__eyebrow--resolved {
+        @apply text-fg-dim;
+    }
+    .bp-ladder-group__eyebrow--resolved .bp-ladder-dot {
+        @apply bg-fg-faint;
     }
 
     /* ── Comment thread card ─────────────────────────────────────────── */
-
-    .bp-comment-threads {
-        @apply flex flex-col gap-4;
-    }
     .bp-comment-thread {
-        @apply bg-surface-1 border border-line rounded-xl overflow-hidden;
+        @apply flex flex-col gap-2.5 rounded-lg border border-line bg-surface-1;
+        padding: 0.75rem 0.8125rem;
     }
     .bp-comment-thread--resolved {
-        @apply opacity-60;
+        @apply opacity-70;
     }
     .bp-comment-thread--orphaned {
         @apply border-status-pending;
+    }
+    .bp-comment-thread__header {
+        @apply flex items-center gap-2;
+    }
+
+    /* Status chip (thread header + ladder), pill with a colored dot. */
+    .bp-status-chip {
+        @apply inline-flex items-center gap-1.5 ml-auto rounded-full font-medium border;
+        font-size: 0.6875rem;
+        padding: 0.125rem 0.5rem;
+    }
+    .bp-status-chip__dot {
+        @apply inline-block rounded-full shrink-0;
+        width: 0.375rem;
+        height: 0.375rem;
+    }
+    .bp-status-chip--pending {
+        @apply bg-status-pending-bg text-status-pending-deep border-status-pending-border;
+    }
+    .bp-status-chip--pending .bp-status-chip__dot {
+        @apply bg-status-pending;
+    }
+    .bp-status-chip--resolved {
+        @apply bg-tint text-fg-dim border-line;
+    }
+    .bp-status-chip--resolved .bp-status-chip__dot {
+        @apply bg-fg-faint;
+    }
+    /* Green chip — site-review addressed/resolved comments (handoff §4 pins both
+       to the green trio, unlike the document-review grey "resolved"). */
+    .bp-status-chip--ok {
+        @apply bg-status-ok-bg text-status-ok-deep border-status-ok-border;
+    }
+    .bp-status-chip--ok .bp-status-chip__dot {
+        @apply bg-status-ok;
     }
 
     /* Quoted document excerpt a comment thread is anchored to. Shown at the head
        of every thread — essential for orphaned threads, where the in-document
        highlight is gone. Clamped to a few lines so a paragraph-length quote can't
-       blow out the sidebar. */
+       blow out the margin. */
     .bp-comment-quote {
-        @apply px-4 py-2 bg-tint border-l-2 border-accent text-xs italic text-fg-mute line-clamp-3;
+        @apply bg-accent-faint-2 border-l-2 border-accent-border text-fg-mute rounded-r line-clamp-3 m-0;
+        padding: 0.375rem 0.625rem;
+        font-size: 0.75rem;
     }
 
-    .bp-comment {
-        @apply px-4 py-3;
-    }
-    .bp-comment--reply {
-        @apply bg-tint border-t border-line;
-    }
     .bp-comment-author {
-        @apply text-xs font-semibold text-fg-mute mb-1;
+        @apply text-fg-mute font-semibold;
+        font-size: 0.78125rem;
     }
     .bp-comment-body {
-        @apply text-sm text-fg leading-snug;
+        @apply text-fg;
+        font-size: 0.84375rem;
+        line-height: 1.55;
     }
     .bp-comment-replies {
-        @apply flex flex-col;
+        @apply flex flex-col gap-2.5 border-t border-line-faint pt-2.5;
+    }
+    .bp-comment--reply {
+        @apply flex flex-col gap-1;
+    }
+    .bp-comment-reply__head {
+        @apply flex items-center gap-1.5;
     }
     .bp-comment-actions {
-        @apply flex items-center gap-2 px-4 py-2;
+        @apply flex items-center gap-2;
     }
     .bp-comment-reply-form {
-        @apply px-4 py-3 flex flex-col gap-2;
+        @apply flex flex-col gap-2;
     }
     .bp-comment-reply-form textarea {
         @apply w-full text-sm bg-surface-2 border border-line rounded-lg px-3 py-2 text-fg placeholder:text-fg-dim resize-none outline-hidden focus:border-accent focus:shadow-focus transition-colors;
@@ -879,51 +1131,148 @@
         @apply text-xs text-danger;
     }
 
-    /* ── Site-review comment card (site page) ───────────────────────────
-       Hierarchy: the comment body is primary; the captured URL and element
-       text are secondary; the raw CSS selector is tucked into a disclosure. */
+    /* ── Site-review page (comment-list only; the customer site is never rendered)
+       Handoff §4: left-aligned, max-width 820, a flat hairline divider list. Each
+       item leads with a status-colored mono index, then the element quote, status
+       chip, body, and a captured-context row (URL + selector). Off-scale sizes are
+       plain CSS, matching the ribbon/review conventions. */
 
-    .bp-review-comment {
-        @apply bg-surface-1 border border-line rounded-xl p-4 flex flex-col gap-2.5;
+    .bp-sr-page {
+        @apply max-w-full flex flex-col;
+        max-width: 820px;
+        padding: 22px 32px 60px;
+        gap: 0.875rem;
     }
-    .bp-review-comment__head {
-        @apply flex items-center justify-between gap-2;
+    .bp-sr-breadcrumb {
+        @apply flex items-center gap-1.5 font-mono text-fg-dim;
+        font-size: 0.75rem;
     }
-    .bp-review-comment__author {
-        @apply text-xs font-semibold text-fg-mute;
+    .bp-sr-breadcrumb a {
+        @apply text-fg-dim no-underline transition-colors hover:text-fg;
     }
-    .bp-review-comment__body {
-        @apply text-sm text-fg leading-snug m-0;
+    .bp-sr-breadcrumb__sep {
+        @apply text-fg-faint;
     }
-    .bp-review-comment__quote {
-        @apply px-3 py-2 bg-tint border-l-2 border-accent rounded text-xs italic text-fg-mute line-clamp-3 m-0;
+    .bp-sr-breadcrumb__current {
+        @apply text-fg-mute;
     }
-    .bp-review-comment__url {
-        @apply inline-flex items-center gap-1.5 max-w-full min-w-0 text-xs text-fg-dim no-underline transition-colors hover:text-accent;
+    .bp-sr-header {
+        @apply flex flex-col gap-1.5;
     }
-    .bp-review-comment__selector {
-        @apply text-xs;
+    .bp-sr-title {
+        @apply font-semibold text-ink m-0;
+        font-size: 22px;
     }
-    .bp-review-comment__selector summary {
-        @apply text-fg-dim cursor-pointer select-none transition-colors hover:text-fg;
+    .bp-sr-meta-line {
+        @apply font-mono text-fg-dim m-0;
+        font-size: 0.75rem;
     }
-    .bp-review-comment__selector[open] summary {
-        @apply mb-1.5;
-    }
-    .bp-review-comment__selector code {
-        @apply block overflow-x-auto;
+    .bp-sr-desc {
+        @apply text-fg-mute m-0;
+        font-size: 14px;
+        line-height: 1.55;
     }
 
-    /* ── Verdict bar ────────────────────────────────────────────────── */
+    /* Flush hairline divider list — top hairline, each item a bottom hairline. */
+    .bp-sr-list {
+        @apply flex flex-col border-t border-line mt-1;
+    }
+    .bp-sr-item {
+        @apply flex gap-4 border-b border-line;
+        padding: 20px 2px;
+    }
+    /* Status-colored mono index — the primary left differentiator. */
+    .bp-sr-index {
+        @apply font-mono font-medium shrink-0 leading-none pt-0.5;
+        font-size: 0.8125rem;
+    }
+    .bp-sr-index--pending {
+        @apply text-status-pending-deep;
+    }
+    .bp-sr-index--ok {
+        @apply text-status-ok-deep;
+    }
+    .bp-sr-main {
+        @apply min-w-0 flex-1 flex flex-col gap-2;
+    }
+    .bp-sr-title-row {
+        @apply flex items-start justify-between gap-3;
+    }
+    .bp-sr-quote {
+        @apply font-semibold text-ink m-0;
+        font-size: 15px;
+        line-height: 1.4;
+    }
+    .bp-sr-widget-meta {
+        @apply font-mono text-fg-dim m-0;
+        font-size: 0.6875rem;
+        margin-top: -0.25rem;
+    }
+    .bp-sr-body {
+        @apply text-fg m-0;
+        font-size: 14px;
+        line-height: 1.55;
+    }
+    /* Captured context — one wrapping mono row: external-link + URL, code + selector. */
+    .bp-sr-context {
+        @apply flex flex-wrap items-center font-mono;
+        gap: 0.25rem 1rem;
+        font-size: 0.71875rem;
+    }
+    .bp-sr-context__url {
+        @apply inline-flex items-center gap-1.5 min-w-0 max-w-full text-fg-mute no-underline break-all transition-colors hover:text-accent;
+    }
+    .bp-sr-context__selector {
+        @apply inline-flex items-center gap-1.5 min-w-0 max-w-full text-fg-dim;
+    }
+    .bp-sr-context__selector code {
+        @apply break-all;
+    }
+    .bp-sr-actions {
+        @apply flex items-center gap-2 mt-1;
+    }
+    .bp-sr-empty {
+        @apply flex flex-col items-center text-center gap-3 border-t border-line text-fg-dim mt-1;
+        padding: 3rem 0;
+    }
+    /* Interim connection/setup — collapsed, visually subordinate to the list. */
+    .bp-sr-setup {
+        @apply border-t border-line pt-5 mt-4;
+    }
+    .bp-sr-setup > summary {
+        @apply font-mono uppercase text-fg-dim cursor-pointer select-none transition-colors hover:text-fg;
+        font-size: 10.5px;
+        letter-spacing: 0.08em;
+    }
+
+    /* ── Verdict bar (pinned bottom of the comment margin) ──────────────── */
 
     .bp-verdict-bar {
-        @apply bg-surface-1 border border-line rounded-xl p-4 flex flex-col gap-3;
-    }
-    .bp-verdict-bar__title {
-        @apply text-sm font-semibold text-fg m-0;
+        @apply shrink-0 border-t border-line bg-surface-1;
+        padding: 0.875rem 1.25rem;
     }
     .bp-verdict-bar__actions {
         @apply flex items-center gap-2;
+    }
+    .bp-verdict-bar__actions .bp-btn {
+        @apply flex-1 justify-center;
+    }
+    .bp-verdict-approved {
+        @apply flex items-center gap-3;
+    }
+    .bp-verdict-approved__icon {
+        @apply inline-flex items-center justify-center shrink-0 text-status-ok;
+    }
+    .bp-verdict-approved__text {
+        @apply flex flex-col;
+    }
+    .bp-verdict-approved__title {
+        @apply text-ink font-semibold;
+        font-size: 0.8125rem;
+    }
+    .bp-verdict-approved__detail {
+        @apply font-mono text-fg-dim;
+        font-size: 0.6875rem;
     }
 
     /* ── App shell (sidebar + content) ──────────────────────────────── */
@@ -1116,15 +1465,38 @@
 
 /* ── In-document anchor highlights (CSS Custom Highlight API) ─────────────
    Unlayered so they reliably paint over the rendered prose. The controller
-   registers `bp-anchor` (every thread's anchor) and `bp-anchor-active` (the
-   selection being composed). ::highlight() only honours a small set of
-   properties — background-color is one of them. */
+   registers `bp-anchor`/`bp-anchor-active` (never renamed) plus per-status
+   highlights (`bp-anchor-pending|addressed|resolved`) and routes each thread's
+   range to the one matching its data-anchor-status. ::highlight() only honours
+   a small set of properties (color, background-color, text-decoration) — the
+   handoff's "2px underline" is expressed with text-decoration, not box-shadow. */
 
 ::highlight(bp-anchor) {
-    background-color: var(--anchor-highlight);
+    background-color: var(--status-pending-bg);
 }
 ::highlight(bp-anchor-active) {
-    background-color: var(--anchor-highlight-active);
+    background-color: var(--accent-soft);
+    text-decoration-line: underline;
+    text-decoration-color: var(--accent);
+    text-decoration-thickness: 2px;
+}
+::highlight(bp-anchor-pending) {
+    background-color: var(--status-pending-bg);
+    text-decoration-line: underline;
+    text-decoration-color: var(--status-pending);
+    text-decoration-thickness: 2px;
+}
+::highlight(bp-anchor-addressed) {
+    background-color: var(--status-ok-bg);
+    text-decoration-line: underline;
+    text-decoration-color: var(--status-ok);
+    text-decoration-thickness: 2px;
+}
+::highlight(bp-anchor-resolved) {
+    color: var(--text-dim);
+    text-decoration-line: underline;
+    text-decoration-color: var(--border-strong);
+    text-decoration-thickness: 1px;
 }
 
 /* ── Keyframes ──────────────────────────────────────────────────────── */

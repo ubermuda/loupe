@@ -1,18 +1,19 @@
 {% extends 'base.html.twig' %}
 
-{% block title %}{{ project.name }} — {{ 'app.name'|trans }}{% endblock %}
+{% block title %}{{ 'site_review.page.title'|trans }} — {{ 'app.name'|trans }}{% endblock %}
 
 {% block body %}
-<div class="bp-page">
-    <nav class="flex items-center gap-1.5 text-xs text-fg-dim mb-4">
-        <a href="{{ path('app_projects') }}" class="hover:text-fg no-underline">{{ 'project.list.page.title'|trans }}</a>
-        <twig:ux:icon name="lucide:chevron-right" class="w-3 h-3" />
-        <span class="text-fg-mute">{{ project.name }}</span>
+{% set submittedCount = reviews|filter(r => r.status.value == 'submitted')|length %}
+{% set totalComments = 0 %}
+{% for review in reviews %}{% set totalComments = totalComments + review.comments|length %}{% endfor %}
+<div class="bp-sr-page">
+    <nav class="bp-sr-breadcrumb">
+        <a href="{{ path('app_project_documents', {id: project.id}) }}">{{ project.name }}</a>
+        <span class="bp-sr-breadcrumb__sep">/</span>
+        <span class="bp-sr-breadcrumb__current">{{ 'site_review.page.title'|trans }}</span>
     </nav>
 
-    <div class="bp-page-header">
-        <h1 class="bp-page-title">{{ project.name }}</h1>
-    </div>
+    <twig:LoopRibbon :stage="site_review_loop_stage(project)" />
 
     {% for label, messages in app.flashes %}
         {% for message in messages %}
@@ -20,128 +21,164 @@
         {% endfor %}
     {% endfor %}
 
-    <div class="bp-card mb-6" id="site-token">
-        <h2 class="bp-section-title">{{ 'site_review.site.token.heading'|trans }}</h2>
-        <p class="bp-form-hint">{{ 'account.api_token.scope.site_review_warning'|trans }}</p>
+    <header class="bp-sr-header">
+        <h1 class="bp-sr-title">{{ 'site_review.page.title'|trans }}</h1>
+        <p class="bp-sr-meta-line">
+            {% if project.domain %}{{ project.domain }} · {% endif %}{{ 'site_review.page.submitted_count'|trans({'%count%': submittedCount}) }}
+        </p>
+        <p class="bp-sr-desc">{{ 'site_review.page.description'|trans }}</p>
+    </header>
 
-        {% if project.widgetToken %}
-        <div class="bp-doc-row">
-            <div class="bp-doc-row__main">
-                <span class="bp-doc-row__title">{{ project.widgetToken.label }}</span>
-                <div class="bp-doc-row__meta">
-                    <span>{{ project.widgetToken.createdAt|date('M j, Y') }}</span>
-                </div>
-            </div>
-            <form method="POST" action="{{ path('app_api_token_revoke', {tokenId: project.widgetToken.id}) }}">
-                <input type="hidden" name="_csrf_token" value="{{ csrf_token('revoke-api-token') }}">
-                <input type="hidden" name="returnTo" value="{{ path('app_project_site_review', {id: project.id}) }}">
-                <button type="submit" class="bp-btn bp-btn--danger">{{ 'account.api_token.action.revoke'|trans }}</button>
-            </form>
-        </div>
-        {% set widgetSnippet = '<script src="' ~ absolute_url('/site-review/widget.js') ~ '" data-token="YOUR_TOKEN"></script>' %}
-        <div class="bp-code-block mt-4">
-            <div class="bp-code-block__header">
-                <span class="bp-code-block__label">{{ 'site_review.site.token.snippet_heading'|trans }}</span>
-            </div>
-            <pre class="bp-pre"><code>{{ widgetSnippet }}</code></pre>
-        </div>
-        {% else %}
-        <form method="POST" action="{{ path('app_project_widget_token_mint', {id: project.id}) }}">
-            <input type="hidden" name="_csrf_token" value="{{ csrf_token('mint-site-token') }}">
-            <button type="submit" class="bp-btn bp-btn--primary">{{ 'site_review.site.token.mint'|trans }}</button>
-        </form>
-        {% endif %}
-    </div>
-
-    <div class="bp-card mb-6" id="mcp-token">
-        <h2 class="bp-section-title">{{ 'project.mcp_token.heading'|trans }}</h2>
-        <p class="bp-form-hint">{{ 'project.mcp_token.hint'|trans }}</p>
-
-        {% if project.mcpToken %}
-        <div class="bp-doc-row">
-            <div class="bp-doc-row__main">
-                <span class="bp-doc-row__title">{{ project.mcpToken.label }}</span>
-                <div class="bp-doc-row__meta">
-                    <span>{{ project.mcpToken.createdAt|date('M j, Y') }}</span>
-                </div>
-            </div>
-            <form method="POST" action="{{ path('app_api_token_revoke', {tokenId: project.mcpToken.id}) }}">
-                <input type="hidden" name="_csrf_token" value="{{ csrf_token('revoke-api-token') }}">
-                <input type="hidden" name="returnTo" value="{{ path('app_project_site_review', {id: project.id}) }}">
-                <button type="submit" class="bp-btn bp-btn--danger">{{ 'account.api_token.action.revoke'|trans }}</button>
-            </form>
-        </div>
-        {% else %}
-        <form method="POST" action="{{ path('app_project_mcp_token_mint', {id: project.id}) }}">
-            <input type="hidden" name="_csrf_token" value="{{ csrf_token('mint-project-mcp-token') }}">
-            <button type="submit" class="bp-btn bp-btn--primary">{{ 'project.mcp_token.mint'|trans }}</button>
-        </form>
-        {% endif %}
-    </div>
-
-    <div class="flex flex-col gap-4 mt-2">
+    {% if totalComments > 0 %}
+    <div class="bp-sr-list">
+        {% set index = 0 %}
         {% for review in reviews %}
-        <div class="bp-card" data-review-id="{{ review.id }}">
-            <div class="flex items-center gap-2 mb-3">
-                {% if review.status.value == 'in-progress' %}
-                <span class="bp-tag">{{ 'site_review.review.status.draft'|trans }}</span>
-                <span class="text-xs text-fg-dim">{{ review.createdAt|date('M j, Y H:i') }}</span>
-                {% else %}
-                <span class="bp-tag">{{ 'site_review.review.status.submitted'|trans }}</span>
-                <span class="text-xs text-fg-dim">{{ review.submittedAt|date('M j, Y H:i') }}</span>
-                {% endif %}
-                <span class="text-xs text-fg-dim">· {{ 'site_review.review.comments_label'|trans({'%count%': review.comments|length}) }}</span>
-            </div>
-
+            {% set submitted = review.status.value == 'submitted' %}
             {% for comment in review.comments %}
-            <div class="bp-review-comment" data-comment-id="{{ comment.id }}" data-comment-status="{{ comment.status.value }}">
-                {% if comment.text is not empty %}
-                <blockquote class="bp-review-comment__quote">{{ comment.text }}</blockquote>
-                {% endif %}
+                {% set index = index + 1 %}
+                {% set isPending = comment.status.value == 'pending' %}
+                {% set toneClass = isPending ? 'pending' : 'ok' %}
+                <article class="bp-sr-item" data-comment-id="{{ comment.id }}" data-comment-status="{{ comment.status.value }}">
+                    <span class="bp-sr-index bp-sr-index--{{ toneClass }}">{{ '%02d'|format(index) }}</span>
+                    <div class="bp-sr-main">
+                        <div class="bp-sr-title-row">
+                            <p class="bp-sr-quote">
+                                {%- if comment.text is not empty -%}
+                                    &ldquo;{{ comment.text }}&rdquo;
+                                {%- else -%}
+                                    {{ 'site_review.comment.general_page'|trans }}
+                                {%- endif -%}
+                            </p>
+                            <span class="bp-status-chip bp-status-chip--{{ toneClass }} shrink-0">
+                                <span class="bp-status-chip__dot"></span>
+                                {{ ('site_review.comment.status.' ~ comment.status.value)|trans }}
+                            </span>
+                        </div>
 
-                <div class="bp-review-comment__head">
-                    <span class="bp-tag shrink-0">{{ ('site_review.comment.status.' ~ comment.status.value)|trans }}</span>
-                    {% if comment.selector is empty %}
-                    <span class="bp-tag shrink-0">{{ 'site_review.comment.general'|trans }}</span>
-                    {% endif %}
-                </div>
+                        <p class="bp-sr-widget-meta">{{ 'site_review.comment.via_widget'|trans }}</p>
 
-                <p class="bp-review-comment__body">{{ comment.body }}</p>
+                        <p class="bp-sr-body">{{ comment.body }}</p>
 
-                {% if comment.url starts with 'http://' or comment.url starts with 'https://' %}
-                <a class="bp-review-comment__url" href="{{ comment.url }}" target="_blank" rel="noopener noreferrer">
-                    <twig:ux:icon name="lucide:external-link" class="w-3.5 h-3.5 shrink-0" />
-                    <span class="truncate">{{ comment.url }}</span>
-                </a>
-                {% else %}
-                <span class="truncate">{{ comment.url }}</span>
-                {% endif %}
+                        <div class="bp-sr-context">
+                            {% if comment.url starts with 'http://' or comment.url starts with 'https://' %}
+                            <a class="bp-sr-context__url" href="{{ comment.url }}" target="_blank" rel="noopener noreferrer">
+                                <twig:ux:icon name="lucide:external-link" class="w-3.5 h-3.5 shrink-0" />
+                                <span>{{ comment.url }}</span>
+                            </a>
+                            {% else %}
+                            <span class="bp-sr-context__url">
+                                <twig:ux:icon name="lucide:external-link" class="w-3.5 h-3.5 shrink-0" />
+                                <span>{{ comment.url }}</span>
+                            </span>
+                            {% endif %}
+                            {% if comment.selector is not empty %}
+                            <span class="bp-sr-context__selector">
+                                <twig:ux:icon name="lucide:code" class="w-3.5 h-3.5 shrink-0" />
+                                <code>{{ comment.selector }}</code>
+                            </span>
+                            {% endif %}
+                        </div>
 
-                {% if review.status.value == 'submitted' %}
-                <div class="flex items-center gap-2 mt-2">
-                    {% if comment.status.value != 'resolved' %}
-                    <form method="POST" action="{{ path('app_site_review_comment_resolve', {id: comment.id}) }}">
-                        <input type="hidden" name="_csrf_token" value="{{ csrf_token('site-review-comment-action') }}">
-                        <button type="submit" class="bp-btn bp-btn--sm">{{ 'site_review.comment.action.resolve'|trans }}</button>
-                    </form>
-                    {% endif %}
-                    {% if comment.status.value != 'pending' %}
-                    <form method="POST" action="{{ path('app_site_review_comment_reopen', {id: comment.id}) }}">
-                        <input type="hidden" name="_csrf_token" value="{{ csrf_token('site-review-comment-action') }}">
-                        <button type="submit" class="bp-btn bp-btn--ghost bp-btn--sm">{{ 'site_review.comment.action.reopen'|trans }}</button>
-                    </form>
-                    {% endif %}
-                </div>
-                {% endif %}
-            </div>
+                        {#
+                          Agent replies would render here, but SiteReviewComment has no
+                          reply/response field — addressing only flips the status. Nothing
+                          to show until that data model exists (see docs/NEXT_STEPS.md).
+                        #}
+
+                        {% if submitted %}
+                        <div class="bp-sr-actions">
+                            {% if comment.status.value != 'resolved' %}
+                            <form method="POST" action="{{ path('app_site_review_comment_resolve', {id: comment.id}) }}">
+                                <input type="hidden" name="_csrf_token" value="{{ csrf_token('site-review-comment-action') }}">
+                                <button type="submit" class="bp-btn bp-btn--success bp-btn--sm">{{ 'site_review.comment.action.resolve'|trans }}</button>
+                            </form>
+                            {% endif %}
+                            {% if comment.status.value != 'pending' %}
+                            <form method="POST" action="{{ path('app_site_review_comment_reopen', {id: comment.id}) }}">
+                                <input type="hidden" name="_csrf_token" value="{{ csrf_token('site-review-comment-action') }}">
+                                <button type="submit" class="bp-btn bp-btn--ghost bp-btn--sm">{{ 'site_review.comment.action.reopen'|trans }}</button>
+                            </form>
+                            {% endif %}
+                        </div>
+                        {% endif %}
+                    </div>
+                </article>
             {% endfor %}
-        </div>
-        {% else %}
-        <div class="bp-card flex flex-col items-center text-center gap-3 py-12">
-            <twig:ux:icon name="lucide:message-square" class="w-8 h-8 text-fg-dim" />
-            <p class="bp-empty not-italic">{{ 'site_review.site.reviews.empty'|trans }}</p>
-        </div>
         {% endfor %}
     </div>
+    {% else %}
+    <div class="bp-sr-empty">
+        <twig:ux:icon name="lucide:message-square" class="w-8 h-8 text-fg-dim" />
+        <p>{{ 'site_review.site.reviews.empty'|trans }}</p>
+    </div>
+    {% endif %}
+
+    {#
+      Interim connection/setup cards. These move to the Connect page in a later
+      Loop PR; kept here for now, visually subordinate under a collapsed section.
+      The mint/revoke forms and #site-token / #mcp-token ids must stay intact.
+    #}
+    <details class="bp-sr-setup">
+        <summary>{{ 'site_review.setup.summary'|trans }}</summary>
+
+        <div class="bp-card mt-4" id="site-token">
+            <h2 class="bp-section-title">{{ 'site_review.site.token.heading'|trans }}</h2>
+            <p class="bp-form-hint">{{ 'account.api_token.scope.site_review_warning'|trans }}</p>
+
+            {% if project.widgetToken %}
+            <div class="bp-doc-row">
+                <div class="bp-doc-row__main">
+                    <span class="bp-doc-row__title">{{ project.widgetToken.label }}</span>
+                    <div class="bp-doc-row__meta">
+                        <span>{{ project.widgetToken.createdAt|date('M j, Y') }}</span>
+                    </div>
+                </div>
+                <form method="POST" action="{{ path('app_api_token_revoke', {tokenId: project.widgetToken.id}) }}">
+                    <input type="hidden" name="_csrf_token" value="{{ csrf_token('revoke-api-token') }}">
+                    <input type="hidden" name="returnTo" value="{{ path('app_project_site_review', {id: project.id}) }}">
+                    <button type="submit" class="bp-btn bp-btn--danger">{{ 'account.api_token.action.revoke'|trans }}</button>
+                </form>
+            </div>
+            {% set widgetSnippet = '<script src="' ~ absolute_url('/site-review/widget.js') ~ '" data-token="YOUR_TOKEN"></script>' %}
+            <div class="bp-code-block mt-4">
+                <div class="bp-code-block__header">
+                    <span class="bp-code-block__label">{{ 'site_review.site.token.snippet_heading'|trans }}</span>
+                </div>
+                <pre class="bp-pre"><code>{{ widgetSnippet }}</code></pre>
+            </div>
+            {% else %}
+            <form method="POST" action="{{ path('app_project_widget_token_mint', {id: project.id}) }}">
+                <input type="hidden" name="_csrf_token" value="{{ csrf_token('mint-site-token') }}">
+                <button type="submit" class="bp-btn bp-btn--primary">{{ 'site_review.site.token.mint'|trans }}</button>
+            </form>
+            {% endif %}
+        </div>
+
+        <div class="bp-card mt-4" id="mcp-token">
+            <h2 class="bp-section-title">{{ 'project.mcp_token.heading'|trans }}</h2>
+            <p class="bp-form-hint">{{ 'project.mcp_token.hint'|trans }}</p>
+
+            {% if project.mcpToken %}
+            <div class="bp-doc-row">
+                <div class="bp-doc-row__main">
+                    <span class="bp-doc-row__title">{{ project.mcpToken.label }}</span>
+                    <div class="bp-doc-row__meta">
+                        <span>{{ project.mcpToken.createdAt|date('M j, Y') }}</span>
+                    </div>
+                </div>
+                <form method="POST" action="{{ path('app_api_token_revoke', {tokenId: project.mcpToken.id}) }}">
+                    <input type="hidden" name="_csrf_token" value="{{ csrf_token('revoke-api-token') }}">
+                    <input type="hidden" name="returnTo" value="{{ path('app_project_site_review', {id: project.id}) }}">
+                    <button type="submit" class="bp-btn bp-btn--danger">{{ 'account.api_token.action.revoke'|trans }}</button>
+                </form>
+            </div>
+            {% else %}
+            <form method="POST" action="{{ path('app_project_mcp_token_mint', {id: project.id}) }}">
+                <input type="hidden" name="_csrf_token" value="{{ csrf_token('mint-project-mcp-token') }}">
+                <button type="submit" class="bp-btn bp-btn--primary">{{ 'project.mcp_token.mint'|trans }}</button>
+            </form>
+            {% endif %}
+        </div>
+    </details>
 </div>
 {% endblock %}

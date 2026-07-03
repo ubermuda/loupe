@@ -25,14 +25,23 @@ export default class extends Controller {
         'composerBody',
         'composerError',
         'quote',
+        'quotePreview',
         'prefix',
         'suffix',
         'toolbar',
         'thread',
     ];
 
+    // Anchor highlight names keyed by a thread's data-anchor-status. Each maps to
+    // a registered CSS Custom Highlight so pending/addressed/resolved anchors tint
+    // differently (see the ::highlight() rules in app.css).
+    static STATUS_HIGHLIGHTS = {
+        pending: 'bp-anchor-pending',
+        addressed: 'bp-anchor-addressed',
+        resolved: 'bp-anchor-resolved',
+    };
+
     static CONTEXT = 32;
-    static THREAD_GAP = 12;
 
     connect() {
         this.pendingSelection = null;
@@ -49,8 +58,8 @@ export default class extends Controller {
         this.resizeObserver = new ResizeObserver(() => this.#scheduleLayout());
         this.resizeObserver.observe(this.docTarget);
 
-        // Turbo Streams swap the thread list (add/delete replace the whole
-        // #comment-threads container; reply/resolve replace a single thread), so
+        // Turbo Streams swap the thread list (add/delete/resolve replace the
+        // whole #comment-threads container; reply replaces a single thread), so
         // observe the stable controller root — observing the container itself
         // would miss its own replacement and stop firing after the first change.
         this.threadObserver = new MutationObserver(() =>
@@ -71,6 +80,9 @@ export default class extends Controller {
         }
         this.anchorHighlight?.clear();
         this.activeHighlight?.clear();
+        for (const highlight of Object.values(this.statusHighlights ?? {})) {
+            highlight.clear();
+        }
     }
 
     /**
@@ -116,6 +128,9 @@ export default class extends Controller {
         this.quoteTarget.value = this.pendingSelection.quote;
         this.prefixTarget.value = this.pendingSelection.prefix;
         this.suffixTarget.value = this.pendingSelection.suffix;
+        if (this.hasQuotePreviewTarget) {
+            this.quotePreviewTarget.textContent = this.pendingSelection.quote;
+        }
 
         this.#setActiveHighlight(this.pendingSelection.range);
         this.#hideToolbar();
@@ -304,6 +319,17 @@ export default class extends Controller {
         this.activeHighlight = new window.Highlight();
         window.CSS.highlights.set('bp-anchor', this.anchorHighlight);
         window.CSS.highlights.set('bp-anchor-active', this.activeHighlight);
+
+        // Per-status anchor highlights (pending amber, addressed green, resolved
+        // faint). Registered alongside — never replacing — bp-anchor/-active.
+        this.statusHighlights = {};
+        for (const [status, name] of Object.entries(
+            this.constructor.STATUS_HIGHLIGHTS,
+        )) {
+            const highlight = new window.Highlight();
+            this.statusHighlights[status] = highlight;
+            window.CSS.highlights.set(name, highlight);
+        }
     }
 
     #setActiveHighlight(range) {
@@ -333,92 +359,37 @@ export default class extends Controller {
     #layout() {
         try {
             this.#highlightAnchors();
-            this.#positionThreads();
         } catch {
-            this.#resetThreadPositions();
+            this.anchorHighlight?.clear();
         }
     }
 
+    /**
+     * Repaints the per-status anchor highlights. Each thread's resolved range is
+     * added to the Highlight matching its data-anchor-status (pending / addressed
+     * / resolved); the threads themselves flow normally in the grouped ladder —
+     * cards are no longer absolutely positioned against their anchors.
+     */
     #highlightAnchors() {
-        if (!this.anchorHighlight) {
+        if (!this.statusHighlights) {
             return;
         }
-        this.anchorHighlight.clear();
+        for (const highlight of Object.values(this.statusHighlights)) {
+            highlight.clear();
+        }
         for (const thread of this.threadTargets) {
-            // Resolved threads are settled — don't highlight their anchor.
-            if (thread.classList.contains('bp-comment-thread--resolved')) {
-                continue;
-            }
+            const status = thread.dataset.anchorStatus ?? 'pending';
+            const highlight =
+                this.statusHighlights[status] ?? this.statusHighlights.pending;
             const range = this.#findRange(
                 thread.dataset.anchorQuote ?? '',
                 thread.dataset.anchorPrefix ?? '',
                 thread.dataset.anchorSuffix ?? '',
             );
             if (range !== null) {
-                this.anchorHighlight.add(range);
+                highlight.add(range);
             }
         }
-    }
-
-    /**
-     * Positions each thread card near the vertical centre of its anchor, pushing
-     * later cards down to avoid overlap. Threads without a locatable anchor flow
-     * after the positioned ones. Any failure reverts to normal flow.
-     */
-    #positionThreads() {
-        const container = this.#threadsContainer();
-        if (!container || this.threadTargets.length === 0) {
-            return;
-        }
-
-        const containerTop = container.getBoundingClientRect().top;
-        const placements = this.threadTargets.map((thread) => {
-            const range = this.#findRange(
-                thread.dataset.anchorQuote ?? '',
-                thread.dataset.anchorPrefix ?? '',
-                thread.dataset.anchorSuffix ?? '',
-            );
-            const desiredTop = range
-                ? range.getBoundingClientRect().top - containerTop
-                : null;
-            return { thread, desiredTop };
-        });
-
-        placements.sort((a, b) => {
-            if (a.desiredTop === null) return b.desiredTop === null ? 0 : 1;
-            if (b.desiredTop === null) return -1;
-            return a.desiredTop - b.desiredTop;
-        });
-
-        container.style.position = 'relative';
-        let cursor = 0;
-        for (const { thread, desiredTop } of placements) {
-            const top = Math.max(desiredTop ?? cursor, cursor);
-            thread.style.position = 'absolute';
-            thread.style.left = '0';
-            thread.style.right = '0';
-            thread.style.top = `${top}px`;
-            cursor = top + thread.offsetHeight + this.constructor.THREAD_GAP;
-        }
-        container.style.height = `${cursor}px`;
-    }
-
-    #resetThreadPositions() {
-        const container = this.#threadsContainer();
-        if (container) {
-            container.style.position = '';
-            container.style.height = '';
-        }
-        for (const thread of this.threadTargets) {
-            thread.style.position = '';
-            thread.style.left = '';
-            thread.style.right = '';
-            thread.style.top = '';
-        }
-    }
-
-    #threadsContainer() {
-        return this.element.querySelector('.bp-comment-threads');
     }
 
     // ── Toolbar / composer positioning ──────────────────────────────────────
@@ -452,8 +423,13 @@ export default class extends Controller {
             : range.getBoundingClientRect();
         const origin = this.#positioningOrigin();
         const gap = 10;
+        // The offset parent (.bp-review-doc) is also the internal scroll
+        // container: an absolutely-positioned child's `top` is measured from the
+        // padding-box in scrolled content space, so add scrollTop to keep the
+        // toolbar/composer glued to the selection after the pane is scrolled.
+        const scrollTop = this.docTarget.parentElement.scrollTop;
         return {
-            top: rect.bottom - origin.top + gap,
+            top: rect.bottom - origin.top + scrollTop + gap,
             left: Math.max(0, rect.right - origin.left - width),
         };
     }

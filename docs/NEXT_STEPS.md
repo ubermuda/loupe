@@ -2,6 +2,17 @@
 
 Open work and observations worth revisiting. Delete items entirely once resolved.
 
+## SiteReviewRepository missing `autoconfigure: true` in `when@test`
+
+`config/services.yaml`'s `when@test` block redefines several Review/SiteReview
+repositories, which *replaces* the `App\:` resource definition and silently drops
+`autoconfigure` (so no `doctrine.repository_service` tag in the test container).
+`CommentRepository` was fixed (its missing tag broke `{id:comment}` entity
+resolution in `ResolveCommentControllerTest`). `App\Module\SiteReview\Repository\SiteReviewRepository`
+still has the same gap — any future controller test that resolves a SiteReview via
+a `{id:siteReview}` route will hit the same "entity repository ... service could
+not be found" error. Add `autoconfigure: true` to that override when it bites.
+
 ## Account-level API tokens page is unreachable from the UI
 
 Loop redesign PR 2, Task 2 rebuilt the app shell and removed the sidebar's
@@ -236,3 +247,28 @@ Several Playwright specs still hardcode the old paths and will fail the PR-gate
 
 Task 4's commit scope deliberately excluded `e2e/`; fold these fixes into the
 task/step that runs `just e2e` before opening the PR.
+
+## Site-review comments have no agent-reply data model
+
+The site-review screen (handoff §4) shows agent ("Claude") replies indented under
+each comment with an "addressed" tag. `SiteReviewComment` has no reply/response
+field — the MCP `address_comment` tool only flips the status to `Addressed`, it
+stores no reply text. So the site-review page renders no agent-reply block (there
+is nothing to show). When agent replies become a real requirement, add a reply/
+response field (or a related entity) to `SiteReviewComment`, have the addressing
+tool persist the reply body, and render it in
+`templates/Module/SiteReview/show_site_review.html.twig` (a placeholder comment
+marks where it goes).
+
+## Site-review widget overlaps the review console's pinned controls (dogfooding)
+
+The site-review widget (loaded on Better Plans' own authenticated pages when
+`SITE_REVIEW_WIDGET_TOKEN` is set — dev/dogfooding) mounts a `position:fixed`
+bottom-right launcher (z-index max). PR 3 pinned the document-review verdict bar
+to the bottom of the 388px margin, so the launcher can overlap the "Request
+changes"/"Approve" buttons in dogfooding mode. The e2e `review-loop` spec
+suppresses the widget (`suppressWidget`, like the debug toolbar) to test the
+review screen in isolation. Product decision to make later: the widget isn't part
+of the review/site-review console screens' design — consider not loading it on
+those routes (scope the `base.html.twig` widget include out of the review console)
+so dogfooding a review doesn't cover the console's own controls.
