@@ -8,7 +8,7 @@
 {% for review in reviews %}{% set totalComments = totalComments + review.comments|length %}{% endfor %}
 <div class="bp-sr-page">
     <nav class="bp-sr-breadcrumb">
-        <a href="{{ path('app_projects') }}">{{ project.name }}</a>
+        <a href="{{ path('app_project_documents', {id: project.id}) }}">{{ project.name }}</a>
         <span class="bp-sr-breadcrumb__sep">/</span>
         <span class="bp-sr-breadcrumb__current">{{ 'site_review.page.title'|trans }}</span>
     </nav>
