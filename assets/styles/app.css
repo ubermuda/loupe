@@ -65,16 +65,12 @@
 
     /* Custom layout utilities */
     --width-sidebar: 14.5rem;
-    --width-sidebar-compact: 3.5rem;
 }
 
 /* ── Custom layout utilities ───────────────────────────────────────── */
 
 @utility w-sidebar {
     width: 14.5rem;
-}
-@utility w-sidebar-compact {
-    width: 3.5rem;
 }
 @utility max-w-card {
     max-width: 25.5rem;
@@ -109,6 +105,8 @@
     --accent-faint: #f4f3ff;
     --accent-faint-2: #faf9ff;
     --accent-border: #d9d8f5;
+    /* Switcher hover border — handoff §2 pins this specific hairline. */
+    --switcher-hover-border: #c7c6f0;
 
     /* Text ladder */
     --ink: #17172a;
@@ -781,7 +779,8 @@
         border-radius: 9px;
     }
     .bp-sidebar__switcher:hover {
-        @apply bg-accent-faint-2 border-accent-border;
+        @apply bg-accent-faint-2;
+        border-color: var(--switcher-hover-border);
     }
     .bp-sidebar__switcher-avatar {
         @apply w-6 h-6 bg-ink shrink-0 inline-flex items-center justify-center text-white text-xs font-semibold;

@@ -6,20 +6,17 @@ namespace App\Module\Project\Twig;
 
 use App\Module\Project\Entity\Project;
 use App\Module\Project\Service\CurrentProjectProvider;
-use App\Module\SiteReview\Repository\SiteReviewCommentRepository;
 use Twig\Extension\AbstractExtension;
 use Twig\TwigFunction;
 
 /**
- * Exposes the app-shell context to templates: the request's current project
- * (drives the switcher + scoped nav) and its open site-review count (the nav
- * pill). Both delegate to services; no logic lives here.
+ * Exposes the request's current project to templates — it drives the app-shell
+ * switcher and scoped nav. Delegates to the resolver; no logic lives here.
  */
 final class ProjectNavExtension extends AbstractExtension
 {
     public function __construct(
         private readonly CurrentProjectProvider $currentProjectProvider,
-        private readonly SiteReviewCommentRepository $siteReviewComments,
     ) {
     }
 
@@ -28,17 +25,11 @@ final class ProjectNavExtension extends AbstractExtension
     {
         return [
             new TwigFunction('current_project', $this->currentProject(...)),
-            new TwigFunction('project_open_review_count', $this->openReviewCount(...)),
         ];
     }
 
     public function currentProject(): ?Project
     {
         return $this->currentProjectProvider->current();
-    }
-
-    public function openReviewCount(Project $project): int
-    {
-        return $this->siteReviewComments->countOpenForProject($project);
     }
 }

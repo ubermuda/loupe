@@ -11,16 +11,6 @@ reachable only by typing the URL. This is expected on the Loop path: token setup
 moves to a per-project "Connect agent" page (PR 4). Until PR 4 ships, decide
 whether to keep a temporary link or leave it URL-only, then remove this note.
 
-## `Project` module now depends on the `SiteReview` module (dependency cycle)
-
-Task 2 added `ProjectNavExtension` (Project module) which injects
-`SiteReviewCommentRepository` (SiteReview module) for the nav open-count pill.
-`SiteReview` already depends on `Project`, so this introduces a `Project ↔ SiteReview`
-cycle. `phparkitect.php` is currently an empty stub so CI does not catch it. If
-module-boundary rules are ever enabled, this needs redesign (e.g. move the count
-into a SiteReview-owned Twig function, or dispatch/read via an event/shared
-abstraction) — see the "cross-module needs" patterns in the `project-backend` skill.
-
 ## Dashboard document search + status/tag filtering
 
 Deferred from the SaaS visual redesign (visual-only phase). The dashboard mockup

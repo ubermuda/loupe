@@ -59,6 +59,23 @@ final class CurrentProjectProviderTest extends KernelTestCase
         self::assertNull($provider->current());
     }
 
+    public function test_memoizes_the_resolved_project_across_calls(): void
+    {
+        self::bootKernel();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $owner = $this->user($em, 'provider-memo@example.com');
+        $project = new Project($owner, 'memoized');
+        $em->persist($project);
+        $em->flush();
+
+        $provider = $this->provider($this->requestWith('id', (string) $project->id), $owner);
+
+        // A second call returns the identical instance from the per-request memo.
+        $first = $provider->current();
+        self::assertSame($first, $provider->current());
+        self::assertSame($project->id, $first?->id);
+    }
+
     private function provider(Request $request, User $user): CurrentProjectProvider
     {
         $requestStack = new RequestStack();
