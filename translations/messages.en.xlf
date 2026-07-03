@@ -457,6 +457,18 @@
                 <source>review.dashboard.empty</source>
                 <target>No documents yet.</target>
             </trans-unit>
+            <trans-unit id="review.dashboard.description">
+                <source>review.dashboard.description</source>
+                <target>Documents the agent submitted for review, newest first.</target>
+            </trans-unit>
+            <trans-unit id="review.dashboard.meta.updated">
+                <source>review.dashboard.meta.updated</source>
+                <target>Updated %time%</target>
+            </trans-unit>
+            <trans-unit id="review.dashboard.meta.open_threads">
+                <source>review.dashboard.meta.open_threads</source>
+                <target>{0}0 open threads|{1}1 open thread|]1,Inf[%count% open threads</target>
+            </trans-unit>
 
             <!-- Document review page -->
             <trans-unit id="review.document.page.title">

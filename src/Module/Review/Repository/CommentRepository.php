@@ -37,6 +37,23 @@ class CommentRepository extends ServiceEntityRepository
     }
 
     /**
+     * Counts the open threads on a version: top-level (parent IS NULL) comments
+     * that are not resolved. Replies never count as threads of their own.
+     */
+    public function countOpenByVersion(DocumentVersion $version): int
+    {
+        return (int) $this->createQueryBuilder('c')
+            ->select('COUNT(c.id)')
+            ->where('c.version = :version')
+            ->andWhere('c.resolved = :resolved')
+            ->andWhere('c.parent IS NULL')
+            ->setParameter('version', $version)
+            ->setParameter('resolved', false)
+            ->getQuery()
+            ->getSingleScalarResult();
+    }
+
+    /**
      * Returns all comments for a version (both resolved and open), in document
      * order (by anchor offset, then id for stable ties).
      *

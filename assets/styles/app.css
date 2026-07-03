@@ -579,6 +579,81 @@
         @apply block;
     }
 
+    /* ── Breadcrumb (handoff §2) ────────────────────────────────────── */
+
+    /* Mono, 12px, dim. `{project} / Documents` above the page title. */
+    .bp-crumbs {
+        @apply flex items-center gap-2 font-mono text-fg-dim m-0;
+        font-size: 12px;
+    }
+    .bp-crumbs__link {
+        @apply text-fg-dim no-underline transition-colors;
+    }
+    .bp-crumbs__link:hover {
+        @apply text-fg;
+    }
+    .bp-crumbs__sep {
+        @apply text-fg-faint;
+    }
+    .bp-crumbs__here {
+        @apply text-fg-mute;
+    }
+
+    /* ── Documents list (handoff §2) ────────────────────────────────── */
+
+    /* Flush hairline divider list of document rows: top hairline, per-row bottom
+       hairline (#ececf4), subtle #fbfbfe hover. Distinct from the shared
+       .bp-doc-row (token/site-review rows) so its 16px 6px rhythm and version
+       pill stay local to this screen. */
+    .bp-document-list {
+        @apply flex flex-col border-t border-line mt-1;
+    }
+    .bp-document-row {
+        @apply relative flex items-center gap-4 border-b border-line transition-colors;
+        padding: 16px 6px;
+    }
+    .bp-document-row:hover {
+        @apply bg-tint;
+    }
+    /* Stretch the review link across the whole row; the badge and chevron are
+       non-interactive so they sit beneath it. */
+    .bp-document-row__link {
+        @apply absolute inset-0;
+    }
+    .bp-document-row__main {
+        @apply min-w-0 flex-1 flex flex-col gap-1;
+    }
+    /* Line 1: title + version pill inline. */
+    .bp-document-row__head {
+        @apply flex items-baseline gap-2 min-w-0;
+    }
+    .bp-document-row__title {
+        @apply font-medium text-ink truncate;
+        font-size: 15px;
+    }
+    /* Mono version pill — bg #f4f4f8, e.g. "v3". */
+    .bp-document-row__version {
+        @apply inline-flex items-center shrink-0 font-mono rounded-full text-fg-dim;
+        font-size: 11px;
+        padding: 1px 7px;
+        background: var(--border-faint);
+    }
+    /* Line 2: the mono meta beneath the title. */
+    .bp-document-row__meta {
+        @apply flex items-center gap-1.5 font-mono text-fg-dim;
+        font-size: 12.5px;
+    }
+    .bp-document-row__sep {
+        @apply text-fg-dim;
+    }
+    .bp-document-row__open {
+        color: var(--status-pending-deep);
+    }
+    .bp-document-row__chevron {
+        @apply w-4 h-4 shrink-0;
+        color: var(--switcher-hover-border);
+    }
+
     /* ── Flash messages ─────────────────────────────────────────────── */
 
     .bp-flash {
