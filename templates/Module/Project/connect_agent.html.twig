@@ -4,25 +4,29 @@
 
 {% block body %}
 {%- set mcpUrl = url('app_mcp_endpoint') -%}
+{#- A freshly minted/regenerated raw secret is flashed under a dedicated key so it
+    renders once in a copyable field, and is embedded into the config snippet and CLI
+    command below (falling back to a placeholder on ordinary loads). Reading the flash
+    here also clears it before the generic flash loop. -#}
+{%- set mintedMcpToken = app.flashes('minted_mcp_token')|first -%}
+{%- set mintedWidgetToken = app.flashes('minted_widget_token')|first -%}
+{%- set mcpTokenValue = mintedMcpToken ?: 'YOUR_TOKEN' -%}
+{%- set widgetTokenValue = mintedWidgetToken ?: 'YOUR_TOKEN' -%}
 {%- set mcpJson = [
     "{",
     "  \"mcpServers\": {",
-    "    \"better-plans\": {",
+    "    \"" ~ mcpServerName ~ "\": {",
     "      \"type\": \"http\",",
     "      \"url\": \"" ~ mcpUrl ~ "\",",
     "      \"headers\": {",
-    "        \"Authorization\": \"Bearer YOUR_TOKEN\"",
+    "        \"Authorization\": \"Bearer " ~ mcpTokenValue ~ "\"",
     "      }",
     "    }",
     "  }",
     "}"
 ]|join("\n") -%}
-{%- set widgetSnippet = '<script src="' ~ absolute_url('/site-review/widget.js') ~ '" data-token="YOUR_TOKEN"></script>' -%}
-{%- set claudeCommand = 'claude mcp add --transport http --header "Authorization: Bearer YOUR_TOKEN" better-plans ' ~ mcpUrl -%}
-{#- A freshly minted raw secret is flashed under a dedicated key so it renders once
-    in a copyable field (and is cleared before the generic flash loop below). -#}
-{%- set mintedMcpToken = app.flashes('minted_mcp_token')|first -%}
-{%- set mintedWidgetToken = app.flashes('minted_widget_token')|first -%}
+{%- set widgetSnippet = '<script src="' ~ absolute_url('/site-review/widget.js') ~ '" data-token="' ~ widgetTokenValue ~ '"></script>' -%}
+{%- set claudeCommand = 'claude mcp add --transport http ' ~ mcpServerName ~ ' ' ~ mcpUrl ~ ' --header "Authorization: Bearer ' ~ mcpTokenValue ~ '"' -%}
 <div class="bp-connect">
     <nav class="bp-crumbs">
         <a href="{{ path('app_project_documents', {id: project.id}) }}" class="bp-crumbs__link">{{ project.name }}</a>
@@ -72,6 +76,10 @@
                 <span class="bp-connect-field__meta">{{ project.mcpToken.createdAt|date('M j, Y') }}</span>
             </span>
             <span class="bp-connect-tag">{{ 'project.connect.tag.project_scoped'|trans }}</span>
+            <form method="POST" action="{{ path('app_project_mcp_token_regenerate', {id: project.id}) }}">
+                <input type="hidden" name="_csrf_token" value="{{ csrf_token('regenerate-project-mcp-token') }}">
+                <button type="submit" class="bp-btn bp-btn--ghost bp-btn--sm">{{ 'project.connect.token.regenerate'|trans }}</button>
+            </form>
             <form method="POST" action="{{ path('app_api_token_revoke', {tokenId: project.mcpToken.id}) }}">
                 <input type="hidden" name="_csrf_token" value="{{ csrf_token('revoke-api-token') }}">
                 <input type="hidden" name="returnTo" value="{{ path('app_project_connect', {id: project.id}) }}">
@@ -134,6 +142,10 @@
                 {{ project.widgetToken.label }}
                 <span class="bp-connect-field__meta">{{ project.widgetToken.createdAt|date('M j, Y') }}</span>
             </span>
+            <form method="POST" action="{{ path('app_project_widget_token_regenerate', {id: project.id}) }}">
+                <input type="hidden" name="_csrf_token" value="{{ csrf_token('regenerate-project-widget-token') }}">
+                <button type="submit" class="bp-btn bp-btn--ghost bp-btn--sm">{{ 'project.connect.token.regenerate'|trans }}</button>
+            </form>
             <form method="POST" action="{{ path('app_api_token_revoke', {tokenId: project.widgetToken.id}) }}">
                 <input type="hidden" name="_csrf_token" value="{{ csrf_token('revoke-api-token') }}">
                 <input type="hidden" name="returnTo" value="{{ path('app_project_connect', {id: project.id}) }}">

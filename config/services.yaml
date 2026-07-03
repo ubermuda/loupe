@@ -10,6 +10,9 @@ parameters:
     app.mailer.from_address: 'noreply@example.com'
     app.mailer.from_name: 'App'
     app.url: '%env(APP_URL)%'
+    # Name of the MCP server as it appears in the connect-agent install snippet
+    # and the `claude mcp add` command.
+    app.mcp.server_name: 'betterplans'
 
 services:
     # default configuration for services in *this* file
