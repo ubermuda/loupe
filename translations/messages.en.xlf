@@ -553,6 +553,10 @@
                 <source>nav.brand</source>
                 <target>Better Plans</target>
             </trans-unit>
+            <trans-unit id="nav.eyebrow">
+                <source>nav.eyebrow</source>
+                <target>LOOP</target>
+            </trans-unit>
             <trans-unit id="nav.link.projects">
                 <source>nav.link.projects</source>
                 <target>Projects</target>
@@ -561,17 +565,13 @@
                 <source>nav.link.documents</source>
                 <target>Documents</target>
             </trans-unit>
-            <trans-unit id="nav.link.api_tokens">
-                <source>nav.link.api_tokens</source>
-                <target>API tokens</target>
+            <trans-unit id="nav.link.site_review">
+                <source>nav.link.site_review</source>
+                <target>Site review</target>
             </trans-unit>
-            <trans-unit id="nav.toggle_sidebar">
-                <source>nav.toggle_sidebar</source>
-                <target>Collapse sidebar</target>
-            </trans-unit>
-            <trans-unit id="nav.expand_sidebar">
-                <source>nav.expand_sidebar</source>
-                <target>Expand sidebar</target>
+            <trans-unit id="nav.account.role">
+                <source>nav.account.role</source>
+                <target>Reviewer</target>
             </trans-unit>
 
             <!-- Projects -->

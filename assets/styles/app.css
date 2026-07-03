@@ -736,107 +736,134 @@
 
     .bp-app {
         @apply grid;
-        grid-template-columns: 15rem 1fr;
+        grid-template-columns: 252px 1fr;
         /* Lock the shell to the viewport so the sidebar stays put and the main
            column scrolls on its own (see .bp-main overflow-y-auto below). */
         height: 100dvh;
-    }
-    .bp-app--collapsed {
-        grid-template-columns: 3.75rem 1fr;
     }
     .bp-main {
         @apply min-w-0 overflow-x-hidden overflow-y-auto;
     }
 
-    /* Full-height sticky sidebar: pinned to the viewport. Overflow stays visible
-       (its handful of items never need scrolling) so collapsed-mode tooltips can
-       escape past its right edge. The bottom section (logout + account) is pushed
-       down by .bp-sidebar__spacer (mt-auto). */
+    /* Full-height sidebar pinned to the viewport (bg #fbfbfe, right hairline).
+       The account row is pushed to the bottom by .bp-sidebar__spacer (mt-auto). */
     .bp-sidebar {
-        @apply flex flex-col gap-1 bg-surface-1 border-r border-line px-3 py-4;
+        @apply flex flex-col gap-1 bg-sidebar border-r border-line px-3 py-4;
     }
+
+    /* Brand: 26px accent mark + name with a "LOOP" mono eyebrow. */
     .bp-sidebar__brand {
-        @apply flex items-center gap-2.5 px-2 mb-4 text-fg no-underline;
+        @apply flex items-center gap-2.5 px-2 mb-3 text-fg no-underline;
     }
     .bp-sidebar__brand-mark {
-        @apply w-7 h-7 rounded-lg bg-accent shrink-0 inline-flex items-center justify-center text-white;
+        @apply rounded-lg bg-accent shrink-0 inline-flex items-center justify-center text-white;
+        width: 26px;
+        height: 26px;
     }
     .bp-sidebar__brand-mark svg {
         @apply w-4 h-4;
     }
+    .bp-sidebar__brand-text {
+        @apply flex flex-col leading-tight min-w-0;
+    }
     .bp-sidebar__brand-name {
         @apply text-sm font-semibold tracking-tight whitespace-nowrap;
     }
+    .bp-sidebar__brand-eyebrow {
+        @apply font-mono uppercase text-fg-dim;
+        font-size: 9.5px;
+        letter-spacing: 0.14em;
+    }
+
+    /* Project switcher: bordered button linking to the projects index. */
+    .bp-sidebar__switcher {
+        @apply flex items-center gap-2.5 w-full px-2.5 py-2 mb-1 border border-line-strong bg-surface-1 no-underline transition-colors;
+        border-radius: 9px;
+    }
+    .bp-sidebar__switcher:hover {
+        @apply bg-accent-faint-2 border-accent-border;
+    }
+    .bp-sidebar__switcher-avatar {
+        @apply w-6 h-6 bg-ink shrink-0 inline-flex items-center justify-center text-white text-xs font-semibold;
+        border-radius: 5px;
+    }
+    .bp-sidebar__switcher-text {
+        @apply flex flex-col leading-tight min-w-0 mr-auto;
+    }
+    .bp-sidebar__switcher-name {
+        @apply font-semibold text-fg truncate;
+        font-size: 13px;
+    }
+    .bp-sidebar__switcher-domain {
+        @apply font-mono text-fg-dim truncate;
+        font-size: 10.5px;
+    }
+    .bp-sidebar__switcher-chevron {
+        @apply w-4 h-4 shrink-0 text-fg-dim;
+    }
+
     .bp-sidebar__nav {
         @apply flex flex-col gap-0.5;
     }
     .bp-sidebar__link {
-        @apply flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-sm font-medium text-fg-mute no-underline transition-colors;
+        @apply flex items-center gap-2.5 px-2.5 py-2 rounded-lg font-medium text-fg-mute no-underline transition-colors;
+        font-size: 13px;
     }
     .bp-sidebar__link:hover {
-        @apply bg-tint text-fg;
+        @apply bg-accent-faint text-fg;
     }
     .bp-sidebar__link--active {
-        @apply bg-accent-soft text-accent;
+        @apply bg-accent-soft text-accent-hover font-semibold;
     }
     .bp-sidebar__link svg {
         @apply w-4 h-4 shrink-0;
     }
+    .bp-sidebar__link-label {
+        @apply truncate;
+    }
+
+    /* Site-review open-count pill: neutral by default, amber when open > 0. */
+    .bp-sidebar__pill {
+        @apply ml-auto inline-flex items-center justify-center min-w-5 px-1.5 py-0.5 rounded-full font-mono leading-none;
+        font-size: 10.5px;
+        background: #f0f4f0;
+        color: var(--text-dim);
+    }
+    .bp-sidebar__pill--amber {
+        @apply bg-status-pending-bg;
+        color: var(--status-pending-deep);
+    }
+
     .bp-sidebar__spacer {
         @apply mt-auto;
     }
     .bp-sidebar__account {
         @apply flex items-center gap-2.5 px-2 py-2 border-t border-line;
     }
+    .bp-sidebar__account-avatar {
+        @apply rounded-full bg-accent-soft shrink-0 inline-flex items-center justify-center text-accent-hover text-xs font-semibold;
+        width: 26px;
+        height: 26px;
+    }
+    .bp-sidebar__account-text {
+        @apply flex flex-col leading-tight min-w-0 mr-auto;
+    }
     .bp-sidebar__account-name {
-        @apply text-sm text-fg truncate min-w-0;
+        @apply font-medium text-fg truncate;
+        font-size: 12.5px;
     }
-    .bp-sidebar__toggle {
-        @apply ml-auto inline-flex items-center justify-center w-7 h-7 rounded-md text-fg-dim cursor-pointer border-0 bg-transparent transition-colors;
+    .bp-sidebar__account-role {
+        @apply text-fg-dim;
+        font-size: 11px;
     }
-    .bp-sidebar__toggle:hover {
+    .bp-sidebar__account-logout {
+        @apply inline-flex items-center justify-center w-7 h-7 rounded-md text-fg-dim no-underline transition-colors;
+    }
+    .bp-sidebar__account-logout:hover {
         @apply bg-tint text-fg;
     }
-    .bp-sidebar__toggle svg {
-        @apply w-5 h-5 shrink-0;
-    }
-
-    /* Collapsed state: hide labels, center icons */
-    .bp-app--collapsed .bp-sidebar__brand-name,
-    .bp-app--collapsed .bp-sidebar__link-label,
-    .bp-app--collapsed .bp-sidebar__account-name {
-        @apply hidden;
-    }
-    .bp-app--collapsed .bp-sidebar__link,
-    .bp-app--collapsed .bp-sidebar__brand,
-    .bp-app--collapsed .bp-sidebar__account {
-        @apply justify-center px-0;
-    }
-    .bp-app--collapsed .bp-sidebar__toggle {
-        @apply ml-0;
-    }
-    /* Toggle icon: "collapse" when expanded, "expand" when collapsed. */
-    .bp-sidebar__toggle-icon--expand {
-        @apply hidden;
-    }
-    .bp-app--collapsed .bp-sidebar__toggle-icon--collapse {
-        @apply hidden;
-    }
-    .bp-app--collapsed .bp-sidebar__toggle-icon--expand {
-        @apply block;
-    }
-
-    /* Instant tooltips for icon-only items in collapsed mode (native `title` is
-       too slow to be useful). Shown immediately on hover/focus; they escape the
-       sidebar because it no longer clips overflow. */
-    .bp-app--collapsed .bp-sidebar [data-tooltip] {
-        @apply relative;
-    }
-    .bp-app--collapsed .bp-sidebar [data-tooltip]:hover::after,
-    .bp-app--collapsed .bp-sidebar [data-tooltip]:focus-visible::after {
-        content: attr(data-tooltip);
-        @apply absolute left-full top-1/2 ml-2 px-2 py-1 rounded-md text-xs font-medium whitespace-nowrap bg-surface-3 text-fg shadow-toolbar pointer-events-none z-50;
-        transform: translateY(-50%);
+    .bp-sidebar__account-logout svg {
+        @apply w-4 h-4 shrink-0;
     }
 
     /* ── Code / pre blocks ──────────────────────────────────────────────── */
