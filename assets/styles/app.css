@@ -429,6 +429,64 @@
         @apply inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-tint text-fg-mute border border-line;
     }
 
+    /* ── Loop ribbon ────────────────────────────────────────────────────
+       Horizontal 4-step progress indicator (Proposed → In review → Revise →
+       Approved). Each step is a 22px numbered circle + label, joined by 2px
+       connector bars. State (completed / current / upcoming) is derived in the
+       LoopRibbon component from the step ordinal vs. the current stage; the
+       filled track (accent-border bars + accent-soft circles) runs up to and
+       including the current step. 22px/2px are off-scale sizes → plain CSS. */
+    .bp-ribbon {
+        @apply flex items-center;
+        gap: 0.625rem;
+    }
+    .bp-ribbon__step {
+        @apply inline-flex items-center;
+        gap: 0.5rem;
+    }
+    .bp-ribbon__circle {
+        @apply inline-flex items-center justify-center shrink-0 rounded-full border font-mono font-medium;
+        width: 1.375rem;
+        height: 1.375rem;
+        font-size: 0.6875rem;
+    }
+    .bp-ribbon__circle--current {
+        @apply bg-accent text-white border-accent;
+    }
+    .bp-ribbon__circle--completed {
+        @apply bg-accent-soft text-accent-hover border-accent-border;
+    }
+    .bp-ribbon__circle--upcoming {
+        @apply bg-elev text-fg-faint border-line-strong;
+    }
+    .bp-ribbon__label {
+        font-size: 0.8125rem;
+        line-height: 1;
+    }
+    .bp-ribbon__label--current {
+        @apply text-ink font-semibold;
+    }
+    .bp-ribbon__label--completed {
+        @apply text-accent-hover;
+    }
+    .bp-ribbon__label--upcoming {
+        @apply text-fg-dim;
+    }
+    .bp-ribbon__bar {
+        @apply shrink-0 rounded-full;
+        width: 1.75rem;
+        height: 2px;
+    }
+    /* Bars leading into a completed or current step are filled (accent-border);
+       only bars leading into an upcoming step stay the light hairline. */
+    .bp-ribbon__bar--current,
+    .bp-ribbon__bar--completed {
+        @apply bg-accent-border;
+    }
+    .bp-ribbon__bar--upcoming {
+        @apply bg-line;
+    }
+
     /* ── Document list ──────────────────────────────────────────────── */
 
     /* Flush hairline divider list — no card wrapper: a top hairline, and each
