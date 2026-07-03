@@ -13,6 +13,7 @@ use App\Module\Review\ValueObject\Anchor;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use Symfony\Component\HttpFoundation\Request;
+use Symfony\UX\Turbo\TurboBundle;
 
 final class DocumentReviewControllerTest extends WebTestCase
 {
@@ -129,6 +130,59 @@ final class DocumentReviewControllerTest extends WebTestCase
         self::assertSelectorExists('[data-anchor-status="pending"]');
         self::assertSelectorExists('[data-anchor-status="resolved"]');
         self::assertSelectorExists('.bp-comment-thread--resolved');
+    }
+
+    public function test_resolving_a_comment_returns_the_whole_list_stream_regrouped(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+
+        $owner = $this->createUser($em, 'resolveowner', 'resolve@example.com');
+        $project = $this->project($em, $owner);
+
+        $doc = new Document(owner: $owner, project: $project, title: 'Resolve Doc');
+        $version = $doc->addVersion('# Body', '<h1>Body</h1>');
+        $em->persist($doc);
+
+        $comment = new Comment($version, $owner, 'Please fix this', new Anchor('Body', '', '', 0));
+        $em->persist($comment);
+        $em->flush();
+
+        $commentId = (string) $comment->id;
+        $em->clear();
+
+        $client->loginUser($owner);
+        // 'csrf-token' is the SameOriginCsrfTokenManager sentinel: a same-origin
+        // Referer lets it stand in for the stateless comment-action token. The
+        // Turbo Accept header selects the stream branch over the redirect fallback.
+        $client->request(
+            Request::METHOD_POST,
+            '/comments/'.$commentId.'/resolve',
+            ['_csrf_token' => 'csrf-token'],
+            server: [
+                'HTTP_ACCEPT' => TurboBundle::STREAM_MEDIA_TYPE,
+                'HTTP_REFERER' => 'http://localhost/comments/'.$commentId.'/resolve',
+            ],
+        );
+
+        self::assertResponseIsSuccessful();
+        $content = (string) $client->getResponse()->getContent();
+
+        // The stream replaces the whole #comment-threads region, not a single card.
+        self::assertStringContainsString('target="comment-threads"', $content);
+        self::assertStringNotContainsString('target="comment-thread-'.$commentId.'"', $content);
+
+        // The re-rendered list places the card under RESOLVED with a refreshed
+        // count (1/1) and a full progress bar.
+        self::assertStringContainsString('bp-ladder-group__eyebrow--resolved', $content);
+        self::assertStringContainsString('bp-comment-thread--resolved', $content);
+        self::assertStringContainsString('1/1 resolved', $content);
+        self::assertStringContainsString('width: 100%', $content);
+
+        // The comment is actually persisted as resolved.
+        $fetched = $em->find(Comment::class, $comment->id);
+        self::assertNotNull($fetched);
+        self::assertTrue($fetched->resolved);
     }
 
     public function test_approved_document_shows_locked_confirmation(): void

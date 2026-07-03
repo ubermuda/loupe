@@ -38,21 +38,24 @@ final class ResolveCommentController extends AppController
 
     public function __invoke(Comment $comment, Request $request): Response
     {
+        $version = $comment->version;
+
         ($this->resolveCommentHandler)(new ResolveCommentCommand(
             comment: $comment,
         ));
 
         if (TurboBundle::STREAM_FORMAT !== $request->getPreferredFormat()) {
             return $this->redirectToRoute('app_document_review', [
-                'projectId' => (string) $comment->version->document->project->id,
-                'documentId' => (string) $comment->version->document->id,
+                'projectId' => (string) $version->document->project->id,
+                'documentId' => (string) $version->document->id,
             ]);
         }
 
-        $html = $this->renderView('review/_comment_thread.stream.html.twig', [
-            'comment' => $comment,
-            'replies' => $this->comments->findReplies($comment),
-            'replyForm' => null,
+        // Re-render the whole thread list: resolving moves the card from the
+        // PENDING group to RESOLVED and shifts the resolved count + progress bar,
+        // none of which a single-thread replace would refresh.
+        $html = $this->renderView('review/_comment_added.stream.html.twig', [
+            'comments' => $this->comments->findByVersion($version),
         ]);
 
         return new Response($html, Response::HTTP_OK, ['Content-Type' => TurboBundle::STREAM_MEDIA_TYPE]);

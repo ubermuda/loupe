@@ -992,12 +992,15 @@
         @apply h-full bg-status-ok rounded-full transition-[width] duration-300;
     }
     .bp-review-sidebar__scroll {
-        @apply flex-1 min-h-0 overflow-y-auto px-5 py-4;
+        @apply flex flex-col flex-1 min-h-0 gap-5 overflow-y-auto px-5 py-4;
     }
 
-    /* ── Ladder groups (PENDING / ADDRESSED BY AGENT / RESOLVED) ─────────── */
+    /* ── Ladder groups (PENDING / ADDRESSED BY AGENT / RESOLVED) ───────────
+       #comment-threads is the whole-list region the Turbo Stream replaces on
+       add / delete / resolve: header (count), progress bar, then the scrolling
+       ladder — so all three refresh together. */
     .bp-comment-threads {
-        @apply flex flex-col gap-5;
+        @apply flex flex-col flex-1 min-h-0;
     }
     .bp-ladder-group {
         @apply flex flex-col gap-2.5;

@@ -3,10 +3,6 @@
 {% block title %}{{ 'review.document.page.title'|trans({'%title%': document.title}) }}{% endblock %}
 
 {% block body %}
-{% set rootComments = comments|filter(c => c.parent is null) %}
-{% set totalCount = rootComments|length %}
-{% set resolvedCount = rootComments|filter(c => c.resolved)|length %}
-{% set progressPct = totalCount > 0 ? (resolvedCount / totalCount * 100)|round : 0 %}
 <div class="bp-review">
     {% for label, messages in app.flashes %}
         {% for message in messages %}
@@ -97,24 +93,7 @@
         </div>
 
         <div class="bp-review-sidebar">
-            <div class="bp-review-sidebar__header">
-                <div class="bp-review-sidebar__heading">
-                    <h2 class="bp-review-sidebar__title">{{ 'review.document.sidebar.title'|trans }}</h2>
-                    <span class="bp-review-sidebar__count">{{ 'review.document.threads.resolved_count'|trans({'%resolved%': resolvedCount, '%total%': totalCount}) }}</span>
-                </div>
-                <button type="button" class="bp-btn bp-btn--sm" data-action="comment-anchor#startUntargeted">
-                    <twig:ux:icon name="lucide:plus" class="w-3.5 h-3.5 shrink-0" />
-                    {{ 'review.document.comment.untargeted'|trans }}
-                </button>
-            </div>
-
-            <div class="bp-progress" role="presentation">
-                <div class="bp-progress__fill" style="width: {{ progressPct }}%"></div>
-            </div>
-
-            <div class="bp-review-sidebar__scroll">
-                {% include 'review/_comment_threads.html.twig' with {comments: comments} only %}
-            </div>
+            {% include 'review/_comment_threads.html.twig' with {comments: comments} only %}
 
             <div class="bp-verdict-bar">
                 {% if document.status.value == 'approved' %}

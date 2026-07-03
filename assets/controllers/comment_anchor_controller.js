@@ -58,8 +58,8 @@ export default class extends Controller {
         this.resizeObserver = new ResizeObserver(() => this.#scheduleLayout());
         this.resizeObserver.observe(this.docTarget);
 
-        // Turbo Streams swap the thread list (add/delete replace the whole
-        // #comment-threads container; reply/resolve replace a single thread), so
+        // Turbo Streams swap the thread list (add/delete/resolve replace the
+        // whole #comment-threads container; reply replaces a single thread), so
         // observe the stable controller root — observing the container itself
         // would miss its own replacement and stop firing after the first change.
         this.threadObserver = new MutationObserver(() =>

@@ -2,6 +2,17 @@
 
 Open work and observations worth revisiting. Delete items entirely once resolved.
 
+## SiteReviewRepository missing `autoconfigure: true` in `when@test`
+
+`config/services.yaml`'s `when@test` block redefines several Review/SiteReview
+repositories, which *replaces* the `App\:` resource definition and silently drops
+`autoconfigure` (so no `doctrine.repository_service` tag in the test container).
+`CommentRepository` was fixed (its missing tag broke `{id:comment}` entity
+resolution in `ResolveCommentControllerTest`). `App\Module\SiteReview\Repository\SiteReviewRepository`
+still has the same gap — any future controller test that resolves a SiteReview via
+a `{id:siteReview}` route will hit the same "entity repository ... service could
+not be found" error. Add `autoconfigure: true` to that override when it bites.
+
 ## Account-level API tokens page is unreachable from the UI
 
 Loop redesign PR 2, Task 2 rebuilt the app shell and removed the sidebar's

@@ -48,6 +48,7 @@ when@test:
 
         App\Module\Review\Repository\CommentRepository:
             autowire: true
+            autoconfigure: true
             public: true
 
         App\Module\Review\Repository\DocumentRepository:
