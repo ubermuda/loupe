@@ -1,7 +1,11 @@
 {#
-  The review sidebar's list of comment threads. Rendered both on initial page
-  load and by the add-comment Turbo Stream (which replaces #comment-threads),
+  The review margin's grouped ladder of comment threads. Rendered both on initial
+  page load and by the add-comment Turbo Stream (which replaces #comment-threads),
   so it carries its own wrapper element with the id.
+
+  Threads are grouped into a status ladder: PENDING (unresolved) and RESOLVED.
+  An ADDRESSED-BY-AGENT group also exists in the design but has no data signal in
+  this codebase yet (no agent-reply concept), so it renders only when populated.
 
   Vars:
     comments  list<Comment>   All comments for the version (roots and replies).
@@ -9,9 +13,23 @@
 <div id="comment-threads" class="bp-comment-threads">
     {% set rootComments = comments|filter(c => c.parent is null) %}
     {% if rootComments|length > 0 %}
-        {% for comment in rootComments %}
-            {% set replies = comments|filter(c => c.parent is not null and c.parent.id == comment.id) %}
-            <twig:CommentThread :comment="comment" :replies="replies|map(c => c)" />
+        {% set groups = [
+            {key: 'pending', items: rootComments|filter(c => not c.resolved)|map(c => c)},
+            {key: 'resolved', items: rootComments|filter(c => c.resolved)|map(c => c)},
+        ] %}
+        {% for group in groups %}
+            {% if group.items|length > 0 %}
+            <section class="bp-ladder-group">
+                <div class="bp-ladder-group__eyebrow bp-ladder-group__eyebrow--{{ group.key }}">
+                    <span class="bp-ladder-dot"></span>
+                    <span>{{ ('review.document.group.' ~ group.key)|trans }} · {{ group.items|length }}</span>
+                </div>
+                {% for comment in group.items %}
+                    {% set replies = comments|filter(c => c.parent is not null and c.parent.id == comment.id) %}
+                    <twig:CommentThread :comment="comment" :replies="replies|map(c => c)" />
+                {% endfor %}
+            </section>
+            {% endif %}
         {% endfor %}
     {% else %}
         <p class="bp-empty">{{ 'review.document.sidebar.empty'|trans }}</p>

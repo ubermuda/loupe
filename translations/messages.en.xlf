@@ -477,15 +477,31 @@
             </trans-unit>
             <trans-unit id="review.document.sidebar.title">
                 <source>review.document.sidebar.title</source>
-                <target>Comments</target>
+                <target>Threads</target>
             </trans-unit>
             <trans-unit id="review.document.sidebar.empty">
                 <source>review.document.sidebar.empty</source>
                 <target>No comments yet.</target>
             </trans-unit>
-            <trans-unit id="review.document.verdict.title">
-                <source>review.document.verdict.title</source>
-                <target>Submit verdict</target>
+            <trans-unit id="review.document.byline">
+                <source>review.document.byline</source>
+                <target>Authored by Claude · reviewed by %reviewer%</target>
+            </trans-unit>
+            <trans-unit id="review.document.threads.resolved_count">
+                <source>review.document.threads.resolved_count</source>
+                <target>%resolved%/%total% resolved</target>
+            </trans-unit>
+            <trans-unit id="review.document.group.pending">
+                <source>review.document.group.pending</source>
+                <target>Pending</target>
+            </trans-unit>
+            <trans-unit id="review.document.group.addressed">
+                <source>review.document.group.addressed</source>
+                <target>Addressed by agent</target>
+            </trans-unit>
+            <trans-unit id="review.document.group.resolved">
+                <source>review.document.group.resolved</source>
+                <target>Resolved</target>
             </trans-unit>
             <trans-unit id="review.document.verdict.approve">
                 <source>review.document.verdict.approve</source>
@@ -494,6 +510,14 @@
             <trans-unit id="review.document.verdict.request_changes">
                 <source>review.document.verdict.request_changes</source>
                 <target>Request changes</target>
+            </trans-unit>
+            <trans-unit id="review.document.verdict.approved">
+                <source>review.document.verdict.approved</source>
+                <target>Approved</target>
+            </trans-unit>
+            <trans-unit id="review.document.verdict.approved_detail">
+                <source>review.document.verdict.approved_detail</source>
+                <target>Threads locked</target>
             </trans-unit>
             <trans-unit id="review.document.orphan_banner">
                 <source>review.document.orphan_banner</source>
@@ -512,6 +536,14 @@
             <trans-unit id="review.document.comment.submit">
                 <source>review.document.comment.submit</source>
                 <target>Post</target>
+            </trans-unit>
+            <trans-unit id="review.document.comment.hint">
+                <source>review.document.comment.hint</source>
+                <target>⌘⏎ to submit</target>
+            </trans-unit>
+            <trans-unit id="review.document.comment.general">
+                <source>review.document.comment.general</source>
+                <target>General comment</target>
             </trans-unit>
             <trans-unit id="review.document.comment.add">
                 <source>review.document.comment.add</source>
