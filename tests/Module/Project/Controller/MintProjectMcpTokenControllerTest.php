@@ -29,7 +29,7 @@ final class MintProjectMcpTokenControllerTest extends WebTestCase
         $em->clear();
 
         $client->loginUser($owner);
-        $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/site-review');
+        $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/connect');
         $client->submitForm('Mint MCP token');
 
         self::assertResponseRedirects('/projects/'.$projectId.'/connect');
@@ -88,7 +88,7 @@ final class MintProjectMcpTokenControllerTest extends WebTestCase
         $projectId = $project->id;
 
         $client->loginUser($owner);
-        $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/site-review');
+        $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/connect');
         $client->submitForm('Mint MCP token');
         $em->clear();
         $freshAfterFirstMint = $em->find(Project::class, $projectId);
@@ -125,7 +125,7 @@ final class MintProjectMcpTokenControllerTest extends WebTestCase
         $projectId = $project->id;
 
         $client->loginUser($owner);
-        $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/site-review');
+        $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/connect');
         $client->submitForm('Mint MCP token');
         $em->clear();
         $fresh = $em->find(Project::class, $projectId);

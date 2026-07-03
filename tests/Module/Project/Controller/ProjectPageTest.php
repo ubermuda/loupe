@@ -23,7 +23,7 @@ final class ProjectPageTest extends WebTestCase
         $em->flush();
 
         $client->loginUser($owner);
-        $crawler = $client->request(Request::METHOD_GET, '/projects/'.$project->id.'/site-review');
+        $crawler = $client->request(Request::METHOD_GET, '/projects/'.$project->id.'/connect');
 
         self::assertResponseIsSuccessful();
         self::assertStringContainsString('my-app', (string) $client->getResponse()->getContent());
@@ -58,7 +58,7 @@ final class ProjectPageTest extends WebTestCase
         $em->clear();
 
         $client->loginUser($owner);
-        $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/site-review');
+        $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/connect');
         $client->submitForm('Mint widget token');
 
         self::assertResponseRedirects('/projects/'.$projectId.'/connect');
@@ -86,7 +86,7 @@ final class ProjectPageTest extends WebTestCase
         $projectId = $project->id;
 
         $client->loginUser($owner);
-        $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/site-review');
+        $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/connect');
         $client->submitForm('Mint widget token');
         $em->clear();
         $freshAfterFirstMint = $em->find(Project::class, $projectId);

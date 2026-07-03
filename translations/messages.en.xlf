@@ -391,57 +391,9 @@
 
 
             <!-- API Tokens -->
-            <trans-unit id="account.form.api_token_form.label.label">
-                <source>account.form.api_token_form.label.label</source>
-                <target>Token label</target>
-            </trans-unit>
-            <trans-unit id="account.form.api_token_form.label.placeholder">
-                <source>account.form.api_token_form.label.placeholder</source>
-                <target>e.g. CI agent</target>
-            </trans-unit>
-            <trans-unit id="account.api_token.page.title">
-                <source>account.api_token.page.title</source>
-                <target>API Tokens</target>
-            </trans-unit>
-            <trans-unit id="account.api_token.form.submit">
-                <source>account.api_token.form.submit</source>
-                <target>Create token</target>
-            </trans-unit>
-            <trans-unit id="account.api_token.empty">
-                <source>account.api_token.empty</source>
-                <target>No API tokens yet.</target>
-            </trans-unit>
             <trans-unit id="account.api_token.action.revoke">
                 <source>account.api_token.action.revoke</source>
                 <target>Revoke</target>
-            </trans-unit>
-            <trans-unit id="account.api_token.last_used">
-                <source>account.api_token.last_used</source>
-                <target>Last used</target>
-            </trans-unit>
-            <trans-unit id="account.api_token.never_used">
-                <source>account.api_token.never_used</source>
-                <target>Never used</target>
-            </trans-unit>
-            <trans-unit id="account.form.api_token_form.scope.label">
-                <source>account.form.api_token_form.scope.label</source>
-                <target>Scope</target>
-            </trans-unit>
-            <trans-unit id="account.form.api_token_form.scope.mcp">
-                <source>account.form.api_token_form.scope.mcp</source>
-                <target>MCP (agent read access)</target>
-            </trans-unit>
-            <trans-unit id="account.form.api_token_form.scope.site-review">
-                <source>account.form.api_token_form.scope.site-review</source>
-                <target>Site review (widget submit only)</target>
-            </trans-unit>
-            <trans-unit id="account.api_token.scope.mcp">
-                <source>account.api_token.scope.mcp</source>
-                <target>MCP</target>
-            </trans-unit>
-            <trans-unit id="account.api_token.scope.site-review">
-                <source>account.api_token.scope.site-review</source>
-                <target>Site review</target>
             </trans-unit>
             <trans-unit id="account.api_token.scope.site_review_warning">
                 <source>account.api_token.scope.site_review_warning</source>
@@ -672,10 +624,6 @@
                 <target>You already have a project with this name.</target>
             </trans-unit>
 
-            <trans-unit id="site_review.site.token.heading">
-                <source>site_review.site.token.heading</source>
-                <target>Widget token</target>
-            </trans-unit>
             <trans-unit id="site_review.site.token.mint">
                 <source>site_review.site.token.mint</source>
                 <target>Mint widget token</target>
@@ -796,40 +744,6 @@
                 <target>Log out</target>
             </trans-unit>
 
-            <!-- MCP connection card -->
-            <trans-unit id="account.mcp.card.heading">
-                <source>account.mcp.card.heading</source>
-                <target>Connect your agent (MCP)</target>
-            </trans-unit>
-            <trans-unit id="account.mcp.card.endpoint_label">
-                <source>account.mcp.card.endpoint_label</source>
-                <target>MCP endpoint</target>
-            </trans-unit>
-            <trans-unit id="account.mcp.card.auth_label">
-                <source>account.mcp.card.auth_label</source>
-                <target>Authentication</target>
-            </trans-unit>
-            <trans-unit id="account.mcp.card.claude_code_heading">
-                <source>account.mcp.card.claude_code_heading</source>
-                <target>Add via Claude Code</target>
-            </trans-unit>
-            <trans-unit id="account.mcp.card.json_heading">
-                <source>account.mcp.card.json_heading</source>
-                <target>Or add to your MCP client config (HTTP transport)</target>
-            </trans-unit>
-            <trans-unit id="account.mcp.card.copy">
-                <source>account.mcp.card.copy</source>
-                <target>Copy</target>
-            </trans-unit>
-            <trans-unit id="account.mcp.card.copied">
-                <source>account.mcp.card.copied</source>
-                <target>Copied!</target>
-            </trans-unit>
-            <trans-unit id="account.mcp.card.tls_note">
-                <source>account.mcp.card.tls_note</source>
-                <target>Note: the dev certificate is issued by a local CA — your MCP client may need to trust it.</target>
-            </trans-unit>
-
             <!-- Document status labels -->
             <trans-unit id="document.status.in_review">
                 <source>document.status.in_review</source>
@@ -894,10 +808,6 @@
             <trans-unit id="site_review.comment.via_widget">
                 <source>site_review.comment.via_widget</source>
                 <target>via review widget</target>
-            </trans-unit>
-            <trans-unit id="site_review.setup.summary">
-                <source>site_review.setup.summary</source>
-                <target>Connection &amp; widget setup</target>
             </trans-unit>
             <trans-unit id="site_review.comment.action.resolve">
                 <source>site_review.comment.action.resolve</source>

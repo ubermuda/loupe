@@ -1246,16 +1246,6 @@
         @apply flex flex-col items-center text-center gap-3 border-t border-line text-fg-dim mt-1;
         padding: 3rem 0;
     }
-    /* Interim connection/setup — collapsed, visually subordinate to the list. */
-    .bp-sr-setup {
-        @apply border-t border-line pt-5 mt-4;
-    }
-    .bp-sr-setup > summary {
-        @apply font-mono uppercase text-fg-dim cursor-pointer select-none transition-colors hover:text-fg;
-        font-size: 10.5px;
-        letter-spacing: 0.08em;
-    }
-
     /* ── Verdict bar (pinned bottom of the comment margin) ──────────────── */
 
     .bp-verdict-bar {
