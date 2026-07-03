@@ -465,6 +465,120 @@
         @apply flex items-center gap-1.5;
     }
 
+    /* ── Workspace / projects index ─────────────────────────────────── */
+
+    /* Left-aligned page (handoff §1): margin 0, ~900px, padding 40px 44px. */
+    .bp-workspace {
+        @apply max-w-full;
+        max-width: 900px;
+        padding: 40px 44px;
+    }
+    .bp-eyebrow {
+        @apply font-mono uppercase text-fg-dim m-0;
+        font-size: 10.5px;
+        letter-spacing: 0.08em;
+    }
+    .bp-workspace-title {
+        @apply font-semibold text-ink m-0 mt-2;
+        font-size: 26px;
+        letter-spacing: -0.01em;
+    }
+    .bp-workspace-desc {
+        @apply text-fg-mute m-0 mt-2 mb-6;
+        font-size: 14px;
+        line-height: 1.55;
+    }
+
+    /* Flush hairline divider list of project rows (top hairline, per-row bottom
+       hairline #ececf4, hover bg #fbfbfe). */
+    .bp-project-list {
+        @apply flex flex-col border-t border-line;
+    }
+    .bp-project-row {
+        @apply relative flex items-center gap-3.5 border-b border-line transition-colors;
+        padding: 18px 6px;
+    }
+    .bp-project-row:hover {
+        @apply bg-tint;
+    }
+    /* Stretch the documents link across the whole row; the chevron and meta are
+       non-interactive so they sit beneath it. */
+    .bp-project-row__link {
+        @apply absolute inset-0;
+    }
+    .bp-project-row__avatar {
+        @apply shrink-0;
+        width: 38px;
+        height: 38px;
+        font-size: 15px;
+    }
+    .bp-project-row__main {
+        @apply min-w-0 flex-1 flex flex-col gap-1;
+    }
+    /* Line 1: name + domain inline. */
+    .bp-project-row__head {
+        @apply flex items-baseline gap-2 min-w-0;
+    }
+    .bp-project-row__name {
+        @apply font-semibold text-ink shrink-0;
+        font-size: 15px;
+    }
+    .bp-project-row__domain {
+        @apply font-mono text-fg-dim truncate;
+        font-size: 11px;
+    }
+    /* Line 2: the mono rollup, beneath the name. */
+    .bp-project-row__meta {
+        @apply flex items-center gap-1.5 font-mono text-fg-dim;
+        font-size: 12.5px;
+    }
+    .bp-project-row__sep {
+        @apply text-fg-dim;
+    }
+    .bp-project-row__open {
+        color: var(--status-pending-deep);
+    }
+    .bp-project-row__chevron {
+        @apply w-4 h-4 shrink-0;
+        color: var(--switcher-hover-border);
+    }
+
+    /* New-project affordance: a dashed 38px square + label that reveals the
+       create form. Collapsed by default; the disclosure controller toggles
+       .open on the panel (and .disclosure-open on the wrapper). */
+    .bp-project-new {
+        @apply flex flex-col;
+        padding-top: 18px;
+    }
+    .bp-project-new__toggle {
+        @apply inline-flex items-center gap-3.5 bg-transparent border-0 p-0 cursor-pointer text-fg-dim transition-colors;
+    }
+    .bp-project-new__toggle:hover {
+        @apply text-fg;
+    }
+    .bp-project-new__plus {
+        @apply inline-flex items-center justify-center shrink-0 rounded-md border border-dashed border-line-strong text-fg-dim transition-colors;
+        width: 38px;
+        height: 38px;
+    }
+    .bp-project-new__plus svg {
+        @apply w-4 h-4;
+    }
+    .bp-project-new__toggle:hover .bp-project-new__plus {
+        border-color: var(--switcher-hover-border);
+        @apply text-fg;
+    }
+    .bp-project-new__label {
+        font-size: 15px;
+    }
+    /* Collapsed → revealed. Kept out of the normal flow height until open. */
+    .bp-project-new__panel {
+        @apply hidden mt-4 max-w-card;
+    }
+    .bp-project-new__panel.open {
+        @apply block;
+    }
+
     /* ── Flash messages ─────────────────────────────────────────────── */
 
     .bp-flash {

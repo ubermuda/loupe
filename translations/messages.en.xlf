@@ -575,13 +575,33 @@
                 <source>project.list.page.title</source>
                 <target>Projects</target>
             </trans-unit>
+            <trans-unit id="project.list.eyebrow">
+                <source>project.list.eyebrow</source>
+                <target>Workspace</target>
+            </trans-unit>
+            <trans-unit id="project.list.description">
+                <source>project.list.description</source>
+                <target>Every project holds its documents and its site review. Pick a project to see what the agent is waiting on.</target>
+            </trans-unit>
+            <trans-unit id="project.list.new">
+                <source>project.list.new</source>
+                <target>New project</target>
+            </trans-unit>
+            <trans-unit id="project.list.meta.documents">
+                <source>project.list.meta.documents</source>
+                <target>{0}0 documents|{1}1 document|]1,Inf[%count% documents</target>
+            </trans-unit>
+            <trans-unit id="project.list.meta.reviews">
+                <source>project.list.meta.reviews</source>
+                <target>{0}0 reviews|{1}1 review|]1,Inf[%count% reviews</target>
+            </trans-unit>
+            <trans-unit id="project.list.meta.open">
+                <source>project.list.meta.open</source>
+                <target>%count% open</target>
+            </trans-unit>
             <trans-unit id="project.list.form.submit">
                 <source>project.list.form.submit</source>
                 <target>Add project</target>
-            </trans-unit>
-            <trans-unit id="project.list.empty">
-                <source>project.list.empty</source>
-                <target>No projects yet. Add the app you want to review.</target>
             </trans-unit>
             <trans-unit id="project.form.create_project_form.name.label">
                 <source>project.form.create_project_form.name.label</source>
