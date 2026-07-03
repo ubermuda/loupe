@@ -11,6 +11,7 @@ use Symfony\Component\Form\FormFactoryInterface;
 use Symfony\Component\Form\FormView;
 use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 use Twig\Extension\AbstractExtension;
+use Twig\TwigFilter;
 use Twig\TwigFunction;
 
 /**
@@ -33,6 +34,37 @@ final class ReviewExtension extends AbstractExtension
         return [
             new TwigFunction('comment_reply_form', $this->commentReplyForm(...)),
         ];
+    }
+
+    #[\Override]
+    public function getFilters(): array
+    {
+        return [
+            new TwigFilter('relative_time', $this->relativeTime(...)),
+        ];
+    }
+
+    /**
+     * A compact, human relative time ("2h ago", "3d ago", "last week", "just now")
+     * for the documents list meta line. English-only — the app currently ships a
+     * single locale, so a full locale-aware relative formatter would be premature.
+     */
+    public function relativeTime(\DateTimeImmutable $when, ?\DateTimeImmutable $now = null): string
+    {
+        $now ??= new \DateTimeImmutable();
+        $seconds = max(0, $now->getTimestamp() - $when->getTimestamp());
+
+        return match (true) {
+            $seconds < 60 => 'just now',
+            $seconds < 3600 => intdiv($seconds, 60).'m ago',
+            $seconds < 86400 => intdiv($seconds, 3600).'h ago',
+            $seconds < 604800 => intdiv($seconds, 86400).'d ago',
+            $seconds < 1209600 => 'last week',
+            $seconds < 2592000 => intdiv($seconds, 604800).'w ago',
+            $seconds < 5259600 => 'last month',
+            $seconds < 31557600 => intdiv($seconds, 2592000).'mo ago',
+            default => intdiv($seconds, 31557600).'y ago',
+        };
     }
 
     public function commentReplyForm(Comment $comment): FormView

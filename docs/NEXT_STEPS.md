@@ -2,6 +2,15 @@
 
 Open work and observations worth revisiting. Delete items entirely once resolved.
 
+## Account-level API tokens page is unreachable from the UI
+
+Loop redesign PR 2, Task 2 rebuilt the app shell and removed the sidebar's
+"API tokens" nav link. The `app_api_tokens` route (`/account/api-tokens`) still
+exists and works, but nothing in the navigation links to it anymore — it is
+reachable only by typing the URL. This is expected on the Loop path: token setup
+moves to a per-project "Connect agent" page (PR 4). Until PR 4 ships, decide
+whether to keep a temporary link or leave it URL-only, then remove this note.
+
 ## Dashboard document search + status/tag filtering
 
 Deferred from the SaaS visual redesign (visual-only phase). The dashboard mockup

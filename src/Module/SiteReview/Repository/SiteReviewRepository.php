@@ -30,4 +30,21 @@ class SiteReviewRepository extends ServiceEntityRepository
     {
         return $this->findBy(['project' => $project], ['createdAt' => 'DESC']);
     }
+
+    /**
+     * Count of submitted reviews for the project — the "n reviews" rollup on the
+     * projects index. An in-progress (draft) review is not yet a review the human
+     * has been handed, so only Submitted ones count.
+     */
+    public function countForProject(Project $project): int
+    {
+        return (int) $this->createQueryBuilder('r')
+            ->select('COUNT(r.id)')
+            ->andWhere('r.project = :project')
+            ->andWhere('r.status = :status')
+            ->setParameter('project', $project)
+            ->setParameter('status', SiteReviewStatus::Submitted)
+            ->getQuery()
+            ->getSingleScalarResult();
+    }
 }

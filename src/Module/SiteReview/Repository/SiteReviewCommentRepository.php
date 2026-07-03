@@ -46,6 +46,26 @@ class SiteReviewCommentRepository extends ServiceEntityRepository
     }
 
     /**
+     * Open-count for the app-shell nav pill: pending comments awaiting the agent
+     * on submitted reviews. Mirrors {@see findPendingForProject} (Submitted
+     * review + Pending comment) so the pill and the agent queue never disagree.
+     */
+    public function countOpenForProject(Project $project): int
+    {
+        return (int) $this->createQueryBuilder('c')
+            ->select('COUNT(c.id)')
+            ->join('c.review', 'r')
+            ->andWhere('r.project = :project')
+            ->andWhere('r.status = :reviewStatus')
+            ->andWhere('c.status = :commentStatus')
+            ->setParameter('project', $project)
+            ->setParameter('reviewStatus', SiteReviewStatus::Submitted)
+            ->setParameter('commentStatus', SiteReviewCommentStatus::Pending)
+            ->getQuery()
+            ->getSingleScalarResult();
+    }
+
+    /**
      * A comment inside the project's current in-progress review — the only
      * comments the widget may edit or delete.
      */

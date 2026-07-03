@@ -12,6 +12,10 @@ use App\Module\Project\Command\CreateProjectHandler;
 use App\Module\Project\Form\CreateProjectFormType;
 use App\Module\Project\Form\CreateProjectRequest;
 use App\Module\Project\Repository\ProjectRepository;
+use App\Module\Project\View\ProjectListItem;
+use App\Module\Review\Repository\DocumentRepository;
+use App\Module\SiteReview\Repository\SiteReviewCommentRepository;
+use App\Module\SiteReview\Repository\SiteReviewRepository;
 use Symfony\Component\Form\FormError;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -28,6 +32,9 @@ class CreateProjectController extends AppController
     public function __construct(
         private readonly CreateProjectHandler $createProjectHandler,
         private readonly ProjectRepository $projects,
+        private readonly DocumentRepository $documents,
+        private readonly SiteReviewRepository $siteReviews,
+        private readonly SiteReviewCommentRepository $siteReviewComments,
         private readonly TranslatorInterface $translator,
     ) {
     }
@@ -57,8 +64,18 @@ class CreateProjectController extends AppController
             }
         }
 
+        $items = array_map(
+            fn ($project) => new ProjectListItem(
+                project: $project,
+                documentCount: $this->documents->countByProject($project),
+                reviewCount: $this->siteReviews->countForProject($project),
+                openCount: $this->siteReviewComments->countOpenForProject($project),
+            ),
+            $this->projects->findByOwner($user),
+        );
+
         return $this->renderFormResponse('@Project/list_projects.html.twig', $form, [
-            'projects' => $this->projects->findByOwner($user),
+            'items' => $items,
         ]);
     }
 }

@@ -26,6 +26,16 @@ class DocumentRepository extends ServiceEntityRepository
         return $this->findBy(['project' => $project], ['createdAt' => 'DESC']);
     }
 
+    public function countByProject(Project $project): int
+    {
+        return (int) $this->createQueryBuilder('d')
+            ->select('COUNT(d.id)')
+            ->andWhere('d.project = :project')
+            ->setParameter('project', $project)
+            ->getQuery()
+            ->getSingleScalarResult();
+    }
+
     public function findOneByIdAndProject(Uuid $id, Project $project): ?Document
     {
         return $this->findOneBy(['id' => $id, 'project' => $project]);

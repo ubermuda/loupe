@@ -1,12 +1,17 @@
 {% extends 'base.html.twig' %}
 
-{% block title %}{{ 'review.dashboard.page.title'|trans }}{% endblock %}
+{% block title %}{{ 'review.dashboard.page.title'|trans }} — {{ 'app.name'|trans }}{% endblock %}
 
 {% block body %}
-<div class="bp-page">
-    <div class="bp-page-header">
-        <h1 class="bp-page-title">{{ 'review.dashboard.page.title'|trans }}</h1>
-    </div>
+<div class="bp-workspace">
+    <nav class="bp-crumbs">
+        <a href="{{ path('app_project_documents', {id: project.id}) }}" class="bp-crumbs__link">{{ project.name }}</a>
+        <span class="bp-crumbs__sep">/</span>
+        <span class="bp-crumbs__here">{{ 'nav.link.documents'|trans }}</span>
+    </nav>
+
+    <h1 class="bp-workspace-title bp-workspace-title--doc">{{ 'review.dashboard.page.title'|trans }}</h1>
+    <p class="bp-workspace-desc">{{ 'review.dashboard.description'|trans }}</p>
 
     {% for label, messages in app.flashes %}
         {% for message in messages %}
@@ -14,21 +19,30 @@
         {% endfor %}
     {% endfor %}
 
-    {% if documents|length > 0 %}
-    <div class="bp-doc-list">
-        {% for document in documents %}
-        <div class="bp-doc-row" data-document-id="{{ document.id }}">
-            <div class="bp-doc-row__main">
-                <a href="{{ path('app_document_review', {projectId: project.id, documentId: document.id}) }}" class="bp-doc-row__title bp-doc-row__title--stretched">{{ document.title }}</a>
-                <div class="bp-doc-row__meta">
-                    <span>{{ document.createdAt|date('M j, Y') }}</span>
-                    {# tag chips slot — populated when tags ship; intentionally empty for now #}
-                    <span class="bp-doc-row__tags"></span>
+    {% if items|length > 0 %}
+    <div class="bp-document-list">
+        {% for item in items %}
+        {% set document = item.document %}
+        <div class="bp-document-row" data-document-id="{{ document.id }}">
+            <a href="{{ path('app_document_review', {projectId: project.id, documentId: document.id}) }}"
+               class="bp-document-row__link" aria-label="{{ document.title }}"></a>
+            <div class="bp-document-row__main">
+                <div class="bp-document-row__head">
+                    <span class="bp-document-row__title">{{ document.title }}</span>
+                    <span class="bp-document-row__version">{{ 'v' ~ item.versionNumber }}</span>
+                </div>
+                <div class="bp-document-row__meta">
+                    <span>{{ 'review.dashboard.meta.updated'|trans({'%time%': item.updatedAt|relative_time}) }}</span>
+                    {% if item.openThreadCount > 0 %}
+                    <span class="bp-document-row__sep">·</span>
+                    <span class="bp-document-row__open">{{ 'review.dashboard.meta.open_threads'|trans({'%count%': item.openThreadCount}) }}</span>
+                    {% endif %}
                 </div>
             </div>
             <span class="bp-badge bp-badge--{{ document.status.value }}">
                 {{ document.status.translationKey()|trans }}
             </span>
+            <twig:ux:icon name="lucide:chevron-right" class="bp-document-row__chevron" />
         </div>
         {% endfor %}
     </div>

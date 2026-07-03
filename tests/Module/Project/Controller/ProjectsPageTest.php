@@ -7,6 +7,9 @@ namespace App\Tests\Module\Project\Controller;
 use App\Module\Account\Entity\User;
 use App\Module\Project\Entity\Project;
 use App\Module\Project\Repository\ProjectRepository;
+use App\Module\Review\Entity\Document;
+use App\Module\SiteReview\Entity\SiteReview;
+use App\Module\SiteReview\Entity\SiteReviewComment;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use Symfony\Component\HttpFoundation\Request;
@@ -28,7 +31,36 @@ final class ProjectsPageTest extends WebTestCase
 
         self::assertResponseIsSuccessful();
         self::assertCount(1, $crawler->filter('[data-project-id]'));
-        self::assertSame('mine', trim($crawler->filter('[data-project-id] .bp-doc-row__title')->text()));
+        self::assertSame('mine', trim($crawler->filter('[data-project-id] .bp-project-row__name')->text()));
+    }
+
+    public function test_row_renders_rollup_counts_with_amber_open(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $owner = $this->user($em, 'projects-rollup@example.com');
+        $project = new Project($owner, 'rollup');
+        $em->persist($project);
+        $em->persist(new Document($owner, $project, 'Doc one'));
+        $em->persist(new Document($owner, $project, 'Doc two'));
+        $review = new SiteReview($project);
+        $review->markSubmitted();
+        $em->persist($review);
+        for ($i = 0; $i < 3; ++$i) {
+            $em->persist(new SiteReviewComment($review, $i, 'body', 'a.cta', 'Start', 'https://acme.test/'));
+        }
+        $em->flush();
+
+        $client->loginUser($owner);
+        $crawler = $client->request(Request::METHOD_GET, '/projects');
+
+        self::assertResponseIsSuccessful();
+        $meta = $crawler->filter('[data-project-id] .bp-project-row__meta')->text();
+        self::assertStringContainsString('2 documents', $meta);
+        self::assertStringContainsString('1 review', $meta);
+        self::assertStringContainsString('3 open', $meta);
+        // The open figure is the amber-tinted span.
+        self::assertSame('3 open', trim($crawler->filter('[data-project-id] .bp-project-row__open')->text()));
     }
 
     public function test_create_project_persists_and_redirects(): void
@@ -84,6 +116,25 @@ final class ProjectsPageTest extends WebTestCase
 
         self::assertResponseStatusCodeSame(422);
         self::assertCount(1, static::getContainer()->get(ProjectRepository::class)->findBy(['name' => 'dup']));
+    }
+
+    public function test_create_form_reopens_on_validation_error(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $owner = $this->user($em, 'projects-reopen@example.com');
+        $em->persist(new Project($owner, 'taken'));
+        $em->flush();
+
+        $client->loginUser($owner);
+        $client->request(Request::METHOD_GET, '/projects');
+        $client->submitForm('Add project', ['create_project_form[name]' => 'taken']);
+
+        self::assertResponseStatusCodeSame(422);
+        // The disclosure must re-open so the user sees their rejected input and
+        // the error, instead of a collapsed panel hiding both.
+        self::assertSelectorExists('.bp-project-new.disclosure-open');
+        self::assertSelectorExists('.bp-project-new__panel.open');
     }
 
     public function test_same_name_for_different_owner_is_allowed(): void

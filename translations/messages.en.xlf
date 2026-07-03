@@ -457,6 +457,18 @@
                 <source>review.dashboard.empty</source>
                 <target>No documents yet.</target>
             </trans-unit>
+            <trans-unit id="review.dashboard.description">
+                <source>review.dashboard.description</source>
+                <target>Documents the agent submitted for review, newest first.</target>
+            </trans-unit>
+            <trans-unit id="review.dashboard.meta.updated">
+                <source>review.dashboard.meta.updated</source>
+                <target>Updated %time%</target>
+            </trans-unit>
+            <trans-unit id="review.dashboard.meta.open_threads">
+                <source>review.dashboard.meta.open_threads</source>
+                <target>{0}0 open threads|{1}1 open thread|]1,Inf[%count% open threads</target>
+            </trans-unit>
 
             <!-- Document review page -->
             <trans-unit id="review.document.page.title">
@@ -553,25 +565,21 @@
                 <source>nav.brand</source>
                 <target>Better Plans</target>
             </trans-unit>
-            <trans-unit id="nav.link.projects">
-                <source>nav.link.projects</source>
-                <target>Projects</target>
+            <trans-unit id="nav.eyebrow">
+                <source>nav.eyebrow</source>
+                <target>LOOP</target>
             </trans-unit>
             <trans-unit id="nav.link.documents">
                 <source>nav.link.documents</source>
                 <target>Documents</target>
             </trans-unit>
-            <trans-unit id="nav.link.api_tokens">
-                <source>nav.link.api_tokens</source>
-                <target>API tokens</target>
+            <trans-unit id="nav.link.site_review">
+                <source>nav.link.site_review</source>
+                <target>Site review</target>
             </trans-unit>
-            <trans-unit id="nav.toggle_sidebar">
-                <source>nav.toggle_sidebar</source>
-                <target>Collapse sidebar</target>
-            </trans-unit>
-            <trans-unit id="nav.expand_sidebar">
-                <source>nav.expand_sidebar</source>
-                <target>Expand sidebar</target>
+            <trans-unit id="nav.account.role">
+                <source>nav.account.role</source>
+                <target>Reviewer</target>
             </trans-unit>
 
             <!-- Projects -->
@@ -579,13 +587,33 @@
                 <source>project.list.page.title</source>
                 <target>Projects</target>
             </trans-unit>
+            <trans-unit id="project.list.eyebrow">
+                <source>project.list.eyebrow</source>
+                <target>Workspace</target>
+            </trans-unit>
+            <trans-unit id="project.list.description">
+                <source>project.list.description</source>
+                <target>Every project holds its documents and its site review. Pick a project to see what the agent is waiting on.</target>
+            </trans-unit>
+            <trans-unit id="project.list.new">
+                <source>project.list.new</source>
+                <target>New project</target>
+            </trans-unit>
+            <trans-unit id="project.list.meta.documents">
+                <source>project.list.meta.documents</source>
+                <target>{0}0 documents|{1}1 document|]1,Inf[%count% documents</target>
+            </trans-unit>
+            <trans-unit id="project.list.meta.reviews">
+                <source>project.list.meta.reviews</source>
+                <target>{0}0 reviews|{1}1 review|]1,Inf[%count% reviews</target>
+            </trans-unit>
+            <trans-unit id="project.list.meta.open">
+                <source>project.list.meta.open</source>
+                <target>%count% open</target>
+            </trans-unit>
             <trans-unit id="project.list.form.submit">
                 <source>project.list.form.submit</source>
                 <target>Add project</target>
-            </trans-unit>
-            <trans-unit id="project.list.empty">
-                <source>project.list.empty</source>
-                <target>No projects yet. Add the app you want to review.</target>
             </trans-unit>
             <trans-unit id="project.form.create_project_form.name.label">
                 <source>project.form.create_project_form.name.label</source>

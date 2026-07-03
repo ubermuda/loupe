@@ -19,6 +19,7 @@
 
     /* Colors — semantic palette */
     --color-app: var(--bg);
+    --color-sidebar: var(--sidebar);
     --color-elev: var(--bg-elev);
     --color-sunken: var(--bg-sunken);
     --color-tint: var(--bg-hover);
@@ -28,34 +29,48 @@
     --color-surface-3: var(--surface-3);
     --color-line: var(--border);
     --color-line-strong: var(--border-strong);
+    --color-line-faint: var(--border-faint);
+    --color-ink: var(--ink);
     --color-fg: var(--text);
     --color-fg-mute: var(--text-mute);
     --color-fg-dim: var(--text-dim);
+    --color-fg-faint: var(--faint);
     --color-accent: var(--accent);
     --color-accent-hover: var(--accent-hover);
     --color-accent-soft: var(--accent-soft);
+    --color-accent-faint: var(--accent-faint);
+    --color-accent-faint-2: var(--accent-faint-2);
     --color-accent-border: var(--accent-border);
+
+    /* Status ladder — pending (amber) / ok (green) trios */
+    --color-status-pending: var(--status-pending);
+    --color-status-pending-deep: var(--status-pending-deep);
+    --color-status-pending-bg: var(--status-pending-bg);
+    --color-status-pending-border: var(--status-pending-border);
+    --color-status-ok: var(--status-ok);
+    --color-status-ok-deep: var(--status-ok-deep);
+    --color-status-ok-bg: var(--status-ok-bg);
+    --color-status-ok-border: var(--status-ok-border);
 
     --color-danger: #c83a3a;
 
-    /* Shadows */
-    --shadow-focus: 0 0 0 3px var(--accent-soft);
+    /* Shadows — the only three the design allows: selection toolbar (dark
+       floating pill), floating composer, and the active-card focus ring. */
+    --shadow-toolbar: 0 4px 14px rgba(23, 23, 42, 0.22);
+    --shadow-composer: 0 8px 28px rgba(23, 23, 42, 0.14);
+    --shadow-focus: 0 0 0 3px #f0effc;
 
     /* Animations */
     --animate-spin-fast: spin 0.7s linear infinite;
 
     /* Custom layout utilities */
     --width-sidebar: 14.5rem;
-    --width-sidebar-compact: 3.5rem;
 }
 
 /* ── Custom layout utilities ───────────────────────────────────────── */
 
 @utility w-sidebar {
     width: 14.5rem;
-}
-@utility w-sidebar-compact {
-    width: 3.5rem;
 }
 @utility max-w-card {
     max-width: 25.5rem;
@@ -83,54 +98,53 @@
 /* ── Design tokens ──────────────────────────────────────────────────── */
 
 :root {
-    --accent: #3b6fdc;
-    --accent-hover: #3460c4;
-    --accent-soft: rgba(59, 111, 220, 0.1);
-    --accent-border: rgba(59, 111, 220, 0.3);
+    /* Accent (indigo) */
+    --accent: #5b5bd6;
+    --accent-hover: #4a4ac0;
+    --accent-soft: #ecebfb;
+    --accent-faint: #f4f3ff;
+    --accent-faint-2: #faf9ff;
+    --accent-border: #d9d8f5;
+    /* Switcher hover border — handoff §2 pins this specific hairline. */
+    --switcher-hover-border: #c7c6f0;
+
+    /* Text ladder */
+    --ink: #17172a;
+    --text: #363650;
+    --text-mute: #6b6b84;
+    --text-dim: #9a9ab0;
+    --faint: #b4b4c6;
+
+    /* Borders / hairlines */
+    --border: #ececf4;
+    --border-strong: #e4e4ee;
+    --border-faint: #f4f4f8;
+
+    /* Surfaces */
+    --bg: #ffffff;
+    --sidebar: #fbfbfe;
+    --surface-1: #ffffff;
+    --surface-2: #fbfbfe;
+    --surface-3: #f4f4f8;
+    --bg-elev: #ffffff;
+    --bg-sunken: #f4f4f8;
+    --bg-hover: #fbfbfe;
+    --bg-active: #ececf4;
+
+    /* Status ladder — pending (amber) / addressed·resolved (green) */
+    --status-pending: #e09a3e;
+    --status-pending-deep: #c17a2f;
+    --status-pending-bg: #fdf3e6;
+    --status-pending-border: #f3e2c8;
+    --status-ok: #47a06b;
+    --status-ok-deep: #3d8a5c;
+    --status-ok-bg: #f0f9f3;
+    --status-ok-border: #d4ecdd;
+
     /* In-document anchor highlights (CSS Custom Highlight API). Highlighter
-       yellow, translucent so the underlying text stays legible on both themes. */
+       yellow, translucent so the underlying text stays legible. */
     --anchor-highlight: rgba(250, 204, 21, 0.45);
     --anchor-highlight-active: rgba(250, 204, 21, 0.7);
-}
-
-.theme-light {
-    --bg: #fbfbfa;
-    --bg-elev: #ffffff;
-    --bg-sunken: #f1f1ee;
-    --bg-hover: rgba(15, 17, 22, 0.05);
-    --bg-active: rgba(15, 17, 22, 0.08);
-    --surface-1: #ffffff;
-    --surface-2: #fbfbfa;
-    --surface-3: #ededeb;
-    --border: rgba(15, 17, 22, 0.12);
-    --border-strong: rgba(15, 17, 22, 0.22);
-    --text: #0a0d12;
-    --text-mute: #3f4753;
-    --text-dim: #6b7484;
-    --shadow-sm: 0 1px 2px rgba(15, 17, 22, 0.06);
-    --shadow-md:
-        0 6px 18px rgba(15, 17, 22, 0.1), 0 1px 2px rgba(15, 17, 22, 0.05);
-    --shadow-lg:
-        0 24px 56px rgba(15, 17, 22, 0.16), 0 2px 6px rgba(15, 17, 22, 0.06);
-}
-
-.theme-dark {
-    --bg: #0b0c10;
-    --bg-elev: #111319;
-    --bg-sunken: #07080b;
-    --bg-hover: rgba(255, 255, 255, 0.06);
-    --bg-active: rgba(255, 255, 255, 0.1);
-    --surface-1: #14171e;
-    --surface-2: #181b23;
-    --surface-3: #1e2129;
-    --border: rgba(255, 255, 255, 0.1);
-    --border-strong: rgba(255, 255, 255, 0.2);
-    --text: #f0f2f6;
-    --text-mute: #b0b8c5;
-    --text-dim: #7a8494;
-    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
-    --shadow-md: 0 6px 18px rgba(0, 0, 0, 0.5);
-    --shadow-lg: 0 28px 68px rgba(0, 0, 0, 0.65);
 }
 
 /* ── Global resets ──────────────────────────────────────────────────── */
@@ -164,7 +178,7 @@
 @layer components {
     /* Buttons */
     .btn {
-        @apply inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border border-line bg-surface-1 text-fg text-base font-medium cursor-pointer whitespace-nowrap transition shadow-sm;
+        @apply inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border border-line bg-surface-1 text-fg text-base font-medium cursor-pointer whitespace-nowrap transition;
     }
     .btn:hover {
         @apply bg-tint border-line-strong;
@@ -191,11 +205,10 @@
         @apply p-1;
     }
 
-    /* Avatar */
+    /* Avatar — default is the indigo accent-soft initial (account, agent). */
     .avatar {
-        @apply w-5 h-5 rounded-full text-white inline-flex items-center justify-center shrink-0 font-semibold;
+        @apply w-5 h-5 rounded-full bg-accent-soft text-accent-hover inline-flex items-center justify-center shrink-0 font-semibold;
         font-size: 0.625rem;
-        background: linear-gradient(135deg, #7e8aa3, #4a5468);
     }
     .avatar.sm {
         @apply w-4 h-4;
@@ -203,6 +216,14 @@
     }
     .avatar.lg {
         @apply w-7 h-7 text-xs;
+    }
+    /* Green avatar for human reply authors */
+    .avatar.ok {
+        @apply bg-status-ok-bg text-status-ok-deep;
+    }
+    /* Dark rounded-square mark for a site / project (initial on ink) */
+    .avatar.site {
+        @apply rounded-md bg-ink text-white;
     }
 
     /* Keyboard shortcut chip */
@@ -219,11 +240,6 @@
     .auth-error svg {
         margin-top: 3px;
     }
-    .theme-dark .auth-error {
-        color: #fca5a5;
-        border-color: rgba(220, 38, 38, 0.4);
-        background: rgba(220, 38, 38, 0.1);
-    }
 
     /* Success / informational alert on auth pages (e.g. resend confirmation) */
     .auth-notice {
@@ -231,11 +247,6 @@
     }
     .auth-notice svg {
         margin-top: 3px;
-    }
-    .theme-dark .auth-notice {
-        color: #86efac;
-        border-color: rgba(22, 163, 74, 0.4);
-        background: rgba(22, 163, 74, 0.1);
     }
 
     .auth-divider {
@@ -343,7 +354,7 @@
     /* ── Card ───────────────────────────────────────────────────────── */
 
     .bp-card {
-        @apply bg-surface-1 border border-line rounded-xl p-5 shadow-sm;
+        @apply bg-surface-1 border border-line rounded-xl p-5;
     }
 
     /* ── Form controls (bp- namespace) ──────────────────────────────── */
@@ -401,29 +412,15 @@
     .bp-badge {
         @apply inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border;
     }
+    /* In review = indigo accent (also the sidebar-active / loop-current tone) */
     .bp-badge--in-review {
-        @apply bg-blue-50 text-blue-700 border-blue-200;
-    }
-    .theme-dark .bp-badge--in-review {
-        background: rgba(59, 130, 246, 0.15);
-        color: #93c5fd;
-        border-color: rgba(59, 130, 246, 0.3);
+        @apply bg-accent-soft text-accent-hover border-accent-border;
     }
     .bp-badge--approved {
-        @apply bg-green-50 text-green-700 border-green-200;
-    }
-    .theme-dark .bp-badge--approved {
-        background: rgba(22, 163, 74, 0.15);
-        color: #86efac;
-        border-color: rgba(22, 163, 74, 0.3);
+        @apply bg-status-ok-bg text-status-ok-deep border-status-ok-border;
     }
     .bp-badge--changes-requested {
-        @apply bg-amber-50 text-amber-700 border-amber-200;
-    }
-    .theme-dark .bp-badge--changes-requested {
-        background: rgba(245, 158, 11, 0.15);
-        color: #fcd34d;
-        border-color: rgba(245, 158, 11, 0.3);
+        @apply bg-status-pending-bg text-status-pending-deep border-status-pending-border;
     }
 
     /* ── Tag chip ───────────────────────────────────────────────────── */
@@ -434,14 +431,13 @@
 
     /* ── Document list ──────────────────────────────────────────────── */
 
+    /* Flush hairline divider list — no card wrapper: a top hairline, and each
+       row a bottom hairline (#ececf4) with a subtle #fbfbfe hover. */
     .bp-doc-list {
-        @apply flex flex-col bg-surface-1 border border-line rounded-xl overflow-hidden;
+        @apply flex flex-col border-t border-line;
     }
     .bp-doc-row {
         @apply relative flex items-center gap-4 px-4 py-3.5 border-b border-line transition-colors;
-    }
-    .bp-doc-row:last-child {
-        @apply border-b-0;
     }
     .bp-doc-row:hover {
         @apply bg-tint;
@@ -469,44 +465,219 @@
         @apply flex items-center gap-1.5;
     }
 
+    /* ── Workspace / projects index ─────────────────────────────────── */
+
+    /* Left-aligned page (handoff §1): margin 0, ~900px, padding 40px 44px. */
+    .bp-workspace {
+        @apply max-w-full;
+        max-width: 900px;
+        padding: 40px 44px;
+    }
+    .bp-eyebrow {
+        @apply font-mono uppercase text-fg-dim m-0;
+        font-size: 10.5px;
+        letter-spacing: 0.08em;
+    }
+    .bp-workspace-title {
+        @apply font-semibold text-ink m-0 mt-2;
+        font-size: 26px;
+        letter-spacing: -0.01em;
+    }
+    /* Documents/Connect page H1: 24px/600, no letter-spacing (handoff type
+       scale) — smaller than the 26px Projects index title. Defined after the
+       base so it wins on the overridden properties. */
+    .bp-workspace-title--doc {
+        font-size: 24px;
+        letter-spacing: normal;
+    }
+    .bp-workspace-desc {
+        @apply text-fg-mute m-0 mt-2 mb-6;
+        font-size: 14px;
+        line-height: 1.55;
+    }
+
+    /* Flush hairline divider list of project rows (top hairline, per-row bottom
+       hairline #ececf4, hover bg #fbfbfe). */
+    .bp-project-list {
+        @apply flex flex-col border-t border-line;
+    }
+    .bp-project-row {
+        @apply relative flex items-center gap-3.5 border-b border-line transition-colors;
+        padding: 18px 6px;
+    }
+    .bp-project-row:hover {
+        @apply bg-tint;
+    }
+    /* Stretch the documents link across the whole row; the chevron and meta are
+       non-interactive so they sit beneath it. */
+    .bp-project-row__link {
+        @apply absolute inset-0;
+    }
+    .bp-project-row__avatar {
+        @apply shrink-0;
+        width: 38px;
+        height: 38px;
+        font-size: 15px;
+    }
+    .bp-project-row__main {
+        @apply min-w-0 flex-1 flex flex-col gap-1;
+    }
+    /* Line 1: name + domain inline. */
+    .bp-project-row__head {
+        @apply flex items-baseline gap-2 min-w-0;
+    }
+    .bp-project-row__name {
+        @apply font-semibold text-ink shrink-0;
+        font-size: 15px;
+    }
+    .bp-project-row__domain {
+        @apply font-mono text-fg-dim truncate;
+        font-size: 11px;
+    }
+    /* Line 2: the mono rollup, beneath the name. */
+    .bp-project-row__meta {
+        @apply flex items-center gap-1.5 font-mono text-fg-dim;
+        font-size: 12.5px;
+    }
+    .bp-project-row__sep {
+        @apply text-fg-dim;
+    }
+    .bp-project-row__open {
+        color: var(--status-pending-deep);
+    }
+    .bp-project-row__chevron {
+        @apply w-4 h-4 shrink-0;
+        color: var(--switcher-hover-border);
+    }
+
+    /* New-project affordance: a dashed 38px square + label that reveals the
+       create form. Collapsed by default; the disclosure controller toggles
+       .open on the panel (and .disclosure-open on the wrapper). */
+    .bp-project-new {
+        @apply flex flex-col;
+        padding-top: 18px;
+    }
+    .bp-project-new__toggle {
+        @apply inline-flex items-center gap-3.5 bg-transparent border-0 p-0 cursor-pointer text-fg-dim transition-colors;
+    }
+    .bp-project-new__toggle:hover {
+        @apply text-fg;
+    }
+    .bp-project-new__plus {
+        @apply inline-flex items-center justify-center shrink-0 rounded-md border border-dashed border-line-strong text-fg-dim transition-colors;
+        width: 38px;
+        height: 38px;
+    }
+    .bp-project-new__plus svg {
+        @apply w-4 h-4;
+    }
+    .bp-project-new__toggle:hover .bp-project-new__plus {
+        border-color: var(--switcher-hover-border);
+        @apply text-fg;
+    }
+    .bp-project-new__label {
+        font-size: 15px;
+    }
+    /* Collapsed → revealed. Kept out of the normal flow height until open. */
+    .bp-project-new__panel {
+        @apply hidden mt-4 max-w-card;
+    }
+    .bp-project-new__panel.open {
+        @apply block;
+    }
+
+    /* ── Breadcrumb (handoff §2) ────────────────────────────────────── */
+
+    /* Mono, 12px, dim. `{project} / Documents` above the page title. */
+    .bp-crumbs {
+        @apply flex items-center gap-2 font-mono text-fg-dim m-0;
+        font-size: 12px;
+    }
+    .bp-crumbs__link {
+        @apply text-fg-dim no-underline transition-colors;
+    }
+    .bp-crumbs__link:hover {
+        @apply text-fg;
+    }
+    .bp-crumbs__sep {
+        @apply text-fg-faint;
+    }
+    .bp-crumbs__here {
+        @apply text-fg-mute;
+    }
+
+    /* ── Documents list (handoff §2) ────────────────────────────────── */
+
+    /* Flush hairline divider list of document rows: top hairline, per-row bottom
+       hairline (#ececf4), subtle #fbfbfe hover. Distinct from the shared
+       .bp-doc-row (token/site-review rows) so its 16px 6px rhythm and version
+       pill stay local to this screen. */
+    .bp-document-list {
+        @apply flex flex-col border-t border-line mt-1;
+    }
+    .bp-document-row {
+        @apply relative flex items-center gap-4 border-b border-line transition-colors;
+        padding: 16px 6px;
+    }
+    .bp-document-row:hover {
+        @apply bg-tint;
+    }
+    /* Stretch the review link across the whole row; the badge and chevron are
+       non-interactive so they sit beneath it. */
+    .bp-document-row__link {
+        @apply absolute inset-0;
+    }
+    .bp-document-row__main {
+        @apply min-w-0 flex-1 flex flex-col gap-1;
+    }
+    /* Line 1: title + version pill inline. */
+    .bp-document-row__head {
+        @apply flex items-baseline gap-2 min-w-0;
+    }
+    .bp-document-row__title {
+        @apply font-medium text-ink truncate;
+        font-size: 15px;
+    }
+    /* Mono version pill — bg #f4f4f8, e.g. "v3". */
+    .bp-document-row__version {
+        @apply inline-flex items-center shrink-0 font-mono rounded-full text-fg-dim;
+        font-size: 11px;
+        padding: 1px 7px;
+        background: var(--border-faint);
+    }
+    /* Line 2: the mono meta beneath the title. */
+    .bp-document-row__meta {
+        @apply flex items-center gap-1.5 font-mono text-fg-dim;
+        font-size: 12.5px;
+    }
+    .bp-document-row__sep {
+        @apply text-fg-dim;
+    }
+    .bp-document-row__open {
+        color: var(--status-pending-deep);
+    }
+    .bp-document-row__chevron {
+        @apply w-4 h-4 shrink-0;
+        color: var(--switcher-hover-border);
+    }
+
     /* ── Flash messages ─────────────────────────────────────────────── */
 
     .bp-flash {
         @apply flex items-start gap-2.5 px-4 py-3 rounded-lg border text-sm mb-4;
     }
     .bp-flash--success {
-        @apply bg-green-50 border-green-200 text-green-800;
-    }
-    .theme-dark .bp-flash--success {
-        background: rgba(22, 163, 74, 0.12);
-        border-color: rgba(22, 163, 74, 0.3);
-        color: #86efac;
+        @apply bg-status-ok-bg border-status-ok-border text-status-ok-deep;
     }
     .bp-flash--danger,
     .bp-flash--error {
         @apply bg-red-50 border-red-200 text-red-800;
     }
-    .theme-dark .bp-flash--danger,
-    .theme-dark .bp-flash--error {
-        background: rgba(220, 38, 38, 0.12);
-        border-color: rgba(220, 38, 38, 0.3);
-        color: #fca5a5;
-    }
     .bp-flash--warning {
-        @apply bg-amber-50 border-amber-200 text-amber-800;
-    }
-    .theme-dark .bp-flash--warning {
-        background: rgba(245, 158, 11, 0.12);
-        border-color: rgba(245, 158, 11, 0.3);
-        color: #fcd34d;
+        @apply bg-status-pending-bg border-status-pending-border text-status-pending-deep;
     }
     .bp-flash--info {
-        @apply bg-blue-50 border-blue-200 text-blue-800;
-    }
-    .theme-dark .bp-flash--info {
-        background: rgba(59, 130, 246, 0.12);
-        border-color: rgba(59, 130, 246, 0.3);
-        color: #93c5fd;
+        @apply bg-accent-faint border-accent-border text-accent-hover;
     }
 
     /* ── Empty state ────────────────────────────────────────────────── */
@@ -518,7 +689,7 @@
     /* ── Buttons (bp- namespace) ────────────────────────────────────── */
 
     .bp-btn {
-        @apply inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-line bg-surface-1 text-fg text-sm font-medium cursor-pointer whitespace-nowrap transition shadow-sm;
+        @apply inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-line bg-surface-1 text-fg text-sm font-medium cursor-pointer whitespace-nowrap transition;
     }
     .bp-btn:hover {
         @apply bg-tint border-line-strong;
@@ -561,9 +732,6 @@
     }
     .bp-btn--danger-ghost:hover {
         @apply bg-red-50 text-danger;
-    }
-    .theme-dark .bp-btn--danger-ghost:hover {
-        background: rgba(220, 38, 38, 0.12);
     }
     .bp-btn--sm {
         @apply px-2 py-1 text-xs;
@@ -614,18 +782,14 @@
         outline: 1px solid var(--accent-border);
     }
     .bp-anchor--orphan {
-        @apply bg-amber-100 rounded;
-        outline: 1px solid rgba(245, 158, 11, 0.3);
-    }
-    .theme-dark .bp-anchor--orphan {
-        background: rgba(245, 158, 11, 0.12);
-        outline-color: rgba(245, 158, 11, 0.3);
+        @apply bg-status-pending-bg rounded;
+        outline: 1px solid var(--status-pending-border);
     }
 
     /* ── Floating comment composer ──────────────────────────────────── */
 
     .bp-comment-composer {
-        @apply absolute z-20 bg-elev border border-line rounded-xl shadow-md p-3 flex flex-col gap-2;
+        @apply absolute z-20 bg-elev border border-line rounded-xl shadow-composer p-3 flex flex-col gap-2;
         min-width: 18rem;
         max-width: 24rem;
     }
@@ -645,9 +809,10 @@
         transform: translate(-50%, -50%);
     }
 
-    /* Floating "Comment" toolbar shown on text selection. */
+    /* Floating "Comment" toolbar shown on text selection — a dark pill that
+       floats above the selection with the selection-toolbar shadow. */
     .bp-anchor-toolbar {
-        @apply absolute z-20;
+        @apply absolute z-20 shadow-toolbar;
     }
 
     /* ── Sidebar ────────────────────────────────────────────────────── */
@@ -674,10 +839,7 @@
         @apply opacity-60;
     }
     .bp-comment-thread--orphaned {
-        @apply border-amber-300;
-    }
-    .theme-dark .bp-comment-thread--orphaned {
-        border-color: rgba(245, 158, 11, 0.4);
+        @apply border-status-pending;
     }
 
     /* Quoted document excerpt a comment thread is anchored to. Shown at the head
@@ -768,107 +930,135 @@
 
     .bp-app {
         @apply grid;
-        grid-template-columns: 15rem 1fr;
+        grid-template-columns: 252px 1fr;
         /* Lock the shell to the viewport so the sidebar stays put and the main
            column scrolls on its own (see .bp-main overflow-y-auto below). */
         height: 100dvh;
-    }
-    .bp-app--collapsed {
-        grid-template-columns: 3.75rem 1fr;
     }
     .bp-main {
         @apply min-w-0 overflow-x-hidden overflow-y-auto;
     }
 
-    /* Full-height sticky sidebar: pinned to the viewport. Overflow stays visible
-       (its handful of items never need scrolling) so collapsed-mode tooltips can
-       escape past its right edge. The bottom section (logout + account) is pushed
-       down by .bp-sidebar__spacer (mt-auto). */
+    /* Full-height sidebar pinned to the viewport (bg #fbfbfe, right hairline).
+       The account row is pushed to the bottom by .bp-sidebar__spacer (mt-auto). */
     .bp-sidebar {
-        @apply flex flex-col gap-1 bg-surface-1 border-r border-line px-3 py-4;
+        @apply flex flex-col gap-1 bg-sidebar border-r border-line px-3 py-4;
     }
+
+    /* Brand: 26px accent mark + name with a "LOOP" mono eyebrow. */
     .bp-sidebar__brand {
-        @apply flex items-center gap-2.5 px-2 mb-4 text-fg no-underline;
+        @apply flex items-center gap-2.5 px-2 mb-3 text-fg no-underline;
     }
     .bp-sidebar__brand-mark {
-        @apply w-7 h-7 rounded-lg bg-accent shrink-0 inline-flex items-center justify-center text-white;
+        @apply rounded-lg bg-accent shrink-0 inline-flex items-center justify-center text-white;
+        width: 26px;
+        height: 26px;
     }
     .bp-sidebar__brand-mark svg {
         @apply w-4 h-4;
     }
+    .bp-sidebar__brand-text {
+        @apply flex flex-col leading-tight min-w-0;
+    }
     .bp-sidebar__brand-name {
         @apply text-sm font-semibold tracking-tight whitespace-nowrap;
     }
+    .bp-sidebar__brand-eyebrow {
+        @apply font-mono uppercase text-fg-dim;
+        font-size: 9.5px;
+        letter-spacing: 0.14em;
+    }
+
+    /* Project switcher: bordered button linking to the projects index. */
+    .bp-sidebar__switcher {
+        @apply flex items-center gap-2.5 w-full px-2.5 py-2 mb-1 border border-line-strong bg-surface-1 no-underline transition-colors;
+        border-radius: 9px;
+    }
+    .bp-sidebar__switcher:hover {
+        @apply bg-accent-faint-2;
+        border-color: var(--switcher-hover-border);
+    }
+    .bp-sidebar__switcher-avatar {
+        @apply w-6 h-6 bg-ink shrink-0 inline-flex items-center justify-center text-white text-xs font-semibold;
+        border-radius: 5px;
+    }
+    .bp-sidebar__switcher-text {
+        @apply flex flex-col leading-tight min-w-0 mr-auto;
+    }
+    .bp-sidebar__switcher-name {
+        @apply font-semibold text-fg truncate;
+        font-size: 13px;
+    }
+    .bp-sidebar__switcher-domain {
+        @apply font-mono text-fg-dim truncate;
+        font-size: 10.5px;
+    }
+    .bp-sidebar__switcher-chevron {
+        @apply w-4 h-4 shrink-0 text-fg-dim;
+    }
+
     .bp-sidebar__nav {
         @apply flex flex-col gap-0.5;
     }
     .bp-sidebar__link {
-        @apply flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-sm font-medium text-fg-mute no-underline transition-colors;
+        @apply flex items-center gap-2.5 px-2.5 py-2 rounded-lg font-medium text-fg-mute no-underline transition-colors;
+        font-size: 13px;
     }
     .bp-sidebar__link:hover {
-        @apply bg-tint text-fg;
+        @apply bg-accent-faint text-fg;
     }
     .bp-sidebar__link--active {
-        @apply bg-accent-soft text-accent;
+        @apply bg-accent-soft text-accent-hover font-semibold;
     }
     .bp-sidebar__link svg {
         @apply w-4 h-4 shrink-0;
     }
+    .bp-sidebar__link-label {
+        @apply truncate;
+    }
+
+    /* Site-review open-count pill: neutral by default, amber when open > 0. */
+    .bp-sidebar__pill {
+        @apply ml-auto inline-flex items-center justify-center min-w-5 px-1.5 py-0.5 rounded-full font-mono leading-none;
+        font-size: 10.5px;
+        background: #f0f4f0;
+        color: var(--text-dim);
+    }
+    .bp-sidebar__pill--amber {
+        @apply bg-status-pending-bg;
+        color: var(--status-pending-deep);
+    }
+
     .bp-sidebar__spacer {
         @apply mt-auto;
     }
     .bp-sidebar__account {
         @apply flex items-center gap-2.5 px-2 py-2 border-t border-line;
     }
+    .bp-sidebar__account-avatar {
+        @apply rounded-full bg-accent-soft shrink-0 inline-flex items-center justify-center text-accent-hover text-xs font-semibold;
+        width: 26px;
+        height: 26px;
+    }
+    .bp-sidebar__account-text {
+        @apply flex flex-col leading-tight min-w-0 mr-auto;
+    }
     .bp-sidebar__account-name {
-        @apply text-sm text-fg truncate min-w-0;
+        @apply font-medium text-fg truncate;
+        font-size: 12.5px;
     }
-    .bp-sidebar__toggle {
-        @apply ml-auto inline-flex items-center justify-center w-7 h-7 rounded-md text-fg-dim cursor-pointer border-0 bg-transparent transition-colors;
+    .bp-sidebar__account-role {
+        @apply text-fg-dim;
+        font-size: 11px;
     }
-    .bp-sidebar__toggle:hover {
+    .bp-sidebar__account-logout {
+        @apply inline-flex items-center justify-center w-7 h-7 rounded-md text-fg-dim no-underline transition-colors;
+    }
+    .bp-sidebar__account-logout:hover {
         @apply bg-tint text-fg;
     }
-    .bp-sidebar__toggle svg {
-        @apply w-5 h-5 shrink-0;
-    }
-
-    /* Collapsed state: hide labels, center icons */
-    .bp-app--collapsed .bp-sidebar__brand-name,
-    .bp-app--collapsed .bp-sidebar__link-label,
-    .bp-app--collapsed .bp-sidebar__account-name {
-        @apply hidden;
-    }
-    .bp-app--collapsed .bp-sidebar__link,
-    .bp-app--collapsed .bp-sidebar__brand,
-    .bp-app--collapsed .bp-sidebar__account {
-        @apply justify-center px-0;
-    }
-    .bp-app--collapsed .bp-sidebar__toggle {
-        @apply ml-0;
-    }
-    /* Toggle icon: "collapse" when expanded, "expand" when collapsed. */
-    .bp-sidebar__toggle-icon--expand {
-        @apply hidden;
-    }
-    .bp-app--collapsed .bp-sidebar__toggle-icon--collapse {
-        @apply hidden;
-    }
-    .bp-app--collapsed .bp-sidebar__toggle-icon--expand {
-        @apply block;
-    }
-
-    /* Instant tooltips for icon-only items in collapsed mode (native `title` is
-       too slow to be useful). Shown immediately on hover/focus; they escape the
-       sidebar because it no longer clips overflow. */
-    .bp-app--collapsed .bp-sidebar [data-tooltip] {
-        @apply relative;
-    }
-    .bp-app--collapsed .bp-sidebar [data-tooltip]:hover::after,
-    .bp-app--collapsed .bp-sidebar [data-tooltip]:focus-visible::after {
-        content: attr(data-tooltip);
-        @apply absolute left-full top-1/2 ml-2 px-2 py-1 rounded-md text-xs font-medium whitespace-nowrap bg-surface-3 text-fg shadow-md pointer-events-none z-50;
-        transform: translateY(-50%);
+    .bp-sidebar__account-logout svg {
+        @apply w-4 h-4 shrink-0;
     }
 
     /* ── Code / pre blocks ──────────────────────────────────────────────── */
@@ -920,12 +1110,7 @@
     /* ── Orphan banner ──────────────────────────────────────────────── */
 
     .bp-orphan-banner {
-        @apply flex items-center gap-2.5 px-4 py-3 mb-4 rounded-lg border text-sm bg-amber-50 border-amber-200 text-amber-800;
-    }
-    .theme-dark .bp-orphan-banner {
-        background: rgba(245, 158, 11, 0.12);
-        border-color: rgba(245, 158, 11, 0.3);
-        color: #fcd34d;
+        @apply flex items-center gap-2.5 px-4 py-3 mb-4 rounded-lg border text-sm bg-status-pending-bg border-status-pending-border text-status-pending-deep;
     }
 }
 

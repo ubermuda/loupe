@@ -37,8 +37,9 @@ final class NavAndMcpCardTest extends WebTestCase
         $client->request(Request::METHOD_GET, '/projects');
 
         self::assertResponseIsSuccessful();
+        // Outside a project context the shell shows the brand (→ projects index)
+        // and the account row's logout affordance — no scoped nav.
         self::assertSelectorExists('a[href="/projects"]');
-        self::assertSelectorExists('a[href="/account/api-tokens"]');
         self::assertSelectorExists('a[href="/logout"]');
     }
 
@@ -53,7 +54,6 @@ final class NavAndMcpCardTest extends WebTestCase
 
         self::assertResponseIsSuccessful();
         self::assertSelectorExists('a[href="/projects"]');
-        self::assertSelectorExists('a[href="/account/api-tokens"]');
         self::assertSelectorExists('a[href="/logout"]');
     }
 
