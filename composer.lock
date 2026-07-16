@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "f8926f69c9b715b31352c765f54dbfa5",
+    "content-hash": "365e9a71cab236846511a9a27333ae75",
     "packages": [
         {
             "name": "composer/semver",
@@ -13889,12 +13889,12 @@
             "source": {
                 "type": "git",
                 "url": "https://github.com/ubermuda/gamache.git",
-                "reference": "c2c7d08db2de782bfd15d899c2088cdd512fca3d"
+                "reference": "4acbb2d8a6ddde039697f9caf2a4205a73c7bd81"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/ubermuda/gamache/zipball/c2c7d08db2de782bfd15d899c2088cdd512fca3d",
-                "reference": "c2c7d08db2de782bfd15d899c2088cdd512fca3d",
+                "url": "https://api.github.com/repos/ubermuda/gamache/zipball/4acbb2d8a6ddde039697f9caf2a4205a73c7bd81",
+                "reference": "4acbb2d8a6ddde039697f9caf2a4205a73c7bd81",
                 "shasum": ""
             },
             "require": {

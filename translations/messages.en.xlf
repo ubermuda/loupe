@@ -425,7 +425,7 @@
             <!-- Document review page -->
             <trans-unit id="review.document.page.title">
                 <source>review.document.page.title</source>
-                <target>%title% — Review</target>
+                <target>%title%</target>
             </trans-unit>
             <trans-unit id="review.document.sidebar.title">
                 <source>review.document.sidebar.title</source>

@@ -6,6 +6,7 @@ use Gamache\Check\FormTypeTranslationKeysCheck;
 use Gamache\Check\MessengerRoutingCheck;
 use Gamache\Check\NoArbitraryValuesCheck;
 use Gamache\Check\NoTodosCheck;
+use Gamache\Check\PageTitleBrandNameCheck;
 use Gamache\Check\ServicesYamlCheck;
 use Gamache\Check\ServiceTagNamesCheck;
 use Gamache\Check\TranslationCheck;
@@ -27,6 +28,7 @@ return (new GamacheConfig())->registerChecks([
     new FormTypeTranslationKeysCheck(),
     new TurboStreamTargetsCheck(),
     new XlfPluralizationCheck(),
+    new PageTitleBrandNameCheck(),
     new TranslationParityCheck(),
     new TranslationCheck(
         /*

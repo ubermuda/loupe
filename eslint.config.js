@@ -22,4 +22,33 @@ module.exports = [
             },
         },
     },
+    {
+        // Stimulus controllers must not hand-roll fetch() submissions — mutations
+        // go through a <form> + Turbo (see project-frontend, "Turbo patterns").
+        // Scoped to the fetch ban ONLY (no recommended ruleset), so this
+        // Prettier-formatted directory doesn't inherit unrelated lint.
+        files: ['assets/controllers/**/*.js'],
+        languageOptions: {
+            ecmaVersion: 2022,
+            sourceType: 'module',
+            globals: {
+                ...globals.browser,
+            },
+        },
+        rules: {
+            'no-restricted-syntax': [
+                'error',
+                {
+                    selector: "CallExpression[callee.name='fetch']",
+                    message:
+                        'Do not submit via fetch() in a Stimulus controller. Mutations must go through a <form> + Turbo (see project-frontend, "Turbo patterns"). For a rare, genuinely non-form interaction, add an inline `// eslint-disable-next-line no-restricted-syntax` with a justification.',
+                },
+                {
+                    selector: "CallExpression[callee.type='MemberExpression'][callee.property.name='fetch']",
+                    message:
+                        'Do not submit via *.fetch() in a Stimulus controller. Mutations must go through a <form> + Turbo (see project-frontend, "Turbo patterns"). For a rare, genuinely non-form interaction, add an inline `// eslint-disable-next-line no-restricted-syntax` with a justification.',
+                },
+            ],
+        },
+    },
 ];
