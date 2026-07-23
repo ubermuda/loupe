@@ -67,15 +67,27 @@ final readonly class SubmitReviewHandler
             'submittedAt' => $review->submittedAt?->format(\DateTimeInterface::ATOM),
         ], \JSON_THROW_ON_ERROR);
 
-        // Best-effort: a down or slow hub must never fail an already-persisted
-        // submit — that would surface as a 500 and provoke a duplicate resubmit.
-        try {
-            $this->hub->publish(new Update($topic, $payload, true));
-        } catch (\Throwable $e) {
-            $this->logger->warning('site_review.review.publish_failed', [
-                'reviewId' => (string) $review->id,
-                'error' => $e->getMessage(),
-            ]);
+        // Best-effort with one immediate retry: a down or slow hub must never
+        // fail an already-persisted submit — that would surface as a 500 and
+        // provoke a duplicate resubmit. Durable delivery is a deliberate
+        // follow-up (transactional outbox + worker); until then a lost event is
+        // logged at error level with enough context to replay it by hand.
+        $update = new Update($topic, $payload, true);
+        $lastError = null;
+        for ($attempt = 1; $attempt <= 2; ++$attempt) {
+            try {
+                $this->hub->publish($update);
+
+                return;
+            } catch (\Throwable $e) {
+                $lastError = $e;
+            }
         }
+
+        $this->logger->error('site_review.review.publish_failed', [
+            'reviewId' => (string) $review->id,
+            'topic' => $topic,
+            'error' => $lastError->getMessage(),
+        ]);
     }
 }
