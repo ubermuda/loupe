@@ -43,6 +43,22 @@ class ProjectRepository extends ServiceEntityRepository
     }
 
     /**
+     * Whether the project's row currently has a widget token, read straight from
+     * the database (bypassing the identity map). Used after a pessimistic lock
+     * so a concurrent mint's committed change is visible — entity refresh() is
+     * not an option here, it fails on the readonly $createdAt property.
+     */
+    public function hasCommittedWidgetToken(Project $project): bool
+    {
+        return null !== $this->createQueryBuilder('p')
+            ->select('IDENTITY(p.widgetToken)')
+            ->where('p = :project')
+            ->setParameter('project', $project)
+            ->getQuery()
+            ->getSingleScalarResult();
+    }
+
+    /**
      * Resolves a project from a user-supplied handle: a uuid or the project name.
      * Owner-scoped — never returns another user's project.
      */
