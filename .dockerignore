@@ -6,8 +6,18 @@ tests/
 .phpunit.cache/
 .serena/
 e2e/
+# Local override files hold real secrets. The prod image does `COPY . .` and the
+# entrypoint runs `composer dump-env prod`, which merges .env.local — without
+# these excludes a build would bake the builder's local credentials into the
+# image and let them override real production environment variables.
+.env.local
+.env.*.local
 .env.dev*
 .env.test*
+# Never ship the repository history (and its size) inside the runtime image.
+.git/
+.gitignore
+.gitleaksignore
 .vite/
 docs/
 test-results/
