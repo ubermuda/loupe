@@ -151,6 +151,13 @@ Supply these as real environment variables (never commit them):
 | `MAILER_DSN` | Outbound mail |
 | `APP_ENCRYPTION_KEY` | Only if you use `encrypted_string` columns |
 
+## Command-line bridge
+
+`cli/` holds a small Go binary that closes the loop: it subscribes to your
+site-review stream and types each submitted review straight into a Claude Code
+session running in tmux. Build it with `just cli-build` — see
+[`cli/README.md`](cli/README.md) for the commands and flags.
+
 ## Contributing
 
 See [CONTRIBUTING.md](CONTRIBUTING.md). Please report security issues privately —

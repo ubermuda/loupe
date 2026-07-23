@@ -24,11 +24,17 @@ type Handler struct {
 
 const maxBackoff = 30 * time.Second
 
-// Subscribe connects to hubURL for topic with the given subscriber JWT and runs
-// until ctx is cancelled. It only returns a non-nil error for unrecoverable
-// setup problems; transient stream failures are reported via Handler.OnError
-// and retried.
-func Subscribe(ctx context.Context, hc *http.Client, hubURL, topic, jwt string, h Handler) error {
+// TokenFunc returns a subscriber JWT for the hub. It is called before every
+// connection attempt, so a long-running subscriber survives token expiry:
+// subscriber JWTs are short-lived, and reusing one across reconnects would make
+// the hub reject every retry once it lapsed.
+type TokenFunc func(context.Context) (string, error)
+
+// Subscribe connects to hubURL for topic, obtaining a fresh subscriber JWT from
+// token for each attempt, and runs until ctx is cancelled. It only returns a
+// non-nil error for unrecoverable setup problems; transient stream failures (and
+// token refresh failures) are reported via Handler.OnError and retried.
+func Subscribe(ctx context.Context, hc *http.Client, hubURL, topic string, token TokenFunc, h Handler) error {
 	endpoint, err := url.Parse(hubURL)
 	if err != nil {
 		return fmt.Errorf("parse hub url: %w", err)
@@ -45,7 +51,27 @@ func Subscribe(ctx context.Context, hc *http.Client, hubURL, topic, jwt string, 
 		}
 
 		connected := false
-		err := stream(ctx, hc, target, jwt, Handler{
+		jwt, err := token(ctx)
+		if err != nil {
+			if ctx.Err() != nil {
+				return ctx.Err()
+			}
+			if h.OnError != nil {
+				h.OnError(fmt.Errorf("refresh stream credentials: %w", err))
+			}
+			select {
+			case <-ctx.Done():
+				return ctx.Err()
+			case <-time.After(backoff):
+			}
+			if backoff < maxBackoff {
+				backoff *= 2
+			}
+
+			continue
+		}
+
+		err = stream(ctx, hc, target, jwt, Handler{
 			OnData: h.OnData,
 			OnConnect: func() {
 				connected = true
