@@ -6,7 +6,7 @@
             <!-- Global -->
             <trans-unit id="app.name">
                 <source>app.name</source>
-                <target>Better Plans</target>
+                <target>Loupe</target>
             </trans-unit>
 
             <!-- Auth layout -->
@@ -38,7 +38,7 @@
             </trans-unit>
             <trans-unit id="account.login.topbar.prompt">
                 <source>account.login.topbar.prompt</source>
-                <target>New to Better Plans?</target>
+                <target>New to Loupe?</target>
             </trans-unit>
             <trans-unit id="account.login.topbar.link">
                 <source>account.login.topbar.link</source>
@@ -82,7 +82,7 @@
             </trans-unit>
             <trans-unit id="account.login.footer.prompt">
                 <source>account.login.footer.prompt</source>
-                <target>New to Better Plans?</target>
+                <target>New to Loupe?</target>
             </trans-unit>
             <trans-unit id="account.login.footer.link">
                 <source>account.login.footer.link</source>
@@ -547,7 +547,7 @@
             <!-- Navigation bar -->
             <trans-unit id="nav.brand">
                 <source>nav.brand</source>
-                <target>Better Plans</target>
+                <target>Loupe</target>
             </trans-unit>
             <trans-unit id="nav.eyebrow">
                 <source>nav.eyebrow</source>

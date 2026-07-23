@@ -12,20 +12,20 @@ import (
 	"syscall"
 
 	"github.com/spf13/cobra"
-	"github.com/ubermuda/betterplans/cli/internal/api"
-	"github.com/ubermuda/betterplans/cli/internal/config"
-	"github.com/ubermuda/betterplans/cli/internal/inject"
-	"github.com/ubermuda/betterplans/cli/internal/tmux"
-	"github.com/ubermuda/betterplans/cli/internal/transport"
+	"github.com/ubermuda/loupe/cli/internal/api"
+	"github.com/ubermuda/loupe/cli/internal/config"
+	"github.com/ubermuda/loupe/cli/internal/inject"
+	"github.com/ubermuda/loupe/cli/internal/tmux"
+	"github.com/ubermuda/loupe/cli/internal/transport"
 )
 
 // defaultSession is the tmux session name used in spawn mode.
-const defaultSession = "betterplans"
+const defaultSession = "loupe"
 
 func newBridgeCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "bridge",
-		Short: "Bridge Better Plans events into local tools",
+		Short: "Bridge Loupe events into local tools",
 	}
 	cmd.AddCommand(newBridgeRunCmd())
 
@@ -39,7 +39,7 @@ func newBridgeRunCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "run",
 		Short: "Pipe submitted site reviews into a local Claude Code tmux session",
-		Long: "Subscribes to your Better Plans site-review stream and injects each new " +
+		Long: "Subscribes to your Loupe site-review stream and injects each new " +
 			"review into a Claude Code session running in tmux.\n\n" +
 			"Use --site to specify which site to bridge (by name or id); omit it to pick " +
 			"interactively from your list of sites. Use --dir to spawn `claude` in a new " +
@@ -105,8 +105,8 @@ func newBridgeRunCmd() *cobra.Command {
 	}
 	cmd.Flags().StringVar(&dir, "dir", "", "spawn `claude` in a new tmux session in this directory")
 	cmd.Flags().StringVar(&session, "session", "", "attach to an existing tmux session or target")
-	cmd.Flags().StringVar(&site, "site", "", "the Better Plans site to bridge (name or id); omitted: pick interactively")
-	cmd.Flags().BoolVar(&useMCP, "mcp", false, "inject only the review id and let Claude load it via the Better Plans MCP")
+	cmd.Flags().StringVar(&site, "site", "", "the Loupe site to bridge (name or id); omitted: pick interactively")
+	cmd.Flags().BoolVar(&useMCP, "mcp", false, "inject only the review id and let Claude load it via the Loupe MCP")
 	cmd.Flags().BoolVar(&attach, "attach", true, "attach to the tmux session and watch Claude; use --attach=false to run headless")
 
 	return cmd
@@ -227,7 +227,7 @@ func openBridgeLog() (*os.File, string, error) {
 	if err != nil {
 		base = os.TempDir()
 	} else {
-		base = filepath.Join(base, "betterplans")
+		base = filepath.Join(base, "loupe")
 		_ = os.MkdirAll(base, 0o700)
 	}
 	path := filepath.Join(base, "bridge.log")
@@ -247,7 +247,7 @@ func pickSite(cmd *cobra.Command, client *api.Client) (string, error) {
 		return "", err
 	}
 	if len(sites) == 0 {
-		return "", fmt.Errorf("no sites found: create one in Better Plans first (Site reviews → Add site)")
+		return "", fmt.Errorf("no sites found: create one in Loupe first (Site reviews → Add site)")
 	}
 	if len(sites) == 1 {
 		fmt.Fprintf(cmd.OutOrStdout(), "Using your only site %q\n", sites[0].Name)

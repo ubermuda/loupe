@@ -1,7 +1,7 @@
-# Handoff: Better Plans — "Loop" review console
+# Handoff: Loupe — "Loop" review console
 
 ## Overview
-Better Plans is a document-review tool built for the AI-agent workflow. A coding agent (e.g. Claude, over MCP) submits long-form documents — implementation plans, specs, RFCs — for a human to review before it acts. A human reads the document, leaves anchored inline comments (select text → comment), replies to and resolves threads, and renders a verdict (approve / request changes). The agent then addresses comments and submits a new version.
+Loupe is a document-review tool built for the AI-agent workflow. A coding agent (e.g. Claude, over MCP) submits long-form documents — implementation plans, specs, RFCs — for a human to review before it acts. A human reads the document, leaves anchored inline comments (select text → comment), replies to and resolves threads, and renders a verdict (approve / request changes). The agent then addresses comments and submits a new version.
 
 This handoff covers the **"Loop" direction**: an agent-native review console. The core loop is **agent proposes → human reviews → agent revises → human approves**, surfaced through a persistent **loop ribbon** (Proposed → In review → Revise → Approved) shown on the review screens.
 
@@ -90,7 +90,7 @@ Type scale actually used (font-size / weight / notes):
 Two-column app shell: fixed **sidebar** (252px, bg `#fbfbfe`, right border `#ececf4`) + scrollable **main** (white). Full viewport height, no page scroll — each region scrolls internally.
 
 **Sidebar (top → bottom):**
-1. **Brand** — 26px rounded-square mark (bg accent `#5b5bd6`, white loop-check glyph) + "Better Plans" (14px/600 ink) with "LOOP" eyebrow (9.5px mono, letter-spacing 0.14em, uppercase, dim).
+1. **Brand** — 26px rounded-square mark (bg accent `#5b5bd6`, white loop-check glyph) + "Loupe" (14px/600 ink) with "LOOP" eyebrow (9.5px mono, letter-spacing 0.14em, uppercase, dim).
 2. **Site switcher** — bordered button (`1px #e4e4ee`, radius 9px, white): 24px dark square avatar with site initial "A", site name "Acme" (13px/600), domain "acme.com" (10.5px mono dim), and an up/down chevron on the right. **Clicking it navigates to the Sites index** (this is the single sites entry point — there is intentionally no separate "All sites" link; the switcher is the standard workspace-switcher pattern). Hover: border `#c7c6f0`, bg `#faf9ff`.
 3. **Scoped nav** (site-scoped): **Documents** (file icon), **Site review** (globe icon, with an open-count pill on the right), **Connect agent** (code-brackets icon). Each: full-width left-aligned button, 13px, radius 8px, gap 10px. **Active** item: bg `#ecebfb`, text `#4a4ac0`, weight 600. Hover (inactive): bg `#f4f3ff`.
    - Site-review count pill: mono 10.5px; when open>0 amber (`#fdf3e6`/`#c17a2f`), else neutral (`#f0f4f0`/`#9a9ab0`).
@@ -181,9 +181,9 @@ Seed comments: (1) "Start free trial" · /pricing · `main > section.hero > a.ct
 ### 5. Connect agent  → `screenshots/09-connect-agent.png`
 **Purpose:** MCP setup so the coding agent can submit documents and read comments, scoped to this site.
 **Layout:** max-width 760px, `40px 44px 60px`. Breadcrumb `Acme / Connect agent`. H1 "Connect agent" + description. Then labeled blocks (each preceded by a mono uppercase eyebrow):
-- **MCP endpoint** — bordered field (bg `#fbfbfe`, radius 9px): code glyph + endpoint `https://betterplans.app/mcp/acme` (mono 13px) + a **Copy** button (shows a green check + "Copied" for ~1.4s after click).
+- **MCP endpoint** — bordered field (bg `#fbfbfe`, radius 9px): code glyph + endpoint `https://loupe.app/mcp/acme` (mono 13px) + a **Copy** button (shows a green check + "Copied" for ~1.4s after click).
 - **Access token** — same treatment: key glyph + masked token `bp_live_7Qf3…c4Hs` + a green "site-scoped" tag + Copy button.
-- **.mcp.json** — a dark code block: header bar (`#17172a`) "claude · project config" + Copy; body (`#1c1c30`) with syntax-highlighted JSON showing `mcpServers.better-plans.url` and a `Authorization: Bearer …` header. Colors listed in Design tokens.
+- **.mcp.json** — a dark code block: header bar (`#17172a`) "claude · project config" + Copy; body (`#1c1c30`) with syntax-highlighted JSON showing `mcpServers.loupe.url` and a `Authorization: Bearer …` header. Colors listed in Design tokens.
 - **Agent tools** — a hairline divider list; each row: a mono accent-soft name pill + a description. Tools: `submit_plan`, `get_plan_status`, `list_comments`, `address_comment` ("Post an 'addressed' response to a comment. Cannot resolve — only a human resolves."), `submit_revision`, `list_site_comments`. Exact copy in `Loop.dc.html` (`tools`).
 
 ---

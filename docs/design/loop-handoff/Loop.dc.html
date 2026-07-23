@@ -32,7 +32,7 @@
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M17 2.1a10 10 0 1 0 5 8.4"/><path d="M22 4l-9.5 9.5-3-3"/></svg>
       </div>
       <div style="display:flex; flex-direction:column; line-height:1.1;">
-        <span style="font-size:14px; font-weight:600; color:#17172a;">Better Plans</span>
+        <span style="font-size:14px; font-weight:600; color:#17172a;">Loupe</span>
         <span style="font-family:'Geist Mono',monospace; font-size:9.5px; letter-spacing:.14em; text-transform:uppercase; color:#9a9ab0; margin-top:2px;">Loop</span>
       </div>
     </div>
@@ -478,7 +478,7 @@
       </div>
       <div style="margin-bottom:26px;">
         <h1 style="font-size:24px; font-weight:600; color:#17172a; margin:0; letter-spacing:-.01em;">Connect agent</h1>
-        <p style="font-size:14px; color:#6b6b84; margin:8px 0 0; max-width:560px;">Point your coding agent at Better Plans over MCP. It submits documents, reads your comments, and revises against your verdict — all scoped to <strong style="color:#17172a;">Acme</strong>.</p>
+        <p style="font-size:14px; color:#6b6b84; margin:8px 0 0; max-width:560px;">Point your coding agent at Loupe over MCP. It submits documents, reads your comments, and revises against your verdict — all scoped to <strong style="color:#17172a;">Acme</strong>.</p>
       </div>
 
       <div style="margin-bottom:26px;">
@@ -518,7 +518,7 @@
           </div>
           <pre style="margin:0; padding:14px 16px; background:#1c1c30; font-family:'Geist Mono',monospace; font-size:12.5px; line-height:1.7; color:#c7c6f0; overflow-x:auto;"><span style="color:#6b6b84;">{</span>
   <span style="color:#9a9ab0;">"mcpServers"</span>: {
-    <span style="color:#a5d6b8;">"better-plans"</span>: {
+    <span style="color:#a5d6b8;">"loupe"</span>: {
       <span style="color:#9a9ab0;">"url"</span>: <span style="color:#e0c48a;">"{{ endpoint }}"</span>,
       <span style="color:#9a9ab0;">"headers"</span>: { <span style="color:#9a9ab0;">"Authorization"</span>: <span style="color:#e0c48a;">"Bearer {{ tokenMasked }}"</span> }
     }
@@ -953,7 +953,7 @@ class Component extends DCLogic {
         : { tone: 'green', label: 'Clear', text: 'All site comments resolved — nothing blocking the agent here.' };
     const sbt = this.bannerTone(siteBannerInfo.tone);
 
-    const endpoint = 'https://betterplans.app/mcp/acme';
+    const endpoint = 'https://loupe.app/mcp/acme';
     const token = 'bp_live_7Qf3kR2xN8vD1aLpZ0wYc4Hs';
     const tokenMasked = 'bp_live_7Qf3\u2026c4Hs';
     const rawSnippet = 'url ' + endpoint + ' with Authorization: Bearer ' + token;

@@ -27,9 +27,9 @@ final class StreamCredentialsControllerTest extends WebTestCase
         self::assertResponseIsSuccessful();
         $data = json_decode((string) $client->getResponse()->getContent(), true);
         self::assertIsArray($data);
-        self::assertSame('https://mercure.betterplans.dev.localhost/.well-known/mercure', $data['hubUrl']);
+        self::assertSame('https://mercure.loupe.dev.localhost/.well-known/mercure', $data['hubUrl']);
 
-        $expectedTopic = 'https://betterplans.dev.localhost/projects/'.$project->id.'/site-reviews';
+        $expectedTopic = 'https://loupe.dev.localhost/projects/'.$project->id.'/site-reviews';
         self::assertSame($expectedTopic, $data['topic']);
         self::assertSame((string) $project->id, $data['site']['id']);
         self::assertSame($project->name, $data['site']['name']);

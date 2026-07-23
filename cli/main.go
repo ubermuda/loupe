@@ -1,4 +1,4 @@
-// Command betterplans is the Better Plans command-line tool. Today it bridges
+// Command loupe is the Loupe command-line tool. Today it bridges
 // submitted site reviews into a local Claude Code session; more subcommands will
 // be added over time.
 package main
@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/ubermuda/betterplans/cli/cmd"
+	"github.com/ubermuda/loupe/cli/cmd"
 )
 
 func main() {

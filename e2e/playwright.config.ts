@@ -9,8 +9,7 @@ export default defineConfig({
     retries: 0,
     reporter: [['html', { open: 'never' }]],
     use: {
-        baseURL:
-            process.env.E2E_BASE_URL ?? 'https://betterplans.dev.localhost',
+        baseURL: process.env.E2E_BASE_URL ?? 'https://loupe.dev.localhost',
         ignoreHTTPSErrors: true,
         trace: 'retain-on-failure',
         extraHTTPHeaders: {

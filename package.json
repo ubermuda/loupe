@@ -1,5 +1,5 @@
 {
-  "name": "betterplans",
+  "name": "loupe",
   "private": true,
   "devDependencies": {
     "@eslint/js": "^10.0.1",

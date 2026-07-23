@@ -1,7 +1,7 @@
 import { APIRequestContext, expect } from '@playwright/test';
 
 const mailpitUrl =
-    process.env['MAILPIT_URL'] ?? 'https://mailpit.betterplans.dev.localhost';
+    process.env['MAILPIT_URL'] ?? 'https://mailpit.loupe.dev.localhost';
 
 export async function fetchVerificationUrl(
     request: APIRequestContext,
