@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Module\SiteReview\EventListener;
 
+use App\Module\Account\Security\ApiTokenAuthenticator;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\EventDispatcher\Attribute\AsEventListener;
 use Symfony\Component\HttpFoundation\Request;
@@ -45,10 +46,23 @@ final readonly class RateLimitSiteReviewWrites
         }
     }
 
+    /**
+     * One bucket per API credential, never per owner: every token authenticates
+     * as its owning user, so an owner-keyed limit would let a visitor exhaust
+     * one publicly-embedded widget token and 429 that owner's other projects
+     * and their account-level clients too.
+     */
     private function key(Request $request): string
     {
-        $token = $this->tokenStorage->getToken();
+        $securityToken = $this->tokenStorage->getToken();
 
-        return null !== $token ? 'user:'.$token->getUserIdentifier() : 'ip:'.((string) $request->getClientIp());
+        if (null !== $securityToken && $securityToken->hasAttribute(ApiTokenAuthenticator::API_TOKEN_ID_ATTR)) {
+            $apiTokenId = $securityToken->getAttribute(ApiTokenAuthenticator::API_TOKEN_ID_ATTR);
+            if (is_string($apiTokenId)) {
+                return 'token:'.$apiTokenId;
+            }
+        }
+
+        return 'ip:'.((string) $request->getClientIp());
     }
 }

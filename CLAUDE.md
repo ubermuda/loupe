@@ -54,7 +54,7 @@ Before opening a pull request, you must:
 1. Run `just cs` to apply formatter and rector fixes, and commit anything it changed.
 2. Run `just ci` and fix every failure — including ones that pre-date your change. `ci` is check-only: it reports style/rector violations but never rewrites files — `just cs` is the step that applies them.
 3. Run `just e2e` and fix every failure — including ones that pre-date your change.
-4. Run a Codex review of the branch: `mcp__codex-cli__review` with `model: "gpt-5.6-sol"` — the tool's default models (`gpt-5.3-codex`, `gpt-5.1-codex`) are rejected by this Codex account ("not supported when using Codex with a ChatGPT account"). CLI fallback if the MCP server is unavailable: `codex review -m gpt-5.6-sol --base main`. Address the findings before opening the PR.
+4. Run a Codex review of the branch: `mcp__codex-cli__review` with `model: "gpt-5.6-sol"` — the tool's default models (`gpt-5.3-codex`, `gpt-5.1-codex`) are rejected by this Codex account ("not supported when using Codex with a ChatGPT account"). CLI fallback if the MCP server is unavailable: `codex review -c model="gpt-5.6-sol" --base main` (the `review` subcommand has no `-m` flag — the model is set with `-c model=`). Address the findings before opening the PR.
 
 Do not open a PR until both commands pass cleanly. Pre-existing failures are not exempt; fix them as part of the branch.
 
