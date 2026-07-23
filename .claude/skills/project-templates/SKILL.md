@@ -83,4 +83,4 @@ A page `{% block title %}` must compose **two translated strings** — the page-
 {% block title %}{{ 'account.login.page.title'|trans }} — {{ 'app.name'|trans }}{% endblock %}
 ```
 
-The page-title trans-unit holds only the page part (`account.login.page.title` → `Sign in`). `app.name` is the single source of truth for the brand name in titles — do not write `Sign in — Better Plans` into the title key. This keeps the brand changeable in one place and is what review expects.
+The page-title trans-unit holds only the page part (`account.login.page.title` → `Sign in`). `app.name` is the single source of truth for the brand name in titles — do not write `Sign in — Loupe` into the title key. This keeps the brand changeable in one place and is what review expects.
