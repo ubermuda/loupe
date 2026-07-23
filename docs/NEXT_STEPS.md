@@ -73,7 +73,7 @@ schema): the DB is only reachable via Traefik's TCP `HostSNI` router on the
 `pdo_pgsql`/OpenSSL can't complete that handshake — `sslmode=require|prefer` →
 `tlsv1 alert no application protocol` (ALPN mismatch), `sslmode=disable|allow` →
 timeout (no TLS → SNI can't be read). Both `127.0.0.1` and
-`db.betterplans.dev.localhost` fail. Tests only run via the container
+`db.loupe.dev.localhost` fail. Tests only run via the container
 (`docker compose exec -T php-fpm php vendor/bin/phpunit`), which connects to
 `database:5432` directly.
 
@@ -187,7 +187,7 @@ is not valid forever.
 
 ## Site-review bridge CLI (`cli/`): polish before shipping
 
-The Go bridge is functional (`betterplans login` + `betterplans bridge run
+The Go bridge is functional (`loupe login` + `loupe bridge run
 --site <name>`, with an interactive picker when the flag is omitted). Remaining
 work before it's a turnkey distributable:
 
@@ -197,7 +197,7 @@ work before it's a turnkey distributable:
   `/api/site-review/stream?site=…` on a `401` and resubscribe.
 - **No-echo token prompt.** `login` reads the token from stdin with the terminal
   still echoing. Use `golang.org/x/term` (or equivalent) to read without echo.
-- **OS keychain storage.** The token is stored in `~/.config/betterplans/config.json`
+- **OS keychain storage.** The token is stored in `~/.config/loupe/config.json`
   (mode 0600). Move it to the OS keychain (e.g. `go-keyring`) with the file as a fallback.
 - **CI + release.** Wire `just cli-test` into the gate, and add goreleaser for a
   multi-platform release matrix (current `just cli-build` only cross-compiles one target).
@@ -234,7 +234,7 @@ marks where it goes).
 
 ## Site-review widget overlaps the review console's pinned controls (dogfooding)
 
-The site-review widget (loaded on Better Plans' own authenticated pages when
+The site-review widget (loaded on Loupe's own authenticated pages when
 `SITE_REVIEW_WIDGET_TOKEN` is set — dev/dogfooding) mounts a `position:fixed`
 bottom-right launcher (z-index max). PR 3 pinned the document-review verdict bar
 to the bottom of the 388px margin, so the launcher can overlap the "Request
@@ -244,3 +244,34 @@ review screen in isolation. Product decision to make later: the widget isn't par
 of the review/site-review console screens' design — consider not loading it on
 those routes (scope the `base.html.twig` widget include out of the review console)
 so dogfooding a review doesn't cover the console's own controls.
+
+## Site-review widget: navigate to a comment's page from the comment list
+
+In the widget's comment list, comments made on a different page than the one
+currently open only show their page URL as context. Add a quick way to navigate
+to that page (e.g. make the URL a link or add a "go to page" affordance on
+cross-page comments) so a reviewer can jump straight to where the comment was
+made.
+
+## Unbound legacy MCP tokens look like a connection failure to agents
+
+`mcp`-scoped tokens minted before the Project entity existed (pre-2026-07-03)
+authenticate fine but resolve no project, so every tool call fails with "MCP
+token is not bound to a project" — which agents surface as "can't connect".
+A 2026-07-10 session debugged this; the three affected local tokens were fixed
+by creating projects and binding them directly in the dev DB. Product follow-ups
+to consider: reject unbound `mcp`-scope tokens at authentication time (clear 401
+instead of per-call errors), and/or purge orphan unbound tokens (the dev DB has
+~500 unbound e2e-harness tokens accumulating — see also whether e2e should clean
+up after itself).
+
+## Site-review widget fails silently on a rejected token
+
+When the widget's embedded token is invalid (e.g. regenerated on the Connect
+page while a consumer page with the old token is still open), the API returns
+401/403 and the widget shows nothing — the pill either doesn't render or the
+failure is only visible in the network tab. A 2026-07-10 debugging session
+burned a full end-to-end investigation on what was just a stale token in an
+un-refreshed tab. Have the widget surface auth failures visibly (e.g. a muted
+"review token rejected — refresh the page or check the Connect page" state on
+the pill) instead of failing silently.

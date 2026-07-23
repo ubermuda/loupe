@@ -1,4 +1,4 @@
-// Package config persists the bridge's credentials (Better Plans base URL and
+// Package config persists the bridge's credentials (Loupe base URL and
 // API token) to a single JSON file under the user's config dir, mode 0600.
 //
 // Storing the token in the OS keychain is a future enhancement (see
@@ -14,7 +14,7 @@ import (
 )
 
 // ErrNotLoggedIn is returned by Load when no usable credentials are stored.
-var ErrNotLoggedIn = errors.New("not logged in: run `betterplans login` first")
+var ErrNotLoggedIn = errors.New("not logged in: run `loupe login` first")
 
 // Config is the persisted credential set.
 type Config struct {
@@ -28,7 +28,7 @@ func dir() (string, error) {
 		return "", fmt.Errorf("locate config dir: %w", err)
 	}
 
-	return filepath.Join(d, "betterplans"), nil
+	return filepath.Join(d, "loupe"), nil
 }
 
 // Load reads stored credentials, returning ErrNotLoggedIn if none are present.

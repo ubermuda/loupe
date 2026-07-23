@@ -9,8 +9,8 @@ func Execute() error {
 
 func newRootCmd() *cobra.Command {
 	root := &cobra.Command{
-		Use:           "betterplans",
-		Short:         "Better Plans command-line tools",
+		Use:           "loupe",
+		Short:         "Loupe command-line tools",
 		SilenceUsage:  true,
 		SilenceErrors: true,
 	}

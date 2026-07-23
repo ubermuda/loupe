@@ -34,7 +34,7 @@ type Mode int
 
 const (
 	// SelfContained injects a full prompt from the event — works on a vanilla
-	// `claude` with no Better Plans MCP configured.
+	// `claude` with no Loupe MCP configured.
 	SelfContained Mode = iota
 	// IDOnly injects just the site handle and asks Claude to load the pending
 	// comments via the get_site_review MCP tool.

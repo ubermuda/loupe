@@ -1,4 +1,4 @@
-module github.com/ubermuda/betterplans/cli
+module github.com/ubermuda/loupe/cli
 
 go 1.23
 

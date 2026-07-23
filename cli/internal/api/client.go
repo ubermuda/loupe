@@ -1,4 +1,4 @@
-// Package api talks to the Better Plans HTTP API over the user's API token.
+// Package api talks to the Loupe HTTP API over the user's API token.
 package api
 
 import (
@@ -29,7 +29,7 @@ type StreamCredentials struct {
 	} `json:"site"`
 }
 
-// Client is a Better Plans API client bound to one base URL and token.
+// Client is a Loupe API client bound to one base URL and token.
 type Client struct {
 	baseURL string
 	token   string

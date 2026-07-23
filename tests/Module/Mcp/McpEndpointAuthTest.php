@@ -52,7 +52,7 @@ final class McpEndpointAuthTest extends WebTestCase
         // The MCP SDK's DNS-rebinding protection allows only localhost by default;
         // MCP_ALLOWED_HOSTS adds the app host so real clients can connect.
         $client->request(\Symfony\Component\HttpFoundation\Request::METHOD_POST, '/mcp', server: [
-            'HTTP_HOST' => 'betterplans.dev.localhost',
+            'HTTP_HOST' => 'loupe.dev.localhost',
             'CONTENT_TYPE' => 'application/json',
             'HTTP_AUTHORIZATION' => 'Bearer '.$raw,
         ], content: self::INIT);

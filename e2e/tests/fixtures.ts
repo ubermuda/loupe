@@ -32,8 +32,8 @@ export async function suppressToolbar(page: Page): Promise<void> {
 export async function suppressWidget(page: Page): Promise<void> {
     await page.addInitScript(() => {
         (
-            window as unknown as { __betterplansSiteReviewLoaded?: boolean }
-        ).__betterplansSiteReviewLoaded = true;
+            window as unknown as { __loupeSiteReviewLoaded?: boolean }
+        ).__loupeSiteReviewLoaded = true;
     });
 }
 

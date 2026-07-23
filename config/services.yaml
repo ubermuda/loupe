@@ -12,7 +12,7 @@ parameters:
     app.url: '%env(APP_URL)%'
     # Name of the MCP server as it appears in the connect-agent install snippet
     # and the `claude mcp add` command.
-    app.mcp.server_name: 'betterplans'
+    app.mcp.server_name: 'loupe'
 
 services:
     # default configuration for services in *this* file

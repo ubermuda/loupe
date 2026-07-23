@@ -4,8 +4,8 @@
   // re-executes the script tag would append another launcher/overlay and the
   // shadows would stack up. The flag lives on window, which persists across such
   // navigations, so only the first execution initializes.
-  if (window.__betterplansSiteReviewLoaded) return;
-  window.__betterplansSiteReviewLoaded = true;
+  if (window.__loupeSiteReviewLoaded) return;
+  window.__loupeSiteReviewLoaded = true;
 
   const script = document.currentScript;
   const BACKEND = new URL(script.src).origin;

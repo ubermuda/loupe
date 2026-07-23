@@ -9,8 +9,8 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
-	"github.com/ubermuda/betterplans/cli/internal/api"
-	"github.com/ubermuda/betterplans/cli/internal/config"
+	"github.com/ubermuda/loupe/cli/internal/api"
+	"github.com/ubermuda/loupe/cli/internal/config"
 )
 
 func newLoginCmd() *cobra.Command {
@@ -18,13 +18,13 @@ func newLoginCmd() *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:   "login",
-		Short: "Store a Better Plans API token (site-review scope) for the bridge",
-		Long: "Stores a Better Plans API token so the bridge can subscribe to your " +
+		Short: "Store a Loupe API token (site-review scope) for the bridge",
+		Long: "Stores a Loupe API token so the bridge can subscribe to your " +
 			"site-review stream. The token is validated against the API before it is saved.\n\n" +
-			"Provide the token with --token, the BETTERPLANS_TOKEN env var, or interactively.",
+			"Provide the token with --token, the LOUPE_TOKEN env var, or interactively.",
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			if token == "" {
-				token = os.Getenv("BETTERPLANS_TOKEN")
+				token = os.Getenv("LOUPE_TOKEN")
 			}
 			if token == "" {
 				fmt.Fprint(cmd.OutOrStdout(), "API token (site-review scope): ")
@@ -52,8 +52,8 @@ func newLoginCmd() *cobra.Command {
 			return nil
 		},
 	}
-	cmd.Flags().StringVar(&baseURL, "url", "https://betterplans.dev.localhost", "Better Plans base URL")
-	cmd.Flags().StringVar(&token, "token", "", "API token (else BETTERPLANS_TOKEN env, else prompt)")
+	cmd.Flags().StringVar(&baseURL, "url", "https://loupe.dev.localhost", "Loupe base URL")
+	cmd.Flags().StringVar(&token, "token", "", "API token (else LOUPE_TOKEN env, else prompt)")
 
 	return cmd
 }
