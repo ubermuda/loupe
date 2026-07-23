@@ -1,4 +1,4 @@
-import { APIRequestContext, expect } from '@playwright/test';
+import { APIRequestContext, expect, Page } from '@playwright/test';
 
 const mailpitUrl =
     process.env['MAILPIT_URL'] ?? 'https://mailpit.loupe.dev.localhost';
@@ -81,6 +81,21 @@ export async function getLatestEmailTo(
 }
 
 /**
+ * Count the messages Mailpit currently holds for the given recipient.
+ * Search-scoped by address so parallel spec files cannot race each other.
+ */
+export async function countEmailsTo(
+    request: APIRequestContext,
+    address: string,
+): Promise<number> {
+    const listRes = await request.get(
+        `${mailpitUrl}/api/v1/search?query=${encodeURIComponent(`to:${address}`)}`,
+    );
+    const list = await listRes.json();
+    return (list.messages ?? []).length;
+}
+
+/**
  * Delete all messages in Mailpit so each test starts with a clean inbox.
  */
 export async function clearMailpit(request: APIRequestContext): Promise<void> {
@@ -98,4 +113,59 @@ export function extractLink(body: string, pattern: RegExp): string {
     if (!match)
         throw new Error(`No link matching ${pattern} found in email body`);
     return match[0].replace(/&amp;/g, '&');
+}
+
+/**
+ * Log out via the sidebar's CSRF-protected logout form.
+ * GET /logout is rejected now that logout CSRF is enabled.
+ */
+export async function logout(page: Page): Promise<void> {
+    await page.goto('/projects');
+    await page.getByRole('button', { name: 'Log out' }).click();
+    await expect(page).toHaveURL('/login');
+}
+
+export interface Credentials {
+    email: string;
+    password: string;
+    name?: string;
+    username?: string;
+}
+
+function usernameFromEmail(email: string): string {
+    return email
+        .split('@')[0]
+        .toLowerCase()
+        .replace(/[^a-z0-9]/g, '')
+        .slice(0, 30);
+}
+
+/**
+ * Fill the registration form, poll Mailpit for the verification link, and
+ * navigate to it. Returns with the browser on the home page, logged in as a
+ * fully verified user.
+ */
+export async function registerAndVerify(
+    page: Page,
+    request: APIRequestContext,
+    credentials: Credentials,
+): Promise<void> {
+    await page.goto('/register');
+    await page.getByLabel('Full name').fill(credentials.name ?? 'E2E User');
+    await page
+        .getByLabel('Username')
+        .fill(credentials.username ?? usernameFromEmail(credentials.email));
+    await page.getByLabel('Email').fill(credentials.email);
+    await page.getByLabel('Password').fill(credentials.password);
+    await page.getByLabel('I agree to').check();
+    await page.getByRole('button', { name: 'Create account' }).click();
+    await expect(page).toHaveURL('/register/check-email');
+
+    const received = await getLatestEmailTo(request, credentials.email);
+    const link = extractLink(
+        received.body,
+        /https?:\/\/[^\s"<]+\/register\/verify[^\s"<]*/,
+    );
+    await page.goto(link);
+    await expect(page).toHaveURL('/projects');
 }

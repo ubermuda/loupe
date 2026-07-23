@@ -1,0 +1,19 @@
+# Local Terraform state, plans, and provider cache
+.terraform/
+*.tfstate
+*.tfstate.*
+crash.log
+crash.*.log
+
+# Variable files may contain secrets — keep only the example committed
+*.tfvars
+*.tfvars.json
+!terraform.tfvars.example
+
+# Ignore override files used for local experiments
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+
+# The dependency lock file SHOULD be committed — do not ignore .terraform.lock.hcl

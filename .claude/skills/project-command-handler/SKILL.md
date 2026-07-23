@@ -51,6 +51,23 @@ final readonly class CreateIssueCommand
   for the fixed invocation instead (e.g. an `OpenBrainstormCommand` whose handler
   hardcodes the seed prompt). A constructor where one caller passes string
   constants is a smell.
+- **Raw input in, parsing in the handler.** When the action's input is
+  unstructured text that needs parsing/normalization (e.g. a textarea pasted as
+  one-item-per-line), the command carries the **raw scalar string** and the
+  handler runs the parser inside `__invoke()`. Do **not** parse in the controller
+  and pass a pre-built array. This is the same shape as the external-API rule
+  (command carries the ID, handler fetches the payload): any consumer of the
+  handler — another handler, a console command, a test — then gets the parsing,
+  dedup, and normalization for free, and the controller stays a thin
+  request→handler→response shell.
+
+  ```php
+  // ✗ controller parses, command carries the result
+  new ImportItemsCommand(items: ItemsImport::parse($data->items ?? ''));
+  // ✓ command carries raw text, handler parses
+  new ImportItemsCommand(items: $data->items ?? '');
+  // handler __invoke(): $labels = ItemsImport::parse($command->items);
+  ```
 
 ## The handler — owns all business logic
 
@@ -85,6 +102,33 @@ final readonly class CreateProjectHandler
     }
 }
 ```
+
+## Read / query handlers and view naming
+
+Not every handler writes. A controller action that only renders but needs data
+must still go through a handler, because controllers may not touch repositories
+directly (`controller.directStateAccess`; see `project-backend`). These
+**read/query handlers** follow the same shape rules (`final readonly`, single
+`__invoke()`) but return a **view object** — a `final readonly` DTO in the same
+`Command/` directory — instead of a persisted entity.
+
+Two naming rules keep handlers and their views coherent:
+
+- **The view name mirrors the handler name.** A `List<X>Handler` returns a
+  `List<X>View` (verb-first) — e.g. `ListIssuesHandler` → `ListIssuesView`. Do
+  **not** invert to `<X>ListView`.
+- **The returned data must contain what the handler name promises.** A handler
+  named after an entity must return that entity in its result — a
+  `ShowProjectHandler` that returns a bare `list<Issue>` is wrong, because the
+  name leads you to expect a `Project`. A `Show<X>Handler` returns a view
+  **containing the looked-up `<X>`** (plus related data), e.g. `ShowProjectHandler`
+  → `ProjectDetailView { public Project $project; … }`. The controller then reads
+  the entity **off the view** (`'project' => $view->project`), not from the route
+  parameter separately.
+
+Keep the `Show*` (noun-first, e.g. `ProjectDetailView`) and `List*` (verb-first,
+e.g. `ListIssuesView`) families distinct — match the family you're extending
+rather than unifying them.
 
 ## Enforced shapes (gamache PHPStan rules)
 

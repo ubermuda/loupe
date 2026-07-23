@@ -8,3 +8,9 @@ tests/
 e2e/
 .env.dev*
 .env.test*
+.vite/
+docs/
+test-results/
+.agents/
+.superpowers/
+skill-observations/

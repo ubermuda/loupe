@@ -30,11 +30,7 @@ await expect(page.getByRole('button', { name: 'Submit' })).toBeVisible();
 
 Any form whose controller redirects back to the URL it was submitted from — admin edit pages, **and any in-place action that re-renders or returns to the current page** (e.g. a review verdict that PRGs back to the review page) — creates this trap: `toHaveURL`, and "an element is still visible", resolve **immediately** because the page never left. The assertion passes whether the submit succeeded, failed validation, or is still in flight, so it silently races the POST under parallel load. Wait for a **post-submit content signal** instead — a success flash, the newly-added row, or an updated field value — before asserting or navigating away.
 
-The admin-edit case below is the canonical example; the rule applies to every same-URL redirect.
-
-Admin edit controllers redirect back to **the same edit URL** on success. This creates a specific testing trap: `expect(page).toHaveURL(/...\/edit/)` resolves immediately because the page was *already* on that URL before the Save click. The assertion passes whether the form save succeeded, failed validation, or is still in flight.
-
-Always follow the `toHaveURL` assertion with a second assertion that the form now shows the **updated value** — this can only be true after the redirect re-renders the page with the newly persisted data:
+The canonical example: admin edit controllers redirect back to **the same edit URL** on success. Always follow the `toHaveURL` assertion with a second assertion that the form now shows the **updated value** — this can only be true after the redirect re-renders the page with the newly persisted data:
 
 ```typescript
 await page.getByRole('button', { name: 'Save' }).click();
@@ -90,6 +86,15 @@ When one label is a substring of another on the same page (e.g. `"New password"`
 
 When the page nests same-tag elements (e.g. a `<details>` submenu inside a user-menu `<details>`), do not select with positional CSS like `details > summary` or `header details summary` — Playwright strict mode will fail because both summaries match. Scope to a stable identifying attribute on the outer element instead: `details[data-controller="user-menu"] > summary` for the parent and `details[data-controller="user-menu"] details > summary` for the nested one. Prefer Stimulus `data-controller`, route-bound `id`, or a unique class — never tree position.
 
+## Asserting controls inside a closed `<details>`
+
+Accessible-name locators (`getByRole`, `getByText`) only match elements in the **accessibility tree**, and the contents of a **closed `<details>`** (kebab / disclosure menus) are hidden from it. So `row.getByRole('button', { name: 'Delete' })` resolves to **0 elements** when the disclosure is closed — even though the button is in the DOM. When asserting a control that lives inside a kebab / disclosure menu, either:
+
+- **open it first**, then assert visibility — `await row.locator('summary[data-controller="user-menu"]').click()` then `await expect(row.getByRole('button', { name: 'Delete' })).toBeVisible()`; or
+- assert **DOM presence** with a CSS locator, which ignores visibility — `await expect(row.locator('input[name="…"]')).toHaveCount(1)`.
+
+Never conclude "the control isn't rendered" from a `getByRole` count of 0 without first opening the disclosure — the gated control may be present and merely collapsed.
+
 ## Keep hardcoded copy in sync with the app
 
 When user-facing text changes — email subjects, notification bodies, flash messages, UI labels — any e2e test that hardcodes that string will fail silently: it times out instead of failing with a clear assertion error. Before finishing any copy change:
@@ -98,6 +103,10 @@ When user-facing text changes — email subjects, notification bodies, flash mes
 2. Update Mailpit search queries (`subject:"..."`, `bodyContains` strings), `getByText(...)`, `toHaveText(...)`, `toContain(...)`, and similar assertions.
 
 Email subject changes in `src/Module/*/Notifier/` are the most common source of this pattern.
+
+## Default-value changes silently break helpers that rely on the default
+
+When a helper creates an entity through a form *without setting a field* (e.g. a helper that only fills a name), it implicitly depends on that field's default value. If you change the default's create-time value (the form `*Request` DTO default, or an entity default read by a direct-instantiation handler), those tests fail by **timeout**, not a clear assertion error — the rendered UI branch changes (a different control appears), so the locator the test waits for never shows up. Before changing a default, `grep` `e2e/` for helpers that create the entity, and set the field explicitly in the helper wherever the test depends on the old value.
 
 ## Run the spec after a locator refactor
 

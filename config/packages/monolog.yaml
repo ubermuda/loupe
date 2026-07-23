@@ -40,7 +40,10 @@ when@prod:
                 action_level: error
                 handler: nested
                 excluded_http_codes: [404, 405]
-                channels: ["!deprecation"]
+                # 'cache' is handled by the always-on cache_warnings handler below;
+                # excluding it here keeps the fingers_crossed buffer from swallowing
+                # a cache write-failure warning that has no following error to flush it.
+                channels: ["!deprecation", "!cache"]
                 buffer_size: 50 # How many messages should be saved? Prevent memory leaks
             nested:
                 type: stream
@@ -62,5 +65,17 @@ when@prod:
             deprecation:
                 type: stream
                 channels: [deprecation]
+                path: php://stderr
+                formatter: monolog.formatter.json
+            # Always-on (NOT behind fingers_crossed). Symfony's cache adapters log
+            # write failures at WARNING on the 'cache' channel; the main handler
+            # buffers warnings and only flushes on an error, so a lone cache-pool
+            # write failure (which silently disables anything relying on the pool,
+            # e.g. a rate limiter) would otherwise never reach stderr. This surfaces
+            # it immediately.
+            cache_warnings:
+                type: stream
+                channels: [cache]
+                level: warning
                 path: php://stderr
                 formatter: monolog.formatter.json

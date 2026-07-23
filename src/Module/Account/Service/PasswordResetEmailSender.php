@@ -32,7 +32,6 @@ class PasswordResetEmailSender
     public function send(User $user): void
     {
         $token = $user->generatePasswordResetToken();
-        $this->em->flush();
 
         $resetUrl = $this->urlGenerator->generate(
             'app_reset_password',
@@ -47,6 +46,17 @@ class PasswordResetEmailSender
             ->htmlTemplate('@Account/email/reset_password.html.twig')
             ->context(['resetUrl' => $resetUrl]);
 
-        $this->mailer->send($email);
+        try {
+            $this->mailer->send($email);
+        } catch (\Throwable $e) {
+            // A persisted token the user never received would make
+            // hasActivePasswordResetToken() silently block every re-request
+            // until the token expires — never flush on a failed send.
+            $user->clearPasswordResetToken();
+
+            throw $e;
+        }
+
+        $this->em->flush();
     }
 }

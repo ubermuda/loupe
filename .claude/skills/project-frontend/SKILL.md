@@ -77,6 +77,8 @@ Use a Stimulus controller to open `<dialog>` modals.
 
 **Modal animations:** Animate the dialog element via WAAPI in the controller — not CSS animations. Only the `::backdrop` should use CSS animations.
 
+**`csrf_protection_controller.js` must stay eager** (`/* stimulusFetch: 'eager' */`): login and other forms use `input[name="_csrf_token"]` directly without a `data-controller` attribute, so a lazily-loaded controller would never activate and its document-level `submit` listener would never register. Do not change it to `'lazy'`.
+
 **Lazy Stimulus controllers and CSS entry animations:** Controllers marked `/* stimulusFetch: 'lazy' */` are fetched asynchronously — there is a gap between DOM render and `connect()`. An element that relies solely on a WAAPI entry animation in `connect()` will flash at full opacity before the animation runs. Fix: add a CSS `animation` with `animation-fill-mode: both` on the element's base class — CSS handles entry, WAAPI handles exit only.
 
 ## General JS conventions
@@ -157,6 +159,6 @@ All icons must use the Symfony UX Icons bundle with Lucide. Never embed inline S
 {{ ux_icon('lucide:x', {'class': 'w-3.5 h-3.5 shrink-0 mt-px'}) }}
 ```
 
-Import icons with `php bin/console ux:icons:import lucide:ICON_NAME`. `assets/icons/` is gitignored — re-run the import on a fresh clone if icons are missing.
+Import icons with `php bin/console ux:icons:import lucide:ICON_NAME` — the SVG lands in `assets/icons/lucide/`, which **is committed to the repo** (not gitignored). Committing "locks" the icon the way `composer.lock` locks a dependency: on-demand Iconify fetching (and the `asset-map:compile` cache warm) is a dev/build convenience, not a substitute — committed SVGs keep production builds deterministic with no runtime/build-time Iconify dependency. Only import icons you actually reference; don't commit unused ones.
 
 **Stroke colour:** Imported Lucide SVGs use `stroke="currentColor"`. Control the stroke colour via a text colour class on the icon or its parent — never hardcode `stroke="white"` as an attribute.

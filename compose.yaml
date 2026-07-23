@@ -1,4 +1,4 @@
-name: ${COMPOSE_PROJECT_NAME:-symfony-skeleton}
+name: ${COMPOSE_PROJECT_NAME:?COMPOSE_PROJECT_NAME is not set. Define it in .env — it must be unique per project. Two projects sharing a compose project name silently share containers and the database volume.}
 
 services:
   nginx:

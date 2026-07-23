@@ -25,6 +25,7 @@
         "doctrine/doctrine-migrations-bundle": "^4.0",
         "doctrine/orm": "^3.6",
         "league/commonmark": "^2.8",
+        "nelmio/security-bundle": "^3.9",
         "nyholm/psr7": "^1.8.2",
         "phpdocumentor/reflection-docblock": "^6.0",
         "phpstan/phpdoc-parser": "^2.3",
@@ -68,8 +69,8 @@
         "twig/cssinliner-extra": "^3.26",
         "twig/extra-bundle": "^2.12|^3.0",
         "twig/twig": "^2.12|^3.0",
-        "ubermuda/doctrine-extra": "dev-main",
-        "ubermuda/symfony-extra": "dev-main"
+        "ubermuda/doctrine-extra": "dev-main#ec867f3bf1ed362c201abbe152ac27447ec37526",
+        "ubermuda/symfony-extra": "dev-main#690508f376fd9acf6a00fcab69172bd8590fe3c5"
     },
     "config": {
         "allow-plugins": {
@@ -132,6 +133,7 @@
         "phparkitect/phparkitect": "^1.1",
         "phpstan/phpstan": "^2.1",
         "phpstan/phpstan-symfony": "^2.0",
+        "phpunit/phpcov": "^13.0.1",
         "phpunit/phpunit": "^13.1",
         "rector/rector": "^2.4",
         "symfony/browser-kit": "8.0.*",
@@ -140,7 +142,7 @@
         "symfony/maker-bundle": "^1.0",
         "symfony/stopwatch": "8.0.*",
         "symfony/web-profiler-bundle": "8.0.*",
-        "ubermuda/gamache": "dev-main#6161daa1e2458c78b8b413575b9d072a2efb301a",
+        "ubermuda/gamache": "dev-main#e7e9349727630b25ff4c550ac7e5f6519d47b9c1",
         "vincentlanglet/twig-cs-fixer": "*"
     }
 }

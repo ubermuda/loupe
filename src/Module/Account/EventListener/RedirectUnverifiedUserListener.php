@@ -1,16 +1,17 @@
 <?php
 
-namespace App\Module\Account\EventSubscriber;
+namespace App\Module\Account\EventListener;
 
 use App\Module\Account\Entity\User;
-use Symfony\Component\EventDispatcher\EventSubscriberInterface;
+use Symfony\Component\EventDispatcher\Attribute\AsEventListener;
 use Symfony\Component\HttpFoundation\RedirectResponse;
 use Symfony\Component\HttpKernel\Event\RequestEvent;
-use Symfony\Component\HttpKernel\KernelEvents;
 use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 use Symfony\Component\Security\Core\Authentication\Token\Storage\TokenStorageInterface;
 
-class EmailVerificationSubscriber implements EventSubscriberInterface
+// Priority 5: run after the security firewall (priority 8) so the token is already populated.
+#[AsEventListener(priority: 5)]
+final readonly class RedirectUnverifiedUserListener
 {
     // Routes that unverified users may access freely
     private const array ALLOWED_ROUTES = [
@@ -26,18 +27,12 @@ class EmailVerificationSubscriber implements EventSubscriberInterface
     ];
 
     public function __construct(
-        private readonly TokenStorageInterface $tokenStorage,
-        private readonly UrlGeneratorInterface $urlGenerator,
+        private TokenStorageInterface $tokenStorage,
+        private UrlGeneratorInterface $urlGenerator,
     ) {
     }
 
-    public static function getSubscribedEvents(): array
-    {
-        // Priority 5: run after the security firewall (priority 8) so the token is already populated.
-        return [KernelEvents::REQUEST => ['onKernelRequest', 5]];
-    }
-
-    public function onKernelRequest(RequestEvent $event): void
+    public function __invoke(RequestEvent $event): void
     {
         if (!$event->isMainRequest()) {
             return;

@@ -22,15 +22,6 @@ the documents controller and a repository filter (title contains, status equals,
 tag in). Tag filtering further depends on the not-yet-built tag entity. When tags
 land, wire search + status + tag filters into the existing `.bp-doc-list` header.
 
-## Port the "no fetch — forms + Turbo" convention to the skeleton
-
-Added a convention to the `project-frontend` skill (Turbo patterns section):
-never submit via `fetch()`/JS — always use a plain HTML form or (preferred) a
-Symfony form, and rely on Turbo (Streams or a Frame) for the async submit and
-in-place update. This same rule must be ported into `~/Code/symfony-skeleton`
-(its equivalent frontend skill / docs) so new projects inherit it. See
-`.skeleton.json` for the sync baseline.
-
 ## Review anchoring — possible enhancement (low priority)
 
 Observed while dogfooding the review loop on the site-review spec: revising a

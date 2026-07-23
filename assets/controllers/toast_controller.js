@@ -3,7 +3,11 @@ import { Controller } from '@hotwired/stimulus';
 /* stimulusFetch: 'lazy' */
 export default class extends Controller {
     connect() {
-        setTimeout(() => this.#dismiss(), 5000);
+        this.timeout = setTimeout(() => this.#dismiss(), 5000);
+    }
+
+    disconnect() {
+        clearTimeout(this.timeout);
     }
 
     dismiss() {

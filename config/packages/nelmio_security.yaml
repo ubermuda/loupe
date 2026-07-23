@@ -1,0 +1,41 @@
+# NelmioSecurityBundle is registered prod-only (config/bundles.php). All config
+# here is scoped under when@prod: an unscoped nelmio_security: root key would
+# error in dev/test where the bundle is not loaded.
+when@prod:
+    nelmio_security:
+        # X-Frame-Options: SAMEORIGIN — allow framing only by our own origin.
+        clickjacking:
+            paths:
+                '^/.*': SAMEORIGIN
+
+        # X-Content-Type-Options: nosniff
+        content_type:
+            nosniff: true
+
+        # Referrer-Policy: strict-origin-when-cross-origin
+        referrer_policy:
+            enabled: true
+            policies:
+                - 'strict-origin-when-cross-origin'
+
+        # Content-Security-Policy is sent in REPORT-ONLY mode for now (the `report`
+        # key, not `enforce`): it blocks nothing, it only surfaces violations so the
+        # allow-list can be validated against real traffic. Switching to enforcing
+        # requires per-request nonces on the inline scripts (importmap, theme styles)
+        # first — use Nelmio's `csp_nonce()` Twig helper when making that move.
+        csp:
+            # CSP only makes sense on HTML documents; skip assets, JSON, downloads.
+            content_types: ['text/html']
+            # Standard header only — skip the legacy X-Content-Security-Policy /
+            # X-WebKit-CSP variants (and the per-request User-Agent parsing they need).
+            compat_headers: false
+            report:
+                default-src: ["'self'"]
+                base-uri: ["'self'"]
+                object-src: ["'none'"]
+                frame-ancestors: ["'self'"]
+                script-src: ["'self'", "'unsafe-inline'", 'https://cloud.umami.is']
+                style-src: ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com', 'https://cdn.jsdelivr.net']
+                font-src: ["'self'", 'https://fonts.gstatic.com', 'https://cdn.jsdelivr.net']
+                img-src: ["'self'", 'data:', 'https:']
+                connect-src: ["'self'", 'https://cloud.umami.is']

@@ -17,12 +17,17 @@ No code in `src/Module/X/` may import from `src/Module/Y/` — not entities, not
 - **Events / Symfony Messenger:** for side effects that cross module boundaries, dispatch a domain event from the originating module and handle it in the receiving module.
 - **Shared value objects:** truly generic types (e.g. a `Slug` value object) may live in the root namespace (`src/`) rather than any module.
 
+## Read models: a value object, not an array shape
+
+When a service produces a structured read model consumed by multiple controllers and templates, return an **immutable `final readonly` value object with query methods** — not an `array{a: …, b: …}` shape. Once such an array grows past ~2 keys, or templates start poking per-element lookups into it (e.g. `grid.checked[row.id ~ ':' ~ user.id] is defined`), promote it: a `Builder`/`Factory` service builds the VO, and the VO exposes intent-named methods (`isChecked($rowId, $user)`, `participantsFor($rowId)`) that absorb the template's index-poking. The array shape spreads its key-construction logic across every consumer and isn't enforceable beyond a PHPDoc; a VO centralises it and is type-checked.
+
 ## Forms and DTOs
 
 - **User input for HTML/Turbo endpoints is bound through a Symfony form (DTO + FormType), never hand-parsed from the `Request`.** This includes Turbo / AJAX / stream endpoints that render UI — there is no "it's just a small POST" exception. Do not write `$request->request->get('x')` + ad-hoc `is_numeric` / `trim` validation in a controller; create a `FooRequest` DTO with constraints and a `FooFormType`, then `createForm()` / `handleRequest()` / `isSubmitted() && isValid()`. The only raw-request reads that remain acceptable are non-form technical values such as a CSRF token on a hand-rolled fieldless form (see "Stateless CSRF tokens for hand-rolled forms") and dev/test-only controllers. **JSON API endpoints are the exception — they use `#[MapRequestPayload]`, not forms (see "API controllers" below).**
 - Forms must not bind directly to Doctrine entities
 - Instead, create a DTO named with a `Request` suffix (e.g. `FooRequest`) that lives alongside the form file
 - DTOs use constructor promoted properties with sensible defaults
+- **A create-time default value lives in the form DTO (and any direct-instantiation path), not the entity default.** When an entity is created through the command/handler flow, the handler sets the field from the command (`$entity->x = $command->x`), so the entity's property default is *dead* for that path — changing it alone is a no-op. The real levers for "what a new record defaults to" are: (1) the form `*Request` DTO's property default (drives the pre-filled form and the submitted value), and (2) any handler that does `new Entity(...)` *without* setting the field (e.g. import/seed handlers), which is the only path that actually reads the entity default. When changing a default, update all of these together and keep the entity default consistent with the DTO.
 - DTOs have a static named constructor to hydrate from an entity **when there is an edit flow that pre-populates the form** (e.g. `FooRequest::fromFoo($entity)`). Do not add `fromEntity()` factories speculatively — unused static constructors are dead code.
 - **DTO inheritance when update mirrors create:** When an update DTO has identical fields and validation constraints to its create counterpart, extend rather than duplicate: `class UpdateFooRequest extends CreateFooRequest {}`. PHP attribute inheritance on constructor-promoted properties works correctly with Symfony's Validator. Duplication is dead code — any future change to constraints would need to be applied twice.
 - Validation constraints live on the DTO, not in the form's `buildForm()`. **Exception:** forms with no `data_class` (no bound DTO) may keep constraints inline in `buildForm()` — there is nowhere else to put them. The PHPStan `form.inlineConstraints` rule only fires for forms that configure a `data_class`. Property constraints (`#[NotBlank]`, `#[Length]`, etc.) go on individual promoted properties. **Class-level constraints** (validators that need access to the whole DTO or a related object) go as `#[MyConstraint]` on the class itself — the validator receives the whole DTO as `$value` and must declare `#[\Override] public function getTargets(): string { return self::CLASS_CONSTRAINT; }`. Name the constraint after what it enforces, not after the mechanism.
@@ -40,6 +45,7 @@ No code in `src/Module/X/` may import from `src/Module/Y/` — not entities, not
 
 - Never update migrations directly — always update entities and let `just migrate-diff` generate the migration. **Exception:** see "Brand-new tables in the current branch" below.
 - **Brand-new tables in the current branch:** When removing or modifying a column from a table that was *also* first created in the current branch (not yet in `main`), edit the create-migration directly to reflect the final schema. Do not generate a new ALTER migration — that adds unnecessary steps for a table no deployed database has ever seen.
+- **Every migration must have a non-empty `getDescription()`.** `just migrate-diff` scaffolds `return '';` — replace it with a one-line summary of what the migration does (e.g. `'Create poll tables'`, `'Add locale to user'`). This is enforced by the gamache `migration.emptyDescription` PHPStan rule, which runs because `migrations/` is listed under PHPStan's `paths` in `phpstan.dist.neon`. If you ever find a gamache (or any PHPStan) rule that "should have caught" something but didn't, check that the target directory is actually in `paths` — a rule only runs on analysed files.
 - **Use `#[ORM\OneToOne]` for exclusive (has-one) relationships.** When an entity can have at most one related entity, use `#[ORM\OneToOne]` not `#[ORM\ManyToOne]`. `OneToOne` automatically implies a `UNIQUE` constraint on the FK column, so a manual `#[ORM\UniqueConstraint(columns: ['...'])]` is redundant and should be removed. Verify with `just migrate-diff` — "No changes detected" confirms the schema is consistent.
 - Doctrine entities use property hooks, no getters/setters.
 - Entities should be always-valid: all data required at construction time should be constructor-promoted parameters. Lifecycle fields set after construction (e.g. `$usedAt`, `$lastLoginAt`) stay as regular nullable properties.
@@ -50,6 +56,7 @@ No code in `src/Module/X/` may import from `src/Module/Y/` — not entities, not
 - Entities must not contain logic that requires a service (e.g. slugging, URL generation). Computed properties that depend on a service belong in that service, not as virtual property hooks on the entity.
 - **Put shared path/identifier computation on the entity as a `public static` method.** When multiple handlers or services need to compute the same derived value for an entity (e.g. a canonical path or storage key built from the entity's own fields, with no service dependency), add a `public static function computeFoo(...): string` to the entity class. Static (not instance) because callers often only have raw identifiers. This gives a single source of truth and prevents drift across handlers.
 - Repositories handle persistence only (queries, existence checks, writes). Logic that requires injecting non-persistence services (generators, sluggers, encoders) belongs in an Action or dedicated service — not the repository.
+- **Repositories must always be injected.** Never call `$em->getRepository(SomeClass::class)` anywhere — not in controllers, not in services. Inject the concrete repository class directly in the constructor. `EntityManagerInterface` may still be injected for `flush()` calls, but all reads must go through injected repositories.
 - Entities use ULID primary keys by default; use integer ids only where a sequence is semantically appropriate.
 - **Converting a string column to a backed enum — no migration required.** When a `string` column already stores the backing values you want to introduce as a PHP enum, switching the PHP type does not change the DB schema. Keep `length:` from the original `#[ORM\Column]`, add `enumType:`, and verify with `just migrate-diff`:
   ```php
@@ -62,6 +69,7 @@ No code in `src/Module/X/` may import from `src/Module/Y/` — not entities, not
   public readonly FooStatus $status,
   ```
   Doctrine stores and reads the enum's `->value` (a plain string) in the same varchar column. If `just migrate-diff` reports "No changes detected", no migration is needed. If it proposes an `ALTER`, the backing values changed or the column definition drifted; resolve that before proceeding. PHPStan level 8 then enforces correct usage at all instantiation sites — string literals in the constructor become type errors automatically.
+- **Indexes: Doctrine auto-creates FK-column indexes, nothing else.** The schema tool adds an index for every `ManyToOne` join column, but **not** for non-FK filter/sort columns (status enums, `type`, token hashes) or composites (`(tenant_id, status, created_at)`). Before adding an index, verify what actually exists against the live DB (`SELECT … FROM pg_indexes WHERE tablename = …`) rather than assuming, then declare the missing ones with `#[ORM\Index]` on the entity and generate the migration. Add composite indexes for hot queries that filter and sort together (e.g. a tenant-scoped list ordered by `created_at`).
 
 
 ## Controllers
@@ -69,6 +77,7 @@ No code in `src/Module/X/` may import from `src/Module/Y/` — not entities, not
 - Controllers are named `<Action><Entity>Controller` (e.g. `CreateFooController`, `ShowFooController`, `ListFooController`)
 - **Issue phase controllers — one per phase, not one with guards.** Each `IssuePhase` gets its own dedicated controller (e.g. `IssueBrainstormController` for `Brainstorm`). Do not write a single `IssueDetailController` with `if ($issue->phase === ...)` blocks. For now, `IssueBrainstormController` serves the issue detail URL with route name `app_issue_detail`. When a second phase ships, add a second controller and split the routing — do not add another guard to the existing one.
 - **Do not extract single-use private "response-builder" helpers in controllers — inline them.** When a private method exists only to assemble and return a `Response` (render-or-redirect, stream-or-redirect, JSON wrapper) and is called from one or two places in the same controller, inline it into `__invoke`. Converge multiple exit paths into a single tail (e.g. collapse two error branches into one `$errorMessage` variable, then one redirect-fallback + render block) rather than dispatching to a thin wrapper. A separate method that is only ever used once is noise that makes the controller harder to read top-to-bottom. **This applies to thin response wrappers only** — a single-use private method that *computes a value* via real logic (e.g. building an error string by looping over `$form->getErrors()`) is fine to keep; the threshold for extraction is genuine reusable logic, not response plumbing.
+- **Also inline one-liner pass-through helpers that just delegate to an injected dependency.** A private method whose entire body is `return $this->someService->call($args);` adds a layer of indirection with no logic of its own — inline the service call at the call site, even when it is called from two or three places. This is distinct from the "computes a value via real logic" carve-out above: a lone delegating `return` is plumbing, not logic. The threshold for keeping a private helper is real logic in its body, not how many times it is called.
 - Async tasks use Symfony Messenger with a Doctrine transport. **Message classes live in `Messenger/` within the module** (e.g. `src/Module/Inference/Messenger/RunInferenceJob.php`, namespace `App\Module\Inference\Messenger`). The routing entry in `config/packages/messenger.yaml` must exactly match the PHP namespace (gamache-enforced).
 - **Injecting a FormView into a Twig component via forward:** When a form controller needs to re-render a page with an invalid form, pass the FormView as a request attribute to `forward()`: `$this->forward(ShowFooController::class, array_merge($params, ['myForm' => $form->createView()]))`. In the receiving Twig component, retrieve it with `$this->getInjectedFormView('myForm')` (a helper on `AppController`) and fall back to a fresh form with `??`: `$this->form = $this->getInjectedFormView('myForm') ?? $this->createForm(...)->createView();`. Always pair this with a 422 status code (see the project-frontend skill).
 
@@ -82,15 +91,21 @@ For PHPUnit testing patterns (WebTestCase mocking, controller integration tests,
 
 ## Pre-delivery gate
 
-Before marking any PHP task done, run `just ci` (runs rector + cs-fix + phpstan + e2e). If only checking static analysis: `just phpstan`. Do not deliver code that fails either. Fix the underlying issue — never skip hooks or suppress errors with `@phpstan-ignore` without explaining why in a comment.
+Before marking any PHP task done, apply fixes with `just cs` (write-mode: prettier, rector, cs-fixer, twig-cs-fixer), then run `just ci` (check-only: lint, rector/cs-fixer/twig-cs-fixer dry-run, phpstan, arkitect, gamache, PHPUnit — e2e is a separate `just e2e`). If only checking static analysis: `just phpstan`. Do not deliver code that fails either. Fix the underlying issue — never skip hooks or suppress errors with `@phpstan-ignore` without explaining why in a comment.
 
 Custom PHP CS Fixer rules live in the `ubermuda/gamache` package (see "Custom static-analysis rules" below).
+
+## Property access — all PHP classes
+
+Properties should be public by default. Do not add a `getFoo()` getter just to expose a property — make it `public` instead. Use `public private(set)` only when external mutation would cause a real problem (e.g. an immutable identity like `$id`). Do not use a `{ get => $this->prop; }` property hook as a visibility workaround — that is a public property with extra steps. Property hooks are for computed or validated values only. Exceptions are interface-required methods (`getPassword()`, `getRoles()`, `getUserIdentifier()`), which must remain as methods.
 
 ## Code quality targets
 
 PHP 8.5+, PHPStan level 8, Symfony coding standard via CS Fixer, Rector for automated modernization. Actively use PHP 8.5 features — pipe operator (`|>`) for sequential transformations, property hooks, `new` in initializers, etc. Don't write PHP 8.0-style code when a cleaner 8.5 construct exists. Arrow functions on the RHS of `|>` need parentheses: `$x |> (fn ($v) => transform($v)) |> nextFn(...)`.
 
 Always add `#[\Override]` to overriding/interface methods — `just rector` adds it automatically.
+
+- **No self-assigning ternary.** Don't write a ternary whose "unchanged" branch assigns the variable to itself — `$x = $cond ? $x : $new`. Express it as an `if` that mutates only on the branch that actually changes state: `if (!$cond) { $x = $new; }`. The self-assign is dead motion and hides which case is the real transition.
 
 ## PHPStan annotation patterns
 
@@ -131,9 +146,11 @@ Admin list pages must preserve filter and sort state when the user clicks into a
 
 ## PHPStan narrowing patterns
 
-**`non-empty-string` at call sites:** When a property is annotated `/** @phpstan-var non-empty-string */`, PHPStan requires callers to pass `non-empty-string`, not plain `string`. To narrow a `?string` DTO value (e.g. from a form), use `$dto->field ?: throw new \LogicException('field required after validation')` — PHPStan understands the `?:` truthy check as `non-empty-string` narrowing. Do not use `(string)` casts or `@phpstan-ignore` to silence this.
+**`non-empty-string` at call sites:** When a property is annotated `/** @phpstan-var non-empty-string */`, PHPStan requires callers to pass `non-empty-string`, not plain `string`. To narrow a `?string` DTO value (e.g. from a form), use `$dto->field ?: throw new \LogicException('field required after validation')` — PHPStan understands the `?:` truthy check as `non-empty-string` narrowing. Do not use `(string)` casts or `@phpstan-ignore` to silence this. **Caveat:** `?:` treats the string `"0"` as falsy, so a field whose value could legitimately be `"0"` (a name, a label) will wrongly throw — Symfony's `NotBlank` *accepts* `"0"`, so validation passes but the handler 500s. For those fields use an explicit guard instead: `if (null === $x || '' === $x) { throw … }` (PHPStan narrows to `non-empty-string` the same way).
 
 **`nullsafe.neverNull` — use `->` after a guard that proves non-null transitively.** PHPStan level 8 flags `$x?->foo()` as an error when it can prove `$x` is non-null at that point. A common case: after `$rawSlug = $request?->attributes->get('slug'); if (!is_string($rawSlug)) { return; }`, `$request` is transitively guaranteed non-null (it being null would have produced `null`, failing `is_string()`). Any subsequent `$request?->` will trigger `nullsafe.neverNull`. Use `$request->` instead.
+
+**Authorization-guaranteed invariants — use a can't-happen guard, not defensive nullable code.** When a controller is gated by `#[IsGranted(...)]` whose voter guarantees a fact — e.g. a voter that grants access only to members of the subject, so the current user's membership is always present — resolve the value and assert the invariant with `?? throw new \LogicException('<what the gate guarantees>')`. Do not branch on null and silently degrade. Passing a "can't be null" value as nullable into the template/handler is misleading; the `?? throw` documents the guarantee and fails loudly if the gate ever changes.
 
 ## DomainErrors — command-to-controller bridge
 
@@ -177,7 +194,7 @@ When a form does NOT use Symfony's FormType CSRF extension (a plain HTML `<form>
    ```
 2. **Declare the check with the `#[CsrfToken]` attribute** on the controller class (never an inline `isCsrfTokenValid()` call — `ValidateCsrfTokenListener` validates it on `kernel.controller`, before the action runs, and throws the 403 `AccessDeniedException`):
    ```php
-   use App\Security\Attribute\CsrfToken;
+   use Ubermuda\SymfonyExtra\Csrf\Attribute\CsrfToken;
 
    #[CsrfToken('my-action')]
    class DoMyActionController extends AppController
@@ -189,7 +206,7 @@ When a form does NOT use Symfony's FormType CSRF extension (a plain HTML `<form>
 
 **Why the literal string fails:** `SameOriginCsrfTokenManager::isTokenValid()` rejects any value shorter than 24 characters that is not the cookie sentinel `"csrf-token"`. Literal token IDs like `"delete-project"` (14 chars) always fail — 403 on every production submission — while tests pass because the test environment has CSRF disabled.
 
-Existing examples: `ResendVerificationEmailController`, `config/packages/csrf.yaml`, `src/Security/Attribute/CsrfToken.php`, `src/Security/EventListener/ValidateCsrfTokenListener.php`.
+Existing examples: `ResendVerificationEmailController`, `config/packages/csrf.yaml`. The `#[CsrfToken]` attribute and its `ValidateCsrfTokenListener` live in the `ubermuda/symfony-extra` vendor package (`Ubermuda\SymfonyExtra\Csrf\`), not under `src/`.
 
 ## Command + handler pattern
 
@@ -274,6 +291,15 @@ final readonly class TopicBuilder
 }
 ```
 
+## Nullability — production decides, never the tests
+
+**Tests must never dictate what is nullable.** Whether a constructor parameter is nullable is a *domain* question — is `null` a valid runtime state? — answered entirely by production code, never by what a test can or can't build. A test that can't supply a required collaborator is a **test** problem: solve it in the test (a stub, or a no-op behind an interface), never by relaxing the production signature to `?Type = null`. Corollaries:
+
+- If a dependency is always present in real use, make it **required** and update every construction site (e.g. a non-null required constructor argument, a service's logger).
+- A `LoggerInterface` is never nullable: `NullLogger` exists.
+- A heavy collaborator a lightweight test genuinely can't build gets a **required interface + a no-op implementation**, not a nullable param.
+- The same logic rejects defaulting to `null` merely to avoid touching call sites.
+
 ## Custom static-analysis rules
 
 Custom static-analysis rules live in the **`ubermuda/gamache`** package (`vendor/ubermuda/gamache/src/` — PHPStan, PHP CS Fixer, Rector, and TwigCsFixer rules), consumed as `dev-main` — not in this repo. When a check fires for something not in the standard PHPStan/Rector/TwigCsFixer docs, look there first; the rule class names in the error output match the class names in that package. New rules are added in the gamache repo (see "Gamache Checks" in `CLAUDE.md`). Run `just ci` to exercise all of these.
@@ -318,3 +344,30 @@ The sender address and name are defined as `config/services.yaml` parameters: `a
 1. Remove `message_bus: false` from `mailer.yaml`
 2. Uncomment `sync: 'sync://'` in `messenger.yaml`
 3. Add the middleware back to `messenger.bus.default`
+
+## Outbound HTTP (Symfony HttpClient)
+
+When calling an external service via `HttpClientInterface`, error handling must account for how Symfony surfaces failures — this is not obvious and is easy to get wrong:
+
+- `getStatusCode()` does **not** throw on 4xx/5xx (it blocks on headers, so only a *transport* error surfaces there). `toArray()` / `getContent()` **do** throw on non-2xx — a `ClientException` (4xx) or `ServerException` (5xx), both `HttpExceptionInterface`, **not** `TransportExceptionInterface`. `toArray()` also throws `DecodingExceptionInterface` on a non-JSON body.
+- To **degrade gracefully**, gate on the status explicitly (`if ($status < 200 || $status >= 300) { return …; }`) before calling `toArray()`, and catch `TransportExceptionInterface|DecodingExceptionInterface`. Catching only `TransportExceptionInterface` lets a revoked-token 401 or a bad body abort the whole operation.
+- For **retryable** work, classify `>= 500` as transient (keep it retryable / back off) and 4xx as terminal. Never mark a 5xx failure terminal — it strands recoverable work.
+
+## Concurrency: read-check-write under a row lock
+
+When a handler does read → check → write where a concurrent request could violate a uniqueness or state precondition (create-if-absent, consume a single-use token, "a user has at most one X"), the check and write must run under a pessimistic row lock — a bare `if (already exists) throw; else create;` is a TOCTOU race that two simultaneous requests both pass:
+
+```php
+return $this->em->wrapInTransaction(function () use ($command): Foo {
+    $this->em->lock($entity, LockMode::PESSIMISTIC_WRITE);
+    // lock() acquires the row but does NOT refresh the in-memory entity — without
+    // this refresh a racing commit's change is unseen and the check re-passes.
+    $this->em->refresh($entity);
+    if (/* precondition already met */) {
+        throw new DomainErrors([...]);
+    }
+    // ... create / consume, then flush ...
+});
+```
+
+**The concurrency itself is not unit-testable here** — `dama/doctrine-test-bundle` wraps each test in a single connection's transaction, so two overlapping DB transactions cannot be expressed. Verify the lock by code review; add a **sequential** test for the observable single-use / precondition (first call succeeds, the second is rejected) as the regression guard, and note the limitation in a comment.

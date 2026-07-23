@@ -36,6 +36,7 @@ security:
             logout:
                 path: app_logout
                 target: app_login
+                enable_csrf: true
             remember_me:
                 secret: '%env(APP_SECRET)%'
                 lifetime: 2592000
@@ -52,7 +53,6 @@ security:
         - { path: ^/dev/site-review-harness$, roles: PUBLIC_ACCESS }
         - { path: ^/login,           roles: PUBLIC_ACCESS }
         - { path: ^/register,        roles: PUBLIC_ACCESS }
-        - { path: ^/verify,          roles: PUBLIC_ACCESS }
         - { path: ^/forgot-password, roles: PUBLIC_ACCESS }
         - { path: ^/,                roles: ROLE_USER }
 

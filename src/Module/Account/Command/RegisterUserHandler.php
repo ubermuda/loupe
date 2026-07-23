@@ -6,6 +6,7 @@ use App\Exception\DomainErrors;
 use App\Module\Account\Entity\User;
 use App\Module\Account\Repository\UserRepository;
 use App\Module\Account\Service\VerificationEmailSender;
+use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 
@@ -44,7 +45,16 @@ final readonly class RegisterUserHandler
         $user->password = $this->passwordHasher->hashPassword($user, $command->plainPassword);
 
         $this->em->persist($user);
-        $this->em->flush();
+
+        try {
+            $this->em->flush();
+        } catch (UniqueConstraintViolationException) {
+            // A concurrent registration won the race between the pre-checks
+            // above and this flush; surface the same field error instead of
+            // letting the request 500. The EM is closed at this point, so the
+            // colliding field cannot be re-queried — email is the likely one.
+            throw new DomainErrors(['email' => 'account.registration.error.email_duplicate']);
+        }
 
         try {
             $this->verificationEmailSender->send($user);
