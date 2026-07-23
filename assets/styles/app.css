@@ -8,6 +8,24 @@
 @source "../templates/**/*.html.twig";
 @source "./js/**/*.js";
 
+/* ── Self-hosted fonts (variable, OFL — see ../fonts/LICENSE.txt) ─── */
+
+@font-face {
+    font-family: 'Geist';
+    src: url('../fonts/Geist-Variable.woff2') format('woff2');
+    font-weight: 100 900;
+    font-style: normal;
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'Geist Mono';
+    src: url('../fonts/GeistMono-Variable.woff2') format('woff2');
+    font-weight: 100 900;
+    font-style: normal;
+    font-display: swap;
+}
+
 /* ── Design token → Tailwind utility mapping ──────────────────────── */
 
 @theme inline {
@@ -1401,8 +1419,12 @@
         @apply text-fg-dim;
         font-size: 11px;
     }
+    /* Keeps the button as the flex child of .bp-sidebar__account. */
+    .bp-sidebar__account-logout-form {
+        display: contents;
+    }
     .bp-sidebar__account-logout {
-        @apply inline-flex items-center justify-center w-7 h-7 rounded-md text-fg-dim no-underline transition-colors;
+        @apply inline-flex items-center justify-center w-7 h-7 rounded-md text-fg-dim no-underline transition-colors cursor-pointer;
     }
     .bp-sidebar__account-logout:hover {
         @apply bg-tint text-fg;

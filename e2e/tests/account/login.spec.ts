@@ -4,7 +4,7 @@ import {
     type Page,
     type APIRequestContext,
 } from '@playwright/test';
-import { getLatestEmailTo, extractLink } from '../helpers';
+import { logout, registerAndVerify } from '../helpers';
 
 const RUN = Date.now();
 
@@ -19,22 +19,12 @@ async function createVerifiedUser(
     username: string,
     password: string,
 ): Promise<void> {
-    await page.goto('/register');
-    await page.getByLabel('Full name').fill('Login Test');
-    await page.getByLabel('Username').fill(username);
-    await page.getByLabel('Email').fill(email);
-    await page.getByLabel('Password').fill(password);
-    await page.getByLabel('I agree to').check();
-    await page.getByRole('button', { name: 'Create account' }).click();
-    await expect(page).toHaveURL('/register/check-email');
-
-    const received = await getLatestEmailTo(request, email);
-    const link = extractLink(
-        received.body,
-        /https?:\/\/[^\s"<]+\/register\/verify[^\s"<]*/,
-    );
-    await page.goto(link);
-    await expect(page).toHaveURL('/projects');
+    await registerAndVerify(page, request, {
+        email,
+        username,
+        password,
+        name: 'Login Test',
+    });
 }
 
 test('valid credentials log in and redirect to home', async ({
@@ -50,7 +40,7 @@ test('valid credentials log in and redirect to home', async ({
         'SecurePassword1!',
     );
 
-    await page.goto('/logout');
+    await logout(page);
     await page.goto('/login');
     await page.getByLabel('Email').fill(email);
     await page.getByLabel('Password').fill('SecurePassword1!');
@@ -69,7 +59,7 @@ test('wrong password shows auth-error', async ({ page, request }) => {
         'SecurePassword1!',
     );
 
-    await page.goto('/logout');
+    await logout(page);
     await page.goto('/login');
     await page.getByLabel('Email').fill(email);
     await page.getByLabel('Password').fill('WrongPassword!');
@@ -93,7 +83,7 @@ test('remember-me cookie survives browser restart', async ({
         'SecurePassword1!',
     );
 
-    await page.goto('/logout');
+    await logout(page);
     await page.goto('/login');
     await page.getByLabel('Email').fill(email);
     await page.getByLabel('Password').fill('SecurePassword1!');

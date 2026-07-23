@@ -4,7 +4,12 @@ import {
     type Page,
     type APIRequestContext,
 } from '@playwright/test';
-import { getLatestEmailTo, extractLink } from '../helpers';
+import {
+    getLatestEmailTo,
+    extractLink,
+    logout,
+    registerAndVerify,
+} from '../helpers';
 
 const RUN = Date.now();
 
@@ -19,22 +24,12 @@ async function createVerifiedUser(
     username: string,
     password: string,
 ): Promise<void> {
-    await page.goto('/register');
-    await page.getByLabel('Full name').fill('Reset Test');
-    await page.getByLabel('Username').fill(username);
-    await page.getByLabel('Email').fill(email);
-    await page.getByLabel('Password').fill(password);
-    await page.getByLabel('I agree to').check();
-    await page.getByRole('button', { name: 'Create account' }).click();
-    await expect(page).toHaveURL('/register/check-email');
-
-    const received = await getLatestEmailTo(request, email);
-    const link = extractLink(
-        received.body,
-        /https?:\/\/[^\s"<]+\/register\/verify[^\s"<]*/,
-    );
-    await page.goto(link);
-    await expect(page).toHaveURL('/projects');
+    await registerAndVerify(page, request, {
+        email,
+        username,
+        password,
+        name: 'Reset Test',
+    });
 }
 
 test('requesting reset with unknown email succeeds silently', async ({
@@ -55,7 +50,7 @@ test('valid reset token allows password change', async ({ page, request }) => {
         `resetuser${RUN}`,
         'OldPassword1!',
     );
-    await page.goto('/logout');
+    await logout(page);
 
     // Request reset
     await page.goto('/forgot-password');
@@ -108,7 +103,7 @@ test('used (already-consumed) token redirects to forgot-password with error', as
         `usedtoken${RUN}`,
         'OldPassword1!',
     );
-    await page.goto('/logout');
+    await logout(page);
 
     // Request a reset link
     await page.goto('/forgot-password');

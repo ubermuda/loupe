@@ -78,3 +78,14 @@ Update the `use` import to match: `use PHPUnit\Framework\MockObject\Stub;` or `u
 - ✗ `'tbody tr'`, `'table td'`, `'div > span:first-child'` — tree position and raw HTML tags that a template redesign will move.
 
 This mirrors the Playwright selector-scoping rule in `project-e2e`: assert on intent-carrying hooks the markup is unlikely to drop.
+
+## Rate limiters
+
+**Every rate limiter needs a `when@test` high-limit override, and its throttle is tested with a hand-built factory.** When you add a limiter under `framework.rate_limiter` in `config/packages/framework.yaml`, add a matching entry under the file's `when@test` block with a high limit (e.g. 1000) so the rest of the suite is never throttled. Test the throttling in isolation with a low-limit factory built directly:
+
+```php
+$factory = new RateLimiterFactory(
+    ['id' => '<name>', 'policy' => 'fixed_window', 'limit' => 2, 'interval' => '1 minute'],
+    new InMemoryStorage(),
+);
+```

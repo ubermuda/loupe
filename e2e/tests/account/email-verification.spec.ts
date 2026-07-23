@@ -1,5 +1,5 @@
 import { test, expect, type Page } from '@playwright/test';
-import { getLatestEmailTo, extractLink } from '../helpers';
+import { countEmailsTo, getLatestEmailTo, extractLink } from '../helpers';
 
 const RUN = Date.now();
 
@@ -54,13 +54,20 @@ test('resend sends a new verification email', async ({ page, request }) => {
     const email = `test+resend+${RUN}@example.com`;
     await signUp(page, email, `resenduser${RUN}`);
 
+    // Wait for the signup email so the resend assertion below can't pass on it
+    await expect.poll(() => countEmailsTo(request, email)).toBe(1);
+
     // The check-email page has the resend form
     await page
         .getByRole('button', { name: 'Resend verification email' })
         .click();
     await expect(page).toHaveURL('/register/check-email');
 
-    // Mailpit returns newest-first; the resend email (sent after signup) is messages[0]
+    // A second message for this address proves resend actually sent one —
+    // the subject alone can't, since the signup email has the same subject.
+    await expect
+        .poll(() => countEmailsTo(request, email), { timeout: 10000 })
+        .toBe(2);
     const received = await getLatestEmailTo(request, email);
     expect(received.subject).toBe('Confirm your account');
 });

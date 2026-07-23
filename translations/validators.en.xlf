@@ -17,16 +17,6 @@
                 <target>You must agree to the terms.</target>
             </trans-unit>
 
-            <!-- UniqueEntity messages on User entity -->
-            <trans-unit id="account.registration.validator.email_unique">
-                <source>account.registration.validator.email_unique</source>
-                <target>There is already an account with this email.</target>
-            </trans-unit>
-            <trans-unit id="account.registration.validator.username_unique">
-                <source>account.registration.validator.username_unique</source>
-                <target>This username is already taken.</target>
-            </trans-unit>
-
             <!-- Change password form -->
             <trans-unit id="account.form.change_password_form.invalid_message">
                 <source>account.form.change_password_form.invalid_message</source>

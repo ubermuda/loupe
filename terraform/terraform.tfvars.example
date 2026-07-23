@@ -1,0 +1,11 @@
+# Copy to terraform.tfvars (gitignored) and fill in, or export as TF_VAR_*.
+# Only secrets live here — all other config is in the module block in main.tf.
+#
+#   app_secret         -> openssl rand -hex 16
+#   app_encryption_key -> php -r 'echo base64_encode(sodium_crypto_secretbox_keygen()), "\n";'
+
+do_token             = "dop_v1_..."             # or export DIGITALOCEAN_TOKEN and drop this
+registry_credentials = "ubermuda:ghp_xxxxxxxx"  # GHCR "username:PAT" (read:packages); empty for DOCR
+app_secret           = "GENERATED_HEX_32"
+app_encryption_key   = "GENERATED_BASE64_32_BYTE_KEY"
+# mailer_dsn         = "smtp://USER:PASS@HOST:PORT"

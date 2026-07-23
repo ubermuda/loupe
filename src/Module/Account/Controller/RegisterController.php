@@ -10,9 +10,11 @@ use App\Module\Account\Command\RegisterUserCommand;
 use App\Module\Account\Command\RegisterUserHandler;
 use App\Module\Account\Form\RegistrationFormType;
 use App\Module\Account\Form\RegistrationRequest;
+use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\Form\FormError;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\RateLimiter\RateLimiterFactory;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Contracts\Translation\TranslatorInterface;
 
@@ -22,6 +24,9 @@ class RegisterController extends AppController
     public function __construct(
         private readonly RegisterUserHandler $registerUser,
         private readonly TranslatorInterface $translator,
+
+        #[Autowire(service: 'limiter.registration')]
+        private readonly RateLimiterFactory $registrationLimiter,
     ) {
     }
 
@@ -35,6 +40,13 @@ class RegisterController extends AppController
         $form->handleRequest($request);
 
         if ($form->isSubmitted() && $form->isValid()) {
+            $limiter = $this->registrationLimiter->create($request->getClientIp() ?? 'unknown');
+            if (!$limiter->consume(1)->isAccepted()) {
+                $form->get('email')->addError(new FormError($this->translator->trans('account.registration.error.throttled')));
+
+                return $this->renderFormResponse('@Account/registration/register.html.twig', $form);
+            }
+
             $data = $form->getData();
             assert($data instanceof RegistrationRequest);
 

@@ -9,6 +9,10 @@ export default class extends Controller {
         this.#updateClearButton();
     }
 
+    disconnect() {
+        clearTimeout(this.timeout);
+    }
+
     search() {
         clearTimeout(this.timeout);
         this.timeout = setTimeout(() => {

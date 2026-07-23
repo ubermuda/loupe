@@ -67,4 +67,32 @@ final class RegistrationControllerTest extends WebTestCase
         $this->assertResponseStatusCodeSame(422); // re-renders form with validation errors
         $this->assertSelectorTextContains('body', 'already an account');
     }
+
+    public function test_duplicate_username_shows_error(): void
+    {
+        $client = static::createClient();
+        // Register once
+        $client->request(\Symfony\Component\HttpFoundation\Request::METHOD_GET, '/register');
+        $client->submitForm('Create account', [
+            'registration_form[fullName]' => 'Test User',
+            'registration_form[username]' => 'takenuser',
+            'registration_form[email]' => 'first@example.com',
+            'registration_form[plainPassword]' => 'SecurePassword1!',
+            'registration_form[agreeTerms]' => true,
+        ]);
+        $this->assertResponseRedirects('/register/check-email');
+
+        // Try again with the same username but a different email
+        $client->request(\Symfony\Component\HttpFoundation\Request::METHOD_GET, '/register');
+        $client->submitForm('Create account', [
+            'registration_form[fullName]' => 'Another User',
+            'registration_form[username]' => 'takenuser',
+            'registration_form[email]' => 'second@example.com',
+            'registration_form[plainPassword]' => 'SecurePassword1!',
+            'registration_form[agreeTerms]' => true,
+        ]);
+
+        $this->assertResponseStatusCodeSame(422); // re-renders form with validation errors
+        $this->assertSelectorTextContains('body', 'username is already taken');
+    }
 }

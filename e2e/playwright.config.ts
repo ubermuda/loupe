@@ -14,6 +14,9 @@ export default defineConfig({
         trace: 'retain-on-failure',
         extraHTTPHeaders: {
             'X-Playwright': '1',
+            // COVERAGE=1 makes the app collect per-request PHP coverage
+            // (CoverageSubscriber from ubermuda/symfony-extra keys on this).
+            ...(process.env.COVERAGE ? { 'X-Coverage': '1' } : {}),
         },
     },
     projects: [

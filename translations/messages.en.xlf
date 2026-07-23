@@ -9,6 +9,24 @@
                 <target>Loupe</target>
             </trans-unit>
 
+            <!-- Home page -->
+            <trans-unit id="account.home.page.title">
+                <source>account.home.page.title</source>
+                <target>Home</target>
+            </trans-unit>
+            <trans-unit id="account.home.heading">
+                <source>account.home.heading</source>
+                <target>Home</target>
+            </trans-unit>
+            <trans-unit id="account.home.signed_in_as">
+                <source>account.home.signed_in_as</source>
+                <target>Signed in as %name%</target>
+            </trans-unit>
+            <trans-unit id="account.home.sign_out">
+                <source>account.home.sign_out</source>
+                <target>Sign out</target>
+            </trans-unit>
+
             <!-- Auth layout -->
             <trans-unit id="account.auth.footer.copyright">
                 <source>account.auth.footer.copyright</source>
@@ -228,6 +246,10 @@
                 <source>account.registration.error.username_taken</source>
                 <target>This username is already taken.</target>
             </trans-unit>
+            <trans-unit id="account.registration.error.throttled">
+                <source>account.registration.error.throttled</source>
+                <target>Too many registration attempts. Please try again later.</target>
+            </trans-unit>
 
             <!-- Email subjects -->
             <trans-unit id="account.email.verification.subject">
@@ -292,6 +314,10 @@
             </trans-unit>
 
             <!-- Reset password request page -->
+            <trans-unit id="account.reset_password.error.throttled">
+                <source>account.reset_password.error.throttled</source>
+                <target>Too many password reset requests. Please try again later.</target>
+            </trans-unit>
             <trans-unit id="account.reset_password.request.page.title">
                 <source>account.reset_password.request.page.title</source>
                 <target>Reset password</target>

@@ -7,9 +7,7 @@ description: Use when adding, changing, or reviewing access control — Voters, 
 
 ## Voters
 
-**The generic layer is documented in the `symfony-authorization` skill — invoke it before writing or changing any Voter, `#[IsGranted]` attribute, or `is_granted()` call.** It covers the voter class shape (one per resource, module-local in `Module/<Name>/Security/`, one `public const string` per action, the load-bearing `@extends Voter<...>` PHPDoc union), the resource-grouped dotted attribute naming convention (`'project.create'` / `PROJECT_CREATE`, never property checks like `IS_ORG_OWNER`), `#[IsGranted]` placement and `subject:` resolution by parameter name, voter scoping (most-specific resource in the route), read-vs-write separation, Twig `is_granted(constant(...))`, and the rename checklist.
-
-The rules below are project policy on top of that layer.
+**The generic layer — voter class shape, dotted attribute naming, `#[IsGranted]` placement and `subject:` resolution, voter scoping, read-vs-write separation, Twig `is_granted(constant(...))`, the rename checklist — is documented in the `symfony-authorization` skill. Invoke it before writing or changing any Voter, `#[IsGranted]` attribute, or `is_granted()` call.** The rules below are project policy on top of that layer.
 
 **Hard rule: never use `IS_AUTHENTICATED_FULLY` in `#[IsGranted]`.** Every access check must specify a Voter constant and a subject. `IS_AUTHENTICATED_FULLY` bypasses the Voter layer entirely and cannot express resource-level ownership. Replace it with the appropriate Voter attribute:
 
@@ -41,10 +39,21 @@ Then declare it on the class: `#[IsGranted(CommentVoter::DELETE, subject: 'comme
 
 ## Mercure SSE Authorization
 
+> **Downstream-only pattern.** The skeleton ships no Mercure integration — `MercureAuthorizationController`, `IssueListController` and `IssueBrainstormController` do not exist here. This section documents the pattern used by consumer projects and applies once Mercure is added.
+
 The app's primary Mercure authorization path is `MercureAuthorizationController` at `/mercure/authorize`, which handles browser-initiated JWT cookie requests. It accepts either `?conversation=UUID` or `?workspace=UUID`.
 
 Some page controllers also **pre-authorize** topics directly by calling `$this->authorization->setCookie()` on the initial page response — so the browser does not need a separate trip to `/mercure/authorize` for those subscriptions. `IssueListController` (clone-status topic) and `IssueBrainstormController` (conversation/workspace topics) currently use this pattern.
 
 **Always write all related topics into the cookie, not just the requested one.** Two SSE streams (conversation stream and workspace stream) share the same Mercure JWT cookie. If each stream's authorize request writes only its own topic, whichever fires second clobbers the first stream's subscription — that stream goes silent on the next reconnect. The fix: look up the related entity (workspace for a conversation; conversation for a workspace) and include both topic strings unconditionally.
 
-**Why `#[IsGranted]` is not used at the class level on `MercureAuthorizationController`:** the subject is resolved from a query parameter, not a route parameter. See the exception rule above — `denyAccessUnlessGranted()` is called per-branch in private helper methods instead.
+**Why `#[IsGranted]` is not used at the class level on `MercureAuthorizationController`:** the subject is resolved from a query parameter, not a route parameter, so the `controller.denyAccessUnlessGranted` rule does not fire (it flags only a deny that carries a subject *and* has a route-resolved parameter). Resolve the subject and call `denyAccessUnlessGranted()` per-branch inside the action.
+
+## Account enumeration policy
+
+The auth flows deliberately differ on whether they reveal account existence:
+
+- **Registration** shows explicit duplicate errors ("email already registered", "username taken") — standard UX; the enumeration leak is accepted.
+- **Password-reset request** and **resend-verification** are silent: unknown account, already-active token, and mail-transport failure all produce the same redirect. Keep new code on the silent side of these flows silent — do not add flashes or errors that distinguish the branches.
+
+This split is intentional; do not "fix" one flow to match the other without a maintainer decision.

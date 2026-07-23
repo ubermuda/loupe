@@ -5,9 +5,9 @@ declare(strict_types=1);
 namespace App\Module\Account\Controller;
 
 use App\Controller\AppController;
+use App\Module\Account\Command\ResendVerificationEmailCommand;
+use App\Module\Account\Command\ResendVerificationEmailHandler;
 use App\Module\Account\Entity\User;
-use App\Module\Account\Repository\UserRepository;
-use App\Module\Account\Service\VerificationEmailSender;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -27,9 +27,8 @@ class ResendVerificationEmailController extends AppController
     public function __construct(
         #[Autowire(service: 'limiter.resend_verification_email')]
         private readonly RateLimiterFactory $resendVerificationEmailLimiter,
-        private readonly UserRepository $users,
+        private readonly ResendVerificationEmailHandler $resendVerificationEmail,
         private readonly TranslatorInterface $translator,
-        private readonly VerificationEmailSender $verificationEmailSender,
     ) {
     }
 
@@ -50,14 +49,7 @@ class ResendVerificationEmailController extends AppController
             return $this->redirectToRoute('app_register_check_email');
         }
 
-        $existingUser = $this->users->findOneByEmail((string) $email);
-        if ($existingUser instanceof User && !$existingUser->isVerified()) {
-            try {
-                $this->verificationEmailSender->send($existingUser);
-            } catch (\Throwable) {
-                // Email sending failed; redirect anyway so the page doesn't 500.
-            }
-        }
+        ($this->resendVerificationEmail)(new ResendVerificationEmailCommand((string) $email));
 
         $this->addFlash('success', $this->translator->trans('account.registration.flash.resent'));
 

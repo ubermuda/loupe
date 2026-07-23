@@ -7,10 +7,8 @@ use Symfony\Component\Form\Extension\Core\Type\PasswordType;
 use Symfony\Component\Form\Extension\Core\Type\RepeatedType;
 use Symfony\Component\Form\FormBuilderInterface;
 use Symfony\Component\OptionsResolver\OptionsResolver;
-use Symfony\Component\Validator\Constraints\Length;
-use Symfony\Component\Validator\Constraints\NotBlank;
 
-/** @extends AbstractType<array<string, mixed>> */
+/** @extends AbstractType<ChangePasswordRequest> */
 class ChangePasswordFormType extends AbstractType
 {
     public function buildForm(FormBuilderInterface $builder, array $options): void
@@ -20,7 +18,6 @@ class ChangePasswordFormType extends AbstractType
             'first_options' => [
                 'label' => 'account.form.change_password_form.new_password.label',
                 'attr' => ['placeholder' => 'account.form.change_password_form.new_password.placeholder', 'autocomplete' => 'new-password'],
-                'constraints' => [new NotBlank(), new Length(min: 8)],
             ],
             'second_options' => [
                 'label' => 'account.form.change_password_form.repeat_new_password.label',
@@ -32,6 +29,8 @@ class ChangePasswordFormType extends AbstractType
 
     public function configureOptions(OptionsResolver $resolver): void
     {
-        $resolver->setDefaults([]);
+        $resolver->setDefaults([
+            'data_class' => ChangePasswordRequest::class,
+        ]);
     }
 }

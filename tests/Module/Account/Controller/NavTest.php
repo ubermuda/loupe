@@ -40,7 +40,7 @@ final class NavTest extends WebTestCase
         // Outside a project context the shell shows the brand (→ projects index)
         // and the account row's logout affordance — no scoped nav.
         self::assertSelectorExists('a[href="/projects"]');
-        self::assertSelectorExists('a[href="/logout"]');
+        self::assertSelectorExists('form[action="/logout"]');
     }
 
     public function test_login_page_does_not_show_nav(): void

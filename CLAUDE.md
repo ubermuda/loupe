@@ -16,6 +16,10 @@ These skills contain detailed conventions for specific areas. **Invoke the relev
 | `project-frontend` | CSS in `assets/`, Stimulus controllers, Turbo patterns, icons, any frontend visual behaviour |
 | `project-templates` | `.html.twig` files or Twig component PHP classes |
 | `project-translations` | UI strings, translation keys, or adding a new locale |
+| `symfony-authorization` | Generic Symfony authorization mechanics — Voter classes, attribute naming, `#[IsGranted]` placement, `subject:` resolution, `is_granted()` in Twig |
+| `symfony-entity-route-mapping` | Routes that resolve entities from URL parameters — `{param:variable}` notation, `#[MapEntity]`, multi-entity routes |
+
+**Delegating to subagents:** a subagent does not inherit the skills you have loaded. When delegating PHP/entity/migration/command work to a subagent, state the relevant skill conventions in its prompt (or instruct it to invoke the skill first). Conventions that live only in a skill — e.g. the brand-new-table migration rule in `project-backend` — are silently missed when the subagent has no skill context.
 
 ## Getting feedback on long documents
 
@@ -25,7 +29,9 @@ This applies **only** to documents meant for considered review. Do **not** route
 
 ## Notes for later
 
-When you identify something worth remembering for a future session — a TODO, a follow-up, a known issue, a design decision to revisit — append it to `docs/NEXT_STEPS.md`. Do not leave such notes in code comments — `docs/NEXT_STEPS.md` is the only place open work is tracked. No `TODO`/`FIXME`/`XXX` in code (gamache-enforced).
+When you identify something worth remembering for a future session — a TODO, a follow-up, a known issue, a design decision to revisit — append it to `docs/NEXT_STEPS.md`. Do not leave such notes in code comments — `docs/NEXT_STEPS.md` is the tracker for open work. No `TODO`/`FIXME`/`XXX` in code (gamache-enforced).
+
+**If the project may go public:** `docs/` (internal notes) should not ship in a public repo, so at that point move shared open-work tracking to GitHub issues and treat `docs/NEXT_STEPS.md` as a local, gitignored scratchpad. For a private project — the default for a fresh skeleton-derived repo — keep `docs/NEXT_STEPS.md` and `.skeleton.json` committed as normal.
 
 When an item in `docs/NEXT_STEPS.md` is resolved, **delete it entirely**. Do not mark it with "— CLOSED", add a resolution note, or leave it under a `CLOSED` heading. The file should contain only open work. Closed content is noise.
 
@@ -48,6 +54,7 @@ Worktrees are stored in `.claude/worktrees/` (already gitignored).
 
 - Always branch off `main`, not the current feature branch
 - Clean up the worktree after merging: `git worktree remove .claude/worktrees/<name>`
+- **Serena's edit tools do not work from a worktree.** The Serena MCP server is bound to the main checkout, so `replace_symbol_body` / `insert_*_symbol` / `replace_content` silently write to the **main checkout**, not your worktree — leaving your branch unchanged and the main tree dirty. When working in a worktree (e.g. a subagent implementing a PR), use the built-in **Edit/Write** tools for all edits. Serena **read** tools (`get_symbols_overview`, `find_symbol`, `find_referencing_symbols`) are safe from anywhere.
 
 ## Claude Commands
 
@@ -57,8 +64,10 @@ Custom slash commands go in `.claude/commands/` in this repository — not in us
 
 Before opening a pull request, you must:
 
-1. Run `just ci` and fix every failure — including ones that pre-date your change.
-2. Run `just e2e` and fix every failure — including ones that pre-date your change.
+1. Run `just cs` to apply formatter and rector fixes, and commit anything it changed.
+2. Run `just ci` and fix every failure — including ones that pre-date your change. `ci` is check-only: it reports style/rector violations but never rewrites files — `just cs` is the step that applies them.
+3. Run `just e2e` and fix every failure — including ones that pre-date your change.
+4. Run a Codex review of the branch: `mcp__codex-cli__review` with `model: "gpt-5.6-sol"` — the tool's default models (`gpt-5.3-codex`, `gpt-5.1-codex`) are rejected by this Codex account ("not supported when using Codex with a ChatGPT account"). CLI fallback if the MCP server is unavailable: `codex review -m gpt-5.6-sol --base main`. Address the findings before opening the PR.
 
 Do not open a PR until both commands pass cleanly. Pre-existing failures are not exempt; fix them as part of the branch.
 
@@ -71,10 +80,14 @@ Do not open a PR until both commands pass cleanly. Pre-existing failures are not
 - Always fix failing and flaky tests in any test run you observe — including ones that pass on retry, ones that pre-date your change, and ones unrelated to the current task. A "flaky" test that passes on retry is a real failure that will eventually break CI; do not declare a green run while flakes are tolerated. The only acceptable response to a flake is a fix; "it'll probably be fine" is not.
 - **For PHP-specific gotchas (Serena rename workaround, FormType rename side-effects, constructor change checklist), see `project-backend`.**
 - **Never write `TODO`, `FIXME`, or `XXX` comments in code.** If follow-up work is needed, capture it in a project tracking file (e.g. `docs/NEXT_STEPS.md`) or an issue. In-code TODO comments are invisible to future sessions and rot silently. Enforced by `NoTodosCheck` (runs in `just gamache`).
+- **Code comments must be self-contained.** Never reference internal or ephemeral development artifacts a future reader can't access — numbered tasks (`Task 16`), a handoff/design document (`handoff screen 8`), spec sections (`§3.5`, `spec §3.9`), dev phases (`Part 1`, `Phase 1`), or dated decisions (`owner decision 2026-07-13`). State the underlying fact directly. A comment that only makes sense with a document open in another tab is worse than no comment. Enforced by `SelfContainedCommentsCheck` (runs in `just gamache`).
+- **Doctrine migrations: use a real current-datetime timestamp** in the `VersionYYYYMMDDHHMMSS` class name — never a round placeholder like `…000000`. Parallel branches that both use a round number collide on the version prefix (harmless because the class names still differ, but confusing, and it breaks `migrate-diff` ordering assumptions).
 
 ## Development Environment
 
 This project uses Docker Compose for local development. Commands are managed via `justfile` (requires [just](https://github.com/casey/just)).
+
+`COMPOSE_PROJECT_NAME` (set in `.env`, required — compose refuses to start without it) names the containers, traefik routes, and database volume. **When bootstrapping a new project from this skeleton, change it before the first `docker compose up`** — two projects sharing a name silently share containers and the database volume.
 
 ```bash
 docker compose up -d          # Start containers (nginx, php-fpm, postgres)
@@ -96,6 +109,8 @@ From inside the php-fpm container (`just shell`), use the `database` Docker serv
 
 **Database test isolation:** Use `dama/doctrine-test-bundle`. Each test runs inside a database transaction that is automatically rolled back; no custom schema-reset code is needed. Schema creation runs once in `tests/bootstrap.php` (drop → create → migrate). Never write `resetSchema()` methods that drop and recreate the schema per test.
 
+**Running tests in parallel worktrees:** `config/packages/doctrine.yaml` sets `dbname_suffix: '_test%env(default::TEST_TOKEN)%'`, so PHPUnit's database is `app_test<TEST_TOKEN>`. To run `just ci` / PHPUnit in a git worktree without colliding with the main checkout or a sibling worktree, export a unique `TEST_TOKEN` (e.g. `TEST_TOKEN=_wt1`) so each gets its own `app_test_wt1` schema (bootstrap drop→create→migrate is per-DB). **`just e2e` cannot be parallelized** — it drives a single shared live app instance and its database, so e2e runs across branches/worktrees must be **serialized**. The DB-free static gate (`just cs`, `just phpstan`, `just lint`, `just arkitect`, `just gamache`) is always safe to run in parallel.
+
 ## Common Commands
 
 ```bash
@@ -105,14 +120,14 @@ just cs-fix                   # Run PHP CS Fixer
 just rector                   # Run Rector (PHP modernization)
 just phpstan                  # Run static analysis (level 8)
 just arkitect                 # Check module boundary rules (phparkitect)
-just cs                       # Run rector + cs-fix (pre-commit subset)
-just ci                       # Full static-analysis + unit-test gate: cs, phpstan, arkitect, gamache, ESLint, PHPUnit (e2e is separate)
+just cs                       # Write-mode fixer pipeline: prettier, lint, rector, cs-fix, twig-cs-fix
+just ci                       # Check-only gate (never rewrites files): lint, cs-check (rector/cs-fixer/twig-cs-fixer dry-run), phpstan, arkitect, gamache, PHPUnit (e2e is separate)
 just gamache                  # Run Gamache convention checker (replaces the seven custom check scripts)
 just migrate-diff             # Generate migrations from entities
 just migrate-run              # Run migrations
 just e2e                      # Run Playwright e2e tests
-just e2e-coverage             # Run e2e tests with PHP coverage collection
-just open-coverage            # Open HTML coverage report
+just e2e-coverage             # Run e2e with per-request PHP coverage, merged to var/coverage/html
+just open-coverage            # Open the merged HTML coverage report
 just browser-sync             # Live-reload proxy for template changes
 
 php vendor/bin/phpunit        # Run tests
@@ -126,22 +141,11 @@ To run a single e2e spec: `just e2e tests/<area>/<spec>.spec.ts`
 
 ## CSRF
 
-`assets/controllers/csrf_protection_controller.js` is loaded **eagerly** (`/* stimulusFetch: 'eager' */`). This is intentional: login and other forms use `input[name="_csrf_token"]` directly without a `data-controller` attribute, so a lazily-loaded Stimulus controller would never activate and the document-level `submit` listener would never register. Do not change this to `'lazy'`.
-
-For server-side CSRF validation on hand-rolled forms (plain HTML `<form>` elements not bound to a FormType), see "Stateless CSRF tokens for hand-rolled forms" in `project-backend`.
+`csrf_protection_controller.js` must stay eagerly loaded (see `project-frontend`). Server-side CSRF for hand-rolled forms: "Stateless CSRF tokens for hand-rolled forms" in `project-backend`.
 
 ## Email
 
-Email is sent synchronously everywhere (`message_bus: false` in `mailer.yaml`) — no queue worker needed in development or production.
-
-The sender address and name are defined as `config/services.yaml` parameters: `app.mailer.from_address` and `app.mailer.from_name`. Inject them with `#[Autowire(param: 'app.mailer.from_address')]`. Never hardcode `new Address('noreply@...', '...')` inside a service or controller.
-
-**Email sender services:** Each transactional email type gets its own sender service (e.g. `VerificationEmailSender`, `PasswordResetEmailSender`) in `src/Module/*/Service/`. The service owns URL generation, template path, subject key, and mailer parameters. Controllers call `$this->fooEmailSender->send($user)` and must never contain email-building or sending logic.
-
-`src/Messenger/Middleware/PlaywrightSyncEmailMiddleware.php` exists but is not wired up. When async email is needed, re-enable it by:
-1. Remove `message_bus: false` from `mailer.yaml`
-2. Uncomment `sync: 'sync://'` in `messenger.yaml`
-3. Add the middleware back to `messenger.bus.default`
+Email is sent synchronously everywhere (`message_bus: false` in `mailer.yaml`) — no queue worker needed. Sender parameters, per-email-type sender services, and the async re-enable steps are documented in `project-backend` ("Email").
 
 ## Architecture
 
@@ -153,26 +157,12 @@ All features live under `src/Module/` (e.g. `src/Module/Foo/`). Admin-facing con
 
 **Stack:** Tailwind CSS + DaisyUI 5 for UI, Symfony UX Icons and Stimulus.js for interactivity.
 
-**`AppController`:** All controllers must extend a project-level `AppController` (not Symfony's `AbstractController` directly). Add shared helpers there as they are needed. Existing helpers:
-- `renderFormResponse(string $view, FormInterface $form, array $extra = []): Response` — renders and automatically sets HTTP 422 when the form was submitted (invalid), 200 otherwise. Use this in every controller that renders a form instead of chaining `->setStatusCode(...)` manually. When a `DomainErrors` exception is caught (see below), add the field errors to the form and re-render with this method.
+**Core PHP conventions** (details and exact patterns live in `project-backend` and `project-command-handler` — invoke them before writing PHP):
 
-**Controllers — current user:** Use `$this->getUser()` (inherited from `AbstractController` via `AppController`) to retrieve the authenticated user. Do not inject `Symfony\Bundle\SecurityBundle\Security` into a controller solely to call `getUser()`.
-
-**Repositories must always be injected.** Never call `$em->getRepository(SomeClass::class)` anywhere — not in controllers, not in services. Inject the concrete repository class directly in the constructor. `EntityManagerInterface` may still be injected for `flush()` calls, but all reads must go through injected repositories.
-
-**Property access — all PHP classes:** Properties should be public by default. Do not add a `getFoo()` getter just to expose a property — make it `public` instead. Use `public private(set)` only when external mutation would cause a real problem (e.g. an immutable identity like `$id`). Do not use a `{ get => $this->prop; }` property hook as a visibility workaround — that is a public property with extra steps. Property hooks are for computed or validated values only. Exceptions are interface-required methods (`getPassword()`, `getRoles()`, `getUserIdentifier()`), which must remain as methods.
-
-**PHPStan `non-empty-string` at call sites:** When a property is annotated `/** @phpstan-var non-empty-string */`, PHPStan requires callers to pass `non-empty-string`, not plain `string`. To narrow a `?string` DTO value (e.g. from a form), use `$dto->field ?: throw new \LogicException('field required after validation')` — PHPStan understands the `?:` truthy check as `non-empty-string` narrowing. Do not use `(string)` casts or `@phpstan-ignore` to silence this.
-
-**`DomainErrors` — command-to-controller validation bridge:** `App\Exception\DomainErrors` (`src/Exception/DomainErrors.php`) is the standard way to propagate field-level domain validation failures from command handlers back to controllers. Command handlers collect failures into `$errors` (an `array<string, string>` of `field name => translation key`), then `throw new DomainErrors($errors)` if non-empty. Controllers catch it and map each entry to a form field error via `$form->get($field)->addError(new FormError($this->translator->trans($key)))`. Do not add validation logic directly to controllers — push it into the handler and use this exception to surface it.
-
-**Lightweight command pattern — required for all non-trivial controller actions:** Any controller action that does more than render a template or redirect must be backed by a command + handler pair. No Symfony Messenger involved.
-
-- **Command** (`Command/FooCommand.php`): `final readonly class` with public promoted constructor properties and no logic. Pure data carrier.
-- **Handler** (`Command/FooHandler.php`): `final readonly class` with an `__invoke(FooCommand): ReturnType` method. Owns all business logic, repository reads, persistence, and side effects. Throws `DomainErrors` for domain validation failures.
-- **Controller**: injects the handler directly and calls it as a callable — `($this->fooHandler)(new FooCommand(...))`. The controller's only jobs are: parse the request, call the handler, handle `DomainErrors`, and return a response.
-
-Do not put business logic directly in a controller. Do not route commands through Symfony Messenger unless async dispatch is explicitly required.
+- All controllers extend the project-level `AppController` (never `AbstractController` directly); use its `renderFormResponse()` for every form response (sets 422 on invalid submit).
+- Any controller action that does more than render or redirect is backed by a **command + handler pair** (`Command/FooCommand.php` + `Command/FooHandler.php`, no Messenger); `DomainErrors` carries field-level domain failures from handler back to the form.
+- Repositories are always constructor-injected — never `$em->getRepository()`.
+- Properties are public by default in all PHP classes; no getters that merely expose a property.
 
 ## Translation Enforcement
 
@@ -184,17 +174,20 @@ Do not put business logic directly in a controller. Do not route commands throug
 - PHP: add `// @translation-check-ignore` on the same line as the string
 - Twig: add `{# translation-check-ignore #}` on the same line
 
-**Configuration** (`gamache.php` in the project root):
-
-| Key | Type | Default | Purpose |
-|---|---|---|---|
-| `ignoredCallSites` | `list<string\|Closure>` | `[]` | Skip strings passed to specific constructors or methods |
-| `ignoreExceptionClasses` | `bool` | `true` | Skip strings passed to any class whose name ends in `Exception` |
-
-To adjust the threshold or ignored call sites, edit the `TranslationCheck` entry in `gamache.php`.
+**Configuration:** edit the `TranslationCheck` constructor call in `gamache.php` (project root). It documents its own options inline — ignored call sites, exception classes, ignored source namespaces, safe attribute namespaces, safe Twig functions.
 
 
 ## Gamache Checks
+
+`ubermuda/gamache` enforces project conventions through **five** layers, each wired into a different tool. Before concluding "gamache has no rule for X," check **all five** — and note that most of them run under `just ci`, **not** `just gamache`:
+
+| Layer | Package dir | Wired via | Run by |
+|---|---|---|---|
+| Convention checks | `src/Check/` | `gamache.php` | `just gamache` (`vendor/bin/gamache`) |
+| PHPStan rules | `src/PHPStan/` | `extension.neon` + `parameters.gamache:` in `phpstan.dist.neon` | `just phpstan` / `just ci` |
+| Rector rules | `src/Rector/` | `GamacheSetList::CONVENTIONS` in `rector.php` | `just rector` |
+| PHP-CS-Fixer rules | `src/PhpCsFixer/` | `Gamache\PhpCsFixer\Fixers` in `.php-cs-fixer.dist.php` | `just cs-fix` |
+| Twig-CS-Fixer rules | `src/TwigCsFixer/` | `GamacheStandard` in `.twig-cs-fixer.php` | twig-cs-fixer |
 
 `ubermuda/gamache` enforces project conventions through **five** layers, each wired into a different tool. Before concluding "gamache has no rule for X," check **all five** — and note that most of them run under `just ci`, **not** `just gamache`:
 
@@ -214,18 +207,14 @@ To adjust the threshold or ignored call sites, edit the `TranslationCheck` entry
 
 **Configuring checks:** each `src/Check/` class accepts constructor parameters (see `gamache.php`). To pass custom options (e.g. `ignoredCallSites` on `TranslationCheck`), edit the constructor call in `gamache.php`. The PHPStan layer is configured under `parameters.gamache:` in `phpstan.dist.neon`.
 
+**Configuring checks:** each `src/Check/` class accepts constructor parameters (see `gamache.php`). To pass custom options (e.g. `ignoredCallSites` on `TranslationCheck`), edit the constructor call in `gamache.php`. The PHPStan layer is configured under `parameters.gamache:` in `phpstan.dist.neon`.
+
 ## Icons
 
-All icons must use the Symfony UX Icons bundle with Lucide. Never embed inline SVG. Prefer the Twig component form; `ux_icon()` is acceptable as an alternative.
-
-```bash
-php bin/console ux:icons:import lucide:ICON_NAME
-```
+All icons must use the Symfony UX Icons bundle with Lucide. Never embed inline SVG.
 
 ```twig
 <twig:UX:Icon name="lucide:x" class="w-3.5 h-3.5 shrink-0 mt-px" />
-{{# or #}}
-{{ ux_icon('lucide:x', {'class': 'w-3.5 h-3.5 shrink-0 mt-px'}) }}
 ```
 
 `assets/icons/` is gitignored. UX Icons runs with `iconify.on_demand: true` (dev **and** test), so any Lucide icon resolves at render time from the iconify API — newly used icons render and pass tests/CI **without** being committed or pre-imported. `ux:icons:import` only populates a local cache (handy offline); it is not a prerequisite for a new icon to work, so you never need to commit the SVGs. If icon SVGs are accidentally committed, remove them with `git rm --cached` — **not** `git rm`.
