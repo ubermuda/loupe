@@ -9,12 +9,17 @@ get a local environment running.
 
 ## Before you open a pull request
 
-Both of these must pass cleanly — including any pre-existing failures you notice:
+Run these in order; the checks must pass cleanly — including any pre-existing
+failures you notice:
 
 ```bash
-just ci     # PHP CS Fixer, PHPStan (level 8), phparkitect, gamache, ESLint, PHPUnit
+just cs     # applies PHP CS Fixer + Rector fixes — commit anything it changes
+just ci     # check-only: PHPStan (level 8), phparkitect, gamache, ESLint, PHPUnit
 just e2e    # Playwright end-to-end tests
 ```
+
+`just ci` never rewrites files, so run `just cs` first — otherwise style and
+Rector violations will fail `ci` with nothing having been fixed.
 
 ## Conventions
 
