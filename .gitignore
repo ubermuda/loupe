@@ -57,6 +57,7 @@ phpstan.neon
 e2e/.step-ca-root.crt
 
 .superpowers/
+.agents/
 
 # Internal working notes. This repo is public, so open work is tracked in GitHub
 # issues instead — NEXT_STEPS stays a local, uncommitted scratchpad.
