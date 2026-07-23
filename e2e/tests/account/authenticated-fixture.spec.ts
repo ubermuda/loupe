@@ -12,6 +12,7 @@ const test = createTest({
 test('worker fixture provides an authenticated session', async ({ page }) => {
     await page.goto('/');
 
-    await expect(page).toHaveURL('/');
+    // The home route resolves an authenticated user to their projects list.
+    await expect(page).toHaveURL('/projects');
     await expect(page.locator('form[action="/logout"]')).toBeVisible();
 });
