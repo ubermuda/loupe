@@ -30,12 +30,70 @@ Built with Symfony, Tailwind CSS + DaisyUI, and Symfony UX (Stimulus + Turbo).
 ## Quickstart (local development)
 
 ```bash
-docker compose up -d                       # nginx, php-fpm, postgres, mercure
+just up            # start nginx, php-fpm, postgres, mercure
 composer install
-bin/console doctrine:migrations:migrate    # set up the database
+just migrate-run   # set up the database
 ```
 
-The app runs at `https://loupe.dev.localhost`.
+`just --list` shows every recipe.
+
+The app runs at `https://loupe.dev.localhost` — but only once a reverse proxy is
+in place; see below.
+
+### Reverse proxy (Traefik)
+
+The containers publish no host ports. The stack joins an **external** Docker
+network named `traefik` and expects a Traefik instance with a `websecure`
+entrypoint and a `stepca` certificate resolver, which serves
+`https://<COMPOSE_PROJECT_NAME>.dev.localhost` (plus `mercure.…` and
+`mailpit.…`, which the e2e suite uses).
+
+If you don't already run one:
+
+```bash
+docker network create traefik
+```
+
+```yaml
+# traefik/compose.yaml — run once, separately from the app
+services:
+  traefik:
+    image: traefik:v3
+    restart: unless-stopped
+    command:
+      - --providers.docker=true
+      - --providers.docker.exposedbydefault=false
+      - --entrypoints.websecure.address=:443
+      # Local TLS. Point this at your own ACME CA (e.g. a step-ca instance).
+      - --certificatesresolvers.stepca.acme.caserver=https://ca.internal/acme/acme/directory
+      - --certificatesresolvers.stepca.acme.email=you@example.com
+      - --certificatesresolvers.stepca.acme.storage=/acme/acme.json
+      - --certificatesresolvers.stepca.acme.tlschallenge=true
+    ports:
+      - '443:443'
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./acme:/acme
+    networks: [traefik]
+
+networks:
+  traefik:
+    external: true
+```
+
+**Would rather not run Traefik?** Publish nginx directly and browse
+`http://localhost:8080` instead:
+
+```yaml
+# compose.override.yaml
+services:
+  nginx:
+    ports:
+      - '8080:80'
+```
+
+With that override you also need to point `APP_URL` and `MERCURE_PUBLIC_URL` at
+the plain-HTTP host in `.env.local`.
 
 Copy the environment overrides you need into `.env.local` (never commit it):
 
@@ -64,15 +122,23 @@ Run a single unit test: `just phpunit --filter TestClassName`
 OPcache tuned, optimized autoloader, assets compiled and cache warmed):
 
 ```bash
-docker build -f docker/prod/Dockerfile -t loupe .
+just build-prod    # build the linux/amd64 image
+just deploy        # build, push, and roll out a new deployment
+just logs-prod     # tail production logs
+just shell-prod    # shell into the prod image locally, for debugging the build
 ```
 
 Migrations are deliberately **not** run from the entrypoint — with several
 replicas they would race. Run the release step once per deploy:
 
 ```bash
-docker run --rm --env-file <your prod env> loupe docker/prod/release.sh
+docker run --rm --env-file <your prod env> <image> docker/prod/release.sh
 ```
+
+The maintained deployment targets DigitalOcean App Platform, and that
+infrastructure lives in [`terraform/`](terraform/README.md) — `just deploy` and
+`just logs-prod` assume it. Self-hosting elsewhere needs nothing more than the
+image, the release step, and the environment variables below.
 
 Supply these as real environment variables (never commit them):
 
