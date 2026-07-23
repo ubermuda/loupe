@@ -35,19 +35,6 @@ When you identify something worth remembering for a future session — a TODO, a
 
 When an item in `docs/NEXT_STEPS.md` is resolved, **delete it entirely**. Do not mark it with "— CLOSED", add a resolution note, or leave it under a `CLOSED` heading. The file should contain only open work. Closed content is noise.
 
-## Skeleton Sync
-
-Projects bootstrapped from this skeleton track the sync state in a `.skeleton.json` file at their root:
-
-```json
-{
-  "path": "~/Code/symfony-skeleton",
-  "last_ported_commit": "<skeleton commit hash up to which changes have been ported>"
-}
-```
-
-When porting changes from this skeleton into a consumer project, update `last_ported_commit` to the skeleton's `HEAD` at the time of the port. When back-porting improvements from a consumer project back here, open a PR against this repo's `main` — do not push directly.
-
 ## Git Worktrees
 
 Worktrees are stored in `.claude/worktrees/` (already gitignored).
@@ -99,11 +86,11 @@ bin/console tailwind:build    # One-shot Tailwind build (use this in CI scripts 
 
 Tailwind CSS is rebuilt automatically in the dev container — **never run `bin/console tailwind:build` manually after editing templates or `app.css`**. The watcher picks changes up within a second or two; if a class doesn't appear in the compiled CSS, wait briefly and re-check rather than reaching for a manual build. Only run `bin/console tailwind:build` explicitly in CI scripts or plan verify steps. The same applies to `cache:clear` — not needed in dev.
 
-The app runs at `https://symfony-skeleton.dev.localhost`. PHP-FPM is on port 9000.
+The app runs at `https://loupe.dev.localhost`. PHP-FPM is on port 9000.
 
-**Database connectivity:** the Postgres container is exposed via Traefik TCP routing at `db.symfony-skeleton.dev.localhost:5432`. The `.env` file ships with `127.0.0.1:5432` as a placeholder; override it in `.env.local` on your host machine:
+**Database connectivity:** the Postgres container is exposed via Traefik TCP routing at `db.loupe.dev.localhost:5432`. The `.env` file ships with `127.0.0.1:5432` as a placeholder; override it in `.env.local` on your host machine:
 ```
-DATABASE_URL="postgresql://app:!ChangeMe!@db.symfony-skeleton.dev.localhost:5432/app?serverVersion=16&charset=utf8"
+DATABASE_URL="postgresql://app:!ChangeMe!@db.loupe.dev.localhost:5432/app?serverVersion=16&charset=utf8"
 ```
 From inside the php-fpm container (`just shell`), use the `database` Docker service hostname directly. The `compose.yaml` sets `DATABASE_URL` to `database:5432` for the container so this is automatic.
 
