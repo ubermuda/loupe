@@ -18,6 +18,8 @@ e2e/
 .git/
 .gitignore
 .gitleaksignore
+# Local-only skeleton sync state; records an absolute path on the dev's machine.
+.skeleton.json
 .vite/
 docs/
 test-results/
