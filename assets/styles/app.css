@@ -360,96 +360,96 @@
     }
 }
 
-/* ── bp- component classes (review UI, dashboard, api-tokens) ──────── */
+/* ── lp- component classes (review UI, dashboard, api-tokens) ──────── */
 
 @layer components {
     /* ── Page shell ─────────────────────────────────────────────────── */
 
-    .bp-page {
+    .lp-page {
         @apply max-w-doc mx-auto px-6 py-8;
     }
-    .bp-page-header {
+    .lp-page-header {
         @apply flex items-center justify-between gap-4 mb-6;
     }
-    .bp-page-title {
+    .lp-page-title {
         @apply text-xl font-semibold tracking-tight text-fg m-0;
     }
 
     /* ── Card ───────────────────────────────────────────────────────── */
 
-    .bp-card {
+    .lp-card {
         @apply bg-surface-1 border border-line rounded-xl p-5;
     }
 
-    /* ── Form controls (bp- namespace) ──────────────────────────────── */
+    /* ── Form controls (lp- namespace) ──────────────────────────────── */
 
-    .bp-form {
+    .lp-form {
         @apply flex flex-col gap-4;
     }
-    .bp-form-field {
+    .lp-form-field {
         @apply flex flex-col gap-1.5;
     }
-    .bp-label {
+    .lp-label {
         @apply text-sm font-medium text-fg;
     }
-    .bp-input {
+    .lp-input {
         @apply w-full font-sans text-sm text-fg bg-surface-2 border border-line rounded-md px-3 py-2 outline-hidden transition-colors placeholder:text-fg-dim focus:bg-surface-1 focus:border-accent focus:shadow-focus;
     }
     /* Native <select>: hide the OS arrow and draw a design-system chevron.
-       Defined after .bp-input so it can layer the chevron on top. */
-    .bp-select {
+       Defined after .lp-input so it can layer the chevron on top. */
+    .lp-select {
         @apply appearance-none bg-no-repeat pr-9 cursor-pointer;
         background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
         background-position: right calc(var(--spacing) * 2.5) center;
         background-size: calc(var(--spacing) * 4);
     }
-    .bp-field-errors {
+    .lp-field-errors {
         @apply empty:hidden;
     }
-    .bp-field-errors ul {
+    .lp-field-errors ul {
         @apply list-none p-0 m-0;
     }
-    .bp-field-errors li {
+    .lp-field-errors li {
         @apply text-xs mt-1 text-danger;
     }
-    .bp-form-hint {
+    .lp-form-hint {
         @apply text-xs text-fg-dim;
     }
 
     /* ── Table ──────────────────────────────────────────────────────── */
 
-    .bp-table {
+    .lp-table {
         @apply w-full border-collapse text-sm;
     }
-    .bp-table th {
+    .lp-table th {
         @apply text-left text-fg-mute font-medium pb-2 border-b border-line;
     }
-    .bp-table td {
+    .lp-table td {
         @apply py-2.5 border-b border-line align-middle;
     }
-    .bp-table tr:last-child td {
+    .lp-table tr:last-child td {
         @apply border-b-0;
     }
 
     /* ── Badge ──────────────────────────────────────────────────────── */
 
-    .bp-badge {
+    .lp-badge {
         @apply inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border;
     }
     /* In review = indigo accent (also the sidebar-active / loop-current tone) */
-    .bp-badge--in-review {
+    .lp-badge--in-review {
         @apply bg-accent-soft text-accent-hover border-accent-border;
     }
-    .bp-badge--approved {
+    .lp-badge--approved {
         @apply bg-status-ok-bg text-status-ok-deep border-status-ok-border;
     }
-    .bp-badge--changes-requested {
+    .lp-badge--changes-requested {
         @apply bg-status-pending-bg text-status-pending-deep border-status-pending-border;
     }
 
     /* ── Tag chip ───────────────────────────────────────────────────── */
 
-    .bp-tag {
+    .lp-tag {
         @apply inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-tint text-fg-mute border border-line;
     }
 
@@ -460,54 +460,54 @@
        LoopRibbon component from the step ordinal vs. the current stage; the
        filled track (accent-border bars + accent-soft circles) runs up to and
        including the current step. 22px/2px are off-scale sizes → plain CSS. */
-    .bp-ribbon {
+    .lp-ribbon {
         @apply flex items-center;
         gap: 0.625rem;
     }
-    .bp-ribbon__step {
+    .lp-ribbon__step {
         @apply inline-flex items-center;
         gap: 0.5rem;
     }
-    .bp-ribbon__circle {
+    .lp-ribbon__circle {
         @apply inline-flex items-center justify-center shrink-0 rounded-full border font-mono font-medium;
         width: 1.375rem;
         height: 1.375rem;
         font-size: 0.6875rem;
     }
-    .bp-ribbon__circle--current {
+    .lp-ribbon__circle--current {
         @apply bg-accent text-white border-accent;
     }
-    .bp-ribbon__circle--completed {
+    .lp-ribbon__circle--completed {
         @apply bg-accent-soft text-accent-hover border-accent-border;
     }
-    .bp-ribbon__circle--upcoming {
+    .lp-ribbon__circle--upcoming {
         @apply bg-elev text-fg-faint border-line-strong;
     }
-    .bp-ribbon__label {
+    .lp-ribbon__label {
         font-size: 0.8125rem;
         line-height: 1;
     }
-    .bp-ribbon__label--current {
+    .lp-ribbon__label--current {
         @apply text-ink font-semibold;
     }
-    .bp-ribbon__label--completed {
+    .lp-ribbon__label--completed {
         @apply text-accent-hover;
     }
-    .bp-ribbon__label--upcoming {
+    .lp-ribbon__label--upcoming {
         @apply text-fg-dim;
     }
-    .bp-ribbon__bar {
+    .lp-ribbon__bar {
         @apply shrink-0 rounded-full;
         width: 1.75rem;
         height: 2px;
     }
     /* Bars leading into a completed or current step are filled (accent-border);
        only bars leading into an upcoming step stay the light hairline. */
-    .bp-ribbon__bar--current,
-    .bp-ribbon__bar--completed {
+    .lp-ribbon__bar--current,
+    .lp-ribbon__bar--completed {
         @apply bg-accent-border;
     }
-    .bp-ribbon__bar--upcoming {
+    .lp-ribbon__bar--upcoming {
         @apply bg-line;
     }
 
@@ -515,52 +515,52 @@
 
     /* Flush hairline divider list — no card wrapper: a top hairline, and each
        row a bottom hairline (#ececf4) with a subtle #fbfbfe hover. */
-    .bp-doc-list {
+    .lp-doc-list {
         @apply flex flex-col border-t border-line;
     }
-    .bp-doc-row {
+    .lp-doc-row {
         @apply relative flex items-center gap-4 px-4 py-3.5 border-b border-line transition-colors;
     }
-    .bp-doc-row:hover {
+    .lp-doc-row:hover {
         @apply bg-tint;
     }
-    .bp-doc-row__main {
+    .lp-doc-row__main {
         @apply min-w-0 flex-1;
     }
-    .bp-doc-row__title {
+    .lp-doc-row__title {
         @apply text-sm font-medium text-fg no-underline;
     }
-    .bp-doc-row__title:hover {
+    .lp-doc-row__title:hover {
         @apply text-accent;
     }
     /* Stretches the title link's hit area across the whole row, so clicking
        anywhere on the row follows the title's href. Interactive siblings that
        must stay clickable need their own stacking context (relative z-10). */
-    .bp-doc-row__title--stretched::after {
+    .lp-doc-row__title--stretched::after {
         @apply absolute inset-0;
         content: '';
     }
-    .bp-doc-row__meta {
+    .lp-doc-row__meta {
         @apply flex items-center gap-2 mt-1 text-xs text-fg-dim;
     }
-    .bp-doc-row__tags {
+    .lp-doc-row__tags {
         @apply flex items-center gap-1.5;
     }
 
     /* ── Workspace / projects index ─────────────────────────────────── */
 
     /* Left-aligned page (handoff §1): margin 0, ~900px, padding 40px 44px. */
-    .bp-workspace {
+    .lp-workspace {
         @apply max-w-full;
         max-width: 900px;
         padding: 40px 44px;
     }
-    .bp-eyebrow {
+    .lp-eyebrow {
         @apply font-mono uppercase text-fg-dim m-0;
         font-size: 10.5px;
         letter-spacing: 0.08em;
     }
-    .bp-workspace-title {
+    .lp-workspace-title {
         @apply font-semibold text-ink m-0 mt-2;
         font-size: 26px;
         letter-spacing: -0.01em;
@@ -568,11 +568,11 @@
     /* Documents/Connect page H1: 24px/600, no letter-spacing (handoff type
        scale) — smaller than the 26px Projects index title. Defined after the
        base so it wins on the overridden properties. */
-    .bp-workspace-title--doc {
+    .lp-workspace-title--doc {
         font-size: 24px;
         letter-spacing: normal;
     }
-    .bp-workspace-desc {
+    .lp-workspace-desc {
         @apply text-fg-mute m-0 mt-2 mb-6;
         font-size: 14px;
         line-height: 1.55;
@@ -580,54 +580,54 @@
 
     /* Flush hairline divider list of project rows (top hairline, per-row bottom
        hairline #ececf4, hover bg #fbfbfe). */
-    .bp-project-list {
+    .lp-project-list {
         @apply flex flex-col border-t border-line;
     }
-    .bp-project-row {
+    .lp-project-row {
         @apply relative flex items-center gap-3.5 border-b border-line transition-colors;
         padding: 18px 6px;
     }
-    .bp-project-row:hover {
+    .lp-project-row:hover {
         @apply bg-tint;
     }
     /* Stretch the documents link across the whole row; the chevron and meta are
        non-interactive so they sit beneath it. */
-    .bp-project-row__link {
+    .lp-project-row__link {
         @apply absolute inset-0;
     }
-    .bp-project-row__avatar {
+    .lp-project-row__avatar {
         @apply shrink-0;
         width: 38px;
         height: 38px;
         font-size: 15px;
     }
-    .bp-project-row__main {
+    .lp-project-row__main {
         @apply min-w-0 flex-1 flex flex-col gap-1;
     }
     /* Line 1: name + domain inline. */
-    .bp-project-row__head {
+    .lp-project-row__head {
         @apply flex items-baseline gap-2 min-w-0;
     }
-    .bp-project-row__name {
+    .lp-project-row__name {
         @apply font-semibold text-ink shrink-0;
         font-size: 15px;
     }
-    .bp-project-row__domain {
+    .lp-project-row__domain {
         @apply font-mono text-fg-dim truncate;
         font-size: 11px;
     }
     /* Line 2: the mono rollup, beneath the name. */
-    .bp-project-row__meta {
+    .lp-project-row__meta {
         @apply flex items-center gap-1.5 font-mono text-fg-dim;
         font-size: 12.5px;
     }
-    .bp-project-row__sep {
+    .lp-project-row__sep {
         @apply text-fg-dim;
     }
-    .bp-project-row__open {
+    .lp-project-row__open {
         color: var(--status-pending-deep);
     }
-    .bp-project-row__chevron {
+    .lp-project-row__chevron {
         @apply w-4 h-4 shrink-0;
         color: var(--switcher-hover-border);
     }
@@ -635,56 +635,56 @@
     /* New-project affordance: a dashed 38px square + label that reveals the
        create form. Collapsed by default; the disclosure controller toggles
        .open on the panel (and .disclosure-open on the wrapper). */
-    .bp-project-new {
+    .lp-project-new {
         @apply flex flex-col;
         padding-top: 18px;
     }
-    .bp-project-new__toggle {
+    .lp-project-new__toggle {
         @apply inline-flex items-center gap-3.5 bg-transparent border-0 p-0 cursor-pointer text-fg-dim transition-colors;
     }
-    .bp-project-new__toggle:hover {
+    .lp-project-new__toggle:hover {
         @apply text-fg;
     }
-    .bp-project-new__plus {
+    .lp-project-new__plus {
         @apply inline-flex items-center justify-center shrink-0 rounded-md border border-dashed border-line-strong text-fg-dim transition-colors;
         width: 38px;
         height: 38px;
     }
-    .bp-project-new__plus svg {
+    .lp-project-new__plus svg {
         @apply w-4 h-4;
     }
-    .bp-project-new__toggle:hover .bp-project-new__plus {
+    .lp-project-new__toggle:hover .lp-project-new__plus {
         border-color: var(--switcher-hover-border);
         @apply text-fg;
     }
-    .bp-project-new__label {
+    .lp-project-new__label {
         font-size: 15px;
     }
     /* Collapsed → revealed. Kept out of the normal flow height until open. */
-    .bp-project-new__panel {
+    .lp-project-new__panel {
         @apply hidden mt-4 max-w-card;
     }
-    .bp-project-new__panel.open {
+    .lp-project-new__panel.open {
         @apply block;
     }
 
     /* ── Breadcrumb (handoff §2) ────────────────────────────────────── */
 
     /* Mono, 12px, dim. `{project} / Documents` above the page title. */
-    .bp-crumbs {
+    .lp-crumbs {
         @apply flex items-center gap-2 font-mono text-fg-dim m-0;
         font-size: 12px;
     }
-    .bp-crumbs__link {
+    .lp-crumbs__link {
         @apply text-fg-dim no-underline transition-colors;
     }
-    .bp-crumbs__link:hover {
+    .lp-crumbs__link:hover {
         @apply text-fg;
     }
-    .bp-crumbs__sep {
+    .lp-crumbs__sep {
         @apply text-fg-faint;
     }
-    .bp-crumbs__here {
+    .lp-crumbs__here {
         @apply text-fg-mute;
     }
 
@@ -692,137 +692,137 @@
 
     /* Flush hairline divider list of document rows: top hairline, per-row bottom
        hairline (#ececf4), subtle #fbfbfe hover. Distinct from the shared
-       .bp-doc-row (token/site-review rows) so its 16px 6px rhythm and version
+       .lp-doc-row (token/site-review rows) so its 16px 6px rhythm and version
        pill stay local to this screen. */
-    .bp-document-list {
+    .lp-document-list {
         @apply flex flex-col border-t border-line mt-1;
     }
-    .bp-document-row {
+    .lp-document-row {
         @apply relative flex items-center gap-4 border-b border-line transition-colors;
         padding: 16px 6px;
     }
-    .bp-document-row:hover {
+    .lp-document-row:hover {
         @apply bg-tint;
     }
     /* Stretch the review link across the whole row; the badge and chevron are
        non-interactive so they sit beneath it. */
-    .bp-document-row__link {
+    .lp-document-row__link {
         @apply absolute inset-0;
     }
-    .bp-document-row__main {
+    .lp-document-row__main {
         @apply min-w-0 flex-1 flex flex-col gap-1;
     }
     /* Line 1: title + version pill inline. */
-    .bp-document-row__head {
+    .lp-document-row__head {
         @apply flex items-baseline gap-2 min-w-0;
     }
-    .bp-document-row__title {
+    .lp-document-row__title {
         @apply font-medium text-ink truncate;
         font-size: 15px;
     }
     /* Mono version pill — bg #f4f4f8, e.g. "v3". */
-    .bp-document-row__version {
+    .lp-document-row__version {
         @apply inline-flex items-center shrink-0 font-mono rounded-full text-fg-dim;
         font-size: 11px;
         padding: 1px 7px;
         background: var(--border-faint);
     }
     /* Line 2: the mono meta beneath the title. */
-    .bp-document-row__meta {
+    .lp-document-row__meta {
         @apply flex items-center gap-1.5 font-mono text-fg-dim;
         font-size: 12.5px;
     }
-    .bp-document-row__sep {
+    .lp-document-row__sep {
         @apply text-fg-dim;
     }
-    .bp-document-row__open {
+    .lp-document-row__open {
         color: var(--status-pending-deep);
     }
-    .bp-document-row__chevron {
+    .lp-document-row__chevron {
         @apply w-4 h-4 shrink-0;
         color: var(--switcher-hover-border);
     }
 
     /* ── Flash messages ─────────────────────────────────────────────── */
 
-    .bp-flash {
+    .lp-flash {
         @apply flex items-start gap-2.5 px-4 py-3 rounded-lg border text-sm mb-4;
     }
-    .bp-flash--success {
+    .lp-flash--success {
         @apply bg-status-ok-bg border-status-ok-border text-status-ok-deep;
     }
-    .bp-flash--danger,
-    .bp-flash--error {
+    .lp-flash--danger,
+    .lp-flash--error {
         @apply bg-red-50 border-red-200 text-red-800;
     }
-    .bp-flash--warning {
+    .lp-flash--warning {
         @apply bg-status-pending-bg border-status-pending-border text-status-pending-deep;
     }
-    .bp-flash--info {
+    .lp-flash--info {
         @apply bg-accent-faint border-accent-border text-accent-hover;
     }
 
     /* ── Empty state ────────────────────────────────────────────────── */
 
-    .bp-empty {
+    .lp-empty {
         @apply text-fg-dim text-sm italic py-4;
     }
 
-    /* ── Buttons (bp- namespace) ────────────────────────────────────── */
+    /* ── Buttons (lp- namespace) ────────────────────────────────────── */
 
-    .bp-btn {
+    .lp-btn {
         @apply inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-line bg-surface-1 text-fg text-sm font-medium cursor-pointer whitespace-nowrap transition;
     }
-    .bp-btn:hover {
+    .lp-btn:hover {
         @apply bg-tint border-line-strong;
     }
-    .bp-btn:active {
+    .lp-btn:active {
         @apply translate-y-px scale-[0.97]; /* @arbitrary-value-ignore */
     }
-    .bp-btn--primary {
+    .lp-btn--primary {
         @apply bg-accent border-accent text-white;
     }
-    .bp-btn--primary:hover {
+    .lp-btn--primary:hover {
         @apply bg-accent-hover border-accent-hover;
     }
-    .bp-btn--success {
+    .lp-btn--success {
         @apply bg-green-600 border-green-700 text-white;
     }
-    .bp-btn--success:hover {
+    .lp-btn--success:hover {
         @apply bg-green-700 border-green-800;
     }
-    .bp-btn--warning {
+    .lp-btn--warning {
         @apply bg-amber-500 border-amber-600 text-white;
     }
-    .bp-btn--warning:hover {
+    .lp-btn--warning:hover {
         @apply bg-amber-600 border-amber-700;
     }
-    .bp-btn--danger {
+    .lp-btn--danger {
         @apply bg-red-600 border-red-700 text-white;
     }
-    .bp-btn--danger:hover {
+    .lp-btn--danger:hover {
         @apply bg-red-700 border-red-800;
     }
-    .bp-btn--ghost {
+    .lp-btn--ghost {
         @apply bg-transparent border-transparent text-fg-mute shadow-none;
     }
-    .bp-btn--ghost:hover {
+    .lp-btn--ghost:hover {
         @apply bg-tint text-fg;
     }
-    .bp-btn--danger-ghost {
+    .lp-btn--danger-ghost {
         @apply bg-transparent border-transparent text-danger shadow-none;
     }
-    .bp-btn--danger-ghost:hover {
+    .lp-btn--danger-ghost:hover {
         @apply bg-red-50 text-danger;
     }
-    .bp-btn--sm {
+    .lp-btn--sm {
         @apply px-2 py-1 text-xs;
     }
     /* Amber-outline "Request changes" verdict button. */
-    .bp-btn--outline-amber {
+    .lp-btn--outline-amber {
         @apply bg-status-pending-bg border-status-pending-border text-status-pending-deep;
     }
-    .bp-btn--outline-amber:hover {
+    .lp-btn--outline-amber:hover {
         @apply bg-status-pending-border border-status-pending;
     }
 
@@ -831,38 +831,38 @@
        a two-pane row that fills the remaining height. Each pane scrolls on its
        own; the page itself never scrolls. Off-scale paddings/sizes from the
        handoff are written as plain CSS (as the ribbon does). */
-    .bp-review {
+    .lp-review {
         @apply flex flex-col min-w-0;
         height: 100%;
     }
 
-    .bp-review-header {
+    .lp-review-header {
         @apply flex flex-col gap-3.5 shrink-0;
         padding: 1.375rem 2rem 0;
     }
-    .bp-review-breadcrumb {
+    .lp-review-breadcrumb {
         @apply flex items-center gap-1.5 font-mono text-fg-dim;
         font-size: 0.75rem;
     }
-    .bp-review-breadcrumb a {
+    .lp-review-breadcrumb a {
         @apply text-fg-dim no-underline transition-colors hover:text-fg;
     }
-    .bp-review-breadcrumb__sep {
+    .lp-review-breadcrumb__sep {
         @apply text-fg-faint;
     }
-    .bp-review-breadcrumb__current {
+    .lp-review-breadcrumb__current {
         @apply text-fg-mute;
     }
 
     /* Two-pane row: document pane (flex) + fixed 388px comment margin, no
        divider. Left-aligned within a 1160px max width. */
-    .bp-review-layout {
+    .lp-review-layout {
         @apply grid flex-1 min-h-0 w-full;
         grid-template-columns: minmax(0, 1fr) 24.25rem;
         /* Cap the single implicit row at the definite flex height so both panes
            fill it and their internal overflow-y engages (the verdict bar pins).
            An `auto` track would grow to the document's content height instead,
-           spilling the whole page into .bp-main's scroll. */
+           spilling the whole page into .lp-main's scroll. */
         grid-template-rows: minmax(0, 1fr);
         max-width: 72.5rem;
     }
@@ -870,29 +870,29 @@
     /* ── Document pane ──────────────────────────────────────────────────
        Its own scroll container and the position:relative offset parent for the
        floating composer/toolbar. Plain prose — no card, no line numbers. */
-    .bp-review-doc {
+    .lp-review-doc {
         @apply relative min-h-0 overflow-y-auto;
         padding: 0.5rem 2.5rem 5rem;
     }
-    .bp-review-doc__head {
+    .lp-review-doc__head {
         @apply max-w-2xl mb-6;
     }
-    .bp-review-doc__title {
+    .lp-review-doc__title {
         @apply flex items-center gap-2.5 flex-wrap text-ink font-semibold m-0;
         font-size: 1.75rem;
         letter-spacing: -0.02em;
     }
-    .bp-version-pill {
+    .lp-version-pill {
         @apply inline-flex items-center rounded-full font-mono bg-accent-soft text-accent-hover;
         font-size: 0.75rem;
         padding: 0.125rem 0.5rem;
     }
-    .bp-review-doc__byline {
+    .lp-review-doc__byline {
         @apply font-mono text-fg-dim m-0;
         font-size: 0.78125rem;
         margin-top: 0.5rem;
     }
-    .bp-review-doc__prose {
+    .lp-review-doc__prose {
         @apply mt-0;
     }
 
@@ -900,8 +900,8 @@
        plugin via `prose`, themed to the app's design tokens so light and dark
        both render correctly. Applied only to the inner rendered-HTML container,
        so it never styles the floating composer/toolbar that also live inside
-       .bp-review-doc. */
-    .bp-prose {
+       .lp-review-doc. */
+    .lp-prose {
         --tw-prose-body: var(--text);
         --tw-prose-headings: var(--text);
         --tw-prose-lead: var(--text-mute);
@@ -922,11 +922,11 @@
 
     /* ── Text selection highlight in the doc ─────────────────────────── */
 
-    .bp-anchor {
+    .lp-anchor {
         @apply bg-accent-soft rounded;
         outline: 1px solid var(--accent-border);
     }
-    .bp-anchor--orphan {
+    .lp-anchor--orphan {
         @apply bg-status-pending-bg rounded;
         outline: 1px solid var(--status-pending-border);
     }
@@ -934,22 +934,22 @@
     /* ── Floating "Comment" toolbar (dark pill) ─────────────────────────
        Shown on text selection: a dark pill floating above the selection with
        the selection-toolbar shadow. */
-    .bp-anchor-toolbar {
+    .lp-anchor-toolbar {
         @apply absolute z-20 shadow-toolbar;
     }
-    .bp-anchor-toolbar__btn {
+    .lp-anchor-toolbar__btn {
         @apply inline-flex items-center gap-1.5 rounded-lg bg-ink text-white font-medium cursor-pointer border-0 transition;
         padding: 0.375rem 0.625rem;
         font-size: 0.8125rem;
     }
-    .bp-anchor-toolbar__btn:hover {
+    .lp-anchor-toolbar__btn:hover {
         @apply opacity-90;
     }
 
     /* ── Floating comment composer ──────────────────────────────────────
        A 340px white card anchored at the selection. Shows the quoted selection
        (targeted) or a "General comment" label (untargeted). */
-    .bp-comment-composer {
+    .lp-comment-composer {
         @apply absolute z-20 bg-elev border border-line-strong rounded-xl shadow-composer p-3 flex flex-col gap-2;
         width: 21.25rem;
     }
@@ -957,78 +957,78 @@
        (equal specificity, later source order), so a `hidden` composer/toolbar
        would stay laid out and its absolutely-positioned box would swallow
        clicks. Restore `display:none` with a higher-specificity attribute rule. */
-    .bp-comment-composer[hidden],
-    .bp-anchor-toolbar[hidden] {
+    .lp-comment-composer[hidden],
+    .lp-anchor-toolbar[hidden] {
         display: none;
     }
-    .bp-comment-composer textarea {
+    .lp-comment-composer textarea {
         @apply w-full text-sm bg-surface-2 border border-line rounded-lg px-3 py-2 text-fg placeholder:text-fg-dim resize-none outline-hidden focus:border-accent focus:shadow-focus transition-colors;
         min-height: 4.5rem;
     }
-    .bp-composer-quote {
+    .lp-composer-quote {
         @apply bg-accent-faint-2 border-l-2 border-accent-border text-fg-mute rounded-r line-clamp-3 m-0;
         padding: 0.375rem 0.625rem;
         font-size: 0.78125rem;
     }
-    .bp-composer-general {
+    .lp-composer-general {
         @apply font-mono text-fg-dim;
         font-size: 0.71875rem;
     }
-    .bp-comment-composer__actions {
+    .lp-comment-composer__actions {
         @apply flex items-center justify-end gap-2;
     }
-    .bp-composer-hint {
+    .lp-composer-hint {
         @apply mr-auto font-mono text-fg-faint;
         font-size: 0.6875rem;
     }
-    .bp-comment-composer__error {
+    .lp-comment-composer__error {
         @apply text-xs text-danger;
     }
     /* Untargeted composer: a centred panel + a "General comment" label instead
        of the quoted selection. */
-    .bp-comment-composer--untargeted {
+    .lp-comment-composer--untargeted {
         @apply fixed left-1/2 top-1/2 z-30;
         transform: translate(-50%, -50%);
     }
-    .bp-composer-general {
+    .lp-composer-general {
         display: none;
     }
-    .bp-comment-composer--untargeted .bp-composer-quote {
+    .lp-comment-composer--untargeted .lp-composer-quote {
         display: none;
     }
-    .bp-comment-composer--untargeted .bp-composer-general {
+    .lp-comment-composer--untargeted .lp-composer-general {
         display: block;
     }
 
     /* ── Comment margin (right pane, 388px) ─────────────────────────────
        A white column: threads header + progress bar (both fixed), a scrolling
        grouped ladder, and a pinned verdict bar at the bottom. */
-    .bp-review-sidebar {
+    .lp-review-sidebar {
         @apply flex flex-col min-h-0 bg-surface-1;
     }
-    .bp-review-sidebar__header {
+    .lp-review-sidebar__header {
         @apply flex items-start justify-between gap-2 shrink-0;
         padding: 1.375rem 1.25rem 0.625rem;
     }
-    .bp-review-sidebar__heading {
+    .lp-review-sidebar__heading {
         @apply flex items-center gap-2;
     }
-    .bp-review-sidebar__title {
+    .lp-review-sidebar__title {
         @apply text-ink font-semibold m-0;
         font-size: 0.8125rem;
     }
-    .bp-review-sidebar__count {
+    .lp-review-sidebar__count {
         @apply font-mono text-fg-dim;
         font-size: 0.6875rem;
     }
-    .bp-progress {
+    .lp-progress {
         @apply shrink-0 mx-5 rounded-full overflow-hidden bg-line;
         height: 4px;
     }
-    .bp-progress__fill {
+    .lp-progress__fill {
         @apply h-full bg-status-ok rounded-full transition-[width] duration-300;
     }
-    .bp-review-sidebar__scroll {
+    .lp-review-sidebar__scroll {
         @apply flex flex-col flex-1 min-h-0 gap-5 overflow-y-auto px-5 py-4;
     }
 
@@ -1036,85 +1036,85 @@
        #comment-threads is the whole-list region the Turbo Stream replaces on
        add / delete / resolve: header (count), progress bar, then the scrolling
        ladder — so all three refresh together. */
-    .bp-comment-threads {
+    .lp-comment-threads {
         @apply flex flex-col flex-1 min-h-0;
     }
-    .bp-ladder-group {
+    .lp-ladder-group {
         @apply flex flex-col gap-2.5;
     }
-    .bp-ladder-group__eyebrow {
+    .lp-ladder-group__eyebrow {
         @apply flex items-center gap-1.5 font-mono uppercase;
         font-size: 0.65625rem;
         letter-spacing: 0.08em;
     }
-    .bp-ladder-dot {
+    .lp-ladder-dot {
         @apply inline-block rounded-full shrink-0;
         width: 0.375rem;
         height: 0.375rem;
     }
-    .bp-ladder-group__eyebrow--pending {
+    .lp-ladder-group__eyebrow--pending {
         @apply text-status-pending-deep;
     }
-    .bp-ladder-group__eyebrow--pending .bp-ladder-dot {
+    .lp-ladder-group__eyebrow--pending .lp-ladder-dot {
         @apply bg-status-pending;
     }
-    .bp-ladder-group__eyebrow--addressed {
+    .lp-ladder-group__eyebrow--addressed {
         @apply text-status-ok-deep;
     }
-    .bp-ladder-group__eyebrow--addressed .bp-ladder-dot {
+    .lp-ladder-group__eyebrow--addressed .lp-ladder-dot {
         @apply bg-status-ok;
     }
-    .bp-ladder-group__eyebrow--resolved {
+    .lp-ladder-group__eyebrow--resolved {
         @apply text-fg-dim;
     }
-    .bp-ladder-group__eyebrow--resolved .bp-ladder-dot {
+    .lp-ladder-group__eyebrow--resolved .lp-ladder-dot {
         @apply bg-fg-faint;
     }
 
     /* ── Comment thread card ─────────────────────────────────────────── */
-    .bp-comment-thread {
+    .lp-comment-thread {
         @apply flex flex-col gap-2.5 rounded-lg border border-line bg-surface-1;
         padding: 0.75rem 0.8125rem;
     }
-    .bp-comment-thread--resolved {
+    .lp-comment-thread--resolved {
         @apply opacity-70;
     }
-    .bp-comment-thread--orphaned {
+    .lp-comment-thread--orphaned {
         @apply border-status-pending;
     }
-    .bp-comment-thread__header {
+    .lp-comment-thread__header {
         @apply flex items-center gap-2;
     }
 
     /* Status chip (thread header + ladder), pill with a colored dot. */
-    .bp-status-chip {
+    .lp-status-chip {
         @apply inline-flex items-center gap-1.5 ml-auto rounded-full font-medium border;
         font-size: 0.6875rem;
         padding: 0.125rem 0.5rem;
     }
-    .bp-status-chip__dot {
+    .lp-status-chip__dot {
         @apply inline-block rounded-full shrink-0;
         width: 0.375rem;
         height: 0.375rem;
     }
-    .bp-status-chip--pending {
+    .lp-status-chip--pending {
         @apply bg-status-pending-bg text-status-pending-deep border-status-pending-border;
     }
-    .bp-status-chip--pending .bp-status-chip__dot {
+    .lp-status-chip--pending .lp-status-chip__dot {
         @apply bg-status-pending;
     }
-    .bp-status-chip--resolved {
+    .lp-status-chip--resolved {
         @apply bg-tint text-fg-dim border-line;
     }
-    .bp-status-chip--resolved .bp-status-chip__dot {
+    .lp-status-chip--resolved .lp-status-chip__dot {
         @apply bg-fg-faint;
     }
     /* Green chip — site-review addressed/resolved comments (handoff §4 pins both
        to the green trio, unlike the document-review grey "resolved"). */
-    .bp-status-chip--ok {
+    .lp-status-chip--ok {
         @apply bg-status-ok-bg text-status-ok-deep border-status-ok-border;
     }
-    .bp-status-chip--ok .bp-status-chip__dot {
+    .lp-status-chip--ok .lp-status-chip__dot {
         @apply bg-status-ok;
     }
 
@@ -1122,41 +1122,41 @@
        of every thread — essential for orphaned threads, where the in-document
        highlight is gone. Clamped to a few lines so a paragraph-length quote can't
        blow out the margin. */
-    .bp-comment-quote {
+    .lp-comment-quote {
         @apply bg-accent-faint-2 border-l-2 border-accent-border text-fg-mute rounded-r line-clamp-3 m-0;
         padding: 0.375rem 0.625rem;
         font-size: 0.75rem;
     }
 
-    .bp-comment-author {
+    .lp-comment-author {
         @apply text-fg-mute font-semibold;
         font-size: 0.78125rem;
     }
-    .bp-comment-body {
+    .lp-comment-body {
         @apply text-fg;
         font-size: 0.84375rem;
         line-height: 1.55;
     }
-    .bp-comment-replies {
+    .lp-comment-replies {
         @apply flex flex-col gap-2.5 border-t border-line-faint pt-2.5;
     }
-    .bp-comment--reply {
+    .lp-comment--reply {
         @apply flex flex-col gap-1;
     }
-    .bp-comment-reply__head {
+    .lp-comment-reply__head {
         @apply flex items-center gap-1.5;
     }
-    .bp-comment-actions {
+    .lp-comment-actions {
         @apply flex items-center gap-2;
     }
-    .bp-comment-reply-form {
+    .lp-comment-reply-form {
         @apply flex flex-col gap-2;
     }
-    .bp-comment-reply-form textarea {
+    .lp-comment-reply-form textarea {
         @apply w-full text-sm bg-surface-2 border border-line rounded-lg px-3 py-2 text-fg placeholder:text-fg-dim resize-none outline-hidden focus:border-accent focus:shadow-focus transition-colors;
         min-height: 3rem;
     }
-    .bp-comment-error {
+    .lp-comment-error {
         @apply text-xs text-danger;
     }
 
@@ -1166,388 +1166,388 @@
        chip, body, and a captured-context row (URL + selector). Off-scale sizes are
        plain CSS, matching the ribbon/review conventions. */
 
-    .bp-sr-page {
+    .lp-sr-page {
         @apply max-w-full flex flex-col;
         max-width: 820px;
         padding: 22px 32px 60px;
         gap: 0.875rem;
     }
-    .bp-sr-breadcrumb {
+    .lp-sr-breadcrumb {
         @apply flex items-center gap-1.5 font-mono text-fg-dim;
         font-size: 0.75rem;
     }
-    .bp-sr-breadcrumb a {
+    .lp-sr-breadcrumb a {
         @apply text-fg-dim no-underline transition-colors hover:text-fg;
     }
-    .bp-sr-breadcrumb__sep {
+    .lp-sr-breadcrumb__sep {
         @apply text-fg-faint;
     }
-    .bp-sr-breadcrumb__current {
+    .lp-sr-breadcrumb__current {
         @apply text-fg-mute;
     }
-    .bp-sr-header {
+    .lp-sr-header {
         @apply flex flex-col gap-1.5;
     }
-    .bp-sr-title {
+    .lp-sr-title {
         @apply font-semibold text-ink m-0;
         font-size: 22px;
     }
-    .bp-sr-meta-line {
+    .lp-sr-meta-line {
         @apply font-mono text-fg-dim m-0;
         font-size: 0.75rem;
     }
-    .bp-sr-desc {
+    .lp-sr-desc {
         @apply text-fg-mute m-0;
         font-size: 14px;
         line-height: 1.55;
     }
 
     /* Flush hairline divider list — top hairline, each item a bottom hairline. */
-    .bp-sr-list {
+    .lp-sr-list {
         @apply flex flex-col border-t border-line mt-1;
     }
-    .bp-sr-item {
+    .lp-sr-item {
         @apply flex gap-4 border-b border-line;
         padding: 20px 2px;
     }
     /* Status-colored mono index — the primary left differentiator. */
-    .bp-sr-index {
+    .lp-sr-index {
         @apply font-mono font-medium shrink-0 leading-none pt-0.5;
         font-size: 0.8125rem;
     }
-    .bp-sr-index--pending {
+    .lp-sr-index--pending {
         @apply text-status-pending-deep;
     }
-    .bp-sr-index--ok {
+    .lp-sr-index--ok {
         @apply text-status-ok-deep;
     }
-    .bp-sr-main {
+    .lp-sr-main {
         @apply min-w-0 flex-1 flex flex-col gap-2;
     }
-    .bp-sr-title-row {
+    .lp-sr-title-row {
         @apply flex items-start justify-between gap-3;
     }
-    .bp-sr-quote {
+    .lp-sr-quote {
         @apply font-semibold text-ink m-0;
         font-size: 15px;
         line-height: 1.4;
     }
-    .bp-sr-widget-meta {
+    .lp-sr-widget-meta {
         @apply font-mono text-fg-dim m-0;
         font-size: 0.6875rem;
         margin-top: -0.25rem;
     }
-    .bp-sr-body {
+    .lp-sr-body {
         @apply text-fg m-0;
         font-size: 14px;
         line-height: 1.55;
     }
     /* Captured context — one wrapping mono row: external-link + URL, code + selector. */
-    .bp-sr-context {
+    .lp-sr-context {
         @apply flex flex-wrap items-center font-mono;
         gap: 0.25rem 1rem;
         font-size: 0.71875rem;
     }
-    .bp-sr-context__url {
+    .lp-sr-context__url {
         @apply inline-flex items-center gap-1.5 min-w-0 max-w-full text-fg-mute no-underline break-all transition-colors hover:text-accent;
     }
-    .bp-sr-context__selector {
+    .lp-sr-context__selector {
         @apply inline-flex items-center gap-1.5 min-w-0 max-w-full text-fg-dim;
     }
-    .bp-sr-context__selector code {
+    .lp-sr-context__selector code {
         @apply break-all;
     }
-    .bp-sr-actions {
+    .lp-sr-actions {
         @apply flex items-center gap-2 mt-1;
     }
-    .bp-sr-empty {
+    .lp-sr-empty {
         @apply flex flex-col items-center text-center gap-3 border-t border-line text-fg-dim mt-1;
         padding: 3rem 0;
     }
     /* ── Verdict bar (pinned bottom of the comment margin) ──────────────── */
 
-    .bp-verdict-bar {
+    .lp-verdict-bar {
         @apply shrink-0 border-t border-line bg-surface-1;
         padding: 0.875rem 1.25rem;
     }
-    .bp-verdict-bar__actions {
+    .lp-verdict-bar__actions {
         @apply flex items-center gap-2;
     }
-    .bp-verdict-bar__actions .bp-btn {
+    .lp-verdict-bar__actions .lp-btn {
         @apply flex-1 justify-center;
     }
-    .bp-verdict-approved {
+    .lp-verdict-approved {
         @apply flex items-center gap-3;
     }
-    .bp-verdict-approved__icon {
+    .lp-verdict-approved__icon {
         @apply inline-flex items-center justify-center shrink-0 text-status-ok;
     }
-    .bp-verdict-approved__text {
+    .lp-verdict-approved__text {
         @apply flex flex-col;
     }
-    .bp-verdict-approved__title {
+    .lp-verdict-approved__title {
         @apply text-ink font-semibold;
         font-size: 0.8125rem;
     }
-    .bp-verdict-approved__detail {
+    .lp-verdict-approved__detail {
         @apply font-mono text-fg-dim;
         font-size: 0.6875rem;
     }
 
     /* ── App shell (sidebar + content) ──────────────────────────────── */
 
-    .bp-app {
+    .lp-app {
         @apply grid;
         grid-template-columns: 252px 1fr;
         /* Lock the shell to the viewport so the sidebar stays put and the main
-           column scrolls on its own (see .bp-main overflow-y-auto below). */
+           column scrolls on its own (see .lp-main overflow-y-auto below). */
         height: 100dvh;
     }
-    .bp-main {
+    .lp-main {
         @apply min-w-0 overflow-x-hidden overflow-y-auto;
     }
 
     /* Full-height sidebar pinned to the viewport (bg #fbfbfe, right hairline).
-       The account row is pushed to the bottom by .bp-sidebar__spacer (mt-auto). */
-    .bp-sidebar {
+       The account row is pushed to the bottom by .lp-sidebar__spacer (mt-auto). */
+    .lp-sidebar {
         @apply flex flex-col gap-1 bg-sidebar border-r border-line px-3 py-4;
     }
 
     /* Brand: 26px accent mark + name with a "LOOP" mono eyebrow. */
-    .bp-sidebar__brand {
+    .lp-sidebar__brand {
         @apply flex items-center gap-2.5 px-2 mb-3 text-fg no-underline;
     }
-    .bp-sidebar__brand-mark {
+    .lp-sidebar__brand-mark {
         @apply rounded-lg bg-accent shrink-0 inline-flex items-center justify-center text-white;
         width: 26px;
         height: 26px;
     }
-    .bp-sidebar__brand-mark svg {
+    .lp-sidebar__brand-mark svg {
         @apply w-4 h-4;
     }
-    .bp-sidebar__brand-text {
+    .lp-sidebar__brand-text {
         @apply flex flex-col leading-tight min-w-0;
     }
-    .bp-sidebar__brand-name {
+    .lp-sidebar__brand-name {
         @apply text-sm font-semibold tracking-tight whitespace-nowrap;
     }
-    .bp-sidebar__brand-eyebrow {
+    .lp-sidebar__brand-eyebrow {
         @apply font-mono uppercase text-fg-dim;
         font-size: 9.5px;
         letter-spacing: 0.14em;
     }
 
     /* Project switcher: bordered button linking to the projects index. */
-    .bp-sidebar__switcher {
+    .lp-sidebar__switcher {
         @apply flex items-center gap-2.5 w-full px-2.5 py-2 mb-1 border border-line-strong bg-surface-1 no-underline transition-colors;
         border-radius: 9px;
     }
-    .bp-sidebar__switcher:hover {
+    .lp-sidebar__switcher:hover {
         @apply bg-accent-faint-2;
         border-color: var(--switcher-hover-border);
     }
-    .bp-sidebar__switcher-avatar {
+    .lp-sidebar__switcher-avatar {
         @apply w-6 h-6 bg-ink shrink-0 inline-flex items-center justify-center text-white text-xs font-semibold;
         border-radius: 5px;
     }
-    .bp-sidebar__switcher-text {
+    .lp-sidebar__switcher-text {
         @apply flex flex-col leading-tight min-w-0 mr-auto;
     }
-    .bp-sidebar__switcher-name {
+    .lp-sidebar__switcher-name {
         @apply font-semibold text-fg truncate;
         font-size: 13px;
     }
-    .bp-sidebar__switcher-domain {
+    .lp-sidebar__switcher-domain {
         @apply font-mono text-fg-dim truncate;
         font-size: 10.5px;
     }
-    .bp-sidebar__switcher-chevron {
+    .lp-sidebar__switcher-chevron {
         @apply w-4 h-4 shrink-0 text-fg-dim;
     }
 
-    .bp-sidebar__nav {
+    .lp-sidebar__nav {
         @apply flex flex-col gap-0.5;
     }
-    .bp-sidebar__link {
+    .lp-sidebar__link {
         @apply flex items-center gap-2.5 px-2.5 py-2 rounded-lg font-medium text-fg-mute no-underline transition-colors;
         font-size: 13px;
     }
-    .bp-sidebar__link:hover {
+    .lp-sidebar__link:hover {
         @apply bg-accent-faint text-fg;
     }
-    .bp-sidebar__link--active {
+    .lp-sidebar__link--active {
         @apply bg-accent-soft text-accent-hover font-semibold;
     }
-    .bp-sidebar__link svg {
+    .lp-sidebar__link svg {
         @apply w-4 h-4 shrink-0;
     }
-    .bp-sidebar__link-label {
+    .lp-sidebar__link-label {
         @apply truncate;
     }
 
     /* Site-review open-count pill: neutral by default, amber when open > 0. */
-    .bp-sidebar__pill {
+    .lp-sidebar__pill {
         @apply ml-auto inline-flex items-center justify-center min-w-5 px-1.5 py-0.5 rounded-full font-mono leading-none;
         font-size: 10.5px;
         background: #f0f4f0;
         color: var(--text-dim);
     }
-    .bp-sidebar__pill--amber {
+    .lp-sidebar__pill--amber {
         @apply bg-status-pending-bg;
         color: var(--status-pending-deep);
     }
 
-    .bp-sidebar__spacer {
+    .lp-sidebar__spacer {
         @apply mt-auto;
     }
-    .bp-sidebar__account {
+    .lp-sidebar__account {
         @apply flex items-center gap-2.5 px-2 py-2 border-t border-line;
     }
-    .bp-sidebar__account-avatar {
+    .lp-sidebar__account-avatar {
         @apply rounded-full bg-accent-soft shrink-0 inline-flex items-center justify-center text-accent-hover text-xs font-semibold;
         width: 26px;
         height: 26px;
     }
-    .bp-sidebar__account-text {
+    .lp-sidebar__account-text {
         @apply flex flex-col leading-tight min-w-0 mr-auto;
     }
-    .bp-sidebar__account-name {
+    .lp-sidebar__account-name {
         @apply font-medium text-fg truncate;
         font-size: 12.5px;
     }
-    .bp-sidebar__account-role {
+    .lp-sidebar__account-role {
         @apply text-fg-dim;
         font-size: 11px;
     }
-    /* Keeps the button as the flex child of .bp-sidebar__account. */
-    .bp-sidebar__account-logout-form {
+    /* Keeps the button as the flex child of .lp-sidebar__account. */
+    .lp-sidebar__account-logout-form {
         display: contents;
     }
-    .bp-sidebar__account-logout {
+    .lp-sidebar__account-logout {
         @apply inline-flex items-center justify-center w-7 h-7 rounded-md text-fg-dim no-underline transition-colors cursor-pointer;
     }
-    .bp-sidebar__account-logout:hover {
+    .lp-sidebar__account-logout:hover {
         @apply bg-tint text-fg;
     }
-    .bp-sidebar__account-logout svg {
+    .lp-sidebar__account-logout svg {
         @apply w-4 h-4 shrink-0;
     }
 
     /* ── Code / pre blocks ──────────────────────────────────────────────── */
 
-    .bp-code {
+    .lp-code {
         @apply font-mono text-sm bg-sunken rounded px-1.5 py-0.5 text-fg;
     }
-    .bp-pre {
+    .lp-pre {
         @apply font-mono text-sm bg-sunken rounded-lg p-4 overflow-x-auto text-fg leading-relaxed;
         white-space: pre;
     }
 
     /* ── MCP connection card ─────────────────────────────────────────── */
 
-    .bp-section-title {
+    .lp-section-title {
         @apply text-base font-semibold tracking-tight text-fg m-0 mb-4;
     }
-    .bp-key-values {
+    .lp-key-values {
         @apply flex flex-col gap-3 m-0 mb-5;
     }
-    .bp-key-values__row {
+    .lp-key-values__row {
         @apply flex flex-col gap-1;
     }
-    .bp-key-values dt {
+    .lp-key-values dt {
         @apply text-xs font-medium text-fg-mute;
     }
-    .bp-key-values dd {
+    .lp-key-values dd {
         @apply m-0;
     }
-    .bp-copy-row {
+    .lp-copy-row {
         @apply flex items-center gap-2;
     }
-    .bp-copy-row .bp-code {
+    .lp-copy-row .lp-code {
         @apply min-w-0 truncate;
     }
-    .bp-copy-row .bp-btn {
+    .lp-copy-row .lp-btn {
         @apply shrink-0;
     }
-    .bp-code-block {
+    .lp-code-block {
         @apply mb-4;
     }
-    .bp-code-block__header {
+    .lp-code-block__header {
         @apply flex items-center justify-between gap-2 mb-1.5;
     }
-    .bp-code-block__label {
+    .lp-code-block__label {
         @apply text-xs font-medium text-fg-mute;
     }
 
     /* ── Connect agent (handoff §5) ─────────────────────────────────────
        Left-aligned single column (max 760px). Each labeled block is a mono
-       uppercase eyebrow (.bp-eyebrow) over a bordered field / code block. */
+       uppercase eyebrow (.lp-eyebrow) over a bordered field / code block. */
 
-    .bp-connect {
+    .lp-connect {
         @apply max-w-full flex flex-col;
         max-width: 760px;
         padding: 40px 44px 60px;
         gap: 1.5rem;
     }
-    .bp-connect-block {
+    .lp-connect-block {
         @apply flex flex-col gap-2.5;
     }
-    .bp-connect-hint {
+    .lp-connect-hint {
         @apply text-fg-mute m-0;
         font-size: 13px;
         line-height: 1.5;
     }
     /* Bordered field row: subtle fill, glyph + value + trailing control. */
-    .bp-connect-field {
+    .lp-connect-field {
         @apply flex items-center gap-2.5 bg-sidebar border border-line-strong rounded-lg;
         padding: 10px 12px;
     }
-    .bp-connect-field__glyph {
+    .lp-connect-field__glyph {
         @apply text-fg-dim shrink-0;
     }
-    .bp-connect-field__value {
+    .lp-connect-field__value {
         @apply font-mono text-fg min-w-0 truncate flex-1 m-0 flex items-baseline gap-2;
         font-size: 13px;
     }
-    .bp-connect-field__meta {
+    .lp-connect-field__meta {
         @apply font-mono text-fg-dim shrink-0;
         font-size: 11px;
     }
     /* Green "project-scoped" tag on the access-token field. */
-    .bp-connect-tag {
+    .lp-connect-tag {
         @apply inline-flex items-center rounded-full font-medium bg-status-ok-bg text-status-ok-deep shrink-0;
         font-size: 11px;
         padding: 2px 8px;
     }
 
     /* One-time raw-secret reveal shown once after minting: warning + copyable field. */
-    .bp-connect-secret {
+    .lp-connect-secret {
         @apply flex flex-col gap-2;
     }
-    .bp-connect-secret__warn {
+    .lp-connect-secret__warn {
         @apply text-status-pending-deep font-medium m-0;
         font-size: 13px;
         line-height: 1.5;
     }
 
     /* Dark .mcp.json block — header bar + syntax-neutral body. */
-    .bp-code-dark {
+    .lp-code-dark {
         @apply rounded-lg overflow-hidden border border-line-strong;
     }
-    .bp-code-dark__header {
+    .lp-code-dark__header {
         @apply flex items-center justify-between gap-2 bg-code-dark-header;
         padding: 8px 12px;
     }
-    .bp-code-dark__label {
+    .lp-code-dark__label {
         @apply font-mono uppercase text-fg-faint m-0;
         font-size: 10.5px;
         letter-spacing: 0.08em;
     }
-    .bp-code-dark__copy {
+    .lp-code-dark__copy {
         @apply font-mono text-fg-faint bg-transparent border-none cursor-pointer transition-colors hover:text-white;
         font-size: 12px;
     }
-    .bp-code-dark__body {
+    .lp-code-dark__body {
         @apply bg-code-dark-bg text-code-dark-text font-mono overflow-x-auto m-0;
         padding: 16px;
         font-size: 13px;
@@ -1556,19 +1556,19 @@
     }
 
     /* Agent tools — hairline divider list: mono accent-soft pill + description. */
-    .bp-tools {
+    .lp-tools {
         @apply flex flex-col border-t border-line;
     }
-    .bp-tools__row {
+    .lp-tools__row {
         @apply flex items-start gap-3 border-b border-line;
         padding: 14px 2px;
     }
-    .bp-tools__name {
+    .lp-tools__name {
         @apply inline-flex items-center rounded-md font-mono bg-accent-soft text-accent shrink-0;
         font-size: 12px;
         padding: 3px 8px;
     }
-    .bp-tools__desc {
+    .lp-tools__desc {
         @apply text-fg-mute m-0;
         font-size: 13.5px;
         line-height: 1.5;
@@ -1576,41 +1576,41 @@
 
     /* ── Orphan banner ──────────────────────────────────────────────── */
 
-    .bp-orphan-banner {
+    .lp-orphan-banner {
         @apply flex items-center gap-2.5 px-4 py-3 mb-4 rounded-lg border text-sm bg-status-pending-bg border-status-pending-border text-status-pending-deep;
     }
 }
 
 /* ── In-document anchor highlights (CSS Custom Highlight API) ─────────────
    Unlayered so they reliably paint over the rendered prose. The controller
-   registers `bp-anchor`/`bp-anchor-active` (never renamed) plus per-status
-   highlights (`bp-anchor-pending|addressed|resolved`) and routes each thread's
+   registers `lp-anchor`/`lp-anchor-active` (never renamed) plus per-status
+   highlights (`lp-anchor-pending|addressed|resolved`) and routes each thread's
    range to the one matching its data-anchor-status. ::highlight() only honours
    a small set of properties (color, background-color, text-decoration) — the
    handoff's "2px underline" is expressed with text-decoration, not box-shadow. */
 
-::highlight(bp-anchor) {
+::highlight(lp-anchor) {
     background-color: var(--status-pending-bg);
 }
-::highlight(bp-anchor-active) {
+::highlight(lp-anchor-active) {
     background-color: var(--accent-soft);
     text-decoration-line: underline;
     text-decoration-color: var(--accent);
     text-decoration-thickness: 2px;
 }
-::highlight(bp-anchor-pending) {
+::highlight(lp-anchor-pending) {
     background-color: var(--status-pending-bg);
     text-decoration-line: underline;
     text-decoration-color: var(--status-pending);
     text-decoration-thickness: 2px;
 }
-::highlight(bp-anchor-addressed) {
+::highlight(lp-anchor-addressed) {
     background-color: var(--status-ok-bg);
     text-decoration-line: underline;
     text-decoration-color: var(--status-ok);
     text-decoration-thickness: 2px;
 }
-::highlight(bp-anchor-resolved) {
+::highlight(lp-anchor-resolved) {
     color: var(--text-dim);
     text-decoration-line: underline;
     text-decoration-color: var(--border-strong);

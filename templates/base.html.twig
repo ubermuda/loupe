@@ -19,65 +19,65 @@
         {% if app.user %}
         {% set project = current_project() %}
         {% set route = app.request.attributes.get('_route') %}
-        <div class="bp-app">
-            <aside class="bp-sidebar">
-                <a href="{{ path('app_projects') }}" class="bp-sidebar__brand">
-                    <span class="bp-sidebar__brand-mark"><twig:ux:icon name="lucide:clipboard-check" /></span>
-                    <span class="bp-sidebar__brand-text">
-                        <span class="bp-sidebar__brand-name">{{ 'nav.brand'|trans }}</span>
-                        <span class="bp-sidebar__brand-eyebrow">{{ 'nav.eyebrow'|trans }}</span>
+        <div class="lp-app">
+            <aside class="lp-sidebar">
+                <a href="{{ path('app_projects') }}" class="lp-sidebar__brand">
+                    <span class="lp-sidebar__brand-mark"><twig:ux:icon name="lucide:clipboard-check" /></span>
+                    <span class="lp-sidebar__brand-text">
+                        <span class="lp-sidebar__brand-name">{{ 'nav.brand'|trans }}</span>
+                        <span class="lp-sidebar__brand-eyebrow">{{ 'nav.eyebrow'|trans }}</span>
                     </span>
                 </a>
                 {% if project %}
-                <a href="{{ path('app_projects') }}" class="bp-sidebar__switcher">
-                    <span class="bp-sidebar__switcher-avatar">{{ project.name|slice(0, 1)|upper }}</span>
-                    <span class="bp-sidebar__switcher-text">
-                        <span class="bp-sidebar__switcher-name">{{ project.name }}</span>
-                        {% if project.domain %}<span class="bp-sidebar__switcher-domain">{{ project.domain }}</span>{% endif %}
+                <a href="{{ path('app_projects') }}" class="lp-sidebar__switcher">
+                    <span class="lp-sidebar__switcher-avatar">{{ project.name|slice(0, 1)|upper }}</span>
+                    <span class="lp-sidebar__switcher-text">
+                        <span class="lp-sidebar__switcher-name">{{ project.name }}</span>
+                        {% if project.domain %}<span class="lp-sidebar__switcher-domain">{{ project.domain }}</span>{% endif %}
                     </span>
-                    <twig:ux:icon name="lucide:chevrons-up-down" class="bp-sidebar__switcher-chevron" />
+                    <twig:ux:icon name="lucide:chevrons-up-down" class="lp-sidebar__switcher-chevron" />
                 </a>
-                <nav class="bp-sidebar__nav">
+                <nav class="lp-sidebar__nav">
                     {% set documentsActive = route == 'app_project_documents' or route starts with 'app_document' %}
                     <a href="{{ path('app_project_documents', {id: project.id}) }}"
-                       class="bp-sidebar__link{% if documentsActive %} bp-sidebar__link--active{% endif %}"
+                       class="lp-sidebar__link{% if documentsActive %} lp-sidebar__link--active{% endif %}"
                        {% if documentsActive %}aria-current="page"{% endif %}>
                         <twig:ux:icon name="lucide:file-text" />
-                        <span class="bp-sidebar__link-label">{{ 'nav.link.documents'|trans }}</span>
+                        <span class="lp-sidebar__link-label">{{ 'nav.link.documents'|trans }}</span>
                     </a>
                     <a href="{{ path('app_project_site_review', {id: project.id}) }}"
-                       class="bp-sidebar__link{% if route == 'app_project_site_review' %} bp-sidebar__link--active{% endif %}"
+                       class="lp-sidebar__link{% if route == 'app_project_site_review' %} lp-sidebar__link--active{% endif %}"
                        {% if route == 'app_project_site_review' %}aria-current="page"{% endif %}>
                         <twig:ux:icon name="lucide:globe" />
-                        <span class="bp-sidebar__link-label">{{ 'nav.link.site_review'|trans }}</span>
+                        <span class="lp-sidebar__link-label">{{ 'nav.link.site_review'|trans }}</span>
                         {% set openCount = project_open_review_count(project) %}
-                        <span class="bp-sidebar__pill{% if openCount > 0 %} bp-sidebar__pill--amber{% endif %}">{{ openCount }}</span>
+                        <span class="lp-sidebar__pill{% if openCount > 0 %} lp-sidebar__pill--amber{% endif %}">{{ openCount }}</span>
                     </a>
                     <a href="{{ path('app_project_connect', {id: project.id}) }}"
-                       class="bp-sidebar__link{% if route == 'app_project_connect' %} bp-sidebar__link--active{% endif %}"
+                       class="lp-sidebar__link{% if route == 'app_project_connect' %} lp-sidebar__link--active{% endif %}"
                        {% if route == 'app_project_connect' %}aria-current="page"{% endif %}>
                         <twig:ux:icon name="lucide:code" />
-                        <span class="bp-sidebar__link-label">{{ 'nav.link.connect'|trans }}</span>
+                        <span class="lp-sidebar__link-label">{{ 'nav.link.connect'|trans }}</span>
                     </a>
                 </nav>
                 {% endif %}
-                <div class="bp-sidebar__spacer"></div>
-                <div class="bp-sidebar__account">
-                    <span class="bp-sidebar__account-avatar">{{ app.user.userIdentifier|slice(0, 1)|upper }}</span>
-                    <span class="bp-sidebar__account-text">
-                        <span class="bp-sidebar__account-name">{{ app.user.userIdentifier }}</span>
-                        <span class="bp-sidebar__account-role">{{ 'nav.account.role'|trans }}</span>
+                <div class="lp-sidebar__spacer"></div>
+                <div class="lp-sidebar__account">
+                    <span class="lp-sidebar__account-avatar">{{ app.user.userIdentifier|slice(0, 1)|upper }}</span>
+                    <span class="lp-sidebar__account-text">
+                        <span class="lp-sidebar__account-name">{{ app.user.userIdentifier }}</span>
+                        <span class="lp-sidebar__account-role">{{ 'nav.account.role'|trans }}</span>
                     </span>
-                    <form method="post" action="{{ path('app_logout') }}" class="bp-sidebar__account-logout-form">
+                    <form method="post" action="{{ path('app_logout') }}" class="lp-sidebar__account-logout-form">
                         <input type="hidden" name="_csrf_token" value="{{ csrf_token('logout') }}">
-                        <button type="submit" class="bp-sidebar__account-logout"
+                        <button type="submit" class="lp-sidebar__account-logout"
                                 aria-label="{{ 'nav.link.logout'|trans }}">
                             <twig:ux:icon name="lucide:log-out" />
                         </button>
                     </form>
                 </div>
             </aside>
-            <main class="bp-main">
+            <main class="lp-main">
                 {% block body %}{% endblock %}
             </main>
         </div>

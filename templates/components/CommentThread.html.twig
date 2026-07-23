@@ -15,37 +15,37 @@
 {% set status = comment.resolved ? 'resolved' : 'pending' %}
 <div
     id="comment-thread-{{ comment.id }}"
-    class="bp-comment-thread{% if comment.resolved %} bp-comment-thread--resolved{% endif %}{% if comment.orphaned %} bp-comment-thread--orphaned{% endif %}"
+    class="lp-comment-thread{% if comment.resolved %} lp-comment-thread--resolved{% endif %}{% if comment.orphaned %} lp-comment-thread--orphaned{% endif %}"
     data-comment-anchor-target="thread"
     data-anchor-quote="{{ comment.anchor.quote }}"
     data-anchor-prefix="{{ comment.anchor.prefix }}"
     data-anchor-suffix="{{ comment.anchor.suffix }}"
     data-anchor-status="{{ status }}"
 >
-    <div class="bp-comment-thread__header">
+    <div class="lp-comment-thread__header">
         <span class="avatar">{{ comment.author.fullName|slice(0, 1)|upper }}</span>
-        <span class="bp-comment-author bp-comment-thread__author">{{ comment.author.fullName }}</span>
-        <span class="bp-status-chip bp-status-chip--{{ status }}">
-            <span class="bp-status-chip__dot"></span>
+        <span class="lp-comment-author lp-comment-thread__author">{{ comment.author.fullName }}</span>
+        <span class="lp-status-chip lp-status-chip--{{ status }}">
+            <span class="lp-status-chip__dot"></span>
             {{ ('review.document.group.' ~ status)|trans }}
         </span>
     </div>
 
     {% if comment.anchor.quote %}
-    <blockquote class="bp-comment-quote">{{ comment.anchor.quote }}</blockquote>
+    <blockquote class="lp-comment-quote">{{ comment.anchor.quote }}</blockquote>
     {% endif %}
 
-    <div class="bp-comment-body">{{ comment.body }}</div>
+    <div class="lp-comment-body">{{ comment.body }}</div>
 
     {% if replies|length > 0 %}
-    <div class="bp-comment-replies">
+    <div class="lp-comment-replies">
         {% for reply in replies %}
-        <div class="bp-comment--reply">
-            <div class="bp-comment-reply__head">
+        <div class="lp-comment--reply">
+            <div class="lp-comment-reply__head">
                 <span class="avatar ok">{{ reply.author.fullName|slice(0, 1)|upper }}</span>
-                <span class="bp-comment-author">{{ reply.author.fullName }}</span>
+                <span class="lp-comment-author">{{ reply.author.fullName }}</span>
             </div>
-            <div class="bp-comment-body">{{ reply.body }}</div>
+            <div class="lp-comment-body">{{ reply.body }}</div>
         </div>
         {% endfor %}
     </div>
@@ -59,7 +59,7 @@
     </form>
 
     {% if not comment.resolved %}
-    <div class="bp-comment-reply-form">
+    <div class="lp-comment-reply-form">
         {% set replyForm = replyForm ?? comment_reply_form(comment) %}
 
         {# Fieldless resolve form — submitted by the Resolve button below via form=. #}
@@ -69,17 +69,17 @@
 
         {{ form_start(replyForm, {attr: {class: 'contents'}}) }}
             {{ form_widget(replyForm.body) }}
-            <div class="bp-comment-error">{{ form_errors(replyForm.body) }}</div>
-            <div class="bp-comment-actions">
-                <button type="submit" class="bp-btn bp-btn--ghost bp-btn--sm">{{ 'review.document.comment.reply'|trans }}</button>
-                <button type="submit" form="resolve-form-{{ comment.id }}" class="bp-btn bp-btn--success bp-btn--sm">{{ 'review.document.comment.resolve'|trans }}</button>
-                <button type="submit" form="delete-form-{{ comment.id }}" class="bp-btn bp-btn--danger-ghost bp-btn--sm">{{ 'review.document.comment.delete'|trans }}</button>
+            <div class="lp-comment-error">{{ form_errors(replyForm.body) }}</div>
+            <div class="lp-comment-actions">
+                <button type="submit" class="lp-btn lp-btn--ghost lp-btn--sm">{{ 'review.document.comment.reply'|trans }}</button>
+                <button type="submit" form="resolve-form-{{ comment.id }}" class="lp-btn lp-btn--success lp-btn--sm">{{ 'review.document.comment.resolve'|trans }}</button>
+                <button type="submit" form="delete-form-{{ comment.id }}" class="lp-btn lp-btn--danger-ghost lp-btn--sm">{{ 'review.document.comment.delete'|trans }}</button>
             </div>
         {{ form_end(replyForm) }}
     </div>
     {% else %}
-    <div class="bp-comment-actions">
-        <button type="submit" form="delete-form-{{ comment.id }}" class="bp-btn bp-btn--danger-ghost bp-btn--sm">{{ 'review.document.comment.delete'|trans }}</button>
+    <div class="lp-comment-actions">
+        <button type="submit" form="delete-form-{{ comment.id }}" class="lp-btn lp-btn--danger-ghost lp-btn--sm">{{ 'review.document.comment.delete'|trans }}</button>
     </div>
     {% endif %}
 </div>

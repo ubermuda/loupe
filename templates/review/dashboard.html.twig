@@ -3,53 +3,53 @@
 {% block title %}{{ 'review.dashboard.page.title'|trans }} — {{ 'app.name'|trans }}{% endblock %}
 
 {% block body %}
-<div class="bp-workspace">
-    <nav class="bp-crumbs">
-        <a href="{{ path('app_project_documents', {id: project.id}) }}" class="bp-crumbs__link">{{ project.name }}</a>
-        <span class="bp-crumbs__sep">/</span>
-        <span class="bp-crumbs__here">{{ 'nav.link.documents'|trans }}</span>
+<div class="lp-workspace">
+    <nav class="lp-crumbs">
+        <a href="{{ path('app_project_documents', {id: project.id}) }}" class="lp-crumbs__link">{{ project.name }}</a>
+        <span class="lp-crumbs__sep">/</span>
+        <span class="lp-crumbs__here">{{ 'nav.link.documents'|trans }}</span>
     </nav>
 
-    <h1 class="bp-workspace-title bp-workspace-title--doc">{{ 'review.dashboard.page.title'|trans }}</h1>
-    <p class="bp-workspace-desc">{{ 'review.dashboard.description'|trans }}</p>
+    <h1 class="lp-workspace-title lp-workspace-title--doc">{{ 'review.dashboard.page.title'|trans }}</h1>
+    <p class="lp-workspace-desc">{{ 'review.dashboard.description'|trans }}</p>
 
     {% for label, messages in app.flashes %}
         {% for message in messages %}
-            <div class="bp-flash bp-flash--{{ label }}">{{ message }}</div>
+            <div class="lp-flash lp-flash--{{ label }}">{{ message }}</div>
         {% endfor %}
     {% endfor %}
 
     {% if items|length > 0 %}
-    <div class="bp-document-list">
+    <div class="lp-document-list">
         {% for item in items %}
         {% set document = item.document %}
-        <div class="bp-document-row" data-document-id="{{ document.id }}">
+        <div class="lp-document-row" data-document-id="{{ document.id }}">
             <a href="{{ path('app_document_review', {projectId: project.id, documentId: document.id}) }}"
-               class="bp-document-row__link" aria-label="{{ document.title }}"></a>
-            <div class="bp-document-row__main">
-                <div class="bp-document-row__head">
-                    <span class="bp-document-row__title">{{ document.title }}</span>
-                    <span class="bp-document-row__version">{{ 'v' ~ item.versionNumber }}</span>
+               class="lp-document-row__link" aria-label="{{ document.title }}"></a>
+            <div class="lp-document-row__main">
+                <div class="lp-document-row__head">
+                    <span class="lp-document-row__title">{{ document.title }}</span>
+                    <span class="lp-document-row__version">{{ 'v' ~ item.versionNumber }}</span>
                 </div>
-                <div class="bp-document-row__meta">
+                <div class="lp-document-row__meta">
                     <span>{{ 'review.dashboard.meta.updated'|trans({'%time%': item.updatedAt|relative_time}) }}</span>
                     {% if item.openThreadCount > 0 %}
-                    <span class="bp-document-row__sep">·</span>
-                    <span class="bp-document-row__open">{{ 'review.dashboard.meta.open_threads'|trans({'%count%': item.openThreadCount}) }}</span>
+                    <span class="lp-document-row__sep">·</span>
+                    <span class="lp-document-row__open">{{ 'review.dashboard.meta.open_threads'|trans({'%count%': item.openThreadCount}) }}</span>
                     {% endif %}
                 </div>
             </div>
-            <span class="bp-badge bp-badge--{{ document.status.value }}">
+            <span class="lp-badge lp-badge--{{ document.status.value }}">
                 {{ document.status.translationKey()|trans }}
             </span>
-            <twig:ux:icon name="lucide:chevron-right" class="bp-document-row__chevron" />
+            <twig:ux:icon name="lucide:chevron-right" class="lp-document-row__chevron" />
         </div>
         {% endfor %}
     </div>
     {% else %}
-    <div class="bp-card flex flex-col items-center text-center gap-3 py-12">
+    <div class="lp-card flex flex-col items-center text-center gap-3 py-12">
         <twig:ux:icon name="lucide:file-text" class="w-8 h-8 text-fg-dim" />
-        <p class="bp-empty not-italic">{{ 'review.dashboard.empty'|trans }}</p>
+        <p class="lp-empty not-italic">{{ 'review.dashboard.empty'|trans }}</p>
     </div>
     {% endif %}
 </div>

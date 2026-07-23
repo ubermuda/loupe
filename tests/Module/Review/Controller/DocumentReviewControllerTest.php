@@ -62,7 +62,7 @@ final class DocumentReviewControllerTest extends WebTestCase
 
         self::assertResponseIsSuccessful();
         self::assertSelectorTextContains('body', 'My Review Doc');
-        self::assertSelectorExists('.bp-review-sidebar');
+        self::assertSelectorExists('.lp-review-sidebar');
     }
 
     public function test_review_page_renders_ribbon_byline_and_verdict_bar(): void
@@ -87,13 +87,13 @@ final class DocumentReviewControllerTest extends WebTestCase
 
         self::assertResponseIsSuccessful();
         // Loop ribbon renders with the current step highlighted (In review).
-        self::assertSelectorExists('.bp-ribbon .bp-ribbon__circle--current');
+        self::assertSelectorExists('.lp-ribbon .lp-ribbon__circle--current');
         // Byline names the reviewer (the author side is the literal "Claude").
-        self::assertSelectorTextContains('.bp-review-doc__byline', 'reviewed by');
+        self::assertSelectorTextContains('.lp-review-doc__byline', 'reviewed by');
         // Verdict bar shows both verdict buttons and NOT the approved confirmation.
         self::assertSelectorExists('button[name="verdict"][value="approved"]');
         self::assertSelectorExists('button[name="verdict"][value="changes-requested"]');
-        self::assertSelectorNotExists('.bp-verdict-approved');
+        self::assertSelectorNotExists('.lp-verdict-approved');
     }
 
     public function test_review_page_groups_threads_into_status_ladder(): void
@@ -124,12 +124,12 @@ final class DocumentReviewControllerTest extends WebTestCase
 
         self::assertResponseIsSuccessful();
         // Both ladder eyebrows render (grouping done in Twig).
-        self::assertSelectorTextContains('.bp-ladder-group__eyebrow--pending', 'Pending');
-        self::assertSelectorTextContains('.bp-ladder-group__eyebrow--resolved', 'Resolved');
+        self::assertSelectorTextContains('.lp-ladder-group__eyebrow--pending', 'Pending');
+        self::assertSelectorTextContains('.lp-ladder-group__eyebrow--resolved', 'Resolved');
         // Each thread carries its derived anchor status + a status chip.
         self::assertSelectorExists('[data-anchor-status="pending"]');
         self::assertSelectorExists('[data-anchor-status="resolved"]');
-        self::assertSelectorExists('.bp-comment-thread--resolved');
+        self::assertSelectorExists('.lp-comment-thread--resolved');
     }
 
     public function test_resolving_a_comment_returns_the_whole_list_stream_regrouped(): void
@@ -174,8 +174,8 @@ final class DocumentReviewControllerTest extends WebTestCase
 
         // The re-rendered list places the card under RESOLVED with a refreshed
         // count (1/1) and a full progress bar.
-        self::assertStringContainsString('bp-ladder-group__eyebrow--resolved', $content);
-        self::assertStringContainsString('bp-comment-thread--resolved', $content);
+        self::assertStringContainsString('lp-ladder-group__eyebrow--resolved', $content);
+        self::assertStringContainsString('lp-comment-thread--resolved', $content);
         self::assertStringContainsString('1/1 resolved', $content);
         self::assertStringContainsString('width: 100%', $content);
 
@@ -208,10 +208,10 @@ final class DocumentReviewControllerTest extends WebTestCase
 
         self::assertResponseIsSuccessful();
         // Approved state replaces the verdict buttons with a locked confirmation.
-        self::assertSelectorExists('.bp-verdict-approved');
+        self::assertSelectorExists('.lp-verdict-approved');
         self::assertSelectorNotExists('button[name="verdict"]');
         // Ribbon shows Approved as the current step (last step).
-        self::assertSelectorExists('.bp-ribbon__circle--current');
+        self::assertSelectorExists('.lp-ribbon__circle--current');
     }
 
     public function test_non_owner_gets_403(): void

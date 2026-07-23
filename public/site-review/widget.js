@@ -250,271 +250,271 @@
     <style>
       *{box-sizing:border-box}
       :host{all:initial}
-      @keyframes bp-spin{to{transform:rotate(360deg)}}
-      @keyframes bp-pop{from{transform:translateY(8px) scale(.985)}to{transform:none}}
-      @keyframes bp-slide-left{from{transform:translateX(-100%)}to{transform:translateX(0)}}
-      @keyframes bp-slide-left-out{from{transform:translateX(0)}to{transform:translateX(-100%)}}
-      .bp-scroll::-webkit-scrollbar{width:10px;height:10px}
-      .bp-scroll::-webkit-scrollbar-thumb{background:var(--faint);border-radius:9px;border:3px solid transparent;background-clip:content-box}
-      .bp-scroll::-webkit-scrollbar-track{background:transparent}
+      @keyframes lp-spin{to{transform:rotate(360deg)}}
+      @keyframes lp-pop{from{transform:translateY(8px) scale(.985)}to{transform:none}}
+      @keyframes lp-slide-left{from{transform:translateX(-100%)}to{transform:translateX(0)}}
+      @keyframes lp-slide-left-out{from{transform:translateX(0)}to{transform:translateX(-100%)}}
+      .lp-scroll::-webkit-scrollbar{width:10px;height:10px}
+      .lp-scroll::-webkit-scrollbar-thumb{background:var(--faint);border-radius:9px;border:3px solid transparent;background-clip:content-box}
+      .lp-scroll::-webkit-scrollbar-track{background:transparent}
 
-      .bp-launcher{position:fixed;right:20px;bottom:20px;height:46px;padding:0 7px;display:flex;align-items:center;gap:0;background:var(--panel-bg);border:1px solid var(--panel-border);border-radius:23px;box-shadow:var(--launch-shadow);font-family:'Geist',system-ui,-apple-system,sans-serif;pointer-events:auto;transition:box-shadow .14s ease,background .25s ease}
+      .lp-launcher{position:fixed;right:20px;bottom:20px;height:46px;padding:0 7px;display:flex;align-items:center;gap:0;background:var(--panel-bg);border:1px solid var(--panel-border);border-radius:23px;box-shadow:var(--launch-shadow);font-family:'Geist',system-ui,-apple-system,sans-serif;pointer-events:auto;transition:box-shadow .14s ease,background .25s ease}
       /* The quick actions collapse as one unit when the panel opens. max-width + opacity
          animate the slide-away; visibility flips to hidden only after the collapse (the
          .24s delay) so the buttons are genuinely non-interactive once gone, and back
          immediately on expand. */
-      .bp-launch-quick{display:flex;align-items:center;gap:3px;overflow:hidden;max-width:120px;opacity:1;visibility:visible;transition:max-width .24s cubic-bezier(.4,0,.2,1),opacity .18s ease,visibility 0s 0s}
-      .bp-launcher.open .bp-launch-quick{max-width:0;opacity:0;visibility:hidden;transition:max-width .24s cubic-bezier(.4,0,.2,1),opacity .18s ease,visibility 0s .24s}
-      .bp-launch-action{flex:0 0 auto;width:34px;height:34px;border:0;background:transparent;color:var(--muted);border-radius:50%;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:background .14s ease,color .14s ease}
-      .bp-launch-action:hover{background:var(--panel-elev);color:var(--accent)}
-      .bp-launch-div{flex:0 0 auto;width:1px;height:22px;background:var(--panel-border);margin:0 3px}
-      .bp-launch-main{display:flex;align-items:center;gap:9px;height:38px;padding:0 10px 0 9px;background:transparent;border:0;color:var(--text);font-family:inherit;font-size:13.5px;font-weight:550;cursor:pointer;border-radius:19px;transition:background .14s ease}
-      .bp-launch-main:hover{background:var(--panel-elev)}
+      .lp-launch-quick{display:flex;align-items:center;gap:3px;overflow:hidden;max-width:120px;opacity:1;visibility:visible;transition:max-width .24s cubic-bezier(.4,0,.2,1),opacity .18s ease,visibility 0s 0s}
+      .lp-launcher.open .lp-launch-quick{max-width:0;opacity:0;visibility:hidden;transition:max-width .24s cubic-bezier(.4,0,.2,1),opacity .18s ease,visibility 0s .24s}
+      .lp-launch-action{flex:0 0 auto;width:34px;height:34px;border:0;background:transparent;color:var(--muted);border-radius:50%;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:background .14s ease,color .14s ease}
+      .lp-launch-action:hover{background:var(--panel-elev);color:var(--accent)}
+      .lp-launch-div{flex:0 0 auto;width:1px;height:22px;background:var(--panel-border);margin:0 3px}
+      .lp-launch-main{display:flex;align-items:center;gap:9px;height:38px;padding:0 10px 0 9px;background:transparent;border:0;color:var(--text);font-family:inherit;font-size:13.5px;font-weight:550;cursor:pointer;border-radius:19px;transition:background .14s ease}
+      .lp-launch-main:hover{background:var(--panel-elev)}
       /* Styled tooltips for the launcher buttons, above each on hover. */
       [data-tip]{position:relative}
       [data-tip]::after{content:attr(data-tip);position:absolute;bottom:calc(100% + 8px);left:50%;transform:translateX(-50%) translateY(3px);padding:5px 8px;background:var(--tooltip-bg);color:var(--tooltip-text);font-size:11.5px;font-weight:500;line-height:1;white-space:nowrap;border-radius:6px;box-shadow:0 6px 18px rgba(0,0,0,.28);opacity:0;pointer-events:none;transition:opacity .12s ease,transform .12s ease}
       [data-tip]:hover::after{opacity:1;transform:translateX(-50%) translateY(0)}
-      .bp-count{display:inline-flex;align-items:center;justify-content:center;min-width:20px;height:20px;padding:0 6px;border-radius:10px;font-size:11.5px;font-weight:600}
-      .bp-count.solid{background:var(--accent);color:var(--on-accent)}
-      .bp-count.soft{background:var(--accent-soft);color:var(--accent)}
+      .lp-count{display:inline-flex;align-items:center;justify-content:center;min-width:20px;height:20px;padding:0 6px;border-radius:10px;font-size:11.5px;font-weight:600}
+      .lp-count.solid{background:var(--accent);color:var(--on-accent)}
+      .lp-count.soft{background:var(--accent-soft);color:var(--accent)}
 
-      .bp-panel{position:fixed;right:20px;bottom:78px;width:348px;max-height:calc(100vh - 160px);display:flex;flex-direction:column;background:var(--panel-bg);border:1px solid var(--panel-border);border-radius:17px;box-shadow:var(--shadow);pointer-events:auto;overflow:hidden;font-family:'Geist',system-ui,-apple-system,sans-serif;color:var(--text);animation:bp-pop .2s cubic-bezier(.2,.9,.3,1);transition:background .25s ease,border-color .25s ease}
-      .bp-main{display:flex;flex-direction:column;min-height:0;flex:1 1 auto}
-      .bp-header{flex:0 0 auto;display:flex;align-items:center;gap:9px;padding:14px 14px 12px 17px}
-      .bp-title{font-size:15px;font-weight:600;letter-spacing:-.01em}
-      .bp-spacer{flex:1}
-      .bp-iconbtn{width:28px;height:28px;border:0;background:transparent;color:var(--muted);border-radius:7px;display:flex;align-items:center;justify-content:center;cursor:pointer}
-      .bp-iconbtn:hover{background:var(--panel-elev);color:var(--text)}
+      .lp-panel{position:fixed;right:20px;bottom:78px;width:348px;max-height:calc(100vh - 160px);display:flex;flex-direction:column;background:var(--panel-bg);border:1px solid var(--panel-border);border-radius:17px;box-shadow:var(--shadow);pointer-events:auto;overflow:hidden;font-family:'Geist',system-ui,-apple-system,sans-serif;color:var(--text);animation:lp-pop .2s cubic-bezier(.2,.9,.3,1);transition:background .25s ease,border-color .25s ease}
+      .lp-main{display:flex;flex-direction:column;min-height:0;flex:1 1 auto}
+      .lp-header{flex:0 0 auto;display:flex;align-items:center;gap:9px;padding:14px 14px 12px 17px}
+      .lp-title{font-size:15px;font-weight:600;letter-spacing:-.01em}
+      .lp-spacer{flex:1}
+      .lp-iconbtn{width:28px;height:28px;border:0;background:transparent;color:var(--muted);border-radius:7px;display:flex;align-items:center;justify-content:center;cursor:pointer}
+      .lp-iconbtn:hover{background:var(--panel-elev);color:var(--text)}
 
-      .bp-composer{flex:0 0 auto;overflow:hidden;transition:max-height .27s cubic-bezier(.4,0,.2,1),opacity .2s ease}
-      .bp-composer-inner{padding:2px 16px 14px}
-      .bp-compose-head{display:flex;align-items:center;gap:7px;margin-bottom:9px;min-height:21px}
-      .bp-compose-general{display:inline-flex;align-items:center;gap:6px;font-size:11.5px;color:var(--muted)}
-      .bp-dot{width:7px;height:7px;border-radius:50%;border:1.5px dashed var(--faint)}
-      .bp-compose-chip{flex:0 1 auto;min-width:0;display:inline-flex;align-items:center;gap:5px;height:21px;padding:0 8px;background:var(--accent-soft);color:var(--accent);border-radius:6px;font-size:11px;font-weight:500;overflow:hidden}
-      .bp-compose-chip span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-      .bp-textarea{width:100%;min-height:74px;resize:none;border:1px solid var(--field-border);background:var(--field-bg);color:var(--text);border-radius:9px;padding:9px 10px;font-family:inherit;font-size:13px;line-height:1.5;outline:none}
-      .bp-textarea:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
-      .bp-textarea::placeholder{color:var(--faint)}
-      .bp-compose-foot{display:flex;align-items:center;margin-top:9px}
-      .bp-hint{font-size:11px;color:var(--faint)}
-      .bp-mono{font-family:'Geist Mono',ui-monospace,monospace}
-      .bp-ghost{height:30px;padding:0 11px;background:transparent;border:0;color:var(--muted);font-family:inherit;font-size:12.5px;font-weight:500;border-radius:8px;cursor:pointer}
-      .bp-ghost:hover{background:var(--chip-bg);color:var(--text)}
-      .bp-primary{height:30px;padding:0 13px;margin-left:4px;background:var(--accent);color:var(--on-accent);border:0;border-radius:8px;font-family:inherit;font-size:12.5px;font-weight:500;cursor:pointer}
+      .lp-composer{flex:0 0 auto;overflow:hidden;transition:max-height .27s cubic-bezier(.4,0,.2,1),opacity .2s ease}
+      .lp-composer-inner{padding:2px 16px 14px}
+      .lp-compose-head{display:flex;align-items:center;gap:7px;margin-bottom:9px;min-height:21px}
+      .lp-compose-general{display:inline-flex;align-items:center;gap:6px;font-size:11.5px;color:var(--muted)}
+      .lp-dot{width:7px;height:7px;border-radius:50%;border:1.5px dashed var(--faint)}
+      .lp-compose-chip{flex:0 1 auto;min-width:0;display:inline-flex;align-items:center;gap:5px;height:21px;padding:0 8px;background:var(--accent-soft);color:var(--accent);border-radius:6px;font-size:11px;font-weight:500;overflow:hidden}
+      .lp-compose-chip span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+      .lp-textarea{width:100%;min-height:74px;resize:none;border:1px solid var(--field-border);background:var(--field-bg);color:var(--text);border-radius:9px;padding:9px 10px;font-family:inherit;font-size:13px;line-height:1.5;outline:none}
+      .lp-textarea:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+      .lp-textarea::placeholder{color:var(--faint)}
+      .lp-compose-foot{display:flex;align-items:center;margin-top:9px}
+      .lp-hint{font-size:11px;color:var(--faint)}
+      .lp-mono{font-family:'Geist Mono',ui-monospace,monospace}
+      .lp-ghost{height:30px;padding:0 11px;background:transparent;border:0;color:var(--muted);font-family:inherit;font-size:12.5px;font-weight:500;border-radius:8px;cursor:pointer}
+      .lp-ghost:hover{background:var(--chip-bg);color:var(--text)}
+      .lp-primary{height:30px;padding:0 13px;margin-left:4px;background:var(--accent);color:var(--on-accent);border:0;border-radius:8px;font-family:inherit;font-size:12.5px;font-weight:500;cursor:pointer}
 
-      .bp-actions{flex:0 0 auto;display:flex;gap:8px;padding:0 14px 12px}
-      .bp-action{flex:1;height:38px;display:flex;align-items:center;justify-content:center;gap:7px;border-radius:10px;font-family:inherit;font-size:13px;font-weight:500;cursor:pointer;border:1px solid var(--field-border);background:var(--panel-elev);color:var(--text);transition:background .15s ease,border-color .15s ease,color .15s ease}
-      .bp-action:hover{border-color:var(--faint)}
-      .bp-action.active{background:var(--accent-soft);color:var(--accent);border-color:var(--accent)}
-      .bp-kbd{font-family:'Geist Mono',ui-monospace,monospace;font-size:10px;line-height:1;padding:2px 4px;border-radius:4px;background:var(--chip-bg);color:var(--chip-text)}
+      .lp-actions{flex:0 0 auto;display:flex;gap:8px;padding:0 14px 12px}
+      .lp-action{flex:1;height:38px;display:flex;align-items:center;justify-content:center;gap:7px;border-radius:10px;font-family:inherit;font-size:13px;font-weight:500;cursor:pointer;border:1px solid var(--field-border);background:var(--panel-elev);color:var(--text);transition:background .15s ease,border-color .15s ease,color .15s ease}
+      .lp-action:hover{border-color:var(--faint)}
+      .lp-action.active{background:var(--accent-soft);color:var(--accent);border-color:var(--accent)}
+      .lp-kbd{font-family:'Geist Mono',ui-monospace,monospace;font-size:10px;line-height:1;padding:2px 4px;border-radius:4px;background:var(--chip-bg);color:var(--chip-text)}
 
-      .bp-error{margin:0 14px 10px;padding:9px 11px;display:flex;align-items:center;gap:8px;background:color-mix(in srgb,var(--danger) 12%,transparent);border:1px solid color-mix(in srgb,var(--danger) 34%,transparent);border-radius:9px;font-size:12px;color:var(--danger)}
-      .bp-error button{margin-left:auto;background:transparent;border:0;color:var(--danger);font-family:inherit;font-size:12px;font-weight:600;cursor:pointer;border-radius:6px;padding:3px 6px}
-      .bp-error button:hover{background:color-mix(in srgb,var(--danger) 14%,transparent)}
+      .lp-error{margin:0 14px 10px;padding:9px 11px;display:flex;align-items:center;gap:8px;background:color-mix(in srgb,var(--danger) 12%,transparent);border:1px solid color-mix(in srgb,var(--danger) 34%,transparent);border-radius:9px;font-size:12px;color:var(--danger)}
+      .lp-error button{margin-left:auto;background:transparent;border:0;color:var(--danger);font-family:inherit;font-size:12px;font-weight:600;cursor:pointer;border-radius:6px;padding:3px 6px}
+      .lp-error button:hover{background:color-mix(in srgb,var(--danger) 14%,transparent)}
 
-      .bp-empty-anim{flex:0 0 auto;overflow:hidden;transition:max-height .27s cubic-bezier(.4,0,.2,1),opacity .2s ease}
-      .bp-empty{display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:22px 26px 28px;gap:4px}
-      .bp-empty-icon{width:42px;height:42px;border-radius:12px;background:var(--panel-elev);border:1px solid var(--hairline);display:flex;align-items:center;justify-content:center;color:var(--faint);margin-bottom:8px}
-      .bp-empty-title{font-size:13.5px;font-weight:550;color:var(--text)}
-      .bp-empty-sub{font-size:12.5px;color:var(--muted);line-height:1.5;max-width:210px}
+      .lp-empty-anim{flex:0 0 auto;overflow:hidden;transition:max-height .27s cubic-bezier(.4,0,.2,1),opacity .2s ease}
+      .lp-empty{display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:22px 26px 28px;gap:4px}
+      .lp-empty-icon{width:42px;height:42px;border-radius:12px;background:var(--panel-elev);border:1px solid var(--hairline);display:flex;align-items:center;justify-content:center;color:var(--faint);margin-bottom:8px}
+      .lp-empty-title{font-size:13.5px;font-weight:550;color:var(--text)}
+      .lp-empty-sub{font-size:12.5px;color:var(--muted);line-height:1.5;max-width:210px}
 
-      .bp-list-wrap{flex:0 1 auto;display:flex;flex-direction:column;min-height:0}
-      .bp-list-anim{overflow:hidden;transition:max-height .3s cubic-bezier(.4,0,.2,1),opacity .2s ease}
-      .bp-list{max-height:248px;overflow:auto;border-top:1px solid var(--hairline)}
-      .bp-item{position:relative;overflow:hidden;display:flex;gap:11px;padding:12px 15px;border-bottom:1px solid var(--hairline);cursor:default}
-      .bp-item:hover{background:var(--panel-elev)}
-      .bp-item-confirm{position:absolute;inset:0;display:flex;align-items:center;gap:8px;padding:0 15px;background:var(--panel-bg);animation:bp-slide-left .18s cubic-bezier(.4,0,.2,1)}
-      .bp-item-confirm-text{flex:1;font-size:12px;color:var(--text);font-weight:500}
-      .bp-badge{flex:0 0 auto;width:22px;height:22px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:600}
-      .bp-badge.element{border-radius:50% 50% 50% 2px;background:var(--accent);color:var(--on-accent)}
-      .bp-badge.general{border-radius:50%;border:1.5px dashed var(--faint);color:var(--faint)}
-      .bp-item-body{flex:1;min-width:0}
-      .bp-item-text{font-size:13px;line-height:1.5;color:var(--text);word-break:break-word}
-      .bp-chip{display:inline-flex;align-items:center;gap:4px;margin-top:6px;height:19px;padding:0 7px;background:var(--chip-bg);color:var(--chip-text);border-radius:5px;font-size:10.5px;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-      .bp-edit{flex:0 0 auto;width:24px;height:24px;border:0;background:transparent;color:var(--faint);border-radius:6px;display:flex;align-items:center;justify-content:center;cursor:pointer;opacity:.55;transition:opacity .12s ease}
-      .bp-edit:hover{opacity:1;background:var(--chip-bg);color:var(--accent)}
-      .bp-del{flex:0 0 auto;width:24px;height:24px;border:0;background:transparent;color:var(--faint);border-radius:6px;display:flex;align-items:center;justify-content:center;cursor:pointer;opacity:.55;transition:opacity .12s ease}
-      .bp-del:hover{opacity:1;background:var(--chip-bg);color:var(--danger)}
-      .bp-danger-sm{flex:0 0 auto;height:25px;padding:0 9px;background:var(--danger);color:#fff;border:0;border-radius:6px;font-family:inherit;font-size:11.5px;font-weight:600;cursor:pointer}
-      .bp-ghost-sm{height:25px;padding:0 7px;background:transparent;border:0;color:var(--muted);font-family:inherit;font-size:11.5px;font-weight:500;border-radius:6px;cursor:pointer}
-      .bp-ghost-sm:hover{background:var(--chip-bg);color:var(--text)}
+      .lp-list-wrap{flex:0 1 auto;display:flex;flex-direction:column;min-height:0}
+      .lp-list-anim{overflow:hidden;transition:max-height .3s cubic-bezier(.4,0,.2,1),opacity .2s ease}
+      .lp-list{max-height:248px;overflow:auto;border-top:1px solid var(--hairline)}
+      .lp-item{position:relative;overflow:hidden;display:flex;gap:11px;padding:12px 15px;border-bottom:1px solid var(--hairline);cursor:default}
+      .lp-item:hover{background:var(--panel-elev)}
+      .lp-item-confirm{position:absolute;inset:0;display:flex;align-items:center;gap:8px;padding:0 15px;background:var(--panel-bg);animation:lp-slide-left .18s cubic-bezier(.4,0,.2,1)}
+      .lp-item-confirm-text{flex:1;font-size:12px;color:var(--text);font-weight:500}
+      .lp-badge{flex:0 0 auto;width:22px;height:22px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:600}
+      .lp-badge.element{border-radius:50% 50% 50% 2px;background:var(--accent);color:var(--on-accent)}
+      .lp-badge.general{border-radius:50%;border:1.5px dashed var(--faint);color:var(--faint)}
+      .lp-item-body{flex:1;min-width:0}
+      .lp-item-text{font-size:13px;line-height:1.5;color:var(--text);word-break:break-word}
+      .lp-chip{display:inline-flex;align-items:center;gap:4px;margin-top:6px;height:19px;padding:0 7px;background:var(--chip-bg);color:var(--chip-text);border-radius:5px;font-size:10.5px;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+      .lp-edit{flex:0 0 auto;width:24px;height:24px;border:0;background:transparent;color:var(--faint);border-radius:6px;display:flex;align-items:center;justify-content:center;cursor:pointer;opacity:.55;transition:opacity .12s ease}
+      .lp-edit:hover{opacity:1;background:var(--chip-bg);color:var(--accent)}
+      .lp-del{flex:0 0 auto;width:24px;height:24px;border:0;background:transparent;color:var(--faint);border-radius:6px;display:flex;align-items:center;justify-content:center;cursor:pointer;opacity:.55;transition:opacity .12s ease}
+      .lp-del:hover{opacity:1;background:var(--chip-bg);color:var(--danger)}
+      .lp-danger-sm{flex:0 0 auto;height:25px;padding:0 9px;background:var(--danger);color:#fff;border:0;border-radius:6px;font-family:inherit;font-size:11.5px;font-weight:600;cursor:pointer}
+      .lp-ghost-sm{height:25px;padding:0 7px;background:transparent;border:0;color:var(--muted);font-family:inherit;font-size:11.5px;font-weight:500;border-radius:6px;cursor:pointer}
+      .lp-ghost-sm:hover{background:var(--chip-bg);color:var(--text)}
 
-      .bp-footer{flex:0 0 auto;align-items:center;gap:8px;padding:11px 14px;border-top:1px solid var(--hairline);background:var(--panel-bg)}
-      .bp-footer-row{display:flex;align-items:center;gap:8px;width:100%}
-      .bp-list-toggle{display:flex;align-items:center;gap:6px;height:32px;padding:0 9px 0 8px;background:transparent;border:0;cursor:pointer;color:var(--muted);font-family:inherit;font-size:12px;font-weight:550;border-radius:8px}
-      .bp-list-toggle:hover{background:var(--chip-bg);color:var(--text)}
-      .bp-chev{transition:transform .25s ease}
-      .bp-clear{height:32px;padding:0 11px;background:transparent;border:0;color:var(--muted);font-family:inherit;font-size:12.5px;font-weight:500;border-radius:8px;cursor:pointer}
-      .bp-clear:hover{background:var(--chip-bg);color:var(--danger)}
-      .bp-send{height:32px;padding:0 15px;display:flex;align-items:center;gap:7px;background:var(--accent);color:var(--on-accent);border:0;border-radius:8px;font-family:inherit;font-size:12.5px;font-weight:600;cursor:pointer}
-      .bp-send[disabled]{opacity:.55;cursor:default}
-      .bp-confirm-text{font-size:12px;color:var(--text);font-weight:500}
-      .bp-clear-cancel{height:32px;padding:0 11px;background:transparent;border:0;color:var(--muted);font-family:inherit;font-size:12.5px;font-weight:500;border-radius:8px;cursor:pointer}
-      .bp-clear-cancel:hover{background:var(--chip-bg);color:var(--text)}
-      .bp-clear-yes{height:32px;padding:0 13px;background:var(--danger);color:#fff;border:0;border-radius:8px;font-family:inherit;font-size:12.5px;font-weight:600;cursor:pointer}
-      .bp-spin{width:13px;height:13px;border:2px solid currentColor;border-right-color:transparent;border-radius:50%;display:inline-block;animation:bp-spin .6s linear infinite}
+      .lp-footer{flex:0 0 auto;align-items:center;gap:8px;padding:11px 14px;border-top:1px solid var(--hairline);background:var(--panel-bg)}
+      .lp-footer-row{display:flex;align-items:center;gap:8px;width:100%}
+      .lp-list-toggle{display:flex;align-items:center;gap:6px;height:32px;padding:0 9px 0 8px;background:transparent;border:0;cursor:pointer;color:var(--muted);font-family:inherit;font-size:12px;font-weight:550;border-radius:8px}
+      .lp-list-toggle:hover{background:var(--chip-bg);color:var(--text)}
+      .lp-chev{transition:transform .25s ease}
+      .lp-clear{height:32px;padding:0 11px;background:transparent;border:0;color:var(--muted);font-family:inherit;font-size:12.5px;font-weight:500;border-radius:8px;cursor:pointer}
+      .lp-clear:hover{background:var(--chip-bg);color:var(--danger)}
+      .lp-send{height:32px;padding:0 15px;display:flex;align-items:center;gap:7px;background:var(--accent);color:var(--on-accent);border:0;border-radius:8px;font-family:inherit;font-size:12.5px;font-weight:600;cursor:pointer}
+      .lp-send[disabled]{opacity:.55;cursor:default}
+      .lp-confirm-text{font-size:12px;color:var(--text);font-weight:500}
+      .lp-clear-cancel{height:32px;padding:0 11px;background:transparent;border:0;color:var(--muted);font-family:inherit;font-size:12.5px;font-weight:500;border-radius:8px;cursor:pointer}
+      .lp-clear-cancel:hover{background:var(--chip-bg);color:var(--text)}
+      .lp-clear-yes{height:32px;padding:0 13px;background:var(--danger);color:#fff;border:0;border-radius:8px;font-family:inherit;font-size:12.5px;font-weight:600;cursor:pointer}
+      .lp-spin{width:13px;height:13px;border:2px solid currentColor;border-right-color:transparent;border-radius:50%;display:inline-block;animation:lp-spin .6s linear infinite}
 
-      .bp-sent{padding:6px 18px 20px;text-align:center;animation:bp-pop .2s ease}
-      .bp-sent-disc{width:46px;height:46px;margin:8px auto 12px;border-radius:50%;background:color-mix(in srgb,var(--success) 16%,transparent);display:flex;align-items:center;justify-content:center;color:var(--success)}
-      .bp-sent-title{font-size:14.5px;font-weight:600}
-      .bp-sent-sub{font-size:12.5px;color:var(--muted);margin-top:3px}
-      .bp-new{margin-top:10px;height:34px;width:100%;background:var(--panel-elev);border:1px solid var(--field-border);border-radius:9px;color:var(--text);font-family:inherit;font-size:13px;font-weight:500;cursor:pointer}
-      .bp-new:hover{border-color:var(--accent)}
+      .lp-sent{padding:6px 18px 20px;text-align:center;animation:lp-pop .2s ease}
+      .lp-sent-disc{width:46px;height:46px;margin:8px auto 12px;border-radius:50%;background:color-mix(in srgb,var(--success) 16%,transparent);display:flex;align-items:center;justify-content:center;color:var(--success)}
+      .lp-sent-title{font-size:14.5px;font-weight:600}
+      .lp-sent-sub{font-size:12.5px;color:var(--muted);margin-top:3px}
+      .lp-new{margin-top:10px;height:34px;width:100%;background:var(--panel-elev);border:1px solid var(--field-border);border-radius:9px;color:var(--text);font-family:inherit;font-size:13px;font-weight:500;cursor:pointer}
+      .lp-new:hover{border-color:var(--accent)}
     </style>
-    <div class="bp-launcher" id="bp-launcher">
-      <div class="bp-launch-quick" id="bp-launch-quick">
-        <button class="bp-launch-action" id="bp-launch-note" aria-label="Add note" data-tip="Add note">${ICON.comment(16)}</button>
-        <button class="bp-launch-action" id="bp-launch-target" aria-label="Pick element" data-tip="Pick element">${ICON.target(16)}</button>
-        <span class="bp-launch-div"></span>
+    <div class="lp-launcher" id="lp-launcher">
+      <div class="lp-launch-quick" id="lp-launch-quick">
+        <button class="lp-launch-action" id="lp-launch-note" aria-label="Add note" data-tip="Add note">${ICON.comment(16)}</button>
+        <button class="lp-launch-action" id="lp-launch-target" aria-label="Pick element" data-tip="Pick element">${ICON.target(16)}</button>
+        <span class="lp-launch-div"></span>
       </div>
-      <button class="bp-launch-main" id="bp-launch-main" aria-label="Review">
+      <button class="lp-launch-main" id="lp-launch-main" aria-label="Review">
         <span>Review</span>
-        <span class="bp-count solid" id="bp-launch-count" style="display:none">0</span>
+        <span class="lp-count solid" id="lp-launch-count" style="display:none">0</span>
       </button>
     </div>
-    <div class="bp-panel" id="bp-panel" style="display:none">
-      <div class="bp-header">
-        <span class="bp-title">Review</span>
-        <span class="bp-count soft" id="bp-head-count" style="display:none">0</span>
-        <div class="bp-spacer"></div>
-        <button class="bp-iconbtn" id="bp-close" aria-label="Close">${ICON.close(15)}</button>
+    <div class="lp-panel" id="lp-panel" style="display:none">
+      <div class="lp-header">
+        <span class="lp-title">Review</span>
+        <span class="lp-count soft" id="lp-head-count" style="display:none">0</span>
+        <div class="lp-spacer"></div>
+        <button class="lp-iconbtn" id="lp-close" aria-label="Close">${ICON.close(15)}</button>
       </div>
-      <div class="bp-main" id="bp-main">
-        <div class="bp-composer" id="bp-composer" style="max-height:0;opacity:0;pointer-events:none">
+      <div class="lp-main" id="lp-main">
+        <div class="lp-composer" id="lp-composer" style="max-height:0;opacity:0;pointer-events:none">
           <div style="overflow:hidden;min-height:0">
-            <div class="bp-composer-inner">
-              <div class="bp-compose-head" id="bp-compose-head"></div>
-              <textarea class="bp-textarea" id="bp-textarea" placeholder="Describe the issue or idea…"></textarea>
-              <div class="bp-compose-foot">
-                <span class="bp-hint"><span class="bp-mono">⌘↵</span> to save</span>
-                <div class="bp-spacer"></div>
-                <button class="bp-ghost" id="bp-cancel">Cancel</button>
-                <button class="bp-primary" id="bp-save">Save</button>
+            <div class="lp-composer-inner">
+              <div class="lp-compose-head" id="lp-compose-head"></div>
+              <textarea class="lp-textarea" id="lp-textarea" placeholder="Describe the issue or idea…"></textarea>
+              <div class="lp-compose-foot">
+                <span class="lp-hint"><span class="lp-mono">⌘↵</span> to save</span>
+                <div class="lp-spacer"></div>
+                <button class="lp-ghost" id="lp-cancel">Cancel</button>
+                <button class="lp-primary" id="lp-save">Save</button>
               </div>
             </div>
           </div>
         </div>
-        <div class="bp-empty-anim" id="bp-empty-anim" style="max-height:0;opacity:0">
+        <div class="lp-empty-anim" id="lp-empty-anim" style="max-height:0;opacity:0">
           <div style="overflow:hidden;min-height:0">
-            <div class="bp-empty" id="bp-empty">
-              <div class="bp-empty-icon">${ICON.comment(20)}</div>
-              <div class="bp-empty-title">No comments yet</div>
-              <div class="bp-empty-sub">Add a note, or pick an element on the page to anchor your feedback.</div>
+            <div class="lp-empty" id="lp-empty">
+              <div class="lp-empty-icon">${ICON.comment(20)}</div>
+              <div class="lp-empty-title">No comments yet</div>
+              <div class="lp-empty-sub">Add a note, or pick an element on the page to anchor your feedback.</div>
             </div>
           </div>
         </div>
-        <div class="bp-actions">
-          <button class="bp-action" id="general" aria-pressed="false">${ICON.comment(15)}<span>Add note</span><span class="bp-kbd" aria-hidden="true">C</span></button>
-          <button class="bp-action" id="target" aria-pressed="false">${ICON.target(15)}<span>Pick element</span><span class="bp-kbd" aria-hidden="true">T</span></button>
+        <div class="lp-actions">
+          <button class="lp-action" id="general" aria-pressed="false">${ICON.comment(15)}<span>Add note</span><span class="lp-kbd" aria-hidden="true">C</span></button>
+          <button class="lp-action" id="target" aria-pressed="false">${ICON.target(15)}<span>Pick element</span><span class="lp-kbd" aria-hidden="true">T</span></button>
         </div>
-        <div class="bp-error" id="bp-error" style="display:none"></div>
-        <div id="bp-body">
-          <div class="bp-list-wrap" id="bp-list-wrap" style="display:none">
-            <div class="bp-list-anim" id="bp-list-anim" style="max-height:0;opacity:0">
+        <div class="lp-error" id="lp-error" style="display:none"></div>
+        <div id="lp-body">
+          <div class="lp-list-wrap" id="lp-list-wrap" style="display:none">
+            <div class="lp-list-anim" id="lp-list-anim" style="max-height:0;opacity:0">
               <div style="overflow:hidden;min-height:0">
-                <div class="bp-list bp-scroll" id="bp-list"></div>
+                <div class="lp-list lp-scroll" id="lp-list"></div>
               </div>
             </div>
           </div>
         </div>
-        <div class="bp-footer" id="bp-footer" style="display:none">
-          <div class="bp-footer-row" id="bp-footer-main">
-            <button class="bp-list-toggle" id="bp-list-toggle">
-              <span class="bp-chev" id="bp-chev" style="display:inline-flex">${ICON.chevron(13)}</span>
-              <span id="bp-list-toggle-text">Show comments</span>
+        <div class="lp-footer" id="lp-footer" style="display:none">
+          <div class="lp-footer-row" id="lp-footer-main">
+            <button class="lp-list-toggle" id="lp-list-toggle">
+              <span class="lp-chev" id="lp-chev" style="display:inline-flex">${ICON.chevron(13)}</span>
+              <span id="lp-list-toggle-text">Show comments</span>
             </button>
-            <div class="bp-spacer"></div>
-            <button class="bp-clear" id="bp-clear">Clear</button>
-            <button class="bp-send" id="bp-send">${ICON.send(14)}Send</button>
+            <div class="lp-spacer"></div>
+            <button class="lp-clear" id="lp-clear">Clear</button>
+            <button class="lp-send" id="lp-send">${ICON.send(14)}Send</button>
           </div>
-          <div class="bp-footer-row" id="bp-footer-confirm" style="display:none">
-            <span class="bp-confirm-text" id="bp-clear-confirm-text"></span>
-            <div class="bp-spacer"></div>
-            <button class="bp-clear-cancel" id="bp-clear-cancel">Cancel</button>
-            <button class="bp-clear-yes" id="bp-clear-yes">Clear all</button>
+          <div class="lp-footer-row" id="lp-footer-confirm" style="display:none">
+            <span class="lp-confirm-text" id="lp-clear-confirm-text"></span>
+            <div class="lp-spacer"></div>
+            <button class="lp-clear-cancel" id="lp-clear-cancel">Cancel</button>
+            <button class="lp-clear-yes" id="lp-clear-yes">Clear all</button>
           </div>
         </div>
       </div>
-      <div id="bp-sent" style="display:none"></div>
+      <div id="lp-sent" style="display:none"></div>
     </div>`;
 
   overlayRoot.innerHTML = `
     <style>
       *{box-sizing:border-box}
       :host{all:initial}
-      @keyframes bp-fade{from{opacity:0}to{opacity:1}}
-      @keyframes bp-slide-left{from{transform:translateX(-100%)}to{transform:translateX(0)}}
-      @keyframes bp-slide-left-out{from{transform:translateX(0)}to{transform:translateX(-100%)}}
-      @keyframes bp-pin{from{transform:scale(.4)}to{transform:scale(1)}}
-      @keyframes bp-pop{from{transform:translateY(8px) scale(.985)}to{transform:none}}
-      @keyframes bp-spin{to{transform:rotate(360deg)}}
-      .bp-ov{font-family:'Geist',system-ui,-apple-system,sans-serif}
-      .bp-scrim{position:fixed;inset:0;background:var(--scrim);animation:bp-fade .18s ease;pointer-events:none}
+      @keyframes lp-fade{from{opacity:0}to{opacity:1}}
+      @keyframes lp-slide-left{from{transform:translateX(-100%)}to{transform:translateX(0)}}
+      @keyframes lp-slide-left-out{from{transform:translateX(0)}to{transform:translateX(-100%)}}
+      @keyframes lp-pin{from{transform:scale(.4)}to{transform:scale(1)}}
+      @keyframes lp-pop{from{transform:translateY(8px) scale(.985)}to{transform:none}}
+      @keyframes lp-spin{to{transform:rotate(360deg)}}
+      .lp-ov{font-family:'Geist',system-ui,-apple-system,sans-serif}
+      .lp-scrim{position:fixed;inset:0;background:var(--scrim);animation:lp-fade .18s ease;pointer-events:none}
       .highlight{position:fixed;border:2px solid var(--accent);background:var(--accent-fill);border-radius:9px;pointer-events:none;box-shadow:0 0 0 4px var(--accent-soft);transition:left .07s ease,top .07s ease,width .07s ease,height .07s ease;z-index:2}
-      .bp-hl-label{position:absolute;left:-2px;top:-25px;display:inline-flex;align-items:center;max-width:240px;height:21px;padding:0 8px;background:var(--accent);color:var(--on-accent);font-size:11px;font-weight:500;border-radius:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-      .bp-pin-wrap{position:fixed;z-index:4;pointer-events:auto}
-      .bp-ov.targeting .bp-pin-wrap{pointer-events:none}
-      .pin{width:24px;height:24px;border-radius:50% 50% 50% 2px;border:2px solid var(--page-bg);background:var(--accent);color:var(--on-accent);font-family:inherit;font-size:12px;font-weight:600;display:flex;align-items:center;justify-content:center;cursor:pointer;box-shadow:0 2px 8px rgba(24,24,40,.3);animation:bp-pin .22s cubic-bezier(.2,1.3,.5,1)}
+      .lp-hl-label{position:absolute;left:-2px;top:-25px;display:inline-flex;align-items:center;max-width:240px;height:21px;padding:0 8px;background:var(--accent);color:var(--on-accent);font-size:11px;font-weight:500;border-radius:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+      .lp-pin-wrap{position:fixed;z-index:4;pointer-events:auto}
+      .lp-ov.targeting .lp-pin-wrap{pointer-events:none}
+      .pin{width:24px;height:24px;border-radius:50% 50% 50% 2px;border:2px solid var(--page-bg);background:var(--accent);color:var(--on-accent);font-family:inherit;font-size:12px;font-weight:600;display:flex;align-items:center;justify-content:center;cursor:pointer;box-shadow:0 2px 8px rgba(24,24,40,.3);animation:lp-pin .22s cubic-bezier(.2,1.3,.5,1)}
       .pin:hover{transform:scale(1.12)}
-      .bp-pop{position:absolute;top:16px;right:0;width:240px;padding-top:14px;cursor:default}
-      .bp-pop-card{position:relative;overflow:hidden;min-height:96px;padding:12px;background:var(--panel-bg);border:1px solid var(--panel-border);border-radius:12px;box-shadow:var(--shadow);animation:bp-fade .12s ease;display:flex;flex-direction:column}
-      .bp-pop-body{font-size:12.5px;line-height:1.5;color:var(--text);word-break:break-word}
-      .bp-pop-row{display:flex;align-items:center;gap:8px;margin-top:auto;padding-top:10px}
-      .bp-pop-chip{display:inline-flex;align-items:center;height:19px;padding:0 7px;background:var(--chip-bg);color:var(--chip-text);border-radius:5px;font-size:10.5px;max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-      .bp-pop-edit{flex:0 0 auto;width:24px;height:24px;border:0;background:transparent;color:var(--faint);border-radius:6px;display:flex;align-items:center;justify-content:center;cursor:pointer;opacity:.6;transition:opacity .12s ease}
-      .bp-pop-edit:hover{opacity:1;background:var(--chip-bg);color:var(--accent)}
-      .bp-pop-del{flex:0 0 auto;width:24px;height:24px;border:0;background:transparent;color:var(--faint);border-radius:6px;display:flex;align-items:center;justify-content:center;cursor:pointer;opacity:.6;transition:opacity .12s ease}
-      .bp-pop-del:hover{opacity:1;background:var(--chip-bg);color:var(--danger)}
-      .bp-pop-confirm{position:absolute;inset:0;background:var(--panel-bg);border-radius:12px;padding:12px;display:flex;flex-direction:column;justify-content:center;animation:bp-slide-left .18s cubic-bezier(.4,0,.2,1)}
-      .bp-pop-confirm-title{font-size:12.5px;font-weight:600;color:var(--text)}
-      .bp-pop-confirm-sub{font-size:11.5px;color:var(--muted);margin-top:3px;line-height:1.45}
-      .bp-pop-confirm-row{display:flex;gap:7px;margin-top:11px}
-      .bp-pop-yes{flex:1;height:30px;background:var(--danger);color:#fff;border:0;border-radius:8px;font-family:inherit;font-size:12px;font-weight:600;cursor:pointer}
-      .bp-pop-no{flex:1;height:30px;background:var(--panel-elev);border:1px solid var(--field-border);color:var(--text);border-radius:8px;font-family:inherit;font-size:12px;font-weight:500;cursor:pointer}
-      .bp-toast{position:fixed;top:18px;left:50%;transform:translate(-50%,0);z-index:6;display:flex;align-items:center;gap:10px;padding:9px 12px 9px 14px;background:var(--tooltip-bg);color:var(--tooltip-text);border-radius:11px;font-size:13px;font-weight:500;box-shadow:0 8px 26px rgba(0,0,0,.34);animation:bp-fade .18s ease;transition:transform .22s cubic-bezier(.4,0,.2,1);pointer-events:auto}
-      .bp-toast-sep{opacity:.5}
-      .bp-toast-dim{opacity:.65;font-size:12px}
-      .bp-toast-key{margin-left:2px;padding:3px 7px;background:rgba(255,255,255,.16);border-radius:6px;font-size:11px;font-weight:500;cursor:pointer}
+      .lp-pop{position:absolute;top:16px;right:0;width:240px;padding-top:14px;cursor:default}
+      .lp-pop-card{position:relative;overflow:hidden;min-height:96px;padding:12px;background:var(--panel-bg);border:1px solid var(--panel-border);border-radius:12px;box-shadow:var(--shadow);animation:lp-fade .12s ease;display:flex;flex-direction:column}
+      .lp-pop-body{font-size:12.5px;line-height:1.5;color:var(--text);word-break:break-word}
+      .lp-pop-row{display:flex;align-items:center;gap:8px;margin-top:auto;padding-top:10px}
+      .lp-pop-chip{display:inline-flex;align-items:center;height:19px;padding:0 7px;background:var(--chip-bg);color:var(--chip-text);border-radius:5px;font-size:10.5px;max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+      .lp-pop-edit{flex:0 0 auto;width:24px;height:24px;border:0;background:transparent;color:var(--faint);border-radius:6px;display:flex;align-items:center;justify-content:center;cursor:pointer;opacity:.6;transition:opacity .12s ease}
+      .lp-pop-edit:hover{opacity:1;background:var(--chip-bg);color:var(--accent)}
+      .lp-pop-del{flex:0 0 auto;width:24px;height:24px;border:0;background:transparent;color:var(--faint);border-radius:6px;display:flex;align-items:center;justify-content:center;cursor:pointer;opacity:.6;transition:opacity .12s ease}
+      .lp-pop-del:hover{opacity:1;background:var(--chip-bg);color:var(--danger)}
+      .lp-pop-confirm{position:absolute;inset:0;background:var(--panel-bg);border-radius:12px;padding:12px;display:flex;flex-direction:column;justify-content:center;animation:lp-slide-left .18s cubic-bezier(.4,0,.2,1)}
+      .lp-pop-confirm-title{font-size:12.5px;font-weight:600;color:var(--text)}
+      .lp-pop-confirm-sub{font-size:11.5px;color:var(--muted);margin-top:3px;line-height:1.45}
+      .lp-pop-confirm-row{display:flex;gap:7px;margin-top:11px}
+      .lp-pop-yes{flex:1;height:30px;background:var(--danger);color:#fff;border:0;border-radius:8px;font-family:inherit;font-size:12px;font-weight:600;cursor:pointer}
+      .lp-pop-no{flex:1;height:30px;background:var(--panel-elev);border:1px solid var(--field-border);color:var(--text);border-radius:8px;font-family:inherit;font-size:12px;font-weight:500;cursor:pointer}
+      .lp-toast{position:fixed;top:18px;left:50%;transform:translate(-50%,0);z-index:6;display:flex;align-items:center;gap:10px;padding:9px 12px 9px 14px;background:var(--tooltip-bg);color:var(--tooltip-text);border-radius:11px;font-size:13px;font-weight:500;box-shadow:0 8px 26px rgba(0,0,0,.34);animation:lp-fade .18s ease;transition:transform .22s cubic-bezier(.4,0,.2,1);pointer-events:auto}
+      .lp-toast-sep{opacity:.5}
+      .lp-toast-dim{opacity:.65;font-size:12px}
+      .lp-toast-key{margin-left:2px;padding:3px 7px;background:rgba(255,255,255,.16);border-radius:6px;font-size:11px;font-weight:500;cursor:pointer}
     </style>
-    <div class="bp-ov" id="bp-ov">
-      <div class="bp-scrim" id="bp-scrim" style="display:none"></div>
-      <div class="highlight" id="bp-hl" style="display:none"><span class="bp-hl-label" id="bp-hl-label" style="display:none"></span></div>
-      <div id="bp-pins"></div>
-      <div class="bp-toast" id="bp-toast" style="display:none">
+    <div class="lp-ov" id="lp-ov">
+      <div class="lp-scrim" id="lp-scrim" style="display:none"></div>
+      <div class="highlight" id="lp-hl" style="display:none"><span class="lp-hl-label" id="lp-hl-label" style="display:none"></span></div>
+      <div id="lp-pins"></div>
+      <div class="lp-toast" id="lp-toast" style="display:none">
         ${ICON.target(15)}
         <span>Click to comment</span>
-        <span class="bp-toast-sep">·</span>
-        <span class="bp-toast-dim">⌥ scroll to resize</span>
-        <span class="bp-toast-key" id="bp-toast-esc">Esc</span>
+        <span class="lp-toast-sep">·</span>
+        <span class="lp-toast-dim">⌥ scroll to resize</span>
+        <span class="lp-toast-key" id="lp-toast-esc">Esc</span>
       </div>
     </div>`;
 
   const $ = (id) => root.getElementById(id);
   const $$ = (id) => overlayRoot.getElementById(id);
 
-  const ovRoot = $$('bp-ov');
-  const scrimNode = $$('bp-scrim');
-  const hlNode = $$('bp-hl');
-  const hlLabel = $$('bp-hl-label');
-  const pinsNode = $$('bp-pins');
-  const toastNode = $$('bp-toast');
-  const panelNode = $('bp-panel');
-  const mainNode = $('bp-main');
-  const sentNode = $('bp-sent');
-  const composerNode = $('bp-composer');
-  const composeHead = $('bp-compose-head');
-  const textareaNode = $('bp-textarea');
-  const errorNode = $('bp-error');
-  const emptyAnim = $('bp-empty-anim');
-  const launchQuick = $('bp-launch-quick');
-  const listWrap = $('bp-list-wrap');
-  const listAnim = $('bp-list-anim');
-  const listNode = $('bp-list');
-  const footerNode = $('bp-footer');
-  const footerMain = $('bp-footer-main');
-  const footerConfirm = $('bp-footer-confirm');
-  const sendBtn = $('bp-send');
+  const ovRoot = $$('lp-ov');
+  const scrimNode = $$('lp-scrim');
+  const hlNode = $$('lp-hl');
+  const hlLabel = $$('lp-hl-label');
+  const pinsNode = $$('lp-pins');
+  const toastNode = $$('lp-toast');
+  const panelNode = $('lp-panel');
+  const mainNode = $('lp-main');
+  const sentNode = $('lp-sent');
+  const composerNode = $('lp-composer');
+  const composeHead = $('lp-compose-head');
+  const textareaNode = $('lp-textarea');
+  const errorNode = $('lp-error');
+  const emptyAnim = $('lp-empty-anim');
+  const launchQuick = $('lp-launch-quick');
+  const listWrap = $('lp-list-wrap');
+  const listAnim = $('lp-list-anim');
+  const listNode = $('lp-list');
+  const footerNode = $('lp-footer');
+  const footerMain = $('lp-footer-main');
+  const footerConfirm = $('lp-footer-confirm');
+  const sendBtn = $('lp-send');
   const generalBtn = $('general');
   const targetBtn = $('target');
 
@@ -612,11 +612,11 @@
   const slideOut = (el) => {
     if (!el || el.dataset.exiting) return;
     el.dataset.exiting = '1';
-    el.style.animation = 'bp-slide-left-out .18s cubic-bezier(.4,0,.2,1) forwards';
+    el.style.animation = 'lp-slide-left-out .18s cubic-bezier(.4,0,.2,1) forwards';
     el.addEventListener('animationend', () => el.remove(), { once: true });
   };
 
-  // Pin nodes are reconciled (not rebuilt) so the bp-pin drop-in animation plays
+  // Pin nodes are reconciled (not rebuilt) so the lp-pin drop-in animation plays
   // once per pin; hovering and scrolling reposition existing nodes rather than
   // recreating them (recreating would replay the scale-in and make the pin shrink).
   const pinNodes = new Map();
@@ -625,25 +625,25 @@
   // card (which would replay its fade-in and flicker).
   const buildPopover = (comment, index) => {
     const label = firstLineLabel(comment.text);
-    return `<div class="bp-pop">
-        <div class="bp-pop-card">
-          <div class="bp-pop-body">${escapeHtml(comment.body)}</div>
-          <div class="bp-pop-row">
-            ${label ? `<span class="bp-pop-chip">${escapeHtml(label)}</span>` : ''}
+    return `<div class="lp-pop">
+        <div class="lp-pop-card">
+          <div class="lp-pop-body">${escapeHtml(comment.body)}</div>
+          <div class="lp-pop-row">
+            ${label ? `<span class="lp-pop-chip">${escapeHtml(label)}</span>` : ''}
             <div style="flex:1"></div>
-            <button class="bp-pop-edit" data-pin-edit="${index}" aria-label="Edit">${ICON.edit(14)}</button>
-            <button class="bp-pop-del" data-pin-del="${index}" aria-label="Delete">${ICON.trash(14)}</button>
+            <button class="lp-pop-edit" data-pin-edit="${index}" aria-label="Edit">${ICON.edit(14)}</button>
+            <button class="lp-pop-del" data-pin-del="${index}" aria-label="Delete">${ICON.trash(14)}</button>
           </div>
         </div>
       </div>`;
   };
   const buildConfirm = (index) =>
-    `<div class="bp-pop-confirm">
-       <div class="bp-pop-confirm-title">Delete this note?</div>
-       <div class="bp-pop-confirm-sub">The pin will be removed from the page.</div>
-       <div class="bp-pop-confirm-row">
-         <button class="bp-pop-yes" data-pin-yes="${index}">Delete</button>
-         <button class="bp-pop-no" data-pin-no="${index}">Cancel</button>
+    `<div class="lp-pop-confirm">
+       <div class="lp-pop-confirm-title">Delete this note?</div>
+       <div class="lp-pop-confirm-sub">The pin will be removed from the page.</div>
+       <div class="lp-pop-confirm-row">
+         <button class="lp-pop-yes" data-pin-yes="${index}">Delete</button>
+         <button class="lp-pop-no" data-pin-no="${index}">Cancel</button>
        </div>
      </div>`;
   const bindPopover = (holder, index) => {
@@ -693,10 +693,10 @@
       let wrap = pinNodes.get(index);
       if (!wrap) {
         wrap = document.createElement('div');
-        wrap.className = 'bp-pin-wrap';
+        wrap.className = 'lp-pin-wrap';
         wrap.innerHTML =
-          `<button class="pin" style="animation:bp-pin .22s cubic-bezier(.2,1.3,.5,1)"></button>` +
-          `<div class="bp-pop-holder"></div>`;
+          `<button class="pin" style="animation:lp-pin .22s cubic-bezier(.2,1.3,.5,1)"></button>` +
+          `<div class="lp-pop-holder"></div>`;
         wrap.querySelector('.pin').addEventListener('click', () => {
           state.open = true;
           state.listExpanded = true;
@@ -715,7 +715,7 @@
       // is rebuilt on scroll, so nothing re-animates while repositioning.
       const hovered = state.hoverPinId === index;
       const confirming = hovered && state.pinConfirmId === index;
-      const holder = wrap.querySelector('.bp-pop-holder');
+      const holder = wrap.querySelector('.lp-pop-holder');
       if (!hovered) {
         if (holder.dataset.shown) {
           holder.innerHTML = '';
@@ -727,12 +727,12 @@
           holder.dataset.shown = '1';
           bindPopover(holder, index);
         }
-        const card = holder.querySelector('.bp-pop-card');
-        const liveConfirm = card.querySelector('.bp-pop-confirm:not([data-exiting])');
+        const card = holder.querySelector('.lp-pop-card');
+        const liveConfirm = card.querySelector('.lp-pop-confirm:not([data-exiting])');
         if (confirming && !liveConfirm) {
-          card.querySelectorAll('.bp-pop-confirm').forEach((node) => node.remove());
+          card.querySelectorAll('.lp-pop-confirm').forEach((node) => node.remove());
           card.insertAdjacentHTML('beforeend', buildConfirm(index));
-          bindConfirm(card.querySelector('.bp-pop-confirm'), index);
+          bindConfirm(card.querySelector('.lp-pop-confirm'), index);
         } else if (!confirming && liveConfirm) {
           slideOut(liveConfirm);
         }
@@ -771,13 +771,13 @@
   // ---- panel render ----
   const updatePanel = () => {
     const n = pending.length;
-    const launchCount = $('bp-launch-count');
+    const launchCount = $('lp-launch-count');
     launchCount.style.display = n > 0 ? 'inline-flex' : 'none';
     launchCount.textContent = String(n);
 
     // While picking an element, hide the whole widget (launcher + panel) so it does
     // not obscure the page; the scrim + toast are the only pick-mode UI.
-    const launcherNode = $('bp-launcher');
+    const launcherNode = $('lp-launcher');
     launcherNode.style.display = state.target ? 'none' : '';
     // The launcher's quick actions duplicate the in-panel ones, so hide them (keeping
     // only the Review toggle) whenever the panel is open.
@@ -789,7 +789,7 @@
     if (!state.open || state.target) return;
 
     const sent = state.sent;
-    const headCount = $('bp-head-count');
+    const headCount = $('lp-head-count');
     headCount.style.display = n > 0 && !sent ? 'inline-flex' : 'none';
     headCount.textContent = String(n);
 
@@ -809,8 +809,8 @@
       const ct = state.composeTarget || { type: 'general' };
       composeHead.innerHTML =
         ct.type === 'general'
-          ? `<span class="bp-compose-general"><span class="bp-dot"></span>General comment</span>`
-          : `<span class="bp-compose-chip">${ICON.glyph(11)}<span>${escapeHtml(ct.label || 'Selected element')}</span></span>`;
+          ? `<span class="lp-compose-general"><span class="lp-dot"></span>General comment</span>`
+          : `<span class="lp-compose-chip">${ICON.glyph(11)}<span>${escapeHtml(ct.label || 'Selected element')}</span></span>`;
     }
     // Composer just closed but the textarea kept focus would keep isTyping() true and
     // trap the single-key shortcuts (t/c). Blur it once the composer is hidden.
@@ -827,11 +827,11 @@
       errorNode.style.display = 'flex';
       errorNode.innerHTML =
         state.sendError === 'send'
-          ? `<span>Couldn’t send your review. Please try again.</span><button id="bp-retry">Try again</button>`
-          : `<span>Couldn’t apply that change. Please try again.</span><button id="bp-retry-dismiss">Dismiss</button>`;
-      const retry = root.getElementById('bp-retry');
+          ? `<span>Couldn’t send your review. Please try again.</span><button id="lp-retry">Try again</button>`
+          : `<span>Couldn’t apply that change. Please try again.</span><button id="lp-retry-dismiss">Dismiss</button>`;
+      const retry = root.getElementById('lp-retry');
       if (retry) retry.addEventListener('click', send);
-      const dismiss = root.getElementById('bp-retry-dismiss');
+      const dismiss = root.getElementById('lp-retry-dismiss');
       if (dismiss)
         dismiss.addEventListener('click', () => {
           state.sendError = null;
@@ -858,17 +858,17 @@
     if (n > 0) {
       footerMain.style.display = state.confirmClear ? 'none' : 'flex';
       footerConfirm.style.display = state.confirmClear ? 'flex' : 'none';
-      $('bp-chev').style.transform = `rotate(${state.listExpanded ? '0deg' : '180deg'})`;
-      $('bp-list-toggle-text').textContent = state.listExpanded
+      $('lp-chev').style.transform = `rotate(${state.listExpanded ? '0deg' : '180deg'})`;
+      $('lp-list-toggle-text').textContent = state.listExpanded
         ? 'Hide comments'
         : n === 1
           ? 'Show 1 comment'
           : `Show ${n} comments`;
-      $('bp-clear-confirm-text').textContent =
+      $('lp-clear-confirm-text').textContent =
         n === 1 ? 'Remove this comment?' : `Remove all ${n} comments?`;
       sendBtn.disabled = state.sending || state.saving || n === 0;
       sendBtn.innerHTML = state.sending
-        ? `<span class="bp-spin"></span>Sending…`
+        ? `<span class="lp-spin"></span>Sending…`
         : `${ICON.send(14)}Send`;
     }
   };
@@ -878,10 +878,10 @@
   // — without re-rendering the row (which would interrupt the animation).
   const rowNodes = new Map();
   const buildItemConfirm = (index) =>
-    `<div class="bp-item-confirm">
-       <span class="bp-item-confirm-text">Delete this comment?</span>
-       <button class="bp-danger-sm" data-del-yes="${index}">Delete</button>
-       <button class="bp-ghost-sm" data-del-no="${index}">Cancel</button>
+    `<div class="lp-item-confirm">
+       <span class="lp-item-confirm-text">Delete this comment?</span>
+       <button class="lp-danger-sm" data-del-yes="${index}">Delete</button>
+       <button class="lp-ghost-sm" data-del-no="${index}">Cancel</button>
      </div>`;
   const bindItemConfirm = (el, index) => {
     el.querySelector('[data-del-yes]').addEventListener('click', () => removeComment(index));
@@ -901,12 +901,12 @@
       let row = rowNodes.get(index);
       if (!row) {
         row = document.createElement('div');
-        row.className = 'bp-item';
+        row.className = 'lp-item';
         row.innerHTML =
-          `<span class="bp-badge"></span>` +
-          `<div class="bp-item-body"><div class="bp-item-text"></div><span class="bp-chip" style="display:none"></span></div>` +
-          `<button class="bp-edit" aria-label="Edit comment">${ICON.edit(14)}</button>` +
-          `<button class="bp-del" aria-label="Delete comment">${ICON.trash(14)}</button>`;
+          `<span class="lp-badge"></span>` +
+          `<div class="lp-item-body"><div class="lp-item-text"></div><span class="lp-chip" style="display:none"></span></div>` +
+          `<button class="lp-edit" aria-label="Edit comment">${ICON.edit(14)}</button>` +
+          `<button class="lp-del" aria-label="Delete comment">${ICON.trash(14)}</button>`;
         row.addEventListener('mouseenter', () => {
           if (state.target || !pending[index] || !pending[index].selector) return;
           state.hoverId = index;
@@ -916,8 +916,8 @@
           state.hoverId = null;
           updateHighlight();
         });
-        row.querySelector('.bp-edit').addEventListener('click', () => openEditComposer(index));
-        row.querySelector('.bp-del').addEventListener('click', () => {
+        row.querySelector('.lp-edit').addEventListener('click', () => openEditComposer(index));
+        row.querySelector('.lp-del').addEventListener('click', () => {
           state.confirmDeleteId = index;
           renderList();
         });
@@ -925,22 +925,22 @@
         rowNodes.set(index, row);
       }
       const isElement = !!comment.selector;
-      const badge = row.querySelector('.bp-badge');
-      badge.className = 'bp-badge ' + (isElement ? 'element' : 'general');
+      const badge = row.querySelector('.lp-badge');
+      badge.className = 'lp-badge ' + (isElement ? 'element' : 'general');
       badge.textContent = String(index + 1);
-      row.querySelector('.bp-item-text').textContent = comment.body;
-      const chipEl = row.querySelector('.bp-chip');
+      row.querySelector('.lp-item-text').textContent = comment.body;
+      const chipEl = row.querySelector('.lp-chip');
       const label = isElement ? firstLineLabel(comment.text) : '';
       const showChip = isElement ? !!label : true;
       chipEl.style.display = showChip ? '' : 'none';
       if (showChip) chipEl.textContent = isElement ? label : 'General comment';
       // Toggle the confirm overlay in place (slide in on arm, slide out on cancel).
       const confirming = state.confirmDeleteId === index;
-      const liveConfirm = row.querySelector('.bp-item-confirm:not([data-exiting])');
+      const liveConfirm = row.querySelector('.lp-item-confirm:not([data-exiting])');
       if (confirming && !liveConfirm) {
-        row.querySelectorAll('.bp-item-confirm').forEach((node) => node.remove());
+        row.querySelectorAll('.lp-item-confirm').forEach((node) => node.remove());
         row.insertAdjacentHTML('beforeend', buildItemConfirm(index));
-        bindItemConfirm(row.querySelector('.bp-item-confirm'), index);
+        bindItemConfirm(row.querySelector('.lp-item-confirm'), index);
       } else if (!confirming && liveConfirm) {
         slideOut(liveConfirm);
       }
@@ -951,13 +951,13 @@
   const renderSent = () => {
     if (sentNode.dataset.shown) return;
     sentNode.dataset.shown = '1';
-    sentNode.innerHTML = `<div class="bp-sent">
-        <div class="bp-sent-disc">${ICON.check(22, 2.4)}</div>
-        <div class="bp-sent-title">Review sent</div>
-        <div class="bp-sent-sub">Your agent has been notified and will pick it up from here.</div>
-        <button class="bp-new" id="bp-new">Start a new review</button>
+    sentNode.innerHTML = `<div class="lp-sent">
+        <div class="lp-sent-disc">${ICON.check(22, 2.4)}</div>
+        <div class="lp-sent-title">Review sent</div>
+        <div class="lp-sent-sub">Your agent has been notified and will pick it up from here.</div>
+        <button class="lp-new" id="lp-new">Start a new review</button>
       </div>`;
-    $('bp-new').addEventListener('click', dismissSent);
+    $('lp-new').addEventListener('click', dismissSent);
   };
   const dismissSent = () => {
     state.sent = false;
@@ -1332,9 +1332,9 @@
   };
 
   // ---- static bindings (persistent nodes) ----
-  $('bp-launch-main').addEventListener('click', togglePanel);
-  $('bp-launch-note').addEventListener('click', openNoteComposer);
-  $('bp-launch-target').addEventListener('click', toggleTarget);
+  $('lp-launch-main').addEventListener('click', togglePanel);
+  $('lp-launch-note').addEventListener('click', openNoteComposer);
+  $('lp-launch-target').addEventListener('click', toggleTarget);
   // The launcher starts expanded (panel closed), so allow tooltip overflow now; it is
   // re-clipped on collapse and re-opened here once the expand transition finishes.
   launchQuick.style.overflow = 'visible';
@@ -1343,20 +1343,20 @@
       launchQuick.style.overflow = 'visible';
     }
   });
-  $('bp-close').addEventListener('click', togglePanel);
+  $('lp-close').addEventListener('click', togglePanel);
   generalBtn.addEventListener('click', toggleNote);
   targetBtn.addEventListener('click', toggleTarget);
-  $('bp-cancel').addEventListener('click', cancelCompose);
-  $('bp-save').addEventListener('click', saveComment);
-  $('bp-list-toggle').addEventListener('click', () => {
+  $('lp-cancel').addEventListener('click', cancelCompose);
+  $('lp-save').addEventListener('click', saveComment);
+  $('lp-list-toggle').addEventListener('click', () => {
     state.listExpanded = !state.listExpanded;
     sync();
   });
-  $('bp-clear').addEventListener('click', armClear);
-  $('bp-clear-cancel').addEventListener('click', cancelClear);
-  $('bp-clear-yes').addEventListener('click', confirmClearYes);
+  $('lp-clear').addEventListener('click', armClear);
+  $('lp-clear-cancel').addEventListener('click', cancelClear);
+  $('lp-clear-yes').addEventListener('click', confirmClearYes);
   sendBtn.addEventListener('click', send);
-  $$('bp-toast-esc').addEventListener('click', () => {
+  $$('lp-toast-esc').addEventListener('click', () => {
     setTargeting(false);
     sync();
   });

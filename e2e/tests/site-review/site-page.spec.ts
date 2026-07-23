@@ -42,13 +42,13 @@ test('a sent review is resolvable on the site page', async ({ page }) => {
     );
     await page.getByRole('button', { name: 'Review' }).click();
     await page
-        .locator('#bp-panel')
+        .locator('#lp-panel')
         .getByRole('button', { name: 'Add note' })
         .click();
     await page.getByPlaceholder(/Describe the issue/).fill(COMMENT_BODY);
     await page.getByRole('button', { name: 'Save' }).click();
     // Wait for the save POST to land before sending.
-    await expect(page.locator('#bp-head-count')).toHaveText('1');
+    await expect(page.locator('#lp-head-count')).toHaveText('1');
     await page.getByRole('button', { name: 'Send' }).click();
     await expect(page.getByText('Review sent')).toBeVisible();
 

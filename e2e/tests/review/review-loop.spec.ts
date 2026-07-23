@@ -81,7 +81,7 @@ async function seedDocument(
 /**
  * Drive text selection inside [data-comment-anchor-target="doc"] by
  * programmatically setting a DOM Range over KNOWN_PHRASE, then dispatching
- * mouseup on the .bp-review-doc element so the Stimulus controller computes
+ * mouseup on the .lp-review-doc element so the Stimulus controller computes
  * the offset and shows the composer.
  */
 async function selectKnownPhrase(page: Page, phrase: string): Promise<void> {
@@ -128,7 +128,7 @@ async function selectKnownPhrase(page: Page, phrase: string): Promise<void> {
 
         // Dispatch mouseup from inside the doc target (the controller ignores
         // mouseups whose target is outside it) so onDocMouseup fires; it bubbles
-        // up to the .bp-review-doc listener with target === docEl.
+        // up to the .lp-review-doc listener with target === docEl.
         docEl.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }));
     }, phrase);
 }
@@ -189,12 +189,12 @@ test('full review loop: comment, request changes, reload persistence', async ({
     ).toBeHidden({ timeout: 10000 });
 
     // Step 7: Assert the comment appears in the sidebar.
-    const commentBody = page.locator('.bp-comment-body').first();
+    const commentBody = page.locator('.lp-comment-body').first();
     await expect(commentBody).toBeVisible({ timeout: 10000 });
     await expect(commentBody).toContainText(COMMENT_BODY);
 
     // Step 7b: the thread renders the anchored document text as a quote.
-    await expect(page.locator('.bp-comment-quote').first()).toContainText(
+    await expect(page.locator('.lp-comment-quote').first()).toContainText(
         KNOWN_PHRASE,
     );
 
@@ -219,7 +219,7 @@ test('full review loop: comment, request changes, reload persistence', async ({
         (r) => r.url().includes('/reply') && r.request().method() === 'POST',
     );
     await page
-        .locator('.bp-comment-reply-form textarea')
+        .locator('.lp-comment-reply-form textarea')
         .first()
         .fill(REPLY_BODY);
     await page.getByRole('button', { name: 'Reply' }).click();
@@ -227,9 +227,9 @@ test('full review loop: comment, request changes, reload persistence', async ({
     expect(replyResponse.status()).toBe(200);
     expect(replyResponse.headers()['content-type']).toContain('turbo-stream');
 
-    // The reply appears in place as a .bp-comment--reply (Turbo replaced the thread).
+    // The reply appears in place as a .lp-comment--reply (Turbo replaced the thread).
     await expect(
-        page.locator('.bp-comment--reply .bp-comment-body'),
+        page.locator('.lp-comment--reply .lp-comment-body'),
     ).toContainText(REPLY_BODY, { timeout: 10000 });
 
     // Step 8c: Resolve the thread. Same form + Turbo Stream path; the thread is
@@ -242,7 +242,7 @@ test('full review loop: comment, request changes, reload persistence', async ({
     expect(resolveResponse.status()).toBe(200);
     expect(resolveResponse.headers()['content-type']).toContain('turbo-stream');
 
-    await expect(page.locator('.bp-comment-thread--resolved')).toBeVisible({
+    await expect(page.locator('.lp-comment-thread--resolved')).toBeVisible({
         timeout: 10000,
     });
 
@@ -253,13 +253,13 @@ test('full review loop: comment, request changes, reload persistence', async ({
     // so "doc is visible" proves nothing (it never went away). Wait for the
     // success flash, which only renders after the verdict is persisted — otherwise
     // navigating to the dashboard races the POST and reads a stale "In review" badge.
-    await expect(page.locator('.bp-flash--success')).toBeVisible({
+    await expect(page.locator('.lp-flash--success')).toBeVisible({
         timeout: 10000,
     });
 
     // Step 10: Assert the status badge on the dashboard (scoped to THIS document's row).
     await page.goto(dashboardUrl);
-    const badge = page.locator(`[data-document-id="${documentId}"] .bp-badge`);
+    const badge = page.locator(`[data-document-id="${documentId}"] .lp-badge`);
     await expect(badge).toBeVisible({ timeout: 5000 });
     await expect(badge).toHaveText('Changes requested');
 
@@ -268,14 +268,14 @@ test('full review loop: comment, request changes, reload persistence', async ({
     await expect(
         page.locator('[data-comment-anchor-target="doc"]'),
     ).toBeVisible();
-    const persistedCommentBody = page.locator('.bp-comment-body').first();
+    const persistedCommentBody = page.locator('.lp-comment-body').first();
     await expect(persistedCommentBody).toBeVisible({ timeout: 5000 });
     await expect(persistedCommentBody).toContainText(COMMENT_BODY);
 
     // Step 12: Re-check the status is still "Changes requested" on the dashboard.
     await page.goto(dashboardUrl);
     const reloadedBadge = page.locator(
-        `[data-document-id="${documentId}"] .bp-badge`,
+        `[data-document-id="${documentId}"] .lp-badge`,
     );
     await expect(reloadedBadge).toHaveText('Changes requested');
 
@@ -283,12 +283,12 @@ test('full review loop: comment, request changes, reload persistence', async ({
     // by a data-turbo-confirm dialog; accept it, then the Turbo Stream re-renders
     // the thread list without the comment.
     await page.goto(reviewUrl);
-    await expect(page.locator('.bp-comment-thread')).toHaveCount(1, {
+    await expect(page.locator('.lp-comment-thread')).toHaveCount(1, {
         timeout: 5000,
     });
     page.on('dialog', (dialog) => dialog.accept());
     await page.getByRole('button', { name: 'Delete' }).click();
-    await expect(page.locator('.bp-comment-thread')).toHaveCount(0, {
+    await expect(page.locator('.lp-comment-thread')).toHaveCount(0, {
         timeout: 10000,
     });
 
@@ -297,5 +297,5 @@ test('full review loop: comment, request changes, reload persistence', async ({
     await expect(
         page.locator('[data-comment-anchor-target="doc"]'),
     ).toBeVisible();
-    await expect(page.locator('.bp-comment-thread')).toHaveCount(0);
+    await expect(page.locator('.lp-comment-thread')).toHaveCount(0);
 });

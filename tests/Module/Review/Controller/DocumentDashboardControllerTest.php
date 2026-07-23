@@ -131,19 +131,19 @@ final class DocumentDashboardControllerTest extends WebTestCase
         self::assertResponseIsSuccessful();
 
         // Breadcrumb: {project} / Documents.
-        self::assertSelectorTextContains('.bp-crumbs', 'Documents');
-        self::assertSelectorTextContains('.bp-crumbs', $project->name);
+        self::assertSelectorTextContains('.lp-crumbs', 'Documents');
+        self::assertSelectorTextContains('.lp-crumbs', $project->name);
 
         $rowSelector = '[data-document-id="'.$documentId.'"]';
 
         // Version pill reflects the current version number.
-        self::assertSelectorTextContains($rowSelector.' .bp-document-row__version', 'v2');
+        self::assertSelectorTextContains($rowSelector.' .lp-document-row__version', 'v2');
 
-        // Status chip keeps the bp-badge hook and the translated status text.
-        self::assertSelectorTextContains($rowSelector.' .bp-badge', 'In review');
+        // Status chip keeps the lp-badge hook and the translated status text.
+        self::assertSelectorTextContains($rowSelector.' .lp-badge', 'In review');
 
         // Open-thread meta counts only the unresolved top-level thread.
-        self::assertSelectorTextContains($rowSelector.' .bp-document-row__open', '1 open thread');
+        self::assertSelectorTextContains($rowSelector.' .lp-document-row__open', '1 open thread');
     }
 
     public function test_non_owner_cannot_view_a_projects_dashboard(): void

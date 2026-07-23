@@ -49,6 +49,6 @@ final class NavTest extends WebTestCase
         $client->request(Request::METHOD_GET, '/login');
 
         self::assertResponseIsSuccessful();
-        self::assertSelectorNotExists('.bp-sidebar');
+        self::assertSelectorNotExists('.lp-sidebar');
     }
 }

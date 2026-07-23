@@ -72,9 +72,9 @@ Update the `use` import to match: `use PHPUnit\Framework\MockObject\Stub;` or `u
 
 ## WebTestCase — assert on stable hooks, not markup structure
 
-`WebTestCase` crawler assertions are coupled to the rendered markup, so a visual refactor silently breaks them — `assertCount(1, $crawler->filter('tbody tr'))` fails the moment a `<table>` becomes `.bp-doc-row` divs. Prefer **stable hooks** over structural/positional selectors:
+`WebTestCase` crawler assertions are coupled to the rendered markup, so a visual refactor silently breaks them — `assertCount(1, $crawler->filter('tbody tr'))` fails the moment a `<table>` becomes `.lp-doc-row` divs. Prefer **stable hooks** over structural/positional selectors:
 
-- ✓ `$crawler->filter('[data-document-id]')`, `'.bp-doc-row'`, `'[data-controller="…"]'` — a `data-*` attribute, a route-bound `id`, or a `.bp-*` component class.
+- ✓ `$crawler->filter('[data-document-id]')`, `'.lp-doc-row'`, `'[data-controller="…"]'` — a `data-*` attribute, a route-bound `id`, or a `.lp-*` component class.
 - ✗ `'tbody tr'`, `'table td'`, `'div > span:first-child'` — tree position and raw HTML tags that a template redesign will move.
 
 This mirrors the Playwright selector-scoping rule in `project-e2e`: assert on intent-carrying hooks the markup is unlikely to drop.

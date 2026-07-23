@@ -6,31 +6,31 @@
 {% set submittedCount = reviews|filter(r => r.status.value == 'submitted')|length %}
 {% set totalComments = 0 %}
 {% for review in reviews %}{% set totalComments = totalComments + review.comments|length %}{% endfor %}
-<div class="bp-sr-page">
-    <nav class="bp-sr-breadcrumb">
+<div class="lp-sr-page">
+    <nav class="lp-sr-breadcrumb">
         <a href="{{ path('app_project_documents', {id: project.id}) }}">{{ project.name }}</a>
-        <span class="bp-sr-breadcrumb__sep">/</span>
-        <span class="bp-sr-breadcrumb__current">{{ 'site_review.page.title'|trans }}</span>
+        <span class="lp-sr-breadcrumb__sep">/</span>
+        <span class="lp-sr-breadcrumb__current">{{ 'site_review.page.title'|trans }}</span>
     </nav>
 
     <twig:LoopRibbon :stage="site_review_loop_stage(project)" />
 
     {% for label, messages in app.flashes %}
         {% for message in messages %}
-            <div class="bp-flash bp-flash--{{ label }}">{{ message }}</div>
+            <div class="lp-flash lp-flash--{{ label }}">{{ message }}</div>
         {% endfor %}
     {% endfor %}
 
-    <header class="bp-sr-header">
-        <h1 class="bp-sr-title">{{ 'site_review.page.title'|trans }}</h1>
-        <p class="bp-sr-meta-line">
+    <header class="lp-sr-header">
+        <h1 class="lp-sr-title">{{ 'site_review.page.title'|trans }}</h1>
+        <p class="lp-sr-meta-line">
             {% if project.domain %}{{ project.domain }} · {% endif %}{{ 'site_review.page.submitted_count'|trans({'%count%': submittedCount}) }}
         </p>
-        <p class="bp-sr-desc">{{ 'site_review.page.description'|trans }}</p>
+        <p class="lp-sr-desc">{{ 'site_review.page.description'|trans }}</p>
     </header>
 
     {% if totalComments > 0 %}
-    <div class="bp-sr-list">
+    <div class="lp-sr-list">
         {% set index = 0 %}
         {% for review in reviews %}
             {% set submitted = review.status.value == 'submitted' %}
@@ -38,41 +38,41 @@
                 {% set index = index + 1 %}
                 {% set isPending = comment.status.value == 'pending' %}
                 {% set toneClass = isPending ? 'pending' : 'ok' %}
-                <article class="bp-sr-item" data-comment-id="{{ comment.id }}" data-comment-status="{{ comment.status.value }}">
-                    <span class="bp-sr-index bp-sr-index--{{ toneClass }}">{{ '%02d'|format(index) }}</span>
-                    <div class="bp-sr-main">
-                        <div class="bp-sr-title-row">
-                            <p class="bp-sr-quote">
+                <article class="lp-sr-item" data-comment-id="{{ comment.id }}" data-comment-status="{{ comment.status.value }}">
+                    <span class="lp-sr-index lp-sr-index--{{ toneClass }}">{{ '%02d'|format(index) }}</span>
+                    <div class="lp-sr-main">
+                        <div class="lp-sr-title-row">
+                            <p class="lp-sr-quote">
                                 {%- if comment.text is not empty -%}
                                     &ldquo;{{ comment.text }}&rdquo;
                                 {%- else -%}
                                     {{ 'site_review.comment.general_page'|trans }}
                                 {%- endif -%}
                             </p>
-                            <span class="bp-status-chip bp-status-chip--{{ toneClass }} shrink-0">
-                                <span class="bp-status-chip__dot"></span>
+                            <span class="lp-status-chip lp-status-chip--{{ toneClass }} shrink-0">
+                                <span class="lp-status-chip__dot"></span>
                                 {{ ('site_review.comment.status.' ~ comment.status.value)|trans }}
                             </span>
                         </div>
 
-                        <p class="bp-sr-widget-meta">{{ 'site_review.comment.via_widget'|trans }}</p>
+                        <p class="lp-sr-widget-meta">{{ 'site_review.comment.via_widget'|trans }}</p>
 
-                        <p class="bp-sr-body">{{ comment.body }}</p>
+                        <p class="lp-sr-body">{{ comment.body }}</p>
 
-                        <div class="bp-sr-context">
+                        <div class="lp-sr-context">
                             {% if comment.url starts with 'http://' or comment.url starts with 'https://' %}
-                            <a class="bp-sr-context__url" href="{{ comment.url }}" target="_blank" rel="noopener noreferrer">
+                            <a class="lp-sr-context__url" href="{{ comment.url }}" target="_blank" rel="noopener noreferrer">
                                 <twig:ux:icon name="lucide:external-link" class="w-3.5 h-3.5 shrink-0" />
                                 <span>{{ comment.url }}</span>
                             </a>
                             {% else %}
-                            <span class="bp-sr-context__url">
+                            <span class="lp-sr-context__url">
                                 <twig:ux:icon name="lucide:external-link" class="w-3.5 h-3.5 shrink-0" />
                                 <span>{{ comment.url }}</span>
                             </span>
                             {% endif %}
                             {% if comment.selector is not empty %}
-                            <span class="bp-sr-context__selector">
+                            <span class="lp-sr-context__selector">
                                 <twig:ux:icon name="lucide:code" class="w-3.5 h-3.5 shrink-0" />
                                 <code>{{ comment.selector }}</code>
                             </span>
@@ -86,17 +86,17 @@
                         #}
 
                         {% if submitted %}
-                        <div class="bp-sr-actions">
+                        <div class="lp-sr-actions">
                             {% if comment.status.value != 'resolved' %}
                             <form method="POST" action="{{ path('app_site_review_comment_resolve', {id: comment.id}) }}">
                                 <input type="hidden" name="_csrf_token" value="{{ csrf_token('site-review-comment-action') }}">
-                                <button type="submit" class="bp-btn bp-btn--success bp-btn--sm">{{ 'site_review.comment.action.resolve'|trans }}</button>
+                                <button type="submit" class="lp-btn lp-btn--success lp-btn--sm">{{ 'site_review.comment.action.resolve'|trans }}</button>
                             </form>
                             {% endif %}
                             {% if comment.status.value != 'pending' %}
                             <form method="POST" action="{{ path('app_site_review_comment_reopen', {id: comment.id}) }}">
                                 <input type="hidden" name="_csrf_token" value="{{ csrf_token('site-review-comment-action') }}">
-                                <button type="submit" class="bp-btn bp-btn--ghost bp-btn--sm">{{ 'site_review.comment.action.reopen'|trans }}</button>
+                                <button type="submit" class="lp-btn lp-btn--ghost lp-btn--sm">{{ 'site_review.comment.action.reopen'|trans }}</button>
                             </form>
                             {% endif %}
                         </div>
@@ -107,7 +107,7 @@
         {% endfor %}
     </div>
     {% else %}
-    <div class="bp-sr-empty">
+    <div class="lp-sr-empty">
         <twig:ux:icon name="lucide:message-square" class="w-8 h-8 text-fg-dim" />
         <p>{{ 'site_review.site.reviews.empty'|trans }}</p>
     </div>
