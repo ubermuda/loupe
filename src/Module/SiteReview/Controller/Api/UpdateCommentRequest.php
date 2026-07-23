@@ -10,6 +10,7 @@ final class UpdateCommentRequest
 {
     public function __construct(
         #[Assert\NotBlank(normalizer: 'trim')]
+        #[Assert\Length(max: 10000)]
         public ?string $body = null,
     ) {
     }
