@@ -116,6 +116,7 @@ just ci        # check-only: phpstan, arkitect, gamache, eslint, phpunit
 just e2e       # Playwright end-to-end tests
 just shell     # bash inside the php-fpm container
 just composer  # run composer in the container, e.g. `just composer require foo/bar`
+just secrets-scan # scan the full git history for committed secrets
 just cli-test  # vet + test the Go CLI in cli/
 just cli-build # cross-compile the Go CLI into cli/dist/
 ```

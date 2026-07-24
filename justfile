@@ -75,6 +75,20 @@ cs-check:
 gamache:
     vendor/bin/gamache
 
+# Scan the whole git history for committed secrets with two independent tools.
+# Deliberately not part of `ci`: it needs host tooling and outbound network
+# access. Run it before publishing, and after any history rewrite.
+#
+# gitleaks matches patterns and honours .gitleaksignore, which documents the
+# dev/test values that are committed on purpose. trufflehog goes further and
+# *verifies* candidates against the relevant provider APIs, failing only on
+# credentials that actually authenticate — so it does make outbound calls.
+secrets-scan:
+    @command -v gitleaks >/dev/null 2>&1 || { echo "gitleaks not installed — run: brew install gitleaks"; exit 1; }
+    @command -v trufflehog >/dev/null 2>&1 || { echo "trufflehog not installed — run: brew install trufflehog"; exit 1; }
+    gitleaks detect --source . --log-opts="--all" --no-banner
+    trufflehog git file://. --results=verified --fail
+
 # lint already covers parallel-lint, prettier --check and eslint (incl. e2e).
 ci: lint cs-check phpstan arkitect gamache phpunit
 
