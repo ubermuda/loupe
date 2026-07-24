@@ -19,6 +19,12 @@ exec *args:
 
 shell: (exec "bash")
 
+# Run composer inside the php-fpm container. Never run it on the host: the
+# container's PHP version and extension set are what the lockfile is resolved
+# against, and vendor/ is bind-mounted straight back into it.
+composer *args:
+    bin/worktrees/compose-exec.sh composer {{args}}
+
 # Prepare the current worktree for isolated, parallel `just ci` (rsync vendor,
 # link node_modules, per-worktree test DB). No-op from the main checkout.
 worktree-up:

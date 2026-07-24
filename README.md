@@ -33,9 +33,9 @@ Built with Symfony, Tailwind CSS + DaisyUI, and Symfony UX (Stimulus + Turbo).
 ## Quickstart (local development)
 
 ```bash
-just up            # start nginx, php-fpm, postgres, mercure
-composer install
-just migrate-run   # set up the database
+just up                # start nginx, php-fpm, postgres, mercure
+just composer install  # runs inside the php-fpm container
+just migrate-run       # set up the database
 ```
 
 `just --list` shows every recipe.
@@ -115,6 +115,7 @@ just cs        # apply formatter + Rector fixes
 just ci        # check-only: phpstan, arkitect, gamache, eslint, phpunit
 just e2e       # Playwright end-to-end tests
 just shell     # bash inside the php-fpm container
+just composer  # run composer in the container, e.g. `just composer require foo/bar`
 just cli-test  # vet + test the Go CLI in cli/
 just cli-build # cross-compile the Go CLI into cli/dist/
 ```
