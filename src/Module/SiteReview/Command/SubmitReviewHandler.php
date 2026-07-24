@@ -67,27 +67,22 @@ final readonly class SubmitReviewHandler
             'submittedAt' => $review->submittedAt?->format(\DateTimeInterface::ATOM),
         ], \JSON_THROW_ON_ERROR);
 
-        // Best-effort with one immediate retry: a down or slow hub must never
-        // fail an already-persisted submit — that would surface as a 500 and
-        // provoke a duplicate resubmit. Durable delivery is a deliberate
-        // follow-up (transactional outbox + worker); until then a lost event is
-        // logged at error level with enough context to replay it by hand.
-        $update = new Update($topic, $payload, true);
-        $lastError = null;
-        for ($attempt = 1; $attempt <= 2; ++$attempt) {
-            try {
-                $this->hub->publish($update);
-
-                return;
-            } catch (\Throwable $e) {
-                $lastError = $e;
-            }
+        // Best-effort, published exactly once: a down or slow hub must never fail
+        // an already-persisted submit — that would surface as a 500 and provoke a
+        // duplicate resubmit. Deliberately not retried, either: the hub may have
+        // accepted the update before the client threw, and publishing again would
+        // make bridge subscribers inject the same review twice. The update
+        // carries the review id so a subscriber (or the durable outbox this is a
+        // placeholder for) can deduplicate. A lost event is logged at error level
+        // with enough context to replay it by hand.
+        try {
+            $this->hub->publish(new Update($topic, $payload, true, id: (string) $review->id));
+        } catch (\Throwable $e) {
+            $this->logger->error('site_review.review.publish_failed', [
+                'reviewId' => (string) $review->id,
+                'topic' => $topic,
+                'error' => $e->getMessage(),
+            ]);
         }
-
-        $this->logger->error('site_review.review.publish_failed', [
-            'reviewId' => (string) $review->id,
-            'topic' => $topic,
-            'error' => $lastError->getMessage(),
-        ]);
     }
 }
