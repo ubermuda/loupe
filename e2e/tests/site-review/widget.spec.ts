@@ -26,11 +26,14 @@ const E2E_EMAIL = 'e2e-site-review@example.com';
 const E2E_USERNAME = 'e2esitereview';
 const E2E_PASSWORD = 'E2eSiteReview1!';
 
+const HARNESS_URL = `/dev/site-review-harness?email=${encodeURIComponent(E2E_EMAIL)}`;
+
 /**
- * Seed the user (idempotent — re-registering an existing user is handled by the
- * dev endpoint) and load the harness. Every load resets the draft server-side.
+ * Register the e2e user (idempotent — re-registering is handled by the dev endpoint)
+ * without loading the harness. Tests that need to intercept the widget's boot request
+ * install their route between this and their own `page.goto(HARNESS_URL)`.
  */
-const openHarness = async (page: Page): Promise<void> => {
+const registerUser = async (page: Page): Promise<void> => {
     await suppressToolbar(page);
     const registerResponse = await page.request.post(
         '/dev/register-and-verify',
@@ -44,9 +47,14 @@ const openHarness = async (page: Page): Promise<void> => {
         },
     );
     expect(registerResponse.status()).toBe(200);
-    await page.goto(
-        `/dev/site-review-harness?email=${encodeURIComponent(E2E_EMAIL)}`,
-    );
+};
+
+/**
+ * Seed the user and load the harness. Every load resets the draft server-side.
+ */
+const openHarness = async (page: Page): Promise<void> => {
+    await registerUser(page);
+    await page.goto(HARNESS_URL);
 };
 
 /**
@@ -303,80 +311,60 @@ test('a failed send keeps the review and offers retry', async ({ page }) => {
     await expect(page.locator('#lp-head-count')).toHaveText('1');
 });
 
-test('a permanent 403 on save explains the token problem instead of offering retry', async ({
+test('a 403 on the boot load drops the widget into a critical, dead-end state', async ({
     page,
 }) => {
-    await openHarness(page);
+    await registerUser(page);
 
-    // Force the comment POST to fail the way an invalid / unlinked widget token does:
-    // a 403 no amount of retrying can clear.
-    await page.route('**/api/site-review/comments', (route) => {
+    // The very first call the widget makes on boot — GET /review — 403s, the way an
+    // unlinked / wrong-scope token does. Installing the route before navigating means the
+    // widget hits it on load, so it must catch the rejection immediately.
+    await page.route('**/api/site-review/review', (route) => {
         void route.fulfill({
             status: 403,
             contentType: 'application/json',
             body: JSON.stringify({ error: 'token_not_bound_to_site' }),
         });
     });
+    await page.goto(HARNESS_URL);
+
+    // The collapsed launcher flags the problem with a danger badge before it is opened.
+    await expect(page.locator('#lp-launch-alert')).toBeVisible();
 
     await page.getByRole('button', { name: 'Review' }).click();
-    await page
-        .locator('#lp-panel')
-        .getByRole('button', { name: 'Add note' })
-        .click();
-    await page.getByPlaceholder(/Describe the issue/).fill('Anything at all');
-    await page.getByRole('button', { name: 'Save' }).click();
-
     const panel = page.locator('#lp-panel');
-    // The banner names the cause (token not linked to the site) rather than the generic
-    // "couldn't apply that change, try again" — and offers Dismiss, not a doomed retry.
+    // The panel is replaced by the critical state naming the cause — not an empty review.
+    await expect(panel.getByText(/can.t connect/i)).toBeVisible();
     await expect(panel.getByText(/linked to this site/i)).toBeVisible();
-    await expect(panel.getByRole('button', { name: 'Dismiss' })).toBeVisible();
+
+    // It is a dead end: the whole normal UI (composer + actions) is gone, and there is no
+    // retry that would just 403 again.
+    await expect(panel.locator('#lp-main')).toBeHidden();
+    await expect(page.getByPlaceholder(/Describe the issue/)).toBeHidden();
     await expect(panel.getByRole('button', { name: 'Try again' })).toHaveCount(
         0,
     );
-
-    // The draft is preserved in the open composer so nothing the reviewer wrote is lost.
-    await expect(page.getByPlaceholder(/Describe the issue/)).toHaveValue(
-        'Anything at all',
-    );
+    await expect(panel.getByRole('button', { name: 'Dismiss' })).toHaveCount(0);
 });
 
-test('a 401 on save reports an invalid token rather than a generic retry', async ({
+test('a 401 on the boot load reports an invalid / revoked token', async ({
     page,
 }) => {
-    await openHarness(page);
+    await registerUser(page);
 
-    // Force the comment POST to fail the way an invalid / revoked token does: a 401
-    // that retrying can never clear.
-    await page.route('**/api/site-review/comments', (route) => {
+    await page.route('**/api/site-review/review', (route) => {
         void route.fulfill({
             status: 401,
             contentType: 'application/json',
             body: JSON.stringify({ error: 'unauthorized' }),
         });
     });
+    await page.goto(HARNESS_URL);
 
     await page.getByRole('button', { name: 'Review' }).click();
-    await page
-        .locator('#lp-panel')
-        .getByRole('button', { name: 'Add note' })
-        .click();
-    await page.getByPlaceholder(/Describe the issue/).fill('Anything at all');
-    await page.getByRole('button', { name: 'Save' }).click();
-
     const panel = page.locator('#lp-panel');
-    // The banner names the cause (invalid / revoked token) and offers Dismiss, not a
-    // doomed retry.
+    await expect(panel.getByText(/can.t connect/i)).toBeVisible();
     await expect(panel.getByText(/invalid or was revoked/i)).toBeVisible();
-    await expect(panel.getByRole('button', { name: 'Dismiss' })).toBeVisible();
-    await expect(panel.getByRole('button', { name: 'Try again' })).toHaveCount(
-        0,
-    );
-
-    // The draft is preserved in the open composer so nothing the reviewer wrote is lost.
-    await expect(page.getByPlaceholder(/Describe the issue/)).toHaveValue(
-        'Anything at all',
-    );
 });
 
 test('deleting a list comment uses a sliding confirm overlay', async ({

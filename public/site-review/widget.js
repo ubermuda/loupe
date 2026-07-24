@@ -32,12 +32,20 @@
     return response.status === 204 ? null : response.json();
   };
 
+  // A 401/403 from ANY endpoint means the widget's token is unusable — loading, saving,
+  // and sending all fail the same way — so it is not a per-action hiccup. Callers promote
+  // it to the fatal state instead of showing a retryable inline error.
+  const authFailed = (error) => !!error && (error.status === 401 || error.status === 403);
+
   // Rehydrate the pending list from the server's in-progress review.
   const refresh = async () => {
     try {
       const { review } = await api('GET', '/api/site-review/review');
       pending = review ? review.comments : [];
-    } catch {
+    } catch (error) {
+      // Catch a rejected token at the earliest possible point — the boot load — so the
+      // widget opens straight into its critical state instead of a misleading empty review.
+      if (authFailed(error)) state.fatal = { status: error.status };
       pending = [];
     }
   };
@@ -205,6 +213,12 @@
     glyph: (s) =>
       `<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" ` +
       `stroke-linecap="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="2.4" fill="currentColor" stroke="none"/></svg>`,
+    alert: (s) =>
+      svg(
+        s,
+        '<path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>',
+        1.9,
+      ),
   };
 
   // ---- widget state (the in-progress review's comments live in `pending`; this is UI state) ----
@@ -229,7 +243,8 @@
     deleting: false,
     sending: false,
     sent: false, // true after a successful submit
-    sendError: null,
+    sendError: null, // transient mutation failure (network/5xx/429): a retryable inline banner
+    fatal: null, // { status } once the token is rejected (401/403) — replaces the panel
   };
   let moveBase = null; // deepest element under the cursor while picking
   let pinCloseTimer = 0;
@@ -283,6 +298,7 @@
       .lp-count{display:inline-flex;align-items:center;justify-content:center;min-width:20px;height:20px;padding:0 6px;border-radius:10px;font-size:11.5px;font-weight:600}
       .lp-count.solid{background:var(--accent);color:var(--on-accent)}
       .lp-count.soft{background:var(--accent-soft);color:var(--accent)}
+      .lp-count.danger{background:var(--danger);color:#fff}
 
       .lp-panel{position:fixed;right:20px;bottom:78px;width:348px;max-height:calc(100vh - 160px);display:flex;flex-direction:column;background:var(--panel-bg);border:1px solid var(--panel-border);border-radius:17px;box-shadow:var(--shadow);pointer-events:auto;overflow:hidden;font-family:'Geist',system-ui,-apple-system,sans-serif;color:var(--text);animation:lp-pop .2s cubic-bezier(.2,.9,.3,1);transition:background .25s ease,border-color .25s ease}
       .lp-main{display:flex;flex-direction:column;min-height:0;flex:1 1 auto}
@@ -315,8 +331,9 @@
       .lp-action.active{background:var(--accent-soft);color:var(--accent);border-color:var(--accent)}
       .lp-kbd{font-family:'Geist Mono',ui-monospace,monospace;font-size:10px;line-height:1;padding:2px 4px;border-radius:4px;background:var(--chip-bg);color:var(--chip-text)}
 
-      .lp-error{margin:0 14px 10px;padding:9px 11px;display:flex;align-items:center;gap:8px;background:color-mix(in srgb,var(--danger) 12%,transparent);border:1px solid color-mix(in srgb,var(--danger) 34%,transparent);border-radius:9px;font-size:12px;color:var(--danger)}
-      .lp-error button{margin-left:auto;background:transparent;border:0;color:var(--danger);font-family:inherit;font-size:12px;font-weight:600;cursor:pointer;border-radius:6px;padding:3px 6px}
+      .lp-error{margin:0 14px 10px;padding:9px 11px;display:flex;align-items:flex-start;gap:8px;background:color-mix(in srgb,var(--danger) 12%,transparent);border:1px solid color-mix(in srgb,var(--danger) 34%,transparent);border-radius:9px;font-size:12px;line-height:1.45;color:var(--danger)}
+      .lp-error span{flex:1;padding-top:2px}
+      .lp-error button{flex:0 0 auto;background:transparent;border:0;color:var(--danger);font-family:inherit;font-size:12px;font-weight:600;cursor:pointer;border-radius:6px;padding:3px 6px}
       .lp-error button:hover{background:color-mix(in srgb,var(--danger) 14%,transparent)}
 
       .lp-empty-anim{flex:0 0 auto;overflow:hidden;transition:max-height .27s cubic-bezier(.4,0,.2,1),opacity .2s ease}
@@ -365,6 +382,11 @@
       .lp-sent-disc{width:46px;height:46px;margin:8px auto 12px;border-radius:50%;background:color-mix(in srgb,var(--success) 16%,transparent);display:flex;align-items:center;justify-content:center;color:var(--success)}
       .lp-sent-title{font-size:14.5px;font-weight:600}
       .lp-sent-sub{font-size:12.5px;color:var(--muted);margin-top:3px}
+
+      .lp-fatal{padding:10px 24px 26px;text-align:center;animation:lp-pop .2s ease}
+      .lp-fatal-disc{width:46px;height:46px;margin:6px auto 13px;border-radius:50%;background:color-mix(in srgb,var(--danger) 15%,transparent);display:flex;align-items:center;justify-content:center;color:var(--danger)}
+      .lp-fatal-title{font-size:14.5px;font-weight:600;color:var(--text)}
+      .lp-fatal-sub{max-width:252px;margin:6px auto 0;font-size:12.5px;color:var(--muted);line-height:1.55}
       .lp-new{margin-top:10px;height:34px;width:100%;background:var(--panel-elev);border:1px solid var(--field-border);border-radius:9px;color:var(--text);font-family:inherit;font-size:13px;font-weight:500;cursor:pointer}
       .lp-new:hover{border-color:var(--accent)}
     </style>
@@ -377,6 +399,7 @@
       <button class="lp-launch-main" id="lp-launch-main" aria-label="Review">
         <span>Review</span>
         <span class="lp-count solid" id="lp-launch-count" style="display:none">0</span>
+        <span class="lp-count danger" id="lp-launch-alert" style="display:none" aria-label="Widget error" title="This review widget can’t connect">!</span>
       </button>
     </div>
     <div class="lp-panel" id="lp-panel" style="display:none">
@@ -443,6 +466,7 @@
         </div>
       </div>
       <div id="lp-sent" style="display:none"></div>
+      <div id="lp-fatal" style="display:none"></div>
     </div>`;
 
   overlayRoot.innerHTML = `
@@ -508,6 +532,7 @@
   const panelNode = $('lp-panel');
   const mainNode = $('lp-main');
   const sentNode = $('lp-sent');
+  const fatalNode = $('lp-fatal');
   const composerNode = $('lp-composer');
   const composeHead = $('lp-compose-head');
   const textareaNode = $('lp-textarea');
@@ -774,48 +799,42 @@
     updateHighlight();
   };
 
-  // Turn a failed mutation into a reviewer-facing banner. A 401/403 is permanent —
-  // the widget's token is invalid, revoked, or not linked to this site — so retrying
-  // can only fail again; we name the cause and offer Dismiss instead of a hollow
-  // "Try again". Everything else (offline, 5xx, 429 rate-limit) is transient and keeps
-  // the retry affordance on the send path.
-  const describeError = (scope, error) => {
-    const status = error && error.status;
-    if (status === 401) {
-      return {
-        text: 'This review widget’s access token is invalid or was revoked. Update the embed snippet with a current token.',
-        retry: false,
-      };
-    }
-    if (status === 403) {
-      return {
-        text: 'This review widget’s token isn’t linked to this site. Regenerate the widget token and update the embed snippet.',
-        retry: false,
-      };
-    }
-    return {
-      text:
-        scope === 'send'
-          ? 'Couldn’t send your review. Please try again.'
-          : 'Couldn’t apply that change. Please try again.',
-      retry: scope === 'send',
-    };
-  };
+  // Copy for a *transient* mutation failure (offline, 5xx, 429 rate-limit). Auth failures
+  // (401/403) never reach here — authFailed() promotes them to the fatal state — so this
+  // banner always offers a genuine retry on the send path.
+  const describeError = (scope) => ({
+    text:
+      scope === 'send'
+        ? 'Couldn’t send your review. Please try again.'
+        : 'Couldn’t apply that change. Please try again.',
+    retry: scope === 'send',
+  });
+
+  // Detail line for the fatal panel, tailored to how the token was rejected.
+  const fatalDetail = (status) =>
+    status === 401
+      ? 'This widget’s access token is invalid or was revoked. Update the embed snippet with a current token.'
+      : 'This widget’s token isn’t linked to this site. Regenerate the widget token and update the embed snippet.';
 
   // ---- panel render ----
   const updatePanel = () => {
+    const fatal = null !== state.fatal;
     const n = pending.length;
     const launchCount = $('lp-launch-count');
-    launchCount.style.display = n > 0 ? 'inline-flex' : 'none';
+    launchCount.style.display = !fatal && n > 0 ? 'inline-flex' : 'none';
     launchCount.textContent = String(n);
+    // A rejected token surfaces on the collapsed launcher too — a danger "!" badge — so
+    // the problem is visible before the panel is ever opened.
+    $('lp-launch-alert').style.display = fatal ? 'inline-flex' : 'none';
 
     // While picking an element, hide the whole widget (launcher + panel) so it does
     // not obscure the page; the scrim + toast are the only pick-mode UI.
     const launcherNode = $('lp-launcher');
     launcherNode.style.display = state.target ? 'none' : '';
-    // The launcher's quick actions duplicate the in-panel ones, so hide them (keeping
-    // only the Review toggle) whenever the panel is open.
-    launcherNode.classList.toggle('open', state.open);
+    // The launcher's quick actions duplicate the in-panel ones, so hide them (keeping only
+    // the Review toggle) whenever the panel is open — or fatal, where they'd only launch a
+    // composer the critical state immediately hides.
+    launcherNode.classList.toggle('open', state.open || fatal);
     // Clip the quick actions while they collapse; once expanded and idle, allow overflow
     // so their hover tooltips can escape upward (see the transitionend handler).
     if (state.open) launchQuick.style.overflow = 'hidden';
@@ -824,12 +843,18 @@
 
     const sent = state.sent;
     const headCount = $('lp-head-count');
-    headCount.style.display = n > 0 && !sent ? 'inline-flex' : 'none';
+    headCount.style.display = n > 0 && !sent && !fatal ? 'inline-flex' : 'none';
     headCount.textContent = String(n);
 
-    mainNode.style.display = sent ? 'none' : 'flex';
-    sentNode.style.display = sent ? 'block' : 'none';
+    // A rejected token takes precedence over every other panel state.
+    fatalNode.style.display = fatal ? 'block' : 'none';
+    mainNode.style.display = fatal || sent ? 'none' : 'flex';
+    sentNode.style.display = !fatal && sent ? 'block' : 'none';
 
+    if (fatal) {
+      renderFatal();
+      return;
+    }
     if (sent) {
       renderSent();
       return;
@@ -858,7 +883,7 @@
     targetBtn.setAttribute('aria-pressed', state.target ? 'true' : 'false');
 
     if (state.sendError) {
-      const { text, retry } = describeError(state.sendError.scope, state.sendError.error);
+      const { text, retry } = describeError(state.sendError.scope);
       errorNode.style.display = 'flex';
       errorNode.innerHTML = retry
         ? `<span>${text}</span><button id="lp-retry">Try again</button>`
@@ -1000,6 +1025,19 @@
     sync();
   };
 
+  // The critical state for a rejected token. Built once and sticky — a bad token cannot
+  // recover without a fresh page load (with a corrected embed), so there is nothing to
+  // retry or dismiss; the copy tells the embedder how to fix it.
+  const renderFatal = () => {
+    if (fatalNode.dataset.shown) return;
+    fatalNode.dataset.shown = '1';
+    fatalNode.innerHTML = `<div class="lp-fatal">
+        <div class="lp-fatal-disc">${ICON.alert(22)}</div>
+        <div class="lp-fatal-title">This review widget can’t connect</div>
+        <div class="lp-fatal-sub">${fatalDetail(state.fatal ? state.fatal.status : 0)}</div>
+      </div>`;
+  };
+
   const sync = () => {
     updatePanel();
     renderOverlay();
@@ -1013,6 +1051,7 @@
     t.setSelectionRange(end, end);
   };
   const openNoteComposer = () => {
+    if (state.fatal) return;
     state.composing = true;
     state.composeTarget = { type: 'general' };
     state.editId = null;
@@ -1115,8 +1154,10 @@
       state.draft = '';
       textareaNode.value = '';
     } catch (error) {
-      // Keep the composer open with the draft intact so nothing is lost.
-      state.sendError = { scope: 'change', error };
+      // A rejected token is fatal; anything else keeps the composer open with the draft
+      // intact so nothing is lost.
+      if (authFailed(error)) state.fatal = { status: error.status };
+      else state.sendError = { scope: 'change', error };
     }
     state.saving = false;
     sync();
@@ -1133,7 +1174,8 @@
       await api('DELETE', `/api/site-review/comments/${target.id}`);
       pending.splice(index, 1);
     } catch (error) {
-      state.sendError = { scope: 'change', error };
+      if (authFailed(error)) state.fatal = { status: error.status };
+      else state.sendError = { scope: 'change', error };
     }
     state.deleting = false;
     state.confirmDeleteId = null;
@@ -1159,8 +1201,12 @@
       await Promise.all(pending.map((comment) => api('DELETE', `/api/site-review/comments/${comment.id}`)));
       pending = [];
     } catch (error) {
-      state.sendError = { scope: 'change', error };
-      await refresh(); // reconcile: some deletes may have landed
+      if (authFailed(error)) {
+        state.fatal = { status: error.status };
+      } else {
+        state.sendError = { scope: 'change', error };
+        await refresh(); // reconcile: some deletes may have landed
+      }
     }
     state.deleting = false;
     state.confirmClear = false;
@@ -1216,6 +1262,7 @@
     }
   };
   const toggleTarget = () => {
+    if (state.fatal) return;
     const on = !state.target;
     if (on) {
       state.composing = false;
@@ -1344,9 +1391,11 @@
       textareaNode.value = '';
       sync();
     } catch (error) {
-      // The draft stays server-side; the reviewer can retry.
+      // A rejected token is fatal; otherwise the draft stays server-side and the reviewer
+      // can retry.
       state.sending = false;
-      state.sendError = { scope: 'send', error };
+      if (authFailed(error)) state.fatal = { status: error.status };
+      else state.sendError = { scope: 'send', error };
       updatePanel();
     }
   };
@@ -1425,8 +1474,9 @@
         return;
       }
     }
-    // Single-key shortcuts only while the panel is open, no modifier held, not typing.
-    if (!state.open) return;
+    // Single-key shortcuts only while the panel is open, no modifier held, not typing —
+    // and never in the fatal state, where there is nothing to compose.
+    if (!state.open || state.fatal) return;
     if (event.metaKey || event.ctrlKey || event.altKey || isTyping()) return;
     if (event.key === 'c') {
       event.preventDefault();
