@@ -124,7 +124,7 @@ func runForeground(cmd *cobra.Command, cfg config.Config, site, target string, h
 	}
 	fmt.Fprintf(out, "Bridging site reviews for site %q into tmux session %q (topic %s)\n", creds.Site.Name, tmux.SessionName(target), creds.Topic)
 
-	if err := transport.Subscribe(ctx, &http.Client{}, creds.HubURL, creds.Topic, jwtRefresher(cfg, site), h); err != nil && ctx.Err() == nil {
+	if err := transport.Subscribe(ctx, &http.Client{}, creds.HubURL, creds.Topic, jwtRefresher(cfg, creds.Site.ID), h); err != nil && ctx.Err() == nil {
 		return err
 	}
 
@@ -143,7 +143,7 @@ func runAttached(cmd *cobra.Command, cfg config.Config, site, target string, h t
 	}
 
 	go func() {
-		_ = transport.Subscribe(ctx, &http.Client{}, creds.HubURL, creds.Topic, jwtRefresher(cfg, site), h)
+		_ = transport.Subscribe(ctx, &http.Client{}, creds.HubURL, creds.Topic, jwtRefresher(cfg, creds.Site.ID), h)
 	}()
 
 	// While attached, Ctrl-C belongs to the program inside tmux (Claude), not
@@ -198,9 +198,12 @@ func fetchCreds(ctx context.Context, cfg config.Config, site string) (api.Stream
 // jwtRefresher mints a fresh subscriber JWT per connection attempt. Subscriber
 // JWTs are short-lived, so a bridge left running would otherwise reconnect with
 // an expired token forever once the first one lapsed.
-func jwtRefresher(cfg config.Config, site string) transport.TokenFunc {
+//
+// siteID must be the resolved id, never the handle the user passed: --site also
+// accepts a name, and renaming the project would then break every reconnect.
+func jwtRefresher(cfg config.Config, siteID string) transport.TokenFunc {
 	return func(ctx context.Context) (string, error) {
-		creds, err := fetchCreds(ctx, cfg, site)
+		creds, err := fetchCreds(ctx, cfg, siteID)
 		if err != nil {
 			return "", err
 		}
