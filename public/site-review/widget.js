@@ -22,7 +22,13 @@
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${TOKEN}` },
       body: body === undefined ? undefined : JSON.stringify(body),
     });
-    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    if (!response.ok) {
+      // Carry the status so callers can tell a permanent auth/config failure (401/403 —
+      // invalid, revoked, or unlinked token) from a transient one (network, 5xx, 429).
+      const error = new Error(`HTTP ${response.status}`);
+      error.status = response.status;
+      throw error;
+    }
     return response.status === 204 ? null : response.json();
   };
 
@@ -768,6 +774,34 @@
     updateHighlight();
   };
 
+  // Turn a failed mutation into a reviewer-facing banner. A 401/403 is permanent —
+  // the widget's token is invalid, revoked, or not linked to this site — so retrying
+  // can only fail again; we name the cause and offer Dismiss instead of a hollow
+  // "Try again". Everything else (offline, 5xx, 429 rate-limit) is transient and keeps
+  // the retry affordance on the send path.
+  const describeError = (scope, error) => {
+    const status = error && error.status;
+    if (status === 401) {
+      return {
+        text: 'This review widget’s access token is invalid or was revoked. Update the embed snippet with a current token.',
+        retry: false,
+      };
+    }
+    if (status === 403) {
+      return {
+        text: 'This review widget’s token isn’t linked to this site. Regenerate the widget token and update the embed snippet.',
+        retry: false,
+      };
+    }
+    return {
+      text:
+        scope === 'send'
+          ? 'Couldn’t send your review. Please try again.'
+          : 'Couldn’t apply that change. Please try again.',
+      retry: scope === 'send',
+    };
+  };
+
   // ---- panel render ----
   const updatePanel = () => {
     const n = pending.length;
@@ -824,13 +858,13 @@
     targetBtn.setAttribute('aria-pressed', state.target ? 'true' : 'false');
 
     if (state.sendError) {
+      const { text, retry } = describeError(state.sendError.scope, state.sendError.error);
       errorNode.style.display = 'flex';
-      errorNode.innerHTML =
-        state.sendError === 'send'
-          ? `<span>Couldn’t send your review. Please try again.</span><button id="lp-retry">Try again</button>`
-          : `<span>Couldn’t apply that change. Please try again.</span><button id="lp-retry-dismiss">Dismiss</button>`;
-      const retry = root.getElementById('lp-retry');
-      if (retry) retry.addEventListener('click', send);
+      errorNode.innerHTML = retry
+        ? `<span>${text}</span><button id="lp-retry">Try again</button>`
+        : `<span>${text}</span><button id="lp-retry-dismiss">Dismiss</button>`;
+      const retryBtn = root.getElementById('lp-retry');
+      if (retryBtn) retryBtn.addEventListener('click', send);
       const dismiss = root.getElementById('lp-retry-dismiss');
       if (dismiss)
         dismiss.addEventListener('click', () => {
@@ -1080,9 +1114,9 @@
       state.editId = null;
       state.draft = '';
       textareaNode.value = '';
-    } catch {
+    } catch (error) {
       // Keep the composer open with the draft intact so nothing is lost.
-      state.sendError = 'save';
+      state.sendError = { scope: 'change', error };
     }
     state.saving = false;
     sync();
@@ -1098,8 +1132,8 @@
       await ready; // don't let the boot refresh clobber an early delete
       await api('DELETE', `/api/site-review/comments/${target.id}`);
       pending.splice(index, 1);
-    } catch {
-      state.sendError = 'delete';
+    } catch (error) {
+      state.sendError = { scope: 'change', error };
     }
     state.deleting = false;
     state.confirmDeleteId = null;
@@ -1124,8 +1158,8 @@
       await ready; // don't let the boot refresh clobber an early clear
       await Promise.all(pending.map((comment) => api('DELETE', `/api/site-review/comments/${comment.id}`)));
       pending = [];
-    } catch {
-      state.sendError = 'delete';
+    } catch (error) {
+      state.sendError = { scope: 'change', error };
       await refresh(); // reconcile: some deletes may have landed
     }
     state.deleting = false;
@@ -1309,10 +1343,10 @@
       });
       textareaNode.value = '';
       sync();
-    } catch {
+    } catch (error) {
       // The draft stays server-side; the reviewer can retry.
       state.sending = false;
-      state.sendError = 'send';
+      state.sendError = { scope: 'send', error };
       updatePanel();
     }
   };

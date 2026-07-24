@@ -303,6 +303,44 @@ test('a failed send keeps the review and offers retry', async ({ page }) => {
     await expect(page.locator('#lp-head-count')).toHaveText('1');
 });
 
+test('a permanent 403 on save explains the token problem instead of offering retry', async ({
+    page,
+}) => {
+    await openHarness(page);
+
+    // Force the comment POST to fail the way an invalid / unlinked widget token does:
+    // a 403 no amount of retrying can clear.
+    await page.route('**/api/site-review/comments', (route) => {
+        void route.fulfill({
+            status: 403,
+            contentType: 'application/json',
+            body: JSON.stringify({ error: 'token_not_bound_to_site' }),
+        });
+    });
+
+    await page.getByRole('button', { name: 'Review' }).click();
+    await page
+        .locator('#lp-panel')
+        .getByRole('button', { name: 'Add note' })
+        .click();
+    await page.getByPlaceholder(/Describe the issue/).fill('Anything at all');
+    await page.getByRole('button', { name: 'Save' }).click();
+
+    const panel = page.locator('#lp-panel');
+    // The banner names the cause (token not linked to the site) rather than the generic
+    // "couldn't apply that change, try again" — and offers Dismiss, not a doomed retry.
+    await expect(panel.getByText(/linked to this site/i)).toBeVisible();
+    await expect(panel.getByRole('button', { name: 'Dismiss' })).toBeVisible();
+    await expect(panel.getByRole('button', { name: 'Try again' })).toHaveCount(
+        0,
+    );
+
+    // The draft is preserved in the open composer so nothing the reviewer wrote is lost.
+    await expect(page.getByPlaceholder(/Describe the issue/)).toHaveValue(
+        'Anything at all',
+    );
+});
+
 test('deleting a list comment uses a sliding confirm overlay', async ({
     page,
 }) => {
