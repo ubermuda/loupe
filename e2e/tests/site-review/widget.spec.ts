@@ -341,6 +341,44 @@ test('a permanent 403 on save explains the token problem instead of offering ret
     );
 });
 
+test('a 401 on save reports an invalid token rather than a generic retry', async ({
+    page,
+}) => {
+    await openHarness(page);
+
+    // Force the comment POST to fail the way an invalid / revoked token does: a 401
+    // that retrying can never clear.
+    await page.route('**/api/site-review/comments', (route) => {
+        void route.fulfill({
+            status: 401,
+            contentType: 'application/json',
+            body: JSON.stringify({ error: 'unauthorized' }),
+        });
+    });
+
+    await page.getByRole('button', { name: 'Review' }).click();
+    await page
+        .locator('#lp-panel')
+        .getByRole('button', { name: 'Add note' })
+        .click();
+    await page.getByPlaceholder(/Describe the issue/).fill('Anything at all');
+    await page.getByRole('button', { name: 'Save' }).click();
+
+    const panel = page.locator('#lp-panel');
+    // The banner names the cause (invalid / revoked token) and offers Dismiss, not a
+    // doomed retry.
+    await expect(panel.getByText(/invalid or was revoked/i)).toBeVisible();
+    await expect(panel.getByRole('button', { name: 'Dismiss' })).toBeVisible();
+    await expect(panel.getByRole('button', { name: 'Try again' })).toHaveCount(
+        0,
+    );
+
+    // The draft is preserved in the open composer so nothing the reviewer wrote is lost.
+    await expect(page.getByPlaceholder(/Describe the issue/)).toHaveValue(
+        'Anything at all',
+    );
+});
+
 test('deleting a list comment uses a sliding confirm overlay', async ({
     page,
 }) => {
