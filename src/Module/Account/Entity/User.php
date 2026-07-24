@@ -83,10 +83,6 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
         return $this->email;
     }
 
-    public function eraseCredentials(): void
-    {
-    }
-
     public function isVerified(): bool
     {
         return null !== $this->emailVerifiedAt;

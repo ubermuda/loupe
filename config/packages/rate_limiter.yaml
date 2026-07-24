@@ -1,0 +1,9 @@
+framework:
+    rate_limiter:
+        # Throttles write traffic on the public site-review API (the embeddable
+        # widget token is public by design), so a leaked or scraped token can't
+        # be used to flood comments or repeatedly (re)submit reviews.
+        site_review_write:
+            policy: 'sliding_window'
+            limit: 60
+            interval: '1 minute'

@@ -39,6 +39,12 @@ use Symfony\Component\Routing\Attribute\Route;
 )]
 final class StreamCredentialsController extends AppController
 {
+    /**
+     * Subscriber JWTs are deliberately short-lived: a leaked credential stops
+     * working within the hour, and clients simply re-request on a 401.
+     */
+    private const int JWT_TTL_SECONDS = 3600;
+
     public function __construct(
         private readonly AuthenticatedProjectResolver $projectResolver,
         private readonly ProjectRepository $projects,
@@ -74,7 +80,7 @@ final class StreamCredentialsController extends AppController
         }
 
         $topic = $this->topicBuilder->forProject($project->id ?? throw new \LogicException('Project has no id.'));
-        $jwt = $this->tokenFactory->create([$topic], []);
+        $jwt = $this->tokenFactory->create([$topic], [], ['exp' => new \DateTimeImmutable('+'.self::JWT_TTL_SECONDS.' seconds')]);
 
         return $this->json([
             'hubUrl' => $this->hubUrl,

@@ -9,6 +9,7 @@ use App\Module\Project\Security\AuthenticatedProjectResolver;
 use App\Module\Review\Command\CreateDocumentCommand;
 use App\Module\Review\Command\CreateDocumentHandler;
 use Mcp\Capability\Attribute\McpTool;
+use Mcp\Exception\ToolCallException;
 use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 
 /**
@@ -18,6 +19,9 @@ use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 final readonly class CreateDocumentTool
 {
     use ResolvesBoundProject;
+
+    /** Reject pathologically large documents before they are parsed and stored. */
+    public const int MAX_MARKDOWN_BYTES = 1_048_576;
 
     public function __construct(
         private CreateDocumentHandler $createDocument,
@@ -35,6 +39,10 @@ final readonly class CreateDocumentTool
     public function __invoke(string $title, string $markdown): array
     {
         $project = $this->requireBoundProject($this->projectResolver);
+
+        if (\strlen($markdown) > self::MAX_MARKDOWN_BYTES) {
+            throw new ToolCallException('The markdown content exceeds the maximum allowed size.');
+        }
 
         $doc = ($this->createDocument)(new CreateDocumentCommand($project, $title, $markdown));
 

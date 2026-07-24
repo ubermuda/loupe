@@ -38,6 +38,10 @@ final readonly class ReviseDocumentTool
     {
         $project = $this->requireBoundProject($this->projectResolver);
 
+        if (\strlen($markdown) > CreateDocumentTool::MAX_MARKDOWN_BYTES) {
+            throw new ToolCallException('The markdown content exceeds the maximum allowed size.');
+        }
+
         try {
             $uuid = Uuid::fromString($documentId);
         } catch (\InvalidArgumentException $e) {

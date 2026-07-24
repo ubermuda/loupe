@@ -24,10 +24,10 @@ final class SidebarStatesTest extends WebTestCase
         $crawler = $client->request(Request::METHOD_GET, '/projects');
 
         self::assertResponseIsSuccessful();
-        self::assertCount(1, $crawler->filter('.bp-sidebar__brand'));
+        self::assertCount(1, $crawler->filter('.lp-sidebar__brand'));
         // Outside a project context there is no switcher and no scoped nav.
-        self::assertCount(0, $crawler->filter('.bp-sidebar__switcher'));
-        self::assertCount(0, $crawler->filter('.bp-sidebar__nav'));
+        self::assertCount(0, $crawler->filter('.lp-sidebar__switcher'));
+        self::assertCount(0, $crawler->filter('.lp-sidebar__nav'));
     }
 
     public function test_project_scoped_page_shows_switcher_and_active_nav(): void
@@ -46,12 +46,12 @@ final class SidebarStatesTest extends WebTestCase
         self::assertResponseIsSuccessful();
 
         // Switcher present and naming the resolved project.
-        self::assertCount(1, $crawler->filter('.bp-sidebar__switcher'));
-        self::assertSame('acme', trim($crawler->filter('.bp-sidebar__switcher-name')->text()));
+        self::assertCount(1, $crawler->filter('.lp-sidebar__switcher'));
+        self::assertSame('acme', trim($crawler->filter('.lp-sidebar__switcher-name')->text()));
 
         // Scoped nav links present, Documents marked active.
-        self::assertSelectorExists('a.bp-sidebar__link--active[href="/projects/'.$id.'/documents"]');
-        self::assertSelectorExists('a.bp-sidebar__link[href="/projects/'.$id.'/site-review"]');
+        self::assertSelectorExists('a.lp-sidebar__link--active[href="/projects/'.$id.'/documents"]');
+        self::assertSelectorExists('a.lp-sidebar__link[href="/projects/'.$id.'/site-review"]');
     }
 
     /** @param non-empty-string $email */

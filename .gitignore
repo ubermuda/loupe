@@ -57,6 +57,16 @@ phpstan.neon
 e2e/.step-ca-root.crt
 
 .superpowers/
+.agents/
+
+# Internal working notes. This repo is public, so open work is tracked in GitHub
+# issues instead — NEXT_STEPS stays a local, uncommitted scratchpad.
+/docs/NEXT_STEPS.md
+/docs/AUTOMATIONS.md
+
+# Skeleton sync state. Local to whoever bootstrapped this checkout (it records
+# an absolute path on their machine), so it is kept out of the public repo.
+/.skeleton.json
 
 # Go CLI build output
 /cli/dist/

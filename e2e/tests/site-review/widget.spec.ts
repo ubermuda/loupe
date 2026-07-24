@@ -60,12 +60,12 @@ const addGeneralNote = async (
     expectedCount: string,
 ): Promise<void> => {
     await page
-        .locator('#bp-panel')
+        .locator('#lp-panel')
         .getByRole('button', { name: 'Add note' })
         .click();
     await page.getByPlaceholder(/Describe the issue/).fill(body);
     await page.getByRole('button', { name: 'Save' }).click();
-    await expect(page.locator('#bp-head-count')).toHaveText(expectedCount);
+    await expect(page.locator('#lp-head-count')).toHaveText(expectedCount);
 };
 
 /**
@@ -100,13 +100,13 @@ test('annotate and send a site review', async ({ page }) => {
     // reset the draft, so the boot rehydrate finds nothing).
     const launcher = page.getByRole('button', { name: 'Review' });
     await expect(launcher).toBeVisible();
-    await expect(page.locator('#bp-launch-count')).toBeHidden();
+    await expect(page.locator('#lp-launch-count')).toBeHidden();
 
     // Open the widget panel and enter pick (element-target) mode.
     await launcher.click();
-    await expect(page.locator('#bp-panel')).toBeVisible();
+    await expect(page.locator('#lp-panel')).toBeVisible();
     await page
-        .locator('#bp-panel')
+        .locator('#lp-panel')
         .getByRole('button', { name: 'Pick element' })
         .click();
 
@@ -118,7 +118,7 @@ test('annotate and send a site review', async ({ page }) => {
     // Type a comment and save it (the save POSTs to the server immediately).
     await page.getByPlaceholder(/Describe the issue/).fill('Make this bigger');
     await page.getByRole('button', { name: 'Save' }).click();
-    await expect(page.locator('#bp-head-count')).toHaveText('1');
+    await expect(page.locator('#lp-head-count')).toHaveText('1');
 
     // The anchored comment renders as a numbered on-screen pin pinned to the element's
     // top-right corner. Playwright pierces the overlay's open shadow root automatically.
@@ -144,7 +144,7 @@ test('annotate and send a site review', async ({ page }) => {
     // shrinks — the badge. (Regression: a re-render that recreated the pin replayed
     // the scale-in animation and made it briefly collapse.)
     await pin.hover();
-    const popover = page.locator('.bp-pop');
+    const popover = page.locator('.lp-pop');
     await expect(popover).toBeVisible();
     await expect(popover).toContainText('Make this bigger');
     const hoveredBox = await pin.boundingBox();
@@ -165,30 +165,30 @@ test('annotate and send a site review', async ({ page }) => {
     // (no "Site review" header), and the list never shows the raw CSS selector.
     await expect(page.locator('#general svg')).toHaveCount(1);
     await expect(page.locator('#target svg')).toHaveCount(1);
-    await expect(page.locator('#bp-panel')).not.toContainText('Site review');
-    await expect(page.locator('#bp-list code')).toHaveCount(0);
+    await expect(page.locator('#lp-panel')).not.toContainText('Site review');
+    await expect(page.locator('#lp-list code')).toHaveCount(0);
 
     // Hovering the list row highlights its anchor element on the page. The list is
     // collapsed by default, so expand it first to reveal the row. Park the pointer on a
     // neutral element first so the subsequent hover crosses a boundary and emits the
     // mouseenter the highlight listens for.
     const highlight = page.locator('.highlight');
-    await page.locator('#bp-list-toggle').click();
-    await page.locator('#bp-close').hover();
+    await page.locator('#lp-list-toggle').click();
+    await page.locator('#lp-close').hover();
     await expect(highlight).toBeHidden();
-    await page.locator('#bp-list .bp-item').first().hover();
+    await page.locator('#lp-list .lp-item').first().hover();
     await expect(highlight).toBeVisible();
 
     // Keyboard shortcut: 't' toggles pick mode while the panel is open. Entering pick
     // mode hides the whole widget (launcher + panel) so it does not obscure the page and
     // shows the pick toast; Escape cancels and restores the panel.
     await page.keyboard.press('t');
-    await expect(page.locator('#bp-panel')).toBeHidden();
-    await expect(page.locator('#bp-launcher')).toBeHidden();
-    await expect(page.locator('#bp-toast')).toBeVisible();
+    await expect(page.locator('#lp-panel')).toBeHidden();
+    await expect(page.locator('#lp-launcher')).toBeHidden();
+    await expect(page.locator('#lp-toast')).toBeVisible();
     await page.keyboard.press('Escape');
-    await expect(page.locator('#bp-panel')).toBeVisible();
-    await expect(page.locator('#bp-toast')).toBeHidden();
+    await expect(page.locator('#lp-panel')).toBeVisible();
+    await expect(page.locator('#lp-toast')).toBeHidden();
 
     // Add an unanchored ("general") comment — no element targeting. The count
     // reaching 2 proves the backend accepted a comment with no selector.
@@ -208,7 +208,7 @@ test('annotate and send a site review', async ({ page }) => {
     await page.getByRole('button', { name: 'Send' }).click();
     await expect(page.getByText('Review sent')).toBeVisible();
     await expect(page.getByText('Your agent has been notified')).toBeVisible();
-    await expect(page.locator('#bp-panel code')).toHaveCount(0); // no id to copy
+    await expect(page.locator('#lp-panel code')).toHaveCount(0); // no id to copy
     await expect(page.getByRole('button', { name: 'Copy' })).toHaveCount(0);
     await expect(
         page.getByRole('button', { name: 'Start a new review' }),
@@ -228,13 +228,13 @@ test('a keep=1 reload rehydrates the server draft into pins and list', async ({
     // Seed one anchored comment + one general note through the UI.
     await page.getByRole('button', { name: 'Review' }).click();
     await page
-        .locator('#bp-panel')
+        .locator('#lp-panel')
         .getByRole('button', { name: 'Pick element' })
         .click();
     await page.locator('#target-me').click();
     await page.getByPlaceholder(/Describe the issue/).fill('Make this bigger');
     await page.getByRole('button', { name: 'Save' }).click();
-    await expect(page.locator('#bp-head-count')).toHaveText('1');
+    await expect(page.locator('#lp-head-count')).toHaveText('1');
     await addGeneralNote(page, 'A general note about the page', '2');
 
     // Reload the harness with keep=1: the draft survives (only the token is
@@ -243,13 +243,13 @@ test('a keep=1 reload rehydrates the server draft into pins and list', async ({
     await page.goto(keepUrl);
 
     // The launcher badge shows the rehydrated count without any interaction.
-    await expect(page.locator('#bp-launch-count')).toHaveText('2');
+    await expect(page.locator('#lp-launch-count')).toHaveText('2');
 
     // Expanding the list shows both bodies.
     await page.getByRole('button', { name: 'Review' }).click();
     await page.getByRole('button', { name: /Show .* comments/ }).click();
-    await expect(page.locator('#bp-list')).toContainText('Make this bigger');
-    await expect(page.locator('#bp-list')).toContainText(
+    await expect(page.locator('#lp-list')).toContainText('Make this bigger');
+    await expect(page.locator('#lp-list')).toContainText(
         'A general note about the page',
     );
 
@@ -291,16 +291,16 @@ test('a failed send keeps the review and offers retry', async ({ page }) => {
 
     // The error banner appears, and — critically — the draft is NOT cleared,
     // so the reviewer can retry rather than losing their feedback.
-    const panel = page.locator('#bp-panel');
+    const panel = page.locator('#lp-panel');
     await expect(panel.getByText(/send your review/i)).toBeVisible();
-    await expect(page.locator('#bp-head-count')).toHaveText('1');
+    await expect(page.locator('#lp-head-count')).toHaveText('1');
     expect(calls).toBe(1);
 
     // "Try again" re-fires the send.
     await page.getByRole('button', { name: 'Try again' }).click();
     await expect(panel.getByText(/send your review/i)).toBeVisible();
     await expect.poll(() => calls).toBe(2);
-    await expect(page.locator('#bp-head-count')).toHaveText('1');
+    await expect(page.locator('#lp-head-count')).toHaveText('1');
 });
 
 test('deleting a list comment uses a sliding confirm overlay', async ({
@@ -315,15 +315,15 @@ test('deleting a list comment uses a sliding confirm overlay', async ({
 
     await page.getByRole('button', { name: /Show .* comments/ }).click();
 
-    const row = page.locator('#bp-list .bp-item').first();
+    const row = page.locator('#lp-list .lp-item').first();
     // Tag the row node so we can prove it is not rebuilt while arming/cancelling.
     await row.evaluate((el: HTMLElement) => {
         el.dataset.tag = 'orig';
     });
 
     // Arming delete slides a confirm overlay over the row (not an inline swap).
-    await row.locator('.bp-del').click();
-    const confirm = row.locator('.bp-item-confirm');
+    await row.locator('.lp-del').click();
+    const confirm = row.locator('.lp-item-confirm');
     await expect(confirm).toBeVisible();
     await expect(confirm).toContainText('Delete this comment?');
     expect(await row.evaluate((el: HTMLElement) => el.dataset.tag)).toBe(
@@ -332,27 +332,27 @@ test('deleting a list comment uses a sliding confirm overlay', async ({
 
     // Cancel removes the overlay (after sliding out) and deletes nothing.
     await confirm.getByRole('button', { name: 'Cancel' }).click();
-    await expect(row.locator('.bp-item-confirm')).toHaveCount(0);
+    await expect(row.locator('.lp-item-confirm')).toHaveCount(0);
     expect(await row.evaluate((el: HTMLElement) => el.dataset.tag)).toBe(
         'orig',
     );
-    await expect(page.locator('#bp-head-count')).toHaveText('2');
+    await expect(page.locator('#lp-head-count')).toHaveText('2');
 
     // Confirming actually deletes the comment (a DELETE to the server; the
     // count only drops once it lands).
-    await row.locator('.bp-del').click();
+    await row.locator('.lp-del').click();
     await row
-        .locator('.bp-item-confirm')
+        .locator('.lp-item-confirm')
         .getByRole('button', { name: 'Delete' })
         .click();
-    await expect(page.locator('#bp-head-count')).toHaveText('1');
+    await expect(page.locator('#lp-head-count')).toHaveText('1');
 });
 
 test('re-executing the script does not stack a second widget', async ({
     page,
 }) => {
     await openHarness(page);
-    await expect(page.locator('#bp-launcher')).toHaveCount(1);
+    await expect(page.locator('#lp-launcher')).toHaveCount(1);
 
     // SPA frameworks (e.g. Turbo) re-execute body <script> tags on navigation. The
     // widget's hosts live on <html> and survive a <body> swap, so a second init would
@@ -367,7 +367,7 @@ test('re-executing the script does not stack a second widget', async ({
                 document.body.appendChild(s);
             }),
     );
-    await expect(page.locator('#bp-launcher')).toHaveCount(1);
+    await expect(page.locator('#lp-launcher')).toHaveCount(1);
 });
 
 test("the 't' shortcut still works immediately after saving a comment", async ({
@@ -378,22 +378,22 @@ test("the 't' shortcut still works immediately after saving a comment", async ({
     // Pick an element, type a comment, and save it.
     await page.getByRole('button', { name: 'Review' }).click();
     await page
-        .locator('#bp-panel')
+        .locator('#lp-panel')
         .getByRole('button', { name: 'Pick element' })
         .click();
     await page.locator('#target-me').click();
     await page.getByPlaceholder(/Describe the issue/).fill('Make this bigger');
     await page.getByRole('button', { name: 'Save' }).click();
-    await expect(page.locator('#bp-head-count')).toHaveText('1');
+    await expect(page.locator('#lp-head-count')).toHaveText('1');
 
     // Regression: saving left focus trapped in the now-hidden textarea, so isTyping()
     // reported true and the single-key shortcuts were suppressed. Pressing 't' with no
     // intervening click that would steal focus must still enter pick mode.
     await page.keyboard.press('t');
-    await expect(page.locator('#bp-panel')).toBeHidden();
-    await expect(page.locator('#bp-toast')).toBeVisible();
+    await expect(page.locator('#lp-panel')).toBeHidden();
+    await expect(page.locator('#lp-toast')).toBeVisible();
     await page.keyboard.press('Escape');
-    await expect(page.locator('#bp-panel')).toBeVisible();
+    await expect(page.locator('#lp-panel')).toBeVisible();
 });
 
 test('editing an anchored comment updates its body in place', async ({
@@ -406,24 +406,24 @@ test('editing an anchored comment updates its body in place', async ({
     // the general path.
     await page.getByRole('button', { name: 'Review' }).click();
     await page
-        .locator('#bp-panel')
+        .locator('#lp-panel')
         .getByRole('button', { name: 'Pick element' })
         .click();
     await page.locator('#target-me').click();
     await page.getByPlaceholder(/Describe the issue/).fill('Original note');
     await page.getByRole('button', { name: 'Save' }).click();
-    await expect(page.locator('#bp-head-count')).toHaveText('1');
+    await expect(page.locator('#lp-head-count')).toHaveText('1');
 
     await page.getByRole('button', { name: /Show .* comment/ }).click();
 
-    const row = page.locator('#bp-list .bp-item').first();
-    await row.locator('.bp-edit').click();
+    const row = page.locator('#lp-list .lp-item').first();
+    await row.locator('.lp-edit').click();
 
     // The composer reopens pre-filled with the stored body and keeps the element chip
     // (selector/text are rebuilt from the stored comment, so the anchor label shows).
     const textarea = page.getByPlaceholder(/Describe the issue/);
     await expect(textarea).toHaveValue('Original note');
-    await expect(page.locator('#bp-compose-head')).toContainText(
+    await expect(page.locator('#lp-compose-head')).toContainText(
         'A button to comment on',
     );
 
@@ -432,10 +432,10 @@ test('editing an anchored comment updates its body in place', async ({
 
     // The row shows the new body, no comment was added (still one), and the anchor (pin)
     // is preserved — editing changes the body only.
-    await expect(page.locator('#bp-list .bp-item').first()).toContainText(
+    await expect(page.locator('#lp-list .lp-item').first()).toContainText(
         'Edited note',
     );
-    await expect(page.locator('#bp-head-count')).toHaveText('1');
+    await expect(page.locator('#lp-head-count')).toHaveText('1');
     await expect(page.locator('.pin')).toHaveText('1');
 
     // The PATCH landed server-side: the in-progress review holds the edited body.
@@ -449,10 +449,10 @@ test('the pick-mode toast dodges away from the top edge', async ({ page }) => {
 
     await page.getByRole('button', { name: 'Review' }).click();
     await page
-        .locator('#bp-panel')
+        .locator('#lp-panel')
         .getByRole('button', { name: 'Pick element' })
         .click();
-    const toast = page.locator('#bp-toast');
+    const toast = page.locator('#lp-toast');
     await expect(toast).toBeVisible();
 
     const viewport = page.viewportSize()!;
@@ -478,14 +478,14 @@ test('the launcher exposes icon-only quick actions for note and pick', async ({
 }) => {
     await openHarness(page);
 
-    const launcher = page.locator('#bp-launcher');
+    const launcher = page.locator('#lp-launcher');
 
     // "Add note" on the launcher opens the panel straight into the general composer,
     // without first having to open the panel and click the in-panel action.
     await launcher.getByRole('button', { name: 'Add note' }).click();
-    await expect(page.locator('#bp-panel')).toBeVisible();
+    await expect(page.locator('#lp-panel')).toBeVisible();
     await expect(page.getByPlaceholder(/Describe the issue/)).toBeVisible();
-    await expect(page.locator('#bp-compose-head')).toContainText(
+    await expect(page.locator('#lp-compose-head')).toContainText(
         'General comment',
     );
 
@@ -500,7 +500,7 @@ test('the launcher exposes icon-only quick actions for note and pick', async ({
 
     // Closing the panel brings the quick actions back.
     await page.getByRole('button', { name: 'Review' }).click();
-    await expect(page.locator('#bp-panel')).toBeHidden();
+    await expect(page.locator('#lp-panel')).toBeHidden();
     await expect(
         launcher.getByRole('button', { name: 'Pick element' }),
     ).toBeVisible();
@@ -508,7 +508,7 @@ test('the launcher exposes icon-only quick actions for note and pick', async ({
     // "Pick element" on the launcher enters pick mode directly: the widget chrome hides
     // and the pick toast shows.
     await launcher.getByRole('button', { name: 'Pick element' }).click();
-    await expect(page.locator('#bp-toast')).toBeVisible();
-    await expect(page.locator('#bp-panel')).toBeHidden();
+    await expect(page.locator('#lp-toast')).toBeVisible();
+    await expect(page.locator('#lp-panel')).toBeHidden();
     await expect(launcher).toBeHidden();
 });

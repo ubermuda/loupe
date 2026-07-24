@@ -9,6 +9,7 @@ use App\Module\Account\Entity\User;
 use App\Module\Project\Command\MintProjectWidgetTokenCommand;
 use App\Module\Project\Command\MintProjectWidgetTokenHandler;
 use App\Module\Project\Entity\Project;
+use App\Module\Project\Repository\ProjectRepository;
 use Doctrine\ORM\EntityManagerInterface;
 use Psr\Log\NullLogger;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
@@ -24,7 +25,9 @@ final class MintProjectWidgetTokenHandlerTest extends KernelTestCase
         $em = self::getContainer()->get(EntityManagerInterface::class);
         self::assertInstanceOf(EntityManagerInterface::class, $em);
         $this->em = $em;
-        $this->handler = new MintProjectWidgetTokenHandler($this->em, new NullLogger());
+        $projects = self::getContainer()->get(ProjectRepository::class);
+        self::assertInstanceOf(ProjectRepository::class, $projects);
+        $this->handler = new MintProjectWidgetTokenHandler($this->em, $projects, new NullLogger());
     }
 
     public function test_label_is_truncated_to_fit_the_column_for_long_project_names(): void

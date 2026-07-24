@@ -36,9 +36,9 @@ export default class extends Controller {
     // a registered CSS Custom Highlight so pending/addressed/resolved anchors tint
     // differently (see the ::highlight() rules in app.css).
     static STATUS_HIGHLIGHTS = {
-        pending: 'bp-anchor-pending',
-        addressed: 'bp-anchor-addressed',
-        resolved: 'bp-anchor-resolved',
+        pending: 'lp-anchor-pending',
+        addressed: 'lp-anchor-addressed',
+        resolved: 'lp-anchor-resolved',
     };
 
     static CONTEXT = 32;
@@ -88,7 +88,7 @@ export default class extends Controller {
     /**
      * On mouseup inside the document text, capture the selection's anchor and
      * show the floating toolbar. Clicks on the toolbar/composer (inside
-     * .bp-review-doc but outside the doc text) are ignored, so they never hide
+     * .lp-review-doc but outside the doc text) are ignored, so they never hide
      * the toolbar or clobber the pending selection.
      */
     onDocMouseup(event) {
@@ -317,11 +317,11 @@ export default class extends Controller {
         }
         this.anchorHighlight = new window.Highlight();
         this.activeHighlight = new window.Highlight();
-        window.CSS.highlights.set('bp-anchor', this.anchorHighlight);
-        window.CSS.highlights.set('bp-anchor-active', this.activeHighlight);
+        window.CSS.highlights.set('lp-anchor', this.anchorHighlight);
+        window.CSS.highlights.set('lp-anchor-active', this.activeHighlight);
 
         // Per-status anchor highlights (pending amber, addressed green, resolved
-        // faint). Registered alongside — never replacing — bp-anchor/-active.
+        // faint). Registered alongside — never replacing — lp-anchor/-active.
         this.statusHighlights = {};
         for (const [status, name] of Object.entries(
             this.constructor.STATUS_HIGHLIGHTS,
@@ -396,9 +396,9 @@ export default class extends Controller {
 
     /**
      * Origin (viewport coords) of the absolute-positioning containing block for
-     * the toolbar/composer: the padding-box top-left of .bp-review-doc (their
+     * the toolbar/composer: the padding-box top-left of .lp-review-doc (their
      * offset parent). Using the inner doc element here would be wrong by that
-     * element's offset within the padded .bp-review-doc.
+     * element's offset within the padded .lp-review-doc.
      */
     #positioningOrigin() {
         const host = this.docTarget.parentElement;
@@ -423,7 +423,7 @@ export default class extends Controller {
             : range.getBoundingClientRect();
         const origin = this.#positioningOrigin();
         const gap = 10;
-        // The offset parent (.bp-review-doc) is also the internal scroll
+        // The offset parent (.lp-review-doc) is also the internal scroll
         // container: an absolutely-positioned child's `top` is measured from the
         // padding-box in scrolled content space, so add scrollTop to keep the
         // toolbar/composer glued to the selection after the pane is scrolled.
@@ -460,7 +460,7 @@ export default class extends Controller {
         if (!this.hasComposerTarget) {
             return;
         }
-        this.composerTarget.classList.remove('bp-comment-composer--untargeted');
+        this.composerTarget.classList.remove('lp-comment-composer--untargeted');
         this.composerTarget.hidden = false; // unhide so offsetWidth is measurable
         const base =
             this.toolbarPosition ??
@@ -479,7 +479,7 @@ export default class extends Controller {
         if (!this.hasComposerTarget) {
             return;
         }
-        this.composerTarget.classList.add('bp-comment-composer--untargeted');
+        this.composerTarget.classList.add('lp-comment-composer--untargeted');
         this.composerTarget.style.top = '';
         this.composerTarget.style.left = '';
         this.#openComposer();
@@ -498,7 +498,7 @@ export default class extends Controller {
         if (this.hasComposerTarget) {
             this.composerTarget.hidden = true;
             this.composerTarget.classList.remove(
-                'bp-comment-composer--untargeted',
+                'lp-comment-composer--untargeted',
             );
         }
     }

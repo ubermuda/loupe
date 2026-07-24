@@ -94,6 +94,9 @@ final class SubmitReviewHandlerTest extends KernelTestCase
         $this->em->persist($review);
         $this->em->flush();
 
+        // Published exactly once — never retried, since the hub may have accepted
+        // the update before throwing. The lost event is logged and the
+        // already-persisted submit must still succeed.
         $this->hub->expects($this->once())->method('publish')->willThrowException(new \RuntimeException('hub down'));
 
         $result = ($this->handler)(new SubmitReviewCommand($project));

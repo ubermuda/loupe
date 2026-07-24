@@ -3,56 +3,56 @@
 {% block title %}{{ 'project.list.page.title'|trans }} — {{ 'app.name'|trans }}{% endblock %}
 
 {% block body %}
-<div class="bp-workspace">
-    <p class="bp-eyebrow">{{ 'project.list.eyebrow'|trans }}</p>
-    <h1 class="bp-workspace-title">{{ 'project.list.page.title'|trans }}</h1>
-    <p class="bp-workspace-desc">{{ 'project.list.description'|trans }}</p>
+<div class="lp-workspace">
+    <p class="lp-eyebrow">{{ 'project.list.eyebrow'|trans }}</p>
+    <h1 class="lp-workspace-title">{{ 'project.list.page.title'|trans }}</h1>
+    <p class="lp-workspace-desc">{{ 'project.list.description'|trans }}</p>
 
-    <div class="bp-project-list">
+    <div class="lp-project-list">
         {% for item in items %}
         {% set project = item.project %}
-        <div class="bp-project-row" data-project-id="{{ project.id }}">
+        <div class="lp-project-row" data-project-id="{{ project.id }}">
             <a href="{{ path('app_project_documents', {id: project.id}) }}"
-               class="bp-project-row__link" aria-label="{{ project.name }}"></a>
-            <span class="avatar site bp-project-row__avatar">{{ project.name|slice(0, 1)|upper }}</span>
-            <div class="bp-project-row__main">
-                <div class="bp-project-row__head">
-                    <span class="bp-project-row__name">{{ project.name }}</span>
-                    {% if project.domain %}<span class="bp-project-row__domain">{{ project.domain }}</span>{% endif %}
+               class="lp-project-row__link" aria-label="{{ project.name }}"></a>
+            <span class="avatar site lp-project-row__avatar">{{ project.name|slice(0, 1)|upper }}</span>
+            <div class="lp-project-row__main">
+                <div class="lp-project-row__head">
+                    <span class="lp-project-row__name">{{ project.name }}</span>
+                    {% if project.domain %}<span class="lp-project-row__domain">{{ project.domain }}</span>{% endif %}
                 </div>
-                <div class="bp-project-row__meta">
+                <div class="lp-project-row__meta">
                     <span>{{ 'project.list.meta.documents'|trans({'%count%': item.documentCount}) }}</span>
-                    <span class="bp-project-row__sep">·</span>
+                    <span class="lp-project-row__sep">·</span>
                     <span>{{ 'project.list.meta.reviews'|trans({'%count%': item.reviewCount}) }}</span>
-                    <span class="bp-project-row__sep">·</span>
-                    <span class="bp-project-row__open">{{ 'project.list.meta.open'|trans({'%count%': item.openCount}) }}</span>
+                    <span class="lp-project-row__sep">·</span>
+                    <span class="lp-project-row__open">{{ 'project.list.meta.open'|trans({'%count%': item.openCount}) }}</span>
                 </div>
             </div>
-            <twig:ux:icon name="lucide:chevron-right" class="bp-project-row__chevron" />
+            <twig:ux:icon name="lucide:chevron-right" class="lp-project-row__chevron" />
         </div>
         {% endfor %}
 
-        <div class="bp-project-new{% if form.vars.submitted and not form.vars.valid %} disclosure-open{% endif %}"
+        <div class="lp-project-new{% if form.vars.submitted and not form.vars.valid %} disclosure-open{% endif %}"
              data-controller="disclosure">
-            <button type="button" class="bp-project-new__toggle" data-action="disclosure#toggle">
-                <span class="bp-project-new__plus"><twig:ux:icon name="lucide:plus" /></span>
-                <span class="bp-project-new__label">{{ 'project.list.new'|trans }}</span>
+            <button type="button" class="lp-project-new__toggle" data-action="disclosure#toggle">
+                <span class="lp-project-new__plus"><twig:ux:icon name="lucide:plus" /></span>
+                <span class="lp-project-new__label">{{ 'project.list.new'|trans }}</span>
             </button>
-            <div class="bp-project-new__panel{% if form.vars.submitted and not form.vars.valid %} open{% endif %}"
+            <div class="lp-project-new__panel{% if form.vars.submitted and not form.vars.valid %} open{% endif %}"
                  data-disclosure-target="content">
-                {{ form_start(form, {'action': path('app_project_create'), 'method': 'POST', 'attr': {'class': 'bp-form'}}) }}
-                    <div class="bp-form-field">
-                        {{ form_label(form.name, null, {'label_attr': {'class': 'bp-label'}}) }}
-                        {{ form_widget(form.name, {'attr': {'class': 'bp-input'}}) }}
-                        <div class="bp-field-errors">{{ form_errors(form.name) }}</div>
+                {{ form_start(form, {'action': path('app_project_create'), 'method': 'POST', 'attr': {'class': 'lp-form'}}) }}
+                    <div class="lp-form-field">
+                        {{ form_label(form.name, null, {'label_attr': {'class': 'lp-label'}}) }}
+                        {{ form_widget(form.name, {'attr': {'class': 'lp-input'}}) }}
+                        <div class="lp-field-errors">{{ form_errors(form.name) }}</div>
                     </div>
-                    <div class="bp-form-field">
-                        {{ form_label(form.domain, null, {'label_attr': {'class': 'bp-label'}}) }}
-                        {{ form_widget(form.domain, {'attr': {'class': 'bp-input'}}) }}
-                        <div class="bp-field-errors">{{ form_errors(form.domain) }}</div>
+                    <div class="lp-form-field">
+                        {{ form_label(form.domain, null, {'label_attr': {'class': 'lp-label'}}) }}
+                        {{ form_widget(form.domain, {'attr': {'class': 'lp-input'}}) }}
+                        <div class="lp-field-errors">{{ form_errors(form.domain) }}</div>
                     </div>
                     <div class="flex items-center justify-end gap-3 pt-2">
-                        <button type="submit" class="bp-btn bp-btn--primary">{{ 'project.list.form.submit'|trans }}</button>
+                        <button type="submit" class="lp-btn lp-btn--primary">{{ 'project.list.form.submit'|trans }}</button>
                     </div>
                 {{ form_end(form) }}
             </div>

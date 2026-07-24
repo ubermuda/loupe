@@ -3,55 +3,55 @@
 {% block title %}{{ 'review.document.page.title'|trans({'%title%': document.title}) }} — {{ 'app.name'|trans }}{% endblock %}
 
 {% block body %}
-<div class="bp-review">
+<div class="lp-review">
     {% for label, messages in app.flashes %}
         {% for message in messages %}
-            <div class="bp-flash bp-flash--{{ label }}">{{ message }}</div>
+            <div class="lp-flash lp-flash--{{ label }}">{{ message }}</div>
         {% endfor %}
     {% endfor %}
 
     {% if orphanedCount > 0 %}
-    <div class="bp-orphan-banner">
+    <div class="lp-orphan-banner">
         {{ 'review.document.orphan_banner'|trans({'%count%': orphanedCount}) }}
     </div>
     {% endif %}
 
-    <header class="bp-review-header">
-        <nav class="bp-review-breadcrumb">
+    <header class="lp-review-header">
+        <nav class="lp-review-breadcrumb">
             <a href="{{ path('app_project_documents', {id: document.project.id}) }}">{{ document.project.name }}</a>
-            <span class="bp-review-breadcrumb__sep">/</span>
+            <span class="lp-review-breadcrumb__sep">/</span>
             <a href="{{ path('app_project_documents', {id: document.project.id}) }}">{{ 'nav.link.documents'|trans }}</a>
-            <span class="bp-review-breadcrumb__sep">/</span>
-            <span class="bp-review-breadcrumb__current">{{ document.title }}</span>
+            <span class="lp-review-breadcrumb__sep">/</span>
+            <span class="lp-review-breadcrumb__current">{{ document.title }}</span>
         </nav>
         <twig:LoopRibbon :stage="document.status.loopStage()" />
     </header>
 
-    <div class="bp-review-layout" data-controller="comment-anchor">
+    <div class="lp-review-layout" data-controller="comment-anchor">
         {#
-            The outer .bp-review-doc provides position:relative + the internal
+            The outer .lp-review-doc provides position:relative + the internal
             scroll for the floating composer/toolbar. The inner
             [data-comment-anchor-target="doc"] is the TreeWalker root — it must
             contain ONLY the rendered HTML with no surrounding template whitespace,
             so that its textContent === DocumentVersion::plainText() and JS
             text-node offsets agree with the PHP anchor basis.
         #}
-        <div class="bp-review-doc" data-action="mouseup->comment-anchor#onDocMouseup">
-            <div class="bp-review-doc__head">
-                <h1 class="bp-review-doc__title">
+        <div class="lp-review-doc" data-action="mouseup->comment-anchor#onDocMouseup">
+            <div class="lp-review-doc__head">
+                <h1 class="lp-review-doc__title">
                     {{ document.title }}
-                    <span class="bp-version-pill">{{ 'v' ~ version.versionNumber }}</span>
+                    <span class="lp-version-pill">{{ 'v' ~ version.versionNumber }}</span>
                 </h1>
-                <p class="bp-review-doc__byline">{{ 'review.document.byline'|trans({'%reviewer%': app.user.fullName}) }}</p>
+                <p class="lp-review-doc__byline">{{ 'review.document.byline'|trans({'%reviewer%': app.user.fullName}) }}</p>
             </div>
 
-            <div class="prose max-w-2xl bp-prose bp-review-doc__prose" data-comment-anchor-target="doc">{{ version.renderedHtml|raw }}</div>
+            <div class="prose max-w-2xl lp-prose lp-review-doc__prose" data-comment-anchor-target="doc">{{ version.renderedHtml|raw }}</div>
 
             {# Floating toolbar — appears on text selection so selecting text no
                longer steals focus or blocks copying. Clicking it opens the
                composer and highlights the selection. #}
-            <div class="bp-anchor-toolbar" data-comment-anchor-target="toolbar" hidden>
-                <button type="button" class="bp-anchor-toolbar__btn" data-action="comment-anchor#startComment">
+            <div class="lp-anchor-toolbar" data-comment-anchor-target="toolbar" hidden>
+                <button type="button" class="lp-anchor-toolbar__btn" data-action="comment-anchor#startComment">
                     <twig:ux:icon name="lucide:message-square-plus" class="w-3.5 h-3.5 shrink-0" />
                     {{ 'review.document.comment.add'|trans }}
                 </button>
@@ -61,7 +61,7 @@
                The Stimulus controller positions it and fills the anchor fields;
                Turbo submits it and applies the returned stream. #}
             {{ form_start(addCommentForm, {attr: {
-                class: 'bp-comment-composer',
+                class: 'lp-comment-composer',
                 'data-comment-anchor-target': 'composer',
                 'data-action': 'turbo:submit-end->comment-anchor#onSubmitEnd',
                 hidden: true,
@@ -69,50 +69,50 @@
                 {{ form_widget(addCommentForm.quote) }}
                 {{ form_widget(addCommentForm.prefix) }}
                 {{ form_widget(addCommentForm.suffix) }}
-                <blockquote class="bp-composer-quote" data-comment-anchor-target="quotePreview"></blockquote>
-                <span class="bp-composer-general">{{ 'review.document.comment.general'|trans }}</span>
+                <blockquote class="lp-composer-quote" data-comment-anchor-target="quotePreview"></blockquote>
+                <span class="lp-composer-general">{{ 'review.document.comment.general'|trans }}</span>
                 {{ form_widget(addCommentForm.body) }}
-                <div class="bp-comment-composer__actions">
-                    <span class="bp-composer-hint">{{ 'review.document.comment.hint'|trans }}</span>
+                <div class="lp-comment-composer__actions">
+                    <span class="lp-composer-hint">{{ 'review.document.comment.hint'|trans }}</span>
                     <span
                         id="composer-error"
-                        class="bp-comment-composer__error"
+                        class="lp-comment-composer__error"
                         data-comment-anchor-target="composerError"
                     ></span>
                     <button
                         type="button"
-                        class="bp-btn bp-btn--ghost bp-btn--sm"
+                        class="lp-btn lp-btn--ghost lp-btn--sm"
                         data-action="comment-anchor#hideComposer"
                     >{{ 'review.document.comment.cancel'|trans }}</button>
                     <button
                         type="submit"
-                        class="bp-btn bp-btn--primary bp-btn--sm"
+                        class="lp-btn lp-btn--primary lp-btn--sm"
                     >{{ 'review.document.comment.submit'|trans }}</button>
                 </div>
             {{ form_end(addCommentForm) }}
         </div>
 
-        <div class="bp-review-sidebar">
+        <div class="lp-review-sidebar">
             {% include 'review/_comment_threads.html.twig' with {comments: comments} only %}
 
-            <div class="bp-verdict-bar">
+            <div class="lp-verdict-bar">
                 {% if document.status.value == 'approved' %}
-                    <div class="bp-verdict-approved">
-                        <span class="bp-verdict-approved__icon"><twig:ux:icon name="lucide:circle-check" class="w-5 h-5" /></span>
-                        <span class="bp-verdict-approved__text">
-                            <span class="bp-verdict-approved__title">{{ 'review.document.verdict.approved'|trans }}</span>
-                            <span class="bp-verdict-approved__detail">{{ 'review.document.verdict.approved_detail'|trans }}</span>
+                    <div class="lp-verdict-approved">
+                        <span class="lp-verdict-approved__icon"><twig:ux:icon name="lucide:circle-check" class="w-5 h-5" /></span>
+                        <span class="lp-verdict-approved__text">
+                            <span class="lp-verdict-approved__title">{{ 'review.document.verdict.approved'|trans }}</span>
+                            <span class="lp-verdict-approved__detail">{{ 'review.document.verdict.approved_detail'|trans }}</span>
                         </span>
                     </div>
                 {% else %}
                     <form method="POST" action="{{ path('app_document_review_submit', {projectId: document.project.id, documentId: document.id}) }}">
                         <input type="hidden" name="_csrf_token" value="{{ csrf_token('submit-review') }}">
-                        <div class="bp-verdict-bar__actions">
-                            <button type="submit" name="verdict" value="approved" class="bp-btn bp-btn--primary">
+                        <div class="lp-verdict-bar__actions">
+                            <button type="submit" name="verdict" value="approved" class="lp-btn lp-btn--primary">
                                 <twig:ux:icon name="lucide:check" class="w-4 h-4 shrink-0" />
                                 {{ 'review.document.verdict.approve'|trans }}
                             </button>
-                            <button type="submit" name="verdict" value="changes-requested" class="bp-btn bp-btn--outline-amber">
+                            <button type="submit" name="verdict" value="changes-requested" class="lp-btn lp-btn--outline-amber">
                                 {{ 'review.document.verdict.request_changes'|trans }}
                             </button>
                         </div>

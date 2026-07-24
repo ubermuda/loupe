@@ -61,10 +61,10 @@ final class SiteReviewsPageTest extends WebTestCase
 
         self::assertResponseIsSuccessful();
         // Loop ribbon derives from comments — two pending → In review stage present.
-        self::assertCount(1, $crawler->filter('.bp-ribbon'));
+        self::assertCount(1, $crawler->filter('.lp-ribbon'));
         // Flat comment list: both comments rendered with a status-colored index.
         self::assertCount(2, $crawler->filter('[data-comment-id]'));
-        self::assertCount(2, $crawler->filter('.bp-sr-index'));
+        self::assertCount(2, $crawler->filter('.lp-sr-index'));
         self::assertGreaterThanOrEqual(1, $crawler->filter('[data-comment-status="pending"]')->count());
         self::assertCount(1, $crawler->filter('[data-comment-id="'.$commentId.'"]'));
     }
@@ -215,7 +215,7 @@ final class SiteReviewsPageTest extends WebTestCase
         $commentBlock = $crawler->filter('[data-comment-id="'.$commentId.'"]');
         self::assertCount(1, $commentBlock);
         // The url must render as plain text, never as a clickable anchor.
-        self::assertCount(0, $commentBlock->filter('a.bp-sr-context__url'));
+        self::assertCount(0, $commentBlock->filter('a.lp-sr-context__url'));
         self::assertStringContainsString('javascript:alert(1)', $commentBlock->text());
     }
 

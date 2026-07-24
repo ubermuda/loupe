@@ -1,0 +1,18 @@
+# gitleaks allowlist — each entry is a reviewed, intentionally-committed value.
+# Format: <commit>:<file>:<rule>:<line>
+
+# Dev-only Symfony secret. Loaded ONLY in the `dev` environment; production
+# supplies APP_SECRET via real environment variables. Safe to commit.
+2cc07e0dc0a67f81a7a224a583359b4803245d17:.env.dev:generic-api-key:3
+
+# Test-only libsodium key so encrypted_string columns round-trip in the `test`
+# environment. Loaded ONLY in `test`; never used in production. Safe to commit.
+2cc07e0dc0a67f81a7a224a583359b4803245d17:.env.test:generic-api-key:7
+
+# Fake mock token in an AI design-mockup file (a "connect your MCP" demo screen
+# with a made-up "acme" org and a masked display twin). Does NOT match the app's
+# real token format (64-char hex from random_bytes, no prefix). Not a real
+# credential. The file has since been removed from the tree entirely; these two
+# entries cover the string still present in prior history.
+f90c39d1968439cb97292c60586924f28ce9068a:docs/design/loop-handoff/Loop.dc.html:generic-api-key:957
+f6948f64347f2eeaf8d8e1c6769079c0e5fb8128:docs/design/loop-handoff/Loop.dc.html:generic-api-key:957

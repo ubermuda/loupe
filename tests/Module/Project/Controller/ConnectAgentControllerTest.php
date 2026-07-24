@@ -41,14 +41,14 @@ final class ConnectAgentControllerTest extends WebTestCase
         self::assertResponseIsSuccessful();
 
         // The global MCP endpoint path renders (host differs under test — match the path only).
-        self::assertStringContainsString('/mcp', $crawler->filter('.bp-connect-field__value')->first()->text());
+        self::assertStringContainsString('/mcp', $crawler->filter('.lp-connect-field__value')->first()->text());
 
         // No MCP token yet → the mint form is present, no revoke form.
         self::assertCount(1, $crawler->filter('form[action$="/mcp-token"]'));
         self::assertCount(0, $crawler->filter('form[action*="/revoke"]'));
 
         // All 7 agent tools render.
-        $toolNames = $crawler->filter('.bp-tools__name')->each(fn ($node) => $node->text());
+        $toolNames = $crawler->filter('.lp-tools__name')->each(fn ($node) => $node->text());
         self::assertSame([
             'create_document',
             'list_documents',
@@ -86,7 +86,7 @@ final class ConnectAgentControllerTest extends WebTestCase
         self::assertCount(0, $crawler->filter('form[action$="/mcp-token"]'));
 
         // The "project-scoped" tag renders next to the token.
-        self::assertCount(1, $crawler->filter('.bp-connect-tag'));
+        self::assertCount(1, $crawler->filter('.lp-connect-tag'));
     }
 
     public function test_non_owner_is_denied(): void

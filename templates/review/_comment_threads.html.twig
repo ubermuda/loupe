@@ -16,23 +16,23 @@
 {% set totalCount = rootComments|length %}
 {% set resolvedCount = rootComments|filter(c => c.resolved)|length %}
 {% set progressPct = totalCount > 0 ? (resolvedCount / totalCount * 100)|round : 0 %}
-<div id="comment-threads" class="bp-comment-threads">
-    <div class="bp-review-sidebar__header">
-        <div class="bp-review-sidebar__heading">
-            <h2 class="bp-review-sidebar__title">{{ 'review.document.sidebar.title'|trans }}</h2>
-            <span class="bp-review-sidebar__count">{{ 'review.document.threads.resolved_count'|trans({'%resolved%': resolvedCount, '%total%': totalCount}) }}</span>
+<div id="comment-threads" class="lp-comment-threads">
+    <div class="lp-review-sidebar__header">
+        <div class="lp-review-sidebar__heading">
+            <h2 class="lp-review-sidebar__title">{{ 'review.document.sidebar.title'|trans }}</h2>
+            <span class="lp-review-sidebar__count">{{ 'review.document.threads.resolved_count'|trans({'%resolved%': resolvedCount, '%total%': totalCount}) }}</span>
         </div>
-        <button type="button" class="bp-btn bp-btn--sm" data-action="comment-anchor#startUntargeted">
+        <button type="button" class="lp-btn lp-btn--sm" data-action="comment-anchor#startUntargeted">
             <twig:ux:icon name="lucide:plus" class="w-3.5 h-3.5 shrink-0" />
             {{ 'review.document.comment.untargeted'|trans }}
         </button>
     </div>
 
-    <div class="bp-progress" role="presentation">
-        <div class="bp-progress__fill" style="width: {{ progressPct }}%"></div>
+    <div class="lp-progress" role="presentation">
+        <div class="lp-progress__fill" style="width: {{ progressPct }}%"></div>
     </div>
 
-    <div class="bp-review-sidebar__scroll">
+    <div class="lp-review-sidebar__scroll">
         {% if rootComments|length > 0 %}
             {% set groups = [
                 {key: 'pending', items: rootComments|filter(c => not c.resolved)|map(c => c)},
@@ -40,9 +40,9 @@
             ] %}
             {% for group in groups %}
                 {% if group.items|length > 0 %}
-                <section class="bp-ladder-group">
-                    <div class="bp-ladder-group__eyebrow bp-ladder-group__eyebrow--{{ group.key }}">
-                        <span class="bp-ladder-dot"></span>
+                <section class="lp-ladder-group">
+                    <div class="lp-ladder-group__eyebrow lp-ladder-group__eyebrow--{{ group.key }}">
+                        <span class="lp-ladder-dot"></span>
                         <span>{{ ('review.document.group.' ~ group.key)|trans }} · {{ group.items|length }}</span>
                     </div>
                     {% for comment in group.items %}
@@ -53,7 +53,7 @@
                 {% endif %}
             {% endfor %}
         {% else %}
-            <p class="bp-empty">{{ 'review.document.sidebar.empty'|trans }}</p>
+            <p class="lp-empty">{{ 'review.document.sidebar.empty'|trans }}</p>
         {% endif %}
     </div>
 </div>
