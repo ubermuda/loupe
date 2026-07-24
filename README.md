@@ -19,6 +19,9 @@ Built with Symfony, Tailwind CSS + DaisyUI, and Symfony UX (Stimulus + Turbo).
   `create_document` / `revise_document`, receiving a shareable review URL.
 - **Site review** — an embeddable widget for leaving review comments on any web
   page, streamed back to the reviewer in real time over Mercure.
+- **Command-line bridge** — a Go binary ([`cli/`](cli/README.md)) that streams
+  each submitted site review straight into a Claude Code session running in
+  tmux, so your feedback becomes the agent's next instruction.
 - **Scoped API tokens** — separate MCP and site-review scopes, stored hashed.
 
 ## Requirements
@@ -112,6 +115,8 @@ just cs        # apply formatter + Rector fixes
 just ci        # check-only: phpstan, arkitect, gamache, eslint, phpunit
 just e2e       # Playwright end-to-end tests
 just shell     # bash inside the php-fpm container
+just cli-test  # vet + test the Go CLI in cli/
+just cli-build # cross-compile the Go CLI into cli/dist/
 ```
 
 Run a single unit test: `just phpunit --filter TestClassName`
