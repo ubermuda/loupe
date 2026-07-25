@@ -15,7 +15,11 @@ use Symfony\Contracts\Translation\TranslatorInterface;
 use Ubermuda\SymfonyExtra\Csrf\Attribute\CsrfToken;
 
 #[CsrfToken('request-data-export')]
-#[Route('/account/exports', name: 'app_account_export_request', methods: ['POST'])]
+#[Route(
+    '/account/exports',
+    name: 'app_account_export_request',
+    methods: ['POST'],
+)]
 class RequestDataExportController extends AppController
 {
     public function __construct(

@@ -10,8 +10,9 @@ use App\Module\Project\Repository\ProjectRepository;
 
 final readonly class ProjectExporter implements UserDataExporterInterface
 {
-    public function __construct(private ProjectRepository $projects)
-    {
+    public function __construct(
+        private ProjectRepository $projects,
+    ) {
     }
 
     #[\Override]
