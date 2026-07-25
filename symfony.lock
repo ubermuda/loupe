@@ -56,6 +56,9 @@
             ".php-cs-fixer.dist.php"
         ]
     },
+    "knpuniversity/oauth2-client-bundle": {
+        "version": "v2.20.2"
+    },
     "nelmio/security-bundle": {
         "version": "3.9",
         "recipe": {
