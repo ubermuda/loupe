@@ -10,7 +10,7 @@ use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\DependencyInjection\Attribute\AutowireIterator;
 use Symfony\Component\Uid\Uuid;
 
-final readonly class DataExportArchiveBuilder
+readonly class DataExportArchiveBuilder
 {
     public function __construct(
         /** @var iterable<UserDataExporterInterface> */
