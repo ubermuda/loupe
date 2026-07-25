@@ -10,6 +10,10 @@ use Ubermuda\FeatureFlagsBundle\FeatureFlagService;
 
 final readonly class RegistrationGate
 {
+    // Kept for call sites (tests) that construct a FeatureFlag entity by
+    // name directly. isOpen() below deliberately does NOT use this constant
+    // — see the comment there — so this value must be kept in sync with the
+    // literal used in that call.
     public const string CAP_FLAG = 'registration.cap';
 
     /**
@@ -28,7 +32,13 @@ final readonly class RegistrationGate
 
     public function isOpen(): bool
     {
-        $cap = $this->featureFlags->getIntValue(self::CAP_FLAG, 0);
+        // The scanner that powers the admin "undefined flags" page and orphan
+        // cleanup only recognizes a string literal as the first argument here
+        // — using the self::CAP_FLAG constant would make it invisible to that
+        // tooling and eligible for deletion as orphaned. self::CAP_FLAG stays
+        // available for other call sites (tests) that construct a
+        // FeatureFlag by name directly.
+        $cap = $this->featureFlags->getIntValue('registration.cap', 0);
         if ($cap <= 0) {
             return true;
         }
