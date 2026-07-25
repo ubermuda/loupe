@@ -1,0 +1,24 @@
+# One client per social provider. Each has its own callback route so the route
+# itself can carry a static #[RequireFeatureFlag]: when a provider's flag is off,
+# both its start and its callback URL 404 instead of existing as dead endpoints.
+#
+# The client ids/secrets come from the OAUTH_* env vars and default to empty
+# strings, so the kernel boots without provider credentials — a provider is only
+# usable once its app registration is created and its flag is switched on.
+knpu_oauth2_client:
+    clients:
+        google_main:
+            type: google
+            client_id: '%env(OAUTH_GOOGLE_ID)%'
+            client_secret: '%env(OAUTH_GOOGLE_SECRET)%'
+            redirect_route: app_oauth_check_google
+
+        # GitHub has no `email_verified` claim and /user exposes only the public
+        # profile email, so the app must request the `user:email` scope and read
+        # the verified primary address from GET /user/emails (see
+        # GithubPrimaryEmailFetcher). Register the OAuth app with that scope.
+        github_main:
+            type: github
+            client_id: '%env(OAUTH_GITHUB_ID)%'
+            client_secret: '%env(OAUTH_GITHUB_SECRET)%'
+            redirect_route: app_oauth_check_github

@@ -107,6 +107,68 @@
                 <target>Create an account</target>
             </trans-unit>
 
+            <!-- Social login -->
+            <trans-unit id="account.social.provider.google">
+                <source>account.social.provider.google</source>
+                <target>Google</target>
+            </trans-unit>
+            <trans-unit id="account.social.provider.github">
+                <source>account.social.provider.github</source>
+                <target>GitHub</target>
+            </trans-unit>
+            <trans-unit id="account.social.continue_with">
+                <source>account.social.continue_with</source>
+                <target>Continue with %provider%</target>
+            </trans-unit>
+            <trans-unit id="account.social.or">
+                <source>account.social.or</source>
+                <target>or</target>
+            </trans-unit>
+            <trans-unit id="account.social.error.generic">
+                <source>account.social.error.generic</source>
+                <target>Social sign-in failed. Please try again or use your password.</target>
+            </trans-unit>
+            <trans-unit id="account.social.error.unverified_email">
+                <source>account.social.error.unverified_email</source>
+                <target>That account has no verified email address, so it cannot be used to sign in.</target>
+            </trans-unit>
+            <trans-unit id="account.social.link.page.title">
+                <source>account.social.link.page.title</source>
+                <target>Confirm your password</target>
+            </trans-unit>
+            <trans-unit id="account.social.link.title">
+                <source>account.social.link.title</source>
+                <target>Confirm your password</target>
+            </trans-unit>
+            <trans-unit id="account.social.link.subheading">
+                <source>account.social.link.subheading</source>
+                <target>An account already exists for %email%. Enter its password to link your %provider% sign-in.</target>
+            </trans-unit>
+            <trans-unit id="account.social.link.cancel">
+                <source>account.social.link.cancel</source>
+                <target>Cancel and go back to sign in</target>
+            </trans-unit>
+            <trans-unit id="account.form.link_social_account_form.password.label">
+                <source>account.form.link_social_account_form.password.label</source>
+                <target>Password</target>
+            </trans-unit>
+            <trans-unit id="account.form.link_social_account_form.password.placeholder">
+                <source>account.form.link_social_account_form.password.placeholder</source>
+                <target>••••••••</target>
+            </trans-unit>
+            <trans-unit id="account.social.link.form.submit.label">
+                <source>account.social.link.form.submit.label</source>
+                <target>Link account and sign in</target>
+            </trans-unit>
+            <trans-unit id="account.social.link.error.invalid_password">
+                <source>account.social.link.error.invalid_password</source>
+                <target>That password is incorrect.</target>
+            </trans-unit>
+            <trans-unit id="account.social.link.error.rate_limited">
+                <source>account.social.link.error.rate_limited</source>
+                <target>Too many attempts. Please wait a few minutes and try again.</target>
+            </trans-unit>
+
             <!-- Registration page -->
             <trans-unit id="account.registration.page.title">
                 <source>account.registration.page.title</source>
