@@ -152,7 +152,7 @@ final class WizardFlowTest extends WebTestCase
         // Truncated to whole seconds up front: the DB column has no fractional
         // seconds, so comparing against a microsecond-precision value created
         // in PHP would fail on the round trip regardless of handler behaviour.
-        $completedAt = new \DateTimeImmutable((new \DateTimeImmutable('-1 hour'))->format('Y-m-d H:i:s'));
+        $completedAt = new \DateTimeImmutable(new \DateTimeImmutable('-1 hour')->format('Y-m-d H:i:s'));
         $user->wizardCompletedAt = $completedAt;
         $em->flush();
 

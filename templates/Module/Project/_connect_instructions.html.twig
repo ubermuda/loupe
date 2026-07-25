@@ -1,8 +1,7 @@
 {#- MCP connect instructions: the endpoint URL and the `claude mcp add` CLI
     one-liner. Shared by the full connect page and the first-run wizard's
-    connect step. Props: project (Project), mcpServerName (string),
-    mintedMcpToken (string|null — raw token to embed once, placeholder
-    otherwise). -#}
+    connect step. Props: mcpServerName (string), mintedMcpToken (string|null —
+    raw token to embed once, placeholder otherwise). -#}
 {%- set mcpUrl = url('app_mcp_endpoint') -%}
 {%- set mcpTokenValue = mintedMcpToken ?: 'YOUR_TOKEN' -%}
 {%- set claudeCommand = 'claude mcp add --transport http ' ~ mcpServerName ~ ' ' ~ mcpUrl ~ ' --header "Authorization: Bearer ' ~ mcpTokenValue ~ '"' -%}

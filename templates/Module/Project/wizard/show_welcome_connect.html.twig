@@ -32,7 +32,7 @@
         {% endif %}
     </section>
 
-    {% include '@Project/_connect_instructions.html.twig' with {project: wizardProject, mcpServerName: mcpServerName, mintedMcpToken: mintedMcpToken} only %}
+    {% include '@Project/_connect_instructions.html.twig' with {mcpServerName: mcpServerName, mintedMcpToken: mintedMcpToken} only %}
 
     <div class="flex items-center justify-end gap-3 pt-2">
         <a class="lp-btn lp-btn--primary" href="{{ path('app_welcome_done') }}">{{ 'project.wizard.connect.continue'|trans }}</a>

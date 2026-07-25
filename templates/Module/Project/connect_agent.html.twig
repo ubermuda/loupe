@@ -42,7 +42,7 @@
         {% endfor %}
     {% endfor %}
 
-    {% include '@Project/_connect_instructions.html.twig' with {project: project, mcpServerName: mcpServerName, mintedMcpToken: mintedMcpToken} only %}
+    {% include '@Project/_connect_instructions.html.twig' with {mcpServerName: mcpServerName, mintedMcpToken: mintedMcpToken} only %}
 
     {# ── Access token — the project MCP token ── #}
     <section class="lp-connect-block">

@@ -7,7 +7,7 @@
     {% for key in steps %}
         {%- set state = loop.index < step ? 'completed' : (loop.index == step ? 'current' : 'upcoming') -%}
         {% if not loop.first %}
-            <li class="lp-ribbon__bar lp-ribbon__bar--{{ state }}" aria-hidden="true"></li>
+            <li class="lp-ribbon__bar lp-ribbon__bar--{{ state }}" role="presentation" aria-hidden="true"></li>
         {% endif %}
         <li class="lp-ribbon__step">
             <span class="lp-ribbon__circle lp-ribbon__circle--{{ state }}">{{ loop.index }}</span>

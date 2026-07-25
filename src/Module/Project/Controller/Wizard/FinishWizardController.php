@@ -28,8 +28,8 @@ class FinishWizardController extends AppController
         $user = $this->getUser();
         assert($user instanceof User);
 
-        // Same shape as SkipWizardController: only the completed guard applies,
-        // so a user who somehow reaches this from step 1 isn't blocked either.
+        // Same shape as SkipWizardController: only the completed guard
+        // applies, so a repeat submit is a no-op redirect rather than an error.
         if ($this->wizardState->isCompleted($user)) {
             return $this->redirectToRoute('app_home');
         }
