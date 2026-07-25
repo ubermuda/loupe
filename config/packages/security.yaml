@@ -52,6 +52,7 @@ security:
         # is reachable unauthenticated in the dev environment.
         - { path: ^/dev/register-and-verify$, roles: PUBLIC_ACCESS }
         - { path: ^/dev/site-review-harness$, roles: PUBLIC_ACCESS }
+        - { path: ^/dev/e2e/reset$,  roles: PUBLIC_ACCESS }
         - { path: ^/login,           roles: PUBLIC_ACCESS }
         - { path: ^/register,        roles: PUBLIC_ACCESS }
         - { path: ^/forgot-password, roles: PUBLIC_ACCESS }
