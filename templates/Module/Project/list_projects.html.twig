@@ -8,6 +8,12 @@
     <h1 class="lp-workspace-title">{{ 'project.list.page.title'|trans }}</h1>
     <p class="lp-workspace-desc">{{ 'project.list.description'|trans }}</p>
 
+    {% for label, messages in app.flashes %}
+        {% for message in messages %}
+            <div class="lp-flash lp-flash--{{ label }}">{{ message }}</div>
+        {% endfor %}
+    {% endfor %}
+
     <div class="lp-project-list">
         {% for item in items %}
         {% set project = item.project %}

@@ -41,6 +41,9 @@ final class DeleteProjectControllerTest extends WebTestCase
         $conn = $em->getConnection();
         self::assertSame(0, (int) $conn->fetchOne('SELECT count(*) FROM documents WHERE project_id = :id', ['id' => (string) $projectId]));
         self::assertSame(0, (int) $conn->fetchOne('SELECT count(*) FROM site_review_reviews WHERE project_id = :id', ['id' => (string) $projectId]));
+
+        $client->followRedirect();
+        self::assertSelectorTextContains('.lp-flash', 'permanently deleted');
     }
 
     public function test_wrong_name_re_renders_with_a_field_error(): void
@@ -110,6 +113,7 @@ final class DeleteProjectControllerTest extends WebTestCase
 
         self::assertResponseStatusCodeSame(422);
         self::assertSelectorTextNotContains('form[action$="/delete"] .lp-field-errors', 'does not match');
+        self::assertSelectorTextContains('form[action$="/delete"] .lp-field-errors', 'should not be blank');
         $em->clear();
         self::assertNotNull($em->find(Project::class, $projectId));
     }
