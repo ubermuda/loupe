@@ -77,7 +77,7 @@
         "twig/cssinliner-extra": "^3.26",
         "twig/extra-bundle": "^2.12|^3.24",
         "twig/twig": "^2.12|^3.28",
-        "ubermuda/admin-bundle": "dev-main#5a80ccc7630558b8a2c9568919aec76aed58a36e",
+        "ubermuda/admin-bundle": "dev-fix/skip-unverified-promotion#9dc44ef2be4a851b3a02ee73e6e2a32e63b9151a as dev-main",
         "ubermuda/doctrine-extra": "dev-main#ec867f3bf1ed362c201abbe152ac27447ec37526",
         "ubermuda/feature-flags-bundle": "dev-main#3fcfa66ef11dd2f7d2e196ae759b78a34a4a6692",
         "ubermuda/symfony-extra": "dev-main#690508f376fd9acf6a00fcab69172bd8590fe3c5"

@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "00dd1351b6e7ae2ff26fc32e98ff3299",
+    "content-hash": "8b4d197747b0ff0ccef615f23f5c19a4",
     "packages": [
         {
             "name": "composer/ca-bundle",
@@ -10180,16 +10180,16 @@
         },
         {
             "name": "ubermuda/admin-bundle",
-            "version": "dev-main",
+            "version": "dev-fix/skip-unverified-promotion",
             "source": {
                 "type": "git",
                 "url": "https://github.com/ubermuda/admin-bundle.git",
-                "reference": "5a80ccc7630558b8a2c9568919aec76aed58a36e"
+                "reference": "9dc44ef2be4a851b3a02ee73e6e2a32e63b9151a"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/ubermuda/admin-bundle/zipball/5a80ccc7630558b8a2c9568919aec76aed58a36e",
-                "reference": "5a80ccc7630558b8a2c9568919aec76aed58a36e",
+                "url": "https://api.github.com/repos/ubermuda/admin-bundle/zipball/9dc44ef2be4a851b3a02ee73e6e2a32e63b9151a",
+                "reference": "9dc44ef2be4a851b3a02ee73e6e2a32e63b9151a",
                 "shasum": ""
             },
             "require": {
@@ -10215,7 +10215,6 @@
             "suggest": {
                 "doctrine/orm": "Required for the admin-email promotion listener (PromoteAdminUserListener)."
             },
-            "default-branch": true,
             "type": "symfony-bundle",
             "autoload": {
                 "psr-4": {
@@ -10232,10 +10231,10 @@
             ],
             "description": "Reusable admin shell + listing framework for Symfony apps we own.",
             "support": {
-                "source": "https://github.com/ubermuda/admin-bundle/tree/main",
+                "source": "https://github.com/ubermuda/admin-bundle/tree/fix/skip-unverified-promotion",
                 "issues": "https://github.com/ubermuda/admin-bundle/issues"
             },
-            "time": "2026-07-02T14:07:05+00:00"
+            "time": "2026-07-25T14:40:38+00:00"
         },
         {
             "name": "ubermuda/doctrine-extra",
@@ -14420,7 +14419,14 @@
             "time": "2026-06-29T15:22:14+00:00"
         }
     ],
-    "aliases": [],
+    "aliases": [
+        {
+            "package": "ubermuda/admin-bundle",
+            "version": "dev-fix/skip-unverified-promotion",
+            "alias": "dev-main",
+            "alias_normalized": "dev-main"
+        }
+    ],
     "minimum-stability": "dev",
     "stability-flags": {
         "ubermuda/admin-bundle": 20,
