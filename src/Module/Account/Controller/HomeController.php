@@ -25,6 +25,11 @@ class HomeController extends AppController
         assert($user instanceof User);
 
         $projects = $this->projects->findByOwner($user);
+
+        if ([] === $projects && null === $user->wizardCompletedAt) {
+            return $this->redirectToRoute('app_welcome');
+        }
+
         if (1 === \count($projects)) {
             return $this->redirectToRoute('app_project_documents', ['id' => (string) $projects[0]->id]);
         }

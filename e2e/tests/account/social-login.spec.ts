@@ -81,8 +81,16 @@ test('a first social sign-in creates a verified account, and a repeat sign-in re
         email,
         fullName: 'Social One',
     });
-    await expect(page).toHaveURL('/projects');
+    // A brand-new account owns no project and hasn't completed the first-run
+    // wizard yet, so HomeController lands it on /welcome rather than /projects.
+    await expect(page).toHaveURL('/welcome');
     await expect(page.getByRole('button', { name: 'Log out' })).toBeVisible();
+
+    // Skip the wizard so the account reaches the same steady state as any
+    // other verified user — and so the repeat sign-in below has a stable,
+    // wizard-independent landing page to assert account reuse against.
+    await page.getByRole('button', { name: 'Skip setup' }).click();
+    await expect(page).toHaveURL('/projects');
 
     await logout(page);
 

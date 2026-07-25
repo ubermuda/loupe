@@ -1638,6 +1638,36 @@
         line-height: 1.5;
     }
 
+    /* ── Billing (subscribe / checkout confirmation) ────────────────────
+       Same narrow single column as the connect page: status of the trial or
+       subscription, the price, and the action that leaves for Stripe. */
+
+    .lp-billing {
+        @apply max-w-full flex flex-col gap-6 p-10;
+        max-width: 760px;
+    }
+    .lp-billing-block {
+        @apply flex flex-col items-start gap-2.5;
+    }
+    .lp-billing-status {
+        @apply flex items-center gap-2.5 px-4 py-3 rounded-lg border border-line-strong bg-sidebar text-fg text-sm;
+    }
+    .lp-billing-status--ok {
+        @apply bg-status-ok-bg border-status-ok-border text-status-ok-deep;
+    }
+    .lp-billing-status--expired {
+        @apply bg-status-pending-bg border-status-pending-border text-status-pending-deep;
+    }
+    .lp-billing-price {
+        @apply flex items-baseline gap-2 m-0;
+    }
+    .lp-billing-price__amount {
+        @apply text-3xl font-semibold text-fg;
+    }
+    .lp-billing-price__interval {
+        @apply text-sm text-fg-mute;
+    }
+
     /* ── Orphan banner ──────────────────────────────────────────────── */
 
     .lp-orphan-banner {

@@ -51,10 +51,10 @@ async function login(
     await page.getByLabel('Email').fill(email);
     await page.getByLabel('Password').fill(password);
     await page.getByRole('button', { name: 'Sign in' }).click();
-    // A freshly-registered user owns no projects yet, so HomeController lands
-    // them on the projects index (a single-project user would go straight to
-    // that project's documents dashboard instead).
-    await expect(page).toHaveURL('/projects');
+    // A freshly-registered user owns no projects and hasn't completed the
+    // first-run wizard yet, so HomeController lands them on it (seedDocument,
+    // called right after this, creates the project the wizard would have).
+    await expect(page).toHaveURL('/welcome');
 }
 
 /**
