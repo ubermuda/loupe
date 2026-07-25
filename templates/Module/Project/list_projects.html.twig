@@ -28,6 +28,11 @@
                     <span class="lp-project-row__open">{{ 'project.list.meta.open'|trans({'%count%': item.openCount}) }}</span>
                 </div>
             </div>
+            <a href="{{ path('app_project_edit', {id: project.id}) }}"
+               class="lp-project-row__edit"
+               aria-label="{{ 'project.list.edit'|trans({'%name%': project.name}) }}">
+                <twig:ux:icon name="lucide:pencil" class="w-4 h-4" />
+            </a>
             <twig:ux:icon name="lucide:chevron-right" class="lp-project-row__chevron" />
         </div>
         {% endfor %}

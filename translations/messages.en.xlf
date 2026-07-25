@@ -649,6 +649,30 @@
                 <source>project.error.name_taken</source>
                 <target>You already have a project with this name.</target>
             </trans-unit>
+            <trans-unit id="project.list.edit">
+                <source>project.list.edit</source>
+                <target>Edit %name%</target>
+            </trans-unit>
+            <trans-unit id="project.edit.eyebrow">
+                <source>project.edit.eyebrow</source>
+                <target>Project settings</target>
+            </trans-unit>
+            <trans-unit id="project.edit.page.title">
+                <source>project.edit.page.title</source>
+                <target>Edit project</target>
+            </trans-unit>
+            <trans-unit id="project.edit.description">
+                <source>project.edit.description</source>
+                <target>Update the name and domain for %name%.</target>
+            </trans-unit>
+            <trans-unit id="project.edit.form.cancel">
+                <source>project.edit.form.cancel</source>
+                <target>Cancel</target>
+            </trans-unit>
+            <trans-unit id="project.edit.form.submit">
+                <source>project.edit.form.submit</source>
+                <target>Save changes</target>
+            </trans-unit>
 
             <trans-unit id="site_review.site.token.mint">
                 <source>site_review.site.token.mint</source>
