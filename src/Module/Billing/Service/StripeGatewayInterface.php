@@ -16,8 +16,14 @@ interface StripeGatewayInterface
     /** @return string the Stripe customer id */
     public function createCustomer(User $user): string;
 
-    /** @return string the hosted Checkout URL to redirect to */
-    public function createCheckoutSession(string $customerId, string $priceId, string $successUrl, string $cancelUrl): string;
+    /**
+     * @param string $idempotencyKey identifies this checkout attempt; Stripe returns
+     *                               the already-created session for a repeated key,
+     *                               so a double submit cannot open two subscriptions
+     *
+     * @return string the hosted Checkout URL to redirect to
+     */
+    public function createCheckoutSession(string $customerId, string $priceId, string $successUrl, string $cancelUrl, string $idempotencyKey): string;
 
     /** @return string the hosted portal URL to redirect to */
     public function createPortalSession(string $customerId, string $returnUrl): string;

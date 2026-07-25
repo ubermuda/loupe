@@ -15,6 +15,7 @@ use App\Module\Billing\Service\ActivePriceProvider;
 use App\Module\Billing\Service\StripeGatewayInterface;
 use App\Module\Billing\Service\TrialProvisioner;
 use App\Tests\Support\FeatureFlags;
+use App\Tests\Support\TransactionalEntityManagerStub;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\NullLogger;
@@ -50,7 +51,7 @@ final class StartCheckoutHandlerTest extends TestCase
             new ActivePriceProvider(FeatureFlags::service($flags), $priceStripe, new ArrayAdapter(), new NullLogger()),
             $stripe,
             FeatureFlags::service($flags),
-            $this->createStub(EntityManagerInterface::class),
+            TransactionalEntityManagerStub::configure($this->createStub(EntityManagerInterface::class)),
             new NullLogger(),
         );
     }
@@ -64,7 +65,7 @@ final class StartCheckoutHandlerTest extends TestCase
         $stripe->expects($this->once())->method('createCustomer')->willReturn('cus_123');
         $stripe->expects($this->once())
             ->method('createCheckoutSession')
-            ->with('cus_123', 'price_123', 'https://app/success', 'https://app/cancel')
+            ->with('cus_123', 'price_123', 'https://app/success', 'https://app/cancel', self::isString())
             ->willReturn(self::CHECKOUT_URL);
 
         $url = ($this->handler($stripe, $profile))($this->command($user));
@@ -83,7 +84,7 @@ final class StartCheckoutHandlerTest extends TestCase
         $stripe->expects($this->never())->method('createCustomer');
         $stripe->expects($this->once())
             ->method('createCheckoutSession')
-            ->with('cus_existing', 'price_123', 'https://app/success', 'https://app/cancel')
+            ->with('cus_existing', 'price_123', 'https://app/success', 'https://app/cancel', self::isString())
             ->willReturn(self::CHECKOUT_URL);
 
         ($this->handler($stripe, $profile))($this->command($user));

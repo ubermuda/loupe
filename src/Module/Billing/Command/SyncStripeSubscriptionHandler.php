@@ -4,8 +4,10 @@ declare(strict_types=1);
 
 namespace App\Module\Billing\Command;
 
+use App\Module\Billing\Entity\BillingProfile;
 use App\Module\Billing\Entity\BillingStatus;
 use App\Module\Billing\Repository\BillingProfileRepository;
+use Doctrine\DBAL\LockMode;
 use Doctrine\ORM\EntityManagerInterface;
 use Psr\Log\LoggerInterface;
 
@@ -32,9 +34,26 @@ final readonly class SyncStripeSubscriptionHandler
             return;
         }
 
-        // Stripe guarantees neither ordering nor exactly-once delivery, so two
-        // things must be filtered out, and only those two.
-        //
+        // Stripe can deliver two events at once, and both requests would
+        // otherwise read the same profile, pass their ordering checks and race
+        // to flush — the loser's older snapshot winning. The whole
+        // check-then-write runs under a write lock on the row instead.
+        $this->em->wrapInTransaction(function () use ($command, $profile): void {
+            $this->em->lock($profile, LockMode::PESSIMISTIC_WRITE);
+            // lock() takes the row but does not refresh what is in memory; the
+            // ordering checks must see what a racing request committed.
+            $this->em->refresh($profile);
+
+            $this->apply($command, $profile);
+        });
+    }
+
+    /**
+     * Stripe guarantees neither ordering nor exactly-once delivery, so two
+     * things must be filtered out here, and only those two.
+     */
+    private function apply(SyncStripeSubscriptionCommand $command, BillingProfile $profile): void
+    {
         // A strictly older event is a stale snapshot (an `updated` arriving
         // after `deleted`) and must not overwrite newer state.
         if (null !== $profile->lastStripeEventAt && $command->eventCreatedAt < $profile->lastStripeEventAt) {

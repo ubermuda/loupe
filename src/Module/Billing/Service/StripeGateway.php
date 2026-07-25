@@ -29,7 +29,7 @@ final readonly class StripeGateway implements StripeGatewayInterface
     }
 
     #[\Override]
-    public function createCheckoutSession(string $customerId, string $priceId, string $successUrl, string $cancelUrl): string
+    public function createCheckoutSession(string $customerId, string $priceId, string $successUrl, string $cancelUrl, string $idempotencyKey): string
     {
         $session = $this->stripe->checkout->sessions->create([
             'mode' => 'subscription',
@@ -40,11 +40,9 @@ final readonly class StripeGateway implements StripeGatewayInterface
         ], [
             // A double-click, a retried redirect or a second tab must not open a
             // second Checkout: two completed sessions mean two subscriptions and
-            // a double charge. Keying on customer, price and day makes Stripe
-            // return the session it already created (keys live 24h, as do the
-            // sessions themselves), while a genuine re-subscribe on another day
-            // still gets a fresh one.
-            'idempotency_key' => sprintf('checkout_%s_%s_%s', $customerId, $priceId, gmdate('Y-m-d')),
+            // a double charge. Stripe replays the first session for a repeated
+            // key; the caller decides what "the same attempt" means.
+            'idempotency_key' => $idempotencyKey,
         ]);
 
         return $session->url ?? throw new \RuntimeException('Stripe checkout session has no URL');

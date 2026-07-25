@@ -13,6 +13,7 @@ use App\Module\Billing\Repository\BillingProfileRepository;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
+use App\Tests\Support\TransactionalEntityManagerStub;
 use Psr\Log\NullLogger;
 
 final class SyncStripeSubscriptionHandlerTest extends TestCase
@@ -31,7 +32,11 @@ final class SyncStripeSubscriptionHandlerTest extends TestCase
         $profiles = $this->createStub(BillingProfileRepository::class);
         $profiles->method('findOneByStripeCustomerId')->willReturn($profile);
 
-        return new SyncStripeSubscriptionHandler($profiles, $this->createStub(EntityManagerInterface::class), new NullLogger());
+        return new SyncStripeSubscriptionHandler(
+            $profiles,
+            TransactionalEntityManagerStub::configure($this->createStub(EntityManagerInterface::class)),
+            new NullLogger(),
+        );
     }
 
     /**

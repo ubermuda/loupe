@@ -38,7 +38,7 @@ final class StripeGatewayTest extends TestCase
     {
         $gateway = $this->gateway(['id' => 'cs_1', 'object' => 'checkout.session', 'url' => 'https://checkout.stripe.test/s']);
 
-        $url = $gateway->createCheckoutSession('cus_1', 'price_1', 'https://app/success', 'https://app/cancel');
+        $url = $gateway->createCheckoutSession('cus_1', 'price_1', 'https://app/success', 'https://app/cancel', 'checkout_key_1');
 
         self::assertSame('https://checkout.stripe.test/s', $url);
         $request = $this->http->requests[0];
@@ -51,12 +51,12 @@ final class StripeGatewayTest extends TestCase
         self::assertSame('https://app/cancel', $request['params']['cancel_url']);
     }
 
-    public function test_checkout_sessions_are_created_idempotently_per_customer_price_and_day(): void
+    public function test_the_caller_supplied_idempotency_key_is_sent(): void
     {
         $gateway = $this->gateway(['id' => 'cs_1', 'object' => 'checkout.session', 'url' => 'https://checkout.stripe.test/s']);
 
-        $gateway->createCheckoutSession('cus_1', 'price_1', 'https://app/success', 'https://app/cancel');
-        $gateway->createCheckoutSession('cus_1', 'price_1', 'https://app/success', 'https://app/cancel');
+        $gateway->createCheckoutSession('cus_1', 'price_1', 'https://app/success', 'https://app/cancel', 'checkout_key_1');
+        $gateway->createCheckoutSession('cus_1', 'price_1', 'https://app/success', 'https://app/cancel', 'checkout_key_1');
 
         $keys = array_map(
             static fn (array $request): array => array_values(array_filter(
@@ -68,7 +68,7 @@ final class StripeGatewayTest extends TestCase
 
         self::assertCount(1, $keys[0], 'the checkout call must carry an idempotency key');
         self::assertSame($keys[0], $keys[1], 'a repeated checkout must reuse the same key');
-        self::assertStringContainsString('checkout_cus_1_price_1_', $keys[0][0]);
+        self::assertStringContainsString('checkout_key_1', $keys[0][0]);
     }
 
     public function test_checkout_session_without_url_is_rejected(): void
@@ -76,7 +76,7 @@ final class StripeGatewayTest extends TestCase
         $gateway = $this->gateway(['id' => 'cs_1', 'object' => 'checkout.session']);
 
         $this->expectException(\RuntimeException::class);
-        $gateway->createCheckoutSession('cus_1', 'price_1', 'https://app/success', 'https://app/cancel');
+        $gateway->createCheckoutSession('cus_1', 'price_1', 'https://app/success', 'https://app/cancel', 'checkout_key_1');
     }
 
     public function test_portal_session_passes_customer_and_return_url(): void

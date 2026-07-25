@@ -58,18 +58,22 @@ class BillingProfile
     #[ORM\Column(length: 255, nullable: true)]
     public ?string $lastStripeEventType = null;
 
+    // Note: no `readonly` on the constructor-promoted columns below. The billing
+    // handlers re-read this row under a pessimistic lock, and EntityManager::refresh()
+    // rewrites every mapped field — which PHP forbids on an initialised readonly
+    // property. Immutability here is a convention, not a language guarantee.
     public function __construct(
         // OneToOne rather than ManyToOne + a unique constraint: one profile per
         // user is the invariant, and OneToOne already implies the unique FK.
         #[ORM\JoinColumn(nullable: false)]
         #[ORM\OneToOne(targetEntity: User::class)]
-        public readonly User $user,
+        public User $user,
 
         #[ORM\Column]
         public \DateTimeImmutable $trialEndsAt,
 
         #[ORM\Column]
-        public readonly \DateTimeImmutable $createdAt = new \DateTimeImmutable(),
+        public \DateTimeImmutable $createdAt = new \DateTimeImmutable(),
     ) {
     }
 
