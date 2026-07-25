@@ -17,7 +17,11 @@ use Symfony\Contracts\Translation\TranslatorInterface;
 use Ubermuda\SymfonyExtra\Csrf\Attribute\CsrfToken;
 
 #[CsrfToken('billing-portal')]
-#[Route('/billing/portal', name: 'app_billing_portal', methods: ['POST'])]
+#[Route(
+    '/billing/portal',
+    name: 'app_billing_portal',
+    methods: ['POST'],
+)]
 final class OpenPortalController extends AppController
 {
     public function __construct(

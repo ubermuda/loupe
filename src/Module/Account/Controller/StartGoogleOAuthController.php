@@ -11,7 +11,11 @@ use Symfony\Component\Routing\Attribute\Route;
 use Ubermuda\FeatureFlagsBundle\Attribute\RequireFeatureFlag;
 
 #[RequireFeatureFlag('auth.google.enabled')]
-#[Route('/oauth/google', name: 'app_oauth_start_google', methods: ['GET'])]
+#[Route(
+    '/oauth/google',
+    name: 'app_oauth_start_google',
+    methods: ['GET'],
+)]
 class StartGoogleOAuthController extends AppController
 {
     public function __construct(

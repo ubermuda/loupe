@@ -18,7 +18,11 @@ use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Contracts\Translation\TranslatorInterface;
 
-#[Route('/welcome/project', name: 'app_welcome_create_project', methods: ['POST'])]
+#[Route(
+    '/welcome/project',
+    name: 'app_welcome_create_project',
+    methods: ['POST'],
+)]
 class CreateFirstProjectController extends AppController
 {
     public function __construct(

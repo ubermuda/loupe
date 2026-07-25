@@ -18,7 +18,11 @@ use Symfony\Component\RateLimiter\RateLimiterFactory;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Contracts\Translation\TranslatorInterface;
 
-#[Route('/waitlist', name: 'app_waitlist_join', methods: ['GET', 'POST'])]
+#[Route(
+    '/waitlist',
+    name: 'app_waitlist_join',
+    methods: ['GET', 'POST'],
+)]
 final class JoinWaitlistController extends AppController
 {
     public function __construct(

@@ -10,7 +10,11 @@ use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
 
-#[Route('/account/delete/confirm', name: 'app_account_delete_confirm', methods: ['GET'])]
+#[Route(
+    '/account/delete/confirm',
+    name: 'app_account_delete_confirm',
+    methods: ['GET'],
+)]
 class ConfirmAccountDeletionController extends AppController
 {
     public function __construct(
