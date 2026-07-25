@@ -128,7 +128,11 @@ export default class extends Controller {
             .replace(/>/g, '&gt;');
     }
 
+    // Escaping only the quote is not enough: these strings are assigned through
+    // innerHTML, so a stored tag containing `&quot;` would decode back into a
+    // real quote and break out of the attribute. Escape the ampersand first
+    // (via #escHtml, which does & before < and >), then the quote.
     #escAttr(s) {
-        return s.replace(/"/g, '&quot;');
+        return this.#escHtml(s).replace(/"/g, '&quot;');
     }
 }
