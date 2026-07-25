@@ -24,4 +24,5 @@ return [
     Nelmio\SecurityBundle\NelmioSecurityBundle::class => ['prod' => true],
     Ubermuda\AdminBundle\UbermudaAdminBundle::class => ['all' => true],
     Ubermuda\FeatureFlagsBundle\UbermudaFeatureFlagsBundle::class => ['all' => true],
+    KnpU\OAuth2ClientBundle\KnpUOAuth2ClientBundle::class => ['all' => true],
 ];
