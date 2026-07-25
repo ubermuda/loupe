@@ -403,6 +403,24 @@
                 <target>Or copy this link:</target>
             </trans-unit>
 
+            <!-- Waitlist invite email template -->
+            <trans-unit id="account.email.waitlist_invite.subject">
+                <source>account.email.waitlist_invite.subject</source>
+                <target>Your Loupe invite is here</target>
+            </trans-unit>
+            <trans-unit id="account.email.waitlist_invite.heading">
+                <source>account.email.waitlist_invite.heading</source>
+                <target>You're in</target>
+            </trans-unit>
+            <trans-unit id="account.email.waitlist_invite.body">
+                <source>account.email.waitlist_invite.body</source>
+                <target>A spot opened up. This invite link is valid for 7 days.</target>
+            </trans-unit>
+            <trans-unit id="account.email.waitlist_invite.button">
+                <source>account.email.waitlist_invite.button</source>
+                <target>Create your account</target>
+            </trans-unit>
+
             <!-- Reset password email template -->
             <trans-unit id="account.email.reset_password.html_title">
                 <source>account.email.reset_password.html_title</source>
