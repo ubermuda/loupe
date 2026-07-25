@@ -77,6 +77,7 @@
         "symfonycasts/tailwind-bundle": "^0.13.0",
         "twig/cssinliner-extra": "^3.26",
         "twig/extra-bundle": "^2.12|^3.24",
+        "twig/intl-extra": "^3.26",
         "twig/twig": "^2.12|^3.28",
         "ubermuda/admin-bundle": "dev-fix/skip-unverified-promotion#9dc44ef2be4a851b3a02ee73e6e2a32e63b9151a as dev-main",
         "ubermuda/doctrine-extra": "dev-main#ec867f3bf1ed362c201abbe152ac27447ec37526",

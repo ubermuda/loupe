@@ -1,0 +1,58 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}{{ 'billing.subscribe.page.title'|trans }} — {{ 'app.name'|trans }}{% endblock %}
+
+{% block body %}
+<div class="lp-billing">
+    <h1 class="lp-workspace-title">{{ 'billing.subscribe.heading'|trans }}</h1>
+    <p class="lp-workspace-desc">{{ 'billing.subscribe.description'|trans }}</p>
+
+    {% for label, messages in app.flashes %}
+        {% for message in messages %}
+            <div class="lp-flash lp-flash--{{ label }}">{{ message }}</div>
+        {% endfor %}
+    {% endfor %}
+
+    <section class="lp-billing-block">
+        <p class="lp-eyebrow">{{ 'billing.subscribe.status.eyebrow'|trans }}</p>
+        {% if view.subscribed %}
+        <div class="lp-billing-status lp-billing-status--ok">{{ 'billing.subscribe.status.subscribed'|trans }}</div>
+        {% elseif view.trialing %}
+        <div class="lp-billing-status">{{ 'billing.subscribe.status.trial_active'|trans({'%count%': view.trialDaysLeft}) }}</div>
+        {% elseif view.billingEnabled %}
+        <div class="lp-billing-status lp-billing-status--expired">{{ 'billing.subscribe.status.trial_expired'|trans }}</div>
+        {% else %}
+        <div class="lp-billing-status">{{ 'billing.subscribe.status.free'|trans }}</div>
+        {% endif %}
+    </section>
+
+    {% if view.price %}
+    <section class="lp-billing-block">
+        <p class="lp-eyebrow">{{ 'billing.subscribe.price.eyebrow'|trans }}</p>
+        <p class="lp-billing-price">
+            <span class="lp-billing-price__amount">{{ (view.price.unitAmount / 100)|format_currency(view.price.currency|upper) }}</span>
+            <span class="lp-billing-price__interval">{{ ('billing.subscribe.price.interval.' ~ view.price.interval)|trans }}</span>
+        </p>
+    </section>
+    {% endif %}
+
+    {% if view.billingEnabled %}
+    <section class="lp-billing-block">
+        {# data-turbo="false": both actions redirect to a Stripe-hosted page, and Turbo
+           cannot follow a cross-origin redirect — the browser must submit natively. #}
+        {% if view.subscribed %}
+        <form method="post" action="{{ path('app_billing_portal') }}" data-turbo="false">
+            <input type="hidden" name="_csrf_token" value="{{ csrf_token('billing-portal') }}">
+            <button type="submit" class="lp-btn lp-btn--primary">{{ 'billing.subscribe.portal.button'|trans }}</button>
+        </form>
+        {% else %}
+        <form method="post" action="{{ path('app_billing_checkout') }}" data-turbo="false">
+            <input type="hidden" name="_csrf_token" value="{{ csrf_token('billing-checkout') }}">
+            <button type="submit" class="lp-btn lp-btn--primary">{{ 'billing.subscribe.checkout.button'|trans }}</button>
+        </form>
+        {% endif %}
+        <p class="lp-connect-hint">{{ 'billing.subscribe.secure_note'|trans }}</p>
+    </section>
+    {% endif %}
+</div>
+{% endblock %}
