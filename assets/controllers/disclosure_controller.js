@@ -33,7 +33,14 @@ export default class extends Controller {
 
     expand() {
         this.element.open = true;
+        // `.open` on this.element only reflects natively for a real <details>
+        // element. For a plain wrapper div (e.g. list_projects.html.twig's
+        // "New project" disclosure), visibility is driven entirely by these
+        // two classes — .disclosure-open on the wrapper, .open on the content
+        // target — which app.css keys its `display` toggle off of.
+        this.element.classList.add('disclosure-open');
         const content = this.contentTarget;
+        content.classList.add('open');
         this.animation = content.animate(
             { height: ['0px', `${content.scrollHeight}px`], opacity: [0, 1] },
             { duration: 200, easing: 'ease' },
@@ -52,6 +59,8 @@ export default class extends Controller {
         );
         this.animation.onfinish = () => {
             this.element.open = false;
+            this.element.classList.remove('disclosure-open');
+            content.classList.remove('open');
             content.style.height = '';
             this.animation = null;
         };
