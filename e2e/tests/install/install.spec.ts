@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { fetchVerificationUrl } from '../helpers';
+import { extractLink, getLatestEmailTo } from '../helpers';
 
 /**
  * Runs in the dedicated `install-reset` project (after every chromium spec):
@@ -39,7 +39,11 @@ test('first-install wizard seeds flags and creates a verified admin', async ({
     await expect(
         page.getByText('Check your email to verify your account'),
     ).toBeVisible();
-    const verificationUrl = await fetchVerificationUrl(request, ADMIN.email);
+    const received = await getLatestEmailTo(request, ADMIN.email);
+    const verificationUrl = extractLink(
+        received.body,
+        /https?:\/\/[^\s"<]+\/register\/verify[^\s"<]*/,
+    );
     await page.goto(verificationUrl);
     await page.goto('/login');
     await page.getByLabel('Email').fill(ADMIN.email);

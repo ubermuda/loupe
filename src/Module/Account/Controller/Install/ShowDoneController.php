@@ -26,6 +26,7 @@ final class ShowDoneController extends AppController
         if (true !== $request->getSession()->get(self::SESSION_INSTALL_COMPLETED)) {
             throw $this->createNotFoundException();
         }
+        $request->getSession()->remove(self::SESSION_INSTALL_COMPLETED);
 
         return $this->render('@Account/install/show_done.html.twig');
     }

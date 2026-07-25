@@ -55,6 +55,10 @@ final class CreateAdminControllerTest extends WebTestCase
         // …while this session still renders the done page once (completion marker).
         $client->request('GET', '/install/done');
         self::assertResponseIsSuccessful();
+        // The completion marker is consumed by that first render — a second
+        // visit (e.g. a page refresh) 404s just like every other install route.
+        $client->request('GET', '/install/done');
+        self::assertResponseStatusCodeSame(404);
     }
 
     public function test_dto_validation_failure_returns_422(): void
