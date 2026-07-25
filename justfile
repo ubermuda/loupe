@@ -84,7 +84,7 @@ worktree-tailwind:
     bin/worktrees/compose-exec.sh bin/console tailwind:build --watch
 
 lint:
-    vendor/bin/parallel-lint --exclude vendor --exclude var --exclude node_modules .
+    vendor/bin/parallel-lint --exclude vendor --exclude var --exclude node_modules --exclude .claude .
     npx prettier --check --log-level warn assets/ e2e/
     npx eslint public/site-review/widget.js assets/controllers/
     cd e2e && npx eslint .
