@@ -19,7 +19,9 @@ test('a verified ADMIN_EMAIL user is promoted and sees the dashboard', async ({
 }) => {
     await page.goto('/admin');
 
-    await expect(page.getByRole('heading', { name: 'Dashboard' })).toBeVisible();
+    await expect(
+        page.getByRole('heading', { name: 'Dashboard' }),
+    ).toBeVisible();
     await expect(
         page.getByRole('link', { name: 'Feature Flags' }),
     ).toBeVisible();
