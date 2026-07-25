@@ -11,6 +11,8 @@ use App\Module\Account\Entity\DataExport;
 use App\Module\Account\Entity\User;
 use App\Module\Account\Messenger\GenerateDataExportMessage;
 use App\Module\Account\Repository\DataExportRepository;
+use Doctrine\DBAL\Driver\PDO\Exception as PdoDriverException;
+use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\MockObject\Stub;
@@ -70,6 +72,40 @@ final class RequestDataExportHandlerTest extends TestCase
         $em = $this->createMock(EntityManagerInterface::class);
         $em->expects(self::never())->method('persist');
         $em->expects(self::never())->method('flush');
+
+        /** @var MessageBusInterface&MockObject $bus */
+        $bus = $this->createMock(MessageBusInterface::class);
+        $bus->expects(self::never())->method('dispatch');
+
+        $handler = new RequestDataExportHandler($dataExports, $em, $bus, new NullLogger());
+
+        try {
+            $handler(new RequestDataExportCommand($user));
+            self::fail('Expected DomainErrors to be thrown.');
+        } catch (DomainErrors $e) {
+            self::assertSame(['export' => 'account.settings.export.error.already_pending'], $e->errors);
+        }
+    }
+
+    public function test_a_concurrent_request_surfaces_the_domain_error_not_a_500(): void
+    {
+        // Both requests pass the pre-check (no pending row exists yet); one of
+        // them then loses the race at flush() against the partial unique
+        // index on data_exports(user_id) WHERE status = 'pending'.
+        $user = new User('alice', 'Alice A', 'alice@example.com', 'x');
+
+        /** @var DataExportRepository&Stub $dataExports */
+        $dataExports = $this->createStub(DataExportRepository::class);
+        $dataExports->method('findOnePendingByUser')->willReturn(null);
+
+        /** @var EntityManagerInterface&Stub $em */
+        $em = $this->createStub(EntityManagerInterface::class);
+        $em->method('flush')->willThrowException(
+            new UniqueConstraintViolationException(
+                PdoDriverException::new(new \PDOException('duplicate key value violates unique constraint')),
+                null,
+            ),
+        );
 
         /** @var MessageBusInterface&MockObject $bus */
         $bus = $this->createMock(MessageBusInterface::class);

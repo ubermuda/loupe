@@ -42,12 +42,20 @@ readonly class DataExportArchiveBuilder
 
         try {
             foreach ($this->exporters as $exporter) {
-                $zip->addFromString(
+                $added = $zip->addFromString(
                     $exporter->filename(),
                     json_encode($exporter->export($user), \JSON_THROW_ON_ERROR | \JSON_PRETTY_PRINT | \JSON_UNESCAPED_SLASHES),
                 );
+                if (!$added) {
+                    throw new \RuntimeException(sprintf('Cannot write "%s" into export archive "%s".', $exporter->filename(), $tmpPath));
+                }
             }
-            $zip->close();
+            // close() can fail after every addFromString() succeeded (e.g. the
+            // volume fills up while ZipArchive flushes its central directory) —
+            // a Ready export must never point at a truncated ZIP.
+            if (!$zip->close()) {
+                throw new \RuntimeException(sprintf('Cannot finalize export archive "%s".', $tmpPath));
+            }
         } catch (\Throwable $e) {
             @unlink($tmpPath);
 
