@@ -1,0 +1,7 @@
+ubermuda_feature_flags:
+    # Directories the "scan for undefined flags" admin page walks looking for
+    # flag names referenced in code but not defined in the database.
+    scan:
+        paths:
+            - '%kernel.project_dir%/templates'
+            - '%kernel.project_dir%/src'
