@@ -909,7 +909,7 @@
             <!-- Install wizard -->
             <trans-unit id="account.install.flags.page.title">
                 <source>account.install.flags.page.title</source>
-                <target>Install — feature flags</target>
+                <target>Install: feature flags</target>
             </trans-unit>
             <trans-unit id="account.install.flags.heading">
                 <source>account.install.flags.heading</source>
@@ -949,7 +949,7 @@
             </trans-unit>
             <trans-unit id="account.install.admin.page.title">
                 <source>account.install.admin.page.title</source>
-                <target>Install — admin account</target>
+                <target>Install: admin account</target>
             </trans-unit>
             <trans-unit id="account.install.admin.heading">
                 <source>account.install.admin.heading</source>

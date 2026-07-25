@@ -13,14 +13,14 @@ use Ubermuda\FeatureFlagsBundle\Repository\FeatureFlagRepository;
 final readonly class SeedInstallFlagsHandler
 {
     public function __construct(
-        private FeatureFlagRepository $flags,
+        private FeatureFlagRepository $featureFlags,
         private EntityManagerInterface $em,
     ) {
     }
 
     public function __invoke(SeedInstallFlagsCommand $command): void
     {
-        $existing = $this->flags->findAllIndexed();
+        $existing = $this->featureFlags->findAllIndexed();
 
         /** @var list<array{string, FeatureFlagType, mixed, list<string>|null}> $defaults */
         $defaults = [
