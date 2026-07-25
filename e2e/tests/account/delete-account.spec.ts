@@ -18,7 +18,11 @@ test('a user can delete their account end to end via the emailed confirmation li
 
     // Throwaway user: this flow destroys the account, so it must never be the
     // shared worker user another spec file in this worker relies on.
-    await registerAndVerify(page, request, { email, password, name: 'Delete Me' });
+    await registerAndVerify(page, request, {
+        email,
+        password,
+        name: 'Delete Me',
+    });
 
     // Mailpit is shared by every worktree and never cleared, so this address
     // could already hold deletion mail from an earlier run of this same spec
@@ -56,9 +60,7 @@ test('a user can delete their account end to end via the emailed confirmation li
     await page
         .getByRole('button', { name: 'Permanently delete my account' })
         .click();
-    await expect(
-        page.getByText('Your account has been deleted'),
-    ).toBeVisible();
+    await expect(page.getByText('Your account has been deleted')).toBeVisible();
 
     // The old session is dead: the home page bounces to login.
     await page.goto('/');

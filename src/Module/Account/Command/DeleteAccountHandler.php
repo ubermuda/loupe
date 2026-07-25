@@ -102,7 +102,7 @@ final readonly class DeleteAccountHandler
             // their paths before removing the rows so they can be unlinked only
             // after a successful commit (a rollback must not have already
             // destroyed files a still-existing row points at).
-            $exportIds = array_map('strval', $conn->fetchFirstColumn('SELECT id FROM data_exports WHERE user_id = :id', ['id' => $id]));
+            $exportIds = array_map(strval(...), $conn->fetchFirstColumn('SELECT id FROM data_exports WHERE user_id = :id', ['id' => $id]));
             foreach ($exportIds as $exportId) {
                 $archivePaths[] = DataExport::computeArchivePath($this->projectDir, Uuid::fromString($exportId));
             }
@@ -142,10 +142,10 @@ final readonly class DeleteAccountHandler
             // then delete deepest level first so a row is never removed while
             // something still points at it as a parent.
             $levels = [];
-            $frontier = array_map('strval', $conn->fetchFirstColumn('SELECT id FROM comments WHERE author_id = :id', ['id' => $id]));
+            $frontier = array_map(strval(...), $conn->fetchFirstColumn('SELECT id FROM comments WHERE author_id = :id', ['id' => $id]));
             while ([] !== $frontier) {
                 $levels[] = $frontier;
-                $frontier = array_map('strval', $conn->fetchFirstColumn(
+                $frontier = array_map(strval(...), $conn->fetchFirstColumn(
                     'SELECT id FROM comments WHERE parent_id IN (:ids)',
                     ['ids' => $frontier],
                     ['ids' => ArrayParameterType::STRING],
