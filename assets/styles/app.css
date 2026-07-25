@@ -834,6 +834,40 @@
         @apply bg-status-pending-border border-status-pending;
     }
 
+    /* ── Dialog / modal (`modal` Stimulus controller) ─────────────────
+       The dialog element itself is animated exclusively via WAAPI in
+       modal_controller.js; only the ::backdrop gets a CSS animation
+       (WAAPI cannot target ::backdrop). */
+
+    .lp-dialog {
+        @apply w-full max-w-card rounded-xl border border-line bg-surface-1 p-6 shadow-composer;
+    }
+    .lp-dialog::backdrop {
+        @apply bg-ink/40;
+        animation: lp-dialog-backdrop-in 220ms ease-out;
+    }
+    .lp-dialog-title {
+        @apply text-base font-semibold text-ink m-0;
+    }
+    .lp-dialog-desc {
+        @apply text-sm text-fg-mute mt-1.5 mb-4;
+    }
+
+    /* ── Danger zone — irreversible destructive actions (project/account
+       deletion). Heavily-bordered red card, visually distinct from the
+       rest of the settings form, so the action reads as irreversible at
+       a glance. */
+
+    .lp-danger-zone {
+        @apply mt-12 flex flex-col items-start gap-2 rounded-xl border-2 border-red-300 bg-red-50 p-6;
+    }
+    .lp-danger-zone-title {
+        @apply text-base font-semibold text-red-800 m-0;
+    }
+    .lp-danger-zone-desc {
+        @apply text-sm text-red-700 m-0;
+    }
+
     /* ── Review screen shell ────────────────────────────────────────────
        Full-height column: a fixed header band (breadcrumb + loop ribbon) above
        a two-pane row that fills the remaining height. Each pane scrolls on its
@@ -1641,5 +1675,14 @@
     100% {
         transform: scale(2.4);
         opacity: 0;
+    }
+}
+
+@keyframes lp-dialog-backdrop-in {
+    from {
+        opacity: 0;
+    }
+    to {
+        opacity: 1;
     }
 }
