@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Module\Review\Repository;
 
+use App\Module\Account\Entity\User;
 use App\Module\Review\Entity\Comment;
 use App\Module\Review\Entity\DocumentVersion;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
@@ -85,5 +86,11 @@ class CommentRepository extends ServiceEntityRepository
             ->orderBy('c.id', 'ASC')
             ->getQuery()
             ->getResult();
+    }
+
+    /** @return list<Comment> */
+    public function findByAuthor(User $author): array
+    {
+        return $this->findBy(['author' => $author]);
     }
 }

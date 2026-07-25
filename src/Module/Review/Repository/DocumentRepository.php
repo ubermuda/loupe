@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Module\Review\Repository;
 
+use App\Module\Account\Entity\User;
 use App\Module\Project\Entity\Project;
 use App\Module\Review\Entity\Document;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
@@ -24,6 +25,12 @@ class DocumentRepository extends ServiceEntityRepository
     public function findByProject(Project $project): array
     {
         return $this->findBy(['project' => $project], ['createdAt' => 'DESC']);
+    }
+
+    /** @return list<Document> */
+    public function findByOwner(User $owner): array
+    {
+        return $this->findBy(['owner' => $owner], ['createdAt' => 'DESC']);
     }
 
     public function countByProject(Project $project): int
