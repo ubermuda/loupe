@@ -27,6 +27,15 @@
       // invalid, revoked, or unlinked token) from a transient one (network, 5xx, 429).
       const error = new Error(`HTTP ${response.status}`);
       error.status = response.status;
+      // The API's auth/authorization failures carry a machine-readable { error: code }
+      // body (unauthorized / insufficient_scope / token_not_bound_to_site); read it to
+      // tailor the fatal message. Guarded — a non-JSON body must never throw here.
+      try {
+        const data = await response.json();
+        if (data && typeof data.error === 'string') error.code = data.error;
+      } catch {
+        /* no JSON body — the status alone still classifies the failure */
+      }
       throw error;
     }
     return response.status === 204 ? null : response.json();
@@ -36,6 +45,7 @@
   // and sending all fail the same way — so it is not a per-action hiccup. Callers promote
   // it to the fatal state instead of showing a retryable inline error.
   const authFailed = (error) => !!error && (error.status === 401 || error.status === 403);
+  const fatalFrom = (error) => ({ status: error.status, code: error.code });
 
   // Rehydrate the pending list from the server's in-progress review.
   const refresh = async () => {
@@ -45,7 +55,7 @@
     } catch (error) {
       // Catch a rejected token at the earliest possible point — the boot load — so the
       // widget opens straight into its critical state instead of a misleading empty review.
-      if (authFailed(error)) state.fatal = { status: error.status };
+      if (authFailed(error)) state.fatal = fatalFrom(error);
       pending = [];
     }
   };
@@ -810,11 +820,22 @@
     retry: scope === 'send',
   });
 
-  // Detail line for the fatal panel, tailored to how the token was rejected.
-  const fatalDetail = (status) =>
-    status === 401
-      ? 'This widget’s access token is invalid or was revoked. Update the embed snippet with a current token.'
-      : 'This widget’s token isn’t linked to this site. Regenerate the widget token and update the embed snippet.';
+  // Detail line for the fatal panel, tailored to how the token was rejected. Keyed on the
+  // server's error code (from the response body) with a status fallback: the three cases
+  // have distinct fixes, so a generic "token rejected" would send embedders down the wrong
+  // path (e.g. "regenerate" doesn't help when the wrong token type was pasted in).
+  const fatalDetail = ({ status, code }) => {
+    if ('token_not_bound_to_site' === code) {
+      return 'This widget’s token isn’t linked to a site. Regenerate the widget token on the Connect page and update the embed snippet.';
+    }
+    if ('insufficient_scope' === code) {
+      return 'This token can’t post site reviews. Make sure the embed uses the site’s widget token, not another API token.';
+    }
+    if (401 === status || 'unauthorized' === code) {
+      return 'This widget’s access token is invalid or was revoked. Update the embed snippet with a current token.';
+    }
+    return 'This widget’s token was rejected. Check the embed snippet uses the site’s current widget token.';
+  };
 
   // ---- panel render ----
   const updatePanel = () => {
@@ -1034,7 +1055,7 @@
     fatalNode.innerHTML = `<div class="lp-fatal">
         <div class="lp-fatal-disc">${ICON.alert(22)}</div>
         <div class="lp-fatal-title">This review widget can’t connect</div>
-        <div class="lp-fatal-sub">${fatalDetail(state.fatal ? state.fatal.status : 0)}</div>
+        <div class="lp-fatal-sub">${fatalDetail(state.fatal || {})}</div>
       </div>`;
   };
 
@@ -1156,7 +1177,7 @@
     } catch (error) {
       // A rejected token is fatal; anything else keeps the composer open with the draft
       // intact so nothing is lost.
-      if (authFailed(error)) state.fatal = { status: error.status };
+      if (authFailed(error)) state.fatal = fatalFrom(error);
       else state.sendError = { scope: 'change', error };
     }
     state.saving = false;
@@ -1174,7 +1195,7 @@
       await api('DELETE', `/api/site-review/comments/${target.id}`);
       pending.splice(index, 1);
     } catch (error) {
-      if (authFailed(error)) state.fatal = { status: error.status };
+      if (authFailed(error)) state.fatal = fatalFrom(error);
       else state.sendError = { scope: 'change', error };
     }
     state.deleting = false;
@@ -1202,7 +1223,7 @@
       pending = [];
     } catch (error) {
       if (authFailed(error)) {
-        state.fatal = { status: error.status };
+        state.fatal = fatalFrom(error);
       } else {
         state.sendError = { scope: 'change', error };
         await refresh(); // reconcile: some deletes may have landed
@@ -1394,7 +1415,7 @@
       // A rejected token is fatal; otherwise the draft stays server-side and the reviewer
       // can retry.
       state.sending = false;
-      if (authFailed(error)) state.fatal = { status: error.status };
+      if (authFailed(error)) state.fatal = fatalFrom(error);
       else state.sendError = { scope: 'send', error };
       updatePanel();
     }

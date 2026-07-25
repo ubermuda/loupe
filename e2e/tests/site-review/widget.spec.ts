@@ -316,9 +316,9 @@ test('a 403 on the boot load drops the widget into a critical, dead-end state', 
 }) => {
     await registerUser(page);
 
-    // The very first call the widget makes on boot — GET /review — 403s, the way an
-    // unlinked / wrong-scope token does. Installing the route before navigating means the
-    // widget hits it on load, so it must catch the rejection immediately.
+    // The very first call the widget makes on boot — GET /review — 403s with the unbound
+    // token code. Installing the route before navigating means the widget hits it on load,
+    // so it must catch the rejection immediately.
     await page.route('**/api/site-review/review', (route) => {
         void route.fulfill({
             status: 403,
@@ -333,9 +333,11 @@ test('a 403 on the boot load drops the widget into a critical, dead-end state', 
 
     await page.getByRole('button', { name: 'Review' }).click();
     const panel = page.locator('#lp-panel');
-    // The panel is replaced by the critical state naming the cause — not an empty review.
+    // The panel is replaced by the critical state, and the message is tailored to the
+    // *unbound* code — "regenerate the widget token" — not a generic rejection.
     await expect(panel.getByText(/can.t connect/i)).toBeVisible();
-    await expect(panel.getByText(/linked to this site/i)).toBeVisible();
+    await expect(panel.getByText(/isn.t linked to a site/i)).toBeVisible();
+    await expect(panel.getByText(/regenerate the widget token/i)).toBeVisible();
 
     // It is a dead end: the whole normal UI (composer + actions) is gone, and there is no
     // retry that would just 403 again.
@@ -365,6 +367,29 @@ test('a 401 on the boot load reports an invalid / revoked token', async ({
     const panel = page.locator('#lp-panel');
     await expect(panel.getByText(/can.t connect/i)).toBeVisible();
     await expect(panel.getByText(/invalid or was revoked/i)).toBeVisible();
+});
+
+test('a wrong-scope 403 tells the embedder to use the widget token', async ({
+    page,
+}) => {
+    await registerUser(page);
+
+    // A non-widget token (e.g. an MCP token) authenticates but lacks the site-review
+    // scope: the firewall returns 403 with `insufficient_scope`. The message must point at
+    // the token *type*, not tell them to regenerate the (correct) widget token.
+    await page.route('**/api/site-review/review', (route) => {
+        void route.fulfill({
+            status: 403,
+            contentType: 'application/json',
+            body: JSON.stringify({ error: 'insufficient_scope' }),
+        });
+    });
+    await page.goto(HARNESS_URL);
+
+    await page.getByRole('button', { name: 'Review' }).click();
+    const panel = page.locator('#lp-panel');
+    await expect(panel.getByText(/can.t connect/i)).toBeVisible();
+    await expect(panel.getByText(/not another API token/i)).toBeVisible();
 });
 
 test('deleting a list comment uses a sliding confirm overlay', async ({
