@@ -448,6 +448,12 @@
                 <target>A site-review token is embedded in your app's page source and visible to anyone who can view-source. Use a dedicated dev token, never a production credential.</target>
             </trans-unit>
 
+            <!-- Account settings page -->
+            <trans-unit id="account.settings.export.error.already_pending">
+                <source>account.settings.export.error.already_pending</source>
+                <target>An export is already being prepared.</target>
+            </trans-unit>
+
             <!-- Document dashboard -->
             <trans-unit id="review.dashboard.page.title">
                 <source>review.dashboard.page.title</source>
