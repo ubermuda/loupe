@@ -23,6 +23,8 @@
     </div>
 {% endif %}
 
+{% include '@Account/security/_social_buttons.html.twig' with {} only %}
+
 <form method="post" action="{{ path('app_login') }}" class="form-stack" novalidate>
     <input type="hidden" name="_csrf_token" value="{{ csrf_token('authenticate') }}">
 

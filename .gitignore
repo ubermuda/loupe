@@ -23,6 +23,9 @@
 ###> symfony/ux-icons ###
 /assets/icons/lucide/
 ###< symfony/ux-icons ###
+# Brand marks (Google, GitHub) come from Simple Icons; like Lucide they resolve
+# on demand from the Iconify API, so the cached SVGs are not committed.
+/assets/icons/simple-icons/
 
 ###> friendsofphp/php-cs-fixer ###
 /.php-cs-fixer.php
