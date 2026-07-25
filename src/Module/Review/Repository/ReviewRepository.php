@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Module\Review\Repository;
 
+use App\Module\Account\Entity\User;
 use App\Module\Review\Entity\DocumentVersion;
 use App\Module\Review\Entity\Review;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
@@ -27,5 +28,11 @@ class ReviewRepository extends ServiceEntityRepository
         $results = $this->findBy(['version' => $version], ['submittedAt' => 'DESC'], 1);
 
         return $results[0] ?? null;
+    }
+
+    /** @return list<Review> */
+    public function findByReviewer(User $reviewer): array
+    {
+        return $this->findBy(['reviewer' => $reviewer], ['submittedAt' => 'DESC']);
     }
 }
