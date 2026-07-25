@@ -55,9 +55,13 @@ test('a user can delete their account end to end via the emailed confirmation li
     );
 
     await page.goto(confirmUrl);
-    await expect(page.getByText(email)).toBeVisible();
+    // The user is still logged in when following the link, so the normal
+    // authenticated shell (sidebar with the account email) wraps the
+    // confirmation content — scope to <main> or the email matches twice.
+    await expect(page.getByRole('main').getByText(email)).toBeVisible();
 
     await page
+        .getByRole('main')
         .getByRole('button', { name: 'Permanently delete my account' })
         .click();
     await expect(page.getByText('Your account has been deleted')).toBeVisible();
