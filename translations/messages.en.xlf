@@ -326,6 +326,10 @@
                 <source>account.email.data_export.subject</source>
                 <target>Your Loupe data export is ready</target>
             </trans-unit>
+            <trans-unit id="account.email.account_deletion.subject">
+                <source>account.email.account_deletion.subject</source>
+                <target>Confirm your account deletion</target>
+            </trans-unit>
 
             <!-- Verification email template -->
             <trans-unit id="account.email.verification.html_title">
@@ -394,6 +398,36 @@
             </trans-unit>
             <trans-unit id="account.email.data_export.footer_copy_link">
                 <source>account.email.data_export.footer_copy_link</source>
+                <target>Or copy this link:</target>
+            </trans-unit>
+
+            <!-- Account deletion email template -->
+            <trans-unit id="account.email.account_deletion.html_title">
+                <source>account.email.account_deletion.html_title</source>
+                <target>Confirm your account deletion</target>
+            </trans-unit>
+            <trans-unit id="account.email.account_deletion.heading">
+                <source>account.email.account_deletion.heading</source>
+                <target>Delete your account</target>
+            </trans-unit>
+            <trans-unit id="account.email.account_deletion.body">
+                <source>account.email.account_deletion.body</source>
+                <target>Someone (hopefully you) asked to permanently delete your Loupe account and all its data. This cannot be undone.</target>
+            </trans-unit>
+            <trans-unit id="account.email.account_deletion.cta">
+                <source>account.email.account_deletion.cta</source>
+                <target>Yes, delete my account</target>
+            </trans-unit>
+            <trans-unit id="account.email.account_deletion.footer_expiry">
+                <source>account.email.account_deletion.footer_expiry</source>
+                <target>This link expires in 1 hour.</target>
+            </trans-unit>
+            <trans-unit id="account.email.account_deletion.footer_not_you">
+                <source>account.email.account_deletion.footer_not_you</source>
+                <target>If you did not request this, you can safely ignore this email — nothing will happen.</target>
+            </trans-unit>
+            <trans-unit id="account.email.account_deletion.footer_copy_link">
+                <source>account.email.account_deletion.footer_copy_link</source>
                 <target>Or copy this link:</target>
             </trans-unit>
 
