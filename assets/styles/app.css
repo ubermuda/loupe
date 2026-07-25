@@ -3,10 +3,20 @@
 @import 'tailwindcss';
 @plugin "@tailwindcss/typography";
 
+/* Structural admin-* CSS shipped by the admin bundle, compiled in this app's
+   single Tailwind pass. The primitive classes it deliberately leaves to the
+   consuming app are defined near the bottom of this file. */
+@import '../../vendor/ubermuda/admin-bundle/assets/admin.css';
+
 /* ── Content sources for Tailwind v4 ──────────────────────────────── */
 
 @source "../templates/**/*.html.twig";
 @source "./js/**/*.js";
+
+/* Tailwind v4 does not scan vendor/ by default; compile the utility classes
+   used inside the vendored admin and feature-flags bundle templates. */
+@source "../../vendor/ubermuda/admin-bundle/templates";
+@source "../../vendor/ubermuda/feature-flags-bundle/templates";
 
 /* ── Self-hosted fonts (variable, OFL — see ../fonts/LICENSE.txt) ─── */
 
@@ -377,7 +387,8 @@
 
     /* ── Card ───────────────────────────────────────────────────────── */
 
-    .lp-card {
+    .lp-card,
+    .admin-card {
         @apply bg-surface-1 border border-line rounded-xl p-5;
     }
 
@@ -389,15 +400,18 @@
     .lp-form-field {
         @apply flex flex-col gap-1.5;
     }
-    .lp-label {
+    .lp-label,
+    .admin-field-label {
         @apply text-sm font-medium text-fg;
     }
-    .lp-input {
+    .lp-input,
+    .admin-field-input {
         @apply w-full font-sans text-sm text-fg bg-surface-2 border border-line rounded-md px-3 py-2 outline-hidden transition-colors placeholder:text-fg-dim focus:bg-surface-1 focus:border-accent focus:shadow-focus;
     }
     /* Native <select>: hide the OS arrow and draw a design-system chevron.
        Defined after .lp-input so it can layer the chevron on top. */
-    .lp-select {
+    .lp-select,
+    .admin-field-select {
         @apply appearance-none bg-no-repeat pr-9 cursor-pointer;
         background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
         background-position: right calc(var(--spacing) * 2.5) center;
@@ -1589,6 +1603,90 @@
 
     .lp-orphan-banner {
         @apply flex items-center gap-2.5 px-4 py-3 mb-4 rounded-lg border text-sm bg-status-pending-bg border-status-pending-border text-status-pending-deep;
+    }
+
+    /* ── Admin primitives ───────────────────────────────────────────────
+       The admin bundle ships only its structural chrome and leaves these
+       primitive classes to the consuming app. Loupe's own equivalents are
+       aliased in place above (.lp-card, .lp-label, .lp-input, .lp-select);
+       the rest are defined here from Loupe tokens because no .lp-* class
+       carries the same meaning. Keep the whole set defined even where the
+       vendor templates do not currently use every modifier — it is a
+       contract shared with the bundle, not app-local styling. */
+
+    /* Primary admin action button. */
+    .admin-button {
+        @apply inline-flex items-center gap-2 rounded-lg px-5 py-2.5 text-sm font-semibold cursor-pointer no-underline whitespace-nowrap transition bg-accent text-white border-0;
+    }
+    .admin-button:hover {
+        @apply bg-accent-hover;
+    }
+    .admin-button:active {
+        @apply translate-y-px scale-97;
+    }
+
+    /* Secondary/cancel admin button. */
+    .admin-button-secondary {
+        @apply inline-flex items-center gap-1.5 rounded-lg px-5 py-2.5 text-sm font-semibold cursor-pointer no-underline transition bg-tint text-fg-mute border border-line;
+    }
+    .admin-button-secondary:hover {
+        @apply bg-tint-strong text-fg;
+    }
+    .admin-button-secondary:active {
+        @apply translate-y-px scale-97;
+    }
+
+    /* Destructive admin button — irreversible actions only. */
+    .admin-button-danger {
+        @apply inline-flex items-center gap-1.5 rounded-lg px-5 py-2.5 text-sm font-semibold cursor-pointer no-underline transition bg-red-50 text-red-700 border border-red-200;
+    }
+    .admin-button-danger:hover {
+        @apply bg-red-100;
+    }
+    .admin-button-danger:active {
+        @apply bg-red-200 translate-y-px scale-97;
+    }
+
+    /* Compact admin button modifier. Must stay defined after the base buttons. */
+    .admin-button-small {
+        @apply px-3 py-1.5 text-xs;
+    }
+
+    /* Base badge — always pair with an on/off/neutral/count modifier. */
+    .admin-badge {
+        @apply rounded-full px-3 py-1 text-xs font-bold inline-block whitespace-nowrap;
+    }
+    .admin-badge-on {
+        @apply bg-status-ok-bg text-status-ok-deep;
+    }
+    .admin-badge-neutral,
+    .admin-badge-off {
+        @apply bg-tint text-fg-dim;
+    }
+    .admin-badge-count {
+        @apply bg-accent-soft text-accent;
+    }
+
+    /* Admin modal <dialog>. Opened via the shared modal Stimulus controller. */
+    .admin-dialog-box {
+        @apply bg-elev rounded-2xl p-7 max-w-lg w-full border-0 shadow-2xl mx-auto mb-auto mt-40;
+    }
+    .admin-dialog-box::backdrop {
+        @apply bg-slate-950/45;
+    }
+    .admin-dialog-title {
+        @apply text-base font-extrabold text-ink mb-2.5;
+    }
+    .admin-dialog-body {
+        @apply text-sm text-fg-mute leading-relaxed mb-5;
+    }
+    .admin-dialog-actions {
+        @apply flex items-center justify-end gap-3.5 border-t border-line pt-5 mt-5;
+    }
+
+    /* Submit row inside an admin form. */
+    .admin-form-actions {
+        @apply flex items-center justify-end gap-3 pt-2;
     }
 }
 

@@ -1,0 +1,18 @@
+{% extends '@UbermudaAdmin/base.html.twig' %}
+
+{% block title %}{{ 'admin.dashboard.page.title'|trans }} — {{ 'app.name'|trans }}{% endblock %}
+
+{% block body %}
+    <div class="admin-page">
+        <div>
+            <h1 class="text-2xl font-bold">{{ 'admin.dashboard.heading'|trans }}</h1>
+            <p class="text-fg-mute text-sm mt-0.5">{{ 'admin.dashboard.subtitle'|trans }}</p>
+        </div>
+
+        <div class="admin-card p-6">
+            <h2 class="text-base font-semibold mb-2">{{ 'admin.dashboard.flags.heading'|trans }}</h2>
+            <p class="text-sm text-fg-mute mb-4">{{ 'admin.dashboard.flags.description'|trans }}</p>
+            <a class="admin-button-secondary" href="{{ path('ubermuda_feature_flags_list') }}">{{ 'admin.dashboard.flags.link'|trans }}</a>
+        </div>
+    </div>
+{% endblock %}

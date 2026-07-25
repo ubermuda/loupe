@@ -22,4 +22,6 @@ return [
     Symfony\AI\McpBundle\McpBundle::class => ['all' => true],
     Symfony\Bundle\MercureBundle\MercureBundle::class => ['all' => true],
     Nelmio\SecurityBundle\NelmioSecurityBundle::class => ['prod' => true],
+    Ubermuda\AdminBundle\UbermudaAdminBundle::class => ['all' => true],
+    Ubermuda\FeatureFlagsBundle\UbermudaFeatureFlagsBundle::class => ['all' => true],
 ];
