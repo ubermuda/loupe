@@ -17,6 +17,17 @@ export default class extends Controller {
 
     connect() {
         this.animation = null;
+        // For a real <details>, `.open` already reflects the native attribute
+        // at connect time (a real boolean). A plain wrapper div has no such
+        // reflection — `.open` starts undefined even when the server rendered
+        // it already open (e.g. list_projects.html.twig re-renders the create
+        // form open after a failed submission). Derive the initial state from
+        // that server-rendered class so the first click toggles correctly
+        // instead of re-expanding an already-open panel.
+        if (undefined === this.element.open) {
+            this.element.open =
+                this.element.classList.contains('disclosure-open');
+        }
     }
 
     toggle(event) {
