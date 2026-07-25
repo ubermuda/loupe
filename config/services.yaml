@@ -110,3 +110,7 @@ when@test:
         App\Module\Project\Service\ProjectDeleter:
             autowire: true
             public: true
+
+        App\Module\Project\Command\DeleteProjectHandler:
+            autowire: true
+            public: true

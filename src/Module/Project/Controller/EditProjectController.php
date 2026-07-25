@@ -10,6 +10,7 @@ use App\Module\Project\Command\UpdateProjectCommand;
 use App\Module\Project\Command\UpdateProjectHandler;
 use App\Module\Project\Entity\Project;
 use App\Module\Project\Form\CreateProjectFormType;
+use App\Module\Project\Form\DeleteProjectFormType;
 use App\Module\Project\Form\UpdateProjectRequest;
 use App\Module\Project\Security\ProjectVoter;
 use Symfony\Component\Form\FormError;
@@ -66,6 +67,8 @@ class EditProjectController extends AppController
 
         return $this->renderFormResponse('@Project/edit_project.html.twig', $form, [
             'project' => $project,
+            'deleteForm' => $this->getInjectedFormView($request, 'deleteForm')
+                ?? $this->createForm(DeleteProjectFormType::class)->createView(),
         ]);
     }
 }

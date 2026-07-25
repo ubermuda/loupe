@@ -673,6 +673,22 @@
                 <source>project.edit.form.submit</source>
                 <target>Save changes</target>
             </trans-unit>
+            <trans-unit id="project.form.delete_project_form.confirm_name.label">
+                <source>project.form.delete_project_form.confirm_name.label</source>
+                <target>Type the project name to confirm</target>
+            </trans-unit>
+            <trans-unit id="project.delete.flash.success">
+                <source>project.delete.flash.success</source>
+                <target>Project “%name%” was permanently deleted.</target>
+            </trans-unit>
+            <trans-unit id="project.delete.error.name_mismatch">
+                <source>project.delete.error.name_mismatch</source>
+                <target>The name you typed does not match the project name.</target>
+            </trans-unit>
+            <trans-unit id="project.delete.button">
+                <source>project.delete.button</source>
+                <target>Delete this project…</target>
+            </trans-unit>
 
             <trans-unit id="site_review.site.token.mint">
                 <source>site_review.site.token.mint</source>

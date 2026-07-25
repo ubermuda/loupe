@@ -24,5 +24,12 @@
             <button type="submit" class="lp-btn lp-btn--primary">{{ 'project.edit.form.submit'|trans }}</button>
         </div>
     {{ form_end(form) }}
+
+    {{ form_start(deleteForm, {'action': path('app_project_delete', {id: project.id}), 'attr': {'class': 'lp-form'}}) }}
+        {{ form_label(deleteForm.confirmName, null, {'label_attr': {'class': 'lp-label'}}) }}
+        {{ form_widget(deleteForm.confirmName, {'attr': {'class': 'lp-input'}}) }}
+        <div class="lp-field-errors">{{ form_errors(deleteForm.confirmName) }}</div>
+        <button type="submit" class="lp-btn lp-btn--danger">{{ 'project.delete.button'|trans }}</button>
+    {{ form_end(deleteForm) }}
 </div>
 {% endblock %}
