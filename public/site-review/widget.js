@@ -46,6 +46,13 @@
   // it to the fatal state instead of showing a retryable inline error.
   const authFailed = (error) => !!error && (error.status === 401 || error.status === 403);
   const fatalFrom = (error) => ({ status: error.status, code: error.code });
+  // Enter the terminal fatal state: record the cause and drop the in-memory review so no
+  // stale pins, list rows, or hover highlights linger as interactive dead ends (a token
+  // revoked mid-session would otherwise leave the on-page pins clickable).
+  const enterFatal = (error) => {
+    state.fatal = fatalFrom(error);
+    pending = [];
+  };
 
   // Rehydrate the pending list from the server's in-progress review.
   const refresh = async () => {
@@ -55,7 +62,7 @@
     } catch (error) {
       // Catch a rejected token at the earliest possible point — the boot load — so the
       // widget opens straight into its critical state instead of a misleading empty review.
-      if (authFailed(error)) state.fatal = fatalFrom(error);
+      if (authFailed(error)) enterFatal(error);
       pending = [];
     }
   };
@@ -1177,7 +1184,7 @@
     } catch (error) {
       // A rejected token is fatal; anything else keeps the composer open with the draft
       // intact so nothing is lost.
-      if (authFailed(error)) state.fatal = fatalFrom(error);
+      if (authFailed(error)) enterFatal(error);
       else state.sendError = { scope: 'change', error };
     }
     state.saving = false;
@@ -1195,7 +1202,7 @@
       await api('DELETE', `/api/site-review/comments/${target.id}`);
       pending.splice(index, 1);
     } catch (error) {
-      if (authFailed(error)) state.fatal = fatalFrom(error);
+      if (authFailed(error)) enterFatal(error);
       else state.sendError = { scope: 'change', error };
     }
     state.deleting = false;
@@ -1223,7 +1230,7 @@
       pending = [];
     } catch (error) {
       if (authFailed(error)) {
-        state.fatal = fatalFrom(error);
+        enterFatal(error);
       } else {
         state.sendError = { scope: 'change', error };
         await refresh(); // reconcile: some deletes may have landed
@@ -1415,9 +1422,10 @@
       // A rejected token is fatal; otherwise the draft stays server-side and the reviewer
       // can retry.
       state.sending = false;
-      if (authFailed(error)) state.fatal = fatalFrom(error);
+      if (authFailed(error)) enterFatal(error);
       else state.sendError = { scope: 'send', error };
-      updatePanel();
+      // sync (not updatePanel) so entering the fatal state also clears the overlay pins.
+      sync();
     }
   };
 

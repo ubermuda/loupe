@@ -392,6 +392,39 @@ test('a wrong-scope 403 tells the embedder to use the widget token', async ({
     await expect(panel.getByText(/not another API token/i)).toBeVisible();
 });
 
+test('a token revoked mid-session goes fatal and clears the on-page pins', async ({
+    page,
+}) => {
+    await openHarness(page);
+
+    // Seed an anchored comment so a live pin is rendered on the page.
+    await page.getByRole('button', { name: 'Review' }).click();
+    await page
+        .locator('#lp-panel')
+        .getByRole('button', { name: 'Pick element' })
+        .click();
+    await page.locator('#target-me').click();
+    await page.getByPlaceholder(/Describe the issue/).fill('Anchored note');
+    await page.getByRole('button', { name: 'Save' }).click();
+    await expect(page.locator('.pin')).toHaveText('1');
+
+    // The token is revoked between load and submit: the submit 401s.
+    await page.route('**/api/site-review/review/submit', (route) => {
+        void route.fulfill({
+            status: 401,
+            contentType: 'application/json',
+            body: JSON.stringify({ error: 'unauthorized' }),
+        });
+    });
+    await page.getByRole('button', { name: 'Send' }).click();
+
+    // The widget flips to the critical state AND the stale pin is gone — no interactive
+    // dead-end left on the page.
+    const panel = page.locator('#lp-panel');
+    await expect(panel.getByText(/can.t connect/i)).toBeVisible();
+    await expect(page.locator('.pin')).toHaveCount(0);
+});
+
 test('deleting a list comment uses a sliding confirm overlay', async ({
     page,
 }) => {
