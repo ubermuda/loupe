@@ -107,6 +107,68 @@
                 <target>Create an account</target>
             </trans-unit>
 
+            <!-- Social login -->
+            <trans-unit id="account.social.provider.google">
+                <source>account.social.provider.google</source>
+                <target>Google</target>
+            </trans-unit>
+            <trans-unit id="account.social.provider.github">
+                <source>account.social.provider.github</source>
+                <target>GitHub</target>
+            </trans-unit>
+            <trans-unit id="account.social.continue_with">
+                <source>account.social.continue_with</source>
+                <target>Continue with %provider%</target>
+            </trans-unit>
+            <trans-unit id="account.social.or">
+                <source>account.social.or</source>
+                <target>or</target>
+            </trans-unit>
+            <trans-unit id="account.social.error.generic">
+                <source>account.social.error.generic</source>
+                <target>Social sign-in failed. Please try again or use your password.</target>
+            </trans-unit>
+            <trans-unit id="account.social.error.unverified_email">
+                <source>account.social.error.unverified_email</source>
+                <target>That account has no verified email address, so it cannot be used to sign in.</target>
+            </trans-unit>
+            <trans-unit id="account.social.link.page.title">
+                <source>account.social.link.page.title</source>
+                <target>Confirm your password</target>
+            </trans-unit>
+            <trans-unit id="account.social.link.title">
+                <source>account.social.link.title</source>
+                <target>Confirm your password</target>
+            </trans-unit>
+            <trans-unit id="account.social.link.subheading">
+                <source>account.social.link.subheading</source>
+                <target>An account already exists for %email%. Enter its password to link your %provider% sign-in.</target>
+            </trans-unit>
+            <trans-unit id="account.social.link.cancel">
+                <source>account.social.link.cancel</source>
+                <target>Cancel and go back to sign in</target>
+            </trans-unit>
+            <trans-unit id="account.form.link_social_account_form.password.label">
+                <source>account.form.link_social_account_form.password.label</source>
+                <target>Password</target>
+            </trans-unit>
+            <trans-unit id="account.form.link_social_account_form.password.placeholder">
+                <source>account.form.link_social_account_form.password.placeholder</source>
+                <target>••••••••</target>
+            </trans-unit>
+            <trans-unit id="account.social.link.form.submit.label">
+                <source>account.social.link.form.submit.label</source>
+                <target>Link account and sign in</target>
+            </trans-unit>
+            <trans-unit id="account.social.link.error.invalid_password">
+                <source>account.social.link.error.invalid_password</source>
+                <target>That password is incorrect.</target>
+            </trans-unit>
+            <trans-unit id="account.social.link.error.rate_limited">
+                <source>account.social.link.error.rate_limited</source>
+                <target>Too many attempts. Please wait a few minutes and try again.</target>
+            </trans-unit>
+
             <!-- Registration page -->
             <trans-unit id="account.registration.page.title">
                 <source>account.registration.page.title</source>
@@ -859,6 +921,84 @@
             <trans-unit id="project.connect.tool.address_site_review_comments">
                 <source>project.connect.tool.address_site_review_comments</source>
                 <target>Mark site-review comments as addressed after fixing them. Accepts the comment ids returned by get_site_review. Comments that are unknown, already addressed, or resolved are skipped, not fatal.</target>
+            </trans-unit>
+
+            <!-- First-run wizard -->
+            <trans-unit id="project.wizard.progress.step_1">
+                <source>project.wizard.progress.step_1</source>
+                <target>Create a project</target>
+            </trans-unit>
+            <trans-unit id="project.wizard.progress.step_2">
+                <source>project.wizard.progress.step_2</source>
+                <target>Connect your agent</target>
+            </trans-unit>
+            <trans-unit id="project.wizard.progress.step_3">
+                <source>project.wizard.progress.step_3</source>
+                <target>Done</target>
+            </trans-unit>
+            <trans-unit id="project.wizard.skip">
+                <source>project.wizard.skip</source>
+                <target>Skip setup</target>
+            </trans-unit>
+            <trans-unit id="project.wizard.welcome.page.title">
+                <source>project.wizard.welcome.page.title</source>
+                <target>Welcome</target>
+            </trans-unit>
+            <trans-unit id="project.wizard.welcome.heading">
+                <source>project.wizard.welcome.heading</source>
+                <target>Create your first project</target>
+            </trans-unit>
+            <trans-unit id="project.wizard.welcome.lead">
+                <source>project.wizard.welcome.lead</source>
+                <target>A project holds the documents your agent submits for review.</target>
+            </trans-unit>
+            <trans-unit id="project.wizard.welcome.submit">
+                <source>project.wizard.welcome.submit</source>
+                <target>Create project</target>
+            </trans-unit>
+            <trans-unit id="project.wizard.connect.page.title">
+                <source>project.wizard.connect.page.title</source>
+                <target>Connect your agent</target>
+            </trans-unit>
+            <trans-unit id="project.wizard.connect.heading">
+                <source>project.wizard.connect.heading</source>
+                <target>Connect your agent</target>
+            </trans-unit>
+            <trans-unit id="project.wizard.connect.lead">
+                <source>project.wizard.connect.lead</source>
+                <target>Point your coding agent at this project over MCP so it can submit documents for review.</target>
+            </trans-unit>
+            <trans-unit id="project.wizard.connect.mint">
+                <source>project.wizard.connect.mint</source>
+                <target>Generate token</target>
+            </trans-unit>
+            <trans-unit id="project.wizard.connect.token_shown_once">
+                <source>project.wizard.connect.token_shown_once</source>
+                <target>Copy it now — it is shown only once.</target>
+            </trans-unit>
+            <trans-unit id="project.wizard.connect.token_exists">
+                <source>project.wizard.connect.token_exists</source>
+                <target>This project already has an MCP token.</target>
+            </trans-unit>
+            <trans-unit id="project.wizard.connect.continue">
+                <source>project.wizard.connect.continue</source>
+                <target>Continue</target>
+            </trans-unit>
+            <trans-unit id="project.wizard.done.page.title">
+                <source>project.wizard.done.page.title</source>
+                <target>You're all set</target>
+            </trans-unit>
+            <trans-unit id="project.wizard.done.heading">
+                <source>project.wizard.done.heading</source>
+                <target>You're all set</target>
+            </trans-unit>
+            <trans-unit id="project.wizard.done.widget_hint">
+                <source>project.wizard.done.widget_hint</source>
+                <target>You can add the review widget to your site any time from</target>
+            </trans-unit>
+            <trans-unit id="project.wizard.done.finish">
+                <source>project.wizard.done.finish</source>
+                <target>Go to dashboard</target>
             </trans-unit>
 
             <trans-unit id="nav.link.logout">

@@ -28,4 +28,16 @@ final class UserTest extends TestCase
         $user->emailVerifiedAt = new \DateTimeImmutable();
         $this->assertTrue($user->isVerified());
     }
+
+    public function test_has_usable_password_is_false_for_oauth_only_user(): void
+    {
+        $user = new User(username: 'octo', fullName: 'Octo Cat', email: 'octo@example.com');
+
+        $this->assertFalse($user->hasUsablePassword());
+    }
+
+    public function test_has_usable_password_is_true_when_password_set(): void
+    {
+        $this->assertTrue($this->makeUser()->hasUsablePassword());
+    }
 }

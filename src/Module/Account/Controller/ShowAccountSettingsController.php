@@ -11,11 +11,16 @@ use App\Module\Account\Entity\User;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
 
-#[Route('/account', name: 'app_account_settings', methods: ['GET'])]
+#[Route(
+    '/account',
+    name: 'app_account_settings',
+    methods: ['GET'],
+)]
 class ShowAccountSettingsController extends AppController
 {
-    public function __construct(private readonly ShowAccountSettingsHandler $handler)
-    {
+    public function __construct(
+        private readonly ShowAccountSettingsHandler $handler,
+    ) {
     }
 
     public function __invoke(): Response

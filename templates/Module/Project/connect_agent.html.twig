@@ -26,7 +26,6 @@
     "}"
 ]|join("\n") -%}
 {%- set widgetSnippet = '<script src="' ~ absolute_url('/site-review/widget.js') ~ '" data-token="' ~ widgetTokenValue ~ '"></script>' -%}
-{%- set claudeCommand = 'claude mcp add --transport http ' ~ mcpServerName ~ ' ' ~ mcpUrl ~ ' --header "Authorization: Bearer ' ~ mcpTokenValue ~ '"' -%}
 <div class="lp-connect">
     <nav class="lp-crumbs">
         <a href="{{ path('app_project_documents', {id: project.id}) }}" class="lp-crumbs__link">{{ project.name }}</a>
@@ -43,16 +42,7 @@
         {% endfor %}
     {% endfor %}
 
-    {# ── MCP endpoint (global; project inferred from the bearer token) ── #}
-    <section class="lp-connect-block">
-        <p class="lp-eyebrow">{{ 'project.connect.endpoint.eyebrow'|trans }}</p>
-        <div class="lp-connect-field" data-controller="clipboard" data-clipboard-text-value="{{ mcpUrl }}"
-             data-clipboard-copied-label-value="{{ 'project.connect.copied'|trans }}">
-            <twig:ux:icon name="lucide:code" class="lp-connect-field__glyph w-4 h-4" />
-            <code class="lp-connect-field__value">{{ mcpUrl }}</code>
-            <button type="button" class="lp-btn lp-btn--ghost lp-btn--sm" data-clipboard-target="button" data-action="clipboard#copy">{{ 'project.connect.copy'|trans }}</button>
-        </div>
-    </section>
+    {% include '@Project/_connect_instructions.html.twig' with {mcpServerName: mcpServerName, mintedMcpToken: mintedMcpToken} only %}
 
     {# ── Access token — the project MCP token ── #}
     <section class="lp-connect-block">
@@ -105,19 +95,6 @@
                 <button type="button" class="lp-code-dark__copy" data-clipboard-target="button" data-action="clipboard#copy">{{ 'project.connect.copy'|trans }}</button>
             </div>
             <pre class="lp-code-dark__body"><code>{{ mcpJson }}</code></pre>
-        </div>
-    </section>
-
-    {# ── claude mcp add — CLI one-liner (Claude Code) ── #}
-    <section class="lp-connect-block">
-        <p class="lp-eyebrow">{{ 'project.connect.cli.eyebrow'|trans }}</p>
-        <div class="lp-code-dark" data-controller="clipboard" data-clipboard-text-value="{{ claudeCommand }}"
-             data-clipboard-copied-label-value="{{ 'project.connect.copied'|trans }}">
-            <div class="lp-code-dark__header">
-                <span class="lp-code-dark__label">{{ 'project.connect.cli.label'|trans }}</span>
-                <button type="button" class="lp-code-dark__copy" data-clipboard-target="button" data-action="clipboard#copy">{{ 'project.connect.copy'|trans }}</button>
-            </div>
-            <pre class="lp-code-dark__body"><code>{{ claudeCommand }}</code></pre>
         </div>
     </section>
 

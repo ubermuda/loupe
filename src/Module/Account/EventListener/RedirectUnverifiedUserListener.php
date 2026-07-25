@@ -24,6 +24,11 @@ final readonly class RedirectUnverifiedUserListener
         'app_forgot_password_request',
         'app_forgot_password_check_email',
         'app_reset_password',
+        'app_oauth_start_google',
+        'app_oauth_start_github',
+        'app_oauth_check_google',
+        'app_oauth_check_github',
+        'app_oauth_link',
     ];
 
     public function __construct(

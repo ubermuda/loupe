@@ -1,0 +1,45 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}{{ 'project.wizard.connect.page.title'|trans }} — {{ 'app.name'|trans }}{% endblock %}
+
+{% block body %}
+{%- set mintedMcpToken = app.flashes('minted_mcp_token')|first -%}
+<div class="lp-workspace">
+    {% include '@Project/wizard/_wizard_progress.html.twig' with {step: 2} only %}
+
+    <h1 class="lp-workspace-title">{{ 'project.wizard.connect.heading'|trans }}</h1>
+    <p class="lp-workspace-desc">{{ 'project.wizard.connect.lead'|trans }}</p>
+
+    <section class="lp-connect-block">
+        <p class="lp-eyebrow">{{ 'project.connect.token.eyebrow'|trans }}</p>
+        {% if mintedMcpToken %}
+        <div class="lp-connect-secret">
+            <p class="lp-connect-secret__warn">{{ 'project.wizard.connect.token_shown_once'|trans }}</p>
+            <div class="lp-connect-field" data-controller="clipboard" data-clipboard-text-value="{{ mintedMcpToken }}"
+                 data-clipboard-copied-label-value="{{ 'project.connect.copied'|trans }}" data-testid="minted-mcp-token">
+                <twig:ux:icon name="lucide:key" class="lp-connect-field__glyph w-4 h-4" />
+                <code class="lp-connect-field__value">{{ mintedMcpToken }}</code>
+                <button type="button" class="lp-btn lp-btn--ghost lp-btn--sm" data-clipboard-target="button" data-action="clipboard#copy">{{ 'project.connect.copy'|trans }}</button>
+            </div>
+        </div>
+        {% elseif wizardProject.mcpToken %}
+        <p class="lp-connect-hint">{{ 'project.wizard.connect.token_exists'|trans }}</p>
+        {% else %}
+        <form method="POST" action="{{ path('app_welcome_mint_mcp') }}">
+            <input type="hidden" name="_csrf_token" value="{{ csrf_token('wizard-mint-mcp') }}">
+            <button type="submit" class="lp-btn lp-btn--primary">{{ 'project.wizard.connect.mint'|trans }}</button>
+        </form>
+        {% endif %}
+    </section>
+
+    {% include '@Project/_connect_instructions.html.twig' with {mcpServerName: mcpServerName, mintedMcpToken: mintedMcpToken} only %}
+
+    <div class="flex items-center justify-end gap-3 pt-2">
+        <a class="lp-btn lp-btn--primary" href="{{ path('app_welcome_done') }}">{{ 'project.wizard.connect.continue'|trans }}</a>
+    </div>
+    <form method="POST" action="{{ path('app_welcome_skip') }}" class="mt-4">
+        <input type="hidden" name="_csrf_token" value="{{ csrf_token('wizard-skip') }}">
+        <button type="submit" class="lp-btn lp-btn--ghost">{{ 'project.wizard.skip'|trans }}</button>
+    </form>
+</div>
+{% endblock %}

@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Tests\Module\Account\Controller;
 
-use App\Module\Account\Entity\DataExport;
 use App\Module\Account\Entity\User;
 use App\Module\Account\Repository\DataExportRepository;
 use Doctrine\ORM\EntityManagerInterface;

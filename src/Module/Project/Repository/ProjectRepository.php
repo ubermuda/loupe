@@ -27,6 +27,14 @@ class ProjectRepository extends ServiceEntityRepository
         return $this->findBy(['owner' => $owner], ['createdAt' => 'DESC']);
     }
 
+    /**
+     * The owner's very first project — used to gate the first-run wizard.
+     */
+    public function findOldestByOwner(User $owner): ?Project
+    {
+        return $this->findOneBy(['owner' => $owner], ['createdAt' => 'ASC']);
+    }
+
     public function findOneByOwnerAndName(User $owner, string $name): ?Project
     {
         return $this->findOneBy(['owner' => $owner, 'name' => $name]);

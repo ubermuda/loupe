@@ -1,0 +1,18 @@
+{# Social sign-in buttons shared by the login and register pages. Only providers
+   whose feature flag is enabled render; when none are enabled the divider
+   disappears too and the page looks exactly as it did before social login.
+
+   data-turbo="false" is required: the start route answers with a cross-origin
+   redirect to the provider, which Turbo Drive cannot follow. #}
+{% set providers = ['google', 'github']|filter(provider => is_feature_enabled('auth.' ~ provider ~ '.enabled')) %}
+{% if providers|length > 0 %}
+    <div class="flex flex-col gap-2.5">
+        {% for provider in providers %}
+            <a href="{{ path('app_oauth_start_' ~ provider) }}" class="auth-social-button" data-turbo="false">
+                <twig:UX:Icon name="simple-icons:{{ provider }}" class="w-4 h-4 shrink-0" aria-hidden="true" />
+                {{ 'account.social.continue_with'|trans({'%provider%': ('account.social.provider.' ~ provider)|trans}) }}
+            </a>
+        {% endfor %}
+    </div>
+    <div class="auth-divider">{{ 'account.social.or'|trans }}</div>
+{% endif %}

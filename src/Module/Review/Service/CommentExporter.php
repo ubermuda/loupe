@@ -10,8 +10,9 @@ use App\Module\Review\Repository\CommentRepository;
 
 final readonly class CommentExporter implements UserDataExporterInterface
 {
-    public function __construct(private CommentRepository $comments)
-    {
+    public function __construct(
+        private CommentRepository $comments,
+    ) {
     }
 
     #[\Override]
