@@ -10,6 +10,7 @@ use App\Module\Account\Command\ResolveSocialLoginHandler;
 use App\Module\Account\Entity\ConnectedAccount;
 use App\Module\Account\Entity\SocialProvider;
 use App\Module\Account\Entity\User;
+use App\Module\Account\Entity\WaitlistEntry;
 use App\Module\Account\Repository\ConnectedAccountRepository;
 use App\Module\Account\Repository\UserRepository;
 use App\Module\Account\Repository\WaitlistEntryRepository;
@@ -34,6 +35,7 @@ final class ResolveSocialLoginHandlerTest extends KernelTestCase
     private ResolveSocialLoginHandler $handler;
     private ConnectedAccountRepository $connectedAccounts;
     private UserRepository $users;
+    private WaitlistEntryRepository $waitlistEntries;
 
     protected function setUp(): void
     {
@@ -42,6 +44,9 @@ final class ResolveSocialLoginHandlerTest extends KernelTestCase
         $this->em = $container->get(EntityManagerInterface::class);
         $this->connectedAccounts = $container->get(ConnectedAccountRepository::class);
         $this->users = $container->get(UserRepository::class);
+        $waitlistEntries = $container->get(WaitlistEntryRepository::class);
+        self::assertInstanceOf(WaitlistEntryRepository::class, $waitlistEntries);
+        $this->waitlistEntries = $waitlistEntries;
         $joinWaitlist = $container->get(JoinWaitlistHandler::class);
         self::assertInstanceOf(JoinWaitlistHandler::class, $joinWaitlist);
         $this->handler = new ResolveSocialLoginHandler(
@@ -51,6 +56,7 @@ final class ResolveSocialLoginHandlerTest extends KernelTestCase
             new UsernameGenerator($this->users),
             new RegistrationGate($this->openFlags(), $this->users),
             $joinWaitlist,
+            $this->waitlistEntries,
             new NullLogger(),
         );
     }
@@ -259,6 +265,24 @@ final class ResolveSocialLoginHandlerTest extends KernelTestCase
         self::assertNotNull($this->connectedAccounts->findOneByProviderAndProviderUserId(SocialProvider::Github, 'gh-fresh'));
     }
 
+    public function test_creating_an_account_converts_a_matching_waitlist_row(): void
+    {
+        // The address joined the waitlist earlier (directly, or via a
+        // previous at-cap OAuth attempt) and is only now creating an account
+        // because the cap is open — that row must not linger as "waiting".
+        $entry = new WaitlistEntry('oauth-joined-earlier@example.com');
+        $this->em->persist($entry);
+        $this->em->flush();
+
+        ($this->handler)(new ResolveSocialLoginCommand(
+            new SocialProfile(SocialProvider::Github, 'gh-was-waitlisted', 'oauth-joined-earlier@example.com', 'Was Waitlisted', emailVerified: true),
+        ));
+
+        $this->em->clear();
+        $reloaded = $this->waitlistEntries->findOneByEmail('oauth-joined-earlier@example.com');
+        self::assertNotNull($reloaded?->convertedAt);
+    }
+
     public function test_generated_username_avoids_a_seeded_collision(): void
     {
         $this->persistUser('taken@example.com', 'fresh-face');
@@ -306,6 +330,9 @@ final class ResolveSocialLoginHandlerTest extends KernelTestCase
         $users->method('findOneByEmail')->willReturn(null);
         $users->method('findOneByUsername')->willReturn(null);
 
+        $waitlistEntries = $this->createStub(WaitlistEntryRepository::class);
+        $waitlistEntries->method('findOneByEmail')->willReturn(null);
+
         // JoinWaitlistHandler is `final`, so PHPUnit cannot stub/double it — use
         // the real container instance instead. Safe here because the gate stays
         // open (openFlags()), so branch D never reaches the waitlist call.
@@ -319,6 +346,7 @@ final class ResolveSocialLoginHandlerTest extends KernelTestCase
             new UsernameGenerator($users),
             new RegistrationGate($this->openFlags(), $users),
             $joinWaitlist,
+            $waitlistEntries,
             new NullLogger(),
         );
 
@@ -439,6 +467,7 @@ final class ResolveSocialLoginHandlerTest extends KernelTestCase
             new UsernameGenerator($this->users),
             $realGate,
             $joinWaitlist,
+            $this->waitlistEntries,
             new NullLogger(),
         );
     }

@@ -69,8 +69,14 @@ final readonly class RegisterUserHandler
 
                 $this->em->persist($user);
 
-                if (null !== $invite) {
-                    $invite->markConverted();
+                // A matching invite bypassed the gate above (if closed) and is
+                // always converted. Additionally house-keep: a person who
+                // joined the waitlist earlier but registers normally once the
+                // cap reopens (no token involved) still has a waitlist row —
+                // it must not linger as "waiting" once their account exists.
+                $waitlistMatch = $invite ?? $this->waitlistEntries->findOneByEmail($command->email);
+                if (null !== $waitlistMatch && null === $waitlistMatch->convertedAt) {
+                    $waitlistMatch->markConverted();
                 }
 
                 // One flush: user creation and invite conversion commit together or not at all.

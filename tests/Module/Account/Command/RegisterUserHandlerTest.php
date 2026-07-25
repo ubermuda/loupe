@@ -123,6 +123,22 @@ final class RegisterUserHandlerTest extends KernelTestCase
         $this->assertNotNull($reloaded?->convertedAt);
     }
 
+    public function test_registration_open_without_a_token_still_converts_a_matching_waitlist_row(): void
+    {
+        // The person joined the waitlist earlier, then the cap reopened and
+        // they registered normally without ever using an invite link — their
+        // waitlist row must not linger as "waiting" once the account exists.
+        $entry = new WaitlistEntry('joined-earlier@example.com');
+        $this->em->persist($entry);
+        $this->em->flush();
+
+        ($this->handler)($this->makeCommand(email: 'joined-earlier@example.com'));
+
+        $this->em->clear();
+        $reloaded = $this->entries->findOneByEmail('joined-earlier@example.com');
+        $this->assertNotNull($reloaded?->convertedAt);
+    }
+
     public function test_registration_closed_with_a_valid_but_mismatched_email_token_is_rejected(): void
     {
         $this->closeRegistration();

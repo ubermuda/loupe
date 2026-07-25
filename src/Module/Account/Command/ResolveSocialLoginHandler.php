@@ -8,6 +8,7 @@ use App\Module\Account\Entity\ConnectedAccount;
 use App\Module\Account\Entity\User;
 use App\Module\Account\Repository\ConnectedAccountRepository;
 use App\Module\Account\Repository\UserRepository;
+use App\Module\Account\Repository\WaitlistEntryRepository;
 use App\Module\Account\Service\RegistrationGate;
 use App\Module\Account\Service\SocialLoginOutcome;
 use App\Module\Account\Service\SocialLoginRace;
@@ -27,6 +28,7 @@ final readonly class ResolveSocialLoginHandler
         private UsernameGenerator $usernameGenerator,
         private RegistrationGate $registrationGate,
         private JoinWaitlistHandler $joinWaitlist,
+        private WaitlistEntryRepository $waitlistEntries,
         private LoggerInterface $logger,
     ) {
     }
@@ -96,6 +98,16 @@ final readonly class ResolveSocialLoginHandler
             $user->emailVerifiedAt = new \DateTimeImmutable();
             $this->em->persist($user);
             $this->em->persist($this->link($user, $profile));
+
+            // House-keep: this address may have joined the waitlist earlier
+            // (directly, or via a previous at-cap OAuth attempt) and is only
+            // now creating an account because the cap reopened. That row must
+            // not linger as "waiting" once the account exists.
+            $waitlistMatch = $this->waitlistEntries->findOneByEmail($matchEmail);
+            if (null !== $waitlistMatch && null === $waitlistMatch->convertedAt) {
+                $waitlistMatch->markConverted();
+            }
+
             $this->flushOrRace();
 
             return $user;
