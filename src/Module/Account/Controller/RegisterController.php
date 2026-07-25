@@ -10,6 +10,7 @@ use App\Module\Account\Command\RegisterUserCommand;
 use App\Module\Account\Command\RegisterUserHandler;
 use App\Module\Account\Form\RegistrationFormType;
 use App\Module\Account\Form\RegistrationRequest;
+use App\Module\Account\Service\RegistrationGate;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\Form\FormError;
 use Symfony\Component\HttpFoundation\Request;
@@ -24,6 +25,7 @@ class RegisterController extends AppController
     public function __construct(
         private readonly RegisterUserHandler $registerUser,
         private readonly TranslatorInterface $translator,
+        private readonly RegistrationGate $registrationGate,
 
         #[Autowire(service: 'limiter.registration')]
         private readonly RateLimiterFactory $registrationLimiter,
@@ -34,6 +36,10 @@ class RegisterController extends AppController
     {
         if ($this->getUser()) {
             return $this->redirectToRoute('app_home');
+        }
+
+        if (!$this->registrationGate->isOpen() && null === $request->query->get('invite')) {
+            return $this->redirectToRoute('app_waitlist_join');
         }
 
         $form = $this->createForm(RegistrationFormType::class);

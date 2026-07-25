@@ -313,6 +313,56 @@
                 <target>Too many registration attempts. Please try again later.</target>
             </trans-unit>
 
+            <!-- Waitlist join page -->
+            <trans-unit id="account.form.waitlist_join_form.email.label">
+                <source>account.form.waitlist_join_form.email.label</source>
+                <target>Email address</target>
+            </trans-unit>
+            <trans-unit id="account.form.waitlist_join_form.email.placeholder">
+                <source>account.form.waitlist_join_form.email.placeholder</source>
+                <target>you@company.com</target>
+            </trans-unit>
+            <trans-unit id="account.waitlist.page.title">
+                <source>account.waitlist.page.title</source>
+                <target>Join the waitlist</target>
+            </trans-unit>
+            <trans-unit id="account.waitlist.title">
+                <source>account.waitlist.title</source>
+                <target>Registration is full</target>
+            </trans-unit>
+            <trans-unit id="account.waitlist.body">
+                <source>account.waitlist.body</source>
+                <target>We've hit our current capacity. Leave your email and we'll invite you as soon as a spot opens.</target>
+            </trans-unit>
+            <trans-unit id="account.waitlist.submit">
+                <source>account.waitlist.submit</source>
+                <target>Join the waitlist</target>
+            </trans-unit>
+            <trans-unit id="account.waitlist.error.throttled">
+                <source>account.waitlist.error.throttled</source>
+                <target>Too many attempts. Please try again later.</target>
+            </trans-unit>
+            <trans-unit id="account.waitlist.joined.page.title">
+                <source>account.waitlist.joined.page.title</source>
+                <target>You're on the list</target>
+            </trans-unit>
+            <trans-unit id="account.waitlist.joined.title">
+                <source>account.waitlist.joined.title</source>
+                <target>You're on the list</target>
+            </trans-unit>
+            <trans-unit id="account.waitlist.joined.body">
+                <source>account.waitlist.joined.body</source>
+                <target>If that address wasn't already registered or listed, we've added it. We'll email you an invite when a spot opens.</target>
+            </trans-unit>
+            <trans-unit id="account.waitlist.joined.back">
+                <source>account.waitlist.joined.back</source>
+                <target>Back to sign in</target>
+            </trans-unit>
+            <trans-unit id="account.error.registration_closed">
+                <source>account.error.registration_closed</source>
+                <target>Registration is currently closed — join the waitlist to get an invite.</target>
+            </trans-unit>
+
             <!-- Email subjects -->
             <trans-unit id="account.email.verification.subject">
                 <source>account.email.verification.subject</source>
