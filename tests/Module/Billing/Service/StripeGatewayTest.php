@@ -9,6 +9,7 @@ use App\Module\Billing\Service\StripeGateway;
 use App\Tests\Support\RecordingStripeHttpClient;
 use PHPUnit\Framework\TestCase;
 use Stripe\ApiRequestor;
+use Stripe\HttpClient\CurlClient;
 use Stripe\StripeClient;
 
 final class StripeGatewayTest extends TestCase
@@ -28,8 +29,9 @@ final class StripeGatewayTest extends TestCase
     protected function tearDown(): void
     {
         // The hook is process-global — leaving a recorder installed would leak
-        // into every later test that touches Stripe.
-        ApiRequestor::setHttpClient(null);
+        // into every later test that touches Stripe. Restoring the SDK's own
+        // default client is the reset.
+        ApiRequestor::setHttpClient(CurlClient::instance());
     }
 
     public function test_checkout_session_is_subscription_mode_with_price_and_urls(): void

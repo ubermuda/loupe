@@ -33,11 +33,19 @@ final class StartCheckoutController extends AppController
             throw new \LogicException('Route is behind the ROLE_USER catch-all');
         }
 
+        // Stripe rejects a Checkout session without both URLs, so an empty one
+        // would fail deep inside the API call rather than here.
+        $successUrl = $this->generateUrl('app_billing_checkout_success', referenceType: UrlGeneratorInterface::ABSOLUTE_URL);
+        $cancelUrl = $this->generateUrl('app_billing_subscribe', referenceType: UrlGeneratorInterface::ABSOLUTE_URL);
+        if ('' === $successUrl || '' === $cancelUrl) {
+            throw new \LogicException('Checkout return URLs could not be generated');
+        }
+
         try {
             $url = ($this->startCheckout)(new StartCheckoutCommand(
                 user: $user,
-                successUrl: $this->generateUrl('app_billing_checkout_success', referenceType: UrlGeneratorInterface::ABSOLUTE_URL),
-                cancelUrl: $this->generateUrl('app_billing_subscribe', referenceType: UrlGeneratorInterface::ABSOLUTE_URL),
+                successUrl: $successUrl,
+                cancelUrl: $cancelUrl,
             ));
         } catch (DomainErrors) {
             // There is no form to attach field errors to — the page is a button.

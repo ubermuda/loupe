@@ -15,7 +15,7 @@ final readonly class ShowSubscribeHandler
     private const int SECONDS_PER_DAY = 86400;
 
     public function __construct(
-        private BillingProfileRepository $profiles,
+        private BillingProfileRepository $billingProfiles,
         private ActivePriceProvider $prices,
         private TrialProvisioner $trialProvisioner,
         private FeatureFlagService $featureFlags,
@@ -30,7 +30,7 @@ final readonly class ShowSubscribeHandler
         $billingEnabled = $this->featureFlags->isEnabled('billing.enabled');
         $profile = $billingEnabled
             ? $this->trialProvisioner->ensureProfile($command->user)
-            : $this->profiles->findOneByUser($command->user);
+            : $this->billingProfiles->findOneByUser($command->user);
 
         $now = new \DateTimeImmutable();
         $subscribed = null !== $profile && null !== $profile->stripeSubscriptionId && $profile->isCurrent($now);

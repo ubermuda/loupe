@@ -13,7 +13,7 @@ use Ubermuda\FeatureFlagsBundle\FeatureFlagService;
 final readonly class OpenPortalHandler
 {
     public function __construct(
-        private BillingProfileRepository $profiles,
+        private BillingProfileRepository $billingProfiles,
         private StripeGatewayInterface $stripe,
         private FeatureFlagService $featureFlags,
         private LoggerInterface $logger,
@@ -27,7 +27,7 @@ final readonly class OpenPortalHandler
             throw new DomainErrors(['billing' => 'billing.error.disabled']);
         }
 
-        $customerId = $this->profiles->findOneByUser($command->user)?->stripeCustomerId;
+        $customerId = $this->billingProfiles->findOneByUser($command->user)?->stripeCustomerId;
         if (null === $customerId) {
             // Nobody who never reached Checkout has a portal to open.
             throw new DomainErrors(['portal' => 'billing.error.no_customer']);

@@ -29,8 +29,8 @@ use Ubermuda\FeatureFlagsBundle\Repository\FeatureFlagRepository;
 final class SeedBillingStateController extends AppController
 {
     public function __construct(
-        private readonly FeatureFlagRepository $flags,
-        private readonly BillingProfileRepository $profiles,
+        private readonly FeatureFlagRepository $featureFlags,
+        private readonly BillingProfileRepository $billingProfiles,
         private readonly EntityManagerInterface $em,
     ) {
     }
@@ -39,7 +39,7 @@ final class SeedBillingStateController extends AppController
     {
         $enabled = $request->query->getBoolean('enabled');
 
-        $flag = $this->flags->findOneBy(['name' => 'billing.enabled']);
+        $flag = $this->featureFlags->findOneBy(['name' => 'billing.enabled']);
         if (null === $flag) {
             $flag = new FeatureFlag('billing.enabled', FeatureFlagType::Bool, $enabled);
             $this->em->persist($flag);
@@ -51,7 +51,7 @@ final class SeedBillingStateController extends AppController
         $trialExpired = false;
         $user = $this->getUser();
         if ($user instanceof User && $request->query->getBoolean('expireTrial')) {
-            $profile = $this->profiles->findOneByUser($user);
+            $profile = $this->billingProfiles->findOneByUser($user);
             if (null === $profile) {
                 $profile = new BillingProfile($user, trialEndsAt: new \DateTimeImmutable('-1 day'));
                 $this->em->persist($profile);

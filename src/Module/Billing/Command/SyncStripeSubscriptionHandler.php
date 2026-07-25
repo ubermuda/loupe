@@ -12,7 +12,7 @@ use Psr\Log\LoggerInterface;
 final readonly class SyncStripeSubscriptionHandler
 {
     public function __construct(
-        private BillingProfileRepository $profiles,
+        private BillingProfileRepository $billingProfiles,
         private EntityManagerInterface $em,
         private LoggerInterface $logger,
     ) {
@@ -20,7 +20,7 @@ final readonly class SyncStripeSubscriptionHandler
 
     public function __invoke(SyncStripeSubscriptionCommand $command): void
     {
-        $profile = $this->profiles->findOneByStripeCustomerId($command->stripeCustomerId);
+        $profile = $this->billingProfiles->findOneByStripeCustomerId($command->stripeCustomerId);
         if (null === $profile) {
             // Someone else's Stripe account, or a customer created outside this
             // app. Nothing to write — the caller still acknowledges so Stripe

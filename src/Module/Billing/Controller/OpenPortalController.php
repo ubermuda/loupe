@@ -33,10 +33,17 @@ final class OpenPortalController extends AppController
             throw new \LogicException('Route is behind the ROLE_USER catch-all');
         }
 
+        // Stripe rejects a portal session without a return URL, so an empty one
+        // would fail deep inside the API call rather than here.
+        $returnUrl = $this->generateUrl('app_billing_subscribe', referenceType: UrlGeneratorInterface::ABSOLUTE_URL);
+        if ('' === $returnUrl) {
+            throw new \LogicException('Portal return URL could not be generated');
+        }
+
         try {
             $url = ($this->openPortal)(new OpenPortalCommand(
                 user: $user,
-                returnUrl: $this->generateUrl('app_billing_subscribe', referenceType: UrlGeneratorInterface::ABSOLUTE_URL),
+                returnUrl: $returnUrl,
             ));
         } catch (DomainErrors) {
             $this->addFlash('error', $this->translator->trans('billing.flash.portal_unavailable'));

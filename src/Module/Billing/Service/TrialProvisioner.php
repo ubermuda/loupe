@@ -21,7 +21,7 @@ final readonly class TrialProvisioner
     public const int DEFAULT_TRIAL_DAYS = 14;
 
     public function __construct(
-        private BillingProfileRepository $profiles,
+        private BillingProfileRepository $billingProfiles,
         private FeatureFlagService $featureFlags,
         private EntityManagerInterface $em,
     ) {
@@ -29,7 +29,7 @@ final readonly class TrialProvisioner
 
     public function ensureProfile(User $user): BillingProfile
     {
-        $profile = $this->profiles->findOneByUser($user);
+        $profile = $this->billingProfiles->findOneByUser($user);
         if (null !== $profile) {
             return $profile;
         }
@@ -43,7 +43,7 @@ final readonly class TrialProvisioner
         } catch (UniqueConstraintViolationException) {
             // A concurrent first request won the race — theirs is the profile.
             // The unique FK on user_id is what makes this safe.
-            return $this->profiles->findOneByUser($user) ?? throw new \RuntimeException('billing profile vanished after unique violation');
+            return $this->billingProfiles->findOneByUser($user) ?? throw new \RuntimeException('billing profile vanished after unique violation');
         }
 
         return $profile;

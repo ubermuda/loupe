@@ -8,7 +8,7 @@ enum BillingStatus: string
 {
     case Trialing = 'trialing';
     case Active = 'active';
-    case PastDue = 'past_due';
+    case PastDue = 'past-due';
     case Canceled = 'canceled';
 
     /**
