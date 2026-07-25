@@ -35,6 +35,7 @@ final class E2eFeatureFlagController extends AppController
     public function __construct(
         private readonly FeatureFlagRepository $featureFlags,
         private readonly EntityManagerInterface $em,
+
         #[Autowire('%kernel.environment%')]
         private readonly string $environment,
     ) {

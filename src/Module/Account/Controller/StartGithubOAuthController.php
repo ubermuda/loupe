@@ -11,7 +11,11 @@ use Symfony\Component\Routing\Attribute\Route;
 use Ubermuda\FeatureFlagsBundle\Attribute\RequireFeatureFlag;
 
 #[RequireFeatureFlag('auth.github.enabled')]
-#[Route('/oauth/github', name: 'app_oauth_start_github', methods: ['GET'])]
+#[Route(
+    '/oauth/github',
+    name: 'app_oauth_start_github',
+    methods: ['GET'],
+)]
 class StartGithubOAuthController extends AppController
 {
     public function __construct(

@@ -10,8 +10,8 @@ use Symfony\Bridge\Doctrine\Types\UuidType;
 use Symfony\Component\Uid\Uuid;
 
 #[ORM\Entity(repositoryClass: WaitlistEntryRepository::class)]
-#[ORM\Table(name: 'waitlist_entries')]
 #[ORM\Index(name: 'idx_waitlist_entries_invite_token_hash', columns: ['invite_token_hash'])]
+#[ORM\Table(name: 'waitlist_entries')]
 class WaitlistEntry
 {
     #[ORM\Column(type: UuidType::NAME, unique: true)]

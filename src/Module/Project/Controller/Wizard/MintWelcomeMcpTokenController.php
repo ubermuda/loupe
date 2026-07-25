@@ -16,7 +16,11 @@ use Symfony\Contracts\Translation\TranslatorInterface;
 use Ubermuda\SymfonyExtra\Csrf\Attribute\CsrfToken;
 
 #[CsrfToken('wizard-mint-mcp')]
-#[Route('/welcome/connect/mcp-token', name: 'app_welcome_mint_mcp', methods: ['POST'])]
+#[Route(
+    '/welcome/connect/mcp-token',
+    name: 'app_welcome_mint_mcp',
+    methods: ['POST'],
+)]
 class MintWelcomeMcpTokenController extends AppController
 {
     public function __construct(

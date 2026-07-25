@@ -31,7 +31,11 @@ use Ubermuda\FeatureFlagsBundle\FeatureFlagService;
  * social identity. Proving control of the same email address is deliberately not
  * enough to take over such an account: the password is the second factor.
  */
-#[Route('/oauth/link', name: 'app_oauth_link', methods: ['GET', 'POST'])]
+#[Route(
+    '/oauth/link',
+    name: 'app_oauth_link',
+    methods: ['GET', 'POST'],
+)]
 class LinkSocialAccountController extends AppController
 {
     private const string TEMPLATE = '@Account/security/link_social_account.html.twig';
@@ -43,6 +47,7 @@ class LinkSocialAccountController extends AppController
         private readonly Security $security,
         private readonly TranslatorInterface $translator,
         private readonly LoggerInterface $logger,
+
         #[Autowire(service: 'limiter.oauth_link')]
         private readonly RateLimiterFactory $oauthLinkLimiter,
     ) {

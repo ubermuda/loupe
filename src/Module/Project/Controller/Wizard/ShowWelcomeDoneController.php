@@ -10,7 +10,11 @@ use App\Module\Project\Service\WizardState;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
 
-#[Route('/welcome/done', name: 'app_welcome_done', methods: ['GET'])]
+#[Route(
+    '/welcome/done',
+    name: 'app_welcome_done',
+    methods: ['GET'],
+)]
 class ShowWelcomeDoneController extends AppController
 {
     public function __construct(

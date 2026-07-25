@@ -15,7 +15,11 @@ use Symfony\Component\Routing\Attribute\Route;
  * trial has expired straight back to the paywall. The page is never treated as
  * proof of payment — only the webhook writes subscription state.
  */
-#[Route('/billing/checkout/success', name: 'app_billing_checkout_success', methods: ['GET'])]
+#[Route(
+    '/billing/checkout/success',
+    name: 'app_billing_checkout_success',
+    methods: ['GET'],
+)]
 final class CheckoutSuccessController extends AppController
 {
     public function __invoke(): Response

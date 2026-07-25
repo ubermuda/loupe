@@ -17,7 +17,11 @@ use Ubermuda\FeatureFlagsBundle\Attribute\RequireFeatureFlag;
  * the provider is switched off.
  */
 #[RequireFeatureFlag('auth.github.enabled')]
-#[Route('/oauth/github/check', name: 'app_oauth_check_github', methods: ['GET'])]
+#[Route(
+    '/oauth/github/check',
+    name: 'app_oauth_check_github',
+    methods: ['GET'],
+)]
 class GithubOAuthCheckController extends AppController
 {
     public function __invoke(): Response

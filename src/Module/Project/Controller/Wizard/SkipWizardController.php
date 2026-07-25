@@ -14,7 +14,11 @@ use Symfony\Component\Routing\Attribute\Route;
 use Ubermuda\SymfonyExtra\Csrf\Attribute\CsrfToken;
 
 #[CsrfToken('wizard-skip')]
-#[Route('/welcome/skip', name: 'app_welcome_skip', methods: ['POST'])]
+#[Route(
+    '/welcome/skip',
+    name: 'app_welcome_skip',
+    methods: ['POST'],
+)]
 class SkipWizardController extends AppController
 {
     public function __construct(

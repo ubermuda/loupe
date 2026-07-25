@@ -16,8 +16,9 @@ use Symfony\Component\EventDispatcher\Attribute\AsEventListener;
 #[AsEventListener]
 final readonly class DeleteSiteReviewDataOnProjectDeleting
 {
-    public function __construct(private EntityManagerInterface $em)
-    {
+    public function __construct(
+        private EntityManagerInterface $em,
+    ) {
     }
 
     public function __invoke(ProjectDeleting $event): void

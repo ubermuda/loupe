@@ -83,7 +83,7 @@ final readonly class RequireSubscriptionListener
         }
 
         $request = $event->getRequest();
-        $isMachineRequest = array_any(self::MACHINE_PATH_PREFIXES, fn($prefix) => str_starts_with($request->getPathInfo(), (string) $prefix));
+        $isMachineRequest = array_any(self::MACHINE_PATH_PREFIXES, fn ($prefix) => str_starts_with($request->getPathInfo(), (string) $prefix));
 
         if (!$isMachineRequest) {
             $route = $request->attributes->get('_route');

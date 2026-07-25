@@ -16,7 +16,11 @@ use Symfony\Contracts\Translation\TranslatorInterface;
 use Ubermuda\SymfonyExtra\Csrf\Attribute\CsrfToken;
 
 #[CsrfToken('confirm-account-deletion')]
-#[Route('/account/delete/confirm', name: 'app_account_delete_execute', methods: ['POST'])]
+#[Route(
+    '/account/delete/confirm',
+    name: 'app_account_delete_execute',
+    methods: ['POST'],
+)]
 class ExecuteAccountDeletionController extends AppController
 {
     public function __construct(
