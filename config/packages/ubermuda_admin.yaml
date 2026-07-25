@@ -1,0 +1,5 @@
+ubermuda_admin:
+    brand_label: 'Loupe'
+    app_route: 'app_home'
+    importmap_entry: 'app'
+    admin_email: '%env(ADMIN_EMAIL)%'

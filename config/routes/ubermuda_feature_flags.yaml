@@ -1,0 +1,2 @@
+ubermuda_feature_flags:
+    resource: '@UbermudaFeatureFlagsBundle/config/routes.php'
