@@ -144,9 +144,17 @@
                 <source>account.social.link.subheading</source>
                 <target>An account already exists for %email%. Enter its password to link your %provider% sign-in.</target>
             </trans-unit>
-            <trans-unit id="account.social.link.form.password.label">
-                <source>account.social.link.form.password.label</source>
+            <trans-unit id="account.social.link.cancel">
+                <source>account.social.link.cancel</source>
+                <target>Cancel and go back to sign in</target>
+            </trans-unit>
+            <trans-unit id="account.form.link_social_account_form.password.label">
+                <source>account.form.link_social_account_form.password.label</source>
                 <target>Password</target>
+            </trans-unit>
+            <trans-unit id="account.form.link_social_account_form.password.placeholder">
+                <source>account.form.link_social_account_form.password.placeholder</source>
+                <target>••••••••</target>
             </trans-unit>
             <trans-unit id="account.social.link.form.submit.label">
                 <source>account.social.link.form.submit.label</source>

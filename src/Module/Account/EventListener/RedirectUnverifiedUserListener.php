@@ -29,7 +29,6 @@ final readonly class RedirectUnverifiedUserListener
         'app_oauth_check_google',
         'app_oauth_check_github',
         'app_oauth_link',
-        'app_oauth_link_submit',
     ];
 
     public function __construct(

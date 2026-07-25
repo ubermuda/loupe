@@ -13,6 +13,7 @@ use App\Module\Account\Service\SocialProfileFactory;
 use App\Module\Account\Service\UnverifiedProviderEmail;
 use KnpU\OAuth2ClientBundle\Client\ClientRegistry;
 use KnpU\OAuth2ClientBundle\Security\Authenticator\OAuth2Authenticator;
+use League\OAuth2\Client\Provider\Exception\IdentityProviderException;
 use Symfony\Component\HttpFoundation\RedirectResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -61,13 +62,18 @@ final class SocialAuthenticator extends OAuth2Authenticator
     {
         $provider = $this->providerFor($request) ?? throw new AuthenticationException('Unknown social provider.');
         $client = $this->clientRegistry->getClient($provider->value.'_main');
+        // fetchAccessToken() already converts knpu's invalid-state, missing-code
+        // and identity-provider failures into AuthenticationExceptions; the
+        // resource-owner call does not, and a revoked or expired token there
+        // would otherwise surface as a 500 instead of a login failure.
         $accessToken = $this->fetchAccessToken($client);
+        try {
+            $owner = $client->fetchUserFromToken($accessToken);
+        } catch (IdentityProviderException $e) {
+            throw new AuthenticationException('The provider refused the profile request.', previous: $e);
+        }
 
-        $profile = $this->profileFactory->fromResourceOwner(
-            $provider,
-            $client->fetchUserFromToken($accessToken),
-            $accessToken->getToken(),
-        );
+        $profile = $this->profileFactory->fromResourceOwner($provider, $owner, $accessToken->getToken());
 
         try {
             $outcome = ($this->resolveSocialLogin)(new ResolveSocialLoginCommand($profile));
@@ -99,7 +105,11 @@ final class SocialAuthenticator extends OAuth2Authenticator
 
     public function onAuthenticationSuccess(Request $request, TokenInterface $token, string $firewallName): Response
     {
-        $target = $this->getTargetPath($request->getSession(), $firewallName);
+        $session = $request->getSession();
+        $target = $this->getTargetPath($session, $firewallName);
+        // Consume it, like Symfony's default success handler does — a target path
+        // left behind would hijack the next login.
+        $this->removeTargetPath($session, $firewallName);
 
         return new RedirectResponse($target ?? $this->router->generate('app_home'));
     }
