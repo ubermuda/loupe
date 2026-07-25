@@ -69,7 +69,12 @@
                     </td>
                     <td>
                         {% if entry.needsInvite %}
-                            <form method="post" action="{{ path('app_admin_waitlist_invite') }}">
+                            {# data-turbo-frame="_top": this form lives inside the waitlist-table
+                               turbo-frame, but its redirect target renders the whole page (with
+                               the success flash) — without this it would frame-scope to a morph
+                               that drops the flash, unlike the bulk/oldest actions below, whose
+                               forms already sit outside the frame. #}
+                            <form method="post" action="{{ path('app_admin_waitlist_invite') }}" data-turbo-frame="_top">
                                 <input type="hidden" name="_csrf_token" value="{{ csrf_token('admin-waitlist-invite') }}">
                                 <input type="hidden" name="ids[]" value="{{ entry.id }}">
                                 <button type="submit" class="admin-button-secondary admin-button-small">{{ 'account.admin.waitlist.invite'|trans }}</button>
