@@ -142,10 +142,11 @@ function usernameFromEmail(email: string): string {
 
 /**
  * Fill the registration form, poll Mailpit for the verification link, and
- * navigate to it. Returns with the browser on the home page, logged in as a
- * fully verified user.
+ * navigate to it. Returns with the browser on the first-run wizard's welcome
+ * step — a brand-new account owns no project and hasn't completed (or
+ * skipped) the wizard yet, so HomeController lands it there.
  */
-export async function registerAndVerify(
+export async function registerFreshUser(
     page: Page,
     request: APIRequestContext,
     credentials: Credentials,
@@ -167,5 +168,25 @@ export async function registerAndVerify(
         /https?:\/\/[^\s"<]+\/register\/verify[^\s"<]*/,
     );
     await page.goto(link);
-    await expect(page).toHaveURL('/projects');
+    await expect(page).toHaveURL('/welcome');
+}
+
+/**
+ * Registers and verifies a fresh user (see registerFreshUser), then skips the
+ * first-run wizard so callers keep this helper's long-documented postcondition:
+ * "logged in, ready to use the app" — landing on /projects, exactly as before
+ * the wizard existed. Specs that specifically want to exercise the wizard
+ * itself should call registerFreshUser directly instead.
+ */
+export async function registerAndVerify(
+    page: Page,
+    request: APIRequestContext,
+    credentials: Credentials,
+): Promise<void> {
+    await registerFreshUser(page, request, credentials);
+
+    if (page.url().includes('/welcome')) {
+        await page.getByRole('button', { name: 'Skip setup' }).click();
+        await expect(page).toHaveURL('/projects');
+    }
 }
