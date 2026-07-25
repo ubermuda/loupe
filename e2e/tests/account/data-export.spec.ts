@@ -1,6 +1,13 @@
 import { expect } from '@playwright/test';
 import { createTest } from '../fixtures';
-import { getEmailWithSubject, extractLink } from '../helpers';
+import {
+    getEmailWithSubject,
+    latestEmailIdWithSubject,
+    extractLink,
+} from '../helpers';
+
+const EXPORT_EMAIL = 'e2e-data-export@example.com';
+const EXPORT_SUBJECT = 'Your Loupe data export is ready';
 
 // Dedicated user: the worker processes this user's export asynchronously, and
 // no other spec file should be racing an export request for the same inbox.
@@ -17,6 +24,16 @@ test('requesting a data export emails a working download link', async ({
     // Requires the dev worker container to be running (`docker compose up -d worker`
     // or `just worker`) — it consumes the async transport that generates the export.
     test.slow();
+
+    // Mailpit is shared by every worktree and never cleared, so this address
+    // already holds export mail from other branches' runs — with the same
+    // subject, but links pointing at their hosts. Marking the inbox before
+    // acting is what makes this run's email identifiable.
+    const previousExportEmail = await latestEmailIdWithSubject(
+        request,
+        EXPORT_EMAIL,
+        EXPORT_SUBJECT,
+    );
 
     await page.goto('/account');
     await expect(page.locator('[data-testid="export-section"]')).toBeVisible();
@@ -35,8 +52,10 @@ test('requesting a data export emails a working download link', async ({
     // before the worker has finished generating and mailing the export.
     const received = await getEmailWithSubject(
         request,
-        'e2e-data-export@example.com',
-        'Your Loupe data export is ready',
+        EXPORT_EMAIL,
+        EXPORT_SUBJECT,
+        30000,
+        previousExportEmail,
     );
     const downloadUrl = extractLink(
         received.body,
