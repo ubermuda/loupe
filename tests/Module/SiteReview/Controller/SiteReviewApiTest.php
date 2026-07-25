@@ -79,6 +79,7 @@ final class SiteReviewApiTest extends WebTestCase
             ['body' => 'x', 'url' => 'https://app/x']);
 
         self::assertResponseStatusCodeSame(403);
+        self::assertSame('token_not_bound_to_site', json_decode((string) $client->getResponse()->getContent(), true)['error'] ?? null);
     }
 
     public function test_current_review_round_trip_and_submit(): void
@@ -168,6 +169,9 @@ final class SiteReviewApiTest extends WebTestCase
         $em->flush();
         $this->api($client, Request::METHOD_POST, '/api/site-review/comments', $mcpRaw, ['body' => 'x', 'url' => 'u']);
         self::assertResponseStatusCodeSame(403);
+        // The wrong-scope 403 is JSON with a machine-readable code (not the framework's HTML
+        // error page), so the widget can distinguish it from an unbound-token 403.
+        self::assertSame('insufficient_scope', json_decode((string) $client->getResponse()->getContent(), true)['error'] ?? null);
 
         // Blank body → 422; malformed comment id → 404.
         [$raw] = $this->projectWithToken($em, 'api-h@example.com');

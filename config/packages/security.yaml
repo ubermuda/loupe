@@ -21,6 +21,7 @@ security:
             stateless: true
             custom_authenticators:
                 - App\Module\Account\Security\ApiTokenAuthenticator
+            access_denied_handler: App\Module\Account\Security\ApiAccessDeniedHandler
         main:
             lazy: true
             provider: app_user_provider

@@ -26,11 +26,14 @@ const E2E_EMAIL = 'e2e-site-review@example.com';
 const E2E_USERNAME = 'e2esitereview';
 const E2E_PASSWORD = 'E2eSiteReview1!';
 
+const HARNESS_URL = `/dev/site-review-harness?email=${encodeURIComponent(E2E_EMAIL)}`;
+
 /**
- * Seed the user (idempotent — re-registering an existing user is handled by the
- * dev endpoint) and load the harness. Every load resets the draft server-side.
+ * Register the e2e user (idempotent — re-registering is handled by the dev endpoint)
+ * without loading the harness. Tests that need to intercept the widget's boot request
+ * install their route between this and their own `page.goto(HARNESS_URL)`.
  */
-const openHarness = async (page: Page): Promise<void> => {
+const registerUser = async (page: Page): Promise<void> => {
     await suppressToolbar(page);
     const registerResponse = await page.request.post(
         '/dev/register-and-verify',
@@ -44,9 +47,14 @@ const openHarness = async (page: Page): Promise<void> => {
         },
     );
     expect(registerResponse.status()).toBe(200);
-    await page.goto(
-        `/dev/site-review-harness?email=${encodeURIComponent(E2E_EMAIL)}`,
-    );
+};
+
+/**
+ * Seed the user and load the harness. Every load resets the draft server-side.
+ */
+const openHarness = async (page: Page): Promise<void> => {
+    await registerUser(page);
+    await page.goto(HARNESS_URL);
 };
 
 /**
@@ -301,6 +309,159 @@ test('a failed send keeps the review and offers retry', async ({ page }) => {
     await expect(panel.getByText(/send your review/i)).toBeVisible();
     await expect.poll(() => calls).toBe(2);
     await expect(page.locator('#lp-head-count')).toHaveText('1');
+});
+
+test('a 403 on the boot load drops the widget into a critical, dead-end state', async ({
+    page,
+}) => {
+    await registerUser(page);
+
+    // The very first call the widget makes on boot — GET /review — 403s with the unbound
+    // token code. Installing the route before navigating means the widget hits it on load,
+    // so it must catch the rejection immediately.
+    await page.route('**/api/site-review/review', (route) => {
+        void route.fulfill({
+            status: 403,
+            contentType: 'application/json',
+            body: JSON.stringify({ error: 'token_not_bound_to_site' }),
+        });
+    });
+    await page.goto(HARNESS_URL);
+
+    // The collapsed launcher flags the problem with a danger badge before it is opened.
+    await expect(page.locator('#lp-launch-alert')).toBeVisible();
+
+    await page.getByRole('button', { name: 'Review' }).click();
+    const panel = page.locator('#lp-panel');
+    // The panel is replaced by the critical state, and the message is tailored to the
+    // *unbound* code — "regenerate the widget token" — not a generic rejection.
+    await expect(panel.getByText(/can.t connect/i)).toBeVisible();
+    await expect(panel.getByText(/isn.t linked to a site/i)).toBeVisible();
+    await expect(panel.getByText(/regenerate the widget token/i)).toBeVisible();
+
+    // It is a dead end: the whole normal UI (composer + actions) is gone, and there is no
+    // retry that would just 403 again.
+    await expect(panel.locator('#lp-main')).toBeHidden();
+    await expect(page.getByPlaceholder(/Describe the issue/)).toBeHidden();
+    await expect(panel.getByRole('button', { name: 'Try again' })).toHaveCount(
+        0,
+    );
+    await expect(panel.getByRole('button', { name: 'Dismiss' })).toHaveCount(0);
+});
+
+test('a 401 on the boot load reports an invalid / revoked token', async ({
+    page,
+}) => {
+    await registerUser(page);
+
+    await page.route('**/api/site-review/review', (route) => {
+        void route.fulfill({
+            status: 401,
+            contentType: 'application/json',
+            body: JSON.stringify({ error: 'unauthorized' }),
+        });
+    });
+    await page.goto(HARNESS_URL);
+
+    await page.getByRole('button', { name: 'Review' }).click();
+    const panel = page.locator('#lp-panel');
+    await expect(panel.getByText(/can.t connect/i)).toBeVisible();
+    await expect(panel.getByText(/invalid or was revoked/i)).toBeVisible();
+});
+
+test('a wrong-scope 403 tells the embedder to use the widget token', async ({
+    page,
+}) => {
+    await registerUser(page);
+
+    // A non-widget token (e.g. an MCP token) authenticates but lacks the site-review
+    // scope: the firewall returns 403 with `insufficient_scope`. The message must point at
+    // the token *type*, not tell them to regenerate the (correct) widget token.
+    await page.route('**/api/site-review/review', (route) => {
+        void route.fulfill({
+            status: 403,
+            contentType: 'application/json',
+            body: JSON.stringify({ error: 'insufficient_scope' }),
+        });
+    });
+    await page.goto(HARNESS_URL);
+
+    await page.getByRole('button', { name: 'Review' }).click();
+    const panel = page.locator('#lp-panel');
+    await expect(panel.getByText(/can.t connect/i)).toBeVisible();
+    await expect(panel.getByText(/not another API token/i)).toBeVisible();
+});
+
+test('a token revoked mid-session goes fatal and clears the on-page pins', async ({
+    page,
+}) => {
+    await openHarness(page);
+
+    // Seed an anchored comment so a live pin is rendered on the page.
+    await page.getByRole('button', { name: 'Review' }).click();
+    await page
+        .locator('#lp-panel')
+        .getByRole('button', { name: 'Pick element' })
+        .click();
+    await page.locator('#target-me').click();
+    await page.getByPlaceholder(/Describe the issue/).fill('Anchored note');
+    await page.getByRole('button', { name: 'Save' }).click();
+    await expect(page.locator('.pin')).toHaveText('1');
+
+    // The token is revoked between load and submit: the submit 401s.
+    await page.route('**/api/site-review/review/submit', (route) => {
+        void route.fulfill({
+            status: 401,
+            contentType: 'application/json',
+            body: JSON.stringify({ error: 'unauthorized' }),
+        });
+    });
+    await page.getByRole('button', { name: 'Send' }).click();
+
+    // The widget flips to the critical state AND the stale pin is gone — no interactive
+    // dead-end left on the page.
+    const panel = page.locator('#lp-panel');
+    await expect(panel.getByText(/can.t connect/i)).toBeVisible();
+    await expect(page.locator('.pin')).toHaveCount(0);
+});
+
+test('a boot rejection landing after the user entered pick mode still surfaces fatal', async ({
+    page,
+}) => {
+    await registerUser(page);
+
+    // Hold the boot GET open until the test releases it, so we can deterministically enter
+    // pick mode *before* the rejection lands (a real race between boot and user action).
+    let releaseBoot = (): void => {};
+    const bootGate = new Promise<void>((resolve) => {
+        releaseBoot = resolve;
+    });
+    await page.route('**/api/site-review/review', async (route) => {
+        await bootGate;
+        await route.fulfill({
+            status: 403,
+            contentType: 'application/json',
+            body: JSON.stringify({ error: 'token_not_bound_to_site' }),
+        });
+    });
+    await page.goto(HARNESS_URL);
+
+    // Enter pick mode while the boot request is still in flight (scrim + toast up, widget
+    // chrome hidden).
+    await page.getByRole('button', { name: 'Review' }).click();
+    await page
+        .locator('#lp-panel')
+        .getByRole('button', { name: 'Pick element' })
+        .click();
+    await expect(page.locator('#lp-toast')).toBeVisible();
+
+    // Release the boot 403: the widget must leave pick mode and surface the fatal panel,
+    // not stay stuck behind the picker scrim.
+    releaseBoot();
+    await expect(page.locator('#lp-toast')).toBeHidden();
+    await expect(
+        page.locator('#lp-panel').getByText(/can.t connect/i),
+    ).toBeVisible();
 });
 
 test('deleting a list comment uses a sliding confirm overlay', async ({
