@@ -44,6 +44,10 @@ final readonly class RequireSubscriptionListener
         'app_account_delete_confirm',
         'app_account_delete_execute',
         'app_account_goodbye',
+        // Dev-only seeding seam (registered by #[When('dev')], absent in prod):
+        // an e2e run that has just paywalled itself must still be able to call
+        // it to switch billing back off.
+        'app_dev_billing_state',
     ];
 
     private const string ADMIN_ROUTE_PREFIX = 'app_admin_';
