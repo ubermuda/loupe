@@ -1,0 +1,33 @@
+<?php
+
+declare(strict_types=1);
+
+namespace DoctrineMigrations;
+
+use Doctrine\DBAL\Schema\Schema;
+use Doctrine\Migrations\AbstractMigration;
+
+/**
+ * Auto-generated Migration: Please modify to your needs!
+ */
+final class Version20260725170223 extends AbstractMigration
+{
+    public function getDescription(): string
+    {
+        return 'Create waitlist_entries table';
+    }
+
+    public function up(Schema $schema): void
+    {
+        // this up() migration is auto-generated, please modify it to your needs
+        $this->addSql('CREATE TABLE waitlist_entries (id UUID NOT NULL, invited_at TIMESTAMP(0) WITHOUT TIME ZONE DEFAULT NULL, invite_expires_at TIMESTAMP(0) WITHOUT TIME ZONE DEFAULT NULL, converted_at TIMESTAMP(0) WITHOUT TIME ZONE DEFAULT NULL, invite_token_hash VARCHAR(64) DEFAULT NULL, email VARCHAR(180) NOT NULL, created_at TIMESTAMP(0) WITHOUT TIME ZONE NOT NULL, PRIMARY KEY (id))');
+        $this->addSql('CREATE UNIQUE INDEX UNIQ_E74550EEE7927C74 ON waitlist_entries (email)');
+        $this->addSql('CREATE INDEX idx_waitlist_entries_invite_token_hash ON waitlist_entries (invite_token_hash)');
+    }
+
+    public function down(Schema $schema): void
+    {
+        // this down() migration is auto-generated, please modify it to your needs
+        $this->addSql('DROP TABLE waitlist_entries');
+    }
+}

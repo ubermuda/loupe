@@ -64,6 +64,7 @@ security:
         - { path: ^/oauth,           roles: PUBLIC_ACCESS }
         - { path: ^/login,           roles: PUBLIC_ACCESS }
         - { path: ^/register,        roles: PUBLIC_ACCESS }
+        - { path: ^/waitlist,        roles: PUBLIC_ACCESS }
         - { path: ^/forgot-password, roles: PUBLIC_ACCESS }
         # The emailed deletion link must be reachable logged-out and by an
         # unverified logged-in user; it covers both GET (confirm) and POST

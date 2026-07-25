@@ -80,4 +80,9 @@ class UserRepository extends ServiceEntityRepository implements PasswordUpgrader
 
         return $this->findOneBy(['username' => $username]);
     }
+
+    public function countAll(): int
+    {
+        return $this->count([]);
+    }
 }

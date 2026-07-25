@@ -32,6 +32,10 @@ framework:
             policy: fixed_window
             limit: 5
             interval: '15 minutes'
+        waitlist_join:
+            policy: fixed_window
+            limit: 5
+            interval: '1 hour'
 
 # The e2e suite runs against the dev app from a single IP; production limits
 # would throttle the suite itself. Keep dev effectively unlimited.
@@ -54,6 +58,10 @@ when@dev:
                 policy: fixed_window
                 limit: 1000
                 interval: '15 minutes'
+            waitlist_join:
+                policy: fixed_window
+                limit: 1000
+                interval: '1 hour'
 
 when@test:
     framework:
@@ -79,3 +87,7 @@ when@test:
                 policy: fixed_window
                 limit: 1000
                 interval: '15 minutes'
+            waitlist_join:
+                policy: fixed_window
+                limit: 1000
+                interval: '1 hour'

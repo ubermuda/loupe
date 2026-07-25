@@ -10,6 +10,11 @@ final readonly class RegisterUserCommand
         /** @phpstan-var non-empty-string */
         public string $email,
         public string $plainPassword,
+        /**
+         * Plain waitlist-invite token, if any. Ignored while registration is
+         * open; when the gate is closed, only a valid token bypasses it.
+         */
+        public ?string $inviteToken = null,
     ) {
     }
 }
