@@ -115,3 +115,7 @@ when@test:
         App\DataExport\DataExportArchiveBuilder:
             autowire: true
             public: true
+
+        App\Module\Account\Service\ExpiredExportPurger:
+            autowire: true
+            public: true

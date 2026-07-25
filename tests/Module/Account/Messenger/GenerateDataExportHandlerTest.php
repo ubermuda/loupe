@@ -12,6 +12,7 @@ use App\Module\Account\Messenger\GenerateDataExportHandler;
 use App\Module\Account\Messenger\GenerateDataExportMessage;
 use App\Module\Account\Repository\DataExportRepository;
 use App\Module\Account\Service\DataExportEmailSender;
+use App\Module\Account\Service\ExpiredExportPurger;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\MockObject\Stub;
@@ -41,7 +42,7 @@ final class GenerateDataExportHandlerTest extends TestCase
         return $value;
     }
 
-    public function test_happy_path_builds_completes_and_emails(): void
+    public function test_happy_path_builds_completes_emails_and_purges(): void
     {
         $export = $this->persistedExport();
 
@@ -57,8 +58,40 @@ final class GenerateDataExportHandlerTest extends TestCase
         $emailSender = $this->createMock(DataExportEmailSender::class);
         $emailSender->expects(self::once())->method('send')->with($export, self::callback(is_string(...)));
 
+        /** @var ExpiredExportPurger&MockObject $purger */
+        $purger = $this->createMock(ExpiredExportPurger::class);
+        $purger->expects(self::once())->method('purge');
+
         $em = $this->createStub(EntityManagerInterface::class);
-        $handler = new GenerateDataExportHandler($exports, $builder, $emailSender, $em, new NullLogger());
+        $handler = new GenerateDataExportHandler($exports, $builder, $emailSender, $purger, $em, new NullLogger());
+
+        $handler(new GenerateDataExportMessage((string) $export->id));
+
+        self::assertSame(DataExportStatus::Ready, $export->status);
+    }
+
+    public function test_a_failing_purge_does_not_fail_the_export(): void
+    {
+        $export = $this->persistedExport();
+
+        /** @var DataExportRepository&Stub $exports */
+        $exports = $this->createStub(DataExportRepository::class);
+        $exports->method('find')->willReturn($export);
+
+        /** @var DataExportArchiveBuilder&MockObject $builder */
+        $builder = $this->createMock(DataExportArchiveBuilder::class);
+        $builder->expects(self::once())->method('build');
+
+        /** @var DataExportEmailSender&MockObject $emailSender */
+        $emailSender = $this->createMock(DataExportEmailSender::class);
+        $emailSender->expects(self::once())->method('send');
+
+        /** @var ExpiredExportPurger&MockObject $purger */
+        $purger = $this->createMock(ExpiredExportPurger::class);
+        $purger->expects(self::once())->method('purge')->willThrowException(new \RuntimeException('purge boom'));
+
+        $em = $this->createStub(EntityManagerInterface::class);
+        $handler = new GenerateDataExportHandler($exports, $builder, $emailSender, $purger, $em, new NullLogger());
 
         $handler(new GenerateDataExportMessage((string) $export->id));
 
@@ -79,8 +112,12 @@ final class GenerateDataExportHandlerTest extends TestCase
         $emailSender = $this->createMock(DataExportEmailSender::class);
         $emailSender->expects(self::never())->method('send');
 
+        /** @var ExpiredExportPurger&MockObject $purger */
+        $purger = $this->createMock(ExpiredExportPurger::class);
+        $purger->expects(self::never())->method('purge');
+
         $em = $this->createStub(EntityManagerInterface::class);
-        $handler = new GenerateDataExportHandler($exports, $builder, $emailSender, $em, new NullLogger());
+        $handler = new GenerateDataExportHandler($exports, $builder, $emailSender, $purger, $em, new NullLogger());
 
         $handler(new GenerateDataExportMessage((string) Uuid::v7()));
     }
@@ -102,8 +139,12 @@ final class GenerateDataExportHandlerTest extends TestCase
         $emailSender = $this->createMock(DataExportEmailSender::class);
         $emailSender->expects(self::never())->method('send');
 
+        /** @var ExpiredExportPurger&MockObject $purger */
+        $purger = $this->createMock(ExpiredExportPurger::class);
+        $purger->expects(self::never())->method('purge');
+
         $em = $this->createStub(EntityManagerInterface::class);
-        $handler = new GenerateDataExportHandler($exports, $builder, $emailSender, $em, new NullLogger());
+        $handler = new GenerateDataExportHandler($exports, $builder, $emailSender, $purger, $em, new NullLogger());
 
         $handler(new GenerateDataExportMessage((string) $export->id));
     }
@@ -126,8 +167,12 @@ final class GenerateDataExportHandlerTest extends TestCase
         $emailSender = $this->createMock(DataExportEmailSender::class);
         $emailSender->expects(self::once())->method('send');
 
+        /** @var ExpiredExportPurger&MockObject $purger */
+        $purger = $this->createMock(ExpiredExportPurger::class);
+        $purger->expects(self::once())->method('purge');
+
         $em = $this->createStub(EntityManagerInterface::class);
-        $handler = new GenerateDataExportHandler($exports, $builder, $emailSender, $em, new NullLogger());
+        $handler = new GenerateDataExportHandler($exports, $builder, $emailSender, $purger, $em, new NullLogger());
 
         $handler(new GenerateDataExportMessage((string) $export->id));
 
@@ -151,8 +196,12 @@ final class GenerateDataExportHandlerTest extends TestCase
         $emailSender = $this->createMock(DataExportEmailSender::class);
         $emailSender->expects(self::never())->method('send');
 
+        /** @var ExpiredExportPurger&MockObject $purger */
+        $purger = $this->createMock(ExpiredExportPurger::class);
+        $purger->expects(self::never())->method('purge');
+
         $em = $this->createStub(EntityManagerInterface::class);
-        $handler = new GenerateDataExportHandler($exports, $builder, $emailSender, $em, new NullLogger());
+        $handler = new GenerateDataExportHandler($exports, $builder, $emailSender, $purger, $em, new NullLogger());
 
         $this->expectException(\RuntimeException::class);
         $this->expectExceptionMessage('disk full');
@@ -180,8 +229,12 @@ final class GenerateDataExportHandlerTest extends TestCase
         $emailSender = $this->createMock(DataExportEmailSender::class);
         $emailSender->expects(self::once())->method('send')->willThrowException(new \RuntimeException('smtp down'));
 
+        /** @var ExpiredExportPurger&MockObject $purger */
+        $purger = $this->createMock(ExpiredExportPurger::class);
+        $purger->expects(self::never())->method('purge');
+
         $em = $this->createStub(EntityManagerInterface::class);
-        $handler = new GenerateDataExportHandler($exports, $builder, $emailSender, $em, new NullLogger());
+        $handler = new GenerateDataExportHandler($exports, $builder, $emailSender, $purger, $em, new NullLogger());
 
         $this->expectException(\RuntimeException::class);
         $this->expectExceptionMessage('smtp down');

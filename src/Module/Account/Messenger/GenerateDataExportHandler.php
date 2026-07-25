@@ -8,6 +8,7 @@ use App\DataExport\DataExportArchiveBuilder;
 use App\Module\Account\Entity\DataExportStatus;
 use App\Module\Account\Repository\DataExportRepository;
 use App\Module\Account\Service\DataExportEmailSender;
+use App\Module\Account\Service\ExpiredExportPurger;
 use Doctrine\ORM\EntityManagerInterface;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
@@ -20,6 +21,7 @@ final readonly class GenerateDataExportHandler
         private DataExportRepository $dataExports,
         private DataExportArchiveBuilder $builder,
         private DataExportEmailSender $emailSender,
+        private ExpiredExportPurger $purger,
         private EntityManagerInterface $em,
         private LoggerInterface $logger,
     ) {
@@ -47,5 +49,13 @@ final readonly class GenerateDataExportHandler
         $this->em->flush();
         $this->emailSender->send($export, $rawToken);
         $this->logger->info('account.data_export.completed', ['id' => $message->dataExportId]);
+
+        try {
+            $this->purger->purge();
+        } catch (\Throwable $e) {
+            // A failed opportunistic purge must not fail the export itself —
+            // the console command is the backstop for anything missed here.
+            $this->logger->warning('account.data_export.purge_failed', ['error' => $e->getMessage()]);
+        }
     }
 }
