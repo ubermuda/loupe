@@ -19,14 +19,16 @@ exec *args:
 
 shell: (exec "bash")
 
-# Run composer inside the php-fpm container. Never run it on the host: the
-# container's PHP version and extension set are what the lockfile is resolved
-# against, and vendor/ is bind-mounted straight back into it.
+# Never run composer on the host: the container's PHP version and extension set
+# are what the lockfile is resolved against, and vendor/ is bind-mounted
+# straight back into it.
+# Run composer inside the php-fpm container.
 composer *args:
     bin/worktrees/compose-exec.sh composer {{args}}
 
-# Prepare the current worktree: its own URL, its own dev DB (migrated + seeded),
-# its own test DB, vendor and CSS. Prints the URL. No-op from the main checkout.
+# Provisions its own URL, dev DB (migrated + seeded), test DB, vendor and CSS.
+# No-op from the main checkout. Safe to re-run; also repairs a lost sidecar.
+# Prepare the current worktree and print its URL.
 worktree-up:
     bin/worktrees/worktree-bootstrap.sh
 
@@ -53,8 +55,9 @@ worktrees:
             "app_wt_$(worktree_db_token "$slug")" "${status:-stopped}"
     done
 
-# Remove sidecars and databases whose worktree directory is gone. A plain
-# `git worktree remove` leaves both behind, and the route then serves 502s.
+# A plain `git worktree remove` leaves the sidecar and databases behind, and
+# the route then serves 502s.
+# Remove sidecars and databases whose worktree is gone.
 worktree-prune:
     #!/usr/bin/env bash
     set -euo pipefail
@@ -129,6 +132,7 @@ gamache:
 # dev/test values that are committed on purpose. trufflehog goes further and
 # *verifies* candidates against the relevant provider APIs, failing only on
 # credentials that actually authenticate — so it does make outbound calls.
+# Scan the whole git history for committed secrets (gitleaks + trufflehog).
 secrets-scan:
     @command -v gitleaks >/dev/null 2>&1 || { echo "gitleaks not installed — run: brew install gitleaks"; exit 1; }
     @command -v trufflehog >/dev/null 2>&1 || { echo "trufflehog not installed — run: brew install trufflehog"; exit 1; }
@@ -136,6 +140,7 @@ secrets-scan:
     trufflehog git file://. --results=verified --fail
 
 # lint already covers parallel-lint, prettier --check and eslint (incl. e2e).
+# Check-only gate: lint, style dry-run, phpstan, arkitect, gamache, PHPUnit.
 ci: lint cs-check phpstan arkitect gamache phpunit
 
 migrate-diff: (exec "bin/console doctrine:migrations:diff")
@@ -145,8 +150,9 @@ migrate-run: (exec "bin/console doctrine:migrations:migrate")
 e2e *args:
     cd e2e && npx playwright test {{args}}
 
-# Runs e2e with per-request PHP coverage (CoverageSubscriber writes .cov files
-# to var/coverage), then merges them into an HTML report.
+# CoverageSubscriber writes .cov files to var/coverage, which are then merged
+# into an HTML report.
+# Run e2e with per-request PHP coverage.
 e2e-coverage *args:
     rm -rf var/coverage
     cd e2e && COVERAGE=1 npx playwright test {{args}}
@@ -165,8 +171,9 @@ tailwind:
 cli-test:
     docker run --rm -v "{{justfile_directory()}}/cli":/cli -w /cli -e GOTOOLCHAIN=local golang:1.23-alpine sh -c 'go vet ./... && go test ./...'
 
-# Cross-compile a static CLI binary into cli/dist/. Defaults to the dev's mac;
-# override e.g. `just cli-build linux amd64`. A full release matrix is goreleaser's job (see NEXT_STEPS).
+# Defaults to the dev's mac; override e.g. `just cli-build linux amd64`. A full
+# release matrix is goreleaser's job (see NEXT_STEPS).
+# Cross-compile a static CLI binary into cli/dist/.
 cli-build goos="darwin" goarch="arm64":
     docker run --rm -v "{{justfile_directory()}}/cli":/cli -w /cli -e GOTOOLCHAIN=local -e CGO_ENABLED=0 -e GOOS={{goos}} -e GOARCH={{goarch}} golang:1.23-alpine sh -c 'go build -o dist/loupe-{{goos}}-{{goarch}} .'
 
@@ -221,6 +228,7 @@ tf-output *args:
 # first `just tf-apply`). Adds the app + your current public IP to the cluster's
 # trusted sources (additive — preserves sibling apps), then grants the app user
 # schema privileges (PG15+ blocks CREATE on public otherwise). Needs doctl + docker.
+# One-time DB bootstrap on the shared cluster for THIS app.
 tf-db-bootstrap:
     #!/usr/bin/env bash
     set -euo pipefail
