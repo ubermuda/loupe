@@ -8,7 +8,8 @@ use App\Module\Account\Entity\User;
 
 final readonly class ShowAccountSettingsCommand
 {
-    public function __construct(public User $user)
-    {
+    public function __construct(
+        public User $user,
+    ) {
     }
 }

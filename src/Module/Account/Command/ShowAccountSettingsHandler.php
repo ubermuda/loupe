@@ -8,8 +8,9 @@ use App\Module\Account\Repository\DataExportRepository;
 
 final readonly class ShowAccountSettingsHandler
 {
-    public function __construct(private DataExportRepository $dataExports)
-    {
+    public function __construct(
+        private DataExportRepository $dataExports,
+    ) {
     }
 
     public function __invoke(ShowAccountSettingsCommand $command): ShowAccountSettingsView

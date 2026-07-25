@@ -6,7 +6,8 @@ namespace App\Module\Account\Messenger;
 
 final readonly class GenerateDataExportMessage
 {
-    public function __construct(public string $dataExportId)
-    {
+    public function __construct(
+        public string $dataExportId,
+    ) {
     }
 }
