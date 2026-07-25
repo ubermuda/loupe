@@ -10,7 +10,6 @@ use App\Tests\Support\RecordingStripeHttpClient;
 use PHPUnit\Framework\TestCase;
 use Stripe\ApiRequestor;
 use Stripe\HttpClient\CurlClient;
-use Stripe\StripeClient;
 
 final class StripeGatewayTest extends TestCase
 {
@@ -22,7 +21,7 @@ final class StripeGatewayTest extends TestCase
         $this->http = new RecordingStripeHttpClient($responseBody);
         ApiRequestor::setHttpClient($this->http);
 
-        return new StripeGateway(new StripeClient('sk_test_dummy'));
+        return new StripeGateway('sk_test_dummy');
     }
 
     #[\Override]

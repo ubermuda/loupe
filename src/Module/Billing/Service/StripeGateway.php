@@ -7,19 +7,34 @@ namespace App\Module\Billing\Service;
 use App\Module\Account\Entity\User;
 use Stripe\StripeClient;
 use Symfony\Component\DependencyInjection\Attribute\AsAlias;
+use Symfony\Component\DependencyInjection\Attribute\Autowire;
 
 #[AsAlias(StripeGatewayInterface::class)]
 final readonly class StripeGateway implements StripeGatewayInterface
 {
     public function __construct(
-        private StripeClient $stripe,
+        #[Autowire(env: 'STRIPE_SECRET_KEY')]
+        private string $secretKey,
     ) {
+    }
+
+    /**
+     * The client is built per call rather than injected. StripeClient rejects an
+     * empty API key in its constructor, so injecting it would make a deployment
+     * that has not configured Stripe yet fail while the service graph is built —
+     * that is, before any of the caller's error handling exists, taking down the
+     * subscribe page and the account page with a 500. Constructing it here puts
+     * the failure inside the calls the callers already degrade gracefully from.
+     */
+    private function stripe(): StripeClient
+    {
+        return new StripeClient($this->secretKey);
     }
 
     #[\Override]
     public function createCustomer(User $user): string
     {
-        $customer = $this->stripe->customers->create([
+        $customer = $this->stripe()->customers->create([
             'email' => $user->email,
             'name' => $user->fullName,
             'metadata' => ['app_user_id' => (string) $user->id],
@@ -31,7 +46,7 @@ final readonly class StripeGateway implements StripeGatewayInterface
     #[\Override]
     public function createCheckoutSession(string $customerId, string $priceId, string $successUrl, string $cancelUrl, string $idempotencyKey): string
     {
-        $session = $this->stripe->checkout->sessions->create([
+        $session = $this->stripe()->checkout->sessions->create([
             'mode' => 'subscription',
             'customer' => $customerId,
             'line_items' => [['price' => $priceId, 'quantity' => 1]],
@@ -51,7 +66,7 @@ final readonly class StripeGateway implements StripeGatewayInterface
     #[\Override]
     public function createPortalSession(string $customerId, string $returnUrl): string
     {
-        $session = $this->stripe->billingPortal->sessions->create([
+        $session = $this->stripe()->billingPortal->sessions->create([
             'customer' => $customerId,
             'return_url' => $returnUrl,
         ]);
@@ -62,7 +77,7 @@ final readonly class StripeGateway implements StripeGatewayInterface
     #[\Override]
     public function retrievePrice(string $priceId): PriceView
     {
-        $price = $this->stripe->prices->retrieve($priceId);
+        $price = $this->stripe()->prices->retrieve($priceId);
 
         // A subscription-mode Checkout needs an active, recurring, fixed-amount
         // price — anything else (one-time, metered/tiered, archived) would render
@@ -83,6 +98,6 @@ final readonly class StripeGateway implements StripeGatewayInterface
     #[\Override]
     public function cancelSubscription(string $subscriptionId): void
     {
-        $this->stripe->subscriptions->cancel($subscriptionId);
+        $this->stripe()->subscriptions->cancel($subscriptionId);
     }
 }
