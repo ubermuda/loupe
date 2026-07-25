@@ -14,7 +14,9 @@ use App\Tests\Support\FeatureFlags;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
+use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpKernel\Event\RequestEvent;
 use Symfony\Component\HttpKernel\HttpKernelInterface;
 use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
@@ -165,12 +167,26 @@ final class RequireSubscriptionListenerTest extends TestCase
     }
 
     #[DataProvider('machinePaths')]
-    public function test_machine_endpoints_never_receive_an_html_redirect(string $path): void
+    public function test_machine_endpoints_are_gated_with_a_machine_readable_402(string $path): void
     {
         $user = $this->user();
         $event = $this->event('api_site_review_submit', $path);
 
         $this->listener($user, $this->expiredProfile($user))($event);
+
+        $response = $event->getResponse();
+        self::assertInstanceOf(JsonResponse::class, $response);
+        self::assertSame(Response::HTTP_PAYMENT_REQUIRED, $response->getStatusCode());
+        self::assertStringContainsString('subscription_required', (string) $response->getContent());
+    }
+
+    #[DataProvider('machinePaths')]
+    public function test_machine_endpoints_pass_while_the_trial_runs(string $path): void
+    {
+        $user = $this->user();
+        $event = $this->event('api_site_review_submit', $path);
+
+        $this->listener($user, new BillingProfile($user, trialEndsAt: new \DateTimeImmutable('+2 days')))($event);
 
         self::assertNull($event->getResponse());
     }

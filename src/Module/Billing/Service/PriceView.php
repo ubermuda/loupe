@@ -19,4 +19,19 @@ final readonly class PriceView
         public string $interval,
     ) {
     }
+
+    /**
+     * The amount in major units. Stripe's minor unit is not always a hundredth:
+     * JPY has no decimal places and BHD has three, so dividing by 100 would
+     * quote a price the customer is not charged. The currency's own exponent is
+     * read from ICU.
+     */
+    public function amountInMajorUnits(): float
+    {
+        $formatter = new \NumberFormatter('en', \NumberFormatter::CURRENCY);
+        $formatter->setTextAttribute(\NumberFormatter::CURRENCY_CODE, strtoupper($this->currency));
+        $fractionDigits = $formatter->getAttribute(\NumberFormatter::FRACTION_DIGITS);
+
+        return $this->unitAmount / 10 ** (is_int($fractionDigits) && $fractionDigits >= 0 ? $fractionDigits : 2);
+    }
 }

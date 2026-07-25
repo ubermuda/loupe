@@ -34,14 +34,22 @@ final class SyncStripeSubscriptionHandlerTest extends TestCase
         return new SyncStripeSubscriptionHandler($profiles, $this->createStub(EntityManagerInterface::class), new NullLogger());
     }
 
-    /** @param non-empty-string $eventId */
-    private function command(string $status, string $eventCreatedAt = 'now', string $eventId = 'evt_1'): SyncStripeSubscriptionCommand
-    {
+    /**
+     * @param non-empty-string $eventId
+     * @param non-empty-string $eventType
+     */
+    private function command(
+        string $status,
+        string $eventCreatedAt = 'now',
+        string $eventId = 'evt_1',
+        string $eventType = 'customer.subscription.updated',
+    ): SyncStripeSubscriptionCommand {
         return new SyncStripeSubscriptionCommand(
             stripeEventId: $eventId,
             stripeCustomerId: 'cus_123',
             stripeSubscriptionId: 'sub_123',
             stripeStatus: $status,
+            stripeEventType: $eventType,
             currentPeriodEnd: new \DateTimeImmutable('+30 days'),
             eventCreatedAt: new \DateTimeImmutable($eventCreatedAt),
         );
@@ -80,7 +88,7 @@ final class SyncStripeSubscriptionHandlerTest extends TestCase
         $profile = $this->profile();
         $handler = $this->handler($profile);
 
-        $handler($this->command('canceled', '2026-07-25 12:00:05', 'evt_deleted'));
+        $handler($this->command('canceled', '2026-07-25 12:00:05', 'evt_deleted', 'customer.subscription.deleted'));
         $handler($this->command('active', '2026-07-25 12:00:01', 'evt_older_update'));
 
         self::assertSame(BillingStatus::Canceled, $profile->status);
@@ -111,6 +119,22 @@ final class SyncStripeSubscriptionHandlerTest extends TestCase
         $handler($this->command('active', '2026-07-25 12:00:05', 'evt_updated'));
 
         self::assertSame(BillingStatus::Active, $profile->status);
+    }
+
+    /**
+     * The dangerous same-second case: a cancellation and an older `updated`
+     * share a second and Stripe delivers them out of order. Access must not come
+     * back.
+     */
+    public function test_a_same_second_update_never_undoes_a_cancellation(): void
+    {
+        $profile = $this->profile();
+        $handler = $this->handler($profile);
+
+        $handler($this->command('canceled', '2026-07-25 12:00:05', 'evt_deleted', 'customer.subscription.deleted'));
+        $handler($this->command('active', '2026-07-25 12:00:05', 'evt_stale_update'));
+
+        self::assertSame(BillingStatus::Canceled, $profile->status);
     }
 
     public function test_a_newer_event_is_applied(): void

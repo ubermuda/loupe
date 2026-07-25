@@ -49,6 +49,15 @@ class BillingProfile
     #[ORM\Column(length: 255, nullable: true)]
     public ?string $lastStripeEventId = null;
 
+    /**
+     * Type of the last Stripe event applied. A `customer.subscription.deleted`
+     * is terminal: nothing sharing its second — or older — may hand access back,
+     * while an ordinary `updated` carrying a not-yet-paid status may be followed
+     * within the same second by the `updated` that activates the subscription.
+     */
+    #[ORM\Column(length: 255, nullable: true)]
+    public ?string $lastStripeEventType = null;
+
     public function __construct(
         // OneToOne rather than ManyToOne + a unique constraint: one profile per
         // user is the invariant, and OneToOne already implies the unique FK.

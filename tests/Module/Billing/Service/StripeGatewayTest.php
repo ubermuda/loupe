@@ -51,6 +51,26 @@ final class StripeGatewayTest extends TestCase
         self::assertSame('https://app/cancel', $request['params']['cancel_url']);
     }
 
+    public function test_checkout_sessions_are_created_idempotently_per_customer_price_and_day(): void
+    {
+        $gateway = $this->gateway(['id' => 'cs_1', 'object' => 'checkout.session', 'url' => 'https://checkout.stripe.test/s']);
+
+        $gateway->createCheckoutSession('cus_1', 'price_1', 'https://app/success', 'https://app/cancel');
+        $gateway->createCheckoutSession('cus_1', 'price_1', 'https://app/success', 'https://app/cancel');
+
+        $keys = array_map(
+            static fn (array $request): array => array_values(array_filter(
+                $request['headers'],
+                static fn (string $header): bool => str_starts_with($header, 'Idempotency-Key: '),
+            )),
+            $this->http->requests,
+        );
+
+        self::assertCount(1, $keys[0], 'the checkout call must carry an idempotency key');
+        self::assertSame($keys[0], $keys[1], 'a repeated checkout must reuse the same key');
+        self::assertStringContainsString('checkout_cus_1_price_1_', $keys[0][0]);
+    }
+
     public function test_checkout_session_without_url_is_rejected(): void
     {
         $gateway = $this->gateway(['id' => 'cs_1', 'object' => 'checkout.session']);

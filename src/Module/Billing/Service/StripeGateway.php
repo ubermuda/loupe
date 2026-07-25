@@ -37,6 +37,14 @@ final readonly class StripeGateway implements StripeGatewayInterface
             'line_items' => [['price' => $priceId, 'quantity' => 1]],
             'success_url' => $successUrl,
             'cancel_url' => $cancelUrl,
+        ], [
+            // A double-click, a retried redirect or a second tab must not open a
+            // second Checkout: two completed sessions mean two subscriptions and
+            // a double charge. Keying on customer, price and day makes Stripe
+            // return the session it already created (keys live 24h, as do the
+            // sessions themselves), while a genuine re-subscribe on another day
+            // still gets a fresh one.
+            'idempotency_key' => sprintf('checkout_%s_%s_%s', $customerId, $priceId, gmdate('Y-m-d')),
         ]);
 
         return $session->url ?? throw new \RuntimeException('Stripe checkout session has no URL');

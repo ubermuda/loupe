@@ -18,6 +18,8 @@ final readonly class SyncStripeSubscriptionCommand
         /** @phpstan-var non-empty-string */
         public string $stripeSubscriptionId,
         public string $stripeStatus,
+        /** @phpstan-var non-empty-string */
+        public string $stripeEventType,
         public ?\DateTimeImmutable $currentPeriodEnd,
         public \DateTimeImmutable $eventCreatedAt,
     ) {

@@ -11,6 +11,8 @@ use Psr\Log\LoggerInterface;
 
 final readonly class SyncStripeSubscriptionHandler
 {
+    public const string SUBSCRIPTION_DELETED = 'customer.subscription.deleted';
+
     public function __construct(
         private BillingProfileRepository $billingProfiles,
         private EntityManagerInterface $em,
@@ -46,6 +48,25 @@ final readonly class SyncStripeSubscriptionHandler
             return;
         }
 
+        // Within one second `created` cannot order two events at all, so arrival
+        // order decides — except behind a deletion. A deletion is terminal until
+        // something strictly newer supersedes it, so an `updated` that shares its
+        // second never hands access back. Ordinary same-second events still both
+        // apply: a subscription is routinely created as `incomplete` and updated
+        // to `active` inside the same second, and dropping the second one would
+        // paywall a paying customer.
+        if (self::SUBSCRIPTION_DELETED === $profile->lastStripeEventType
+            && null !== $profile->lastStripeEventAt
+            && $command->eventCreatedAt <= $profile->lastStripeEventAt) {
+            $this->logger->info('billing.webhook.stale_event', [
+                'stripeCustomerId' => $command->stripeCustomerId,
+                'eventId' => $command->stripeEventId,
+                'reason' => 'not newer than the deletion already applied',
+            ]);
+
+            return;
+        }
+
         // The same event delivered twice is a replay. Timestamps cannot detect
         // it — Stripe's `created` has one-second resolution, and a `created`
         // event followed immediately by an `updated` one legitimately shares a
@@ -65,6 +86,7 @@ final readonly class SyncStripeSubscriptionHandler
         $profile->currentPeriodEnd = $command->currentPeriodEnd;
         $profile->lastStripeEventAt = $command->eventCreatedAt;
         $profile->lastStripeEventId = $command->stripeEventId;
+        $profile->lastStripeEventType = $command->stripeEventType;
         $this->em->flush();
 
         $this->logger->info('billing.subscription.synced', [

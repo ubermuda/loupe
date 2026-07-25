@@ -14,7 +14,7 @@ use Stripe\HttpClient\ClientInterface;
  */
 final class RecordingStripeHttpClient implements ClientInterface
 {
-    /** @var list<array{method: string, url: string, params: array<string, mixed>}> */
+    /** @var list<array{method: string, url: string, params: array<string, mixed>, headers: list<string>}> */
     public array $requests = [];
 
     /** @param array<string, mixed> $body */
@@ -37,7 +37,7 @@ final class RecordingStripeHttpClient implements ClientInterface
     #[\Override]
     public function request($method, $absUrl, $headers, $params, $hasFile, $apiMode = 'v1', $maxNetworkRetries = null): array
     {
-        $this->requests[] = ['method' => $method, 'url' => $absUrl, 'params' => $params];
+        $this->requests[] = ['method' => $method, 'url' => $absUrl, 'params' => $params, 'headers' => array_values($headers)];
 
         return [json_encode($this->body, JSON_THROW_ON_ERROR), 200, []];
     }

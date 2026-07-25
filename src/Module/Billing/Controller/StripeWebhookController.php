@@ -63,10 +63,11 @@ final class StripeWebhookController extends AppController
         }
 
         $subscription = $event->data->object;
+        $eventType = is_string($event->type) ? $event->type : '';
         $eventId = is_string($event->id) ? $event->id : '';
         $customerId = is_string($subscription['customer'] ?? null) ? $subscription['customer'] : '';
         $subscriptionId = is_string($subscription['id'] ?? null) ? $subscription['id'] : '';
-        if ('' === $eventId || '' === $customerId || '' === $subscriptionId) {
+        if ('' === $eventType || '' === $eventId || '' === $customerId || '' === $subscriptionId) {
             $this->logger->warning('billing.webhook.malformed', ['eventType' => $event->type]);
 
             return new JsonResponse(['received' => true]);
@@ -76,9 +77,10 @@ final class StripeWebhookController extends AppController
             stripeEventId: $eventId,
             stripeCustomerId: $customerId,
             stripeSubscriptionId: $subscriptionId,
-            stripeStatus: 'customer.subscription.deleted' === $event->type
+            stripeStatus: SyncStripeSubscriptionHandler::SUBSCRIPTION_DELETED === $eventType
                 ? 'canceled'
                 : (is_string($subscription['status'] ?? null) ? $subscription['status'] : 'canceled'),
+            stripeEventType: $eventType,
             currentPeriodEnd: $this->periodEnd($subscription),
             eventCreatedAt: new \DateTimeImmutable('@'.$event->created),
         ));

@@ -32,7 +32,7 @@
     <section class="lp-billing-block">
         <p class="lp-eyebrow">{{ 'billing.subscribe.price.eyebrow'|trans }}</p>
         <p class="lp-billing-price">
-            <span class="lp-billing-price__amount">{{ (view.price.unitAmount / 100)|format_currency(view.price.currency|upper) }}</span>
+            <span class="lp-billing-price__amount">{{ view.price.amountInMajorUnits|format_currency(view.price.currency|upper) }}</span>
             <span class="lp-billing-price__interval">{{ ('billing.subscribe.price.interval.' ~ view.price.interval)|trans }}</span>
         </p>
     </section>

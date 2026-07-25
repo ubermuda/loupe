@@ -7,7 +7,9 @@ namespace App\Module\Billing\EventListener;
 use App\Module\Account\Entity\User;
 use App\Module\Billing\Service\PaywallGate;
 use Symfony\Component\EventDispatcher\Attribute\AsEventListener;
+use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\RedirectResponse;
+use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpKernel\Event\RequestEvent;
 use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 use Symfony\Component\Security\Core\Authentication\Token\Storage\TokenStorageInterface;
@@ -56,8 +58,9 @@ final readonly class RequireSubscriptionListener
 
     /**
      * Machine clients authenticate against the stateless token firewalls with an
-     * API token. Handing them an HTML 302 to the subscribe page would corrupt
-     * their response rather than explain anything, so they are left alone here.
+     * API token. They are gated exactly like the UI, but an HTML 302 to the
+     * subscribe page would corrupt their response rather than explain anything,
+     * so they get a 402 with a machine-readable body instead.
      */
     private const array MACHINE_PATH_PREFIXES = ['/api/', '/mcp'];
 
@@ -80,26 +83,27 @@ final readonly class RequireSubscriptionListener
         }
 
         $request = $event->getRequest();
-        foreach (self::MACHINE_PATH_PREFIXES as $prefix) {
-            if (str_starts_with($request->getPathInfo(), $prefix)) {
+        $isMachineRequest = array_any(self::MACHINE_PATH_PREFIXES, fn($prefix) => str_starts_with($request->getPathInfo(), (string) $prefix));
+
+        if (!$isMachineRequest) {
+            $route = $request->attributes->get('_route');
+            if (!is_string($route)
+                || in_array($route, self::ALLOWED_ROUTES, true)
+                || str_starts_with($route, self::ADMIN_ROUTE_PREFIX)
+                || str_starts_with($route, self::FEATURE_FLAGS_ROUTE_PREFIX)) {
                 return;
             }
-        }
-
-        $route = $request->attributes->get('_route');
-        if (!is_string($route)
-            || in_array($route, self::ALLOWED_ROUTES, true)
-            || str_starts_with($route, self::ADMIN_ROUTE_PREFIX)
-            || str_starts_with($route, self::FEATURE_FLAGS_ROUTE_PREFIX)) {
-            return;
         }
 
         if ($this->gate->allows($user)) {
             return;
         }
 
-        $event->setResponse(
-            new RedirectResponse($this->urlGenerator->generate('app_billing_subscribe'))
-        );
+        $event->setResponse($isMachineRequest
+            ? new JsonResponse(
+                ['error' => 'subscription_required', 'subscribeUrl' => $this->urlGenerator->generate('app_billing_subscribe', referenceType: UrlGeneratorInterface::ABSOLUTE_URL)],
+                Response::HTTP_PAYMENT_REQUIRED,
+            )
+            : new RedirectResponse($this->urlGenerator->generate('app_billing_subscribe')));
     }
 }
