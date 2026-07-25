@@ -28,6 +28,20 @@ final class MarkdownRendererTest extends TestCase
         self::assertStringNotContainsString('onclick', $html);
     }
 
+    public function test_renders_documents_larger_than_the_sanitizer_default_limit(): void
+    {
+        // The sanitizer's default 20 000-byte input cap silently truncated long
+        // documents; a >20KB document must keep its final section.
+        $section = "## Section\n\nSome paragraph text that pads the document out.\n\n";
+        $markdown = str_repeat($section, 500)."## The Very Last Heading\n\nfinal-marker-text\n";
+        self::assertGreaterThan(20_000, strlen($markdown));
+
+        $html = new MarkdownRenderer()->render($markdown);
+
+        self::assertStringContainsString('The Very Last Heading', $html);
+        self::assertStringContainsString('final-marker-text', $html);
+    }
+
     public function test_strips_javascript_links(): void
     {
         $html = new MarkdownRenderer()->render('[click me](javascript:alert(1))');

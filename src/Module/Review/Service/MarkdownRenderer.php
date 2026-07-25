@@ -23,6 +23,9 @@ final readonly class MarkdownRenderer
         $environment->addExtension(new TableExtension());
         $this->converter = new MarkdownConverter($environment);
         $config = new HtmlSanitizerConfig()
+            // The sanitizer's default max input length is 20 000 bytes, beyond which it
+            // silently truncates — long documents lost their tail at render time.
+            ->withMaxInputLength(1_000_000)
             ->allowSafeElements()
             ->allowElement('h1')
             ->allowElement('h2')
