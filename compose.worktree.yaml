@@ -1,0 +1,50 @@
+# One nginx per git worktree, so each worktree is browsable at its own URL.
+#
+# Brought up by bin/worktrees/worktree-bootstrap.sh, which passes every
+# variable below and generates the docroot file. Not usable standalone:
+#
+#   docker compose -f compose.worktree.yaml -p <project>-wt-<slug> up -d
+#
+# The explicit -p matters — .env sets COMPOSE_PROJECT_NAME, and that
+# environment variable would override a `name:` key declared in this file.
+#
+# Only nginx is duplicated. php-fpm, Postgres, Mailpit and Mercure are shared
+# with the main stack: the whole main checkout is mounted at /var/www/html and
+# worktrees live inside it, so a worktree's files sit at the same path in both
+# this container and the shared php-fpm. That path identity is what lets one
+# php-fpm serve every worktree — only the document root differs.
+services:
+  nginx:
+    image: nginx
+    restart: unless-stopped
+    volumes:
+      # The whole main checkout, because that is the path php-fpm sees.
+      - ${WT_MAIN:?set by worktree-bootstrap.sh}:/var/www/html
+      # ...but the CONFIG comes from the worktree, not main. Same file the main
+      # stack uses, so it stays a single source of truth, while a worktree that
+      # edits nginx config can still test that edit through its own URL.
+      - ${WT_ROOT:?set by worktree-bootstrap.sh}/docker/common/nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+      # Generated per worktree; the only line that differs from the main stack.
+      - ${WT_ROOT:?}/var/nginx-docroot.conf:/etc/nginx/docroot.conf:ro
+    networks:
+      # Both networks must be attached at creation. Attaching one afterwards is
+      # a race: nginx resolves `php-fpm` while parsing its config and exits with
+      # "host not found in upstream" if the network isn't there yet.
+      - traefik
+      - app
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=traefik
+      - traefik.http.routers.wt-${WT_SLUG}.rule=Host(`${WT_SLUG}.${WT_BASE_HOST:?set by worktree-bootstrap.sh}`)
+      - traefik.http.routers.wt-${WT_SLUG}.entrypoints=websecure
+      - traefik.http.routers.wt-${WT_SLUG}.tls=true
+      - traefik.http.routers.wt-${WT_SLUG}.tls.certresolver=stepca
+      - traefik.http.services.wt-${WT_SLUG}.loadbalancer.server.port=80
+
+networks:
+  traefik:
+    external: true
+  # The main stack's default network, where `php-fpm` and `database` resolve.
+  app:
+    external: true
+    name: ${WT_APP_NETWORK:?set by worktree-bootstrap.sh}
