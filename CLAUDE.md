@@ -15,6 +15,7 @@ These skills contain detailed conventions for specific areas. **Invoke the relev
 | `project-e2e` | Writing or fixing Playwright tests under `e2e/` |
 | `project-frontend` | CSS in `assets/`, Stimulus controllers, Turbo patterns, icons, any frontend visual behaviour |
 | `project-templates` | `.html.twig` files or Twig component PHP classes |
+| `project-worktrees` | Git worktrees — provisioning, URLs, per-worktree databases, worktree tooling |
 | `project-translations` | UI strings, translation keys, or adding a new locale |
 | `symfony-authorization` | Generic Symfony authorization mechanics — Voter classes, attribute naming, `#[IsGranted]` placement, `subject:` resolution, `is_granted()` in Twig |
 | `symfony-entity-route-mapping` | Routes that resolve entities from URL parameters — `{param:variable}` notation, `#[MapEntity]`, multi-entity routes |
@@ -37,28 +38,18 @@ When an item in `docs/NEXT_STEPS.md` is resolved, **delete it entirely**. Do not
 
 ## Git Worktrees
 
-Worktrees are stored in `.claude/worktrees/` (already gitignored).
-
-**Every worktree is a full application of its own.** Run `just worktree-up` after
-creating one and it gets:
-
-- its own URL — `https://<name>.loupe.dev.localhost`, served by a small nginx
-  sidecar (`compose.worktree.yaml`) while php-fpm, Postgres, Mailpit and Mercure
-  stay shared with the main stack
-- its own database — `app_wt_<name>`, migrated and seeded; log in with
-  `dev@loupe.test` / `password`
-- its own compiled CSS, so classes introduced in the worktree actually render
-
-The stack must be running first (`just up`); bootstrap fails fast otherwise
-rather than leaving a half-configured worktree. Re-running `just worktree-up` is
-always safe.
+Worktrees are stored in `.claude/worktrees/` (already gitignored). **Every
+worktree is a full application of its own** — run `just worktree-up` and it gets
+its own URL (`https://<name>.loupe.dev.localhost`), its own migrated and seeded
+database, and its own compiled CSS. Log in with `dev@loupe.test` / `password`.
 
 - Always branch off `main`, not the current feature branch
-- Tear down with `just worktree-down <name>` — plain `git worktree remove`
-  leaves the sidecar and both databases behind, and the route then serves 502s.
-  `just worktree-prune` cleans up any that were orphaned that way.
-- `just worktrees` lists every worktree with its URL, database and status
-- `just wt-tailwind` runs Tailwind in watch mode for the current worktree
+- Tear down with `just worktree-down <name>`, never a bare `git worktree remove`
+- **Invoke the `project-worktrees` skill** before provisioning, debugging or
+  writing tooling for a worktree. It covers the commands, the symptom→cause
+  table (404 vs 502, unstyled CSS, rejected widget token), and the two rules
+  that prevent real damage: never run bare `docker compose` from a worktree, and
+  never match worktrees by directory name instead of slug.
 - **Serena's edit tools do not work from a worktree.** The Serena MCP server is bound to the main checkout, so `replace_symbol_body` / `insert_*_symbol` / `replace_content` silently write to the **main checkout**, not your worktree — leaving your branch unchanged and the main tree dirty. When working in a worktree (e.g. a subagent implementing a PR), use the built-in **Edit/Write** tools for all edits. Serena **read** tools (`get_symbols_overview`, `find_symbol`, `find_referencing_symbols`) are safe from anywhere.
 
 ## Claude Commands

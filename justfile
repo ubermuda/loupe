@@ -77,7 +77,7 @@ worktree-prune:
     done
 
 # Tailwind watch mode for the CURRENT worktree (its own var/tailwind).
-wt-tailwind:
+worktree-tailwind:
     bin/worktrees/compose-exec.sh bin/console tailwind:build --watch
 
 lint:
