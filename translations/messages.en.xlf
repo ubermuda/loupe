@@ -906,6 +906,48 @@
                 <target>Manage feature flags</target>
             </trans-unit>
 
+            <!-- Install wizard -->
+            <trans-unit id="account.install.flags.page.title">
+                <source>account.install.flags.page.title</source>
+                <target>Install — feature flags</target>
+            </trans-unit>
+            <trans-unit id="account.install.flags.heading">
+                <source>account.install.flags.heading</source>
+                <target>Set up Loupe</target>
+            </trans-unit>
+            <trans-unit id="account.install.flags.intro">
+                <source>account.install.flags.intro</source>
+                <target>Review the default feature flags for this installation. You can change all of these later in the admin area.</target>
+            </trans-unit>
+            <trans-unit id="account.install.flags.submit">
+                <source>account.install.flags.submit</source>
+                <target>Continue</target>
+            </trans-unit>
+            <trans-unit id="account.form.install_flags_form.registration_cap.label">
+                <source>account.form.install_flags_form.registration_cap.label</source>
+                <target>Registration cap (0 = unlimited)</target>
+            </trans-unit>
+            <trans-unit id="account.form.install_flags_form.billing_enabled.label">
+                <source>account.form.install_flags_form.billing_enabled.label</source>
+                <target>Enable billing</target>
+            </trans-unit>
+            <trans-unit id="account.form.install_flags_form.billing_trial_days.label">
+                <source>account.form.install_flags_form.billing_trial_days.label</source>
+                <target>Trial length (days)</target>
+            </trans-unit>
+            <trans-unit id="account.form.install_flags_form.billing_stripe_price_id.label">
+                <source>account.form.install_flags_form.billing_stripe_price_id.label</source>
+                <target>Stripe Price ID (optional)</target>
+            </trans-unit>
+            <trans-unit id="account.form.install_flags_form.auth_github_enabled.label">
+                <source>account.form.install_flags_form.auth_github_enabled.label</source>
+                <target>Enable GitHub login</target>
+            </trans-unit>
+            <trans-unit id="account.form.install_flags_form.auth_google_enabled.label">
+                <source>account.form.install_flags_form.auth_google_enabled.label</source>
+                <target>Enable Google login</target>
+            </trans-unit>
+
         </body>
     </file>
 </xliff>
