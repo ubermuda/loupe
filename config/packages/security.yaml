@@ -55,6 +55,7 @@ security:
         - { path: ^/login,           roles: PUBLIC_ACCESS }
         - { path: ^/register,        roles: PUBLIC_ACCESS }
         - { path: ^/forgot-password, roles: PUBLIC_ACCESS }
+        - { path: ^/admin,           roles: ROLE_ADMIN }
         - { path: ^/,                roles: ROLE_USER }
 
 # Login throttling is a per-IP rate limiter. The e2e suite drives the dev app and the
