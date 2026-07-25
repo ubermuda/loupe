@@ -10,6 +10,7 @@ use App\Module\Account\Command\RegisterUserCommand;
 use App\Module\Account\Command\RegisterUserHandler;
 use App\Module\Account\Form\RegistrationFormType;
 use App\Module\Account\Form\RegistrationRequest;
+use App\Module\Account\Repository\WaitlistEntryRepository;
 use App\Module\Account\Service\RegistrationGate;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\Form\FormError;
@@ -22,10 +23,13 @@ use Symfony\Contracts\Translation\TranslatorInterface;
 #[Route('/register', name: 'app_register')]
 class RegisterController extends AppController
 {
+    private const string INVITE_SESSION_KEY = 'waitlist_invite_token';
+
     public function __construct(
         private readonly RegisterUserHandler $registerUser,
         private readonly TranslatorInterface $translator,
         private readonly RegistrationGate $registrationGate,
+        private readonly WaitlistEntryRepository $waitlistEntries,
 
         #[Autowire(service: 'limiter.registration')]
         private readonly RateLimiterFactory $registrationLimiter,
@@ -38,7 +42,24 @@ class RegisterController extends AppController
             return $this->redirectToRoute('app_home');
         }
 
-        if (!$this->registrationGate->isOpen() && null === $request->query->get('invite')) {
+        // The invite token arrives once, in the GET URL from the email link.
+        // Stash it in the session and redirect to a clean URL — the token must
+        // not linger in the address bar, browser history, or the form action.
+        $queryToken = $request->query->get('invite');
+        if (null !== $queryToken) {
+            if (is_string($queryToken) && null !== $this->waitlistEntries->findOneByValidInviteToken($queryToken)) {
+                $request->getSession()->set(self::INVITE_SESSION_KEY, $queryToken);
+            }
+
+            return $this->redirectToRoute('app_register');
+        }
+
+        $sessionToken = $request->getSession()->get(self::INVITE_SESSION_KEY);
+        $inviteToken = is_string($sessionToken) ? $sessionToken : null;
+        $hasValidInvite = null !== $inviteToken
+            && null !== $this->waitlistEntries->findOneByValidInviteToken($inviteToken);
+
+        if (!$this->registrationGate->isOpen() && !$hasValidInvite) {
             return $this->redirectToRoute('app_waitlist_join');
         }
 
@@ -62,6 +83,7 @@ class RegisterController extends AppController
                     fullName: (string) $data->fullName,
                     email: $data->email ?: throw new \LogicException('Email is required after form validation.'),
                     plainPassword: (string) $data->plainPassword,
+                    inviteToken: $inviteToken,
                 ));
             } catch (DomainErrors $e) {
                 foreach ($e->errors as $field => $messageKey) {
@@ -71,6 +93,7 @@ class RegisterController extends AppController
                 return $this->renderFormResponse('@Account/registration/register.html.twig', $form);
             }
 
+            $request->getSession()->remove(self::INVITE_SESSION_KEY);
             $request->getSession()->set('registration_email', $user->email);
 
             return $this->redirectToRoute('app_register_check_email');

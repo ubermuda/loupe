@@ -5,8 +5,11 @@ namespace App\Module\Account\Command;
 use App\Exception\DomainErrors;
 use App\Module\Account\Entity\User;
 use App\Module\Account\Repository\UserRepository;
+use App\Module\Account\Repository\WaitlistEntryRepository;
+use App\Module\Account\Service\RegistrationGate;
 use App\Module\Account\Service\VerificationEmailSender;
 use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
+use Doctrine\DBAL\LockMode;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 
@@ -17,37 +20,70 @@ final readonly class RegisterUserHandler
         private EntityManagerInterface $em,
         private UserPasswordHasherInterface $passwordHasher,
         private VerificationEmailSender $verificationEmailSender,
+        private RegistrationGate $registrationGate,
+        private WaitlistEntryRepository $waitlistEntries,
     ) {
     }
 
     /** @throws DomainErrors */
     public function __invoke(RegisterUserCommand $command): User
     {
-        $errors = [];
-
-        if ($this->users->findOneByEmail($command->email)) {
-            $errors['email'] = 'account.registration.error.email_duplicate';
-        }
-
-        if ($this->users->findOneByUsername($command->username)) {
-            $errors['username'] = 'account.registration.error.username_taken';
-        }
-
-        if ([] !== $errors) {
-            throw new DomainErrors($errors);
-        }
-
-        $user = new User(
-            username: $command->username,
-            fullName: $command->fullName,
-            email: $command->email,
-        );
-        $user->password = $this->passwordHasher->hashPassword($user, $command->plainPassword);
-
-        $this->em->persist($user);
-
         try {
-            $this->em->flush();
+            $user = $this->em->wrapInTransaction(function () use ($command): User {
+                // Serialize every capacity decision (this handler and the OAuth
+                // branch) behind one advisory lock, so two concurrent sign-ups
+                // can never both pass a one-slot gate.
+                $this->registrationGate->acquireCapacityLock($this->em->getConnection());
+
+                $invite = null;
+                if (!$this->registrationGate->isOpen()) {
+                    $invite = null !== $command->inviteToken
+                        ? $this->waitlistEntries->findOneByValidInviteToken($command->inviteToken)
+                        : null;
+                    if (null === $invite) {
+                        throw new DomainErrors(['email' => 'account.error.registration_closed']);
+                    }
+                    // Revalidate under lock — a concurrent redemption may have
+                    // converted it since the lookup above.
+                    $this->em->lock($invite, LockMode::PESSIMISTIC_WRITE);
+                    $this->em->refresh($invite);
+                    if (null === $command->inviteToken || !$invite->isInviteTokenValid($command->inviteToken)) {
+                        throw new DomainErrors(['email' => 'account.error.registration_closed']);
+                    }
+                }
+
+                $errors = [];
+
+                if ($this->users->findOneByEmail($command->email)) {
+                    $errors['email'] = 'account.registration.error.email_duplicate';
+                }
+
+                if ($this->users->findOneByUsername($command->username)) {
+                    $errors['username'] = 'account.registration.error.username_taken';
+                }
+
+                if ([] !== $errors) {
+                    throw new DomainErrors($errors);
+                }
+
+                $user = new User(
+                    username: $command->username,
+                    fullName: $command->fullName,
+                    email: $command->email,
+                );
+                $user->password = $this->passwordHasher->hashPassword($user, $command->plainPassword);
+
+                $this->em->persist($user);
+
+                if (null !== $invite) {
+                    $invite->markConverted();
+                }
+
+                // One flush: user creation and invite conversion commit together or not at all.
+                $this->em->flush();
+
+                return $user;
+            });
         } catch (UniqueConstraintViolationException) {
             // A concurrent registration won the race between the pre-checks
             // above and this flush; surface the same field error instead of
