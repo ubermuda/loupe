@@ -26,7 +26,10 @@ worktree_slug() {
     printf '%s' "$1" \
         | tr '[:upper:]' '[:lower:]' \
         | sed -e 's/[^a-z0-9]\{1,\}/-/g' -e 's/^-*//' -e 's/-*$//' \
-        | cut -c1-63
+        | cut -c1-63 \
+        | sed -e 's/-*$//'
+    # The trailing trim runs again AFTER cut: truncating at 63 characters can
+    # land on a dash, and a label ending in one is not a valid hostname.
 }
 
 # Postgres identifiers can't contain dashes without quoting everywhere, so the
@@ -56,5 +59,23 @@ worktree_assert_slug() {
             echo "worktree: '$slug' is reserved by the main stack's own routes — rename the worktree." >&2
             return 1
         fi
+    done
+}
+
+# Print every existing worktree's "<slug> <relative name>", one per line, read
+# from git rather than from directory names so nested worktrees are included.
+# Anything deciding what is live (collision checks, pruning) must use this:
+# a worktree named Feature_X lives in a directory of that name but owns the
+# slug feature-x, and matching on the directory name would call it orphaned.
+worktree_slug_index() {
+    local main=$1 path rel slug
+    git -C "$main" worktree list --porcelain | awk '/^worktree /{print $2}' | while read -r path; do
+        case "$path" in
+            "$main"/.claude/worktrees/*) ;;
+            *) continue ;;
+        esac
+        rel=$(worktree_relative_name "$path" "$main")
+        slug=$(worktree_slug "$rel")
+        printf '%s %s\n' "$slug" "$rel"
     done
 }

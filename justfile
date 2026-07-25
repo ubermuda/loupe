@@ -39,16 +39,15 @@ worktrees:
     #!/usr/bin/env bash
     set -euo pipefail
     main=$(git worktree list --porcelain | awk '/^worktree /{print $2; exit}')
-    . "$main/bin/worktrees/slug.sh"
+    . "$(pwd)/bin/worktrees/slug.sh"   # this checkout's copy; just runs from the justfile dir
     project=$(grep -E '^COMPOSE_PROJECT_NAME=' "$main/.env" | head -1 | cut -d= -f2-)
     project=${project:-loupe}
     printf '%-28s %-42s %-22s %s\n' NAME URL "DEV DB" SIDECAR
-    for dir in "$main"/.claude/worktrees/*/; do
-        [ -d "$dir" ] || continue
-        name=$(basename "${dir%/}")
-        slug=$(worktree_slug "$name")
+    # Driven by git, so nested worktrees are listed and the slug shown is the
+    # one actually provisioned.
+    worktree_slug_index "$main" | while read -r slug name; do
         container="${project}-wt-${slug}-nginx-1"
-        status=$(docker ps --filter "name=^${container}$" --format '{{{{.Status}}}}' 2>/dev/null || true)
+        status=$(docker ps --filter "name=^${container}$" --format '{{{{.Status}}' 2>/dev/null || true)
         printf '%-28s %-42s %-22s %s\n' \
             "$name" "https://$slug.$project.dev.localhost" \
             "app_wt_$(worktree_db_token "$slug")" "${status:-stopped}"
@@ -60,14 +59,20 @@ worktree-prune:
     #!/usr/bin/env bash
     set -euo pipefail
     main=$(git worktree list --porcelain | awk '/^worktree /{print $2; exit}')
-    . "$main/bin/worktrees/slug.sh"
+    . "$(pwd)/bin/worktrees/slug.sh"   # this checkout's copy; just runs from the justfile dir
     project=$(grep -E '^COMPOSE_PROJECT_NAME=' "$main/.env" | head -1 | cut -d= -f2-)
     project=${project:-loupe}
-    for container in $(docker ps -a --filter "name=^${project}-wt-" --format '{{{{.Names}}}}'); do
+    # Match on the derived SLUG, never on a directory name: a worktree called
+    # Feature_X owns the slug feature-x, so looking for a directory of that
+    # name would declare a live worktree orphaned and drop its databases.
+    live=$(worktree_slug_index "$main" | awk '{print $1}')
+    for container in $(docker ps -a --filter "name=^${project}-wt-" --format '{{{{.Names}}'); do
         slug=${container#"${project}-wt-"}
         slug=${slug%-nginx-1}
-        [ -d "$main/.claude/worktrees/$slug" ] && continue
-        echo "pruning '$slug' (no worktree directory)"
+        if printf '%s\n' "$live" | grep -qx "$slug"; then
+            continue
+        fi
+        echo "pruning '$slug' (no worktree owns this slug)"
         bin/worktrees/worktree-teardown.sh "$slug"
     done
 

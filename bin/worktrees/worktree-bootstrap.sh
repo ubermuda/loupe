@@ -47,6 +47,22 @@ esac
 name=$(worktree_relative_name "$root" "$main")
 slug=$(worktree_slug "$name")
 worktree_assert_slug "$slug"
+
+# Two names can normalise to one slug (feature_x and feature-x, or two names
+# sharing a 63-character prefix). They would then share a hostname, a compose
+# project and BOTH databases — the second bootstrap would migrate and seed the
+# first worktree's data, and tearing either down would destroy the other's.
+# Refuse instead.
+while read -r other_slug other_name; do
+    if [ "$other_slug" = "$slug" ] && [ "$other_name" != "$name" ]; then
+        echo "worktree: '$name' and '$other_name' both normalise to the slug '$slug'," >&2
+        echo "          so they would share a URL and a database. Rename one of them." >&2
+        exit 1
+    fi
+done <<EOF
+$(worktree_slug_index "$main")
+EOF
+
 token=$(worktree_db_token "$slug")
 dev_db="app_wt_$token"
 test_db="app_test_$token"
@@ -111,8 +127,9 @@ for d in node_modules e2e/node_modules; do
     [ -e "$main/$d" ] || continue
     mkdir -p "$(dirname "$root/$d")"
     # A worktree lives at <main>/.claude/worktrees/<name> — 3 levels up to the
-    # main root, plus one more ../ per extra path segment in $d.
-    depth=$(( 3 + $(printf '%s' "$d" | tr -cd '/' | wc -c) ))
+    # main root, plus one more ../ per extra path segment in the worktree name
+    # (a nested foo/bar sits one deeper) and per extra segment in $d.
+    depth=$(( 3 + $(printf '%s' "$name" | tr -cd '/' | wc -c) + $(printf '%s' "$d" | tr -cd '/' | wc -c) ))
     prefix=$(printf '../%.0s' $(seq 1 "$depth"))
     ln -s "${prefix}${d}" "$root/$d"
 done
@@ -131,10 +148,14 @@ if [ -d "$main/var/tailwind" ]; then
         [ -d "$bindir" ] || continue
         version=$(basename "$bindir")
         [ -e "$root/var/tailwind/$version" ] && continue
-        # From <main>/.claude/worktrees/<name>/var/tailwind it is 5 levels up
-        # to the main checkout. Relative so the link also resolves inside the
-        # container, where the repo lives at a different absolute path.
-        ln -s "../../../../../var/tailwind/$version" "$root/var/tailwind/$version"
+        # Up out of var/tailwind (2), then out of the worktree itself. A
+        # worktree sits 3 levels below main (.claude/worktrees/<name>) plus one
+        # more per extra segment in a nested name (foo/bar). Relative so the
+        # link also resolves inside the container, where the repo lives at a
+        # different absolute path.
+        tw_depth=$(( 2 + 3 + $(printf '%s' "$name" | tr -cd '/' | wc -c) ))
+        tw_prefix=$(printf '../%.0s' $(seq 1 "$tw_depth"))
+        ln -s "${tw_prefix}var/tailwind/$version" "$root/var/tailwind/$version"
     done
 fi
 
@@ -175,7 +196,23 @@ in_worktree bin/console doctrine:migrations:migrate --no-interaction --allow-no-
 # The token copied from main's .env.local matches no row in this fresh
 # database, so without this the annotation widget loads into its
 # rejected-token fatal state on every page.
-seed_output=$(in_worktree bin/console app:dev:seed)
+# Raw token values are unrecoverable (only sha256 is stored), so the only way
+# to know whether the configured token still works here is to hash it and look
+# for that hash in THIS database. It won't be there on a first run, nor when
+# .env.local was re-copied from main — main's token refers to a row in main's
+# database, and leaving it in place would park the widget in its rejected
+# state forever. Ask for a fresh token in exactly those cases.
+seed_args="--reissue-widget-token"
+current_token=$(grep -E '^SITE_REVIEW_WIDGET_TOKEN=' "$root/.env.local" 2>/dev/null | head -1 | cut -d= -f2- || true)
+if [ -n "${current_token:-}" ]; then
+    current_hash=$(printf '%s' "$current_token" | shasum -a 256 | cut -d' ' -f1)
+    if docker compose exec -T database psql -U app -d "$dev_db" -tAc \
+            "SELECT 1 FROM api_tokens WHERE token_hash = '$current_hash'" 2>/dev/null | grep -q 1; then
+        seed_args=""
+    fi
+fi
+# shellcheck disable=SC2086 # deliberate word splitting: empty means no flag
+seed_output=$(in_worktree bin/console app:dev:seed $seed_args)
 widget_token=$(printf '%s' "$seed_output" | grep -E '^SITE_REVIEW_WIDGET_TOKEN=' | head -1 | cut -d= -f2- || true)
 if [ -n "${widget_token:-}" ]; then
     set_env "$root/.env.local" SITE_REVIEW_WIDGET_TOKEN "$widget_token"
