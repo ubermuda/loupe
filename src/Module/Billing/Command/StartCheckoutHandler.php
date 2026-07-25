@@ -43,11 +43,12 @@ final readonly class StartCheckoutHandler
         $profile = $this->trialProvisioner->ensureProfile($command->user);
 
         try {
-            // Everything from here on happens under a write lock on the profile
+            // Resolving the customer happens under a write lock on the profile
             // row. Two concurrent submits — a double-click, a retried redirect,
-            // two tabs — would otherwise both see no Stripe customer, create two
-            // of them, and open two Checkout sessions that each bill the user.
-            $url = $this->em->wrapInTransaction(function () use ($command, $profile, $priceId): string {
+            // two tabs — would otherwise both see no Stripe customer and create
+            // two of them, which would also give them different idempotency keys
+            // and so two Checkout sessions that each bill the user.
+            $customerId = $this->em->wrapInTransaction(function () use ($command, $profile): string {
                 $this->em->lock($profile, LockMode::PESSIMISTIC_WRITE);
                 // lock() takes the row but does not refresh what is in memory;
                 // without this the winner's customer id would go unseen.
@@ -67,14 +68,22 @@ final readonly class StartCheckoutHandler
                     $this->em->flush();
                 }
 
-                return $this->stripe->createCheckoutSession(
-                    $customerId,
-                    $priceId,
-                    $command->successUrl,
-                    $command->cancelUrl,
-                    $this->idempotencyKey($profile, $priceId),
-                );
+                return $customerId;
             });
+
+            // Deliberately outside the transaction: a Checkout failure here must
+            // not roll back the customer id just committed, or the retry would
+            // mint a second Stripe customer for the same user. The lock is no
+            // longer needed — both racers now read the same committed customer,
+            // so both compute the same idempotency key and Stripe replays the
+            // one session.
+            $url = $this->stripe->createCheckoutSession(
+                $customerId,
+                $priceId,
+                $command->successUrl,
+                $command->cancelUrl,
+                $this->idempotencyKey($profile, $priceId),
+            );
         } catch (DomainErrors $e) {
             throw $e;
         } catch (\Throwable $e) {
