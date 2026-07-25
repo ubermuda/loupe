@@ -10,7 +10,8 @@ use Symfony\Component\Validator\Exception\UnexpectedTypeException;
 
 class NotReservedUsernameValidator extends ConstraintValidator
 {
-    private const array RESERVED = [
+    /** Usernames nobody may register, and that UsernameGenerator must not produce. */
+    public const array RESERVED = [
         'admin',
         'administrator',
         'root',
