@@ -1,0 +1,209 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Tests\Module\Billing\Controller;
+
+use App\Module\Billing\Entity\BillingStatus;
+use App\Tests\Support\BillingScenario;
+use Doctrine\ORM\EntityManagerInterface;
+use Symfony\Bundle\FrameworkBundle\KernelBrowser;
+use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
+use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\HttpFoundation\Response;
+
+/**
+ * Payloads are signed exactly the way Stripe signs them, so the real
+ * Webhook::constructEvent verification runs.
+ */
+final class StripeWebhookControllerTest extends WebTestCase
+{
+    private const string WEBHOOK_SECRET = 'whsec_test';
+
+    private const string CUSTOMER_ID = 'cus_webhook';
+
+    private function sign(string $payload): string
+    {
+        $timestamp = time();
+
+        return sprintf('t=%d,v1=%s', $timestamp, hash_hmac('sha256', $timestamp.'.'.$payload, self::WEBHOOK_SECRET));
+    }
+
+    /** @param array<string, mixed> $subscription */
+    private function payload(string $type, array $subscription, int $created): string
+    {
+        return json_encode([
+            'id' => 'evt_1',
+            'object' => 'event',
+            'type' => $type,
+            'created' => $created,
+            'data' => ['object' => $subscription],
+        ], JSON_THROW_ON_ERROR);
+    }
+
+    /** @return array<string, mixed> */
+    private function classicSubscription(string $status = 'active'): array
+    {
+        return [
+            'id' => 'sub_webhook',
+            'object' => 'subscription',
+            'customer' => self::CUSTOMER_ID,
+            'status' => $status,
+            'current_period_end' => 1893456000,
+        ];
+    }
+
+    private function post(KernelBrowser $client, string $payload, ?string $signature = null): void
+    {
+        $client->request(
+            Request::METHOD_POST,
+            '/webhooks/stripe',
+            server: ['CONTENT_TYPE' => 'application/json', 'HTTP_STRIPE_SIGNATURE' => $signature ?? $this->sign($payload)],
+            content: $payload,
+        );
+    }
+
+    private function seedProfile(string $customerId = self::CUSTOMER_ID): void
+    {
+        $scenario = new BillingScenario(static::getContainer());
+        $user = $scenario->verifiedUser('hooked'.substr(md5($customerId), 0, 8));
+        $profile = $scenario->profile($user, new \DateTimeImmutable('-1 day'));
+        $profile->stripeCustomerId = $customerId;
+        static::getContainer()->get(EntityManagerInterface::class)->flush();
+    }
+
+    /** @return array<string, mixed>|false */
+    private function storedProfile(): array|false
+    {
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $em->clear();
+
+        return $em->getConnection()->fetchAssociative(
+            'SELECT status, stripe_subscription_id, current_period_end, last_stripe_event_at FROM billing_profiles WHERE stripe_customer_id = ?',
+            [self::CUSTOMER_ID],
+        );
+    }
+
+    public function test_an_unauthenticated_signed_event_reaches_the_controller(): void
+    {
+        $client = static::createClient();
+        $this->seedProfile();
+
+        $this->post($client, $this->payload('customer.subscription.updated', $this->classicSubscription(), time()));
+
+        self::assertResponseIsSuccessful();
+        $stored = $this->storedProfile();
+        self::assertIsArray($stored);
+        self::assertSame(BillingStatus::Active->value, $stored['status']);
+        self::assertSame('sub_webhook', $stored['stripe_subscription_id']);
+        self::assertNotNull($stored['current_period_end']);
+    }
+
+    public function test_a_tampered_signature_is_rejected_and_writes_nothing(): void
+    {
+        $client = static::createClient();
+        $this->seedProfile();
+
+        $this->post($client, $this->payload('customer.subscription.updated', $this->classicSubscription(), time()), 't=1,v1=deadbeef');
+
+        self::assertResponseStatusCodeSame(Response::HTTP_BAD_REQUEST);
+        $stored = $this->storedProfile();
+        self::assertIsArray($stored);
+        self::assertSame(BillingStatus::Trialing->value, $stored['status']);
+        self::assertNull($stored['stripe_subscription_id']);
+    }
+
+    public function test_a_missing_signature_header_is_rejected(): void
+    {
+        $client = static::createClient();
+
+        $client->request(
+            Request::METHOD_POST,
+            '/webhooks/stripe',
+            server: ['CONTENT_TYPE' => 'application/json'],
+            content: $this->payload('customer.subscription.updated', $this->classicSubscription(), time()),
+        );
+
+        self::assertResponseStatusCodeSame(Response::HTTP_BAD_REQUEST);
+    }
+
+    public function test_a_malformed_body_is_rejected(): void
+    {
+        $client = static::createClient();
+
+        $this->post($client, 'not json at all');
+
+        self::assertResponseStatusCodeSame(Response::HTTP_BAD_REQUEST);
+    }
+
+    public function test_the_basil_payload_shape_is_understood(): void
+    {
+        $client = static::createClient();
+        $this->seedProfile();
+
+        $subscription = $this->classicSubscription();
+        unset($subscription['current_period_end']);
+        $subscription['items'] = ['object' => 'list', 'data' => [['id' => 'si_1', 'object' => 'subscription_item', 'current_period_end' => 1893456000]]];
+
+        $this->post($client, $this->payload('customer.subscription.updated', $subscription, time()));
+
+        self::assertResponseIsSuccessful();
+        $stored = $this->storedProfile();
+        self::assertIsArray($stored);
+        self::assertNotNull($stored['current_period_end']);
+    }
+
+    public function test_a_payload_with_no_period_end_at_all_is_accepted(): void
+    {
+        $client = static::createClient();
+        $this->seedProfile();
+
+        $subscription = $this->classicSubscription();
+        unset($subscription['current_period_end']);
+
+        $this->post($client, $this->payload('customer.subscription.updated', $subscription, time()));
+
+        self::assertResponseIsSuccessful();
+        $stored = $this->storedProfile();
+        self::assertIsArray($stored);
+        self::assertNull($stored['current_period_end']);
+    }
+
+    public function test_a_deletion_cancels_the_subscription(): void
+    {
+        $client = static::createClient();
+        $this->seedProfile();
+
+        $this->post($client, $this->payload('customer.subscription.deleted', $this->classicSubscription('active'), time()));
+
+        self::assertResponseIsSuccessful();
+        $stored = $this->storedProfile();
+        self::assertIsArray($stored);
+        self::assertSame(BillingStatus::Canceled->value, $stored['status']);
+    }
+
+    public function test_an_unknown_customer_is_acknowledged(): void
+    {
+        $client = static::createClient();
+
+        $subscription = $this->classicSubscription();
+        $subscription['customer'] = 'cus_someone_else';
+
+        $this->post($client, $this->payload('customer.subscription.updated', $subscription, time()));
+
+        self::assertResponseIsSuccessful();
+    }
+
+    public function test_an_unhandled_event_type_is_acknowledged_without_writing(): void
+    {
+        $client = static::createClient();
+        $this->seedProfile();
+
+        $this->post($client, $this->payload('invoice.paid', $this->classicSubscription(), time()));
+
+        self::assertResponseIsSuccessful();
+        $stored = $this->storedProfile();
+        self::assertIsArray($stored);
+        self::assertNull($stored['stripe_subscription_id']);
+    }
+}
