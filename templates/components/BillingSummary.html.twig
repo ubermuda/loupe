@@ -1,0 +1,23 @@
+{# Billing section of the account settings page. Draws nothing at all while the
+   billing flag is off, so the page is unchanged for a free deployment. #}
+{% if view and view.billingEnabled %}
+<section class="lp-connect-block" data-testid="billing-section">
+    <p class="lp-eyebrow">{{ 'account.settings.billing.heading'|trans }}</p>
+
+    {% if view.subscribed %}
+    <div class="lp-billing-status lp-billing-status--ok">{{ 'billing.subscribe.status.subscribed'|trans }}</div>
+    {% elseif view.hasLiveSubscription %}
+    <div class="lp-billing-status lp-billing-status--expired">{{ 'billing.subscribe.status.payment_problem'|trans }}</div>
+    {% elseif view.trialing %}
+    <div class="lp-billing-status">{{ 'billing.subscribe.status.trial_active'|trans({'%count%': view.trialDaysLeft}) }}</div>
+    {% else %}
+    <div class="lp-billing-status lp-billing-status--expired">{{ 'billing.subscribe.status.trial_expired'|trans }}</div>
+    {% endif %}
+
+    {# The actions themselves live on the subscribe page, which owns the CSRF
+       tokens and the Stripe redirects. #}
+    <a href="{{ path('app_billing_subscribe') }}" class="lp-btn lp-btn--primary">
+        {{ (view.hasLiveSubscription ? 'billing.subscribe.portal.button' : 'billing.subscribe.checkout.button')|trans }}
+    </a>
+</section>
+{% endif %}

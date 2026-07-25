@@ -58,6 +58,23 @@ final class PaywallRedirectTest extends WebTestCase
         self::assertResponseIsSuccessful();
     }
 
+    public function test_a_paywalled_user_can_still_reach_their_account_page_and_export_their_data(): void
+    {
+        $client = static::createClient();
+        $scenario = new BillingScenario(static::getContainer());
+        $scenario->enableBilling();
+        $user = $scenario->verifiedUser('exiting');
+        $scenario->profile($user, new \DateTimeImmutable('-1 day'));
+
+        $client->loginUser($user);
+        $client->request(Request::METHOD_GET, '/account');
+        self::assertResponseIsSuccessful();
+
+        // Establishes the origin cookie the stateless CSRF sentinel needs.
+        $client->request(Request::METHOD_POST, '/account/exports', ['_csrf_token' => 'csrf-token']);
+        self::assertResponseRedirects('/account');
+    }
+
     public function test_a_paywalled_user_can_still_reach_the_subscribe_page(): void
     {
         $client = static::createClient();
@@ -73,10 +90,11 @@ final class PaywallRedirectTest extends WebTestCase
     }
 
     /**
-     * Every escape route this branch owns must exist under the name the
-     * allowlist uses. Names belonging to features that have not landed yet are
-     * deliberately absent from this list — they are pinned by the branch that
-     * adds them.
+     * Every escape route that exists today must exist under the name the
+     * allowlist uses: a rename on either side locks users out of the pages they
+     * pay nothing to reach. Names belonging to features that have not landed yet
+     * (account deletion) are deliberately absent — the branch that adds them
+     * pins them here.
      *
      * @return iterable<string, array{string}>
      */
@@ -92,6 +110,9 @@ final class PaywallRedirectTest extends WebTestCase
             'app_register_check_email',
             'app_register_resend',
             'app_verify_email',
+            'app_account_settings',
+            'app_account_export_request',
+            'app_account_export_download',
         ] as $route) {
             yield $route => [$route];
         }

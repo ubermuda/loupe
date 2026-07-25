@@ -18,3 +18,4 @@ framework:
             - site-review-comment-action
             - billing-checkout
             - billing-portal
+            - request-data-export

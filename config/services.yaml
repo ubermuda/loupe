@@ -113,3 +113,16 @@ when@test:
         App\Module\SiteReview\Mcp\AddressSiteReviewCommentsTool:
             autowire: true
             public: true
+
+        App\Module\Account\Repository\DataExportRepository:
+            autowire: true
+            autoconfigure: true
+            public: true
+
+        App\DataExport\DataExportArchiveBuilder:
+            autowire: true
+            public: true
+
+        App\Module\Account\Service\ExpiredExportPurger:
+            autowire: true
+            public: true
