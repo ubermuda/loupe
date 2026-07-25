@@ -1,0 +1,26 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}{{ 'project.wizard.done.page.title'|trans }} — {{ 'app.name'|trans }}{% endblock %}
+
+{% block body %}
+<div class="lp-workspace">
+    {% include '@Project/wizard/_wizard_progress.html.twig' with {step: 3} only %}
+
+    <h1 class="lp-workspace-title">{{ 'project.wizard.done.heading'|trans }}</h1>
+    <p class="lp-workspace-desc">
+        {{ 'project.wizard.done.widget_hint'|trans }}
+        <a href="{{ path('app_project_connect', {id: wizardProject.id}) }}" class="text-accent hover:underline">{{ wizardProject.name }}</a>
+    </p>
+
+    <div class="flex items-center justify-end gap-3 pt-2">
+        <form method="POST" action="{{ path('app_welcome_finish') }}">
+            <input type="hidden" name="_csrf_token" value="{{ csrf_token('wizard-finish') }}">
+            <button type="submit" class="lp-btn lp-btn--primary">{{ 'project.wizard.done.finish'|trans }}</button>
+        </form>
+    </div>
+    <form method="POST" action="{{ path('app_welcome_skip') }}" class="mt-4">
+        <input type="hidden" name="_csrf_token" value="{{ csrf_token('wizard-skip') }}">
+        <button type="submit" class="lp-btn lp-btn--ghost">{{ 'project.wizard.skip'|trans }}</button>
+    </form>
+</div>
+{% endblock %}
