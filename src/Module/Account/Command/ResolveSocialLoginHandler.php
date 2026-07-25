@@ -8,6 +8,7 @@ use App\Module\Account\Entity\ConnectedAccount;
 use App\Module\Account\Entity\User;
 use App\Module\Account\Repository\ConnectedAccountRepository;
 use App\Module\Account\Repository\UserRepository;
+use App\Module\Account\Service\RegistrationGate;
 use App\Module\Account\Service\SocialLoginOutcome;
 use App\Module\Account\Service\SocialLoginRace;
 use App\Module\Account\Service\SocialProfile;
@@ -15,6 +16,7 @@ use App\Module\Account\Service\UnverifiedProviderEmail;
 use App\Module\Account\Service\UsernameGenerator;
 use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
 use Doctrine\ORM\EntityManagerInterface;
+use Psr\Log\LoggerInterface;
 
 final readonly class ResolveSocialLoginHandler
 {
@@ -23,6 +25,9 @@ final readonly class ResolveSocialLoginHandler
         private UserRepository $users,
         private EntityManagerInterface $em,
         private UsernameGenerator $usernameGenerator,
+        private RegistrationGate $registrationGate,
+        private JoinWaitlistHandler $joinWaitlist,
+        private LoggerInterface $logger,
     ) {
     }
 
@@ -65,17 +70,34 @@ final readonly class ResolveSocialLoginHandler
             return SocialLoginOutcome::logIn($byEmail);
         }
 
-        $user = new User(
-            username: $this->usernameGenerator->fromPreferred($profile->fullName ?? explode('@', $matchEmail)[0]),
-            fullName: substr(trim($profile->fullName ?? '') ?: explode('@', $matchEmail)[0], 0, 150),
-            email: $matchEmail,
-        );
-        $user->emailVerifiedAt = new \DateTimeImmutable();
-        $this->em->persist($user);
-        $this->em->persist($this->link($user, $profile));
-        $this->flushOrRace();
+        // Branch D: no existing identity or account matches — either create a
+        // new verified account or, if the registration cap is closed, divert
+        // the verified provider email to the waitlist instead.
+        return $this->em->wrapInTransaction(function () use ($profile, $matchEmail): SocialLoginOutcome {
+            // Serialize this capacity decision against the form registration
+            // handler's — the same advisory lock, so the two paths can never
+            // both take the last slot.
+            $this->registrationGate->acquireCapacityLock($this->em->getConnection());
 
-        return SocialLoginOutcome::logIn($user);
+            if (!$this->registrationGate->isOpen()) {
+                ($this->joinWaitlist)(new JoinWaitlistCommand($matchEmail));
+                $this->logger->info('account.waitlist.oauth_diverted', ['provider' => $profile->provider->value]);
+
+                return SocialLoginOutcome::waitlisted();
+            }
+
+            $user = new User(
+                username: $this->usernameGenerator->fromPreferred($profile->fullName ?? explode('@', $matchEmail)[0]),
+                fullName: substr(trim($profile->fullName ?? '') ?: explode('@', $matchEmail)[0], 0, 150),
+                email: $matchEmail,
+            );
+            $user->emailVerifiedAt = new \DateTimeImmutable();
+            $this->em->persist($user);
+            $this->em->persist($this->link($user, $profile));
+            $this->flushOrRace();
+
+            return SocialLoginOutcome::logIn($user);
+        });
     }
 
     private function flushOrRace(): void

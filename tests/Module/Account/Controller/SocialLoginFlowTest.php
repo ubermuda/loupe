@@ -9,6 +9,8 @@ use App\Module\Account\Entity\SocialProvider;
 use App\Module\Account\Entity\User;
 use App\Module\Account\Repository\ConnectedAccountRepository;
 use App\Module\Account\Repository\UserRepository;
+use App\Module\Account\Repository\WaitlistEntryRepository;
+use App\Module\Account\Service\RegistrationGate;
 use App\Tests\Support\SocialLoginScenario;
 use Doctrine\ORM\EntityManagerInterface;
 use KnpU\OAuth2ClientBundle\Client\ClientRegistry;
@@ -20,6 +22,8 @@ use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
+use Ubermuda\FeatureFlagsBundle\Entity\FeatureFlag;
+use Ubermuda\FeatureFlagsBundle\Enum\FeatureFlagType;
 
 /**
  * Drives the whole callback flow with the knpu client registry stubbed out, so
@@ -178,6 +182,41 @@ final class SocialLoginFlowTest extends WebTestCase
         self::assertResponseIsSuccessful();
         self::assertSelectorNotExists('a[href="/oauth/google"]');
         self::assertSelectorNotExists('a[href="/oauth/github"]');
+    }
+
+    public function test_at_cap_a_new_identity_is_diverted_to_the_waitlist(): void
+    {
+        $client = static::createClient();
+        $client->disableReboot();
+        $this->setProviderFlag($client, SocialProvider::Google, true);
+        $this->closeRegistration($client);
+        $this->stubProvider($client, 'google-sub-waitlisted', ['email' => 'oauth-waitlisted@example.com', 'email_verified' => true, 'name' => 'Waitlisted OAuth']);
+
+        $client->request(Request::METHOD_GET, self::CALLBACK);
+
+        self::assertResponseRedirects('/waitlist?joined=1');
+        self::assertNull($client->getContainer()->get(UserRepository::class)->findOneByEmail('oauth-waitlisted@example.com'));
+        self::assertNotNull(
+            $client->getContainer()->get(WaitlistEntryRepository::class)->findOneByEmail('oauth-waitlisted@example.com'),
+        );
+
+        $client->followRedirect();
+        self::assertResponseIsSuccessful();
+        self::assertSelectorTextContains('body', "You're on the list");
+        self::assertSelectorNotExists('.auth-error');
+    }
+
+    private function closeRegistration(KernelBrowser $client): void
+    {
+        $container = $client->getContainer();
+        $em = $container->get(EntityManagerInterface::class);
+        $users = $container->get(UserRepository::class);
+
+        $em->persist(new User(username: 'gate-filler', fullName: 'Gate Filler', email: 'gate-filler@example.com', password: 'x'));
+        $em->flush();
+
+        $em->persist(new FeatureFlag(name: RegistrationGate::CAP_FLAG, type: FeatureFlagType::Int, value: $users->countAll()));
+        $em->flush();
     }
 
     public function test_a_password_less_account_cannot_sign_in_through_the_password_form(): void

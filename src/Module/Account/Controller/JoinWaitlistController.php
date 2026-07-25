@@ -37,6 +37,13 @@ final class JoinWaitlistController extends AppController
             return $this->redirectToRoute('app_register');
         }
 
+        // Reached via the OAuth-at-cap redirect: the provider email was already
+        // added to the waitlist by the resolver, so show the confirmation
+        // directly instead of asking the visitor to submit the form again.
+        if ($request->query->getBoolean('joined')) {
+            return $this->render('@Account/registration/waitlist_joined.html.twig');
+        }
+
         $form = $this->createForm(WaitlistJoinFormType::class, new WaitlistJoinRequest());
         $form->handleRequest($request);
 
