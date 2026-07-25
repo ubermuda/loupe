@@ -43,7 +43,7 @@ final class MarkExportFailedOnFinalFailureTest extends TestCase
         $em = $this->createMock(EntityManagerInterface::class);
         $em->expects(self::once())->method('flush');
 
-        $listener = new MarkExportFailedOnFinalFailure($exports, $em, new NullLogger());
+        $listener = new MarkExportFailedOnFinalFailure($exports, $em, new NullLogger(), sys_get_temp_dir());
 
         $event = new WorkerMessageFailedEvent(
             new Envelope(new GenerateDataExportMessage((string) $export->id)),
@@ -54,6 +54,42 @@ final class MarkExportFailedOnFinalFailureTest extends TestCase
         $listener($event);
 
         self::assertSame(DataExportStatus::Failed, $export->status);
+    }
+
+    public function test_final_failure_deletes_an_archive_that_was_already_written(): void
+    {
+        $export = $this->persistedExport();
+        $exportId = $export->id;
+        self::assertNotNull($exportId);
+
+        $projectDir = sys_get_temp_dir().'/loupe-failed-export-test-'.bin2hex(random_bytes(4));
+        $path = DataExport::computeArchivePath($projectDir, $exportId);
+        mkdir(\dirname($path), 0770, true);
+        file_put_contents($path, 'partial archive bytes');
+
+        /** @var DataExportRepository&Stub $exports */
+        $exports = $this->createStub(DataExportRepository::class);
+        $exports->method('find')->willReturn($export);
+
+        /** @var EntityManagerInterface&Stub $em */
+        $em = $this->createStub(EntityManagerInterface::class);
+
+        $listener = new MarkExportFailedOnFinalFailure($exports, $em, new NullLogger(), $projectDir);
+
+        $event = new WorkerMessageFailedEvent(
+            new Envelope(new GenerateDataExportMessage((string) $export->id)),
+            'async',
+            new \RuntimeException('boom'),
+        );
+
+        try {
+            $listener($event);
+
+            self::assertFileDoesNotExist($path);
+        } finally {
+            @unlink($path);
+            @rmdir(\dirname($path));
+        }
     }
 
     public function test_a_failure_that_will_still_retry_is_left_untouched(): void
@@ -68,7 +104,7 @@ final class MarkExportFailedOnFinalFailureTest extends TestCase
         $em = $this->createMock(EntityManagerInterface::class);
         $em->expects(self::never())->method('flush');
 
-        $listener = new MarkExportFailedOnFinalFailure($exports, $em, new NullLogger());
+        $listener = new MarkExportFailedOnFinalFailure($exports, $em, new NullLogger(), sys_get_temp_dir());
 
         $event = new WorkerMessageFailedEvent(
             new Envelope(new GenerateDataExportMessage((string) $export->id)),
@@ -91,7 +127,7 @@ final class MarkExportFailedOnFinalFailureTest extends TestCase
         $em = $this->createMock(EntityManagerInterface::class);
         $em->expects(self::never())->method('flush');
 
-        $listener = new MarkExportFailedOnFinalFailure($exports, $em, new NullLogger());
+        $listener = new MarkExportFailedOnFinalFailure($exports, $em, new NullLogger(), sys_get_temp_dir());
 
         $event = new WorkerMessageFailedEvent(
             new Envelope(new \stdClass()),
