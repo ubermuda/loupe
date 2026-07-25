@@ -62,6 +62,16 @@
                 </nav>
                 {% endif %}
                 <div class="lp-sidebar__spacer"></div>
+                {% if is_feature_enabled('billing.enabled') %}
+                <nav class="lp-sidebar__nav">
+                    <a href="{{ path('app_billing_subscribe') }}"
+                       class="lp-sidebar__link{% if route == 'app_billing_subscribe' %} lp-sidebar__link--active{% endif %}"
+                       {% if route == 'app_billing_subscribe' %}aria-current="page"{% endif %}>
+                        <twig:ux:icon name="lucide:credit-card" />
+                        <span class="lp-sidebar__link-label">{{ 'nav.link.billing'|trans }}</span>
+                    </a>
+                </nav>
+                {% endif %}
                 <div class="lp-sidebar__account">
                     <span class="lp-sidebar__account-avatar">{{ app.user.userIdentifier|slice(0, 1)|upper }}</span>
                     <span class="lp-sidebar__account-text">

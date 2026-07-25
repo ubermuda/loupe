@@ -51,8 +51,9 @@ final class LoginControllerTest extends WebTestCase
 
         $this->assertResponseRedirects('/');
         $client->followRedirect();
-        // The home route resolves a verified user to their projects list.
-        $this->assertResponseRedirects('/projects');
+        // The home route sends a freshly verified user with no projects into
+        // the first-run wizard.
+        $this->assertResponseRedirects('/welcome');
         $client->followRedirect();
         $this->assertResponseIsSuccessful();
         $this->assertSelectorExists('form[action="/logout"]');

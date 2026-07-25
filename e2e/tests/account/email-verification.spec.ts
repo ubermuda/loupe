@@ -32,8 +32,10 @@ test('clicking verification link auto-logs in and redirects to home', async ({
     );
 
     await page.goto(verifyLink);
-    // Verification auto-logs in and redirects to home; should not land on login
-    await expect(page).toHaveURL('/projects');
+    // Verification auto-logs in and redirects to home; a brand-new account
+    // owns no project and hasn't completed the first-run wizard yet, so
+    // HomeController lands it there rather than on /login.
+    await expect(page).toHaveURL('/welcome');
 });
 
 test('tampered verification link redirects to check-email', async ({

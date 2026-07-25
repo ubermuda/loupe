@@ -1,0 +1,33 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}{{ 'project.wizard.welcome.page.title'|trans }} — {{ 'app.name'|trans }}{% endblock %}
+
+{% block body %}
+<div class="lp-workspace">
+    {% include '@Project/wizard/_wizard_progress.html.twig' with {step: 1} only %}
+
+    <h1 class="lp-workspace-title">{{ 'project.wizard.welcome.heading'|trans }}</h1>
+    <p class="lp-workspace-desc">{{ 'project.wizard.welcome.lead'|trans }}</p>
+
+    {{ form_start(form, {'attr': {'class': 'lp-form'}}) }}
+        <div class="lp-form-field">
+            {{ form_label(form.name, null, {'label_attr': {'class': 'lp-label'}}) }}
+            {{ form_widget(form.name, {'attr': {'class': 'lp-input'}}) }}
+            <div class="lp-field-errors">{{ form_errors(form.name) }}</div>
+        </div>
+        <div class="lp-form-field">
+            {{ form_label(form.domain, null, {'label_attr': {'class': 'lp-label'}}) }}
+            {{ form_widget(form.domain, {'attr': {'class': 'lp-input'}}) }}
+            <div class="lp-field-errors">{{ form_errors(form.domain) }}</div>
+        </div>
+        <div class="flex items-center justify-end gap-3 pt-2">
+            <button type="submit" class="lp-btn lp-btn--primary">{{ 'project.wizard.welcome.submit'|trans }}</button>
+        </div>
+    {{ form_end(form) }}
+
+    <form method="POST" action="{{ path('app_welcome_skip') }}" class="mt-4">
+        <input type="hidden" name="_csrf_token" value="{{ csrf_token('wizard-skip') }}">
+        <button type="submit" class="lp-btn lp-btn--ghost">{{ 'project.wizard.skip'|trans }}</button>
+    </form>
+</div>
+{% endblock %}

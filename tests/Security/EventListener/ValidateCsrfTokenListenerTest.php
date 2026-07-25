@@ -41,6 +41,9 @@ final class ValidateCsrfTokenListenerTest extends WebTestCase
     public static function guardedEndpoints(): iterable
     {
         yield 'resend-verification' => ['/register/resend'];
+        yield 'wizard-skip' => ['/welcome/skip'];
+        yield 'wizard-finish' => ['/welcome/done/finish'];
+        yield 'wizard-mint-mcp' => ['/welcome/connect/mcp-token'];
     }
 
     #[DataProvider('guardedEndpoints')]
