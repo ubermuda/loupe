@@ -62,8 +62,13 @@ final class JoinWaitlistController extends AppController
                 $data->email ?: throw new \LogicException('Email is required after form validation.'),
             ));
 
-            // Always the same response, joined-or-already-listed — no enumeration.
-            return $this->render('@Account/registration/waitlist_joined.html.twig');
+            // Redirect (Post/Redirect/Get) rather than rendering directly: Turbo
+            // Drive requires a redirect on a successful non-frame form submission
+            // and throws "Form responses must redirect to another location" for a
+            // direct 200 response — reuse the same joined-confirmation branch the
+            // OAuth-at-cap redirect above already renders. Always the same
+            // response, joined-or-already-listed — no enumeration.
+            return $this->redirectToRoute('app_waitlist_join', ['joined' => 1]);
         }
 
         return $this->renderFormResponse('@Account/registration/waitlist.html.twig', $form);

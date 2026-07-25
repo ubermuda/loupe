@@ -44,6 +44,11 @@ final class JoinWaitlistControllerTest extends WebTestCase
             'waitlist_join_form[email]' => 'waiting@example.com',
         ]);
 
+        // Post/Redirect/Get: Turbo Drive requires a redirect on a successful
+        // top-level form submission, so the controller redirects to the same
+        // joined-confirmation branch the OAuth-at-cap flow uses.
+        $this->assertResponseRedirects('/waitlist?joined=1');
+        $client->request(Request::METHOD_GET, '/waitlist?joined=1');
         $this->assertResponseIsSuccessful();
         $this->assertSelectorTextContains('body', "You're on the list");
 
@@ -66,6 +71,8 @@ final class JoinWaitlistControllerTest extends WebTestCase
             'waitlist_join_form[email]' => 'dup-waiting@example.com',
         ]);
 
+        $this->assertResponseRedirects('/waitlist?joined=1');
+        $client->request(Request::METHOD_GET, '/waitlist?joined=1');
         $this->assertResponseIsSuccessful();
         $this->assertSelectorTextContains('body', "You're on the list");
 
