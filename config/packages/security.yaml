@@ -66,6 +66,12 @@ security:
         - { path: ^/register,        roles: PUBLIC_ACCESS }
         - { path: ^/waitlist,        roles: PUBLIC_ACCESS }
         - { path: ^/forgot-password, roles: PUBLIC_ACCESS }
+        # The emailed deletion link must be reachable logged-out and by an
+        # unverified logged-in user; it covers both GET (confirm) and POST
+        # (execute), which share the same path. /goodbye is the public landing
+        # page after a successful deletion, once the session is gone.
+        - { path: ^/account/delete/confirm, roles: PUBLIC_ACCESS }
+        - { path: ^/goodbye$,               roles: PUBLIC_ACCESS }
         - { path: ^/admin,           roles: ROLE_ADMIN }
         - { path: ^/,                roles: ROLE_USER }
 

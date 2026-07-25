@@ -22,4 +22,6 @@ framework:
             - wizard-mint-mcp
             - wizard-finish
             - request-data-export
+            - request-account-deletion
+            - confirm-account-deletion
             - admin-waitlist-invite

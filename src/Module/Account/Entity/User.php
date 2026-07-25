@@ -42,6 +42,12 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface, AdminPr
     #[ORM\Column(nullable: true)]
     private ?\DateTimeImmutable $passwordResetTokenExpiresAt = null;
 
+    #[ORM\Column(length: 64, nullable: true)]
+    private ?string $accountDeletionTokenHash = null;
+
+    #[ORM\Column(nullable: true)]
+    private ?\DateTimeImmutable $accountDeletionTokenExpiresAt = null;
+
     public function __construct(
         #[ORM\Column(length: 30, unique: true)]
         public string $username,
@@ -178,5 +184,47 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface, AdminPr
     {
         $this->passwordResetTokenHash = null;
         $this->passwordResetTokenExpiresAt = null;
+    }
+
+    // -------------------------------------------------------------------------
+    // Account deletion token
+    // -------------------------------------------------------------------------
+
+    public function generateAccountDeletionToken(): string
+    {
+        $token = bin2hex(random_bytes(32));
+        $this->accountDeletionTokenHash = hash('sha256', $token);
+        $this->accountDeletionTokenExpiresAt = new \DateTimeImmutable('+1 hour');
+
+        return $token;
+    }
+
+    public function hasActiveAccountDeletionToken(): bool
+    {
+        return null !== $this->accountDeletionTokenHash
+            && null !== $this->accountDeletionTokenExpiresAt
+            && $this->accountDeletionTokenExpiresAt > new \DateTimeImmutable();
+    }
+
+    public function isAccountDeletionTokenValid(string $token): bool
+    {
+        $hash = $this->accountDeletionTokenHash;
+        $expiresAt = $this->accountDeletionTokenExpiresAt;
+
+        if (null === $hash || null === $expiresAt) {
+            return false;
+        }
+
+        if ($expiresAt < new \DateTimeImmutable()) {
+            return false;
+        }
+
+        return hash_equals($hash, hash('sha256', $token));
+    }
+
+    public function clearAccountDeletionToken(): void
+    {
+        $this->accountDeletionTokenHash = null;
+        $this->accountDeletionTokenExpiresAt = null;
     }
 }

@@ -40,5 +40,14 @@
         </form>
         <p class="lp-connect-hint">{{ 'account.settings.export.link_hint'|trans }}</p>
     </section>
+
+    <section class="lp-danger-zone" data-testid="delete-account-section">
+        <h2 class="lp-danger-zone-title">{{ 'account.delete.danger.heading'|trans }}</h2>
+        <p class="lp-danger-zone-desc">{{ 'account.delete.danger.body'|trans }}</p>
+        <form method="post" action="{{ path('app_account_delete_request') }}">
+            <input type="hidden" name="_csrf_token" value="{{ csrf_token('request-account-deletion') }}">
+            <button type="submit" class="lp-btn lp-btn--danger">{{ 'account.delete.danger.cta'|trans }}</button>
+        </form>
+    </section>
 </div>
 {% endblock %}

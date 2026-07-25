@@ -133,9 +133,7 @@ final class PaywallRedirectTest extends WebTestCase
     /**
      * Every escape route that exists today must exist under the name the
      * allowlist uses: a rename on either side locks users out of the pages they
-     * pay nothing to reach. Names belonging to features that have not landed yet
-     * (account deletion) are deliberately absent — the branch that adds them
-     * pins them here.
+     * pay nothing to reach.
      *
      * @return iterable<string, array{string}>
      */
@@ -154,6 +152,10 @@ final class PaywallRedirectTest extends WebTestCase
             'app_account_settings',
             'app_account_export_request',
             'app_account_export_download',
+            'app_account_delete_request',
+            'app_account_delete_confirm',
+            'app_account_delete_execute',
+            'app_account_goodbye',
         ] as $route) {
             yield $route => [$route];
         }
