@@ -1260,6 +1260,112 @@
                 <target>Converted</target>
             </trans-unit>
 
+            <!-- Billing -->
+            <trans-unit id="nav.link.billing">
+                <source>nav.link.billing</source>
+                <target>Billing</target>
+            </trans-unit>
+            <trans-unit id="account.settings.billing.heading">
+                <source>account.settings.billing.heading</source>
+                <target>Billing</target>
+            </trans-unit>
+            <trans-unit id="billing.subscribe.page.title">
+                <source>billing.subscribe.page.title</source>
+                <target>Subscribe</target>
+            </trans-unit>
+            <trans-unit id="billing.subscribe.heading">
+                <source>billing.subscribe.heading</source>
+                <target>Subscribe</target>
+            </trans-unit>
+            <trans-unit id="billing.subscribe.description">
+                <source>billing.subscribe.description</source>
+                <target>One plan, everything included. Cancel any time from the billing portal.</target>
+            </trans-unit>
+            <trans-unit id="billing.subscribe.status.eyebrow">
+                <source>billing.subscribe.status.eyebrow</source>
+                <target>Status</target>
+            </trans-unit>
+            <trans-unit id="billing.subscribe.status.subscribed">
+                <source>billing.subscribe.status.subscribed</source>
+                <target>Your subscription is active.</target>
+            </trans-unit>
+            <trans-unit id="billing.subscribe.status.payment_problem">
+                <source>billing.subscribe.status.payment_problem</source>
+                <target>Your last payment did not go through. Update your payment details to restore access.</target>
+            </trans-unit>
+            <trans-unit id="billing.subscribe.status.trial_active">
+                <source>billing.subscribe.status.trial_active</source>
+                <target>{0} Your trial ends today.|{1} 1 day left in your trial.|]1,Inf[ %count% days left in your trial.</target>
+            </trans-unit>
+            <trans-unit id="billing.subscribe.status.trial_expired">
+                <source>billing.subscribe.status.trial_expired</source>
+                <target>Your trial has ended. Subscribe to keep using the app.</target>
+            </trans-unit>
+            <trans-unit id="billing.subscribe.status.free">
+                <source>billing.subscribe.status.free</source>
+                <target>The app is free to use right now — no subscription needed.</target>
+            </trans-unit>
+            <trans-unit id="billing.subscribe.price.eyebrow">
+                <source>billing.subscribe.price.eyebrow</source>
+                <target>Price</target>
+            </trans-unit>
+            <trans-unit id="billing.subscribe.price.interval.day">
+                <source>billing.subscribe.price.interval.day</source>
+                <target>per day</target>
+            </trans-unit>
+            <trans-unit id="billing.subscribe.price.interval.week">
+                <source>billing.subscribe.price.interval.week</source>
+                <target>per week</target>
+            </trans-unit>
+            <trans-unit id="billing.subscribe.price.interval.month">
+                <source>billing.subscribe.price.interval.month</source>
+                <target>per month</target>
+            </trans-unit>
+            <trans-unit id="billing.subscribe.price.interval.year">
+                <source>billing.subscribe.price.interval.year</source>
+                <target>per year</target>
+            </trans-unit>
+            <trans-unit id="billing.subscribe.checkout.button">
+                <source>billing.subscribe.checkout.button</source>
+                <target>Subscribe</target>
+            </trans-unit>
+            <trans-unit id="billing.subscribe.portal.button">
+                <source>billing.subscribe.portal.button</source>
+                <target>Manage subscription</target>
+            </trans-unit>
+            <trans-unit id="billing.subscribe.secure_note">
+                <source>billing.subscribe.secure_note</source>
+                <target>Payment is handled by Stripe. We never see your card details.</target>
+            </trans-unit>
+            <trans-unit id="billing.checkout_success.page.title">
+                <source>billing.checkout_success.page.title</source>
+                <target>Thank you</target>
+            </trans-unit>
+            <trans-unit id="billing.checkout_success.heading">
+                <source>billing.checkout_success.heading</source>
+                <target>Thank you</target>
+            </trans-unit>
+            <trans-unit id="billing.checkout_success.description">
+                <source>billing.checkout_success.description</source>
+                <target>Your payment went through and your subscription is being activated.</target>
+            </trans-unit>
+            <trans-unit id="billing.checkout_success.continue">
+                <source>billing.checkout_success.continue</source>
+                <target>Continue to the app</target>
+            </trans-unit>
+            <trans-unit id="billing.checkout_success.hint">
+                <source>billing.checkout_success.hint</source>
+                <target>Activation usually takes a few seconds. Reload the page if the app still asks you to subscribe.</target>
+            </trans-unit>
+            <trans-unit id="billing.flash.checkout_unavailable">
+                <source>billing.flash.checkout_unavailable</source>
+                <target>Checkout is unavailable right now. Please try again later.</target>
+            </trans-unit>
+            <trans-unit id="billing.flash.portal_unavailable">
+                <source>billing.flash.portal_unavailable</source>
+                <target>The billing portal is unavailable right now. Please try again later.</target>
+            </trans-unit>
+
         </body>
     </file>
 </xliff>

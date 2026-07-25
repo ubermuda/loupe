@@ -1,0 +1,19 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}{{ 'billing.checkout_success.page.title'|trans }} — {{ 'app.name'|trans }}{% endblock %}
+
+{% block body %}
+<div class="lp-billing">
+    <h1 class="lp-workspace-title">{{ 'billing.checkout_success.heading'|trans }}</h1>
+    {# Stripe returns the browser here as soon as Checkout completes, which can be
+       before the subscription webhook lands. This page states what is happening
+       instead of bouncing the user through a gate that has not been updated yet;
+       it is never treated as proof of payment. #}
+    <p class="lp-workspace-desc">{{ 'billing.checkout_success.description'|trans }}</p>
+
+    <section class="lp-billing-block">
+        <a href="{{ path('app_home') }}" class="lp-btn lp-btn--primary">{{ 'billing.checkout_success.continue'|trans }}</a>
+        <p class="lp-connect-hint">{{ 'billing.checkout_success.hint'|trans }}</p>
+    </section>
+</div>
+{% endblock %}

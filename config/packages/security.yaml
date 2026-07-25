@@ -49,6 +49,10 @@ security:
     access_control:
         - { path: ^/api/site-review, roles: ROLE_API_SITE_REVIEW }
         - { path: ^/mcp,             roles: ROLE_API_MCP }
+        # Stripe authenticates with a request signature, not a session or a
+        # bearer token, so the webhook endpoint must be reachable anonymously.
+        # The controller rejects anything it cannot verify.
+        - { path: ^/webhooks/stripe$, roles: PUBLIC_ACCESS }
         # The /dev/* controllers are #[When('dev')] only, so this path 404s in
         # prod and this rule is inert there. It exists so the e2e seeding endpoint
         # is reachable unauthenticated in the dev environment.
