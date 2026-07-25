@@ -88,8 +88,11 @@ final class RegisterUserHandlerTest extends KernelTestCase
         }
     }
 
-    public function test_registration_open_ignores_a_present_invite_token(): void
+    public function test_registration_open_with_a_mismatched_email_leaves_the_invite_unconverted(): void
     {
+        // The token is a capacity voucher for the address it was issued to — a
+        // forwarded/leaked link registering a different address must not
+        // consume someone else's invite, open gate or not.
         $entry = new WaitlistEntry('unused-invite@example.com');
         $token = $entry->issueInviteToken();
         $this->em->persist($entry);
@@ -101,6 +104,43 @@ final class RegisterUserHandlerTest extends KernelTestCase
         $reloaded = $this->entries->findOneByEmail('unused-invite@example.com');
         $this->assertNotNull($reloaded);
         $this->assertNull($reloaded->convertedAt);
+    }
+
+    public function test_registration_open_with_a_matching_invite_still_consumes_it(): void
+    {
+        // Consuming the token even though the gate didn't need it prevents the
+        // token being replayed later as a live capacity-bypass credential if
+        // the gate closes again before the (still-valid) token expires.
+        $entry = new WaitlistEntry('matching-open-gate@example.com');
+        $token = $entry->issueInviteToken();
+        $this->em->persist($entry);
+        $this->em->flush();
+
+        ($this->handler)($this->makeCommand(email: 'matching-open-gate@example.com', inviteToken: $token));
+
+        $this->em->clear();
+        $reloaded = $this->entries->findOneByEmail('matching-open-gate@example.com');
+        $this->assertNotNull($reloaded?->convertedAt);
+    }
+
+    public function test_registration_closed_with_a_valid_but_mismatched_email_token_is_rejected(): void
+    {
+        $this->closeRegistration();
+        $entry = new WaitlistEntry('invited-someone-else@example.com');
+        $token = $entry->issueInviteToken();
+        $this->em->persist($entry);
+        $this->em->flush();
+
+        $this->expectException(DomainErrors::class);
+
+        try {
+            ($this->handler)($this->makeCommand(email: 'attacker-different-email@example.com', inviteToken: $token));
+        } finally {
+            $this->em->clear();
+            $reloaded = $this->entries->findOneByEmail('invited-someone-else@example.com');
+            $this->assertNotNull($reloaded);
+            $this->assertNull($reloaded->convertedAt);
+        }
     }
 
     public function test_registration_closed_without_invite_is_rejected(): void
@@ -156,9 +196,9 @@ final class RegisterUserHandlerTest extends KernelTestCase
         $this->em->persist($entry);
         $this->em->flush();
 
-        $user = ($this->handler)($this->makeCommand(email: 'invited-registrant@example.com', inviteToken: $token));
+        $user = ($this->handler)($this->makeCommand(email: 'invited@example.com', inviteToken: $token));
 
-        $this->assertSame('invited-registrant@example.com', $user->email);
+        $this->assertSame('invited@example.com', $user->email);
 
         $this->em->clear();
         $fresh = $this->entries->findOneByEmail('invited@example.com');

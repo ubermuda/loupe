@@ -49,7 +49,7 @@
             {% for entry in entries %}
                 <tr data-waitlist-entry-id="{{ entry.id }}">
                     <td>
-                        {% if entry.invitedAt is null %}
+                        {% if entry.needsInvite %}
                             <input type="checkbox" name="ids[]" value="{{ entry.id }}" form="invite-selected-form" class="h-4 w-4 rounded border-line text-accent">
                         {% endif %}
                     </td>
@@ -59,6 +59,8 @@
                     <td>
                         {% if entry.convertedAt %}
                             <span class="admin-badge admin-badge-on">{{ 'account.admin.waitlist.status.converted'|trans }}</span>
+                        {% elseif entry.invitedAt and entry.needsInvite %}
+                            <span class="admin-badge admin-badge-neutral">{{ 'account.admin.waitlist.status.expired'|trans }}</span>
                         {% elseif entry.invitedAt %}
                             <span class="admin-badge admin-badge-count">{{ 'account.admin.waitlist.status.invited'|trans }}</span>
                         {% else %}
@@ -66,7 +68,7 @@
                         {% endif %}
                     </td>
                     <td>
-                        {% if entry.invitedAt is null %}
+                        {% if entry.needsInvite %}
                             <form method="post" action="{{ path('app_admin_waitlist_invite') }}">
                                 <input type="hidden" name="_csrf_token" value="{{ csrf_token('admin-waitlist-invite') }}">
                                 <input type="hidden" name="ids[]" value="{{ entry.id }}">

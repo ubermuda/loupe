@@ -31,6 +31,8 @@ final class RegisterInviteFlowTest extends WebTestCase
     {
         $client = static::createClient();
         $this->closeRegistration();
+        // The token is a capacity voucher bound to the invited address, so the
+        // registration email must match it.
         $token = $this->seedInvite('invitee2@example.com');
 
         $client->request(Request::METHOD_GET, '/register?invite='.$token);
@@ -38,18 +40,43 @@ final class RegisterInviteFlowTest extends WebTestCase
         $client->submitForm('Create account', [
             'registration_form[fullName]' => 'Invited Person',
             'registration_form[username]' => 'invitedperson',
-            'registration_form[email]' => 'invitedperson@example.com',
+            'registration_form[email]' => 'invitee2@example.com',
             'registration_form[plainPassword]' => 'SecurePassword1!',
             'registration_form[agreeTerms]' => true,
         ]);
 
         $this->assertResponseRedirects('/register/check-email');
 
-        $user = static::getContainer()->get(UserRepository::class)->findOneByEmail('invitedperson@example.com');
+        $user = static::getContainer()->get(UserRepository::class)->findOneByEmail('invitee2@example.com');
         $this->assertNotNull($user);
 
         $entry = static::getContainer()->get(WaitlistEntryRepository::class)->findOneByEmail('invitee2@example.com');
         $this->assertNotNull($entry?->convertedAt);
+    }
+
+    public function test_registration_with_a_mismatched_email_is_rejected_and_invite_stays_unconverted(): void
+    {
+        $client = static::createClient();
+        $this->closeRegistration();
+        $token = $this->seedInvite('rightful-invitee@example.com');
+
+        $client->request(Request::METHOD_GET, '/register?invite='.$token);
+        $client->request(Request::METHOD_GET, '/register');
+        $client->submitForm('Create account', [
+            'registration_form[fullName]' => 'Someone Else',
+            'registration_form[username]' => 'someoneelse',
+            'registration_form[email]' => 'someone-else@example.com',
+            'registration_form[plainPassword]' => 'SecurePassword1!',
+            'registration_form[agreeTerms]' => true,
+        ]);
+
+        $this->assertResponseStatusCodeSame(422);
+
+        $user = static::getContainer()->get(UserRepository::class)->findOneByEmail('someone-else@example.com');
+        $this->assertNull($user);
+
+        $entry = static::getContainer()->get(WaitlistEntryRepository::class)->findOneByEmail('rightful-invitee@example.com');
+        $this->assertNull($entry?->convertedAt);
     }
 
     public function test_invalid_invite_token_bounces_to_the_waitlist(): void

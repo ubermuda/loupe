@@ -1251,6 +1251,10 @@
                 <source>account.admin.waitlist.status.invited</source>
                 <target>Invited</target>
             </trans-unit>
+            <trans-unit id="account.admin.waitlist.status.expired">
+                <source>account.admin.waitlist.status.expired</source>
+                <target>Invite expired</target>
+            </trans-unit>
             <trans-unit id="account.admin.waitlist.status.converted">
                 <source>account.admin.waitlist.status.converted</source>
                 <target>Converted</target>

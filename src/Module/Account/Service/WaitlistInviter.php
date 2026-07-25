@@ -28,7 +28,7 @@ final readonly class WaitlistInviter
             $this->em->lock($entry, LockMode::PESSIMISTIC_WRITE);
             $this->em->refresh($entry);
 
-            if ($entry->isInvited() || null !== $entry->convertedAt) {
+            if (!$entry->needsInvite()) {
                 return false;
             }
 

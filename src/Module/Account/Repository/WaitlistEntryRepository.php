@@ -31,11 +31,18 @@ class WaitlistEntryRepository extends ServiceEntityRepository
         return null !== $entry && $entry->isInviteTokenValid($token) ? $entry : null;
     }
 
-    /** @return list<WaitlistEntry> */
+    /**
+     * Entries eligible for (re-)invitation: never invited, or invited with an
+     * invite link that has since expired unused. Never a converted entry.
+     *
+     * @return list<WaitlistEntry>
+     */
     public function findOldestUninvited(int $count): array
     {
         return $this->createQueryBuilder('w')
-            ->andWhere('w.invitedAt IS NULL')
+            ->andWhere('w.convertedAt IS NULL')
+            ->andWhere('w.invitedAt IS NULL OR w.inviteExpiresAt < :now')
+            ->setParameter('now', new \DateTimeImmutable())
             ->orderBy('w.createdAt', 'ASC')
             ->setMaxResults($count)
             ->getQuery()

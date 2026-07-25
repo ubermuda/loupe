@@ -79,6 +79,25 @@ class WaitlistEntry
         return null !== $this->invitedAt;
     }
 
+    /**
+     * True when this entry should be offered for (re-)invitation: it has
+     * never been invited, or its previous invite link expired unused. False
+     * once converted (already registered) or while a still-valid invite is
+     * outstanding — an active invite must not be silently replaced.
+     */
+    public function needsInvite(): bool
+    {
+        if (null !== $this->convertedAt) {
+            return false;
+        }
+
+        if (null === $this->invitedAt) {
+            return true;
+        }
+
+        return null === $this->inviteExpiresAt || $this->inviteExpiresAt < new \DateTimeImmutable();
+    }
+
     public function markConverted(): void
     {
         $this->convertedAt = new \DateTimeImmutable();

@@ -4,6 +4,7 @@ namespace App\Module\Account\Command;
 
 use App\Exception\DomainErrors;
 use App\Module\Account\Entity\User;
+use App\Module\Account\Entity\WaitlistEntry;
 use App\Module\Account\Repository\UserRepository;
 use App\Module\Account\Repository\WaitlistEntryRepository;
 use App\Module\Account\Service\RegistrationGate;
@@ -35,21 +36,14 @@ final readonly class RegisterUserHandler
                 // can never both pass a one-slot gate.
                 $this->registrationGate->acquireCapacityLock($this->em->getConnection());
 
-                $invite = null;
-                if (!$this->registrationGate->isOpen()) {
-                    $invite = null !== $command->inviteToken
-                        ? $this->waitlistEntries->findOneByValidInviteToken($command->inviteToken)
-                        : null;
-                    if (null === $invite) {
-                        throw new DomainErrors(['email' => 'account.error.registration_closed']);
-                    }
-                    // Revalidate under lock — a concurrent redemption may have
-                    // converted it since the lookup above.
-                    $this->em->lock($invite, LockMode::PESSIMISTIC_WRITE);
-                    $this->em->refresh($invite);
-                    if (null === $command->inviteToken || !$invite->isInviteTokenValid($command->inviteToken)) {
-                        throw new DomainErrors(['email' => 'account.error.registration_closed']);
-                    }
+                // Resolved and consumed regardless of gate state: a token left
+                // unconsumed while the gate happens to be open would still be a
+                // live capacity-bypass credential if the gate closes again
+                // before it expires.
+                $invite = $this->resolveMatchingInvite($command);
+
+                if (!$this->registrationGate->isOpen() && null === $invite) {
+                    throw new DomainErrors(['email' => 'account.error.registration_closed']);
                 }
 
                 $errors = [];
@@ -99,5 +93,39 @@ final readonly class RegisterUserHandler
         }
 
         return $user;
+    }
+
+    /**
+     * Resolves the invite the command's token points to, revalidating it under
+     * a row lock (a concurrent redemption may have converted it since the
+     * caller's first lookup). Returns null for a missing, expired, converted,
+     * or otherwise-invalid token, and also for a token whose invited address
+     * does not match the address being registered — the token is a capacity
+     * voucher issued to one address, and possession alone (a forwarded or
+     * leaked link) must not let a different address claim it.
+     */
+    private function resolveMatchingInvite(RegisterUserCommand $command): ?WaitlistEntry
+    {
+        if (null === $command->inviteToken) {
+            return null;
+        }
+
+        $invite = $this->waitlistEntries->findOneByValidInviteToken($command->inviteToken);
+        if (null === $invite) {
+            return null;
+        }
+
+        $this->em->lock($invite, LockMode::PESSIMISTIC_WRITE);
+        $this->em->refresh($invite);
+
+        if (!$invite->isInviteTokenValid($command->inviteToken)) {
+            return null;
+        }
+
+        if (strtolower($invite->email) !== strtolower($command->email)) {
+            return null;
+        }
+
+        return $invite;
     }
 }

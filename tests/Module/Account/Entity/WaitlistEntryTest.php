@@ -50,4 +50,34 @@ final class WaitlistEntryTest extends TestCase
         $entry->issueInviteToken();
         self::assertTrue($entry->isInvited());
     }
+
+    public function test_needs_invite_is_true_for_a_never_invited_entry(): void
+    {
+        self::assertTrue(new WaitlistEntry('a@example.com')->needsInvite());
+    }
+
+    public function test_needs_invite_is_false_while_an_active_invite_is_outstanding(): void
+    {
+        $entry = new WaitlistEntry('a@example.com');
+        $entry->issueInviteToken();
+
+        self::assertFalse($entry->needsInvite());
+    }
+
+    public function test_needs_invite_is_true_once_the_invite_link_expires_unused(): void
+    {
+        $entry = new WaitlistEntry('a@example.com');
+        $entry->issueInviteToken(expiresAt: new \DateTimeImmutable('-1 minute'));
+
+        self::assertTrue($entry->needsInvite());
+    }
+
+    public function test_needs_invite_is_false_for_a_converted_entry_even_if_its_invite_expired(): void
+    {
+        $entry = new WaitlistEntry('a@example.com');
+        $entry->issueInviteToken(expiresAt: new \DateTimeImmutable('-1 minute'));
+        $entry->markConverted();
+
+        self::assertFalse($entry->needsInvite());
+    }
 }
