@@ -68,6 +68,10 @@
                         <span class="lp-sidebar__account-name">{{ app.user.userIdentifier }}</span>
                         <span class="lp-sidebar__account-role">{{ 'nav.account.role'|trans }}</span>
                     </span>
+                    <a href="{{ path('app_account_settings') }}" class="lp-sidebar__account-settings"
+                       aria-label="{{ 'nav.link.settings'|trans }}">
+                        <twig:ux:icon name="lucide:settings" />
+                    </a>
                     <form method="post" action="{{ path('app_logout') }}" class="lp-sidebar__account-logout-form">
                         <input type="hidden" name="_csrf_token" value="{{ csrf_token('logout') }}">
                         <button type="submit" class="lp-sidebar__account-logout"

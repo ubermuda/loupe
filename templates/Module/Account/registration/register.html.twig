@@ -15,6 +15,8 @@
     <p class="auth-subheading">{{ 'account.registration.subheading'|trans }}</p>
 </div>
 
+{% include '@Account/security/_social_buttons.html.twig' with {} only %}
+
 {{ form_start(form, {'attr': {'class': 'form-stack', 'novalidate': 'novalidate'}}) }}
 
     {% for label, messages in app.flashes %}

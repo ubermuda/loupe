@@ -15,6 +15,16 @@
     <p class="auth-subheading">{{ 'account.login.subheading'|trans }}</p>
 </div>
 
+{% set social_error = app.request.query.get('social_error') %}
+{% if social_error %}
+    <div class="auth-error" role="alert">
+        <twig:UX:Icon name="lucide:x" class="w-3.5 h-3.5 shrink-0 mt-px" aria-hidden="true" />
+        {{ (social_error == 'unverified' ? 'account.social.error.unverified_email' : 'account.social.error.generic')|trans }}
+    </div>
+{% endif %}
+
+{% include '@Account/security/_social_buttons.html.twig' with {} only %}
+
 <form method="post" action="{{ path('app_login') }}" class="form-stack" novalidate>
     <input type="hidden" name="_csrf_token" value="{{ csrf_token('authenticate') }}">
 

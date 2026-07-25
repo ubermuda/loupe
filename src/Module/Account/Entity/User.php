@@ -60,7 +60,8 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface, AdminPr
             }
         },
 
-        #[ORM\Column(nullable: false)]
+        // Nullable: accounts created through social login have no local password.
+        #[ORM\Column(nullable: true)]
         public ?string $password = null,
 
         #[ORM\Column]
@@ -71,6 +72,16 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface, AdminPr
     public function getPassword(): ?string
     {
         return $this->password;
+    }
+
+    /**
+     * False for accounts that only ever signed in through a social provider.
+     * Such an account cannot be logged into with the password form, and linking
+     * a social identity to it needs no password confirmation.
+     */
+    public function hasUsablePassword(): bool
+    {
+        return null !== $this->password;
     }
 
     /** @return list<string> */

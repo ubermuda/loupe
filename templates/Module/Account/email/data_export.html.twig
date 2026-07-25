@@ -1,0 +1,20 @@
+{% apply inline_css(source('@EmailStyles/email.css')) %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ 'account.email.data_export.subject'|trans }}</title>
+</head>
+<body>
+    <div class="card">
+        <h1>{{ 'account.email.data_export.heading'|trans }}</h1>
+        <p class="body-text">{{ 'account.email.data_export.body'|trans({'%hours%': 48}) }}</p>
+        <a href="{{ downloadUrl }}" class="btn">{{ 'account.email.data_export.button_label'|trans }}</a>
+        <p class="footer">
+            {{ 'account.email.data_export.footer_copy_link'|trans }} {{ downloadUrl }}
+        </p>
+    </div>
+</body>
+</html>
+{% endapply %}

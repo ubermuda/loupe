@@ -81,6 +81,51 @@ export async function getLatestEmailTo(
 }
 
 /**
+ * Poll Mailpit until an email with the given exact subject arrives for the
+ * given address, then return its HTML body. Unlike getLatestEmailTo, this
+ * waits for a MATCHING message rather than resolving on whatever is newest
+ * at the first check — required whenever the address may already hold other
+ * mail (e.g. the fixture's own verification email sent moments earlier),
+ * where "latest so far" can be stale and getLatestEmailTo would return it
+ * before the awaited email has actually arrived.
+ */
+export async function getEmailWithSubject(
+    request: APIRequestContext,
+    address: string,
+    subject: string,
+    timeoutMs = 30000,
+): Promise<{ body: string }> {
+    let result = { body: '' };
+    await expect
+        .poll(
+            async () => {
+                const listRes = await request.get(
+                    `${mailpitUrl}/api/v1/search?query=${encodeURIComponent(`to:${address} subject:"${subject}"`)}`,
+                );
+                const list = await listRes.json();
+                const messages: Array<{ ID: string }> = list.messages ?? [];
+                if (!messages.length) return false;
+
+                const msgRes = await request.get(
+                    `${mailpitUrl}/api/v1/message/${messages[0].ID}`,
+                );
+                const msg = await msgRes.json();
+
+                result = {
+                    body:
+                        (msg.HTML as string | undefined) ??
+                        (msg.Text as string | undefined) ??
+                        '',
+                };
+                return true;
+            },
+            { timeout: timeoutMs },
+        )
+        .toBe(true);
+    return result;
+}
+
+/**
  * Count the messages Mailpit currently holds for the given recipient.
  * Search-scoped by address so parallel spec files cannot race each other.
  */

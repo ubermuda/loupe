@@ -19,3 +19,4 @@ framework:
             - wizard-skip
             - wizard-mint-mcp
             - wizard-finish
+            - request-data-export
