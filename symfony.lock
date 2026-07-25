@@ -104,6 +104,9 @@
             "bin/phpunit"
         ]
     },
+    "stripe/stripe-php": {
+        "version": "v21.0.0"
+    },
     "symfony/asset-mapper": {
         "version": "8.0",
         "recipe": {

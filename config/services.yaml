@@ -28,6 +28,13 @@ services:
     # add more service definitions when explicit configuration is needed
     # please note that last definitions always *replace* previous ones
 
+    # Vendor class — it cannot carry an #[Autowire] attribute of its own, so the
+    # secret key is wired here. App\Module\Billing\Service\StripeGateway is the
+    # only class allowed to depend on it.
+    Stripe\StripeClient:
+        arguments:
+            - '%env(STRIPE_SECRET_KEY)%'
+
 # Command handlers are private services; expose them in the test container so
 # KernelTestCase can fetch them directly without relying on a dependent service
 # (e.g. an MCP tool) keeping them reachable.
