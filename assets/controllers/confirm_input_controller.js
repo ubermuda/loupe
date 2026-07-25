@@ -20,6 +20,7 @@ export default class extends Controller {
 
     check() {
         // Byte-for-byte match — the server compares the untrimmed value too.
-        this.submitTarget.disabled = this.inputTarget.value !== this.expectedValue;
+        this.submitTarget.disabled =
+            this.inputTarget.value !== this.expectedValue;
     }
 }

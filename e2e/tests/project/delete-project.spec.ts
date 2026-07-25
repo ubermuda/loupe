@@ -44,6 +44,8 @@ test('deleting a project requires typing its exact name', async ({ page }) => {
     // Post-submit content signal (the delete redirects to a different URL, but
     // the success flash is the stated acceptance criterion, not just the URL).
     await expect(page).toHaveURL(/\/projects$/);
-    await expect(page.locator('.lp-flash')).toContainText('permanently deleted');
+    await expect(page.locator('.lp-flash')).toContainText(
+        'permanently deleted',
+    );
     await expect(page.getByText(projectName, { exact: true })).toHaveCount(0);
 });
