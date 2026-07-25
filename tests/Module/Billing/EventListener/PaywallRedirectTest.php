@@ -75,6 +75,47 @@ final class PaywallRedirectTest extends WebTestCase
         self::assertResponseRedirects('/account');
     }
 
+    /**
+     * A user whose trial is over is not offered the first-run wizard: setting up
+     * a first project is using the product. The redirect target is allowlisted,
+     * so this cannot loop.
+     */
+    public function test_the_first_run_wizard_is_behind_the_paywall_without_looping(): void
+    {
+        $client = static::createClient();
+        $scenario = new BillingScenario(static::getContainer());
+        $scenario->enableBilling();
+        $user = $scenario->verifiedUser('wizardwall');
+        $scenario->profile($user, new \DateTimeImmutable('-1 day'));
+
+        $client->loginUser($user);
+
+        // The wizard entry point itself, and the home route that would otherwise
+        // send a project-less user into it.
+        $client->request(Request::METHOD_GET, '/welcome');
+        self::assertResponseRedirects('/billing/subscribe');
+
+        $client->request(Request::METHOD_GET, '/');
+        self::assertResponseRedirects('/billing/subscribe');
+
+        $client->followRedirect();
+        self::assertResponseIsSuccessful();
+    }
+
+    public function test_a_trialing_user_still_gets_the_first_run_wizard(): void
+    {
+        $client = static::createClient();
+        $scenario = new BillingScenario(static::getContainer());
+        $scenario->enableBilling();
+        $user = $scenario->verifiedUser('wizardok');
+        $scenario->profile($user, new \DateTimeImmutable('+3 days'));
+
+        $client->loginUser($user);
+        $client->request(Request::METHOD_GET, '/');
+
+        self::assertResponseRedirects('/welcome');
+    }
+
     public function test_a_paywalled_user_can_still_reach_the_subscribe_page(): void
     {
         $client = static::createClient();
