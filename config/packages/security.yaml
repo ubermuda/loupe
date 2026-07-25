@@ -57,8 +57,24 @@ security:
         - { path: ^/forgot-password, roles: PUBLIC_ACCESS }
         - { path: ^/,                roles: ROLE_USER }
 
+# Login throttling is a per-IP rate limiter. The e2e suite drives the dev app and the
+# WebTestCase suite both from a single IP, so the default cap accumulates across specs
+# and fails later auth tests (which pass in isolation). Relax it well out of the way in
+# dev and test — never in prod. (Partial firewall overrides deep-merge, so only
+# max_attempts changes; form_login/logout/remember_me are preserved.)
+when@dev:
+    security:
+        firewalls:
+            main:
+                login_throttling:
+                    max_attempts: 1000
+
 when@test:
     security:
+        firewalls:
+            main:
+                login_throttling:
+                    max_attempts: 1000
         password_hashers:
             Symfony\Component\Security\Core\User\PasswordAuthenticatedUserInterface:
                 algorithm: auto
