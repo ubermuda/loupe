@@ -19,6 +19,10 @@ exec *args:
 
 shell: (exec "bash")
 
+# Foreground messenger worker for the current checkout (Ctrl-C to stop).
+worker:
+    bin/worktrees/compose-exec.sh bin/console messenger:consume async -vv
+
 # Never run composer on the host: the container's PHP version and extension set
 # are what the lockfile is resolved against, and vendor/ is bind-mounted
 # straight back into it.
@@ -84,7 +88,7 @@ worktree-tailwind:
     bin/worktrees/compose-exec.sh bin/console tailwind:build --watch
 
 lint:
-    vendor/bin/parallel-lint --exclude vendor --exclude var --exclude node_modules .
+    vendor/bin/parallel-lint --exclude vendor --exclude var --exclude node_modules --exclude .claude .
     npx prettier --check --log-level warn assets/ e2e/
     npx eslint public/site-review/widget.js assets/controllers/
     cd e2e && npx eslint .

@@ -341,6 +341,11 @@
         @apply inline-flex items-center justify-center gap-2 w-full px-3.5 py-2.5 rounded-md border border-accent bg-accent text-white font-sans text-base font-medium cursor-pointer transition-colors hover:bg-accent-hover hover:enabled:border-accent-hover disabled:opacity-60 disabled:cursor-not-allowed;
     }
 
+    /* Auth page social sign-in button — secondary counterpart to .auth-submit */
+    .auth-social-button {
+        @apply inline-flex items-center justify-center gap-2.5 w-full px-3.5 py-2.5 rounded-md border border-line bg-surface-2 text-fg font-sans text-base font-medium cursor-pointer transition-colors hover:bg-tint hover:border-line-strong;
+    }
+
     /* Inline field-level form errors */
     .field-errors ul {
         @apply list-none p-0 m-0;
@@ -1445,12 +1450,15 @@
     .lp-sidebar__account-logout-form {
         display: contents;
     }
+    .lp-sidebar__account-settings,
     .lp-sidebar__account-logout {
         @apply inline-flex items-center justify-center w-7 h-7 rounded-md text-fg-dim no-underline transition-colors cursor-pointer;
     }
+    .lp-sidebar__account-settings:hover,
     .lp-sidebar__account-logout:hover {
         @apply bg-tint text-fg;
     }
+    .lp-sidebar__account-settings svg,
     .lp-sidebar__account-logout svg {
         @apply w-4 h-4 shrink-0;
     }

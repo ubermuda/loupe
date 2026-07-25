@@ -32,6 +32,8 @@ security:
                 password_parameter: password
                 default_target_path: app_home
                 enable_csrf: true
+            custom_authenticators:
+                - App\Module\Account\Security\SocialAuthenticator
             login_throttling:
                 max_attempts: 5
             logout:
@@ -52,7 +54,10 @@ security:
         # is reachable unauthenticated in the dev environment.
         - { path: ^/dev/register-and-verify$, roles: PUBLIC_ACCESS }
         - { path: ^/dev/site-review-harness$, roles: PUBLIC_ACCESS }
-        - { path: ^/dev/e2e/reset$,  roles: PUBLIC_ACCESS }
+        - { path: ^/dev/e2e/, roles: PUBLIC_ACCESS }
+        # The OAuth start and callback URLs must be reachable unauthenticated.
+        # Each route is additionally gated by its provider's feature flag.
+        - { path: ^/oauth,           roles: PUBLIC_ACCESS }
         - { path: ^/login,           roles: PUBLIC_ACCESS }
         - { path: ^/register,        roles: PUBLIC_ACCESS }
         - { path: ^/forgot-password, roles: PUBLIC_ACCESS }
