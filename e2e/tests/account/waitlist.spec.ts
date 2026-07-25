@@ -77,7 +77,22 @@ async function setRegistrationCap(admin: Page, value: number): Promise<void> {
         .getByLabel('Value', { exact: true })
         .fill(String(value));
     await admin.getByRole('button', { name: 'Save' }).click();
-    await expect(admin).toHaveURL(/\/admin\/feature-flags/);
+
+    // The edit form (unlike create) redirects back to the SAME edit URL on
+    // success, so a toHaveURL(/\/admin\/feature-flags/) assertion here would
+    // already match before the click and resolve without ever waiting for
+    // the Turbo-driven POST to round-trip — the classic "form redirects to
+    // the same URL" trap. Re-navigate and poll for the persisted value on
+    // the list page instead: the one signal that proves the save actually
+    // landed, regardless of which of the two controllers handled it.
+    await expect(async () => {
+        await admin.goto('/admin/feature-flags?q=registration.cap');
+        await expect(
+            admin
+                .locator('tr', { hasText: 'registration.cap' })
+                .getByText(String(value), { exact: true }),
+        ).toBeVisible();
+    }).toPass({ timeout: 15000 });
 }
 
 /**
@@ -116,7 +131,14 @@ test.describe('registration cap and waitlist', () => {
         const selectedEmail = `e2e-waitlist-selected-${RUN}@example.com`;
         const oldestEmail = `e2e-waitlist-oldest-${RUN}@example.com`;
 
-        const guest = await browser.newPage();
+        // Explicit blank storageState: browser.newPage() otherwise inherits the
+        // current test's storageState fixture — which createTest(ADMIN) above
+        // overrides to the admin's authenticated session — so without this the
+        // "guest" page silently starts out logged in as admin. See project-e2e's
+        // "Guest test scoping" convention.
+        const guest = await browser.newPage({
+            storageState: { cookies: [], origins: [] },
+        });
 
         try {
             await setRegistrationCap(admin, CLOSED_CAP);
@@ -206,7 +228,9 @@ test.describe('registration cap and waitlist', () => {
             await expect(guest.getByLabel('Full name')).toBeVisible();
 
             await guest.getByLabel('Full name').fill('E2E Waitlist Convert');
-            await guest.getByLabel('Username').fill(`e2ewaitlistconvert${RUN}`);
+            // Username is capped at 30 characters — keep the prefix short so
+            // the 13-digit timestamp still fits.
+            await guest.getByLabel('Username').fill(`e2ewlconv${RUN}`);
             await guest.getByLabel('Email').fill(perEntryEmail);
             await guest.getByLabel('Password').fill('e2e_password_123');
             await guest.getByLabel('I agree to').check();
