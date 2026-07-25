@@ -25,14 +25,55 @@ shell: (exec "bash")
 composer *args:
     bin/worktrees/compose-exec.sh composer {{args}}
 
-# Prepare the current worktree for isolated, parallel `just ci` (rsync vendor,
-# link node_modules, per-worktree test DB). No-op from the main checkout.
+# Prepare the current worktree: its own URL, its own dev DB (migrated + seeded),
+# its own test DB, vendor and CSS. Prints the URL. No-op from the main checkout.
 worktree-up:
     bin/worktrees/worktree-bootstrap.sh
 
-# Remove a worktree and drop its per-worktree test DB. Usage: just worktree-down NAME
+# Remove a worktree along with its sidecar, route and both DBs. Usage: just worktree-down NAME
 worktree-down name:
     bin/worktrees/worktree-teardown.sh {{name}}
+
+# List every worktree with its URL, database and sidecar status.
+worktrees:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    main=$(git worktree list --porcelain | awk '/^worktree /{print $2; exit}')
+    . "$main/bin/worktrees/slug.sh"
+    project=$(grep -E '^COMPOSE_PROJECT_NAME=' "$main/.env" | head -1 | cut -d= -f2-)
+    project=${project:-loupe}
+    printf '%-28s %-42s %-22s %s\n' NAME URL "DEV DB" SIDECAR
+    for dir in "$main"/.claude/worktrees/*/; do
+        [ -d "$dir" ] || continue
+        name=$(basename "${dir%/}")
+        slug=$(worktree_slug "$name")
+        container="${project}-wt-${slug}-nginx-1"
+        status=$(docker ps --filter "name=^${container}$" --format '{{{{.Status}}}}' 2>/dev/null || true)
+        printf '%-28s %-42s %-22s %s\n' \
+            "$name" "https://$slug.$project.dev.localhost" \
+            "app_wt_$(worktree_db_token "$slug")" "${status:-stopped}"
+    done
+
+# Remove sidecars and databases whose worktree directory is gone. A plain
+# `git worktree remove` leaves both behind, and the route then serves 502s.
+worktree-prune:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    main=$(git worktree list --porcelain | awk '/^worktree /{print $2; exit}')
+    . "$main/bin/worktrees/slug.sh"
+    project=$(grep -E '^COMPOSE_PROJECT_NAME=' "$main/.env" | head -1 | cut -d= -f2-)
+    project=${project:-loupe}
+    for container in $(docker ps -a --filter "name=^${project}-wt-" --format '{{{{.Names}}}}'); do
+        slug=${container#"${project}-wt-"}
+        slug=${slug%-nginx-1}
+        [ -d "$main/.claude/worktrees/$slug" ] && continue
+        echo "pruning '$slug' (no worktree directory)"
+        bin/worktrees/worktree-teardown.sh "$slug"
+    done
+
+# Tailwind watch mode for the CURRENT worktree (its own var/tailwind).
+wt-tailwind:
+    bin/worktrees/compose-exec.sh bin/console tailwind:build --watch
 
 lint:
     vendor/bin/parallel-lint --exclude vendor --exclude var --exclude node_modules .

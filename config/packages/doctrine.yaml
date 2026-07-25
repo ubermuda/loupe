@@ -2,6 +2,17 @@ doctrine:
     dbal:
         url: '%env(resolve:DATABASE_URL)%'
 
+        # Per-worktree database isolation. Empty in the main checkout; a
+        # worktree's .env.local sets it to _wt_<slug> (written by
+        # worktree-bootstrap.sh), which is enough for BOTH the browser and the
+        # CLI: a worktree is served through its own public/index.php, so
+        # Symfony boots with the worktree as its project directory and loads
+        # that worktree's .env chain either way.
+        #
+        # when@test below overrides this with its own scalar value, so the test
+        # environment keeps using app_test_<token> and never the dev database.
+        dbname_suffix: '%env(default::WORKTREE_DB_SUFFIX)%'
+
         # IMPORTANT: You MUST configure your server version,
         # either here or in the DATABASE_URL env var (see .env file)
         #server_version: '16'

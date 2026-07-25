@@ -39,8 +39,26 @@ When an item in `docs/NEXT_STEPS.md` is resolved, **delete it entirely**. Do not
 
 Worktrees are stored in `.claude/worktrees/` (already gitignored).
 
+**Every worktree is a full application of its own.** Run `just worktree-up` after
+creating one and it gets:
+
+- its own URL — `https://<name>.loupe.dev.localhost`, served by a small nginx
+  sidecar (`compose.worktree.yaml`) while php-fpm, Postgres, Mailpit and Mercure
+  stay shared with the main stack
+- its own database — `app_wt_<name>`, migrated and seeded; log in with
+  `dev@loupe.test` / `password`
+- its own compiled CSS, so classes introduced in the worktree actually render
+
+The stack must be running first (`just up`); bootstrap fails fast otherwise
+rather than leaving a half-configured worktree. Re-running `just worktree-up` is
+always safe.
+
 - Always branch off `main`, not the current feature branch
-- Clean up the worktree after merging: `git worktree remove .claude/worktrees/<name>`
+- Tear down with `just worktree-down <name>` — plain `git worktree remove`
+  leaves the sidecar and both databases behind, and the route then serves 502s.
+  `just worktree-prune` cleans up any that were orphaned that way.
+- `just worktrees` lists every worktree with its URL, database and status
+- `just wt-tailwind` runs Tailwind in watch mode for the current worktree
 - **Serena's edit tools do not work from a worktree.** The Serena MCP server is bound to the main checkout, so `replace_symbol_body` / `insert_*_symbol` / `replace_content` silently write to the **main checkout**, not your worktree — leaving your branch unchanged and the main tree dirty. When working in a worktree (e.g. a subagent implementing a PR), use the built-in **Edit/Write** tools for all edits. Serena **read** tools (`get_symbols_overview`, `find_symbol`, `find_referencing_symbols`) are safe from anywhere.
 
 ## Claude Commands
@@ -96,7 +114,7 @@ From inside the php-fpm container (`just shell`), use the `database` Docker serv
 
 **Database test isolation:** Use `dama/doctrine-test-bundle`. Each test runs inside a database transaction that is automatically rolled back; no custom schema-reset code is needed. Schema creation runs once in `tests/bootstrap.php` (drop → create → migrate). Never write `resetSchema()` methods that drop and recreate the schema per test.
 
-**Running tests in parallel worktrees:** `config/packages/doctrine.yaml` sets `dbname_suffix: '_test%env(default::TEST_TOKEN)%'`, so PHPUnit's database is `app_test<TEST_TOKEN>`. To run `just ci` / PHPUnit in a git worktree without colliding with the main checkout or a sibling worktree, export a unique `TEST_TOKEN` (e.g. `TEST_TOKEN=_wt1`) so each gets its own `app_test_wt1` schema (bootstrap drop→create→migrate is per-DB). **`just e2e` cannot be parallelized** — it drives a single shared live app instance and its database, so e2e runs across branches/worktrees must be **serialized**. The DB-free static gate (`just cs`, `just phpstan`, `just lint`, `just arkitect`, `just gamache`) is always safe to run in parallel.
+**Running tests in parallel worktrees:** `config/packages/doctrine.yaml` sets `dbname_suffix: '_test%env(default::TEST_TOKEN)%'`, so PHPUnit's database is `app_test<TEST_TOKEN>`. To run `just ci` / PHPUnit in a git worktree without colliding with the main checkout or a sibling worktree, export a unique `TEST_TOKEN` (e.g. `TEST_TOKEN=_wt1`) so each gets its own `app_test_wt1` schema (bootstrap drop→create→migrate is per-DB). `just worktree-up` writes that token for you. Since each worktree also has its own **dev** database (`app_wt_<name>`, selected by `WORKTREE_DB_SUFFIX` in its `.env.local`), `just migrate-run` and `bin/console` in a worktree never touch the main dev database. **`just e2e` still cannot be parallelized** — Mailpit is shared, so mail-asserting specs across concurrent runs would read each other's messages. It can now be *pointed* at a worktree, which is the better gate for a branch: `E2E_BASE_URL=https://<name>.loupe.dev.localhost just e2e`. The DB-free static gate (`just cs`, `just phpstan`, `just lint`, `just arkitect`, `just gamache`) is always safe to run in parallel.
 
 ## Common Commands
 
