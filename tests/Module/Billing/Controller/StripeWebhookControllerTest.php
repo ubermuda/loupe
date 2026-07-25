@@ -30,10 +30,10 @@ final class StripeWebhookControllerTest extends WebTestCase
     }
 
     /** @param array<string, mixed> $subscription */
-    private function payload(string $type, array $subscription, int $created): string
+    private function payload(string $type, array $subscription, int $created, string $eventId = 'evt_1'): string
     {
         return json_encode([
-            'id' => 'evt_1',
+            'id' => $eventId,
             'object' => 'event',
             'type' => $type,
             'created' => $created,
@@ -180,6 +180,38 @@ final class StripeWebhookControllerTest extends WebTestCase
         $stored = $this->storedProfile();
         self::assertIsArray($stored);
         self::assertSame(BillingStatus::Canceled->value, $stored['status']);
+    }
+
+    public function test_a_replayed_delivery_of_the_same_event_does_not_reapply_it(): void
+    {
+        $client = static::createClient();
+        $this->seedProfile();
+        $created = time();
+
+        $this->post($client, $this->payload('customer.subscription.updated', $this->classicSubscription('active'), $created, 'evt_replay'));
+        // Same event id: a Stripe retry, not new information. The differing
+        // status proves the second delivery was ignored rather than applied.
+        $this->post($client, $this->payload('customer.subscription.deleted', $this->classicSubscription('canceled'), $created, 'evt_replay'));
+
+        self::assertResponseIsSuccessful();
+        $stored = $this->storedProfile();
+        self::assertIsArray($stored);
+        self::assertSame(BillingStatus::Active->value, $stored['status']);
+    }
+
+    public function test_two_distinct_events_in_the_same_second_both_apply(): void
+    {
+        $client = static::createClient();
+        $this->seedProfile();
+        $created = time();
+
+        $this->post($client, $this->payload('customer.subscription.updated', $this->classicSubscription('incomplete'), $created, 'evt_created'));
+        $this->post($client, $this->payload('customer.subscription.updated', $this->classicSubscription('active'), $created, 'evt_updated'));
+
+        self::assertResponseIsSuccessful();
+        $stored = $this->storedProfile();
+        self::assertIsArray($stored);
+        self::assertSame(BillingStatus::Active->value, $stored['status']);
     }
 
     public function test_an_unknown_customer_is_acknowledged(): void

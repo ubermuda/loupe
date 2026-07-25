@@ -12,6 +12,8 @@ final readonly class SyncStripeSubscriptionCommand
 {
     public function __construct(
         /** @phpstan-var non-empty-string */
+        public string $stripeEventId,
+        /** @phpstan-var non-empty-string */
         public string $stripeCustomerId,
         /** @phpstan-var non-empty-string */
         public string $stripeSubscriptionId,

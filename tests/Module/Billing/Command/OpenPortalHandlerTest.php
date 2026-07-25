@@ -81,6 +81,23 @@ final class OpenPortalHandlerTest extends TestCase
         $handler(new OpenPortalCommand($user, returnUrl: 'https://app/billing'));
     }
 
+    public function test_a_stripe_failure_becomes_a_domain_error_instead_of_a_crash(): void
+    {
+        $user = $this->user();
+        $profile = new BillingProfile($user, trialEndsAt: new \DateTimeImmutable('-1 day'));
+        $profile->stripeCustomerId = 'cus_123';
+
+        $stripe = $this->createStub(StripeGatewayInterface::class);
+        $stripe->method('createPortalSession')->willThrowException(new \RuntimeException('stripe is down'));
+
+        try {
+            ($this->handler($stripe, $profile))(new OpenPortalCommand($user, returnUrl: 'https://app/billing'));
+            self::fail('expected DomainErrors');
+        } catch (DomainErrors $e) {
+            self::assertContains('billing.error.stripe_unavailable', $e->errors);
+        }
+    }
+
     public function test_billing_disabled_is_a_domain_error(): void
     {
         $user = $this->user();

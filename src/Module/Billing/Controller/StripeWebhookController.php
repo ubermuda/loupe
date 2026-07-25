@@ -63,15 +63,17 @@ final class StripeWebhookController extends AppController
         }
 
         $subscription = $event->data->object;
+        $eventId = is_string($event->id) ? $event->id : '';
         $customerId = is_string($subscription['customer'] ?? null) ? $subscription['customer'] : '';
         $subscriptionId = is_string($subscription['id'] ?? null) ? $subscription['id'] : '';
-        if ('' === $customerId || '' === $subscriptionId) {
+        if ('' === $eventId || '' === $customerId || '' === $subscriptionId) {
             $this->logger->warning('billing.webhook.malformed', ['eventType' => $event->type]);
 
             return new JsonResponse(['received' => true]);
         }
 
         ($this->syncSubscription)(new SyncStripeSubscriptionCommand(
+            stripeEventId: $eventId,
             stripeCustomerId: $customerId,
             stripeSubscriptionId: $subscriptionId,
             stripeStatus: 'customer.subscription.deleted' === $event->type

@@ -40,6 +40,7 @@ final readonly class ShowSubscribeHandler
             price: $this->prices->get(),
             billingEnabled: $billingEnabled,
             subscribed: $subscribed,
+            hasLiveSubscription: null !== $profile && $profile->hasLiveSubscription(),
             trialing: !$subscribed && null !== $profile && $profile->isCurrent($now),
             trialDaysLeft: null === $profile ? 0 : $this->daysLeft($profile, $now),
         );

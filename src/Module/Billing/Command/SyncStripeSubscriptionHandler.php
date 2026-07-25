@@ -30,18 +30,31 @@ final readonly class SyncStripeSubscriptionHandler
             return;
         }
 
-        // Stripe guarantees neither ordering nor exactly-once delivery, so an
-        // event that is not strictly newer than the last one applied is dropped:
-        // that covers both a replayed duplicate and a stale snapshot (an older
-        // `updated` arriving after `deleted`). Stripe timestamps have one-second
-        // resolution, so two genuinely distinct events within the same second
-        // collapse to the first — the safe trade on a money path, since the next
-        // event carries the full subscription state anyway.
-        if (null !== $profile->lastStripeEventAt && $command->eventCreatedAt <= $profile->lastStripeEventAt) {
+        // Stripe guarantees neither ordering nor exactly-once delivery, so two
+        // things must be filtered out, and only those two.
+        //
+        // A strictly older event is a stale snapshot (an `updated` arriving
+        // after `deleted`) and must not overwrite newer state.
+        if (null !== $profile->lastStripeEventAt && $command->eventCreatedAt < $profile->lastStripeEventAt) {
             $this->logger->info('billing.webhook.stale_event', [
                 'stripeCustomerId' => $command->stripeCustomerId,
+                'eventId' => $command->stripeEventId,
                 'eventCreatedAt' => $command->eventCreatedAt->format(\DATE_ATOM),
                 'lastStripeEventAt' => $profile->lastStripeEventAt->format(\DATE_ATOM),
+            ]);
+
+            return;
+        }
+
+        // The same event delivered twice is a replay. Timestamps cannot detect
+        // it — Stripe's `created` has one-second resolution, and a `created`
+        // event followed immediately by an `updated` one legitimately shares a
+        // second — so the event id is what distinguishes them. Equal timestamps
+        // with a different id are applied in arrival order.
+        if (null !== $profile->lastStripeEventId && $command->stripeEventId === $profile->lastStripeEventId) {
+            $this->logger->info('billing.webhook.replayed_event', [
+                'stripeCustomerId' => $command->stripeCustomerId,
+                'eventId' => $command->stripeEventId,
             ]);
 
             return;
@@ -51,6 +64,7 @@ final readonly class SyncStripeSubscriptionHandler
         $profile->status = BillingStatus::fromStripeStatus($command->stripeStatus);
         $profile->currentPeriodEnd = $command->currentPeriodEnd;
         $profile->lastStripeEventAt = $command->eventCreatedAt;
+        $profile->lastStripeEventId = $command->stripeEventId;
         $this->em->flush();
 
         $this->logger->info('billing.subscription.synced', [

@@ -40,14 +40,33 @@ final readonly class StartCheckoutHandler
 
         $profile = $this->trialProvisioner->ensureProfile($command->user);
 
-        $customerId = $profile->stripeCustomerId;
-        if (null === $customerId) {
-            $customerId = $this->stripe->createCustomer($command->user);
-            $profile->stripeCustomerId = $customerId;
-            $this->em->flush();
+        // Never open a second Checkout for a customer Stripe already holds a
+        // subscription for — that bills them twice. Whatever is wrong with the
+        // existing one (unpaid, card expired) is fixed in the portal.
+        if ($profile->hasLiveSubscription()) {
+            throw new DomainErrors(['billing' => 'billing.error.subscription_exists']);
         }
 
-        $url = $this->stripe->createCheckoutSession($customerId, $priceId, $command->successUrl, $command->cancelUrl);
+        try {
+            $customerId = $profile->stripeCustomerId;
+            if (null === $customerId) {
+                $customerId = $this->stripe->createCustomer($command->user);
+                $profile->stripeCustomerId = $customerId;
+                $this->em->flush();
+            }
+
+            $url = $this->stripe->createCheckoutSession($customerId, $priceId, $command->successUrl, $command->cancelUrl);
+        } catch (\Throwable $e) {
+            // Stripe being down or rejecting the call is a bad minute, not a
+            // bug: surface it as a domain failure so the user gets the "try
+            // again later" page instead of a 500.
+            $this->logger->error('billing.checkout.stripe_failed', [
+                'userId' => (string) $command->user->id,
+                'error' => $e->getMessage(),
+            ]);
+
+            throw new DomainErrors(['billing' => 'billing.error.stripe_unavailable']);
+        }
 
         $this->logger->info('billing.checkout.started', ['userId' => (string) $command->user->id, 'priceId' => $priceId]);
 

@@ -34,9 +34,11 @@ final class SyncStripeSubscriptionHandlerTest extends TestCase
         return new SyncStripeSubscriptionHandler($profiles, $this->createStub(EntityManagerInterface::class), new NullLogger());
     }
 
-    private function command(string $status, string $eventCreatedAt = 'now'): SyncStripeSubscriptionCommand
+    /** @param non-empty-string $eventId */
+    private function command(string $status, string $eventCreatedAt = 'now', string $eventId = 'evt_1'): SyncStripeSubscriptionCommand
     {
         return new SyncStripeSubscriptionCommand(
+            stripeEventId: $eventId,
             stripeCustomerId: 'cus_123',
             stripeSubscriptionId: 'sub_123',
             stripeStatus: $status,
@@ -78,8 +80,8 @@ final class SyncStripeSubscriptionHandlerTest extends TestCase
         $profile = $this->profile();
         $handler = $this->handler($profile);
 
-        $handler($this->command('canceled', '2026-07-25 12:00:05'));
-        $handler($this->command('active', '2026-07-25 12:00:01'));
+        $handler($this->command('canceled', '2026-07-25 12:00:05', 'evt_deleted'));
+        $handler($this->command('active', '2026-07-25 12:00:01', 'evt_older_update'));
 
         self::assertSame(BillingStatus::Canceled, $profile->status);
     }
@@ -89,8 +91,24 @@ final class SyncStripeSubscriptionHandlerTest extends TestCase
         $profile = $this->profile();
         $handler = $this->handler($profile);
 
-        $handler($this->command('active', '2026-07-25 12:00:05'));
-        $handler($this->command('canceled', '2026-07-25 12:00:05'));
+        $handler($this->command('active', '2026-07-25 12:00:05', 'evt_same'));
+        $handler($this->command('canceled', '2026-07-25 12:00:05', 'evt_same'));
+
+        self::assertSame(BillingStatus::Active, $profile->status);
+    }
+
+    /**
+     * Stripe's `created` has one-second resolution, so a `created` event and the
+     * `updated` event right behind it legitimately share a timestamp. Only the
+     * id can tell them apart, and both must land.
+     */
+    public function test_a_distinct_event_in_the_same_second_is_applied(): void
+    {
+        $profile = $this->profile();
+        $handler = $this->handler($profile);
+
+        $handler($this->command('incomplete', '2026-07-25 12:00:05', 'evt_created'));
+        $handler($this->command('active', '2026-07-25 12:00:05', 'evt_updated'));
 
         self::assertSame(BillingStatus::Active, $profile->status);
     }
@@ -100,8 +118,8 @@ final class SyncStripeSubscriptionHandlerTest extends TestCase
         $profile = $this->profile();
         $handler = $this->handler($profile);
 
-        $handler($this->command('active', '2026-07-25 12:00:05'));
-        $handler($this->command('canceled', '2026-07-25 12:00:06'));
+        $handler($this->command('active', '2026-07-25 12:00:05', 'evt_first'));
+        $handler($this->command('canceled', '2026-07-25 12:00:06', 'evt_second'));
 
         self::assertSame(BillingStatus::Canceled, $profile->status);
     }

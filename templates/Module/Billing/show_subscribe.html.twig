@@ -17,6 +17,8 @@
         <p class="lp-eyebrow">{{ 'billing.subscribe.status.eyebrow'|trans }}</p>
         {% if view.subscribed %}
         <div class="lp-billing-status lp-billing-status--ok">{{ 'billing.subscribe.status.subscribed'|trans }}</div>
+        {% elseif view.hasLiveSubscription %}
+        <div class="lp-billing-status lp-billing-status--expired">{{ 'billing.subscribe.status.payment_problem'|trans }}</div>
         {% elseif view.trialing %}
         <div class="lp-billing-status">{{ 'billing.subscribe.status.trial_active'|trans({'%count%': view.trialDaysLeft}) }}</div>
         {% elseif view.billingEnabled %}
@@ -40,7 +42,10 @@
     <section class="lp-billing-block">
         {# data-turbo="false": both actions redirect to a Stripe-hosted page, and Turbo
            cannot follow a cross-origin redirect — the browser must submit natively. #}
-        {% if view.subscribed %}
+        {# A customer Stripe still holds a subscription for is sent to the portal,
+           even when that subscription is unpaid: a second Checkout would create a
+           parallel subscription and bill them twice. #}
+        {% if view.hasLiveSubscription %}
         <form method="post" action="{{ path('app_billing_portal') }}" data-turbo="false">
             <input type="hidden" name="_csrf_token" value="{{ csrf_token('billing-portal') }}">
             <button type="submit" class="lp-btn lp-btn--primary">{{ 'billing.subscribe.portal.button'|trans }}</button>

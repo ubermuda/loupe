@@ -33,7 +33,18 @@ final readonly class OpenPortalHandler
             throw new DomainErrors(['portal' => 'billing.error.no_customer']);
         }
 
-        $url = $this->stripe->createPortalSession($customerId, $command->returnUrl);
+        try {
+            $url = $this->stripe->createPortalSession($customerId, $command->returnUrl);
+        } catch (\Throwable $e) {
+            // Stripe being down is a bad minute, not a bug: surface it as a
+            // domain failure so the user gets "try again later", not a 500.
+            $this->logger->error('billing.portal.stripe_failed', [
+                'userId' => (string) $command->user->id,
+                'error' => $e->getMessage(),
+            ]);
+
+            throw new DomainErrors(['portal' => 'billing.error.stripe_unavailable']);
+        }
 
         $this->logger->info('billing.portal.opened', ['userId' => (string) $command->user->id]);
 

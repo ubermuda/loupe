@@ -19,6 +19,13 @@ final readonly class ShowSubscribeView
         public bool $billingEnabled,
         /** A paid subscription is in force. */
         public bool $subscribed = false,
+        /**
+         * Stripe still holds a subscription for this customer — active, or
+         * merely unpaid. Starting a second Checkout in that state would create
+         * a second subscription and bill the user twice, so this drives the
+         * page towards the portal rather than towards Checkout.
+         */
+        public bool $hasLiveSubscription = false,
         /** The app-managed trial is still running. */
         public bool $trialing = false,
         /** Whole days left in the trial, never negative. */

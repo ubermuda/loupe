@@ -35,11 +35,19 @@ class BillingProfile
     /**
      * `created` of the last Stripe event applied. Stripe guarantees neither
      * ordering nor exactly-once delivery, so the webhook handler drops any
-     * event not strictly newer than this — replays and stale out-of-order
-     * snapshots (e.g. an old `updated` arriving after `deleted`) are ignored.
+     * event older than this — a stale out-of-order snapshot (e.g. an old
+     * `updated` arriving after `deleted`) never overwrites newer state.
      */
     #[ORM\Column(nullable: true)]
     public ?\DateTimeImmutable $lastStripeEventAt = null;
+
+    /**
+     * Id of the last Stripe event applied. Stripe timestamps have one-second
+     * resolution, so `created` alone cannot tell a replay of one event from a
+     * second, genuinely different event in the same second — the id can.
+     */
+    #[ORM\Column(length: 255, nullable: true)]
+    public ?string $lastStripeEventId = null;
 
     public function __construct(
         // OneToOne rather than ManyToOne + a unique constraint: one profile per
@@ -54,6 +62,19 @@ class BillingProfile
         #[ORM\Column]
         public readonly \DateTimeImmutable $createdAt = new \DateTimeImmutable(),
     ) {
+    }
+
+    /**
+     * Stripe still holds a subscription for this customer. `PastDue` counts:
+     * an unpaid subscription is still a subscription, so the answer is "manage
+     * the one you have", never "start a second one" — a second Checkout would
+     * create a parallel subscription and bill the user twice once the overdue
+     * invoice settles.
+     */
+    public function hasLiveSubscription(): bool
+    {
+        return null !== $this->stripeSubscriptionId
+            && in_array($this->status, [BillingStatus::Active, BillingStatus::PastDue], true);
     }
 
     public function isCurrent(\DateTimeImmutable $now): bool

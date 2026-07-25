@@ -931,6 +931,10 @@
                 <source>billing.subscribe.status.subscribed</source>
                 <target>Your subscription is active.</target>
             </trans-unit>
+            <trans-unit id="billing.subscribe.status.payment_problem">
+                <source>billing.subscribe.status.payment_problem</source>
+                <target>Your last payment did not go through. Update your payment details to restore access.</target>
+            </trans-unit>
             <trans-unit id="billing.subscribe.status.trial_active">
                 <source>billing.subscribe.status.trial_active</source>
                 <target>{0} Your trial ends today.|{1} 1 day left in your trial.|]1,Inf[ %count% days left in your trial.</target>

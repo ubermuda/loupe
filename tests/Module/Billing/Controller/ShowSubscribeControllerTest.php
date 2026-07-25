@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Tests\Module\Billing\Controller;
 
 use App\Module\Billing\Entity\BillingProfile;
+use App\Module\Billing\Entity\BillingStatus;
 use App\Module\Billing\Repository\BillingProfileRepository;
 use App\Module\Billing\Service\PriceView;
 use App\Module\Billing\Service\StripeGatewayInterface;
@@ -96,8 +97,28 @@ final class ShowSubscribeControllerTest extends WebTestCase
         $scenario->enableBilling();
         $user = $scenario->verifiedUser('subscribed');
         $profile = $scenario->profile($user, new \DateTimeImmutable('-30 days'));
-        $profile->status = \App\Module\Billing\Entity\BillingStatus::Active;
+        $profile->status = BillingStatus::Active;
         $profile->stripeSubscriptionId = 'sub_123';
+        static::getContainer()->get(EntityManagerInterface::class)->flush();
+
+        $client->loginUser($user);
+        $crawler = $client->request(Request::METHOD_GET, '/billing/subscribe');
+
+        self::assertResponseIsSuccessful();
+        self::assertCount(1, $crawler->filter('form[action="/billing/portal"]'));
+        self::assertCount(0, $crawler->filter('form[action="/billing/checkout"]'));
+    }
+
+    public function test_an_unpaid_subscription_is_managed_in_the_portal_not_re_purchased(): void
+    {
+        $client = static::createClient();
+        $client->disableReboot();
+        $scenario = new BillingScenario(static::getContainer());
+        $scenario->enableBilling();
+        $user = $scenario->verifiedUser('pastdue');
+        $profile = $scenario->profile($user, new \DateTimeImmutable('-30 days'));
+        $profile->status = BillingStatus::PastDue;
+        $profile->stripeSubscriptionId = 'sub_pastdue';
         static::getContainer()->get(EntityManagerInterface::class)->flush();
 
         $client->loginUser($user);

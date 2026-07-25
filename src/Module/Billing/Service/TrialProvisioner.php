@@ -7,7 +7,6 @@ namespace App\Module\Billing\Service;
 use App\Module\Account\Entity\User;
 use App\Module\Billing\Entity\BillingProfile;
 use App\Module\Billing\Repository\BillingProfileRepository;
-use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
 use Doctrine\ORM\EntityManagerInterface;
 use Ubermuda\FeatureFlagsBundle\FeatureFlagService;
 
@@ -34,18 +33,30 @@ final readonly class TrialProvisioner
             return $profile;
         }
 
-        $days = max(1, $this->featureFlags->getIntValue('billing.trial_days', self::DEFAULT_TRIAL_DAYS));
-        $profile = new BillingProfile($user, trialEndsAt: new \DateTimeImmutable(sprintf('+%d days', $days)));
+        // Read-check-write on a row that does not exist yet, so there is no row
+        // to lock. A transaction-scoped advisory lock keyed on the user serves
+        // instead: concurrent first requests queue here, and the loser sees the
+        // winner's row on its re-read rather than colliding on the unique index.
+        // Recovering from that collision is not an option — a failed flush()
+        // closes the entity manager, leaving nothing able to re-read the row.
+        return $this->em->wrapInTransaction(function () use ($user): BillingProfile {
+            $this->em->getConnection()->executeStatement(
+                'SELECT pg_advisory_xact_lock(hashtext(?))',
+                ['billing_profile_'.(string) $user->id],
+            );
 
-        try {
+            $profile = $this->billingProfiles->findOneByUser($user);
+            if (null !== $profile) {
+                return $profile;
+            }
+
+            $days = max(1, $this->featureFlags->getIntValue('billing.trial_days', self::DEFAULT_TRIAL_DAYS));
+            $profile = new BillingProfile($user, trialEndsAt: new \DateTimeImmutable(sprintf('+%d days', $days)));
+
             $this->em->persist($profile);
             $this->em->flush();
-        } catch (UniqueConstraintViolationException) {
-            // A concurrent first request won the race — theirs is the profile.
-            // The unique FK on user_id is what makes this safe.
-            return $this->billingProfiles->findOneByUser($user) ?? throw new \RuntimeException('billing profile vanished after unique violation');
-        }
 
-        return $profile;
+            return $profile;
+        });
     }
 }

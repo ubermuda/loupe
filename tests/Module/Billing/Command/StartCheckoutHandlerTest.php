@@ -9,6 +9,7 @@ use App\Module\Account\Entity\User;
 use App\Module\Billing\Command\StartCheckoutCommand;
 use App\Module\Billing\Command\StartCheckoutHandler;
 use App\Module\Billing\Entity\BillingProfile;
+use App\Module\Billing\Entity\BillingStatus;
 use App\Module\Billing\Repository\BillingProfileRepository;
 use App\Module\Billing\Service\ActivePriceProvider;
 use App\Module\Billing\Service\StripeGatewayInterface;
@@ -108,6 +109,42 @@ final class StartCheckoutHandlerTest extends TestCase
             self::fail('expected DomainErrors');
         } catch (DomainErrors $e) {
             self::assertContains('billing.error.no_active_price', $e->errors);
+        }
+    }
+
+    public function test_a_customer_with_a_live_subscription_is_never_sent_to_checkout_again(): void
+    {
+        $user = $this->user();
+        $profile = new BillingProfile($user, trialEndsAt: new \DateTimeImmutable('-30 days'));
+        $profile->stripeCustomerId = 'cus_existing';
+        $profile->stripeSubscriptionId = 'sub_existing';
+        $profile->status = BillingStatus::PastDue;
+
+        $stripe = $this->createMock(StripeGatewayInterface::class);
+        $stripe->expects($this->never())->method('createCheckoutSession');
+
+        try {
+            ($this->handler($stripe, $profile))($this->command($user));
+            self::fail('expected DomainErrors');
+        } catch (DomainErrors $e) {
+            self::assertContains('billing.error.subscription_exists', $e->errors);
+        }
+    }
+
+    public function test_a_stripe_failure_becomes_a_domain_error_instead_of_a_crash(): void
+    {
+        $user = $this->user();
+        $profile = new BillingProfile($user, trialEndsAt: new \DateTimeImmutable('+3 days'));
+        $profile->stripeCustomerId = 'cus_existing';
+
+        $stripe = $this->createStub(StripeGatewayInterface::class);
+        $stripe->method('createCheckoutSession')->willThrowException(new \RuntimeException('stripe is down'));
+
+        try {
+            ($this->handler($stripe, $profile))($this->command($user));
+            self::fail('expected DomainErrors');
+        } catch (DomainErrors $e) {
+            self::assertContains('billing.error.stripe_unavailable', $e->errors);
         }
     }
 
