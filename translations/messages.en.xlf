@@ -376,6 +376,10 @@
                 <source>account.email.data_export.subject</source>
                 <target>Your Loupe data export is ready</target>
             </trans-unit>
+            <trans-unit id="account.email.account_deletion.subject">
+                <source>account.email.account_deletion.subject</source>
+                <target>Confirm your account deletion</target>
+            </trans-unit>
 
             <!-- Verification email template -->
             <trans-unit id="account.email.verification.html_title">
@@ -462,6 +466,36 @@
             </trans-unit>
             <trans-unit id="account.email.data_export.footer_copy_link">
                 <source>account.email.data_export.footer_copy_link</source>
+                <target>Or copy this link:</target>
+            </trans-unit>
+
+            <!-- Account deletion email template -->
+            <trans-unit id="account.email.account_deletion.html_title">
+                <source>account.email.account_deletion.html_title</source>
+                <target>Confirm your account deletion</target>
+            </trans-unit>
+            <trans-unit id="account.email.account_deletion.heading">
+                <source>account.email.account_deletion.heading</source>
+                <target>Delete your account</target>
+            </trans-unit>
+            <trans-unit id="account.email.account_deletion.body">
+                <source>account.email.account_deletion.body</source>
+                <target>Someone (hopefully you) asked to permanently delete your Loupe account and all its data. This cannot be undone.</target>
+            </trans-unit>
+            <trans-unit id="account.email.account_deletion.cta">
+                <source>account.email.account_deletion.cta</source>
+                <target>Yes, delete my account</target>
+            </trans-unit>
+            <trans-unit id="account.email.account_deletion.footer_expiry">
+                <source>account.email.account_deletion.footer_expiry</source>
+                <target>This link expires in 1 hour.</target>
+            </trans-unit>
+            <trans-unit id="account.email.account_deletion.footer_not_you">
+                <source>account.email.account_deletion.footer_not_you</source>
+                <target>If you did not request this, you can safely ignore this email — nothing will happen.</target>
+            </trans-unit>
+            <trans-unit id="account.email.account_deletion.footer_copy_link">
+                <source>account.email.account_deletion.footer_copy_link</source>
                 <target>Or copy this link:</target>
             </trans-unit>
 
@@ -622,6 +656,90 @@
             <trans-unit id="account.settings.export.error.already_pending">
                 <source>account.settings.export.error.already_pending</source>
                 <target>An export is already being prepared.</target>
+            </trans-unit>
+
+            <!-- Account settings page — delete account danger zone -->
+            <trans-unit id="account.delete.danger.heading">
+                <source>account.delete.danger.heading</source>
+                <target>Delete account</target>
+            </trans-unit>
+            <trans-unit id="account.delete.danger.body">
+                <source>account.delete.danger.body</source>
+                <target>Permanently delete your account, projects, documents, and all associated data. We will email you a confirmation link — nothing is deleted until you confirm.</target>
+            </trans-unit>
+            <trans-unit id="account.delete.danger.cta">
+                <source>account.delete.danger.cta</source>
+                <target>Delete my account…</target>
+            </trans-unit>
+            <trans-unit id="account.delete.flash.requested">
+                <source>account.delete.flash.requested</source>
+                <target>Check your email — we sent you a link to confirm the deletion.</target>
+            </trans-unit>
+
+            <!-- Account deletion confirmation page -->
+            <trans-unit id="account.delete.confirm.page.title">
+                <source>account.delete.confirm.page.title</source>
+                <target>Confirm account deletion</target>
+            </trans-unit>
+            <trans-unit id="account.delete.confirm.heading">
+                <source>account.delete.confirm.heading</source>
+                <target>Permanently delete this account?</target>
+            </trans-unit>
+            <trans-unit id="account.delete.confirm.body">
+                <source>account.delete.confirm.body</source>
+                <target>You are about to permanently delete the account %email%. This cannot be undone. The following will be erased:</target>
+            </trans-unit>
+            <trans-unit id="account.delete.confirm.item_projects">
+                <source>account.delete.confirm.item_projects</source>
+                <target>All projects and their API tokens</target>
+            </trans-unit>
+            <trans-unit id="account.delete.confirm.item_documents">
+                <source>account.delete.confirm.item_documents</source>
+                <target>All documents, reviews, and comments</target>
+            </trans-unit>
+            <trans-unit id="account.delete.confirm.item_subscription">
+                <source>account.delete.confirm.item_subscription</source>
+                <target>Any active subscription (cancelled immediately)</target>
+            </trans-unit>
+            <trans-unit id="account.delete.confirm.cta">
+                <source>account.delete.confirm.cta</source>
+                <target>Permanently delete my account</target>
+            </trans-unit>
+
+            <!-- Account deletion invalid-link page -->
+            <trans-unit id="account.delete.invalid.page.title">
+                <source>account.delete.invalid.page.title</source>
+                <target>Link no longer valid</target>
+            </trans-unit>
+            <trans-unit id="account.delete.invalid.heading">
+                <source>account.delete.invalid.heading</source>
+                <target>This link is no longer valid</target>
+            </trans-unit>
+            <trans-unit id="account.delete.invalid.body">
+                <source>account.delete.invalid.body</source>
+                <target>The deletion link has expired or was already used. If you still want to delete your account, request a new link from your account settings.</target>
+            </trans-unit>
+            <trans-unit id="account.delete.invalid.back">
+                <source>account.delete.invalid.back</source>
+                <target>Back to sign in</target>
+            </trans-unit>
+            <trans-unit id="account.delete.error.invalid_token">
+                <source>account.delete.error.invalid_token</source>
+                <target>This deletion link is invalid or has expired.</target>
+            </trans-unit>
+
+            <!-- Account deletion goodbye page -->
+            <trans-unit id="account.delete.goodbye.page.title">
+                <source>account.delete.goodbye.page.title</source>
+                <target>Account deleted</target>
+            </trans-unit>
+            <trans-unit id="account.delete.goodbye.heading">
+                <source>account.delete.goodbye.heading</source>
+                <target>Your account has been deleted</target>
+            </trans-unit>
+            <trans-unit id="account.delete.goodbye.body">
+                <source>account.delete.goodbye.body</source>
+                <target>Everything is gone — projects, documents, reviews, and your profile. Thanks for trying Loupe.</target>
             </trans-unit>
 
             <!-- Document dashboard -->

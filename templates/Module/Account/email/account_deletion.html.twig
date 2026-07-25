@@ -1,0 +1,22 @@
+{% apply inline_css(source('@EmailStyles/email.css')) %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ 'account.email.account_deletion.html_title'|trans }}</title>
+</head>
+<body>
+    <div class="card">
+        <h1>{{ 'account.email.account_deletion.heading'|trans }}</h1>
+        <p class="body-text">{{ 'account.email.account_deletion.body'|trans }}</p>
+        <a href="{{ confirmUrl }}" class="btn">{{ 'account.email.account_deletion.cta'|trans }}</a>
+        <p class="footer">
+            {{ 'account.email.account_deletion.footer_expiry'|trans }}<br>
+            {{ 'account.email.account_deletion.footer_not_you'|trans }}<br>
+            {{ 'account.email.account_deletion.footer_copy_link'|trans }} {{ confirmUrl }}
+        </p>
+    </div>
+</body>
+</html>
+{% endapply %}

@@ -29,6 +29,9 @@ final readonly class RedirectUnverifiedUserListener
         'app_oauth_check_google',
         'app_oauth_check_github',
         'app_oauth_link',
+        'app_account_delete_confirm',
+        'app_account_delete_execute',
+        'app_account_goodbye',
     ];
 
     public function __construct(
