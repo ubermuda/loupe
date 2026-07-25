@@ -1450,12 +1450,15 @@
     .lp-sidebar__account-logout-form {
         display: contents;
     }
+    .lp-sidebar__account-settings,
     .lp-sidebar__account-logout {
         @apply inline-flex items-center justify-center w-7 h-7 rounded-md text-fg-dim no-underline transition-colors cursor-pointer;
     }
+    .lp-sidebar__account-settings:hover,
     .lp-sidebar__account-logout:hover {
         @apply bg-tint text-fg;
     }
+    .lp-sidebar__account-settings svg,
     .lp-sidebar__account-logout svg {
         @apply w-4 h-4 shrink-0;
     }

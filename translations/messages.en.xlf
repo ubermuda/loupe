@@ -322,6 +322,10 @@
                 <source>account.email.reset_password.subject</source>
                 <target>Reset your password</target>
             </trans-unit>
+            <trans-unit id="account.email.data_export.subject">
+                <source>account.email.data_export.subject</source>
+                <target>Your Loupe data export is ready</target>
+            </trans-unit>
 
             <!-- Verification email template -->
             <trans-unit id="account.email.verification.html_title">
@@ -372,6 +376,24 @@
             </trans-unit>
             <trans-unit id="account.email.reset_password.footer_copy_link">
                 <source>account.email.reset_password.footer_copy_link</source>
+                <target>Or copy this link:</target>
+            </trans-unit>
+
+            <!-- Data export email template -->
+            <trans-unit id="account.email.data_export.heading">
+                <source>account.email.data_export.heading</source>
+                <target>Your data export is ready</target>
+            </trans-unit>
+            <trans-unit id="account.email.data_export.body">
+                <source>account.email.data_export.body</source>
+                <target>The archive of your Loupe data is ready to download. The link is valid for %hours% hours.</target>
+            </trans-unit>
+            <trans-unit id="account.email.data_export.button_label">
+                <source>account.email.data_export.button_label</source>
+                <target>Download my data</target>
+            </trans-unit>
+            <trans-unit id="account.email.data_export.footer_copy_link">
+                <source>account.email.data_export.footer_copy_link</source>
                 <target>Or copy this link:</target>
             </trans-unit>
 
@@ -486,6 +508,52 @@
             <trans-unit id="account.api_token.scope.site_review_warning">
                 <source>account.api_token.scope.site_review_warning</source>
                 <target>A site-review token is embedded in your app's page source and visible to anyone who can view-source. Use a dedicated dev token, never a production credential.</target>
+            </trans-unit>
+
+            <!-- Account settings page -->
+            <trans-unit id="account.settings.page.title">
+                <source>account.settings.page.title</source>
+                <target>Account settings</target>
+            </trans-unit>
+            <trans-unit id="account.settings.export.heading">
+                <source>account.settings.export.heading</source>
+                <target>Download my data</target>
+            </trans-unit>
+            <trans-unit id="account.settings.export.intro">
+                <source>account.settings.export.intro</source>
+                <target>Request a ZIP archive of everything you've stored in Loupe. We'll email you a download link when it's ready.</target>
+            </trans-unit>
+            <trans-unit id="account.settings.export.request_button">
+                <source>account.settings.export.request_button</source>
+                <target>Request export</target>
+            </trans-unit>
+            <trans-unit id="account.settings.export.flash.requested">
+                <source>account.settings.export.flash.requested</source>
+                <target>Your export has been requested. We'll email you a download link when it's ready.</target>
+            </trans-unit>
+            <trans-unit id="account.settings.export.link_hint">
+                <source>account.settings.export.link_hint</source>
+                <target>The download link was sent to your email.</target>
+            </trans-unit>
+            <trans-unit id="account.settings.export.status.pending">
+                <source>account.settings.export.status.pending</source>
+                <target>Preparing…</target>
+            </trans-unit>
+            <trans-unit id="account.settings.export.status.ready">
+                <source>account.settings.export.status.ready</source>
+                <target>Ready — check your email</target>
+            </trans-unit>
+            <trans-unit id="account.settings.export.status.failed">
+                <source>account.settings.export.status.failed</source>
+                <target>Failed</target>
+            </trans-unit>
+            <trans-unit id="account.settings.export.status.expired">
+                <source>account.settings.export.status.expired</source>
+                <target>Expired</target>
+            </trans-unit>
+            <trans-unit id="account.settings.export.error.already_pending">
+                <source>account.settings.export.error.already_pending</source>
+                <target>An export is already being prepared.</target>
             </trans-unit>
 
             <!-- Document dashboard -->
@@ -858,6 +926,10 @@
             <trans-unit id="nav.link.logout">
                 <source>nav.link.logout</source>
                 <target>Log out</target>
+            </trans-unit>
+            <trans-unit id="nav.link.settings">
+                <source>nav.link.settings</source>
+                <target>Account settings</target>
             </trans-unit>
 
             <!-- Document status labels -->

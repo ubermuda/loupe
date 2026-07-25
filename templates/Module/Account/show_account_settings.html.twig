@@ -1,0 +1,42 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}{{ 'account.settings.page.title'|trans }} — {{ 'app.name'|trans }}{% endblock %}
+
+{% block body %}
+<div class="lp-connect">
+    <h1 class="lp-workspace-title lp-workspace-title--doc">{{ 'account.settings.page.title'|trans }}</h1>
+
+    {% for label, messages in app.flashes %}
+        {% for message in messages %}
+            <div class="lp-flash lp-flash--{{ label }}">{{ message }}</div>
+        {% endfor %}
+    {% endfor %}
+
+    <section class="lp-connect-block" data-testid="export-section">
+        <p class="lp-eyebrow">{{ 'account.settings.export.heading'|trans }}</p>
+        <p class="lp-workspace-desc">{{ 'account.settings.export.intro'|trans }}</p>
+
+        {% for export in view.exports %}
+        <div class="lp-connect-field">
+            <twig:ux:icon name="lucide:package" class="lp-connect-field__glyph w-4 h-4" />
+            <span class="lp-connect-field__value">
+                {{ export.requestedAt|date('Y-m-d H:i') }}
+                <span class="lp-connect-field__meta">
+                    {% if export.isExpired %}
+                        {{ 'account.settings.export.status.expired'|trans }}
+                    {% else %}
+                        {{ ('account.settings.export.status.' ~ export.status.value)|trans }}
+                    {% endif %}
+                </span>
+            </span>
+        </div>
+        {% endfor %}
+
+        <form method="post" action="{{ path('app_account_export_request') }}">
+            <input type="hidden" name="_csrf_token" value="{{ csrf_token('request-data-export') }}">
+            <button type="submit" class="lp-btn lp-btn--primary">{{ 'account.settings.export.request_button'|trans }}</button>
+        </form>
+        <p class="lp-connect-hint">{{ 'account.settings.export.link_hint'|trans }}</p>
+    </section>
+</div>
+{% endblock %}

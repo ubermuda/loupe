@@ -16,3 +16,4 @@ framework:
             - mint-site-token
             - mint-project-mcp-token
             - site-review-comment-action
+            - request-data-export
