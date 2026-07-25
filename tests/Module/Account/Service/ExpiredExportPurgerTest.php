@@ -54,7 +54,9 @@ final class ExpiredExportPurgerTest extends KernelTestCase
         self::assertNotNull($pendingId);
 
         $expiredPath = DataExport::computeArchivePath($this->projectDir, $expiredId);
-        mkdir(\dirname($expiredPath), 0770, true);
+        if (!is_dir(\dirname($expiredPath))) {
+            mkdir(\dirname($expiredPath), 0770, true);
+        }
         file_put_contents($expiredPath, 'archive bytes');
 
         $purger = self::getContainer()->get(ExpiredExportPurger::class);

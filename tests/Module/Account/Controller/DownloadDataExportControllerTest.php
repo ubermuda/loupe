@@ -67,6 +67,7 @@ final class DownloadDataExportControllerTest extends WebTestCase
                 'content-disposition',
                 sprintf('attachment; filename=loupe-export-%s.zip', $exportId),
             );
+            self::assertStringContainsString('zip', (string) $client->getResponse()->headers->get('content-type'));
         } finally {
             @unlink($path);
         }
