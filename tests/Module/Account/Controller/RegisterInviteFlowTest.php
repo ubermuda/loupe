@@ -79,6 +79,7 @@ final class RegisterInviteFlowTest extends WebTestCase
         return $em;
     }
 
+    /** @param non-empty-string $email */
     private function seedInvite(string $email): string
     {
         $em = static::getContainer()->get(EntityManagerInterface::class);

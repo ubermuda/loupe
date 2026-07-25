@@ -45,6 +45,6 @@ final readonly class RegistrationGate
      */
     public function acquireCapacityLock(Connection $connection): void
     {
-        $connection->executeStatement('SELECT pg_advisory_xact_lock(:key)', ['key' => self::CAPACITY_LOCK]);
+        $connection->executeStatement('SELECT pg_advisory_xact_lock(:key)', ['key' => self::CAPACITY_LOCK]); // @translation-check-ignore
     }
 }

@@ -13,7 +13,7 @@ use Psr\Log\LoggerInterface;
 final readonly class JoinWaitlistHandler
 {
     public function __construct(
-        private WaitlistEntryRepository $entries,
+        private WaitlistEntryRepository $waitlistEntries,
         private EntityManagerInterface $em,
         private LoggerInterface $logger,
     ) {
@@ -21,7 +21,7 @@ final readonly class JoinWaitlistHandler
 
     public function __invoke(JoinWaitlistCommand $command): void
     {
-        if (null !== $this->entries->findOneByEmail($command->email)) {
+        if (null !== $this->waitlistEntries->findOneByEmail($command->email)) {
             $this->logger->info('account.waitlist.duplicate_join', ['email' => $command->email]);
 
             return;

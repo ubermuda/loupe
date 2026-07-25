@@ -15,7 +15,9 @@ final class JoinWaitlistHandlerTest extends KernelTestCase
     {
         self::bootKernel();
         $handler = self::getContainer()->get(JoinWaitlistHandler::class);
+        self::assertInstanceOf(JoinWaitlistHandler::class, $handler);
         $repo = self::getContainer()->get(WaitlistEntryRepository::class);
+        self::assertInstanceOf(WaitlistEntryRepository::class, $repo);
 
         $handler(new JoinWaitlistCommand('new@example.com'));
 
@@ -26,7 +28,9 @@ final class JoinWaitlistHandlerTest extends KernelTestCase
     {
         self::bootKernel();
         $handler = self::getContainer()->get(JoinWaitlistHandler::class);
+        self::assertInstanceOf(JoinWaitlistHandler::class, $handler);
         $repo = self::getContainer()->get(WaitlistEntryRepository::class);
+        self::assertInstanceOf(WaitlistEntryRepository::class, $repo);
 
         $handler(new JoinWaitlistCommand('dup@example.com'));
         $handler(new JoinWaitlistCommand('DUP@example.com'));

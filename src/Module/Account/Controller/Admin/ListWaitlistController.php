@@ -21,7 +21,7 @@ final class ListWaitlistController extends AppController
     private const array ALLOWED_SORTS = ['email', 'createdAt', 'invitedAt'];
 
     public function __construct(
-        private readonly WaitlistEntryRepository $entries,
+        private readonly WaitlistEntryRepository $waitlistEntries,
         private readonly ListPagePagination $pagination,
     ) {
     }
@@ -30,7 +30,7 @@ final class ListWaitlistController extends AppController
     {
         $listRequest = ListPageRequest::fromRequest($request, self::ALLOWED_SORTS, 'createdAt', 'asc');
 
-        $paginator = $this->entries->findPaginated(
+        $paginator = $this->waitlistEntries->findPaginated(
             page: $listRequest->page,
             perPage: self::PER_PAGE,
             sort: $listRequest->sort,

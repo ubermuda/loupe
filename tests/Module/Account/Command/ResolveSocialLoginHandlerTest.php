@@ -43,6 +43,7 @@ final class ResolveSocialLoginHandlerTest extends KernelTestCase
         $this->connectedAccounts = $container->get(ConnectedAccountRepository::class);
         $this->users = $container->get(UserRepository::class);
         $joinWaitlist = $container->get(JoinWaitlistHandler::class);
+        self::assertInstanceOf(JoinWaitlistHandler::class, $joinWaitlist);
         $this->handler = new ResolveSocialLoginHandler(
             $this->connectedAccounts,
             $this->users,

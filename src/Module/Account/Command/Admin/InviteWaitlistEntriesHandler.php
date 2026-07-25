@@ -12,7 +12,7 @@ use Symfony\Component\Uid\Uuid;
 final readonly class InviteWaitlistEntriesHandler
 {
     public function __construct(
-        private WaitlistEntryRepository $entries,
+        private WaitlistEntryRepository $waitlistEntries,
         private WaitlistInviter $inviter,
     ) {
     }
@@ -27,7 +27,7 @@ final readonly class InviteWaitlistEntriesHandler
         $skipped += count(array_unique($command->entryIds)) - count($ids);
 
         foreach ($ids as $id) {
-            $entry = $this->entries->find($id);
+            $entry = $this->waitlistEntries->find($id);
             if (null === $entry) {
                 ++$skipped;
                 continue;

@@ -11,7 +11,7 @@ use Symfony\Component\Mailer\Exception\TransportExceptionInterface;
 final readonly class InviteOldestWaitlistHandler
 {
     public function __construct(
-        private WaitlistEntryRepository $entries,
+        private WaitlistEntryRepository $waitlistEntries,
         private WaitlistInviter $inviter,
     ) {
     }
@@ -23,7 +23,7 @@ final readonly class InviteOldestWaitlistHandler
         $invited = 0;
         $skipped = 0;
 
-        foreach ($this->entries->findOldestUninvited($count) as $entry) {
+        foreach ($this->waitlistEntries->findOldestUninvited($count) as $entry) {
             try {
                 $this->inviter->invite($entry) ? ++$invited : ++$skipped;
             } catch (TransportExceptionInterface) {
