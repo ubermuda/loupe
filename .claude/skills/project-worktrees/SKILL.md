@@ -26,7 +26,7 @@ boots with the worktree as its project directory and reads that worktree's
 | `just worktrees` | Every worktree with its URL, database and sidecar status |
 | `just worktree-down <name>` | Remove worktree + sidecar + both databases |
 | `just worktree-prune` | Clean up sidecars/databases orphaned by `git worktree remove` |
-| `just wt-tailwind` | Tailwind watch mode for the current worktree |
+| `just worktree-tailwind` | Tailwind watch mode for the current worktree |
 
 Provisioned per worktree: `https://<slug>.loupe.dev.localhost`, dev DB
 `app_wt_<slug>`, test DB `app_test_<slug>`, compose project `loupe-wt-<slug>`.
@@ -69,7 +69,7 @@ safe from anywhere.
 | Worktree URL returns **404** (plain text, no app markup) | The sidecar container is gone, so Traefik has no router for that host. `just worktree-up` recreates it without touching the database. |
 | Worktree URL returns **502** | Route exists but the backend doesn't — usually a worktree removed with bare `git worktree remove`. `just worktree-prune`. |
 | nginx exits with `host not found in upstream "php-fpm"` | The container reached the shared network *after* start. Attach every network at creation — this is why the sidecar is a compose file, not `docker run` + `docker network connect`. |
-| A class added in the worktree renders unstyled | `var/tailwind` must be a real directory per worktree, not a symlink to main's. `just worktree-up` fixes it; `just wt-tailwind` watches. |
+| A class added in the worktree renders unstyled | `var/tailwind` must be a real directory per worktree, not a symlink to main's. `just worktree-up` fixes it; `just worktree-tailwind` watches. |
 | The site-review widget is in its rejected-token state | `SITE_REVIEW_WIDGET_TOKEN` refers to a row in another database. `just worktree-up` detects this (it hashes the token and looks for it locally) and reissues. |
 | e2e failures that vanish on a re-run | Mailpit is shared, so concurrent e2e runs read each other's messages. e2e must stay serialized — check whether another run is in flight before blaming the branch. |
 
