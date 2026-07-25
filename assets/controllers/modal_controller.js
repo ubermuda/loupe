@@ -26,12 +26,20 @@ const isMobile = () => window.innerWidth < 640;
 
 export default class extends Controller {
     static targets = ['dialog'];
+    static values = { reopen: Boolean };
 
     connect() {
         document.addEventListener(
             'turbo:before-stream-render',
             this.#onBeforeStreamRender,
         );
+
+        // Opt-in: re-open the dialog on connect, e.g. after a 422 re-render of
+        // a page whose modal form failed validation, so the field error is
+        // visible immediately instead of the modal silently closing.
+        if (this.reopenValue) {
+            this.open();
+        }
     }
 
     disconnect() {
@@ -56,7 +64,7 @@ export default class extends Controller {
     };
 
     open(event) {
-        event.preventDefault();
+        event?.preventDefault();
         const dialog = this.dialogTarget;
         dialog.showModal();
         dialog.classList.add('is-opening');

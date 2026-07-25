@@ -871,6 +871,46 @@
                 <source>project.edit.form.submit</source>
                 <target>Save changes</target>
             </trans-unit>
+            <trans-unit id="project.form.delete_project_form.confirm_name.label">
+                <source>project.form.delete_project_form.confirm_name.label</source>
+                <target>Type the project name to confirm</target>
+            </trans-unit>
+            <trans-unit id="project.delete.flash.success">
+                <source>project.delete.flash.success</source>
+                <target>Project “%name%” was permanently deleted.</target>
+            </trans-unit>
+            <trans-unit id="project.delete.error.name_mismatch">
+                <source>project.delete.error.name_mismatch</source>
+                <target>The name you typed does not match the project name.</target>
+            </trans-unit>
+            <trans-unit id="project.delete.button">
+                <source>project.delete.button</source>
+                <target>Delete this project…</target>
+            </trans-unit>
+            <trans-unit id="project.delete.title">
+                <source>project.delete.title</source>
+                <target>Danger zone</target>
+            </trans-unit>
+            <trans-unit id="project.delete.warning">
+                <source>project.delete.warning</source>
+                <target>Deleting a project permanently removes all of its documents, versions, comments, reviews, site reviews and API tokens. This cannot be undone.</target>
+            </trans-unit>
+            <trans-unit id="project.delete.modal.title">
+                <source>project.delete.modal.title</source>
+                <target>Delete “%name%”?</target>
+            </trans-unit>
+            <trans-unit id="project.delete.modal.warning">
+                <source>project.delete.modal.warning</source>
+                <target>This permanently deletes the project and everything in it. There is no undo.</target>
+            </trans-unit>
+            <trans-unit id="project.delete.modal.cancel">
+                <source>project.delete.modal.cancel</source>
+                <target>Cancel</target>
+            </trans-unit>
+            <trans-unit id="project.delete.modal.confirm">
+                <source>project.delete.modal.confirm</source>
+                <target>I understand — delete this project</target>
+            </trans-unit>
 
             <trans-unit id="site_review.site.token.mint">
                 <source>site_review.site.token.mint</source>
