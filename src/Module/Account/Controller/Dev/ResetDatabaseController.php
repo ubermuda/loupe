@@ -42,7 +42,7 @@ final class ResetDatabaseController extends AppController
 
         if ([] !== $tables) {
             $quoted = array_map(
-                fn (string $table): string => $this->conn->quoteIdentifier($table),
+                $this->conn->quoteIdentifier(...),
                 $tables,
             );
             $this->conn->executeStatement('TRUNCATE TABLE '.implode(', ', $quoted).' CASCADE');

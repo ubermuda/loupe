@@ -13,7 +13,7 @@ final class CreateAdminControllerTest extends WebTestCase
     public function test_redirects_to_step_one_without_session_marker(): void
     {
         $client = static::createClient();
-        $client->request('GET', '/install/admin');
+        $client->request(\Symfony\Component\HttpFoundation\Request::METHOD_GET, '/install/admin');
 
         self::assertResponseRedirects('/install');
     }
@@ -22,7 +22,7 @@ final class CreateAdminControllerTest extends WebTestCase
     {
         $client = static::createClient();
         $this->completeStepOne($client);
-        $client->request('GET', '/install/admin');
+        $client->request(\Symfony\Component\HttpFoundation\Request::METHOD_GET, '/install/admin');
 
         self::assertResponseIsSuccessful();
     }
@@ -31,7 +31,7 @@ final class CreateAdminControllerTest extends WebTestCase
     {
         $client = static::createClient();
         $this->completeStepOne($client);
-        $client->request('GET', '/install/admin');
+        $client->request(\Symfony\Component\HttpFoundation\Request::METHOD_GET, '/install/admin');
         $client->submitForm('Create admin account', [
             'install_admin_form[fullName]' => 'The Admin',
             'install_admin_form[username]' => 'admin',
@@ -48,16 +48,16 @@ final class CreateAdminControllerTest extends WebTestCase
         self::assertNull($user->emailVerifiedAt);
 
         // Wizard is now closed…
-        $client->request('GET', '/install');
+        $client->request(\Symfony\Component\HttpFoundation\Request::METHOD_GET, '/install');
         self::assertResponseStatusCodeSame(404);
-        $client->request('GET', '/install/admin');
+        $client->request(\Symfony\Component\HttpFoundation\Request::METHOD_GET, '/install/admin');
         self::assertResponseStatusCodeSame(404);
         // …while this session still renders the done page once (completion marker).
-        $client->request('GET', '/install/done');
+        $client->request(\Symfony\Component\HttpFoundation\Request::METHOD_GET, '/install/done');
         self::assertResponseIsSuccessful();
         // The completion marker is consumed by that first render — a second
         // visit (e.g. a page refresh) 404s just like every other install route.
-        $client->request('GET', '/install/done');
+        $client->request(\Symfony\Component\HttpFoundation\Request::METHOD_GET, '/install/done');
         self::assertResponseStatusCodeSame(404);
     }
 
@@ -65,7 +65,7 @@ final class CreateAdminControllerTest extends WebTestCase
     {
         $client = static::createClient();
         $this->completeStepOne($client);
-        $client->request('GET', '/install/admin');
+        $client->request(\Symfony\Component\HttpFoundation\Request::METHOD_GET, '/install/admin');
         $client->submitForm('Create admin account', [
             'install_admin_form[fullName]' => 'The Admin',
             'install_admin_form[username]' => 'ab', // Length(min: 3) violation
@@ -86,7 +86,7 @@ final class CreateAdminControllerTest extends WebTestCase
     public function test_post_without_marker_redirects_and_creates_nothing(): void
     {
         $client = static::createClient();
-        $client->request('POST', '/install/admin', [
+        $client->request(\Symfony\Component\HttpFoundation\Request::METHOD_POST, '/install/admin', [
             'install_admin_form' => ['fullName' => 'X', 'username' => 'xxx', 'email' => 'x@example.com', 'plainPassword' => 'a-strong-password'],
         ]);
 
@@ -98,7 +98,7 @@ final class CreateAdminControllerTest extends WebTestCase
     {
         $client = static::createClient();
         $this->completeStepOne($client);
-        $client->request('GET', '/install/admin');
+        $client->request(\Symfony\Component\HttpFoundation\Request::METHOD_GET, '/install/admin');
         $client->submitForm('Create admin account', [
             'install_admin_form[fullName]' => 'The Admin',
             'install_admin_form[username]' => 'admin',
@@ -115,14 +115,14 @@ final class CreateAdminControllerTest extends WebTestCase
     public function test_done_page_404s_without_completion_marker(): void
     {
         $client = static::createClient();
-        $client->request('GET', '/install/done');
+        $client->request(\Symfony\Component\HttpFoundation\Request::METHOD_GET, '/install/done');
 
         self::assertResponseStatusCodeSame(404);
     }
 
     private function completeStepOne(KernelBrowser $client): void
     {
-        $client->request('GET', '/install');
+        $client->request(\Symfony\Component\HttpFoundation\Request::METHOD_GET, '/install');
         $client->submitForm('Continue', []);
     }
 }

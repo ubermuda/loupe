@@ -15,7 +15,7 @@ final class SeedFlagsControllerTest extends WebTestCase
     public function test_renders_prefilled_form_on_empty_database(): void
     {
         $client = static::createClient();
-        $client->request('GET', '/install');
+        $client->request(\Symfony\Component\HttpFoundation\Request::METHOD_GET, '/install');
 
         self::assertResponseIsSuccessful();
         self::assertSame('14', $client->getCrawler()->filter('input[name="install_flags_form[billingTrialDays]"]')->attr('value'));
@@ -26,7 +26,7 @@ final class SeedFlagsControllerTest extends WebTestCase
         $client = static::createClient();
         $this->createUser($client);
 
-        $client->request('GET', '/install');
+        $client->request(\Symfony\Component\HttpFoundation\Request::METHOD_GET, '/install');
 
         self::assertResponseStatusCodeSame(404);
     }
@@ -34,7 +34,7 @@ final class SeedFlagsControllerTest extends WebTestCase
     public function test_valid_submit_seeds_flags_and_redirects_to_step_two(): void
     {
         $client = static::createClient();
-        $client->request('GET', '/install');
+        $client->request(\Symfony\Component\HttpFoundation\Request::METHOD_GET, '/install');
         $client->submitForm('Continue', [
             'install_flags_form[registrationCap]' => 25,
             'install_flags_form[billingTrialDays]' => 30,
@@ -50,7 +50,7 @@ final class SeedFlagsControllerTest extends WebTestCase
     public function test_invalid_submit_returns_422(): void
     {
         $client = static::createClient();
-        $client->request('GET', '/install');
+        $client->request(\Symfony\Component\HttpFoundation\Request::METHOD_GET, '/install');
         $client->submitForm('Continue', [
             'install_flags_form[billingTrialDays]' => -3,
         ]);
