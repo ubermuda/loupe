@@ -1,0 +1,44 @@
+{% extends '@Account/auth_base.html.twig' %}
+
+{% block title %}{{ 'account.delete.confirm.page.title'|trans }} — {{ 'app.name'|trans }}{% endblock %}
+
+{% block auth_body %}
+<div class="flex flex-col items-center gap-3 py-4 text-center">
+    <div class="auth-icon-badge">
+        <twig:UX:Icon name="lucide:triangle-alert" class="w-5 h-5" aria-hidden="true" />
+    </div>
+    <div>
+        <h1 class="text-xl font-semibold tracking-tight text-fg">{{ 'account.delete.confirm.heading'|trans }}</h1>
+        <div class="text-fg-mute text-sm mt-1.5 leading-normal">
+            {{ 'account.delete.confirm.body'|trans({'%email%': '<span class="font-medium text-fg">' ~ account.email|e ~ '</span>'})|raw }}
+        </div>
+    </div>
+
+    <ul class="text-fg-mute text-sm text-left list-disc list-inside w-full">
+        <li>{{ 'account.delete.confirm.item_projects'|trans }}</li>
+        <li>{{ 'account.delete.confirm.item_documents'|trans }}</li>
+        <li>{{ 'account.delete.confirm.item_subscription'|trans }}</li>
+    </ul>
+
+    {% for label, messages in app.flashes %}
+        {% for message in messages %}
+            <div class="{{ label == 'error' ? 'auth-error' : 'auth-notice' }} w-full text-left">
+                {% if label == 'error' %}
+                    <twig:UX:Icon name="lucide:x" class="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+                {% else %}
+                    <twig:UX:Icon name="lucide:check" class="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+                {% endif %}
+                {{ message }}
+            </div>
+        {% endfor %}
+    {% endfor %}
+
+    <form method="post" action="{{ path('app_account_delete_execute') }}" class="w-full mt-1.5">
+        <input type="hidden" name="_csrf_token" value="{{ csrf_token('confirm-account-deletion') }}">
+        <input type="hidden" name="token" value="{{ token }}">
+        <button type="submit" class="lp-btn lp-btn--danger w-full justify-center">
+            {{ 'account.delete.confirm.cta'|trans }}
+        </button>
+    </form>
+</div>
+{% endblock %}

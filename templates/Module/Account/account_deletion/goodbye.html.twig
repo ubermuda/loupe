@@ -1,0 +1,15 @@
+{% extends '@Account/auth_base.html.twig' %}
+
+{% block title %}{{ 'account.delete.goodbye.page.title'|trans }} — {{ 'app.name'|trans }}{% endblock %}
+
+{% block auth_body %}
+<div class="flex flex-col items-center gap-3 py-4 text-center">
+    <div class="auth-icon-badge">
+        <twig:UX:Icon name="lucide:check" class="w-5 h-5" aria-hidden="true" />
+    </div>
+    <div>
+        <h1 class="text-xl font-semibold tracking-tight text-fg">{{ 'account.delete.goodbye.heading'|trans }}</h1>
+        <p class="text-fg-mute text-sm mt-1.5 leading-normal">{{ 'account.delete.goodbye.body'|trans }}</p>
+    </div>
+</div>
+{% endblock %}
