@@ -1,0 +1,28 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}{{ 'project.edit.page.title'|trans }} — {{ 'app.name'|trans }}{% endblock %}
+
+{% block body %}
+<div class="lp-workspace">
+    <p class="lp-eyebrow">{{ 'project.edit.eyebrow'|trans }}</p>
+    <h1 class="lp-workspace-title">{{ 'project.edit.page.title'|trans }}</h1>
+    <p class="lp-workspace-desc">{{ 'project.edit.description'|trans({'%name%': project.name}) }}</p>
+
+    {{ form_start(form, {'attr': {'class': 'lp-form'}}) }}
+        <div class="lp-form-field">
+            {{ form_label(form.name, null, {'label_attr': {'class': 'lp-label'}}) }}
+            {{ form_widget(form.name, {'attr': {'class': 'lp-input'}}) }}
+            <div class="lp-field-errors">{{ form_errors(form.name) }}</div>
+        </div>
+        <div class="lp-form-field">
+            {{ form_label(form.domain, null, {'label_attr': {'class': 'lp-label'}}) }}
+            {{ form_widget(form.domain, {'attr': {'class': 'lp-input'}}) }}
+            <div class="lp-field-errors">{{ form_errors(form.domain) }}</div>
+        </div>
+        <div class="flex items-center justify-end gap-3 pt-2">
+            <a href="{{ path('app_projects') }}" class="lp-btn">{{ 'project.edit.form.cancel'|trans }}</a>
+            <button type="submit" class="lp-btn lp-btn--primary">{{ 'project.edit.form.submit'|trans }}</button>
+        </div>
+    {{ form_end(form) }}
+</div>
+{% endblock %}

@@ -627,6 +627,14 @@
     .lp-project-row__open {
         color: var(--status-pending-deep);
     }
+    /* Edit affordance: sits above the full-row overlay link (z-10) so it stays
+       clickable rather than the row's documents link swallowing the click. */
+    .lp-project-row__edit {
+        @apply relative z-10 shrink-0 flex items-center justify-center w-8 h-8 rounded-lg text-fg-dim transition-colors;
+    }
+    .lp-project-row__edit:hover {
+        @apply bg-line text-ink;
+    }
     .lp-project-row__chevron {
         @apply w-4 h-4 shrink-0;
         color: var(--switcher-hover-border);
