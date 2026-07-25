@@ -1,0 +1,18 @@
+{% extends '@Account/auth_base.html.twig' %}
+
+{% block title %}{{ 'account.waitlist.joined.page.title'|trans }} — {{ 'app.name'|trans }}{% endblock %}
+
+{% block auth_body %}
+<div class="flex flex-col items-center gap-3 py-4 text-center">
+    <div class="auth-icon-badge">
+        <twig:UX:Icon name="lucide:mail" class="w-5 h-5" aria-hidden="true" />
+    </div>
+    <div>
+        <div class="text-xl font-semibold tracking-tight text-fg">{{ 'account.waitlist.joined.title'|trans }}</div>
+        <div class="text-fg-mute text-sm mt-1.5 leading-normal">
+            {{ 'account.waitlist.joined.body'|trans }}
+        </div>
+    </div>
+    <a href="{{ path('app_login') }}" class="text-sm text-accent font-medium hover:underline mt-1">{{ 'account.waitlist.joined.back'|trans }}</a>
+</div>
+{% endblock %}

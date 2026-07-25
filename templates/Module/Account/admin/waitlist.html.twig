@@ -1,0 +1,88 @@
+{% extends '@UbermudaAdmin/base.html.twig' %}
+
+{% block title %}{{ 'account.admin.waitlist.page_title'|trans }}{% endblock %}
+
+{% block body %}
+    <form method="post" action="{{ path('app_admin_waitlist_invite') }}" id="invite-selected-form">
+        <input type="hidden" name="_csrf_token" value="{{ csrf_token('admin-waitlist-invite') }}">
+    </form>
+    <twig:UbermudaAdmin:AdminList
+        title="{{ 'account.admin.waitlist.title'|trans }}"
+        :total="total"
+        unitLabel="{{ 'account.admin.waitlist.unit'|trans }}"
+        unitLabelPlural="{{ 'account.admin.waitlist.unit_plural'|trans }}"
+        frameId="waitlist-table"
+        :filters="filters"
+        route="app_admin_waitlist_list"
+        :page="page"
+        :totalPages="totalPages"
+        :pageList="pageList"
+        sort="{{ sort }}"
+        dir="{{ dir }}"
+        tableClass="admin-table"
+        emptyLabel="{{ 'account.admin.waitlist.empty'|trans }}"
+    >
+        <twig:block name="header_actions">
+            <div class="flex items-center gap-3">
+                <form method="post" action="{{ path('app_admin_waitlist_invite_oldest') }}" class="flex items-center gap-2">
+                    <input type="hidden" name="_csrf_token" value="{{ csrf_token('admin-waitlist-invite') }}">
+                    <label class="text-sm text-fg-mute" for="waitlist-invite-oldest-count">{{ 'account.admin.waitlist.invite_oldest_label'|trans }}</label>
+                    <input type="number" id="waitlist-invite-oldest-count" name="count" value="10" min="1" max="100" class="admin-field-input !w-20">
+                    <button type="submit" class="admin-button-secondary admin-button-small">{{ 'account.admin.waitlist.invite_oldest'|trans }}</button>
+                </form>
+                <button type="submit" form="invite-selected-form" class="admin-button admin-button-small">{{ 'account.admin.waitlist.invite_selected'|trans }}</button>
+            </div>
+        </twig:block>
+
+        <twig:block name="thead">
+            <tr>
+                <th class="w-10"></th>
+                <th><twig:UbermudaAdmin:AdminListSortLink route="app_admin_waitlist_list" column="email" label="{{ 'account.admin.waitlist.column.email'|trans }}" :currentSort="sort" :currentDir="dir" :filters="filters" /></th>
+                <th><twig:UbermudaAdmin:AdminListSortLink route="app_admin_waitlist_list" column="createdAt" label="{{ 'account.admin.waitlist.column.joined'|trans }}" :currentSort="sort" :currentDir="dir" :filters="filters" /></th>
+                <th><twig:UbermudaAdmin:AdminListSortLink route="app_admin_waitlist_list" column="invitedAt" label="{{ 'account.admin.waitlist.column.invited'|trans }}" :currentSort="sort" :currentDir="dir" :filters="filters" /></th>
+                <th>{{ 'account.admin.waitlist.column.status'|trans }}</th>
+                <th></th>
+            </tr>
+        </twig:block>
+
+        <twig:block name="tbody">
+            {% for entry in entries %}
+                <tr data-waitlist-entry-id="{{ entry.id }}">
+                    <td>
+                        {% if entry.needsInvite %}
+                            <input type="checkbox" name="ids[]" value="{{ entry.id }}" form="invite-selected-form" class="h-4 w-4 rounded border-line text-accent">
+                        {% endif %}
+                    </td>
+                    <td>{{ entry.email }}</td>
+                    <td>{{ entry.createdAt|date('Y-m-d H:i') }}</td>
+                    <td>{{ entry.invitedAt ? entry.invitedAt|date('Y-m-d H:i') : '—' }}</td>
+                    <td>
+                        {% if entry.convertedAt %}
+                            <span class="admin-badge admin-badge-on">{{ 'account.admin.waitlist.status.converted'|trans }}</span>
+                        {% elseif entry.invitedAt and entry.needsInvite %}
+                            <span class="admin-badge admin-badge-neutral">{{ 'account.admin.waitlist.status.expired'|trans }}</span>
+                        {% elseif entry.invitedAt %}
+                            <span class="admin-badge admin-badge-count">{{ 'account.admin.waitlist.status.invited'|trans }}</span>
+                        {% else %}
+                            <span class="admin-badge admin-badge-neutral">{{ 'account.admin.waitlist.status.waiting'|trans }}</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if entry.needsInvite %}
+                            {# data-turbo-frame="_top": this form lives inside the waitlist-table
+                               turbo-frame, but its redirect target renders the whole page (with
+                               the success flash) — without this it would frame-scope to a morph
+                               that drops the flash, unlike the bulk/oldest actions below, whose
+                               forms already sit outside the frame. #}
+                            <form method="post" action="{{ path('app_admin_waitlist_invite') }}" data-turbo-frame="_top">
+                                <input type="hidden" name="_csrf_token" value="{{ csrf_token('admin-waitlist-invite') }}">
+                                <input type="hidden" name="ids[]" value="{{ entry.id }}">
+                                <button type="submit" class="admin-button-secondary admin-button-small">{{ 'account.admin.waitlist.invite'|trans }}</button>
+                            </form>
+                        {% endif %}
+                    </td>
+                </tr>
+            {% endfor %}
+        </twig:block>
+    </twig:UbermudaAdmin:AdminList>
+{% endblock %}

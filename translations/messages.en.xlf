@@ -313,6 +313,56 @@
                 <target>Too many registration attempts. Please try again later.</target>
             </trans-unit>
 
+            <!-- Waitlist join page -->
+            <trans-unit id="account.form.waitlist_join_form.email.label">
+                <source>account.form.waitlist_join_form.email.label</source>
+                <target>Email address</target>
+            </trans-unit>
+            <trans-unit id="account.form.waitlist_join_form.email.placeholder">
+                <source>account.form.waitlist_join_form.email.placeholder</source>
+                <target>you@company.com</target>
+            </trans-unit>
+            <trans-unit id="account.waitlist.page.title">
+                <source>account.waitlist.page.title</source>
+                <target>Join the waitlist</target>
+            </trans-unit>
+            <trans-unit id="account.waitlist.title">
+                <source>account.waitlist.title</source>
+                <target>Registration is full</target>
+            </trans-unit>
+            <trans-unit id="account.waitlist.body">
+                <source>account.waitlist.body</source>
+                <target>We've hit our current capacity. Leave your email and we'll invite you as soon as a spot opens.</target>
+            </trans-unit>
+            <trans-unit id="account.waitlist.submit">
+                <source>account.waitlist.submit</source>
+                <target>Join the waitlist</target>
+            </trans-unit>
+            <trans-unit id="account.waitlist.error.throttled">
+                <source>account.waitlist.error.throttled</source>
+                <target>Too many attempts. Please try again later.</target>
+            </trans-unit>
+            <trans-unit id="account.waitlist.joined.page.title">
+                <source>account.waitlist.joined.page.title</source>
+                <target>You're on the list</target>
+            </trans-unit>
+            <trans-unit id="account.waitlist.joined.title">
+                <source>account.waitlist.joined.title</source>
+                <target>You're on the list</target>
+            </trans-unit>
+            <trans-unit id="account.waitlist.joined.body">
+                <source>account.waitlist.joined.body</source>
+                <target>If that address wasn't already registered or listed, we've added it. We'll email you an invite when a spot opens.</target>
+            </trans-unit>
+            <trans-unit id="account.waitlist.joined.back">
+                <source>account.waitlist.joined.back</source>
+                <target>Back to sign in</target>
+            </trans-unit>
+            <trans-unit id="account.error.registration_closed">
+                <source>account.error.registration_closed</source>
+                <target>Registration is currently closed — join the waitlist to get an invite.</target>
+            </trans-unit>
+
             <!-- Email subjects -->
             <trans-unit id="account.email.verification.subject">
                 <source>account.email.verification.subject</source>
@@ -351,6 +401,24 @@
             <trans-unit id="account.email.verification.footer_copy_link">
                 <source>account.email.verification.footer_copy_link</source>
                 <target>Or copy this link:</target>
+            </trans-unit>
+
+            <!-- Waitlist invite email template -->
+            <trans-unit id="account.email.waitlist_invite.subject">
+                <source>account.email.waitlist_invite.subject</source>
+                <target>Your Loupe invite is here</target>
+            </trans-unit>
+            <trans-unit id="account.email.waitlist_invite.heading">
+                <source>account.email.waitlist_invite.heading</source>
+                <target>You're in</target>
+            </trans-unit>
+            <trans-unit id="account.email.waitlist_invite.body">
+                <source>account.email.waitlist_invite.body</source>
+                <target>A spot opened up. This invite link is valid for 7 days.</target>
+            </trans-unit>
+            <trans-unit id="account.email.waitlist_invite.button">
+                <source>account.email.waitlist_invite.button</source>
+                <target>Create your account</target>
             </trans-unit>
 
             <!-- Reset password email template -->
@@ -803,6 +871,46 @@
                 <source>project.edit.form.submit</source>
                 <target>Save changes</target>
             </trans-unit>
+            <trans-unit id="project.form.delete_project_form.confirm_name.label">
+                <source>project.form.delete_project_form.confirm_name.label</source>
+                <target>Type the project name to confirm</target>
+            </trans-unit>
+            <trans-unit id="project.delete.flash.success">
+                <source>project.delete.flash.success</source>
+                <target>Project “%name%” was permanently deleted.</target>
+            </trans-unit>
+            <trans-unit id="project.delete.error.name_mismatch">
+                <source>project.delete.error.name_mismatch</source>
+                <target>The name you typed does not match the project name.</target>
+            </trans-unit>
+            <trans-unit id="project.delete.button">
+                <source>project.delete.button</source>
+                <target>Delete this project…</target>
+            </trans-unit>
+            <trans-unit id="project.delete.title">
+                <source>project.delete.title</source>
+                <target>Danger zone</target>
+            </trans-unit>
+            <trans-unit id="project.delete.warning">
+                <source>project.delete.warning</source>
+                <target>Deleting a project permanently removes all of its documents, versions, comments, reviews, site reviews and API tokens. This cannot be undone.</target>
+            </trans-unit>
+            <trans-unit id="project.delete.modal.title">
+                <source>project.delete.modal.title</source>
+                <target>Delete “%name%”?</target>
+            </trans-unit>
+            <trans-unit id="project.delete.modal.warning">
+                <source>project.delete.modal.warning</source>
+                <target>This permanently deletes the project and everything in it. There is no undo.</target>
+            </trans-unit>
+            <trans-unit id="project.delete.modal.cancel">
+                <source>project.delete.modal.cancel</source>
+                <target>Cancel</target>
+            </trans-unit>
+            <trans-unit id="project.delete.modal.confirm">
+                <source>project.delete.modal.confirm</source>
+                <target>I understand — delete this project</target>
+            </trans-unit>
 
             <trans-unit id="site_review.site.token.mint">
                 <source>site_review.site.token.mint</source>
@@ -1206,6 +1314,80 @@
             <trans-unit id="account.install.error.already_installed">
                 <source>account.install.error.already_installed</source>
                 <target>This application is already installed.</target>
+            </trans-unit>
+
+            <!-- Admin waitlist page -->
+            <trans-unit id="account.admin.waitlist.page_title">
+                <source>account.admin.waitlist.page_title</source>
+                <target>Waitlist — Admin — Loupe</target>
+            </trans-unit>
+            <trans-unit id="account.admin.waitlist.title">
+                <source>account.admin.waitlist.title</source>
+                <target>Waitlist</target>
+            </trans-unit>
+            <trans-unit id="account.admin.waitlist.unit">
+                <source>account.admin.waitlist.unit</source>
+                <target>entry</target>
+            </trans-unit>
+            <trans-unit id="account.admin.waitlist.unit_plural">
+                <source>account.admin.waitlist.unit_plural</source>
+                <target>entries</target>
+            </trans-unit>
+            <trans-unit id="account.admin.waitlist.empty">
+                <source>account.admin.waitlist.empty</source>
+                <target>No waitlist entries yet.</target>
+            </trans-unit>
+            <trans-unit id="account.admin.waitlist.column.email">
+                <source>account.admin.waitlist.column.email</source>
+                <target>Email</target>
+            </trans-unit>
+            <trans-unit id="account.admin.waitlist.column.joined">
+                <source>account.admin.waitlist.column.joined</source>
+                <target>Joined</target>
+            </trans-unit>
+            <trans-unit id="account.admin.waitlist.column.invited">
+                <source>account.admin.waitlist.column.invited</source>
+                <target>Invited</target>
+            </trans-unit>
+            <trans-unit id="account.admin.waitlist.column.status">
+                <source>account.admin.waitlist.column.status</source>
+                <target>Status</target>
+            </trans-unit>
+            <trans-unit id="account.admin.waitlist.invite">
+                <source>account.admin.waitlist.invite</source>
+                <target>Invite</target>
+            </trans-unit>
+            <trans-unit id="account.admin.waitlist.invite_selected">
+                <source>account.admin.waitlist.invite_selected</source>
+                <target>Invite selected</target>
+            </trans-unit>
+            <trans-unit id="account.admin.waitlist.invite_oldest">
+                <source>account.admin.waitlist.invite_oldest</source>
+                <target>Invite oldest</target>
+            </trans-unit>
+            <trans-unit id="account.admin.waitlist.invite_oldest_label">
+                <source>account.admin.waitlist.invite_oldest_label</source>
+                <target>Invite oldest</target>
+            </trans-unit>
+            <trans-unit id="account.admin.waitlist.invited_flash">
+                <source>account.admin.waitlist.invited_flash</source>
+                <target>Invited %invited%, skipped %skipped%.</target>
+            </trans-unit>
+            <trans-unit id="account.admin.waitlist.status.waiting">
+                <source>account.admin.waitlist.status.waiting</source>
+                <target>Waiting</target>
+            </trans-unit>
+            <trans-unit id="account.admin.waitlist.status.invited">
+                <source>account.admin.waitlist.status.invited</source>
+                <target>Invited</target>
+            </trans-unit>
+            <trans-unit id="account.admin.waitlist.status.expired">
+                <source>account.admin.waitlist.status.expired</source>
+                <target>Invite expired</target>
+            </trans-unit>
+            <trans-unit id="account.admin.waitlist.status.converted">
+                <source>account.admin.waitlist.status.converted</source>
+                <target>Converted</target>
             </trans-unit>
 
             <!-- Billing -->

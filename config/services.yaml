@@ -107,6 +107,14 @@ when@test:
             autowire: true
             public: true
 
+        App\Module\Project\Service\ProjectDeleter:
+            autowire: true
+            public: true
+
+        App\Module\Project\Command\DeleteProjectHandler:
+            autowire: true
+            public: true
+
         App\Module\Account\Repository\DataExportRepository:
             autowire: true
             autoconfigure: true

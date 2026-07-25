@@ -84,13 +84,17 @@ final class SocialAuthenticator extends OAuth2Authenticator
             throw new AuthenticationException('A concurrent social login won a uniqueness race.', previous: $e);
         }
 
+        if ($outcome->waitlisted) {
+            throw new WaitlistedException();
+        }
+
         if ($outcome->requiresPasswordLink) {
-            $this->pendingSocialLink->store($profile, $outcome->user);
+            $this->pendingSocialLink->store($profile, $outcome->user ?? throw new \LogicException('Password-link outcome must carry a user.'));
 
             throw new RequiresPasswordLinkException();
         }
 
-        $user = $outcome->user;
+        $user = $outcome->user ?? throw new \LogicException('Log-in outcome must carry a user.');
 
         // The callback URL carries no _remember_me parameter and the firewall
         // does not set always_remember_me, so the badge has to be enabled here or
@@ -118,6 +122,10 @@ final class SocialAuthenticator extends OAuth2Authenticator
     {
         if ($exception instanceof RequiresPasswordLinkException) {
             return new RedirectResponse($this->router->generate('app_oauth_link'));
+        }
+
+        if ($exception instanceof WaitlistedException) {
+            return new RedirectResponse($this->router->generate('app_waitlist_join', ['joined' => 1]));
         }
 
         $reason = $exception instanceof UnverifiedProviderEmail ? 'unverified' : '1';
