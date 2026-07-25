@@ -26,6 +26,9 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     #[ORM\Column(nullable: true)]
     public ?\DateTimeImmutable $emailVerifiedAt = null;
 
+    #[ORM\Column(nullable: true)]
+    public ?\DateTimeImmutable $wizardCompletedAt = null;
+
     #[ORM\Column(length: 64, nullable: true)]
     private ?string $emailVerificationTokenHash = null;
 
