@@ -29,11 +29,25 @@ final readonly class RequestDataExportHandler
             throw new DomainErrors(['export' => 'account.settings.export.error.already_pending']);
         }
 
-        $export = new DataExport($command->user);
-        $this->em->persist($export);
-
         try {
-            $this->em->flush();
+            // The messenger `async` transport is the doctrine one, on the same
+            // connection as $em — wrapping persist+flush and dispatch() in one
+            // transaction makes them atomic. Without this, a dispatch failure
+            // after a committed flush would leave a Pending row with no
+            // message ever created; the partial unique index would then make
+            // every retry by this user report "already pending" forever, with
+            // nothing able to clear it (it never expires, since only Ready
+            // exports get an expiresAt).
+            $export = $this->em->wrapInTransaction(function () use ($command): DataExport {
+                $export = new DataExport($command->user);
+                $this->em->persist($export);
+                $this->em->flush();
+
+                $id = $export->id ?? throw new \LogicException('flushed export always has an id');
+                $this->bus->dispatch(new GenerateDataExportMessage((string) $id));
+
+                return $export;
+            });
         } catch (UniqueConstraintViolationException) {
             // A concurrent request won the race between the pre-check above
             // and this flush — the partial unique index on data_exports
@@ -42,9 +56,7 @@ final readonly class RequestDataExportHandler
             throw new DomainErrors(['export' => 'account.settings.export.error.already_pending']);
         }
 
-        $id = $export->id ?? throw new \LogicException('flushed export always has an id');
-        $this->bus->dispatch(new GenerateDataExportMessage((string) $id));
-        $this->logger->info('account.data_export.requested', ['id' => (string) $id]);
+        $this->logger->info('account.data_export.requested', ['id' => (string) $export->id]);
 
         return $export;
     }

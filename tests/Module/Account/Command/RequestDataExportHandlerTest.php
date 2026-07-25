@@ -34,6 +34,11 @@ final class RequestDataExportHandlerTest extends TestCase
 
         /** @var EntityManagerInterface&MockObject $em */
         $em = $this->createMock(EntityManagerInterface::class);
+        // Real Doctrine invokes the closure and returns its result; the mock
+        // mirrors that instead of asserting real transactional behaviour,
+        // which isn't unit-testable against a mocked EM (see project-backend's
+        // note on wrapInTransaction()'s test limitations).
+        $em->method('wrapInTransaction')->willReturnCallback(static fn (callable $fn) => $fn());
         $em->expects(self::once())
             ->method('persist')
             ->with(self::isInstanceOf(DataExport::class))
@@ -100,6 +105,7 @@ final class RequestDataExportHandlerTest extends TestCase
 
         /** @var EntityManagerInterface&Stub $em */
         $em = $this->createStub(EntityManagerInterface::class);
+        $em->method('wrapInTransaction')->willReturnCallback(static fn (callable $fn) => $fn());
         $em->method('flush')->willThrowException(
             new UniqueConstraintViolationException(
                 PdoDriverException::new(new \PDOException('duplicate key value violates unique constraint')),
