@@ -25,9 +25,10 @@ final class ShowAdminDashboardControllerTest extends WebTestCase
         // The title composes the translated page part and the brand.
         $this->assertSame('Admin — Loupe', $crawler->filter('title')->text());
         $this->assertStringContainsString('Dashboard', $crawler->filter('body')->text());
-        // Sidebar nav registry: our menu item plus the bundle's auto-registered flags item.
+        // Sidebar nav registry: our menu items plus the bundle's auto-registered flags item.
         $this->assertGreaterThan(0, $crawler->filter('a[href="/admin"]')->count());
         $this->assertGreaterThan(0, $crawler->filter('a[href="/admin/feature-flags"]')->count());
+        $this->assertGreaterThan(0, $crawler->filter('a[href="/admin/waitlist"]')->count());
     }
 
     public function test_logged_in_non_admin_gets_403(): void

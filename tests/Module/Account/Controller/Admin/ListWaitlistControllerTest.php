@@ -89,6 +89,75 @@ final class ListWaitlistControllerTest extends WebTestCase
         $this->assertSelectorNotExists('form[action="/admin/waitlist/invite"] input[value="'.$entryId.'"]');
     }
 
+    public function test_admin_can_invite_multiple_selected_entries(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $admin = $this->seedUser($em, 'waitlist-bulk-admin@admin-test.example.com', ['ROLE_ADMIN']);
+
+        $first = new WaitlistEntry('bulk-first@example.com');
+        $second = new WaitlistEntry('bulk-second@example.com');
+        $em->persist($first);
+        $em->persist($second);
+        $em->flush();
+        $firstId = (string) $first->id;
+        $secondId = (string) $second->id;
+
+        $client->loginUser($admin);
+        // A preceding authenticated GET establishes BrowserKit history and the
+        // origin cookie so the stateless CSRF sentinel passes.
+        $client->request(Request::METHOD_GET, '/admin/waitlist');
+
+        $client->request(Request::METHOD_POST, '/admin/waitlist/invite', [
+            '_csrf_token' => 'csrf-token',
+            'ids' => [$firstId, $secondId],
+        ]);
+
+        $this->assertResponseRedirects('/admin/waitlist');
+
+        $entries = static::getContainer()->get(WaitlistEntryRepository::class);
+        $reloadedFirst = $entries->find($firstId);
+        $reloadedSecond = $entries->find($secondId);
+        $this->assertNotNull($reloadedFirst?->invitedAt);
+        $this->assertNotNull($reloadedSecond?->invitedAt);
+        $this->assertEmailCount(2);
+    }
+
+    public function test_admin_can_invite_the_oldest_n_entries(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $admin = $this->seedUser($em, 'waitlist-oldest-admin@admin-test.example.com', ['ROLE_ADMIN']);
+
+        // Explicit, well-separated createdAt values — the timestamp column has
+        // only second precision, so two entries created in the same request
+        // would otherwise tie and make the "oldest" ordering non-deterministic.
+        $oldest = new WaitlistEntry('oldest-invite@example.com', new \DateTimeImmutable('-2 days'));
+        $newest = new WaitlistEntry('newest-invite@example.com', new \DateTimeImmutable('-1 day'));
+        $em->persist($oldest);
+        $em->persist($newest);
+        $em->flush();
+        $oldestId = (string) $oldest->id;
+        $newestId = (string) $newest->id;
+
+        $client->loginUser($admin);
+        $client->request(Request::METHOD_GET, '/admin/waitlist');
+
+        $client->request(Request::METHOD_POST, '/admin/waitlist/invite-oldest', [
+            '_csrf_token' => 'csrf-token',
+            'count' => '1',
+        ]);
+
+        $this->assertResponseRedirects('/admin/waitlist');
+
+        $entries = static::getContainer()->get(WaitlistEntryRepository::class);
+        $reloadedOldest = $entries->find($oldestId);
+        $reloadedNewest = $entries->find($newestId);
+        $this->assertNotNull($reloadedOldest?->invitedAt);
+        $this->assertNull($reloadedNewest?->invitedAt);
+        $this->assertEmailCount(1);
+    }
+
     /**
      * @param non-empty-string $email
      * @param list<string>     $roles
