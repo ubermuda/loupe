@@ -4,13 +4,18 @@ declare(strict_types=1);
 
 namespace App\Tests\Module\Account\Command;
 
+use App\Module\Account\Command\JoinWaitlistHandler;
 use App\Module\Account\Command\ResolveSocialLoginCommand;
 use App\Module\Account\Command\ResolveSocialLoginHandler;
 use App\Module\Account\Entity\ConnectedAccount;
 use App\Module\Account\Entity\SocialProvider;
 use App\Module\Account\Entity\User;
+use App\Module\Account\Entity\WaitlistEntry;
 use App\Module\Account\Repository\ConnectedAccountRepository;
 use App\Module\Account\Repository\UserRepository;
+use App\Module\Account\Repository\WaitlistEntryRepository;
+use App\Module\Account\Service\RegistrationGate;
+use App\Module\Account\Service\SocialLoginOutcome;
 use App\Module\Account\Service\SocialLoginRace;
 use App\Module\Account\Service\SocialProfile;
 use App\Module\Account\Service\UnverifiedProviderEmail;
@@ -18,7 +23,11 @@ use App\Module\Account\Service\UsernameGenerator;
 use Doctrine\DBAL\Driver\PDO\Exception as PdoDriverException;
 use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
 use Doctrine\ORM\EntityManagerInterface;
+use Psr\Log\NullLogger;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
+use Ubermuda\FeatureFlagsBundle\Entity\FeatureFlag;
+use Ubermuda\FeatureFlagsBundle\Enum\FeatureFlagType;
+use Ubermuda\FeatureFlagsBundle\FeatureFlagService;
 
 final class ResolveSocialLoginHandlerTest extends KernelTestCase
 {
@@ -26,6 +35,7 @@ final class ResolveSocialLoginHandlerTest extends KernelTestCase
     private ResolveSocialLoginHandler $handler;
     private ConnectedAccountRepository $connectedAccounts;
     private UserRepository $users;
+    private WaitlistEntryRepository $waitlistEntries;
 
     protected function setUp(): void
     {
@@ -34,12 +44,37 @@ final class ResolveSocialLoginHandlerTest extends KernelTestCase
         $this->em = $container->get(EntityManagerInterface::class);
         $this->connectedAccounts = $container->get(ConnectedAccountRepository::class);
         $this->users = $container->get(UserRepository::class);
+        $waitlistEntries = $container->get(WaitlistEntryRepository::class);
+        self::assertInstanceOf(WaitlistEntryRepository::class, $waitlistEntries);
+        $this->waitlistEntries = $waitlistEntries;
+        $joinWaitlist = $container->get(JoinWaitlistHandler::class);
+        self::assertInstanceOf(JoinWaitlistHandler::class, $joinWaitlist);
         $this->handler = new ResolveSocialLoginHandler(
             $this->connectedAccounts,
             $this->users,
             $this->em,
             new UsernameGenerator($this->users),
+            new RegistrationGate($this->openFlags(), $this->users),
+            $joinWaitlist,
+            $this->waitlistEntries,
+            new NullLogger(),
         );
+    }
+
+    private function openFlags(): FeatureFlagService
+    {
+        $flags = $this->createStub(FeatureFlagService::class);
+        $flags->method('getIntValue')->willReturn(0); // unlimited — gate stays open
+
+        return $flags;
+    }
+
+    private function resolvedUser(SocialLoginOutcome $outcome): User
+    {
+        self::assertFalse($outcome->waitlisted);
+        self::assertNotNull($outcome->user);
+
+        return $outcome->user;
     }
 
     // -------------------------------------------------------------------------
@@ -58,7 +93,7 @@ final class ResolveSocialLoginHandlerTest extends KernelTestCase
         ));
 
         self::assertFalse($outcome->requiresPasswordLink);
-        self::assertSame($owner->id, $outcome->user->id);
+        self::assertSame($owner->id, $this->resolvedUser($outcome)->id);
     }
 
     public function test_existing_identity_logs_in_when_the_provider_reports_no_email(): void
@@ -71,7 +106,7 @@ final class ResolveSocialLoginHandlerTest extends KernelTestCase
             new SocialProfile(SocialProvider::Github, 'gh-1', null, null, emailVerified: false),
         ));
 
-        self::assertSame($owner->id, $outcome->user->id);
+        self::assertSame($owner->id, $this->resolvedUser($outcome)->id);
     }
 
     public function test_resolving_the_same_identity_twice_reuses_the_link(): void
@@ -81,7 +116,7 @@ final class ResolveSocialLoginHandlerTest extends KernelTestCase
         $first = ($this->handler)(new ResolveSocialLoginCommand($profile));
         $second = ($this->handler)(new ResolveSocialLoginCommand($profile));
 
-        self::assertSame($first->user->id, $second->user->id);
+        self::assertSame($this->resolvedUser($first)->id, $this->resolvedUser($second)->id);
         self::assertCount(1, $this->connectedAccounts->findBy(['providerUserId' => 'g-twice']));
     }
 
@@ -164,7 +199,7 @@ final class ResolveSocialLoginHandlerTest extends KernelTestCase
         ));
 
         self::assertTrue($outcome->requiresPasswordLink);
-        self::assertSame($existing->id, $outcome->user->id);
+        self::assertSame($existing->id, $this->resolvedUser($outcome)->id);
 
         $this->em->clear();
         self::assertSame([], $this->connectedAccounts->findBy(['providerUserId' => 'g-collide']));
@@ -185,7 +220,7 @@ final class ResolveSocialLoginHandlerTest extends KernelTestCase
         ));
 
         self::assertFalse($outcome->requiresPasswordLink);
-        self::assertSame($existing->id, $outcome->user->id);
+        self::assertSame($existing->id, $this->resolvedUser($outcome)->id);
 
         $this->em->clear();
         $reloaded = $this->users->find($existing->id);
@@ -222,11 +257,30 @@ final class ResolveSocialLoginHandlerTest extends KernelTestCase
         ));
 
         self::assertFalse($outcome->requiresPasswordLink);
-        self::assertSame('fresh@example.com', $outcome->user->email);
-        self::assertSame('Fresh Face', $outcome->user->fullName);
-        self::assertNotNull($outcome->user->emailVerifiedAt);
-        self::assertFalse($outcome->user->hasUsablePassword());
+        $user = $this->resolvedUser($outcome);
+        self::assertSame('fresh@example.com', $user->email);
+        self::assertSame('Fresh Face', $user->fullName);
+        self::assertNotNull($user->emailVerifiedAt);
+        self::assertFalse($user->hasUsablePassword());
         self::assertNotNull($this->connectedAccounts->findOneByProviderAndProviderUserId(SocialProvider::Github, 'gh-fresh'));
+    }
+
+    public function test_creating_an_account_converts_a_matching_waitlist_row(): void
+    {
+        // The address joined the waitlist earlier (directly, or via a
+        // previous at-cap OAuth attempt) and is only now creating an account
+        // because the cap is open — that row must not linger as "waiting".
+        $entry = new WaitlistEntry('oauth-joined-earlier@example.com');
+        $this->em->persist($entry);
+        $this->em->flush();
+
+        ($this->handler)(new ResolveSocialLoginCommand(
+            new SocialProfile(SocialProvider::Github, 'gh-was-waitlisted', 'oauth-joined-earlier@example.com', 'Was Waitlisted', emailVerified: true),
+        ));
+
+        $this->em->clear();
+        $reloaded = $this->waitlistEntries->findOneByEmail('oauth-joined-earlier@example.com');
+        self::assertNotNull($reloaded?->convertedAt);
     }
 
     public function test_generated_username_avoids_a_seeded_collision(): void
@@ -238,8 +292,8 @@ final class ResolveSocialLoginHandlerTest extends KernelTestCase
             new SocialProfile(SocialProvider::Github, 'gh-fresh-2', 'other@example.com', 'Fresh Face', emailVerified: true),
         ));
 
-        self::assertNotSame('fresh-face', $outcome->user->username);
-        self::assertStringStartsWith('fresh-face-', $outcome->user->username);
+        self::assertNotSame('fresh-face', $this->resolvedUser($outcome)->username);
+        self::assertStringStartsWith('fresh-face-', $this->resolvedUser($outcome)->username);
     }
 
     public function test_falls_back_to_the_email_local_part_when_the_provider_sends_no_name(): void
@@ -248,8 +302,8 @@ final class ResolveSocialLoginHandlerTest extends KernelTestCase
             new SocialProfile(SocialProvider::Google, 'g-noname', 'nameless@example.com', null, emailVerified: true),
         ));
 
-        self::assertSame('nameless', $outcome->user->fullName);
-        self::assertSame('nameless', $outcome->user->username);
+        self::assertSame('nameless', $this->resolvedUser($outcome)->fullName);
+        self::assertSame('nameless', $this->resolvedUser($outcome)->username);
     }
 
     // -------------------------------------------------------------------------
@@ -260,6 +314,8 @@ final class ResolveSocialLoginHandlerTest extends KernelTestCase
     public function test_a_uniqueness_race_on_flush_surfaces_as_social_login_race(): void
     {
         $em = $this->createStub(EntityManagerInterface::class);
+        $em->method('wrapInTransaction')->willReturnCallback(fn (callable $func) => $func());
+        $em->method('getConnection')->willReturn($this->em->getConnection());
         $em->method('flush')->willThrowException(
             new UniqueConstraintViolationException(
                 PdoDriverException::new(new \PDOException('duplicate key value violates unique constraint')),
@@ -274,13 +330,146 @@ final class ResolveSocialLoginHandlerTest extends KernelTestCase
         $users->method('findOneByEmail')->willReturn(null);
         $users->method('findOneByUsername')->willReturn(null);
 
-        $handler = new ResolveSocialLoginHandler($connectedAccounts, $users, $em, new UsernameGenerator($users));
+        $waitlistEntries = $this->createStub(WaitlistEntryRepository::class);
+        $waitlistEntries->method('findOneByEmail')->willReturn(null);
+
+        // JoinWaitlistHandler is `final`, so PHPUnit cannot stub/double it — use
+        // the real container instance instead. Safe here because the gate stays
+        // open (openFlags()), so branch D never reaches the waitlist call.
+        $joinWaitlist = self::getContainer()->get(JoinWaitlistHandler::class);
+        self::assertInstanceOf(JoinWaitlistHandler::class, $joinWaitlist);
+
+        $handler = new ResolveSocialLoginHandler(
+            $connectedAccounts,
+            $users,
+            $em,
+            new UsernameGenerator($users),
+            new RegistrationGate($this->openFlags(), $users),
+            $joinWaitlist,
+            $waitlistEntries,
+            new NullLogger(),
+        );
 
         $this->expectException(SocialLoginRace::class);
 
         $handler(new ResolveSocialLoginCommand(
             new SocialProfile(SocialProvider::Google, 'g-race', 'race@example.com', 'Racer', emailVerified: true),
         ));
+    }
+
+    // -------------------------------------------------------------------------
+    // Branch D at cap — diverts to the waitlist instead of creating a user
+    // -------------------------------------------------------------------------
+
+    public function test_at_cap_new_oauth_user_is_waitlisted_and_no_user_is_created(): void
+    {
+        $before = \count($this->users->findAll());
+        $this->closeRegistration();
+
+        $outcome = ($this->handler)(new ResolveSocialLoginCommand(
+            new SocialProfile(SocialProvider::Github, 'gh-waitlisted', 'waitlisted-oauth@example.com', 'Waitlisted', emailVerified: true),
+        ));
+
+        self::assertTrue($outcome->waitlisted);
+        self::assertNull($outcome->user);
+        self::assertFalse($outcome->requiresPasswordLink);
+
+        $this->em->clear();
+        // Only the gate-filler user created by closeRegistration() exists —
+        // the OAuth profile itself created no account.
+        self::assertCount($before + 1, $this->users->findAll());
+
+        $entries = self::getContainer()->get(WaitlistEntryRepository::class);
+        self::assertNotNull($entries->findOneByEmail('waitlisted-oauth@example.com'));
+    }
+
+    public function test_at_cap_unverified_email_is_rejected_not_waitlisted(): void
+    {
+        $this->closeRegistration();
+
+        $this->expectException(UnverifiedProviderEmail::class);
+
+        try {
+            ($this->handler)(new ResolveSocialLoginCommand(
+                new SocialProfile(SocialProvider::Github, 'gh-unverified-at-cap', 'unverified-at-cap@example.com', 'Nope', emailVerified: false),
+            ));
+        } finally {
+            $entries = self::getContainer()->get(WaitlistEntryRepository::class);
+            self::assertNull($entries->findOneByEmail('unverified-at-cap@example.com'));
+        }
+    }
+
+    public function test_at_cap_existing_identity_still_logs_in(): void
+    {
+        $owner = $this->persistUser('cap-owner@example.com', 'capowner');
+        $this->em->persist(new ConnectedAccount($owner, SocialProvider::Google, 'g-cap-owner', 'cap-owner@example.com'));
+        $this->em->flush();
+        $this->closeRegistration();
+
+        $outcome = ($this->handler)(new ResolveSocialLoginCommand(
+            new SocialProfile(SocialProvider::Google, 'g-cap-owner', 'cap-owner@example.com', 'Cap Owner', emailVerified: true),
+        ));
+
+        self::assertFalse($outcome->waitlisted);
+        self::assertSame($owner->id, $this->resolvedUser($outcome)->id);
+    }
+
+    public function test_at_cap_password_collision_still_requires_a_password_link(): void
+    {
+        $existing = $this->persistUser('cap-collide@example.com', 'capcollide', password: 'hashed');
+        $this->em->flush();
+        $this->closeRegistration();
+
+        $outcome = ($this->handler)(new ResolveSocialLoginCommand(
+            new SocialProfile(SocialProvider::Google, 'g-cap-collide', 'cap-collide@example.com', 'Cap Collide', emailVerified: true),
+        ));
+
+        self::assertFalse($outcome->waitlisted);
+        self::assertTrue($outcome->requiresPasswordLink);
+        self::assertSame($existing->id, $this->resolvedUser($outcome)->id);
+    }
+
+    public function test_at_cap_password_less_account_still_auto_links(): void
+    {
+        $existing = $this->persistUser('cap-linkme@example.com', 'caplinkme');
+        $this->em->flush();
+        $this->closeRegistration();
+
+        $outcome = ($this->handler)(new ResolveSocialLoginCommand(
+            new SocialProfile(SocialProvider::Google, 'g-cap-linkme', 'cap-linkme@example.com', 'Cap Link Me', emailVerified: true),
+        ));
+
+        self::assertFalse($outcome->waitlisted);
+        self::assertFalse($outcome->requiresPasswordLink);
+        self::assertSame($existing->id, $this->resolvedUser($outcome)->id);
+    }
+
+    private function closeRegistration(): void
+    {
+        $this->persistUser('gate-filler-'.bin2hex(random_bytes(4)).'@example.com', 'gate-filler-'.bin2hex(random_bytes(4)));
+        $this->em->flush();
+
+        $flag = new FeatureFlag(name: RegistrationGate::CAP_FLAG, type: FeatureFlagType::Int, value: \count($this->users->findAll()));
+        $this->em->persist($flag);
+        $this->em->flush();
+
+        // Rebuild the handler with a gate that reads real committed flag/user
+        // state (setUp() wired a permanently-open stub gate).
+        $realGate = self::getContainer()->get(RegistrationGate::class);
+        self::assertInstanceOf(RegistrationGate::class, $realGate);
+        $joinWaitlist = self::getContainer()->get(JoinWaitlistHandler::class);
+        self::assertInstanceOf(JoinWaitlistHandler::class, $joinWaitlist);
+
+        $this->handler = new ResolveSocialLoginHandler(
+            $this->connectedAccounts,
+            $this->users,
+            $this->em,
+            new UsernameGenerator($this->users),
+            $realGate,
+            $joinWaitlist,
+            $this->waitlistEntries,
+            new NullLogger(),
+        );
     }
 
     /** @param non-empty-string $email */

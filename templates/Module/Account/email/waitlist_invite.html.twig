@@ -1,0 +1,20 @@
+{% apply inline_css(source('@EmailStyles/email.css')) %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ 'account.email.waitlist_invite.subject'|trans }}</title>
+</head>
+<body>
+    <div class="card">
+        <h1>{{ 'account.email.waitlist_invite.heading'|trans }}</h1>
+        <p class="body-text">{{ 'account.email.waitlist_invite.body'|trans }}</p>
+        <a href="{{ inviteUrl }}" class="btn">{{ 'account.email.waitlist_invite.button'|trans }}</a>
+        <p class="footer">
+            {{ 'account.email.verification.footer_copy_link'|trans }} {{ inviteUrl }}
+        </p>
+    </div>
+</body>
+</html>
+{% endapply %}

@@ -83,17 +83,26 @@ final class E2eSocialLoginController extends AppController
             return $this->redirectToRoute('app_login', ['social_error' => 'unverified']);
         }
 
+        // The registration cap diverted this profile's email to the waitlist —
+        // mirror SocialAuthenticator, no account was created and there is
+        // nothing to log in.
+        if ($outcome->waitlisted) {
+            return $this->redirectToRoute('app_waitlist_join', ['joined' => 1]);
+        }
+
+        $user = $outcome->user ?? throw new \LogicException('A non-waitlisted outcome must carry a user.');
+
         // The email collides with a password-protected account: mirror
         // SocialAuthenticator by stashing the pending identity and sending the
         // user to the password confirmation page.
         if ($outcome->requiresPasswordLink) {
-            $this->pendingSocialLink->store($profile, $outcome->user);
+            $this->pendingSocialLink->store($profile, $user);
 
             return $this->redirectToRoute('app_oauth_link');
         }
 
         return $this->security->login(
-            $outcome->user,
+            $user,
             SocialAuthenticator::class,
             badges: [new RememberMeBadge()->enable()],
         ) ?? $this->redirectToRoute('app_home');

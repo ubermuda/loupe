@@ -22,3 +22,4 @@ framework:
             - wizard-mint-mcp
             - wizard-finish
             - request-data-export
+            - admin-waitlist-invite

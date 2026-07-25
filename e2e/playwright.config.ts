@@ -22,9 +22,21 @@ export default defineConfig({
     projects: [
         {
             name: 'chromium',
+            // The waitlist spec mutates the global registration.cap flag that every
+            // other spec's registration/OAuth path depends on being open — it runs
+            // in its own project below, serialized after this one finishes.
+            testIgnore: /account\/waitlist\.spec\.ts/,
             use: {
                 ...devices['Desktop Chrome'],
             },
+        },
+        {
+            name: 'waitlist',
+            testMatch: /account\/waitlist\.spec\.ts/,
+            use: {
+                ...devices['Desktop Chrome'],
+            },
+            dependencies: ['chromium'],
         },
     ],
 });

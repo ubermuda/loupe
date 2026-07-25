@@ -1,0 +1,29 @@
+{% extends '@Account/auth_base.html.twig' %}
+
+{% block title %}{{ 'account.waitlist.page.title'|trans }} — {{ 'app.name'|trans }}{% endblock %}
+
+{% block topbar_nav %}
+<span class="text-sm text-fg-mute">
+    {{ 'account.registration.topbar.prompt'|trans }}
+    <a href="{{ path('app_login') }}" class="ml-1.5 text-xs text-accent hover:underline">{{ 'account.registration.topbar.link'|trans }}</a>
+</span>
+{% endblock %}
+
+{% block auth_body %}
+<div class="flex flex-col gap-1.5">
+    <h1 class="auth-heading">{{ 'account.waitlist.title'|trans }}</h1>
+    <p class="auth-subheading">{{ 'account.waitlist.body'|trans }}</p>
+</div>
+
+{{ form_start(form, {'attr': {'class': 'form-stack', 'novalidate': 'novalidate'}}) }}
+
+    <div class="form-field">
+        {{ form_label(form.email, null, {'label_attr': {'class': 'form-label'}}) }}
+        {{ form_widget(form.email, {'attr': {'class': 'auth-input', 'placeholder': 'account.form.waitlist_join_form.email.placeholder'}}) }}
+        <div class="field-errors">{{ form_errors(form.email) }}</div>
+    </div>
+
+    <button type="submit" class="auth-submit mt-1.5">{{ 'account.waitlist.submit'|trans }}</button>
+
+{{ form_end(form) }}
+{% endblock %}
