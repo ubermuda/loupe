@@ -33,8 +33,8 @@ final class ProjectDeleterTest extends KernelTestCase
         $em->flush();
         $doomedId = $doomed->id;
         $sparedId = $spared->id;
-        $doomedWidgetTokenId = $doomed->widgetToken?->id ?? throw new \LogicException('widget token seeded');
-        $doomedMcpTokenId = $doomed->mcpToken?->id ?? throw new \LogicException('mcp token seeded');
+        $doomedWidgetTokenId = $doomed->widgetToken->id ?? throw new \LogicException('widget token seeded');
+        $doomedMcpTokenId = $doomed->mcpToken->id ?? throw new \LogicException('mcp token seeded');
         $em->clear();
 
         $doomed = $em->find(Project::class, $doomedId);
