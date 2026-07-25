@@ -46,12 +46,22 @@
   // it to the fatal state instead of showing a retryable inline error.
   const authFailed = (error) => !!error && (error.status === 401 || error.status === 403);
   const fatalFrom = (error) => ({ status: error.status, code: error.code });
-  // Enter the terminal fatal state: record the cause and drop the in-memory review so no
-  // stale pins, list rows, or hover highlights linger as interactive dead ends (a token
-  // revoked mid-session would otherwise leave the on-page pins clickable).
+  // Enter the terminal fatal state: record the cause and tear down everything interactive
+  // so the critical panel actually surfaces cleanly. Drops the in-memory review (so no
+  // stale pins/rows/highlights linger as clickable dead ends), and exits pick and compose
+  // modes — pick mode in particular hides the whole widget behind its scrim and keeps
+  // document-level click listeners, which a boot rejection landing after the user entered
+  // pick mode would otherwise leave stuck on the page.
   const enterFatal = (error) => {
     state.fatal = fatalFrom(error);
     pending = [];
+    setTargeting(false);
+    state.composing = false;
+    state.composeTarget = null;
+    state.editId = null;
+    state.draft = '';
+    state.sendError = null;
+    textareaNode.value = '';
   };
 
   // Rehydrate the pending list from the server's in-progress review.

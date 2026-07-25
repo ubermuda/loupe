@@ -425,6 +425,45 @@ test('a token revoked mid-session goes fatal and clears the on-page pins', async
     await expect(page.locator('.pin')).toHaveCount(0);
 });
 
+test('a boot rejection landing after the user entered pick mode still surfaces fatal', async ({
+    page,
+}) => {
+    await registerUser(page);
+
+    // Hold the boot GET open until the test releases it, so we can deterministically enter
+    // pick mode *before* the rejection lands (a real race between boot and user action).
+    let releaseBoot = (): void => {};
+    const bootGate = new Promise<void>((resolve) => {
+        releaseBoot = resolve;
+    });
+    await page.route('**/api/site-review/review', async (route) => {
+        await bootGate;
+        await route.fulfill({
+            status: 403,
+            contentType: 'application/json',
+            body: JSON.stringify({ error: 'token_not_bound_to_site' }),
+        });
+    });
+    await page.goto(HARNESS_URL);
+
+    // Enter pick mode while the boot request is still in flight (scrim + toast up, widget
+    // chrome hidden).
+    await page.getByRole('button', { name: 'Review' }).click();
+    await page
+        .locator('#lp-panel')
+        .getByRole('button', { name: 'Pick element' })
+        .click();
+    await expect(page.locator('#lp-toast')).toBeVisible();
+
+    // Release the boot 403: the widget must leave pick mode and surface the fatal panel,
+    // not stay stuck behind the picker scrim.
+    releaseBoot();
+    await expect(page.locator('#lp-toast')).toBeHidden();
+    await expect(
+        page.locator('#lp-panel').getByText(/can.t connect/i),
+    ).toBeVisible();
+});
+
 test('deleting a list comment uses a sliding confirm overlay', async ({
     page,
 }) => {
