@@ -36,6 +36,23 @@ services:
     depends_on:
       - database
 
+  # Consumes the doctrine `async` Messenger transport (data-export generation
+  # today). Shares php-fpm's build context/image — no separate Dockerfile.
+  worker:
+    build:
+      dockerfile: ./docker/dev/php-fpm/Dockerfile
+    restart: unless-stopped
+    command: php bin/console messenger:consume async --time-limit=3600 --memory-limit=128M
+    volumes:
+      - .:/var/www/html
+    environment:
+      XDEBUG_MODE: "off"
+      DATABASE_URL: "postgresql://${POSTGRES_USER:-app}:${POSTGRES_PASSWORD:-!ChangeMe!}@database:5432/${POSTGRES_DB:-app}?serverVersion=16&charset=utf8"
+      MAILER_DSN: "smtp://mailer:1025"
+    depends_on:
+      - database
+      - mailer
+
 ###> symfony/mailer ###
   # mailpit is reached via traefik at mailpit.${COMPOSE_PROJECT_NAME}.dev.localhost
   # (the e2e suite uses that URL); no host port is published.

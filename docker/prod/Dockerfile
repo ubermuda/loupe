@@ -24,7 +24,7 @@ COPY docker/prod/supervisord.conf /etc/supervisord.conf
 COPY . .
 
 RUN set -eux; \
-	mkdir -p var/cache var/log var/share var/tailwind; \
+	mkdir -p var/cache var/log var/share var/tailwind var/exports; \
 	chmod +x bin/console;
 
 RUN composer install --no-dev --prefer-dist --optimize-autoloader --classmap-authoritative
