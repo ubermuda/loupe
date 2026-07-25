@@ -81,6 +81,29 @@ export async function getLatestEmailTo(
 }
 
 /**
+ * The id of the newest message with this subject for this address, or undefined
+ * when there is none. Capture it BEFORE the action that sends the awaited mail
+ * and hand it to getEmailWithSubject as `afterId`: Mailpit is shared by every
+ * worktree and is never cleared, so an address routinely already holds
+ * same-subject mail from another branch's run, whose links point at that
+ * branch's host. Marking the inbox first is what makes "the mail my action
+ * sent" distinguishable from "mail that was already there".
+ */
+export async function latestEmailIdWithSubject(
+    request: APIRequestContext,
+    address: string,
+    subject: string,
+): Promise<string | undefined> {
+    const listRes = await request.get(
+        `${mailpitUrl}/api/v1/search?query=${encodeURIComponent(`to:${address} subject:"${subject}"`)}`,
+    );
+    const list = await listRes.json();
+    const messages: Array<{ ID: string }> = list.messages ?? [];
+
+    return messages[0]?.ID;
+}
+
+/**
  * Poll Mailpit until an email with the given exact subject arrives for the
  * given address, then return its HTML body. Unlike getLatestEmailTo, this
  * waits for a MATCHING message rather than resolving on whatever is newest
@@ -88,12 +111,19 @@ export async function getLatestEmailTo(
  * mail (e.g. the fixture's own verification email sent moments earlier),
  * where "latest so far" can be stale and getLatestEmailTo would return it
  * before the awaited email has actually arrived.
+ *
+ * Pass `afterId` (from latestEmailIdWithSubject, captured before the action)
+ * whenever a previous run may have left mail with the SAME subject: subject
+ * alone cannot tell those apart, and resolving on one of them reads a link
+ * belonging to another branch's app. Comparing message ids rather than
+ * timestamps keeps this free of any clock skew between host and containers.
  */
 export async function getEmailWithSubject(
     request: APIRequestContext,
     address: string,
     subject: string,
     timeoutMs = 30000,
+    afterId?: string,
 ): Promise<{ body: string }> {
     let result = { body: '' };
     await expect
@@ -105,6 +135,10 @@ export async function getEmailWithSubject(
                 const list = await listRes.json();
                 const messages: Array<{ ID: string }> = list.messages ?? [];
                 if (!messages.length) return false;
+                // Mailpit lists newest first, so an unchanged head means the
+                // awaited message has not landed yet.
+                if (afterId !== undefined && messages[0].ID === afterId)
+                    return false;
 
                 const msgRes = await request.get(
                     `${mailpitUrl}/api/v1/message/${messages[0].ID}`,
