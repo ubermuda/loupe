@@ -106,3 +106,7 @@ when@test:
         App\Module\SiteReview\Mcp\AddressSiteReviewCommentsTool:
             autowire: true
             public: true
+
+        App\Module\Account\Command\SeedInstallFlagsHandler:
+            autowire: true
+            public: true
