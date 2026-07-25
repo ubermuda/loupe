@@ -9,6 +9,7 @@ use Doctrine\DBAL\Connection;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\DependencyInjection\Attribute\When;
 use Symfony\Component\HttpFoundation\JsonResponse;
+use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\Routing\Attribute\Route;
 
 /**
@@ -26,10 +27,15 @@ final class ResetDatabaseController extends AppController
     ) {
     }
 
-    public function __invoke(): JsonResponse
+    public function __invoke(Request $request): JsonResponse
     {
-        // Defense-in-depth on top of #[When('dev')].
-        if ('dev' !== $this->environment) {
+        // Defense-in-depth on top of #[When('dev')]: this truncates every table, so
+        // it additionally requires the header Playwright sends on every request
+        // (extraHTTPHeaders in playwright.config.ts) — a drive-by request against a
+        // reachable dev deployment cannot set a custom header cross-origin, so this
+        // rules out the accidental/CSRF-style trigger that #[When('dev')] alone does
+        // not.
+        if ('dev' !== $this->environment || !$request->headers->has('X-Playwright')) {
             throw $this->createNotFoundException();
         }
 
