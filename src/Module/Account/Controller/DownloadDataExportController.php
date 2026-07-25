@@ -15,7 +15,11 @@ use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpFoundation\ResponseHeaderBag;
 use Symfony\Component\Routing\Attribute\Route;
 
-#[Route('/account/exports/{id:export}/download', name: 'app_account_export_download', methods: ['GET'])]
+#[Route(
+    '/account/exports/{id:export}/download',
+    name: 'app_account_export_download',
+    methods: ['GET'],
+)]
 class DownloadDataExportController extends AppController
 {
     public function __construct(

@@ -10,8 +10,9 @@ use App\Module\Review\Repository\ReviewRepository;
 
 final readonly class ReviewExporter implements UserDataExporterInterface
 {
-    public function __construct(private ReviewRepository $reviews)
-    {
+    public function __construct(
+        private ReviewRepository $reviews,
+    ) {
     }
 
     #[\Override]

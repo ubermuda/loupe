@@ -10,8 +10,9 @@ use App\Module\SiteReview\Repository\SiteReviewRepository;
 
 final readonly class SiteReviewExporter implements UserDataExporterInterface
 {
-    public function __construct(private SiteReviewRepository $siteReviews)
-    {
+    public function __construct(
+        private SiteReviewRepository $siteReviews,
+    ) {
     }
 
     #[\Override]

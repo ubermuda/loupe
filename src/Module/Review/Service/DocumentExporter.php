@@ -10,8 +10,9 @@ use App\Module\Review\Repository\DocumentRepository;
 
 final readonly class DocumentExporter implements UserDataExporterInterface
 {
-    public function __construct(private DocumentRepository $documents)
-    {
+    public function __construct(
+        private DocumentRepository $documents,
+    ) {
     }
 
     #[\Override]

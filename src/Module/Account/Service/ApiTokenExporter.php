@@ -10,8 +10,9 @@ use App\Module\Account\Repository\ApiTokenRepository;
 
 final readonly class ApiTokenExporter implements UserDataExporterInterface
 {
-    public function __construct(private ApiTokenRepository $apiTokens)
-    {
+    public function __construct(
+        private ApiTokenRepository $apiTokens,
+    ) {
     }
 
     #[\Override]

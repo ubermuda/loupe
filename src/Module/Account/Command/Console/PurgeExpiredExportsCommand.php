@@ -22,8 +22,9 @@ use Symfony\Component\Console\Style\SymfonyStyle;
 )]
 final class PurgeExpiredExportsCommand extends Command
 {
-    public function __construct(private readonly ExpiredExportPurger $purger)
-    {
+    public function __construct(
+        private readonly ExpiredExportPurger $purger,
+    ) {
         parent::__construct();
     }
 
