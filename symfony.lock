@@ -437,8 +437,14 @@
     "twig/extra-bundle": {
         "version": "v3.24.0"
     },
+    "ubermuda/admin-bundle": {
+        "version": "dev-main"
+    },
     "ubermuda/doctrine-extra": {
         "version": "dev-feat/encrypted-string-type"
+    },
+    "ubermuda/feature-flags-bundle": {
+        "version": "dev-main"
     },
     "ubermuda/symfony-extra": {
         "version": "dev-feat/csrf-attribute-and-e2e-subscribers"
