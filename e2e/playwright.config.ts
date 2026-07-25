@@ -22,6 +22,15 @@ export default defineConfig({
     projects: [
         {
             name: 'chromium',
+            testIgnore: /install\/.*\.spec\.ts/,
+            use: {
+                ...devices['Desktop Chrome'],
+            },
+        },
+        {
+            name: 'install-reset',
+            testMatch: /install\/install\.spec\.ts/,
+            dependencies: ['chromium'],
             use: {
                 ...devices['Desktop Chrome'],
             },
