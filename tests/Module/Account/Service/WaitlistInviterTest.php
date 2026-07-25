@@ -7,6 +7,7 @@ namespace App\Tests\Module\Account\Service;
 use App\Module\Account\Entity\WaitlistEntry;
 use App\Module\Account\Service\WaitlistInviteEmailSender;
 use App\Module\Account\Service\WaitlistInviter;
+use Doctrine\DBAL\Connection;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\MockObject\Stub;
@@ -25,13 +26,20 @@ final class WaitlistInviterTest extends TestCase
     {
         $this->sender = $this->createMock(WaitlistInviteEmailSender::class);
         $this->em = $this->createStub(EntityManagerInterface::class);
-        // wrapInTransaction/lock/refresh are stubbed no-ops except for actually
-        // invoking the closure — this exercises the inviter's own logic without
-        // a real database (dama would otherwise be the only way to get a real
-        // EntityManager, and this test does not need persistence).
-        $this->em->method('wrapInTransaction')->willReturnCallback(
+
+        // The token-issuance step runs inside Connection::transactional(), not
+        // EntityManager::wrapInTransaction() — the latter closes the shared
+        // EntityManager on any failure, which would break every remaining
+        // entry in a bulk invite once one mailbox fails (see WaitlistInviter).
+        // lock()/refresh()/flush() are stubbed no-ops except for actually
+        // invoking the closure — this exercises the inviter's own logic
+        // without a real database.
+        $connection = $this->createStub(Connection::class);
+        $connection->method('transactional')->willReturnCallback(
             fn (callable $func) => $func(),
         );
+        $this->em->method('getConnection')->willReturn($connection);
+
         $this->inviter = new WaitlistInviter($this->sender, $this->em, new NullLogger());
     }
 
@@ -62,37 +70,37 @@ final class WaitlistInviterTest extends TestCase
         self::assertFalse($this->inviter->invite($entry));
     }
 
-    /**
-     * A mail-transport failure must propagate out of the transaction so
-     * `wrapInTransaction()` rolls the DB back — the token issued moments
-     * earlier in the same transaction is never committed, so the row stays
-     * invitable. `EntityManagerInterface::wrapInTransaction()` only rolls
-     * back the *database* state; it cannot un-mutate the in-memory PHP object
-     * this stub-based test passed in (a real request would discard that
-     * object along with the closed EntityManager). This test therefore
-     * verifies the propagation contract the bulk handler depends on (Task 6):
-     * the exception surfaces so the caller can count the entry as skipped
-     * rather than invited. The row-level "stays invitable" guarantee itself
-     * is a code-review item, per the concurrency-testing limitation in
-     * project-testing.
-     */
-    public function test_mail_transport_failure_propagates_instead_of_committing(): void
+    public function test_mail_transport_failure_propagates_and_reverts_the_token(): void
     {
         $entry = new WaitlistEntry('a@example.com');
         $this->sender->expects($this->once())->method('send')->willThrowException(new TransportException('boom'));
 
-        $this->expectException(TransportException::class);
+        try {
+            $this->inviter->invite($entry);
+            self::fail('Expected TransportException to propagate.');
+        } catch (TransportException) {
+            // expected — the caller (bulk handler) treats this as a skip.
+        }
 
-        $this->inviter->invite($entry);
+        // clearInvite() reverts the token synchronously — no need for a
+        // simulated reload here, unlike a bare transaction rollback which only
+        // reverts the database row, not this in-memory object.
+        self::assertFalse($entry->isInvited());
     }
 
-    public function test_retrying_an_uninvited_entry_after_a_failed_attempt_succeeds(): void
+    public function test_retrying_after_a_failed_attempt_succeeds(): void
     {
-        // Simulates the post-rollback state: a fresh load of the same row,
-        // still uninvited because the failed attempt's token issue never committed.
         $entry = new WaitlistEntry('a@example.com');
-        $this->sender->expects($this->once())->method('send');
+        $this->sender->expects($this->once())->method('send')->willThrowException(new TransportException('boom'));
+        try {
+            $this->inviter->invite($entry);
+        } catch (TransportException) {
+        }
 
-        self::assertTrue($this->inviter->invite($entry));
+        $retrySender = $this->createMock(WaitlistInviteEmailSender::class);
+        $retrySender->expects($this->once())->method('send');
+        $inviter = new WaitlistInviter($retrySender, $this->em, new NullLogger());
+
+        self::assertTrue($inviter->invite($entry));
     }
 }

@@ -102,4 +102,17 @@ class WaitlistEntry
     {
         $this->convertedAt = new \DateTimeImmutable();
     }
+
+    /**
+     * Reverts an issued invite back to the un-invited state. Used when the
+     * invite token committed but the email carrying it failed to send — the
+     * entry must become invitable again rather than stuck until the
+     * now-undeliverable token expires.
+     */
+    public function clearInvite(): void
+    {
+        $this->invitedAt = null;
+        $this->inviteExpiresAt = null;
+        $this->inviteTokenHash = null;
+    }
 }

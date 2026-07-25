@@ -72,18 +72,20 @@ final readonly class ResolveSocialLoginHandler
 
         // Branch D: no existing identity or account matches — either create a
         // new verified account or, if the registration cap is closed, divert
-        // the verified provider email to the waitlist instead.
-        return $this->em->wrapInTransaction(function () use ($profile, $matchEmail): SocialLoginOutcome {
+        // the verified provider email to the waitlist instead. The capacity
+        // decision (lock + isOpen + user creation) is one atomic transaction;
+        // the waitlist join itself runs afterwards (see below) so a duplicate
+        // -join race there is handled by JoinWaitlistHandler's own catch
+        // instead of poisoning this transaction (a caught DBAL uniqueness
+        // exception still aborts the surrounding Postgres transaction).
+        $user = $this->em->wrapInTransaction(function () use ($profile, $matchEmail): ?User {
             // Serialize this capacity decision against the form registration
             // handler's — the same advisory lock, so the two paths can never
             // both take the last slot.
             $this->registrationGate->acquireCapacityLock($this->em->getConnection());
 
             if (!$this->registrationGate->isOpen()) {
-                ($this->joinWaitlist)(new JoinWaitlistCommand($matchEmail));
-                $this->logger->info('account.waitlist.oauth_diverted', ['provider' => $profile->provider->value]);
-
-                return SocialLoginOutcome::waitlisted();
+                return null;
             }
 
             $user = new User(
@@ -96,8 +98,17 @@ final readonly class ResolveSocialLoginHandler
             $this->em->persist($this->link($user, $profile));
             $this->flushOrRace();
 
-            return SocialLoginOutcome::logIn($user);
+            return $user;
         });
+
+        if (null === $user) {
+            ($this->joinWaitlist)(new JoinWaitlistCommand($matchEmail));
+            $this->logger->info('account.waitlist.oauth_diverted', ['provider' => $profile->provider->value]);
+
+            return SocialLoginOutcome::waitlisted();
+        }
+
+        return SocialLoginOutcome::logIn($user);
     }
 
     private function flushOrRace(): void

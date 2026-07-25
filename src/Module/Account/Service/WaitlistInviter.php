@@ -21,34 +21,49 @@ final readonly class WaitlistInviter
 
     public function invite(WaitlistEntry $entry): bool
     {
-        // Lock + refresh + recheck: two concurrent invites (e.g. overlapping
-        // oldest-N requests) must not both email; and a mail-transport failure
-        // must roll the token state back so the entry stays invitable.
-        return $this->em->wrapInTransaction(function () use ($entry): bool {
+        // Issue and commit the token in its own short DBAL-level transaction —
+        // not EntityManager::wrapInTransaction(), which closes the shared
+        // EntityManager on any failure and would break every remaining entry
+        // in a bulk invite once one mailbox fails. Lock + refresh + recheck:
+        // two concurrent invites (e.g. overlapping oldest-N requests) must not
+        // both email the same entry.
+        $plainToken = $this->em->getConnection()->transactional(function () use ($entry): ?string {
             $this->em->lock($entry, LockMode::PESSIMISTIC_WRITE);
             $this->em->refresh($entry);
 
             if (!$entry->needsInvite()) {
-                return false;
+                return null;
             }
 
-            $plainToken = $entry->issueInviteToken();
+            $token = $entry->issueInviteToken();
             $this->em->flush();
 
-            try {
-                $this->emailSender->send($entry, $plainToken);
-            } catch (TransportExceptionInterface $e) {
-                $this->logger->warning('account.waitlist.invite_send_failed', [
-                    'entryId' => (string) $entry->id,
-                    'error' => $e->getMessage(),
-                ]);
-
-                throw $e; // roll the transaction back — token state reverts, entry stays invitable
-            }
-
-            $this->logger->info('account.waitlist.invited', ['entryId' => (string) $entry->id]);
-
-            return true;
+            return $token;
         });
+
+        if (!is_string($plainToken)) {
+            return false;
+        }
+
+        try {
+            $this->emailSender->send($entry, $plainToken);
+        } catch (TransportExceptionInterface $e) {
+            $this->logger->warning('account.waitlist.invite_send_failed', [
+                'entryId' => (string) $entry->id,
+                'error' => $e->getMessage(),
+            ]);
+
+            // The token already committed — revert it in a follow-up write so
+            // the entry stays invitable instead of stuck until the
+            // now-undeliverable token expires.
+            $entry->clearInvite();
+            $this->em->flush();
+
+            throw $e;
+        }
+
+        $this->logger->info('account.waitlist.invited', ['entryId' => (string) $entry->id]);
+
+        return true;
     }
 }
