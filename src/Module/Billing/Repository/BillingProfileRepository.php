@@ -30,12 +30,13 @@ class BillingProfileRepository extends ServiceEntityRepository
         return $this->findOneBy(['stripeCustomerId' => $customerId]);
     }
 
-    /** @return list<BillingProfile> trials past their end, never subscribed */
+    /** @return list<BillingProfile> trials past their end, never subscribed, not yet processed */
     public function findExpiredTrials(\DateTimeImmutable $now): array
     {
         return $this->createQueryBuilder('p')
             ->andWhere('p.status = :status')->setParameter('status', BillingStatus::Trialing)
             ->andWhere('p.trialEndsAt < :now')->setParameter('now', $now)
+            ->andWhere('p.surveySentAt IS NULL')
             ->getQuery()->getResult();
     }
 
