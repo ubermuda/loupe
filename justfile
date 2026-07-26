@@ -171,6 +171,12 @@ browser-sync:
 tailwind:
     bin/console tailwind:build --watch
 
+# Expose the dev app on the reserved ngrok domain (OAuth callbacks, Stripe
+# dashboard webhooks, phone testing). Requires an authenticated ngrok agent
+# and the domain reserved in the ngrok dashboard. Override with TUNNEL_HOST.
+tunnel:
+    ngrok http https://localhost --url "https://${TUNNEL_HOST:-loupe.ngrok.dev}"
+
 # Vet + test the Go CLI (cli/) in a throwaway Go container — no host Go needed.
 cli-test:
     docker run --rm -v "{{justfile_directory()}}/cli":/cli -w /cli -e GOTOOLCHAIN=local golang:1.23-alpine sh -c 'go vet ./... && go test ./...'

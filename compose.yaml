@@ -22,6 +22,15 @@ services:
       - traefik.http.routers.${COMPOSE_PROJECT_NAME}.tls=true
       - traefik.http.routers.${COMPOSE_PROJECT_NAME}.tls.certresolver=stepca
       - traefik.http.services.${COMPOSE_PROJECT_NAME}.loadbalancer.server.port=80
+      # Tunnel ingress (ngrok reserved domain). The agent forwards to
+      # https://localhost with the tunnel Host header preserved, so traefik
+      # needs a router for it; Symfony then generates tunnel-host URLs
+      # (OAuth callbacks, absolute links) automatically when browsed via the
+      # tunnel. Override with TUNNEL_HOST in the shell environment.
+      - traefik.http.routers.${COMPOSE_PROJECT_NAME}-tunnel.rule=Host(`${TUNNEL_HOST:-loupe.ngrok.dev}`)
+      - traefik.http.routers.${COMPOSE_PROJECT_NAME}-tunnel.entrypoints=websecure
+      - traefik.http.routers.${COMPOSE_PROJECT_NAME}-tunnel.tls=true
+      - traefik.http.routers.${COMPOSE_PROJECT_NAME}-tunnel.service=${COMPOSE_PROJECT_NAME}
 
   php-fpm:
     build:
