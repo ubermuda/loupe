@@ -18,7 +18,11 @@ use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Contracts\Translation\TranslatorInterface;
 
-#[Route('/install/admin', name: 'app_install_admin', methods: ['GET', 'POST'])]
+#[Route(
+    '/install/admin',
+    name: 'app_install_admin',
+    methods: ['GET', 'POST'],
+)]
 final class CreateAdminController extends AppController
 {
     public function __construct(

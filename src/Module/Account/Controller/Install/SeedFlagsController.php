@@ -15,7 +15,11 @@ use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
 
-#[Route('/install', name: 'app_install_flags', methods: ['GET', 'POST'])]
+#[Route(
+    '/install',
+    name: 'app_install_flags',
+    methods: ['GET', 'POST'],
+)]
 final class SeedFlagsController extends AppController
 {
     public const string SESSION_FLAGS_SEEDED = 'install_flags_seeded';

@@ -12,7 +12,6 @@ class InstallFlagsRequest
         #[Assert\NotNull]
         #[Assert\PositiveOrZero]
         public ?int $registrationCap = 0,
-
         public bool $billingEnabled = false,
 
         #[Assert\NotNull]
@@ -21,9 +20,7 @@ class InstallFlagsRequest
 
         #[Assert\Length(max: 255)]
         public ?string $billingStripePriceId = null,
-
         public bool $authGithubEnabled = false,
-
         public bool $authGoogleEnabled = false,
     ) {
     }

@@ -175,7 +175,11 @@ tailwind:
 # dashboard webhooks, phone testing). Requires an authenticated ngrok agent
 # and the domain reserved in the ngrok dashboard. Override with TUNNEL_HOST.
 tunnel:
-    ngrok http https://localhost --url "https://${TUNNEL_HOST:-loupe.ngrok.dev}"
+    #!/usr/bin/env bash
+    set -euo pipefail
+    host="${TUNNEL_HOST:-$(grep -E '^TUNNEL_HOST=' .env | cut -d= -f2- || true)}"
+    [ -n "$host" ] || { echo "TUNNEL_HOST is not set (shell env or .env)"; exit 1; }
+    ngrok http https://localhost --url "https://$host"
 
 # Vet + test the Go CLI (cli/) in a throwaway Go container — no host Go needed.
 cli-test:
