@@ -12,7 +12,11 @@ use App\Module\Project\Service\WizardState;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
 
-#[Route('/welcome', name: 'app_welcome', methods: ['GET'])]
+#[Route(
+    '/welcome',
+    name: 'app_welcome',
+    methods: ['GET'],
+)]
 class ShowWelcomeController extends AppController
 {
     public function __construct(

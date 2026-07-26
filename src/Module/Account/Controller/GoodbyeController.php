@@ -8,7 +8,11 @@ use App\Controller\AppController;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
 
-#[Route('/goodbye', name: 'app_account_goodbye', methods: ['GET'])]
+#[Route(
+    '/goodbye',
+    name: 'app_account_goodbye',
+    methods: ['GET'],
+)]
 class GoodbyeController extends AppController
 {
     public function __invoke(): Response

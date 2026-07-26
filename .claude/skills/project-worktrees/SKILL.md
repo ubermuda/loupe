@@ -97,3 +97,27 @@ branch:
 ```sh
 E2E_BASE_URL=https://<slug>.loupe.dev.localhost just e2e
 ```
+
+## Running the full e2e suite from a worktree
+
+The worktree e2e gate needs four things beyond `E2E_BASE_URL`:
+
+1. **`DEFAULT_URI=https://<slug>.loupe.dev.localhost` in the worktree's
+   `.env.local`** — CLI/worker-generated absolute URLs (export download emails)
+   otherwise point at `localhost`. Re-check after any re-provisioning:
+   `worktree-up` regenerates `.env.local`.
+2. **A worktree-scoped worker**:
+   `bin/worktrees/compose-exec.sh bin/console messenger:consume async` started
+   from the worktree cwd — the main `worker` container consumes main's DB only,
+   so the data-export spec hangs without this. Kill it afterwards
+   (`docker exec loupe-php-fpm-1 pkill -f 'messenger:consume async'`), and
+   restart it after changing any PHP it has already loaded.
+3. **`--workers=1`.**
+4. **A quiet stack**: no worktree provisioning, `composer install`, or sibling
+   `just ci` during the run — they share php-fpm and skew timings past
+   Playwright's timeouts.
+
+Never run the full suite against the **main checkout's live dev DB** once it
+holds real data: state-dependent specs fail and, worse, mutate live state (a
+waitlist spec run against main set `registration.cap` and silently closed
+registration).

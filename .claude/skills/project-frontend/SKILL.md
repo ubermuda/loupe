@@ -110,6 +110,10 @@ return new Response($html, $status, ['Content-Type' => TurboBundle::STREAM_MEDIA
 - A stream template wraps content in `<turbo-stream action="replace|update|append" target="dom-id">…</turbo-stream>`; the targeted element must render its own matching `id` so the stream can find it.
 - Minor per-controller duplication of the format check + redirect is acceptable — it is the conventional shape and reads more clearly than a shared abstraction.
 
+**Successful top-level form POSTs must redirect (PRG) — never render a 200.** Turbo Drive enforces `requestMustRedirect`: a 200 HTML response to a non-frame form submission is *discarded* with a console error and the page silently does nothing — while WebTestCase sees a perfectly valid response, so only e2e catches it. Success → redirect (302); validation failure → 422 re-render (next rule). Rendering a confirmation view directly on POST success is always a bug — redirect to a route that renders the confirmation instead.
+
+**Forms inside a `<turbo-frame>` that redirect page-level need `data-turbo-frame="_top"`.** Without it the redirect is frame-scoped: the frame morphs in place and flash messages rendered outside the frame are silently dropped. The vendor admin-bundle list frames set this on their own forms; any form you add inside a frame must do the same unless you genuinely want an in-frame update.
+
 **Turbo Drive form submissions require a 4xx/5xx response to re-render:** When Turbo intercepts a form POST, a 200 response is treated as a successful navigation and silently discarded — the browser stays on the current page without re-rendering anything. Only 4xx/5xx responses cause Turbo to render the response body in place. When a controller handles a form submission and needs to re-display the form with errors, always return HTTP 422. The Symfony pattern:
 
 ```php
@@ -159,6 +163,6 @@ All icons must use the Symfony UX Icons bundle with Lucide. Never embed inline S
 {{ ux_icon('lucide:x', {'class': 'w-3.5 h-3.5 shrink-0 mt-px'}) }}
 ```
 
-Import icons with `php bin/console ux:icons:import lucide:ICON_NAME` — the SVG lands in `assets/icons/lucide/`, which **is committed to the repo** (not gitignored). Committing "locks" the icon the way `composer.lock` locks a dependency: on-demand Iconify fetching (and the `asset-map:compile` cache warm) is a dev/build convenience, not a substitute — committed SVGs keep production builds deterministic with no runtime/build-time Iconify dependency. Only import icons you actually reference; don't commit unused ones.
+`assets/icons/lucide/` and `assets/icons/simple-icons/` are **gitignored** in this project (see `.gitignore`), and UX Icons runs with `iconify.on_demand: true` in dev **and** test — any icon resolves at render time from the iconify API, so new icons render and pass CI without being imported or committed. `php bin/console ux:icons:import` only populates a local cache (useful offline); it is never a prerequisite. If icon SVGs get committed accidentally, remove them with `git rm --cached`. (Committing icons for production build determinism is a deliberate tradeoff this project has *not* taken — if that ever changes, it changes here and in `.gitignore` together.)
 
 **Stroke colour:** Imported Lucide SVGs use `stroke="currentColor"`. Control the stroke colour via a text colour class on the icon or its parent — never hardcode `stroke="white"` as an attribute.

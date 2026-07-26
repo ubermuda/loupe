@@ -9,8 +9,9 @@ use App\Module\Project\Service\ProjectDeleter;
 
 final readonly class DeleteProjectHandler
 {
-    public function __construct(private ProjectDeleter $projectDeleter)
-    {
+    public function __construct(
+        private ProjectDeleter $projectDeleter,
+    ) {
     }
 
     public function __invoke(DeleteProjectCommand $command): void

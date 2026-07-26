@@ -17,7 +17,11 @@ use Symfony\Contracts\Translation\TranslatorInterface;
 use Ubermuda\SymfonyExtra\Csrf\Attribute\CsrfToken;
 
 #[CsrfToken('billing-checkout')]
-#[Route('/billing/checkout', name: 'app_billing_checkout', methods: ['POST'])]
+#[Route(
+    '/billing/checkout',
+    name: 'app_billing_checkout',
+    methods: ['POST'],
+)]
 final class StartCheckoutController extends AppController
 {
     public function __construct(

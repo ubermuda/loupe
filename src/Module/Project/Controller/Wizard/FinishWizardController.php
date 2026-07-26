@@ -14,7 +14,11 @@ use Symfony\Component\Routing\Attribute\Route;
 use Ubermuda\SymfonyExtra\Csrf\Attribute\CsrfToken;
 
 #[CsrfToken('wizard-finish')]
-#[Route('/welcome/done/finish', name: 'app_welcome_finish', methods: ['POST'])]
+#[Route(
+    '/welcome/done/finish',
+    name: 'app_welcome_finish',
+    methods: ['POST'],
+)]
 class FinishWizardController extends AppController
 {
     public function __construct(

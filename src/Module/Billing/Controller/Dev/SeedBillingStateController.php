@@ -24,7 +24,11 @@ use Ubermuda\FeatureFlagsBundle\Repository\FeatureFlagRepository;
  * (When('dev')). The route is allowlisted in RequireSubscriptionListener so a
  * paywalled session can still call it to switch billing back off.
  */
-#[Route('/dev/billing-state', name: 'app_dev_billing_state', methods: ['GET'])]
+#[Route(
+    '/dev/billing-state',
+    name: 'app_dev_billing_state',
+    methods: ['GET'],
+)]
 #[When('dev')]
 final class SeedBillingStateController extends AppController
 {

@@ -11,11 +11,16 @@ use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
 
-#[Route('/welcome/connect', name: 'app_welcome_connect', methods: ['GET'])]
+#[Route(
+    '/welcome/connect',
+    name: 'app_welcome_connect',
+    methods: ['GET'],
+)]
 class ShowWelcomeConnectController extends AppController
 {
     public function __construct(
         private readonly WizardState $wizardState,
+
         #[Autowire(param: 'app.mcp.server_name')]
         private readonly string $mcpServerName,
     ) {

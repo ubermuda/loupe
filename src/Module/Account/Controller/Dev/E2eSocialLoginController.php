@@ -53,6 +53,7 @@ final class E2eSocialLoginController extends AppController
         private readonly ResolveSocialLoginHandler $resolveSocialLogin,
         private readonly PendingSocialLink $pendingSocialLink,
         private readonly Security $security,
+
         #[Autowire('%kernel.environment%')]
         private readonly string $environment,
     ) {

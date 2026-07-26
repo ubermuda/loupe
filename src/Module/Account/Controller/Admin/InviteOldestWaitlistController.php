@@ -16,7 +16,11 @@ use Ubermuda\SymfonyExtra\Csrf\Attribute\CsrfToken;
 
 #[CsrfToken('admin-waitlist-invite')]
 #[IsGranted('ROLE_ADMIN')]
-#[Route('/admin/waitlist/invite-oldest', name: 'app_admin_waitlist_invite_oldest', methods: ['POST'])]
+#[Route(
+    '/admin/waitlist/invite-oldest',
+    name: 'app_admin_waitlist_invite_oldest',
+    methods: ['POST'],
+)]
 final class InviteOldestWaitlistController extends AppController
 {
     public function __construct(

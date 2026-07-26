@@ -13,7 +13,8 @@ use App\Module\Project\Entity\Project;
  */
 final readonly class ProjectDeleting
 {
-    public function __construct(public Project $project)
-    {
+    public function __construct(
+        public Project $project,
+    ) {
     }
 }

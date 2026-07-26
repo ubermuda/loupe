@@ -27,7 +27,11 @@ use Symfony\Component\Routing\Attribute\Route;
  * Every recognised outcome answers 200: Stripe retries anything else for days,
  * and an event about a customer this app does not know is not an error to fix.
  */
-#[Route('/webhooks/stripe', name: 'webhook_stripe', methods: ['POST'])]
+#[Route(
+    '/webhooks/stripe',
+    name: 'webhook_stripe',
+    methods: ['POST'],
+)]
 final class StripeWebhookController extends AppController
 {
     private const array HANDLED_EVENTS = [
@@ -39,6 +43,7 @@ final class StripeWebhookController extends AppController
     public function __construct(
         private readonly SyncStripeSubscriptionHandler $syncSubscription,
         private readonly LoggerInterface $logger,
+
         #[Autowire(env: 'STRIPE_WEBHOOK_SECRET')]
         private readonly string $webhookSecret,
     ) {

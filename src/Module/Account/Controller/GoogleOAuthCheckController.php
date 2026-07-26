@@ -17,7 +17,11 @@ use Ubermuda\FeatureFlagsBundle\Attribute\RequireFeatureFlag;
  * the provider is switched off.
  */
 #[RequireFeatureFlag('auth.google.enabled')]
-#[Route('/oauth/google/check', name: 'app_oauth_check_google', methods: ['GET'])]
+#[Route(
+    '/oauth/google/check',
+    name: 'app_oauth_check_google',
+    methods: ['GET'],
+)]
 class GoogleOAuthCheckController extends AppController
 {
     public function __invoke(): Response
