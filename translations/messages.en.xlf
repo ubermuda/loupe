@@ -438,8 +438,8 @@
                 <source>account.email.waitlist_invite_returning.body</source>
                 <target>A spot opened up. Your account and all your data are right where you left them — subscribe to reactivate. This invite link is valid for 7 days.</target>
             </trans-unit>
-            <trans-unit id="account.email.waitlist_invite_returning.button_label">
-                <source>account.email.waitlist_invite_returning.button_label</source>
+            <trans-unit id="account.email.waitlist_invite_returning.button">
+                <source>account.email.waitlist_invite_returning.button</source>
                 <target>Reactivate your account</target>
             </trans-unit>
 

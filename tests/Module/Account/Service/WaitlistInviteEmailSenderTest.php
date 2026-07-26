@@ -32,7 +32,11 @@ final class WaitlistInviteEmailSenderTest extends TestCase
 
         $urlGenerator = $this->createStub(UrlGeneratorInterface::class);
         $urlGenerator->method('generate')->willReturnCallback(
-            fn (string $route, array $parameters): string => sprintf('https://example.com/%s?%s', $route, http_build_query($parameters)),
+            function (string $route, array $parameters, int $referenceType): string {
+                self::assertSame(UrlGeneratorInterface::ABSOLUTE_URL, $referenceType);
+
+                return sprintf('https://example.com/%s?%s', $route, http_build_query($parameters));
+            },
         );
 
         $users = $this->createStub(UserRepository::class);
