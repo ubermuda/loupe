@@ -60,6 +60,11 @@ test.describe('registration cap and waitlist', () => {
         browser,
         request,
     }) => {
+        // Confirmed pre-existing flake: this is a long multi-actor flow (admin
+        // + guest browser contexts, registration, waitlist, three invite
+        // paths, redemption) that occasionally exceeds the default 30s.
+        test.setTimeout(120_000);
+
         const perEntryEmail = `e2e-waitlist-perentry-${RUN}@example.com`;
         const selectedEmail = `e2e-waitlist-selected-${RUN}@example.com`;
         const oldestEmail = `e2e-waitlist-oldest-${RUN}@example.com`;

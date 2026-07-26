@@ -38,6 +38,9 @@ final readonly class RefreshDocumentVersionsHtmlHandler
         foreach ($rows as $row) {
             ++$total;
             $html = $this->renderer->render($row['markdown_source']);
+            // Connection::executeStatement() is typed int|string (some
+            // drivers report the affected-row count as a numeric string);
+            // an UPDATE's affected-row count is always numeric.
             $changed += (int) $this->connection->executeStatement(
                 'UPDATE document_versions SET rendered_html = :html WHERE id = :id::uuid AND rendered_html <> :html',
                 ['html' => $html, 'id' => $row['id']],
