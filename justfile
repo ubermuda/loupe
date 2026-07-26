@@ -108,7 +108,11 @@ prettier:
 rector:
     vendor/bin/rector
 
+# phpstan-symfony resolves getContainer()->get(X::class) through the dumped dev
+# container XML, so a missing or stale var/cache/dev makes it abort outright
+# ("Container ... does not exist") or silently degrade service types to ?object.
 phpstan:
+    bin/worktrees/compose-exec.sh bin/console cache:warmup
     vendor/bin/phpstan analyse -a worktree-bootstrap.php
 
 arkitect:
