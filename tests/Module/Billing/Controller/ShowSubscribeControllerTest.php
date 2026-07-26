@@ -163,12 +163,12 @@ final class ShowSubscribeControllerTest extends WebTestCase
         self::assertCount(1, $form);
         self::assertSame($user->email, $form->filter('input[name="waitlist_join_form[email]"]')->attr('value'));
 
-        // Form-component forms validate _token against the stateless global
-        // token id `submit`, so the rendered value must be the cookie-name
-        // sentinel (what csrf_token('submit') yields — a session-backed token
-        // id would render a 24+ char random value nothing validates), and the
-        // data-controller hook is what lets csrf_protection_controller.js
-        // double-submit it in a real browser.
+        // Form-component forms validate _token against the stateless `submit`
+        // token id (csrf.yaml), which rejects a session-storage token value —
+        // so the rendered value must be the cookie-name sentinel that
+        // csrf_token('submit') yields, and the data-controller hook is what
+        // lets csrf_protection_controller.js double-submit it in a real
+        // browser.
         $tokenInput = $form->filter('input[name="waitlist_join_form[_token]"]');
         self::assertSame('csrf-token', $tokenInput->attr('value'));
         self::assertSame('csrf-protection', $tokenInput->attr('data-controller'));

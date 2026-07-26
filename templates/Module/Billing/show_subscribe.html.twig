@@ -50,6 +50,7 @@
             <input type="hidden" name="_csrf_token" value="{{ csrf_token('billing-portal') }}">
             <button type="submit" class="lp-btn lp-btn--primary">{{ 'billing.subscribe.portal.button'|trans }}</button>
         </form>
+        <p class="lp-connect-hint">{{ 'billing.subscribe.secure_note'|trans }}</p>
         {% elseif view.capFull %}
         {# The cap is full and no valid invite was presented: checkout would be
            rejected, so offer the waitlist instead. The hidden fields feed the
@@ -73,8 +74,6 @@
             {% endif %}
             <button type="submit" class="lp-btn lp-btn--primary">{{ 'billing.subscribe.checkout.button'|trans }}</button>
         </form>
-        {% endif %}
-        {% if not view.capFull %}
         <p class="lp-connect-hint">{{ 'billing.subscribe.secure_note'|trans }}</p>
         {% endif %}
     </section>

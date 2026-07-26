@@ -142,10 +142,11 @@ final readonly class StartCheckoutHandler
             return false;
         }
 
+        // findOneByValidInviteToken already validated the token; no
+        // lock/refresh here to invalidate that.
         $invite = $this->waitlistEntries->findOneByValidInviteToken($command->inviteToken);
 
         return null !== $invite
-            && $invite->isInviteTokenValid($command->inviteToken)
             && strtolower($invite->email) === strtolower($command->user->email);
     }
 }
