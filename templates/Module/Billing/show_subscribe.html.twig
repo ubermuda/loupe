@@ -58,7 +58,11 @@
         <p class="lp-workspace-desc">{{ 'billing.subscribe.waitlist.body'|trans }}</p>
         <form method="post" action="{{ path('app_waitlist_join') }}">
             <input type="hidden" name="waitlist_join_form[email]" value="{{ app.user.email }}">
-            <input type="hidden" name="waitlist_join_form[_token]" value="{{ csrf_token('waitlist_join_form') }}">
+            {# Form-component forms validate _token against the global token id
+               `submit` (csrf.yaml), which is stateless — the data-controller
+               hook lets csrf_protection_controller.js double-submit it exactly
+               as form_widget-rendered forms do. #}
+            <input type="hidden" name="waitlist_join_form[_token]" value="{{ csrf_token('submit') }}" data-controller="csrf-protection">
             <button type="submit" class="lp-btn lp-btn--primary">{{ 'billing.subscribe.waitlist.button_label'|trans }}</button>
         </form>
         {% else %}

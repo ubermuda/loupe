@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Tests\Module\Billing\Controller;
 
+use App\Module\Account\Repository\UserRepository;
+use App\Module\Account\Service\RegistrationGate;
 use App\Module\Billing\Entity\BillingProfile;
 use App\Module\Billing\Entity\BillingStatus;
 use App\Module\Billing\Repository\BillingProfileRepository;
@@ -14,6 +16,8 @@ use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use Symfony\Component\HttpFoundation\Request;
+use Ubermuda\FeatureFlagsBundle\Entity\FeatureFlag;
+use Ubermuda\FeatureFlagsBundle\Enum\FeatureFlagType;
 
 final class ShowSubscribeControllerTest extends WebTestCase
 {
@@ -127,6 +131,52 @@ final class ShowSubscribeControllerTest extends WebTestCase
         self::assertResponseIsSuccessful();
         self::assertCount(1, $crawler->filter('form[action="/billing/portal"]'));
         self::assertCount(0, $crawler->filter('form[action="/billing/checkout"]'));
+    }
+
+    public function test_a_disabled_user_at_full_capacity_gets_a_working_waitlist_cta(): void
+    {
+        $client = static::createClient();
+        $client->disableReboot();
+        $scenario = new BillingScenario(static::getContainer());
+        $scenario->enableBilling();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+
+        $user = $scenario->verifiedUser('caplocked');
+        $user->disabledAt = new \DateTimeImmutable();
+        $scenario->profile($user, new \DateTimeImmutable('-30 days'));
+
+        // Disabled accounts do not count towards the cap, so seed one active
+        // user and cap at the resulting count — count(0) < cap(0) would leave
+        // the gate open.
+        $scenario->verifiedUser('capfiller');
+        $activeCount = static::getContainer()->get(UserRepository::class)->countActive();
+        $em->persist(new FeatureFlag(name: RegistrationGate::CAP_FLAG, type: FeatureFlagType::Int, value: $activeCount));
+        $em->flush();
+        $em->clear();
+
+        $client->loginUser($user);
+        $crawler = $client->request(Request::METHOD_GET, '/billing/subscribe');
+
+        self::assertResponseIsSuccessful();
+        self::assertCount(0, $crawler->filter('form[action="/billing/checkout"]'));
+        $form = $crawler->filter('form[action="/waitlist"]');
+        self::assertCount(1, $form);
+        self::assertSame($user->email, $form->filter('input[name="waitlist_join_form[email]"]')->attr('value'));
+
+        // Form-component forms validate _token against the stateless global
+        // token id `submit`, so the rendered value must be the cookie-name
+        // sentinel (what csrf_token('submit') yields — a session-backed token
+        // id would render a 24+ char random value nothing validates), and the
+        // data-controller hook is what lets csrf_protection_controller.js
+        // double-submit it in a real browser.
+        $tokenInput = $form->filter('input[name="waitlist_join_form[_token]"]');
+        self::assertSame('csrf-token', $tokenInput->attr('value'));
+        self::assertSame('csrf-protection', $tokenInput->attr('data-controller'));
+
+        // Submitting the rendered form as-is must pass CSRF validation — a
+        // token minted for the wrong token id would 422 here.
+        $client->submitForm('Join the waitlist');
+        self::assertResponseRedirects('/waitlist?joined=1');
     }
 
     public function test_with_billing_disabled_the_page_offers_no_actions(): void
