@@ -13,6 +13,7 @@ use App\Module\Account\Service\VerificationEmailSender;
 use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
 use Doctrine\DBAL\LockMode;
 use Doctrine\ORM\EntityManagerInterface;
+use Psr\Log\LoggerInterface;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 use Symfony\Contracts\EventDispatcher\EventDispatcherInterface;
 
@@ -26,6 +27,7 @@ final readonly class RegisterUserHandler
         private RegistrationGate $registrationGate,
         private WaitlistEntryRepository $waitlistEntries,
         private EventDispatcherInterface $eventDispatcher,
+        private LoggerInterface $logger,
     ) {
     }
 
@@ -103,10 +105,18 @@ final readonly class RegisterUserHandler
 
         // The registration transaction has committed: listeners (e.g. Billing's
         // trial provisioning) run outside it, so their failures cannot roll the
-        // account back. Dispatched after the swallowed email send so a listener
-        // failure cannot also cost the user their verification email — it only
-        // affects the response.
-        $this->eventDispatcher->dispatch(new UserRegistered($user));
+        // account back — and must not surface either: a 500 here would tell the
+        // user their (already created) registration failed, and a retry would
+        // dead-end on "email already taken". Trial provisioning self-heals via
+        // PaywallGate::allows()'s own ensureProfile() call, so log and move on.
+        try {
+            $this->eventDispatcher->dispatch(new UserRegistered($user));
+        } catch (\Throwable $e) {
+            $this->logger->warning('account.registration.listener_failed', [
+                'userId' => (string) $user->id,
+                'error' => $e->getMessage(),
+            ]);
+        }
 
         return $user;
     }

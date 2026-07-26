@@ -16,6 +16,7 @@ use App\Module\Billing\Service\TrialProvisioner;
 use Doctrine\DBAL\Driver\PDO\Exception as PdoDriverException;
 use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
 use Doctrine\ORM\EntityManagerInterface;
+use Psr\Log\NullLogger;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 use Symfony\Contracts\EventDispatcher\EventDispatcherInterface;
@@ -78,6 +79,7 @@ final class RegisterUserHandlerTest extends KernelTestCase
             registrationGate: $gate,
             waitlistEntries: $this->createStub(WaitlistEntryRepository::class),
             eventDispatcher: $this->neverDispatches(),
+            logger: new NullLogger(),
         );
 
         try {
@@ -275,6 +277,20 @@ final class RegisterUserHandlerTest extends KernelTestCase
         ($this->handlerWith($this->neverDispatches()))($this->makeCommand(email: 'capped@example.com'));
     }
 
+    public function test_a_failing_post_commit_listener_does_not_fail_the_registration(): void
+    {
+        // The account has committed by dispatch time; a listener blowing up
+        // (e.g. trial provisioning hitting a transient DB error) must not turn
+        // the created registration into a 500 — a retry would only dead-end on
+        // "email already taken".
+        $dispatcher = $this->createStub(EventDispatcherInterface::class);
+        $dispatcher->method('dispatch')->willThrowException(new \RuntimeException('provisioning down'));
+
+        $user = ($this->handlerWith($dispatcher))($this->makeCommand(email: 'listener-fail@example.com'));
+
+        self::assertNotNull($user->id);
+    }
+
     /** Container-wired collaborators with only the dispatcher swapped out. */
     private function handlerWith(EventDispatcherInterface $dispatcher): RegisterUserHandler
     {
@@ -296,6 +312,7 @@ final class RegisterUserHandlerTest extends KernelTestCase
             registrationGate: $gate,
             waitlistEntries: $this->entries,
             eventDispatcher: $dispatcher,
+            logger: new NullLogger(),
         );
     }
 

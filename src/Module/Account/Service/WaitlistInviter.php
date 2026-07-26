@@ -44,7 +44,24 @@ final readonly class WaitlistInviter
             return false;
         }
 
-        $this->emailSender->send($entry, $plainToken);
+        try {
+            $this->emailSender->send($entry, $plainToken);
+        } catch (\Throwable $e) {
+            // Delivery is async, but enqueueing (and rendering) the message can
+            // still fail — and the token already committed. Revert it in a
+            // follow-up write so the entry stays invitable instead of stuck
+            // until the never-sent token expires, and report a skip instead of
+            // throwing so one bad entry cannot abort a bulk invite.
+            $this->logger->warning('account.waitlist.invite_send_failed', [
+                'entryId' => (string) $entry->id,
+                'error' => $e->getMessage(),
+            ]);
+
+            $entry->clearInvite();
+            $this->em->flush();
+
+            return false;
+        }
 
         $this->logger->info('account.waitlist.invited', ['entryId' => (string) $entry->id]);
 

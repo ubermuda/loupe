@@ -99,6 +99,23 @@ final class ResolveSocialLoginHandlerTest extends KernelTestCase
         return $outcome->user;
     }
 
+    public function test_a_failing_post_commit_listener_does_not_fail_the_login(): void
+    {
+        // The user and connected account have committed by dispatch time; a
+        // listener blowing up (e.g. trial provisioning hitting a transient DB
+        // error) must not fail the OAuth callback — the account exists, so a
+        // retry would take the existing-identity branch and hide the error.
+        $dispatcher = $this->createStub(EventDispatcherInterface::class);
+        $dispatcher->method('dispatch')->willThrowException(new \RuntimeException('provisioning down'));
+        $handler = $this->buildHandler(new RegistrationGate($this->openFlags(), $this->users), $dispatcher);
+
+        $outcome = $handler(new ResolveSocialLoginCommand(
+            new SocialProfile(SocialProvider::Google, 'g-listener-fail', 'listener-fail@example.com', 'Listener Fail', emailVerified: true),
+        ));
+
+        self::assertNotNull($this->resolvedUser($outcome)->id);
+    }
+
     // -------------------------------------------------------------------------
     // Branch A — an already-linked identity always wins, whatever the email says
     // -------------------------------------------------------------------------

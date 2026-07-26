@@ -125,9 +125,21 @@ final readonly class ResolveSocialLoginHandler
 
         // The creation transaction has committed: listeners (e.g. Billing's
         // trial provisioning) run outside it, so their failures cannot roll the
-        // account back. Earlier branches (existing identity or account) return
-        // above and never dispatch — this event marks new registrations only.
-        $this->eventDispatcher->dispatch(new UserRegistered($user));
+        // account back — and must not surface either: an error page here would
+        // fail an OAuth login whose account was in fact created, and the retry
+        // takes the existing-identity branch, hiding what went wrong. Trial
+        // provisioning self-heals via PaywallGate::allows()'s own
+        // ensureProfile() call, so log and complete the login. Earlier branches
+        // (existing identity or account) return above and never dispatch — this
+        // event marks new registrations only.
+        try {
+            $this->eventDispatcher->dispatch(new UserRegistered($user));
+        } catch (\Throwable $e) {
+            $this->logger->warning('account.registration.listener_failed', [
+                'userId' => (string) $user->id,
+                'error' => $e->getMessage(),
+            ]);
+        }
 
         return SocialLoginOutcome::logIn($user);
     }
