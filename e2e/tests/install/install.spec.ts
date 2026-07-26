@@ -12,7 +12,7 @@ const ADMIN = {
     password: 'e2e_password_123',
 };
 
-test('first-install wizard seeds flags and creates a verified admin', async ({
+test('first-install wizard creates an unverified admin who is gated until they follow the emailed link', async ({
     page,
     request,
 }) => {
@@ -35,24 +35,40 @@ test('first-install wizard seeds flags and creates a verified admin', async ({
     await page.getByLabel('Password').fill(ADMIN.password);
     await page.getByRole('button', { name: 'Create admin account' }).click();
 
-    // Done page → verify via Mailpit → login.
+    // Done page: the admin exists but is unverified by design.
     await expect(
         page.getByText('Check your email to verify your account'),
     ).toBeVisible();
+
+    // Logging in with the right password succeeds (verification is not a
+    // login precondition), but ROLE_ADMIN access is still gated: an
+    // unverified session is parked on the check-email page for any route
+    // that isn't part of the login/verification flow.
+    await page.goto('/login');
+    await page.getByLabel('Email').fill(ADMIN.email);
+    await page.getByLabel('Password').fill(ADMIN.password);
+    await page.getByRole('button', { name: /sign in/i }).click();
+    await page.goto('/admin/feature-flags');
+    await expect(
+        page.getByRole('heading', { name: 'Check your email' }),
+    ).toBeVisible();
+
+    // Following the emailed verification link verifies the account and logs
+    // it in (VerifyEmailController authenticates on success), so ROLE_ADMIN
+    // access now works and the seeded flag value survived.
     const received = await getLatestEmailTo(request, ADMIN.email);
     const verificationUrl = extractLink(
         received.body,
         /https?:\/\/[^\s"<]+\/register\/verify[^\s"<]*/,
     );
     await page.goto(verificationUrl);
-    await page.goto('/login');
-    await page.getByLabel('Email').fill(ADMIN.email);
-    await page.getByLabel('Password').fill(ADMIN.password);
-    await page.getByRole('button', { name: /sign in/i }).click();
-
-    // ROLE_ADMIN works and the seeded flag value survived.
     await page.goto('/admin/feature-flags');
-    await expect(page.getByText('registration.cap')).toBeVisible();
+    // Scoped to the list row, not getByText: the page also has a (hidden)
+    // delete-confirmation dialog whose title repeats the flag name, which
+    // trips Playwright's strict-mode duplicate-match check.
+    await expect(
+        page.getByRole('cell', { name: 'registration.cap' }),
+    ).toBeVisible();
 
     // The wizard is closed forever.
     const closed = await page.goto('/install');
