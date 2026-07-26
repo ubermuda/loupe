@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\AccountDeletion;
+namespace App\Module\Account\Deletion;
 
 use App\Module\Account\Entity\User;
 use Symfony\Component\DependencyInjection\Attribute\AutoconfigureTag;

@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace App\Module\Account\Command;
 
-use App\AccountDeletion\AccountDataPurgerInterface;
-use App\AccountDeletion\AccountDeletionCleanup;
 use App\Exception\DomainErrors;
+use App\Module\Account\Deletion\AccountDataPurgerInterface;
+use App\Module\Account\Deletion\AccountDeletionCleanup;
 use App\Module\Account\Entity\User;
 use App\Module\Account\Repository\UserRepository;
 use App\Module\Billing\Messenger\CancelSubscriptionMessage;

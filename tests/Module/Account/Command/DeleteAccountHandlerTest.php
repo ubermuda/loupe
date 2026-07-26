@@ -4,11 +4,11 @@ declare(strict_types=1);
 
 namespace App\Tests\Module\Account\Command;
 
-use App\AccountDeletion\AccountDataPurgerInterface;
-use App\AccountDeletion\AccountDeletionCleanup;
 use App\Exception\DomainErrors;
 use App\Module\Account\Command\DeleteAccountCommand;
 use App\Module\Account\Command\DeleteAccountHandler;
+use App\Module\Account\Deletion\AccountDataPurgerInterface;
+use App\Module\Account\Deletion\AccountDeletionCleanup;
 use App\Module\Account\Entity\ApiToken;
 use App\Module\Account\Entity\ApiTokenScope;
 use App\Module\Account\Entity\ConnectedAccount;

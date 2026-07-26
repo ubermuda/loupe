@@ -120,7 +120,7 @@ when@test:
             autoconfigure: true
             public: true
 
-        App\DataExport\DataExportArchiveBuilder:
+        App\Module\Account\Export\DataExportArchiveBuilder:
             autowire: true
             public: true
 

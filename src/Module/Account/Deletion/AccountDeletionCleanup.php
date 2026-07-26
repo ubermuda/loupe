@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\AccountDeletion;
+namespace App\Module\Account\Deletion;
 
 /**
  * Collects filesystem cleanup a purger needs deferred until after the

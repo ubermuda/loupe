@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace App\Module\Account\Messenger;
 
-use App\DataExport\DataExportArchiveBuilder;
 use App\Module\Account\Entity\DataExportStatus;
+use App\Module\Account\Export\DataExportArchiveBuilder;
 use App\Module\Account\Repository\DataExportRepository;
 use App\Module\Account\Service\DataExportEmailSender;
 use App\Module\Account\Service\ExpiredExportPurger;

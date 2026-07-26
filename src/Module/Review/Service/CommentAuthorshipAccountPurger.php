@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace App\Module\Review\Service;
 
-use App\AccountDeletion\AccountDataPurgerInterface;
-use App\AccountDeletion\AccountDeletionCleanup;
+use App\Module\Account\Deletion\AccountDataPurgerInterface;
+use App\Module\Account\Deletion\AccountDeletionCleanup;
 use App\Module\Account\Entity\User;
 use Doctrine\DBAL\ArrayParameterType;
 use Doctrine\ORM\EntityManagerInterface;
