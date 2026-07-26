@@ -67,10 +67,13 @@ final class RequireSubscriptionListenerTest extends TestCase
         return new BillingProfile($user ?? $this->user(), trialEndsAt: new \DateTimeImmutable('-1 day'));
     }
 
-    private function event(string $route, string $path = '/projects'): RequestEvent
+    private function event(string $route, string $path = '/projects', bool $paywallExempt = false): RequestEvent
     {
         $request = Request::create($path);
         $request->attributes->set('_route', $route);
+        if ($paywallExempt) {
+            $request->attributes->set('_paywallExempt', true);
+        }
 
         return new RequestEvent($this->createStub(HttpKernelInterface::class), $request, HttpKernelInterface::MAIN_REQUEST);
     }
@@ -192,27 +195,20 @@ final class RequireSubscriptionListenerTest extends TestCase
     }
 
     /**
-     * The escape routes: a user who has stopped paying must still be able to
-     * pay, log out, and reach the pages that hand back or delete their data.
-     * A rename on either side of this list surfaces here.
-     *
-     * @return iterable<string, array{string}>
+     * The listener's own honoring of the `_paywallExempt` route default, in
+     * isolation from routing. Which real routes actually carry that default —
+     * i.e. whether all 18 previously hard-coded route names are still exempt —
+     * is verified against the real router in PaywallRedirectTest, since a stub
+     * request here cannot prove anything about #[PaywallExempt] placement on
+     * an actual controller.
      */
-    public static function allowedRoutes(): iterable
-    {
-        foreach (RequireSubscriptionListener::ALLOWED_ROUTES as $route) {
-            yield $route => [$route];
-        }
-    }
-
-    #[DataProvider('allowedRoutes')]
-    public function test_allowlisted_routes_are_never_paywalled(string $route): void
+    public function test_a_route_marked_paywall_exempt_is_never_paywalled(): void
     {
         $user = $this->user();
-        $event = $this->event($route);
+        $event = $this->event('app_some_exempt_route', paywallExempt: true);
 
         $this->listener($user, $this->expiredProfile($user))($event);
 
-        self::assertNull($event->getResponse(), $route);
+        self::assertNull($event->getResponse());
     }
 }

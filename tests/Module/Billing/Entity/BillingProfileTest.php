@@ -33,14 +33,44 @@ final class BillingProfileTest extends TestCase
         self::assertTrue($profile->isCurrent(new \DateTimeImmutable()));
     }
 
-    public function test_past_due_and_canceled_are_not_current_after_trial(): void
+    public function test_past_due_is_not_current_after_trial(): void
     {
         $profile = new BillingProfile($this->user(), trialEndsAt: new \DateTimeImmutable('-1 day'));
+        $profile->status = BillingStatus::PastDue;
 
-        foreach ([BillingStatus::PastDue, BillingStatus::Canceled] as $status) {
-            $profile->status = $status;
-            self::assertFalse($profile->isCurrent(new \DateTimeImmutable()), $status->value);
-        }
+        self::assertFalse($profile->isCurrent(new \DateTimeImmutable()));
+    }
+
+    public function test_canceled_without_a_period_end_is_not_current(): void
+    {
+        $profile = new BillingProfile($this->user(), trialEndsAt: new \DateTimeImmutable('-1 day'));
+        $profile->status = BillingStatus::Canceled;
+
+        self::assertFalse($profile->isCurrent(new \DateTimeImmutable()));
+    }
+
+    public function test_canceled_with_a_lapsed_period_end_is_not_current(): void
+    {
+        $profile = new BillingProfile($this->user(), trialEndsAt: new \DateTimeImmutable('-30 days'));
+        $profile->status = BillingStatus::Canceled;
+        $profile->currentPeriodEnd = new \DateTimeImmutable('-1 day');
+
+        self::assertFalse($profile->isCurrent(new \DateTimeImmutable()));
+    }
+
+    /**
+     * A mid-period cancel: Stripe already fired `deleted`, but the customer
+     * paid through `currentPeriodEnd`. `SyncStripeSubscriptionHandler` and the
+     * trial sweep both keep the account enabled until that date lapses, so
+     * the paywall must agree.
+     */
+    public function test_canceled_with_a_future_period_end_is_current(): void
+    {
+        $profile = new BillingProfile($this->user(), trialEndsAt: new \DateTimeImmutable('-30 days'));
+        $profile->status = BillingStatus::Canceled;
+        $profile->currentPeriodEnd = new \DateTimeImmutable('+5 days');
+
+        self::assertTrue($profile->isCurrent(new \DateTimeImmutable()));
     }
 
     #[DataProvider('stripeStatuses')]

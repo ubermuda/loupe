@@ -11,6 +11,18 @@ use Symfony\Bridge\Doctrine\Types\UuidType;
 use Symfony\Component\Uid\Uuid;
 
 #[ORM\Entity(repositoryClass: BillingProfileRepository::class)]
+// The hourly sweep runs three candidate queries (BillingProfileRepository),
+// none of which shared indexed columns before this: findExpiredTrials() and
+// findTrialEndedSubscribers() both filter on (status, trial_ends_at);
+// findCanceledPastPeriod() filters on (status, current_period_end) instead —
+// a distinct pair, so it gets its own composite index. Partial indexes
+// (`WHERE survey_sent_at IS NULL` / `WHERE status = 'canceled'`) would be
+// tighter, but Postgres rewrites the predicate on storage (adding casts and
+// parens) and DBAL's schema comparator does not normalize that back to the
+// declared form, so `migrate-diff` never reaches "no changes" — a plain
+// composite index is the one that round-trips cleanly.
+#[ORM\Index(name: 'idx_billing_profiles_status_trial_ends_at', columns: ['status', 'trial_ends_at'])]
+#[ORM\Index(name: 'idx_billing_profiles_status_current_period_end', columns: ['status', 'current_period_end'])]
 #[ORM\Table(name: 'billing_profiles')]
 class BillingProfile
 {
@@ -107,12 +119,27 @@ class BillingProfile
             && in_array($this->status, [BillingStatus::Active, BillingStatus::PastDue], true);
     }
 
+    /**
+     * A `Canceled` profile with a future `currentPeriodEnd` is a mid-period
+     * cancel: Stripe fires `deleted` immediately, but the customer already
+     * paid through that date. `SyncStripeSubscriptionHandler` never disables
+     * the account while that date is still ahead, and the sweep
+     * (`RunTrialSweepHandler::settleCanceled()`) deliberately waits for it to
+     * lapse before disabling and surveying — this mirrors that intent so the
+     * paywall doesn't lock the user out before either of them do.
+     */
     public function isCurrent(\DateTimeImmutable $now): bool
     {
         if (BillingStatus::Active === $this->status) {
             return true;
         }
 
-        return BillingStatus::Trialing === $this->status && $now < $this->trialEndsAt;
+        if (BillingStatus::Trialing === $this->status) {
+            return $now < $this->trialEndsAt;
+        }
+
+        return BillingStatus::Canceled === $this->status
+            && null !== $this->currentPeriodEnd
+            && $now < $this->currentPeriodEnd;
     }
 }

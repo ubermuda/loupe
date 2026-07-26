@@ -11,6 +11,7 @@ use App\Module\Billing\Command\RunTrialSweepHandler;
 use App\Module\Billing\Entity\BillingProfile;
 use App\Module\Billing\Entity\BillingStatus;
 use App\Module\Billing\Repository\BillingProfileRepository;
+use App\Routing\PaywallExempt;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\DependencyInjection\Attribute\When;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -40,6 +41,7 @@ use Ubermuda\FeatureFlagsBundle\Repository\FeatureFlagRepository;
  * feature-flag reader is request-cached, so flip `enabled` and run the sweep
  * in separate requests — a same-request flip may be invisible to the sweeper.
  */
+#[PaywallExempt]
 #[Route(
     '/dev/billing-state',
     name: 'app_dev_billing_state',

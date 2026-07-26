@@ -89,4 +89,29 @@ final class PaywallGateTest extends TestCase
 
         self::assertFalse($this->gate(true, $profile)->allows($user));
     }
+
+    /**
+     * A mid-period cancel: the customer already paid through `currentPeriodEnd`,
+     * so the paywall must not lock them out before that date — see
+     * BillingProfile::isCurrent().
+     */
+    public function test_canceled_subscription_with_a_future_period_end_is_allowed(): void
+    {
+        $user = $this->user();
+        $profile = new BillingProfile($user, trialEndsAt: new \DateTimeImmutable('-30 days'));
+        $profile->status = BillingStatus::Canceled;
+        $profile->currentPeriodEnd = new \DateTimeImmutable('+5 days');
+
+        self::assertTrue($this->gate(true, $profile)->allows($user));
+    }
+
+    public function test_canceled_subscription_with_a_lapsed_period_end_is_blocked(): void
+    {
+        $user = $this->user();
+        $profile = new BillingProfile($user, trialEndsAt: new \DateTimeImmutable('-30 days'));
+        $profile->status = BillingStatus::Canceled;
+        $profile->currentPeriodEnd = new \DateTimeImmutable('-1 day');
+
+        self::assertFalse($this->gate(true, $profile)->allows($user));
+    }
 }
