@@ -16,7 +16,11 @@ use Symfony\Component\Routing\Attribute\Route;
  * any later visit without that marker 404s, keeping the "every /install route
  * 404s once installed" invariant intact.
  */
-#[Route('/install/done', name: 'app_install_done', methods: ['GET'])]
+#[Route(
+    '/install/done',
+    name: 'app_install_done',
+    methods: ['GET'],
+)]
 final class ShowDoneController extends AppController
 {
     public const string SESSION_INSTALL_COMPLETED = 'install_completed';

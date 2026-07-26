@@ -16,12 +16,17 @@ use Symfony\Component\Routing\Attribute\Route;
  * Dev-only: wipes all application data so the install-wizard e2e spec can run
  * against a blank database. Never registered outside the dev environment.
  */
+#[Route(
+    '/dev/e2e/reset',
+    name: 'app_dev_e2e_reset',
+    methods: ['POST'],
+)]
 #[When('dev')]
-#[Route('/dev/e2e/reset', name: 'app_dev_e2e_reset', methods: ['POST'])]
 final class ResetDatabaseController extends AppController
 {
     public function __construct(
         private readonly Connection $conn,
+
         #[Autowire(param: 'kernel.environment')]
         private readonly string $environment,
     ) {
