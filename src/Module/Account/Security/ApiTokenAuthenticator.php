@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Module\Account\Security;
 
 use App\Module\Account\Repository\ApiTokenRepository;
-use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Security\Core\Authentication\Token\TokenInterface;
@@ -23,9 +22,14 @@ final class ApiTokenAuthenticator extends AbstractAuthenticator implements Authe
 
     public const string API_TOKEN_ID_ATTR = 'apiTokenId';
 
+    // The widget token is embedded on every page of a customer's site, so a
+    // Bearer request hits this authenticator on every page view. Recording
+    // usage only when the last record is older than this window turns a
+    // per-request UPDATE against one hot row into an occasional one.
+    private const int STALE_USAGE_WINDOW_MINUTES = 15;
+
     public function __construct(
         private readonly ApiTokenRepository $apiTokens,
-        private readonly EntityManagerInterface $entityManager,
     ) {
     }
 
@@ -42,8 +46,12 @@ final class ApiTokenAuthenticator extends AbstractAuthenticator implements Authe
             throw new AuthenticationException('Invalid API token.');
         }
 
-        $token->markUsed();
-        $this->entityManager->flush();
+        $now = new \DateTimeImmutable();
+        $this->apiTokens->touchLastUsedAt(
+            $token->id ?? throw new \LogicException('a persisted API token always has an id'),
+            $now,
+            $now->modify(sprintf('-%d minutes', self::STALE_USAGE_WINDOW_MINUTES)),
+        );
 
         $passport = new SelfValidatingPassport(new UserBadge($token->owner->getUserIdentifier(), fn () => $token->owner));
         $passport->setAttribute(self::SCOPE_ROLE_ATTR, $token->scope->role());
