@@ -342,7 +342,7 @@ The sender address and name are defined as `config/services.yaml` parameters: `a
 
 **Tests:** a request enqueues mail instead of sending it, so WebTestCase assertions use `assertQueuedEmailCount()` — never `assertEmailCount()`, which counts only sent mail and sees zero. `getMailerMessage()` still returns the queued message for header/recipient assertions.
 
-**Worktrees:** the shared dev `worker` service consumes only the main checkout's database. A worktree app enqueues mail (and any async message) into its own `app_wt_<slug>` database, which nothing consumes by default — so nothing is delivered. Before mail-asserting e2e runs or manual mail testing against a worktree, start a worktree-scoped consumer from the worktree — `bin/worktrees/compose-exec.sh bin/console messenger:consume async scheduler_default` — and stop it when done.
+**Worktrees:** the shared dev `worker` service consumes only the main checkout's database. A worktree app enqueues mail (and any async message) into its own `app_wt_<slug>` database, which nothing consumes by default — so nothing is delivered. Before mail-asserting e2e runs or manual mail testing against a worktree, start a worktree-scoped consumer from the worktree — `bin/worktrees/compose-exec.sh bin/console messenger:consume scheduler_default async` — and stop it when done.
 
 **Worker staleness:** email rendering runs in the long-lived worker (recycled hourly via `--time-limit=3600`). After changing email templates or sender services in dev, restart the worker (`docker compose restart worker` from the **main checkout**) or wait for the recycle — otherwise delivered mail renders the stale code.
 

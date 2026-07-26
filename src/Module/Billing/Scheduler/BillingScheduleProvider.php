@@ -12,9 +12,17 @@ use Symfony\Component\Scheduler\ScheduleProviderInterface;
 
 /**
  * Consumed as the `scheduler_default` transport by the same worker process
- * that drains `async`. The sweep is marker-idempotent, so no lock/stateful
- * cache is configured: a duplicate tick re-selects nothing, and a tick missed
- * during a worker restart is caught by the next one.
+ * that drains `async`. A cron trigger, not `every('1 hour')`: the stateless
+ * periodic trigger counts down from worker boot, so a worker recycled by
+ * --time-limit=3600 restarts the countdown and the tick may never fire. The
+ * cron grid is wall-clock — restarts don't move it, and an hour missed while
+ * no worker ran is genuinely caught at the next top of hour. The sweep is
+ * marker-idempotent, so no lock or stateful cache is configured: a duplicate
+ * tick re-selects nothing.
+ *
+ * Re-applying the symfony/scheduler recipe regenerates `src/Schedule.php`
+ * with its own `#[AsSchedule('default')]`, which silently shadows this
+ * provider (last registration wins) — delete that file again if it reappears.
  */
 #[AsSchedule('default')]
 final readonly class BillingScheduleProvider implements ScheduleProviderInterface
@@ -22,7 +30,7 @@ final readonly class BillingScheduleProvider implements ScheduleProviderInterfac
     public function getSchedule(): Schedule
     {
         return new Schedule()->add(
-            RecurringMessage::every('1 hour', new SweepEndedTrialsMessage()),
+            RecurringMessage::cron('0 * * * *', new SweepEndedTrialsMessage()),
         );
     }
 }

@@ -35,15 +35,23 @@ final class SweepEndedTrialsCommand extends Command
 
         $result = $this->sweeper->sweep();
 
-        $io->success(sprintf(
+        $counts = sprintf(
             'Disabled %d, churned surveys %d, subscriber surveys %d, cancel surveys %d, failed %d.',
             $result->disabled,
             $result->churnedSurveys,
             $result->subscriberSurveys,
             $result->cancelSurveys,
             $result->failed,
-        ));
+        );
 
-        return $result->failed > 0 ? Command::FAILURE : Command::SUCCESS;
+        if ($result->failed > 0) {
+            $io->warning($counts);
+
+            return Command::FAILURE;
+        }
+
+        $io->success($counts);
+
+        return Command::SUCCESS;
     }
 }

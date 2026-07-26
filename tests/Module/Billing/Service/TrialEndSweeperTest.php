@@ -19,6 +19,9 @@ use PHPUnit\Framework\Attributes\DataProvider;
 use Psr\Log\NullLogger;
 use Symfony\Bridge\Twig\Mime\TemplatedEmail;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
+use Symfony\Component\Mailer\Envelope;
+use Symfony\Component\Mailer\MailerInterface;
+use Symfony\Component\Mime\RawMessage;
 use Symfony\Contracts\Translation\TranslatorInterface;
 
 /**
@@ -204,6 +207,48 @@ final class TrialEndSweeperTest extends KernelTestCase
         self::assertEquals($this->now, $profile->user->disabledAt);
         self::assertEquals($this->now, $profile->surveySentAt);
         self::assertCount(0, $this->mailer->sent);
+    }
+
+    public function test_a_failing_send_counts_the_row_as_failed_and_the_batch_continues(): void
+    {
+        $first = $this->seedProfile('failedsendone', BillingStatus::Trialing);
+        $second = $this->seedProfile('failedsendtwo', BillingStatus::Trialing);
+
+        // Throws on the first send only: one row fails after its markers
+        // commit, the next row must still be processed.
+        $mailer = new class implements MailerInterface {
+            private int $calls = 0;
+
+            #[\Override]
+            public function send(RawMessage $message, ?Envelope $envelope = null): void
+            {
+                if (1 === ++$this->calls) {
+                    throw new \RuntimeException('SMTP down');
+                }
+            }
+        };
+
+        $container = static::getContainer();
+        $featureFlags = FeatureFlags::service(self::FLAGS);
+        $translator = $container->get(TranslatorInterface::class);
+        $sweeper = new TrialEndSweeper(
+            $container->get(BillingProfileRepository::class),
+            new TrialEndSurveyEmailSender($mailer, $translator, $featureFlags, new NullLogger(), 'noreply@example.com', 'Loupe'),
+            new CancelSurveyEmailSender($mailer, $translator, $featureFlags, new NullLogger(), 'noreply@example.com', 'Loupe'),
+            $featureFlags,
+            $container->get(EntityManagerInterface::class),
+            new NullLogger(),
+        );
+
+        $result = $sweeper->sweep($this->now);
+
+        // The failing row's counts are lost (the throw lands after its markers
+        // commit, before its tallies), the surviving row's are kept.
+        self::assertEquals(new TrialSweepResult(disabled: 1, churnedSurveys: 1, failed: 1), $result);
+        self::assertEquals($this->now, $first->surveySentAt);
+        self::assertEquals($this->now, $second->surveySentAt);
+        self::assertEquals($this->now, $first->user->disabledAt);
+        self::assertEquals($this->now, $second->user->disabledAt);
     }
 
     /** @param array<string, bool|int|string> $flags */
