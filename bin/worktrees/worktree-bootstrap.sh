@@ -98,6 +98,15 @@ set_env() {
     ' "$file" > "$file.tmp" && mv "$file.tmp" "$file"
 }
 
+# TailwindBundle's cache:clear hook (run by composer's post-install scripts)
+# requires var/tailwind to exist, so it must be created before any composer
+# install below — otherwise re-provisioning a worktree whose var/ was wiped
+# fails inside composer with "var/tailwind does not exist".
+if [ -L "$root/var/tailwind" ]; then
+    rm "$root/var/tailwind"
+fi
+mkdir -p "$root/var/tailwind"
+
 # 1. vendor/ — rsync when composer.json AND composer.lock match main (cheap,
 #    content-aware). If the worktree diverged its deps, run composer install in
 #    the container so vendor matches the worktree's own manifest.
@@ -171,6 +180,11 @@ if [ -f "$main/.env.local" ] && [ ! -f "$root/.env.local" ]; then
 fi
 
 set_env "$root/.env.local" WORKTREE_DB_SUFFIX "_wt_$token"
+
+# CLI and worker processes build absolute URLs (e.g. export download links in
+# emails) from DEFAULT_URI; without a per-worktree value they point at the
+# main .env's http://localhost.
+set_env "$root/.env.local" DEFAULT_URI "https://$host"
 
 # The MCP endpoint's DNS-rebinding guard is an exact-hostname allowlist, so
 # every worktree request would be rejected without its own host added.
