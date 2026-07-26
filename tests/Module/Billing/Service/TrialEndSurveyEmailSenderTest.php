@@ -58,7 +58,7 @@ final class TrialEndSurveyEmailSenderTest extends TestCase
         $logger->expects(self::once())
             ->method('info')
             ->with(
-                'billing.trial_sweep.survey_skipped_no_url',
+                'billing.survey.skipped_no_url',
                 self::callback(
                     static fn (array $context): bool => $flag === $context['flag'] && array_key_exists('userId', $context),
                 ),

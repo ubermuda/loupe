@@ -47,7 +47,7 @@ class TrialEndSurveyEmailSender
         $surveyUrl = $this->featureFlags->getStringValue($flag);
 
         if ('' === $surveyUrl) {
-            $this->logger->info('billing.trial_sweep.survey_skipped_no_url', [
+            $this->logger->info('billing.survey.skipped_no_url', [
                 'userId' => (string) $user->id,
                 'flag' => $flag,
             ]);

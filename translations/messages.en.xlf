@@ -548,6 +548,10 @@
                 <source>billing.email.cancel_survey.button_label</source>
                 <target>Take the survey</target>
             </trans-unit>
+            <trans-unit id="billing.email.survey.footer_copy_link">
+                <source>billing.email.survey.footer_copy_link</source>
+                <target>Or copy this link:</target>
+            </trans-unit>
 
             <!-- Reset password request page -->
             <trans-unit id="account.reset_password.error.throttled">
