@@ -39,8 +39,12 @@ final class SyncStripeSubscriptionHandlerTest extends TestCase
         $profiles = $this->createStub(BillingProfileRepository::class);
         $profiles->method('findOneByStripeCustomerId')->willReturn($profile);
 
+        // Keyed on the address so a lookup with anything but the profile
+        // user's email comes back empty and the conversion tests fail.
         $waitlistEntries = $this->createStub(WaitlistEntryRepository::class);
-        $waitlistEntries->method('findOneByEmail')->willReturn($waitlistEntry);
+        $waitlistEntries->method('findOneByEmail')->willReturnCallback(
+            static fn (string $email): ?WaitlistEntry => 'synced@example.com' === $email ? $waitlistEntry : null,
+        );
 
         return new SyncStripeSubscriptionHandler(
             $profiles,
@@ -176,7 +180,9 @@ final class SyncStripeSubscriptionHandlerTest extends TestCase
 
         self::assertNull($profile->user->disabledAt);
         self::assertNull($profile->cancelSurveySentAt);
-        self::assertContains('billing.account.reenabled', $logger->messages);
+        $reenabled = array_values(array_filter($logger->records, static fn (array $record): bool => 'billing.account.reenabled' === $record['message']));
+        self::assertCount(1, $reenabled);
+        self::assertSame((string) $profile->user->id, $reenabled[0]['context']['userId']);
     }
 
     public function test_activation_of_a_disabled_account_converts_a_matching_waitlist_entry(): void
@@ -221,7 +227,25 @@ final class SyncStripeSubscriptionHandlerTest extends TestCase
         );
 
         self::assertNotNull($profile->user->disabledAt);
-        self::assertContains('billing.account.disabled_on_cancel', $logger->messages);
+        $disabled = array_values(array_filter($logger->records, static fn (array $record): bool => 'billing.account.disabled_on_cancel' === $record['message']));
+        self::assertCount(1, $disabled);
+        self::assertSame((string) $profile->user->id, $disabled[0]['context']['userId']);
+    }
+
+    /**
+     * The re-enable block must be gated on the account actually being
+     * disabled — an ordinary update event for an active account must not
+     * wipe the cancel-survey marker.
+     */
+    public function test_activation_of_an_enabled_account_leaves_the_cancel_survey_marker_alone(): void
+    {
+        $profile = $this->profile();
+        $marker = new \DateTimeImmutable('-1 day');
+        $profile->cancelSurveySentAt = $marker;
+
+        ($this->handler($profile))($this->command('active'));
+
+        self::assertSame($marker, $profile->cancelSurveySentAt);
     }
 
     public function test_a_cancellation_with_a_future_period_end_keeps_the_account_enabled(): void

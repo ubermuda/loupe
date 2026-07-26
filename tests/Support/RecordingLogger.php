@@ -8,12 +8,12 @@ use Psr\Log\AbstractLogger;
 
 /**
  * Logger that records every entry instead of writing it, so tests can assert
- * which domain events a handler logged.
+ * which domain events a handler logged and with what context.
  */
 final class RecordingLogger extends AbstractLogger
 {
-    /** @var list<string> */
-    public array $messages = [];
+    /** @var list<array{level: mixed, message: string, context: array<mixed>}> */
+    public array $records = [];
 
     /**
      * @param array<mixed> $context
@@ -21,6 +21,6 @@ final class RecordingLogger extends AbstractLogger
     #[\Override]
     public function log($level, string|\Stringable $message, array $context = []): void
     {
-        $this->messages[] = (string) $message;
+        $this->records[] = ['level' => $level, 'message' => (string) $message, 'context' => $context];
     }
 }
