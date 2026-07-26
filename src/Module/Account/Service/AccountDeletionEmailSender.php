@@ -51,7 +51,7 @@ class AccountDeletionEmailSender
         } catch (\Throwable $e) {
             // A persisted token the user never received would make
             // hasActiveAccountDeletionToken() silently block every re-request
-            // until the token expires — never flush on a failed send.
+            // until the token expires — never flush on a failed enqueue.
             $user->clearAccountDeletionToken();
 
             throw $e;

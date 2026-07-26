@@ -16,7 +16,7 @@ final readonly class RequestPasswordResetHandler
 
     /**
      * Always completes silently: whether the account exists, already has an
-     * active reset token, or the email failed to send must not be observable
+     * active reset token, or the email failed to enqueue must not be observable
      * (anti-enumeration policy).
      */
     public function __invoke(RequestPasswordResetCommand $command): void

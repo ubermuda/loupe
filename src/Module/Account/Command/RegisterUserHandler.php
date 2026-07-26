@@ -95,7 +95,7 @@ final readonly class RegisterUserHandler
         try {
             $this->verificationEmailSender->send($user);
         } catch (\Throwable) {
-            // Email sending failed; account is created — user can resend from check-email page.
+            // Email failed to enqueue; account is created — user can resend from check-email page.
         }
 
         return $user;
