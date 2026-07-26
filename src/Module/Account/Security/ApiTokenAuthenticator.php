@@ -47,11 +47,18 @@ final class ApiTokenAuthenticator extends AbstractAuthenticator implements Authe
         }
 
         $now = new \DateTimeImmutable();
-        $this->apiTokens->touchLastUsedAt(
-            $token->id ?? throw new \LogicException('a persisted API token always has an id'),
-            $now,
-            $now->modify(sprintf('-%d minutes', self::STALE_USAGE_WINDOW_MINUTES)),
-        );
+        $staleThreshold = $now->modify(sprintf('-%d minutes', self::STALE_USAGE_WINDOW_MINUTES));
+
+        // The token entity is already hydrated, so a fresh timestamp is decided
+        // here and costs no round trip at all. The UPDATE keeps the same
+        // condition in SQL: two concurrent requests can both read a stale value.
+        if (null === $token->lastUsedAt || $token->lastUsedAt < $staleThreshold) {
+            $this->apiTokens->touchLastUsedAt(
+                $token->id ?? throw new \LogicException('a persisted API token always has an id'),
+                $now,
+                $staleThreshold,
+            );
+        }
 
         $passport = new SelfValidatingPassport(new UserBadge($token->owner->getUserIdentifier(), fn () => $token->owner));
         $passport->setAttribute(self::SCOPE_ROLE_ATTR, $token->scope->role());

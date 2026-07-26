@@ -7,10 +7,12 @@ namespace App\Tests\Module\Account\Security;
 use App\Module\Account\Entity\ApiToken;
 use App\Module\Account\Entity\ApiTokenScope;
 use App\Module\Account\Entity\User;
+use Doctrine\Bundle\DoctrineBundle\DataCollector\DoctrineDataCollector;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\HttpKernel\Profiler\Profile;
 use Symfony\Component\Uid\Uuid;
 
 final class ApiTokenLastUsedThrottleTest extends WebTestCase
@@ -30,6 +32,38 @@ final class ApiTokenLastUsedThrottleTest extends WebTestCase
         $this->requestMcp($client, $raw);
         $secondValue = $this->fetchLastUsedAt($em, $id);
         self::assertSame($firstValue, $secondValue);
+    }
+
+    public function test_second_request_within_stale_window_issues_no_update_statement(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        [, $raw] = $this->issueToken($em);
+
+        $this->requestMcp($client, $raw);
+
+        $client->enableProfiler();
+        $this->requestMcp($client, $raw);
+
+        $profile = $client->getProfile();
+        self::assertInstanceOf(Profile::class, $profile);
+        $collector = $profile->getCollector('db');
+        self::assertInstanceOf(DoctrineDataCollector::class, $collector);
+
+        $statements = [];
+        foreach ($collector->getQueries() as $queries) {
+            foreach ($queries as $query) {
+                $statements[] = (string) $query['sql'];
+            }
+        }
+
+        // Without this the assertion below would also pass on a request that ran
+        // no queries at all, proving nothing about the skip.
+        self::assertNotEmpty($statements);
+        self::assertSame([], array_values(array_filter(
+            $statements,
+            static fn (string $sql): bool => str_contains($sql, 'UPDATE api_tokens'),
+        )));
     }
 
     public function test_request_after_stale_window_updates_last_used_at(): void
