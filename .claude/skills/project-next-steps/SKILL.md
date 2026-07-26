@@ -45,6 +45,9 @@ separated by ` · `:
 
 ## Lifecycle rules
 
+- **Entries are ordered by priority band** — all `high` first, then `medium`,
+  then `low`. Insert a new entry at the END of its band; when re-grading an
+  entry's priority, move it to its new band.
 - **Delete resolved entries entirely.** No "CLOSED" markers, no resolution
   notes, no archive section. If part of an entry is resolved, rewrite it to
   contain only what is still open.
