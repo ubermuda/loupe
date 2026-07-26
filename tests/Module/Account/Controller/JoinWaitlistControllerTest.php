@@ -7,6 +7,7 @@ namespace App\Tests\Module\Account\Controller;
 use App\Module\Account\Entity\User;
 use App\Module\Account\Repository\UserRepository;
 use App\Module\Account\Repository\WaitlistEntryRepository;
+use App\Module\Account\Service\RegistrationGate;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use Symfony\Component\HttpFoundation\Request;
@@ -92,7 +93,7 @@ final class JoinWaitlistControllerTest extends WebTestCase
 
         $userCount = $container->get(UserRepository::class)->countActive();
 
-        $flag = new FeatureFlag(name: 'registration.cap', type: FeatureFlagType::Int, value: $userCount);
+        $flag = new FeatureFlag(name: RegistrationGate::CAP_FLAG, type: FeatureFlagType::Int, value: $userCount);
         $em->persist($flag);
         $em->flush();
     }

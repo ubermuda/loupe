@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "309e262b63e78b73909f036f1d2a14e4",
+    "content-hash": "3bd12a0375049a96e954d107887949e6",
     "packages": [
         {
             "name": "composer/ca-bundle",
@@ -11039,12 +11039,12 @@
             "source": {
                 "type": "git",
                 "url": "https://github.com/ubermuda/feature-flags-bundle.git",
-                "reference": "1f2655e"
+                "reference": "1f2655efd07e1282215765beacb0739ec47cbce6"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/ubermuda/feature-flags-bundle/zipball/1f2655e",
-                "reference": "1f2655e",
+                "url": "https://api.github.com/repos/ubermuda/feature-flags-bundle/zipball/1f2655efd07e1282215765beacb0739ec47cbce6",
+                "reference": "1f2655efd07e1282215765beacb0739ec47cbce6",
                 "shasum": ""
             },
             "require": {
