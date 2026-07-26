@@ -12,11 +12,9 @@ use App\Module\Account\Form\InstallAdminFormType;
 use App\Module\Account\Form\InstallAdminRequest;
 use App\Module\Account\Service\InstallationState;
 use Psr\Log\LoggerInterface;
-use Symfony\Component\Form\FormError;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
-use Symfony\Contracts\Translation\TranslatorInterface;
 
 #[Route(
     '/install/admin',
@@ -28,7 +26,6 @@ final class CreateAdminController extends AppController
     public function __construct(
         private readonly InstallationState $installationState,
         private readonly CreateInstallAdminHandler $createInstallAdminHandler,
-        private readonly TranslatorInterface $translator,
         private readonly LoggerInterface $logger,
     ) {
     }
@@ -59,9 +56,7 @@ final class CreateAdminController extends AppController
 
                 return $this->redirectToRoute('app_install_done');
             } catch (DomainErrors $e) {
-                foreach ($e->errors as $field => $translationKey) {
-                    $form->get($field)->addError(new FormError($this->translator->trans($translationKey)));
-                }
+                $this->applyDomainErrors($form, $e);
             }
         }
 
