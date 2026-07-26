@@ -22,6 +22,15 @@ services:
       - traefik.http.routers.${COMPOSE_PROJECT_NAME}.tls=true
       - traefik.http.routers.${COMPOSE_PROJECT_NAME}.tls.certresolver=stepca
       - traefik.http.services.${COMPOSE_PROJECT_NAME}.loadbalancer.server.port=80
+      # Tunnel ingress (ngrok reserved domain). The agent forwards to
+      # https://localhost with the tunnel Host header preserved, so traefik
+      # needs a router for it; Symfony then generates tunnel-host URLs
+      # (OAuth callbacks, absolute links) automatically when browsed via the
+      # tunnel. Override with TUNNEL_HOST in the shell environment.
+      - traefik.http.routers.${COMPOSE_PROJECT_NAME}-tunnel.rule=Host(`${TUNNEL_HOST:-tunnel.invalid}`)
+      - traefik.http.routers.${COMPOSE_PROJECT_NAME}-tunnel.entrypoints=websecure
+      - traefik.http.routers.${COMPOSE_PROJECT_NAME}-tunnel.tls=true
+      - traefik.http.routers.${COMPOSE_PROJECT_NAME}-tunnel.service=${COMPOSE_PROJECT_NAME}
 
   php-fpm:
     build:
@@ -36,6 +45,12 @@ services:
       # The admin e2e spec logs in as this address; PromoteAdminUserListener
       # grants it ROLE_ADMIN on login. Dev-only file — production is untouched.
       ADMIN_EMAIL: "e2e-admin-smoke@example.com"
+      # composer needs authenticated GitHub API access for the VCS-sourced
+      # ubermuda/* packages once the anonymous 60/hr limit is exhausted.
+      # Export COMPOSER_AUTH on the HOST (never commit a token), e.g.:
+      #   export COMPOSER_AUTH='{"github-oauth":{"github.com":"<token>"}}'
+      # Empty when unset — composer then just uses anonymous access.
+      COMPOSER_AUTH: "${COMPOSER_AUTH:-}"
     depends_on:
       - database
 

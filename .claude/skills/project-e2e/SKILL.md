@@ -55,6 +55,8 @@ There is no shared setup phase — users are created lazily by the worker fixtur
 
 Tests that use Mailpit (register, delete account) search by recipient address rather than clearing all messages, so they don't race when running in parallel.
 
+**Mailpit is shared across all worktrees and never cleared — assume dirty inboxes.** Searching by recipient is not enough when a previous run (possibly from another worktree) sent an identical-subject email to the same address: capture the newest matching message id *before* the triggering action and use `getEmailWithSubject(request, address, subject, { afterId })` so the poll waits for a *fresh* message. Symptom of getting this wrong: a link from another worktree's stale email → wrong-host 404 that looks like an app bug.
+
 **Helpers in `e2e/tests/helpers.ts`:**
 - `registerAndVerify(page, request, credentials)` — fills the registration form, polls Mailpit for the verification link, and navigates to it
 - `fetchVerificationUrl(request, email)` — polls Mailpit until a verification email arrives for the given address and returns the URL

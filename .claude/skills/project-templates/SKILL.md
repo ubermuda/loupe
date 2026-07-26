@@ -14,6 +14,8 @@ description: Use when working on `.html.twig` files, Twig components, or Turbo s
 
 **Turbo page cache and DOM inspection:** When inspecting the live DOM via DevTools or the Chrome MCP, always hard-reload (`ignoreCache: true`) first. Turbo's page cache can serve a snapshot with stale class names that don't reflect recent template edits.
 
+**The authenticated base layout owns the `project` variable.** `base.html.twig` sets `{% set project = current_project() %}` before yielding `block body`, so on any route without a project `{id}` param it resolves to null and **silently clobbers a controller-passed variable named `project`**. Never pass `project` to a template rendered inside the authenticated layout from a param-less route — use a distinct name (`wizardProject`, …) or forward the raw id string so `current_project()` can resolve it.
+
 ## Module template namespaces
 
 Module templates are referenced through a per-module Twig namespace, **not** the plain `Module/<Module>/...` path. Each module's `templates/Module/<Module>/` directory is registered as `@<Module>` in `config/packages/twig.yaml` under `twig.paths`:

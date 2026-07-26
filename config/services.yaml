@@ -127,3 +127,11 @@ when@test:
         App\Module\Account\Service\ExpiredExportPurger:
             autowire: true
             public: true
+
+        App\Module\Account\Command\SeedInstallFlagsHandler:
+            autowire: true
+            public: true
+
+        App\Module\Account\Command\CreateInstallAdminHandler:
+            autowire: true
+            public: true

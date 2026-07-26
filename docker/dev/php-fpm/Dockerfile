@@ -2,7 +2,7 @@ FROM php:8.5-fpm-alpine
 
 WORKDIR /var/www/html
 
-RUN apk add --no-cache $PHPIZE_DEPS postgresql-dev libzip-dev libxslt-dev bash icu-data-full linux-headers
+RUN apk add --no-cache $PHPIZE_DEPS postgresql-dev libzip-dev libxslt-dev bash icu-data-full linux-headers git
 
 RUN docker-php-ext-install bcmath pdo pdo_pgsql zip intl xsl
 

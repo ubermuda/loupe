@@ -70,16 +70,20 @@ final class ListDocumentsToolTest extends KernelTestCase
 
         $result = ($this->tool)();
 
-        // Exactly one document — project A's, despite both belonging to the same owner.
-        self::assertCount(1, $result);
+        // The list is wrapped in a `documents` object key — MCP structuredContent
+        // must be a JSON object, not a bare array.
+        self::assertSame(['documents'], array_keys($result));
 
-        $item = $result[0];
+        // Exactly one document — project A's, despite both belonging to the same owner.
+        self::assertCount(1, $result['documents']);
+
+        $item = $result['documents'][0];
         self::assertSame((string) $docA->id, $item['documentId']);
         self::assertSame('Project A Document', $item['title']);
         self::assertSame('in-review', $item['status']);
         self::assertSame(1, $item['currentVersion']);
 
-        $returnedIds = array_column($result, 'documentId');
+        $returnedIds = array_column($result['documents'], 'documentId');
         self::assertNotContains((string) $docB->id, $returnedIds);
     }
 
@@ -97,7 +101,7 @@ final class ListDocumentsToolTest extends KernelTestCase
 
         $this->actAsMcpTokenBoundTo($projectA);
 
-        self::assertSame([], ($this->tool)());
+        self::assertSame(['documents' => []], ($this->tool)());
     }
 
     public function test_unbound_mcp_token_is_rejected(): void

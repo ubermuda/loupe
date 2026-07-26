@@ -171,6 +171,18 @@ browser-sync:
 tailwind:
     bin/console tailwind:build --watch
 
+# Expose the dev app on the reserved ngrok domain (OAuth callbacks, Stripe
+# dashboard webhooks, phone testing). Requires an authenticated ngrok agent
+# and the domain reserved in the ngrok dashboard. Override with TUNNEL_HOST.
+tunnel:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    # .env only — the traefik router's host is fixed at compose-up from the
+    # same variable, so a per-invocation shell override would tunnel to a 404.
+    host="$(grep -E '^TUNNEL_HOST=' .env | cut -d= -f2- || true)"
+    [ -n "$host" ] || { echo "TUNNEL_HOST is not set in .env"; exit 1; }
+    ngrok http https://localhost --url "https://$host"
+
 # Vet + test the Go CLI (cli/) in a throwaway Go container — no host Go needed.
 cli-test:
     docker run --rm -v "{{justfile_directory()}}/cli":/cli -w /cli -e GOTOOLCHAIN=local golang:1.23-alpine sh -c 'go vet ./... && go test ./...'

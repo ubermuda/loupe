@@ -24,7 +24,10 @@ final readonly class ListDocumentsTool
     }
 
     /**
-     * @return list<array{documentId: string, title: string, status: string, currentVersion: int}>
+     * The list is wrapped in a `documents` object key because the MCP spec requires
+     * a tool result's `structuredContent` to be a JSON object, not a bare array.
+     *
+     * @return array{documents: list<array{documentId: string, title: string, status: string, currentVersion: int}>}
      */
     public function __invoke(): array
     {
@@ -32,14 +35,16 @@ final readonly class ListDocumentsTool
 
         $documents = $this->documents->findByProject($project);
 
-        return array_map(
-            static fn ($doc) => [
-                'documentId' => (string) $doc->id,
-                'title' => $doc->title,
-                'status' => $doc->status->value,
-                'currentVersion' => $doc->currentVersion()->versionNumber,
-            ],
-            $documents,
-        );
+        return [
+            'documents' => array_map(
+                static fn ($doc) => [
+                    'documentId' => (string) $doc->id,
+                    'title' => $doc->title,
+                    'status' => $doc->status->value,
+                    'currentVersion' => $doc->currentVersion()->versionNumber,
+                ],
+                $documents,
+            ),
+        ];
     }
 }
