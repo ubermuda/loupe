@@ -425,6 +425,24 @@
                 <target>Create your account</target>
             </trans-unit>
 
+            <!-- Waitlist invite email template — returning (disabled) account -->
+            <trans-unit id="account.email.waitlist_invite_returning.subject">
+                <source>account.email.waitlist_invite_returning.subject</source>
+                <target>Welcome back — a spot opened up on Loupe</target>
+            </trans-unit>
+            <trans-unit id="account.email.waitlist_invite_returning.heading">
+                <source>account.email.waitlist_invite_returning.heading</source>
+                <target>Welcome back</target>
+            </trans-unit>
+            <trans-unit id="account.email.waitlist_invite_returning.body">
+                <source>account.email.waitlist_invite_returning.body</source>
+                <target>A spot opened up. Your account and all your data are right where you left them — subscribe to reactivate. This invite link is valid for 7 days.</target>
+            </trans-unit>
+            <trans-unit id="account.email.waitlist_invite_returning.button_label">
+                <source>account.email.waitlist_invite_returning.button_label</source>
+                <target>Reactivate your account</target>
+            </trans-unit>
+
             <!-- Reset password email template -->
             <trans-unit id="account.email.reset_password.html_title">
                 <source>account.email.reset_password.html_title</source>

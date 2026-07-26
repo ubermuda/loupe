@@ -40,6 +40,27 @@ final class JoinWaitlistHandlerTest extends KernelTestCase
         self::assertCount(1, $repo->findBy(['email' => 'dup@example.com']));
     }
 
+    public function test_a_disabled_accounts_email_is_added_like_a_newcomers(): void
+    {
+        self::bootKernel();
+        $container = self::getContainer();
+        $em = $container->get(EntityManagerInterface::class);
+        self::assertInstanceOf(EntityManagerInterface::class, $em);
+        $user = new User(username: 'disabled-returning', fullName: 'Disabled Returning', email: 'disabled-returning@example.com', password: 'x');
+        $user->disabledAt = new \DateTimeImmutable();
+        $em->persist($user);
+        $em->flush();
+
+        $handler = $container->get(JoinWaitlistHandler::class);
+        self::assertInstanceOf(JoinWaitlistHandler::class, $handler);
+        $repo = $container->get(WaitlistEntryRepository::class);
+        self::assertInstanceOf(WaitlistEntryRepository::class, $repo);
+
+        $handler(new JoinWaitlistCommand('disabled-returning@example.com'));
+
+        self::assertNotNull($repo->findOneByEmail('disabled-returning@example.com'));
+    }
+
     public function test_an_address_that_already_has_an_account_is_not_added(): void
     {
         self::bootKernel();
