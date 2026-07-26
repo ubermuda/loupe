@@ -212,8 +212,10 @@ final class DeleteAccountHandlerTest extends KernelTestCase
         $calls = new \ArrayObject();
         $makePurger = static fn (int $order): AccountDataPurgerInterface => new class($order, $calls) implements AccountDataPurgerInterface {
             /** @param \ArrayObject<int, int> $calls */
-            public function __construct(private readonly int $order, private \ArrayObject $calls)
-            {
+            public function __construct(
+                private readonly int $order,
+                private \ArrayObject $calls,
+            ) {
             }
 
             #[\Override]
