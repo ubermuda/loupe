@@ -42,10 +42,12 @@ for that reading context, not for a terminal or a README.
    the resolved state. Tracking the outcome somewhere else (an issue tracker,
    the chat, a commit message) does not close the loop: the reviewer returns
    to the document, and a document still showing the proposal state after its
-   proposals were decided is stale. Mark what changed — a dated revision note
-   near the top, and a **Decided:** line on each affected entry saying what
-   was chosen and where the work now lives. Skip the revision only when the
-   comments changed nothing about the document's content (pure
+   proposals were decided is stale. Mark what changed with a **Decided:** line
+   on each affected entry, saying what was chosen and where the work now
+   lives. Do **not** add a revision note, changelog, or "updated on <date>"
+   header — Loupe tracks versions itself and shows them in the UI, so
+   hand-written version bookkeeping is duplicate noise. Skip the revision only
+   when the comments changed nothing about the document's content (pure
    acknowledgements, or questions answered entirely in chat with no bearing
    on what the document says).
 
