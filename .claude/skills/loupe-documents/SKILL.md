@@ -36,6 +36,25 @@ for that reading context, not for a terminal or a README.
    alternatives into a flat sentence ("do X or do Y.") — that reads as an
    instruction, and the reader sails past the choice instead of making it.
 
+5. **After addressing review comments, revise the document.** When you act on
+   a reviewer's comments — answering questions, recording decisions, changing
+   course — send a new version with `revise_document` so the document reflects
+   the resolved state. Tracking the outcome somewhere else (an issue tracker,
+   the chat, a commit message) does not close the loop: the reviewer returns
+   to the document, and a document still showing the proposal state after its
+   proposals were decided is stale. Mark what changed — a dated revision note
+   near the top, and a **Decided:** line on each affected entry saying what
+   was chosen and where the work now lives. Skip the revision only when the
+   comments changed nothing about the document's content (pure
+   acknowledgements, or questions answered entirely in chat with no bearing
+   on what the document says).
+
+   Revising re-anchors open comments onto the new version; those whose quoted
+   text no longer appears come back **orphaned**. Rewriting a passage you were
+   asked about therefore orphans that comment — this is normal and not a
+   reason to avoid revising, but keep the reviewer's quoted phrases intact
+   where you can, and expect the orphan count in the tool's response.
+
 ## Example
 
 Entry shape — lead sentence first, detail after:
