@@ -16,6 +16,7 @@ These skills contain detailed conventions for specific areas. **Invoke the relev
 | `project-frontend` | CSS in `assets/`, Stimulus controllers, Turbo patterns, icons, any frontend visual behaviour |
 | `project-templates` | `.html.twig` files or Twig component PHP classes |
 | `project-worktrees` | Git worktrees — provisioning, URLs, per-worktree databases, worktree tooling |
+| `project-next-steps` | Adding, editing, or closing entries in `docs/NEXT_STEPS.md` — entry format, attribution, lifecycle |
 | `project-translations` | UI strings, translation keys, or adding a new locale |
 | `symfony-authorization` | Generic Symfony authorization mechanics — Voter classes, attribute naming, `#[IsGranted]` placement, `subject:` resolution, `is_granted()` in Twig |
 | `symfony-entity-route-mapping` | Routes that resolve entities from URL parameters — `{param:variable}` notation, `#[MapEntity]`, multi-entity routes |
@@ -30,7 +31,7 @@ This applies **only** to documents meant for considered review. Do **not** route
 
 ## Notes for later
 
-When you identify something worth remembering for a future session — a TODO, a follow-up, a known issue, a design decision to revisit — append it to `docs/NEXT_STEPS.md`. Do not leave such notes in code comments — `docs/NEXT_STEPS.md` is the tracker for open work. No `TODO`/`FIXME`/`XXX` in code (gamache-enforced).
+When you identify something worth remembering for a future session — a TODO, a follow-up, a known issue, a design decision to revisit — append it to `docs/NEXT_STEPS.md` **following the entry format in the `project-next-steps` skill** (author / type / priority metadata line — invoke the skill before appending). Do not leave such notes in code comments — `docs/NEXT_STEPS.md` is the tracker for open work. No `TODO`/`FIXME`/`XXX` in code (gamache-enforced).
 
 **If the project may go public:** `docs/` (internal notes) should not ship in a public repo, so at that point move shared open-work tracking to GitHub issues and treat `docs/NEXT_STEPS.md` as a local, gitignored scratchpad. For a private project — the default for a fresh skeleton-derived repo — keep `docs/NEXT_STEPS.md` and `.skeleton.json` committed as normal.
 
