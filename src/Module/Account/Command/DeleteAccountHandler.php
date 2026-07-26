@@ -56,20 +56,35 @@ final readonly class DeleteAccountHandler
 
         $userId = $user->id ?? throw new \LogicException('a persisted user always has an id');
 
-        // Read the Stripe identifiers before the transaction starts: the
-        // cancellation itself must not run inside it (an external API call
-        // must never hold a DB transaction open, and Stripe downtime must
-        // never block deletion), and by the time BillingProfileAccountPurger
-        // deletes the row below there is nothing left to read it from.
+        // Read the Stripe identifiers before the transaction starts: by the
+        // time BillingProfileAccountPurger deletes the row below there is
+        // nothing left to read them from.
         $profile = $this->billingProfiles->findOneByUser($user);
         $subscriptionId = $profile?->stripeSubscriptionId;
         $customerId = $profile?->stripeCustomerId;
 
         $cleanup = new AccountDeletionCleanup();
 
-        $this->em->wrapInTransaction(function () use ($user, $userId, $cleanup): void {
+        $this->em->wrapInTransaction(function () use ($user, $userId, $cleanup, $subscriptionId, $customerId): void {
             foreach ($this->purgers as $purger) {
                 $purger->purge($user, $cleanup);
+            }
+
+            // Recorded transactionally, not called: MESSENGER_TRANSPORT_DSN
+            // is doctrine://default — the SAME DBAL connection as this
+            // transaction — and DoctrineTransport::send() is a plain INSERT
+            // with no transaction of its own, so this row is written by the
+            // same commit as everything else here. A rolled-back deletion
+            // rolls this row back too, and the worker consuming the async
+            // transport can only ever see it once the whole transaction has
+            // durably committed. The actual Stripe API call happens later,
+            // outside this transaction, in CancelSubscriptionHandler — an
+            // external call must never hold a DB transaction open — and is
+            // retried by the `async` transport's retry_strategy
+            // (messenger.yaml); LogSubscriptionCancelFinalFailure logs a
+            // permanent failure once retries are exhausted.
+            if (null !== $subscriptionId) {
+                $this->bus->dispatch(new CancelSubscriptionMessage($subscriptionId, $customerId, (string) $userId));
             }
 
             $this->em->getConnection()->executeStatement('DELETE FROM users WHERE id = :id', ['id' => (string) $userId]);
@@ -77,21 +92,11 @@ final readonly class DeleteAccountHandler
 
         // Only after a successful commit is it safe to act on anything a
         // purger deferred: a rolled-back transaction must leave on-disk
-        // archives, and Stripe, untouched.
+        // archives untouched.
         foreach ($cleanup->filesToUnlink() as $path) {
             if (is_file($path) && !@unlink($path)) {
                 $this->logger->warning('account.deletion.archive_unlink_failed', ['path' => $path]);
             }
-        }
-
-        // Dispatched only now that wrapInTransaction() has returned normally
-        // — a rolled-back deletion throws out of the call above and never
-        // reaches this line, so it never touches Stripe. The `async`
-        // transport's retry_strategy (messenger.yaml) retries the
-        // cancellation itself; LogSubscriptionCancelFinalFailure logs a
-        // permanent failure once retries are exhausted.
-        if (null !== $subscriptionId) {
-            $this->bus->dispatch(new CancelSubscriptionMessage($subscriptionId, $customerId, (string) $userId));
         }
 
         $this->logger->info('account.deleted', ['userId' => (string) $userId]);

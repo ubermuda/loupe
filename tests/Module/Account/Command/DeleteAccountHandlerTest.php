@@ -85,9 +85,10 @@ final class DeleteAccountHandlerTest extends KernelTestCase
         self::assertNull($em->find(User::class, $ownerId));
         self::assertFileDoesNotExist($archivePath);
 
-        // The Stripe cancellation is dispatched only after the deletion
-        // transaction has committed — see the rollback-safety unit test
-        // below for proof it is never dispatched otherwise. Actual
+        // The cancellation message is recorded inside the deletion
+        // transaction (see the rollback-safety unit test below for proof a
+        // failed transaction never enqueues it) and becomes visible to the
+        // worker only once that transaction commits. Actual Stripe
         // cancellation is exercised by CancelSubscriptionHandlerTest.
         /** @var InMemoryTransport $transport */
         $transport = self::getContainer()->get('messenger.transport.async');
@@ -152,15 +153,17 @@ final class DeleteAccountHandlerTest extends KernelTestCase
     }
 
     /**
-     * A mid-transaction failure must leave Stripe untouched: the cancellation
-     * message is only dispatched after wrapInTransaction() returns normally,
-     * textually after the transaction closure — a thrown exception from the
-     * transaction propagates straight out of __invoke() and the dispatch
-     * line is never reached. This is a pure unit test (test doubles for
-     * every collaborator, no kernel) proving that sequencing directly,
-     * rather than trying to force a genuine Doctrine rollback — the same
-     * honesty as the "Concurrency" note in project-backend: the guarantee is
-     * verified by code shape here, not by exercising a real rollback.
+     * A failure that prevents the transaction from ever running must leave
+     * Stripe untouched: the cancellation message is dispatched from inside
+     * wrapInTransaction()'s closure, so if wrapInTransaction() itself never
+     * invokes that closure, dispatch() is never called. This is a pure unit
+     * test (test doubles for every collaborator, no kernel) proving that
+     * sequencing directly, rather than trying to force a genuine Doctrine
+     * rollback — the same honesty as the "Concurrency" note in
+     * project-backend: the guarantee is verified by code shape here, not by
+     * exercising a real rollback (which would additionally require the
+     * `async` transport to be Doctrine-backed rather than the test
+     * environment's in-memory:// override).
      */
     public function test_transaction_failure_leaves_stripe_cancellation_undispatched(): void
     {

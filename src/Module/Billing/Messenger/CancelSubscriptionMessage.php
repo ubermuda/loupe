@@ -5,10 +5,13 @@ declare(strict_types=1);
 namespace App\Module\Billing\Messenger;
 
 /**
- * Dispatched by DeleteAccountHandler only after the account deletion
- * transaction has durably committed, so a rolled-back deletion never touches
- * Stripe. Carries the raw identifiers (not the user or billing profile) —
- * both rows are already gone by the time this is dispatched.
+ * Dispatched by DeleteAccountHandler from inside the account deletion
+ * transaction. The `async` transport is Doctrine-backed (see
+ * MESSENGER_TRANSPORT_DSN), so the enqueued row is written by the same
+ * commit as the deletion — a rolled-back deletion rolls this back too, and
+ * the worker consuming it can only ever see it once the transaction has
+ * durably committed. Carries the raw identifiers (not the user or billing
+ * profile) — both rows are already gone by the time this is consumed.
  */
 final readonly class CancelSubscriptionMessage
 {
