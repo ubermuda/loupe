@@ -40,7 +40,8 @@ services:
       # ubermuda/* packages once the anonymous 60/hr limit is exhausted.
       # Export COMPOSER_AUTH on the HOST (never commit a token), e.g.:
       #   export COMPOSER_AUTH='{"github-oauth":{"github.com":"<token>"}}'
-      # COMPOSER_AUTH: "${COMPOSER_AUTH:-}"
+      # Empty when unset — composer then just uses anonymous access.
+      COMPOSER_AUTH: "${COMPOSER_AUTH:-}"
     depends_on:
       - database
 
