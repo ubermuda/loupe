@@ -8,6 +8,7 @@ use App\Controller\AppController;
 use App\Module\Account\Entity\User;
 use App\Module\Billing\Command\ShowSubscribeCommand;
 use App\Module\Billing\Command\ShowSubscribeHandler;
+use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
 
@@ -25,7 +26,7 @@ final class ShowSubscribeController extends AppController
     ) {
     }
 
-    public function __invoke(): Response
+    public function __invoke(Request $request): Response
     {
         $user = $this->getUser();
         if (!$user instanceof User) {
@@ -33,7 +34,10 @@ final class ShowSubscribeController extends AppController
         }
 
         return $this->render('@Billing/show_subscribe.html.twig', [
-            'view' => ($this->showSubscribe)(new ShowSubscribeCommand($user)),
+            'view' => ($this->showSubscribe)(new ShowSubscribeCommand(
+                $user,
+                inviteToken: $request->query->getString('invite') ?: null,
+            )),
         ]);
     }
 }

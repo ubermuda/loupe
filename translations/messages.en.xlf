@@ -1577,6 +1577,22 @@
                 <source>billing.flash.portal_unavailable</source>
                 <target>The billing portal is unavailable right now. Please try again later.</target>
             </trans-unit>
+            <trans-unit id="billing.flash.capacity_full">
+                <source>billing.flash.capacity_full</source>
+                <target>We are at capacity right now, so checkout is unavailable. Join the waitlist and we will invite you back as soon as a spot frees up.</target>
+            </trans-unit>
+            <trans-unit id="billing.subscribe.waitlist.heading">
+                <source>billing.subscribe.waitlist.heading</source>
+                <target>We are at capacity</target>
+            </trans-unit>
+            <trans-unit id="billing.subscribe.waitlist.body">
+                <source>billing.subscribe.waitlist.body</source>
+                <target>Every spot is taken right now, so subscribing is temporarily unavailable. Join the waitlist and we will email you an invite as soon as a spot frees up.</target>
+            </trans-unit>
+            <trans-unit id="billing.subscribe.waitlist.button_label">
+                <source>billing.subscribe.waitlist.button_label</source>
+                <target>Join the waitlist</target>
+            </trans-unit>
 
         </body>
     </file>

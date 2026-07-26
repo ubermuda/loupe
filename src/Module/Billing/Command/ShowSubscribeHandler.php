@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Module\Billing\Command;
 
+use App\Module\Account\Repository\WaitlistEntryRepository;
+use App\Module\Account\Service\RegistrationGate;
 use App\Module\Billing\Entity\BillingProfile;
 use App\Module\Billing\Repository\BillingProfileRepository;
 use App\Module\Billing\Service\ActivePriceProvider;
@@ -19,6 +21,8 @@ final readonly class ShowSubscribeHandler
         private ActivePriceProvider $prices,
         private TrialProvisioner $trialProvisioner,
         private FeatureFlagService $featureFlags,
+        private RegistrationGate $registrationGate,
+        private WaitlistEntryRepository $waitlistEntries,
     ) {
     }
 
@@ -35,6 +39,12 @@ final readonly class ShowSubscribeHandler
         $now = new \DateTimeImmutable();
         $subscribed = null !== $profile && null !== $profile->stripeSubscriptionId && $profile->isCurrent($now);
 
+        // Mirrors the gate in StartCheckoutHandler so the page never offers a
+        // checkout button the POST would reject.
+        $accountDisabled = $command->user->isDisabled();
+        $inviteValid = $this->hasValidInvite($command);
+        $capFull = $accountDisabled && !$this->registrationGate->isOpen() && !$inviteValid;
+
         return new ShowSubscribeView(
             profile: $profile,
             price: $this->prices->get(),
@@ -43,7 +53,28 @@ final readonly class ShowSubscribeHandler
             hasLiveSubscription: null !== $profile && $profile->hasLiveSubscription(),
             trialing: !$subscribed && null !== $profile && $profile->isCurrent($now),
             trialDaysLeft: null === $profile ? 0 : $this->daysLeft($profile, $now),
+            accountDisabled: $accountDisabled,
+            capFull: $capFull,
+            inviteToken: $inviteValid ? $command->inviteToken : null,
         );
+    }
+
+    /**
+     * A token is only a capacity voucher for the address it was issued to —
+     * possession alone (a forwarded or leaked link) must not let a different
+     * account claim it.
+     */
+    private function hasValidInvite(ShowSubscribeCommand $command): bool
+    {
+        if (null === $command->inviteToken) {
+            return false;
+        }
+
+        $invite = $this->waitlistEntries->findOneByValidInviteToken($command->inviteToken);
+
+        return null !== $invite
+            && $invite->isInviteTokenValid($command->inviteToken)
+            && strtolower($invite->email) === strtolower($command->user->email);
     }
 
     private function daysLeft(BillingProfile $profile, \DateTimeImmutable $now): int

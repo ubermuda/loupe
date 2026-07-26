@@ -6,6 +6,10 @@ namespace App\Tests\Module\Billing\Command;
 
 use App\Exception\DomainErrors;
 use App\Module\Account\Entity\User;
+use App\Module\Account\Entity\WaitlistEntry;
+use App\Module\Account\Repository\UserRepository;
+use App\Module\Account\Repository\WaitlistEntryRepository;
+use App\Module\Account\Service\RegistrationGate;
 use App\Module\Billing\Command\StartCheckoutCommand;
 use App\Module\Billing\Command\StartCheckoutHandler;
 use App\Module\Billing\Entity\BillingProfile;
@@ -25,14 +29,17 @@ final class StartCheckoutHandlerTest extends TestCase
 {
     private const string CHECKOUT_URL = 'https://checkout.stripe.test/s';
 
+    /** One active user against a cap of one: the gate is closed. */
+    private const array CAP_CLOSED_FLAGS = ['billing.enabled' => true, 'billing.stripe_price_id' => 'price_123', 'registration.cap' => 1];
+
     private function user(): User
     {
         return new User(username: 'payer', fullName: 'Paying User', email: 'payer@example.com', password: 'irrelevant');
     }
 
-    private function command(User $user): StartCheckoutCommand
+    private function command(User $user, ?string $inviteToken = null): StartCheckoutCommand
     {
-        return new StartCheckoutCommand($user, successUrl: 'https://app/success', cancelUrl: 'https://app/cancel');
+        return new StartCheckoutCommand($user, successUrl: 'https://app/success', cancelUrl: 'https://app/cancel', inviteToken: $inviteToken);
     }
 
     /** @param array<string, bool|int|string> $flags */
@@ -40,11 +47,15 @@ final class StartCheckoutHandlerTest extends TestCase
         StripeGatewayInterface $stripe,
         BillingProfile $profile,
         array $flags = ['billing.enabled' => true, 'billing.stripe_price_id' => 'price_123'],
+        ?WaitlistEntryRepository $waitlistEntries = null,
     ): StartCheckoutHandler {
         $profiles = $this->createStub(BillingProfileRepository::class);
         $profiles->method('findOneByUser')->willReturn($profile);
 
         $priceStripe = $this->createStub(StripeGatewayInterface::class);
+
+        $users = $this->createStub(UserRepository::class);
+        $users->method('countActive')->willReturn(1);
 
         return new StartCheckoutHandler(
             new TrialProvisioner($profiles, FeatureFlags::service($flags), $this->createStub(EntityManagerInterface::class)),
@@ -53,6 +64,8 @@ final class StartCheckoutHandlerTest extends TestCase
             FeatureFlags::service($flags),
             TransactionalEntityManagerStub::configure($this->createStub(EntityManagerInterface::class)),
             new NullLogger(),
+            new RegistrationGate(FeatureFlags::service($flags), $users),
+            $waitlistEntries ?? $this->createStub(WaitlistEntryRepository::class),
         );
     }
 
@@ -167,6 +180,106 @@ final class StartCheckoutHandlerTest extends TestCase
             self::fail('expected DomainErrors');
         } catch (DomainErrors $e) {
             self::assertContains('billing.error.disabled', $e->errors);
+        }
+    }
+
+    public function test_a_disabled_user_cannot_start_checkout_when_the_cap_is_full(): void
+    {
+        $user = $this->user();
+        $user->disabledAt = new \DateTimeImmutable();
+
+        $stripe = $this->createMock(StripeGatewayInterface::class);
+        $stripe->expects($this->never())->method('createCustomer');
+        $stripe->expects($this->never())->method('createCheckoutSession');
+
+        $handler = $this->handler(
+            $stripe,
+            new BillingProfile($user, trialEndsAt: new \DateTimeImmutable('-30 days')),
+            self::CAP_CLOSED_FLAGS,
+        );
+
+        try {
+            $handler($this->command($user));
+            self::fail('expected DomainErrors');
+        } catch (DomainErrors $e) {
+            self::assertContains('billing.error.capacity_full', $e->errors);
+        }
+    }
+
+    public function test_a_valid_matching_invite_lets_a_disabled_user_through_a_full_cap(): void
+    {
+        $user = $this->user();
+        $user->disabledAt = new \DateTimeImmutable();
+        $profile = new BillingProfile($user, trialEndsAt: new \DateTimeImmutable('-30 days'));
+        $profile->stripeCustomerId = 'cus_existing';
+
+        $entry = new WaitlistEntry('payer@example.com');
+        $token = $entry->issueInviteToken();
+        $waitlistEntries = $this->createStub(WaitlistEntryRepository::class);
+        $waitlistEntries->method('findOneByValidInviteToken')->willReturn($entry);
+
+        $stripe = $this->createMock(StripeGatewayInterface::class);
+        $stripe->expects($this->once())->method('createCheckoutSession')->willReturn(self::CHECKOUT_URL);
+
+        $url = ($this->handler($stripe, $profile, self::CAP_CLOSED_FLAGS, $waitlistEntries))($this->command($user, $token));
+
+        self::assertSame(self::CHECKOUT_URL, $url);
+    }
+
+    public function test_a_disabled_user_can_start_checkout_while_the_cap_has_room(): void
+    {
+        $user = $this->user();
+        $user->disabledAt = new \DateTimeImmutable();
+        $profile = new BillingProfile($user, trialEndsAt: new \DateTimeImmutable('-30 days'));
+        $profile->stripeCustomerId = 'cus_existing';
+
+        $stripe = $this->createMock(StripeGatewayInterface::class);
+        $stripe->expects($this->once())->method('createCheckoutSession')->willReturn(self::CHECKOUT_URL);
+
+        $url = ($this->handler($stripe, $profile))($this->command($user));
+
+        self::assertSame(self::CHECKOUT_URL, $url);
+    }
+
+    public function test_the_cap_never_gates_an_enabled_user(): void
+    {
+        $user = $this->user();
+        $profile = new BillingProfile($user, trialEndsAt: new \DateTimeImmutable('+3 days'));
+        $profile->stripeCustomerId = 'cus_existing';
+
+        $stripe = $this->createMock(StripeGatewayInterface::class);
+        $stripe->expects($this->once())->method('createCheckoutSession')->willReturn(self::CHECKOUT_URL);
+
+        $url = ($this->handler($stripe, $profile, self::CAP_CLOSED_FLAGS))($this->command($user));
+
+        self::assertSame(self::CHECKOUT_URL, $url);
+    }
+
+    public function test_an_invite_issued_to_a_different_email_does_not_open_a_full_cap(): void
+    {
+        $user = $this->user();
+        $user->disabledAt = new \DateTimeImmutable();
+
+        $entry = new WaitlistEntry('someone-else@example.com');
+        $token = $entry->issueInviteToken();
+        $waitlistEntries = $this->createStub(WaitlistEntryRepository::class);
+        $waitlistEntries->method('findOneByValidInviteToken')->willReturn($entry);
+
+        $stripe = $this->createMock(StripeGatewayInterface::class);
+        $stripe->expects($this->never())->method('createCheckoutSession');
+
+        $handler = $this->handler(
+            $stripe,
+            new BillingProfile($user, trialEndsAt: new \DateTimeImmutable('-30 days')),
+            self::CAP_CLOSED_FLAGS,
+            $waitlistEntries,
+        );
+
+        try {
+            $handler($this->command($user, $token));
+            self::fail('expected DomainErrors');
+        } catch (DomainErrors $e) {
+            self::assertContains('billing.error.capacity_full', $e->errors);
         }
     }
 }
