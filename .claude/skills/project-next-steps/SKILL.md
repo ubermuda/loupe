@@ -18,14 +18,14 @@ self-contained body.
 ```markdown
 ## Short imperative or descriptive title
 
-**Author:** Geoffrey · **Type:** bug · **Priority:** high
+**Author:** Geoffrey · **Type:** bug · **Priority:** high · **Status:** pending
 
 Body: what, why it matters, where the relevant code lives (paths), and any
 non-obvious close-out steps. Absolute dates only (2026-07-25, never
 "yesterday"). The body must make sense to a session with zero context.
 ```
 
-The metadata line is mandatory, first after the heading, exactly three fields
+The metadata line is mandatory, first after the heading, exactly four fields
 separated by ` · `:
 
 - **Author** — who originated the item, not who typed it. An item the owner
@@ -42,6 +42,9 @@ separated by ` · `:
 - **Priority** — `high` (blocks or degrades real work/users; gate-integrity
   and security exposures default here), `medium` (worth scheduling), `low`
   (opportunistic / cosmetic / only-if-it-bites).
+- **Status** — `pending` (default for new entries) or `in-progress` (a branch,
+  worktree, or session is actively working it — name it in the body when
+  setting this). There is no `done`: resolved entries are deleted.
 
 ## Lifecycle rules
 
