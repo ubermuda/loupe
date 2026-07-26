@@ -2,11 +2,13 @@
 
 declare(strict_types=1);
 
-namespace App\Module\Billing\Service;
+namespace App\Module\Billing\Command;
 
 use App\Module\Billing\Entity\BillingProfile;
 use App\Module\Billing\Entity\BillingStatus;
 use App\Module\Billing\Repository\BillingProfileRepository;
+use App\Module\Billing\Service\CancelSurveyEmailSender;
+use App\Module\Billing\Service\TrialEndSurveyEmailSender;
 use Doctrine\DBAL\LockMode;
 use Doctrine\ORM\EntityManagerInterface;
 use Psr\Log\LoggerInterface;
@@ -19,7 +21,7 @@ use Ubermuda\FeatureFlagsBundle\FeatureFlagService;
  * after the marker commits — delivery failures are the messenger worker's
  * problem (retries, then the failed transport), never a reason to re-send.
  */
-final readonly class TrialEndSweeper
+final readonly class RunTrialSweepHandler
 {
     public function __construct(
         private BillingProfileRepository $billingProfiles,
@@ -31,7 +33,7 @@ final readonly class TrialEndSweeper
     ) {
     }
 
-    public function sweep(\DateTimeImmutable $now = new \DateTimeImmutable()): TrialSweepResult
+    public function __invoke(RunTrialSweepCommand $command): TrialSweepResult
     {
         // No paywall, no trial semantics: with billing dark nothing may be
         // disabled or surveyed, whatever the timestamps say.
@@ -41,6 +43,7 @@ final readonly class TrialEndSweeper
             return new TrialSweepResult();
         }
 
+        $now = $command->now;
         $disabled = $churned = $subscriber = $cancel = $failed = 0;
 
         foreach ($this->billingProfiles->findExpiredTrials($now) as $profile) {

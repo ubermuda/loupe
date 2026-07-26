@@ -8,7 +8,7 @@
  *
  * Billing state is driven through the dev-only seam `/dev/billing-state`
  * (`#[When('dev')]`): it seeds the signed-in user's profile into a named
- * lifecycle state and runs TrialEndSweeper synchronously, so no messenger
+ * lifecycle state and runs the trial-end sweep synchronously, so no messenger
  * worker is required here (survey emails are skipped while no
  * `billing.survey_url.*` flag is set, and nothing here asserts mail).
  *

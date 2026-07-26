@@ -2,15 +2,16 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Module\Billing\Service;
+namespace App\Tests\Module\Billing\Command;
 
+use App\Module\Billing\Command\RunTrialSweepCommand;
+use App\Module\Billing\Command\RunTrialSweepHandler;
+use App\Module\Billing\Command\TrialSweepResult;
 use App\Module\Billing\Entity\BillingProfile;
 use App\Module\Billing\Entity\BillingStatus;
 use App\Module\Billing\Repository\BillingProfileRepository;
 use App\Module\Billing\Service\CancelSurveyEmailSender;
 use App\Module\Billing\Service\TrialEndSurveyEmailSender;
-use App\Module\Billing\Service\TrialEndSweeper;
-use App\Module\Billing\Service\TrialSweepResult;
 use App\Tests\Support\BillingScenario;
 use App\Tests\Support\FeatureFlags;
 use App\Tests\Support\RecordingMailer;
@@ -32,7 +33,7 @@ use Symfony\Contracts\Translation\TranslatorInterface;
  * idempotence tests (a second sweep changes nothing) are the sequential
  * regression guard for that per-row shape.
  */
-final class TrialEndSweeperTest extends KernelTestCase
+final class RunTrialSweepHandlerTest extends KernelTestCase
 {
     private const array FLAGS = [
         'billing.enabled' => true,
@@ -56,7 +57,7 @@ final class TrialEndSweeperTest extends KernelTestCase
     {
         $profile = $this->seedProfile('churnone', BillingStatus::Trialing);
 
-        $result = $this->sweeper()->sweep($this->now);
+        $result = ($this->handler())(new RunTrialSweepCommand($this->now));
 
         self::assertEquals(new TrialSweepResult(disabled: 1, churnedSurveys: 1), $result);
         self::assertEquals($this->now, $profile->user->disabledAt);
@@ -78,7 +79,7 @@ final class TrialEndSweeperTest extends KernelTestCase
         $profile->user->disabledAt = $disabledAt;
         $this->em()->flush();
 
-        $result = $this->sweeper()->sweep($this->now);
+        $result = ($this->handler())(new RunTrialSweepCommand($this->now));
 
         self::assertEquals(new TrialSweepResult(churnedSurveys: 1), $result);
         self::assertEquals($disabledAt, $profile->user->disabledAt);
@@ -90,9 +91,9 @@ final class TrialEndSweeperTest extends KernelTestCase
     {
         $this->seedProfile('churntwo', BillingStatus::Trialing);
 
-        $sweeper = $this->sweeper();
-        $sweeper->sweep($this->now);
-        $second = $sweeper->sweep($this->now);
+        $handler = $this->handler();
+        ($handler)(new RunTrialSweepCommand($this->now));
+        $second = ($handler)(new RunTrialSweepCommand($this->now));
 
         self::assertEquals(new TrialSweepResult(), $second);
         self::assertCount(1, $this->mailer->sent);
@@ -111,8 +112,8 @@ final class TrialEndSweeperTest extends KernelTestCase
     {
         $profile = $this->seedProfile('subscriber', $status);
 
-        $sweeper = $this->sweeper();
-        $result = $sweeper->sweep($this->now);
+        $handler = $this->handler();
+        $result = ($handler)(new RunTrialSweepCommand($this->now));
 
         self::assertEquals(new TrialSweepResult(subscriberSurveys: 1), $result);
         self::assertNull($profile->user->disabledAt);
@@ -122,7 +123,7 @@ final class TrialEndSweeperTest extends KernelTestCase
         self::assertInstanceOf(TemplatedEmail::class, $email);
         self::assertSame('@Billing/email/trial_end_survey_subscribed.html.twig', $email->getHtmlTemplate());
 
-        self::assertEquals(new TrialSweepResult(), $sweeper->sweep($this->now));
+        self::assertEquals(new TrialSweepResult(), ($handler)(new RunTrialSweepCommand($this->now)));
         self::assertCount(1, $this->mailer->sent);
     }
 
@@ -130,7 +131,7 @@ final class TrialEndSweeperTest extends KernelTestCase
     {
         $profile = $this->seedProfile('cancelfuture', BillingStatus::Canceled, currentPeriodEnd: $this->now->modify('+3 days'));
 
-        $result = $this->sweeper()->sweep($this->now);
+        $result = ($this->handler())(new RunTrialSweepCommand($this->now));
 
         self::assertEquals(new TrialSweepResult(), $result);
         self::assertNull($profile->user->disabledAt);
@@ -155,7 +156,7 @@ final class TrialEndSweeperTest extends KernelTestCase
             currentPeriodEnd: null === $periodEndModifier ? null : $this->now->modify($periodEndModifier),
         );
 
-        $result = $this->sweeper()->sweep($this->now);
+        $result = ($this->handler())(new RunTrialSweepCommand($this->now));
 
         self::assertEquals(new TrialSweepResult(disabled: 1, cancelSurveys: 1), $result);
         self::assertEquals($this->now, $profile->user->disabledAt);
@@ -173,7 +174,7 @@ final class TrialEndSweeperTest extends KernelTestCase
         $profile->user->disabledAt = $disabledAt;
         $this->em()->flush();
 
-        $result = $this->sweeper()->sweep($this->now);
+        $result = ($this->handler())(new RunTrialSweepCommand($this->now));
 
         self::assertEquals(new TrialSweepResult(cancelSurveys: 1), $result);
         self::assertEquals($disabledAt, $profile->user->disabledAt);
@@ -185,7 +186,7 @@ final class TrialEndSweeperTest extends KernelTestCase
     {
         $profile = $this->seedProfile('billingoff', BillingStatus::Trialing);
 
-        $result = $this->sweeper(['billing.enabled' => false] + self::FLAGS)->sweep($this->now);
+        $result = ($this->handler(['billing.enabled' => false] + self::FLAGS))(new RunTrialSweepCommand($this->now));
 
         self::assertEquals(new TrialSweepResult(), $result);
         self::assertNull($profile->user->disabledAt);
@@ -201,7 +202,7 @@ final class TrialEndSweeperTest extends KernelTestCase
         // surveys at long-past trial-enders.
         $profile = $this->seedProfile('nourl', BillingStatus::Trialing);
 
-        $result = $this->sweeper(['billing.enabled' => true])->sweep($this->now);
+        $result = ($this->handler(['billing.enabled' => true]))(new RunTrialSweepCommand($this->now));
 
         self::assertEquals(new TrialSweepResult(disabled: 1, churnedSurveys: 1), $result);
         self::assertEquals($this->now, $profile->user->disabledAt);
@@ -231,7 +232,7 @@ final class TrialEndSweeperTest extends KernelTestCase
         $container = static::getContainer();
         $featureFlags = FeatureFlags::service(self::FLAGS);
         $translator = $container->get(TranslatorInterface::class);
-        $sweeper = new TrialEndSweeper(
+        $handler = new RunTrialSweepHandler(
             $container->get(BillingProfileRepository::class),
             new TrialEndSurveyEmailSender($mailer, $translator, $featureFlags, new NullLogger(), 'noreply@example.com', 'Loupe'),
             new CancelSurveyEmailSender($mailer, $translator, $featureFlags, new NullLogger(), 'noreply@example.com', 'Loupe'),
@@ -240,7 +241,7 @@ final class TrialEndSweeperTest extends KernelTestCase
             new NullLogger(),
         );
 
-        $result = $sweeper->sweep($this->now);
+        $result = ($handler)(new RunTrialSweepCommand($this->now));
 
         // The failing row's counts are lost (the throw lands after its markers
         // commit, before its tallies), the surviving row's are kept.
@@ -252,14 +253,14 @@ final class TrialEndSweeperTest extends KernelTestCase
     }
 
     /** @param array<string, bool|int|string> $flags */
-    private function sweeper(array $flags = self::FLAGS): TrialEndSweeper
+    private function handler(array $flags = self::FLAGS): RunTrialSweepHandler
     {
         $container = static::getContainer();
         $featureFlags = FeatureFlags::service($flags);
         $translator = $container->get(TranslatorInterface::class);
         $this->mailer = new RecordingMailer();
 
-        return new TrialEndSweeper(
+        return new RunTrialSweepHandler(
             $container->get(BillingProfileRepository::class),
             new TrialEndSurveyEmailSender($this->mailer, $translator, $featureFlags, new NullLogger(), 'noreply@example.com', 'Loupe'),
             new CancelSurveyEmailSender($this->mailer, $translator, $featureFlags, new NullLogger(), 'noreply@example.com', 'Loupe'),

@@ -6,10 +6,11 @@ namespace App\Module\Billing\Controller\Dev;
 
 use App\Controller\AppController;
 use App\Module\Account\Entity\User;
+use App\Module\Billing\Command\RunTrialSweepCommand;
+use App\Module\Billing\Command\RunTrialSweepHandler;
 use App\Module\Billing\Entity\BillingProfile;
 use App\Module\Billing\Entity\BillingStatus;
 use App\Module\Billing\Repository\BillingProfileRepository;
-use App\Module\Billing\Service\TrialEndSweeper;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\DependencyInjection\Attribute\When;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -35,7 +36,7 @@ use Ubermuda\FeatureFlagsBundle\Repository\FeatureFlagRepository;
  *   - canceled-past-period: a canceled subscription whose paid period ended yesterday, not yet swept
  *   - disabled:             the post-sweep result of an expired trial (account disabled, survey marked)
  *
- * `sweep=1` runs TrialEndSweeper synchronously and returns its counts. The
+ * `sweep=1` runs the trial-end sweep synchronously and returns its counts. The
  * feature-flag reader is request-cached, so flip `enabled` and run the sweep
  * in separate requests — a same-request flip may be invisible to the sweeper.
  */
@@ -50,7 +51,7 @@ final class SeedBillingStateController extends AppController
     public function __construct(
         private readonly FeatureFlagRepository $featureFlags,
         private readonly BillingProfileRepository $billingProfiles,
-        private readonly TrialEndSweeper $sweeper,
+        private readonly RunTrialSweepHandler $runTrialSweep,
         private readonly EntityManagerInterface $em,
     ) {
     }
@@ -87,7 +88,7 @@ final class SeedBillingStateController extends AppController
         // After the flush, so freshly seeded rows are visible to the sweep's
         // candidate queries.
         if ($request->query->getBoolean('sweep')) {
-            $result = $this->sweeper->sweep();
+            $result = ($this->runTrialSweep)(new RunTrialSweepCommand());
             $payload['sweep'] = [
                 'disabled' => $result->disabled,
                 'churnedSurveys' => $result->churnedSurveys,

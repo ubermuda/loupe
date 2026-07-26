@@ -334,7 +334,7 @@ Do not create a `Service/` class for logic that is only ever called from one pla
 
 ## Email
 
-Email is delivered asynchronously: `MailerInterface::send()` enqueues a `Symfony\Component\Mailer\Messenger\SendEmailMessage` on the `async` Messenger transport (routed in `messenger.yaml`), and the messenger worker (`messenger:consume scheduler_default async`) performs the actual delivery — the dev `worker` compose service already consumes `scheduler_default async`; production runs its own worker. Failed deliveries retry 3 times, then land in the `failed` transport.
+Email is delivered asynchronously: `MailerInterface::send()` enqueues a `Symfony\Component\Mailer\Messenger\SendEmailMessage` on the `async` Messenger transport (routed in `messenger.yaml`), and the messenger worker (`messenger:consume scheduler_default async`) performs the actual delivery — the dev `worker` compose service already consumes `scheduler_default async`; in production the worker runs as its own container (from the same image, with the command overridden — never inside the web container's supervisord). Failed deliveries retry 3 times, then land in the `failed` transport.
 
 The sender address and name are defined as `config/services.yaml` parameters: `app.mailer.from_address` and `app.mailer.from_name`. Inject them with `#[Autowire(param: 'app.mailer.from_address')]`. Never hardcode `new Address('noreply@...', '...')` inside a service or controller.
 

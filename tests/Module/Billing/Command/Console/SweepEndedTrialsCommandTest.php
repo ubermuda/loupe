@@ -12,7 +12,7 @@ use Symfony\Component\Console\Tester\CommandTester;
 
 /**
  * Full-stack run of the console backstop: the command resolves the real
- * container TrialEndSweeper, so the billing.enabled gate reads a real
+ * container RunTrialSweepHandler, so the billing.enabled gate reads a real
  * FeatureFlag row and the sweep hits the real database.
  */
 final class SweepEndedTrialsCommandTest extends KernelTestCase
