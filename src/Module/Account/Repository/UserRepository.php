@@ -81,11 +81,6 @@ class UserRepository extends ServiceEntityRepository implements PasswordUpgrader
         return $this->findOneBy(['username' => $username]);
     }
 
-    public function countAll(): int
-    {
-        return $this->count([]);
-    }
-
     /**
      * Users who currently occupy a registration-cap spot. Disabled accounts
      * (trial ended unconverted, or subscription canceled) do not count — their
