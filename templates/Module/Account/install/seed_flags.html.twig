@@ -1,0 +1,51 @@
+{% extends '@Account/auth_base.html.twig' %}
+
+{% block title %}{{ 'account.install.flags.page.title'|trans }} — {{ 'app.name'|trans }}{% endblock %}
+
+{% block auth_body %}
+<div class="flex flex-col gap-1.5">
+    <h1 class="auth-heading">{{ 'account.install.flags.heading'|trans }}</h1>
+    <p class="auth-subheading">{{ 'account.install.flags.intro'|trans }}</p>
+</div>
+
+{{ form_start(form, {'attr': {'class': 'form-stack', 'novalidate': 'novalidate'}}) }}
+
+    {{ form_errors(form) }}
+
+    <div class="form-field">
+        {{ form_label(form.registrationCap, null, {'label_attr': {'class': 'form-label'}}) }}
+        {{ form_widget(form.registrationCap, {'attr': {'class': 'auth-input'}}) }}
+        <div class="field-errors">{{ form_errors(form.registrationCap) }}</div>
+    </div>
+
+    <label class="flex items-center gap-2 text-sm text-fg cursor-pointer select-none">
+        {{ form_widget(form.billingEnabled, {'attr': {'class': 'w-3.5 h-3.5 cursor-pointer accent-accent'}}) }}
+        <span>{{ 'account.form.install_flags_form.billing_enabled.label'|trans }}</span>
+    </label>
+
+    <div class="form-field">
+        {{ form_label(form.billingTrialDays, null, {'label_attr': {'class': 'form-label'}}) }}
+        {{ form_widget(form.billingTrialDays, {'attr': {'class': 'auth-input'}}) }}
+        <div class="field-errors">{{ form_errors(form.billingTrialDays) }}</div>
+    </div>
+
+    <div class="form-field">
+        {{ form_label(form.billingStripePriceId, null, {'label_attr': {'class': 'form-label'}}) }}
+        {{ form_widget(form.billingStripePriceId, {'attr': {'class': 'auth-input'}}) }}
+        <div class="field-errors">{{ form_errors(form.billingStripePriceId) }}</div>
+    </div>
+
+    <label class="flex items-center gap-2 text-sm text-fg cursor-pointer select-none">
+        {{ form_widget(form.authGithubEnabled, {'attr': {'class': 'w-3.5 h-3.5 cursor-pointer accent-accent'}}) }}
+        <span>{{ 'account.form.install_flags_form.auth_github_enabled.label'|trans }}</span>
+    </label>
+
+    <label class="flex items-center gap-2 text-sm text-fg cursor-pointer select-none">
+        {{ form_widget(form.authGoogleEnabled, {'attr': {'class': 'w-3.5 h-3.5 cursor-pointer accent-accent'}}) }}
+        <span>{{ 'account.form.install_flags_form.auth_google_enabled.label'|trans }}</span>
+    </label>
+
+    <button type="submit" class="auth-submit mt-1.5">{{ 'account.install.flags.submit'|trans }}</button>
+
+{{ form_end(form) }}
+{% endblock %}

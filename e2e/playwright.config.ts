@@ -23,9 +23,13 @@ export default defineConfig({
         {
             name: 'chromium',
             // The waitlist spec mutates the global registration.cap flag that every
-            // other spec's registration/OAuth path depends on being open — it runs
-            // in its own project below, serialized after this one finishes.
-            testIgnore: /account\/waitlist\.spec\.ts/,
+            // other spec's registration/OAuth path depends on being open, and the
+            // install spec wipes the database outright — both run in their own
+            // projects below, serialized after this one finishes.
+            testIgnore: [
+                /account\/waitlist\.spec\.ts/,
+                /install\/.*\.spec\.ts/,
+            ],
             use: {
                 ...devices['Desktop Chrome'],
             },
@@ -37,6 +41,18 @@ export default defineConfig({
                 ...devices['Desktop Chrome'],
             },
             dependencies: ['chromium'],
+        },
+        {
+            name: 'install-reset',
+            testMatch: /install\/install\.spec\.ts/,
+            // Depends on `waitlist` too, not just `chromium`: this project truncates
+            // every table, so it must run strictly last — after the waitlist project's
+            // registration.cap mutation has had its chance to run, not concurrently
+            // with it.
+            dependencies: ['chromium', 'waitlist'],
+            use: {
+                ...devices['Desktop Chrome'],
+            },
         },
     ],
 });
