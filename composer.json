@@ -32,6 +32,7 @@
         "doctrine/doctrine-bundle": "^3.3.1",
         "doctrine/doctrine-migrations-bundle": "^4.0",
         "doctrine/orm": "^3.6.7",
+        "dragonmantank/cron-expression": "^3.6",
         "knpuniversity/oauth2-client-bundle": "^2.20",
         "league/commonmark": "^2.8.3",
         "league/oauth2-github": "^3.1",
@@ -64,6 +65,7 @@
         "symfony/property-info": "8.0.*",
         "symfony/rate-limiter": "8.0.*",
         "symfony/runtime": "8.0.*",
+        "symfony/scheduler": "8.0.*",
         "symfony/security-bundle": "8.0.*",
         "symfony/serializer": "8.0.*",
         "symfony/stimulus-bundle": "^3.3",
@@ -84,7 +86,7 @@
         "twig/twig": "^2.12|^3.28",
         "ubermuda/admin-bundle": "dev-main#417766fbf3333b699a10ac8f061c7c7786049331",
         "ubermuda/doctrine-extra": "dev-main#ec867f3bf1ed362c201abbe152ac27447ec37526",
-        "ubermuda/feature-flags-bundle": "dev-main#3fcfa66ef11dd2f7d2e196ae759b78a34a4a6692",
+        "ubermuda/feature-flags-bundle": "dev-main#69ae975d562f7f34c839534ada254f0b8e7494a9",
         "ubermuda/symfony-extra": "dev-main#690508f376fd9acf6a00fcab69172bd8590fe3c5"
     },
     "config": {

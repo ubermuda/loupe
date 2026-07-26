@@ -6,6 +6,7 @@ namespace App\Module\Account\Command;
 
 use App\Module\Account\Entity\ConnectedAccount;
 use App\Module\Account\Entity\User;
+use App\Module\Account\Event\UserRegistered;
 use App\Module\Account\Repository\ConnectedAccountRepository;
 use App\Module\Account\Repository\UserRepository;
 use App\Module\Account\Repository\WaitlistEntryRepository;
@@ -18,6 +19,7 @@ use App\Module\Account\Service\UsernameGenerator;
 use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
 use Doctrine\ORM\EntityManagerInterface;
 use Psr\Log\LoggerInterface;
+use Symfony\Contracts\EventDispatcher\EventDispatcherInterface;
 
 final readonly class ResolveSocialLoginHandler
 {
@@ -30,6 +32,7 @@ final readonly class ResolveSocialLoginHandler
         private JoinWaitlistHandler $joinWaitlist,
         private WaitlistEntryRepository $waitlistEntries,
         private LoggerInterface $logger,
+        private EventDispatcherInterface $eventDispatcher,
     ) {
     }
 
@@ -118,6 +121,24 @@ final readonly class ResolveSocialLoginHandler
             $this->logger->info('account.waitlist.oauth_diverted', ['provider' => $profile->provider->value]);
 
             return SocialLoginOutcome::waitlisted();
+        }
+
+        // The creation transaction has committed: listeners (e.g. Billing's
+        // trial provisioning) run outside it, so their failures cannot roll the
+        // account back — and must not surface either: an error page here would
+        // fail an OAuth login whose account was in fact created, and the retry
+        // takes the existing-identity branch, hiding what went wrong. Trial
+        // provisioning self-heals via PaywallGate::allows()'s own
+        // ensureProfile() call, so log and complete the login. Earlier branches
+        // (existing identity or account) return above and never dispatch — this
+        // event marks new registrations only.
+        try {
+            $this->eventDispatcher->dispatch(new UserRegistered($user));
+        } catch (\Throwable $e) {
+            $this->logger->warning('account.registration.listener_failed', [
+                'userId' => (string) $user->id,
+                'error' => $e->getMessage(),
+            ]);
         }
 
         return SocialLoginOutcome::logIn($user);

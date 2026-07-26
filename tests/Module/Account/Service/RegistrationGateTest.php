@@ -19,7 +19,7 @@ final class RegistrationGateTest extends TestCase
         $flags->method('getIntValue')->willReturn($cap);
 
         $users = $this->createStub(UserRepository::class);
-        $users->method('countAll')->willReturn($userCount);
+        $users->method('countActive')->willReturn($userCount);
 
         self::assertSame($expectedOpen, new RegistrationGate($flags, $users)->isOpen());
     }

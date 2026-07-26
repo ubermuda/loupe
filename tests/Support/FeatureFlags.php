@@ -25,7 +25,7 @@ final class FeatureFlags
             $resolved[] = new ResolvedFlag($name, match (true) {
                 is_bool($value) => FeatureFlagType::Bool,
                 is_int($value) => FeatureFlagType::Int,
-                default => FeatureFlagType::Select,
+                default => FeatureFlagType::String,
             }, $value);
         }
 

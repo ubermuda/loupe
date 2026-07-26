@@ -14,22 +14,9 @@
  */
 
 import { expect, type Page } from '@playwright/test';
+import { ADMIN, setRegistrationCap } from '../admin-helpers';
 import { createTest } from '../fixtures';
-import {
-    type Credentials,
-    extractLink,
-    getEmailWithSubject,
-    getLatestEmailTo,
-} from '../helpers';
-
-// Matches ADMIN_EMAIL in compose.yaml (see admin-smoke.spec.ts) — the login
-// this fixture performs is what PromoteAdminUserListener keys on to grant
-// ROLE_ADMIN.
-const ADMIN: Credentials = {
-    email: 'e2e-admin-smoke@example.com',
-    password: 'e2e_password_123',
-    name: 'E2E Admin Smoke',
-};
+import { extractLink, getEmailWithSubject } from '../helpers';
 
 const test = createTest(ADMIN);
 const RUN = Date.now();
@@ -40,60 +27,6 @@ const RUN = Date.now();
 // fixed low bound avoids needing to read the exact user count from the UI.
 const CLOSED_CAP = 1;
 const OPEN_CAP = 0;
-
-/** Creates or edits the singleton `registration.cap` int flag via the real admin UI. */
-async function setRegistrationCap(admin: Page, value: number): Promise<void> {
-    await admin.goto('/admin/feature-flags?q=registration.cap');
-    const existingRow = admin.locator('tr', { hasText: 'registration.cap' });
-
-    if (0 === (await existingRow.count())) {
-        await admin
-            .getByRole('link', { name: 'New flag', exact: true })
-            .click();
-        await expect(
-            admin.getByRole('heading', {
-                name: 'New Feature Flag',
-                exact: true,
-            }),
-        ).toBeVisible();
-        await admin
-            .getByLabel('Name', { exact: true })
-            .fill('registration.cap');
-    } else {
-        await existingRow
-            .getByRole('link', { name: 'Edit', exact: true })
-            .click();
-        await expect(
-            admin.getByRole('heading', {
-                name: 'Edit Feature Flag',
-                exact: true,
-            }),
-        ).toBeVisible();
-    }
-
-    await admin.getByLabel('Type', { exact: true }).selectOption('int');
-    await admin
-        .locator('[data-feature-flag-form-target="intField"]')
-        .getByLabel('Value', { exact: true })
-        .fill(String(value));
-    await admin.getByRole('button', { name: 'Save' }).click();
-
-    // The edit form (unlike create) redirects back to the SAME edit URL on
-    // success, so a toHaveURL(/\/admin\/feature-flags/) assertion here would
-    // already match before the click and resolve without ever waiting for
-    // the Turbo-driven POST to round-trip — the classic "form redirects to
-    // the same URL" trap. Re-navigate and poll for the persisted value on
-    // the list page instead: the one signal that proves the save actually
-    // landed, regardless of which of the two controllers handled it.
-    await expect(async () => {
-        await admin.goto('/admin/feature-flags?q=registration.cap');
-        await expect(
-            admin
-                .locator('tr', { hasText: 'registration.cap' })
-                .getByText(String(value), { exact: true }),
-        ).toBeVisible();
-    }).toPass({ timeout: 15000 });
-}
 
 /**
  * Waits for a waitlist entry's status badge to reach the expected text by
@@ -140,8 +73,14 @@ test.describe('registration cap and waitlist', () => {
             storageState: { cookies: [], origins: [] },
         });
 
+        // Only restore the cap when this test actually closed it: a failure
+        // while closing it would otherwise throw AGAIN from the
+        // finally-restore and mask the original error.
+        let capClosed = false;
+
         try {
             await setRegistrationCap(admin, CLOSED_CAP);
+            capClosed = true;
 
             // Guest hits /register while the gate is closed → diverted to the waitlist.
             await guest.goto('/register');
@@ -237,7 +176,13 @@ test.describe('registration cap and waitlist', () => {
             await guest.getByRole('button', { name: 'Create account' }).click();
             await expect(guest).toHaveURL('/register/check-email');
 
-            const verification = await getLatestEmailTo(request, perEntryEmail);
+            // Subject-matched: email is async, so the newest message for this
+            // address can still be the invite email at the first poll.
+            const verification = await getEmailWithSubject(
+                request,
+                perEntryEmail,
+                'Confirm your account',
+            );
             const verifyUrl = extractLink(
                 verification.body,
                 /https?:\/\/[^\s"<]+\/register\/verify[^\s"<]*/,
@@ -251,9 +196,12 @@ test.describe('registration cap and waitlist', () => {
             await expectWaitlistStatus(admin, perEntryEmail, 'Converted');
         } finally {
             await guest.close();
-            // Always reopen the gate, even on failure — every other spec's
-            // registration/OAuth path depends on it.
-            await setRegistrationCap(admin, OPEN_CAP);
+            // Always reopen the gate, even on test failure — every other
+            // spec's registration/OAuth path depends on it.
+            // eslint-disable-next-line playwright/no-conditional-in-test -- deliberate restore guard, not test logic
+            if (capClosed) {
+                await setRegistrationCap(admin, OPEN_CAP);
+            }
         }
     });
 });

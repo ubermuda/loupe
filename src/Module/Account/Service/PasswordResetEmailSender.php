@@ -51,7 +51,7 @@ class PasswordResetEmailSender
         } catch (\Throwable $e) {
             // A persisted token the user never received would make
             // hasActivePasswordResetToken() silently block every re-request
-            // until the token expires — never flush on a failed send.
+            // until the token expires — never flush on a failed enqueue.
             $user->clearPasswordResetToken();
 
             throw $e;

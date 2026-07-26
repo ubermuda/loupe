@@ -5,6 +5,7 @@ export default class extends Controller {
         'typeSelect',
         'boolField',
         'intField',
+        'stringField',
         'selectField',
         'optionsField',
     ];
@@ -18,6 +19,7 @@ export default class extends Controller {
         const type = this.typeSelectTarget.value;
         this.boolFieldTarget.hidden = type !== 'bool';
         this.intFieldTarget.hidden = type !== 'int';
+        this.stringFieldTarget.hidden = type !== 'string';
         if (this.hasSelectFieldTarget)
             this.selectFieldTarget.hidden = type !== 'select';
         if (this.hasOptionsFieldTarget)

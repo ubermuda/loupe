@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Module\Billing\Command;
 
+use App\Module\Account\Repository\WaitlistEntryRepository;
 use App\Module\Billing\Entity\BillingProfile;
 use App\Module\Billing\Entity\BillingStatus;
 use App\Module\Billing\Repository\BillingProfileRepository;
@@ -17,6 +18,7 @@ final readonly class SyncStripeSubscriptionHandler
 
     public function __construct(
         private BillingProfileRepository $billingProfiles,
+        private WaitlistEntryRepository $waitlistEntries,
         private EntityManagerInterface $em,
         private LoggerInterface $logger,
     ) {
@@ -106,6 +108,36 @@ final readonly class SyncStripeSubscriptionHandler
         $profile->lastStripeEventAt = $command->eventCreatedAt;
         $profile->lastStripeEventId = $command->stripeEventId;
         $profile->lastStripeEventType = $command->stripeEventType;
+
+        $user = $profile->user;
+
+        if ($profile->hasLiveSubscription() && null !== $user->disabledAt) {
+            // They paid — re-enable unconditionally, even if the cap has
+            // filled meanwhile (slight over-cap is the accepted trade-off).
+            // The cancel-survey marker resets so a later cancellation of THIS
+            // subscription can be surveyed in its own right.
+            $user->disabledAt = null;
+            $profile->cancelSurveySentAt = null;
+            $this->logger->info('billing.account.reenabled', ['userId' => (string) $user->id]);
+
+            $waitlistMatch = $this->waitlistEntries->findOneByEmail($user->email);
+            if (null !== $waitlistMatch && null === $waitlistMatch->convertedAt) {
+                $waitlistMatch->markConverted();
+            }
+        }
+
+        if (BillingStatus::Canceled === $profile->status
+            && null === $user->disabledAt
+            && (null === $profile->currentPeriodEnd || $profile->currentPeriodEnd < new \DateTimeImmutable())) {
+            // The paid-for period is over (Stripe fires `deleted` at period end
+            // for a cancel-at-period-end; only an immediate mid-period cancel
+            // carries a future currentPeriodEnd — that account keeps access
+            // until the sweep disables it after the date lapses). The sweep
+            // also owns the cancellation survey; this handler never emails.
+            $user->disabledAt = new \DateTimeImmutable();
+            $this->logger->info('billing.account.disabled_on_cancel', ['userId' => (string) $user->id]);
+        }
+
         $this->em->flush();
 
         $this->logger->info('billing.subscription.synced', [

@@ -61,7 +61,7 @@ Custom slash commands go in `.claude/commands/` in this repository — not in us
 
 Before opening a pull request, you must:
 
-1. Run `just cs` to apply formatter and rector fixes, and commit anything it changed.
+1. Run `just cs` to apply formatter and rector fixes, and commit anything it changed. (From a worktree, step 1 is blind — see "php-cs-fixer is blind inside worktrees" under Development Environment for the real gate.)
 2. Run `just ci` and fix every failure — including ones that pre-date your change. `ci` is check-only: it reports style/rector violations but never rewrites files — `just cs` is the step that applies them.
 3. Run `just e2e` and fix every failure — including ones that pre-date your change.
 4. Run a Codex review of the branch: `mcp__codex-cli__review` with `model: "gpt-5.6-sol"` — the tool's default models (`gpt-5.3-codex`, `gpt-5.1-codex`) are rejected by this Codex account ("not supported when using Codex with a ChatGPT account"). CLI fallback if the MCP server is unavailable: `codex review -c model="gpt-5.6-sol" --base main` (the `review` subcommand has no `-m` flag — the model is set with `-c model=`). Address the findings before opening the PR. If `codex review` produces no output for ~5 minutes with near-zero CPU, it is hung (typically at MCP startup) — kill it and fall back to `codex exec -c model="gpt-5.6-sol" "Review the diff of this branch against main (git diff main...HEAD) for correctness bugs and convention violations. Actionable findings only."`
@@ -88,6 +88,7 @@ When several feature branches are in flight (worktrees, parallel agents), merges
 - **Never write `TODO`, `FIXME`, or `XXX` comments in code.** If follow-up work is needed, capture it in a project tracking file (e.g. `docs/NEXT_STEPS.md`) or an issue. In-code TODO comments are invisible to future sessions and rot silently. Enforced by `NoTodosCheck` (runs in `just gamache`).
 - **Code comments must be self-contained.** Never reference internal or ephemeral development artifacts a future reader can't access — numbered tasks (`Task 16`), a handoff/design document (`handoff screen 8`), spec sections (`§3.5`, `spec §3.9`), dev phases (`Part 1`, `Phase 1`), or dated decisions (`owner decision 2026-07-13`). State the underlying fact directly. A comment that only makes sense with a document open in another tab is worse than no comment. Enforced by `SelfContainedCommentsCheck` (runs in `just gamache`).
 - **Doctrine migrations: use a real current-datetime timestamp** in the `VersionYYYYMMDDHHMMSS` class name — never a round placeholder like `…000000`. Parallel branches that both use a round number collide on the version prefix (harmless because the class names still differ, but confusing, and it breaks `migrate-diff` ordering assumptions).
+- **Pinning ubermuda/\* VCS bundles:** to consume an unmerged bundle branch, pin `"dev-<branch>#<full-40-char-sha> as dev-main"` — the `as dev-main` alias is load-bearing (sibling ubermuda packages require `dev-main@dev`). After the bundle PR merges, repoint to plain `"dev-main#<merge-sha>"` and drop the alias in the same wave. If the bundle ships copied assets (e.g. `feature_flag_form_controller.js`), re-copy them at every pin change.
 
 ## Development Environment
 
@@ -107,6 +108,8 @@ Tailwind CSS is rebuilt automatically in the dev container — **never run `bin/
 
 The app runs at `https://loupe.dev.localhost`. PHP-FPM is on port 9000. A `worker` compose service consumes the async transport; `docker compose logs worker` to observe, `just worker` for a foreground consumer.
 
+**Production deployment — prod runs per-process containers.** Each process type (web, messenger worker) is its own container from the same image; `docker/prod/supervisord.conf` is only the web container's image-default CMD. Never add background processes as `[program:]` blocks there — the worker's command lives in deploy config (outside this repo), currently `messenger:consume scheduler_default async --time-limit=3600 --memory-limit=128M` (schedule transport first: a deep async backlog must not delay ticks).
+
 **Database connectivity:** the Postgres container is exposed via Traefik TCP routing at `db.loupe.dev.localhost:5432`. The `.env` file ships with `127.0.0.1:5432` as a placeholder; override it in `.env.local` on your host machine:
 ```
 DATABASE_URL="postgresql://app:!ChangeMe!@db.loupe.dev.localhost:5432/app?serverVersion=16&charset=utf8"
@@ -116,6 +119,8 @@ From inside the php-fpm container (`just shell`), use the `database` Docker serv
 **Database test isolation:** Use `dama/doctrine-test-bundle`. Each test runs inside a database transaction that is automatically rolled back; no custom schema-reset code is needed. Schema creation runs once in `tests/bootstrap.php` (drop → create → migrate). Never write `resetSchema()` methods that drop and recreate the schema per test.
 
 **Running tests in parallel worktrees:** `config/packages/doctrine.yaml` sets `dbname_suffix: '_test%env(default::TEST_TOKEN)%'`, so PHPUnit's database is `app_test<TEST_TOKEN>`. To run `just ci` / PHPUnit in a git worktree without colliding with the main checkout or a sibling worktree, export a unique `TEST_TOKEN` (e.g. `TEST_TOKEN=_wt1`) so each gets its own `app_test_wt1` schema (bootstrap drop→create→migrate is per-DB). `just worktree-up` writes that token for you. Since each worktree also has its own **dev** database (`app_wt_<name>`, selected by `WORKTREE_DB_SUFFIX` in its `.env.local`), `just migrate-run` and `bin/console` in a worktree never touch the main dev database. **`just e2e` still cannot be parallelized** — Mailpit is shared, so mail-asserting specs across concurrent runs would read each other's messages. It must be pointed at a worktree — that is the **only** valid full-suite gate: `E2E_BASE_URL=https://<name>.loupe.dev.localhost just e2e --workers=1`. Never run the full suite against the main checkout's live dev DB (state-dependent specs fail and mutate real data — one run closed registration by leaving a `registration.cap` flag behind). See `project-worktrees` → "Running the full e2e suite from a worktree" for the required setup (DEFAULT_URI, worktree-scoped worker, quiet stack). The DB-free static gate (`just cs`, `just phpstan`, `just lint`, `just arkitect`, `just gamache`) is always safe to run in parallel.
+
+**php-cs-fixer is blind inside worktrees.** `.php-cs-fixer.dist.php` uses `ignoreVCSIgnored(true)`, and under the gitignored `.claude/worktrees/` its finder matches **0 files** — `just cs` fixes nothing and `just ci`'s cs-check leg passes vacuously. On a worktree branch, the real cs gate is an explicit-path run (CLI paths override the finder): expand the file list on the **host** (`git` is not installed in the container), pass `--config .php-cs-fixer.dist.php`, and in zsh word-split explicitly: `FILES=$(git diff --name-only main...HEAD -- '*.php'); bin/worktrees/compose-exec.sh vendor/bin/php-cs-fixer fix --config .php-cs-fixer.dist.php ${=FILES}`. State in the PR body that cs was verified this way.
 
 ## Common Commands
 
@@ -151,7 +156,7 @@ To run a single e2e spec: `just e2e tests/<area>/<spec>.spec.ts`
 
 ## Email
 
-Email is sent synchronously everywhere (`message_bus: false` in `mailer.yaml`) — no queue worker needed. Sender parameters, per-email-type sender services, and the async re-enable steps are documented in `project-backend` ("Email").
+Email is delivered asynchronously by the messenger worker: `MailerInterface::send()` enqueues a `SendEmailMessage` on the `async` transport, and `messenger:consume async` (the dev `worker` compose service, a dedicated worker in production) performs the delivery. Failed deliveries retry 3 times, then land in the `failed` transport. Sender parameters and per-email-type sender services are documented in `project-backend` ("Email").
 
 ## Architecture
 

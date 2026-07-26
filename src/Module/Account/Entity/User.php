@@ -30,6 +30,15 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface, AdminPr
     #[ORM\Column(nullable: true)]
     public ?\DateTimeImmutable $wizardCompletedAt = null;
 
+    /**
+     * A disabled account keeps its data and may still log in, but is excluded
+     * from the registration-cap count and blocked by the billing paywall until
+     * a subscription re-enables it. Set by the trial-end sweep and the Stripe
+     * webhook; cleared only when a subscription activates.
+     */
+    #[ORM\Column(nullable: true)]
+    public ?\DateTimeImmutable $disabledAt = null;
+
     #[ORM\Column(length: 64, nullable: true)]
     private ?string $emailVerificationTokenHash = null;
 
@@ -107,6 +116,11 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface, AdminPr
     public function isVerified(): bool
     {
         return null !== $this->emailVerifiedAt;
+    }
+
+    public function isDisabled(): bool
+    {
+        return null !== $this->disabledAt;
     }
 
     // -------------------------------------------------------------------------

@@ -28,7 +28,7 @@ final class RequestAccountDeletionControllerTest extends WebTestCase
         $client->request(Request::METHOD_POST, '/account/delete/request', ['_csrf_token' => 'csrf-token']);
 
         self::assertResponseRedirects('/account');
-        self::assertEmailCount(1);
+        self::assertQueuedEmailCount(1);
         $email = self::getMailerMessage();
         self::assertNotNull($email);
         self::assertEmailAddressContains($email, 'To', 'del-ctrl@example.com');

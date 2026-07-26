@@ -34,7 +34,7 @@ final class CreateInstallAdminHandlerTest extends KernelTestCase
         $handler = self::getContainer()->get(CreateInstallAdminHandler::class);
         $handler(new CreateInstallAdminCommand('admin', 'The Admin', 'admin@example.com', 'a-strong-password'));
 
-        $this->assertEmailCount(1);
+        $this->assertQueuedEmailCount(1);
     }
 
     public function test_throws_once_any_user_exists(): void

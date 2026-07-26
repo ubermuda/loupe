@@ -1,0 +1,20 @@
+{% apply inline_css(source('@EmailStyles/email.css')) %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ 'billing.email.cancel_survey.subject'|trans }}</title>
+</head>
+<body>
+    <div class="card">
+        <h1>{{ 'billing.email.cancel_survey.heading'|trans }}</h1>
+        <p class="body-text">{{ 'billing.email.cancel_survey.body'|trans }}</p>
+        <a href="{{ surveyUrl }}" class="btn">{{ 'billing.email.cancel_survey.button_label'|trans }}</a>
+        <p class="footer">
+            {{ 'billing.email.survey.footer_copy_link'|trans }} {{ surveyUrl }}
+        </p>
+    </div>
+</body>
+</html>
+{% endapply %}

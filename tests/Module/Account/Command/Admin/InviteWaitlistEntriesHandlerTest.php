@@ -8,12 +8,8 @@ use App\Module\Account\Command\Admin\InviteWaitlistEntriesCommand;
 use App\Module\Account\Command\Admin\InviteWaitlistEntriesHandler;
 use App\Module\Account\Entity\WaitlistEntry;
 use App\Module\Account\Repository\WaitlistEntryRepository;
-use App\Module\Account\Service\WaitlistInviteEmailSender;
-use App\Module\Account\Service\WaitlistInviter;
 use Doctrine\ORM\EntityManagerInterface;
-use Psr\Log\NullLogger;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
-use Symfony\Component\Mailer\Exception\TransportException;
 
 final class InviteWaitlistEntriesHandlerTest extends KernelTestCase
 {
@@ -94,48 +90,5 @@ final class InviteWaitlistEntriesHandlerTest extends KernelTestCase
 
         self::assertSame(0, $result->invited);
         self::assertSame(1, $result->skipped);
-    }
-
-    /**
-     * Regression test: WaitlistInviter must not use
-     * EntityManagerInterface::wrapInTransaction() for the token-issuance step,
-     * because that closes the shared EntityManager on any failure — a dead
-     * mailbox for the first entry would otherwise break every subsequent
-     * entry in the same batch (`lock()`/`flush()` against a closed manager).
-     */
-    public function test_a_dead_mailbox_does_not_abort_the_rest_of_the_batch(): void
-    {
-        $failing = new WaitlistEntry('dead-mailbox@example.com');
-        $succeeding = new WaitlistEntry('good-mailbox@example.com');
-        $this->em->persist($failing);
-        $this->em->persist($succeeding);
-        $this->em->flush();
-
-        $sender = $this->createMock(WaitlistInviteEmailSender::class);
-        $sender->expects($this->exactly(2))->method('send')->willReturnCallback(
-            function (WaitlistEntry $entry) use ($failing): void {
-                if ($entry->id === $failing->id) {
-                    throw new TransportException('mailbox unavailable');
-                }
-            },
-        );
-        $inviter = new WaitlistInviter($sender, $this->em, new NullLogger());
-        $waitlistEntries = self::getContainer()->get(WaitlistEntryRepository::class);
-        self::assertInstanceOf(WaitlistEntryRepository::class, $waitlistEntries);
-        $handler = new InviteWaitlistEntriesHandler($waitlistEntries, $inviter);
-
-        $result = $handler(new InviteWaitlistEntriesCommand([
-            (string) $failing->id,
-            (string) $succeeding->id,
-        ]));
-
-        self::assertSame(1, $result->invited);
-        self::assertSame(1, $result->skipped);
-
-        $this->em->clear();
-        $entries = self::getContainer()->get(WaitlistEntryRepository::class);
-        self::assertInstanceOf(WaitlistEntryRepository::class, $entries);
-        self::assertNull($entries->findOneByEmail('dead-mailbox@example.com')?->invitedAt);
-        self::assertNotNull($entries->findOneByEmail('good-mailbox@example.com')?->invitedAt);
     }
 }

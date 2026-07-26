@@ -116,4 +116,18 @@ class WaitlistEntry
         $this->inviteExpiresAt = null;
         $this->inviteTokenHash = null;
     }
+
+    /**
+     * Re-opens a converted row so its email can queue for a fresh invite.
+     * Legitimate only when the row's account has since been disabled and its
+     * owner re-joins the waitlist: conversion is undone, any stale invite is
+     * cleared, and createdAt moves to now so the re-join queues behind
+     * current entrants instead of jumping the line.
+     */
+    public function reopen(): void
+    {
+        $this->convertedAt = null;
+        $this->clearInvite();
+        $this->createdAt = new \DateTimeImmutable();
+    }
 }

@@ -425,6 +425,24 @@
                 <target>Create your account</target>
             </trans-unit>
 
+            <!-- Waitlist invite email template — returning (disabled) account -->
+            <trans-unit id="account.email.waitlist_invite_returning.subject">
+                <source>account.email.waitlist_invite_returning.subject</source>
+                <target>Welcome back — a spot opened up on Loupe</target>
+            </trans-unit>
+            <trans-unit id="account.email.waitlist_invite_returning.heading">
+                <source>account.email.waitlist_invite_returning.heading</source>
+                <target>Welcome back</target>
+            </trans-unit>
+            <trans-unit id="account.email.waitlist_invite_returning.body">
+                <source>account.email.waitlist_invite_returning.body</source>
+                <target>A spot opened up. Your account and all your data are right where you left them — subscribe to reactivate. This invite link is valid for 7 days.</target>
+            </trans-unit>
+            <trans-unit id="account.email.waitlist_invite_returning.button">
+                <source>account.email.waitlist_invite_returning.button</source>
+                <target>Reactivate your account</target>
+            </trans-unit>
+
             <!-- Reset password email template -->
             <trans-unit id="account.email.reset_password.html_title">
                 <source>account.email.reset_password.html_title</source>
@@ -496,6 +514,60 @@
             </trans-unit>
             <trans-unit id="account.email.account_deletion.footer_copy_link">
                 <source>account.email.account_deletion.footer_copy_link</source>
+                <target>Or copy this link:</target>
+            </trans-unit>
+
+            <!-- Trial-end / cancellation survey emails -->
+            <trans-unit id="billing.email.trial_end_survey.churned.subject">
+                <source>billing.email.trial_end_survey.churned.subject</source>
+                <target>Sorry to see you go — got two minutes to tell us why?</target>
+            </trans-unit>
+            <trans-unit id="billing.email.trial_end_survey.churned.heading">
+                <source>billing.email.trial_end_survey.churned.heading</source>
+                <target>Sorry to see you go</target>
+            </trans-unit>
+            <trans-unit id="billing.email.trial_end_survey.churned.body">
+                <source>billing.email.trial_end_survey.churned.body</source>
+                <target>Your Loupe trial ended without a subscription, and we'd genuinely like to know why. Your answers go straight to the team building Loupe and help us decide what to fix next. It takes about two minutes.</target>
+            </trans-unit>
+            <trans-unit id="billing.email.trial_end_survey.churned.button_label">
+                <source>billing.email.trial_end_survey.churned.button_label</source>
+                <target>Tell us why</target>
+            </trans-unit>
+            <trans-unit id="billing.email.trial_end_survey.subscribed.subject">
+                <source>billing.email.trial_end_survey.subscribed.subject</source>
+                <target>You're staying with Loupe — how was the trial?</target>
+            </trans-unit>
+            <trans-unit id="billing.email.trial_end_survey.subscribed.heading">
+                <source>billing.email.trial_end_survey.subscribed.heading</source>
+                <target>Welcome aboard — how was your trial?</target>
+            </trans-unit>
+            <trans-unit id="billing.email.trial_end_survey.subscribed.body">
+                <source>billing.email.trial_end_survey.subscribed.body</source>
+                <target>You've subscribed to Loupe — thank you! While the trial is still fresh in your mind, we'd love to hear what worked and what almost put you off. It takes about two minutes.</target>
+            </trans-unit>
+            <trans-unit id="billing.email.trial_end_survey.subscribed.button_label">
+                <source>billing.email.trial_end_survey.subscribed.button_label</source>
+                <target>Share your experience</target>
+            </trans-unit>
+            <trans-unit id="billing.email.cancel_survey.subject">
+                <source>billing.email.cancel_survey.subject</source>
+                <target>Your Loupe subscription has ended — what made you leave?</target>
+            </trans-unit>
+            <trans-unit id="billing.email.cancel_survey.heading">
+                <source>billing.email.cancel_survey.heading</source>
+                <target>What made you leave?</target>
+            </trans-unit>
+            <trans-unit id="billing.email.cancel_survey.body">
+                <source>billing.email.cancel_survey.body</source>
+                <target>Your Loupe subscription has come to an end. If you can spare two minutes, tell us what made you leave — it's the most direct way to shape what we build next.</target>
+            </trans-unit>
+            <trans-unit id="billing.email.cancel_survey.button_label">
+                <source>billing.email.cancel_survey.button_label</source>
+                <target>Take the survey</target>
+            </trans-unit>
+            <trans-unit id="billing.email.survey.footer_copy_link">
+                <source>billing.email.survey.footer_copy_link</source>
                 <target>Or copy this link:</target>
             </trans-unit>
 
@@ -1612,6 +1684,22 @@
             <trans-unit id="billing.flash.portal_unavailable">
                 <source>billing.flash.portal_unavailable</source>
                 <target>The billing portal is unavailable right now. Please try again later.</target>
+            </trans-unit>
+            <trans-unit id="billing.flash.capacity_full">
+                <source>billing.flash.capacity_full</source>
+                <target>We are at capacity right now, so checkout is unavailable. Join the waitlist and we will invite you back as soon as a spot frees up.</target>
+            </trans-unit>
+            <trans-unit id="billing.subscribe.waitlist.heading">
+                <source>billing.subscribe.waitlist.heading</source>
+                <target>We are at capacity</target>
+            </trans-unit>
+            <trans-unit id="billing.subscribe.waitlist.body">
+                <source>billing.subscribe.waitlist.body</source>
+                <target>Every spot is taken right now, so subscribing is temporarily unavailable. Join the waitlist and we will email you an invite as soon as a spot frees up.</target>
+            </trans-unit>
+            <trans-unit id="billing.subscribe.waitlist.button_label">
+                <source>billing.subscribe.waitlist.button_label</source>
+                <target>Join the waitlist</target>
             </trans-unit>
 
         </body>

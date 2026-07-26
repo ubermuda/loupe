@@ -5,6 +5,7 @@ namespace App\Module\Account\Command;
 use App\Exception\DomainErrors;
 use App\Module\Account\Entity\User;
 use App\Module\Account\Entity\WaitlistEntry;
+use App\Module\Account\Event\UserRegistered;
 use App\Module\Account\Repository\UserRepository;
 use App\Module\Account\Repository\WaitlistEntryRepository;
 use App\Module\Account\Service\RegistrationGate;
@@ -12,7 +13,9 @@ use App\Module\Account\Service\VerificationEmailSender;
 use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
 use Doctrine\DBAL\LockMode;
 use Doctrine\ORM\EntityManagerInterface;
+use Psr\Log\LoggerInterface;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
+use Symfony\Contracts\EventDispatcher\EventDispatcherInterface;
 
 final readonly class RegisterUserHandler
 {
@@ -23,6 +26,8 @@ final readonly class RegisterUserHandler
         private VerificationEmailSender $verificationEmailSender,
         private RegistrationGate $registrationGate,
         private WaitlistEntryRepository $waitlistEntries,
+        private EventDispatcherInterface $eventDispatcher,
+        private LoggerInterface $logger,
     ) {
     }
 
@@ -95,7 +100,22 @@ final readonly class RegisterUserHandler
         try {
             $this->verificationEmailSender->send($user);
         } catch (\Throwable) {
-            // Email sending failed; account is created — user can resend from check-email page.
+            // Email failed to enqueue; account is created — user can resend from check-email page.
+        }
+
+        // The registration transaction has committed: listeners (e.g. Billing's
+        // trial provisioning) run outside it, so their failures cannot roll the
+        // account back — and must not surface either: a 500 here would tell the
+        // user their (already created) registration failed, and a retry would
+        // dead-end on "email already taken". Trial provisioning self-heals via
+        // PaywallGate::allows()'s own ensureProfile() call, so log and move on.
+        try {
+            $this->eventDispatcher->dispatch(new UserRegistered($user));
+        } catch (\Throwable $e) {
+            $this->logger->warning('account.registration.listener_failed', [
+                'userId' => (string) $user->id,
+                'error' => $e->getMessage(),
+            ]);
         }
 
         return $user;

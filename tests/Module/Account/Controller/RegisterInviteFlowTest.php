@@ -8,6 +8,7 @@ use App\Module\Account\Entity\User;
 use App\Module\Account\Entity\WaitlistEntry;
 use App\Module\Account\Repository\UserRepository;
 use App\Module\Account\Repository\WaitlistEntryRepository;
+use App\Module\Account\Service\RegistrationGate;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use Symfony\Component\HttpFoundation\Request;
@@ -99,8 +100,8 @@ final class RegisterInviteFlowTest extends WebTestCase
         $em->persist(new User(username: 'gate-filler', fullName: 'Gate Filler', email: 'gate-filler@example.com', password: 'x'));
         $em->flush();
 
-        $userCount = $container->get(UserRepository::class)->countAll();
-        $em->persist(new FeatureFlag(name: 'registration.cap', type: FeatureFlagType::Int, value: $userCount));
+        $userCount = $container->get(UserRepository::class)->countActive();
+        $em->persist(new FeatureFlag(name: RegistrationGate::CAP_FLAG, type: FeatureFlagType::Int, value: $userCount));
         $em->flush();
 
         return $em;

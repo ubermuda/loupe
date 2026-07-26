@@ -50,13 +50,32 @@
             <input type="hidden" name="_csrf_token" value="{{ csrf_token('billing-portal') }}">
             <button type="submit" class="lp-btn lp-btn--primary">{{ 'billing.subscribe.portal.button'|trans }}</button>
         </form>
+        <p class="lp-connect-hint">{{ 'billing.subscribe.secure_note'|trans }}</p>
+        {% elseif view.capFull %}
+        {# The cap is full and no valid invite was presented: checkout would be
+           rejected, so offer the waitlist instead. The hidden fields feed the
+           regular waitlist join form (WaitlistJoinFormType). #}
+        <h2 class="lp-eyebrow">{{ 'billing.subscribe.waitlist.heading'|trans }}</h2>
+        <p class="lp-workspace-desc">{{ 'billing.subscribe.waitlist.body'|trans }}</p>
+        <form method="post" action="{{ path('app_waitlist_join') }}">
+            <input type="hidden" name="waitlist_join_form[email]" value="{{ app.user.email }}">
+            {# Form-component forms validate _token against the global token id
+               `submit` (csrf.yaml), which is stateless — the data-controller
+               hook lets csrf_protection_controller.js double-submit it exactly
+               as form_widget-rendered forms do. #}
+            <input type="hidden" name="waitlist_join_form[_token]" value="{{ csrf_token('submit') }}" data-controller="csrf-protection">
+            <button type="submit" class="lp-btn lp-btn--primary">{{ 'billing.subscribe.waitlist.button_label'|trans }}</button>
+        </form>
         {% else %}
         <form method="post" action="{{ path('app_billing_checkout') }}" data-turbo="false">
             <input type="hidden" name="_csrf_token" value="{{ csrf_token('billing-checkout') }}">
+            {% if view.inviteToken %}
+            <input type="hidden" name="invite" value="{{ view.inviteToken }}">
+            {% endif %}
             <button type="submit" class="lp-btn lp-btn--primary">{{ 'billing.subscribe.checkout.button'|trans }}</button>
         </form>
-        {% endif %}
         <p class="lp-connect-hint">{{ 'billing.subscribe.secure_note'|trans }}</p>
+        {% endif %}
     </section>
     {% endif %}
 </div>

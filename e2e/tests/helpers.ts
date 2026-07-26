@@ -3,6 +3,9 @@ import { APIRequestContext, expect, Page } from '@playwright/test';
 const mailpitUrl =
     process.env['MAILPIT_URL'] ?? 'https://mailpit.loupe.dev.localhost';
 
+/** Subject of the registration verification email. */
+export const VERIFICATION_SUBJECT = 'Confirm your account';
+
 export async function fetchVerificationUrl(
     request: APIRequestContext,
     email: string,
@@ -40,6 +43,13 @@ export async function fetchVerificationUrl(
 /**
  * Poll Mailpit until an email arrives for the given address, then return its HTML body and subject.
  * Uses Playwright's APIRequestContext to stay consistent with the rest of the helper layer.
+ *
+ * Safe ONLY for per-run-unique addresses (e.g. `test+foo+${RUN}@example.com`)
+ * that will ever receive a single message: it resolves on whatever is newest
+ * the moment ANY message exists, and email is delivered asynchronously — for
+ * a reused address, or one that receives more than one email in a test, the
+ * newest message can be a stale or unrelated one. In those cases use
+ * getEmailWithSubject with an afterId mark from latestEmailIdWithSubject.
  */
 export async function getLatestEmailTo(
     request: APIRequestContext,
@@ -81,8 +91,9 @@ export async function getLatestEmailTo(
 }
 
 /**
- * The id of the newest message with this subject for this address, or undefined
- * when there is none. Capture it BEFORE the action that sends the awaited mail
+ * The id of the newest message for this address whose subject matches
+ * (case-insensitive substring, per Mailpit search), or undefined when there
+ * is none. Capture it BEFORE the action that sends the awaited mail
  * and hand it to getEmailWithSubject as `afterId`: Mailpit is shared by every
  * worktree and is never cleared, so an address routinely already holds
  * same-subject mail from another branch's run, whose links point at that
@@ -104,8 +115,9 @@ export async function latestEmailIdWithSubject(
 }
 
 /**
- * Poll Mailpit until an email with the given exact subject arrives for the
- * given address, then return its HTML body. Unlike getLatestEmailTo, this
+ * Poll Mailpit until an email whose subject matches (case-insensitive
+ * substring, per Mailpit search) arrives for the given address, then return
+ * its HTML body. Unlike getLatestEmailTo, this
  * waits for a MATCHING message rather than resolving on whatever is newest
  * at the first check — required whenever the address may already hold other
  * mail (e.g. the fixture's own verification email sent moments earlier),
@@ -230,6 +242,17 @@ export async function registerFreshUser(
     request: APIRequestContext,
     credentials: Credentials,
 ): Promise<void> {
+    // Email is delivered asynchronously (messenger worker) and Mailpit is
+    // shared across worktrees and never cleared, so "the newest message for
+    // this address" can be a STALE verification email from a previous run —
+    // with another worktree's host in its link. Mark the inbox before
+    // registering and wait for a message that arrived after the mark.
+    const previousVerification = await latestEmailIdWithSubject(
+        request,
+        credentials.email,
+        VERIFICATION_SUBJECT,
+    );
+
     await page.goto('/register');
     await page.getByLabel('Full name').fill(credentials.name ?? 'E2E User');
     await page
@@ -241,7 +264,13 @@ export async function registerFreshUser(
     await page.getByRole('button', { name: 'Create account' }).click();
     await expect(page).toHaveURL('/register/check-email');
 
-    const received = await getLatestEmailTo(request, credentials.email);
+    const received = await getEmailWithSubject(
+        request,
+        credentials.email,
+        VERIFICATION_SUBJECT,
+        30000,
+        previousVerification,
+    );
     const link = extractLink(
         received.body,
         /https?:\/\/[^\s"<]+\/register\/verify[^\s"<]*/,

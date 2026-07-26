@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace App\Module\Billing\Command;
 
 use App\Exception\DomainErrors;
+use App\Module\Account\Repository\WaitlistEntryRepository;
+use App\Module\Account\Service\RegistrationGate;
 use App\Module\Billing\Entity\BillingProfile;
 use App\Module\Billing\Service\ActivePriceProvider;
 use App\Module\Billing\Service\StripeGatewayInterface;
@@ -23,6 +25,8 @@ final readonly class StartCheckoutHandler
         private FeatureFlagService $featureFlags,
         private EntityManagerInterface $em,
         private LoggerInterface $logger,
+        private RegistrationGate $registrationGate,
+        private WaitlistEntryRepository $waitlistEntries,
     ) {
     }
 
@@ -41,6 +45,18 @@ final readonly class StartCheckoutHandler
         }
 
         $profile = $this->trialProvisioner->ensureProfile($command->user);
+
+        // A disabled account re-enters only if the cap has room — or with a
+        // waitlist invite, which is the cap's own overflow valve. A snapshot
+        // check, deliberately without the capacity advisory lock: the lock is
+        // transaction-scoped and could not span the Stripe call anyway, and a
+        // lost race merely means slight over-cap, which the unconditional
+        // webhook re-enable accepts.
+        if ($command->user->isDisabled()
+            && !$this->registrationGate->isOpen()
+            && !$this->hasValidInvite($command)) {
+            throw new DomainErrors(['billing' => 'billing.error.capacity_full']);
+        }
 
         try {
             // Resolving the customer happens under a write lock on the profile
@@ -113,5 +129,24 @@ final readonly class StartCheckoutHandler
     private function idempotencyKey(BillingProfile $profile, string $priceId): string
     {
         return sprintf('checkout_%s_%s_%s', (string) $profile->id, $priceId, $profile->lastStripeEventId ?? 'initial');
+    }
+
+    /**
+     * A token is only a capacity voucher for the address it was issued to —
+     * possession alone (a forwarded or leaked link) must not let a different
+     * account claim it.
+     */
+    private function hasValidInvite(StartCheckoutCommand $command): bool
+    {
+        if (null === $command->inviteToken) {
+            return false;
+        }
+
+        // findOneByValidInviteToken already validated the token; no
+        // lock/refresh here to invalidate that.
+        $invite = $this->waitlistEntries->findOneByValidInviteToken($command->inviteToken);
+
+        return null !== $invite
+            && strtolower($invite->email) === strtolower($command->user->email);
     }
 }

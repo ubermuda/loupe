@@ -14,6 +14,7 @@ final readonly class StartCheckoutCommand
         public string $successUrl,
         /** @phpstan-var non-empty-string */
         public string $cancelUrl,
+        public ?string $inviteToken = null,
     ) {
     }
 }

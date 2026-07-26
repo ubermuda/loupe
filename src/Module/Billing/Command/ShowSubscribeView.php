@@ -30,6 +30,19 @@ final readonly class ShowSubscribeView
         public bool $trialing = false,
         /** Whole days left in the trial, never negative. */
         public int $trialDaysLeft = 0,
+        /** The account was disabled (trial or subscription lapsed). */
+        public bool $accountDisabled = false,
+        /**
+         * A disabled account cannot re-enter: the registration cap is full and
+         * no valid invite was presented. Drives the waitlist CTA instead of
+         * the checkout button.
+         */
+        public bool $capFull = false,
+        /**
+         * Only ever a token verified against this user's own waitlist entry —
+         * an invalid or foreign token is never echoed back into the page.
+         */
+        public ?string $inviteToken = null,
     ) {
     }
 }

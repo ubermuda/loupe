@@ -34,7 +34,7 @@ final class RegistrationControllerTest extends WebTestCase
         $this->assertNotNull($user);
         $this->assertSame('testuser', $user->username);
 
-        $this->assertEmailCount(1);
+        $this->assertQueuedEmailCount(1);
         $email = $this->getMailerMessage();
         $this->assertNotNull($email);
         $this->assertEmailAddressContains($email, 'To', 'test@example.com');

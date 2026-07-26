@@ -11,6 +11,7 @@ use App\Module\Account\Entity\ConnectedAccount;
 use App\Module\Account\Entity\SocialProvider;
 use App\Module\Account\Entity\User;
 use App\Module\Account\Entity\WaitlistEntry;
+use App\Module\Account\Event\UserRegistered;
 use App\Module\Account\Repository\ConnectedAccountRepository;
 use App\Module\Account\Repository\UserRepository;
 use App\Module\Account\Repository\WaitlistEntryRepository;
@@ -20,11 +21,14 @@ use App\Module\Account\Service\SocialLoginRace;
 use App\Module\Account\Service\SocialProfile;
 use App\Module\Account\Service\UnverifiedProviderEmail;
 use App\Module\Account\Service\UsernameGenerator;
+use App\Module\Billing\Repository\BillingProfileRepository;
+use App\Module\Billing\Service\TrialProvisioner;
 use Doctrine\DBAL\Driver\PDO\Exception as PdoDriverException;
 use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
 use Doctrine\ORM\EntityManagerInterface;
 use Psr\Log\NullLogger;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
+use Symfony\Contracts\EventDispatcher\EventDispatcherInterface;
 use Ubermuda\FeatureFlagsBundle\Entity\FeatureFlag;
 use Ubermuda\FeatureFlagsBundle\Enum\FeatureFlagType;
 use Ubermuda\FeatureFlagsBundle\FeatureFlagService;
@@ -47,18 +51,36 @@ final class ResolveSocialLoginHandlerTest extends KernelTestCase
         $waitlistEntries = $container->get(WaitlistEntryRepository::class);
         self::assertInstanceOf(WaitlistEntryRepository::class, $waitlistEntries);
         $this->waitlistEntries = $waitlistEntries;
-        $joinWaitlist = $container->get(JoinWaitlistHandler::class);
+        $this->handler = $this->buildHandler(
+            new RegistrationGate($this->openFlags(), $this->users),
+            $this->createStub(EventDispatcherInterface::class),
+        );
+    }
+
+    private function buildHandler(RegistrationGate $gate, EventDispatcherInterface $dispatcher): ResolveSocialLoginHandler
+    {
+        $joinWaitlist = self::getContainer()->get(JoinWaitlistHandler::class);
         self::assertInstanceOf(JoinWaitlistHandler::class, $joinWaitlist);
-        $this->handler = new ResolveSocialLoginHandler(
+
+        return new ResolveSocialLoginHandler(
             $this->connectedAccounts,
             $this->users,
             $this->em,
             new UsernameGenerator($this->users),
-            new RegistrationGate($this->openFlags(), $this->users),
+            $gate,
             $joinWaitlist,
             $this->waitlistEntries,
             new NullLogger(),
+            $dispatcher,
         );
+    }
+
+    private function neverDispatches(): EventDispatcherInterface
+    {
+        $dispatcher = $this->createMock(EventDispatcherInterface::class);
+        $dispatcher->expects($this->never())->method('dispatch');
+
+        return $dispatcher;
     }
 
     private function openFlags(): FeatureFlagService
@@ -75,6 +97,23 @@ final class ResolveSocialLoginHandlerTest extends KernelTestCase
         self::assertNotNull($outcome->user);
 
         return $outcome->user;
+    }
+
+    public function test_a_failing_post_commit_listener_does_not_fail_the_login(): void
+    {
+        // The user and connected account have committed by dispatch time; a
+        // listener blowing up (e.g. trial provisioning hitting a transient DB
+        // error) must not fail the OAuth callback — the account exists, so a
+        // retry would take the existing-identity branch and hide the error.
+        $dispatcher = $this->createStub(EventDispatcherInterface::class);
+        $dispatcher->method('dispatch')->willThrowException(new \RuntimeException('provisioning down'));
+        $handler = $this->buildHandler(new RegistrationGate($this->openFlags(), $this->users), $dispatcher);
+
+        $outcome = $handler(new ResolveSocialLoginCommand(
+            new SocialProfile(SocialProvider::Google, 'g-listener-fail', 'listener-fail@example.com', 'Listener Fail', emailVerified: true),
+        ));
+
+        self::assertNotNull($this->resolvedUser($outcome)->id);
     }
 
     // -------------------------------------------------------------------------
@@ -283,6 +322,72 @@ final class ResolveSocialLoginHandlerTest extends KernelTestCase
         self::assertNotNull($reloaded?->convertedAt);
     }
 
+    public function test_creating_an_account_dispatches_user_registered(): void
+    {
+        $dispatcher = $this->createMock(EventDispatcherInterface::class);
+        $dispatcher->expects($this->once())->method('dispatch')
+            ->with(self::callback(
+                static fn (object $event): bool => $event instanceof UserRegistered && 'dispatch-social@example.com' === $event->user->email,
+            ))
+            ->willReturnArgument(0);
+        $handler = $this->buildHandler(new RegistrationGate($this->openFlags(), $this->users), $dispatcher);
+
+        $outcome = $handler(new ResolveSocialLoginCommand(
+            new SocialProfile(SocialProvider::Github, 'gh-dispatch', 'dispatch-social@example.com', 'Dispatch Me', emailVerified: true),
+        ));
+
+        self::assertSame('dispatch-social@example.com', $this->resolvedUser($outcome)->email);
+    }
+
+    public function test_creating_an_account_provisions_a_trial_billing_profile(): void
+    {
+        // Uses the real event dispatcher, so the Billing listener actually
+        // runs — the trial clock starts at (social) registration.
+        $dispatcher = self::getContainer()->get(EventDispatcherInterface::class);
+        self::assertInstanceOf(EventDispatcherInterface::class, $dispatcher);
+        $handler = $this->buildHandler(new RegistrationGate($this->openFlags(), $this->users), $dispatcher);
+
+        $outcome = $handler(new ResolveSocialLoginCommand(
+            new SocialProfile(SocialProvider::Github, 'gh-trial', 'social-trial@example.com', 'Trial Clock', emailVerified: true),
+        ));
+
+        $profiles = self::getContainer()->get(BillingProfileRepository::class);
+        self::assertInstanceOf(BillingProfileRepository::class, $profiles);
+        $profile = $profiles->findOneByUser($this->resolvedUser($outcome));
+        self::assertNotNull($profile);
+
+        // No billing.trial_days flag row exists in the test DB → default applies.
+        $expected = new \DateTimeImmutable(sprintf('+%d days', TrialProvisioner::DEFAULT_TRIAL_DAYS));
+        self::assertGreaterThan($expected->modify('-1 hour'), $profile->trialEndsAt);
+        self::assertLessThan($expected->modify('+1 hour'), $profile->trialEndsAt);
+    }
+
+    public function test_existing_identity_and_auto_link_logins_dispatch_no_event(): void
+    {
+        // Branch A (already-linked identity), branch B (verified email
+        // colliding with a password-protected account) and branch C (auto-link
+        // to a password-less account) all return before the dispatch point —
+        // the event marks new registrations only.
+        $owner = $this->persistUser('no-event-owner@example.com', 'noeventowner');
+        $this->em->persist(new ConnectedAccount($owner, SocialProvider::Google, 'g-no-event', 'no-event-owner@example.com'));
+        $this->persistUser('no-event-collide@example.com', 'noeventcollide', password: 'hashed');
+        $this->persistUser('no-event-linkme@example.com', 'noeventlinkme');
+        $this->em->flush();
+
+        $handler = $this->buildHandler(new RegistrationGate($this->openFlags(), $this->users), $this->neverDispatches());
+
+        $handler(new ResolveSocialLoginCommand(
+            new SocialProfile(SocialProvider::Google, 'g-no-event', 'no-event-owner@example.com', 'Owner', emailVerified: true),
+        ));
+        $collideOutcome = $handler(new ResolveSocialLoginCommand(
+            new SocialProfile(SocialProvider::Google, 'g-no-event-collide', 'no-event-collide@example.com', 'Collide', emailVerified: true),
+        ));
+        self::assertTrue($collideOutcome->requiresPasswordLink);
+        $handler(new ResolveSocialLoginCommand(
+            new SocialProfile(SocialProvider::Google, 'g-no-event-link', 'no-event-linkme@example.com', 'Link Me', emailVerified: true),
+        ));
+    }
+
     public function test_generated_username_avoids_a_seeded_collision(): void
     {
         $this->persistUser('taken@example.com', 'fresh-face');
@@ -348,6 +453,7 @@ final class ResolveSocialLoginHandlerTest extends KernelTestCase
             $joinWaitlist,
             $waitlistEntries,
             new NullLogger(),
+            $this->neverDispatches(),
         );
 
         $this->expectException(SocialLoginRace::class);
@@ -381,6 +487,18 @@ final class ResolveSocialLoginHandlerTest extends KernelTestCase
 
         $entries = self::getContainer()->get(WaitlistEntryRepository::class);
         self::assertNotNull($entries->findOneByEmail('waitlisted-oauth@example.com'));
+    }
+
+    public function test_at_cap_waitlisted_oauth_dispatches_no_user_registered_event(): void
+    {
+        $realGate = $this->closeRegistration();
+        $handler = $this->buildHandler($realGate, $this->neverDispatches());
+
+        $outcome = $handler(new ResolveSocialLoginCommand(
+            new SocialProfile(SocialProvider::Github, 'gh-no-event-cap', 'no-event-at-cap@example.com', 'Capped', emailVerified: true),
+        ));
+
+        self::assertTrue($outcome->waitlisted);
     }
 
     public function test_at_cap_unverified_email_is_rejected_not_waitlisted(): void
@@ -444,12 +562,12 @@ final class ResolveSocialLoginHandlerTest extends KernelTestCase
         self::assertSame($existing->id, $this->resolvedUser($outcome)->id);
     }
 
-    private function closeRegistration(): void
+    private function closeRegistration(): RegistrationGate
     {
         $this->persistUser('gate-filler-'.bin2hex(random_bytes(4)).'@example.com', 'gate-filler-'.bin2hex(random_bytes(4)));
         $this->em->flush();
 
-        $flag = new FeatureFlag(name: RegistrationGate::CAP_FLAG, type: FeatureFlagType::Int, value: \count($this->users->findAll()));
+        $flag = new FeatureFlag(name: RegistrationGate::CAP_FLAG, type: FeatureFlagType::Int, value: $this->users->countActive());
         $this->em->persist($flag);
         $this->em->flush();
 
@@ -457,19 +575,10 @@ final class ResolveSocialLoginHandlerTest extends KernelTestCase
         // state (setUp() wired a permanently-open stub gate).
         $realGate = self::getContainer()->get(RegistrationGate::class);
         self::assertInstanceOf(RegistrationGate::class, $realGate);
-        $joinWaitlist = self::getContainer()->get(JoinWaitlistHandler::class);
-        self::assertInstanceOf(JoinWaitlistHandler::class, $joinWaitlist);
 
-        $this->handler = new ResolveSocialLoginHandler(
-            $this->connectedAccounts,
-            $this->users,
-            $this->em,
-            new UsernameGenerator($this->users),
-            $realGate,
-            $joinWaitlist,
-            $this->waitlistEntries,
-            new NullLogger(),
-        );
+        $this->handler = $this->buildHandler($realGate, $this->createStub(EventDispatcherInterface::class));
+
+        return $realGate;
     }
 
     /** @param non-empty-string $email */

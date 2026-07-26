@@ -8,7 +8,6 @@ use App\Module\Account\Entity\WaitlistEntry;
 use Doctrine\DBAL\LockMode;
 use Doctrine\ORM\EntityManagerInterface;
 use Psr\Log\LoggerInterface;
-use Symfony\Component\Mailer\Exception\TransportExceptionInterface;
 
 final readonly class WaitlistInviter
 {
@@ -24,9 +23,9 @@ final readonly class WaitlistInviter
         // Issue and commit the token in its own short DBAL-level transaction —
         // not EntityManager::wrapInTransaction(), which closes the shared
         // EntityManager on any failure and would break every remaining entry
-        // in a bulk invite once one mailbox fails. Lock + refresh + recheck:
-        // two concurrent invites (e.g. overlapping oldest-N requests) must not
-        // both email the same entry.
+        // in a bulk invite. Lock + refresh + recheck: two concurrent invites
+        // (e.g. overlapping oldest-N requests) must not both email the same
+        // entry.
         $plainToken = $this->em->getConnection()->transactional(function () use ($entry): ?string {
             $this->em->lock($entry, LockMode::PESSIMISTIC_WRITE);
             $this->em->refresh($entry);
@@ -47,19 +46,21 @@ final readonly class WaitlistInviter
 
         try {
             $this->emailSender->send($entry, $plainToken);
-        } catch (TransportExceptionInterface $e) {
+        } catch (\Throwable $e) {
+            // Delivery is async, but enqueueing (and rendering) the message can
+            // still fail — and the token already committed. Revert it in a
+            // follow-up write so the entry stays invitable instead of stuck
+            // until the never-sent token expires, and report a skip instead of
+            // throwing so one bad entry cannot abort a bulk invite.
             $this->logger->warning('account.waitlist.invite_send_failed', [
                 'entryId' => (string) $entry->id,
                 'error' => $e->getMessage(),
             ]);
 
-            // The token already committed — revert it in a follow-up write so
-            // the entry stays invitable instead of stuck until the
-            // now-undeliverable token expires.
             $entry->clearInvite();
             $this->em->flush();
 
-            throw $e;
+            return false;
         }
 
         $this->logger->info('account.waitlist.invited', ['entryId' => (string) $entry->id]);

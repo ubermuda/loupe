@@ -60,7 +60,9 @@ services:
     build:
       dockerfile: ./docker/dev/php-fpm/Dockerfile
     restart: unless-stopped
-    command: php bin/console messenger:consume async --time-limit=3600 --memory-limit=128M
+    # scheduler_default listed first deliberately — a deep async backlog must
+    # not delay schedule ticks.
+    command: php bin/console messenger:consume scheduler_default async --time-limit=3600 --memory-limit=128M
     volumes:
       - .:/var/www/html
     environment:

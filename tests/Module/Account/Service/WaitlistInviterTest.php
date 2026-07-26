@@ -13,7 +13,6 @@ use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\MockObject\Stub;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\NullLogger;
-use Symfony\Component\Mailer\Exception\TransportException;
 
 final class WaitlistInviterTest extends TestCase
 {
@@ -30,7 +29,7 @@ final class WaitlistInviterTest extends TestCase
         // The token-issuance step runs inside Connection::transactional(), not
         // EntityManager::wrapInTransaction() — the latter closes the shared
         // EntityManager on any failure, which would break every remaining
-        // entry in a bulk invite once one mailbox fails (see WaitlistInviter).
+        // entry in a bulk invite (see WaitlistInviter).
         // lock()/refresh()/flush() are stubbed no-ops except for actually
         // invoking the closure — this exercises the inviter's own logic
         // without a real database.
@@ -70,17 +69,13 @@ final class WaitlistInviterTest extends TestCase
         self::assertFalse($this->inviter->invite($entry));
     }
 
-    public function test_mail_transport_failure_propagates_and_reverts_the_token(): void
+    public function test_enqueue_failure_reverts_the_token_and_reports_a_skip(): void
     {
         $entry = new WaitlistEntry('a@example.com');
-        $this->sender->expects($this->once())->method('send')->willThrowException(new TransportException('boom'));
+        $this->sender->expects($this->once())->method('send')->willThrowException(new \RuntimeException('transport down'));
 
-        try {
-            $this->inviter->invite($entry);
-            self::fail('Expected TransportException to propagate.');
-        } catch (TransportException) {
-            // expected — the caller (bulk handler) treats this as a skip.
-        }
+        // No throw: a bulk invite must keep going past one bad entry.
+        self::assertFalse($this->inviter->invite($entry));
 
         // clearInvite() reverts the token synchronously — no need for a
         // simulated reload here, unlike a bare transaction rollback which only
@@ -91,11 +86,8 @@ final class WaitlistInviterTest extends TestCase
     public function test_retrying_after_a_failed_attempt_succeeds(): void
     {
         $entry = new WaitlistEntry('a@example.com');
-        $this->sender->expects($this->once())->method('send')->willThrowException(new TransportException('boom'));
-        try {
-            $this->inviter->invite($entry);
-        } catch (TransportException) {
-        }
+        $this->sender->expects($this->once())->method('send')->willThrowException(new \RuntimeException('transport down'));
+        self::assertFalse($this->inviter->invite($entry));
 
         $retrySender = $this->createMock(WaitlistInviteEmailSender::class);
         $retrySender->expects($this->once())->method('send');

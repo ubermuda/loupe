@@ -208,6 +208,8 @@ When a form does NOT use Symfony's FormType CSRF extension (a plain HTML `<form>
 
 Existing examples: `ResendVerificationEmailController`, `config/packages/csrf.yaml`. The `#[CsrfToken]` attribute and its `ValidateCsrfTokenListener` live in the `ubermuda/symfony-extra` vendor package (`Ubermuda\SymfonyExtra\Csrf\`), not under `src/`.
 
+**Hand-rolling a POST to a form-component endpoint:** every Form-component form validates `_token` against the **global** token id `submit` (`csrf.yaml` sets `framework.form.csrf_protection.token_id`), *not* the form's block prefix — the block-prefix fallback only exists when no global id is configured. A hand-rolled field must therefore be `<input type="hidden" name="<block_prefix>[_token]" value="{{ csrf_token('submit') }}" data-controller="csrf-protection">` — the `data-controller` attribute is load-bearing: without it `csrf_protection_controller.js` never double-submits, and `SameOriginCsrfTokenManager`'s downgrade check rejects the POST for any session that previously double-submitted (i.e. every password-login session).
+
 ## Command + handler pattern
 
 Any controller action that does more than render a template or redirect must be backed by a command + handler pair (`Command/FooCommand.php` + `Command/FooHandler.php`, no Symfony Messenger involved). **The pattern — command/handler shapes, calling the handler as a callable, `DomainErrors`, handler composition, sealed-parameter commands, ID-only commands for external-system data — is documented in the `project-command-handler` skill. Invoke it before writing a command or handler.**
@@ -334,16 +336,17 @@ Do not create a `Service/` class for logic that is only ever called from one pla
 
 ## Email
 
-Email is sent synchronously everywhere (`message_bus: false` in `mailer.yaml`) — no queue worker needed in development or production.
+Email is delivered asynchronously: `MailerInterface::send()` enqueues a `Symfony\Component\Mailer\Messenger\SendEmailMessage` on the `async` Messenger transport (routed in `messenger.yaml`), and the messenger worker (`messenger:consume scheduler_default async`) performs the actual delivery — the dev `worker` compose service already consumes `scheduler_default async`; in production the worker runs as its own container (from the same image, with the command overridden — never inside the web container's supervisord). Failed deliveries retry 3 times, then land in the `failed` transport.
 
 The sender address and name are defined as `config/services.yaml` parameters: `app.mailer.from_address` and `app.mailer.from_name`. Inject them with `#[Autowire(param: 'app.mailer.from_address')]`. Never hardcode `new Address('noreply@...', '...')` inside a service or controller.
 
 **Email sender services:** Each transactional email type gets its own sender service (e.g. `VerificationEmailSender`, `PasswordResetEmailSender`) in `src/Module/*/Service/`. The service owns URL generation, template path, subject key, and mailer parameters. Controllers call `$this->fooEmailSender->send($user)` and must never contain email-building or sending logic.
 
-`src/Messenger/Middleware/PlaywrightSyncEmailMiddleware.php` exists but is not wired up. When async email is needed, re-enable it by:
-1. Remove `message_bus: false` from `mailer.yaml`
-2. Uncomment `sync: 'sync://'` in `messenger.yaml`
-3. Add the middleware back to `messenger.bus.default`
+**Tests:** a request enqueues mail instead of sending it, so WebTestCase assertions use `assertQueuedEmailCount()` — never `assertEmailCount()`, which counts only sent mail and sees zero. `getMailerMessage()` still returns the queued message for header/recipient assertions.
+
+**Worktrees:** the shared dev `worker` service consumes only the main checkout's database. A worktree app enqueues mail (and any async message) into its own `app_wt_<slug>` database, which nothing consumes by default — so nothing is delivered. Before mail-asserting e2e runs or manual mail testing against a worktree, start a worktree-scoped consumer from the worktree — `bin/worktrees/compose-exec.sh bin/console messenger:consume scheduler_default async` — and stop it when done.
+
+**Worker staleness:** email rendering runs in the long-lived worker (recycled hourly via `--time-limit=3600`). After changing email templates or sender services in dev, restart the worker (`docker compose restart worker` from the **main checkout**) or wait for the recycle — otherwise delivered mail renders the stale code.
 
 ## Outbound HTTP (Symfony HttpClient)
 

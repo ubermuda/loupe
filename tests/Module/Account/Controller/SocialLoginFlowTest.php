@@ -215,7 +215,7 @@ final class SocialLoginFlowTest extends WebTestCase
         $em->persist(new User(username: 'gate-filler', fullName: 'Gate Filler', email: 'gate-filler@example.com', password: 'x'));
         $em->flush();
 
-        $em->persist(new FeatureFlag(name: RegistrationGate::CAP_FLAG, type: FeatureFlagType::Int, value: $users->countAll()));
+        $em->persist(new FeatureFlag(name: RegistrationGate::CAP_FLAG, type: FeatureFlagType::Int, value: $users->countActive()));
         $em->flush();
     }
 

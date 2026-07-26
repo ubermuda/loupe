@@ -37,6 +37,8 @@ final readonly class RequireSubscriptionListener
         'app_register_check_email',
         'app_register_resend',
         'app_verify_email',
+        // Waitlist join — a disabled account whose cap spot is gone must reach it.
+        'app_waitlist_join',
         // Data export.
         'app_account_settings',
         'app_account_export_request',

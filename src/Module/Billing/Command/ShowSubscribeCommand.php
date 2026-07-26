@@ -10,6 +10,7 @@ final readonly class ShowSubscribeCommand
 {
     public function __construct(
         public User $user,
+        public ?string $inviteToken = null,
     ) {
     }
 }

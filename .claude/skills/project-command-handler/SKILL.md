@@ -11,6 +11,16 @@ controller injects the handler and calls it synchronously as a callable. Do not
 put business logic directly in a controller, and do not route commands through
 Messenger unless async dispatch is explicitly required.
 
+## Scope — every entry point, not just controllers
+
+The pattern covers every entry point, not just controllers. Console commands
+(`Command/Console/`) and messenger handlers are thin shells too: they invoke a
+`Command/` + `Handler` pair, never a business-logic service directly. Name
+domain pairs verb-first (`RunTrialSweepCommand`) and distinct from the console
+command's and messenger handler's class names so the three never collide.
+Known pre-existing violation: `PurgeExpiredExportsCommand` injects
+`ExpiredExportPurger` directly — migrate it when touched, don't copy it.
+
 ## File layout
 
 Both classes live in the module's `Command/` directory:

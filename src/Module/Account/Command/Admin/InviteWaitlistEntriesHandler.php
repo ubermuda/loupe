@@ -6,7 +6,6 @@ namespace App\Module\Account\Command\Admin;
 
 use App\Module\Account\Repository\WaitlistEntryRepository;
 use App\Module\Account\Service\WaitlistInviter;
-use Symfony\Component\Mailer\Exception\TransportExceptionInterface;
 use Symfony\Component\Uid\Uuid;
 
 final readonly class InviteWaitlistEntriesHandler
@@ -33,13 +32,7 @@ final readonly class InviteWaitlistEntriesHandler
                 continue;
             }
 
-            try {
-                $this->inviter->invite($entry) ? ++$invited : ++$skipped;
-            } catch (TransportExceptionInterface) {
-                // One dead mailbox must not abort the batch; the inviter already
-                // rolled this entry back to invitable and logged the failure.
-                ++$skipped;
-            }
+            $this->inviter->invite($entry) ? ++$invited : ++$skipped;
         }
 
         return new InviteWaitlistResult($invited, $skipped);

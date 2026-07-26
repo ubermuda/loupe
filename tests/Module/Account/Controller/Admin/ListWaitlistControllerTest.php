@@ -80,7 +80,7 @@ final class ListWaitlistControllerTest extends WebTestCase
         $entries = static::getContainer()->get(WaitlistEntryRepository::class);
         $reloaded = $entries->find($entryId);
         $this->assertNotNull($reloaded?->invitedAt);
-        $this->assertEmailCount(1);
+        $this->assertQueuedEmailCount(1);
 
         // The row's Invite button/form no longer renders once invited — the
         // already-invited/converted skip behaviour itself is covered by
@@ -120,7 +120,7 @@ final class ListWaitlistControllerTest extends WebTestCase
         $reloadedSecond = $entries->find($secondId);
         $this->assertNotNull($reloadedFirst?->invitedAt);
         $this->assertNotNull($reloadedSecond?->invitedAt);
-        $this->assertEmailCount(2);
+        $this->assertQueuedEmailCount(2);
     }
 
     public function test_admin_can_invite_the_oldest_n_entries(): void
@@ -155,7 +155,7 @@ final class ListWaitlistControllerTest extends WebTestCase
         $reloadedNewest = $entries->find($newestId);
         $this->assertNotNull($reloadedOldest?->invitedAt);
         $this->assertNull($reloadedNewest?->invitedAt);
-        $this->assertEmailCount(1);
+        $this->assertQueuedEmailCount(1);
     }
 
     /**
