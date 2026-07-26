@@ -550,7 +550,7 @@ final class ResolveSocialLoginHandlerTest extends KernelTestCase
         $this->persistUser('gate-filler-'.bin2hex(random_bytes(4)).'@example.com', 'gate-filler-'.bin2hex(random_bytes(4)));
         $this->em->flush();
 
-        $flag = new FeatureFlag(name: RegistrationGate::CAP_FLAG, type: FeatureFlagType::Int, value: \count($this->users->findAll()));
+        $flag = new FeatureFlag(name: RegistrationGate::CAP_FLAG, type: FeatureFlagType::Int, value: $this->users->countActive());
         $this->em->persist($flag);
         $this->em->flush();
 

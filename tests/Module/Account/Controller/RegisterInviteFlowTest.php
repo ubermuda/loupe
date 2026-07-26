@@ -99,7 +99,7 @@ final class RegisterInviteFlowTest extends WebTestCase
         $em->persist(new User(username: 'gate-filler', fullName: 'Gate Filler', email: 'gate-filler@example.com', password: 'x'));
         $em->flush();
 
-        $userCount = $container->get(UserRepository::class)->countAll();
+        $userCount = $container->get(UserRepository::class)->countActive();
         $em->persist(new FeatureFlag(name: 'registration.cap', type: FeatureFlagType::Int, value: $userCount));
         $em->flush();
 

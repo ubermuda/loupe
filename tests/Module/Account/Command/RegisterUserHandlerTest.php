@@ -321,7 +321,7 @@ final class RegisterUserHandlerTest extends KernelTestCase
         ));
         $this->em->flush();
 
-        $flag = new FeatureFlag(name: RegistrationGate::CAP_FLAG, type: FeatureFlagType::Int, value: $users->countAll());
+        $flag = new FeatureFlag(name: RegistrationGate::CAP_FLAG, type: FeatureFlagType::Int, value: $users->countActive());
         $this->em->persist($flag);
         $this->em->flush();
     }

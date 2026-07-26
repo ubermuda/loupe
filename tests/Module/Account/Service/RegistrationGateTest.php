@@ -19,7 +19,7 @@ final class RegistrationGateTest extends TestCase
         $flags->method('getIntValue')->willReturn($cap);
 
         $users = $this->createStub(UserRepository::class);
-        $users->method('countAll')->willReturn($userCount);
+        $users->method('countActive')->willReturn($userCount);
 
         self::assertSame($expectedOpen, new RegistrationGate($flags, $users)->isOpen());
     }
@@ -31,5 +31,6 @@ final class RegistrationGateTest extends TestCase
         yield 'below cap' => [10, 9, true];
         yield 'at cap' => [10, 10, false];
         yield 'above cap' => [10, 11, false];
+        yield 'disabled users free their spot (cap 10, 10 rows, 1 disabled → 9 active)' => [10, 9, true];
     }
 }

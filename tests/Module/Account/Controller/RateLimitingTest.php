@@ -81,7 +81,7 @@ final class RateLimitingTest extends WebTestCase
         $em = static::getContainer()->get(EntityManagerInterface::class);
         $em->persist(new User(username: 'waitlist-limit-gate-filler', fullName: 'Gate Filler', email: 'waitlist-limit-gate-filler@example.com', password: 'x'));
         $em->flush();
-        $userCount = static::getContainer()->get(UserRepository::class)->countAll();
+        $userCount = static::getContainer()->get(UserRepository::class)->countActive();
         $em->persist(new FeatureFlag(name: 'registration.cap', type: FeatureFlagType::Int, value: $userCount));
         $em->flush();
 
