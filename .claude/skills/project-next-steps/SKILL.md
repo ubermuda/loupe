@@ -22,7 +22,12 @@ self-contained body.
 
 Body: what, why it matters, where the relevant code lives (paths), and any
 non-obvious close-out steps. Absolute dates only (2026-07-25, never
-"yesterday"). The body must make sense to a session with zero context.
+"yesterday"). The body must make sense to a session with zero context —
+which also means **no session-ephemeral identifiers**: feature codenames
+("F3"), plan task numbers ("Task 16"), wave/phase labels, or spec section
+references are meaningless later. Name the real thing instead (the class,
+the route, the file, "the account-deletion work"). Durable, globally
+resolvable references (PR numbers, issue links) are fine.
 ```
 
 The metadata line is mandatory, first after the heading, exactly four fields
