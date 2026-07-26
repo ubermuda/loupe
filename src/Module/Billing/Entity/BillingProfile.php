@@ -58,6 +58,23 @@ class BillingProfile
     #[ORM\Column(length: 255, nullable: true)]
     public ?string $lastStripeEventType = null;
 
+    /**
+     * When the end-of-trial survey email (churned or subscriber variant) was
+     * handed to the mailer — or deliberately skipped because no survey URL is
+     * configured. One per profile: a trial ends exactly once.
+     */
+    #[ORM\Column(nullable: true)]
+    public ?\DateTimeImmutable $surveySentAt = null;
+
+    /**
+     * Same marker for the cancellation survey. Separate from $surveySentAt
+     * because a subscriber who later cancels has already consumed that one at
+     * trial end. Reset when a subscription re-activates, so each subscription
+     * lifetime can survey its own ending.
+     */
+    #[ORM\Column(nullable: true)]
+    public ?\DateTimeImmutable $cancelSurveySentAt = null;
+
     // Note: no `readonly` on the constructor-promoted columns below. The billing
     // handlers re-read this row under a pessimistic lock, and EntityManager::refresh()
     // rewrites every mapped field — which PHP forbids on an initialised readonly
