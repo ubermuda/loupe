@@ -60,6 +60,11 @@ test.describe('registration cap and waitlist', () => {
         browser,
         request,
     }) => {
+        // Exceeds Playwright's 30s default: this spec drives three separate
+        // admin invite mechanisms plus a guest registration/invite-redemption
+        // flow, each polling the admin list via expectWaitlistStatus().
+        test.setTimeout(120_000);
+
         const perEntryEmail = `e2e-waitlist-perentry-${RUN}@example.com`;
         const selectedEmail = `e2e-waitlist-selected-${RUN}@example.com`;
         const oldestEmail = `e2e-waitlist-oldest-${RUN}@example.com`;
