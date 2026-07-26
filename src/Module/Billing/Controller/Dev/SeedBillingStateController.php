@@ -68,21 +68,9 @@ final class SeedBillingStateController extends AppController
             $flag->value = $enabled;
         }
 
-        $trialExpired = false;
-        $user = $this->getUser();
-        if ($user instanceof User && $request->query->getBoolean('expireTrial')) {
-            $profile = $this->billingProfiles->findOneByUser($user);
-            if (null === $profile) {
-                $profile = new BillingProfile($user, trialEndsAt: new \DateTimeImmutable('-1 day'));
-                $this->em->persist($profile);
-            } else {
-                $profile->trialEndsAt = new \DateTimeImmutable('-1 day');
-            }
-            $trialExpired = true;
-        }
-
         $state = $request->query->getString('state');
         if ('' !== $state) {
+            $user = $this->getUser();
             if (!$user instanceof User) {
                 throw new BadRequestHttpException('Seeding a billing state requires an authenticated user.');
             }
@@ -91,7 +79,7 @@ final class SeedBillingStateController extends AppController
 
         $this->em->flush();
 
-        $payload = ['billingEnabled' => $enabled, 'trialExpired' => $trialExpired];
+        $payload = ['billingEnabled' => $enabled];
         if ('' !== $state) {
             $payload['state'] = $state;
         }

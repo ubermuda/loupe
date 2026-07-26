@@ -21,25 +21,28 @@ const test = createTest({
 
 async function setBillingState(
     page: import('@playwright/test').Page,
-    { enabled, expireTrial }: { enabled: boolean; expireTrial?: boolean },
+    { enabled, state }: { enabled: boolean; state?: string },
 ): Promise<void> {
     const response = await page.request.get('/dev/billing-state', {
         params: {
             enabled: enabled ? '1' : '0',
-            expireTrial: expireTrial ? '1' : '0',
+            ...(state ? { state } : {}),
         },
     });
     expect(response.status()).toBe(200);
 }
 
 test.afterEach(async ({ page }) => {
-    await setBillingState(page, { enabled: false });
+    // Billing off AND the user back on a fresh trial: leaving the trial
+    // expired would make this user permanent debris for the trial-end
+    // lifecycle spec's global sweep.
+    await setBillingState(page, { enabled: false, state: 'fresh-trial' });
 });
 
 test('an expired trial paywalls the app but not the subscribe page', async ({
     page,
 }) => {
-    await setBillingState(page, { enabled: true, expireTrial: true });
+    await setBillingState(page, { enabled: true, state: 'expired-trial' });
 
     await page.goto('/projects');
 

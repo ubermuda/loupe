@@ -43,6 +43,13 @@ export async function fetchVerificationUrl(
 /**
  * Poll Mailpit until an email arrives for the given address, then return its HTML body and subject.
  * Uses Playwright's APIRequestContext to stay consistent with the rest of the helper layer.
+ *
+ * Safe ONLY for per-run-unique addresses (e.g. `test+foo+${RUN}@example.com`)
+ * that will ever receive a single message: it resolves on whatever is newest
+ * the moment ANY message exists, and email is delivered asynchronously — for
+ * a reused address, or one that receives more than one email in a test, the
+ * newest message can be a stale or unrelated one. In those cases use
+ * getEmailWithSubject with an afterId mark from latestEmailIdWithSubject.
  */
 export async function getLatestEmailTo(
     request: APIRequestContext,
@@ -84,8 +91,9 @@ export async function getLatestEmailTo(
 }
 
 /**
- * The id of the newest message with this subject for this address, or undefined
- * when there is none. Capture it BEFORE the action that sends the awaited mail
+ * The id of the newest message for this address whose subject matches
+ * (case-insensitive substring, per Mailpit search), or undefined when there
+ * is none. Capture it BEFORE the action that sends the awaited mail
  * and hand it to getEmailWithSubject as `afterId`: Mailpit is shared by every
  * worktree and is never cleared, so an address routinely already holds
  * same-subject mail from another branch's run, whose links point at that
@@ -107,8 +115,9 @@ export async function latestEmailIdWithSubject(
 }
 
 /**
- * Poll Mailpit until an email with the given exact subject arrives for the
- * given address, then return its HTML body. Unlike getLatestEmailTo, this
+ * Poll Mailpit until an email whose subject matches (case-insensitive
+ * substring, per Mailpit search) arrives for the given address, then return
+ * its HTML body. Unlike getLatestEmailTo, this
  * waits for a MATCHING message rather than resolving on whatever is newest
  * at the first check — required whenever the address may already hold other
  * mail (e.g. the fixture's own verification email sent moments earlier),

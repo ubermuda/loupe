@@ -23,23 +23,14 @@
  */
 
 import { expect, type APIRequestContext, type Page } from '@playwright/test';
+import { adminLogin, setRegistrationCap } from '../admin-helpers';
 import { createTest } from '../fixtures';
-import { type Credentials, registerAndVerify } from '../helpers';
 
 const test = createTest({
     email: 'e2e-billing-lifecycle@example.com',
     password: 'e2e_password_123',
     name: 'E2E Billing Lifecycle',
 });
-
-// Matches ADMIN_EMAIL in compose.yaml (see admin-smoke.spec.ts) — logging in
-// as this address is what PromoteAdminUserListener keys on to grant
-// ROLE_ADMIN, needed to edit the registration.cap flag through the admin UI.
-const ADMIN: Credentials = {
-    email: 'e2e-admin-smoke@example.com',
-    password: 'e2e_password_123',
-    name: 'E2E Admin Smoke',
-};
 
 // Any value >= 1 closes the gate: RegistrationGate.isOpen() compares the
 // active-user count against the cap, and the admin account alone already
@@ -82,89 +73,15 @@ async function setBillingState(
     return (await response.json()) as { sweep?: SweepCounts };
 }
 
-/** Runs the sweep through the seam and asserts no row failed. */
+/**
+ * Runs the sweep through the seam and asserts no row failed. Also (re)asserts
+ * billing.enabled — the sweep no-ops when the flag is off.
+ */
 async function runSweep(page: Page): Promise<SweepCounts> {
     const result = await setBillingState(page, { enabled: true, sweep: true });
     expect(result.sweep).toBeDefined();
     expect(result.sweep!.failed).toBe(0);
     return result.sweep!;
-}
-
-/**
- * Logs the admin in on its own page, registering the account first if this
- * database has never seen it — the same login-or-register flow as the
- * createTest worker fixture.
- */
-async function adminLogin(
-    page: Page,
-    request: APIRequestContext,
-): Promise<void> {
-    await page.goto('/login');
-    await page.getByLabel('Email').fill(ADMIN.email);
-    await page.getByLabel('Password').fill(ADMIN.password);
-    await page.getByRole('button', { name: 'Sign in' }).click();
-
-    await expect(
-        page.locator('form[action="/logout"]').or(page.locator('.auth-error')),
-    ).toBeVisible();
-
-    if (await page.locator('.auth-error').isVisible()) {
-        await registerAndVerify(page, request, ADMIN);
-    }
-
-    await expect(page).toHaveURL('/projects');
-}
-
-/**
- * Creates or edits the singleton `registration.cap` int flag via the real
- * admin UI. Copied from waitlist.spec.ts — including the re-navigate-and-poll
- * verification, because the flag edit form redirects back to its own URL
- * (the "form redirects to the same URL" trap).
- */
-async function setRegistrationCap(admin: Page, value: number): Promise<void> {
-    await admin.goto('/admin/feature-flags?q=registration.cap');
-    const existingRow = admin.locator('tr', { hasText: 'registration.cap' });
-
-    if (0 === (await existingRow.count())) {
-        await admin
-            .getByRole('link', { name: 'New flag', exact: true })
-            .click();
-        await expect(
-            admin.getByRole('heading', {
-                name: 'New Feature Flag',
-                exact: true,
-            }),
-        ).toBeVisible();
-        await admin
-            .getByLabel('Name', { exact: true })
-            .fill('registration.cap');
-    } else {
-        await existingRow
-            .getByRole('link', { name: 'Edit', exact: true })
-            .click();
-        await expect(
-            admin.getByRole('heading', {
-                name: 'Edit Feature Flag',
-                exact: true,
-            }),
-        ).toBeVisible();
-    }
-
-    await admin.getByLabel('Type', { exact: true }).selectOption('int');
-    await admin
-        .locator('[data-feature-flag-form-target="intField"]')
-        .getByLabel('Value', { exact: true })
-        .fill(String(value));
-    await admin.getByRole('button', { name: 'Save' }).click();
-
-    await expect(async () => {
-        await admin.goto('/admin/feature-flags?q=registration.cap');
-        await expect(
-            admin
-                .locator('tr', { hasText: 'registration.cap' })
-                .getByText(String(value), { exact: true }),
-        ).toBeVisible();
-    }).toPass({ timeout: 15000 });
 }
 
 test.afterEach(async ({ page }) => {
@@ -229,9 +146,15 @@ test('with the cap full a disabled account is offered the waitlist and joining s
     });
     const admin = await adminCtx.newPage();
 
+    // Only restore the cap when this test actually closed it: a failure in
+    // adminLogin (or in closing the cap) would otherwise throw AGAIN from the
+    // finally-restore and mask the original error.
+    let capClosed = false;
+
     try {
         await adminLogin(admin, request);
         await setRegistrationCap(admin, CLOSED_CAP);
+        capClosed = true;
 
         await page.goto('/billing/subscribe');
         await expect(page.getByText('We are at capacity')).toBeVisible();
@@ -250,9 +173,12 @@ test('with the cap full a disabled account is offered the waitlist and joining s
         await joinButton.click();
         await expect(page.getByText("You're on the list")).toBeVisible();
     } finally {
-        // Always reopen the gate, even on failure — every other spec's
+        // Always reopen the gate, even on test failure — every other spec's
         // registration/OAuth path depends on it.
-        await setRegistrationCap(admin, OPEN_CAP);
+        // eslint-disable-next-line playwright/no-conditional-in-test -- deliberate restore guard, not test logic
+        if (capClosed) {
+            await setRegistrationCap(admin, OPEN_CAP);
+        }
         await adminCtx.close();
     }
 });
