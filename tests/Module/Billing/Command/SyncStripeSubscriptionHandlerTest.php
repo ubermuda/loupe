@@ -5,15 +5,19 @@ declare(strict_types=1);
 namespace App\Tests\Module\Billing\Command;
 
 use App\Module\Account\Entity\User;
+use App\Module\Account\Entity\WaitlistEntry;
+use App\Module\Account\Repository\WaitlistEntryRepository;
 use App\Module\Billing\Command\SyncStripeSubscriptionCommand;
 use App\Module\Billing\Command\SyncStripeSubscriptionHandler;
 use App\Module\Billing\Entity\BillingProfile;
 use App\Module\Billing\Entity\BillingStatus;
 use App\Module\Billing\Repository\BillingProfileRepository;
+use App\Tests\Support\RecordingLogger;
 use App\Tests\Support\TransactionalEntityManagerStub;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
+use Psr\Log\LoggerInterface;
 use Psr\Log\NullLogger;
 
 final class SyncStripeSubscriptionHandlerTest extends TestCase
@@ -27,15 +31,22 @@ final class SyncStripeSubscriptionHandlerTest extends TestCase
         return $profile;
     }
 
-    private function handler(?BillingProfile $profile): SyncStripeSubscriptionHandler
-    {
+    private function handler(
+        ?BillingProfile $profile,
+        ?WaitlistEntry $waitlistEntry = null,
+        ?LoggerInterface $logger = null,
+    ): SyncStripeSubscriptionHandler {
         $profiles = $this->createStub(BillingProfileRepository::class);
         $profiles->method('findOneByStripeCustomerId')->willReturn($profile);
 
+        $waitlistEntries = $this->createStub(WaitlistEntryRepository::class);
+        $waitlistEntries->method('findOneByEmail')->willReturn($waitlistEntry);
+
         return new SyncStripeSubscriptionHandler(
             $profiles,
+            $waitlistEntries,
             TransactionalEntityManagerStub::configure($this->createStub(EntityManagerInterface::class)),
-            new NullLogger(),
+            $logger ?? new NullLogger(),
         );
     }
 
@@ -48,6 +59,7 @@ final class SyncStripeSubscriptionHandlerTest extends TestCase
         string $eventCreatedAt = 'now',
         string $eventId = 'evt_1',
         string $eventType = 'customer.subscription.updated',
+        ?string $currentPeriodEnd = '+30 days',
     ): SyncStripeSubscriptionCommand {
         return new SyncStripeSubscriptionCommand(
             stripeEventId: $eventId,
@@ -55,7 +67,7 @@ final class SyncStripeSubscriptionHandlerTest extends TestCase
             stripeSubscriptionId: 'sub_123',
             stripeStatus: $status,
             stripeEventType: $eventType,
-            currentPeriodEnd: new \DateTimeImmutable('+30 days'),
+            currentPeriodEnd: null === $currentPeriodEnd ? null : new \DateTimeImmutable($currentPeriodEnd),
             eventCreatedAt: new \DateTimeImmutable($eventCreatedAt),
         );
     }
@@ -151,5 +163,73 @@ final class SyncStripeSubscriptionHandlerTest extends TestCase
         $handler($this->command('canceled', '2026-07-25 12:00:06', 'evt_second'));
 
         self::assertSame(BillingStatus::Canceled, $profile->status);
+    }
+
+    public function test_activation_of_a_disabled_account_reenables_it_and_resets_the_cancel_survey_marker(): void
+    {
+        $profile = $this->profile();
+        $profile->user->disabledAt = new \DateTimeImmutable('-2 days');
+        $profile->cancelSurveySentAt = new \DateTimeImmutable('-1 day');
+        $logger = new RecordingLogger();
+
+        ($this->handler($profile, logger: $logger))($this->command('active'));
+
+        self::assertNull($profile->user->disabledAt);
+        self::assertNull($profile->cancelSurveySentAt);
+        self::assertContains('billing.account.reenabled', $logger->messages);
+    }
+
+    public function test_activation_of_a_disabled_account_converts_a_matching_waitlist_entry(): void
+    {
+        $profile = $this->profile();
+        $profile->user->disabledAt = new \DateTimeImmutable('-2 days');
+        $entry = new WaitlistEntry('synced@example.com');
+
+        ($this->handler($profile, $entry))($this->command('active'));
+
+        self::assertNotNull($entry->convertedAt);
+    }
+
+    public function test_activation_does_not_reconvert_an_already_converted_waitlist_entry(): void
+    {
+        $profile = $this->profile();
+        $profile->user->disabledAt = new \DateTimeImmutable('-2 days');
+        $entry = new WaitlistEntry('synced@example.com');
+        $convertedAt = new \DateTimeImmutable('2026-01-01 09:00:00');
+        $entry->convertedAt = $convertedAt;
+
+        ($this->handler($profile, $entry))($this->command('active'));
+
+        self::assertSame($convertedAt, $entry->convertedAt);
+    }
+
+    /** @return iterable<string, array{?string}> */
+    public static function lapsedPeriodEnds(): iterable
+    {
+        yield 'past' => ['-1 hour'];
+        yield 'null' => [null];
+    }
+
+    #[DataProvider('lapsedPeriodEnds')]
+    public function test_a_cancellation_whose_paid_period_is_over_disables_the_account(?string $currentPeriodEnd): void
+    {
+        $profile = $this->profile();
+        $logger = new RecordingLogger();
+
+        ($this->handler($profile, logger: $logger))(
+            $this->command('canceled', currentPeriodEnd: $currentPeriodEnd),
+        );
+
+        self::assertNotNull($profile->user->disabledAt);
+        self::assertContains('billing.account.disabled_on_cancel', $logger->messages);
+    }
+
+    public function test_a_cancellation_with_a_future_period_end_keeps_the_account_enabled(): void
+    {
+        $profile = $this->profile();
+
+        ($this->handler($profile))($this->command('canceled', currentPeriodEnd: '+10 days'));
+
+        self::assertNull($profile->user->disabledAt);
     }
 }
