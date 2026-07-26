@@ -1,0 +1,20 @@
+{% apply inline_css(source('@EmailStyles/email.css')) %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ 'billing.email.trial_end_survey.churned.subject'|trans }}</title>
+</head>
+<body>
+    <div class="card">
+        <h1>{{ 'billing.email.trial_end_survey.churned.heading'|trans }}</h1>
+        <p class="body-text">{{ 'billing.email.trial_end_survey.churned.body'|trans }}</p>
+        <a href="{{ surveyUrl }}" class="btn">{{ 'billing.email.trial_end_survey.churned.button_label'|trans }}</a>
+        <p class="footer">
+            {{ surveyUrl }}
+        </p>
+    </div>
+</body>
+</html>
+{% endapply %}

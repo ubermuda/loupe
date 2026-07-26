@@ -499,6 +499,56 @@
                 <target>Or copy this link:</target>
             </trans-unit>
 
+            <!-- Trial-end / cancellation survey emails -->
+            <trans-unit id="billing.email.trial_end_survey.churned.subject">
+                <source>billing.email.trial_end_survey.churned.subject</source>
+                <target>Sorry to see you go — got two minutes to tell us why?</target>
+            </trans-unit>
+            <trans-unit id="billing.email.trial_end_survey.churned.heading">
+                <source>billing.email.trial_end_survey.churned.heading</source>
+                <target>Sorry to see you go</target>
+            </trans-unit>
+            <trans-unit id="billing.email.trial_end_survey.churned.body">
+                <source>billing.email.trial_end_survey.churned.body</source>
+                <target>Your Loupe trial ended without a subscription, and we'd genuinely like to know why. Your answers go straight to the team building Loupe and help us decide what to fix next. It takes about two minutes.</target>
+            </trans-unit>
+            <trans-unit id="billing.email.trial_end_survey.churned.button_label">
+                <source>billing.email.trial_end_survey.churned.button_label</source>
+                <target>Tell us why</target>
+            </trans-unit>
+            <trans-unit id="billing.email.trial_end_survey.subscribed.subject">
+                <source>billing.email.trial_end_survey.subscribed.subject</source>
+                <target>You're staying with Loupe — how was the trial?</target>
+            </trans-unit>
+            <trans-unit id="billing.email.trial_end_survey.subscribed.heading">
+                <source>billing.email.trial_end_survey.subscribed.heading</source>
+                <target>Welcome aboard — how was your trial?</target>
+            </trans-unit>
+            <trans-unit id="billing.email.trial_end_survey.subscribed.body">
+                <source>billing.email.trial_end_survey.subscribed.body</source>
+                <target>You've subscribed to Loupe — thank you! While the trial is still fresh in your mind, we'd love to hear what worked and what almost put you off. It takes about two minutes.</target>
+            </trans-unit>
+            <trans-unit id="billing.email.trial_end_survey.subscribed.button_label">
+                <source>billing.email.trial_end_survey.subscribed.button_label</source>
+                <target>Share your experience</target>
+            </trans-unit>
+            <trans-unit id="billing.email.cancel_survey.subject">
+                <source>billing.email.cancel_survey.subject</source>
+                <target>Your Loupe subscription has ended — what made you leave?</target>
+            </trans-unit>
+            <trans-unit id="billing.email.cancel_survey.heading">
+                <source>billing.email.cancel_survey.heading</source>
+                <target>What made you leave?</target>
+            </trans-unit>
+            <trans-unit id="billing.email.cancel_survey.body">
+                <source>billing.email.cancel_survey.body</source>
+                <target>Your Loupe subscription has come to an end. If you can spare two minutes, tell us what made you leave — it's the most direct way to shape what we build next.</target>
+            </trans-unit>
+            <trans-unit id="billing.email.cancel_survey.button_label">
+                <source>billing.email.cancel_survey.button_label</source>
+                <target>Take the survey</target>
+            </trans-unit>
+
             <!-- Reset password request page -->
             <trans-unit id="account.reset_password.error.throttled">
                 <source>account.reset_password.error.throttled</source>
