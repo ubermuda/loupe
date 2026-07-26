@@ -95,16 +95,18 @@ final readonly class RegisterUserHandler
             throw new DomainErrors(['email' => 'account.registration.error.email_duplicate']);
         }
 
-        // The registration transaction has committed: listeners (e.g. Billing's
-        // trial provisioning) run outside it, so their failures cannot roll the
-        // account back.
-        $this->eventDispatcher->dispatch(new UserRegistered($user));
-
         try {
             $this->verificationEmailSender->send($user);
         } catch (\Throwable) {
             // Email failed to enqueue; account is created — user can resend from check-email page.
         }
+
+        // The registration transaction has committed: listeners (e.g. Billing's
+        // trial provisioning) run outside it, so their failures cannot roll the
+        // account back. Dispatched after the swallowed email send so a listener
+        // failure cannot also cost the user their verification email — it only
+        // affects the response.
+        $this->eventDispatcher->dispatch(new UserRegistered($user));
 
         return $user;
     }

@@ -347,11 +347,13 @@ final class ResolveSocialLoginHandlerTest extends KernelTestCase
 
     public function test_existing_identity_and_auto_link_logins_dispatch_no_event(): void
     {
-        // Branch A (already-linked identity) and branch C (auto-link to a
-        // password-less account) both return before the dispatch point — the
-        // event marks new registrations only.
+        // Branch A (already-linked identity), branch B (verified email
+        // colliding with a password-protected account) and branch C (auto-link
+        // to a password-less account) all return before the dispatch point —
+        // the event marks new registrations only.
         $owner = $this->persistUser('no-event-owner@example.com', 'noeventowner');
         $this->em->persist(new ConnectedAccount($owner, SocialProvider::Google, 'g-no-event', 'no-event-owner@example.com'));
+        $this->persistUser('no-event-collide@example.com', 'noeventcollide', password: 'hashed');
         $this->persistUser('no-event-linkme@example.com', 'noeventlinkme');
         $this->em->flush();
 
@@ -360,6 +362,10 @@ final class ResolveSocialLoginHandlerTest extends KernelTestCase
         $handler(new ResolveSocialLoginCommand(
             new SocialProfile(SocialProvider::Google, 'g-no-event', 'no-event-owner@example.com', 'Owner', emailVerified: true),
         ));
+        $collideOutcome = $handler(new ResolveSocialLoginCommand(
+            new SocialProfile(SocialProvider::Google, 'g-no-event-collide', 'no-event-collide@example.com', 'Collide', emailVerified: true),
+        ));
+        self::assertTrue($collideOutcome->requiresPasswordLink);
         $handler(new ResolveSocialLoginCommand(
             new SocialProfile(SocialProvider::Google, 'g-no-event-link', 'no-event-linkme@example.com', 'Link Me', emailVerified: true),
         ));
