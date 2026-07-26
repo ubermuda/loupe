@@ -139,6 +139,10 @@ final class SeedBillingStateController extends AppController
                 $profile->status = BillingStatus::Canceled;
                 $profile->trialEndsAt = $now->modify('-30 days');
                 $profile->currentPeriodEnd = $now->modify('-1 day');
+                // Matches what a real cancellation webhook leaves behind —
+                // BillingProfile::isCurrent() requires this event type before
+                // it will honor currentPeriodEnd for a Canceled profile.
+                $profile->lastStripeEventType = BillingProfile::SUBSCRIPTION_DELETED_EVENT_TYPE;
                 break;
             case 'disabled':
                 $profile->status = BillingStatus::Trialing;

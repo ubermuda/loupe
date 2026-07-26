@@ -26,6 +26,14 @@ use Symfony\Component\Uid\Uuid;
 #[ORM\Table(name: 'billing_profiles')]
 class BillingProfile
 {
+    /**
+     * Stripe event type that terminates a subscription. The single source of
+     * truth for the literal, referenced both here (see isCurrent()) and by
+     * SyncStripeSubscriptionHandler/StripeWebhookController, which are the
+     * only writers of $lastStripeEventType.
+     */
+    public const string SUBSCRIPTION_DELETED_EVENT_TYPE = 'customer.subscription.deleted';
+
     #[ORM\Column(type: UuidType::NAME, unique: true)]
     #[ORM\CustomIdGenerator(class: 'doctrine.uuid_generator')]
     #[ORM\GeneratedValue(strategy: 'CUSTOM')]
@@ -120,13 +128,21 @@ class BillingProfile
     }
 
     /**
-     * A `Canceled` profile with a future `currentPeriodEnd` is a mid-period
-     * cancel: Stripe fires `deleted` immediately, but the customer already
-     * paid through that date. `SyncStripeSubscriptionHandler` never disables
-     * the account while that date is still ahead, and the sweep
-     * (`RunTrialSweepHandler::settleCanceled()`) deliberately waits for it to
-     * lapse before disabling and surveying — this mirrors that intent so the
-     * paywall doesn't lock the user out before either of them do.
+     * A `Canceled` profile whose last applied event was an actual
+     * `customer.subscription.deleted`, with a future `currentPeriodEnd`, is a
+     * mid-period cancel: the customer already paid through that date.
+     * `SyncStripeSubscriptionHandler` never disables the account while that
+     * date is still ahead, and the sweep (`RunTrialSweepHandler::settleCanceled()`)
+     * deliberately waits for it to lapse before disabling and surveying — this
+     * mirrors that intent so the paywall doesn't lock the user out before
+     * either of them do.
+     *
+     * The event-type check matters: `BillingStatus::fromStripeStatus()` also
+     * folds `incomplete`, `incomplete_expired`, and any status Stripe adds
+     * later into `Canceled` — none of those ever had a live subscription, so
+     * without this check a subscription that never completed payment (but
+     * whose `current_period_end` Stripe already set) would wrongly pass the
+     * paywall.
      */
     public function isCurrent(\DateTimeImmutable $now): bool
     {
@@ -139,6 +155,7 @@ class BillingProfile
         }
 
         return BillingStatus::Canceled === $this->status
+            && self::SUBSCRIPTION_DELETED_EVENT_TYPE === $this->lastStripeEventType
             && null !== $this->currentPeriodEnd
             && $now < $this->currentPeriodEnd;
     }

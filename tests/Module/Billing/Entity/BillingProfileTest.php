@@ -69,8 +69,26 @@ final class BillingProfileTest extends TestCase
         $profile = new BillingProfile($this->user(), trialEndsAt: new \DateTimeImmutable('-30 days'));
         $profile->status = BillingStatus::Canceled;
         $profile->currentPeriodEnd = new \DateTimeImmutable('+5 days');
+        $profile->lastStripeEventType = BillingProfile::SUBSCRIPTION_DELETED_EVENT_TYPE;
 
         self::assertTrue($profile->isCurrent(new \DateTimeImmutable()));
+    }
+
+    /**
+     * BillingStatus::fromStripeStatus() also folds `incomplete`,
+     * `incomplete_expired`, and any status Stripe adds later into `Canceled` —
+     * none of those subscriptions ever went live, so a future
+     * `currentPeriodEnd` on one of them must not grant access. Only a genuine
+     * `customer.subscription.deleted` (the mid-period-cancel case above) may.
+     */
+    public function test_canceled_with_a_future_period_end_but_no_deletion_event_is_not_current(): void
+    {
+        $profile = new BillingProfile($this->user(), trialEndsAt: new \DateTimeImmutable('-30 days'));
+        $profile->status = BillingStatus::Canceled;
+        $profile->currentPeriodEnd = new \DateTimeImmutable('+5 days');
+        $profile->lastStripeEventType = 'customer.subscription.updated';
+
+        self::assertFalse($profile->isCurrent(new \DateTimeImmutable()));
     }
 
     #[DataProvider('stripeStatuses')]
