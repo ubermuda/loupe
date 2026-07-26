@@ -8,7 +8,9 @@ use App\Module\Account\Command\JoinWaitlistCommand;
 use App\Module\Account\Command\JoinWaitlistHandler;
 use App\Module\Account\Entity\User;
 use App\Module\Account\Entity\WaitlistEntry;
+use App\Module\Account\Repository\UserRepository;
 use App\Module\Account\Repository\WaitlistEntryRepository;
+use App\Tests\Support\RecordingLogger;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 
@@ -98,18 +100,27 @@ final class JoinWaitlistHandlerTest extends KernelTestCase
         $em->persist($user);
         $em->flush();
 
-        $handler = $container->get(JoinWaitlistHandler::class);
-        self::assertInstanceOf(JoinWaitlistHandler::class, $handler);
+        $repo = $container->get(WaitlistEntryRepository::class);
+        self::assertInstanceOf(WaitlistEntryRepository::class, $repo);
+        $users = $container->get(UserRepository::class);
+        self::assertInstanceOf(UserRepository::class, $users);
+        $logger = new RecordingLogger();
+        $handler = new JoinWaitlistHandler($repo, $users, $em, $logger);
 
         $handler(new JoinWaitlistCommand('converted-disabled@example.com'));
 
-        $repo = $container->get(WaitlistEntryRepository::class);
-        self::assertInstanceOf(WaitlistEntryRepository::class, $repo);
         $reopened = $repo->findOneByEmail('converted-disabled@example.com');
         self::assertNotNull($reopened);
         self::assertNull($reopened->convertedAt);
         self::assertTrue($reopened->needsInvite());
         self::assertGreaterThan($originalCreatedAt, $reopened->createdAt);
+
+        $rejoined = array_values(array_filter(
+            $logger->records,
+            static fn (array $record): bool => 'account.waitlist.rejoined' === $record['message'],
+        ));
+        self::assertCount(1, $rejoined);
+        self::assertSame(['email' => 'converted-disabled@example.com'], $rejoined[0]['context']);
     }
 
     public function test_a_converted_row_stays_untouched_when_its_account_is_enabled(): void

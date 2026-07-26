@@ -31,27 +31,34 @@ class WaitlistInviteEmailSender
 
     public function send(WaitlistEntry $entry, string $plainToken): void
     {
-        // A returning account (it exists — only disabled accounts can hold a
-        // waitlist row, enabled ones are skipped at join) cannot re-register:
-        // its invite leads to the subscribe page, where the token doubles as
-        // the registration-cap bypass at checkout. A fresh address gets the
-        // registration link as before.
+        // A returning account (it exists — only disabled accounts can hold an
+        // invitable row) cannot re-register: its invite leads to the subscribe
+        // page, where the token doubles as the registration-cap bypass at
+        // checkout. A fresh address gets the registration link as before. The
+        // variant is decided here at send time, not persisted at join time,
+        // because account state can change in between — e.g. the account gets
+        // deleted, so the address must fall back to the registration variant;
+        // a join-time flag would have gone stale.
         $returning = null !== $this->users->findOneByEmail($entry->email);
 
-        $route = $returning ? 'app_billing_subscribe' : 'app_register';
         $inviteUrl = $this->urlGenerator->generate(
-            $route,
+            $returning ? 'app_billing_subscribe' : 'app_register',
             ['invite' => $plainToken],
             UrlGeneratorInterface::ABSOLUTE_URL,
         );
 
-        $variant = $returning ? 'waitlist_invite_returning' : 'waitlist_invite';
+        $subjectKey = $returning
+            ? 'account.email.waitlist_invite_returning.subject'
+            : 'account.email.waitlist_invite.subject';
+        $template = $returning
+            ? '@Account/email/waitlist_invite_returning.html.twig'
+            : '@Account/email/waitlist_invite.html.twig';
 
         $email = new TemplatedEmail()
             ->from(new Address($this->mailerFromAddress, $this->mailerFromName))
             ->to($entry->email)
-            ->subject($this->translator->trans(sprintf('account.email.%s.subject', $variant)))
-            ->htmlTemplate(sprintf('@Account/email/%s.html.twig', $variant))
+            ->subject($this->translator->trans($subjectKey))
+            ->htmlTemplate($template)
             ->context(['inviteUrl' => $inviteUrl]);
 
         $this->mailer->send($email);

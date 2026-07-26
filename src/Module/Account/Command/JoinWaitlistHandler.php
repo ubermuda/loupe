@@ -32,14 +32,18 @@ final readonly class JoinWaitlistHandler
             // for exactly that case. Every other duplicate — a live pending
             // row, a converted row whose account is still enabled, or a
             // converted row whose account is gone — keeps the silent skip.
-            $existingUser = $this->users->findOneByEmail($command->email);
-            if (null !== $existingEntry->convertedAt && null !== $existingUser && $existingUser->isDisabled()) {
-                $existingEntry->reopen();
-                $this->em->flush();
+            // Converted-check first: the frequent pending-row duplicate skips
+            // the user query entirely.
+            if (null !== $existingEntry->convertedAt) {
+                $existingUser = $this->users->findOneByEmail($command->email);
+                if (null !== $existingUser && $existingUser->isDisabled()) {
+                    $existingEntry->reopen();
+                    $this->em->flush();
 
-                $this->logger->info('account.waitlist.rejoined', ['email' => $command->email]);
+                    $this->logger->info('account.waitlist.rejoined', ['email' => $command->email]);
 
-                return;
+                    return;
+                }
             }
 
             $this->logger->info('account.waitlist.duplicate_join', ['email' => $command->email]);
