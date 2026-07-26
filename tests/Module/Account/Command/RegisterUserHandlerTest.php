@@ -6,15 +6,19 @@ use App\Exception\DomainErrors;
 use App\Module\Account\Command\RegisterUserCommand;
 use App\Module\Account\Command\RegisterUserHandler;
 use App\Module\Account\Entity\WaitlistEntry;
+use App\Module\Account\Event\UserRegistered;
 use App\Module\Account\Repository\UserRepository;
 use App\Module\Account\Repository\WaitlistEntryRepository;
 use App\Module\Account\Service\RegistrationGate;
 use App\Module\Account\Service\VerificationEmailSender;
+use App\Module\Billing\Repository\BillingProfileRepository;
+use App\Module\Billing\Service\TrialProvisioner;
 use Doctrine\DBAL\Driver\PDO\Exception as PdoDriverException;
 use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
+use Symfony\Contracts\EventDispatcher\EventDispatcherInterface;
 use Ubermuda\FeatureFlagsBundle\Entity\FeatureFlag;
 use Ubermuda\FeatureFlagsBundle\Enum\FeatureFlagType;
 use Ubermuda\FeatureFlagsBundle\FeatureFlagService;
@@ -73,6 +77,7 @@ final class RegisterUserHandlerTest extends KernelTestCase
             verificationEmailSender: $this->createStub(VerificationEmailSender::class),
             registrationGate: $gate,
             waitlistEntries: $this->createStub(WaitlistEntryRepository::class),
+            eventDispatcher: $this->neverDispatches(),
         );
 
         try {
@@ -219,6 +224,87 @@ final class RegisterUserHandlerTest extends KernelTestCase
         $this->em->clear();
         $fresh = $this->entries->findOneByEmail('invited@example.com');
         $this->assertNotNull($fresh?->convertedAt);
+    }
+
+    public function test_successful_registration_dispatches_user_registered_after_commit(): void
+    {
+        $dispatcher = $this->createMock(EventDispatcherInterface::class);
+        $dispatcher->expects($this->once())->method('dispatch')
+            ->with($this->callback(
+                static fn (object $event): bool => $event instanceof UserRegistered && 'dispatch-me@example.com' === $event->user->email,
+            ))
+            ->willReturnArgument(0);
+
+        $user = ($this->handlerWith($dispatcher))($this->makeCommand(email: 'dispatch-me@example.com'));
+
+        $this->assertSame('dispatch-me@example.com', $user->email);
+    }
+
+    public function test_registration_provisions_a_trial_billing_profile(): void
+    {
+        // Uses the container handler (real dispatcher), so the Billing
+        // listener actually runs — the trial clock starts at registration.
+        $user = ($this->handler)($this->makeCommand(email: 'trial-clock@example.com'));
+
+        $profiles = self::getContainer()->get(BillingProfileRepository::class);
+        self::assertInstanceOf(BillingProfileRepository::class, $profiles);
+        $profile = $profiles->findOneByUser($user);
+        $this->assertNotNull($profile);
+
+        // No billing.trial_days flag row exists in the test DB → default applies.
+        $expected = new \DateTimeImmutable(sprintf('+%d days', TrialProvisioner::DEFAULT_TRIAL_DAYS));
+        $this->assertGreaterThan($expected->modify('-1 hour'), $profile->trialEndsAt);
+        $this->assertLessThan($expected->modify('+1 hour'), $profile->trialEndsAt);
+    }
+
+    public function test_duplicate_email_dispatches_no_user_registered_event(): void
+    {
+        ($this->handler)($this->makeCommand(email: 'dupe@example.com'));
+
+        $this->expectException(DomainErrors::class);
+
+        ($this->handlerWith($this->neverDispatches()))($this->makeCommand(email: 'dupe@example.com'));
+    }
+
+    public function test_closed_registration_dispatches_no_user_registered_event(): void
+    {
+        $this->closeRegistration();
+
+        $this->expectException(DomainErrors::class);
+
+        ($this->handlerWith($this->neverDispatches()))($this->makeCommand(email: 'capped@example.com'));
+    }
+
+    /** Container-wired collaborators with only the dispatcher swapped out. */
+    private function handlerWith(EventDispatcherInterface $dispatcher): RegisterUserHandler
+    {
+        $container = self::getContainer();
+        $users = $container->get(UserRepository::class);
+        self::assertInstanceOf(UserRepository::class, $users);
+        $passwordHasher = $container->get(UserPasswordHasherInterface::class);
+        self::assertInstanceOf(UserPasswordHasherInterface::class, $passwordHasher);
+        $verificationEmailSender = $container->get(VerificationEmailSender::class);
+        self::assertInstanceOf(VerificationEmailSender::class, $verificationEmailSender);
+        $gate = $container->get(RegistrationGate::class);
+        self::assertInstanceOf(RegistrationGate::class, $gate);
+
+        return new RegisterUserHandler(
+            users: $users,
+            em: $this->em,
+            passwordHasher: $passwordHasher,
+            verificationEmailSender: $verificationEmailSender,
+            registrationGate: $gate,
+            waitlistEntries: $this->entries,
+            eventDispatcher: $dispatcher,
+        );
+    }
+
+    private function neverDispatches(): EventDispatcherInterface
+    {
+        $dispatcher = $this->createMock(EventDispatcherInterface::class);
+        $dispatcher->expects($this->never())->method('dispatch');
+
+        return $dispatcher;
     }
 
     private function closeRegistration(): void

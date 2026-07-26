@@ -6,6 +6,7 @@ namespace App\Module\Account\Command;
 
 use App\Module\Account\Entity\ConnectedAccount;
 use App\Module\Account\Entity\User;
+use App\Module\Account\Event\UserRegistered;
 use App\Module\Account\Repository\ConnectedAccountRepository;
 use App\Module\Account\Repository\UserRepository;
 use App\Module\Account\Repository\WaitlistEntryRepository;
@@ -18,6 +19,7 @@ use App\Module\Account\Service\UsernameGenerator;
 use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
 use Doctrine\ORM\EntityManagerInterface;
 use Psr\Log\LoggerInterface;
+use Symfony\Contracts\EventDispatcher\EventDispatcherInterface;
 
 final readonly class ResolveSocialLoginHandler
 {
@@ -30,6 +32,7 @@ final readonly class ResolveSocialLoginHandler
         private JoinWaitlistHandler $joinWaitlist,
         private WaitlistEntryRepository $waitlistEntries,
         private LoggerInterface $logger,
+        private EventDispatcherInterface $eventDispatcher,
     ) {
     }
 
@@ -119,6 +122,12 @@ final readonly class ResolveSocialLoginHandler
 
             return SocialLoginOutcome::waitlisted();
         }
+
+        // The creation transaction has committed: listeners (e.g. Billing's
+        // trial provisioning) run outside it, so their failures cannot roll the
+        // account back. Earlier branches (existing identity or account) return
+        // above and never dispatch — this event marks new registrations only.
+        $this->eventDispatcher->dispatch(new UserRegistered($user));
 
         return SocialLoginOutcome::logIn($user);
     }

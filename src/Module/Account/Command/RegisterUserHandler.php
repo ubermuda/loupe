@@ -5,6 +5,7 @@ namespace App\Module\Account\Command;
 use App\Exception\DomainErrors;
 use App\Module\Account\Entity\User;
 use App\Module\Account\Entity\WaitlistEntry;
+use App\Module\Account\Event\UserRegistered;
 use App\Module\Account\Repository\UserRepository;
 use App\Module\Account\Repository\WaitlistEntryRepository;
 use App\Module\Account\Service\RegistrationGate;
@@ -13,6 +14,7 @@ use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
 use Doctrine\DBAL\LockMode;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
+use Symfony\Contracts\EventDispatcher\EventDispatcherInterface;
 
 final readonly class RegisterUserHandler
 {
@@ -23,6 +25,7 @@ final readonly class RegisterUserHandler
         private VerificationEmailSender $verificationEmailSender,
         private RegistrationGate $registrationGate,
         private WaitlistEntryRepository $waitlistEntries,
+        private EventDispatcherInterface $eventDispatcher,
     ) {
     }
 
@@ -91,6 +94,11 @@ final readonly class RegisterUserHandler
             // colliding field cannot be re-queried — email is the likely one.
             throw new DomainErrors(['email' => 'account.registration.error.email_duplicate']);
         }
+
+        // The registration transaction has committed: listeners (e.g. Billing's
+        // trial provisioning) run outside it, so their failures cannot roll the
+        // account back.
+        $this->eventDispatcher->dispatch(new UserRegistered($user));
 
         try {
             $this->verificationEmailSender->send($user);
