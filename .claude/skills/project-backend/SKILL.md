@@ -208,6 +208,8 @@ When a form does NOT use Symfony's FormType CSRF extension (a plain HTML `<form>
 
 Existing examples: `ResendVerificationEmailController`, `config/packages/csrf.yaml`. The `#[CsrfToken]` attribute and its `ValidateCsrfTokenListener` live in the `ubermuda/symfony-extra` vendor package (`Ubermuda\SymfonyExtra\Csrf\`), not under `src/`.
 
+**Hand-rolling a POST to a form-component endpoint:** every Form-component form validates `_token` against the **global** token id `submit` (`csrf.yaml` sets `framework.form.csrf_protection.token_id`), *not* the form's block prefix — the block-prefix fallback only exists when no global id is configured. A hand-rolled field must therefore be `<input type="hidden" name="<block_prefix>[_token]" value="{{ csrf_token('submit') }}" data-controller="csrf-protection">` — the `data-controller` attribute is load-bearing: without it `csrf_protection_controller.js` never double-submits, and `SameOriginCsrfTokenManager`'s downgrade check rejects the POST for any session that previously double-submitted (i.e. every password-login session).
+
 ## Command + handler pattern
 
 Any controller action that does more than render a template or redirect must be backed by a command + handler pair (`Command/FooCommand.php` + `Command/FooHandler.php`, no Symfony Messenger involved). **The pattern — command/handler shapes, calling the handler as a callable, `DomainErrors`, handler composition, sealed-parameter commands, ID-only commands for external-system data — is documented in the `project-command-handler` skill. Invoke it before writing a command or handler.**

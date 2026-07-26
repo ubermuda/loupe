@@ -70,6 +70,10 @@ Tests that use Mailpit (register, delete account) search by recipient address ra
 
 **Tests that mutate the user's password** (like `can change password`) should use a throwaway timestamped user via `registerAndVerify` rather than mutating the shared worker user. This avoids leaving the DB in a broken state if the test fails partway through.
 
+## Mail is async: never resolve "the newest Mailpit message"
+
+`getLatestEmailTo()` is safe only for per-run-unique addresses with a single expected message. For everything else, mark-then-wait: capture `latestEmailIdWithSubject(...)` **before** the triggering action and pass it to `getEmailWithSubject(subject, afterId)` (Mailpit subject search is case-insensitive substring). Registration in fixtures uses this pattern; the authenticated fixture self-heals a registered-but-unverified account via real product surfaces (resend → verify) rather than failing.
+
 ## Guest test scoping
 
 Tests that exercise guest (unauthenticated) flows should use `test.use({ storageState: { cookies: [], origins: [] } })` at the describe block level to ensure no session cookie is carried in. Do not rely on the absence of a `createTest` call — make the intent explicit.
