@@ -40,7 +40,7 @@ final class CreateAdminControllerTest extends WebTestCase
         ]);
 
         self::assertResponseRedirects('/install/done');
-        $this->assertEmailCount(1);
+        $this->assertQueuedEmailCount(1);
 
         $user = self::getContainer()->get(UserRepository::class)->findOneByEmail('admin@example.com');
         self::assertNotNull($user);

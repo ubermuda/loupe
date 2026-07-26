@@ -22,7 +22,7 @@ export default defineConfig({
     projects: [
         {
             name: 'chromium',
-// The waitlist and trial-end-lifecycle specs mutate global feature
+            // The waitlist and trial-end-lifecycle specs mutate global feature
             // flags (registration.cap, billing.enabled) that every other spec
             // depends on, and the install spec wipes the database outright —
             // all three run in their own projects below, serialized after
@@ -45,7 +45,7 @@ export default defineConfig({
             dependencies: ['chromium'],
         },
         {
-name: 'trial-end-lifecycle',
+            name: 'trial-end-lifecycle',
             testMatch: /billing\/trial-end-lifecycle\.spec\.ts/,
             use: {
                 ...devices['Desktop Chrome'],
