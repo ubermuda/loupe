@@ -10,6 +10,7 @@ use App\Module\Billing\EventListener\RequireSubscriptionListener;
 use App\Module\Billing\Repository\BillingProfileRepository;
 use App\Module\Billing\Service\PaywallGate;
 use App\Module\Billing\Service\TrialProvisioner;
+use App\Routing\PaywallExempt;
 use App\Tests\Support\FeatureFlags;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -72,7 +73,7 @@ final class RequireSubscriptionListenerTest extends TestCase
         $request = Request::create($path);
         $request->attributes->set('_route', $route);
         if ($paywallExempt) {
-            $request->attributes->set('_paywallExempt', true);
+            $request->attributes->set(PaywallExempt::ROUTE_DEFAULT, true);
         }
 
         return new RequestEvent($this->createStub(HttpKernelInterface::class), $request, HttpKernelInterface::MAIN_REQUEST);

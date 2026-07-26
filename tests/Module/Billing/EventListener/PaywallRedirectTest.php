@@ -181,7 +181,7 @@ final class PaywallRedirectTest extends WebTestCase
 
         $compiledRoute = $router->getRouteCollection()->get($route);
         self::assertNotNull($compiledRoute, $route);
-        self::assertTrue($compiledRoute->getDefault('_paywallExempt'), $route);
+        self::assertTrue($compiledRoute->getDefault(PaywallExempt::ROUTE_DEFAULT), $route);
     }
 
     /**

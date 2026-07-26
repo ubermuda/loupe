@@ -6,6 +6,7 @@ namespace App\Module\Billing\EventListener;
 
 use App\Module\Account\Entity\User;
 use App\Module\Billing\Service\PaywallGate;
+use App\Routing\PaywallExempt;
 use Symfony\Component\EventDispatcher\Attribute\AsEventListener;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\RedirectResponse;
@@ -62,7 +63,7 @@ final readonly class RequireSubscriptionListener
             // the exemption travels with the route: it cannot silently stop
             // protecting a route that gets renamed.
             if (!is_string($route)
-                || true === $request->attributes->get('_paywallExempt')
+                || true === $request->attributes->get(PaywallExempt::ROUTE_DEFAULT)
                 || str_starts_with($route, self::ADMIN_ROUTE_PREFIX)
                 || str_starts_with($route, self::FEATURE_FLAGS_ROUTE_PREFIX)) {
                 return;

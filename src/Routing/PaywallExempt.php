@@ -18,4 +18,9 @@ namespace App\Routing;
 #[\Attribute(\Attribute::TARGET_CLASS | \Attribute::TARGET_METHOD)]
 final class PaywallExempt
 {
+    /**
+     * Route default carrying the exemption. Shared by the loader that sets it,
+     * the listener that reads it, and the tests that assert on it.
+     */
+    public const string ROUTE_DEFAULT = '_paywallExempt';
 }

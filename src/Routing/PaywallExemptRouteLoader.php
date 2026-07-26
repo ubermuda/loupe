@@ -25,7 +25,7 @@ final class PaywallExemptRouteLoader extends AttributeRouteControllerLoader
         parent::configureRoute($route, $class, $method, $attr);
 
         if ([] !== $class->getAttributes(PaywallExempt::class) || [] !== $method->getAttributes(PaywallExempt::class)) {
-            $route->setDefault('_paywallExempt', true);
+            $route->setDefault(PaywallExempt::ROUTE_DEFAULT, true);
         }
     }
 }
