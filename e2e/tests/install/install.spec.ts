@@ -19,10 +19,18 @@ test('first-install wizard creates an unverified admin who is gated until they f
     const reset = await request.post('/dev/e2e/reset');
     expect(reset.status(), 'DB reset failed').toBe(200);
 
-    // Flags page: defaults are prefilled; bump the cap so we can see it stick.
+    // Flags page: defaults are prefilled. Leave registrationCap at its default
+    // (0 = unlimited) rather than setting a real limit — this spec runs in the
+    // `install-reset` project, which always runs last, so any nonzero cap it
+    // leaves behind becomes the *next* full-suite run's starting state and
+    // silently closes registration for every other spec once enough users
+    // exist. Int-value propagation through the form is already covered by
+    // SeedInstallFlagsHandlerTest at the PHP level.
     await page.goto('/install');
     await expect(page.getByLabel('Trial length (days)')).toHaveValue('14');
-    await page.getByLabel('Registration cap (0 = unlimited)').fill('25');
+    await expect(
+        page.getByLabel('Registration cap (0 = unlimited)'),
+    ).toHaveValue('0');
     await page.getByRole('button', { name: 'Continue' }).click();
 
     // Admin-account page.
@@ -63,11 +71,17 @@ test('first-install wizard creates an unverified admin who is gated until they f
     );
     await page.goto(verificationUrl);
     await page.goto('/admin/feature-flags');
-    // Scoped to the list row, not getByText: the page also has a (hidden)
-    // delete-confirmation dialog whose title repeats the flag name, which
-    // trips Playwright's strict-mode duplicate-match check.
+    // Scoped to the list row, not a bare getByText: the page also has a
+    // (hidden) delete-confirmation dialog whose title repeats the flag name,
+    // which trips Playwright's strict-mode duplicate-match check. Asserting
+    // the value cell shows "0" proves the seeded value flowed through the
+    // whole pipeline without ever setting a registration-limiting number.
+    const registrationCapRow = page.getByRole('row', {
+        name: /registration\.cap/,
+    });
+    await expect(registrationCapRow).toBeVisible();
     await expect(
-        page.getByRole('cell', { name: 'registration.cap' }),
+        registrationCapRow.getByText('0', { exact: true }),
     ).toBeVisible();
 
     // The wizard is closed forever.
