@@ -27,7 +27,7 @@
                 <form method="post" action="{{ path('app_admin_waitlist_invite_oldest') }}" class="flex items-center gap-2">
                     <input type="hidden" name="_csrf_token" value="{{ csrf_token('admin-waitlist-invite') }}">
                     <label class="text-sm text-fg-mute" for="waitlist-invite-oldest-count">{{ 'account.admin.waitlist.invite_oldest_label'|trans }}</label>
-                    <input type="number" id="waitlist-invite-oldest-count" name="count" value="10" min="1" max="100" class="admin-field-input !w-20">
+                    <input type="number" id="waitlist-invite-oldest-count" name="invite_oldest_waitlist_form[count]" value="10" min="1" max="100" class="admin-field-input !w-20">
                     <button type="submit" class="admin-button-secondary admin-button-small">{{ 'account.admin.waitlist.invite_oldest'|trans }}</button>
                 </form>
                 <button type="submit" form="invite-selected-form" class="admin-button admin-button-small">{{ 'account.admin.waitlist.invite_selected'|trans }}</button>

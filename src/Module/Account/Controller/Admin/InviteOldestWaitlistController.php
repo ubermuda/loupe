@@ -7,6 +7,8 @@ namespace App\Module\Account\Controller\Admin;
 use App\Controller\AppController;
 use App\Module\Account\Command\Admin\InviteOldestWaitlistCommand;
 use App\Module\Account\Command\Admin\InviteOldestWaitlistHandler;
+use App\Module\Account\Form\InviteOldestWaitlistFormType;
+use App\Module\Account\Form\InviteOldestWaitlistRequest;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
@@ -31,7 +33,17 @@ final class InviteOldestWaitlistController extends AppController
 
     public function __invoke(Request $request): Response
     {
-        $result = ($this->inviteOldest)(new InviteOldestWaitlistCommand($request->request->getInt('count')));
+        $data = new InviteOldestWaitlistRequest();
+        $form = $this->createForm(InviteOldestWaitlistFormType::class, $data);
+        $form->handleRequest($request);
+
+        if (!$form->isSubmitted() || !$form->isValid()) {
+            $this->addFlash('error', $this->translator->trans('account.admin.waitlist.invite_oldest_invalid'));
+
+            return $this->redirectToRoute('app_admin_waitlist_list');
+        }
+
+        $result = ($this->inviteOldest)(new InviteOldestWaitlistCommand($data->count ?? 10));
 
         $this->addFlash('success', $this->translator->trans(
             'account.admin.waitlist.invited_flash',

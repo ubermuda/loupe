@@ -5,12 +5,14 @@ declare(strict_types=1);
 namespace App\Module\Review\Controller;
 
 use App\Controller\AppController;
+use App\Exception\DomainErrors;
 use App\Module\Account\Entity\User;
 use App\Module\Project\Entity\Project;
 use App\Module\Review\Command\SubmitReviewCommand;
 use App\Module\Review\Command\SubmitReviewHandler;
 use App\Module\Review\Entity\Document;
-use App\Module\Review\Entity\Verdict;
+use App\Module\Review\Form\SubmitReviewFormType;
+use App\Module\Review\Form\SubmitReviewRequest;
 use App\Module\Review\Security\DocumentVoter;
 use Psr\Log\LoggerInterface;
 use Symfony\Bridge\Doctrine\Attribute\MapEntity;
@@ -42,10 +44,12 @@ final class SubmitReviewController extends AppController
         #[MapEntity(mapping: ['projectId' => 'id'])] Project $project,
         #[MapEntity(expr: 'repository.findOneByIdAndProjectId(documentId, projectId)')] Document $document,
     ): Response {
-        $verdict = Verdict::tryFrom($request->request->getString('verdict'));
+        $data = new SubmitReviewRequest();
+        $form = $this->createForm(SubmitReviewFormType::class, $data);
+        $form->handleRequest($request);
 
-        if (null === $verdict) {
-            $this->addFlash('danger', $this->translator->trans('review.document.flash.verdict_invalid'));
+        if (!$form->isSubmitted() || !$form->isValid()) {
+            $this->addFlash('error', $this->translator->trans('review.document.flash.verdict_invalid'));
 
             return $this->redirectToRoute('app_document_review', [
                 'projectId' => (string) $project->id,
@@ -56,17 +60,28 @@ final class SubmitReviewController extends AppController
         $user = $this->getUser();
         assert($user instanceof User);
 
-        ($this->submitReviewHandler)(new SubmitReviewCommand(
-            reviewer: $user,
-            document: $document,
-            verdict: $verdict,
-        ));
+        try {
+            $review = ($this->submitReviewHandler)(new SubmitReviewCommand(
+                reviewer: $user,
+                document: $document,
+                verdict: $data->verdict ?: throw new \LogicException('verdict required after validation'),
+            ));
+        } catch (DomainErrors $e) {
+            foreach ($e->errors as $translationKey) {
+                $this->addFlash('error', $this->translator->trans($translationKey));
+            }
+
+            return $this->redirectToRoute('app_document_review', [
+                'projectId' => (string) $project->id,
+                'documentId' => (string) $document->id,
+            ]);
+        }
 
         $this->addFlash('success', $this->translator->trans('review.document.flash.verdict_submitted'));
 
         $this->logger->info('review.document.verdict_submitted', [
             'documentId' => (string) $document->id,
-            'verdict' => $verdict->value,
+            'verdict' => $review->verdict->value,
             'reviewerId' => (string) $user->id,
         ]);
 
