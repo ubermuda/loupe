@@ -90,4 +90,5 @@ final class InviteWaitlistEntriesHandlerTest extends KernelTestCase
 
         self::assertSame(0, $result->invited);
         self::assertSame(1, $result->skipped);
-    }}
+    }
+}
