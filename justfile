@@ -177,8 +177,10 @@ tailwind:
 tunnel:
     #!/usr/bin/env bash
     set -euo pipefail
-    host="${TUNNEL_HOST:-$(grep -E '^TUNNEL_HOST=' .env | cut -d= -f2- || true)}"
-    [ -n "$host" ] || { echo "TUNNEL_HOST is not set (shell env or .env)"; exit 1; }
+    # .env only — the traefik router's host is fixed at compose-up from the
+    # same variable, so a per-invocation shell override would tunnel to a 404.
+    host="$(grep -E '^TUNNEL_HOST=' .env | cut -d= -f2- || true)"
+    [ -n "$host" ] || { echo "TUNNEL_HOST is not set in .env"; exit 1; }
     ngrok http https://localhost --url "https://$host"
 
 # Vet + test the Go CLI (cli/) in a throwaway Go container — no host Go needed.
