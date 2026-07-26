@@ -60,6 +60,12 @@ test.describe('registration cap and waitlist', () => {
         browser,
         request,
     }) => {
+        // This spec drives three separate admin invite flows plus guest
+        // registration and polls the admin list to reach a stable status
+        // after each — the default 30s timeout is occasionally too tight
+        // under load.
+        test.setTimeout(120_000);
+
         const perEntryEmail = `e2e-waitlist-perentry-${RUN}@example.com`;
         const selectedEmail = `e2e-waitlist-selected-${RUN}@example.com`;
         const oldestEmail = `e2e-waitlist-oldest-${RUN}@example.com`;
