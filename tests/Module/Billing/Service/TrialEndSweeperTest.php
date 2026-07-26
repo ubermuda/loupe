@@ -65,6 +65,24 @@ final class TrialEndSweeperTest extends KernelTestCase
         self::assertSame('churnone@example.com', $email->getTo()[0]->getAddress());
     }
 
+    public function test_expired_trial_of_an_already_disabled_user_counts_no_disable(): void
+    {
+        // An admin may have disabled the account before the trial ran out. The
+        // survey still counts as processed, but the disabled count reports
+        // only rows the sweep actually disabled.
+        $disabledAt = $this->now->modify('-3 days');
+        $profile = $this->seedProfile('predisabled', BillingStatus::Trialing);
+        $profile->user->disabledAt = $disabledAt;
+        $this->em()->flush();
+
+        $result = $this->sweeper()->sweep($this->now);
+
+        self::assertEquals(new TrialSweepResult(churnedSurveys: 1), $result);
+        self::assertEquals($disabledAt, $profile->user->disabledAt);
+        self::assertEquals($this->now, $profile->surveySentAt);
+        self::assertCount(1, $this->mailer->sent);
+    }
+
     public function test_a_second_sweep_is_a_complete_no_op(): void
     {
         $this->seedProfile('churntwo', BillingStatus::Trialing);

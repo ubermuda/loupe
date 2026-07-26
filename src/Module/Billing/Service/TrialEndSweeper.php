@@ -36,6 +36,8 @@ final readonly class TrialEndSweeper
         // No paywall, no trial semantics: with billing dark nothing may be
         // disabled or surveyed, whatever the timestamps say.
         if (!$this->featureFlags->isEnabled('billing.enabled')) {
+            $this->logger->info('billing.trial_sweep.skipped_billing_disabled');
+
             return new TrialSweepResult();
         }
 
@@ -43,10 +45,9 @@ final readonly class TrialEndSweeper
 
         foreach ($this->billingProfiles->findExpiredTrials($now) as $profile) {
             try {
-                if ($this->endExpiredTrial($profile, $now)) {
-                    ++$disabled;
-                    ++$churned;
-                }
+                [$disabledNow, $churnedNow] = $this->endExpiredTrial($profile, $now);
+                $disabled += $disabledNow;
+                $churned += $churnedNow;
             } catch (\Throwable $e) {
                 ++$failed;
                 $this->logFailure($profile, $e);
@@ -66,9 +67,9 @@ final readonly class TrialEndSweeper
 
         foreach ($this->billingProfiles->findCanceledPastPeriod($now) as $profile) {
             try {
-                [$d, $s] = $this->settleCanceled($profile, $now);
-                $disabled += $d;
-                $cancel += $s;
+                [$disabledNow, $surveyNow] = $this->settleCanceled($profile, $now);
+                $disabled += $disabledNow;
+                $cancel += $surveyNow;
             } catch (\Throwable $e) {
                 ++$failed;
                 $this->logFailure($profile, $e);
@@ -78,40 +79,47 @@ final readonly class TrialEndSweeper
         return new TrialSweepResult($disabled, $churned, $subscriber, $cancel, $failed);
     }
 
-    private function endExpiredTrial(BillingProfile $profile, \DateTimeImmutable $now): bool
+    /** @return array{int, int} [newly disabled, churned surveys marked] */
+    private function endExpiredTrial(BillingProfile $profile, \DateTimeImmutable $now): array
     {
         // DBAL-level transaction, not EntityManager::wrapInTransaction(): a
         // failure there closes the shared EntityManager and would abort every
         // remaining row of the batch.
-        $acted = $this->em->getConnection()->transactional(function () use ($profile, $now): bool {
+        [$disabledNow, $churnedNow] = $this->em->getConnection()->transactional(function () use ($profile, $now): array {
             $this->em->lock($profile, LockMode::PESSIMISTIC_WRITE);
             $this->em->refresh($profile);
 
             // Re-check under the lock: the Stripe webhook may have activated
             // this subscription between the candidate query and here.
             if (BillingStatus::Trialing !== $profile->status || $now < $profile->trialEndsAt || null !== $profile->surveySentAt) {
-                return false;
+                $this->logger->debug('billing.trial_sweep.skipped_after_lock', ['userId' => (string) $profile->user->id, 'pass' => 'expired_trials']);
+
+                return [0, 0];
             }
 
+            $disabledNow = 0;
             if (null === $profile->user->disabledAt) {
                 $profile->user->disabledAt = $now;
+                $disabledNow = 1;
             }
             $profile->surveySentAt = $now;
             $this->em->flush();
 
-            return true;
+            return [$disabledNow, 1];
         });
 
-        if (!$acted) {
-            return false;
+        if (0 === $churnedNow) {
+            return [0, 0];
         }
 
-        $this->logger->info('billing.trial_sweep.disabled', ['userId' => (string) $profile->user->id, 'reason' => 'trial_expired']);
+        if (1 === $disabledNow) {
+            $this->logger->info('billing.trial_sweep.disabled', ['userId' => (string) $profile->user->id, 'reason' => 'trial_expired']);
+        }
         if ($this->trialSurveys->send($profile->user, subscribed: false)) {
             $this->logger->info('billing.trial_sweep.survey_sent', ['userId' => (string) $profile->user->id, 'variant' => 'churned']);
         }
 
-        return true;
+        return [$disabledNow, $churnedNow];
     }
 
     private function surveySubscriber(BillingProfile $profile, \DateTimeImmutable $now): bool
@@ -123,6 +131,8 @@ final readonly class TrialEndSweeper
             if (!in_array($profile->status, [BillingStatus::Active, BillingStatus::PastDue], true)
                 || $now < $profile->trialEndsAt
                 || null !== $profile->surveySentAt) {
+                $this->logger->debug('billing.trial_sweep.skipped_after_lock', ['userId' => (string) $profile->user->id, 'pass' => 'trial_ended_subscribers']);
+
                 return false;
             }
 
@@ -152,6 +162,8 @@ final readonly class TrialEndSweeper
 
             if (BillingStatus::Canceled !== $profile->status
                 || (null !== $profile->currentPeriodEnd && $now < $profile->currentPeriodEnd)) {
+                $this->logger->debug('billing.trial_sweep.skipped_after_lock', ['userId' => (string) $profile->user->id, 'pass' => 'canceled_past_period']);
+
                 return [0, 0];
             }
 
@@ -188,6 +200,7 @@ final readonly class TrialEndSweeper
     {
         $this->logger->error('billing.trial_sweep.row_failed', [
             'profileId' => (string) $profile->id,
+            'userId' => (string) $profile->user->id,
             'error' => $e->getMessage(),
         ]);
     }
