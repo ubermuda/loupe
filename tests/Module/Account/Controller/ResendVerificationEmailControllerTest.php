@@ -35,7 +35,7 @@ final class ResendVerificationEmailControllerTest extends WebTestCase
         $client->submitForm('Resend verification email');
 
         $this->assertResponseRedirects('/register/check-email');
-        $this->assertEmailCount(1);
+        $this->assertQueuedEmailCount(1);
         $email = $this->getMailerMessage();
         $this->assertNotNull($email);
         $this->assertEmailAddressContains($email, 'To', 'resend@example.com');

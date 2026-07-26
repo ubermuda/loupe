@@ -141,7 +141,7 @@ To run a single e2e spec: `just e2e tests/<area>/<spec>.spec.ts`
 
 ## Email
 
-Email is sent synchronously everywhere (`message_bus: false` in `mailer.yaml`) — no queue worker needed. Sender parameters, per-email-type sender services, and the async re-enable steps are documented in `project-backend` ("Email").
+Email is delivered asynchronously by the messenger worker: `MailerInterface::send()` enqueues a `SendEmailMessage` on the `async` transport, and `messenger:consume async` (the dev `worker` compose service, a dedicated worker in production) performs the delivery. Failed deliveries retry 3 times, then land in the `failed` transport. Sender parameters and per-email-type sender services are documented in `project-backend` ("Email").
 
 ## Architecture
 
