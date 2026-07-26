@@ -38,11 +38,24 @@ final readonly class AddCommentHandler
             // the entity_manager service is lazy, so this reinitializes the same injected
             // instance in place rather than swapping it for a new one — and reattach the
             // comment to the winner's row instead of 500ing and losing the visitor's input.
-            // inProgressReviewOrNew() falls back to starting a fresh review if the winner's
-            // row is already gone by the time we retry (e.g. submitted in between) — the
-            // same "no review yet" case handled above, not a second error path.
             $this->registry->resetManager();
-            $review = $this->inProgressReviewOrNew($command->project);
+            $review = $this->siteReviews->findOneInProgress($command->project);
+            if (null === $review) {
+                // The winner's row is already gone by the time we retry (e.g. it was
+                // submitted in between) — the same "no review yet" case handled above,
+                // not a second error path. resetManager() detached every entity the old
+                // EM knew about, including $command->project, so constructing
+                // `new SiteReview($command->project)` here would hand the new EM's
+                // UnitOfWork a Project it has never seen; this relation has no
+                // cascade=persist, so flush() would throw trying to persist a "new"
+                // entity through it. Resolve a managed reference by id instead of
+                // reusing the stale object.
+                $projectId = $command->project->id ?? throw new \LogicException('a comment\'s project must already be persisted');
+                /** @var Project $project */
+                $project = $this->em->getReference(Project::class, $projectId);
+                $review = new SiteReview($project);
+                $this->em->persist($review);
+            }
             $comment = $review->addComment($command->body, $command->selector, $command->text, $command->url);
             $this->em->flush();
         }
