@@ -185,13 +185,13 @@ tunnel:
 
 # Vet + test the Go CLI (cli/) in a throwaway Go container — no host Go needed.
 cli-test:
-    docker run --rm -v "{{justfile_directory()}}/cli":/cli -w /cli -e GOTOOLCHAIN=local golang:1.23-alpine sh -c 'go vet ./... && go test ./...'
+    docker run --rm -v "{{justfile_directory()}}/cli":/cli -w /cli -e GOTOOLCHAIN=local golang:1.26-alpine sh -c 'go vet ./... && go test ./...'
 
 # Defaults to the dev's mac; override e.g. `just cli-build linux amd64`. A full
 # release matrix is goreleaser's job (see NEXT_STEPS).
 # Cross-compile a static CLI binary into cli/dist/.
 cli-build goos="darwin" goarch="arm64":
-    docker run --rm -v "{{justfile_directory()}}/cli":/cli -w /cli -e GOTOOLCHAIN=local -e CGO_ENABLED=0 -e GOOS={{goos}} -e GOARCH={{goarch}} golang:1.23-alpine sh -c 'go build -o dist/loupe-{{goos}}-{{goarch}} .'
+    docker run --rm -v "{{justfile_directory()}}/cli":/cli -w /cli -e GOTOOLCHAIN=local -e CGO_ENABLED=0 -e GOOS={{goos}} -e GOARCH={{goarch}} golang:1.26-alpine sh -c 'go build -o dist/loupe-{{goos}}-{{goarch}} .'
 
 # --- Production deploy (DigitalOcean App Platform) ---
 # Infra lives in terraform/; App Platform pulls {{prod_image}}.
