@@ -31,6 +31,7 @@ final readonly class ApiTokenExporter implements UserDataExporterInterface
                 'scope' => $token->scope->value,
                 'createdAt' => $token->createdAt->format(\DateTimeInterface::ATOM),
                 'lastUsedAt' => $token->lastUsedAt?->format(\DateTimeInterface::ATOM),
+                'revokedAt' => $token->revokedAt?->format(\DateTimeInterface::ATOM),
             ];
         }
 

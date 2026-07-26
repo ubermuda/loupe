@@ -41,6 +41,14 @@ class ApiToken
     #[ORM\Column(nullable: true)]
     public ?\DateTimeImmutable $lastUsedAt = null;
 
+    /**
+     * Set when the owner revokes this token. The row is kept (not deleted) so the
+     * revocation log entry keeps resolving to a real token — a revoked token must
+     * simply never authenticate again (see ApiTokenRepository::findOneByRawToken).
+     */
+    #[ORM\Column(nullable: true)]
+    public ?\DateTimeImmutable $revokedAt = null;
+
     /** @return array{0: self, 1: non-empty-string} */
     public static function issue(User $owner, string $label, ApiTokenScope $scope): array
     {
@@ -57,5 +65,10 @@ class ApiToken
     public function markUsed(): void
     {
         $this->lastUsedAt = new \DateTimeImmutable();
+    }
+
+    public function revoke(): void
+    {
+        $this->revokedAt = new \DateTimeImmutable();
     }
 }
