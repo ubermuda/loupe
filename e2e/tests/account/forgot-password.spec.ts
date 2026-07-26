@@ -5,7 +5,7 @@ import {
     type APIRequestContext,
 } from '@playwright/test';
 import {
-    getLatestEmailTo,
+    getEmailWithSubject,
     extractLink,
     logout,
     registerAndVerify,
@@ -58,9 +58,14 @@ test('valid reset token allows password change', async ({ page, request }) => {
     await page.getByRole('button', { name: /reset/i }).click();
     await expect(page).toHaveURL('/forgot-password/check-email');
 
-    // Get reset link from email
-    const received = await getLatestEmailTo(request, email);
-    expect(received.subject).toBe('Reset your password');
+    // Get reset link from email. Wait for the reset SUBJECT specifically:
+    // email is delivered asynchronously, so "whatever is newest" at the first
+    // poll can still be this test's own verification email.
+    const received = await getEmailWithSubject(
+        request,
+        email,
+        'Reset your password',
+    );
     const resetLink = extractLink(
         received.body,
         /https?:\/\/[^\s"<]+\/forgot-password\/reset\/[^\s"<]*/,
@@ -111,7 +116,12 @@ test('used (already-consumed) token redirects to forgot-password with error', as
     await page.getByRole('button', { name: /reset/i }).click();
     await expect(page).toHaveURL('/forgot-password/check-email');
 
-    const received = await getLatestEmailTo(request, email);
+    // Subject-matched for the same async-delivery reason as above.
+    const received = await getEmailWithSubject(
+        request,
+        email,
+        'Reset your password',
+    );
     const resetLink = extractLink(
         received.body,
         /https?:\/\/[^\s"<]+\/forgot-password\/reset\/[^\s"<]*/,

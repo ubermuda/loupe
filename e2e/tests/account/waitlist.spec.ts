@@ -15,12 +15,7 @@
 
 import { expect, type Page } from '@playwright/test';
 import { createTest } from '../fixtures';
-import {
-    type Credentials,
-    extractLink,
-    getEmailWithSubject,
-    getLatestEmailTo,
-} from '../helpers';
+import { type Credentials, extractLink, getEmailWithSubject } from '../helpers';
 
 // Matches ADMIN_EMAIL in compose.yaml (see admin-smoke.spec.ts) — the login
 // this fixture performs is what PromoteAdminUserListener keys on to grant
@@ -237,7 +232,13 @@ test.describe('registration cap and waitlist', () => {
             await guest.getByRole('button', { name: 'Create account' }).click();
             await expect(guest).toHaveURL('/register/check-email');
 
-            const verification = await getLatestEmailTo(request, perEntryEmail);
+            // Subject-matched: email is async, so the newest message for this
+            // address can still be the invite email at the first poll.
+            const verification = await getEmailWithSubject(
+                request,
+                perEntryEmail,
+                'Confirm your account',
+            );
             const verifyUrl = extractLink(
                 verification.body,
                 /https?:\/\/[^\s"<]+\/register\/verify[^\s"<]*/,

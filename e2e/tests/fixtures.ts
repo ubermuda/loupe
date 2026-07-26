@@ -1,7 +1,14 @@
 import { test as base, expect, BrowserContext } from '@playwright/test';
 import { request as playwrightRequest } from '@playwright/test';
 import { Page } from '@playwright/test';
-import { Credentials, registerAndVerify } from './helpers';
+import {
+    Credentials,
+    extractLink,
+    getEmailWithSubject,
+    latestEmailIdWithSubject,
+    registerAndVerify,
+    VERIFICATION_SUBJECT,
+} from './helpers';
 
 /**
  * Hides the Symfony Debug Toolbar by injecting a `display:none` style.
@@ -76,6 +83,43 @@ export function createTest(credentials: Credentials) {
                     const requestContext = await playwrightRequest.newContext();
                     await registerAndVerify(page, requestContext, credentials);
                     await requestContext.dispose();
+                } else if (page.url().includes('/register/check-email')) {
+                    // The account exists but was never verified — a previous
+                    // run crashed between registering and following the
+                    // verification link (email is delivered asynchronously,
+                    // so an interrupted run wedges the user in this state
+                    // forever). Self-heal: resend the verification email,
+                    // follow the FRESH link (the inbox may hold stale ones
+                    // from other runs/worktrees), and finish the wizard.
+                    const requestContext = await playwrightRequest.newContext();
+                    const previous = await latestEmailIdWithSubject(
+                        requestContext,
+                        credentials.email,
+                        VERIFICATION_SUBJECT,
+                    );
+                    await page
+                        .getByRole('button', {
+                            name: 'Resend verification email',
+                        })
+                        .click();
+                    const received = await getEmailWithSubject(
+                        requestContext,
+                        credentials.email,
+                        VERIFICATION_SUBJECT,
+                        30000,
+                        previous,
+                    );
+                    await requestContext.dispose();
+                    const link = extractLink(
+                        received.body,
+                        /https?:\/\/[^\s"<]+\/register\/verify[^\s"<]*/,
+                    );
+                    await page.goto(link);
+                    if (page.url().includes('/welcome')) {
+                        await page
+                            .getByRole('button', { name: 'Skip setup' })
+                            .click();
+                    }
                 }
 
                 // Wait for the session to be established before snapshotting

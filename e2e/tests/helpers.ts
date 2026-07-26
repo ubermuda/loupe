@@ -3,6 +3,9 @@ import { APIRequestContext, expect, Page } from '@playwright/test';
 const mailpitUrl =
     process.env['MAILPIT_URL'] ?? 'https://mailpit.loupe.dev.localhost';
 
+/** Subject of the registration verification email. */
+export const VERIFICATION_SUBJECT = 'Confirm your account';
+
 export async function fetchVerificationUrl(
     request: APIRequestContext,
     email: string,
@@ -230,6 +233,17 @@ export async function registerFreshUser(
     request: APIRequestContext,
     credentials: Credentials,
 ): Promise<void> {
+    // Email is delivered asynchronously (messenger worker) and Mailpit is
+    // shared across worktrees and never cleared, so "the newest message for
+    // this address" can be a STALE verification email from a previous run —
+    // with another worktree's host in its link. Mark the inbox before
+    // registering and wait for a message that arrived after the mark.
+    const previousVerification = await latestEmailIdWithSubject(
+        request,
+        credentials.email,
+        VERIFICATION_SUBJECT,
+    );
+
     await page.goto('/register');
     await page.getByLabel('Full name').fill(credentials.name ?? 'E2E User');
     await page
@@ -241,7 +255,13 @@ export async function registerFreshUser(
     await page.getByRole('button', { name: 'Create account' }).click();
     await expect(page).toHaveURL('/register/check-email');
 
-    const received = await getLatestEmailTo(request, credentials.email);
+    const received = await getEmailWithSubject(
+        request,
+        credentials.email,
+        VERIFICATION_SUBJECT,
+        30000,
+        previousVerification,
+    );
     const link = extractLink(
         received.body,
         /https?:\/\/[^\s"<]+\/register\/verify[^\s"<]*/,
