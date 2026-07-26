@@ -947,6 +947,10 @@
                 <source>comment.error.not_owner</source>
                 <target>You can only comment on your own documents.</target>
             </trans-unit>
+            <trans-unit id="comment.error.reply_to_reply">
+                <source>comment.error.reply_to_reply</source>
+                <target>Replies can only be added to the top-level comment.</target>
+            </trans-unit>
 
             <!-- Document review flash messages -->
             <trans-unit id="review.document.flash.verdict_submitted">
