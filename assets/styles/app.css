@@ -174,9 +174,7 @@
     }
 
     body {
-        @apply font-sans antialiased text-fg bg-app;
-        font-size: 0.84375rem;
-        letter-spacing: -0.005em;
+        @apply font-sans antialiased text-fg bg-app text-sm tracking-normal;
     }
 
     button {
@@ -218,12 +216,10 @@
 
     /* Avatar — default is the indigo accent-soft initial (account, agent). */
     .avatar {
-        @apply w-5 h-5 rounded-full bg-accent-soft text-accent-hover inline-flex items-center justify-center shrink-0 font-semibold;
-        font-size: 0.625rem;
+        @apply w-5 h-5 rounded-full bg-accent-soft text-accent-hover inline-flex items-center justify-center shrink-0 font-semibold text-xs;
     }
     .avatar.sm {
-        @apply w-4 h-4;
-        font-size: 0.5625rem;
+        @apply w-4 h-4 text-xs;
     }
     .avatar.lg {
         @apply w-7 h-7 text-xs;
@@ -239,17 +235,14 @@
 
     /* Keyboard shortcut chip */
     .kbd {
-        @apply inline-flex items-center justify-center h-4 px-1 border border-line-strong rounded font-mono text-fg-mute bg-surface-2;
-        min-width: 1rem;
-        border-bottom-width: 0.09375rem;
-        font-size: 0.625rem;
+        @apply inline-flex items-center justify-center h-4 px-1 border border-line-strong rounded font-mono text-fg-mute bg-surface-2 min-w-4 border-b-2 text-xs;
     }
 
     .auth-error {
         @apply flex items-start gap-2 px-3 py-2.5 border border-red-300 bg-red-50 text-red-700 rounded-md text-sm leading-snug;
     }
     .auth-error svg {
-        margin-top: 3px;
+        @apply mt-1;
     }
 
     /* Success / informational alert on auth pages (e.g. resend confirmation) */
@@ -257,7 +250,7 @@
         @apply flex items-start gap-2 px-3 py-2.5 border border-green-300 bg-green-50 text-green-700 rounded-md text-sm leading-snug;
     }
     .auth-notice svg {
-        margin-top: 3px;
+        @apply mt-1;
     }
 
     .auth-divider {
@@ -294,7 +287,7 @@
         background-image:
             linear-gradient(to right, var(--border) 1px, transparent 1px),
             linear-gradient(to bottom, var(--border) 1px, transparent 1px);
-        background-size: 3.5rem 3.5rem;
+        background-size: calc(var(--spacing) * 14) calc(var(--spacing) * 14);
         mask-image: radial-gradient(
             ellipse 60% 50% at 50% 35%,
             #000 30%,
@@ -455,20 +448,16 @@
        connector bars. State (completed / current / upcoming) is derived in the
        LoopRibbon component from the step ordinal vs. the current stage; the
        filled track (accent-border bars + accent-soft circles) runs up to and
-       including the current step. 22px/2px are off-scale sizes → plain CSS. */
+       including the current step. Sizes are expressed on the spacing scale
+       (w-5.5, h-0.5) via @apply. */
     .lp-ribbon {
-        @apply flex items-center;
-        gap: 0.625rem;
+        @apply flex items-center gap-2.5;
     }
     .lp-ribbon__step {
-        @apply inline-flex items-center;
-        gap: 0.5rem;
+        @apply inline-flex items-center gap-2;
     }
     .lp-ribbon__circle {
-        @apply inline-flex items-center justify-center shrink-0 rounded-full border font-mono font-medium;
-        width: 1.375rem;
-        height: 1.375rem;
-        font-size: 0.6875rem;
+        @apply inline-flex items-center justify-center shrink-0 rounded-full border font-mono font-medium w-5.5 h-5.5 text-xs;
     }
     .lp-ribbon__circle--current {
         @apply bg-accent text-white border-accent;
@@ -480,7 +469,7 @@
         @apply bg-elev text-fg-faint border-line-strong;
     }
     .lp-ribbon__label {
-        font-size: 0.8125rem;
+        @apply text-sm;
         line-height: 1;
     }
     .lp-ribbon__label--current {
@@ -493,9 +482,7 @@
         @apply text-fg-dim;
     }
     .lp-ribbon__bar {
-        @apply shrink-0 rounded-full;
-        width: 1.75rem;
-        height: 2px;
+        @apply shrink-0 rounded-full w-7 h-0.5;
     }
     /* Bars leading into a completed or current step are filled (accent-border);
        only bars leading into an upcoming step stay the light hairline. */
@@ -547,30 +534,25 @@
 
     /* Left-aligned page (handoff §1): margin 0, ~900px, padding 40px 44px. */
     .lp-workspace {
-        @apply max-w-full;
-        max-width: 900px;
-        padding: 40px 44px;
+        @apply max-w-225 py-10 px-11;
     }
     .lp-eyebrow {
-        @apply font-mono uppercase text-fg-dim m-0;
-        font-size: 10.5px;
-        letter-spacing: 0.08em;
+        @apply font-mono uppercase text-fg-dim m-0 text-xs tracking-widest;
     }
     .lp-workspace-title {
-        @apply font-semibold text-ink m-0 mt-2;
-        font-size: 26px;
-        letter-spacing: -0.01em;
+        @apply font-semibold text-ink m-0 mt-2 text-2xl tracking-normal;
     }
-    /* Documents/Connect page H1: 24px/600, no letter-spacing (handoff type
-       scale) — smaller than the 26px Projects index title. Defined after the
-       base so it wins on the overridden properties. */
+    /* Documents/Connect page H1. Was a distinct 24px vs. the base class's 26px;
+       both now round to the same text-2xl/tracking-normal step on the Tailwind
+       scale, so this modifier no longer changes anything the base class doesn't
+       already set. Kept as a separate class rather than merged into the base,
+       since templates still apply it and it documents which screens use this
+       heading tier. */
     .lp-workspace-title--doc {
-        font-size: 24px;
-        letter-spacing: normal;
+        @apply text-2xl tracking-normal;
     }
     .lp-workspace-desc {
-        @apply text-fg-mute m-0 mt-2 mb-6;
-        font-size: 14px;
+        @apply text-fg-mute m-0 mt-2 mb-6 text-sm;
         line-height: 1.55;
     }
 
@@ -580,8 +562,7 @@
         @apply flex flex-col border-t border-line;
     }
     .lp-project-row {
-        @apply relative flex items-center gap-3.5 border-b border-line transition-colors;
-        padding: 18px 6px;
+        @apply relative flex items-center gap-3.5 border-b border-line transition-colors py-4.5 px-1.5;
     }
     .lp-project-row:hover {
         @apply bg-tint;
@@ -592,10 +573,7 @@
         @apply absolute inset-0;
     }
     .lp-project-row__avatar {
-        @apply shrink-0;
-        width: 38px;
-        height: 38px;
-        font-size: 15px;
+        @apply shrink-0 w-9.5 h-9.5 text-base;
     }
     .lp-project-row__main {
         @apply min-w-0 flex-1 flex flex-col gap-1;
@@ -605,17 +583,14 @@
         @apply flex items-baseline gap-2 min-w-0;
     }
     .lp-project-row__name {
-        @apply font-semibold text-ink shrink-0;
-        font-size: 15px;
+        @apply font-semibold text-ink shrink-0 text-base;
     }
     .lp-project-row__domain {
-        @apply font-mono text-fg-dim truncate;
-        font-size: 11px;
+        @apply font-mono text-fg-dim truncate text-xs;
     }
     /* Line 2: the mono rollup, beneath the name. */
     .lp-project-row__meta {
-        @apply flex items-center gap-1.5 font-mono text-fg-dim;
-        font-size: 12.5px;
+        @apply flex items-center gap-1.5 font-mono text-fg-dim text-xs;
     }
     .lp-project-row__sep {
         @apply text-fg-dim;
@@ -640,8 +615,7 @@
        create form. Collapsed by default; the disclosure controller toggles
        .open on the panel (and .disclosure-open on the wrapper). */
     .lp-project-new {
-        @apply flex flex-col;
-        padding-top: 18px;
+        @apply flex flex-col pt-4.5;
     }
     .lp-project-new__toggle {
         @apply inline-flex items-center gap-3.5 bg-transparent border-0 p-0 cursor-pointer text-fg-dim transition-colors;
@@ -650,9 +624,7 @@
         @apply text-fg;
     }
     .lp-project-new__plus {
-        @apply inline-flex items-center justify-center shrink-0 rounded-md border border-dashed border-line-strong text-fg-dim transition-colors;
-        width: 38px;
-        height: 38px;
+        @apply inline-flex items-center justify-center shrink-0 rounded-md border border-dashed border-line-strong text-fg-dim transition-colors w-9.5 h-9.5;
     }
     .lp-project-new__plus svg {
         @apply w-4 h-4;
@@ -662,7 +634,7 @@
         @apply text-fg;
     }
     .lp-project-new__label {
-        font-size: 15px;
+        @apply text-base;
     }
     /* Collapsed → revealed. Kept out of the normal flow height until open. */
     .lp-project-new__panel {
@@ -676,8 +648,7 @@
 
     /* Mono, 12px, dim. `{project} / Documents` above the page title. */
     .lp-crumbs {
-        @apply flex items-center gap-2 font-mono text-fg-dim m-0;
-        font-size: 12px;
+        @apply flex items-center gap-2 font-mono text-fg-dim m-0 text-xs;
     }
     .lp-crumbs__link {
         @apply text-fg-dim no-underline transition-colors;
@@ -702,8 +673,7 @@
         @apply flex flex-col border-t border-line mt-1;
     }
     .lp-document-row {
-        @apply relative flex items-center gap-4 border-b border-line transition-colors;
-        padding: 16px 6px;
+        @apply relative flex items-center gap-4 border-b border-line transition-colors py-4 px-1.5;
     }
     .lp-document-row:hover {
         @apply bg-tint;
@@ -721,20 +691,16 @@
         @apply flex items-baseline gap-2 min-w-0;
     }
     .lp-document-row__title {
-        @apply font-medium text-ink truncate;
-        font-size: 15px;
+        @apply font-medium text-ink truncate text-base;
     }
     /* Mono version pill — bg #f4f4f8, e.g. "v3". */
     .lp-document-row__version {
-        @apply inline-flex items-center shrink-0 font-mono rounded-full text-fg-dim;
-        font-size: 11px;
-        padding: 1px 7px;
+        @apply inline-flex items-center shrink-0 font-mono rounded-full text-fg-dim text-xs py-px px-2;
         background: var(--border-faint);
     }
     /* Line 2: the mono meta beneath the title. */
     .lp-document-row__meta {
-        @apply flex items-center gap-1.5 font-mono text-fg-dim;
-        font-size: 12.5px;
+        @apply flex items-center gap-1.5 font-mono text-fg-dim text-xs;
     }
     .lp-document-row__sep {
         @apply text-fg-dim;
@@ -835,8 +801,7 @@
         @apply flex items-center justify-between gap-3 py-4;
     }
     .lp-pagination__status {
-        @apply text-fg-dim m-0;
-        font-size: 12.5px;
+        @apply text-fg-dim m-0 text-xs;
     }
     .lp-pagination__controls {
         @apply flex items-center gap-1;
@@ -885,20 +850,19 @@
     /* ── Review screen shell ────────────────────────────────────────────
        Full-height column: a fixed header band (breadcrumb + loop ribbon) above
        a two-pane row that fills the remaining height. Each pane scrolls on its
-       own; the page itself never scrolls. Off-scale paddings/sizes from the
-       handoff are written as plain CSS (as the ribbon does). */
+       own; the page itself never scrolls. Paddings/sizes are expressed on the
+       spacing scale via @apply; only grid-template-columns/rows (no utility
+       equivalent) stay as plain CSS, via calc(var(--spacing) * n). */
     .lp-review {
         @apply flex flex-col min-w-0;
         height: 100%;
     }
 
     .lp-review-header {
-        @apply flex flex-col gap-3.5 shrink-0;
-        padding: 1.375rem 2rem 0;
+        @apply flex flex-col gap-3.5 shrink-0 pt-5.5 px-8 pb-0;
     }
     .lp-review-breadcrumb {
-        @apply flex items-center gap-1.5 font-mono text-fg-dim;
-        font-size: 0.75rem;
+        @apply flex items-center gap-1.5 font-mono text-fg-dim text-xs;
     }
     .lp-review-breadcrumb a {
         @apply text-fg-dim no-underline transition-colors hover:text-fg;
@@ -913,40 +877,32 @@
     /* Two-pane row: document pane (flex) + fixed 388px comment margin, no
        divider. Left-aligned within a 1160px max width. */
     .lp-review-layout {
-        @apply grid flex-1 min-h-0 w-full;
-        grid-template-columns: minmax(0, 1fr) 24.25rem;
+        @apply grid flex-1 min-h-0 w-full max-w-290;
+        grid-template-columns: minmax(0, 1fr) calc(var(--spacing) * 97);
         /* Cap the single implicit row at the definite flex height so both panes
            fill it and their internal overflow-y engages (the verdict bar pins).
            An `auto` track would grow to the document's content height instead,
            spilling the whole page into .lp-main's scroll. */
         grid-template-rows: minmax(0, 1fr);
-        max-width: 72.5rem;
     }
 
     /* ── Document pane ──────────────────────────────────────────────────
        Its own scroll container and the position:relative offset parent for the
        floating composer/toolbar. Plain prose — no card, no line numbers. */
     .lp-review-doc {
-        @apply relative min-h-0 overflow-y-auto;
-        padding: 0.5rem 2.5rem 5rem;
+        @apply relative min-h-0 overflow-y-auto pt-2 px-10 pb-20;
     }
     .lp-review-doc__head {
         @apply max-w-2xl mb-6;
     }
     .lp-review-doc__title {
-        @apply flex items-center gap-2.5 flex-wrap text-ink font-semibold m-0;
-        font-size: 1.75rem;
-        letter-spacing: -0.02em;
+        @apply flex items-center gap-2.5 flex-wrap text-ink font-semibold m-0 text-3xl tracking-tight;
     }
     .lp-version-pill {
-        @apply inline-flex items-center rounded-full font-mono bg-accent-soft text-accent-hover;
-        font-size: 0.75rem;
-        padding: 0.125rem 0.5rem;
+        @apply inline-flex items-center rounded-full font-mono bg-accent-soft text-accent-hover text-xs py-0.5 px-2;
     }
     .lp-review-doc__byline {
-        @apply font-mono text-fg-dim m-0;
-        font-size: 0.78125rem;
-        margin-top: 0.5rem;
+        @apply font-mono text-fg-dim m-0 text-xs mt-2;
     }
     .lp-review-doc__prose {
         @apply mt-0;
@@ -979,12 +935,10 @@
     /* ── Text selection highlight in the doc ─────────────────────────── */
 
     .lp-anchor {
-        @apply bg-accent-soft rounded;
-        outline: 1px solid var(--accent-border);
+        @apply bg-accent-soft rounded outline outline-accent-border;
     }
     .lp-anchor--orphan {
-        @apply bg-status-pending-bg rounded;
-        outline: 1px solid var(--status-pending-border);
+        @apply bg-status-pending-bg rounded outline outline-status-pending-border;
     }
 
     /* ── Floating "Comment" toolbar (dark pill) ─────────────────────────
@@ -994,9 +948,7 @@
         @apply absolute z-20 shadow-toolbar;
     }
     .lp-anchor-toolbar__btn {
-        @apply inline-flex items-center gap-1.5 rounded-lg bg-ink text-white font-medium cursor-pointer border-0 transition;
-        padding: 0.375rem 0.625rem;
-        font-size: 0.8125rem;
+        @apply inline-flex items-center gap-1.5 rounded-lg bg-ink text-white font-medium cursor-pointer border-0 transition py-1.5 px-2.5 text-sm;
     }
     .lp-anchor-toolbar__btn:hover {
         @apply opacity-90;
@@ -1006,8 +958,7 @@
        A 340px white card anchored at the selection. Shows the quoted selection
        (targeted) or a "General comment" label (untargeted). */
     .lp-comment-composer {
-        @apply absolute z-20 bg-elev border border-line-strong rounded-xl shadow-composer p-3 flex flex-col gap-2;
-        width: 21.25rem;
+        @apply absolute z-20 bg-elev border border-line-strong rounded-xl shadow-composer p-3 flex flex-col gap-2 w-85;
     }
     /* The `flex`/`display` in the rules above outranks the UA `[hidden]` rule
        (equal specificity, later source order), so a `hidden` composer/toolbar
@@ -1018,24 +969,19 @@
         display: none;
     }
     .lp-comment-composer textarea {
-        @apply w-full text-sm bg-surface-2 border border-line rounded-lg px-3 py-2 text-fg placeholder:text-fg-dim resize-none outline-hidden focus:border-accent focus:shadow-focus transition-colors;
-        min-height: 4.5rem;
+        @apply w-full text-sm bg-surface-2 border border-line rounded-lg px-3 py-2 text-fg placeholder:text-fg-dim resize-none outline-hidden focus:border-accent focus:shadow-focus transition-colors min-h-18;
     }
     .lp-composer-quote {
-        @apply bg-accent-faint-2 border-l-2 border-accent-border text-fg-mute rounded-r line-clamp-3 m-0;
-        padding: 0.375rem 0.625rem;
-        font-size: 0.78125rem;
+        @apply bg-accent-faint-2 border-l-2 border-accent-border text-fg-mute rounded-r line-clamp-3 m-0 py-1.5 px-2.5 text-xs;
     }
     .lp-composer-general {
-        @apply font-mono text-fg-dim;
-        font-size: 0.71875rem;
+        @apply font-mono text-fg-dim text-xs;
     }
     .lp-comment-composer__actions {
         @apply flex items-center justify-end gap-2;
     }
     .lp-composer-hint {
-        @apply mr-auto font-mono text-fg-faint;
-        font-size: 0.6875rem;
+        @apply mr-auto font-mono text-fg-faint text-xs;
     }
     .lp-comment-composer__error {
         @apply text-xs text-danger;
@@ -1063,23 +1009,19 @@
         @apply flex flex-col min-h-0 bg-surface-1;
     }
     .lp-review-sidebar__header {
-        @apply flex items-start justify-between gap-2 shrink-0;
-        padding: 1.375rem 1.25rem 0.625rem;
+        @apply flex items-start justify-between gap-2 shrink-0 pt-5.5 px-5 pb-2.5;
     }
     .lp-review-sidebar__heading {
         @apply flex items-center gap-2;
     }
     .lp-review-sidebar__title {
-        @apply text-ink font-semibold m-0;
-        font-size: 0.8125rem;
+        @apply text-ink font-semibold m-0 text-sm;
     }
     .lp-review-sidebar__count {
-        @apply font-mono text-fg-dim;
-        font-size: 0.6875rem;
+        @apply font-mono text-fg-dim text-xs;
     }
     .lp-progress {
-        @apply shrink-0 mx-5 rounded-full overflow-hidden bg-line;
-        height: 4px;
+        @apply shrink-0 mx-5 rounded-full overflow-hidden bg-line h-1;
     }
     .lp-progress__fill {
         @apply h-full bg-status-ok rounded-full transition-[width] duration-300;
@@ -1099,14 +1041,10 @@
         @apply flex flex-col gap-2.5;
     }
     .lp-ladder-group__eyebrow {
-        @apply flex items-center gap-1.5 font-mono uppercase;
-        font-size: 0.65625rem;
-        letter-spacing: 0.08em;
+        @apply flex items-center gap-1.5 font-mono uppercase text-xs tracking-widest;
     }
     .lp-ladder-dot {
-        @apply inline-block rounded-full shrink-0;
-        width: 0.375rem;
-        height: 0.375rem;
+        @apply inline-block rounded-full shrink-0 w-1.5 h-1.5;
     }
     .lp-ladder-group__eyebrow--pending {
         @apply text-status-pending-deep;
@@ -1129,8 +1067,7 @@
 
     /* ── Comment thread card ─────────────────────────────────────────── */
     .lp-comment-thread {
-        @apply flex flex-col gap-2.5 rounded-lg border border-line bg-surface-1;
-        padding: 0.75rem 0.8125rem;
+        @apply flex flex-col gap-2.5 rounded-lg border border-line bg-surface-1 py-3 px-3.5;
     }
     .lp-comment-thread--resolved {
         @apply opacity-70;
@@ -1144,14 +1081,10 @@
 
     /* Status chip (thread header + ladder), pill with a colored dot. */
     .lp-status-chip {
-        @apply inline-flex items-center gap-1.5 ml-auto rounded-full font-medium border;
-        font-size: 0.6875rem;
-        padding: 0.125rem 0.5rem;
+        @apply inline-flex items-center gap-1.5 ml-auto rounded-full font-medium border text-xs py-0.5 px-2;
     }
     .lp-status-chip__dot {
-        @apply inline-block rounded-full shrink-0;
-        width: 0.375rem;
-        height: 0.375rem;
+        @apply inline-block rounded-full shrink-0 w-1.5 h-1.5;
     }
     .lp-status-chip--pending {
         @apply bg-status-pending-bg text-status-pending-deep border-status-pending-border;
@@ -1179,18 +1112,14 @@
        highlight is gone. Clamped to a few lines so a paragraph-length quote can't
        blow out the margin. */
     .lp-comment-quote {
-        @apply bg-accent-faint-2 border-l-2 border-accent-border text-fg-mute rounded-r line-clamp-3 m-0;
-        padding: 0.375rem 0.625rem;
-        font-size: 0.75rem;
+        @apply bg-accent-faint-2 border-l-2 border-accent-border text-fg-mute rounded-r line-clamp-3 m-0 py-1.5 px-2.5 text-xs;
     }
 
     .lp-comment-author {
-        @apply text-fg-mute font-semibold;
-        font-size: 0.78125rem;
+        @apply text-fg-mute font-semibold text-xs;
     }
     .lp-comment-body {
-        @apply text-fg;
-        font-size: 0.84375rem;
+        @apply text-fg text-sm;
         line-height: 1.55;
     }
     .lp-comment-replies {
@@ -1209,8 +1138,7 @@
         @apply flex flex-col gap-2;
     }
     .lp-comment-reply-form textarea {
-        @apply w-full text-sm bg-surface-2 border border-line rounded-lg px-3 py-2 text-fg placeholder:text-fg-dim resize-none outline-hidden focus:border-accent focus:shadow-focus transition-colors;
-        min-height: 3rem;
+        @apply w-full text-sm bg-surface-2 border border-line rounded-lg px-3 py-2 text-fg placeholder:text-fg-dim resize-none outline-hidden focus:border-accent focus:shadow-focus transition-colors min-h-12;
     }
     .lp-comment-error {
         @apply text-xs text-danger;
@@ -1219,18 +1147,14 @@
     /* ── Site-review page (comment-list only; the customer site is never rendered)
        Handoff §4: left-aligned, max-width 820, a flat hairline divider list. Each
        item leads with a status-colored mono index, then the element quote, status
-       chip, body, and a captured-context row (URL + selector). Off-scale sizes are
-       plain CSS, matching the ribbon/review conventions. */
+       chip, body, and a captured-context row (URL + selector). Sizes are expressed
+       on the Tailwind scale via @apply, matching the ribbon/review conventions. */
 
     .lp-site-review-page {
-        @apply max-w-full flex flex-col;
-        max-width: 820px;
-        padding: 22px 32px 60px;
-        gap: 0.875rem;
+        @apply max-w-205 flex flex-col gap-3.5 pt-5.5 px-8 pb-15;
     }
     .lp-site-review-breadcrumb {
-        @apply flex items-center gap-1.5 font-mono text-fg-dim;
-        font-size: 0.75rem;
+        @apply flex items-center gap-1.5 font-mono text-fg-dim text-xs;
     }
     .lp-site-review-breadcrumb a {
         @apply text-fg-dim no-underline transition-colors hover:text-fg;
@@ -1245,16 +1169,13 @@
         @apply flex flex-col gap-1.5;
     }
     .lp-site-review-title {
-        @apply font-semibold text-ink m-0;
-        font-size: 22px;
+        @apply font-semibold text-ink m-0 text-2xl;
     }
     .lp-site-review-meta-line {
-        @apply font-mono text-fg-dim m-0;
-        font-size: 0.75rem;
+        @apply font-mono text-fg-dim m-0 text-xs;
     }
     .lp-site-review-description {
-        @apply text-fg-mute m-0;
-        font-size: 14px;
+        @apply text-fg-mute m-0 text-sm;
         line-height: 1.55;
     }
 
@@ -1263,13 +1184,11 @@
         @apply flex flex-col border-t border-line mt-1;
     }
     .lp-site-review-item {
-        @apply flex gap-4 border-b border-line;
-        padding: 20px 2px;
+        @apply flex gap-4 border-b border-line py-5 px-0.5;
     }
     /* Status-colored mono index — the primary left differentiator. */
     .lp-site-review-index {
-        @apply font-mono font-medium shrink-0 leading-none pt-0.5;
-        font-size: 0.8125rem;
+        @apply font-mono font-medium shrink-0 text-sm leading-none pt-0.5;
     }
     .lp-site-review-index--pending {
         @apply text-status-pending-deep;
@@ -1284,25 +1203,19 @@
         @apply flex items-start justify-between gap-3;
     }
     .lp-site-review-quote {
-        @apply font-semibold text-ink m-0;
-        font-size: 15px;
+        @apply font-semibold text-ink m-0 text-base;
         line-height: 1.4;
     }
     .lp-site-review-widget-meta {
-        @apply font-mono text-fg-dim m-0;
-        font-size: 0.6875rem;
-        margin-top: -0.25rem;
+        @apply font-mono text-fg-dim m-0 text-xs -mt-1;
     }
     .lp-site-review-body {
-        @apply text-fg m-0;
-        font-size: 14px;
+        @apply text-fg m-0 text-sm;
         line-height: 1.55;
     }
     /* Captured context — one wrapping mono row: external-link + URL, code + selector. */
     .lp-site-review-context {
-        @apply flex flex-wrap items-center font-mono;
-        gap: 0.25rem 1rem;
-        font-size: 0.71875rem;
+        @apply flex flex-wrap items-center font-mono gap-y-1 gap-x-4 text-xs;
     }
     .lp-site-review-context__url {
         @apply inline-flex items-center gap-1.5 min-w-0 max-w-full text-fg-mute no-underline break-all transition-colors hover:text-accent;
@@ -1317,14 +1230,12 @@
         @apply flex items-center gap-2 mt-1;
     }
     .lp-site-review-empty {
-        @apply flex flex-col items-center text-center gap-3 border-t border-line text-fg-dim mt-1;
-        padding: 3rem 0;
+        @apply flex flex-col items-center text-center gap-3 border-t border-line text-fg-dim mt-1 py-12;
     }
     /* ── Verdict bar (pinned bottom of the comment margin) ──────────────── */
 
     .lp-verdict-bar {
-        @apply shrink-0 border-t border-line bg-surface-1;
-        padding: 0.875rem 1.25rem;
+        @apply shrink-0 border-t border-line bg-surface-1 py-3.5 px-5;
     }
     .lp-verdict-bar__actions {
         @apply flex items-center gap-2;
@@ -1342,19 +1253,17 @@
         @apply flex flex-col;
     }
     .lp-verdict-approved__title {
-        @apply text-ink font-semibold;
-        font-size: 0.8125rem;
+        @apply text-ink font-semibold text-sm;
     }
     .lp-verdict-approved__detail {
-        @apply font-mono text-fg-dim;
-        font-size: 0.6875rem;
+        @apply font-mono text-fg-dim text-xs;
     }
 
     /* ── App shell (sidebar + content) ──────────────────────────────── */
 
     .lp-app {
         @apply grid;
-        grid-template-columns: 252px 1fr;
+        grid-template-columns: calc(var(--spacing) * 63) 1fr;
         /* Lock the shell to the viewport so the sidebar stays put and the main
            column scrolls on its own (see .lp-main overflow-y-auto below). */
         height: 100dvh;
@@ -1374,9 +1283,7 @@
         @apply flex items-center gap-2.5 px-2 mb-3 text-fg no-underline;
     }
     .lp-sidebar__brand-mark {
-        @apply rounded-lg bg-accent shrink-0 inline-flex items-center justify-center text-white;
-        width: 26px;
-        height: 26px;
+        @apply rounded-lg bg-accent shrink-0 inline-flex items-center justify-center text-white w-6.5 h-6.5;
     }
     .lp-sidebar__brand-mark svg {
         @apply w-4 h-4;
@@ -1388,34 +1295,28 @@
         @apply text-sm font-semibold tracking-tight whitespace-nowrap;
     }
     .lp-sidebar__brand-eyebrow {
-        @apply font-mono uppercase text-fg-dim;
-        font-size: 9.5px;
-        letter-spacing: 0.14em;
+        @apply font-mono uppercase text-fg-dim text-xs tracking-widest;
     }
 
     /* Project switcher: bordered button linking to the projects index. */
     .lp-sidebar__switcher {
-        @apply flex items-center gap-2.5 w-full px-2.5 py-2 mb-1 border border-line-strong bg-surface-1 no-underline transition-colors;
-        border-radius: 9px;
+        @apply flex items-center gap-2.5 w-full px-2.5 py-2 mb-1 border border-line-strong bg-surface-1 no-underline transition-colors rounded-lg;
     }
     .lp-sidebar__switcher:hover {
         @apply bg-accent-faint-2;
         border-color: var(--switcher-hover-border);
     }
     .lp-sidebar__switcher-avatar {
-        @apply w-6 h-6 bg-ink shrink-0 inline-flex items-center justify-center text-white text-xs font-semibold;
-        border-radius: 5px;
+        @apply w-6 h-6 bg-ink shrink-0 inline-flex items-center justify-center text-white text-xs font-semibold rounded-md;
     }
     .lp-sidebar__switcher-text {
         @apply flex flex-col leading-tight min-w-0 mr-auto;
     }
     .lp-sidebar__switcher-name {
-        @apply font-semibold text-fg truncate;
-        font-size: 13px;
+        @apply font-semibold text-fg truncate text-sm;
     }
     .lp-sidebar__switcher-domain {
-        @apply font-mono text-fg-dim truncate;
-        font-size: 10.5px;
+        @apply font-mono text-fg-dim truncate text-xs;
     }
     .lp-sidebar__switcher-chevron {
         @apply w-4 h-4 shrink-0 text-fg-dim;
@@ -1425,8 +1326,7 @@
         @apply flex flex-col gap-0.5;
     }
     .lp-sidebar__link {
-        @apply flex items-center gap-2.5 px-2.5 py-2 rounded-lg font-medium text-fg-mute no-underline transition-colors;
-        font-size: 13px;
+        @apply flex items-center gap-2.5 px-2.5 py-2 rounded-lg font-medium text-fg-mute no-underline transition-colors text-sm;
     }
     .lp-sidebar__link:hover {
         @apply bg-accent-faint text-fg;
@@ -1443,8 +1343,7 @@
 
     /* Site-review open-count pill: neutral by default, amber when open > 0. */
     .lp-sidebar__pill {
-        @apply ml-auto inline-flex items-center justify-center min-w-5 px-1.5 py-0.5 rounded-full font-mono leading-none;
-        font-size: 10.5px;
+        @apply ml-auto inline-flex items-center justify-center min-w-5 px-1.5 py-0.5 rounded-full font-mono text-xs leading-none;
         background: #f0f4f0;
         color: var(--text-dim);
     }
@@ -1460,20 +1359,16 @@
         @apply flex items-center gap-2.5 px-2 py-2 border-t border-line;
     }
     .lp-sidebar__account-avatar {
-        @apply rounded-full bg-accent-soft shrink-0 inline-flex items-center justify-center text-accent-hover text-xs font-semibold;
-        width: 26px;
-        height: 26px;
+        @apply rounded-full bg-accent-soft shrink-0 inline-flex items-center justify-center text-accent-hover text-xs font-semibold w-6.5 h-6.5;
     }
     .lp-sidebar__account-text {
         @apply flex flex-col leading-tight min-w-0 mr-auto;
     }
     .lp-sidebar__account-name {
-        @apply font-medium text-fg truncate;
-        font-size: 12.5px;
+        @apply font-medium text-fg truncate text-xs;
     }
     .lp-sidebar__account-role {
-        @apply text-fg-dim;
-        font-size: 11px;
+        @apply text-fg-dim text-xs;
     }
     /* Keeps the button as the flex child of .lp-sidebar__account. */
     .lp-sidebar__account-logout-form {
@@ -1543,40 +1438,31 @@
        uppercase eyebrow (.lp-eyebrow) over a bordered field / code block. */
 
     .lp-connect {
-        @apply max-w-full flex flex-col;
-        max-width: 760px;
-        padding: 40px 44px 60px;
-        gap: 1.5rem;
+        @apply max-w-190 flex flex-col gap-6 pt-10 px-11 pb-15;
     }
     .lp-connect-block {
         @apply flex flex-col gap-2.5;
     }
     .lp-connect-hint {
-        @apply text-fg-mute m-0;
-        font-size: 13px;
+        @apply text-fg-mute m-0 text-sm;
         line-height: 1.5;
     }
     /* Bordered field row: subtle fill, glyph + value + trailing control. */
     .lp-connect-field {
-        @apply flex items-center gap-2.5 bg-sidebar border border-line-strong rounded-lg;
-        padding: 10px 12px;
+        @apply flex items-center gap-2.5 bg-sidebar border border-line-strong rounded-lg py-2.5 px-3;
     }
     .lp-connect-field__glyph {
         @apply text-fg-dim shrink-0;
     }
     .lp-connect-field__value {
-        @apply font-mono text-fg min-w-0 truncate flex-1 m-0 flex items-baseline gap-2;
-        font-size: 13px;
+        @apply font-mono text-fg min-w-0 truncate flex-1 m-0 flex items-baseline gap-2 text-sm;
     }
     .lp-connect-field__meta {
-        @apply font-mono text-fg-dim shrink-0;
-        font-size: 11px;
+        @apply font-mono text-fg-dim shrink-0 text-xs;
     }
     /* Green "project-scoped" tag on the access-token field. */
     .lp-connect-tag {
-        @apply inline-flex items-center rounded-full font-medium bg-status-ok-bg text-status-ok-deep shrink-0;
-        font-size: 11px;
-        padding: 2px 8px;
+        @apply inline-flex items-center rounded-full font-medium bg-status-ok-bg text-status-ok-deep shrink-0 text-xs py-0.5 px-2;
     }
 
     /* One-time raw-secret reveal shown once after minting: warning + copyable field. */
@@ -1584,8 +1470,7 @@
         @apply flex flex-col gap-2;
     }
     .lp-connect-secret__warn {
-        @apply text-status-pending-deep font-medium m-0;
-        font-size: 13px;
+        @apply text-status-pending-deep font-medium m-0 text-sm;
         line-height: 1.5;
     }
 
@@ -1594,22 +1479,16 @@
         @apply rounded-lg overflow-hidden border border-line-strong;
     }
     .lp-code-dark__header {
-        @apply flex items-center justify-between gap-2 bg-code-dark-header;
-        padding: 8px 12px;
+        @apply flex items-center justify-between gap-2 bg-code-dark-header py-2 px-3;
     }
     .lp-code-dark__label {
-        @apply font-mono uppercase text-fg-faint m-0;
-        font-size: 10.5px;
-        letter-spacing: 0.08em;
+        @apply font-mono uppercase text-fg-faint m-0 text-xs tracking-widest;
     }
     .lp-code-dark__copy {
-        @apply font-mono text-fg-faint bg-transparent border-none cursor-pointer transition-colors hover:text-white;
-        font-size: 12px;
+        @apply font-mono text-fg-faint bg-transparent border-none cursor-pointer transition-colors hover:text-white text-xs;
     }
     .lp-code-dark__body {
-        @apply bg-code-dark-bg text-code-dark-text font-mono overflow-x-auto m-0;
-        padding: 16px;
-        font-size: 13px;
+        @apply bg-code-dark-bg text-code-dark-text font-mono overflow-x-auto m-0 p-4 text-sm;
         line-height: 1.6;
         white-space: pre;
     }
@@ -1619,17 +1498,13 @@
         @apply flex flex-col border-t border-line;
     }
     .lp-tools__row {
-        @apply flex items-start gap-3 border-b border-line;
-        padding: 14px 2px;
+        @apply flex items-start gap-3 border-b border-line py-3.5 px-0.5;
     }
     .lp-tools__name {
-        @apply inline-flex items-center rounded-md font-mono bg-accent-soft text-accent shrink-0;
-        font-size: 12px;
-        padding: 3px 8px;
+        @apply inline-flex items-center rounded-md font-mono bg-accent-soft text-accent shrink-0 text-xs py-1 px-2;
     }
     .lp-tools__desc {
-        @apply text-fg-mute m-0;
-        font-size: 13.5px;
+        @apply text-fg-mute m-0 text-sm;
         line-height: 1.5;
     }
 
@@ -1638,8 +1513,7 @@
        subscription, the price, and the action that leaves for Stripe. */
 
     .lp-billing {
-        @apply max-w-full flex flex-col gap-6 p-10;
-        max-width: 760px;
+        @apply max-w-190 flex flex-col gap-6 p-10;
     }
     .lp-billing-block {
         @apply flex flex-col items-start gap-2.5;
@@ -1769,25 +1643,25 @@
     background-color: var(--accent-soft);
     text-decoration-line: underline;
     text-decoration-color: var(--accent);
-    text-decoration-thickness: 2px;
+    @apply decoration-2;
 }
 ::highlight(lp-anchor-pending) {
     background-color: var(--status-pending-bg);
     text-decoration-line: underline;
     text-decoration-color: var(--status-pending);
-    text-decoration-thickness: 2px;
+    @apply decoration-2;
 }
 ::highlight(lp-anchor-addressed) {
     background-color: var(--status-ok-bg);
     text-decoration-line: underline;
     text-decoration-color: var(--status-ok);
-    text-decoration-thickness: 2px;
+    @apply decoration-2;
 }
 ::highlight(lp-anchor-resolved) {
     color: var(--text-dim);
     text-decoration-line: underline;
     text-decoration-color: var(--border-strong);
-    text-decoration-thickness: 1px;
+    @apply decoration-1;
 }
 
 /* ── Keyframes ──────────────────────────────────────────────────────── */
