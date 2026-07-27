@@ -35,7 +35,9 @@ This applies **only** to documents meant for considered review. Do **not** route
 
 When you identify something worth remembering for a future session — a TODO, a follow-up, a known issue, a design decision to revisit — append it to `docs/NEXT_STEPS.md` **following the entry format in the `project-next-steps` skill** (author / type / priority metadata line — invoke the skill before appending). Do not leave such notes in code comments — `docs/NEXT_STEPS.md` is the tracker for open work. No `TODO`/`FIXME`/`XXX` in code (gamache-enforced).
 
-**If the project may go public:** `docs/` (internal notes) should not ship in a public repo, so at that point move shared open-work tracking to GitHub issues and treat `docs/NEXT_STEPS.md` as a local, gitignored scratchpad. For a private project — the default for a fresh skeleton-derived repo — keep `docs/NEXT_STEPS.md` and `.skeleton.json` committed as normal.
+`docs/NEXT_STEPS.md` is **committed**, like `.skeleton.json` — this repo is private, and a tracker only one checkout can see is a tracker the next session cannot read. Being tracked also means it is branch content: parallel branches that both append will conflict, and the resolution is always to keep both entries (see `project-next-steps`).
+
+**Before making this repo public**, open work must move to GitHub issues and the tracker must come out — and by then it is in git history, so deleting it from `HEAD` is not enough. Treat the visibility flip as the trigger, not "at some point".
 
 When an item in `docs/NEXT_STEPS.md` is resolved, **delete it entirely**. Do not mark it with "— CLOSED", add a resolution note, or leave it under a `CLOSED` heading. The file should contain only open work. Closed content is noise.
 
