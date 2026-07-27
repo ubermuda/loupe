@@ -37,6 +37,49 @@ class DocumentVersionRepository extends ServiceEntityRepository
     }
 
     /**
+     * One numbered version of a document, or null when the document has no such
+     * version. Scoped to the document so a version number from another document
+     * cannot be reached by editing the URL.
+     */
+    public function findByNumber(Document $document, int $versionNumber): ?DocumentVersion
+    {
+        return $this->findOneBy(['document' => $document, 'versionNumber' => $versionNumber]);
+    }
+
+    /**
+     * Every version of one document, newest first, as the metadata a version
+     * switcher needs — never the two TEXT columns. A document's revision history
+     * is unbounded and each row carries the full markdown and rendered HTML, so
+     * hydrating entities here would make the switcher cost grow with the history
+     * it is listing.
+     *
+     * @return list<array{versionNumber: int, createdAt: \DateTimeImmutable}>
+     */
+    public function findAllMetaByDocument(Document $document): array
+    {
+        $rows = $this->createQueryBuilder('v')
+            ->select('v.versionNumber AS versionNumber', 'v.createdAt AS createdAt')
+            ->where('v.document = :document')
+            ->setParameter('document', $document)
+            ->orderBy('v.versionNumber', 'DESC')
+            ->getQuery()
+            ->getArrayResult();
+
+        $meta = [];
+        foreach ($rows as $row) {
+            $versionNumber = $row['versionNumber'];
+            $createdAt = $row['createdAt'];
+
+            $meta[] = [
+                'versionNumber' => is_int($versionNumber) ? $versionNumber : throw new \LogicException('versionNumber must be an int.'),
+                'createdAt' => $createdAt instanceof \DateTimeImmutable ? $createdAt : throw new \LogicException('createdAt must be a DateTimeImmutable.'),
+            ];
+        }
+
+        return $meta;
+    }
+
+    /**
      * Latest-version metadata for a batch of documents in one query — a
      * projection that selects only the version id, number, and timestamp and
      * never the two TEXT columns. Meant for list views (the document

@@ -24,6 +24,17 @@ use Symfony\Component\Security\Http\Attribute\IsGranted;
     name: 'app_document_review',
     methods: ['GET'],
 )]
+// A revision carries only the still-open comments forward, so a thread resolved
+// before it stays on the version it was written on. Without a way to render that
+// version the whole discussion becomes unreachable the moment the document is
+// revised. The unnumbered route above keeps meaning "latest", so every existing
+// link to it is unaffected.
+#[Route(
+    '/projects/{projectId}/documents/{documentId}/review/versions/{versionNumber}',
+    name: 'app_document_review_version',
+    requirements: ['versionNumber' => '\d+'],
+    methods: ['GET'],
+)]
 final class ShowDocumentController extends AppController
 {
     public function __construct(
@@ -35,8 +46,19 @@ final class ShowDocumentController extends AppController
     public function __invoke(
         #[MapEntity(mapping: ['projectId' => 'id'])] Project $project,
         #[MapEntity(expr: 'repository.findOneByIdAndProjectId(documentId, projectId)')] Document $document,
+        ?int $versionNumber = null,
     ): Response {
-        $version = $this->documentVersions->findLatest($document);
+        $latest = $this->documentVersions->findLatest($document);
+        $version = null === $versionNumber
+            ? $latest
+            : $this->documentVersions->findByNumber($document, $versionNumber)
+                ?? throw $this->createNotFoundException(sprintf('Document has no version %d.', $versionNumber));
+
+        // Every write on this page targets the current version: the composer posts
+        // a comment onto whatever is latest, and the verdict applies to the document
+        // as it stands. An older version is therefore rendered as a read-only record
+        // of what was discussed then.
+        $isLatest = $version->versionNumber === $latest->versionNumber;
         $comments = $this->comments->findByVersion($version);
 
         $addCommentForm = $this->createForm(AddCommentFormType::class, new AddCommentRequest(), [
@@ -50,6 +72,8 @@ final class ShowDocumentController extends AppController
         return $this->render('@Review/show_document.html.twig', [
             'document' => $document,
             'version' => $version,
+            'versions' => $this->documentVersions->findAllMetaByDocument($document),
+            'readOnly' => !$isLatest,
             'comments' => $comments,
             'orphanedCount' => count(array_filter($comments, static fn (Comment $c) => $c->orphaned)),
             'addCommentForm' => $addCommentForm,

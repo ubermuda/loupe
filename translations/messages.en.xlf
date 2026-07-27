@@ -889,6 +889,18 @@
                 <source>review.document.orphan_banner</source>
                 <target>%count% comment(s) refer to text that has been removed or changed.</target>
             </trans-unit>
+            <trans-unit id="review.document.version.read_only">
+                <source>review.document.version.read_only</source>
+                <target>You are reading version %version%, an earlier draft of this document. Its comments are shown as they were left; commenting and the verdict apply to the current version.</target>
+            </trans-unit>
+            <trans-unit id="review.document.version.back_to_latest">
+                <source>review.document.version.back_to_latest</source>
+                <target>Go to the current version</target>
+            </trans-unit>
+            <trans-unit id="review.document.version.switcher_label">
+                <source>review.document.version.switcher_label</source>
+                <target>Document versions</target>
+            </trans-unit>
 
             <!-- Document review comment composer -->
             <trans-unit id="review.document.comment.placeholder">

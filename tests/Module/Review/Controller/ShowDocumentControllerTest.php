@@ -6,6 +6,8 @@ namespace App\Tests\Module\Review\Controller;
 
 use App\Module\Account\Entity\User;
 use App\Module\Project\Entity\Project;
+use App\Module\Review\Command\ReviseDocumentCommand;
+use App\Module\Review\Command\ReviseDocumentHandler;
 use App\Module\Review\Entity\Comment;
 use App\Module\Review\Entity\Document;
 use App\Module\Review\Entity\DocumentStatus;
@@ -258,6 +260,111 @@ final class ShowDocumentControllerTest extends WebTestCase
 
         $client->loginUser($owner);
         $client->request(Request::METHOD_GET, '/projects/'.$projectBId.'/documents/'.$id.'/review');
+
+        self::assertResponseStatusCodeSame(404);
+    }
+
+    /**
+     * The reported bug, end to end: resolve a thread, revise the document, and
+     * the discussion vanishes from the app. A revision carries only the still-open
+     * comments forward, so the resolved thread stays on the version it was written
+     * on — which had no way to be rendered.
+     */
+    public function test_a_thread_resolved_before_a_revision_stays_readable_on_its_own_version(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $reviseDocument = static::getContainer()->get(ReviseDocumentHandler::class);
+
+        $owner = $this->createUser($em, 'owner-v', 'owner-v@example.com');
+        $project = $this->project($em, $owner);
+        $doc = new Document(owner: $owner, project: $project, title: 'Revised Doc');
+        $version = $doc->addVersion('# Body', '<h1>Body</h1>');
+        $em->persist($doc);
+
+        $resolved = new Comment($version, $owner, 'Settled in v1', new Anchor('Body', '', '', 0));
+        $resolved->resolved = true;
+        $em->persist($resolved);
+        $em->flush();
+
+        ($reviseDocument)(new ReviseDocumentCommand($doc->id ?? self::fail('document has no id'), $project, '# Rewritten'));
+
+        $projectId = (string) $project->id;
+        $id = (string) $doc->id;
+        $em->clear();
+        $client->loginUser($owner);
+
+        // The current version is where the bug shows: the sidebar is empty.
+        $latest = $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/documents/'.$id.'/review');
+        self::assertResponseIsSuccessful();
+        self::assertStringNotContainsString('Settled in v1', $latest->text());
+
+        // The switcher is the way back — a route with no entry point would leave
+        // the discussion exactly as unreachable as before.
+        $versionUrl = '/projects/'.$projectId.'/documents/'.$id.'/review/versions/1';
+        self::assertCount(1, $latest->filter('.lp-version-switcher a[href="'.$versionUrl.'"]'));
+
+        $earlier = $client->request(Request::METHOD_GET, $versionUrl);
+        self::assertResponseIsSuccessful();
+        self::assertStringContainsString('Settled in v1', $earlier->text());
+        self::assertStringContainsString('Body', $earlier->filter('.lp-review-doc__prose')->text());
+    }
+
+    public function test_an_earlier_version_offers_no_control_that_would_write_to_the_current_one(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $reviseDocument = static::getContainer()->get(ReviseDocumentHandler::class);
+
+        $owner = $this->createUser($em, 'owner-w', 'owner-w@example.com');
+        $project = $this->project($em, $owner);
+        $doc = new Document(owner: $owner, project: $project, title: 'Read Only Doc');
+        $version = $doc->addVersion('# Body', '<h1>Body</h1>');
+        $em->persist($doc);
+        $em->persist(new Comment($version, $owner, 'Still open', new Anchor('Body', '', '', 0)));
+        $em->flush();
+
+        ($reviseDocument)(new ReviseDocumentCommand($doc->id ?? self::fail('document has no id'), $project, '# Body'));
+
+        $projectId = (string) $project->id;
+        $id = (string) $doc->id;
+        $em->clear();
+        $client->loginUser($owner);
+
+        $earlier = $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/documents/'.$id.'/review/versions/1');
+
+        self::assertResponseIsSuccessful();
+        self::assertCount(0, $earlier->filter('.lp-comment-composer'), 'the composer posts onto the current version');
+        self::assertCount(0, $earlier->filter('.lp-anchor-toolbar'));
+        self::assertCount(0, $earlier->filter('.lp-verdict-bar'), 'the verdict applies to the document as it stands');
+        self::assertCount(0, $earlier->filter('.lp-comment-thread form'), 'reply, resolve and delete all act on the live discussion');
+
+        // Same page on the current version, to prove the assertions above are not
+        // passing simply because the selectors never match anything.
+        $latest = $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/documents/'.$id.'/review');
+        self::assertCount(1, $latest->filter('.lp-comment-composer'));
+        self::assertCount(1, $latest->filter('.lp-verdict-bar'));
+        self::assertGreaterThan(0, $latest->filter('.lp-comment-thread form')->count());
+    }
+
+    public function test_an_unknown_version_number_is_not_found(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+
+        $owner = $this->createUser($em, 'owner-x', 'owner-x@example.com');
+        $project = $this->project($em, $owner);
+        $doc = new Document(owner: $owner, project: $project, title: 'One Version');
+        $doc->addVersion('# Body', '<h1>Body</h1>');
+        $em->persist($doc);
+        $em->flush();
+
+        $projectId = (string) $project->id;
+        $id = (string) $doc->id;
+        $em->clear();
+
+        $client->loginUser($owner);
+        $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/documents/'.$id.'/review/versions/7');
 
         self::assertResponseStatusCodeSame(404);
     }

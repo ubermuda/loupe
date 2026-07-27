@@ -17,6 +17,10 @@ use Symfony\UX\TwigComponent\Attribute\AsTwigComponent;
  *   replyForm  FormView|null      A pre-bound reply form to render (e.g. one with
  *                                 validation errors after a failed submit); when
  *                                 null the template builds a fresh one.
+ *   readOnly   bool               True when the thread belongs to a version other
+ *                                 than the current one, where reply, resolve and
+ *                                 delete would act on a version the reviewer is
+ *                                 no longer looking at. Defaults to false.
  */
 #[AsTwigComponent(name: 'CommentThread')]
 final class CommentThreadComponent
@@ -27,4 +31,6 @@ final class CommentThreadComponent
     public array $replies = [];
 
     public ?FormView $replyForm = null;
+
+    public bool $readOnly = false;
 }
