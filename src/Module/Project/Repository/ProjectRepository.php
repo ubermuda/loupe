@@ -34,7 +34,10 @@ class ProjectRepository extends ServiceEntityRepository
         $qb = $this->createQueryBuilder('p')
             ->andWhere('p.owner = :owner')
             ->setParameter('owner', $owner)
+            // created_at is TIMESTAMP(0), so same-second rows tie; without a
+            // unique tiebreak, offset pages can repeat or skip a project.
             ->orderBy('p.createdAt', 'DESC')
+            ->addOrderBy('p.id', 'DESC')
             ->setFirstResult(($page - 1) * $perPage)
             ->setMaxResults($perPage);
 

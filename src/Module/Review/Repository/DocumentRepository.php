@@ -34,7 +34,10 @@ class DocumentRepository extends ServiceEntityRepository
         $qb = $this->createQueryBuilder('d')
             ->andWhere('d.project = :project')
             ->setParameter('project', $project)
+            // created_at is TIMESTAMP(0), so same-second rows tie; without a
+            // unique tiebreak, offset pages can repeat or skip a document.
             ->orderBy('d.createdAt', 'DESC')
+            ->addOrderBy('d.id', 'DESC')
             ->setFirstResult(($page - 1) * $perPage)
             ->setMaxResults($perPage);
 
