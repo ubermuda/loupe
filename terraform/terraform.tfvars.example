@@ -9,3 +9,25 @@ registry_credentials = "ubermuda:ghp_xxxxxxxx"  # GHCR "username:PAT" (read:pack
 app_secret           = "GENERATED_HEX_32"
 app_encryption_key   = "GENERATED_BASE64_32_BYTE_KEY"
 # mailer_dsn         = "smtp://USER:PASS@HOST:PORT"
+
+# --- Application configuration (wired into extra_env in main.tf) ---
+# Omit any of these and the matching feature stays off rather than half-configured.
+
+# REQUIRED in production: the install wizard fails closed there, so without this
+# /install 404s and you cannot create the first administrator.
+# install_token = "GENERATE_A_LONG_RANDOM_STRING"
+
+# admin_email       = "you@example.com"       # promoted to ROLE_ADMIN
+# mcp_allowed_hosts = "loupe.example.com"     # must list the app's real hostname
+
+# Site-review push. Setting this runs a Mercure hub as a second service in the
+# app and wires the URLs automatically; leave it out to keep push disabled.
+# mercure_jwt_secret = "GENERATE_A_LONG_RANDOM_STRING"
+
+# stripe_secret_key     = "sk_live_..."
+# stripe_webhook_secret = "whsec_..."
+
+# oauth_google_id     = "..."
+# oauth_google_secret = "..."
+# oauth_github_id     = "..."
+# oauth_github_secret = "..."
