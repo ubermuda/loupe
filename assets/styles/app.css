@@ -18,6 +18,14 @@
 @source "../../vendor/ubermuda/admin-bundle/templates";
 @source "../../vendor/ubermuda/feature-flags-bundle/templates";
 
+/* Automatic source detection scans every committed file, so prose that merely
+   names a class compiles it into the shipped stylesheet — the project-frontend
+   skill cites `blur-[1.25rem]` as a value to convert, and that alone kept the
+   utility alive after the last real use was gone. Documentation must not be a
+   content source. */
+@source not "../../.claude";
+@source not "../../docs";
+
 /* ── Self-hosted fonts (variable, OFL — see ../fonts/LICENSE.txt) ─── */
 
 @font-face {
@@ -95,41 +103,6 @@
 
     /* Animations */
     --animate-spin-fast: spin 0.7s linear infinite;
-
-    /* Custom layout utilities */
-    --width-sidebar: 14.5rem;
-
-    /* 1.25rem sits exactly between blur-lg (1rem) and blur-xl (1.5rem), so the
-       auth glow needs its own token to keep its rendered radius unchanged. */
-    --blur-glow: 1.25rem;
-}
-
-/* ── Custom layout utilities ───────────────────────────────────────── */
-
-@utility w-sidebar {
-    width: 14.5rem;
-}
-@utility max-w-card {
-    max-width: 25.5rem;
-}
-@utility max-w-doc {
-    max-width: 67.5rem;
-}
-@utility max-w-modal {
-    max-width: 35rem;
-}
-@utility max-w-chat {
-    max-width: 47.5rem;
-}
-
-@utility grid-cols-shell {
-    grid-template-columns: 14.5rem 1fr;
-}
-@utility grid-cols-shell-compact {
-    grid-template-columns: 3.5rem 1fr;
-}
-@utility grid-cols-settings {
-    grid-template-columns: 12.5rem 1fr;
 }
 
 /* ── Design tokens ──────────────────────────────────────────────────── */
@@ -307,7 +280,7 @@
     }
     .auth-bg-glow::before {
         content: '';
-        @apply absolute w-180 h-180 left-1/2 -translate-x-1/2 -top-50 blur-glow opacity-55;
+        @apply absolute w-180 h-180 left-1/2 -translate-x-1/2 -top-50 blur-xl opacity-55;
         background: radial-gradient(
             circle at center,
             var(--accent-soft) 0%,
@@ -385,7 +358,7 @@
     /* ── Page shell ─────────────────────────────────────────────────── */
 
     .lp-page {
-        @apply max-w-doc mx-auto px-6 py-8;
+        @apply max-w-270 mx-auto px-6 py-8;
     }
     .lp-page-header {
         @apply flex items-center justify-between gap-4 mb-6;
@@ -693,7 +666,7 @@
     }
     /* Collapsed → revealed. Kept out of the normal flow height until open. */
     .lp-project-new__panel {
-        @apply hidden mt-4 max-w-card;
+        @apply hidden mt-4 max-w-102;
     }
     .lp-project-new__panel.open {
         @apply block;
@@ -862,7 +835,7 @@
        (WAAPI cannot target ::backdrop). */
 
     .lp-dialog {
-        @apply w-full max-w-card rounded-xl border border-line bg-surface-1 p-6 shadow-composer;
+        @apply w-full max-w-102 rounded-xl border border-line bg-surface-1 p-6 shadow-composer;
     }
     .lp-dialog::backdrop {
         @apply bg-ink/40;
