@@ -35,7 +35,7 @@ final class ShowDraftCommentsController extends AppController
             return $this->json(['error' => 'token_not_bound_to_site'], JsonResponse::HTTP_FORBIDDEN);
         }
 
-        return $this->json(['comments' => array_values(array_map(
+        $comments = array_values(array_map(
             static fn (SiteReviewComment $c): array => [
                 'id' => (string) $c->id,
                 'body' => $c->body,
@@ -44,6 +44,18 @@ final class ShowDraftCommentsController extends AppController
                 'url' => $c->url,
             ],
             $this->siteReviewComments->findDraftForProject($project),
-        ))]);
+        ));
+
+        return $this->json([
+            'comments' => $comments,
+            // Compatibility shim for widget.js copies cached before this deploy:
+            // the old build read `review.comments` and would otherwise show an
+            // empty list while the visitor's drafts sit on the server. It is
+            // served with a 5-minute Cache-Control, so stale copies are certain
+            // during a rollout. Reproduces the old shape exactly — null when
+            // there is nothing, since the old build tested `review ? … : []`.
+            // Drop once no deployed widget reads it.
+            'review' => [] === $comments ? null : ['comments' => $comments],
+        ]);
     }
 }
