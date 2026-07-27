@@ -35,7 +35,7 @@ class DownloadDataExportController extends AppController
     {
         $user = $this->getUser();
         if (!$user instanceof User) {
-            throw new \LogicException('Route is behind the ROLE_USER catch-all');
+            throw new \LogicException(\sprintf('%s reached without an authenticated User (got %s); this route must stay behind the ROLE_USER catch-all.', self::class, get_debug_type($user)));
         }
 
         $token = (string) $request->query->get('token', '');
