@@ -1643,25 +1643,25 @@
     background-color: var(--accent-soft);
     text-decoration-line: underline;
     text-decoration-color: var(--accent);
-    text-decoration-thickness: 2px;
+    @apply decoration-2;
 }
 ::highlight(lp-anchor-pending) {
     background-color: var(--status-pending-bg);
     text-decoration-line: underline;
     text-decoration-color: var(--status-pending);
-    text-decoration-thickness: 2px;
+    @apply decoration-2;
 }
 ::highlight(lp-anchor-addressed) {
     background-color: var(--status-ok-bg);
     text-decoration-line: underline;
     text-decoration-color: var(--status-ok);
-    text-decoration-thickness: 2px;
+    @apply decoration-2;
 }
 ::highlight(lp-anchor-resolved) {
     color: var(--text-dim);
     text-decoration-line: underline;
     text-decoration-color: var(--border-strong);
-    text-decoration-thickness: 1px;
+    @apply decoration-1;
 }
 
 /* ── Keyframes ──────────────────────────────────────────────────────── */
