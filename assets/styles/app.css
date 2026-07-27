@@ -18,6 +18,14 @@
 @source "../../vendor/ubermuda/admin-bundle/templates";
 @source "../../vendor/ubermuda/feature-flags-bundle/templates";
 
+/* Automatic source detection scans every committed file, so prose that merely
+   names a class compiles it into the shipped stylesheet — the project-frontend
+   skill cites `blur-[1.25rem]` as a value to convert, and that alone kept the
+   utility alive after the last real use was gone. Documentation must not be a
+   content source. */
+@source not "../../.claude";
+@source not "../../docs";
+
 /* ── Self-hosted fonts (variable, OFL — see ../fonts/LICENSE.txt) ─── */
 
 @font-face {
@@ -95,37 +103,6 @@
 
     /* Animations */
     --animate-spin-fast: spin 0.7s linear infinite;
-
-    /* Custom layout utilities */
-    --width-sidebar: 14.5rem;
-}
-
-/* ── Custom layout utilities ───────────────────────────────────────── */
-
-@utility w-sidebar {
-    width: 14.5rem;
-}
-@utility max-w-card {
-    max-width: 25.5rem;
-}
-@utility max-w-doc {
-    max-width: 67.5rem;
-}
-@utility max-w-modal {
-    max-width: 35rem;
-}
-@utility max-w-chat {
-    max-width: 47.5rem;
-}
-
-@utility grid-cols-shell {
-    grid-template-columns: 14.5rem 1fr;
-}
-@utility grid-cols-shell-compact {
-    grid-template-columns: 3.5rem 1fr;
-}
-@utility grid-cols-settings {
-    grid-template-columns: 12.5rem 1fr;
 }
 
 /* ── Design tokens ──────────────────────────────────────────────────── */
@@ -218,7 +195,7 @@
         @apply bg-tint border-line-strong;
     }
     .btn:active {
-        @apply translate-y-px scale-[0.97]; /* @arbitrary-value-ignore */
+        @apply translate-y-px scale-97;
     }
     .btn.primary {
         @apply bg-accent border-accent text-white;
@@ -303,7 +280,7 @@
     }
     .auth-bg-glow::before {
         content: '';
-        @apply absolute w-[45rem] h-[45rem] left-1/2 -translate-x-1/2 -top-[12.5rem] blur-[1.25rem] opacity-55; /* @arbitrary-value-ignore */
+        @apply absolute w-180 h-180 left-1/2 -translate-x-1/2 -top-50 blur-xl opacity-55;
         background: radial-gradient(
             circle at center,
             var(--accent-soft) 0%,
@@ -381,7 +358,7 @@
     /* ── Page shell ─────────────────────────────────────────────────── */
 
     .lp-page {
-        @apply max-w-doc mx-auto px-6 py-8;
+        @apply max-w-5xl mx-auto px-6 py-8;
     }
     .lp-page-header {
         @apply flex items-center justify-between gap-4 mb-6;
@@ -689,7 +666,7 @@
     }
     /* Collapsed → revealed. Kept out of the normal flow height until open. */
     .lp-project-new__panel {
-        @apply hidden mt-4 max-w-card;
+        @apply hidden mt-4 max-w-sm;
     }
     .lp-project-new__panel.open {
         @apply block;
@@ -803,7 +780,7 @@
         @apply bg-tint border-line-strong;
     }
     .lp-btn:active {
-        @apply translate-y-px scale-[0.97]; /* @arbitrary-value-ignore */
+        @apply translate-y-px scale-97;
     }
     .lp-btn--primary {
         @apply bg-accent border-accent text-white;
@@ -877,7 +854,7 @@
        (WAAPI cannot target ::backdrop). */
 
     .lp-dialog {
-        @apply w-full max-w-card rounded-xl border border-line bg-surface-1 p-6 shadow-composer;
+        @apply w-full max-w-sm rounded-xl border border-line bg-surface-1 p-6 shadow-composer;
     }
     .lp-dialog::backdrop {
         @apply bg-ink/40;
@@ -1245,101 +1222,101 @@
        chip, body, and a captured-context row (URL + selector). Off-scale sizes are
        plain CSS, matching the ribbon/review conventions. */
 
-    .lp-sr-page {
+    .lp-site-review-page {
         @apply max-w-full flex flex-col;
         max-width: 820px;
         padding: 22px 32px 60px;
         gap: 0.875rem;
     }
-    .lp-sr-breadcrumb {
+    .lp-site-review-breadcrumb {
         @apply flex items-center gap-1.5 font-mono text-fg-dim;
         font-size: 0.75rem;
     }
-    .lp-sr-breadcrumb a {
+    .lp-site-review-breadcrumb a {
         @apply text-fg-dim no-underline transition-colors hover:text-fg;
     }
-    .lp-sr-breadcrumb__sep {
+    .lp-site-review-breadcrumb__separator {
         @apply text-fg-faint;
     }
-    .lp-sr-breadcrumb__current {
+    .lp-site-review-breadcrumb__current {
         @apply text-fg-mute;
     }
-    .lp-sr-header {
+    .lp-site-review-header {
         @apply flex flex-col gap-1.5;
     }
-    .lp-sr-title {
+    .lp-site-review-title {
         @apply font-semibold text-ink m-0;
         font-size: 22px;
     }
-    .lp-sr-meta-line {
+    .lp-site-review-meta-line {
         @apply font-mono text-fg-dim m-0;
         font-size: 0.75rem;
     }
-    .lp-sr-desc {
+    .lp-site-review-description {
         @apply text-fg-mute m-0;
         font-size: 14px;
         line-height: 1.55;
     }
 
     /* Flush hairline divider list — top hairline, each item a bottom hairline. */
-    .lp-sr-list {
+    .lp-site-review-list {
         @apply flex flex-col border-t border-line mt-1;
     }
-    .lp-sr-item {
+    .lp-site-review-item {
         @apply flex gap-4 border-b border-line;
         padding: 20px 2px;
     }
     /* Status-colored mono index — the primary left differentiator. */
-    .lp-sr-index {
+    .lp-site-review-index {
         @apply font-mono font-medium shrink-0 leading-none pt-0.5;
         font-size: 0.8125rem;
     }
-    .lp-sr-index--pending {
+    .lp-site-review-index--pending {
         @apply text-status-pending-deep;
     }
-    .lp-sr-index--ok {
+    .lp-site-review-index--ok {
         @apply text-status-ok-deep;
     }
-    .lp-sr-main {
+    .lp-site-review-main {
         @apply min-w-0 flex-1 flex flex-col gap-2;
     }
-    .lp-sr-title-row {
+    .lp-site-review-title-row {
         @apply flex items-start justify-between gap-3;
     }
-    .lp-sr-quote {
+    .lp-site-review-quote {
         @apply font-semibold text-ink m-0;
         font-size: 15px;
         line-height: 1.4;
     }
-    .lp-sr-widget-meta {
+    .lp-site-review-widget-meta {
         @apply font-mono text-fg-dim m-0;
         font-size: 0.6875rem;
         margin-top: -0.25rem;
     }
-    .lp-sr-body {
+    .lp-site-review-body {
         @apply text-fg m-0;
         font-size: 14px;
         line-height: 1.55;
     }
     /* Captured context — one wrapping mono row: external-link + URL, code + selector. */
-    .lp-sr-context {
+    .lp-site-review-context {
         @apply flex flex-wrap items-center font-mono;
         gap: 0.25rem 1rem;
         font-size: 0.71875rem;
     }
-    .lp-sr-context__url {
+    .lp-site-review-context__url {
         @apply inline-flex items-center gap-1.5 min-w-0 max-w-full text-fg-mute no-underline break-all transition-colors hover:text-accent;
     }
-    .lp-sr-context__selector {
+    .lp-site-review-context__selector {
         @apply inline-flex items-center gap-1.5 min-w-0 max-w-full text-fg-dim;
     }
-    .lp-sr-context__selector code {
+    .lp-site-review-context__selector code {
         @apply break-all;
     }
-    .lp-sr-actions {
+    .lp-site-review-actions {
         @apply flex items-center gap-2 mt-1;
     }
-    .lp-sr-empty {
+    .lp-site-review-empty {
         @apply flex flex-col items-center text-center gap-3 border-t border-line text-fg-dim mt-1;
         padding: 3rem 0;
     }

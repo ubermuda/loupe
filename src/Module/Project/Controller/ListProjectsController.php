@@ -40,7 +40,9 @@ class ListProjectsController extends AppController
     public function __invoke(Request $request): Response
     {
         $user = $this->getUser();
-        assert($user instanceof User);
+        if (!$user instanceof User) {
+            throw new \LogicException(\sprintf('%s reached without an authenticated User (got %s); this route must stay behind the ROLE_USER catch-all.', self::class, get_debug_type($user)));
+        }
 
         $page = max(1, $request->query->getInt('page', 1));
 

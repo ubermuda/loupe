@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Module\Billing\Twig;
+namespace App\Tests\Module\Billing\Twig\Components;
 
 use App\Module\Billing\Entity\BillingStatus;
 use App\Tests\Support\BillingScenario;

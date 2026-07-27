@@ -101,10 +101,12 @@ when@test:
 
         App\Module\SiteReview\Mcp\GetSiteReviewTool:
             autowire: true
+            autoconfigure: true
             public: true
 
         App\Module\SiteReview\Mcp\AddressSiteReviewCommentsTool:
             autowire: true
+            autoconfigure: true
             public: true
 
         App\Module\Project\Service\ProjectDeleter:

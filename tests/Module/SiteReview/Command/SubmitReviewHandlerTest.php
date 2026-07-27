@@ -11,6 +11,7 @@ use App\Module\SiteReview\Command\SubmitReviewCommand;
 use App\Module\SiteReview\Command\SubmitReviewHandler;
 use App\Module\SiteReview\Entity\SiteReview;
 use App\Module\SiteReview\Entity\SiteReviewStatus;
+use App\Module\SiteReview\Repository\SiteReviewEventRepository;
 use App\Module\SiteReview\Repository\SiteReviewRepository;
 use App\Module\SiteReview\Service\SiteReviewTopicBuilder;
 use Doctrine\ORM\EntityManagerInterface;
@@ -24,6 +25,7 @@ final class SubmitReviewHandlerTest extends KernelTestCase
     private EntityManagerInterface $em;
     private HubInterface&\PHPUnit\Framework\MockObject\MockObject $hub;
     private SubmitReviewHandler $handler;
+    private SiteReviewEventRepository $events;
 
     protected function setUp(): void
     {
@@ -33,6 +35,9 @@ final class SubmitReviewHandlerTest extends KernelTestCase
         $this->em = $em;
         $reviews = self::getContainer()->get(SiteReviewRepository::class);
         self::assertInstanceOf(SiteReviewRepository::class, $reviews);
+        $events = self::getContainer()->get(SiteReviewEventRepository::class);
+        self::assertInstanceOf(SiteReviewEventRepository::class, $events);
+        $this->events = $events;
         $this->hub = $this->createMock(HubInterface::class);
         $topicBuilder = self::getContainer()->get(SiteReviewTopicBuilder::class);
         self::assertInstanceOf(SiteReviewTopicBuilder::class, $topicBuilder);
@@ -65,6 +70,12 @@ final class SubmitReviewHandlerTest extends KernelTestCase
 
         self::assertSame(SiteReviewStatus::Submitted, $result->status);
         self::assertNotNull($result->submittedAt);
+
+        // Durable outbox row for the published update: written in the same
+        // flush as the submit, then marked published once the hub confirmed it.
+        $event = $this->events->findOneBy(['review' => $review]);
+        self::assertNotNull($event);
+        self::assertNotNull($event->publishedAt);
     }
 
     public function test_no_draft_review_is_a_domain_error(): void
@@ -101,6 +112,12 @@ final class SubmitReviewHandlerTest extends KernelTestCase
 
         $result = ($this->handler)(new SubmitReviewCommand($project));
         self::assertSame(SiteReviewStatus::Submitted, $result->status);
+
+        // The outbox row survives the failed publish, unpublished — the durable
+        // record a lost update leaves behind for a human to replay by hand.
+        $event = $this->events->findOneBy(['review' => $review]);
+        self::assertNotNull($event);
+        self::assertNull($event->publishedAt);
     }
 
     /** @param non-empty-string $email */

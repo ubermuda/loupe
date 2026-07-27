@@ -43,7 +43,9 @@ final class ReplyToCommentController extends AppController
     public function __invoke(Comment $comment, Request $request): Response
     {
         $user = $this->getUser();
-        assert($user instanceof User);
+        if (!$user instanceof User) {
+            throw new \LogicException(\sprintf('%s reached without an authenticated User (got %s); this route must stay behind the ROLE_USER catch-all.', self::class, get_debug_type($user)));
+        }
 
         $data = new ReplyRequest();
         $form = $this->formFactory->createNamed(ReviewExtension::replyFormName($comment), ReplyFormType::class, $data);
@@ -78,7 +80,7 @@ final class ReplyToCommentController extends AppController
             ]);
         }
 
-        $html = $this->renderView('review/_comment_thread.stream.html.twig', [
+        $html = $this->renderView('@Review/_comment_thread.stream.html.twig', [
             'comment' => $comment,
             'replies' => $this->comments->findReplies($comment),
             'replyForm' => $replyForm,

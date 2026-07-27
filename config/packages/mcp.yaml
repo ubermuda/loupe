@@ -1,3 +1,6 @@
 mcp:
     client_transports:
         http: true
+    http:
+        path: /mcp
+        allowed_hosts: '%env(csv:MCP_ALLOWED_HOSTS)%'

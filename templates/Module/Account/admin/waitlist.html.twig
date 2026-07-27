@@ -1,6 +1,6 @@
 {% extends '@UbermudaAdmin/base.html.twig' %}
 
-{% block title %}{{ 'account.admin.waitlist.page_title'|trans }}{% endblock %}
+{% block title %}{{ 'account.admin.waitlist.page.title'|trans }} — {{ 'app.name'|trans }}{% endblock %}
 
 {% block body %}
     <form method="post" action="{{ path('app_admin_waitlist_invite') }}" id="invite-selected-form">
