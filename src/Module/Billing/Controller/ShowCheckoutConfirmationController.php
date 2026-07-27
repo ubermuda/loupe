@@ -22,10 +22,10 @@ use Symfony\Component\Routing\Attribute\Route;
     name: 'app_billing_checkout_success',
     methods: ['GET'],
 )]
-final class CheckoutSuccessController extends AppController
+final class ShowCheckoutConfirmationController extends AppController
 {
     public function __invoke(): Response
     {
-        return $this->render('@Billing/checkout_success.html.twig');
+        return $this->render('@Billing/show_checkout_confirmation.html.twig');
     }
 }

@@ -159,7 +159,7 @@ final class PaywallRedirectTest extends WebTestCase
             'app_account_delete_request',
             'app_account_delete_confirm',
             'app_account_delete_execute',
-            'app_account_goodbye',
+            'app_account_deleted',
         ] as $route) {
             yield $route => [$route];
         }

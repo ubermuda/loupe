@@ -15,7 +15,7 @@ use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\UX\Turbo\TurboBundle;
 
-final class DocumentReviewControllerTest extends WebTestCase
+final class ShowDocumentControllerTest extends WebTestCase
 {
     /** @param non-empty-string $email */
     private function createUser(EntityManagerInterface $em, string $username, string $email): User

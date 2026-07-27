@@ -31,7 +31,7 @@ final readonly class RedirectUnverifiedUserListener
         'app_oauth_link',
         'app_account_delete_confirm',
         'app_account_delete_execute',
-        'app_account_goodbye',
+        'app_account_deleted',
     ];
 
     public function __construct(

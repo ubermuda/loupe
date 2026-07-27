@@ -22,7 +22,7 @@ use Symfony\Component\Security\Http\Attribute\IsGranted;
     name: 'app_project_documents',
     methods: ['GET'],
 )]
-class DocumentDashboardController extends AppController
+class ListDocumentsController extends AppController
 {
     public function __construct(
         private readonly DocumentRepository $documents,
@@ -52,7 +52,7 @@ class DocumentDashboardController extends AppController
             $documents,
         );
 
-        return $this->render('review/dashboard.html.twig', [
+        return $this->render('review/list_documents.html.twig', [
             'project' => $project,
             'items' => $items,
         ]);

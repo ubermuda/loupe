@@ -16,7 +16,7 @@ use Symfony\Component\Routing\Attribute\Route;
     name: 'api_site_review_current_review',
     methods: ['GET'],
 )]
-final class CurrentReviewController extends AppController
+final class ShowInProgressReviewController extends AppController
 {
     public function __construct(
         private readonly SiteReviewRepository $siteReviews,
