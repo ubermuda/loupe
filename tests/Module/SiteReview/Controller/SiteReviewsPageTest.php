@@ -6,7 +6,6 @@ namespace App\Tests\Module\SiteReview\Controller;
 
 use App\Module\Account\Entity\User;
 use App\Module\Project\Entity\Project;
-use App\Module\SiteReview\Entity\SiteReview;
 use App\Module\SiteReview\Entity\SiteReviewComment;
 use App\Module\SiteReview\Entity\SiteReviewCommentStatus;
 use Doctrine\ORM\EntityManagerInterface;
@@ -28,31 +27,31 @@ final class SiteReviewsPageTest extends WebTestCase
     /**
      * @param non-empty-string $email
      *
-     * @return array{Project, SiteReview} project + one submitted review with 2 pending comments
+     * @return array{Project, list<SiteReviewComment>} project + 2 pending comments
      */
-    private function projectWithSubmittedReview(EntityManagerInterface $em, string $email, string $siteName): array
+    private function projectWithPendingComments(EntityManagerInterface $em, string $email, string $siteName): array
     {
         $owner = $this->user($em, $email);
         $project = new Project($owner, $siteName);
         $em->persist($project);
-        $review = new SiteReview($project);
-        $review->addComment('First comment', '.selector', 'Selected text', 'https://example.com/page');
-        $review->addComment('Second comment', '', '', 'https://example.com/other');
-        $review->markSubmitted();
-        $em->persist($review);
+        $c1 = new SiteReviewComment($project, 0, 'First comment', '.selector', 'Selected text', 'https://example.com/page');
+        $c1->status = SiteReviewCommentStatus::Pending;
+        $c2 = new SiteReviewComment($project, 1, 'Second comment', '', '', 'https://example.com/other');
+        $c2->status = SiteReviewCommentStatus::Pending;
+        $em->persist($c1);
+        $em->persist($c2);
         $em->flush();
 
-        return [$project, $review];
+        return [$project, [$c1, $c2]];
     }
 
-    public function test_page_shows_submitted_review_with_statuses(): void
+    public function test_page_shows_pending_comments_with_statuses(): void
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
 
-        [$project, $review] = $this->projectWithSubmittedReview($em, 'reviews-page-a@example.com', 'reviews-site-a');
+        [$project, $comments] = $this->projectWithPendingComments($em, 'reviews-page-a@example.com', 'reviews-site-a');
         $owner = $project->owner;
-        $comments = $review->comments->toArray();
         $commentId = $comments[0]->id;
         $em->clear();
 
@@ -74,11 +73,9 @@ final class SiteReviewsPageTest extends WebTestCase
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
 
-        [$project, $review] = $this->projectWithSubmittedReview($em, 'reviews-page-b@example.com', 'reviews-site-b');
+        [$project, $comments] = $this->projectWithPendingComments($em, 'reviews-page-b@example.com', 'reviews-site-b');
         $owner = $project->owner;
-        $comments = $review->comments->toArray();
-        $comment = $comments[0];
-        $commentId = $comment->id;
+        $commentId = $comments[0]->id;
         $em->clear();
 
         $client->loginUser($owner);
@@ -100,9 +97,8 @@ final class SiteReviewsPageTest extends WebTestCase
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
 
-        [$project, $review] = $this->projectWithSubmittedReview($em, 'reviews-page-c@example.com', 'reviews-site-c');
+        [$project, $comments] = $this->projectWithPendingComments($em, 'reviews-page-c@example.com', 'reviews-site-c');
         $owner = $project->owner;
-        $comments = $review->comments->toArray();
         $comment = $comments[0];
         $commentId = $comment->id;
 
@@ -130,11 +126,9 @@ final class SiteReviewsPageTest extends WebTestCase
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
 
-        [$project, $review] = $this->projectWithSubmittedReview($em, 'reviews-page-d@example.com', 'reviews-site-d');
+        [$project, $comments] = $this->projectWithPendingComments($em, 'reviews-page-d@example.com', 'reviews-site-d');
         $other = $this->user($em, 'rvw-page-d-oth@example.com');
-        $comments = $review->comments->toArray();
-        $comment = $comments[0];
-        $commentId = $comment->id;
+        $commentId = $comments[0]->id;
         $em->flush();
         $em->clear();
 
@@ -161,7 +155,7 @@ final class SiteReviewsPageTest extends WebTestCase
         self::assertSame(SiteReviewCommentStatus::Pending, $fresh->status);
     }
 
-    public function test_draft_review_shows_no_action_buttons(): void
+    public function test_draft_comment_shows_no_action_buttons(): void
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
@@ -169,12 +163,10 @@ final class SiteReviewsPageTest extends WebTestCase
         $owner = $this->user($em, 'reviews-page-e@example.com');
         $project = new Project($owner, 'reviews-site-e');
         $em->persist($project);
-        $review = new SiteReview($project);
-        $review->addComment('Draft comment', '.a', 'text', 'https://example.com');
-        $em->persist($review);
+        $comment = new SiteReviewComment($project, 0, 'Draft comment', '.a', 'text', 'https://example.com');
+        $em->persist($comment);
         $em->flush();
-        $comments = $review->comments->toArray();
-        $commentId = $comments[0]->id;
+        $commentId = $comment->id;
         $em->clear();
 
         $client->loginUser($owner);
@@ -185,7 +177,7 @@ final class SiteReviewsPageTest extends WebTestCase
         $commentBlock = $crawler->filter('[data-comment-id="'.$commentId.'"]');
         self::assertCount(1, $commentBlock);
 
-        // ...but a draft review must not render resolve/reopen forms.
+        // ...but a Draft comment must not render resolve/reopen forms.
         self::assertCount(0, $commentBlock->filter('button:contains("Resolve")'));
         self::assertCount(0, $commentBlock->filter('button:contains("Reopen")'));
     }
@@ -199,13 +191,11 @@ final class SiteReviewsPageTest extends WebTestCase
         $owner = $this->user($em, 'reviews-page-f@example.com');
         $project = new Project($owner, 'reviews-site-f');
         $em->persist($project);
-        $review = new SiteReview($project);
-        $review->addComment('sneaky', '.x', 'text', 'javascript:alert(1)');
-        $review->markSubmitted();
-        $em->persist($review);
+        $comment = new SiteReviewComment($project, 0, 'sneaky', '.x', 'text', 'javascript:alert(1)');
+        $comment->status = SiteReviewCommentStatus::Pending;
+        $em->persist($comment);
         $em->flush();
-        $comments = $review->comments->toArray();
-        $commentId = $comments[0]->id;
+        $commentId = $comment->id;
         $em->clear();
 
         $client->loginUser($owner);
@@ -227,12 +217,10 @@ final class SiteReviewsPageTest extends WebTestCase
         $owner = $this->user($em, 'reviews-page-g@example.com');
         $project = new Project($owner, 'reviews-site-g');
         $em->persist($project);
-        $review = new SiteReview($project);
-        $review->addComment('Draft comment', '.a', 'text', 'https://example.com');
-        $em->persist($review);
+        $comment = new SiteReviewComment($project, 0, 'Draft comment', '.a', 'text', 'https://example.com');
+        $em->persist($comment);
         $em->flush();
-        $comments = $review->comments->toArray();
-        $commentId = $comments[0]->id;
+        $commentId = $comment->id;
         $em->clear();
 
         $client->loginUser($owner);
@@ -252,6 +240,6 @@ final class SiteReviewsPageTest extends WebTestCase
         $em->clear();
         $fresh = $em->find(SiteReviewComment::class, $commentId);
         self::assertNotNull($fresh);
-        self::assertSame(SiteReviewCommentStatus::Pending, $fresh->status);
+        self::assertSame(SiteReviewCommentStatus::Draft, $fresh->status);
     }
 }

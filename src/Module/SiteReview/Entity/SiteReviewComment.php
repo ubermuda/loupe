@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Module\SiteReview\Entity;
 
+use App\Module\Project\Entity\Project;
 use App\Module\SiteReview\Repository\SiteReviewCommentRepository;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
@@ -21,17 +22,17 @@ class SiteReviewComment
     public private(set) ?Uuid $id = null;
 
     #[ORM\Column(length: 20, enumType: SiteReviewCommentStatus::class)]
-    public SiteReviewCommentStatus $status = SiteReviewCommentStatus::Pending;
+    public SiteReviewCommentStatus $status = SiteReviewCommentStatus::Draft;
 
     public function __construct(
         #[ORM\JoinColumn(nullable: false)]
-        #[ORM\ManyToOne(targetEntity: SiteReview::class, inversedBy: 'comments')]
-        public readonly SiteReview $review,
+        #[ORM\ManyToOne(targetEntity: Project::class)]
+        public readonly Project $project,
 
         #[ORM\Column]
         public readonly int $position,
 
-        // Mutable: the widget can edit the body while the review is in progress.
+        // Mutable: the widget can edit the body while the comment is still a Draft.
         #[ORM\Column(type: Types::TEXT)]
         public string $body,
 

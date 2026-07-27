@@ -25,7 +25,7 @@ use App\Module\Review\Entity\Document;
 use App\Module\Review\Entity\Review;
 use App\Module\Review\Entity\Verdict;
 use App\Module\Review\ValueObject\Anchor;
-use App\Module\SiteReview\Entity\SiteReview;
+use App\Module\SiteReview\Entity\SiteReviewComment;
 use Doctrine\DBAL\Connection;
 use Doctrine\ORM\EntityManagerInterface;
 use Psr\Log\NullLogger;
@@ -365,9 +365,7 @@ final class DeleteAccountHandlerTest extends KernelTestCase
         $em->persist($reply);
         $em->persist(new Review(version: $version, verdict: Verdict::Approved, reviewer: $owner));
 
-        $siteReview = new SiteReview(project: $project);
-        $em->persist($siteReview);
-        $siteReview->addComment('widget comment', 'body', 'x', 'https://example.test/');
+        $em->persist(new SiteReviewComment(project: $project, position: 0, body: 'widget comment', selector: 'body', text: 'x', url: 'https://example.test/'));
 
         [$widgetToken] = ApiToken::issue($owner, $slug.'-widget', ApiTokenScope::SiteReview);
         [$mcpToken] = ApiToken::issue($owner, $slug.'-mcp', ApiTokenScope::Mcp);

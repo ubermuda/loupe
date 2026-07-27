@@ -9,9 +9,8 @@ use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\EventDispatcher\Attribute\AsEventListener;
 
 /**
- * Bulk-deletes the SiteReview-module subtree of a project in FK order:
- * site_review_events, site_review_comments -> site_review_reviews. Runs inside
- * ProjectDeleter's transaction.
+ * Bulk-deletes the SiteReview-module subtree of a project: site_review_events,
+ * site_review_comments. Runs inside ProjectDeleter's transaction.
  */
 #[AsEventListener]
 final readonly class DeleteSiteReviewDataOnProjectDeleting
@@ -24,15 +23,11 @@ final readonly class DeleteSiteReviewDataOnProjectDeleting
     public function __invoke(ProjectDeleting $event): void
     {
         $this->em->createQuery(
-            'DELETE App\Module\SiteReview\Entity\SiteReviewEvent e WHERE e.review IN (SELECT r.id FROM App\Module\SiteReview\Entity\SiteReview r WHERE r.project = :project)',
+            'DELETE App\Module\SiteReview\Entity\SiteReviewEvent e WHERE e.project = :project',
         )->setParameter('project', $event->project)->execute();
 
         $this->em->createQuery(
-            'DELETE App\Module\SiteReview\Entity\SiteReviewComment c WHERE c.review IN (SELECT r.id FROM App\Module\SiteReview\Entity\SiteReview r WHERE r.project = :project)',
-        )->setParameter('project', $event->project)->execute();
-
-        $this->em->createQuery(
-            'DELETE App\Module\SiteReview\Entity\SiteReview r WHERE r.project = :project',
+            'DELETE App\Module\SiteReview\Entity\SiteReviewComment c WHERE c.project = :project',
         )->setParameter('project', $event->project)->execute();
     }
 }

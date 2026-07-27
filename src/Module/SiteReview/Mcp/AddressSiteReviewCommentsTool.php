@@ -7,7 +7,6 @@ namespace App\Module\SiteReview\Mcp;
 use App\Mcp\ResolvesBoundProject;
 use App\Module\Project\Security\AuthenticatedProjectResolver;
 use App\Module\SiteReview\Entity\SiteReviewCommentStatus;
-use App\Module\SiteReview\Entity\SiteReviewStatus;
 use App\Module\SiteReview\Repository\SiteReviewCommentRepository;
 use Doctrine\ORM\EntityManagerInterface;
 use Mcp\Capability\Attribute\McpTool;
@@ -53,12 +52,12 @@ final readonly class AddressSiteReviewCommentsTool
                 $skipped[] = ['id' => $id, 'reason' => 'unknown'];
                 continue;
             }
-            if (SiteReviewStatus::Submitted !== $comment->review->status) {
-                $skipped[] = ['id' => $id, 'reason' => 'not_submitted'];
-                continue;
-            }
             if (SiteReviewCommentStatus::Pending !== $comment->status) {
-                $skipped[] = ['id' => $id, 'reason' => SiteReviewCommentStatus::Addressed === $comment->status ? 'already_addressed' : 'resolved'];
+                $skipped[] = ['id' => $id, 'reason' => match ($comment->status) {
+                    SiteReviewCommentStatus::Draft => 'not_submitted',
+                    SiteReviewCommentStatus::Addressed => 'already_addressed',
+                    default => 'resolved',
+                }];
                 continue;
             }
 

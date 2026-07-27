@@ -10,7 +10,7 @@ use App\Module\Account\Entity\ApiTokenScope;
 use App\Module\Account\Repository\UserRepository;
 use App\Module\Project\Entity\Project;
 use App\Module\Project\Repository\ProjectRepository;
-use App\Module\SiteReview\Repository\SiteReviewRepository;
+use App\Module\SiteReview\Repository\SiteReviewCommentRepository;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\DependencyInjection\Attribute\When;
 use Symfony\Component\HttpFoundation\Request;
@@ -40,7 +40,7 @@ final class SiteReviewHarnessController extends AppController
         private readonly EntityManagerInterface $em,
         private readonly UserRepository $users,
         private readonly ProjectRepository $projects,
-        private readonly SiteReviewRepository $siteReviews,
+        private readonly SiteReviewCommentRepository $siteReviewComments,
     ) {
     }
 
@@ -56,11 +56,10 @@ final class SiteReviewHarnessController extends AppController
             $this->em->persist($project);
         }
 
-        // Deterministic starting state for every e2e run: no draft review (unless the
-        // test explicitly keeps it to exercise the widget's rehydrate path)…
+        // Deterministic starting state for every e2e run: no draft comments (unless
+        // the test explicitly keeps them to exercise the widget's rehydrate path)…
         if (!$request->query->getBoolean('keep')) {
-            $draft = $this->siteReviews->findOneInProgress($project);
-            if (null !== $draft) {
+            foreach ($this->siteReviewComments->findDraftForProject($project) as $draft) {
                 $this->em->remove($draft);
             }
         }

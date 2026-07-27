@@ -8,8 +8,7 @@ use App\Module\Account\Entity\ApiToken;
 use App\Module\Account\Entity\ApiTokenScope;
 use App\Module\Account\Entity\User;
 use App\Module\Project\Entity\Project;
-use App\Module\SiteReview\Entity\SiteReviewStatus;
-use App\Module\SiteReview\Repository\SiteReviewRepository;
+use App\Module\SiteReview\Repository\SiteReviewCommentRepository;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
@@ -45,7 +44,7 @@ final class SiteReviewApiTest extends WebTestCase
             content: null === $json ? null : json_encode($json, \JSON_THROW_ON_ERROR));
     }
 
-    public function test_add_comment_creates_a_draft_review(): void
+    public function test_add_comment_creates_a_draft_comment(): void
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
@@ -59,9 +58,8 @@ final class SiteReviewApiTest extends WebTestCase
         self::assertIsArray($data);
         self::assertArrayHasKey('commentId', $data);
 
-        $review = static::getContainer()->get(SiteReviewRepository::class)->findOneInProgress($project);
-        self::assertNotNull($review);
-        self::assertCount(1, $review->comments);
+        $drafts = static::getContainer()->get(SiteReviewCommentRepository::class)->findDraftForProject($project);
+        self::assertCount(1, $drafts);
     }
 
     public function test_unbound_site_review_token_is_forbidden(): void
@@ -82,34 +80,35 @@ final class SiteReviewApiTest extends WebTestCase
         self::assertSame('token_not_bound_to_site', json_decode((string) $client->getResponse()->getContent(), true)['error'] ?? null);
     }
 
-    public function test_current_review_round_trip_and_submit(): void
+    public function test_current_draft_round_trip_and_submit(): void
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
         [$raw, $project] = $this->projectWithToken($em, 'api-c@example.com');
 
         $this->api($client, Request::METHOD_GET, '/api/site-review/review', $raw);
-        self::assertSame(['review' => null], json_decode((string) $client->getResponse()->getContent(), true));
+        self::assertSame(['comments' => []], json_decode((string) $client->getResponse()->getContent(), true));
 
         $this->api($client, Request::METHOD_POST, '/api/site-review/comments', $raw, ['body' => 'one', 'url' => 'https://app/x']);
         $this->api($client, Request::METHOD_POST, '/api/site-review/comments', $raw, ['body' => 'two', 'url' => 'https://app/y']);
 
         $this->api($client, Request::METHOD_GET, '/api/site-review/review', $raw);
         $data = json_decode((string) $client->getResponse()->getContent(), true);
-        self::assertIsArray($data['review'] ?? null);
-        self::assertCount(2, $data['review']['comments']);
-        self::assertSame('one', $data['review']['comments'][0]['body']);
-        self::assertNotEmpty($data['review']['comments'][0]['id']);
+        self::assertCount(2, $data['comments']);
+        self::assertSame('one', $data['comments'][0]['body']);
+        self::assertNotEmpty($data['comments'][0]['id']);
 
         $this->api($client, Request::METHOD_POST, '/api/site-review/review/submit', $raw);
         self::assertResponseIsSuccessful();
         $em->clear();
-        $submitted = static::getContainer()->get(SiteReviewRepository::class)->findForProject($project);
-        self::assertSame(SiteReviewStatus::Submitted, $submitted[0]->status);
+        $pending = static::getContainer()->get(SiteReviewCommentRepository::class)->findPendingForProject($project);
+        self::assertCount(2, $pending);
 
-        // No draft anymore: a second submit is a 422, and GET review is null again.
+        // No draft anymore: a second submit is a 422, and GET review is empty again.
         $this->api($client, Request::METHOD_POST, '/api/site-review/review/submit', $raw);
         self::assertResponseStatusCodeSame(422);
+        $this->api($client, Request::METHOD_GET, '/api/site-review/review', $raw);
+        self::assertSame(['comments' => []], json_decode((string) $client->getResponse()->getContent(), true));
     }
 
     public function test_edit_and_delete_draft_comment(): void
@@ -125,13 +124,13 @@ final class SiteReviewApiTest extends WebTestCase
         self::assertResponseIsSuccessful();
 
         $this->api($client, Request::METHOD_GET, '/api/site-review/review', $raw);
-        self::assertSame('edited', json_decode((string) $client->getResponse()->getContent(), true)['review']['comments'][0]['body']);
+        self::assertSame('edited', json_decode((string) $client->getResponse()->getContent(), true)['comments'][0]['body']);
 
         $this->api($client, Request::METHOD_DELETE, '/api/site-review/comments/'.$id, $raw);
         self::assertResponseStatusCodeSame(204);
 
         $this->api($client, Request::METHOD_GET, '/api/site-review/review', $raw);
-        self::assertSame([], json_decode((string) $client->getResponse()->getContent(), true)['review']['comments']);
+        self::assertSame([], json_decode((string) $client->getResponse()->getContent(), true)['comments']);
     }
 
     public function test_cross_site_comment_is_not_reachable(): void

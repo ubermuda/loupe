@@ -27,7 +27,7 @@ final readonly class GetSiteReviewTool
     /**
      * @param string|null $site optional site id or site name; must match the project your MCP token is bound to
      *
-     * @return array{site: array{id: string, name: string}, comments: list<array{id: string, url: string, selector: string, text: string, body: string, reviewId: string, submittedAt: ?string}>}
+     * @return array{site: array{id: string, name: string}, comments: list<array{id: string, url: string, selector: string, text: string, body: string, createdAt: string}>}
      */
     public function __invoke(?string $site = null): array
     {
@@ -53,8 +53,7 @@ final readonly class GetSiteReviewTool
                     'selector' => $c->selector,
                     'text' => $c->text,
                     'body' => $c->body,
-                    'reviewId' => (string) $c->review->id,
-                    'submittedAt' => $c->review->submittedAt?->format(\DateTimeInterface::ATOM),
+                    'createdAt' => $c->createdAt->format(\DateTimeInterface::ATOM),
                 ],
                 $pending,
             )),

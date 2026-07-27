@@ -41,11 +41,11 @@ final readonly class ProjectAccountPurger implements AccountDataPurgerInterface
     public function purge(User $user, AccountDeletionCleanup $cleanup): void
     {
         // Resolve ids up front, then re-fetch and clear() around each
-        // delete: ProjectDeleter's listeners remove SiteReview/SiteReviewComment
+        // delete: ProjectDeleter's listeners remove SiteReviewComment/SiteReviewEvent
         // rows via bulk DQL, which bypasses the identity map, so an earlier
-        // project's now-stale SiteReview object survives into the next
-        // flush() and Doctrine misreports its already-deleted `project` as a
-        // new, non-cascaded entity. Clearing after each delete avoids that.
+        // project's now-stale entity survives into the next flush() and
+        // Doctrine misreports its already-deleted `project` as a new,
+        // non-cascaded entity. Clearing after each delete avoids that.
         $projectIds = array_map(static fn (Project $p): Uuid => $p->id ?? throw new \LogicException('a persisted project always has an id'), $this->projects->findBy(['owner' => $user]));
         foreach ($projectIds as $projectId) {
             $project = $this->projects->find($projectId);
