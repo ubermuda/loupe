@@ -78,7 +78,7 @@ final class ReplyToCommentController extends AppController
             ]);
         }
 
-        $html = $this->renderView('review/_comment_thread.stream.html.twig', [
+        $html = $this->renderView('@Review/_comment_thread.stream.html.twig', [
             'comment' => $comment,
             'replies' => $this->comments->findReplies($comment),
             'replyForm' => $replyForm,

@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Module\Billing\Twig;
+namespace App\Module\Billing\Twig\Components;
 
 use App\Module\Account\Entity\User;
 use App\Module\Billing\Command\ShowSubscribeCommand;
@@ -19,7 +19,7 @@ use Symfony\UX\TwigComponent\Attribute\AsTwigComponent;
  *
  * Props: none.
  */
-#[AsTwigComponent(name: 'BillingSummary', template: 'components/BillingSummary.html.twig')]
+#[AsTwigComponent(name: 'BillingSummary')]
 final class BillingSummaryComponent
 {
     /** Null for an anonymous render; the template then draws nothing. */

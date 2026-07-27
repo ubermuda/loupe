@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Module\Review\Twig;
+namespace App\Module\Review\Twig\Components;
 
 use App\Module\Review\Entity\Comment;
 use Symfony\Component\Form\FormView;
@@ -18,7 +18,7 @@ use Symfony\UX\TwigComponent\Attribute\AsTwigComponent;
  *                                 validation errors after a failed submit); when
  *                                 null the template builds a fresh one.
  */
-#[AsTwigComponent(name: 'CommentThread', template: 'components/CommentThread.html.twig')]
+#[AsTwigComponent(name: 'CommentThread')]
 final class CommentThreadComponent
 {
     public Comment $comment;

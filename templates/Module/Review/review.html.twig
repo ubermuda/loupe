@@ -93,7 +93,7 @@
         </div>
 
         <div class="lp-review-sidebar">
-            {% include 'review/_comment_threads.html.twig' with {comments: comments} only %}
+            {% include '@Review/_comment_threads.html.twig' with {comments: comments} only %}
 
             <div class="lp-verdict-bar">
                 {% if document.status.value == 'approved' %}
