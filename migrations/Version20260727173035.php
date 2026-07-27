@@ -125,6 +125,11 @@ final class Version20260727173035 extends AbstractMigration
             WHERE c.project_id = r.project_id
             SQL);
         $this->addSql('ALTER TABLE site_review_comments ALTER COLUMN review_id SET NOT NULL');
+        // 'draft' does not exist in the restored enum, so any comment written
+        // after the upgrade would fail to hydrate and break every page that
+        // loads it. Pending is the inverse: in the old model a comment sitting
+        // in an in-progress review was exactly that.
+        $this->addSql("UPDATE site_review_comments SET status = 'pending' WHERE status = 'draft'");
         $this->addSql('ALTER TABLE site_review_comments DROP CONSTRAINT FK_7246C1CA166D1F9C');
         $this->addSql('DROP INDEX IDX_7246C1CA166D1F9C');
         $this->addSql('ALTER TABLE site_review_comments DROP COLUMN project_id');
