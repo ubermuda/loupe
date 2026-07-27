@@ -9,12 +9,14 @@ export default class extends Controller {
     #clickOutside = null;
 
     connect() {
-        const el = document.getElementById('tag-input-data');
-        this.#allTags = el ? JSON.parse(el.textContent) : [];
+        const tagInputDataElement = document.getElementById('tag-input-data');
+        this.#allTags = tagInputDataElement
+            ? JSON.parse(tagInputDataElement.textContent)
+            : [];
         this.#tags = this.#parseField();
         this.#renderPills();
-        this.#clickOutside = (e) => {
-            if (!this.element.contains(e.target)) this.close();
+        this.#clickOutside = (event) => {
+            if (!this.element.contains(event.target)) this.close();
         };
         document.addEventListener('click', this.#clickOutside);
     }
