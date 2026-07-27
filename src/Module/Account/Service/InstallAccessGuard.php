@@ -26,6 +26,9 @@ final readonly class InstallAccessGuard
 
         #[Autowire(env: 'INSTALL_TOKEN')]
         private string $installToken,
+
+        #[Autowire('%kernel.environment%')]
+        private string $environment,
     ) {
     }
 
@@ -36,6 +39,14 @@ final readonly class InstallAccessGuard
         }
 
         if ('' === $this->installToken) {
+            // Unconfigured fails CLOSED in production: a forgotten env var must
+            // not leave an admin-minting endpoint publicly reachable. Elsewhere
+            // it stays open, because dev, the test suite and every
+            // `just worktree-up` run the wizard unattended.
+            if ('prod' === $this->environment) {
+                throw new NotFoundHttpException();
+            }
+
             return;
         }
 

@@ -35,7 +35,7 @@ final class InstallAccessGuardTest extends TestCase
 
     public function test_closed_installation_404s_regardless_of_token(): void
     {
-        $guard = new InstallAccessGuard($this->installationState(1), '');
+        $guard = new InstallAccessGuard($this->installationState(1), '', 'test');
 
         $this->expectException(NotFoundHttpException::class);
         $guard->ensureAccessible($this->requestWithSession());
@@ -43,7 +43,7 @@ final class InstallAccessGuardTest extends TestCase
 
     public function test_open_installation_with_no_configured_token_is_accessible(): void
     {
-        $guard = new InstallAccessGuard($this->installationState(0), '');
+        $guard = new InstallAccessGuard($this->installationState(0), '', 'test');
 
         $guard->ensureAccessible($this->requestWithSession());
         $this->addToAssertionCount(1); // no exception thrown
@@ -51,7 +51,7 @@ final class InstallAccessGuardTest extends TestCase
 
     public function test_configured_token_without_query_token_404s(): void
     {
-        $guard = new InstallAccessGuard($this->installationState(0), 'secret-token');
+        $guard = new InstallAccessGuard($this->installationState(0), 'secret-token', 'test');
 
         $this->expectException(NotFoundHttpException::class);
         $guard->ensureAccessible($this->requestWithSession());
@@ -59,7 +59,7 @@ final class InstallAccessGuardTest extends TestCase
 
     public function test_configured_token_with_wrong_query_token_404s(): void
     {
-        $guard = new InstallAccessGuard($this->installationState(0), 'secret-token');
+        $guard = new InstallAccessGuard($this->installationState(0), 'secret-token', 'test');
 
         $this->expectException(NotFoundHttpException::class);
         $guard->ensureAccessible($this->requestWithSession('token=wrong'));
@@ -67,7 +67,7 @@ final class InstallAccessGuardTest extends TestCase
 
     public function test_configured_token_with_array_query_token_404s_instead_of_500ing(): void
     {
-        $guard = new InstallAccessGuard($this->installationState(0), 'secret-token');
+        $guard = new InstallAccessGuard($this->installationState(0), 'secret-token', 'test');
 
         $this->expectException(NotFoundHttpException::class);
         $guard->ensureAccessible($this->requestWithSession('token[]=x'));
@@ -75,7 +75,7 @@ final class InstallAccessGuardTest extends TestCase
 
     public function test_configured_token_with_correct_query_token_is_accessible_and_remembered(): void
     {
-        $guard = new InstallAccessGuard($this->installationState(0), 'secret-token');
+        $guard = new InstallAccessGuard($this->installationState(0), 'secret-token', 'test');
         $request = $this->requestWithSession('token=secret-token');
 
         $guard->ensureAccessible($request);
@@ -87,5 +87,23 @@ final class InstallAccessGuardTest extends TestCase
         $laterRequest->setSession($request->getSession());
         $guard->ensureAccessible($laterRequest);
         $this->addToAssertionCount(1);
+    }
+
+    public function test_production_without_a_configured_token_404s_rather_than_opening(): void
+    {
+        // A forgotten INSTALL_TOKEN in production must not leave an
+        // admin-minting endpoint publicly reachable.
+        $guard = new InstallAccessGuard($this->installationState(0), '', 'prod');
+
+        $this->expectException(NotFoundHttpException::class);
+        $guard->ensureAccessible($this->requestWithSession());
+    }
+
+    public function test_production_with_a_configured_token_still_admits_the_correct_token(): void
+    {
+        $guard = new InstallAccessGuard($this->installationState(0), 'secret-token', 'prod');
+
+        $guard->ensureAccessible($this->requestWithSession('token=secret-token'));
+        $this->addToAssertionCount(1); // no exception thrown
     }
 }
