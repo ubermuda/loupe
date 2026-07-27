@@ -829,6 +829,25 @@
         @apply bg-status-pending-border border-status-pending;
     }
 
+    /* ── Pagination (shared `<twig:Pagination>` component) ─────────────── */
+
+    .lp-pagination {
+        @apply flex items-center justify-between gap-3 py-4;
+    }
+    .lp-pagination__status {
+        @apply text-fg-dim m-0;
+        font-size: 12.5px;
+    }
+    .lp-pagination__controls {
+        @apply flex items-center gap-1;
+    }
+    .lp-pagination__ellipsis {
+        @apply inline-flex items-center justify-center px-2 text-fg-dim text-xs;
+    }
+    .lp-pagination__disabled {
+        @apply opacity-40 pointer-events-none;
+    }
+
     /* ── Dialog / modal (`modal` Stimulus controller) ─────────────────
        The dialog element itself is animated exclusively via WAAPI in
        modal_controller.js; only the ::backdrop gets a CSS animation

@@ -46,6 +46,8 @@
         </div>
         {% endfor %}
     </div>
+
+    <twig:Pagination route="app_project_documents" :page="page" :totalPages="totalPages" :pageList="pageList" :routeParams="{id: project.id}" />
     {% else %}
     <div class="lp-card flex flex-col items-center text-center gap-3 py-12">
         <twig:ux:icon name="lucide:file-text" class="w-8 h-8 text-fg-dim" />

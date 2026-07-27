@@ -71,8 +71,10 @@ final class ListDocumentsToolTest extends KernelTestCase
         $result = ($this->tool)();
 
         // The list is wrapped in a `documents` object key — MCP structuredContent
-        // must be a JSON object, not a bare array.
-        self::assertSame(['documents'], array_keys($result));
+        // must be a JSON object, not a bare array — alongside the page counters.
+        self::assertSame(['documents', 'page', 'perPage', 'total', 'hasMore'], array_keys($result));
+        self::assertSame(1, $result['total']);
+        self::assertFalse($result['hasMore']);
 
         // Exactly one document — project A's, despite both belonging to the same owner.
         self::assertCount(1, $result['documents']);
@@ -101,7 +103,10 @@ final class ListDocumentsToolTest extends KernelTestCase
 
         $this->actAsMcpTokenBoundTo($projectA);
 
-        self::assertSame(['documents' => []], ($this->tool)());
+        $result = ($this->tool)();
+        self::assertSame([], $result['documents']);
+        self::assertSame(0, $result['total']);
+        self::assertFalse($result['hasMore']);
     }
 
     public function test_unbound_mcp_token_is_rejected(): void
@@ -113,5 +118,69 @@ final class ListDocumentsToolTest extends KernelTestCase
         $this->expectException(ToolCallException::class);
         $this->expectExceptionMessage('MCP token is not bound to a project. Mint a project token from the Connect page.');
         ($this->tool)();
+    }
+
+    public function test_pages_through_the_projects_documents(): void
+    {
+        $owner = $this->user('list-paged@example.com');
+        $project = $this->project($owner);
+
+        for ($i = 1; $i <= 3; ++$i) {
+            $doc = new Document(owner: $owner, project: $project, title: 'Document '.$i);
+            $doc->addVersion('# D'.$i, '<h1>D'.$i.'</h1>');
+            $this->em->persist($doc);
+        }
+        $this->em->flush();
+
+        $this->actAsMcpTokenBoundTo($project);
+
+        $first = ($this->tool)(page: 1, perPage: 2);
+        self::assertCount(2, $first['documents']);
+        self::assertSame(3, $first['total']);
+        self::assertTrue($first['hasMore']);
+
+        $second = ($this->tool)(page: 2, perPage: 2);
+        self::assertCount(1, $second['documents']);
+        self::assertSame(3, $second['total']);
+        self::assertFalse($second['hasMore'], 'the last page must not claim more follows');
+
+        // No document appears on both pages — the ordering has a unique tiebreak.
+        $firstIds = array_column($first['documents'], 'documentId');
+        $secondIds = array_column($second['documents'], 'documentId');
+        self::assertSame([], array_intersect($firstIds, $secondIds));
+    }
+
+    public function test_out_of_range_page_returns_an_empty_page_rather_than_failing(): void
+    {
+        $owner = $this->user('list-oob@example.com');
+        $project = $this->project($owner);
+
+        $doc = new Document(owner: $owner, project: $project, title: 'Only');
+        $doc->addVersion('# O', '<h1>O</h1>');
+        $this->em->persist($doc);
+        $this->em->flush();
+
+        $this->actAsMcpTokenBoundTo($project);
+
+        $result = ($this->tool)(page: 99);
+        self::assertSame([], $result['documents']);
+        self::assertSame(1, $result['total']);
+        self::assertFalse($result['hasMore']);
+    }
+
+    public function test_page_and_per_page_are_clamped_to_sane_bounds(): void
+    {
+        $owner = $this->user('list-clamp@example.com');
+        $project = $this->project($owner);
+        $this->em->flush();
+
+        $this->actAsMcpTokenBoundTo($project);
+
+        $result = ($this->tool)(page: 0, perPage: 10_000);
+        self::assertSame(1, $result['page']);
+        self::assertSame(ListDocumentsTool::MAX_PER_PAGE, $result['perPage']);
+
+        $result = ($this->tool)(perPage: 0);
+        self::assertSame(1, $result['perPage']);
     }
 }

@@ -1,0 +1,37 @@
+{#
+  Props:
+    route         string           Route name to link to for each page.
+    page          int              Current page number (1-based).
+    totalPages    int              Total number of pages.
+    pageList      list<int|null>   Elided page numbers from PageList::build(); null = ellipsis.
+    routeParams   array            Extra route params merged into every link (e.g. project id). Optional.
+
+  Prev/next + elided page-number control. Renders nothing when totalPages <= 1.
+#}
+{% set routeParams = routeParams|default({}) %}
+{% if totalPages > 1 %}
+<nav class="lp-pagination" aria-label="{{ 'pagination.nav_label'|trans }}">
+    <p class="lp-pagination__status">{{ 'pagination.status'|trans({'%page%': page, '%total%': totalPages}) }}</p>
+    <div class="lp-pagination__controls">
+        {% if page > 1 %}
+            <a href="{{ path(route, routeParams|merge({page: page - 1})) }}" class="lp-btn lp-btn--ghost lp-btn--sm" aria-label="{{ 'pagination.previous'|trans }}">‹</a>
+        {% else %}
+            <span class="lp-btn lp-btn--ghost lp-btn--sm lp-pagination__disabled" aria-disabled="true">‹</span>
+        {% endif %}
+        {% for p in pageList %}
+            {% if p is null %}
+                <span class="lp-pagination__ellipsis">…</span>
+            {% else %}
+                <a href="{{ path(route, routeParams|merge({page: p})) }}"
+                   class="lp-btn lp-btn--sm {{ p == page ? 'lp-btn--primary' : 'lp-btn--ghost' }}"
+                   {% if p == page %}aria-current="page"{% endif %}>{{ p }}</a>
+            {% endif %}
+        {% endfor %}
+        {% if page < totalPages %}
+            <a href="{{ path(route, routeParams|merge({page: page + 1})) }}" class="lp-btn lp-btn--ghost lp-btn--sm" aria-label="{{ 'pagination.next'|trans }}">›</a>
+        {% else %}
+            <span class="lp-btn lp-btn--ghost lp-btn--sm lp-pagination__disabled" aria-disabled="true">›</span>
+        {% endif %}
+    </div>
+</nav>
+{% endif %}

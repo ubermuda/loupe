@@ -1344,6 +1344,24 @@
                 <target>Approved</target>
             </trans-unit>
 
+            <!-- Pagination component -->
+            <trans-unit id="pagination.nav_label">
+                <source>pagination.nav_label</source>
+                <target>Pagination</target>
+            </trans-unit>
+            <trans-unit id="pagination.status">
+                <source>pagination.status</source>
+                <target>Page %page% of %total%</target>
+            </trans-unit>
+            <trans-unit id="pagination.previous">
+                <source>pagination.previous</source>
+                <target>Previous page</target>
+            </trans-unit>
+            <trans-unit id="pagination.next">
+                <source>pagination.next</source>
+                <target>Next page</target>
+            </trans-unit>
+
             <!-- Site review labels -->
             <trans-unit id="site_review.page.title">
                 <source>site_review.page.title</source>
