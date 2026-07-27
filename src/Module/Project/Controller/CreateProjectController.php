@@ -16,11 +16,9 @@ use App\Module\Project\View\ProjectListItem;
 use App\Module\Review\Repository\DocumentRepository;
 use App\Module\SiteReview\Repository\SiteReviewCommentRepository;
 use App\Module\SiteReview\Repository\SiteReviewRepository;
-use Symfony\Component\Form\FormError;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
-use Symfony\Contracts\Translation\TranslatorInterface;
 
 #[Route(
     '/projects',
@@ -35,7 +33,6 @@ class CreateProjectController extends AppController
         private readonly DocumentRepository $documents,
         private readonly SiteReviewRepository $siteReviews,
         private readonly SiteReviewCommentRepository $siteReviewComments,
-        private readonly TranslatorInterface $translator,
     ) {
     }
 
@@ -58,9 +55,7 @@ class CreateProjectController extends AppController
 
                 return $this->redirectToRoute('app_projects');
             } catch (DomainErrors $e) {
-                foreach ($e->errors as $field => $translationKey) {
-                    $form->get($field)->addError(new FormError($this->translator->trans($translationKey)));
-                }
+                $this->applyDomainErrors($form, $e);
             }
         }
 

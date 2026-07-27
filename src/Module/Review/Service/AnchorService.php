@@ -51,15 +51,24 @@ final class AnchorService
      * (the document's plain text), so it is found exactly — no offset arithmetic
      * crosses the wire, which sidesteps the byte/UTF-16 drift of the old path.
      *
+     * Returns null when the quote cannot be located in $text at all — e.g. the
+     * document was revised in another tab between the client capturing the
+     * selection and the comment being submitted. Callers must not fabricate an
+     * offset-0 anchor in that case: it would claim a location that doesn't
+     * exist, sort to the top of the sidebar, and silently fail to highlight.
+     * Reuse the orphaned concept instead (see ReanchoringService).
+     *
      * Callers must pass a real selection; an untargeted comment has no selection
      * and uses Anchor::unanchored() instead of this method.
      *
      * @param non-empty-string $quote
      */
-    public function fromSelection(string $text, string $quote, string $prefix, string $suffix): Anchor
+    public function fromSelection(string $text, string $quote, string $prefix, string $suffix): ?Anchor
     {
-        $anchor = new Anchor($quote, $prefix, $suffix, 0);
-        $offset = $this->locate($text, $anchor) ?? 0;
+        $offset = $this->locate($text, new Anchor($quote, $prefix, $suffix, 0));
+        if (null === $offset) {
+            return null;
+        }
 
         return new Anchor($quote, $prefix, $suffix, $offset);
     }

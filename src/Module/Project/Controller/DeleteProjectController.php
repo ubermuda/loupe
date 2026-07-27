@@ -12,7 +12,6 @@ use App\Module\Project\Entity\Project;
 use App\Module\Project\Form\DeleteProjectFormType;
 use App\Module\Project\Form\DeleteProjectRequest;
 use App\Module\Project\Security\ProjectVoter;
-use Symfony\Component\Form\FormError;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
@@ -51,9 +50,7 @@ final class DeleteProjectController extends AppController
 
                 return $this->redirectToRoute('app_projects');
             } catch (DomainErrors $e) {
-                foreach ($e->errors as $field => $translationKey) {
-                    $form->get($field)->addError(new FormError($this->translator->trans($translationKey)));
-                }
+                $this->applyDomainErrors($form, $e);
             }
         }
 

@@ -6,11 +6,13 @@ namespace App\Module\Account\Controller;
 
 use App\Controller\AppController;
 use App\Module\Account\Entity\User;
+use App\Routing\PaywallExempt;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpFoundation\Session\FlashBagAwareSessionInterface;
 use Symfony\Component\Routing\Attribute\Route;
 
+#[PaywallExempt]
 #[Route('/register/check-email', name: 'app_register_check_email')]
 class RegistrationCheckEmailController extends AppController
 {

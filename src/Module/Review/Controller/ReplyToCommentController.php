@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Module\Review\Controller;
 
 use App\Controller\AppController;
+use App\Exception\DomainErrors;
 use App\Module\Account\Entity\User;
 use App\Module\Review\Command\ReplyToCommentCommand;
 use App\Module\Review\Command\ReplyToCommentHandler;
@@ -14,11 +15,13 @@ use App\Module\Review\Form\ReplyRequest;
 use App\Module\Review\Repository\CommentRepository;
 use App\Module\Review\Security\CommentVoter;
 use App\Module\Review\Twig\ReviewExtension;
+use Symfony\Component\Form\FormError;
 use Symfony\Component\Form\FormFactoryInterface;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
+use Symfony\Contracts\Translation\TranslatorInterface;
 use Symfony\UX\Turbo\TurboBundle;
 
 #[IsGranted(CommentVoter::REPLY, subject: 'comment')]
@@ -33,6 +36,7 @@ final class ReplyToCommentController extends AppController
         private readonly ReplyToCommentHandler $replyToCommentHandler,
         private readonly CommentRepository $comments,
         private readonly FormFactoryInterface $formFactory,
+        private readonly TranslatorInterface $translator,
     ) {
     }
 
@@ -49,11 +53,19 @@ final class ReplyToCommentController extends AppController
         $status = Response::HTTP_OK;
 
         if ($form->isSubmitted() && $form->isValid()) {
-            ($this->replyToCommentHandler)(new ReplyToCommentCommand(
-                actor: $user,
-                parent: $comment,
-                body: $data->body ?: throw new \LogicException('body required after validation'),
-            ));
+            try {
+                ($this->replyToCommentHandler)(new ReplyToCommentCommand(
+                    actor: $user,
+                    parent: $comment,
+                    body: $data->body ?: throw new \LogicException('body required after validation'),
+                ));
+            } catch (DomainErrors $e) {
+                foreach ($e->errors as $field => $translationKey) {
+                    $form->get($field)->addError(new FormError($this->translator->trans($translationKey)));
+                }
+                $replyForm = $form->createView();
+                $status = Response::HTTP_UNPROCESSABLE_ENTITY;
+            }
         } else {
             $replyForm = $form->createView();
             $status = Response::HTTP_UNPROCESSABLE_ENTITY;

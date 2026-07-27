@@ -60,13 +60,9 @@ test.describe('registration cap and waitlist', () => {
         browser,
         request,
     }) => {
-        // This test drives a flag edit, three guest joins, an invalid-invite
-        // check, three separate admin invite mechanisms (each with its own
-        // polling reload loop), a Mailpit fetch, invite redemption,
-        // registration, verification, and the first-run wizard landing, plus
-        // a finally-block restore — comfortably more real work than the
-        // default 30s per-test budget, especially since this project runs
-        // last (after the full chromium suite) on the most-loaded DB state.
+        // Exceeds Playwright's 30s default: this spec drives three separate
+        // admin invite mechanisms plus a guest registration/invite-redemption
+        // flow, each polling the admin list via expectWaitlistStatus().
         test.setTimeout(120_000);
 
         const perEntryEmail = `e2e-waitlist-perentry-${RUN}@example.com`;

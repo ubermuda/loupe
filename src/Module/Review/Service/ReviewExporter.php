@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace App\Module\Review\Service;
 
-use App\DataExport\UserDataExporterInterface;
 use App\Module\Account\Entity\User;
+use App\Module\Account\Export\UserDataExporterInterface;
 use App\Module\Review\Repository\ReviewRepository;
 
 final readonly class ReviewExporter implements UserDataExporterInterface
