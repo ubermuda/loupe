@@ -15,6 +15,8 @@ framework:
             - comment-action
             - mint-site-token
             - mint-project-mcp-token
+            - regenerate-project-mcp-token
+            - regenerate-project-widget-token
             - site-review-comment-action
             - billing-checkout
             - billing-portal

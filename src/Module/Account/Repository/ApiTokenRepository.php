@@ -20,7 +20,9 @@ class ApiTokenRepository extends ServiceEntityRepository
 
     public function findOneByRawToken(string $rawToken): ?ApiToken
     {
-        return $this->findOneBy(['tokenHash' => hash('sha256', $rawToken)]);
+        // revokedAt: null excludes revoked tokens — a revoked token's row survives
+        // (see ApiToken::revoke()) but must never authenticate again.
+        return $this->findOneBy(['tokenHash' => hash('sha256', $rawToken), 'revokedAt' => null]);
     }
 
     /**

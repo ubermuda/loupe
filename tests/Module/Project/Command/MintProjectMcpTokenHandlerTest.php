@@ -30,7 +30,7 @@ final class MintProjectMcpTokenHandlerTest extends KernelTestCase
         $projects = self::getContainer()->get(ProjectRepository::class);
         self::assertInstanceOf(ProjectRepository::class, $projects);
         $this->projects = $projects;
-        $this->handler = new MintProjectMcpTokenHandler($this->em, new NullLogger());
+        $this->handler = new MintProjectMcpTokenHandler($this->em, $this->projects, new NullLogger());
     }
 
     public function test_mints_mcp_token_bound_to_project(): void
