@@ -26,18 +26,27 @@ final readonly class SubmitReviewHandler
 
     public function __invoke(SubmitReviewCommand $command): int
     {
-        $flippedCount = $this->siteReviewComments->markDraftsPendingForProject($command->project);
-        if (0 === $flippedCount) {
-            throw new DomainErrors(['review' => 'site_review.error.nothing_to_submit']);
-        }
+        // The flip and the outbox row commit together or not at all. The flip is
+        // a bulk DQL update, which executes immediately rather than at flush —
+        // so without a transaction a later failure would leave the comments
+        // Pending with no event to replay, which is precisely what the outbox
+        // exists to prevent.
+        [$flippedCount, $event] = $this->em->wrapInTransaction(function () use ($command): array {
+            $flippedCount = $this->siteReviewComments->markDraftsPendingForProject($command->project);
+            if (0 === $flippedCount) {
+                throw new DomainErrors(['review' => 'site_review.error.nothing_to_submit']);
+            }
 
-        $topic = $this->topicBuilder->forProject(
-            $command->project->id ?? throw new \LogicException('Managed project has no id.'),
-        );
-        $payload = json_encode(['type' => 'site_review.submitted'], \JSON_THROW_ON_ERROR);
-        $event = new SiteReviewEvent($command->project, $topic, $payload);
-        $this->em->persist($event);
-        $this->em->flush();
+            $topic = $this->topicBuilder->forProject(
+                $command->project->id ?? throw new \LogicException('Managed project has no id.'),
+            );
+            $payload = json_encode(['type' => 'site_review.submitted'], \JSON_THROW_ON_ERROR);
+            $event = new SiteReviewEvent($command->project, $topic, $payload);
+            $this->em->persist($event);
+            $this->em->flush();
+
+            return [$flippedCount, $event];
+        });
 
         $this->publish($event);
 
