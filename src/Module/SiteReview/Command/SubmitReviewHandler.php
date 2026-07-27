@@ -37,7 +37,7 @@ final readonly class SubmitReviewHandler
         // project's own widget token is the submitting one. A project with no
         // widget token cannot reach this handler at all — treating that as "do
         // not forward" keeps the fallback on the safe side.
-        $forwardable = $command->project->widgetToken?->forwardsToAgent ?? false;
+        $forwardable = $command->project->widgetToken->forwardsToAgent ?? false;
 
         [$flippedCount, $event] = $this->em->wrapInTransaction(function () use ($command, $forwardable): array {
             $flippedCount = $this->siteReviewComments->markDraftsPendingForProject($command->project);
