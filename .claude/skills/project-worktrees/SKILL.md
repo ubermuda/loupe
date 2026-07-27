@@ -96,12 +96,23 @@ tear down the worktree the parent session is bound to**: the binding keeps
 pointing at the now-deleted path, and every subsequent Edit fails until you
 `cd` elsewhere and re-issue `EnterWorktree`.
 
+**Verify the binding yourself before dispatching, not after.** Make one trivial
+edit in the target worktree and confirm it lands. Three separate times in one
+wave an agent was dispatched at a correctly-provisioned worktree and only
+discovered mid-task that its writes were pinned elsewhere; each cost a full
+agent run.
+
 Whichever mode you use, give every subagent a step-0 writability check (a
 trivial Edit in its target worktree) and an explicit instruction to **stop and
-report** if rejected — never to fall back to Bash heredoc/`sed`/`perl` or
-Serena's edit tools, both of which bypass the guard and can write into another
-branch's worktree. Work already on disk survives a stopped agent, so resume it
-with a message rather than restarting.
+report** if rejected. Forbid the *plausible* workarounds, not just the obvious
+ones: an agent told not to use `cat`/`sed` instead edited the wrong worktree and
+`cp`'d the finished file across. It produced a correct result and reported it
+honestly, but it bypassed the guard, and the next one may not verify as
+carefully. `cp`, `rsync`, `git checkout` of another worktree's path, Serena's
+edit tools and any shell redirection are all bypasses. The rule is: if writes
+land in the wrong worktree, stop — the orchestrator fixes the binding. Work
+already on disk survives a stopped agent, so resume it with a message rather
+than restarting.
 
 **Parallelising writes does not parallelise the gate.** `just e2e` is serialized
 by shared Mailpit regardless of how many worktrees exist, at roughly three
@@ -145,6 +156,8 @@ suspecting the branch.
 | A class added in the worktree renders unstyled | `var/tailwind` must be a real directory per worktree, not a symlink to main's. `just worktree-up` fixes it; `just worktree-tailwind` watches. |
 | The site-review widget is in its rejected-token state | `SITE_REVIEW_WIDGET_TOKEN` refers to a row in another database. `just worktree-up` detects this (it hashes the token and looks for it locally) and reissues. |
 | e2e failures that vanish on a re-run | Mailpit is shared, so concurrent e2e runs read each other's messages. e2e must stay serialized — check whether another run is in flight before blaming the branch. |
+| A spec fails, then passes on a quiet re-run | Something else was loading the shared php-fpm — a sibling agent running `just ci` or `composer install`. Check what is in flight **before** investigating the branch; this produced a false "regression" that was nearly filed against a clean PR. |
+| `worktree-up` fails with an "Unrecognized option" or missing-class error | The new worktree seeded its `vendor/` from the main checkout, and the main checkout is stale. Fast-forwarding the main checkout does **not** update its `vendor/`, so every worktree created afterwards inherits dependencies from the old commit. Run `composer install` in the main checkout, then re-run `just worktree-up`. |
 | Mail-asserting e2e specs time out against a worktree / no mail in Mailpit | Nothing consumes the worktree's `async` transport — the shared `worker` consumes only main's database. Start a worktree-scoped consumer: `bin/worktrees/compose-exec.sh bin/console messenger:consume scheduler_default async` from the worktree; stop it when done. |
 
 ## Writing worktree tooling
