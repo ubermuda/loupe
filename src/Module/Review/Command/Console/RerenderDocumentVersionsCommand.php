@@ -38,11 +38,13 @@ final class RerenderDocumentVersionsCommand extends Command
     {
         $io = new SymfonyStyle($input, $output);
 
-        /** @var list<array{id: string, markdown_source: string}> $rows */
-        $rows = $this->connection->fetchAllAssociative('SELECT id, markdown_source FROM document_versions');
+        /** @var \Traversable<int, array{id: string, markdown_source: string}> $rows */
+        $rows = $this->connection->iterateAssociative('SELECT id, markdown_source FROM document_versions');
 
+        $total = 0;
         $changed = 0;
         foreach ($rows as $row) {
+            ++$total;
             $html = $this->renderer->render($row['markdown_source']);
             $changed += $this->connection->executeStatement(
                 'UPDATE document_versions SET rendered_html = :html WHERE id = :id::uuid AND rendered_html <> :html',
@@ -50,7 +52,7 @@ final class RerenderDocumentVersionsCommand extends Command
             );
         }
 
-        $io->success(sprintf('Re-rendered %d of %d document version(s).', $changed, \count($rows)));
+        $io->success(sprintf('Re-rendered %d of %d document version(s).', $changed, $total));
 
         return Command::SUCCESS;
     }

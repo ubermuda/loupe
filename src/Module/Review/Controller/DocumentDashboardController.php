@@ -7,8 +7,10 @@ namespace App\Module\Review\Controller;
 use App\Controller\AppController;
 use App\Module\Project\Entity\Project;
 use App\Module\Project\Security\ProjectVoter;
+use App\Module\Review\Entity\Document;
 use App\Module\Review\Repository\CommentRepository;
 use App\Module\Review\Repository\DocumentRepository;
+use App\Module\Review\Repository\DocumentVersionRepository;
 use App\Module\Review\View\DocumentListItem;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
@@ -24,24 +26,30 @@ class DocumentDashboardController extends AppController
 {
     public function __construct(
         private readonly DocumentRepository $documents,
+        private readonly DocumentVersionRepository $documentVersions,
         private readonly CommentRepository $comments,
     ) {
     }
 
     public function __invoke(Project $project): Response
     {
+        $documents = $this->documents->findByProject($project);
+        $latestVersions = $this->documentVersions->findLatestMetaByDocuments($documents);
+
         $items = array_map(
-            function ($document): DocumentListItem {
-                $version = $document->currentVersion();
+            function (Document $document) use ($latestVersions): DocumentListItem {
+                $meta = $latestVersions[(string) $document->id] ?? throw new \LogicException('Document has no versions.');
 
                 return new DocumentListItem(
                     document: $document,
-                    versionNumber: $version->versionNumber,
-                    updatedAt: $version->createdAt,
-                    openThreadCount: $this->comments->countOpenByVersion($version),
+                    versionNumber: $meta['versionNumber'],
+                    updatedAt: $meta['createdAt'],
+                    openThreadCount: $this->comments->countOpenByVersion(
+                        $this->documentVersions->getReferenceTo($meta['versionId']),
+                    ),
                 );
             },
-            $this->documents->findByProject($project),
+            $documents,
         );
 
         return $this->render('review/dashboard.html.twig', [
