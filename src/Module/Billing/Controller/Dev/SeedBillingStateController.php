@@ -11,6 +11,7 @@ use App\Module\Billing\Command\RunTrialSweepHandler;
 use App\Module\Billing\Entity\BillingProfile;
 use App\Module\Billing\Entity\BillingStatus;
 use App\Module\Billing\Repository\BillingProfileRepository;
+use App\Routing\PaywallExempt;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\DependencyInjection\Attribute\When;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -40,6 +41,7 @@ use Ubermuda\FeatureFlagsBundle\Repository\FeatureFlagRepository;
  * feature-flag reader is request-cached, so flip `enabled` and run the sweep
  * in separate requests — a same-request flip may be invisible to the sweeper.
  */
+#[PaywallExempt]
 #[Route(
     '/dev/billing-state',
     name: 'app_dev_billing_state',
@@ -137,6 +139,10 @@ final class SeedBillingStateController extends AppController
                 $profile->status = BillingStatus::Canceled;
                 $profile->trialEndsAt = $now->modify('-30 days');
                 $profile->currentPeriodEnd = $now->modify('-1 day');
+                // Matches what a real cancellation webhook leaves behind —
+                // BillingProfile::isCurrent() requires this event type before
+                // it will honor currentPeriodEnd for a Canceled profile.
+                $profile->lastStripeEventType = BillingProfile::SUBSCRIPTION_DELETED_EVENT_TYPE;
                 break;
             case 'disabled':
                 $profile->status = BillingStatus::Trialing;

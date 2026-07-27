@@ -25,6 +25,10 @@ Put the resulting binary somewhere on your `PATH` (e.g. `~/bin/loupe`).
 - A Loupe API token with the **site-review** scope. Use an account-level token,
   not the project-bound widget token that gets embedded in page HTML: the widget
   token is public by design and is rejected by the endpoints the bridge needs.
+- The Loupe MCP server configured in the target tmux session's `claude`. The
+  injected directive only names the `get_site_review` MCP tool — it does not
+  carry a self-contained prompt — so the agent cannot act on it without the
+  MCP available.
 
 ## `loupe login`
 
@@ -62,7 +66,6 @@ loupe bridge run --session my-session
 | `--dir` | — | Spawn `claude` in a **new** tmux session in this directory |
 | `--session` | — | Attach to an **existing** tmux session or target |
 | `--site` | interactive | Which site to bridge, by name or id. Omitted, you get a numbered picker (requires a TTY) |
-| `--mcp` | `false` | Inject only the review id and let Claude fetch the details through the Loupe MCP, instead of a self-contained prompt |
 | `--attach` | `true` | Attach to the tmux session and watch. `--attach=false` runs the bridge in the foreground, for headless use |
 
 ### Attached vs headless
@@ -85,6 +88,14 @@ the display. Detach with `Ctrl-b d`; that also stops the bridge. While attached,
    **outbound**, so it works from behind NAT with no inbound port.
 4. Each `site_review.submitted` event is turned into a directive and delivered
    with `tmux send-keys`.
+
+The directive carries only opaque, server-generated identifiers — the review
+id and a comment count — never reviewer-controlled text such as comment URLs,
+comment bodies, or the site name. Anyone who can post through the embedded
+widget controls that text, so it is never interpolated into the
+auto-submitted prompt; the agent fetches the actual comment content itself
+via the `get_site_review` MCP tool, which resolves the site from its own
+bound token.
 
 Dropped connections are retried with capped backoff, and a **fresh subscriber
 JWT is fetched for every attempt** — they are deliberately short-lived, so

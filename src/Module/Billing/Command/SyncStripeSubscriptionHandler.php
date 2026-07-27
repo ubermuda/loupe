@@ -14,8 +14,6 @@ use Psr\Log\LoggerInterface;
 
 final readonly class SyncStripeSubscriptionHandler
 {
-    public const string SUBSCRIPTION_DELETED = 'customer.subscription.deleted';
-
     public function __construct(
         private BillingProfileRepository $billingProfiles,
         private WaitlistEntryRepository $waitlistEntries,
@@ -76,7 +74,7 @@ final readonly class SyncStripeSubscriptionHandler
         // apply: a subscription is routinely created as `incomplete` and updated
         // to `active` inside the same second, and dropping the second one would
         // paywall a paying customer.
-        if (self::SUBSCRIPTION_DELETED === $profile->lastStripeEventType
+        if (BillingProfile::SUBSCRIPTION_DELETED_EVENT_TYPE === $profile->lastStripeEventType
             && null !== $profile->lastStripeEventAt
             && $command->eventCreatedAt <= $profile->lastStripeEventAt) {
             $this->logger->info('billing.webhook.stale_event', [
