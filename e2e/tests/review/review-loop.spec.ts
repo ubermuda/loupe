@@ -13,6 +13,9 @@
 import { test, expect, type Page } from '@playwright/test';
 import { suppressToolbar, suppressWidget } from '../fixtures';
 
+// Guest by default — make the unauthenticated starting state explicit.
+test.use({ storageState: { cookies: [], origins: [] } });
+
 const RUN = Date.now();
 
 const KNOWN_PHRASE = 'sample phrase for selection';

@@ -1,6 +1,9 @@
 import { test, expect } from '@playwright/test';
 import { getLatestEmailTo } from '../helpers';
 
+// Guest by default — make the unauthenticated starting state explicit.
+test.use({ storageState: { cookies: [], origins: [] } });
+
 const RUN = Date.now();
 
 test('renders signup form', async ({ page }) => {
