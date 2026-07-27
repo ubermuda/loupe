@@ -45,6 +45,10 @@ func Subscribe(ctx context.Context, hc *http.Client, hubURL, topic string, token
 	target := endpoint.String()
 
 	backoff := time.Second
+	// Carried across reconnects so the hub replays anything published while we
+	// were disconnected — without it a dropped connection silently loses every
+	// notification published during the gap.
+	lastID := ""
 	for {
 		if ctx.Err() != nil {
 			return ctx.Err()
@@ -71,7 +75,7 @@ func Subscribe(ctx context.Context, hc *http.Client, hubURL, topic string, token
 			continue
 		}
 
-		err = stream(ctx, hc, target, jwt, Handler{
+		lastID, err = stream(ctx, hc, target, jwt, lastID, Handler{
 			OnData: h.OnData,
 			OnConnect: func() {
 				connected = true
@@ -101,21 +105,28 @@ func Subscribe(ctx context.Context, hc *http.Client, hubURL, topic string, token
 	}
 }
 
-func stream(ctx context.Context, hc *http.Client, target, jwt string, h Handler) error {
+// stream consumes one connection. lastID, when non-empty, is sent as
+// Last-Event-ID so the hub replays whatever was published while we were
+// disconnected. It returns the most recent id seen so the caller can resume
+// from it.
+func stream(ctx context.Context, hc *http.Client, target, jwt, lastID string, h Handler) (string, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, target, nil)
 	if err != nil {
-		return err
+		return lastID, err
 	}
 	req.Header.Set("Authorization", "Bearer "+jwt)
 	req.Header.Set("Accept", "text/event-stream")
+	if lastID != "" {
+		req.Header.Set("Last-Event-ID", lastID)
+	}
 
 	resp, err := hc.Do(req)
 	if err != nil {
-		return err
+		return lastID, err
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("hub returned HTTP %d", resp.StatusCode)
+		return lastID, fmt.Errorf("hub returned HTTP %d", resp.StatusCode)
 	}
 	if h.OnConnect != nil {
 		h.OnConnect()
@@ -135,6 +146,8 @@ func stream(ctx context.Context, hc *http.Client, target, jwt string, h Handler)
 				}
 				data.Reset()
 			}
+		case strings.HasPrefix(line, "id:"):
+			lastID = strings.TrimPrefix(strings.TrimPrefix(line, "id:"), " ")
 		case strings.HasPrefix(line, "data:"):
 			if data.Len() > 0 {
 				data.WriteByte('\n')
@@ -143,5 +156,5 @@ func stream(ctx context.Context, hc *http.Client, target, jwt string, h Handler)
 		}
 	}
 
-	return sc.Err()
+	return lastID, sc.Err()
 }
