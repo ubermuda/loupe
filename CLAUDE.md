@@ -85,6 +85,9 @@ When several feature branches are in flight (worktrees, parallel agents), merges
 5. **A conflict-free merge is not a correct merge.** When one branch moves or renames a class, a *new* file on another branch merges cleanly while still importing the old name — git sees no conflict because the file never existed on both sides. After merging main into a branch that touched namespaces, run `just ci` before trusting the merge; phpstan is what catches this, not git.
 6. **Resolving a conflict by taking one side can silently revert the other side's fix.** When two branches change the same region for unrelated reasons — one extracting a method, the other fixing a line inside the body it replaced — taking either side alone loses the other's intent. Before accepting a resolution, re-verify the *behaviour* both branches were protecting, not just that the markers are gone.
 
+   The sharpest form is **rename/rename**: two branches move the same file for different reasons — one namespacing a directory, one renaming for a naming convention — and git reports a conflict where *neither side is correct*. The answer is the combination: the newer branch's **content** at the other branch's **path**. Afterwards, verify every reference resolves to a file that exists, because a wrong choice here compiles fine and only fails at runtime.
+7. **`gh pr merge` right after `git push` often reports "Pull Request is not mergeable".** GitHub has not recomputed mergeability yet. Wait a few seconds and retry — it is not a real conflict.
+
 ## General Guidelines
 
 - When you create new code, ask yourself what module it should live in. If you're not sure, ask your human.

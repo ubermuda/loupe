@@ -29,6 +29,10 @@ CSS design tokens (colors, gradients, backgrounds) should live as CSS custom pro
 
 Adding `rounded-full` to the hint div does **not** fix this — only the `@theme` declaration does.
 
+**Tailwind scans documentation, not just templates.** v4's automatic source detection walks every non-gitignored file in the repo, *in addition to* the explicit `@source` list. So any utility class merely **named** in `CLAUDE.md`, a `SKILL.md` or a design note is compiled into the shipped stylesheet. This is not hypothetical: after every real use of `blur-[1.25rem]` was removed, the class stayed in `app.built.css` because this very skill cites it as an example of a value to convert.
+
+`app.css` therefore carries `@source not "../../.claude"` and `@source not "../../docs"`. Keep them. Without them, prose inflates the CSS bundle *and* silently invalidates any verification that reads the compiled output — a class you just deleted still appears there.
+
 **`@layer` cascade order:** Unlayered CSS in `app.css` always wins over layered rules (e.g. `@layer components`, or layers from any CSS library) regardless of specificity — use unlayered declarations to override library component styles without fighting specificity.
 
 ## General CSS patterns
@@ -141,7 +145,15 @@ Prefer making state changes POST endpoints; when a GET link with side effects is
 
 **Never use arbitrary CSS var values in markup** (e.g. no `[var(--accent)]` or other bracketed `var(...)` values in templates). Use the defined design-token / semantic Tailwind classes instead — every token should be exposed as a named utility. (gamache's `NoArbitraryValuesCheck` enforces this.)
 
-**No arbitrary values in `app.css`.** All sizes, colours, and spacing must resolve to named Tailwind tokens. Bracket arbitrary values (`w-[45rem]`, `blur-[1.25rem]`) are not acceptable in `@apply` or as bare CSS properties — round to the nearest named token instead (`w-180`, `blur-xl`, `tracking-tight`).
+**No arbitrary values in `app.css`.** All sizes, colours, and spacing must resolve to named Tailwind tokens. Bracket arbitrary values (`w-[45rem]`, `blur-[1.25rem]`) are not acceptable in `@apply` or as bare CSS properties — round to the nearest named token instead.
+
+Some of those conversions are exact and some are not, and the difference matters when you report the change: `w-[45rem]` → `w-180` and `-top-[12.5rem]` → `-top-50` are exact (the spacing scale is `0.25rem × n`), but `blur-[1.25rem]` → `blur-xl` is **not** — the blur scale has no 1.25rem step, so 20px becomes 24px. Accepting that change is correct; presenting it as equivalent is not.
+
+**Custom values are mistakes to fix, not tokens to add.** When a value does not sit on the scale, do not invent a `@theme` token to preserve it, and do not fall back to an arbitrary value — snap to the nearest existing token and accept the pixel change. A custom token is the same problem as a bracket value wearing a different hat. `app.css` currently has zero custom `@theme` size entries, zero custom `@utility` blocks and zero literal `px`/`rem` outside the design-token blocks; keep it that way.
+
+**Prefer the named scale over numeric spacing multiples.** `max-w-sm` / `max-w-5xl`, not `max-w-102` / `max-w-270` — even though the numeric forms are exact and the named ones are not. Proportion consistency matters more than preserving a hand-picked width.
+
+**Ordering inside `@apply`:** a `text-*` utility carries a bundled `line-height`, so place it **before** `leading-none`, or the size will override the leading.
 
 When a CSS property has no Tailwind utility equivalent (e.g. `grid-template-columns`, `background-size`), derive the value from the Tailwind spacing token: `calc(var(--spacing) * n)`. This keeps the value on the Tailwind scale without a raw literal.
 
