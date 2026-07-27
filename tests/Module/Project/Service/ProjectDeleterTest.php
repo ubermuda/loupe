@@ -16,6 +16,7 @@ use App\Module\Review\Entity\Review;
 use App\Module\Review\Entity\Verdict;
 use App\Module\Review\ValueObject\Anchor;
 use App\Module\SiteReview\Entity\SiteReview;
+use App\Module\SiteReview\Entity\SiteReviewEvent;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 
@@ -47,6 +48,7 @@ final class ProjectDeleterTest extends KernelTestCase
         self::assertNull($em->find(Project::class, $doomedId));
         $conn = $em->getConnection();
         foreach ([
+            'site_review_events' => 'SELECT count(*) FROM site_review_events e JOIN site_review_reviews r ON e.review_id = r.id WHERE r.project_id = :id',
             'site_review_comments' => 'SELECT count(*) FROM site_review_comments c JOIN site_review_reviews r ON c.review_id = r.id WHERE r.project_id = :id',
             'site_review_reviews' => 'SELECT count(*) FROM site_review_reviews WHERE project_id = :id',
             'comments' => 'SELECT count(*) FROM comments c JOIN document_versions v ON c.version_id = v.id JOIN documents d ON v.document_id = d.id WHERE d.project_id = :id',
@@ -67,6 +69,7 @@ final class ProjectDeleterTest extends KernelTestCase
         self::assertNotNull($spared);
         self::assertSame(1, (int) $conn->fetchOne('SELECT count(*) FROM documents WHERE project_id = :id', ['id' => (string) $sparedId]));
         self::assertSame(1, (int) $conn->fetchOne('SELECT count(*) FROM site_review_reviews WHERE project_id = :id', ['id' => (string) $sparedId]));
+        self::assertSame(1, (int) $conn->fetchOne('SELECT count(*) FROM site_review_events e JOIN site_review_reviews r ON e.review_id = r.id WHERE r.project_id = :id', ['id' => (string) $sparedId]));
         self::assertNotNull($spared->widgetToken);
         self::assertNotNull($spared->mcpToken);
     }
@@ -136,6 +139,7 @@ final class ProjectDeleterTest extends KernelTestCase
         $siteReview = new SiteReview(project: $project);
         $em->persist($siteReview);
         $siteReview->addComment('widget comment', 'body', 'x', 'https://example.test/');
+        $em->persist(new SiteReviewEvent($siteReview, 'topic', '{}'));
 
         [$widgetToken] = ApiToken::issue($owner, $slug.'-widget', ApiTokenScope::SiteReview);
         [$mcpToken] = ApiToken::issue($owner, $slug.'-mcp', ApiTokenScope::Mcp);
