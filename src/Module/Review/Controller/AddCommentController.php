@@ -47,7 +47,9 @@ final class AddCommentController extends AppController
         Request $request,
     ): Response {
         $user = $this->getUser();
-        assert($user instanceof User);
+        if (!$user instanceof User) {
+            throw new \LogicException(\sprintf('%s reached without an authenticated User (got %s); this route must stay behind the ROLE_USER catch-all.', self::class, get_debug_type($user)));
+        }
 
         $data = new AddCommentRequest();
         $form = $this->createForm(AddCommentFormType::class, $data);

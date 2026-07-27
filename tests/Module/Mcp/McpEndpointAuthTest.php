@@ -79,6 +79,41 @@ final class McpEndpointAuthTest extends WebTestCase
         self::assertSame(200, $response->getStatusCode(), (string) $response->getContent());
     }
 
+    public function test_tools_list_returns_every_registered_tool(): void
+    {
+        $client = static::createClient();
+        $raw = $this->persistValidToken();
+
+        $client->request(\Symfony\Component\HttpFoundation\Request::METHOD_POST, '/mcp', server: [
+            'CONTENT_TYPE' => 'application/json',
+            'HTTP_AUTHORIZATION' => 'Bearer '.$raw,
+        ], content: self::INIT);
+        self::assertSame(200, $client->getResponse()->getStatusCode());
+        $sessionId = $client->getResponse()->headers->get('Mcp-Session-Id');
+
+        $client->request(\Symfony\Component\HttpFoundation\Request::METHOD_POST, '/mcp', server: [
+            'CONTENT_TYPE' => 'application/json',
+            'HTTP_AUTHORIZATION' => 'Bearer '.$raw,
+            'HTTP_MCP_SESSION_ID' => $sessionId,
+        ], content: '{"jsonrpc":"2.0","id":2,"method":"tools/list","params":{}}');
+        $response = $client->getResponse();
+        self::assertSame(200, $response->getStatusCode(), (string) $response->getContent());
+
+        $body = json_decode((string) $response->getContent(), true);
+        $names = array_column($body['result']['tools'], 'name');
+        sort($names);
+
+        self::assertSame([
+            'address_site_review_comments',
+            'create_document',
+            'get_document',
+            'get_review',
+            'get_site_review',
+            'list_documents',
+            'revise_document',
+        ], $names);
+    }
+
     public function test_request_on_an_unlisted_host_is_rejected(): void
     {
         $client = static::createClient();

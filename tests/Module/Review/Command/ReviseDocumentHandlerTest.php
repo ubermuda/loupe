@@ -17,6 +17,7 @@ use App\Module\Review\Command\ReviseDocumentHandler;
 use App\Module\Review\Entity\Comment;
 use App\Module\Review\Entity\Document;
 use App\Module\Review\Entity\DocumentStatus;
+use App\Module\Review\Entity\DocumentVersion;
 use App\Module\Review\Repository\CommentRepository;
 use App\Module\Review\ValueObject\Anchor;
 use Doctrine\ORM\EntityManagerInterface;
@@ -158,5 +159,49 @@ final class ReviseDocumentHandlerTest extends KernelTestCase
         $v2Comments = $commentRepository->findByVersion($freshDoc->currentVersion());
 
         self::assertCount(0, $v2Comments, 'nothing from the resolved thread should appear on the new version');
+    }
+
+    /**
+     * Regression guard for concurrent revisions computing the same "next
+     * version number": two sequential revisions must land as versionNumber
+     * 2 and 3, not both landing on 2 (the fixed bug) or the second one 500ing
+     * on the unique constraint. This does not exercise true concurrency —
+     * dama/doctrine-test-bundle wraps the whole test in one connection's
+     * transaction, so two overlapping DB transactions cannot be expressed
+     * here; the lock ordering itself is verified by code review.
+     */
+    public function test_two_sequential_revisions_get_consecutive_version_numbers(): void
+    {
+        self::bootKernel();
+        $em = self::getContainer()->get(EntityManagerInterface::class);
+
+        $user = new User(username: 'agent3', fullName: 'Agent', email: 'agent3@example.com', password: 'hashed');
+        $em->persist($user);
+        $project = new Project($user, 'p-'.uniqid());
+        $em->persist($project);
+        $em->flush();
+
+        /** @var CreateDocumentHandler $createHandler */
+        $createHandler = self::getContainer()->get(CreateDocumentHandler::class);
+        $doc = $createHandler(new CreateDocumentCommand($project, 'Sequential Revisions', 'v1 content'));
+
+        $docId = $doc->id;
+        self::assertInstanceOf(Uuid::class, $docId);
+
+        /** @var ReviseDocumentHandler $reviseHandler */
+        $reviseHandler = self::getContainer()->get(ReviseDocumentHandler::class);
+        $reviseHandler(new ReviseDocumentCommand($docId, $project, 'v2 content'));
+        $reviseHandler(new ReviseDocumentCommand($docId, $project, 'v3 content'));
+
+        $em->clear();
+        $freshDoc = $em->find(Document::class, $docId);
+        self::assertInstanceOf(Document::class, $freshDoc);
+
+        $versionNumbers = array_map(
+            static fn (DocumentVersion $version): int => $version->versionNumber,
+            $freshDoc->versions->toArray(),
+        );
+
+        self::assertSame([1, 2, 3], $versionNumbers);
     }
 }

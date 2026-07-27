@@ -79,6 +79,35 @@ Update the `use` import to match: `use PHPUnit\Framework\MockObject\Stub;` or `u
 
 This mirrors the Playwright selector-scoping rule in `project-e2e`: assert on intent-carrying hooks the markup is unlikely to drop.
 
+## A test that cannot fail is worse than no test
+
+Two shapes pass vacuously if written carelessly.
+
+**Negative assertions** — "no query was issued", "no email was sent", "this list
+is empty". These pass trivially when the operation under test never ran at all.
+Assert first that it happened, *then* that the specific effect is absent:
+
+```php
+// Guard: without this, the assertion below also passes on a request that
+// ran no queries whatsoever, proving nothing about the skip.
+self::assertNotEmpty($statements);
+self::assertSame([], array_values(array_filter(
+    $statements,
+    static fn (string $sql): bool => str_contains($sql, 'UPDATE api_tokens'),
+)));
+```
+
+**Tests for an optimization** — when the change is "do less work", the test must
+fail when the optimization is removed. Verify that explicitly: temporarily
+revert the guard, watch the test fail, restore it. Say in the commit message
+that you did.
+
+Collected-query assertions use the profiler, which is off by default in `test`
+(`framework.profiler.collect: false`): call `$client->enableProfiler()` before
+the request, then `$client->getProfile()`. Narrow the result with
+`assertInstanceOf(Profile::class, ...)` — `assertNotFalse()` does not narrow
+`null`, and phpstan will reject the subsequent method call.
+
 ## Rate limiters
 
 **Every rate limiter needs a `when@test` high-limit override, and its throttle is tested with a hand-built factory.** When you add a limiter under `framework.rate_limiter` in `config/packages/framework.yaml`, add a matching entry under the file's `when@test` block with a high limit (e.g. 1000) so the rest of the suite is never throttled. Test the throttling in isolation with a low-limit factory built directly:
