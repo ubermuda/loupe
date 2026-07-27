@@ -18,9 +18,9 @@ from a workstation with `just`.
 | Component | What it is |
 |---|---|
 | **Web container** | `docker/prod/Dockerfile`, running supervisord as PID 1: `php-fpm` + `nginx`, plus an `export-purge` sleep-loop that runs `app:purge-expired-exports` hourly. |
-| **Worker container** | The *same image*, started with a different command. Not part of the web container's supervisord — deliberately, so worker restarts never recycle php-fpm/nginx. See "Known gaps". |
+| **Worker container** | The *same image*, started with a different command (`enable_worker` in `terraform/main.tf`). Not part of the web container's supervisord — deliberately, so worker restarts never recycle php-fpm/nginx. It consumes `scheduler_default` first, then `async`: a deep async backlog must not delay schedule ticks. |
 | **Postgres** | A per-app database and user on a **shared** App Platform cluster (`tor` region). The module creates them; the cluster already exists. |
-| **Mercure hub** | Required for site-review push. Not provisioned here — see "Known gaps". |
+| **Mercure hub** | Required for site-review push. Not provisioned by the shared module — see "Known gaps". |
 
 The web container listens on port 80. App Platform health-checks `/login`,
 because `/` is behind `ROLE_USER` and 302-redirects.
@@ -113,8 +113,10 @@ run either by the `PRE_DEPLOY` job or by hand as in step 4 above.
 ## Environment variables
 
 The module sets `APP_ENV`, `APP_SECRET`, `APP_ENCRYPTION_KEY`, `DATABASE_URL`,
-`MAILER_DSN` and `DEFAULT_URI`. Everything else this app reads must be passed
-through the module's `extra_env`:
+`MAILER_DSN` and `DEFAULT_URI`. Everything else is wired through `extra_env` in
+`terraform/main.tf`, sourced from the variables in `terraform/variables.tf` —
+set them in `terraform.tfvars` or as `TF_VAR_*`. Each is omitted from the app
+spec entirely when left empty, so a feature is off rather than half-configured:
 
 | Variable | Needed for | If unset |
 |---|---|---|
@@ -142,36 +144,20 @@ the token.
 
 ## Known gaps
 
-These are real, and were found by reading `terraform/main.tf` against what the
-application requires. None of them are hypothetical.
+1. **No Mercure hub is provisioned.** `MERCURE_URL`, `MERCURE_PUBLIC_URL` and
+   `MERCURE_JWT_SECRET` are now wired through `extra_env`, so the application is
+   ready to talk to a hub — but the shared module has no concept of one, so
+   nothing stands a hub up. Until it does, either point those variables at a hub
+   you host yourself, or leave them empty and accept that review submissions save
+   normally but never reach the bridge CLI (the publish failure is caught and
+   logged, so it degrades silently).
 
-1. **The messenger worker is not enabled.** The shared module supports it
-   (`enable_worker`, `worker_command`), but `terraform/main.tf` sets neither, so
-   no worker component is created. Without it nothing consumes the `async` or
-   `scheduler_default` transports: **no emails are delivered** (mail is queued,
-   not sent), data exports never build, the trial-end sweep never runs, and the
-   site-review outbox never drains. `docker/prod/supervisord.conf` documents the
-   intended command:
+   Adding an opt-in Mercure component to the shared module is the durable fix and
+   is tracked in `docs/NEXT_STEPS.md`.
 
-   ```
-   php bin/console messenger:consume scheduler_default async --time-limit=3600 --memory-limit=128M
-   ```
-
-   `scheduler_default` is listed first deliberately — a deep `async` backlog must
-   not delay schedule ticks. To enable it, set `enable_worker = true` and
-   `worker_command` in the `module "app"` block.
-
-   If the worker *is* running in production today, it was configured outside
-   this repository and Terraform will remove it on the next apply.
-
-2. **No Mercure hub is provisioned**, and `MERCURE_URL` / `MERCURE_PUBLIC_URL`
-   are not set. Site-review submissions are published best-effort and the
-   publish will fail, so the bridge CLI never receives them. The failure is
-   caught and logged, so this degrades silently rather than erroring.
-
-3. **`extra_env` is commented out entirely.** Every variable in the table above
-   is therefore unset in production, including `INSTALL_TOKEN` and the Stripe and
-   OAuth credentials.
+2. **Set `install_token` before the first deploy.** Since the wizard fails closed
+   in production, an unset value means `/install` returns 404 and there is no way
+   to create the first administrator.
 
 ## Rolling back
 
