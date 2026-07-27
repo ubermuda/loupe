@@ -98,6 +98,10 @@
 
     /* Custom layout utilities */
     --width-sidebar: 14.5rem;
+
+    /* 1.25rem sits exactly between blur-lg (1rem) and blur-xl (1.5rem), so the
+       auth glow needs its own token to keep its rendered radius unchanged. */
+    --blur-glow: 1.25rem;
 }
 
 /* ── Custom layout utilities ───────────────────────────────────────── */
@@ -303,7 +307,7 @@
     }
     .auth-bg-glow::before {
         content: '';
-        @apply absolute w-180 h-180 left-1/2 -translate-x-1/2 -top-50 blur-xl opacity-55;
+        @apply absolute w-180 h-180 left-1/2 -translate-x-1/2 -top-50 blur-glow opacity-55;
         background: radial-gradient(
             circle at center,
             var(--accent-soft) 0%,
