@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Tests\Module\Review\Command;
 
+use App\Exception\DomainErrors;
 use App\Module\Account\Entity\User;
 use App\Module\Project\Entity\Project;
 use App\Module\Review\Command\CreateDocumentCommand;
@@ -58,7 +59,7 @@ final class SubmitReviewHandlerTest extends KernelTestCase
         $review = $handler(new SubmitReviewCommand(
             reviewer: $reviewer,
             document: $doc,
-            verdict: Verdict::ChangesRequested,
+            verdict: Verdict::ChangesRequested->value,
         ));
 
         self::assertInstanceOf(Review::class, $review);
@@ -96,7 +97,7 @@ final class SubmitReviewHandlerTest extends KernelTestCase
         $review = $handler(new SubmitReviewCommand(
             reviewer: $reviewer,
             document: $doc,
-            verdict: Verdict::Approved,
+            verdict: Verdict::Approved->value,
         ));
 
         self::assertInstanceOf(Review::class, $review);
@@ -106,5 +107,26 @@ final class SubmitReviewHandlerTest extends KernelTestCase
         $freshDoc = $em->find(Document::class, $docId);
         self::assertInstanceOf(Document::class, $freshDoc);
         self::assertSame(DocumentStatus::Approved, $freshDoc->status);
+    }
+
+    public function test_an_unrecognised_verdict_value_throws_domain_errors(): void
+    {
+        self::bootKernel();
+        $em = self::getContainer()->get(EntityManagerInterface::class);
+
+        /** @var User $reviewer */
+        /** @var Document $doc */
+        [$reviewer, $doc] = $this->createUserAndDocument($em, '3');
+
+        /** @var SubmitReviewHandler $handler */
+        $handler = self::getContainer()->get(SubmitReviewHandler::class);
+
+        $this->expectException(DomainErrors::class);
+
+        $handler(new SubmitReviewCommand(
+            reviewer: $reviewer,
+            document: $doc,
+            verdict: 'not-a-real-verdict',
+        ));
     }
 }

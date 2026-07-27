@@ -108,11 +108,11 @@
                     <form method="POST" action="{{ path('app_document_review_submit', {projectId: document.project.id, documentId: document.id}) }}">
                         <input type="hidden" name="_csrf_token" value="{{ csrf_token('submit-review') }}">
                         <div class="lp-verdict-bar__actions">
-                            <button type="submit" name="verdict" value="approved" class="lp-btn lp-btn--primary">
+                            <button type="submit" name="submit_review_form[verdict]" value="approved" class="lp-btn lp-btn--primary">
                                 <twig:ux:icon name="lucide:check" class="w-4 h-4 shrink-0" />
                                 {{ 'review.document.verdict.approve'|trans }}
                             </button>
-                            <button type="submit" name="verdict" value="changes-requested" class="lp-btn lp-btn--outline-amber">
+                            <button type="submit" name="submit_review_form[verdict]" value="changes-requested" class="lp-btn lp-btn--outline-amber">
                                 {{ 'review.document.verdict.request_changes'|trans }}
                             </button>
                         </div>

@@ -145,7 +145,7 @@ final class ListWaitlistControllerTest extends WebTestCase
 
         $client->request(Request::METHOD_POST, '/admin/waitlist/invite-oldest', [
             '_csrf_token' => 'csrf-token',
-            'count' => '1',
+            'invite_oldest_waitlist_form' => ['count' => '1'],
         ]);
 
         $this->assertResponseRedirects('/admin/waitlist');
