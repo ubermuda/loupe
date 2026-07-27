@@ -87,9 +87,14 @@ on its own branch, writes there freely, and is refused when writing into another
 worktree). Two caveats: the worktree starts bare, exactly like `git worktree
 add`, so run `just worktree-up` to complete it, same as any worktree; and the
 branch name is harness-generated, so work that must land on a named branch has
-to be renamed and pushed deliberately. These worktrees are created **locked**,
-so tearing one down may need `git worktree remove --force` behind
-`just worktree-down` — untested.
+to be renamed and pushed deliberately. These worktrees are created **locked**, but
+`just worktree-down agent-<id>` removes one cleanly anyway — sidecar and both
+databases included, no `--force` needed.
+
+Tear the agent's worktree down only after its branch is pushed, and **never
+tear down the worktree the parent session is bound to**: the binding keeps
+pointing at the now-deleted path, and every subsequent Edit fails until you
+`cd` elsewhere and re-issue `EnterWorktree`.
 
 Whichever mode you use, give every subagent a step-0 writability check (a
 trivial Edit in its target worktree) and an explicit instruction to **stop and
