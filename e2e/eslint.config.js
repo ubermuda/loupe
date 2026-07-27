@@ -12,6 +12,14 @@ module.exports = [
         },
         rules: {
             ...playwright.configs['flat/recommended'].rules,
+            'playwright/expect-expect': [
+                'warn',
+                {
+                    // Custom assertion helpers whose expect() calls live
+                    // inside the helper rather than inline in the test body.
+                    assertFunctionNames: ['expectWaitlistStatus'],
+                },
+            ],
             'no-restricted-syntax': [
                 'error',
                 {
