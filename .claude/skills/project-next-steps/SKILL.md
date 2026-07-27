@@ -5,10 +5,20 @@ description: Use when adding, editing, or closing entries in docs/NEXT_STEPS.md 
 
 # NEXT_STEPS.md — the open-work tracker
 
-`docs/NEXT_STEPS.md` is the gitignored, per-checkout tracker for open work:
-TODOs, follow-ups, known issues, deferred decisions, product ideas. It is the
-ONLY sanctioned place for such notes — never in code comments (gamache's
-`NoTodosCheck` enforces that side).
+`docs/NEXT_STEPS.md` is the committed tracker for open work: TODOs, follow-ups,
+known issues, deferred decisions, product ideas. It is the ONLY sanctioned place
+for such notes — never in code comments (gamache's `NoTodosCheck` enforces that
+side).
+
+**It is tracked, so it is branch content.** Two consequences:
+
+- Edit it in whatever worktree you are working in, like any other file. It used
+  to be gitignored, which meant it existed only in the main checkout — and a
+  session bound to a worktree could not write it with `Edit` at all.
+- Parallel branches that both append land in the same region and **conflict**.
+  Resolve by keeping both entries, never by taking one side: each is somebody's
+  note, and "resolved" the conflict by dropping one is how a tracked item
+  silently disappears.
 
 ## Entry format
 

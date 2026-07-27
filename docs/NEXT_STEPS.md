@@ -1,0 +1,1324 @@
+# Next steps
+
+Open work and observations worth revisiting. Delete items entirely once resolved.
+
+Entries are ordered by priority (high → medium → low); insert new entries at
+the end of their priority band. Format and rules: `project-next-steps` skill.
+
+## New `/api` routes must carry their own scope access_control rule
+
+
+
+**Author:** Claude · **Type:** security · **Priority:** high · **Status:** pending
+
+The `api` firewall matches all of `^/api`, but `access_control` only guards
+`^/api/site-review` (→ `ROLE_API_SITE_REVIEW`). Every API-token user also carries
+`ROLE_USER` (via `User::getRoles()`), so a hypothetical future `^/api/<other>`
+route would fall through to the catch-all `^/ → ROLE_USER` and accept ANY scoped
+token — defeating scope enforcement. No live exposure today (no other `/api/*`
+route exists). When adding a new `/api` endpoint, add a matching scope rule above
+the catch-all (do not narrow the firewall pattern — stray `/api` traffic would
+otherwise hit the stateful form-login firewall). Consider a deny-by-default
+`^/api` rule once more than one scope exists.
+
+## MCP: no way to reply to document-review comments
+
+
+
+**Author:** Claude · **Type:** feature · **Priority:** high · **Status:** pending
+
+Found while dogfooding the nine-features design review: the MCP exposes
+`get_review` (which returns each comment's `thread`) and `revise_document`, but
+nothing that *writes* to a review thread. An agent can read comments and submit
+a new version, yet cannot reply to a comment, push back on one, or mark one
+addressed — `address_site_review_comments` covers only site-review widget
+comments. The review conversation is one-directional; the agent's side has to
+happen out-of-band. Add a `reply_to_comment` MCP tool (and consider
+`mark_comment_addressed`) for document reviews.
+
+## Resolved comments become unreachable after the next revision
+
+
+
+**Author:** Geoffrey · **Type:** bug · **Priority:** high · **Status:** pending
+
+Found while dogfooding the 2026-07-26 codebase audit review. Resolving a
+comment and then revising the document makes the whole discussion disappear
+from the app: `ResolveCommentHandler` sets `resolved = true` on the comment,
+which stays attached to the version it was written on;
+`ReviseDocumentHandler` copies only `findOpenByVersion()` results onto the new
+version, so resolved comments deliberately do not carry forward; and
+`DocumentReviewController` renders `$document->currentVersion()` only, with no
+route parameter or UI control for viewing an earlier version (the
+`lp-version-pill` in `templates/review/review.html.twig:43` is a static label,
+not a switcher). Net effect: a reviewer who resolves eight comments and then
+receives a revision sees an empty comment sidebar and has no way back to what
+was discussed. The rows are intact in the database — this is a visibility
+bug, not data loss — but the review history is unreachable through the UI,
+which undercuts the core loop of the product.
+
+Decide when picking this up: (1) let the review view render any version, so
+resolved threads stay readable on the version that carries them (smallest
+change, no data-model impact); (2) carry resolved comments forward too, marked
+resolved and collapsed, so the current version shows the full history; or
+(3) keep per-version comments but add a separate "resolved history" panel
+listing threads from all versions. Option 1 composes with "Review UI: version
+diff view", which needs per-version rendering anyway.
+
+## Review UI: version diff view
+
+
+
+**Author:** Geoffrey · **Type:** feature · **Priority:** high · **Status:** pending
+
+Found while dogfooding the nine-features design review: after `revise_document`,
+the reviewer sees only the new version — there is no way to see what changed
+since the version they commented on. Add a diff view between document versions
+(at minimum current vs previous; ideally any two), so re-review means reading
+the delta, not the whole document again.
+
+## Proper HTTP API + outbound webhooks
+
+
+
+**Author:** Geoffrey · **Type:** feature · **Priority:** high · **Status:** pending
+
+Owner request (2026-07-25): a real public HTTP API and outbound webhooks
+(events like document created/revised, review verdict, comment added — so
+integrators don't have to poll). Existing relevant surface: the `/api`
+firewall + ApiToken scopes (currently only site-review + MCP), and the
+NEXT_STEPS warning that every new /api route needs its own scope
+access_control rule. Design questions for the spec phase: API versioning,
+token scopes per resource, webhook subscription storage + signing (HMAC),
+delivery retries (the existing Messenger worker is the natural transport),
+and dogfooding the API from the CLI/widget.
+
+## Dashboard document search + status/tag filtering
+
+
+
+**Author:** Claude · **Type:** feature · **Priority:** medium · **Status:** pending
+
+Deferred from the SaaS visual redesign (visual-only phase). The dashboard mockup
+envisioned a search box + status filter + tag filter, but `autosearch_controller`
+submits to the server, so making search real needs backend work: a query param on
+the documents controller and a repository filter (title contains, status equals,
+tag in). Tag filtering further depends on the not-yet-built tag entity. When tags
+land, wire search + status + tag filters into the existing `.bp-doc-list` header.
+
+## Make `revise_document` surface real errors instead of generic `-32603`
+
+
+
+**Author:** Claude · **Type:** bug · **Priority:** medium · **Status:** pending
+
+When a tool handler throws (e.g. a DB exception), the MCP layer flattens it to
+`-32603 Error while executing tool` with no detail, so clients can't tell a
+validation problem from a server fault. Consider mapping known failures to
+`ToolCallException` with a useful message.
+
+## Anchor offset-unit mismatch (latent)
+
+
+
+**Author:** Claude · **Type:** bug · **Priority:** medium · **Status:** pending
+
+`AnchorService` now slices UTF-8-safely (`mb_strcut`), but offsets are still
+byte-based (`strpos`/`strlen`/`offsetHint`) while the frontend computes selection
+offsets in JS string units (UTF-16 code units). For documents with multibyte
+characters this can mis-place an anchor by a few positions even though it no
+longer crashes. If anchors drift on real content, reconcile the offset unit
+end-to-end (characters throughout, or bytes throughout).
+
+## Site-review: harden Mercure publish against a hung hub (still open)
+
+
+
+**Author:** Claude · **Type:** bug · **Priority:** medium · **Status:** pending
+
+`SubmitReviewHandler::publish()` makes a synchronous HTTP call to the Mercure hub
+after `flush()`. `symfony/mercure-bundle` exposes no per-hub `http_client` config
+option, so the call uses the default HttpClient timeout — a hung hub could add
+latency to every review submit before the catch fires. Wire the default hub to a
+scoped HttpClient with a low `timeout`/`max_duration` (custom hub service or a
+decorated HttpClient) so a slow hub can never noticeably delay a review submit.
+
+Observability around it has since improved — the failure is logged at `error`
+with the topic and review id, and the update carries the review id as a stable
+event id — but the latency problem itself is untouched. The publish is
+deliberately **not** retried: the hub may accept an update and still have the
+client throw, and a second publish would make the bridge inject the same review
+into the agent twice.
+
+## Durable review-event delivery (transactional outbox)
+
+
+**Author:** Claude · **Type:** feature · **Priority:** medium · **Status:** pending
+
+The durable half is implemented in PR #77 (open, unmerged): a
+`SiteReviewEvent` row is persisted in the same flush as
+`SiteReview::markSubmitted()`, so a publish that fails no longer loses the
+event. Nothing drains those rows — replay is manual today.
+
+**Automatic redelivery is blocked, and not by missing infrastructure.** The
+earlier note here assumed the review id carried on the Mercure update acts as a
+dedupe key. It does not: the bridge never reads it. Verified 2026-07-27 at
+three layers — `cli/internal/transport/mercure.go` parses only `data:` lines
+and drops `id:`, sending no `Last-Event-ID` on reconnect;
+`cli/internal/inject/inject.go` is pure and stateless; and
+`cli/cmd/bridge.go`'s `OnData` sends to tmux unconditionally with no seen-set.
+MCP-layer idempotency does not rescue it either — `get_site_review` returns
+Pending comments, so a redelivery arriving while the first agent turn is still
+working hits the same Pending set and repeats the work. That is exactly the
+"inject the same review twice" harm `SubmitReviewHandler`'s own comment warns
+about.
+
+So the prerequisite is CLI work: a persisted seen-review-id set in
+`cli/cmd/bridge.go`'s `OnData` handler (or honouring `Last-Event-ID` on
+reconnect). Only once the bridge dedupes is it safe to add a worker that drains
+unpublished rows with retry. Doing the drain first would convert a rare lost
+event into repeated agent injections — a worse failure than the one being
+fixed.
+
+## CSP is report-only until inline scripts carry nonces
+
+
+
+**Author:** Claude · **Type:** security · **Priority:** medium · **Status:** pending
+
+`config/packages/nelmio_security.yaml` sends the policy under `report` rather
+than `enforce`, so it blocks nothing today. Switching to enforcing needs
+per-request nonces on the inline scripts (importmap, theme styles) — Nelmio's
+`csp_nonce()` Twig helper — because `script-src` currently relies on
+`'unsafe-inline'`.
+
+Also revisit the allowlist when flipping it: `connect-src` does not include the
+Mercure hub origin. That is fine today (browser-side Mercure turbo streams are
+disabled in `assets/controllers.json`; the only subscriber is the Go bridge,
+which CSP does not govern), but enabling browser SSE would need it added.
+
+## Site-review bridge CLI (`cli/`): polish before shipping
+
+
+
+**Author:** Claude · **Type:** feature · **Priority:** medium · **Status:** pending
+
+The Go bridge is functional (`loupe login` + `loupe bridge run
+--site <name>`, with an interactive picker when the flag is omitted). Remaining
+work before it's a turnkey distributable:
+
+- **No test covers the reconnect path.** `transport.Subscribe` now mints a fresh
+  subscriber JWT per attempt (`TokenFunc`) and refreshes by resolved site id, but
+  nothing exercises it: `internal/transport` has no tests. A fake hub that 401s
+  once and then serves an event would lock in both fixes. This is the gap that
+  let the expiring-JWT regression ship in the first place.
+- **No-echo token prompt.** `login` reads the token from stdin with the terminal
+  still echoing. Use `golang.org/x/term` (or equivalent) to read without echo.
+- **OS keychain storage.** The token is stored in `~/.config/loupe/config.json`
+  (mode 0600). Move it to the OS keychain (e.g. `go-keyring`) with the file as a fallback.
+- **CI + release.** Wire `just cli-test` into the gate, and add goreleaser for a
+  multi-platform release matrix (current `just cli-build` only cross-compiles one target).
+
+## Site-review comments have no agent-reply data model
+
+
+
+**Author:** Claude · **Type:** feature · **Priority:** medium · **Status:** pending
+
+The site-review screen (handoff §4) shows agent ("Claude") replies indented under
+each comment with an "addressed" tag. `SiteReviewComment` has no reply/response
+field — the MCP `address_comment` tool only flips the status to `Addressed`, it
+stores no reply text. So the site-review page renders no agent-reply block (there
+is nothing to show). When agent replies become a real requirement, add a reply/
+response field (or a related entity) to `SiteReviewComment`, have the addressing
+tool persist the reply body, and render it in
+`templates/Module/SiteReview/show_site_review.html.twig` (a placeholder comment
+marks where it goes).
+
+## Unbound legacy MCP tokens look like a connection failure to agents
+
+
+
+**Author:** Claude · **Type:** feature · **Priority:** medium · **Status:** pending
+
+`mcp`-scoped tokens minted before the Project entity existed (pre-2026-07-03)
+authenticate fine but resolve no project, so every tool call fails with "MCP
+token is not bound to a project" — which agents surface as "can't connect".
+A 2026-07-10 session debugged this; the three affected local tokens were fixed
+by creating projects and binding them directly in the dev DB. Product follow-ups
+to consider: reject unbound `mcp`-scope tokens at authentication time (clear 401
+instead of per-call errors), and/or purge orphan unbound tokens (the dev DB has
+~500 unbound e2e-harness tokens accumulating — see also whether e2e should clean
+up after itself).
+
+## Gamache rule: catch skills that document tooling which no longer exists
+
+
+
+**Author:** Claude · **Type:** tooling · **Priority:** medium · **Status:** pending
+
+`.claude/skills/**/SKILL.md` cites `just` recipes, repo-relative paths and shell
+helper functions, and nothing verifies those still resolve. When the
+`wt-tailwind` recipe was renamed to `worktree-tailwind` (2026-07-25), two
+references inside `project-worktrees` were left dangling and were only caught by
+grepping by hand. The same hand-check was needed when the skill was written
+(8 recipes, 3 `slug.sh` helpers, `compose-exec.sh`) — that is exactly the work
+worth automating, because it stops being done the moment someone is in a hurry.
+
+Proposal — `SkillReferencesCheck` in the `src/Check/` layer of
+`ubermuda/gamache` (textual analysis over markdown, so it cannot be a PHPStan
+rule: that layer only sees files in PHPStan's `paths:`). It scans every
+`SKILL.md` and asserts:
+
+- `` `just <recipe>` `` — the recipe exists in the justfile
+- repo-relative paths in backticks (`bin/worktrees/slug.sh`,
+  `compose.worktree.yaml`) — the file exists
+- shell function names named alongside a `.sh` path (`worktree_slug`,
+  `worktree_slug_index`) — the function is defined in that file
+
+Should **fail**, not be advisory. `TranslationCheck` is advisory because it
+scores heuristics and guesses wrong; this one is objective — a recipe either
+exists or it does not — so it belongs with `NoTodosCheck`.
+
+Main false-positive risk is skills naming non-project commands
+(`git worktree remove`, `docker compose up`). Matching only `just <x>` plus
+repo-relative paths avoids most of it; add a constructor-injected ignore list
+for the rest, following the `TranslationCheck(ignoredCallSites: [...])`
+precedent in `gamache.php`.
+
+Two PRs: the rule in `github.com/ubermuda/gamache`, then one line wiring it in
+this repo's `gamache.php` (rule classes must not be added directly here).
+
+Generalises past worktrees — every `project-*` skill cites recipes and paths,
+and all of them rot the same way.
+
+## MCP: `revise_document` cannot update the title
+
+
+
+**Author:** Geoffrey · **Type:** feature · **Priority:** medium · **Status:** pending
+
+Found while dogfooding the nine-features design review: the review scope grew
+from eight to nine features, but `revise_document` only accepts `markdown` —
+the title set at `create_document` time is frozen. The document is now titled
+"Eight features — design spec" while its content says nine. Add an optional
+`title` parameter to `revise_document` (and consider surfacing title history
+alongside version history).
+
+## ProjectDeleter misreports a stale entity when looped without clearing
+
+
+
+**Author:** Claude · **Type:** bug · **Priority:** medium · **Status:** pending
+
+Found while building account deletion (2026-07-25): calling `ProjectDeleter::delete()` twice for
+two different projects in the same EntityManager session throws
+`ORMInvalidArgumentException: A new entity was found through the relationship
+'SiteReview#project'` on the second call. Cause: `DeleteSiteReviewDataOnProjectDeleting`
+removes `SiteReview`/`SiteReviewComment` rows via bulk DQL, which bypasses the
+identity map, so the first project's now-stale `SiteReview` object survives
+into the second call's `flush()`. Doctrine's changeset computation then finds
+that stale object's `project` association pointing at an entity that was
+already detached after the first project's successful removal+flush, and
+misreports it as a new, non-cascaded entity.
+
+`DeleteAccountHandler` works around this at the call site (fetch project
+ids up front, then `find()` + `delete()` + `em->clear()` per iteration — never
+holding a stale entity across two `ProjectDeleter::delete()` calls). Every
+other caller today only ever deletes one project per request, so this has not
+surfaced before. If a future caller loops `ProjectDeleter::delete()`, it needs
+the same workaround unless `ProjectDeleter` is fixed at the source (e.g.
+`$this->em->clear()` at the end of its own transaction) — worth doing there
+instead, once a second real call site exists, to stop every caller from having
+to know this.
+
+## Domain boundaries sweep (after the current feature wave)
+
+
+
+**Author:** Geoffrey · **Type:** tooling · **Priority:** medium · **Status:** pending
+
+Owner decision (2026-07-25): once the 2026-07-25 feature wave and the
+trial-end sweep / post-trial lifecycle work all land, do a dedicated
+domain-boundaries sweep across `src/Module/`: check module-to-module
+dependencies against the phparkitect rules, tighten or add boundary rules
+where modules have grown entangled (Billing ↔ Account is the likely hotspot —
+the trial-end work adds cross-module touchpoints: `UserRegistered` event,
+`disabledAt` on User consumed by Billing, waitlist ↔ checkout), and move any
+misplaced code to the module that should own it. Treat it as its own branch,
+not a rider on feature work.
+
+Audit input (2026-07-26, owner deferred these two findings here): the sweep
+has no working gate today — `phparkitect.php` contains zero rules (only the
+skeleton's commented example), so `just arkitect` passes vacuously. Writing
+the rules is part of this sweep. Known cycles to break, confirmed in the
+code: Project↔Review and Project↔SiteReview (`ListProjectsController.php`
+and `CreateProjectController.php` import `DocumentRepository`,
+`SiteReviewRepository`, `SiteReviewCommentRepository`), Account↔Project
+(`HomeController.php`, `DeleteAccountHandler.php`), Account↔Billing
+(`DeleteAccountHandler.php` imports `BillingProfileRepository` +
+`StripeGatewayInterface`). The duplicated project-list count block in the
+two Project controllers is the natural first extraction seam (one provider
+service fixes the reverse edges and the 3-counts-per-project N+1 together).
+
+## Review UI: clickable table of contents
+
+
+
+**Author:** Geoffrey · **Type:** feature · **Priority:** medium · **Status:** pending
+
+Owner request (2026-07-25): the document review screen needs a clickable ToC.
+Long specs (e.g. the trial-end sweep design, ~15 sections) currently require
+scrolling to navigate; generate a ToC from the rendered document's headings
+(anchor links, probably a sticky sidebar or collapsible panel) so a reviewer
+can jump between sections while commenting.
+
+## Review UI: per-section approval
+
+
+
+**Author:** Geoffrey · **Type:** feature · **Priority:** medium · **Status:** pending
+
+Owner request (2026-07-25): alongside the whole-document verdict, let a
+reviewer approve individual sections. During the trial-end sweep spec review,
+each revision orphaned most open comments and there was no way to mark "these
+sections are settled, only re-review the delta" — per-section approval state
+(persisting across revisions when a section's content is unchanged) would make
+multi-round spec reviews much cheaper. Interacts with the ToC item above
+(section identity comes from headings) and with comment re-anchoring.
+
+## Skill: writing plans/specs that review well in Loupe
+
+
+
+**Author:** Geoffrey · **Type:** docs · **Priority:** medium · **Status:** pending
+
+Owner request (2026-07-25): add a project skill (`.claude/skills/`) teaching
+agents how to write design specs and implementation plans that work well in
+Loupe's review flow. Candidate content, learned from the trial-end sweep spec
+review: structure documents in clearly-headed, independently-approvable
+sections (pairs with per-section approval above); keep section headings stable
+across revisions (comment re-anchoring matches quoted text — wholesale
+rewrites orphan every comment); define terms of art up front instead of using
+jargon shorthand ("pass 1", "variant") that draws clarification comments;
+state each open decision as an explicit numbered item so comments can target
+it; when revising, prefer surgical edits over restructuring so carried
+comments survive; always answer review comments in an accompanying message
+(the MCP has no reply-to-comment yet — see that NEXT_STEPS item).
+
+## Admin users need a visible link to /admin from the app
+
+
+
+**Author:** Geoffrey · **Type:** feature · **Priority:** medium · **Status:** pending
+
+Owner note (2026-07-25): nothing in the app UI links to the admin area — an
+admin has to type /admin by hand. Add a nav entry (sidebar or account menu)
+rendered only for ROLE_ADMIN (`is_granted('ROLE_ADMIN')` in Twig per the
+symfony-authorization skill). The reverse link exists (the admin-bundle shell
+links back to the app via its app_route config); only app → admin is missing.
+
+## Decide fate of PlaywrightSyncEmailMiddleware (async-email follow-up)
+
+
+
+**Author:** Claude · **Type:** tooling · **Priority:** medium · **Status:** pending
+
+src/Messenger/Middleware/PlaywrightSyncEmailMiddleware.php is unregistered AND its target `sync` transport is commented out in messenger.yaml; playwright.config.ts still sends the X-Playwright header solely for it. Either wire it properly (register middleware + uncomment sync transport) — which would make Playwright-headed requests deliver mail synchronously and remove the worktree-consumer requirement for mail-asserting e2e specs — or delete the class + header. Deciding beats letting it rot; the worktree-blind-mail item above is the forcing function.
+
+## phpstan needs a warmed container after merges that add services
+
+
+
+**Author:** Claude · **Type:** tooling · **Priority:** medium · **Status:** pending
+
+phpstan-symfony resolves getContainer()->get(X::class) via the dumped
+container XML in var/cache; after merging branches that add services, a
+stale cache makes those gets fall back to ?object ("might not be a
+callable" errors on perfectly valid tests). Remedy: cache:warmup before
+phpstan when errors appear only on freshly-merged code. Candidate: make the
+`just phpstan` recipe warm the container first (AUTOMATIONS.md).
+
+## Fuller billing section in account settings (manage sub in-app)
+
+
+
+**Author:** Geoffrey · **Type:** feature · **Priority:** medium · **Status:** pending
+
+Owner note (2026-07-25): the account settings page needs a proper billing
+section — cancel a subscription, and start a subscription mid-trial. Partial
+today (the `BillingSummary` Twig component on /account): shows trial days left /
+active / payment-problem status and links to the subscribe page ("Subscribe")
+or Stripe's customer portal ("Manage subscription" — cancel lives there).
+The gap vs the note: cancellation is portal-only (no in-app cancel button),
+and the mid-trial subscribe path exists but may deserve more prominence
+(e.g. explicit "X days left — subscribe now" CTA). When picked up: decide
+in-app cancel (Stripe API cancel_at_period_end via StripeGatewayInterface +
+confirm modal) vs keeping the portal as the single management surface, and
+whether the section should show renewal date/price (data already synced on
+BillingProfile).
+
+## Widget tokens: opt-in agent-forwarding scope
+
+
+
+**Author:** Geoffrey · **Type:** security · **Priority:** medium · **Status:** pending
+
+The site-review widget token is embedded in page markup (the snippet built in
+`templates/Module/Project/connect_agent.html.twig`), so whoever can view the
+page holds the credential. Today every submitted review is published to Mercure
+and auto-injected into the owner's local Claude session by the bridge CLI
+(`cli/internal/inject/inject.go`) — so a token pasted on a publicly reachable
+page lets anonymous visitors trigger the owner's agent. Owner decision
+(2026-07-26): add an agent-forwarding scope (or flag) to widget tokens,
+default **off** — collect-only tokens still accept comments, but their reviews
+are never forwarded to the agent. Enforce server-side in
+`SubmitReviewHandler` (skip the Mercure publish, or publish marked
+non-forwardable, when the submitting token lacks the scope) — not in the CLI,
+which is the weaker boundary. Also add copy to the connect-agent flow warning
+that the token is visible in page source and forwarding tokens belong on
+access-controlled environments only. This complements — does not replace —
+keeping reviewer-controlled text (comment URLs, site name) out of the
+auto-submitted prompt in `inject.go`; that prompt-construction fix is being
+handled as immediate work and is not part of this entry. Related: see
+"Personal reviewer tokens as an identity layer for the widget".
+
+## Security emails: generate links from a pinned default_uri
+
+
+
+**Author:** Geoffrey · **Type:** security · **Priority:** medium · **Status:** pending
+
+`config/packages/framework.yaml` trusts `x-forwarded-host`, and
+`PasswordResetEmailSender.php:36` / `AccountDeletionEmailSender.php:36` build
+`ABSOLUTE_URL` links from request context — a forged host header that reaches
+the app poisons emailed password-reset / account-deletion links and sends the
+victim's live token to an attacker domain. Owner decision (2026-07-26): fix
+by generating these emails' URLs from a pinned host
+(`framework.router.default_uri` or an explicit request-context set in the
+senders) — chosen over dropping `x-forwarded-host` from `trusted_headers`.
+
+## Gamache: ship the controller direct-state-access rule the skill cites
+
+
+
+**Author:** Geoffrey · **Type:** tooling · **Priority:** medium · **Status:** pending
+
+The `project-command-handler` skill cites a `controller.directStateAccess`
+gamache rule ("controllers may not touch repositories directly") that does
+not exist anywhere in ubermuda/gamache (all five layers checked 2026-07-26),
+while ~25 rendering controllers inject repositories and assemble view data
+inline. Owner decision (2026-07-26): upgrade gamache — add the rule via a PR
+on https://github.com/ubermuda/gamache (per CLAUDE.md, gamache rules never
+land in this repo). Decide the rule's scope while writing it: forbid all
+repository injection in controllers (forcing query handlers for reads,
+matching the skill) or only mutation paths; then fix or baseline the ~25
+existing controllers when the rule lands.
+
+## Upgrade symfony/mcp-bundle to ^0.12 and retire the custom MCP endpoint controller
+
+
+
+**Author:** Geoffrey · **Type:** tooling · **Priority:** medium · **Status:** pending
+
+Installed `symfony/mcp-bundle` 0.10.0 hardcodes the DNS-rebinding host
+allowlist to localhost in its final `McpController` — the sole reason
+`src/Module/Mcp/Controller/McpEndpointController.php` exists (it re-implements
+the endpoint with an `MCP_ALLOWED_HOSTS`-driven allowlist). v0.11.0 added
+"Allow configuring DNS rebinding protection allowed hosts"
+(https://github.com/symfony/mcp-bundle/releases, PR #2250), so after
+upgrading to `^0.12` the custom controller can likely be deleted in favour of
+bundle config. Verify on upgrade: allowed-hosts config shape, that CORS +
+protocol-version middlewares are still applied by the stock controller, and
+v0.12's switch from file-based discovery to compile-time tool registration
+(may need config for the `src/Module/*/Mcp/` tools).
+
+## SiteReviewRepository missing `autoconfigure: true` in `when@test`
+
+
+
+**Author:** Claude · **Type:** bug · **Priority:** low · **Status:** pending
+
+`config/services.yaml`'s `when@test` block redefines several Review/SiteReview
+repositories, which *replaces* the `App\:` resource definition and silently drops
+`autoconfigure` (so no `doctrine.repository_service` tag in the test container).
+`CommentRepository` was fixed (its missing tag broke `{id:comment}` entity
+resolution in `ResolveCommentControllerTest`). `App\Module\SiteReview\Repository\SiteReviewRepository`
+still has the same gap — any future controller test that resolves a SiteReview via
+a `{id:siteReview}` route will hit the same "entity repository ... service could
+not be found" error. Add `autoconfigure: true` to that override when it bites.
+
+## Review anchoring — possible enhancement (low priority)
+
+
+
+**Author:** Claude · **Type:** idea · **Priority:** low · **Status:** pending
+
+Observed while dogfooding the review loop on the site-review spec: revising a
+document re-anchors open comments by matching their quoted text, so comments on
+a region that gets rewritten come back `orphaned`. This is **expected** and
+matches GitHub's "outdated" review comments — not a bug.
+
+Possible future improvement, only if orphaning proves annoying in practice: add
+a secondary **structural anchor** (e.g. nearest heading path + relative offset)
+alongside the existing quote/prefix/suffix text anchor, and fall back to it when
+the text match fails. Would let a comment survive a rewrite of its surrounding
+prose by re-attaching to the same section. Not worth doing pre-emptively.
+
+Minor/cosmetic: the `quote` returned by `get_review` uses arbitrary character
+boundaries (mid-word, mid-sentence), which makes mapping a comment back to its
+section take some inference. Snapping quote boundaries to word/line edges would
+read more cleanly. Cosmetic only.
+
+## Host PHPUnit can't reach Postgres through Traefik
+
+
+
+**Author:** Claude · **Type:** tooling · **Priority:** low · **Status:** pending
+
+Running `php vendor/bin/phpunit` on the host fails at bootstrap (drop/create
+schema): the DB is only reachable via Traefik's TCP `HostSNI` router on the
+`postgres` entrypoint (`compose.yaml`; no direct `ports:` mapping). PHP's
+`pdo_pgsql`/OpenSSL can't complete that handshake — `sslmode=require|prefer` →
+`tlsv1 alert no application protocol` (ALPN mismatch), `sslmode=disable|allow` →
+timeout (no TLS → SNI can't be read). Both `127.0.0.1` and
+`db.loupe.dev.localhost` fail. Tests only run via the container
+(`docker compose exec -T php-fpm php vendor/bin/phpunit`), which connects to
+`database:5432` directly.
+
+Want host phpunit to work. Likely fixes to evaluate: (a) publish the Postgres
+port directly on the host (`ports: ["5432:5432"]` on the `database` service) so
+host clients bypass Traefik; or (b) adjust the Traefik `postgres` entrypoint so
+its TLS layer negotiates the ALPN libpq offers; or (c) document a working
+`.env.test.local` DSN. Until then, plan task `verifyCommand`s use the container
+form.
+
+## Generalize CORS handling if the API surface grows
+
+
+
+**Author:** Claude · **Type:** tooling · **Priority:** low · **Status:** pending
+
+Site-review uses a small `SiteReviewCorsSubscriber` scoped to `^/api/site-review`
+(reflects `Origin`, answers preflight before the firewall), mirroring how the MCP
+endpoint handles CORS locally. This is intentionally per-endpoint. If we add more
+cross-origin API surface, replace these ad-hoc subscribers with a single shared
+mechanism — either `nelmio/cors-bundle` or one app-wide CORS subscriber driven by
+a path/origin allowlist — so CORS policy lives in one place.
+
+## Port Turbo prefetch convention to the skeleton
+
+
+
+**Author:** Claude · **Type:** tooling · **Priority:** low · **Status:** pending
+
+Turbo 8 prefetches links on hover, which silently fires the GET behind any
+side-effecting link — we hit this with the `logout` link logging users out on
+hover. Fixed here by adding `data-turbo-prefetch="false"` to the logout link and
+documenting the convention in `.claude/skills/project-frontend/SKILL.md`
+("Disable prefetch on side-effecting GET links").
+
+The skeleton has **no logout link**, so there's nothing to fix literally — port
+the *convention* instead: copy the SKILL.md note into the skeleton's
+project-frontend skill so future consumers know to opt side-effecting GET links
+out of prefetch. Open a PR against the skeleton (`main`), then update
+`.skeleton.json`.
+
+## Revisit: migrate API auth to Symfony's `access_token` authenticator
+
+
+
+**Author:** Claude · **Type:** tooling · **Priority:** low · **Status:** pending
+
+We hand-roll `ApiTokenAuthenticator` (custom `AbstractAuthenticator`). Symfony's
+built-in `access_token` firewall + an `AccessTokenHandler` is the more idiomatic
+mechanism. Deferred during the site-review work — decided to extend the custom
+authenticator for now and revisit later. Note: `access_token` has **no** native
+scope→role mapping (verified against current Symfony docs), so the migration is
+a modernization, not a scope win; per-token scope roles are slightly more
+awkward there (you don't own `createToken()`), so weigh that when revisiting.
+
+## Site-review widget: send during an in-flight delete
+
+
+
+**Author:** Claude · **Type:** bug · **Priority:** low · **Status:** pending
+
+`send()` doesn't check `state.deleting` — a Send clicked while a delete is
+in flight could submit a review that still contains the being-deleted comment.
+Minor for a single-reviewer tool; track only.
+
+## Site-review widget: surface per-comment save errors more granularly
+
+
+
+**Author:** Claude · **Type:** feature · **Priority:** low · **Status:** pending
+
+All widget API failures render into the single `#bp-error` banner. Fine for a
+one-reviewer tool; if bulk operations ever appear, attach errors to the affected
+list row instead.
+
+## e2e tsconfig triggers TS5107 under bare tsc
+
+
+
+**Author:** Claude · **Type:** tooling · **Priority:** low · **Status:** pending
+
+`e2e/tsconfig.json` uses `moduleResolution: node` (node10), deprecated in
+TypeScript 5.x — a bare `npx tsc --noEmit` in `e2e/` fails with TS5107. Nothing
+in the gates runs bare tsc today (Playwright transpiles specs itself), so this is
+latent. Modernize the tsconfig (`module`/`moduleResolution` `nodenext`, or
+`bundler`) when convenient.
+
+## Regenerate token handlers are check-then-set without locking
+
+
+**Author:** Claude · **Type:** bug · **Priority:** low · **Status:** pending
+
+`RegenerateProjectWidgetTokenHandler` and `RegenerateProjectMcpTokenHandler`
+delete the previous token and persist a new one with no lock, so two concurrent
+regenerations can leave the loser's token valid but bound to no project.
+
+Both mint handlers are now guarded — `MintProjectWidgetTokenHandler` and, since
+PR #66, `MintProjectMcpTokenHandler` — each taking a `PESSIMISTIC_WRITE` on the
+project row and re-checking committed state through a repository query. Mirror
+that shape here.
+
+Note the mint fix deliberately avoids `EntityManager::refresh()`: it throws on
+`Project::$createdAt`, which is `readonly`, which is why the committed-state
+check is a repository query rather than a refresh.
+
+Impact stays low — regeneration is a single-owner action, and an unbound token
+resolves no project so project-scoped consumers reject it.
+
+## Widget-token mint flow still uses site-era CSRF id and translation keys
+
+
+
+**Author:** Claude · **Type:** tooling · **Priority:** low · **Status:** pending
+
+`MintProjectWidgetTokenController` keeps CSRF token id `mint-site-token` and
+the `site_review.site.token.*` translation-key family (template ↔ controller
+pairs are consistent). The Connect page now owns the token UI, so these can be
+renamed to `project.*` as a cosmetic follow-up (coordinated template + controller
++ csrf.yaml + xlf change).
+
+## Site-review widget overlaps the review console's pinned controls (dogfooding)
+
+
+
+**Author:** Claude · **Type:** bug · **Priority:** low · **Status:** pending
+
+The site-review widget (loaded on Loupe's own authenticated pages when
+`SITE_REVIEW_WIDGET_TOKEN` is set — dev/dogfooding) mounts a `position:fixed`
+bottom-right launcher (z-index max). PR 3 pinned the document-review verdict bar
+to the bottom of the 388px margin, so the launcher can overlap the "Request
+changes"/"Approve" buttons in dogfooding mode. The e2e `review-loop` spec
+suppresses the widget (`suppressWidget`, like the debug toolbar) to test the
+review screen in isolation. Product decision to make later: the widget isn't part
+of the review/site-review console screens' design — consider not loading it on
+those routes (scope the `base.html.twig` widget include out of the review console)
+so dogfooding a review doesn't cover the console's own controls.
+
+## Site-review widget: navigate to a comment's page from the comment list
+
+
+
+**Author:** Claude · **Type:** feature · **Priority:** low · **Status:** pending
+
+In the widget's comment list, comments made on a different page than the one
+currently open only show their page URL as context. Add a quick way to navigate
+to that page (e.g. make the URL a link or add a "go to page" affordance on
+cross-page comments) so a reviewer can jump straight to where the comment was
+made.
+
+## Billing paywall answers machine clients with 402
+
+
+
+**Author:** Claude · **Type:** feature · **Priority:** low · **Status:** pending
+
+`RequireSubscriptionListener` gates `/api/` and `/mcp` requests like the UI
+but answers `402 Payment Required` with `{"error": "subscription_required",
+"subscribeUrl": ...}` instead of an HTML redirect. The MCP transport has no
+notion of 402, so an agent hitting a paywalled account sees a transport-level
+error rather than a JSON-RPC one; if that turns out to be confusing in practice,
+give the MCP endpoint a JSON-RPC-shaped error body of its own.
+
+## Billing DomainErrors keys have no translations, by design
+
+
+
+**Author:** Claude · **Type:** docs · **Priority:** low · **Status:** pending
+
+`billing.error.disabled`, `billing.error.no_active_price` and
+`billing.error.no_customer` are `DomainErrors` payload values only — the
+checkout/portal endpoints are fieldless buttons, so nothing renders them; the
+controllers flash `billing.flash.checkout_unavailable` /
+`billing.flash.portal_unavailable` instead. They are intentionally absent from
+`translations/messages.en.xlf`; do not "fix" them by adding trans-units.
+
+## Worktree e2e runs now require a worktree-scoped worker
+
+
+
+**Author:** Claude · **Type:** tooling · **Priority:** low · **Status:** pending
+
+The manual procedure is documented in the `project-worktrees` skill
+("Running the full e2e suite from a worktree"); what remains open is the
+automation — a `just e2e` pre-hook or `just e2e-worktree` recipe owning the
+worker lifecycle (see docs/AUTOMATIONS.md, 2026-07-25 section). Mind the
+worker's --time-limit: a consumer that expires mid-run fails the export spec.
+Related: "Decide fate of PlaywrightSyncEmailMiddleware".
+
+## Product idea (long horizon): whole-codebase review, not diff review
+
+
+
+**Author:** Geoffrey · **Type:** idea · **Priority:** low · **Status:** pending
+
+Owner note (2026-07-25): a full-blown code review feature over the CURRENT
+STATE of a codebase rather than a diff — reviewing what the code IS, not what
+changed. Distinct from the existing document-review flow and from PR-style
+review. Open questions when this gets picked up: ingestion (connect a repo?
+the MCP agent pushes a snapshot?), review unit (file? module? architectural
+concern?), how comments anchor to code that keeps moving (the re-anchoring
+machinery exists for markdown documents and may generalize), reviewer UX for
+navigating a tree vs a linear doc, and how findings feed back (tracker
+entries? MCP tool the agent polls, like get_review?).
+
+## Deduplicate the waitlist idioms (convert + invite-validation)
+
+
+
+**Author:** Claude · **Type:** tooling · **Priority:** low · **Status:** pending
+
+Two waitlist idioms have each hit the rule of three (as of 2026-07-26):
+
+1. Convert-on-account-activity: `findOneByEmail(...)` → `null === convertedAt`
+   → `markConverted()` in `RegisterUserHandler`, `ResolveSocialLoginHandler`,
+   and `SyncStripeSubscriptionHandler`. Fix: a
+   `WaitlistEntryRepository::convertMatching(string $email): void` helper or
+   an idempotent `markConverted()`.
+2. Invite validation: token lookup + email match in `StartCheckoutHandler`
+   and `ShowSubscribeHandler` (verbatim twins), near-verbatim (plus
+   lock/refresh) in `RegisterUserHandler::resolveMatchingInvite`. Fix: a
+   `WaitlistEntryRepository::findValidInviteFor(string $token, string $email):
+   ?WaitlistEntry` collapses the Billing copies and serves the register
+   handler's pre-lock lookup.
+
+Candidate for the domain-boundaries sweep (see "Domain boundaries sweep
+(after the current feature wave)").
+
+## Personal reviewer tokens as an identity layer for the widget
+
+
+
+**Author:** Geoffrey · **Type:** idea · **Priority:** low · **Status:** pending
+
+Long-horizon alternative/complement to the site-review widget's shared
+site-wide token: per-reviewer tokens minted via invite links and held in the
+reviewer's browser, instead of a credential embedded in page markup. Buys
+accountable identity on every submitted review, per-reviewer revocation, and
+removes the token from page source. Costs the zero-friction "anyone on the
+staging site can comment" UX (reviewers must redeem an invite first), and
+needs a lightweight reviewer identity without full accounts plus a tokenless
+widget bootstrap mode. Only worth picking up if per-reviewer accountability
+becomes a product need — the cheaper mitigation for the exposure concern is
+the forwarding scope (see "Widget tokens: opt-in agent-forwarding scope").
+
+## Expose the paywall decision as a voter for the view layer
+
+
+
+**Author:** Geoffrey · **Type:** tooling · **Priority:** low · **Status:** pending
+
+Owner question (2026-07-26), raised while reviewing the `#[PaywallExempt]`
+change: should paywall exemption be expressed through `#[IsGranted]` voters
+instead of a route attribute?
+
+Decided **no** for enforcement. `RequireSubscriptionListener` is
+deny-by-default (every route is paywalled unless marked exempt), whereas
+`#[IsGranted]` on controllers is allow-by-default. Inverting it would turn a
+forgotten annotation from "user is wrongly blocked" (loud, user-reported,
+revenue-safe) into "feature is silently free" (invisible revenue leak) — the
+wrong failure mode for a paywall. Three further blockers: the listener exempts
+third-party bundle routes by prefix (`ubermuda_feature_flags_*`,
+`app_admin_*`) whose controllers cannot carry our attribute; it performs
+content negotiation a voter cannot (302 to the subscribe page for UI, `402`
+with a JSON body for `/api/` and `/mcp`), so an exception listener would be
+needed anyway and the decision would end up split across two files; and `/mcp`
+is a single endpoint dispatching many tools, so per-controller granularity
+does not map onto it.
+
+What is still worth doing, additively: `PaywallGate::allows()` is reachable
+only from the listener today, so a template wanting to show a "subscribe" CTA
+has to re-derive the condition. Add a thin voter delegating to `PaywallGate`
+so `is_granted('billing.active')` works in Twig. Scope is the *decision*, not
+the exemption list — do not change the listener's deny-by-default polarity.
+Confirm a template actually needs it before building it; no current caller was
+identified. Attribute-naming and voter-shape conventions live in the
+`symfony-authorization` skill.
+
+## Per-worktree Mailpit sidecar so e2e can run in parallel
+
+
+
+**Author:** Geoffrey · **Type:** tooling · **Priority:** medium · **Status:** pending
+
+Mailpit is shared by the main stack and every worktree, so two concurrent
+`just e2e` runs read each other's messages and mail-asserting specs fail
+nondeterministically. That is why the suite must run `--workers=1` and
+one-worktree-at-a-time. During the 2026-07-26 audit-remediation wave this
+serialized gate was the single largest cost: ~15 branches each needing a full
+suite run, back to back, while the DB-free static gate parallelised freely.
+
+Owner decision (2026-07-26): fix it with a **per-worktree Mailpit sidecar**,
+mirroring the nginx sidecar design already in `compose.worktree.yaml` — its own
+container, its own Traefik route, and a per-worktree `MAILER_DSN` +
+Mailpit API base URL that the e2e harness reads. Provisioned and torn down by
+`bin/worktrees/worktree-bootstrap.sh` / `worktree-teardown.sh` alongside the
+existing sidecar and databases, so `just worktree-up` remains the single entry
+point.
+
+Check when picking this up: `e2e/` currently resolves Mailpit from a fixed
+host/port — that lookup has to become worktree-aware too, or the specs will
+still all talk to the shared instance. Interacts with "Decide fate of
+PlaywrightSyncEmailMiddleware": if Playwright-headed requests ever deliver mail
+synchronously, the worktree-scoped worker requirement for mail specs goes away,
+but the Mailpit isolation problem does not.
+
+## Resolution state is denormalised across every comment in a thread
+
+
+
+**Author:** Geoffrey · **Type:** bug · **Priority:** low · **Status:** pending
+
+Owner note (2026-07-26, reviewing the resolved-threads fix): would it be
+simpler if `resolved` lived on the thread rather than on each message inside
+it?
+
+Today `resolved` is a column on `Comment`, so every row in a thread carries its
+own flag. `ResolveCommentHandler` cascades the root's value to its direct
+replies, because `findOpenByVersion()` selects on `resolved = false` and
+unresolved replies of a resolved thread would otherwise be copied onto the next
+version as fresh top-level threads. The alternative shape — leave the flag on
+the root only and have the open-set query exclude comments whose thread root is
+resolved — models it as a thread-level property and removes the duplication.
+
+Not urgent: there is no UI path to resolve a reply independently (the Resolve
+button renders only on the root in
+`templates/components/CommentThread.html.twig`), so the replies' own flags are
+redundant rather than contradictory. It becomes a real problem if per-message
+resolution is ever added, at which point the two representations can disagree.
+
+Touches `findOpenByVersion()`, the re-anchoring copy in `ReanchoringService`,
+and the `resolved` field in the `get_review` MCP payload — replies of a
+resolved thread currently report `resolved: true` there, which is an
+externally-visible contract.
+
+## Deleting an API token (as distinct from revoking it)
+
+
+
+**Author:** Geoffrey · **Type:** feature · **Priority:** low · **Status:** pending
+
+Owner decision (2026-07-26): the existing action becomes a true revocation —
+`RevokeApiTokenHandler` sets `revokedAt` and keeps the row so the
+`account.api_token.revoked` audit entry still points at something real, rather
+than hard-deleting it. That leaves no way to actually remove a token row.
+
+Add a separate delete action for when a user wants the record gone rather than
+merely disabled. Decide when picking it up: whether deletion is offered in the
+UI at all or only as a retention job (revoked rows are audit evidence, so
+purging them on demand partly defeats the point of keeping them); and whether
+it should instead be a time-based purge of long-revoked tokens. Related code:
+`src/Module/Account/Command/RevokeApiTokenHandler.php` and the token list on
+the project connect page.
+
+## Ship a minified site-review widget
+
+
+
+**Author:** Geoffrey · **Type:** tooling · **Priority:** medium · **Status:** pending
+
+`public/site-review/widget.js` is 76 KB unminified and is the third-party embed
+loaded on every page of every customer site. The 2026-07-26 audit paired this
+with missing cache headers; the caching half shipped (an exact-match
+`location = /site-review/widget.js` block in `docker/prod/nginx.conf`), the
+minification half did not.
+
+It was deferred because the project has no minifier at all: `package.json`
+carries only eslint and prettier, and AssetMapper does not cover the widget —
+it is a standalone static file served directly, not part of the importmap. So
+this needs a build-step decision, which is why it is not a one-line fix. Owner
+decision (2026-07-26): log it rather than bundle it into the perf PR.
+
+Options to weigh: an `esbuild`/`terser` npm script wired into `just cs` and the
+Docker prod build; or bringing the widget into AssetMapper so it gets the same
+treatment as everything under `/assets/` (which would also give it a
+content-hashed filename, and the cache block could then become `immutable`
+instead of the current 5-minute window).
+
+## Self-hosting audit
+
+
+
+**Author:** Geoffrey · **Type:** tooling · **Priority:** medium · **Status:** pending
+
+Owner request (2026-07-26): audit the app for self-hosting readiness. Scope was
+not specified beyond that, so settle it when picking this up rather than
+assuming — the note is recorded here verbatim in intent.
+
+Likely ground to cover, from what the repo looks like today: everything a
+third party would have to supply or change to run Loupe themselves. That
+includes the required environment variables and which have unsafe defaults
+(`COMPOSE_PROJECT_NAME` is mandatory, `DATABASE_URL` ships a placeholder,
+`INSTALL_TOKEN` does not exist yet — see the untriaged audit finding that
+`/install` is reachable by anyone while the users table is empty); the
+hard dependencies beyond Postgres (Mercure hub, Mailpit/SMTP, the messenger
+worker as its own container, Traefik routing); the Stripe coupling, since
+billing is currently woven through the paywall listener and account
+lifecycle, and a self-hoster may want it off entirely; the prod image and
+`docker/prod/` layout versus the dev compose stack; and what documentation
+exists (`README.md`, `CONTRIBUTING.md`) versus what a self-hoster would
+actually need.
+
+Related decisions already recorded: CLAUDE.md notes that if the project goes
+public, `docs/` should stop shipping and open work moves to GitHub issues —
+that choice interacts with this.
+
+## Encapsulate Billing: replace #[PaywallExempt] with a firewall-level rule
+
+
+
+**Author:** Geoffrey · **Type:** tooling · **Priority:** medium · **Status:** pending
+
+Owner idea (2026-07-27): explore relaxing the `#[PaywallExempt]` attribute in
+favour of a firewall/access-control-level rule, with the goal of making Billing
+completely encapsulated — no dependency on it from anywhere else in the PHP
+code.
+
+Today the paywall reaches outward in two directions. `RequireSubscriptionListener`
+(Billing) inspects every request and needs to know which routes are exempt, and
+the exemption marker `App\Routing\PaywallExempt` is applied to ~18 controllers
+across Account and Billing, so those modules carry a Billing-motivated
+attribute. Expressing the exemption as configuration — an `access_control`
+entry, a firewall rule, or a route-prefix convention — would remove the
+attribute from every controller and leave Billing owning its own policy.
+
+Points to work through when picking this up: the listener does content
+negotiation config cannot express on its own (302 to the subscribe page for UI,
+`402` with a JSON body for `/api/` and `/mcp`); it exempts third-party bundle
+routes by prefix (`ubermuda_feature_flags_*`, `app_admin_*`) whose controllers
+cannot carry our attribute either way; `/mcp` is a single endpoint dispatching
+many tools, so per-route granularity does not map onto it; and whatever replaces
+the marker must preserve the current deny-by-default polarity — a forgotten
+exemption must fail closed (user wrongly blocked, loud) rather than open
+(feature silently free). Keep `RequireSubscriptionListenerTest` and
+`PaywallRedirectTest` green across the conversion. Related: "Expose the paywall
+decision as a voter for the view layer".
+
+## OAuth for the MCP and site-review widget, with project selection at consent
+
+
+
+**Author:** Geoffrey · **Type:** feature · **Priority:** medium · **Status:** pending
+
+Owner idea (2026-07-27): let the MCP endpoint and the site-review widget
+authenticate by OAuth rather than by a pasted API token, with the consent
+screen offering project selection — and project *creation* — at authorization
+time.
+
+What this replaces: both surfaces today use `ApiToken` rows minted per project
+and bound to it (`mcp` and `site_review` scopes), pasted into an agent's MCP
+config or embedded in the widget snippet built by
+`templates/Module/Project/connect_agent.html.twig`. The binding is fixed at
+mint time, so switching project means minting a new token, and the widget's
+credential is visible in page source.
+
+Things this would interact with, all already tracked separately: "Widget
+tokens: opt-in agent-forwarding scope" (an OAuth scope is the natural home for
+that flag); "Personal reviewer tokens as an identity layer for the widget"
+(OAuth largely subsumes it, and gives per-reviewer identity for free);
+"Unbound legacy MCP tokens look like a connection failure to agents" (consent-
+time project selection removes the unbound state by construction); and the
+`/api` scope access-control warning, since OAuth scopes would need the same
+per-scope `access_control` discipline. Note `symfony/mcp-bundle` is on 0.12 and
+tracks the MCP protocol's own authorization spec — check what it provides
+before hand-rolling a server.
+
+## Clear the Symfony 8.1 deprecation notices
+
+
+**Author:** Claude · **Type:** tooling · **Priority:** low · **Status:** pending
+
+Surfaced by a Codex review during the 2026-07-27 audit wave, while warming the
+prod cache. The Symfony 8.1 upgrade (PR #63) left three deprecations firing at
+container-build time. They do not fail any gate today, but they are removals
+scheduled for the next majors:
+
+- `Symfony\Component\HttpKernel\DependencyInjection\Extension` is deprecated in
+  favour of `Symfony\Component\DependencyInjection\Extension\Extension`. Raised
+  through `symfony/mercure-bundle`'s `MercureExtension`, so this one clears when
+  that bundle updates — not ours to fix, worth re-checking on its next release.
+- `Symfony\UX\Turbo\Bridge\Mercure\TurboStreamListenRenderer` and
+  `Symfony\UX\Turbo\Twig\TurboStreamListenRendererInterface` are deprecated
+  since Symfony UX 3.1 and removed in 4.0, in favour of
+  `MercureStreamSourceRenderer` with `turbo_stream_from()` or the
+  `<twig:Turbo:Stream:From>` component.
+
+The ux-turbo pair is the one with a migration path we own. Note browser-side
+Mercure turbo streams are currently disabled in `assets/controllers.json` — the
+only subscriber is the Go bridge — so check whether anything actually renders a
+stream-listen tag before migrating, and whether the deprecation is reachable at
+all beyond container build.
+
+## Production must set INSTALL_TOKEN or the install wizard stays open
+
+**Author:** Claude · **Type:** security · **Priority:** high · **Status:** pending
+
+PR #77's sibling, PR #75, adds an `INSTALL_TOKEN` env var and an
+`InstallAccessGuard` gating `/install`. The guard returns early when the token
+is empty, and `.env` ships `INSTALL_TOKEN=` (empty) — so **with the variable
+unset, which is the default in every environment including production, the
+wizard is exactly as open as before**: anyone who reaches `/install` while the
+users table is empty can mint a full administrator.
+
+The empty default is deliberate — a token required by default would break dev,
+the test suite, the install e2e spec, and every `just worktree-up`, all of which
+run the wizard unattended. But it means the PR ships a mechanism, not a
+mitigation: the security benefit only exists once a deploy sets the variable.
+
+Two things to do. First, set `INSTALL_TOKEN` in the production deploy config
+(outside this repo) — that alone closes the audit finding. Second, consider
+making it fail closed rather than open: when `APP_ENV=prod` and no token is
+configured, treat the wizard as disabled entirely instead of publicly
+reachable, so a forgotten variable cannot silently leave an admin-minting
+endpoint exposed. Today a forgotten variable fails open, which is the wrong
+direction for this particular endpoint.
+
+## Three user-facing list queries are still unbounded
+
+**Author:** Claude · **Type:** bug · **Priority:** low · **Status:** pending
+
+PR #79 paginated the projects list and the per-project documents list. Three of
+the queries the 2026-07-26 audit named are deliberately not paginated, each for
+a different reason:
+
+- `SiteReviewRepository::findForProject` — `show_site_review.html.twig`
+  flattens every review's comments into one continuously-numbered list, with
+  the running index spanning reviews. Paginating by `SiteReview` would make the
+  comment count per page vary arbitrarily and break that numbering. Needs a
+  product decision first: paginate by review or by comment, and whether the
+  index is page-relative or global.
+- `ReviewRepository::findByReviewer` — no page renders it. Its only consumer is
+  `ReviewExporter`, a full-export service that is supposed to read everything,
+  so there is nothing to attach pagination controls to. Bound it only if
+  exports start running out of memory, and then by streaming, not paging.
+- `DocumentRepository::findByProject` — still called unbounded by
+  `Mcp/ListDocumentsTool`. A machine API is a different consumer class than an
+  HTML page, but it is the same unbounded read; decide whether the MCP tool
+  should grow a limit/cursor parameter.
+
+## Document review: render selectable radios and checkboxes for decision points
+
+**Author:** Geoffrey · **Type:** feature · **Priority:** medium · **Status:** pending
+
+Owner idea (2026-07-27): let the review UI render selectable controls for
+decision points, so a reviewer picks an option instead of writing a comment
+saying which one they want. Proposed authoring syntax, produced by the agent in
+the document markdown and handled by Loupe from there:
+
+- `- ( )` renders a radio (single choice within its group)
+- `- [ ]` renders a checkbox (multi-select) — this is already GFM task-list
+  syntax, so it round-trips through other markdown tooling
+
+Why it matters: every design document currently ends in decision points the
+reviewer has to answer in prose. The `loupe-documents` skill tells agents to
+format them as a "**Decision needed:**" lead-in plus a numbered sub-list
+precisely so a reviewer can write "option 2" in a comment. That works, but it
+makes the reviewer transcribe a choice the document already enumerated, and the
+agent then has to parse intent back out of free text. The 2026-07-27
+"Drop the review concept from site reviews" document has three such decisions
+and is a good test case.
+
+Questions to settle when picking this up:
+
+1. How a radio group is delimited — consecutive `- ( )` items, or an explicit
+   fence. Consecutive-run detection is simpler to author but ambiguous when two
+   groups sit back to back.
+2. How a selection is stored. It is document state, not comment state, but it
+   belongs to a version — decide whether selections carry across a
+   `revise_document` the way comments re-anchor, or reset per version.
+3. How the agent reads the result. `get_review` returns verdict plus threaded
+   comments today; selections need a place in that payload, or a companion
+   tool.
+4. Whether a selection needs an accompanying comment for the "why", and
+   whether selecting should be able to resolve the thread attached to that
+   passage.
+5. What happens to the `loupe-documents` skill guidance, which should switch to
+   teaching the new syntax once this ships.
+
+## Drop the "review" concept from site reviews
+
+**Author:** Geoffrey · **Type:** feature · **Priority:** high · **Status:** pending
+
+Approved design, 2026-07-27. Full document and the decision record live in
+Loupe:
+https://loupe.dev.localhost/projects/c1f53789-038d-4c58-8b9e-c623b6d6f04c/documents/019fa38c-3f92-74e2-832f-1d95745e5b68/review
+
+Delete the `SiteReview` entity and move the draft/ready distinction onto the
+comment: `SiteReviewCommentStatus` becomes `Draft | Pending | Addressed |
+Resolved`. The widget saves comments as `Draft`; the explicit Send button flips
+that project's drafts to `Pending` in one bulk update and publishes a
+payload-free nudge; the agent pulls whatever is `Pending` via
+`get_site_review`, exactly as it does today.
+
+This removes the `uniq_site_review_in_progress` partial index and the singleton
+race it creates, the `UniqueConstraintViolationException` catch plus
+`resetManager()` retry path in `SiteReview\AddCommentHandler`, the two-phase
+shape of `SubmitReviewHandler`, the cross-review comment numbering that blocks
+paginating the site-review page, and a state machine in the widget.
+
+Three decisions were taken with the approval:
+
+1. PR #77 (the transactional outbox) merges on its own gate first; this work
+   then reworks `SiteReviewEvent` to key on project plus a monotonic sequence
+   instead of a review id.
+2. The widget keeps an explicit Send button — no debounce, no implicit handoff.
+3. The publish emits a monotonic event id and the bridge honours
+   `Last-Event-ID` on reconnect, so the hub replays events missed during a
+   disconnect. This shares the sequence from decision 1.
+
+Sequencing note: a payload-free idempotent nudge is what makes redelivery safe,
+which unblocks the automatic retry that PR #77 deliberately declined. Do the
+nudge change before adding a drain-with-retry worker, not after.
+
+## Arbitrary Tailwind values remain in the vendored ubermuda bundles
+
+**Author:** Claude · **Type:** tooling · **Priority:** low · **Status:** pending
+
+After the 2026-07-27 CSS cleanup removed every custom token and arbitrary value
+from `assets/styles/app.css`, three arbitrary utilities are still compiled into
+the shipped stylesheet, all from vendored bundle templates that this repo does
+not own:
+
+- `min-h-[2.5rem]` and `min-w-[8rem]` — `ubermuda/feature-flags-bundle`,
+  `templates/admin/create.html.twig` and `edit.html.twig`
+- `z-[100]` — `ubermuda/admin-bundle`, `templates/base.html.twig`
+
+They are compiled because `app.css` lists those vendor template directories as
+`@source` paths, which it must for the admin UI to be styled at all. Fixing
+them means PRs on the two bundles, the same constraint that applies to gamache
+rules. Low priority — three utilities, no correctness impact.
+
+Related, and already fixed: Tailwind v4's automatic source detection scans
+every committed file, so documentation that merely *names* a class was
+compiling it into production CSS. `app.css` now carries
+`@source not "../../.claude"` and `@source not "../../docs"`.
+
+## project-frontend cites a lossy arbitrary-value conversion
+
+**Author:** Claude · **Type:** docs · **Priority:** low · **Status:** pending
+
+The `project-frontend` skill names `blur-xl` as the conversion for
+`blur-[1.25rem]`. It is not equivalent: `--blur-xl` is 24px and the original is
+20px, because 1.25rem sits exactly between `blur-lg` (1rem) and `blur-xl`
+(1.5rem). The conversion was taken anyway — the owner's position is that custom
+values are mistakes to fix rather than tokens to preserve — but the skill reads
+as though the swap is exact, so the next agent will make the same lossy change
+without noticing.
+
+Reword it to say the blur scale has no 1.25rem step and that snapping to
+`blur-xl` accepts a visible change. Note that `w-[45rem]` → `w-180`,
+`-top-[12.5rem]` → `-top-50` and `scale-[0.97]` → `scale-97` in the same skill
+section *are* exact, so only the blur example needs the caveat.
+
+## Install Umami analytics
+
+**Author:** Geoffrey · **Type:** feature · **Priority:** medium · **Status:** pending
+
+Owner note (2026-07-27): add Umami (privacy-focused, self-hostable web
+analytics) to Loupe.
+
+Things to settle when picking this up: whether the tracker is self-hosted
+alongside the app or uses Umami Cloud — self-hosting means another App Platform
+component and another database, and the shared terraform module currently has
+no concept of extra components (the same limitation that blocks the Mercure hub,
+see "Add an opt-in Mercure component to the shared terraform module"); which
+pages are tracked, and whether authenticated app pages are tracked at all or
+only marketing/public routes; and the CSP interaction — `nelmio_security.yaml`
+is report-only today, but `script-src` will need the tracker's origin before
+enforcement is switched on.
+
+Note the site-review widget is embedded on customers' own sites; keep analytics
+out of `public/site-review/widget.js`, which must stay a small, dependency-free
+third-party embed.
+
+## Public /open page fed by real data
+
+**Author:** Geoffrey · **Type:** feature · **Priority:** medium · **Status:** pending
+
+Owner note (2026-07-27): build an `/open` page in the spirit of open-startup
+dashboards, populated from live sources rather than hand-maintained numbers —
+the application database, Umami, Stripe, DigitalOcean, and Claude token spend.
+
+Rough shape of each source: **database** for product metrics (projects,
+documents, reviews, registered users) — all already queryable; **Umami** for
+traffic, which depends on "Install Umami analytics"; **Stripe** for revenue
+(MRR, active subscriptions, churn) via the existing `StripeGatewayInterface`,
+though the read side is not built yet; **DigitalOcean** for infrastructure cost,
+via the API used by the App Platform deployment; **Claude** for what it cost in
+tokens to build the product, which is the number this kind of page exists to
+show.
+
+The Claude source has a hard prerequisite worth checking before any work starts:
+its data comes from Anthropic's Admin API, and **the Admin API is unavailable to
+individual accounts** — it needs an organization (Console → Settings →
+Organization) and an Admin API key (`sk-ant-admin01-…`), which is a different
+credential from the ordinary API key. If the account is an individual one this
+source is blocked until that changes, and the rest of the page should ship
+without it.
+
+Given an org, two endpoints cover it. `/v1/organizations/usage_report/messages`
+returns token counts (uncached input, cached input, cache creation, output) in
+`1m`/`1h`/`1d` buckets, groupable by model, workspace, API key and service tier.
+`/v1/organizations/cost_report` returns USD, daily buckets only, grouped by
+workspace or description. The daily bucket cap is 31 per request, so a running
+lifetime total means paginating and accumulating locally rather than asking for
+one number. For per-developer Claude Code cost specifically there is a separate
+Claude Code Analytics API — the usage and cost endpoints are organization-wide.
+
+Things to settle when picking it up: it is a public page, so decide what is
+genuinely publishable and make aggregation the boundary — never per-customer
+figures, and note that token spend is arguably the most sensitive of these to
+publish; four of the five sources are third-party HTTP APIs, so it needs caching
+and a stale-data story rather than fetching per request (the scheduler transport
+is the natural home for a periodic refresh, and Anthropic's usage data lands
+within about 5 minutes and tolerates roughly one poll a minute, so a periodic
+refresh fits it well); and each source needs a read credential the deployment
+does not currently carry, so it interacts with the `extra_env` wiring in
+`terraform/main.tf`.
+
+## Version checker for self-hosted installs
+
+**Author:** Geoffrey · **Type:** feature · **Priority:** medium · **Status:** pending
+
+Owner note (2026-07-27): self-hosted installations need a way to learn that a
+newer Loupe release exists — an operator running an old build should be told,
+not left to notice.
+
+Prerequisite the codebase does not have yet: **the running build has no version
+identity.** `prod_image` in the `justfile` is a fixed `:prod` tag, so there is
+no release number or commit SHA to compare against, and no rollback handle
+either (noted in `DEPLOY.md`). Tagging images by version or commit SHA and
+baking that value into the image is step one; the checker is step two.
+
+Things to settle: where the check runs — a scheduled task on the existing
+scheduler transport is the natural fit, not a per-request call; where it
+surfaces — an admin-only banner or a line in the admin dashboard, never a
+public page; what it contacts — GitHub releases is the obvious source but means
+a self-hosted install calls out to the internet, so it must be switchable off
+and must never transmit installation data; and how it interacts with the
+self-hosting audit already tracked under "Self-hosting audit".
