@@ -33,8 +33,12 @@ nothing that *writes* to a review thread. An agent can read comments and submit
 a new version, yet cannot reply to a comment, push back on one, or mark one
 addressed — `address_site_review_comments` covers only site-review widget
 comments. The review conversation is one-directional; the agent's side has to
-happen out-of-band. Add a `reply_to_comment` MCP tool (and consider
-`mark_comment_addressed`) for document reviews.
+happen out-of-band. A `ReplyToCommentHandler` now exists
+(`src/Module/Review/Command/ReplyToCommentHandler.php`), but it is wired only
+to a web-UI controller (`ReplyToCommentController`) — there is still no MCP
+tool, so an agent still cannot reply through the MCP surface. Add a
+`reply_to_comment` MCP tool (and consider `mark_comment_addressed`) for
+document reviews.
 
 ## Resolved comments become unreachable after the next revision
 
@@ -48,9 +52,9 @@ from the app: `ResolveCommentHandler` sets `resolved = true` on the comment,
 which stays attached to the version it was written on;
 `ReviseDocumentHandler` copies only `findOpenByVersion()` results onto the new
 version, so resolved comments deliberately do not carry forward; and
-`DocumentReviewController` renders `$document->currentVersion()` only, with no
-route parameter or UI control for viewing an earlier version (the
-`lp-version-pill` in `templates/review/review.html.twig:43` is a static label,
+`ShowDocumentController` renders only `$this->documentVersions->findLatest($document)`,
+with no route parameter or UI control for viewing an earlier version (the
+`lp-version-pill` in `templates/Module/Review/show_document.html.twig:43` is a static label,
 not a switcher). Net effect: a reviewer who resolves eight comments and then
 receives a revision sees an empty comment sidebar and has no way back to what
 was discussed. The rows are intact in the database — this is a visibility
@@ -112,10 +116,14 @@ land, wire search + status + tag filters into the existing `.bp-doc-list` header
 
 **Author:** Claude · **Type:** bug · **Priority:** medium · **Status:** pending
 
-When a tool handler throws (e.g. a DB exception), the MCP layer flattens it to
-`-32603 Error while executing tool` with no detail, so clients can't tell a
-validation problem from a server fault. Consider mapping known failures to
-`ToolCallException` with a useful message.
+Partially addressed: `ReviseDocumentTool` now maps its known failure modes —
+an invalid document UUID, `DocumentNotFound`, and oversized markdown — to
+`ToolCallException` with a useful message. Still open: the call to the
+handler itself (`($this->handler)(...)`) has no catch-all around it, so any
+unmapped failure (e.g. a DB exception) still propagates unwrapped and the MCP
+layer flattens it to `-32603 Error while executing tool` with no detail.
+Consider a catch-all around the handler call that maps anything else to a
+generic `ToolCallException` too, so clients always get a real message.
 
 ## Anchor offset-unit mismatch (latent)
 
@@ -144,41 +152,34 @@ scoped HttpClient with a low `timeout`/`max_duration` (custom hub service or a
 decorated HttpClient) so a slow hub can never noticeably delay a review submit.
 
 Observability around it has since improved — the failure is logged at `error`
-with the topic and review id, and the update carries the review id as a stable
-event id — but the latency problem itself is untouched. The publish is
-deliberately **not** retried: the hub may accept an update and still have the
-client throw, and a second publish would make the bridge inject the same review
-into the agent twice.
+with the project id and topic, and the update carries a project-scoped
+monotonic `sequence` as a stable event id — but the latency problem itself is
+untouched. The publish is deliberately **not** retried: the hub may accept an
+update and still have the client throw, but a duplicate publish is harmless —
+the nudge carries no payload beyond its type, and a redundant pull via
+`get_site_review` just finds nothing still `Pending`.
 
 ## Durable review-event delivery (transactional outbox)
 
 
 **Author:** Claude · **Type:** feature · **Priority:** medium · **Status:** pending
 
-The durable half is implemented in PR #77 (open, unmerged): a
-`SiteReviewEvent` row is persisted in the same flush as
-`SiteReview::markSubmitted()`, so a publish that fails no longer loses the
-event. Nothing drains those rows — replay is manual today.
+The durable half is implemented: PR #77 merged, so a `SiteReviewEvent` row is
+persisted in the same transaction as the Draft→Pending flip, and a publish
+that fails no longer loses the event.
 
-**Automatic redelivery is blocked, and not by missing infrastructure.** The
-earlier note here assumed the review id carried on the Mercure update acts as a
-dedupe key. It does not: the bridge never reads it. Verified 2026-07-27 at
-three layers — `cli/internal/transport/mercure.go` parses only `data:` lines
-and drops `id:`, sending no `Last-Event-ID` on reconnect;
-`cli/internal/inject/inject.go` is pure and stateless; and
-`cli/cmd/bridge.go`'s `OnData` sends to tmux unconditionally with no seen-set.
-MCP-layer idempotency does not rescue it either — `get_site_review` returns
-Pending comments, so a redelivery arriving while the first agent turn is still
-working hits the same Pending set and repeats the work. That is exactly the
-"inject the same review twice" harm `SubmitReviewHandler`'s own comment warns
-about.
+The earlier blocker recorded here — that automatic redelivery would make the
+bridge inject the same review into the agent twice — no longer applies: the
+nudge is payload-free and idempotent by design (a redundant pull via
+`get_site_review` just finds nothing still `Pending`), and
+`cli/internal/transport/mercure.go` now tracks the `id:` line and sends
+`Last-Event-ID` on reconnect.
 
-So the prerequisite is CLI work: a persisted seen-review-id set in
-`cli/cmd/bridge.go`'s `OnData` handler (or honouring `Last-Event-ID` on
-reconnect). Only once the bridge dedupes is it safe to add a worker that drains
-unpublished rows with retry. Doing the drain first would convert a rare lost
-event into repeated agent injections — a worse failure than the one being
-fixed.
+What genuinely remains: nothing drains or retries unpublished
+`SiteReviewEvent` rows. `SiteReviewEventRepository` has no query for them
+today (only `countForProject`) — replay is manual. Add one (e.g. "unpublished,
+older than N", so a transient hub outage self-heals) and a worker on the
+existing Messenger scheduler transport to drain it.
 
 ## CSP is report-only until inline scripts carry nonces
 
@@ -207,11 +208,15 @@ The Go bridge is functional (`loupe login` + `loupe bridge run
 --site <name>`, with an interactive picker when the flag is omitted). Remaining
 work before it's a turnkey distributable:
 
-- **No test covers the reconnect path.** `transport.Subscribe` now mints a fresh
-  subscriber JWT per attempt (`TokenFunc`) and refreshes by resolved site id, but
-  nothing exercises it: `internal/transport` has no tests. A fake hub that 401s
-  once and then serves an event would lock in both fixes. This is the gap that
-  let the expiring-JWT regression ship in the first place.
+- **Reconnect-after-401 is still uncovered.** `cli/internal/transport/mercure_test.go`
+  (`TestSubscribeResumesFromLastEventID`) now covers the reconnect path in
+  general — a fake hub that drops the connection after one event, and asserts
+  the next connection sends `Last-Event-ID`. What it does not cover is the
+  specific 401-then-fresh-JWT scenario: `transport.Subscribe` mints a fresh
+  subscriber JWT per attempt (`TokenFunc`) and refreshes by resolved site id,
+  but no test exercises a hub that 401s and then serves an event on the
+  reconnect. That was the gap that let the expiring-JWT regression ship in the
+  first place.
 - **No-echo token prompt.** `login` reads the token from stdin with the terminal
   still echoing. Use `golang.org/x/term` (or equivalent) to read without echo.
 - **OS keychain storage.** The token is stored in `~/.config/loupe/config.json`
@@ -225,9 +230,9 @@ work before it's a turnkey distributable:
 
 **Author:** Claude · **Type:** feature · **Priority:** medium · **Status:** pending
 
-The site-review screen (handoff §4) shows agent ("Claude") replies indented under
+The approved design for the site-review screen shows agent ("Claude") replies indented under
 each comment with an "addressed" tag. `SiteReviewComment` has no reply/response
-field — the MCP `address_comment` tool only flips the status to `Addressed`, it
+field — the MCP `address_site_review_comments` tool only flips the status to `Addressed`, it
 stores no reply text. So the site-review page renders no agent-reply block (there
 is nothing to show). When agent replies become a real requirement, add a reply/
 response field (or a related entity) to `SiteReviewComment`, have the addressing
@@ -313,18 +318,23 @@ alongside version history).
 
 Found while building account deletion (2026-07-25): calling `ProjectDeleter::delete()` twice for
 two different projects in the same EntityManager session throws
-`ORMInvalidArgumentException: A new entity was found through the relationship
-'SiteReview#project'` on the second call. Cause: `DeleteSiteReviewDataOnProjectDeleting`
-removes `SiteReview`/`SiteReviewComment` rows via bulk DQL, which bypasses the
-identity map, so the first project's now-stale `SiteReview` object survives
-into the second call's `flush()`. Doctrine's changeset computation then finds
-that stale object's `project` association pointing at an entity that was
-already detached after the first project's successful removal+flush, and
-misreports it as a new, non-cascaded entity.
+`ORMInvalidArgumentException: A new entity was found through the relationship`
+on the second call, naming the `project` association of whichever entity was
+loaded stale. Cause: `DeleteSiteReviewDataOnProjectDeleting` removes
+`SiteReviewEvent`/`SiteReviewComment` rows via bulk DQL, which bypasses the
+identity map, so a first project's now-stale object of one of those classes
+survives into the second call's `flush()`. Doctrine's changeset computation
+then finds that stale object's `project` association pointing at an entity
+that was already detached after the first project's successful
+removal+flush, and misreports it as a new, non-cascaded entity. (The bug was
+originally reproduced against the `SiteReview` entity itself; that entity has
+since been deleted (PR #84) — but the mechanism is unchanged for the
+bulk-deleted entities that remain.)
 
-`DeleteAccountHandler` works around this at the call site (fetch project
-ids up front, then `find()` + `delete()` + `em->clear()` per iteration — never
-holding a stale entity across two `ProjectDeleter::delete()` calls). Every
+`src/Module/Project/Service/ProjectAccountPurger.php::purge()` works around
+this at the call site (fetch project ids up front, then `find()` + `delete()`
++ `em->clear()` per iteration — never holding a stale entity across two
+`ProjectDeleter::delete()` calls). Every
 other caller today only ever deletes one project per request, so this has not
 surfaced before. If a future caller loops `ProjectDeleter::delete()`, it needs
 the same workaround unless `ProjectDeleter` is fixed at the source (e.g.
@@ -354,7 +364,7 @@ skeleton's commented example), so `just arkitect` passes vacuously. Writing
 the rules is part of this sweep. Known cycles to break, confirmed in the
 code: Project↔Review and Project↔SiteReview (`ListProjectsController.php`
 and `CreateProjectController.php` import `DocumentRepository`,
-`SiteReviewRepository`, `SiteReviewCommentRepository`), Account↔Project
+`SiteReviewCommentRepository`, `SiteReviewEventRepository`), Account↔Project
 (`HomeController.php`, `DeleteAccountHandler.php`), Account↔Billing
 (`DeleteAccountHandler.php` imports `BillingProfileRepository` +
 `StripeGatewayInterface`). The duplicated project-list count block in the
@@ -387,25 +397,6 @@ sections are settled, only re-review the delta" — per-section approval state
 multi-round spec reviews much cheaper. Interacts with the ToC item above
 (section identity comes from headings) and with comment re-anchoring.
 
-## Skill: writing plans/specs that review well in Loupe
-
-
-
-**Author:** Geoffrey · **Type:** docs · **Priority:** medium · **Status:** pending
-
-Owner request (2026-07-25): add a project skill (`.claude/skills/`) teaching
-agents how to write design specs and implementation plans that work well in
-Loupe's review flow. Candidate content, learned from the trial-end sweep spec
-review: structure documents in clearly-headed, independently-approvable
-sections (pairs with per-section approval above); keep section headings stable
-across revisions (comment re-anchoring matches quoted text — wholesale
-rewrites orphan every comment); define terms of art up front instead of using
-jargon shorthand ("pass 1", "variant") that draws clarification comments;
-state each open decision as an explicit numbered item so comments can target
-it; when revising, prefer surgical edits over restructuring so carried
-comments survive; always answer review comments in an accompanying message
-(the MCP has no reply-to-comment yet — see that NEXT_STEPS item).
-
 ## Admin users need a visible link to /admin from the app
 
 
@@ -425,19 +416,6 @@ links back to the app via its app_route config); only app → admin is missing.
 **Author:** Claude · **Type:** tooling · **Priority:** medium · **Status:** pending
 
 src/Messenger/Middleware/PlaywrightSyncEmailMiddleware.php is unregistered AND its target `sync` transport is commented out in messenger.yaml; playwright.config.ts still sends the X-Playwright header solely for it. Either wire it properly (register middleware + uncomment sync transport) — which would make Playwright-headed requests deliver mail synchronously and remove the worktree-consumer requirement for mail-asserting e2e specs — or delete the class + header. Deciding beats letting it rot; the worktree-blind-mail item above is the forcing function.
-
-## phpstan needs a warmed container after merges that add services
-
-
-
-**Author:** Claude · **Type:** tooling · **Priority:** medium · **Status:** pending
-
-phpstan-symfony resolves getContainer()->get(X::class) via the dumped
-container XML in var/cache; after merging branches that add services, a
-stale cache makes those gets fall back to ?object ("might not be a
-callable" errors on perfectly valid tests). Remedy: cache:warmup before
-phpstan when errors appear only on freshly-merged code. Candidate: make the
-`just phpstan` recipe warm the container first (AUTOMATIONS.md).
 
 ## Fuller billing section in account settings (manage sub in-app)
 
@@ -483,21 +461,6 @@ auto-submitted prompt in `inject.go`; that prompt-construction fix is being
 handled as immediate work and is not part of this entry. Related: see
 "Personal reviewer tokens as an identity layer for the widget".
 
-## Security emails: generate links from a pinned default_uri
-
-
-
-**Author:** Geoffrey · **Type:** security · **Priority:** medium · **Status:** pending
-
-`config/packages/framework.yaml` trusts `x-forwarded-host`, and
-`PasswordResetEmailSender.php:36` / `AccountDeletionEmailSender.php:36` build
-`ABSOLUTE_URL` links from request context — a forged host header that reaches
-the app poisons emailed password-reset / account-deletion links and sends the
-victim's live token to an attacker domain. Owner decision (2026-07-26): fix
-by generating these emails' URLs from a pinned host
-(`framework.router.default_uri` or an explicit request-context set in the
-senders) — chosen over dropping `x-forwarded-host` from `trusted_headers`.
-
 ## Gamache: ship the controller direct-state-access rule the skill cites
 
 
@@ -514,39 +477,6 @@ land in this repo). Decide the rule's scope while writing it: forbid all
 repository injection in controllers (forcing query handlers for reads,
 matching the skill) or only mutation paths; then fix or baseline the ~25
 existing controllers when the rule lands.
-
-## Upgrade symfony/mcp-bundle to ^0.12 and retire the custom MCP endpoint controller
-
-
-
-**Author:** Geoffrey · **Type:** tooling · **Priority:** medium · **Status:** pending
-
-Installed `symfony/mcp-bundle` 0.10.0 hardcodes the DNS-rebinding host
-allowlist to localhost in its final `McpController` — the sole reason
-`src/Module/Mcp/Controller/McpEndpointController.php` exists (it re-implements
-the endpoint with an `MCP_ALLOWED_HOSTS`-driven allowlist). v0.11.0 added
-"Allow configuring DNS rebinding protection allowed hosts"
-(https://github.com/symfony/mcp-bundle/releases, PR #2250), so after
-upgrading to `^0.12` the custom controller can likely be deleted in favour of
-bundle config. Verify on upgrade: allowed-hosts config shape, that CORS +
-protocol-version middlewares are still applied by the stock controller, and
-v0.12's switch from file-based discovery to compile-time tool registration
-(may need config for the `src/Module/*/Mcp/` tools).
-
-## SiteReviewRepository missing `autoconfigure: true` in `when@test`
-
-
-
-**Author:** Claude · **Type:** bug · **Priority:** low · **Status:** pending
-
-`config/services.yaml`'s `when@test` block redefines several Review/SiteReview
-repositories, which *replaces* the `App\:` resource definition and silently drops
-`autoconfigure` (so no `doctrine.repository_service` tag in the test container).
-`CommentRepository` was fixed (its missing tag broke `{id:comment}` entity
-resolution in `ResolveCommentControllerTest`). `App\Module\SiteReview\Repository\SiteReviewRepository`
-still has the same gap — any future controller test that resolves a SiteReview via
-a `{id:siteReview}` route will hit the same "entity repository ... service could
-not be found" error. Add `autoconfigure: true` to that override when it bites.
 
 ## Review anchoring — possible enhancement (low priority)
 
@@ -654,7 +584,7 @@ Minor for a single-reviewer tool; track only.
 
 **Author:** Claude · **Type:** feature · **Priority:** low · **Status:** pending
 
-All widget API failures render into the single `#bp-error` banner. Fine for a
+All widget API failures render into the single `#lp-error` banner. Fine for a
 one-reviewer tool; if bulk operations ever appear, attach errors to the affected
 list row instead.
 
@@ -726,11 +656,13 @@ so dogfooding a review doesn't cover the console's own controls.
 
 **Author:** Claude · **Type:** feature · **Priority:** low · **Status:** pending
 
-In the widget's comment list, comments made on a different page than the one
-currently open only show their page URL as context. Add a quick way to navigate
-to that page (e.g. make the URL a link or add a "go to page" affordance on
-cross-page comments) so a reviewer can jump straight to where the comment was
-made.
+In the widget's comment list, each row shows the comment body plus a
+text-snippet chip (the anchored element's first line, or "General comment")
+— no page URL or other location context at all, for comments made on the
+current page or a different one. A reviewer has no way to tell a cross-page
+comment apart from one made on the page they're looking at, let alone jump to
+it. Add a "go to page" affordance (or at least a page-name label) on
+cross-page comments so a reviewer can navigate to where the comment was made.
 
 ## Billing paywall answers machine clients with 402
 
@@ -908,7 +840,7 @@ resolved — models it as a thread-level property and removes the duplication.
 
 Not urgent: there is no UI path to resolve a reply independently (the Resolve
 button renders only on the root in
-`templates/components/CommentThread.html.twig`), so the replies' own flags are
+`templates/Module/Review/components/CommentThread.html.twig`), so the replies' own flags are
 redundant rather than contradictory. It becomes a real problem if per-message
 resolution is ever added, at which point the two representations can disagree.
 
@@ -974,8 +906,9 @@ Likely ground to cover, from what the repo looks like today: everything a
 third party would have to supply or change to run Loupe themselves. That
 includes the required environment variables and which have unsafe defaults
 (`COMPOSE_PROJECT_NAME` is mandatory, `DATABASE_URL` ships a placeholder,
-`INSTALL_TOKEN` does not exist yet — see the untriaged audit finding that
-`/install` is reachable by anyone while the users table is empty); the
+`INSTALL_TOKEN` gates `/install` and must be set, since the wizard fails
+closed in production and a self-hoster who omits it cannot create their first
+administrator at all); the
 hard dependencies beyond Postgres (Mercure hub, Mailpit/SMTP, the messenger
 worker as its own container, Traefik routing); the Stripe coupling, since
 billing is currently woven through the paywall listener and account
@@ -1074,52 +1007,44 @@ only subscriber is the Go bridge — so check whether anything actually renders 
 stream-listen tag before migrating, and whether the deprecation is reachable at
 all beyond container build.
 
-## Production must set INSTALL_TOKEN or the install wizard stays open
+## Set a real INSTALL_TOKEN value in the production deploy config
 
-**Author:** Claude · **Type:** security · **Priority:** high · **Status:** pending
+**Author:** Claude · **Type:** security · **Priority:** medium · **Status:** pending
 
-PR #77's sibling, PR #75, adds an `INSTALL_TOKEN` env var and an
-`InstallAccessGuard` gating `/install`. The guard returns early when the token
-is empty, and `.env` ships `INSTALL_TOKEN=` (empty) — so **with the variable
-unset, which is the default in every environment including production, the
-wizard is exactly as open as before**: anyone who reaches `/install` while the
-users table is empty can mint a full administrator.
+`src/Module/Account/Service/InstallAccessGuard.php` gates `/install` and fails
+CLOSED: with an empty `INSTALL_TOKEN`, it 404s in `prod` specifically (only
+outside prod — dev, test, `just worktree-up` — does an empty token leave the
+wizard open, deliberately, so those keep running the wizard unattended). The
+vulnerability this entry originally tracked (a forgotten variable silently
+leaving an admin-minting endpoint open in production) is closed at the code
+level.
 
-The empty default is deliberate — a token required by default would break dev,
-the test suite, the install e2e spec, and every `just worktree-up`, all of which
-run the wizard unattended. But it means the PR ships a mechanism, not a
-mitigation: the security benefit only exists once a deploy sets the variable.
+What remains is operational: `terraform/main.tf` now declares `install_token`
+as a variable and wires it into `extra_env` (omitted from the app spec when
+empty), but that only means the plumbing exists — someone still has to supply
+the actual secret value when running `terraform apply` against production.
+Until that happens, `/install` 404s in prod, which blocks creating the first
+administrator rather than exposing one. Track this as a pre-launch deploy
+checklist item, not a live code vulnerability — hence the lower priority than
+when this was first filed.
 
-Two things to do. First, set `INSTALL_TOKEN` in the production deploy config
-(outside this repo) — that alone closes the audit finding. Second, consider
-making it fail closed rather than open: when `APP_ENV=prod` and no token is
-configured, treat the wizard as disabled entirely instead of publicly
-reachable, so a forgotten variable cannot silently leave an admin-minting
-endpoint exposed. Today a forgotten variable fails open, which is the wrong
-direction for this particular endpoint.
-
-## Three user-facing list queries are still unbounded
+## One user-facing list query is still unbounded
 
 **Author:** Claude · **Type:** bug · **Priority:** low · **Status:** pending
 
-PR #79 paginated the projects list and the per-project documents list. Three of
-the queries the 2026-07-26 audit named are deliberately not paginated, each for
-a different reason:
+PR #79 paginated the projects list and the per-project documents list. The MCP
+`list_documents` tool (`Mcp/ListDocumentsTool`) has since gained its own
+pagination too (`page`/`perPage`/`hasMore`, backed by
+`DocumentRepository::findPaginatedByProject`), and the site-review page moved
+to a flat per-project comment list (`SiteReviewCommentRepository::findForProject`),
+which removed the cross-review comment-numbering problem that used to block
+paginating it.
 
-- `SiteReviewRepository::findForProject` — `show_site_review.html.twig`
-  flattens every review's comments into one continuously-numbered list, with
-  the running index spanning reviews. Paginating by `SiteReview` would make the
-  comment count per page vary arbitrarily and break that numbering. Needs a
-  product decision first: paginate by review or by comment, and whether the
-  index is page-relative or global.
-- `ReviewRepository::findByReviewer` — no page renders it. Its only consumer is
-  `ReviewExporter`, a full-export service that is supposed to read everything,
-  so there is nothing to attach pagination controls to. Bound it only if
-  exports start running out of memory, and then by streaming, not paging.
-- `DocumentRepository::findByProject` — still called unbounded by
-  `Mcp/ListDocumentsTool`. A machine API is a different consumer class than an
-  HTML page, but it is the same unbounded read; decide whether the MCP tool
-  should grow a limit/cursor parameter.
+What remains unbounded: `ReviewRepository::findByReviewer`. No page renders
+it — its only consumer is `ReviewExporter`, a full-export service that is
+supposed to read everything, so there is nothing to attach pagination controls
+to. Bound it only if exports start running out of memory, and then by
+streaming, not paging.
 
 ## Document review: render selectable radios and checkboxes for decision points
 
@@ -1139,9 +1064,10 @@ reviewer has to answer in prose. The `loupe-documents` skill tells agents to
 format them as a "**Decision needed:**" lead-in plus a numbered sub-list
 precisely so a reviewer can write "option 2" in a comment. That works, but it
 makes the reviewer transcribe a choice the document already enumerated, and the
-agent then has to parse intent back out of free text. The 2026-07-27
-"Drop the review concept from site reviews" document has three such decisions
-and is a good test case.
+agent then has to parse intent back out of free text. A worked example already
+exists: the 2026-07-27 site-review design document carried three such decisions,
+each answered in a comment and then written back into the document by hand. That
+round trip is what this would remove.
 
 Questions to settle when picking this up:
 
@@ -1159,41 +1085,6 @@ Questions to settle when picking this up:
    passage.
 5. What happens to the `loupe-documents` skill guidance, which should switch to
    teaching the new syntax once this ships.
-
-## Drop the "review" concept from site reviews
-
-**Author:** Geoffrey · **Type:** feature · **Priority:** high · **Status:** pending
-
-Approved design, 2026-07-27. Full document and the decision record live in
-Loupe:
-https://loupe.dev.localhost/projects/c1f53789-038d-4c58-8b9e-c623b6d6f04c/documents/019fa38c-3f92-74e2-832f-1d95745e5b68/review
-
-Delete the `SiteReview` entity and move the draft/ready distinction onto the
-comment: `SiteReviewCommentStatus` becomes `Draft | Pending | Addressed |
-Resolved`. The widget saves comments as `Draft`; the explicit Send button flips
-that project's drafts to `Pending` in one bulk update and publishes a
-payload-free nudge; the agent pulls whatever is `Pending` via
-`get_site_review`, exactly as it does today.
-
-This removes the `uniq_site_review_in_progress` partial index and the singleton
-race it creates, the `UniqueConstraintViolationException` catch plus
-`resetManager()` retry path in `SiteReview\AddCommentHandler`, the two-phase
-shape of `SubmitReviewHandler`, the cross-review comment numbering that blocks
-paginating the site-review page, and a state machine in the widget.
-
-Three decisions were taken with the approval:
-
-1. PR #77 (the transactional outbox) merges on its own gate first; this work
-   then reworks `SiteReviewEvent` to key on project plus a monotonic sequence
-   instead of a review id.
-2. The widget keeps an explicit Send button — no debounce, no implicit handoff.
-3. The publish emits a monotonic event id and the bridge honours
-   `Last-Event-ID` on reconnect, so the hub replays events missed during a
-   disconnect. This shares the sequence from decision 1.
-
-Sequencing note: a payload-free idempotent nudge is what makes redelivery safe,
-which unblocks the automatic retry that PR #77 deliberately declined. Do the
-nudge change before adding a drain-with-retry worker, not after.
 
 ## Arbitrary Tailwind values remain in the vendored ubermuda bundles
 
@@ -1218,23 +1109,6 @@ every committed file, so documentation that merely *names* a class was
 compiling it into production CSS. `app.css` now carries
 `@source not "../../.claude"` and `@source not "../../docs"`.
 
-## project-frontend cites a lossy arbitrary-value conversion
-
-**Author:** Claude · **Type:** docs · **Priority:** low · **Status:** pending
-
-The `project-frontend` skill names `blur-xl` as the conversion for
-`blur-[1.25rem]`. It is not equivalent: `--blur-xl` is 24px and the original is
-20px, because 1.25rem sits exactly between `blur-lg` (1rem) and `blur-xl`
-(1.5rem). The conversion was taken anyway — the owner's position is that custom
-values are mistakes to fix rather than tokens to preserve — but the skill reads
-as though the swap is exact, so the next agent will make the same lossy change
-without noticing.
-
-Reword it to say the blur scale has no 1.25rem step and that snapping to
-`blur-xl` accepts a visible change. Note that `w-[45rem]` → `w-180`,
-`-top-[12.5rem]` → `-top-50` and `scale-[0.97]` → `scale-97` in the same skill
-section *are* exact, so only the blur example needs the caveat.
-
 ## Install Umami analytics
 
 **Author:** Geoffrey · **Type:** feature · **Priority:** medium · **Status:** pending
@@ -1244,9 +1118,11 @@ analytics) to Loupe.
 
 Things to settle when picking this up: whether the tracker is self-hosted
 alongside the app or uses Umami Cloud — self-hosting means another App Platform
-component and another database, and the shared terraform module currently has
-no concept of extra components (the same limitation that blocks the Mercure hub,
-see "Add an opt-in Mercure component to the shared terraform module"); which
+component and another database. The shared terraform module has no generic
+"extra component" escape hatch, so this needs the same treatment the Mercure hub
+got: a purpose-built opt-in component added to the module upstream (shipped
+there in v1.6.0, and worth reading as the template for how to add another);
+which
 pages are tracked, and whether authenticated app pages are tracked at all or
 only marketing/public routes; and the CSP interaction — `nelmio_security.yaml`
 is report-only today, but `script-src` will need the tracker's origin before
@@ -1322,3 +1198,33 @@ public page; what it contacts — GitHub releases is the obvious source but mean
 a self-hosted install calls out to the internet, so it must be switchable off
 and must never transmit installation data; and how it interacts with the
 self-hosting audit already tracked under "Self-hosting audit".
+
+## Unset optional config should disable a feature, not break it
+
+**Author:** Geoffrey · **Type:** feature · **Priority:** medium · **Status:** pending
+
+Owner note (2026-07-27, reviewing DEPLOY.md on PR #85): leaving an optional
+integration's configuration unset should cleanly disable that feature, rather
+than leaving a path that fails when a user reaches it.
+
+The Terraform side already behaves this way — every entry in `extra_env`
+(`terraform/main.tf`) is omitted from the app spec when its variable is empty,
+and `enable_mercure` keys off whether `mercure_jwt_secret` is set. The gap is
+in the application: with those variables absent the env vars simply do not
+exist, and the affected code paths error rather than being switched off.
+`DEPLOY.md`'s "If unset" column records the current behaviour honestly —
+"Billing paths fail", "Those buttons fail" — and that is what should change.
+
+Affected surfaces, each needing its own decision about what "disabled" means:
+**Stripe** (`STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`) — probably the whole
+billing area hidden, which interacts with the `#[PaywallExempt]` work in
+"Encapsulate Billing: replace #[PaywallExempt] with a firewall-level rule";
+**OAuth** (`OAUTH_GOOGLE_ID`/`_SECRET`, `OAUTH_GITHUB_ID`/`_SECRET`) — the
+provider's button should not render at all rather than 500 on click, and each
+provider should be independently toggleable; **Mercure** — already degrades
+correctly, since a failed publish is caught and logged, and is worth using as
+the reference shape; **`ADMIN_EMAIL`** — already a no-op when unset.
+
+Relevant to self-hosting: a self-hoster who wants neither billing nor social
+login should get a working install without setting either. See "Self-hosting
+audit".
