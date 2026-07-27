@@ -9,7 +9,9 @@ use App\Module\Project\Entity\Project;
 use App\Module\SiteReview\Command\AddCommentCommand;
 use App\Module\SiteReview\Command\AddCommentHandler;
 use App\Module\SiteReview\Entity\SiteReviewStatus;
+use App\Module\SiteReview\Repository\SiteReviewRepository;
 use Doctrine\ORM\EntityManagerInterface;
+use Doctrine\Persistence\ManagerRegistry;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 
 final class AddCommentHandlerTest extends KernelTestCase
@@ -59,6 +61,35 @@ final class AddCommentHandlerTest extends KernelTestCase
 
         self::assertNotSame((string) $first->review->id, (string) $next->review->id);
         self::assertSame(0, $next->position);
+    }
+
+    /**
+     * Empirical check for the concurrency recovery relied on in AddCommentHandler's
+     * catch block: a closed EM (as flush() leaves it after a DBAL exception) must
+     * become usable again after ManagerRegistry::resetManager(), because the
+     * entity_manager service is declared lazy — resetManager() reinitializes the
+     * SAME injected instance in place rather than swapping in a new one. This
+     * drives that against the real container/DB rather than trusting the reading
+     * of vendored Doctrine ORM/bundle source alone.
+     */
+    public function test_reset_manager_recovers_a_closed_entity_manager_in_place(): void
+    {
+        $project = $this->project('reset-manager@example.com');
+
+        $registry = self::getContainer()->get(ManagerRegistry::class);
+        self::assertInstanceOf(ManagerRegistry::class, $registry);
+        $siteReviews = self::getContainer()->get(SiteReviewRepository::class);
+        self::assertInstanceOf(SiteReviewRepository::class, $siteReviews);
+
+        $this->em->close();
+        self::assertFalse($this->em->isOpen(), 'the EM must actually be closed to exercise the recovery path');
+
+        $registry->resetManager();
+
+        // Must not throw "EntityManager is closed" — and must run a real query
+        // through the same injected repository AddCommentHandler uses.
+        $found = $siteReviews->findOneInProgress($project);
+        self::assertNull($found, 'no review exists yet for this project');
     }
 
     /** @param non-empty-string $email */

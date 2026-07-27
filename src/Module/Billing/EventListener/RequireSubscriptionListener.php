@@ -6,6 +6,7 @@ namespace App\Module\Billing\EventListener;
 
 use App\Module\Account\Entity\User;
 use App\Module\Billing\Service\PaywallGate;
+use App\Routing\PaywallExempt;
 use Symfony\Component\EventDispatcher\Attribute\AsEventListener;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\RedirectResponse;
@@ -19,41 +20,6 @@ use Symfony\Component\Security\Core\Authentication\Token\Storage\TokenStorageInt
 #[AsEventListener(priority: 4)]
 final readonly class RequireSubscriptionListener
 {
-    /**
-     * Routes an out-of-trial user may still reach: the paywall itself, leaving,
-     * verification plumbing, and the account pages through which they export
-     * their data or close their account — nobody is ever locked away from their
-     * own data by an unpaid invoice. Names for pages that do not exist yet are
-     * inert (the in_array simply never matches) and become live the moment the
-     * route is registered.
-     */
-    public const array ALLOWED_ROUTES = [
-        'app_billing_subscribe',
-        'app_billing_checkout',
-        'app_billing_checkout_success',
-        'app_billing_portal',
-        'app_login',
-        'app_logout',
-        'app_register_check_email',
-        'app_register_resend',
-        'app_verify_email',
-        // Waitlist join — a disabled account whose cap spot is gone must reach it.
-        'app_waitlist_join',
-        // Data export.
-        'app_account_settings',
-        'app_account_export_request',
-        'app_account_export_download',
-        // Account deletion.
-        'app_account_delete_request',
-        'app_account_delete_confirm',
-        'app_account_delete_execute',
-        'app_account_goodbye',
-        // Dev-only seeding seam (registered by #[When('dev')], absent in prod):
-        // an e2e run that has just paywalled itself must still be able to call
-        // it to switch billing back off.
-        'app_dev_billing_state',
-    ];
-
     private const string ADMIN_ROUTE_PREFIX = 'app_admin_';
 
     private const string FEATURE_FLAGS_ROUTE_PREFIX = 'ubermuda_feature_flags_';
@@ -89,8 +55,15 @@ final readonly class RequireSubscriptionListener
 
         if (!$isMachineRequest) {
             $route = $request->attributes->get('_route');
+            // `_paywallExempt` is a route default set by PaywallExemptRouteLoader
+            // from the #[PaywallExempt] attribute on the matched controller — the
+            // paywall itself, leaving, verification plumbing, and the account
+            // pages through which a user exports their data or closes their
+            // account. Reading it here (instead of a route-name allowlist) means
+            // the exemption travels with the route: it cannot silently stop
+            // protecting a route that gets renamed.
             if (!is_string($route)
-                || in_array($route, self::ALLOWED_ROUTES, true)
+                || true === $request->attributes->get(PaywallExempt::ROUTE_DEFAULT)
                 || str_starts_with($route, self::ADMIN_ROUTE_PREFIX)
                 || str_starts_with($route, self::FEATURE_FLAGS_ROUTE_PREFIX)) {
                 return;

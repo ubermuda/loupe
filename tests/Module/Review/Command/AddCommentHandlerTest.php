@@ -118,6 +118,32 @@ final class AddCommentHandlerTest extends KernelTestCase
         self::assertSame(0, $comment->anchor->offsetHint);
     }
 
+    public function test_comment_is_orphaned_when_quote_is_not_found_in_current_text(): void
+    {
+        self::bootKernel();
+        $em = self::getContainer()->get(EntityManagerInterface::class);
+
+        $owner = new User(username: 'owner5', fullName: 'Owner', email: 'owner5@example.com', password: 'hashed');
+        $em->persist($owner);
+        $project = new Project($owner, 'p-'.uniqid());
+        $em->persist($project);
+        $em->flush();
+
+        /** @var CreateDocumentHandler $createHandler */
+        $createHandler = self::getContainer()->get(CreateDocumentHandler::class);
+        $doc = $createHandler(new CreateDocumentCommand($project, 'Orphan Doc', "# Hello\n\nSome body text here."));
+
+        // A quote that never appears in the document's plain text — simulates a
+        // stale client-captured selection (e.g. the document was revised in
+        // another tab between selection and submit).
+        /** @var AddCommentHandler $handler */
+        $handler = self::getContainer()->get(AddCommentHandler::class);
+        $comment = $handler(new AddCommentCommand($owner, $doc, 'this text does not exist anywhere', 'before ', ' after', 'Stale selection'));
+
+        self::assertTrue($comment->orphaned, 'a comment whose quote cannot be located must be marked orphaned, not anchored at offset 0');
+        self::assertSame('this text does not exist anywhere', $comment->anchor->quote);
+    }
+
     public function test_rejects_when_actor_does_not_own_document(): void
     {
         self::bootKernel();

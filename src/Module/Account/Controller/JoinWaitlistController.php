@@ -10,6 +10,7 @@ use App\Module\Account\Command\JoinWaitlistHandler;
 use App\Module\Account\Form\WaitlistJoinFormType;
 use App\Module\Account\Form\WaitlistJoinRequest;
 use App\Module\Account\Service\RegistrationGate;
+use App\Routing\PaywallExempt;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\Form\FormError;
 use Symfony\Component\HttpFoundation\Request;
@@ -18,6 +19,7 @@ use Symfony\Component\RateLimiter\RateLimiterFactory;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Contracts\Translation\TranslatorInterface;
 
+#[PaywallExempt]
 #[Route(
     '/waitlist',
     name: 'app_waitlist_join',

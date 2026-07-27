@@ -73,6 +73,7 @@ final class AnchorServiceTest extends TestCase
 
         $anchor = $this->service->fromSelection($text, 'short-lived JWTs', 'issue ', ' signed');
 
+        self::assertInstanceOf(Anchor::class, $anchor);
         self::assertSame('short-lived JWTs', $anchor->quote);
         self::assertSame($start, $anchor->offsetHint);
         self::assertSame($start, $this->service->resolve($text, $anchor));
@@ -87,7 +88,18 @@ final class AnchorServiceTest extends TestCase
 
         $anchor = $this->service->fromSelection($text, 'word', 'a right ', ' too');
 
+        self::assertInstanceOf(Anchor::class, $anchor);
         self::assertSame($secondStart, $anchor->offsetHint);
+    }
+
+    public function test_from_selection_returns_null_when_quote_is_not_found(): void
+    {
+        // Simulates the document having been revised in another tab between the
+        // client capturing the selection and the comment being submitted: the
+        // captured quote no longer appears anywhere in the current text.
+        $text = 'Totally different text.';
+
+        self::assertNull($this->service->fromSelection($text, 'short-lived JWTs', 'issue ', ' signed'));
     }
 
     public function test_unanchored_yields_empty_anchor(): void
@@ -113,6 +125,7 @@ final class AnchorServiceTest extends TestCase
 
         $anchor = $this->service->fromSelection($text, $quote, 'Goal: ', '.');
 
+        self::assertInstanceOf(Anchor::class, $anchor);
         self::assertSame($quote, $anchor->quote);
         self::assertSame($start, $anchor->offsetHint);
         self::assertSame($start, $this->service->resolve($text, $anchor));
