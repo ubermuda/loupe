@@ -42,6 +42,18 @@ class ApiToken
     public ?\DateTimeImmutable $lastUsedAt = null;
 
     /**
+     * Whether a review submitted with this token may be forwarded to the owner's
+     * agent. Off by default and only ever meaningful for a site-review widget
+     * token, whose raw value is embedded in the page markup of the site it is
+     * installed on — anyone who can view the page holds the credential, so
+     * opting in is a deliberate act by the owner rather than the default. A
+     * collect-only token still accepts comments and submits; only the Mercure
+     * nudge that reaches the agent is withheld (see SubmitReviewHandler).
+     */
+    #[ORM\Column(options: ['default' => false])]
+    public bool $forwardsToAgent = false;
+
+    /**
      * Set when the owner revokes this token. The row is kept (not deleted) so the
      * revocation log entry keeps resolving to a real token — a revoked token must
      * simply never authenticate again (see ApiTokenRepository::findOneByRawToken).

@@ -17,6 +17,7 @@ framework:
             - mint-project-mcp-token
             - regenerate-project-mcp-token
             - regenerate-project-widget-token
+            - toggle-project-widget-forwarding
             - site-review-comment-action
             - billing-checkout
             - billing-portal

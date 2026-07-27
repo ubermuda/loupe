@@ -47,6 +47,18 @@ class SiteReviewEvent
         #[ORM\Column(type: Types::TEXT)]
         public readonly string $payload,
 
+        /**
+         * Whether this event may be delivered to the agent at all. False when the
+         * widget token that submitted the review is collect-only
+         * (ApiToken::$forwardsToAgent). The row is still written — it is also the
+         * ledger the submitted-review counts are drawn from — but it must never be
+         * published, so anything that drains unpublished events has to filter on
+         * this as well as on publishedAt; a null publishedAt alone does not mean
+         * "still owed to the agent".
+         */
+        #[ORM\Column(options: ['default' => true])]
+        public readonly bool $forwardable = true,
+
         #[ORM\Column]
         public readonly \DateTimeImmutable $createdAt = new \DateTimeImmutable(),
     ) {

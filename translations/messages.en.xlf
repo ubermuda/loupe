@@ -1118,6 +1118,42 @@
                 <source>project.error.widget_token_already_minted</source>
                 <target>This project already has a widget token. Revoke it first.</target>
             </trans-unit>
+            <trans-unit id="project.error.widget_token_missing">
+                <source>project.error.widget_token_missing</source>
+                <target>This project has no widget token, so there is nothing to forward.</target>
+            </trans-unit>
+            <trans-unit id="project.connect.forwarding.label">
+                <source>project.connect.forwarding.label</source>
+                <target>Send submitted reviews to your agent</target>
+            </trans-unit>
+            <trans-unit id="project.connect.forwarding.warning">
+                <source>project.connect.forwarding.warning</source>
+                <target>This token is visible in the page source of any site you install it on, so anyone who can open that page can send you a review. Turn forwarding on only for sites that are behind a login or otherwise not public — with it on, a review reaches your agent the moment it is sent. With it off, reviews are still collected, and your agent reads them when you ask it to.</target>
+            </trans-unit>
+            <trans-unit id="project.connect.forwarding.state.on">
+                <source>project.connect.forwarding.state.on</source>
+                <target>on</target>
+            </trans-unit>
+            <trans-unit id="project.connect.forwarding.state.off">
+                <source>project.connect.forwarding.state.off</source>
+                <target>off · reviews are collected only</target>
+            </trans-unit>
+            <trans-unit id="project.connect.forwarding.enable">
+                <source>project.connect.forwarding.enable</source>
+                <target>Turn on</target>
+            </trans-unit>
+            <trans-unit id="project.connect.forwarding.disable">
+                <source>project.connect.forwarding.disable</source>
+                <target>Turn off</target>
+            </trans-unit>
+            <trans-unit id="project.connect.forwarding.flash.enabled">
+                <source>project.connect.forwarding.flash.enabled</source>
+                <target>Submitted reviews will now be sent to your agent.</target>
+            </trans-unit>
+            <trans-unit id="project.connect.forwarding.flash.disabled">
+                <source>project.connect.forwarding.flash.disabled</source>
+                <target>Reviews will be collected only. Your agent reads them when you ask it to.</target>
+            </trans-unit>
             <trans-unit id="project.mcp_token.hint">
                 <source>project.mcp_token.hint</source>
                 <target>Lets MCP clients act on this project. Keep it secret.</target>
