@@ -31,6 +31,25 @@ final class McpEndpointAuthTest extends WebTestCase
         self::assertSame(401, $client->getResponse()->getStatusCode());
     }
 
+    public function test_revoked_token_is_rejected(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $user = new User(username: 'agent-revoked', fullName: 'Agent', email: 'agent-revoked@example.com', password: 'hashed-placeholder');
+        $user->emailVerifiedAt = new \DateTimeImmutable();
+        [$token, $raw] = ApiToken::issue($user, 'test', ApiTokenScope::Mcp);
+        $token->revoke();
+        $em->persist($user);
+        $em->persist($token);
+        $em->flush();
+
+        $client->request(\Symfony\Component\HttpFoundation\Request::METHOD_POST, '/mcp', server: [
+            'CONTENT_TYPE' => 'application/json',
+            'HTTP_AUTHORIZATION' => 'Bearer '.$raw,
+        ], content: self::INIT);
+        self::assertSame(401, $client->getResponse()->getStatusCode());
+    }
+
     public function test_valid_token_authenticates(): void
     {
         $client = static::createClient();

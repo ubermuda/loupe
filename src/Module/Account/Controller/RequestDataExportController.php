@@ -9,12 +9,14 @@ use App\Exception\DomainErrors;
 use App\Module\Account\Command\RequestDataExportCommand;
 use App\Module\Account\Command\RequestDataExportHandler;
 use App\Module\Account\Entity\User;
+use App\Routing\PaywallExempt;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Contracts\Translation\TranslatorInterface;
 use Ubermuda\SymfonyExtra\Csrf\Attribute\CsrfToken;
 
 #[CsrfToken('request-data-export')]
+#[PaywallExempt]
 #[Route(
     '/account/exports',
     name: 'app_account_export_request',

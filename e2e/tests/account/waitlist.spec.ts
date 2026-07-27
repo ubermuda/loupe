@@ -60,9 +60,9 @@ test.describe('registration cap and waitlist', () => {
         browser,
         request,
     }) => {
-        // Confirmed pre-existing flake: this is a long multi-actor flow (admin
-        // + guest browser contexts, registration, waitlist, three invite
-        // paths, redemption) that occasionally exceeds the default 30s.
+        // Exceeds Playwright's 30s default: this spec drives three separate
+        // admin invite mechanisms plus a guest registration/invite-redemption
+        // flow, each polling the admin list via expectWaitlistStatus().
         test.setTimeout(120_000);
 
         const perEntryEmail = `e2e-waitlist-perentry-${RUN}@example.com`;

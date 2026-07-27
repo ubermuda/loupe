@@ -11,6 +11,7 @@ use App\Module\Review\Entity\Document;
 use App\Module\Review\Form\AddCommentFormType;
 use App\Module\Review\Form\AddCommentRequest;
 use App\Module\Review\Repository\CommentRepository;
+use App\Module\Review\Repository\DocumentVersionRepository;
 use App\Module\Review\Security\DocumentVoter;
 use Symfony\Bridge\Doctrine\Attribute\MapEntity;
 use Symfony\Component\HttpFoundation\Response;
@@ -26,6 +27,7 @@ use Symfony\Component\Security\Http\Attribute\IsGranted;
 final class DocumentReviewController extends AppController
 {
     public function __construct(
+        private readonly DocumentVersionRepository $documentVersions,
         private readonly CommentRepository $comments,
     ) {
     }
@@ -34,7 +36,7 @@ final class DocumentReviewController extends AppController
         #[MapEntity(mapping: ['projectId' => 'id'])] Project $project,
         #[MapEntity(expr: 'repository.findOneByIdAndProjectId(documentId, projectId)')] Document $document,
     ): Response {
-        $version = $document->currentVersion();
+        $version = $this->documentVersions->findLatest($document);
         $comments = $this->comments->findByVersion($version);
 
         $addCommentForm = $this->createForm(AddCommentFormType::class, new AddCommentRequest(), [

@@ -24,8 +24,11 @@ class Project
 
     /**
      * The site-review widget token bound to this project. Nullable: a project
-     * without one cannot receive widget comments until it is minted. Revoking
-     * the token (Account UI) nulls this via ON DELETE SET NULL.
+     * without one cannot receive widget comments until it is minted. Revoking the
+     * token (Account UI) keeps the ApiToken row (see ApiToken::revoke()) and clears
+     * this binding explicitly in RevokeApiTokenHandler — the database's ON DELETE
+     * SET NULL cascade below only backstops the hard-delete paths (regenerate,
+     * project deletion).
      */
     #[ORM\JoinColumn(name: 'widget_token_id', onDelete: 'SET NULL')]
     #[ORM\OneToOne(targetEntity: ApiToken::class)]

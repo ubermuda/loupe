@@ -34,7 +34,7 @@ func newBridgeCmd() *cobra.Command {
 
 func newBridgeRunCmd() *cobra.Command {
 	var dir, session, site string
-	var useMCP, attach bool
+	var attach bool
 
 	cmd := &cobra.Command{
 		Use:   "run",
@@ -76,11 +76,6 @@ func newBridgeRunCmd() *cobra.Command {
 				return err
 			}
 
-			mode := inject.SelfContained
-			if useMCP {
-				mode = inject.IDOnly
-			}
-
 			if attach && !isTerminal(os.Stdin) {
 				fmt.Fprintln(cmd.ErrOrStderr(), "stdin is not a terminal; running in the foreground (pass --attach=false to silence this)")
 				attach = false
@@ -97,16 +92,15 @@ func newBridgeRunCmd() *cobra.Command {
 				}
 				defer logFile.Close()
 				out, errOut = logFile, logFile
-				return runAttached(cmd, cfg, site, target, buildHandler(out, errOut, target, mode), logPath)
+				return runAttached(cmd, cfg, site, target, buildHandler(out, errOut, target), logPath)
 			}
 
-			return runForeground(cmd, cfg, site, target, buildHandler(out, errOut, target, mode), out)
+			return runForeground(cmd, cfg, site, target, buildHandler(out, errOut, target), out)
 		},
 	}
 	cmd.Flags().StringVar(&dir, "dir", "", "spawn `claude` in a new tmux session in this directory")
 	cmd.Flags().StringVar(&session, "session", "", "attach to an existing tmux session or target")
 	cmd.Flags().StringVar(&site, "site", "", "the Loupe site to bridge (name or id); omitted: pick interactively")
-	cmd.Flags().BoolVar(&useMCP, "mcp", false, "inject only the review id and let Claude load it via the Loupe MCP")
 	cmd.Flags().BoolVar(&attach, "attach", true, "attach to the tmux session and watch Claude; use --attach=false to run headless")
 
 	return cmd
@@ -165,7 +159,7 @@ func runAttached(cmd *cobra.Command, cfg config.Config, site, target string, h t
 	return nil
 }
 
-func buildHandler(out, errOut io.Writer, target string, mode inject.Mode) transport.Handler {
+func buildHandler(out, errOut io.Writer, target string) transport.Handler {
 	return transport.Handler{
 		OnConnect: func() { fmt.Fprintln(out, "Connected to hub; waiting for site reviews…") },
 		OnError:   func(err error) { fmt.Fprintf(errOut, "stream error (will retry): %v\n", err) },
@@ -181,7 +175,7 @@ func buildHandler(out, errOut io.Writer, target string, mode inject.Mode) transp
 
 				return
 			}
-			if err := tmux.Send(target, inject.Directive(event, mode)); err != nil {
+			if err := tmux.Send(target, inject.Directive(event)); err != nil {
 				fmt.Fprintf(errOut, "failed to inject review %s: %v\n", event.ReviewID, err)
 
 				return

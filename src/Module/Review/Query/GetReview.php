@@ -8,6 +8,7 @@ use App\Module\Project\Entity\Project;
 use App\Module\Review\Entity\Comment;
 use App\Module\Review\Repository\CommentRepository;
 use App\Module\Review\Repository\DocumentRepository;
+use App\Module\Review\Repository\DocumentVersionRepository;
 use App\Module\Review\Repository\ReviewRepository;
 use Symfony\Component\Uid\Uuid;
 
@@ -15,6 +16,7 @@ final readonly class GetReview
 {
     public function __construct(
         private DocumentRepository $documents,
+        private DocumentVersionRepository $documentVersions,
         private CommentRepository $comments,
         private ReviewRepository $reviews,
     ) {
@@ -43,7 +45,7 @@ final readonly class GetReview
             throw DocumentNotFound::forId($documentId);
         }
 
-        $currentVersion = $document->currentVersion();
+        $currentVersion = $this->documentVersions->findLatest($document);
         $review = $this->reviews->findLatestByVersion($currentVersion);
         $allComments = $this->comments->findByVersion($currentVersion);
 

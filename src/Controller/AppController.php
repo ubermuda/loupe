@@ -4,14 +4,31 @@ declare(strict_types=1);
 
 namespace App\Controller;
 
+use App\Exception\DomainErrors;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
+use Symfony\Component\Form\FormError;
 use Symfony\Component\Form\FormInterface;
 use Symfony\Component\Form\FormView;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
+use Symfony\Contracts\Service\Attribute\Required;
+use Symfony\Contracts\Translation\TranslatorInterface;
 
 abstract class AppController extends AbstractController
 {
+    private TranslatorInterface $translator;
+
+    /**
+     * Setter injection (mirrors AbstractController::setContainer()) so every
+     * subclass gets the translator without having to add it to its own
+     * constructor.
+     */
+    #[Required]
+    public function setTranslator(TranslatorInterface $translator): void
+    {
+        $this->translator = $translator;
+    }
+
     /**
      * Renders a form response, setting 422 status when the form was submitted (invalid).
      *
@@ -22,6 +39,20 @@ abstract class AppController extends AbstractController
     {
         return $this->render($view, array_merge(['form' => $form], $extra))
             ->setStatusCode($form->isSubmitted() ? Response::HTTP_UNPROCESSABLE_ENTITY : Response::HTTP_OK);
+    }
+
+    /**
+     * Maps each field-level domain failure onto the form as a translated
+     * FormError. Standard body for `catch (DomainErrors $e) { ... }` blocks
+     * after a command handler call.
+     *
+     * @param FormInterface<mixed> $form
+     */
+    protected function applyDomainErrors(FormInterface $form, DomainErrors $e): void
+    {
+        foreach ($e->errors as $field => $translationKey) {
+            $form->get($field)->addError(new FormError($this->translator->trans($translationKey)));
+        }
     }
 
     /**

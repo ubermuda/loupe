@@ -17,7 +17,6 @@ use App\Module\Account\Service\StaleSocialLink;
 use Psr\Log\LoggerInterface;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
-use Symfony\Component\Form\FormError;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\RateLimiter\RateLimiterFactory;
@@ -108,9 +107,7 @@ class LinkSocialAccountController extends AppController
                     badges: [new RememberMeBadge()->enable()],
                 ) ?? $this->redirectToRoute('app_home');
             } catch (DomainErrors $e) {
-                foreach ($e->errors as $field => $translationKey) {
-                    $form->get($field)->addError(new FormError($this->translator->trans($translationKey)));
-                }
+                $this->applyDomainErrors($form, $e);
             } catch (StaleSocialLink|SocialLoginRace) {
                 $this->pendingSocialLink->pull();
 

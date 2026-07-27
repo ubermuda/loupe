@@ -14,6 +14,7 @@ use App\Module\Review\Entity\Document;
 use App\Module\Review\Form\AddCommentFormType;
 use App\Module\Review\Form\AddCommentRequest;
 use App\Module\Review\Repository\CommentRepository;
+use App\Module\Review\Repository\DocumentVersionRepository;
 use App\Module\Review\Security\DocumentVoter;
 use Symfony\Bridge\Doctrine\Attribute\MapEntity;
 use Symfony\Component\Form\FormInterface;
@@ -34,6 +35,7 @@ final class AddCommentController extends AppController
 {
     public function __construct(
         private readonly AddCommentHandler $addCommentHandler,
+        private readonly DocumentVersionRepository $documentVersions,
         private readonly CommentRepository $comments,
         private readonly TranslatorInterface $translator,
     ) {
@@ -89,7 +91,7 @@ final class AddCommentController extends AppController
 
         return new Response(
             $this->renderView('review/_comment_added.stream.html.twig', [
-                'comments' => $this->comments->findByVersion($document->currentVersion()),
+                'comments' => $this->comments->findByVersion($this->documentVersions->findLatest($document)),
             ]),
             Response::HTTP_OK,
             ['Content-Type' => TurboBundle::STREAM_MEDIA_TYPE],

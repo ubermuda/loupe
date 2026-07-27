@@ -4,12 +4,12 @@ declare(strict_types=1);
 
 namespace App\Tests\Module\Account\Command;
 
-use App\DataExport\DataExportArchiveBuilder;
 use App\Module\Account\Command\ProcessDataExportCommand;
 use App\Module\Account\Command\ProcessDataExportHandler;
 use App\Module\Account\Entity\DataExport;
 use App\Module\Account\Entity\DataExportStatus;
 use App\Module\Account\Entity\User;
+use App\Module\Account\Export\DataExportArchiveBuilder;
 use App\Module\Account\Repository\DataExportRepository;
 use App\Module\Account\Service\DataExportEmailSender;
 use App\Module\Account\Service\ExpiredExportPurger;

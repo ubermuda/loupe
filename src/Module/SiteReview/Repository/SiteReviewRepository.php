@@ -26,10 +26,25 @@ class SiteReviewRepository extends ServiceEntityRepository
         return $this->findOneBy(['project' => $project, 'status' => SiteReviewStatus::InProgress]);
     }
 
-    /** @return list<SiteReview> */
+    /**
+     * Fetch-joins comments so the site-review page — which renders every
+     * comment on every review — costs one query instead of lazily
+     * initializing a separate comments collection per review (N+1). The
+     * comments' own #[ORM\OrderBy(['position' => 'ASC'])] mapping still
+     * applies to the fetch-joined collection.
+     *
+     * @return list<SiteReview>
+     */
     public function findForProject(Project $project): array
     {
-        return $this->findBy(['project' => $project], ['createdAt' => 'DESC']);
+        return $this->createQueryBuilder('sr')
+            ->leftJoin('sr.comments', 'c')
+            ->addSelect('c')
+            ->andWhere('sr.project = :project')
+            ->orderBy('sr.createdAt', 'DESC')
+            ->setParameter('project', $project)
+            ->getQuery()
+            ->getResult();
     }
 
     /**

@@ -89,6 +89,46 @@ final class ConnectAgentControllerTest extends WebTestCase
         self::assertCount(1, $crawler->filter('.lp-connect-tag'));
     }
 
+    public function test_revoked_mcp_token_disappears_and_mint_form_reappears(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+
+        $owner = $this->user($em, 'connect-d@example.com');
+        $project = new Project($owner, 'connect-site-d');
+        $em->persist($project);
+
+        [$token] = ApiToken::issue($owner, 'MCP: connect-site-d', ApiTokenScope::Mcp);
+        $project->mcpToken = $token;
+        $em->persist($token);
+        $em->flush();
+        $projectId = $project->id;
+        $tokenId = $token->id;
+        $em->clear();
+
+        $client->loginUser($owner);
+        $client->request(Request::METHOD_GET, '/projects');
+
+        $client->request(Request::METHOD_POST, '/account/api-tokens/'.(string) $tokenId.'/revoke', [
+            '_csrf_token' => 'csrf-token',
+        ]);
+        self::assertResponseRedirects();
+        // Consume the "has been revoked" flash on an unrelated page first — it
+        // legitimately echoes the old label once, which would otherwise pollute
+        // the assertion below on the very next page rendered.
+        $client->followRedirect();
+
+        $crawler = $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/connect');
+        self::assertResponseIsSuccessful();
+
+        // Revoked → the token row still exists but is no longer bound to the
+        // project, so the page reverts to the mint form exactly as if no token had
+        // ever been minted: no label, no revoke form.
+        self::assertStringNotContainsString('MCP: connect-site-d', $crawler->text());
+        self::assertCount(1, $crawler->filter('form[action$="/mcp-token"]'));
+        self::assertCount(0, $crawler->filter('form[action*="/revoke"]'));
+    }
+
     public function test_non_owner_is_denied(): void
     {
         $client = static::createClient();

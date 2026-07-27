@@ -86,9 +86,7 @@ class RegisterController extends AppController
                     inviteToken: $inviteToken,
                 ));
             } catch (DomainErrors $e) {
-                foreach ($e->errors as $field => $messageKey) {
-                    $form->get($field)->addError(new FormError($this->translator->trans($messageKey)));
-                }
+                $this->applyDomainErrors($form, $e);
 
                 return $this->renderFormResponse('@Account/registration/register.html.twig', $form);
             }
