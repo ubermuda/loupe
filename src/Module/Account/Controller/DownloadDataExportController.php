@@ -7,6 +7,7 @@ namespace App\Module\Account\Controller;
 use App\Controller\AppController;
 use App\Module\Account\Entity\DataExport;
 use App\Module\Account\Entity\User;
+use App\Routing\PaywallExempt;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
@@ -15,6 +16,7 @@ use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpFoundation\ResponseHeaderBag;
 use Symfony\Component\Routing\Attribute\Route;
 
+#[PaywallExempt]
 #[Route(
     '/account/exports/{id:export}/download',
     name: 'app_account_export_download',

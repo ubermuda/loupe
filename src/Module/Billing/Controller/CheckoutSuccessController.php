@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Module\Billing\Controller;
 
 use App\Controller\AppController;
+use App\Routing\PaywallExempt;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
 
@@ -15,6 +16,7 @@ use Symfony\Component\Routing\Attribute\Route;
  * trial has expired straight back to the paywall. The page is never treated as
  * proof of payment — only the webhook writes subscription state.
  */
+#[PaywallExempt]
 #[Route(
     '/billing/checkout/success',
     name: 'app_billing_checkout_success',
