@@ -75,24 +75,23 @@ final readonly class SubmitReviewHandler
 
     private function publish(SiteReviewEvent $event): void
     {
-        // Best-effort, published exactly once: a down or slow hub must never fail
-        // an already-persisted submit — that would surface as a 500 and provoke a
-        // duplicate resubmit. Deliberately not retried, either: the hub may have
-        // accepted the update before the client threw, and publishing again would
-        // make bridge subscribers inject the same review twice — the bridge CLI
-        // does not dedupe on the review id carried as the update's event id. A
-        // failed publish leaves $event durably unpublished (see the entity) for a
-        // human to replay by hand; it is not auto-redelivered.
+        // Not retried: the hub may accept an update and still throw, and the
+        // bridge CLI does not dedupe on the event id, so a second publish would
+        // inject the same review into the agent twice. A failed publish leaves
+        // $event unpublished.
         try {
             $this->hub->publish(new Update($event->topic, $event->payload, true, id: (string) $event->review->id));
-            $event->markPublished();
-            $this->em->flush();
         } catch (\Throwable $e) {
             $this->logger->error('site_review.review.publish_failed', [
                 'reviewId' => (string) $event->review->id,
                 'topic' => $event->topic,
                 'error' => $e->getMessage(),
             ]);
+
+            return;
         }
+
+        $event->markPublished();
+        $this->em->flush();
     }
 }
