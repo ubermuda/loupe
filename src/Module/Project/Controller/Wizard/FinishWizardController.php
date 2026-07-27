@@ -30,7 +30,9 @@ class FinishWizardController extends AppController
     public function __invoke(): Response
     {
         $user = $this->getUser();
-        assert($user instanceof User);
+        if (!$user instanceof User) {
+            throw new \LogicException('Route is behind the ROLE_USER catch-all');
+        }
 
         // Same shape as SkipWizardController: only the completed guard
         // applies, so a repeat submit is a no-op redirect rather than an error.

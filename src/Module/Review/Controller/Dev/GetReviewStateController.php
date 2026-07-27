@@ -35,7 +35,9 @@ final class GetReviewStateController extends AppController
     public function __invoke(string $documentId): JsonResponse
     {
         $user = $this->getUser();
-        assert($user instanceof User);
+        if (!$user instanceof User) {
+            throw new \LogicException('Route is behind the ROLE_USER catch-all');
+        }
 
         try {
             $id = Uuid::fromString($documentId);

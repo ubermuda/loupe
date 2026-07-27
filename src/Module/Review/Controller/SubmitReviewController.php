@@ -58,7 +58,9 @@ final class SubmitReviewController extends AppController
         }
 
         $user = $this->getUser();
-        assert($user instanceof User);
+        if (!$user instanceof User) {
+            throw new \LogicException('Route is behind the ROLE_USER catch-all');
+        }
 
         try {
             $review = ($this->submitReviewHandler)(new SubmitReviewCommand(

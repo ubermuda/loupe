@@ -6,6 +6,9 @@ import {
     extractLink,
 } from '../helpers';
 
+// Guest by default — make the unauthenticated starting state explicit.
+test.use({ storageState: { cookies: [], origins: [] } });
+
 const RUN = Date.now();
 const DELETE_SUBJECT = 'Confirm your account deletion';
 

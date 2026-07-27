@@ -25,7 +25,9 @@ class ShowWelcomeDoneController extends AppController
     public function __invoke(): Response
     {
         $user = $this->getUser();
-        assert($user instanceof User);
+        if (!$user instanceof User) {
+            throw new \LogicException('Route is behind the ROLE_USER catch-all');
+        }
 
         if ($this->wizardState->isCompleted($user)) {
             return $this->redirectToRoute('app_home');

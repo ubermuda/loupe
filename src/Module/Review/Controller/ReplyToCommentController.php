@@ -43,7 +43,9 @@ final class ReplyToCommentController extends AppController
     public function __invoke(Comment $comment, Request $request): Response
     {
         $user = $this->getUser();
-        assert($user instanceof User);
+        if (!$user instanceof User) {
+            throw new \LogicException('Route is behind the ROLE_USER catch-all');
+        }
 
         $data = new ReplyRequest();
         $form = $this->formFactory->createNamed(ReviewExtension::replyFormName($comment), ReplyFormType::class, $data);

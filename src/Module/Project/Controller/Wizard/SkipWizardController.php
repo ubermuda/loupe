@@ -30,7 +30,9 @@ class SkipWizardController extends AppController
     public function __invoke(): Response
     {
         $user = $this->getUser();
-        assert($user instanceof User);
+        if (!$user instanceof User) {
+            throw new \LogicException('Route is behind the ROLE_USER catch-all');
+        }
 
         // Skip must work from every step — including step 1, before a project
         // exists — so this checks only the completed guard, never the

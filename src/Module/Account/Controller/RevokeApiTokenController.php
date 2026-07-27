@@ -36,7 +36,9 @@ class RevokeApiTokenController extends AppController
     public function __invoke(Uuid $tokenId, Request $request): Response
     {
         $user = $this->getUser();
-        assert($user instanceof User);
+        if (!$user instanceof User) {
+            throw new \LogicException('Route is behind the ROLE_USER catch-all');
+        }
 
         $token = $this->apiTokens->find($tokenId);
 

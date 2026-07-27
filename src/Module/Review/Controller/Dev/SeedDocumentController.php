@@ -38,7 +38,9 @@ final class SeedDocumentController extends AppController
     public function __invoke(Request $request): JsonResponse
     {
         $user = $this->getUser();
-        assert($user instanceof User);
+        if (!$user instanceof User) {
+            throw new \LogicException('Route is behind the ROLE_USER catch-all');
+        }
 
         $title = $request->request->getString('title', 'E2E Test Document');
         $markdown = $request->request->getString('markdown', '# Hello World');

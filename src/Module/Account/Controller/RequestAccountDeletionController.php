@@ -32,7 +32,9 @@ class RequestAccountDeletionController extends AppController
     public function __invoke(): Response
     {
         $user = $this->getUser();
-        assert($user instanceof User);
+        if (!$user instanceof User) {
+            throw new \LogicException('Route is behind the ROLE_USER catch-all');
+        }
 
         ($this->handler)(new RequestAccountDeletionCommand($user));
 

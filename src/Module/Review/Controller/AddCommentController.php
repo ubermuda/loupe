@@ -47,7 +47,9 @@ final class AddCommentController extends AppController
         Request $request,
     ): Response {
         $user = $this->getUser();
-        assert($user instanceof User);
+        if (!$user instanceof User) {
+            throw new \LogicException('Route is behind the ROLE_USER catch-all');
+        }
 
         $data = new AddCommentRequest();
         $form = $this->createForm(AddCommentFormType::class, $data);

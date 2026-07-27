@@ -22,7 +22,9 @@ class HomeController extends AppController
     {
         // The ^/ firewall guarantees authentication before this runs.
         $user = $this->getUser();
-        assert($user instanceof User);
+        if (!$user instanceof User) {
+            throw new \LogicException('Route is behind the ROLE_USER catch-all');
+        }
 
         $projects = $this->projects->findByOwner($user);
 
