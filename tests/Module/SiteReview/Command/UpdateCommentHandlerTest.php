@@ -12,6 +12,7 @@ use App\Module\SiteReview\Command\CommentNotFound;
 use App\Module\SiteReview\Command\UpdateCommentCommand;
 use App\Module\SiteReview\Command\UpdateCommentHandler;
 use App\Module\SiteReview\Entity\SiteReviewComment;
+use App\Module\SiteReview\Entity\SiteReviewCommentStatus;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 
@@ -53,7 +54,7 @@ final class UpdateCommentHandlerTest extends KernelTestCase
     {
         $project = $this->project('upd-b@example.com');
         $comment = ($this->addHandler)(new AddCommentCommand($project, 'orig', '', '', 'https://app/x'));
-        $comment->review->markSubmitted();
+        $comment->status = SiteReviewCommentStatus::Pending;
         $this->em->flush();
 
         $this->expectException(CommentNotFound::class);

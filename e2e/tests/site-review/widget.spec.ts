@@ -2,14 +2,15 @@
  * End-to-end tests for the server-backed site-review annotation widget.
  *
  * The dev-only harness page (/dev/site-review-harness) finds-or-creates the
- * `e2e-harness` site for the user, deletes any in-progress draft review and
- * mints a fresh site-bound token on every load — so each test starts from a
- * clean draft simply by loading the harness (no localStorage involved).
+ * `e2e-harness` site for the user, deletes any Draft comments and mints a
+ * fresh site-bound token on every load — so each test starts from a clean
+ * draft simply by loading the harness (no localStorage involved).
  *
  * The widget is server-backed: every saved comment POSTs immediately to
- * /api/site-review/comments, the list rehydrates from GET /api/site-review/review
- * on load, edits PATCH, deletes DELETE, and "Send" submits the in-progress
- * review via POST /api/site-review/review/submit.
+ * /api/site-review/comments as a Draft, the list rehydrates from GET
+ * /api/site-review/review on load, edits PATCH, deletes DELETE, and "Send"
+ * flips the project's Draft comments to Pending via POST
+ * /api/site-review/review/submit.
  *
  * User creation uses the dev-only /dev/register-and-verify endpoint (registers and
  * immediately marks the email as verified). No login is needed: the harness is
@@ -77,7 +78,7 @@ const addGeneralNote = async (
 };
 
 /**
- * Read the in-progress review straight from the API using the widget's own
+ * Read the Draft comments straight from the API using the widget's own
  * token (from the script tag). This proves server persistence without
  * reloading — a harness reload deliberately purges the draft, so "survives
  * reload" cannot be asserted against the harness.
@@ -93,12 +94,10 @@ const fetchReviewComments = (
         const response = await fetch('/api/site-review/review', {
             headers: { Authorization: `Bearer ${token}` },
         });
-        const { review } = (await response.json()) as {
-            review: {
-                comments: Array<{ body: string; selector: string }>;
-            } | null;
+        const { comments } = (await response.json()) as {
+            comments: Array<{ body: string; selector: string }>;
         };
-        return review ? review.comments : [];
+        return comments;
     });
 
 test('annotate and send a site review', async ({ page }) => {

@@ -164,23 +164,22 @@ func buildHandler(out, errOut io.Writer, target string) transport.Handler {
 		OnConnect: func() { fmt.Fprintln(out, "Connected to hub; waiting for site reviews…") },
 		OnError:   func(err error) { fmt.Fprintf(errOut, "stream error (will retry): %v\n", err) },
 		OnData: func(data []byte) {
-			event, err := inject.Parse(data)
-			if err != nil {
+			if _, err := inject.Parse(data); err != nil {
 				fmt.Fprintf(errOut, "skipping malformed event: %v\n", err)
 
 				return
 			}
 			if !tmux.HasSession(target) {
-				fmt.Fprintf(errOut, "tmux session %q is gone; dropping review %s\n", tmux.SessionName(target), event.ReviewID)
+				fmt.Fprintf(errOut, "tmux session %q is gone; dropping notification\n", tmux.SessionName(target))
 
 				return
 			}
-			if err := tmux.Send(target, inject.Directive(event)); err != nil {
-				fmt.Fprintf(errOut, "failed to inject review %s: %v\n", event.ReviewID, err)
+			if err := tmux.Send(target, inject.Directive()); err != nil {
+				fmt.Fprintf(errOut, "failed to inject notification: %v\n", err)
 
 				return
 			}
-			fmt.Fprintf(out, "Injected review %s\n", event.ReviewID)
+			fmt.Fprintln(out, "Injected site-review notification")
 		},
 	}
 }

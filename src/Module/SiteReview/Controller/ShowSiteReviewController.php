@@ -7,7 +7,8 @@ namespace App\Module\SiteReview\Controller;
 use App\Controller\AppController;
 use App\Module\Project\Entity\Project;
 use App\Module\Project\Security\ProjectVoter;
-use App\Module\SiteReview\Repository\SiteReviewRepository;
+use App\Module\SiteReview\Repository\SiteReviewCommentRepository;
+use App\Module\SiteReview\Repository\SiteReviewEventRepository;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
@@ -21,7 +22,8 @@ use Symfony\Component\Security\Http\Attribute\IsGranted;
 class ShowSiteReviewController extends AppController
 {
     public function __construct(
-        private readonly SiteReviewRepository $siteReviews,
+        private readonly SiteReviewCommentRepository $siteReviewComments,
+        private readonly SiteReviewEventRepository $siteReviewEvents,
     ) {
     }
 
@@ -29,7 +31,8 @@ class ShowSiteReviewController extends AppController
     {
         return $this->render('@SiteReview/show_site_review.html.twig', [
             'project' => $project,
-            'reviews' => $this->siteReviews->findForProject($project),
+            'comments' => $this->siteReviewComments->findForProject($project),
+            'submittedCount' => $this->siteReviewEvents->countForProject($project),
         ]);
     }
 }

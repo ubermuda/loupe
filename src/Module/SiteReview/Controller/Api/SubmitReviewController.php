@@ -33,11 +33,11 @@ final class SubmitReviewController extends AppController
         }
 
         try {
-            $review = ($this->handler)(new SubmitReviewCommand($project));
+            $count = ($this->handler)(new SubmitReviewCommand($project));
         } catch (DomainErrors $e) {
             return $this->json(['errors' => $e->errors], JsonResponse::HTTP_UNPROCESSABLE_ENTITY);
         }
 
-        return $this->json(['reviewId' => (string) $review->id]);
+        return $this->json(['commentCount' => $count]);
     }
 }

@@ -8,8 +8,9 @@ use App\Module\Account\Entity\User;
 use App\Module\Project\Entity\Project;
 use App\Module\Project\Repository\ProjectRepository;
 use App\Module\Review\Entity\Document;
-use App\Module\SiteReview\Entity\SiteReview;
 use App\Module\SiteReview\Entity\SiteReviewComment;
+use App\Module\SiteReview\Entity\SiteReviewCommentStatus;
+use App\Module\SiteReview\Entity\SiteReviewEvent;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use Symfony\Component\HttpFoundation\Request;
@@ -80,11 +81,11 @@ final class ProjectsPageTest extends WebTestCase
         $em->persist($project);
         $em->persist(new Document($owner, $project, 'Doc one'));
         $em->persist(new Document($owner, $project, 'Doc two'));
-        $review = new SiteReview($project);
-        $review->markSubmitted();
-        $em->persist($review);
+        $em->persist(new SiteReviewEvent($project, 'topic', '{}'));
         for ($i = 0; $i < 3; ++$i) {
-            $em->persist(new SiteReviewComment($review, $i, 'body', 'a.cta', 'Start', 'https://acme.test/'));
+            $comment = new SiteReviewComment($project, $i, 'body', 'a.cta', 'Start', 'https://acme.test/');
+            $comment->status = SiteReviewCommentStatus::Pending;
+            $em->persist($comment);
         }
         $em->flush();
 

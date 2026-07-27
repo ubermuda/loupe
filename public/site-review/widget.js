@@ -12,8 +12,8 @@
   const TOKEN = script.getAttribute('data-token') || '';
   // Optional brand accent override; the design ships violet as the default.
   const ACCENT = script.getAttribute('data-accent') || '#6E56CF';
-  // Comments now live server-side in the site's in-progress review; `pending`
-  // mirrors it. Each item: { id, body, selector, text, url }.
+  // Comments now live server-side as the project's Draft comments; `pending`
+  // mirrors them. Each item: { id, body, selector, text, url }.
   let pending = [];
 
   const api = async (method, path, body) => {
@@ -64,11 +64,11 @@
     textareaNode.value = '';
   };
 
-  // Rehydrate the pending list from the server's in-progress review.
+  // Rehydrate the pending list from the server's Draft comments.
   const refresh = async () => {
     try {
-      const { review } = await api('GET', '/api/site-review/review');
-      pending = review ? review.comments : [];
+      const { comments } = await api('GET', '/api/site-review/review');
+      pending = comments || [];
     } catch (error) {
       // Catch a rejected token at the earliest possible point — the boot load — so the
       // widget opens straight into its critical state instead of a misleading empty review.

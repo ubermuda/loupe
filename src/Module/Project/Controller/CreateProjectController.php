@@ -15,7 +15,7 @@ use App\Module\Project\Repository\ProjectRepository;
 use App\Module\Project\View\ProjectListItem;
 use App\Module\Review\Repository\DocumentRepository;
 use App\Module\SiteReview\Repository\SiteReviewCommentRepository;
-use App\Module\SiteReview\Repository\SiteReviewRepository;
+use App\Module\SiteReview\Repository\SiteReviewEventRepository;
 use App\Utils\PageList;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -34,7 +34,7 @@ class CreateProjectController extends AppController
         private readonly CreateProjectHandler $createProjectHandler,
         private readonly ProjectRepository $projects,
         private readonly DocumentRepository $documents,
-        private readonly SiteReviewRepository $siteReviews,
+        private readonly SiteReviewEventRepository $siteReviewEvents,
         private readonly SiteReviewCommentRepository $siteReviewComments,
     ) {
     }
@@ -72,7 +72,7 @@ class CreateProjectController extends AppController
             fn ($project) => new ProjectListItem(
                 project: $project,
                 documentCount: $this->documents->countByProject($project),
-                reviewCount: $this->siteReviews->countForProject($project),
+                reviewCount: $this->siteReviewEvents->countForProject($project),
                 openCount: $this->siteReviewComments->countOpenForProject($project),
             ),
             iterator_to_array($paginator, false),

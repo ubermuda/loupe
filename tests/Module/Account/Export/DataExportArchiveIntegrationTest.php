@@ -14,7 +14,7 @@ use App\Module\Review\Entity\Document;
 use App\Module\Review\Entity\Review;
 use App\Module\Review\Entity\Verdict;
 use App\Module\Review\ValueObject\Anchor;
-use App\Module\SiteReview\Entity\SiteReview;
+use App\Module\SiteReview\Entity\SiteReviewComment;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Symfony\Component\Uid\Uuid;
@@ -52,9 +52,7 @@ final class DataExportArchiveIntegrationTest extends KernelTestCase
         $review = new Review($version1, Verdict::Approved, $user);
         $em->persist($review);
 
-        $siteReview = new SiteReview($project);
-        $siteReview->addComment('Fix this', '.hero h1', 'Hello world', 'https://example.com/');
-        $em->persist($siteReview);
+        $em->persist(new SiteReviewComment($project, 0, 'Fix this', '.hero h1', 'Hello world', 'https://example.com/'));
 
         [$apiToken] = ApiToken::issue($user, 'My agent', ApiTokenScope::Mcp);
         $em->persist($apiToken);

@@ -6,9 +6,8 @@ namespace App\Tests\Module\SiteReview\Mcp;
 
 use App\Module\Account\Entity\User;
 use App\Module\Project\Entity\Project;
-use App\Module\SiteReview\Entity\SiteReview;
+use App\Module\SiteReview\Entity\SiteReviewComment;
 use App\Module\SiteReview\Entity\SiteReviewCommentStatus;
-use App\Module\SiteReview\Entity\SiteReviewStatus;
 use App\Module\SiteReview\Mcp\GetSiteReviewTool;
 use App\Tests\Support\McpTokenScenario;
 use Doctrine\ORM\EntityManagerInterface;
@@ -38,25 +37,26 @@ final class GetSiteReviewToolTest extends KernelTestCase
     /**
      * @param non-empty-string $email
      *
-     * @return array{Project, SiteReview} project + one submitted review with 2 pending comments
+     * @return array{Project, list<SiteReviewComment>} project + 2 pending comments
      */
-    private function projectWithSubmittedReview(string $email, string $name = 'tool-site'): array
+    private function projectWithPendingComments(string $email, string $name = 'tool-site'): array
     {
         $user = new User(username: $email, fullName: 'U', email: $email, password: 'x');
         $this->em->persist($user);
         $project = new Project($user, $name);
         $this->em->persist($project);
-        $review = new SiteReview($project);
-        $review->addComment('first', '.a', 'A', 'https://app/x');
-        $review->addComment('second', '', '', 'https://app/y');
-        $review->markSubmitted();
-        $this->em->persist($review);
+        $c1 = new SiteReviewComment($project, 0, 'first', '.a', 'A', 'https://app/x');
+        $c1->status = SiteReviewCommentStatus::Pending;
+        $c2 = new SiteReviewComment($project, 1, 'second', '', '', 'https://app/y');
+        $c2->status = SiteReviewCommentStatus::Pending;
+        $this->em->persist($c1);
+        $this->em->persist($c2);
         $this->em->flush();
 
-        return [$project, $review];
+        return [$project, [$c1, $c2]];
     }
 
-    public function test_returns_pending_comments_of_submitted_reviews_in_order(): void
+    public function test_returns_pending_comments_in_position_order(): void
     {
         $userEmail = 'get-order@example.com';
         $user = new User(username: $userEmail, fullName: 'U', email: $userEmail, password: 'x');
@@ -64,24 +64,20 @@ final class GetSiteReviewToolTest extends KernelTestCase
         $project = new Project($user, 'order-site');
         $this->em->persist($project);
 
-        // Older review — will appear first in results.
-        $olderReview = new SiteReview($project);
-        $olderReview->addComment('older-comment', '.b', 'B', 'https://app/old');
-        $olderReview->status = SiteReviewStatus::Submitted;
-        $olderReview->submittedAt = new \DateTimeImmutable('-1 hour');
-        $this->em->persist($olderReview);
+        $first = new SiteReviewComment($project, 0, 'older-comment', '.b', 'B', 'https://app/old');
+        $first->status = SiteReviewCommentStatus::Pending;
+        $this->em->persist($first);
 
-        // Newer review — 2 pending comments.
-        $newerReview = new SiteReview($project);
-        $newerReview->addComment('newer-first', '.c', 'C', 'https://app/new1');
-        $newerReview->addComment('newer-second', '.d', 'D', 'https://app/new2');
-        $newerReview->markSubmitted();
-        $this->em->persist($newerReview);
+        $second = new SiteReviewComment($project, 1, 'newer-first', '.c', 'C', 'https://app/new1');
+        $second->status = SiteReviewCommentStatus::Pending;
+        $this->em->persist($second);
 
-        // Draft review — comments must NOT appear.
-        $draftReview = new SiteReview($project);
-        $draftReview->addComment('draft-comment', '.e', 'E', 'https://app/draft');
-        $this->em->persist($draftReview);
+        $third = new SiteReviewComment($project, 2, 'newer-second', '.d', 'D', 'https://app/new2');
+        $third->status = SiteReviewCommentStatus::Pending;
+        $this->em->persist($third);
+
+        // Draft comment must NOT appear.
+        $this->em->persist(new SiteReviewComment($project, 3, 'draft-comment', '.e', 'E', 'https://app/draft'));
 
         $this->em->flush();
 
@@ -91,26 +87,14 @@ final class GetSiteReviewToolTest extends KernelTestCase
         self::assertSame((string) $project->id, $result['site']['id']);
         self::assertSame('order-site', $result['site']['name']);
 
-        // Draft comment must be absent; only 3 pending comments from 2 submitted reviews.
         self::assertCount(3, $result['comments']);
-
-        // Ordering: older review first (submittedAt ASC), then position ASC within each.
-        $olderReviewId = (string) $olderReview->id;
-        $newerReviewId = (string) $newerReview->id;
-
-        self::assertSame($olderReviewId, $result['comments'][0]['reviewId']);
-        self::assertSame($newerReviewId, $result['comments'][1]['reviewId']);
-        self::assertSame($newerReviewId, $result['comments'][2]['reviewId']);
-
-        // Pin intra-review position ordering (position ASC within each review).
         self::assertSame('older-comment', $result['comments'][0]['body']);
         self::assertSame('newer-first', $result['comments'][1]['body']);
         self::assertSame('newer-second', $result['comments'][2]['body']);
 
-        // Each entry carries a non-empty id and reviewId.
         foreach ($result['comments'] as $comment) {
             self::assertNotEmpty($comment['id']);
-            self::assertNotEmpty($comment['reviewId']);
+            self::assertNotEmpty($comment['createdAt']);
         }
     }
 
@@ -121,16 +105,16 @@ final class GetSiteReviewToolTest extends KernelTestCase
         $this->em->persist($user);
         $project = new Project($user, 'status-site');
         $this->em->persist($project);
-        $review = new SiteReview($project);
-        $c1 = $review->addComment('pending', '.a', 'A', 'https://app/x');
-        $c2 = $review->addComment('addressed', '.b', 'B', 'https://app/y');
-        $c3 = $review->addComment('resolved', '.c', 'C', 'https://app/z');
-        $review->markSubmitted();
-        $this->em->persist($review);
-        $this->em->flush();
 
-        $c2->status = SiteReviewCommentStatus::Addressed;
-        $c3->status = SiteReviewCommentStatus::Resolved;
+        $pending = new SiteReviewComment($project, 0, 'pending', '.a', 'A', 'https://app/x');
+        $pending->status = SiteReviewCommentStatus::Pending;
+        $addressed = new SiteReviewComment($project, 1, 'addressed', '.b', 'B', 'https://app/y');
+        $addressed->status = SiteReviewCommentStatus::Addressed;
+        $resolved = new SiteReviewComment($project, 2, 'resolved', '.c', 'C', 'https://app/z');
+        $resolved->status = SiteReviewCommentStatus::Resolved;
+        $this->em->persist($pending);
+        $this->em->persist($addressed);
+        $this->em->persist($resolved);
         $this->em->flush();
 
         $this->actAsMcpTokenBoundTo($project);
@@ -143,7 +127,7 @@ final class GetSiteReviewToolTest extends KernelTestCase
     public function test_matching_handle_by_name_or_id_returns_the_bound_project(): void
     {
         $userEmail = 'get-resolve@example.com';
-        [$project] = $this->projectWithSubmittedReview($userEmail, 'resolve-site');
+        [$project] = $this->projectWithPendingComments($userEmail, 'resolve-site');
 
         $this->actAsMcpTokenBoundTo($project);
 
@@ -162,7 +146,7 @@ final class GetSiteReviewToolTest extends KernelTestCase
     public function test_handle_naming_another_project_of_the_same_owner_is_rejected(): void
     {
         $userEmail = 'get-mismatch@example.com';
-        [$boundProject] = $this->projectWithSubmittedReview($userEmail, 'bound-site');
+        [$boundProject] = $this->projectWithPendingComments($userEmail, 'bound-site');
 
         $otherProject = new Project($boundProject->owner, 'other-site');
         $this->em->persist($otherProject);
@@ -178,7 +162,7 @@ final class GetSiteReviewToolTest extends KernelTestCase
     public function test_unknown_handle_is_not_found(): void
     {
         $userEmail = 'get-unknown@example.com';
-        [$project] = $this->projectWithSubmittedReview($userEmail, 'known-site');
+        [$project] = $this->projectWithPendingComments($userEmail, 'known-site');
 
         $this->actAsMcpTokenBoundTo($project);
 

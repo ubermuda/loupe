@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 namespace App\Module\SiteReview\Repository;
 
+use App\Module\Account\Entity\User;
 use App\Module\Project\Entity\Project;
 use App\Module\SiteReview\Entity\SiteReviewComment;
 use App\Module\SiteReview\Entity\SiteReviewCommentStatus;
-use App\Module\SiteReview\Entity\SiteReviewStatus;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\Persistence\ManagerRegistry;
 use Symfony\Component\Uid\Uuid;
@@ -23,52 +23,42 @@ class SiteReviewCommentRepository extends ServiceEntityRepository
     }
 
     /**
-     * The agent queue: Pending comments on Submitted reviews, oldest review first.
+     * The agent queue: Pending comments for the project, oldest first.
      *
      * @return list<SiteReviewComment>
      */
     public function findPendingForProject(Project $project): array
     {
         return $this->createQueryBuilder('c')
-            ->join('c.review', 'r')
-            ->addSelect('r')
-            ->andWhere('r.project = :project')
-            ->andWhere('r.status = :reviewStatus')
-            ->andWhere('c.status = :commentStatus')
+            ->andWhere('c.project = :project')
+            ->andWhere('c.status = :status')
             ->setParameter('project', $project)
-            ->setParameter('reviewStatus', SiteReviewStatus::Submitted)
-            ->setParameter('commentStatus', SiteReviewCommentStatus::Pending)
-            ->orderBy('r.submittedAt', 'ASC')
-            ->addOrderBy('r.createdAt', 'ASC')
-            ->addOrderBy('c.position', 'ASC')
+            ->setParameter('status', SiteReviewCommentStatus::Pending)
+            ->orderBy('c.position', 'ASC')
             ->getQuery()
             ->getResult();
     }
 
     /**
-     * Open-count for the app-shell nav pill: pending comments awaiting the agent
-     * on submitted reviews. Mirrors {@see findPendingForProject} (Submitted
-     * review + Pending comment) so the pill and the agent queue never disagree.
+     * Open-count for the app-shell nav pill: Pending comments awaiting the
+     * agent. Mirrors {@see findPendingForProject} so the pill and the agent
+     * queue never disagree.
      */
     public function countOpenForProject(Project $project): int
     {
         return (int) $this->createQueryBuilder('c')
             ->select('COUNT(c.id)')
-            ->join('c.review', 'r')
-            ->andWhere('r.project = :project')
-            ->andWhere('r.status = :reviewStatus')
-            ->andWhere('c.status = :commentStatus')
+            ->andWhere('c.project = :project')
+            ->andWhere('c.status = :status')
             ->setParameter('project', $project)
-            ->setParameter('reviewStatus', SiteReviewStatus::Submitted)
-            ->setParameter('commentStatus', SiteReviewCommentStatus::Pending)
+            ->setParameter('status', SiteReviewCommentStatus::Pending)
             ->getQuery()
             ->getSingleScalarResult();
     }
 
     /**
-     * Status tally of comments on the project's Submitted reviews, used to derive
-     * the site-review loop stage. Scoped to Submitted reviews (mirroring
-     * {@see countOpenForProject}) so draft-review comments never move the ribbon.
+     * Status tally of the project's non-Draft comments, used to derive the
+     * site-review loop stage. Draft comments never move the ribbon.
      *
      * @return array{pending: int, addressed: int, resolved: int}
      */
@@ -77,11 +67,10 @@ class SiteReviewCommentRepository extends ServiceEntityRepository
         /** @var list<array{status: SiteReviewCommentStatus, count: int|string}> $rows */
         $rows = $this->createQueryBuilder('c')
             ->select('c.status AS status', 'COUNT(c.id) AS count')
-            ->join('c.review', 'r')
-            ->andWhere('r.project = :project')
-            ->andWhere('r.status = :reviewStatus')
+            ->andWhere('c.project = :project')
+            ->andWhere('c.status != :draft')
             ->setParameter('project', $project)
-            ->setParameter('reviewStatus', SiteReviewStatus::Submitted)
+            ->setParameter('draft', SiteReviewCommentStatus::Draft)
             ->groupBy('c.status')
             ->getQuery()
             ->getResult();
@@ -95,19 +84,35 @@ class SiteReviewCommentRepository extends ServiceEntityRepository
     }
 
     /**
-     * A comment inside the project's current in-progress review — the only
-     * comments the widget may edit or delete.
+     * The widget's current draft list, position-ordered.
+     *
+     * @return list<SiteReviewComment>
      */
-    public function findOneInDraftReview(Uuid $id, Project $project): ?SiteReviewComment
+    public function findDraftForProject(Project $project): array
     {
         return $this->createQueryBuilder('c')
-            ->join('c.review', 'r')
+            ->andWhere('c.project = :project')
+            ->andWhere('c.status = :status')
+            ->setParameter('project', $project)
+            ->setParameter('status', SiteReviewCommentStatus::Draft)
+            ->orderBy('c.position', 'ASC')
+            ->getQuery()
+            ->getResult();
+    }
+
+    /**
+     * A Draft comment of the project — the only comments the widget may edit
+     * or delete.
+     */
+    public function findOneDraft(Uuid $id, Project $project): ?SiteReviewComment
+    {
+        return $this->createQueryBuilder('c')
             ->andWhere('c.id = :id')
-            ->andWhere('r.project = :project')
-            ->andWhere('r.status = :status')
+            ->andWhere('c.project = :project')
+            ->andWhere('c.status = :status')
             ->setParameter('id', $id)
             ->setParameter('project', $project)
-            ->setParameter('status', SiteReviewStatus::InProgress)
+            ->setParameter('status', SiteReviewCommentStatus::Draft)
             ->getQuery()
             ->getOneOrNullResult();
     }
@@ -116,13 +121,91 @@ class SiteReviewCommentRepository extends ServiceEntityRepository
     public function findOneForProject(Uuid $id, Project $project): ?SiteReviewComment
     {
         return $this->createQueryBuilder('c')
-            ->join('c.review', 'r')
-            ->addSelect('r')
             ->andWhere('c.id = :id')
-            ->andWhere('r.project = :project')
+            ->andWhere('c.project = :project')
             ->setParameter('id', $id)
             ->setParameter('project', $project)
             ->getQuery()
             ->getOneOrNullResult();
+    }
+
+    /**
+     * The project's whole comment list for the site-review page — a flat,
+     * position-ordered feed across every status including Draft.
+     *
+     * @return list<SiteReviewComment>
+     */
+    public function findForProject(Project $project): array
+    {
+        return $this->createQueryBuilder('c')
+            ->andWhere('c.project = :project')
+            ->setParameter('project', $project)
+            ->orderBy('c.position', 'ASC')
+            ->getQuery()
+            ->getResult();
+    }
+
+    /**
+     * Next position for a new comment on this project. Not count(): after a
+     * delete-then-add, count() would reuse an existing position and make
+     * position-ordered ties nondeterministic.
+     */
+    public function nextPositionForProject(Project $project): int
+    {
+        $max = $this->createQueryBuilder('c')
+            ->select('MAX(c.position)')
+            ->andWhere('c.project = :project')
+            ->setParameter('project', $project)
+            ->getQuery()
+            ->getSingleScalarResult();
+
+        return null === $max ? 0 : ((int) $max) + 1;
+    }
+
+    public function countDraftForProject(Project $project): int
+    {
+        return (int) $this->createQueryBuilder('c')
+            ->select('COUNT(c.id)')
+            ->andWhere('c.project = :project')
+            ->andWhere('c.status = :status')
+            ->setParameter('project', $project)
+            ->setParameter('status', SiteReviewCommentStatus::Draft)
+            ->getQuery()
+            ->getSingleScalarResult();
+    }
+
+    /**
+     * "Send": flips every Draft comment of the project to Pending in one bulk
+     * UPDATE — the batch boundary, expressed as a status transition rather
+     * than a submitted entity. Returns the affected row count.
+     */
+    public function markDraftsPendingForProject(Project $project): int
+    {
+        return $this->getEntityManager()->createQuery(
+            'UPDATE App\Module\SiteReview\Entity\SiteReviewComment c
+             SET c.status = :pending
+             WHERE c.project = :project AND c.status = :draft',
+        )
+            ->setParameter('pending', SiteReviewCommentStatus::Pending)
+            ->setParameter('project', $project)
+            ->setParameter('draft', SiteReviewCommentStatus::Draft)
+            ->execute();
+    }
+
+    /**
+     * Site reviews hang off a project, not the owner directly, so this joins
+     * through the project to filter by its owner.
+     *
+     * @return list<SiteReviewComment>
+     */
+    public function findByOwner(User $user): array
+    {
+        return $this->createQueryBuilder('c')
+            ->join('c.project', 'p')
+            ->where('p.owner = :user')
+            ->setParameter('user', $user)
+            ->orderBy('c.createdAt', 'ASC')
+            ->getQuery()
+            ->getResult();
     }
 }

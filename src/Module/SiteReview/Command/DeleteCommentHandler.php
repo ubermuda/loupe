@@ -19,7 +19,7 @@ final readonly class DeleteCommentHandler
 
     public function __invoke(DeleteCommentCommand $command): void
     {
-        $comment = $this->siteReviewComments->findOneInDraftReview($command->commentId, $command->project)
+        $comment = $this->siteReviewComments->findOneDraft($command->commentId, $command->project)
             ?? throw CommentNotFound::forId($command->commentId);
 
         $this->em->remove($comment);

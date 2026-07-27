@@ -11,9 +11,9 @@ use Symfony\Component\Uid\Uuid;
 
 #[ORM\Entity(repositoryClass: DataExportRepository::class)]
 #[ORM\Table(name: 'data_exports')]
-// Mirrors SiteReview's own "one active row per parent" pattern: the
-// application-level pending-check in RequestDataExportHandler is a TOCTOU
-// race under concurrent requests, so the DB enforces the real invariant.
+// The application-level pending-check in RequestDataExportHandler is a
+// TOCTOU race under concurrent requests, so the DB enforces the real
+// invariant: at most one pending export per user.
 #[ORM\UniqueConstraint(name: 'uniq_data_exports_pending_user', columns: ['user_id'], options: ['where' => "((status)::text = 'pending'::text)"])]
 class DataExport
 {

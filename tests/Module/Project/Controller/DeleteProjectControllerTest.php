@@ -7,7 +7,7 @@ namespace App\Tests\Module\Project\Controller;
 use App\Module\Account\Entity\User;
 use App\Module\Project\Entity\Project;
 use App\Module\Review\Entity\Document;
-use App\Module\SiteReview\Entity\SiteReview;
+use App\Module\SiteReview\Entity\SiteReviewComment;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use Symfony\Component\HttpFoundation\Request;
@@ -22,7 +22,7 @@ final class DeleteProjectControllerTest extends WebTestCase
         $project = new Project($owner, 'my-project');
         $em->persist($project);
         $em->persist(new Document($owner, $project, 'a doc'));
-        $em->persist(new SiteReview($project));
+        $em->persist(new SiteReviewComment($project, 0, 'a comment', '', '', 'https://example.test/'));
         $em->flush();
         $projectId = $project->id;
         $em->clear();
@@ -40,7 +40,7 @@ final class DeleteProjectControllerTest extends WebTestCase
         self::assertNull($em->find(Project::class, $projectId));
         $conn = $em->getConnection();
         self::assertSame(0, (int) $conn->fetchOne('SELECT count(*) FROM documents WHERE project_id = :id', ['id' => (string) $projectId]));
-        self::assertSame(0, (int) $conn->fetchOne('SELECT count(*) FROM site_review_reviews WHERE project_id = :id', ['id' => (string) $projectId]));
+        self::assertSame(0, (int) $conn->fetchOne('SELECT count(*) FROM site_review_comments WHERE project_id = :id', ['id' => (string) $projectId]));
 
         $client->followRedirect();
         self::assertSelectorTextContains('.lp-flash', 'permanently deleted');
