@@ -87,7 +87,7 @@ final class SiteReviewApiTest extends WebTestCase
         [$raw, $project] = $this->projectWithToken($em, 'api-c@example.com');
 
         $this->api($client, Request::METHOD_GET, '/api/site-review/review', $raw);
-        self::assertSame(['comments' => [], 'review' => null], json_decode((string) $client->getResponse()->getContent(), true));
+        self::assertSame(['comments' => []], json_decode((string) $client->getResponse()->getContent(), true));
 
         $this->api($client, Request::METHOD_POST, '/api/site-review/comments', $raw, ['body' => 'one', 'url' => 'https://app/x']);
         $this->api($client, Request::METHOD_POST, '/api/site-review/comments', $raw, ['body' => 'two', 'url' => 'https://app/y']);
@@ -97,9 +97,6 @@ final class SiteReviewApiTest extends WebTestCase
         self::assertCount(2, $data['comments']);
         self::assertSame('one', $data['comments'][0]['body']);
         self::assertNotEmpty($data['comments'][0]['id']);
-        // Compatibility shim: a widget.js cached before this deploy reads
-        // review.comments, and would otherwise render an empty list.
-        self::assertSame($data['comments'], $data['review']['comments']);
 
         $this->api($client, Request::METHOD_POST, '/api/site-review/review/submit', $raw);
         self::assertResponseIsSuccessful();
@@ -111,8 +108,7 @@ final class SiteReviewApiTest extends WebTestCase
         $this->api($client, Request::METHOD_POST, '/api/site-review/review/submit', $raw);
         self::assertResponseStatusCodeSame(422);
         $this->api($client, Request::METHOD_GET, '/api/site-review/review', $raw);
-        // review stays null when empty — the old build tested `review ? … : []`.
-        self::assertSame(['comments' => [], 'review' => null], json_decode((string) $client->getResponse()->getContent(), true));
+        self::assertSame(['comments' => []], json_decode((string) $client->getResponse()->getContent(), true));
     }
 
     public function test_edit_and_delete_draft_comment(): void
