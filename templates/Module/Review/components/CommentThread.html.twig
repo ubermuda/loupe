@@ -3,6 +3,9 @@
     comment    Comment           The root comment (parent === null).
     replies    list<Comment>     Direct replies to this comment.
     replyForm  FormView|null     Pre-bound reply form (with errors) or null.
+    readOnly   bool              True on an earlier version of the document, where
+                                 reply/resolve/delete would act on a version the
+                                 reviewer has navigated away from. Defaults false.
 
   Reply is a Symfony form; resolve is a fieldless plain form submitted by the
   Resolve button via form=. Both post through Turbo; the controllers return a
@@ -51,6 +54,10 @@
     </div>
     {% endif %}
 
+    {# On an earlier version there is nothing to act on: every one of these posts
+       resolves its target through the comment's own id, but the reviewer is
+       looking at a record of a past discussion, not the live one. #}
+    {% if not readOnly %}
     {# Fieldless delete form — available on any thread (resolved or not),
        submitted by a Delete button via form=. Confirmed before submit. #}
     <form id="delete-form-{{ comment.id }}" action="{{ path('app_comment_delete', {id: comment.id}) }}" method="post" hidden
@@ -81,5 +88,6 @@
     <div class="lp-comment-actions">
         <button type="submit" form="delete-form-{{ comment.id }}" class="lp-btn lp-btn--danger-ghost lp-btn--sm">{{ 'review.document.comment.delete'|trans }}</button>
     </div>
+    {% endif %}
     {% endif %}
 </div>

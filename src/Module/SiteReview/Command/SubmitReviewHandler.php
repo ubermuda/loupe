@@ -31,7 +31,15 @@ final readonly class SubmitReviewHandler
         // so without a transaction a later failure would leave the comments
         // Pending with no event to replay, which is precisely what the outbox
         // exists to prevent.
-        [$flippedCount, $event] = $this->em->wrapInTransaction(function () use ($command): array {
+        // Whether this review reaches the owner's agent is a property of the
+        // credential that submitted it, and the widget token is bound one-to-one
+        // to the project (the resolver matched the project BY that token), so the
+        // project's own widget token is the submitting one. A project with no
+        // widget token cannot reach this handler at all — treating that as "do
+        // not forward" keeps the fallback on the safe side.
+        $forwardable = $command->project->widgetToken->forwardsToAgent ?? false;
+
+        [$flippedCount, $event] = $this->em->wrapInTransaction(function () use ($command, $forwardable): array {
             $flippedCount = $this->siteReviewComments->markDraftsPendingForProject($command->project);
             if (0 === $flippedCount) {
                 throw new DomainErrors(['review' => 'site_review.error.nothing_to_submit']);
@@ -41,14 +49,25 @@ final readonly class SubmitReviewHandler
                 $command->project->id ?? throw new \LogicException('Managed project has no id.'),
             );
             $payload = json_encode(['type' => 'site_review.submitted'], \JSON_THROW_ON_ERROR);
-            $event = new SiteReviewEvent($command->project, $topic, $payload);
+            $event = new SiteReviewEvent($command->project, $topic, $payload, $forwardable);
             $this->em->persist($event);
             $this->em->flush();
 
             return [$flippedCount, $event];
         });
 
-        $this->publish($event);
+        if ($forwardable) {
+            $this->publish($event);
+        } else {
+            // Collect-only token: the comments are Pending and the agent can still
+            // pull them with get_site_review whenever the owner asks it to. What is
+            // withheld is the unsolicited nudge, which is what would otherwise let
+            // any visitor of a public page drive the owner's agent.
+            $this->logger->info('site_review.review.forwarding_suppressed', [
+                'projectId' => (string) $command->project->id,
+                'eventId' => (string) $event->id,
+            ]);
+        }
 
         $this->logger->info('site_review.review.submitted', [
             'projectId' => (string) $command->project->id,

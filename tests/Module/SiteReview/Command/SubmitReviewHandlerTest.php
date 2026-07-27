@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace App\Tests\Module\SiteReview\Command;
 
 use App\Exception\DomainErrors;
+use App\Module\Account\Entity\ApiToken;
+use App\Module\Account\Entity\ApiTokenScope;
 use App\Module\Account\Entity\User;
 use App\Module\Project\Entity\Project;
 use App\Module\SiteReview\Command\SubmitReviewCommand;
@@ -102,6 +104,47 @@ final class SubmitReviewHandlerTest extends KernelTestCase
         self::assertSame($event->sequence, $capturedId);
     }
 
+    public function test_a_collect_only_token_submits_without_reaching_the_agent(): void
+    {
+        $project = $this->project('submit-g@example.com', forwardsToAgent: false);
+        $this->em->persist(new SiteReviewComment($project, 0, 'one', '', '', 'https://app/x'));
+        $this->em->flush();
+
+        // The whole point of the opt-in: a token pasted into a publicly
+        // reachable page must not let a visitor drive the owner's agent.
+        $this->hub->expects($this->never())->method('publish');
+
+        $count = ($this->handler)(new SubmitReviewCommand($project));
+
+        // Collect-only, not reject: the comments still land, and get_site_review
+        // still serves them when the owner's agent asks.
+        self::assertSame(1, $count);
+        self::assertSame(0, $this->comments->countDraftForProject($project));
+        self::assertCount(1, $this->comments->findPendingForProject($project));
+
+        // The outbox row is still written — it is also the ledger the submitted
+        // review counts read — but flagged so that anything draining unpublished
+        // events later cannot deliver it after the fact.
+        $event = $this->events->findOneBy(['project' => $project]);
+        self::assertNotNull($event);
+        self::assertFalse($event->forwardable);
+        self::assertNull($event->publishedAt);
+    }
+
+    public function test_a_forwarding_token_marks_its_event_forwardable(): void
+    {
+        $project = $this->project('submit-h@example.com');
+        $this->em->persist(new SiteReviewComment($project, 0, 'one', '', '', 'https://app/x'));
+        $this->em->flush();
+        $this->hub->expects($this->once())->method('publish')->willReturn('id');
+
+        ($this->handler)(new SubmitReviewCommand($project));
+
+        $event = $this->events->findOneBy(['project' => $project]);
+        self::assertNotNull($event);
+        self::assertTrue($event->forwardable);
+    }
+
     public function test_no_draft_comments_is_a_domain_error(): void
     {
         $project = $this->project('submit-b@example.com');
@@ -152,12 +195,22 @@ final class SubmitReviewHandlerTest extends KernelTestCase
         self::assertSame(SiteReviewCommentStatus::Resolved, $freshResolved->status);
     }
 
-    /** @param non-empty-string $email */
-    private function project(string $email, string $name = 'handler-site'): Project
+    /**
+     * A project with the widget token a submit would have authenticated with.
+     * Forwarding is on unless a test asks otherwise, because that is the case
+     * the publish assertions are about; the opt-in itself is covered above.
+     *
+     * @param non-empty-string $email
+     */
+    private function project(string $email, string $name = 'handler-site', bool $forwardsToAgent = true): Project
     {
         $user = new User(username: $email, fullName: 'U', email: $email, password: 'x');
         $this->em->persist($user);
         $project = new Project($user, $name);
+        [$widgetToken] = ApiToken::issue($user, 'Widget: '.$name, ApiTokenScope::SiteReview);
+        $widgetToken->forwardsToAgent = $forwardsToAgent;
+        $project->widgetToken = $widgetToken;
+        $this->em->persist($widgetToken);
         $this->em->persist($project);
         $this->em->flush();
 

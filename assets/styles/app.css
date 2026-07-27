@@ -901,6 +901,19 @@
     .lp-version-pill {
         @apply inline-flex items-center rounded-full font-mono bg-accent-soft text-accent-hover text-xs py-0.5 px-2;
     }
+    /* One entry in the version switcher pointing at a version other than the one
+       on screen. Muted so the accent-coloured pill still reads as "you are here". */
+    .lp-version-pill--link {
+        @apply bg-surface-2 text-fg-mute no-underline transition-colors hover:bg-tint hover:text-fg;
+    }
+    .lp-version-switcher {
+        @apply flex flex-wrap items-center gap-1.5 mt-2;
+    }
+    /* Shown above an earlier version of a document, which is read-only: the
+       composer, reply and verdict controls all act on the current version. */
+    .lp-version-banner {
+        @apply flex flex-wrap items-center gap-2.5 px-4 py-3 mb-4 rounded-lg border text-sm bg-surface-2 border-line text-fg-mute;
+    }
     .lp-review-doc__byline {
         @apply font-mono text-fg-dim m-0 text-xs mt-2;
     }

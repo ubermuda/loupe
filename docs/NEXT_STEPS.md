@@ -5,22 +5,6 @@ Open work and observations worth revisiting. Delete items entirely once resolved
 Entries are ordered by priority (high → medium → low); insert new entries at
 the end of their priority band. Format and rules: `project-next-steps` skill.
 
-## New `/api` routes must carry their own scope access_control rule
-
-
-
-**Author:** Claude · **Type:** security · **Priority:** high · **Status:** pending
-
-The `api` firewall matches all of `^/api`, but `access_control` only guards
-`^/api/site-review` (→ `ROLE_API_SITE_REVIEW`). Every API-token user also carries
-`ROLE_USER` (via `User::getRoles()`), so a hypothetical future `^/api/<other>`
-route would fall through to the catch-all `^/ → ROLE_USER` and accept ANY scoped
-token — defeating scope enforcement. No live exposure today (no other `/api/*`
-route exists). When adding a new `/api` endpoint, add a matching scope rule above
-the catch-all (do not narrow the firewall pattern — stray `/api` traffic would
-otherwise hit the stateful form-login firewall). Consider a deny-by-default
-`^/api` rule once more than one scope exists.
-
 ## MCP: no way to reply to document-review comments
 
 
@@ -39,35 +23,6 @@ to a web-UI controller (`ReplyToCommentController`) — there is still no MCP
 tool, so an agent still cannot reply through the MCP surface. Add a
 `reply_to_comment` MCP tool (and consider `mark_comment_addressed`) for
 document reviews.
-
-## Resolved comments become unreachable after the next revision
-
-
-
-**Author:** Geoffrey · **Type:** bug · **Priority:** high · **Status:** pending
-
-Found while dogfooding the 2026-07-26 codebase audit review. Resolving a
-comment and then revising the document makes the whole discussion disappear
-from the app: `ResolveCommentHandler` sets `resolved = true` on the comment,
-which stays attached to the version it was written on;
-`ReviseDocumentHandler` copies only `findOpenByVersion()` results onto the new
-version, so resolved comments deliberately do not carry forward; and
-`ShowDocumentController` renders only `$this->documentVersions->findLatest($document)`,
-with no route parameter or UI control for viewing an earlier version (the
-`lp-version-pill` in `templates/Module/Review/show_document.html.twig:43` is a static label,
-not a switcher). Net effect: a reviewer who resolves eight comments and then
-receives a revision sees an empty comment sidebar and has no way back to what
-was discussed. The rows are intact in the database — this is a visibility
-bug, not data loss — but the review history is unreachable through the UI,
-which undercuts the core loop of the product.
-
-Decide when picking this up: (1) let the review view render any version, so
-resolved threads stay readable on the version that carries them (smallest
-change, no data-model impact); (2) carry resolved comments forward too, marked
-resolved and collapsed, so the current version shows the full history; or
-(3) keep per-version comments but add a separate "resolved history" panel
-listing threads from all versions. Option 1 composes with "Review UI: version
-diff view", which needs per-version rendering anyway.
 
 ## Review UI: version diff view
 
@@ -91,8 +46,9 @@ Owner request (2026-07-25): a real public HTTP API and outbound webhooks
 (events like document created/revised, review verdict, comment added — so
 integrators don't have to poll). Existing relevant surface: the `/api`
 firewall + ApiToken scopes (currently only site-review + MCP), and the
-NEXT_STEPS warning that every new /api route needs its own scope
-access_control rule. Design questions for the spec phase: API versioning,
+deny-by-default `access_control` rule on `^/api` in
+`config/packages/security.yaml` — every new /api route must add its own scope
+rule above that line or it is refused. Design questions for the spec phase: API versioning,
 token scopes per resource, webhook subscription storage + signing (HMAC),
 delivery retries (the existing Messenger worker is the natural transport),
 and dogfooding the API from the CLI/widget.
@@ -180,6 +136,13 @@ What genuinely remains: nothing drains or retries unpublished
 today (only `countForProject`) — replay is manual. Add one (e.g. "unpublished,
 older than N", so a transient hub outage self-heals) and a worker on the
 existing Messenger scheduler transport to drain it.
+
+That query **must** also filter on `SiteReviewEvent::$forwardable`. A row is
+written for every submit, including those from collect-only widget tokens
+whose review is deliberately never forwarded (`ApiToken::$forwardsToAgent`),
+so `publishedAt IS NULL` alone does not mean "still owed to the agent" —
+draining on that condition would deliver exactly the reviews the opt-in
+exists to withhold.
 
 ## CSP is report-only until inline scripts carry nonces
 
@@ -435,31 +398,6 @@ in-app cancel (Stripe API cancel_at_period_end via StripeGatewayInterface +
 confirm modal) vs keeping the portal as the single management surface, and
 whether the section should show renewal date/price (data already synced on
 BillingProfile).
-
-## Widget tokens: opt-in agent-forwarding scope
-
-
-
-**Author:** Geoffrey · **Type:** security · **Priority:** medium · **Status:** pending
-
-The site-review widget token is embedded in page markup (the snippet built in
-`templates/Module/Project/connect_agent.html.twig`), so whoever can view the
-page holds the credential. Today every submitted review is published to Mercure
-and auto-injected into the owner's local Claude session by the bridge CLI
-(`cli/internal/inject/inject.go`) — so a token pasted on a publicly reachable
-page lets anonymous visitors trigger the owner's agent. Owner decision
-(2026-07-26): add an agent-forwarding scope (or flag) to widget tokens,
-default **off** — collect-only tokens still accept comments, but their reviews
-are never forwarded to the agent. Enforce server-side in
-`SubmitReviewHandler` (skip the Mercure publish, or publish marked
-non-forwardable, when the submitting token lacks the scope) — not in the CLI,
-which is the weaker boundary. Also add copy to the connect-agent flow warning
-that the token is visible in page source and forwarding tokens belong on
-access-controlled environments only. This complements — does not replace —
-keeping reviewer-controlled text (comment URLs, site name) out of the
-auto-submitted prompt in `inject.go`; that prompt-construction fix is being
-handled as immediate work and is not part of this entry. Related: see
-"Personal reviewer tokens as an identity layer for the widget".
 
 ## Gamache: ship the controller direct-state-access rule the skill cites
 
@@ -756,8 +694,9 @@ removes the token from page source. Costs the zero-friction "anyone on the
 staging site can comment" UX (reviewers must redeem an invite first), and
 needs a lightweight reviewer identity without full accounts plus a tokenless
 widget bootstrap mode. Only worth picking up if per-reviewer accountability
-becomes a product need — the cheaper mitigation for the exposure concern is
-the forwarding scope (see "Widget tokens: opt-in agent-forwarding scope").
+becomes a product need — the cheaper mitigation for the exposure concern has
+already shipped: `ApiToken::$forwardsToAgent` makes agent forwarding opt-in per
+widget token, so a leaked token collects comments but cannot drive the agent.
 
 ## Expose the paywall decision as a voter for the view layer
 
@@ -970,14 +909,15 @@ config or embedded in the widget snippet built by
 mint time, so switching project means minting a new token, and the widget's
 credential is visible in page source.
 
-Things this would interact with, all already tracked separately: "Widget
-tokens: opt-in agent-forwarding scope" (an OAuth scope is the natural home for
-that flag); "Personal reviewer tokens as an identity layer for the widget"
-(OAuth largely subsumes it, and gives per-reviewer identity for free);
+Things this would interact with: the per-token agent-forwarding flag that
+already ships (`ApiToken::$forwardsToAgent` — an OAuth scope is the natural
+home for it, and the opt-in must survive the migration rather than being
+granted by default); "Personal reviewer tokens as an identity layer for the
+widget" (OAuth largely subsumes it, and gives per-reviewer identity for free);
 "Unbound legacy MCP tokens look like a connection failure to agents" (consent-
 time project selection removes the unbound state by construction); and the
-`/api` scope access-control warning, since OAuth scopes would need the same
-per-scope `access_control` discipline. Note `symfony/mcp-bundle` is on 0.12 and
+deny-by-default `^/api` rule in `config/packages/security.yaml`, since OAuth
+scopes would need the same per-scope `access_control` discipline. Note `symfony/mcp-bundle` is on 0.12 and
 tracks the MCP protocol's own authorization spec — check what it provides
 before hand-rolling a server.
 

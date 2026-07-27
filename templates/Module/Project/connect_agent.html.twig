@@ -137,6 +137,32 @@
             </div>
             <pre class="lp-pre"><code>{{ widgetSnippet }}</code></pre>
         </div>
+
+        {# Agent forwarding is opt-in per widget token (ApiToken::$forwardsToAgent).
+           The token above sits in the page source of the site it is installed on,
+           so whoever can view that page can submit a review — and a forwarded
+           review reaches the owner's agent unprompted. Off is the safe default;
+           turning it on is a deliberate choice for an access-controlled site. #}
+        <p class="lp-connect-hint mt-4">{{ 'project.connect.forwarding.warning'|trans }}</p>
+        <div class="lp-connect-field">
+            <twig:ux:icon name="lucide:zap" class="lp-connect-field__glyph w-4 h-4" />
+            <span class="lp-connect-field__value">
+                {{ 'project.connect.forwarding.label'|trans }}
+                <span class="lp-connect-field__meta">
+                    {{ (project.widgetToken.forwardsToAgent
+                        ? 'project.connect.forwarding.state.on'
+                        : 'project.connect.forwarding.state.off')|trans }}
+                </span>
+            </span>
+            <form method="POST" action="{{ path('app_project_widget_forwarding_toggle', {id: project.id}) }}">
+                <input type="hidden" name="_csrf_token" value="{{ csrf_token('toggle-project-widget-forwarding') }}">
+                <button type="submit" class="lp-btn lp-btn--ghost lp-btn--sm">
+                    {{ (project.widgetToken.forwardsToAgent
+                        ? 'project.connect.forwarding.disable'
+                        : 'project.connect.forwarding.enable')|trans }}
+                </button>
+            </form>
+        </div>
         {% else %}
         <p class="lp-connect-hint">{{ 'account.api_token.scope.site_review_warning'|trans }}</p>
         <form method="POST" action="{{ path('app_project_widget_token_mint', {id: project.id}) }}">

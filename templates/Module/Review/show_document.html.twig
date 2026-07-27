@@ -16,6 +16,16 @@
     </div>
     {% endif %}
 
+    {% if readOnly %}
+    <div class="lp-version-banner">
+        <twig:ux:icon name="lucide:history" class="w-4 h-4 shrink-0" />
+        <span>{{ 'review.document.version.read_only'|trans({'%version%': version.versionNumber}) }}</span>
+        <a class="lp-btn lp-btn--ghost lp-btn--sm" href="{{ path('app_document_review', {projectId: document.project.id, documentId: document.id}) }}">
+            {{ 'review.document.version.back_to_latest'|trans }}
+        </a>
+    </div>
+    {% endif %}
+
     <header class="lp-review-header">
         <nav class="lp-review-breadcrumb">
             <a href="{{ path('app_project_documents', {id: document.project.id}) }}">{{ document.project.name }}</a>
@@ -36,17 +46,40 @@
             so that its textContent === DocumentVersion::plainText() and JS
             text-node offsets agree with the PHP anchor basis.
         #}
-        <div class="lp-review-doc" data-action="mouseup->comment-anchor#onDocMouseup">
+        <div class="lp-review-doc"{% if not readOnly %} data-action="mouseup->comment-anchor#onDocMouseup"{% endif %}>
             <div class="lp-review-doc__head">
                 <h1 class="lp-review-doc__title">
                     {{ document.title }}
                     <span class="lp-version-pill">{{ 'v' ~ version.versionNumber }}</span>
                 </h1>
                 <p class="lp-review-doc__byline">{{ 'review.document.byline'|trans({'%reviewer%': app.user.fullName}) }}</p>
+
+                {# The way back to a discussion that a revision left behind: comments
+                   resolved on an earlier version stay on that version, so without this
+                   the whole thread is unreachable once the document is revised. The
+                   newest version links to the canonical unnumbered URL. #}
+                {% if versions|length > 1 %}
+                <nav class="lp-version-switcher" aria-label="{{ 'review.document.version.switcher_label'|trans }}">
+                    {% for meta in versions %}
+                        {% if meta.versionNumber == version.versionNumber %}
+                            <span class="lp-version-pill" aria-current="page">{{ 'v' ~ meta.versionNumber }}</span>
+                        {% else %}
+                            <a class="lp-version-pill lp-version-pill--link"
+                               href="{{ loop.first
+                                   ? path('app_document_review', {projectId: document.project.id, documentId: document.id})
+                                   : path('app_document_review_version', {projectId: document.project.id, documentId: document.id, versionNumber: meta.versionNumber}) }}"
+                            >{{ 'v' ~ meta.versionNumber }}</a>
+                        {% endif %}
+                    {% endfor %}
+                </nav>
+                {% endif %}
             </div>
 
             <div class="prose max-w-2xl lp-prose lp-review-doc__prose" data-comment-anchor-target="doc">{{ version.renderedHtml|raw }}</div>
 
+            {# The composer and its toolbar post onto the CURRENT version, so on an
+               earlier one they are omitted entirely rather than shown and ignored. #}
+            {% if not readOnly %}
             {# Floating toolbar — appears on text selection so selecting text no
                longer steals focus or blocks copying. Clicking it opens the
                composer and highlights the selection. #}
@@ -90,11 +123,13 @@
                     >{{ 'review.document.comment.submit'|trans }}</button>
                 </div>
             {{ form_end(addCommentForm) }}
+            {% endif %}
         </div>
 
         <div class="lp-review-sidebar">
-            {% include '@Review/_comment_threads.html.twig' with {comments: comments} only %}
+            {% include '@Review/_comment_threads.html.twig' with {comments: comments, readOnly: readOnly} only %}
 
+            {% if not readOnly %}
             <div class="lp-verdict-bar">
                 {% if document.status.value == 'approved' %}
                     <div class="lp-verdict-approved">
@@ -119,6 +154,7 @@
                     </form>
                 {% endif %}
             </div>
+            {% endif %}
         </div>
     </div>
 </div>
