@@ -28,9 +28,28 @@ final readonly class AddCommentHandler
         $text = $version->plainText();
 
         $quote = $command->quote;
-        $anchor = null === $quote || '' === $quote
-            ? Anchor::unanchored()
-            : $this->anchorService->fromSelection($text, $quote, $command->prefix ?? '', $command->suffix ?? '');
+        $prefix = $command->prefix ?? '';
+        $suffix = $command->suffix ?? '';
+        $orphaned = false;
+
+        if (null === $quote || '' === $quote) {
+            $anchor = Anchor::unanchored();
+        } else {
+            $anchor = $this->anchorService->fromSelection($text, $quote, $prefix, $suffix);
+            if (null === $anchor) {
+                // The quote wasn't found in the current text at all (e.g. the document
+                // was revised in another tab between selection and submit). Keep the
+                // captured quote/context as-is but mark the comment orphaned — the same
+                // representation ReanchoringService already uses for a comment whose
+                // anchor no longer resolves — rather than claim a location that isn't
+                // real. offsetHint stays 0: there is no meaningful position to record,
+                // so the orphaned flag (not the offset) is the signal a consumer must
+                // check; this can still sort the thread first in the sidebar, same as
+                // any other 0-offset entry.
+                $anchor = new Anchor($quote, $prefix, $suffix, 0);
+                $orphaned = true;
+            }
+        }
 
         $comment = new Comment(
             version: $version,
@@ -38,6 +57,7 @@ final readonly class AddCommentHandler
             body: $command->body,
             anchor: $anchor,
         );
+        $comment->orphaned = $orphaned;
 
         $this->em->persist($comment);
         $this->em->flush();

@@ -8,6 +8,10 @@ use App\Module\Account\Entity\User;
 use App\Module\Project\Entity\Project;
 use App\Module\Review\Command\CreateDocumentCommand;
 use App\Module\Review\Command\CreateDocumentHandler;
+use App\Module\Review\Command\ReplyToCommentCommand;
+use App\Module\Review\Command\ReplyToCommentHandler;
+use App\Module\Review\Command\ResolveCommentCommand;
+use App\Module\Review\Command\ResolveCommentHandler;
 use App\Module\Review\Command\ReviseDocumentCommand;
 use App\Module\Review\Command\ReviseDocumentHandler;
 use App\Module\Review\Entity\Comment;
@@ -98,5 +102,61 @@ final class ReviseDocumentHandlerTest extends KernelTestCase
         $orphaned = reset($orphanedCopies);
         self::assertInstanceOf(Comment::class, $orphaned);
         self::assertTrue($orphaned->orphaned);
+    }
+
+    /**
+     * Regression for a resolved thread whose unresolved reply used to resurrect: findOpenByVersion()
+     * selects on resolved = false with no parent check, so an unresolved reply of a resolved root was
+     * copied onto the new version with its parent detached (the resolved root isn't in the open set),
+     * reappearing as a brand-new unresolved top-level thread on every subsequent revision.
+     */
+    public function test_resolved_thread_carries_nothing_forward_even_with_an_unresolved_reply(): void
+    {
+        self::bootKernel();
+        $em = self::getContainer()->get(EntityManagerInterface::class);
+
+        $user = new User(username: 'agent2', fullName: 'Agent', email: 'agent2@example.com', password: 'hashed');
+        $em->persist($user);
+        $project = new Project($user, 'p-'.uniqid());
+        $em->persist($project);
+        $em->flush();
+
+        /** @var CreateDocumentHandler $createHandler */
+        $createHandler = self::getContainer()->get(CreateDocumentHandler::class);
+        $doc = $createHandler(new CreateDocumentCommand($project, 'Resolved Thread Doc', 'use JWTs and rate limiting'));
+
+        $v1 = $doc->currentVersion();
+
+        $root = new Comment($v1, $user, 'why JWT?', new Anchor('JWTs', 'use ', ' and', 4));
+        $em->persist($root);
+        $em->flush();
+
+        /** @var ReplyToCommentHandler $replyHandler */
+        $replyHandler = self::getContainer()->get(ReplyToCommentHandler::class);
+        $replyHandler(new ReplyToCommentCommand(actor: $user, parent: $root, body: 'Still an open question'));
+
+        /** @var ResolveCommentHandler $resolveHandler */
+        $resolveHandler = self::getContainer()->get(ResolveCommentHandler::class);
+        $resolveHandler(new ResolveCommentCommand(comment: $root));
+
+        $docId = $doc->id;
+        self::assertInstanceOf(Uuid::class, $docId);
+
+        /** @var ReviseDocumentHandler $reviseHandler */
+        $reviseHandler = self::getContainer()->get(ReviseDocumentHandler::class);
+        $summary = $reviseHandler(new ReviseDocumentCommand($docId, $project, 'use JWTs only'));
+
+        self::assertSame(0, $summary['carried'], 'a resolved thread (root or reply) must carry nothing forward');
+        self::assertSame(0, $summary['orphaned']);
+
+        $em->clear();
+        $freshDoc = $em->find(Document::class, $docId);
+        self::assertInstanceOf(Document::class, $freshDoc);
+
+        /** @var CommentRepository $commentRepository */
+        $commentRepository = self::getContainer()->get(CommentRepository::class);
+        $v2Comments = $commentRepository->findByVersion($freshDoc->currentVersion());
+
+        self::assertCount(0, $v2Comments, 'nothing from the resolved thread should appear on the new version');
     }
 }
