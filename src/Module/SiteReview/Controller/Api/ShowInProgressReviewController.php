@@ -13,7 +13,7 @@ use Symfony\Component\Routing\Attribute\Route;
 
 #[Route(
     '/api/site-review/review',
-    name: 'api_site_review_current_review',
+    name: 'api_site_review_in_progress_review',
     methods: ['GET'],
 )]
 final class ShowInProgressReviewController extends AppController
