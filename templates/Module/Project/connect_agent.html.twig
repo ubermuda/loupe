@@ -3,7 +3,7 @@
 {% block title %}{{ 'project.connect.page.title'|trans }} — {{ 'app.name'|trans }}{% endblock %}
 
 {% block body %}
-{%- set mcpUrl = url('app_mcp_endpoint') -%}
+{%- set mcpUrl = url('_mcp_endpoint') -%}
 {#- A freshly minted/regenerated raw secret is flashed under a dedicated key so it
     renders once in a copyable field, and is embedded into the config snippet and CLI
     command below (falling back to a placeholder on ordinary loads). Reading the flash

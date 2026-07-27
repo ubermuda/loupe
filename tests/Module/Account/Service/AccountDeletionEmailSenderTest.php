@@ -4,13 +4,15 @@ namespace App\Tests\Module\Account\Service;
 
 use App\Module\Account\Entity\User;
 use App\Module\Account\Service\AccountDeletionEmailSender;
+use App\Routing\PinnedUrlGenerator;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\MockObject\Stub;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\Mailer\Exception\TransportException;
 use Symfony\Component\Mailer\MailerInterface;
-use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
+use Symfony\Component\Routing\RequestContext;
+use Symfony\Component\Routing\RouterInterface;
 use Symfony\Contracts\Translation\TranslatorInterface;
 
 final class AccountDeletionEmailSenderTest extends TestCase
@@ -22,8 +24,10 @@ final class AccountDeletionEmailSenderTest extends TestCase
 
     private function makeSender(MailerInterface&Stub $mailer, EntityManagerInterface&MockObject $em): AccountDeletionEmailSender
     {
-        $urlGenerator = $this->createStub(UrlGeneratorInterface::class);
-        $urlGenerator->method('generate')->willReturn('https://example.com/account/delete/confirm?token=abc');
+        $router = $this->createStub(RouterInterface::class);
+        $router->method('getContext')->willReturn(new RequestContext());
+        $router->method('generate')->willReturn('https://example.com/account/delete/confirm?token=abc');
+        $urlGenerator = new PinnedUrlGenerator($router, 'https://example.com');
 
         $translator = $this->createStub(TranslatorInterface::class);
         $translator->method('trans')->willReturnArgument(0);
