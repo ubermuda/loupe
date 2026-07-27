@@ -5,7 +5,6 @@ package inject
 import (
 	"encoding/json"
 	"fmt"
-	"strings"
 )
 
 // Event mirrors the Mercure update payload the server publishes on submit.
@@ -29,33 +28,24 @@ func Parse(data []byte) (Event, error) {
 	return e, nil
 }
 
-// Mode selects how much context to inject.
-type Mode int
-
-const (
-	// SelfContained injects a full prompt from the event — works on a vanilla
-	// `claude` with no Loupe MCP configured.
-	SelfContained Mode = iota
-	// IDOnly injects just the site handle and asks Claude to load the pending
-	// comments via the get_site_review MCP tool.
-	IDOnly
-)
-
-// Directive renders the prompt text for an event under the given mode.
-func Directive(e Event, m Mode) string {
-	if m == IDOnly {
-		return fmt.Sprintf(
-			"A site review for site %q was just submitted (%d comment(s)). Fetch the pending comments with the get_site_review MCP tool (site %q), address them, and mark each one with address_site_review_comments.",
-			e.SiteName, e.CommentCount, e.SiteName,
-		)
-	}
-
-	var b strings.Builder
-	fmt.Fprintf(&b, "A site review for site %q was just submitted (%d comment(s)).", e.SiteName, e.CommentCount)
-	if len(e.URLs) > 0 {
-		fmt.Fprintf(&b, " Affected pages: %s.", strings.Join(e.URLs, ", "))
-	}
-	b.WriteString(" Review the feedback and address it.")
-
-	return b.String()
+// Directive renders the prompt text injected into the agent's tmux session
+// for an event.
+//
+// It carries only opaque, server-generated identifiers (the review id and a
+// comment count) — never reviewer-controlled strings such as comment URLs
+// or the site name. Those fields are still part of Event, because Event
+// mirrors the server's wire payload as a whole, but they must never be
+// interpolated here: anyone who can post a site review through the embedded
+// widget controls that text, and interpolating it into an auto-submitted
+// prompt would let them inject instructions into the owner's agent session.
+//
+// The agent fetches the actual comment content itself via the
+// get_site_review MCP tool, whose `site` parameter is optional and resolves
+// from the caller's bound token — so no site identifier needs to be injected
+// either.
+func Directive(e Event) string {
+	return fmt.Sprintf(
+		"A site review (%s) was just submitted with %d comment(s). Fetch the pending comments with the get_site_review MCP tool, address them, and mark each one with address_site_review_comments.",
+		e.ReviewID, e.CommentCount,
+	)
 }
