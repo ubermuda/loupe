@@ -11,6 +11,9 @@ import {
     registerAndVerify,
 } from '../helpers';
 
+// Guest by default — make the unauthenticated starting state explicit.
+test.use({ storageState: { cookies: [], origins: [] } });
+
 const RUN = Date.now();
 
 /**

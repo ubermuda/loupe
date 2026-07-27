@@ -58,7 +58,9 @@ final class SubmitReviewController extends AppController
         }
 
         $user = $this->getUser();
-        assert($user instanceof User);
+        if (!$user instanceof User) {
+            throw new \LogicException(\sprintf('%s reached without an authenticated User (got %s); this route must stay behind the ROLE_USER catch-all.', self::class, get_debug_type($user)));
+        }
 
         try {
             $review = ($this->submitReviewHandler)(new SubmitReviewCommand(
