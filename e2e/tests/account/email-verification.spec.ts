@@ -1,6 +1,9 @@
 import { test, expect, type Page } from '@playwright/test';
 import { countEmailsTo, getLatestEmailTo, extractLink } from '../helpers';
 
+// Guest by default — make the unauthenticated starting state explicit.
+test.use({ storageState: { cookies: [], origins: [] } });
+
 const RUN = Date.now();
 
 async function signUp(

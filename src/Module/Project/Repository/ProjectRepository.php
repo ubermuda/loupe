@@ -8,6 +8,7 @@ use App\Module\Account\Entity\ApiToken;
 use App\Module\Account\Entity\User;
 use App\Module\Project\Entity\Project;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
+use Doctrine\ORM\Tools\Pagination\Paginator;
 use Doctrine\Persistence\ManagerRegistry;
 use Symfony\Component\Uid\Uuid;
 
@@ -25,6 +26,22 @@ class ProjectRepository extends ServiceEntityRepository
     public function findByOwner(User $owner): array
     {
         return $this->findBy(['owner' => $owner], ['createdAt' => 'DESC']);
+    }
+
+    /** @return Paginator<Project> */
+    public function findPaginatedByOwner(User $owner, int $page, int $perPage): Paginator
+    {
+        $qb = $this->createQueryBuilder('p')
+            ->andWhere('p.owner = :owner')
+            ->setParameter('owner', $owner)
+            // created_at is TIMESTAMP(0), so same-second rows tie; without a
+            // unique tiebreak, offset pages can repeat or skip a project.
+            ->orderBy('p.createdAt', 'DESC')
+            ->addOrderBy('p.id', 'DESC')
+            ->setFirstResult(($page - 1) * $perPage)
+            ->setMaxResults($perPage);
+
+        return new Paginator($qb->getQuery());
     }
 
     /**

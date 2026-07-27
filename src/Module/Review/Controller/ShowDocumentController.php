@@ -47,7 +47,7 @@ final class ShowDocumentController extends AppController
             'method' => 'POST',
         ]);
 
-        return $this->render('review/show_document.html.twig', [
+        return $this->render('@Review/show_document.html.twig', [
             'document' => $document,
             'version' => $version,
             'comments' => $comments,

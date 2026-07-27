@@ -47,7 +47,9 @@ final class AddCommentController extends AppController
         Request $request,
     ): Response {
         $user = $this->getUser();
-        assert($user instanceof User);
+        if (!$user instanceof User) {
+            throw new \LogicException(\sprintf('%s reached without an authenticated User (got %s); this route must stay behind the ROLE_USER catch-all.', self::class, get_debug_type($user)));
+        }
 
         $data = new AddCommentRequest();
         $form = $this->createForm(AddCommentFormType::class, $data);
@@ -83,14 +85,14 @@ final class AddCommentController extends AppController
 
         if (null !== $errorMessage) {
             return new Response(
-                $this->renderView('review/_composer_error.stream.html.twig', ['message' => $errorMessage]),
+                $this->renderView('@Review/_composer_error.stream.html.twig', ['message' => $errorMessage]),
                 Response::HTTP_UNPROCESSABLE_ENTITY,
                 ['Content-Type' => TurboBundle::STREAM_MEDIA_TYPE],
             );
         }
 
         return new Response(
-            $this->renderView('review/_comment_added.stream.html.twig', [
+            $this->renderView('@Review/_comment_added.stream.html.twig', [
                 'comments' => $this->comments->findByVersion($this->documentVersions->findLatest($document)),
             ]),
             Response::HTTP_OK,

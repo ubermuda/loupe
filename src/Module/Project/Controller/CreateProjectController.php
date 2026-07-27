@@ -16,6 +16,7 @@ use App\Module\Project\View\ProjectListItem;
 use App\Module\Review\Repository\DocumentRepository;
 use App\Module\SiteReview\Repository\SiteReviewCommentRepository;
 use App\Module\SiteReview\Repository\SiteReviewRepository;
+use App\Utils\PageList;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
@@ -27,6 +28,8 @@ use Symfony\Component\Routing\Attribute\Route;
 )]
 class CreateProjectController extends AppController
 {
+    private const int PER_PAGE = 20;
+
     public function __construct(
         private readonly CreateProjectHandler $createProjectHandler,
         private readonly ProjectRepository $projects,
@@ -39,7 +42,9 @@ class CreateProjectController extends AppController
     public function __invoke(Request $request): Response
     {
         $user = $this->getUser();
-        assert($user instanceof User);
+        if (!$user instanceof User) {
+            throw new \LogicException(\sprintf('%s reached without an authenticated User (got %s); this route must stay behind the ROLE_USER catch-all.', self::class, get_debug_type($user)));
+        }
 
         $data = new CreateProjectRequest();
         $form = $this->createForm(CreateProjectFormType::class, $data);
@@ -59,6 +64,10 @@ class CreateProjectController extends AppController
             }
         }
 
+        $page = max(1, $request->query->getInt('page', 1));
+        $paginator = $this->projects->findPaginatedByOwner($user, $page, self::PER_PAGE);
+        $totalPages = max(1, (int) ceil(count($paginator) / self::PER_PAGE));
+
         $items = array_map(
             fn ($project) => new ProjectListItem(
                 project: $project,
@@ -66,11 +75,14 @@ class CreateProjectController extends AppController
                 reviewCount: $this->siteReviews->countForProject($project),
                 openCount: $this->siteReviewComments->countOpenForProject($project),
             ),
-            $this->projects->findByOwner($user),
+            iterator_to_array($paginator, false),
         );
 
         return $this->renderFormResponse('@Project/list_projects.html.twig', $form, [
             'items' => $items,
+            'page' => $page,
+            'totalPages' => $totalPages,
+            'pageList' => PageList::build($page, $totalPages),
         ]);
     }
 }

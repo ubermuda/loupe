@@ -10,7 +10,7 @@ use App\Module\Account\Command\CreateInstallAdminCommand;
 use App\Module\Account\Command\CreateInstallAdminHandler;
 use App\Module\Account\Form\InstallAdminFormType;
 use App\Module\Account\Form\InstallAdminRequest;
-use App\Module\Account\Service\InstallationState;
+use App\Module\Account\Service\InstallAccessGuard;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -24,7 +24,7 @@ use Symfony\Component\Routing\Attribute\Route;
 final class CreateAdminController extends AppController
 {
     public function __construct(
-        private readonly InstallationState $installationState,
+        private readonly InstallAccessGuard $installAccessGuard,
         private readonly CreateInstallAdminHandler $createInstallAdminHandler,
         private readonly LoggerInterface $logger,
     ) {
@@ -32,9 +32,8 @@ final class CreateAdminController extends AppController
 
     public function __invoke(Request $request): Response
     {
-        if (!$this->installationState->isOpen()) {
-            throw $this->createNotFoundException();
-        }
+        $this->installAccessGuard->ensureAccessible($request);
+
         if (true !== $request->getSession()->get(SeedFlagsController::SESSION_FLAGS_SEEDED)) {
             return $this->redirectToRoute('app_install_flags');
         }
