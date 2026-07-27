@@ -8,6 +8,7 @@ use App\Module\Account\Entity\User;
 use App\Module\Project\Entity\Project;
 use App\Module\Review\Entity\Document;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
+use Doctrine\ORM\Tools\Pagination\Paginator;
 use Doctrine\Persistence\ManagerRegistry;
 use Symfony\Component\Uid\Uuid;
 
@@ -25,6 +26,19 @@ class DocumentRepository extends ServiceEntityRepository
     public function findByProject(Project $project): array
     {
         return $this->findBy(['project' => $project], ['createdAt' => 'DESC']);
+    }
+
+    /** @return Paginator<Document> */
+    public function findPaginatedByProject(Project $project, int $page, int $perPage): Paginator
+    {
+        $qb = $this->createQueryBuilder('d')
+            ->andWhere('d.project = :project')
+            ->setParameter('project', $project)
+            ->orderBy('d.createdAt', 'DESC')
+            ->setFirstResult(($page - 1) * $perPage)
+            ->setMaxResults($perPage);
+
+        return new Paginator($qb->getQuery());
     }
 
     /** @return list<Document> */

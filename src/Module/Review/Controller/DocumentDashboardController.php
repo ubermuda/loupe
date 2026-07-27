@@ -12,6 +12,9 @@ use App\Module\Review\Repository\CommentRepository;
 use App\Module\Review\Repository\DocumentRepository;
 use App\Module\Review\Repository\DocumentVersionRepository;
 use App\Module\Review\View\DocumentListItem;
+use App\Utils\PageList;
+use Psr\Log\LoggerInterface;
+use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
@@ -24,16 +27,37 @@ use Symfony\Component\Security\Http\Attribute\IsGranted;
 )]
 class DocumentDashboardController extends AppController
 {
+    private const int PER_PAGE = 20;
+
     public function __construct(
         private readonly DocumentRepository $documents,
         private readonly DocumentVersionRepository $documentVersions,
         private readonly CommentRepository $comments,
+        private readonly LoggerInterface $logger,
     ) {
     }
 
-    public function __invoke(Project $project): Response
+    public function __invoke(Project $project, Request $request): Response
     {
-        $documents = $this->documents->findByProject($project);
+        $page = max(1, $request->query->getInt('page', 1));
+
+        $paginator = $this->documents->findPaginatedByProject($project, $page, self::PER_PAGE);
+        $total = count($paginator);
+
+        $clampedPage = PageList::clampedPage($page, $total, self::PER_PAGE);
+        if (null !== $clampedPage) {
+            $this->logger->info('review.document_list.page_clamped', [
+                'project' => (string) $project->id,
+                'requestedPage' => $page,
+                'clampedPage' => $clampedPage,
+            ]);
+
+            return $this->redirectToRoute('app_project_documents', ['id' => (string) $project->id, 'page' => $clampedPage]);
+        }
+
+        $totalPages = max(1, (int) ceil($total / self::PER_PAGE));
+
+        $documents = iterator_to_array($paginator, false);
         $latestVersions = $this->documentVersions->findLatestMetaByDocuments($documents);
 
         $items = array_map(
@@ -55,6 +79,9 @@ class DocumentDashboardController extends AppController
         return $this->render('review/dashboard.html.twig', [
             'project' => $project,
             'items' => $items,
+            'page' => $page,
+            'totalPages' => $totalPages,
+            'pageList' => PageList::build($page, $totalPages),
         ]);
     }
 }

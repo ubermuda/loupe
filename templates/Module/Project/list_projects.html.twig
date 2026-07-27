@@ -51,7 +51,7 @@
             </button>
             <div class="lp-project-new__panel{% if form.vars.submitted and not form.vars.valid %} open{% endif %}"
                  data-disclosure-target="content">
-                {{ form_start(form, {'action': path('app_project_create'), 'method': 'POST', 'attr': {'class': 'lp-form'}}) }}
+                {{ form_start(form, {'action': path('app_project_create', {page: page}), 'method': 'POST', 'attr': {'class': 'lp-form'}}) }}
                     <div class="lp-form-field">
                         {{ form_label(form.name, null, {'label_attr': {'class': 'lp-label'}}) }}
                         {{ form_widget(form.name, {'attr': {'class': 'lp-input'}}) }}
@@ -69,5 +69,7 @@
             </div>
         </div>
     </div>
+
+    <twig:Pagination route="app_projects" :page="page" :totalPages="totalPages" :pageList="pageList" />
 </div>
 {% endblock %}

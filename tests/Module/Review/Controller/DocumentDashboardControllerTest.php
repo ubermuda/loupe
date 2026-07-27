@@ -146,6 +146,51 @@ final class DocumentDashboardControllerTest extends WebTestCase
         self::assertSelectorTextContains($rowSelector.' .lp-document-row__open', '1 open thread');
     }
 
+    public function test_paginates_at_twenty_per_page(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+
+        $alice = $this->createUser($em, 'alice-paginated', 'alice-paginated@example.com');
+        $project = $this->project($em, $alice);
+        for ($i = 0; $i < 21; ++$i) {
+            $this->document($em, $alice, $project, 'Doc '.$i);
+        }
+        $em->flush();
+        $projectId = (string) $project->id;
+        $em->clear();
+
+        $client->loginUser($alice);
+        $crawler = $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/documents');
+
+        self::assertResponseIsSuccessful();
+        self::assertCount(20, $crawler->filter('[data-document-id]'));
+        self::assertSelectorTextContains('.lp-pagination__status', 'Page 1 of 2');
+
+        $crawler = $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/documents?page=2');
+
+        self::assertResponseIsSuccessful();
+        self::assertCount(1, $crawler->filter('[data-document-id]'));
+    }
+
+    public function test_out_of_range_page_redirects_to_the_last_page(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+
+        $alice = $this->createUser($em, 'alice-clamp', 'alice-clamp@example.com');
+        $project = $this->project($em, $alice);
+        $this->document($em, $alice, $project, 'Only doc');
+        $em->flush();
+        $projectId = (string) $project->id;
+        $em->clear();
+
+        $client->loginUser($alice);
+        $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/documents?page=5');
+
+        self::assertResponseRedirects('/projects/'.$projectId.'/documents?page=1');
+    }
+
     public function test_non_owner_cannot_view_a_projects_dashboard(): void
     {
         $client = static::createClient();

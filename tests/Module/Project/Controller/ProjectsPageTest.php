@@ -34,6 +34,43 @@ final class ProjectsPageTest extends WebTestCase
         self::assertSame('mine', trim($crawler->filter('[data-project-id] .lp-project-row__name')->text()));
     }
 
+    public function test_paginates_at_twenty_per_page(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $owner = $this->user($em, 'projects-paginated@example.com');
+        for ($i = 0; $i < 21; ++$i) {
+            $em->persist(new Project($owner, 'proj-'.$i));
+        }
+        $em->flush();
+
+        $client->loginUser($owner);
+        $crawler = $client->request(Request::METHOD_GET, '/projects');
+
+        self::assertResponseIsSuccessful();
+        self::assertCount(20, $crawler->filter('[data-project-id]'));
+        self::assertSelectorTextContains('.lp-pagination__status', 'Page 1 of 2');
+
+        $crawler = $client->request(Request::METHOD_GET, '/projects?page=2');
+
+        self::assertResponseIsSuccessful();
+        self::assertCount(1, $crawler->filter('[data-project-id]'));
+    }
+
+    public function test_out_of_range_page_redirects_to_the_last_page(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $owner = $this->user($em, 'projects-clamp@example.com');
+        $em->persist(new Project($owner, 'only-project'));
+        $em->flush();
+
+        $client->loginUser($owner);
+        $client->request(Request::METHOD_GET, '/projects?page=5');
+
+        self::assertResponseRedirects('/projects?page=1');
+    }
+
     public function test_row_renders_rollup_counts_with_amber_open(): void
     {
         $client = static::createClient();
