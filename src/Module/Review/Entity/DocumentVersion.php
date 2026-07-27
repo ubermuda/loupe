@@ -14,6 +14,7 @@ use Symfony\Component\Uid\Uuid;
 
 #[ORM\Entity(repositoryClass: DocumentVersionRepository::class)]
 #[ORM\Table(name: 'document_versions')]
+#[ORM\UniqueConstraint(name: 'uniq_document_version_number', columns: ['document_id', 'version_number'])]
 class DocumentVersion
 {
     #[ORM\Column(type: UuidType::NAME, unique: true)]
