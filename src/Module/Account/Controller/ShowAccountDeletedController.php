@@ -12,13 +12,13 @@ use Symfony\Component\Routing\Attribute\Route;
 #[PaywallExempt]
 #[Route(
     '/goodbye',
-    name: 'app_account_goodbye',
+    name: 'app_account_deleted',
     methods: ['GET'],
 )]
-class GoodbyeController extends AppController
+class ShowAccountDeletedController extends AppController
 {
     public function __invoke(): Response
     {
-        return $this->render('@Account/account_deletion/goodbye.html.twig');
+        return $this->render('@Account/account_deletion/show_account_deleted.html.twig');
     }
 }

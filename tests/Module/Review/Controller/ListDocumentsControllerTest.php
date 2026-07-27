@@ -13,7 +13,7 @@ use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use Symfony\Component\HttpFoundation\Request;
 
-final class DocumentDashboardControllerTest extends WebTestCase
+final class ListDocumentsControllerTest extends WebTestCase
 {
     /** @param non-empty-string $email */
     private function createUser(EntityManagerInterface $em, string $username, string $email): User

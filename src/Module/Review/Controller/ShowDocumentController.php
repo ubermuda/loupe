@@ -24,7 +24,7 @@ use Symfony\Component\Security\Http\Attribute\IsGranted;
     name: 'app_document_review',
     methods: ['GET'],
 )]
-final class DocumentReviewController extends AppController
+final class ShowDocumentController extends AppController
 {
     public function __construct(
         private readonly DocumentVersionRepository $documentVersions,
@@ -47,7 +47,7 @@ final class DocumentReviewController extends AppController
             'method' => 'POST',
         ]);
 
-        return $this->render('@Review/review.html.twig', [
+        return $this->render('@Review/show_document.html.twig', [
             'document' => $document,
             'version' => $version,
             'comments' => $comments,

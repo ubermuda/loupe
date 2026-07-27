@@ -13,10 +13,10 @@ use Symfony\Component\Routing\Attribute\Route;
 
 #[Route(
     '/api/site-review/review',
-    name: 'api_site_review_current_review',
+    name: 'api_site_review_in_progress_review',
     methods: ['GET'],
 )]
-final class CurrentReviewController extends AppController
+final class ShowInProgressReviewController extends AppController
 {
     public function __construct(
         private readonly SiteReviewRepository $siteReviews,

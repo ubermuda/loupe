@@ -25,7 +25,7 @@ use Symfony\Component\Security\Http\Attribute\IsGranted;
     name: 'app_project_documents',
     methods: ['GET'],
 )]
-class DocumentDashboardController extends AppController
+class ListDocumentsController extends AppController
 {
     private const int PER_PAGE = 20;
 
@@ -76,7 +76,7 @@ class DocumentDashboardController extends AppController
             $documents,
         );
 
-        return $this->render('@Review/dashboard.html.twig', [
+        return $this->render('@Review/list_documents.html.twig', [
             'project' => $project,
             'items' => $items,
             'page' => $page,
