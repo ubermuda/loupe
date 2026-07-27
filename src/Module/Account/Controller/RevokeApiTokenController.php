@@ -5,10 +5,12 @@ declare(strict_types=1);
 namespace App\Module\Account\Controller;
 
 use App\Controller\AppController;
+use App\Module\Account\Command\RevokeApiTokenCommand;
+use App\Module\Account\Command\RevokeApiTokenHandler;
 use App\Module\Account\Entity\ApiToken;
 use App\Module\Account\Entity\User;
 use App\Module\Account\Repository\ApiTokenRepository;
-use Doctrine\ORM\EntityManagerInterface;
+use App\Utils\SafeRedirect;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -26,7 +28,7 @@ class RevokeApiTokenController extends AppController
 {
     public function __construct(
         private readonly ApiTokenRepository $apiTokens,
-        private readonly EntityManagerInterface $em,
+        private readonly RevokeApiTokenHandler $revokeApiTokenHandler,
         private readonly LoggerInterface $logger,
     ) {
     }
@@ -43,19 +45,15 @@ class RevokeApiTokenController extends AppController
         }
 
         $label = $token->label;
-        $this->em->remove($token);
-        $this->em->flush();
+        ($this->revokeApiTokenHandler)(new RevokeApiTokenCommand($token));
 
         $this->addFlash('success', sprintf('Token "%s" has been revoked.', $label));
 
-        $this->logger->info('account.api_token.revoked', [
-            'userId' => (string) $user->id,
-            'tokenId' => (string) $tokenId,
-            'label' => $label,
-        ]);
-
+        // returnTo must be a same-origin local path and inside /projects/ — both
+        // checks apply to different attack shapes (protocol-relative/backslash-host
+        // targets vs. an off-site same-slash-prefixed path).
         $returnTo = $request->request->get('returnTo');
-        if (is_string($returnTo) && str_starts_with($returnTo, '/projects/')) {
+        if (is_string($returnTo) && SafeRedirect::isLocalPath($returnTo) && str_starts_with($returnTo, '/projects/')) {
             return $this->redirect($returnTo);
         }
 

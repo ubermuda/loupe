@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\DataExport;
+namespace App\Tests\Module\Account\Export;
 
-use App\DataExport\DataExportArchiveBuilder;
-use App\DataExport\UserDataExporterInterface;
 use App\Module\Account\Entity\User;
+use App\Module\Account\Export\DataExportArchiveBuilder;
+use App\Module\Account\Export\UserDataExporterInterface;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\Uid\Uuid;
 

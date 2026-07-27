@@ -43,4 +43,31 @@ final class ApiTokenRepositoryTest extends WebTestCase
         $notFound = $repo->findOneByRawToken('wrong-raw-value');
         self::assertNull($notFound);
     }
+
+    public function test_find_one_by_raw_token_excludes_a_revoked_token(): void
+    {
+        static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+
+        $user = new User(
+            username: 'dave',
+            fullName: 'Dave',
+            email: 'dave@example.com',
+            password: 'hashed-password-placeholder',
+        );
+        $user->emailVerifiedAt = new \DateTimeImmutable();
+        $em->persist($user);
+        $em->flush();
+
+        [$token, $raw] = ApiToken::issue($user, 'revoked token', ApiTokenScope::Mcp);
+        $token->revoke();
+        $em->persist($token);
+        $em->flush();
+        $em->clear();
+
+        /** @var ApiTokenRepository $repo */
+        $repo = static::getContainer()->get(ApiTokenRepository::class);
+
+        self::assertNull($repo->findOneByRawToken($raw), 'a revoked token must not resolve via its raw value');
+    }
 }

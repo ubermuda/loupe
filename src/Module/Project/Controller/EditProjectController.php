@@ -13,12 +13,10 @@ use App\Module\Project\Form\CreateProjectFormType;
 use App\Module\Project\Form\DeleteProjectFormType;
 use App\Module\Project\Form\UpdateProjectRequest;
 use App\Module\Project\Security\ProjectVoter;
-use Symfony\Component\Form\FormError;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
-use Symfony\Contracts\Translation\TranslatorInterface;
 
 #[IsGranted(ProjectVoter::MANAGE, subject: 'project')]
 #[Route(
@@ -30,7 +28,6 @@ class EditProjectController extends AppController
 {
     public function __construct(
         private readonly UpdateProjectHandler $updateProjectHandler,
-        private readonly TranslatorInterface $translator,
     ) {
     }
 
@@ -59,9 +56,7 @@ class EditProjectController extends AppController
 
                 return $this->redirectToRoute('app_projects');
             } catch (DomainErrors $e) {
-                foreach ($e->errors as $field => $translationKey) {
-                    $form->get($field)->addError(new FormError($this->translator->trans($translationKey)));
-                }
+                $this->applyDomainErrors($form, $e);
             }
         }
 

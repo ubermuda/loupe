@@ -53,12 +53,14 @@ final class RevokeApiTokenControllerTest extends WebTestCase
         ]);
         self::assertResponseRedirects('/projects');
 
-        // Assert the token is gone from the DB
+        // The token row survives (revoke, not delete) but is marked revoked and can
+        // no longer authenticate.
         $em->clear();
         /** @var ApiTokenRepository $repo */
         $repo = static::getContainer()->get(ApiTokenRepository::class);
         $tokens = $repo->findBy(['owner' => $owner]);
-        self::assertCount(0, $tokens);
+        self::assertCount(1, $tokens);
+        self::assertNotNull($tokens[0]->revokedAt);
     }
 
     public function test_revoke_with_return_to_redirects_there(): void

@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace App\Module\Account\Service;
 
-use App\DataExport\UserDataExporterInterface;
 use App\Module\Account\Entity\User;
+use App\Module\Account\Export\UserDataExporterInterface;
 
 final readonly class ProfileExporter implements UserDataExporterInterface
 {

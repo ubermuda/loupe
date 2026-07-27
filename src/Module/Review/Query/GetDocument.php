@@ -6,12 +6,14 @@ namespace App\Module\Review\Query;
 
 use App\Module\Project\Entity\Project;
 use App\Module\Review\Repository\DocumentRepository;
+use App\Module\Review\Repository\DocumentVersionRepository;
 use Symfony\Component\Uid\Uuid;
 
 final readonly class GetDocument
 {
     public function __construct(
         private DocumentRepository $documents,
+        private DocumentVersionRepository $documentVersions,
     ) {
     }
 
@@ -30,7 +32,7 @@ final readonly class GetDocument
             throw DocumentNotFound::forId($documentId);
         }
 
-        $currentVersion = $document->currentVersion();
+        $currentVersion = $this->documentVersions->findLatest($document);
 
         return [
             'documentId' => (string) $document->id,

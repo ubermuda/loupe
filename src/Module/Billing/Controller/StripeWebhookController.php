@@ -7,6 +7,7 @@ namespace App\Module\Billing\Controller;
 use App\Controller\AppController;
 use App\Module\Billing\Command\SyncStripeSubscriptionCommand;
 use App\Module\Billing\Command\SyncStripeSubscriptionHandler;
+use App\Module\Billing\Entity\BillingProfile;
 use Psr\Log\LoggerInterface;
 use Stripe\Exception\SignatureVerificationException;
 use Stripe\Exception\UnexpectedValueException as StripeUnexpectedValueException;
@@ -82,7 +83,7 @@ final class StripeWebhookController extends AppController
             stripeEventId: $eventId,
             stripeCustomerId: $customerId,
             stripeSubscriptionId: $subscriptionId,
-            stripeStatus: SyncStripeSubscriptionHandler::SUBSCRIPTION_DELETED === $eventType
+            stripeStatus: BillingProfile::SUBSCRIPTION_DELETED_EVENT_TYPE === $eventType
                 ? 'canceled'
                 : (is_string($subscription['status'] ?? null) ? $subscription['status'] : 'canceled'),
             stripeEventType: $eventType,

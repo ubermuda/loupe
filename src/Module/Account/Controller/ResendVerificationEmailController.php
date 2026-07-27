@@ -8,6 +8,7 @@ use App\Controller\AppController;
 use App\Module\Account\Command\ResendVerificationEmailCommand;
 use App\Module\Account\Command\ResendVerificationEmailHandler;
 use App\Module\Account\Entity\User;
+use App\Routing\PaywallExempt;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -17,6 +18,7 @@ use Symfony\Contracts\Translation\TranslatorInterface;
 use Ubermuda\SymfonyExtra\Csrf\Attribute\CsrfToken;
 
 #[CsrfToken('resend-verification')]
+#[PaywallExempt]
 #[Route(
     '/register/resend',
     name: 'app_register_resend',

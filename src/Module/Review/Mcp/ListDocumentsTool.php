@@ -7,6 +7,7 @@ namespace App\Module\Review\Mcp;
 use App\Mcp\ResolvesBoundProject;
 use App\Module\Project\Security\AuthenticatedProjectResolver;
 use App\Module\Review\Repository\DocumentRepository;
+use App\Module\Review\Repository\DocumentVersionRepository;
 use Mcp\Capability\Attribute\McpTool;
 
 /**
@@ -19,6 +20,7 @@ final readonly class ListDocumentsTool
 
     public function __construct(
         private DocumentRepository $documents,
+        private DocumentVersionRepository $documentVersions,
         private AuthenticatedProjectResolver $projectResolver,
     ) {
     }
@@ -34,15 +36,20 @@ final readonly class ListDocumentsTool
         $project = $this->requireBoundProject($this->projectResolver);
 
         $documents = $this->documents->findByProject($project);
+        $latestVersions = $this->documentVersions->findLatestMetaByDocuments($documents);
 
         return [
             'documents' => array_map(
-                static fn ($doc) => [
-                    'documentId' => (string) $doc->id,
-                    'title' => $doc->title,
-                    'status' => $doc->status->value,
-                    'currentVersion' => $doc->currentVersion()->versionNumber,
-                ],
+                static function ($doc) use ($latestVersions) {
+                    $meta = $latestVersions[(string) $doc->id] ?? throw new \LogicException('Document has no versions.');
+
+                    return [
+                        'documentId' => (string) $doc->id,
+                        'title' => $doc->title,
+                        'status' => $doc->status->value,
+                        'currentVersion' => $meta['versionNumber'],
+                    ];
+                },
                 $documents,
             ),
         ];

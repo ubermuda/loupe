@@ -778,7 +778,6 @@
     .lp-flash--success {
         @apply bg-status-ok-bg border-status-ok-border text-status-ok-deep;
     }
-    .lp-flash--danger,
     .lp-flash--error {
         @apply bg-red-50 border-red-200 text-red-800;
     }

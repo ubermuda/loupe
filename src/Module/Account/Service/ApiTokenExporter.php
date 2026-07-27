@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace App\Module\Account\Service;
 
-use App\DataExport\UserDataExporterInterface;
 use App\Module\Account\Entity\User;
+use App\Module\Account\Export\UserDataExporterInterface;
 use App\Module\Account\Repository\ApiTokenRepository;
 
 final readonly class ApiTokenExporter implements UserDataExporterInterface
@@ -31,6 +31,7 @@ final readonly class ApiTokenExporter implements UserDataExporterInterface
                 'scope' => $token->scope->value,
                 'createdAt' => $token->createdAt->format(\DateTimeInterface::ATOM),
                 'lastUsedAt' => $token->lastUsedAt?->format(\DateTimeInterface::ATOM),
+                'revokedAt' => $token->revokedAt?->format(\DateTimeInterface::ATOM),
             ];
         }
 

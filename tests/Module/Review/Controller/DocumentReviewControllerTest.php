@@ -91,8 +91,8 @@ final class DocumentReviewControllerTest extends WebTestCase
         // Byline names the reviewer (the author side is the literal "Claude").
         self::assertSelectorTextContains('.lp-review-doc__byline', 'reviewed by');
         // Verdict bar shows both verdict buttons and NOT the approved confirmation.
-        self::assertSelectorExists('button[name="verdict"][value="approved"]');
-        self::assertSelectorExists('button[name="verdict"][value="changes-requested"]');
+        self::assertSelectorExists('button[name="submit_review_form[verdict]"][value="approved"]');
+        self::assertSelectorExists('button[name="submit_review_form[verdict]"][value="changes-requested"]');
         self::assertSelectorNotExists('.lp-verdict-approved');
     }
 
@@ -209,7 +209,7 @@ final class DocumentReviewControllerTest extends WebTestCase
         self::assertResponseIsSuccessful();
         // Approved state replaces the verdict buttons with a locked confirmation.
         self::assertSelectorExists('.lp-verdict-approved');
-        self::assertSelectorNotExists('button[name="verdict"]');
+        self::assertSelectorNotExists('button[name="submit_review_form[verdict]"]');
         // Ribbon shows Approved as the current step (last step).
         self::assertSelectorExists('.lp-ribbon__circle--current');
     }

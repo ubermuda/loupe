@@ -12,11 +12,9 @@ use App\Module\Project\Command\CreateProjectHandler;
 use App\Module\Project\Form\CreateProjectFormType;
 use App\Module\Project\Form\CreateProjectRequest;
 use App\Module\Project\Service\WizardState;
-use Symfony\Component\Form\FormError;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
-use Symfony\Contracts\Translation\TranslatorInterface;
 
 #[Route(
     '/welcome/project',
@@ -28,7 +26,6 @@ class CreateFirstProjectController extends AppController
     public function __construct(
         private readonly WizardState $wizardState,
         private readonly CreateProjectHandler $createProjectHandler,
-        private readonly TranslatorInterface $translator,
     ) {
     }
 
@@ -61,9 +58,7 @@ class CreateFirstProjectController extends AppController
 
                 return $this->redirectToRoute('app_welcome_connect');
             } catch (DomainErrors $e) {
-                foreach ($e->errors as $field => $translationKey) {
-                    $form->get($field)->addError(new FormError($this->translator->trans($translationKey)));
-                }
+                $this->applyDomainErrors($form, $e);
             }
         }
 

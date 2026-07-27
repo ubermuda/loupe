@@ -2,14 +2,14 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Module\Account\Messenger;
+namespace App\Tests\Module\Account\Command;
 
-use App\DataExport\DataExportArchiveBuilder;
+use App\Module\Account\Command\ProcessDataExportCommand;
+use App\Module\Account\Command\ProcessDataExportHandler;
 use App\Module\Account\Entity\DataExport;
 use App\Module\Account\Entity\DataExportStatus;
 use App\Module\Account\Entity\User;
-use App\Module\Account\Messenger\GenerateDataExportHandler;
-use App\Module\Account\Messenger\GenerateDataExportMessage;
+use App\Module\Account\Export\DataExportArchiveBuilder;
 use App\Module\Account\Repository\DataExportRepository;
 use App\Module\Account\Service\DataExportEmailSender;
 use App\Module\Account\Service\ExpiredExportPurger;
@@ -20,7 +20,7 @@ use PHPUnit\Framework\TestCase;
 use Psr\Log\NullLogger;
 use Symfony\Component\Uid\Uuid;
 
-final class GenerateDataExportHandlerTest extends TestCase
+final class ProcessDataExportHandlerTest extends TestCase
 {
     private function persistedExport(): DataExport
     {
@@ -63,9 +63,9 @@ final class GenerateDataExportHandlerTest extends TestCase
         $purger->expects(self::once())->method('purge');
 
         $em = $this->createStub(EntityManagerInterface::class);
-        $handler = new GenerateDataExportHandler($exports, $builder, $emailSender, $purger, $em, new NullLogger());
+        $handler = new ProcessDataExportHandler($exports, $builder, $emailSender, $purger, $em, new NullLogger());
 
-        $handler(new GenerateDataExportMessage((string) $export->id));
+        $handler(new ProcessDataExportCommand((string) $export->id));
 
         self::assertSame(DataExportStatus::Ready, $export->status);
     }
@@ -91,9 +91,9 @@ final class GenerateDataExportHandlerTest extends TestCase
         $purger->expects(self::once())->method('purge')->willThrowException(new \RuntimeException('purge boom'));
 
         $em = $this->createStub(EntityManagerInterface::class);
-        $handler = new GenerateDataExportHandler($exports, $builder, $emailSender, $purger, $em, new NullLogger());
+        $handler = new ProcessDataExportHandler($exports, $builder, $emailSender, $purger, $em, new NullLogger());
 
-        $handler(new GenerateDataExportMessage((string) $export->id));
+        $handler(new ProcessDataExportCommand((string) $export->id));
 
         self::assertSame(DataExportStatus::Ready, $export->status);
     }
@@ -117,9 +117,9 @@ final class GenerateDataExportHandlerTest extends TestCase
         $purger->expects(self::never())->method('purge');
 
         $em = $this->createStub(EntityManagerInterface::class);
-        $handler = new GenerateDataExportHandler($exports, $builder, $emailSender, $purger, $em, new NullLogger());
+        $handler = new ProcessDataExportHandler($exports, $builder, $emailSender, $purger, $em, new NullLogger());
 
-        $handler(new GenerateDataExportMessage((string) Uuid::v7()));
+        $handler(new ProcessDataExportCommand((string) Uuid::v7()));
     }
 
     public function test_failed_export_is_skipped(): void
@@ -144,9 +144,9 @@ final class GenerateDataExportHandlerTest extends TestCase
         $purger->expects(self::never())->method('purge');
 
         $em = $this->createStub(EntityManagerInterface::class);
-        $handler = new GenerateDataExportHandler($exports, $builder, $emailSender, $purger, $em, new NullLogger());
+        $handler = new ProcessDataExportHandler($exports, $builder, $emailSender, $purger, $em, new NullLogger());
 
-        $handler(new GenerateDataExportMessage((string) $export->id));
+        $handler(new ProcessDataExportCommand((string) $export->id));
     }
 
     public function test_ready_export_is_reprocessed_on_redelivery(): void
@@ -172,9 +172,9 @@ final class GenerateDataExportHandlerTest extends TestCase
         $purger->expects(self::once())->method('purge');
 
         $em = $this->createStub(EntityManagerInterface::class);
-        $handler = new GenerateDataExportHandler($exports, $builder, $emailSender, $purger, $em, new NullLogger());
+        $handler = new ProcessDataExportHandler($exports, $builder, $emailSender, $purger, $em, new NullLogger());
 
-        $handler(new GenerateDataExportMessage((string) $export->id));
+        $handler(new ProcessDataExportCommand((string) $export->id));
 
         self::assertSame(DataExportStatus::Ready, $export->status);
         self::assertNotSame($firstHash, $this->downloadTokenHashOf($export));
@@ -201,13 +201,13 @@ final class GenerateDataExportHandlerTest extends TestCase
         $purger->expects(self::never())->method('purge');
 
         $em = $this->createStub(EntityManagerInterface::class);
-        $handler = new GenerateDataExportHandler($exports, $builder, $emailSender, $purger, $em, new NullLogger());
+        $handler = new ProcessDataExportHandler($exports, $builder, $emailSender, $purger, $em, new NullLogger());
 
         $this->expectException(\RuntimeException::class);
         $this->expectExceptionMessage('disk full');
 
         try {
-            $handler(new GenerateDataExportMessage((string) $export->id));
+            $handler(new ProcessDataExportCommand((string) $export->id));
         } finally {
             self::assertSame(DataExportStatus::Pending, $export->status);
         }
@@ -234,13 +234,13 @@ final class GenerateDataExportHandlerTest extends TestCase
         $purger->expects(self::never())->method('purge');
 
         $em = $this->createStub(EntityManagerInterface::class);
-        $handler = new GenerateDataExportHandler($exports, $builder, $emailSender, $purger, $em, new NullLogger());
+        $handler = new ProcessDataExportHandler($exports, $builder, $emailSender, $purger, $em, new NullLogger());
 
         $this->expectException(\RuntimeException::class);
         $this->expectExceptionMessage('smtp down');
 
         try {
-            $handler(new GenerateDataExportMessage((string) $export->id));
+            $handler(new ProcessDataExportCommand((string) $export->id));
         } finally {
             // The Ready flush already happened before the send — a redelivery
             // reprocesses this export (see test_ready_export_is_reprocessed_on_redelivery).

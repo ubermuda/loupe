@@ -7,14 +7,18 @@ namespace App\Tests\Module\Account\Command;
 use App\Exception\DomainErrors;
 use App\Module\Account\Command\DeleteAccountCommand;
 use App\Module\Account\Command\DeleteAccountHandler;
+use App\Module\Account\Deletion\AccountDataPurgerInterface;
+use App\Module\Account\Deletion\AccountDeletionCleanup;
 use App\Module\Account\Entity\ApiToken;
 use App\Module\Account\Entity\ApiTokenScope;
 use App\Module\Account\Entity\ConnectedAccount;
 use App\Module\Account\Entity\DataExport;
 use App\Module\Account\Entity\SocialProvider;
 use App\Module\Account\Entity\User;
+use App\Module\Account\Repository\UserRepository;
 use App\Module\Billing\Entity\BillingProfile;
-use App\Module\Billing\Service\StripeGatewayInterface;
+use App\Module\Billing\Messenger\CancelSubscriptionMessage;
+use App\Module\Billing\Repository\BillingProfileRepository;
 use App\Module\Project\Entity\Project;
 use App\Module\Review\Entity\Comment;
 use App\Module\Review\Entity\Document;
@@ -24,7 +28,10 @@ use App\Module\Review\ValueObject\Anchor;
 use App\Module\SiteReview\Entity\SiteReview;
 use Doctrine\DBAL\Connection;
 use Doctrine\ORM\EntityManagerInterface;
+use Psr\Log\NullLogger;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
+use Symfony\Component\Messenger\MessageBusInterface;
+use Symfony\Component\Messenger\Transport\InMemory\InMemoryTransport;
 use Symfony\Component\Uid\Uuid;
 
 final class DeleteAccountHandlerTest extends KernelTestCase
@@ -59,10 +66,6 @@ final class DeleteAccountHandlerTest extends KernelTestCase
         $em = self::getContainer()->get(EntityManagerInterface::class);
         self::assertInstanceOf(EntityManagerInterface::class, $em);
 
-        $stripe = $this->createMock(StripeGatewayInterface::class);
-        $stripe->expects(self::once())->method('cancelSubscription')->with('sub_delete_me');
-        self::getContainer()->set(StripeGatewayInterface::class, $stripe);
-
         $fixture = $this->seedFullGraph($em);
         $owner = $fixture['owner'];
         $token = $owner->generateAccountDeletionToken();
@@ -81,6 +84,23 @@ final class DeleteAccountHandlerTest extends KernelTestCase
         $em->clear();
         self::assertNull($em->find(User::class, $ownerId));
         self::assertFileDoesNotExist($archivePath);
+
+        // The cancellation message is recorded inside the deletion
+        // transaction (see the rollback-safety unit test below for proof a
+        // failed transaction never enqueues it) and becomes visible to the
+        // worker only once that transaction commits. Actual Stripe
+        // cancellation is exercised by CancelSubscriptionHandlerTest.
+        /** @var InMemoryTransport $transport */
+        $transport = self::getContainer()->get('messenger.transport.async');
+        $sent = $transport->getSent();
+        $cancelMessages = array_values(array_filter(
+            array_map(static fn ($e) => $e->getMessage(), $sent),
+            static fn ($m) => $m instanceof CancelSubscriptionMessage,
+        ));
+        self::assertCount(1, $cancelMessages);
+        self::assertSame('sub_delete_me', $cancelMessages[0]->stripeSubscriptionId);
+        self::assertSame('cus_delete_me', $cancelMessages[0]->stripeCustomerId);
+        self::assertSame((string) $ownerId, $cancelMessages[0]->deletedUserId);
 
         $conn = self::getContainer()->get(Connection::class);
         self::assertInstanceOf(Connection::class, $conn);
@@ -132,32 +152,94 @@ final class DeleteAccountHandlerTest extends KernelTestCase
         self::assertSame(1, (int) $conn->fetchOne('SELECT count(*) FROM comments WHERE id = :id', ['id' => (string) $fixture['otherAuthoredCommentId']]));
     }
 
-    public function test_stripe_failure_is_logged_and_does_not_block_deletion(): void
+    /**
+     * A failure that prevents the transaction from ever running must leave
+     * Stripe untouched: the cancellation message is dispatched from inside
+     * wrapInTransaction()'s closure, so if wrapInTransaction() itself never
+     * invokes that closure, dispatch() is never called. This is a pure unit
+     * test (test doubles for every collaborator, no kernel) proving that
+     * sequencing directly, rather than trying to force a genuine Doctrine
+     * rollback — the same honesty as the "Concurrency" note in
+     * project-backend: the guarantee is verified by code shape here, not by
+     * exercising a real rollback (which would additionally require the
+     * `async` transport to be Doctrine-backed rather than the test
+     * environment's in-memory:// override).
+     */
+    public function test_transaction_failure_leaves_stripe_cancellation_undispatched(): void
     {
-        self::bootKernel();
-        $em = self::getContainer()->get(EntityManagerInterface::class);
-        self::assertInstanceOf(EntityManagerInterface::class, $em);
+        $user = new User('del-rollback', 'Del Rollback', 'del-rollback@example.com', 'hash');
+        new \ReflectionProperty(User::class, 'id')->setValue($user, Uuid::v4());
+        $token = $user->generateAccountDeletionToken();
 
-        $stripe = $this->createStub(StripeGatewayInterface::class);
-        $stripe->method('cancelSubscription')->willThrowException(new \RuntimeException('Stripe is down'));
-        self::getContainer()->set(StripeGatewayInterface::class, $stripe);
+        $users = $this->createStub(UserRepository::class);
+        $users->method('findByAccountDeletionToken')->willReturn($user);
 
-        $owner = new User('del-stripefail', 'Del StripeFail', 'del-stripefail@example.com', 'hash');
-        $em->persist($owner);
-        $profile = new BillingProfile($owner, new \DateTimeImmutable('+14 days'));
-        $profile->stripeCustomerId = 'cus_down';
-        $profile->stripeSubscriptionId = 'sub_down';
-        $em->persist($profile);
-        $token = $owner->generateAccountDeletionToken();
-        $em->flush();
-        $ownerId = $owner->id;
+        $profile = new BillingProfile($user, new \DateTimeImmutable('+14 days'));
+        $profile->stripeSubscriptionId = 'sub_rollback';
+        $profile->stripeCustomerId = 'cus_rollback';
+        $billingProfiles = $this->createStub(BillingProfileRepository::class);
+        $billingProfiles->method('findOneByUser')->willReturn($profile);
 
-        $handler = self::getContainer()->get(DeleteAccountHandler::class);
-        self::assertInstanceOf(DeleteAccountHandler::class, $handler);
+        $em = $this->createStub(EntityManagerInterface::class);
+        $em->method('wrapInTransaction')->willThrowException(new \RuntimeException('simulated transaction failure'));
+
+        $bus = $this->createMock(MessageBusInterface::class);
+        $bus->expects(self::never())->method('dispatch');
+
+        $handler = new DeleteAccountHandler($users, $billingProfiles, $bus, $em, new NullLogger(), []);
+
+        $this->expectException(\RuntimeException::class);
+        $this->expectExceptionMessage('simulated transaction failure');
+        $handler(new DeleteAccountCommand($token));
+    }
+
+    /** Purgers are invoked in ascending deletionOrder(), never registration order. */
+    public function test_purgers_run_in_ascending_deletion_order(): void
+    {
+        $user = new User('del-order', 'Del Order', 'del-order@example.com', 'hash');
+        new \ReflectionProperty(User::class, 'id')->setValue($user, Uuid::v4());
+        $token = $user->generateAccountDeletionToken();
+
+        $users = $this->createStub(UserRepository::class);
+        $users->method('findByAccountDeletionToken')->willReturn($user);
+
+        $billingProfiles = $this->createStub(BillingProfileRepository::class);
+        $billingProfiles->method('findOneByUser')->willReturn(null);
+
+        $em = $this->createStub(EntityManagerInterface::class);
+        $em->method('wrapInTransaction')->willReturnCallback(static fn (callable $fn) => $fn());
+        $connection = $this->createStub(Connection::class);
+        $em->method('getConnection')->willReturn($connection);
+
+        /** @var \ArrayObject<int, int> $calls */
+        $calls = new \ArrayObject();
+        $makePurger = static fn (int $order): AccountDataPurgerInterface => new class($order, $calls) implements AccountDataPurgerInterface {
+            /** @param \ArrayObject<int, int> $calls */
+            public function __construct(
+                private readonly int $order,
+                private \ArrayObject $calls,
+            ) {
+            }
+
+            #[\Override]
+            public function deletionOrder(): int
+            {
+                return $this->order;
+            }
+
+            #[\Override]
+            public function purge(User $user, AccountDeletionCleanup $cleanup): void
+            {
+                $this->calls[] = $this->order;
+            }
+        };
+
+        $purgers = [$makePurger(80), $makePurger(10), $makePurger(30)];
+
+        $handler = new DeleteAccountHandler($users, $billingProfiles, $this->createStub(MessageBusInterface::class), $em, new NullLogger(), $purgers);
         $handler(new DeleteAccountCommand($token));
 
-        $em->clear();
-        self::assertNull($em->find(User::class, $ownerId));
+        self::assertSame([10, 30, 80], $calls->getArrayCopy());
     }
 
     /**
