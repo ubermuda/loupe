@@ -1,10 +1,18 @@
 # Deploying Loupe to production
 
-Loupe deploys to **DigitalOcean App Platform**, from a container image built
-locally and pushed to GHCR. Infrastructure is Terraform, in `terraform/`, which
-is a thin root over the shared module
-[`terraform-digitalocean-symfony-app`](https://github.com/ubermuda/terraform-digitalocean-symfony-app)
+This describes **the deployment we ship by default**: DigitalOcean App Platform,
+from a container image built locally and pushed to GHCR, with infrastructure in
+`terraform/` — a thin root over the shared module
+[`terraform-digitalocean-symfony-app`](https://github.com/ubermuda/terraform-digitalocean-symfony-app),
 pinned to a tag in `terraform/main.tf`.
+
+It is a default, not a requirement. Loupe is a container plus a Postgres
+database, so it runs anywhere that can host those, and nothing in the
+application assumes App Platform. Everything below that is genuinely
+provider-specific — the Terraform root, the `just tf-*` recipes, the App
+Platform component model — is scaffolding you can replace. What you cannot skip
+is in "Environment", "First deploy" and "Migrations": those describe the app's
+own requirements and hold wherever you run it.
 
 There is **no CI/CD pipeline** — no `.github/workflows`. Deploys are run by hand
 from a workstation with `just`.
@@ -113,16 +121,18 @@ run either by the `PRE_DEPLOY` job or by hand as in step 4 above.
 ## Environment variables
 
 The module sets `APP_ENV`, `APP_SECRET`, `APP_ENCRYPTION_KEY`, `DATABASE_URL`,
-`MAILER_DSN` and `DEFAULT_URI`. Everything else is wired through `extra_env` in
-`terraform/main.tf`, sourced from the variables in `terraform/variables.tf` —
-set them in `terraform.tfvars` or as `TF_VAR_*`. Each is omitted from the app
-spec entirely when left empty, so a feature is off rather than half-configured:
+`MAILER_DSN` and `DEFAULT_URI` — and, when the hub is enabled, `MERCURE_URL`,
+`MERCURE_PUBLIC_URL` and `MERCURE_JWT_SECRET`, which it derives itself. The rest
+is wired through `extra_env` in `terraform/main.tf`, sourced from the variables
+in `terraform/variables.tf` — set them in `terraform.tfvars` or as `TF_VAR_*`.
+Each is omitted from the app spec entirely when left empty, so a feature is off
+rather than half-configured:
 
 | Variable | Needed for | If unset |
 |---|---|---|
 | `ADMIN_EMAIL` | Promotes that user to `ROLE_ADMIN` | No admin promotion |
 | `INSTALL_TOKEN` | Gates `/install` | **In prod the wizard 404s outright** — it fails closed, so an unset value locks you out of first-run setup rather than exposing it |
-| `MERCURE_URL`, `MERCURE_PUBLIC_URL` | Site-review push to the bridge CLI | Review submissions never reach a running agent |
+| `mercure_jwt_secret` | Runs the Mercure hub for site-review push (a Terraform variable, not an env var — the module derives the URLs) | Hub not run; review submissions save but never reach a running agent |
 | `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET` | Billing, checkout, webhooks | Billing paths fail |
 | `OAUTH_GOOGLE_ID` / `_SECRET`, `OAUTH_GITHUB_ID` / `_SECRET` | Social login | Those buttons fail |
 | `MCP_ALLOWED_HOSTS` | DNS-rebinding allowlist for `/mcp` | The MCP endpoint rejects your real hostname |
