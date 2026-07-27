@@ -53,6 +53,34 @@ token scopes per resource, webhook subscription storage + signing (HMAC),
 delivery retries (the existing Messenger worker is the natural transport),
 and dogfooding the API from the CLI/widget.
 
+## Replace explicit document/site-review state with computed state
+
+**Author:** Geoffrey · **Type:** feature · **Priority:** high · **Status:** pending
+
+Owner decision (2026-07-27, via site review): documents and site reviews
+should not carry an explicit stored state at all. The only state the product
+exposes should be derived from the comments themselves — for a site review,
+things like "has drafts" / "has addressed comments"; for a document, "has
+addressed comments".
+
+The four-step loop ribbon (Proposed → In review → Revise → Approved) and the
+`LoopStage` enum that fed it were the visible half of that system, and are
+already gone. What remains is the persisted half:
+
+- `App\Module\Review\Entity\DocumentStatus` and the `status` column on
+  `Document`, set by `SubmitReviewHandler` (from the review verdict) and reset
+  to `InReview` by `ReviseDocumentHandler`.
+- The status badge on the documents list (`@Review/list_documents.html.twig`)
+  and the `document.status.*` translation keys.
+- The `status` field in the MCP/export payloads — `GetDocumentTool`,
+  `ListDocumentsTool`, `GetReviewTool`, `GetReview`, `DocumentExporter`.
+
+Closing this means designing the computed predicates, migrating the column
+away, and deciding what the MCP contract exposes instead — agents currently
+read `status` to decide whether a document still needs work, so it needs a
+replacement, not just a deletion. `e2e/tests/review/review-loop.spec.ts`
+asserts the badge and will need rewriting alongside.
+
 ## Dashboard document search + status/tag filtering
 
 

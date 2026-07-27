@@ -57,30 +57,20 @@ class SiteReviewCommentRepository extends ServiceEntityRepository
     }
 
     /**
-     * Status tally of the project's non-Draft comments, used to derive the
-     * site-review loop stage. Draft comments never move the ribbon.
-     *
-     * @return array{pending: int, addressed: int, resolved: int}
+     * Every comment the reviewer has actually submitted, whatever its status.
+     * Drafts are excluded because they only exist inside the reviewer's widget
+     * and are not part of the project's shared record yet.
      */
-    public function statusCountsForProject(Project $project): array
+    public function countSubmittedForProject(Project $project): int
     {
-        /** @var list<array{status: SiteReviewCommentStatus, count: int|string}> $rows */
-        $rows = $this->createQueryBuilder('c')
-            ->select('c.status AS status', 'COUNT(c.id) AS count')
+        return (int) $this->createQueryBuilder('c')
+            ->select('COUNT(c.id)')
             ->andWhere('c.project = :project')
             ->andWhere('c.status != :draft')
             ->setParameter('project', $project)
             ->setParameter('draft', SiteReviewCommentStatus::Draft)
-            ->groupBy('c.status')
             ->getQuery()
-            ->getResult();
-
-        $counts = ['pending' => 0, 'addressed' => 0, 'resolved' => 0];
-        foreach ($rows as $row) {
-            $counts[$row['status']->value] = (int) $row['count'];
-        }
-
-        return $counts;
+            ->getSingleScalarResult();
     }
 
     /**

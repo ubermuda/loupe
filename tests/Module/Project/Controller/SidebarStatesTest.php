@@ -25,9 +25,11 @@ final class SidebarStatesTest extends WebTestCase
 
         self::assertResponseIsSuccessful();
         self::assertCount(1, $crawler->filter('.lp-sidebar__brand'));
-        // Outside a project context there is no switcher and no scoped nav.
+        // Outside a project context there is no switcher and no project-scoped
+        // links — the account nav (settings, billing) renders on every page.
         self::assertCount(0, $crawler->filter('.lp-sidebar__switcher'));
-        self::assertCount(0, $crawler->filter('.lp-sidebar__nav'));
+        self::assertCount(0, $crawler->filter('.lp-sidebar__link[href*="/documents"]'));
+        self::assertCount(1, $crawler->filter('.lp-sidebar__link[href="/account"]'));
     }
 
     public function test_project_scoped_page_shows_switcher_and_active_nav(): void

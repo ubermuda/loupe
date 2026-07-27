@@ -59,8 +59,6 @@ final class SiteReviewsPageTest extends WebTestCase
         $crawler = $client->request(Request::METHOD_GET, '/projects/'.$project->id.'/site-review');
 
         self::assertResponseIsSuccessful();
-        // Loop ribbon derives from comments — two pending → In review stage present.
-        self::assertCount(1, $crawler->filter('.lp-ribbon'));
         // Flat comment list: both comments rendered with a status-colored index.
         self::assertCount(2, $crawler->filter('[data-comment-id]'));
         self::assertCount(2, $crawler->filter('.lp-site-review-index'));

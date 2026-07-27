@@ -350,7 +350,8 @@
       .lp-mono{font-family:'Geist Mono',ui-monospace,monospace}
       .lp-ghost{height:30px;padding:0 11px;background:transparent;border:0;color:var(--muted);font-family:inherit;font-size:12.5px;font-weight:500;border-radius:8px;cursor:pointer}
       .lp-ghost:hover{background:var(--chip-bg);color:var(--text)}
-      .lp-primary{height:30px;padding:0 13px;margin-left:4px;background:var(--accent);color:var(--on-accent);border:0;border-radius:8px;font-family:inherit;font-size:12.5px;font-weight:500;cursor:pointer}
+      .lp-primary{height:30px;padding:0 13px;margin-left:4px;display:inline-flex;align-items:center;gap:6px;background:var(--accent);color:var(--on-accent);border:0;border-radius:8px;font-family:inherit;font-size:12.5px;font-weight:500;cursor:pointer}
+      .lp-primary[disabled]{opacity:.55;cursor:default}
 
       .lp-actions{flex:0 0 auto;display:flex;gap:8px;padding:0 14px 12px}
       .lp-action{flex:1;height:38px;display:flex;align-items:center;justify-content:center;gap:7px;border-radius:10px;font-family:inherit;font-size:13px;font-weight:500;cursor:pointer;border:1px solid var(--field-border);background:var(--panel-elev);color:var(--text);transition:background .15s ease,border-color .15s ease,color .15s ease}
@@ -573,6 +574,7 @@
   const footerMain = $('lp-footer-main');
   const footerConfirm = $('lp-footer-confirm');
   const sendBtn = $('lp-send');
+  const saveBtn = $('lp-save');
   const generalBtn = $('general');
   const targetBtn = $('target');
 
@@ -695,6 +697,32 @@
         </div>
       </div>`;
   };
+  // The popover's resting place is up and to the left of its pin, which puts it
+  // off-screen for a pin near the left or bottom edge of the viewport. Nudge it
+  // back inside. This runs on every reposition pass, not only when the card is
+  // built, because the card survives scrolling — clamping once would let it
+  // drift back out as the page moves under it.
+  const POPOVER_MARGIN = 8;
+  const PIN_SIZE = 24; // .pin width in the overlay stylesheet
+  const POPOVER_OFFSET = 16; // .lp-pop top offset in the overlay stylesheet
+  const clampPopover = (popover, info) => {
+    if (!popover) return;
+    // The wrap is the pin button, so the popover's default box in viewport
+    // coordinates starts at the wrap's right edge minus its own width.
+    const width = popover.offsetWidth;
+    const height = popover.offsetHeight;
+    const defaultLeft = info.left + PIN_SIZE - width;
+    const defaultTop = info.top + POPOVER_OFFSET;
+    const maxLeft = Math.max(POPOVER_MARGIN, window.innerWidth - width - POPOVER_MARGIN);
+    const maxTop = Math.max(POPOVER_MARGIN, window.innerHeight - height - POPOVER_MARGIN);
+    const left = Math.min(Math.max(defaultLeft, POPOVER_MARGIN), maxLeft);
+    const top = Math.min(Math.max(defaultTop, POPOVER_MARGIN), maxTop);
+    // Positions are relative to the wrap, so convert back from viewport space.
+    popover.style.right = 'auto';
+    popover.style.left = `${left - info.left}px`;
+    popover.style.top = `${top - info.top}px`;
+  };
+
   const buildConfirm = (index) =>
     `<div class="lp-pop-confirm">
        <div class="lp-pop-confirm-title">Delete this note?</div>
@@ -785,6 +813,7 @@
           holder.dataset.shown = '1';
           bindPopover(holder, index);
         }
+        clampPopover(holder.querySelector('.lp-pop'), info);
         const card = holder.querySelector('.lp-pop-card');
         const liveConfirm = card.querySelector('.lp-pop-confirm:not([data-exiting])');
         if (confirming && !liveConfirm) {
@@ -902,6 +931,13 @@
     composerNode.style.maxHeight = state.composing ? '240px' : '0px';
     composerNode.style.opacity = state.composing ? '1' : '0';
     composerNode.style.pointerEvents = state.composing ? 'auto' : 'none';
+    // The save is the composer's own action, so its progress belongs on the Save
+    // button. Without this the only thing that visibly reacted to a save was the
+    // footer's Send button greying out, which reads as if Send had been pressed.
+    saveBtn.disabled = state.saving;
+    saveBtn.innerHTML = state.saving
+      ? `<span class="lp-spin"></span>Saving…`
+      : 'Save';
     if (state.composing) {
       const ct = state.composeTarget || { type: 'general' };
       composeHead.innerHTML =

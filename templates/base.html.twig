@@ -25,18 +25,22 @@
                     <span class="lp-sidebar__brand-mark"><twig:ux:icon name="lucide:clipboard-check" /></span>
                     <span class="lp-sidebar__brand-text">
                         <span class="lp-sidebar__brand-name">{{ 'nav.brand'|trans }}</span>
-                        <span class="lp-sidebar__brand-eyebrow">{{ 'nav.eyebrow'|trans }}</span>
                     </span>
                 </a>
                 {% if project %}
-                <a href="{{ path('app_projects') }}" class="lp-sidebar__switcher">
+                {#
+                  Static identity block, not a control: it used to be a bordered
+                  row with an up/down chevron, which reads as a project picker the
+                  app does not have. The brand link above is the way back to the
+                  projects index.
+                #}
+                <div class="lp-sidebar__switcher">
                     <span class="lp-sidebar__switcher-avatar">{{ project.name|slice(0, 1)|upper }}</span>
                     <span class="lp-sidebar__switcher-text">
                         <span class="lp-sidebar__switcher-name">{{ project.name }}</span>
                         {% if project.domain %}<span class="lp-sidebar__switcher-domain">{{ project.domain }}</span>{% endif %}
                     </span>
-                    <twig:ux:icon name="lucide:chevrons-up-down" class="lp-sidebar__switcher-chevron" />
-                </a>
+                </div>
                 <nav class="lp-sidebar__nav">
                     {% set documentsActive = route == 'app_project_documents' or route starts with 'app_document' %}
                     <a href="{{ path('app_project_documents', {id: project.id}) }}"
@@ -44,14 +48,17 @@
                        {% if documentsActive %}aria-current="page"{% endif %}>
                         <twig:ux:icon name="lucide:file-text" />
                         <span class="lp-sidebar__link-label">{{ 'nav.link.documents'|trans }}</span>
+                        <span class="lp-sidebar__pill">{{ project_document_count(project) }}</span>
                     </a>
                     <a href="{{ path('app_project_site_review', {id: project.id}) }}"
                        class="lp-sidebar__link{% if route == 'app_project_site_review' %} lp-sidebar__link--active{% endif %}"
                        {% if route == 'app_project_site_review' %}aria-current="page"{% endif %}>
                         <twig:ux:icon name="lucide:globe" />
                         <span class="lp-sidebar__link-label">{{ 'nav.link.site_review'|trans }}</span>
+                        {# The pill counts every submitted comment; it only turns amber
+                           while some of them are still waiting on the agent. #}
                         {% set openCount = project_open_review_count(project) %}
-                        <span class="lp-sidebar__pill{% if openCount > 0 %} lp-sidebar__pill--amber{% endif %}">{{ openCount }}</span>
+                        <span class="lp-sidebar__pill{% if openCount > 0 %} lp-sidebar__pill--amber{% endif %}">{{ project_submitted_review_count(project) }}</span>
                     </a>
                     <a href="{{ path('app_project_connect', {id: project.id}) }}"
                        class="lp-sidebar__link{% if route == 'app_project_connect' %} lp-sidebar__link--active{% endif %}"
@@ -62,26 +69,26 @@
                 </nav>
                 {% endif %}
                 <div class="lp-sidebar__spacer"></div>
-                {% if is_feature_enabled('billing.enabled') %}
                 <nav class="lp-sidebar__nav">
+                    {% if is_feature_enabled('billing.enabled') %}
                     <a href="{{ path('app_billing_subscribe') }}"
                        class="lp-sidebar__link{% if route == 'app_billing_subscribe' %} lp-sidebar__link--active{% endif %}"
                        {% if route == 'app_billing_subscribe' %}aria-current="page"{% endif %}>
                         <twig:ux:icon name="lucide:credit-card" />
                         <span class="lp-sidebar__link-label">{{ 'nav.link.billing'|trans }}</span>
                     </a>
+                    {% endif %}
+                    <a href="{{ path('app_account_settings') }}"
+                       class="lp-sidebar__link{% if route == 'app_account_settings' %} lp-sidebar__link--active{% endif %}"
+                       {% if route == 'app_account_settings' %}aria-current="page"{% endif %}>
+                        <twig:ux:icon name="lucide:settings" />
+                        <span class="lp-sidebar__link-label">{{ 'nav.link.settings'|trans }}</span>
+                    </a>
                 </nav>
-                {% endif %}
                 <div class="lp-sidebar__account">
-                    <span class="lp-sidebar__account-avatar">{{ app.user.userIdentifier|slice(0, 1)|upper }}</span>
                     <span class="lp-sidebar__account-text">
                         <span class="lp-sidebar__account-name">{{ app.user.userIdentifier }}</span>
-                        <span class="lp-sidebar__account-role">{{ 'nav.account.role'|trans }}</span>
                     </span>
-                    <a href="{{ path('app_account_settings') }}" class="lp-sidebar__account-settings"
-                       aria-label="{{ 'nav.link.settings'|trans }}">
-                        <twig:ux:icon name="lucide:settings" />
-                    </a>
                     <form method="post" action="{{ path('app_logout') }}" class="lp-sidebar__account-logout-form">
                         <input type="hidden" name="_csrf_token" value="{{ csrf_token('logout') }}">
                         <button type="submit" class="lp-sidebar__account-logout"
