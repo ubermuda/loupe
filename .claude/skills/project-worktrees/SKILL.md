@@ -62,6 +62,74 @@ the main checkout, so `replace_symbol_body` / `insert_*_symbol` /
 unchanged and the main tree dirty. Use Edit/Write. Serena **read** tools are
 safe from anywhere.
 
+## Subagents and the write binding
+
+The Edit/Write binding is **single-valued per agent**. Which worktree an agent
+may write to depends on how it was launched.
+
+**Plain subagents inherit the parent session's *current* worktree** — not the
+one they were launched against, not the one they `cd` into. An agent editing a
+file in any other worktree is rejected with "This session is now isolated in
+`<path>`". A subagent calling `EnterWorktree` itself moves its `pwd` but does
+**not** rebind its write access. So dispatching N plain subagents at N different
+worktrees silently fails for all but the bound one. Serialize instead:
+`EnterWorktree(path)` in the parent → dispatch → wait → rebind → next.
+
+Check the confirmation wording before dispatching. "The session is now working
+in the worktree" propagates to subagents; "This agent's working directory and
+write access now point at the worktree" applied to the parent only. The second
+form appears when switching straight into a freshly created worktree — re-issue
+`EnterWorktree` until you get the first.
+
+**Agents launched with `isolation: "worktree"` get their own binding** and can
+write in parallel (verified: the agent lands in `.claude/worktrees/agent-<id>`
+on its own branch, writes there freely, and is refused when writing into another
+worktree). Two caveats: the worktree starts bare, exactly like `git worktree
+add`, so run `just worktree-up` to complete it, same as any worktree; and the
+branch name is harness-generated, so work that must land on a named branch has
+to be renamed and pushed deliberately. These worktrees are created **locked**,
+so tearing one down may need `git worktree remove --force` behind
+`just worktree-down` — untested.
+
+Whichever mode you use, give every subagent a step-0 writability check (a
+trivial Edit in its target worktree) and an explicit instruction to **stop and
+report** if rejected — never to fall back to Bash heredoc/`sed`/`perl` or
+Serena's edit tools, both of which bypass the guard and can write into another
+branch's worktree. Work already on disk survives a stopped agent, so resume it
+with a message rather than restarting.
+
+**Parallelising writes does not parallelise the gate.** `just e2e` is serialized
+by shared Mailpit regardless of how many worktrees exist, at roughly three
+minutes per branch — that, not the write binding, is the throughput ceiling for
+a multi-branch wave.
+
+## Reusing one worktree for several branches
+
+Because only one worktree is writable at a time, a wave of branches is often run
+through a single provisioned worktree. Its directory name then no longer matches
+its branch — that is expected; do not "fix" it.
+
+After **every** `git checkout <other-branch>` in a reused worktree, and before
+any gate is meaningful:
+
+1. `bin/worktrees/compose-exec.sh composer install` — the lockfile differs
+   between branches. Skipping this produces errors that look like application
+   bugs: a drifted `vendor/` once reported `Call to undefined method` for a
+   method the *locked* package version does define, costing a long
+   investigation into whether `main` was broken. It was not.
+2. `bin/console cache:clear` for **both** `dev` and `--env=test`. Clearing only
+   one leaves phpstan without the dumped dev container ("Container ... does not
+   exist"). A `var/cache` that survived a Symfony minor upgrade referenced an
+   internal class whose shape had changed and 500'd every page rendering an
+   icon — 31 e2e specs failed from that one stale cache.
+3. `bin/console doctrine:migrations:status` — a migration from the previous
+   branch shows as *executed but unavailable*. If so, reset the dev database
+   (drop → create → migrate) then `just worktree-up` to re-seed and re-issue the
+   widget token, or e2e runs against another branch's schema.
+
+When a gate fails right after a branch switch, suspect this list before
+suspecting the branch.
+
 ## Symptoms → cause
 
 | Symptom | Cause and fix |
