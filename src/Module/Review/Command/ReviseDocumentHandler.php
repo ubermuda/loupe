@@ -10,6 +10,7 @@ use App\Module\Review\Repository\CommentRepository;
 use App\Module\Review\Repository\DocumentRepository;
 use App\Module\Review\Service\MarkdownRenderer;
 use App\Module\Review\Service\ReanchoringService;
+use Doctrine\DBAL\LockMode;
 use Doctrine\ORM\EntityManagerInterface;
 
 final readonly class ReviseDocumentHandler
@@ -33,31 +34,40 @@ final readonly class ReviseDocumentHandler
             throw DocumentNotFound::forId($command->documentId);
         }
 
-        // Capture the previous current version BEFORE adding the new one.
-        $previousVersion = $document->currentVersion();
+        return $this->em->wrapInTransaction(function () use ($document, $command): array {
+            // Locks the documents row before anything reads $document->versions, so two
+            // concurrent revisions of the same document serialize here instead of both
+            // computing the same "next version number" from a collection loaded before
+            // either lock was held (Document::addVersion() derives the number from the
+            // collection's count — must stay the first thing that touches ->versions).
+            $this->em->lock($document, LockMode::PESSIMISTIC_WRITE);
 
-        // Add the new version (rendered from Markdown).
-        $newVersion = $document->addVersion(
-            $command->markdown,
-            $this->renderer->render($command->markdown),
-        );
+            // Capture the previous current version BEFORE adding the new one.
+            $previousVersion = $document->currentVersion();
 
-        // Collect all open (unresolved) comments from the previous version. Orphaned-but-
-        // unresolved comments are intentionally included so they are re-evaluated against the
-        // new text: if the quoted passage reappears in this revision, the copy re-anchors and
-        // is no longer orphaned; otherwise it carries forward still orphaned (one copy per
-        // version, not an accumulating duplicate).
-        $openComments = $this->comments->findOpenByVersion($previousVersion);
+            // Add the new version (rendered from Markdown).
+            $newVersion = $document->addVersion(
+                $command->markdown,
+                $this->renderer->render($command->markdown),
+            );
 
-        // Re-anchor them onto the new version; copies are attached to $newVersion->comments.
-        $summary = $this->reanchoringService->reanchor($openComments, $newVersion);
+            // Collect all open (unresolved) comments from the previous version. Orphaned-but-
+            // unresolved comments are intentionally included so they are re-evaluated against the
+            // new text: if the quoted passage reappears in this revision, the copy re-anchors and
+            // is no longer orphaned; otherwise it carries forward still orphaned (one copy per
+            // version, not an accumulating duplicate).
+            $openComments = $this->comments->findOpenByVersion($previousVersion);
 
-        // Transition document status back to in-review.
-        $document->status = DocumentStatus::InReview;
+            // Re-anchor them onto the new version; copies are attached to $newVersion->comments.
+            $summary = $this->reanchoringService->reanchor($openComments, $newVersion);
 
-        // Flush: Document → versions cascade persists new version; version → comments cascade persists copies.
-        $this->em->flush();
+            // Transition document status back to in-review.
+            $document->status = DocumentStatus::InReview;
 
-        return $summary;
+            // Flush: Document → versions cascade persists new version; version → comments cascade persists copies.
+            $this->em->flush();
+
+            return $summary;
+        });
     }
 }

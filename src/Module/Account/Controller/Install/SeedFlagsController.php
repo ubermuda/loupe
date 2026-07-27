@@ -9,7 +9,7 @@ use App\Module\Account\Command\SeedInstallFlagsCommand;
 use App\Module\Account\Command\SeedInstallFlagsHandler;
 use App\Module\Account\Form\InstallFlagsFormType;
 use App\Module\Account\Form\InstallFlagsRequest;
-use App\Module\Account\Service\InstallationState;
+use App\Module\Account\Service\InstallAccessGuard;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -25,7 +25,7 @@ final class SeedFlagsController extends AppController
     public const string SESSION_FLAGS_SEEDED = 'install_flags_seeded';
 
     public function __construct(
-        private readonly InstallationState $installationState,
+        private readonly InstallAccessGuard $installAccessGuard,
         private readonly SeedInstallFlagsHandler $seedInstallFlagsHandler,
         private readonly LoggerInterface $logger,
     ) {
@@ -33,9 +33,7 @@ final class SeedFlagsController extends AppController
 
     public function __invoke(Request $request): Response
     {
-        if (!$this->installationState->isOpen()) {
-            throw $this->createNotFoundException();
-        }
+        $this->installAccessGuard->ensureAccessible($request);
 
         $form = $this->createForm(InstallFlagsFormType::class, $data = new InstallFlagsRequest());
         $form->handleRequest($request);

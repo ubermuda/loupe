@@ -5,12 +5,12 @@ declare(strict_types=1);
 namespace App\Module\Account\Service;
 
 use App\Module\Account\Entity\User;
+use App\Routing\PinnedUrlGenerator;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bridge\Twig\Mime\TemplatedEmail;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\Mailer\MailerInterface;
 use Symfony\Component\Mime\Address;
-use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 use Symfony\Contracts\Translation\TranslatorInterface;
 
 class PasswordResetEmailSender
@@ -19,7 +19,7 @@ class PasswordResetEmailSender
         private readonly MailerInterface $mailer,
         private readonly EntityManagerInterface $em,
         private readonly TranslatorInterface $translator,
-        private readonly UrlGeneratorInterface $urlGenerator,
+        private readonly PinnedUrlGenerator $urlGenerator,
 
         #[Autowire(param: 'app.mailer.from_address')]
         private readonly string $mailerFromAddress,
@@ -36,7 +36,6 @@ class PasswordResetEmailSender
         $resetUrl = $this->urlGenerator->generate(
             'app_reset_password',
             ['token' => $token],
-            UrlGeneratorInterface::ABSOLUTE_URL,
         );
 
         $email = new TemplatedEmail()
