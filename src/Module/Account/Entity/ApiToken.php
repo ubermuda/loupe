@@ -53,9 +53,4 @@ class ApiToken
     {
         return hash_equals($this->tokenHash, hash('sha256', $rawToken));
     }
-
-    public function markUsed(): void
-    {
-        $this->lastUsedAt = new \DateTimeImmutable();
-    }
 }
