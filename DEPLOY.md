@@ -20,7 +20,7 @@ from a workstation with `just`.
 | **Web container** | `docker/prod/Dockerfile`, running supervisord as PID 1: `php-fpm` + `nginx`, plus an `export-purge` sleep-loop that runs `app:purge-expired-exports` hourly. |
 | **Worker container** | The *same image*, started with a different command (`enable_worker` in `terraform/main.tf`). Not part of the web container's supervisord — deliberately, so worker restarts never recycle php-fpm/nginx. It consumes `scheduler_default` first, then `async`: a deep async backlog must not delay schedule ticks. |
 | **Postgres** | A per-app database and user on a **shared** App Platform cluster (`tor` region). The module creates them; the cluster already exists. |
-| **Mercure hub** | Required for site-review push. Not provisioned by the shared module — see "Known gaps". |
+| **Mercure hub** | Required for site-review push. A second service in the same app, run by the shared module when `mercure_jwt_secret` is set. In-memory, so delivery is best effort — see "Known gaps". |
 
 The web container listens on port 80. App Platform health-checks `/login`,
 because `/` is behind `ROLE_USER` and 302-redirects.
@@ -144,20 +144,26 @@ the token.
 
 ## Known gaps
 
-1. **No Mercure hub is provisioned.** `MERCURE_URL`, `MERCURE_PUBLIC_URL` and
-   `MERCURE_JWT_SECRET` are now wired through `extra_env`, so the application is
-   ready to talk to a hub — but the shared module has no concept of one, so
-   nothing stands a hub up. Until it does, either point those variables at a hub
-   you host yourself, or leave them empty and accept that review submissions save
-   normally but never reach the bridge CLI (the publish failure is caught and
-   logged, so it degrades silently).
-
-   Adding an opt-in Mercure component to the shared module is the durable fix and
-   is tracked in `docs/NEXT_STEPS.md`.
-
-2. **Set `install_token` before the first deploy.** Since the wizard fails closed
+1. **Set `install_token` before the first deploy.** Since the wizard fails closed
    in production, an unset value means `/install` returns 404 and there is no way
    to create the first administrator.
+
+2. **Set `mercure_jwt_secret` if you want site-review push.** Setting it runs a
+   Mercure hub as a second service in this app (module v1.6.0's `enable_mercure`)
+   and routes `/.well-known/mercure` on the app's own domain to it; the module
+   injects `MERCURE_URL`, `MERCURE_PUBLIC_URL` and `MERCURE_JWT_SECRET` itself.
+   Leaving it empty keeps push off — review submissions still save, but never
+   reach the bridge CLI, and the publish failure is only logged, so it degrades
+   silently rather than erroring.
+
+   The hub is in-memory: a restart drops undelivered updates. That is why
+   submissions are recorded in the `site_review_events` outbox and the bridge
+   resumes from `Last-Event-ID` — delivery is best effort, replay is not.
+
+3. **Nothing here has been applied against a live account.** `terraform validate`
+   passes and `plan` evaluates the full configuration, but no deploy has run. The
+   Mercure component in particular is reasoned from the `dunglas/mercure` image's
+   documented interface and the dev compose service, not observed working.
 
 ## Rolling back
 

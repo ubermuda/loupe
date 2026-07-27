@@ -59,23 +59,13 @@ variable "mcp_allowed_hosts" {
   description = "MCP_ALLOWED_HOSTS: comma-separated DNS-rebinding allowlist for /mcp. Must include the app's real hostname or every MCP call is rejected."
 }
 
-variable "mercure_url" {
-  type        = string
-  default     = ""
-  description = "MERCURE_URL: hub endpoint the app publishes to (server-side). Empty leaves site-review push disabled — submissions still save, but never reach the bridge CLI. The hub itself is not provisioned by this module; see DEPLOY.md."
-}
 
-variable "mercure_public_url" {
-  type        = string
-  default     = ""
-  description = "MERCURE_PUBLIC_URL: hub endpoint subscribers connect to. Usually the same host as mercure_url but publicly reachable."
-}
 
 variable "mercure_jwt_secret" {
   type        = string
   sensitive   = true
   default     = ""
-  description = "MERCURE_JWT_SECRET: shared key used to sign publisher and subscriber JWTs. Must match the hub's configured keys."
+  description = "Shared key signing Mercure publisher and subscriber JWTs. Setting it turns the hub on (enable_mercure in main.tf keys off this); leaving it empty leaves site-review push disabled, so submissions save but never reach the bridge CLI. The module runs the hub and derives MERCURE_URL / MERCURE_PUBLIC_URL itself."
 }
 
 variable "stripe_secret_key" {

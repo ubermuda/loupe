@@ -20,10 +20,9 @@ app_encryption_key   = "GENERATED_BASE64_32_BYTE_KEY"
 # admin_email       = "you@example.com"       # promoted to ROLE_ADMIN
 # mcp_allowed_hosts = "loupe.example.com"     # must list the app's real hostname
 
-# Site-review push. The hub is NOT provisioned by this module — see DEPLOY.md.
-# mercure_url        = "https://hub.example.com/.well-known/mercure"
-# mercure_public_url = "https://hub.example.com/.well-known/mercure"
-# mercure_jwt_secret = "MUST_MATCH_THE_HUB_KEYS"
+# Site-review push. Setting this runs a Mercure hub as a second service in the
+# app and wires the URLs automatically; leave it out to keep push disabled.
+# mercure_jwt_secret = "GENERATE_A_LONG_RANDOM_STRING"
 
 # stripe_secret_key     = "sk_live_..."
 # stripe_webhook_secret = "whsec_..."

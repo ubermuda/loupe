@@ -3,7 +3,7 @@
 # terraform.tfvars.example).
 # The image repo and DB name/user default off app_name.
 module "app" {
-  source = "git::https://github.com/ubermuda/terraform-digitalocean-symfony-app.git//?ref=v1.5.0"
+  source = "git::https://github.com/ubermuda/terraform-digitalocean-symfony-app.git//?ref=v1.6.0"
 
   app_name = "loupe"
 
@@ -38,19 +38,23 @@ module "app" {
   enable_worker  = true
   worker_command = "php bin/console messenger:consume scheduler_default async --time-limit=3600 --memory-limit=128M"
 
+  # Mercure hub for site-review push, run as a second service in this app.
+  # Gated on the secret rather than hardcoded true, so the feature is cleanly
+  # off until it is configured — the same shape as every extra_env entry below.
+  # Without it, review submissions still save but never reach the bridge CLI,
+  # and the publish failure is only logged.
+  #
+  # MERCURE_URL, MERCURE_PUBLIC_URL and MERCURE_JWT_SECRET are injected by the
+  # module; setting them here as well would duplicate the env keys.
+  enable_mercure     = var.mercure_jwt_secret != ""
+  mercure_jwt_secret = var.mercure_jwt_secret
+
   # Everything the module does not set itself. Values come from variables.tf so
   # secrets stay out of this file; see terraform.tfvars.example.
   extra_env = merge(
     var.admin_email == "" ? {} : { ADMIN_EMAIL = { value = var.admin_email } },
     var.mcp_allowed_hosts == "" ? {} : { MCP_ALLOWED_HOSTS = { value = var.mcp_allowed_hosts } },
     var.install_token == "" ? {} : { INSTALL_TOKEN = { value = var.install_token, type = "SECRET" } },
-
-    # Site-review push. The hub is NOT provisioned by this module — point these
-    # at one you host separately, or leave them empty and accept that review
-    # submissions never reach the bridge CLI.
-    var.mercure_url == "" ? {} : { MERCURE_URL = { value = var.mercure_url } },
-    var.mercure_public_url == "" ? {} : { MERCURE_PUBLIC_URL = { value = var.mercure_public_url } },
-    var.mercure_jwt_secret == "" ? {} : { MERCURE_JWT_SECRET = { value = var.mercure_jwt_secret, type = "SECRET" } },
 
     var.stripe_secret_key == "" ? {} : { STRIPE_SECRET_KEY = { value = var.stripe_secret_key, type = "SECRET" } },
     var.stripe_webhook_secret == "" ? {} : { STRIPE_WEBHOOK_SECRET = { value = var.stripe_webhook_secret, type = "SECRET" } },
