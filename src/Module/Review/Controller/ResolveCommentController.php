@@ -54,7 +54,7 @@ final class ResolveCommentController extends AppController
         // Re-render the whole thread list: resolving moves the card from the
         // PENDING group to RESOLVED and shifts the resolved count + progress bar,
         // none of which a single-thread replace would refresh.
-        $html = $this->renderView('review/_comment_added.stream.html.twig', [
+        $html = $this->renderView('@Review/_comment_added.stream.html.twig', [
             'comments' => $this->comments->findByVersion($version),
         ]);
 

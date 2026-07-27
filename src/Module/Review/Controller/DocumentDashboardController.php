@@ -52,7 +52,7 @@ class DocumentDashboardController extends AppController
             $documents,
         );
 
-        return $this->render('review/dashboard.html.twig', [
+        return $this->render('@Review/dashboard.html.twig', [
             'project' => $project,
             'items' => $items,
         ]);

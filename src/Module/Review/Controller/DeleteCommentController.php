@@ -52,7 +52,7 @@ final class DeleteCommentController extends AppController
 
         // Re-render the whole thread list (restores the empty state when the last
         // comment is gone).
-        $html = $this->renderView('review/_comment_added.stream.html.twig', [
+        $html = $this->renderView('@Review/_comment_added.stream.html.twig', [
             'comments' => $this->comments->findByVersion($version),
         ]);
 

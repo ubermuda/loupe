@@ -47,7 +47,7 @@ final class DocumentReviewController extends AppController
             'method' => 'POST',
         ]);
 
-        return $this->render('review/review.html.twig', [
+        return $this->render('@Review/review.html.twig', [
             'document' => $document,
             'version' => $version,
             'comments' => $comments,

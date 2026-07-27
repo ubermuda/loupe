@@ -1,5 +1,6 @@
 twig_component:
     anonymous_template_directory: 'components/'
     defaults:
-        # Namespace & directory for components
-        App\Twig\Components\: 'components/'
+        # Namespace & directory for components, per owning module
+        App\Module\Billing\Twig\Components\: 'Module/Billing/components/'
+        App\Module\Review\Twig\Components\: 'Module/Review/components/'

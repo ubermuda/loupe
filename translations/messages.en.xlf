@@ -1511,9 +1511,9 @@
             </trans-unit>
 
             <!-- Admin waitlist page -->
-            <trans-unit id="account.admin.waitlist.page_title">
-                <source>account.admin.waitlist.page_title</source>
-                <target>Waitlist — Admin — Loupe</target>
+            <trans-unit id="account.admin.waitlist.page.title">
+                <source>account.admin.waitlist.page.title</source>
+                <target>Waitlist</target>
             </trans-unit>
             <trans-unit id="account.admin.waitlist.title">
                 <source>account.admin.waitlist.title</source>
