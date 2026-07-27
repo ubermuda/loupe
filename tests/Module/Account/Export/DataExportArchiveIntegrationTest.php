@@ -2,12 +2,12 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\DataExport;
+namespace App\Tests\Module\Account\Export;
 
-use App\DataExport\DataExportArchiveBuilder;
 use App\Module\Account\Entity\ApiToken;
 use App\Module\Account\Entity\ApiTokenScope;
 use App\Module\Account\Entity\User;
+use App\Module\Account\Export\DataExportArchiveBuilder;
 use App\Module\Project\Entity\Project;
 use App\Module\Review\Entity\Comment;
 use App\Module\Review\Entity\Document;

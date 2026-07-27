@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\DataExport;
+namespace App\Module\Account\Export;
 
 use App\Module\Account\Entity\DataExport;
 use App\Module\Account\Entity\User;

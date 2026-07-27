@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 namespace App\Tests\Module\Account\Messenger;
 
-use App\DataExport\DataExportArchiveBuilder;
 use App\Module\Account\Entity\DataExport;
 use App\Module\Account\Entity\DataExportStatus;
 use App\Module\Account\Entity\User;
+use App\Module\Account\Export\DataExportArchiveBuilder;
 use App\Module\Account\Messenger\GenerateDataExportHandler;
 use App\Module\Account\Messenger\GenerateDataExportMessage;
 use App\Module\Account\Repository\DataExportRepository;
