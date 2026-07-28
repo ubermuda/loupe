@@ -34,6 +34,14 @@ final readonly class RegisterUserHandler
     /** @throws DomainErrors */
     public function __invoke(RegisterUserCommand $command): User
     {
+        // Before everything, including the invite lookup: an invite is a
+        // capacity voucher, so it may reopen a full instance but must never
+        // reopen one where sign-up is switched off — or, worse, mint the first
+        // account on an instance whose install wizard has not run yet.
+        if (!$this->registrationGate->allowsNewAccounts()) {
+            throw new DomainErrors(['email' => 'account.error.registration_disabled']);
+        }
+
         try {
             $user = $this->em->wrapInTransaction(function () use ($command): User {
                 // Serialize every capacity decision (this handler and the OAuth

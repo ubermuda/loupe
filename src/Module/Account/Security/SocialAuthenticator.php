@@ -88,6 +88,10 @@ final class SocialAuthenticator extends OAuth2Authenticator
             throw new WaitlistedException();
         }
 
+        if ($outcome->registrationClosed) {
+            throw new RegistrationClosedException();
+        }
+
         if ($outcome->requiresPasswordLink) {
             $this->pendingSocialLink->store($profile, $outcome->user ?? throw new \LogicException('Password-link outcome must carry a user.'));
 
@@ -128,7 +132,11 @@ final class SocialAuthenticator extends OAuth2Authenticator
             return new RedirectResponse($this->router->generate('app_waitlist_join', ['joined' => 1]));
         }
 
-        $reason = $exception instanceof UnverifiedProviderEmail ? 'unverified' : '1';
+        $reason = match (true) {
+            $exception instanceof UnverifiedProviderEmail => 'unverified',
+            $exception instanceof RegistrationClosedException => 'closed',
+            default => '1',
+        };
 
         return new RedirectResponse($this->router->generate('app_login', ['social_error' => $reason]));
     }

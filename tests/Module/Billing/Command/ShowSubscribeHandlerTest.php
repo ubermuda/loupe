@@ -8,6 +8,7 @@ use App\Module\Account\Entity\User;
 use App\Module\Account\Entity\WaitlistEntry;
 use App\Module\Account\Repository\UserRepository;
 use App\Module\Account\Repository\WaitlistEntryRepository;
+use App\Module\Account\Service\InstallationState;
 use App\Module\Account\Service\RegistrationGate;
 use App\Module\Billing\Command\ShowSubscribeCommand;
 use App\Module\Billing\Command\ShowSubscribeHandler;
@@ -49,7 +50,7 @@ final class ShowSubscribeHandlerTest extends TestCase
             new ActivePriceProvider(FeatureFlags::service($flags), $this->createStub(StripeGatewayInterface::class), new ArrayAdapter(), new NullLogger()),
             new TrialProvisioner($profiles, FeatureFlags::service($flags), $this->createStub(EntityManagerInterface::class)),
             FeatureFlags::service($flags),
-            new RegistrationGate(FeatureFlags::service($flags), $users),
+            new RegistrationGate(FeatureFlags::service($flags), $users, new InstallationState($users)),
             $waitlistEntries ?? $this->createStub(WaitlistEntryRepository::class),
         );
     }
