@@ -43,6 +43,20 @@ final readonly class CheckSystemStatusHandler
     private const int BACKLOG_STALE_SECONDS = 60;
 
     /**
+     * The Doctrine transport's `redeliver_timeout`: how long a claim
+     * (`delivered_at`) is honoured before the message is offered to a worker
+     * again. This app leaves it at the component default — neither the
+     * MESSENGER_TRANSPORT_DSN in `.env` nor config/packages/messenger.yaml sets
+     * it — so change this alongside the DSN if that ever stops being true.
+     *
+     * A claim younger than this is a worker doing its job, or one that just
+     * died and whose message no worker will touch yet either way; a claim older
+     * than it is one the transport has already given up on, so a message still
+     * sitting there means nothing is consuming.
+     */
+    private const int REDELIVER_TIMEOUT_SECONDS = 3600;
+
+    /**
      * Bounds both network probes. A firewalled SMTP or hub host must make the
      * status page slow, never make it hang.
      */
@@ -56,7 +70,14 @@ final readonly class CheckSystemStatusHandler
      */
     private const string PLACEHOLDER_FROM_DOMAIN = '@localhost';
 
-    private const string PENDING_BACKLOG_SQL = 'SELECT COUNT(*) AS pending, MIN(available_at) AS oldest FROM messenger_messages WHERE queue_name <> :failed AND delivered_at IS NULL AND available_at <= :now'; // @translation-check-ignore
+    /**
+     * Splits ready messages into the two groups the check has to tell apart:
+     * ones no worker is holding (unclaimed, or a claim the transport has
+     * already timed out and would re-offer) and ones a worker claimed recently.
+     * The predicate mirrors the transport's own availability query, so
+     * "pending" here means exactly what the transport would hand a worker next.
+     */
+    private const string PENDING_BACKLOG_SQL = 'SELECT COUNT(*) FILTER (WHERE delivered_at IS NULL OR delivered_at < :redeliverLimit) AS pending, MIN(available_at) FILTER (WHERE delivered_at IS NULL OR delivered_at < :redeliverLimit) AS oldest, COUNT(*) FILTER (WHERE delivered_at IS NOT NULL AND delivered_at >= :redeliverLimit) AS claimed FROM messenger_messages WHERE queue_name <> :failed AND available_at <= :now'; // @translation-check-ignore
 
     private const string FAILED_COUNT_SQL = 'SELECT COUNT(*) FROM messenger_messages WHERE queue_name = :failed'; // @translation-check-ignore
 
@@ -181,9 +202,19 @@ final readonly class CheckSystemStatusHandler
     /**
      * A running worker leaves no lasting trace, so this measures the only thing
      * that is actually observable from here: whether queued work is being
-     * cleared. A backlog that has been available and unclaimed for longer than
-     * the threshold proves nothing is consuming; an empty or freshly-filled
-     * queue proves nothing either way, and says so.
+     * cleared. A backlog the transport would hand out and nobody has taken for
+     * longer than the threshold proves nothing is consuming; an empty or
+     * freshly-filled queue proves nothing either way, and says so.
+     *
+     * A message a worker claimed and never finished is the sharpest case, since
+     * a worker that dies holding the first administrator's verification email
+     * is precisely the lockout this page exists to catch. Such a row keeps a
+     * `delivered_at`, so counting only unclaimed rows would report "the queue is
+     * empty" — the most reassuring answer there is — over a stuck message. Once
+     * the claim outlives the redelivery timeout the transport has written it off
+     * and it counts as backlog like any unclaimed row; while the claim is still
+     * young it is reported as claimed-and-unfinished, which is honestly unknown
+     * rather than either a failure or an all-clear.
      */
     private function checkWorker(): SystemCheck
     {
@@ -192,8 +223,12 @@ final readonly class CheckSystemStatusHandler
         try {
             $row = $this->connection->fetchAssociative(
                 self::PENDING_BACKLOG_SQL,
-                ['failed' => self::FAILED_QUEUE_NAME, 'now' => $now],
-                ['now' => Types::DATETIME_IMMUTABLE],
+                [
+                    'failed' => self::FAILED_QUEUE_NAME,
+                    'now' => $now,
+                    'redeliverLimit' => $now->modify(sprintf('-%d seconds', self::REDELIVER_TIMEOUT_SECONDS)),
+                ],
+                ['now' => Types::DATETIME_IMMUTABLE, 'redeliverLimit' => Types::DATETIME_IMMUTABLE],
             );
         } catch (\Throwable $e) {
             $this->logger->warning('account.system_status.queue_unreadable', ['exception' => $e]);
@@ -202,7 +237,18 @@ final readonly class CheckSystemStatusHandler
         }
 
         $pending = false === $row ? 0 : (int) $row['pending'];
+        $claimed = false === $row ? 0 : (int) $row['claimed'];
+
         if (0 === $pending) {
+            if ($claimed > 0) {
+                return new SystemCheck(
+                    'worker',
+                    SystemCheckState::Unknown,
+                    'account.system_status.worker.claimed_in_flight',
+                    ['%count%' => (string) $claimed],
+                );
+            }
+
             return new SystemCheck('worker', SystemCheckState::Unknown, 'account.system_status.worker.queue_empty');
         }
 

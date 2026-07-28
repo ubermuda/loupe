@@ -1682,7 +1682,11 @@
             </trans-unit>
             <trans-unit id="account.system_status.worker.backlog_stale">
                 <source>account.system_status.worker.backlog_stale</source>
-                <target>%count% message(s) have been waiting %seconds% seconds without being claimed. Nothing is consuming the queue: start a worker with "bin/console messenger:consume scheduler_default async".</target>
+                <target>%count% message(s) have been waiting %seconds% seconds without being processed. Nothing is consuming the queue: start a worker with "bin/console messenger:consume scheduler_default async".</target>
+            </trans-unit>
+            <trans-unit id="account.system_status.worker.claimed_in_flight">
+                <source>account.system_status.worker.claimed_in_flight</source>
+                <target>%count% message(s) are claimed by a worker and not finished. That is normal while one is being processed — but if that worker has died, they will not be offered to another one until the redelivery timeout expires an hour after the claim.</target>
             </trans-unit>
             <trans-unit id="account.system_status.worker.backlog_fresh">
                 <source>account.system_status.worker.backlog_fresh</source>

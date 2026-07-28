@@ -114,6 +114,42 @@ final class CheckSystemStatusHandlerTest extends KernelTestCase
         self::assertGreaterThanOrEqual(300, (int) $check->detailParameters['%seconds%']);
     }
 
+    public function test_a_claim_abandoned_by_a_dead_worker_counts_as_backlog(): void
+    {
+        // A worker that crashed mid-delivery leaves delivered_at set. Past the
+        // transport's redelivery timeout it would be handed out again, so a row
+        // still sitting here means nothing is consuming — the same verdict as
+        // an unclaimed backlog, and the exact state that locks an operator out
+        // of a fresh install.
+        $claimedAt = new \DateTimeImmutable('-2 hours', new \DateTimeZone('UTC'));
+        $this->enqueue('default', $claimedAt, $claimedAt);
+
+        $view = (SystemStatus::handler($this->connection))();
+
+        $check = self::check($view, 'worker');
+        self::assertSame(SystemCheckState::Failed, $check->state);
+        self::assertSame('account.system_status.worker.backlog_stale', $check->detail);
+        self::assertSame('1', $check->detailParameters['%count%']);
+    }
+
+    public function test_a_message_a_worker_claimed_moments_ago_is_unknown_not_failed(): void
+    {
+        // A live worker mid-delivery must not read as failure, and must not read
+        // as "the queue is empty" either.
+        $this->enqueue(
+            'default',
+            new \DateTimeImmutable('-10 minutes', new \DateTimeZone('UTC')),
+            new \DateTimeImmutable('now', new \DateTimeZone('UTC')),
+        );
+
+        $view = (SystemStatus::handler($this->connection))();
+
+        $check = self::check($view, 'worker');
+        self::assertSame(SystemCheckState::Unknown, $check->state);
+        self::assertSame('account.system_status.worker.claimed_in_flight', $check->detail);
+        self::assertSame('1', $check->detailParameters['%count%']);
+    }
+
     public function test_messages_parked_in_the_failed_transport_do_not_count_as_a_backlog(): void
     {
         $this->enqueue('failed', new \DateTimeImmutable('-5 minutes', new \DateTimeZone('UTC')));
@@ -226,7 +262,12 @@ final class CheckSystemStatusHandlerTest extends KernelTestCase
         self::assertSame(SystemCheckState::Failed, $view->overall);
     }
 
-    private function enqueue(string $queueName, \DateTimeImmutable $availableAt): void
+    /**
+     * Mirrors what the Doctrine transport writes: UTC wall-clock times in a
+     * timezone-less column. `$deliveredAt` is the claim a consuming worker
+     * stamps on the row and clears by deleting it.
+     */
+    private function enqueue(string $queueName, \DateTimeImmutable $availableAt, ?\DateTimeImmutable $deliveredAt = null): void
     {
         $this->connection->insert('messenger_messages', [
             'body' => '{}',
@@ -234,9 +275,11 @@ final class CheckSystemStatusHandlerTest extends KernelTestCase
             'queue_name' => $queueName,
             'created_at' => $availableAt,
             'available_at' => $availableAt,
+            'delivered_at' => $deliveredAt,
         ], [
             'created_at' => Types::DATETIME_IMMUTABLE,
             'available_at' => Types::DATETIME_IMMUTABLE,
+            'delivered_at' => Types::DATETIME_IMMUTABLE,
         ]);
     }
 
