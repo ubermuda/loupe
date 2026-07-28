@@ -1614,6 +1614,29 @@ which outside parties influence what an agent does next. Event bodies are
 untrusted text and must never be treated as instructions — the same rule that
 already applies to site-review comment bodies.
 
+## Worker heartbeat, so "is a worker running?" can be answered positively
+
+**Author:** Claude · **Type:** feature · **Priority:** medium · **Status:** pending
+
+The `worker` check on `/admin/status` (`CheckSystemStatusHandler::checkWorker()`
+in `src/Module/Account/Command/`) can only prove the *failure* case: it measures
+the age of the oldest available-and-unclaimed row in `messenger_messages`, so a
+backlog nobody has touched for a minute means nothing is consuming. An empty
+queue is reported as `Unknown`, because a running worker leaves no trace and a
+green tick there would be an assertion the app cannot back up.
+
+A positive signal is possible: listen for
+`Symfony\Component\Messenger\Event\WorkerRunningEvent` (dispatched roughly once
+a second, including while idle), throttle to one write every ~15 seconds, and
+upsert a timestamp into a single-row table. The status page then reports "a
+worker reported in N seconds ago" — genuinely observed, and it works in
+production where the web and worker containers share only the database (so a
+filesystem cache pool would not do).
+
+Deliberately not built with the status page: it costs a table plus a migration
+for a check the owner had already accepted could be approximate. Revisit if
+"unknown" turns out to be the answer operators see most of the time.
+
 ## Product idea (long horizon): drag DOM elements in the widget to try layouts
 
 **Author:** Geoffrey · **Type:** idea · **Priority:** low · **Status:** pending

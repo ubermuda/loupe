@@ -1,0 +1,21 @@
+{% extends '@Account/auth_base.html.twig' %}
+
+{% block title %}{{ 'account.install.status.page.title'|trans }} — {{ 'app.name'|trans }}{% endblock %}
+
+{% block auth_body %}
+<div class="flex flex-col gap-1.5">
+    <h1 class="auth-heading">{{ 'account.install.status.heading'|trans }}</h1>
+    <p class="auth-subheading">{{ 'account.install.status.intro'|trans }}</p>
+</div>
+
+{% if status.overall.value == 'failed' or status.overall.value == 'warning' %}
+    <p class="status-summary status-summary-{{ status.overall.value }}">{{ 'account.install.status.warning'|trans }}</p>
+{% endif %}
+
+{% include '@Account/_system_status_checks.html.twig' with {checks: status.checks} only %}
+
+<div class="flex flex-col gap-3">
+    <a href="{{ path('app_install_admin') }}" class="auth-submit">{{ 'account.install.status.continue'|trans }}</a>
+    <a href="{{ path('app_install_status') }}" class="text-center text-sm text-fg-mute hover:text-fg">{{ 'account.install.status.recheck'|trans }}</a>
+</div>
+{% endblock %}

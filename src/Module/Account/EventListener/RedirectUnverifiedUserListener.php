@@ -15,6 +15,10 @@ final readonly class RedirectUnverifiedUserListener
 {
     // Routes that unverified users may access freely
     private const array ALLOWED_ROUTES = [
+        // A liveness probe must answer with its own verdict whoever is asking;
+        // redirecting it to the check-email page would report the instance
+        // healthy on a 302 and hide a dead database.
+        'app_healthz',
         'app_login',
         'app_logout',
         'app_register',
