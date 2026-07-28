@@ -158,6 +158,7 @@ suspecting the branch.
 | e2e failures that vanish on a re-run | Mailpit is shared, so concurrent e2e runs read each other's messages. e2e must stay serialized — check whether another run is in flight before blaming the branch. |
 | A spec fails, then passes on a quiet re-run | Something else was loading the shared php-fpm — a sibling agent running `just ci` or `composer install`. Check what is in flight **before** investigating the branch; this produced a false "regression" that was nearly filed against a clean PR. |
 | `worktree-up` fails with an "Unrecognized option" or missing-class error | The new worktree seeded its `vendor/` from the main checkout, and the main checkout is stale. Fast-forwarding the main checkout does **not** update its `vendor/`, so every worktree created afterwards inherits dependencies from the old commit. Run `composer install` in the main checkout, then re-run `just worktree-up`. |
+| Every e2e spec fails on a **new** worktree host with `ERR_CERT_AUTHORITY_INVALID`, while existing hosts stay fine | The `traefik-dnsmasq-1` container (in the separate `traefik` stack) is down. It holds `address=/dev.localhost/172.20.0.2`, the wildcard that lets step-ca resolve a host to validate ACME; without it `tls-alpn-01` fails with "could not connect to validation target" and Traefik serves its default cert. Hosts already in `certs/acme.json` keep working, which is what makes this look worktree-specific. `restart: unless-stopped` does **not** revive it after an exit 255. Fix: `( cd ../traefik && docker compose up -d dnsmasq )`, then **restart Traefik too** — it otherwise keeps polling the already-failed authorization instead of opening a fresh order. Verify with `curl -o /dev/null -w '%{ssl_verify_result}'` (0 = good) before blaming the branch. |
 | Mail-asserting e2e specs time out against a worktree / no mail in Mailpit | Nothing consumes the worktree's `async` transport — the shared `worker` consumes only main's database. Start a worktree-scoped consumer: `bin/worktrees/compose-exec.sh bin/console messenger:consume scheduler_default async` from the worktree; stop it when done. |
 
 ## Writing worktree tooling
@@ -199,6 +200,15 @@ The worktree e2e gate needs four things beyond `E2E_BASE_URL`:
    so the data-export spec hangs without this. Kill it afterwards
    (`docker exec loupe-php-fpm-1 pkill -f 'messenger:consume async'`), and
    restart it after changing any PHP it has already loaded.
+
+Everything here that says "from the worktree" means the command needs the
+worktree as its **cwd for that call only**. Wrap each one in a subshell:
+
+    ( cd .claude/worktrees/<name> && E2E_BASE_URL=https://<slug>.loupe.dev.localhost just e2e --workers=1 )
+
+A bare `cd` persists across later tool calls and turns "run this one command
+there" into "move the session in", which CLAUDE.md forbids for the main session
+— see "The main session never moves into a worktree" for why that bites.
 3. **`--workers=1`.**
 4. **A quiet stack**: no worktree provisioning, `composer install`, or sibling
    `just ci` during the run — they share php-fpm and skew timings past
