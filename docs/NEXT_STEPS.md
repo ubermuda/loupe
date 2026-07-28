@@ -1491,6 +1491,12 @@ a self-hosted install calls out to the internet, so it must be switchable off
 and must never transmit installation data; and how it interacts with the
 self-hosting audit already tracked under "Self-hosting audit".
 
+Related gap from the self-hosting audit (2026-07-28): `docker/prod/release.sh`
+applies migrations unconditionally, and no expand/contract policy is written
+down anywhere. Until one is, rolling an image back can leave the schema ahead
+of the code — so version identity and a rollback-safe migration policy need to
+land together, not separately.
+
 ## Unset optional config should disable a feature, not break it
 
 **Author:** Geoffrey · **Type:** feature · **Priority:** medium · **Status:** pending
@@ -1520,6 +1526,55 @@ the reference shape; **`ADMIN_EMAIL`** — already a no-op when unset.
 Relevant to self-hosting: a self-hoster who wants neither billing nor social
 login should get a working install without setting either. See "Self-hosting
 audit".
+
+## Sessions, cache and rate-limiter storage are container-local
+
+**Author:** Claude · **Type:** bug · **Priority:** medium · **Status:** pending
+
+Found by the self-hosting audit (2026-07-28); the owner accepted the current
+behaviour for now and asked for a note.
+
+`config/packages/framework.yaml` leaves `handler_id` unset, so sessions are
+native files in the cache directory; `config/packages/cache.yaml` keeps the
+filesystem app cache; and the rate limiters in the same `framework.yaml` are
+backed the same way. Two consequences, neither documented: **every deploy logs
+all users out**, because the cache directory does not survive a new container;
+and with more than one web replica, sessions and rate limits are per-replica,
+so the per-IP registration and password-reset limits are effectively multiplied
+by the replica count.
+
+The whole configuration therefore assumes a single web replica and tolerates
+session loss on deploy. That assumption is invisible to an operator reading
+`DEPLOY.md`.
+
+Fix when it becomes worth it: `PdoSessionHandler` for sessions and a
+Doctrine-backed pool for the rate-limiter storage. Postgres is already a hard
+dependency, so this adds no new infrastructure. Until then, `DEPLOY.md` should
+say out loud that the app expects one web replica.
+
+## No backup and restore guidance for self-hosted installs
+
+**Author:** Claude · **Type:** docs · **Priority:** medium · **Status:** pending
+
+Found by the self-hosting audit (2026-07-28); the owner decided backups are the
+operator's responsibility for now, so this entry is about saying so rather than
+about building anything.
+
+Nothing in any markdown file mentions backup, restore or `pg_dump`. An operator
+gets no statement of what constitutes the durable state of an instance, and two
+parts of that are genuinely non-obvious:
+
+1. Losing `APP_ENCRYPTION_KEY` makes every encrypted column permanently
+   unreadable. `DEPLOY.md` mentions this once, inside the secrets section,
+   where someone planning backups will not look for it.
+2. Data-export archives currently live on container-local disk, so they are not
+   covered by a database dump. This changes once exports move to object storage
+   — see the self-hosting audit's decision on export storage — at which point
+   the bucket becomes the second thing to back up.
+
+Close this by adding a short "Backing up" section to `DEPLOY.md`: what to dump,
+what else holds state, that restore has never been rehearsed, and that the
+operator owns the schedule.
 
 ## Product idea (long horizon): drag DOM elements in the widget to try layouts
 
