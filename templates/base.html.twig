@@ -78,6 +78,12 @@
                         <span class="lp-sidebar__link-label">{{ 'nav.link.billing'|trans }}</span>
                     </a>
                     {% endif %}
+                    <a href="{{ path('app_account_settings') }}"
+                       class="lp-sidebar__link{% if route == 'app_account_settings' %} lp-sidebar__link--active{% endif %}"
+                       {% if route == 'app_account_settings' %}aria-current="page"{% endif %}>
+                        <twig:ux:icon name="lucide:settings" />
+                        <span class="lp-sidebar__link-label">{{ 'nav.link.settings'|trans }}</span>
+                    </a>
                     {# The admin shell links back to the app; without this the app
                        never links forward to it and an admin has to type /admin. #}
                     {% if is_granted('ROLE_ADMIN') %}
@@ -86,14 +92,9 @@
                         <span class="lp-sidebar__link-label">{{ 'nav.link.admin'|trans }}</span>
                     </a>
                     {% endif %}
-                    <a href="{{ path('app_account_settings') }}"
-                       class="lp-sidebar__link{% if route == 'app_account_settings' %} lp-sidebar__link--active{% endif %}"
-                       {% if route == 'app_account_settings' %}aria-current="page"{% endif %}>
-                        <twig:ux:icon name="lucide:settings" />
-                        <span class="lp-sidebar__link-label">{{ 'nav.link.settings'|trans }}</span>
-                    </a>
                 </nav>
                 <div class="lp-sidebar__account">
+                    <twig:ux:icon name="lucide:user" class="lp-sidebar__account-icon" />
                     <span class="lp-sidebar__account-text">
                         <span class="lp-sidebar__account-name">{{ app.user.userIdentifier }}</span>
                     </span>

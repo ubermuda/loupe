@@ -1382,6 +1382,9 @@
     .lp-sidebar__account {
         @apply flex items-center gap-2.5 px-2 py-2 border-t border-line;
     }
+    .lp-sidebar__account-icon {
+        @apply w-4 h-4 shrink-0 text-fg-dim;
+    }
     .lp-sidebar__account-text {
         @apply flex flex-col leading-tight min-w-0 mr-auto;
     }
