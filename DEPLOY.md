@@ -131,6 +131,7 @@ rather than half-configured:
 
 | Variable | Needed for | If unset |
 |---|---|---|
+| `MAILER_FROM_ADDRESS`, `MAILER_FROM_NAME` | Sender of every transactional email; the address must be on a domain you control and have published SPF/DKIM/DMARC for | Falls back to `noreply@localhost`, which real mail servers reject — and since email verification is mandatory, **your users cannot complete registration** |
 | `ADMIN_EMAIL` | Promotes that user to `ROLE_ADMIN` | No admin promotion |
 | `INSTALL_TOKEN` | Gates `/install` | **In prod the wizard 404s outright** — it fails closed, so an unset value locks you out of first-run setup rather than exposing it |
 | `mercure_jwt_secret` | Runs the Mercure hub for site-review push (a Terraform variable, not an env var — the module derives the URLs) | Hub not run; review submissions save but never reach a running agent |
