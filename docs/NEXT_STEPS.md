@@ -388,18 +388,6 @@ sections are settled, only re-review the delta" — per-section approval state
 multi-round spec reviews much cheaper. Interacts with the ToC item above
 (section identity comes from headings) and with comment re-anchoring.
 
-## Admin users need a visible link to /admin from the app
-
-
-
-**Author:** Geoffrey · **Type:** feature · **Priority:** medium · **Status:** pending
-
-Owner note (2026-07-25): nothing in the app UI links to the admin area — an
-admin has to type /admin by hand. Add a nav entry (sidebar or account menu)
-rendered only for ROLE_ADMIN (`is_granted('ROLE_ADMIN')` in Twig per the
-symfony-authorization skill). The reverse link exists (the admin-bundle shell
-links back to the app via its app_route config); only app → admin is missing.
-
 ## Decide fate of PlaywrightSyncEmailMiddleware (async-email follow-up)
 
 

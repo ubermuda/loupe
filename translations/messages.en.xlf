@@ -1347,6 +1347,10 @@
                 <source>nav.link.logout</source>
                 <target>Log out</target>
             </trans-unit>
+            <trans-unit id="nav.link.admin">
+                <source>nav.link.admin</source>
+                <target>Admin</target>
+            </trans-unit>
             <trans-unit id="nav.link.settings">
                 <source>nav.link.settings</source>
                 <target>Account settings</target>
