@@ -444,6 +444,46 @@ repository injection in controllers (forcing query handlers for reads,
 matching the skill) or only mutation paths; then fix or baseline the ~25
 existing controllers when the rule lands.
 
+## Agent-authored test scenarios delivered through the site-review widget
+
+**Author:** Geoffrey · **Type:** feature · **Priority:** medium · **Status:** pending
+
+Owner note (2026-07-27): the agent should be able to send the human a list of
+scenarios to test. They appear in the site-review widget, and the human walks
+through them marking each one resolved or not.
+
+Scenarios probably need to be linked back to the comments that prompted them —
+the agent fixes a comment, then hands back "here is what to check". That link
+is what turns the widget from a capture tool into a round-trip: the human sees
+which of their original comments a given scenario is meant to prove.
+
+Open questions for the design phase: whether a scenario is its own entity or a
+typed variant of `SiteReviewComment`; whether the link is one comment per
+scenario or many-to-many; how an unresolved scenario feeds back to the agent
+(a new comment, or a status on the scenario itself); and how scenarios reach
+the widget, since the widget currently only ever *sends* comments and pulls
+drafts. Related: 'Site-review comments have no agent-reply data model' (the
+agent has nowhere to put reply text today, which is the same missing
+return path) and 'Capture scenarios from the widget, not just anchored
+comments' (the other direction of the same object).
+
+## Capture scenarios from the widget, not just anchored comments
+
+**Author:** Geoffrey · **Type:** feature · **Priority:** medium · **Status:** pending
+
+Owner note (2026-07-27): the widget should be able to capture *scenarios*, not
+only comments anchored to a single element. Today every capture path in
+`public/site-review/widget.js` produces one comment tied to one selector (or a
+general page note) — there is no way to record "do this, then this, then this,
+and here is what should happen".
+
+This is the human→agent direction of the same object described in
+'Agent-authored test scenarios delivered through the site-review widget'; the
+two should share one data model rather than growing separately. Worth deciding
+early whether a scenario is a multi-step recording (steps captured as the human
+clicks through) or simply free text with several anchors attached, since that
+choice drives most of the widget UI work.
+
 ## Review anchoring — possible enhancement (low priority)
 
 
