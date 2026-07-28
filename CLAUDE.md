@@ -272,6 +272,10 @@ All icons must use the Symfony UX Icons bundle with Lucide. Never embed inline S
 <twig:UX:Icon name="lucide:x" class="w-3.5 h-3.5 shrink-0 mt-px" />
 ```
 
-`assets/icons/` is gitignored. UX Icons runs with `iconify.on_demand: true` (dev **and** test), so any Lucide icon resolves at render time from the iconify API — newly used icons render and pass tests/CI **without** being committed or pre-imported. `ux:icons:import` only populates a local cache (handy offline); it is not a prerequisite for a new icon to work, so you never need to commit the SVGs. If icon SVGs are accidentally committed, remove them with `git rm --cached` — **not** `git rm`.
+`assets/icons/` is **committed**. A self-hosted instance must render its UI with no egress, so the SVGs ship in the repo and therefore in the production image; `iconify.on_demand` is **off in prod** so a production instance never calls `api.iconify.design`. It stays on in dev and test, so a newly used icon still renders immediately while you work — but it is then only in your local cache, and the build would ship without it.
+
+**So: after adding a new icon, run `bin/console ux:icons:lock` and commit what appears under `assets/icons/`.** The command scans the project and imports what it finds. Do **not** `git rm --cached` these files; earlier guidance said to, and it now breaks production rendering.
+
+`ux:icons:lock` only sees icon names it can read as literals. A name built at runtime — e.g. `<twig:UX:Icon name="simple-icons:{{ provider }}" />` in `templates/Module/Account/security/_social_buttons.html.twig` — is invisible to the scan, so those icons must be imported by hand (`bin/console ux:icons:import simple-icons:google simple-icons:github`) and will otherwise be missing in prod with no error, because `ignore_not_found: true` renders nothing. If you add a dynamically-named icon, import its full set of possible values explicitly.
 
 **Stroke colour:** Imported Lucide SVGs use `stroke="currentColor"`. Control the stroke colour via a text colour class on the icon or its parent — never hardcode `stroke="white"` as an attribute.

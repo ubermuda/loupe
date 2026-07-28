@@ -175,6 +175,10 @@ All icons must use the Symfony UX Icons bundle with Lucide. Never embed inline S
 {{ ux_icon('lucide:x', {'class': 'w-3.5 h-3.5 shrink-0 mt-px'}) }}
 ```
 
-`assets/icons/lucide/` and `assets/icons/simple-icons/` are **gitignored** in this project (see `.gitignore`), and UX Icons runs with `iconify.on_demand: true` in dev **and** test — any icon resolves at render time from the iconify API, so new icons render and pass CI without being imported or committed. `php bin/console ux:icons:import` only populates a local cache (useful offline); it is never a prerequisite. If icon SVGs get committed accidentally, remove them with `git rm --cached`. (Committing icons for production build determinism is a deliberate tradeoff this project has *not* taken — if that ever changes, it changes here and in `.gitignore` together.)
+`assets/icons/` is **committed**. A self-hosted instance must render its UI with no egress, so the SVGs ship in the repo and therefore in the production image; `iconify.on_demand` is **off in prod** so a production instance never calls `api.iconify.design`. It stays on in dev and test, so a newly used icon still renders immediately while you work — but it is then only in your local cache, and the build would ship without it.
+
+**So: after adding a new icon, run `bin/console ux:icons:lock` and commit what appears under `assets/icons/`.** The command scans the project and imports what it finds. Do **not** `git rm --cached` these files; earlier guidance said to, and it now breaks production rendering.
+
+`ux:icons:lock` only sees icon names it can read as literals. A name built at runtime — e.g. `<twig:UX:Icon name="simple-icons:{{ provider }}" />` in `templates/Module/Account/security/_social_buttons.html.twig` — is invisible to the scan, so those icons must be imported by hand (`bin/console ux:icons:import simple-icons:google simple-icons:github`) and will otherwise be missing in prod with no error, because `ignore_not_found: true` renders nothing. If you add a dynamically-named icon, import its full set of possible values explicitly.
 
 **Stroke colour:** Imported Lucide SVGs use `stroke="currentColor"`. Control the stroke colour via a text colour class on the icon or its parent — never hardcode `stroke="white"` as an attribute.
