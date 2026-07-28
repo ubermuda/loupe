@@ -74,7 +74,11 @@
             <input type="hidden" name="_csrf_token" value="{{ csrf_token('comment-action') }}">
         </form>
 
-        {{ form_start(replyForm, {attr: {class: 'contents'}}) }}
+        {{ form_start(replyForm, {attr: {
+            class: 'contents',
+            'data-controller': 'keyboard-submit',
+            'data-action': 'keydown->keyboard-submit#submit',
+        }}) }}
             {{ form_widget(replyForm.body) }}
             <div class="lp-comment-error">{{ form_errors(replyForm.body) }}</div>
             <div class="lp-comment-actions">

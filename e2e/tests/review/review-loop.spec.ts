@@ -302,3 +302,56 @@ test('full review loop: comment, request changes, reload persistence', async ({
     ).toBeVisible();
     await expect(page.locator('.lp-comment-thread')).toHaveCount(0);
 });
+
+/**
+ * The composer's hint promises "⌘⏎ to submit", so the shortcut is part of the
+ * contract the UI advertises — a plain click-the-button test would not catch
+ * its absence. Playwright's "Meta" maps to Cmd on macOS and to the Windows key
+ * elsewhere, so press Control+Enter too: the controller accepts either, and
+ * this keeps the spec honest on a Linux CI runner.
+ */
+test('composer submits on Ctrl/Cmd+Enter', async ({ page }) => {
+    await suppressToolbar(page);
+    await suppressWidget(page);
+
+    const email = `e2e+reviewkbd+${RUN}@example.com`;
+    const username = `e2erevkbd${RUN}`;
+    const password = 'E2eReviewKeys1!';
+
+    await devRegisterAndVerify(page, email, username, password);
+    await login(page, email, password);
+
+    const { documentId, projectId } = await seedDocument(page);
+    await page.goto(`/projects/${projectId}/documents/${documentId}/review`);
+    await expect(
+        page.locator('[data-comment-anchor-target="doc"]'),
+    ).toBeVisible();
+
+    await selectKnownPhrase(page, KNOWN_PHRASE);
+    await page.getByRole('button', { name: 'Comment', exact: true }).click();
+    const composer = page.locator('[data-comment-anchor-target="composer"]');
+    await expect(composer).toBeVisible({ timeout: 5000 });
+
+    const body = page.locator('[data-comment-anchor-target="composerBody"]');
+    await body.fill(COMMENT_BODY);
+
+    // Submit from inside the textarea — the action is bound on the form and
+    // relies on keydown bubbling up from the field.
+    await body.press('ControlOrMeta+Enter');
+
+    // Same success signal the click path asserts: the Turbo Stream comes back,
+    // the composer hides, and the thread appears.
+    await expect(composer).toBeHidden({ timeout: 10000 });
+    const commentBody = page.locator('.lp-comment-body').first();
+    await expect(commentBody).toBeVisible({ timeout: 10000 });
+    await expect(commentBody).toContainText(COMMENT_BODY);
+
+    // Guard against a double submit: the keydown must not also trigger the
+    // form's default newline-then-submit behaviour.
+    const stateRes = await page.request.get(`/dev/review/${documentId}/state`);
+    expect(stateRes.status()).toBe(200);
+    const state = (await stateRes.json()) as {
+        comments: Array<{ quote: string; body: string }>;
+    };
+    expect(state.comments).toHaveLength(1);
+});

@@ -95,7 +95,8 @@
             {{ form_start(addCommentForm, {attr: {
                 class: 'lp-comment-composer',
                 'data-comment-anchor-target': 'composer',
-                'data-action': 'turbo:submit-end->comment-anchor#onSubmitEnd',
+                'data-controller': 'keyboard-submit',
+                'data-action': 'turbo:submit-end->comment-anchor#onSubmitEnd keydown->keyboard-submit#submit',
                 hidden: true,
             }}) }}
                 {{ form_widget(addCommentForm.quote) }}
