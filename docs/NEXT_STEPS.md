@@ -1645,3 +1645,47 @@ It delivers the stated relationship — the part that actually survives into a C
 change — for the price of a data-model change, with none of the intent-inference
 problem above. Once multi-anchor comments exist, revisit whether dragging adds
 enough over them to be worth building at all.
+
+## Trials provisioned before the billing.enabled guard still expire on the flip
+
+**Author:** Claude · **Type:** bug · **Priority:** medium · **Status:** pending
+
+`ProvisionTrialOnUserRegistered`
+(`src/Module/Billing/EventListener/ProvisionTrialOnUserRegistered.php`) now
+returns early unless the `billing.enabled` feature flag is on (PR #99), so an
+instance running with billing off no longer creates `BillingProfile` rows whose
+`trialEndsAt` counts down with nobody watching. That guard is forward-looking
+only, and the rows created before it — by every registration that happened
+while the flag was off — keep the `trialEndsAt` they were given at
+registration.
+
+So the failure the guard exists to prevent still happens, just to the existing
+user base rather than to new signups. An instance that ran with billing off for
+longer than a trial period and then turns `billing.enabled` on paywalls all of
+those accounts at once: `PaywallGate::allows()`
+(`src/Module/Billing/Service/PaywallGate.php`) sees an elapsed trial with no
+subscription and blocks, and `RunTrialSweepHandler`
+(`src/Module/Billing/Command/RunTrialSweepHandler.php`) — which no-ops while
+the flag is off — starts on its next run and disables the accounts outright.
+This is squarely a self-hosting problem: running without Stripe for months and
+switching it on later is a normal thing for a self-hoster to do.
+
+The fix is to anchor the trial clock to the flag flip rather than to
+registration. Two shapes worth weighing when picking this up:
+
+- Have `TrialProvisioner` (`src/Module/Billing/Service/TrialProvisioner.php`)
+  extend `trialEndsAt` on any profile whose trial elapsed entirely while
+  billing was off. Needs a record of when the flag was turned on, which does
+  not exist today — `Ubermuda\FeatureFlagsBundle\Entity\FeatureFlag` stores
+  only name, type, value, tags and options, with no timestamps.
+- Make enabling billing an explicit operation: a console command alongside
+  `SweepEndedTrialsCommand` that resets `trialEndsAt` on every existing profile
+  to a full trial from now, documented as the step to run when switching
+  billing on. Simpler and auditable, but it is an operator step somebody can
+  forget.
+
+Whichever is chosen, the regression guard is a test proving that a profile
+whose trial predates the flip is not immediately blocked by `PaywallGate` — the
+existing flag-off tests in
+`tests/Module/Billing/EventListener/ProvisionTrialOnUserRegisteredTest.php`
+cover only the no-new-rows half.
