@@ -38,7 +38,7 @@ optionally, a Mercure hub.
 |---|---|
 | **Web** | `docker/prod/Dockerfile`, running supervisord as PID 1: `php-fpm` + `nginx`, plus an `export-purge` sleep-loop that runs `app:purge-expired-exports` hourly. It purges archives the *worker* wrote, which only works because both address the same export storage — see `EXPORT_STORAGE` below. Listens on port 80. |
 | **Worker** | The *same image*, started with a different command. Deliberately **not** a supervisord program inside the web container, so worker restarts never recycle php-fpm and nginx. |
-| **Postgres** | Any Postgres the app can reach. It also carries the message queue: `MESSENGER_TRANSPORT_DSN` defaults to `doctrine://default`, so there is no broker to run. |
+| **Postgres** | Any Postgres the app can reach. It also carries the message queue: `MESSENGER_TRANSPORT_DSN` defaults to `doctrine://default?auto_setup=0`, so there is no broker to run. |
 | **Mercure hub** | Only needed for site-review push. Optional, and off until `MERCURE_JWT_SECRET` is set. In-memory, so delivery is best effort — see "Known gaps". |
 
 ### The worker is not optional
@@ -68,26 +68,27 @@ itself. **Anything you leave unset falls back to the committed default in
 `.env`** — which is usually a development value.
 
 Where a variable is set differs by topology: in `compose.prod.env` for the
-single-host stack, in Terraform variables for App Platform. "Set by hand" in the
-last column means neither template covers it and you must add it yourself.
+single-host stack, in Terraform variables for App Platform. The last column
+answers one question — **must you add this yourself, because no template has a
+slot for it?** "No" means both templates cover it.
 
 ### Always
 
-| Variable | Purpose | Set by hand? |
+| Variable | Purpose | Add by hand? |
 |---|---|---|
-| `APP_ENV` | Must be `prod`. | Both templates set it |
+| `APP_ENV` | Must be `prod`. | No |
 | `APP_SECRET` | Symfony secret. Generate once — see "Secrets". | No |
 | `DATABASE_URL` | Postgres DSN. `serverVersion` must match the real cluster: understating it is safe, overstating it can break queries. | No |
 | `DEFAULT_URI` | **The instance's public URL, scheme included.** The single host-shaped setting the app has. It builds absolute links in non-HTTP contexts (console commands, the worker), pins the host of links in security-sensitive email so a forged `Host` header cannot redirect them, and is the base of the Mercure topics the bridge CLI subscribes to. Get it wrong and password-reset and export-download emails point somewhere nobody can act on. | No |
 | `MCP_ALLOWED_HOSTS` | Comma-separated DNS-rebinding allowlist for `/mcp`, **hostnames only, no port**. It must contain the hostname agents actually use, or every MCP call is rejected with a 403 — one that names this variable and echoes the host it rejected, so the failure is self-explaining. | No |
-| `TRUSTED_PROXIES` | The reverse proxy in front of the app, as IPs or CIDR ranges. **Empty falls back to `PRIVATE_SUBNETS`**, which covers Docker and any balancer on a private network. Set it when your balancer reaches the app from a public address: until you do, `X-Forwarded-Proto` and `X-Forwarded-Host` are ignored (generated URLs get the wrong scheme and host) and every visitor shares the balancer's IP, so the per-IP registration and password-reset limiters throttle all your users collectively. | Compose only |
-| `APP_SOURCE_URL` | Where *this instance's* source can be obtained, rendered as a footer link on every page. A default ships in `.env` pointing at upstream, which is correct for an unmodified instance and wrong for a modified one. **If you change the code, the AGPL requires you to point this at your repository.** | **Yes — both topologies** |
+| `TRUSTED_PROXIES` | The reverse proxy in front of the app, as IPs or CIDR ranges. **Empty falls back to `PRIVATE_SUBNETS`**, which covers Docker and any balancer on a private network. Set it when your balancer reaches the app from a public address: until you do, `X-Forwarded-Proto` and `X-Forwarded-Host` are ignored (generated URLs get the wrong scheme and host) and every visitor shares the balancer's IP, so the per-IP registration and password-reset limiters throttle all your users collectively. | **Yes on App Platform** — `compose.prod.env.example` has a slot, Terraform has none |
+| `APP_SOURCE_URL` | Where *this instance's* source can be obtained, rendered as a footer link on every page. A default ships in `.env` pointing at upstream, which is correct for an unmodified instance and wrong for a modified one. **If you change the code, the AGPL requires you to point this at your repository.** | **Yes, both topologies** |
 
 ### Mail
 
 Email verification is **mandatory**, so nobody can register until mail works.
 
-| Variable | Purpose | Set by hand? |
+| Variable | Purpose | Add by hand? |
 |---|---|---|
 | `MAILER_DSN` | Outbound transport. | No |
 | `MAILER_FROM_ADDRESS` | Sender of every transactional email — verification, password reset, waitlist invite, data export, account deletion. Must be on a domain you control and have published SPF/DKIM/DMARC for. **Falls back to `noreply@localhost`, which real mail servers reject**, so registration breaks. | No |
@@ -98,7 +99,7 @@ Email verification is **mandatory**, so nobody can register until mail works.
 Optional. Without it, review submissions still save but never reach a running
 agent, and the publish failure is only logged — it degrades silently.
 
-| Variable | Purpose | Set by hand? |
+| Variable | Purpose | Add by hand? |
 |---|---|---|
 | `MERCURE_JWT_SECRET` | Shared HS256 key, minimum 32 characters, **identical for the app and the hub**. No default ships: if unset, Mercure fails loudly rather than signing with a publicly-known key. | No |
 | `MERCURE_URL` | Where the app POSTs updates — the hub on the internal network. | No |
@@ -106,7 +107,7 @@ agent, and the publish failure is only logged — it degrades silently.
 
 ### First run
 
-| Variable | Purpose | Set by hand? |
+| Variable | Purpose | Add by hand? |
 |---|---|---|
 | `INSTALL_TOKEN` | Gates `/install`. **Set this before the first deploy** — see "First run". | No |
 | `ADMIN_EMAIL` | Promotes that user to `ROLE_ADMIN` at login. Only works on an already-verified account, so it cannot rescue a locked-out install; `app:user:promote` can. | No |
@@ -138,12 +139,12 @@ this is the only place object storage is needed.
 
 ### Optional features
 
-| Variable | Purpose | Set by hand? |
+| Variable | Purpose | Add by hand? |
 |---|---|---|
 | `APP_ENCRYPTION_KEY` | Only once an `encrypted_string` column is in use. **Losing it makes existing encrypted columns unreadable.** | No |
 | `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET` | Billing. Nothing instantiates the Stripe client until the `billing.enabled` feature flag is on. | No |
 | `OAUTH_GOOGLE_ID` / `_SECRET`, `OAUTH_GITHUB_ID` / `_SECRET` | Social login. A provider becomes reachable only when its credentials **and** its feature flag (`auth.google.enabled` / `auth.github.enabled`) are both set. | No |
-| `SITE_REVIEW_WIDGET_TOKEN` | Only for dogfooding the review widget on Loupe's own pages. It appears in page source, so use a dedicated SiteReview-scoped token, never an MCP or production credential. | **Yes — both topologies** |
+| `SITE_REVIEW_WIDGET_TOKEN` | Only for dogfooding the review widget on Loupe's own pages. It appears in page source, so use a dedicated SiteReview-scoped token, never an MCP or production credential. | **Yes, both topologies** |
 
 ### What the Terraform root does not set
 
