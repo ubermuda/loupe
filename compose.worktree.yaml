@@ -26,6 +26,10 @@ services:
       - ${WT_ROOT:?set by worktree-bootstrap.sh}/docker/common/nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
       # Generated per worktree; the only line that differs from the main stack.
       - ${WT_ROOT:?}/var/nginx-docroot.conf:/etc/nginx/docroot.conf:ro
+      # A worktree already has its own database via WORKTREE_DB_SUFFIX in its
+      # .env.local, so it needs no fastcgi-level override — but default.conf
+      # includes this path unconditionally, so something must be mounted.
+      - ${WT_ROOT:?}/docker/common/nginx/app-env-none.conf:/etc/nginx/app-env.conf:ro
     networks:
       # Both networks must be attached at creation. Attaching one afterwards is
       # a race: nginx resolves `php-fpm` while parsing its config and exits with

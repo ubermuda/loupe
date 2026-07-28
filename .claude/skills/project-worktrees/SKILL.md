@@ -188,9 +188,17 @@ suspecting the branch.
 ## Testing
 
 Each worktree gets its own test database via `TEST_TOKEN`, so `just ci` runs in
-parallel across worktrees safely. `just e2e` does not parallelize (shared
-Mailpit), but it can be pointed at a worktree, which is the better gate for a
-branch:
+parallel across worktrees safely.
+
+**For the full e2e suite, reach for `just e2e-up` first, not a worktree.** It
+provisions a disposable `app_e2e` database and a sidecar serving the main
+checkout, so it gates whatever branch is checked out there without provisioning
+a tree, a cert or a seeded database. The rest of this section covers pointing
+e2e at a **worktree**, which is still supported and is the right tool when you
+need to gate a branch without checking it out — but it is no longer the only
+way, and it is the more expensive one.
+
+`just e2e` does not parallelize (shared Mailpit). To aim it at a worktree:
 
 ```sh
 E2E_BASE_URL=https://<slug>.loupe.dev.localhost just e2e
