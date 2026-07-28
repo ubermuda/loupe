@@ -94,6 +94,7 @@
                     </a>
                     {% endif %}
                 </nav>
+                {% include '_source_link.html.twig' with {class: 'lp-sidebar__source'} only %}
                 <div class="lp-sidebar__account">
                     <twig:ux:icon name="lucide:user" class="lp-sidebar__account-icon" />
                     <span class="lp-sidebar__account-text">

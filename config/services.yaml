@@ -7,6 +7,7 @@
 # Put parameters here that don't need to change on each machine where the app is deployed
 # https://symfony.com/doc/current/best_practices.html#use-parameters-for-application-configuration
 parameters:
+<<<<<<< HEAD
     # Sender of every transactional email. Environment-driven because a
     # self-hosted instance can only pass SPF/DKIM/DMARC with a domain its
     # operator actually owns.
@@ -21,6 +22,10 @@ parameters:
     # Correct behind Docker and any private-network load balancer; an operator
     # whose balancer connects from a public IP overrides it.
     app.trusted_proxies_default: 'PRIVATE_SUBNETS'
+    # Source-code location offered to network users in the footer. Overridable
+    # per instance so a fork links to its own modified source, as the AGPL
+    # requires.
+    app.source_url: '%env(APP_SOURCE_URL)%'
     # Name of the MCP server as it appears in the connect-agent install snippet
     # and the `claude mcp add` command.
     app.mcp.server_name: 'loupe'
