@@ -4,7 +4,12 @@ export default defineConfig({
     globalSetup: './global-setup.ts',
     testDir: './tests',
     fullyParallel: false,
-    workers: 3,
+    // Mailpit is shared by every spec and is never cleared, so concurrent
+    // mail-asserting specs read each other's messages. The suite is serial by
+    // nature; saying so here means the plain `just e2e` is correct rather than
+    // correct-only-if-you-remember-the-flag. Override on the command line when
+    // running a subset that touches no mail.
+    workers: 1,
     forbidOnly: !!process.env.CI,
     retries: 0,
     reporter: [['html', { open: 'never' }]],

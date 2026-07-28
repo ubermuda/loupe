@@ -274,9 +274,20 @@ e2e *args:
 # into an HTML report.
 # Run e2e with per-request PHP coverage.
 e2e-coverage *args:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    # Same target and same guard as `just e2e`. Without this the coverage run
+    # fell through to Playwright's own default of the dev host — a documented
+    # full-suite command that truncates the development database.
+    project=$(grep -E '^COMPOSE_PROJECT_NAME=' .env | head -1 | cut -d= -f2-)
+    export E2E_BASE_URL="${E2E_BASE_URL:-https://e2e.${project}.dev.localhost}"
+    if ! curl -sf -o /dev/null "$E2E_BASE_URL/login"; then
+        echo "e2e: $E2E_BASE_URL is not reachable — run 'just e2e-up' first." >&2
+        exit 1
+    fi
     rm -rf var/coverage
     cd e2e && COVERAGE=1 npx playwright test {{args}}
-    bin/worktrees/compose-exec.sh vendor/bin/phpcov merge var/coverage --html var/coverage/html
+    cd .. && bin/worktrees/compose-exec.sh vendor/bin/phpcov merge var/coverage --html var/coverage/html
 
 open-coverage:
     open var/coverage/html/index.html
