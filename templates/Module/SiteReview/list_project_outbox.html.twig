@@ -1,0 +1,63 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}{{ 'site_review.outbox.page.title'|trans }} — {{ 'app.name'|trans }}{% endblock %}
+
+{% block body %}
+<div class="lp-site-review-page">
+    <nav class="lp-site-review-breadcrumb">
+        <a href="{{ path('app_project_documents', {id: project.id}) }}">{{ project.name }}</a>
+        <span class="lp-site-review-breadcrumb__separator">/</span>
+        <a href="{{ path('app_project_site_review', {id: project.id}) }}">{{ 'site_review.page.title'|trans }}</a>
+        <span class="lp-site-review-breadcrumb__separator">/</span>
+        <span class="lp-site-review-breadcrumb__current">{{ 'site_review.outbox.page.title'|trans }}</span>
+    </nav>
+
+    <header class="lp-site-review-header">
+        <h1 class="lp-site-review-title">{{ 'site_review.outbox.page.title'|trans }}</h1>
+        <p class="lp-site-review-meta-line">{{ 'site_review.outbox.count'|trans({'%count%': events|length}) }}</p>
+        <p class="lp-site-review-description">{{ 'site_review.outbox.page.description'|trans }}</p>
+    </header>
+
+    {% if events|length > 0 %}
+    <div class="lp-site-review-list">
+        {% for event in events %}
+            <article class="lp-site-review-item" data-outbox-event-id="{{ event.id }}">
+                <span class="lp-site-review-index lp-site-review-index--pending">{{ '%02d'|format(loop.index) }}</span>
+                <div class="lp-site-review-main">
+                    <div class="lp-site-review-title-row">
+                        <p class="lp-site-review-quote">{{ 'site_review.outbox.event_label'|trans({'%date%': event.createdAt|date('Y-m-d H:i')}) }}</p>
+                        <span class="lp-status-chip lp-status-chip--pending shrink-0">
+                            <span class="lp-status-chip__dot"></span>
+                            {{ 'site_review.outbox.status.unsent'|trans }}
+                        </span>
+                    </div>
+
+                    <div class="lp-site-review-context">
+                        <span>{{ 'site_review.outbox.attempts'|trans({'%count%': event.publishAttempts}) }}</span>
+                        <span>
+                            {%- if event.nextAttemptAt is null -%}
+                                {{ 'site_review.outbox.next_attempt.due_now'|trans }}
+                            {%- else -%}
+                                {{ 'site_review.outbox.next_attempt.scheduled'|trans({'%date%': event.nextAttemptAt|date('Y-m-d H:i')}) }}
+                            {%- endif -%}
+                        </span>
+                    </div>
+
+                    {% if event.lastPublishError %}
+                    <p class="lp-site-review-body">
+                        <twig:ux:icon name="lucide:triangle-alert" class="w-3.5 h-3.5 shrink-0 inline-block text-status-pending-deep" />
+                        {{ event.lastPublishError }}
+                    </p>
+                    {% endif %}
+                </div>
+            </article>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="lp-site-review-empty">
+        <twig:ux:icon name="lucide:circle-check" class="w-8 h-8 text-fg-dim" />
+        <p>{{ 'site_review.outbox.empty'|trans }}</p>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
