@@ -598,6 +598,51 @@ and multi-anchor are two ways to express the same relational feedback, and a
 stroke connecting two elements is arguably just a multi-anchor comment with a
 picture attached.
 
+## Public feedback widget (a public pendant to the site-review widget)
+
+**Author:** Geoffrey · **Type:** feature · **Priority:** medium · **Status:** pending
+
+Owner note (2026-07-27): the site-review widget is internal-only — it is for the
+project's own people reviewing their own site. We also want a widget a project
+can expose to its actual public, collecting feedback from anonymous visitors.
+That feedback goes through **its own pipeline and is never routed to the LLM**.
+
+**Make "never routed to the LLM" structural, not a filter.** The obvious
+shortcut is to reuse `SiteReviewComment` with an `isPublic` flag and exclude it
+in the agent-facing queries — do not. `GetSiteReviewTool` reads
+`findPendingForProject`, and any future query, export or MCP tool that forgets
+the flag silently leaks public feedback into an agent's context, which is
+exactly the failure the owner is ruling out. Separate storage (its own entity,
+plausibly its own module) makes the leak impossible to write rather than
+merely currently-absent.
+
+The trust model inverts, so little of the current widget's API carries over:
+
+- Today the widget only renders for a logged-in user
+  (`{% if app.user and site_review_widget_token %}` in `base.html.twig`) and its
+  token is minted per project with the `ROLE_API_SITE_REVIEW` scope that
+  `config/packages/security.yaml` names above the deny-by-default `^/api` rule.
+  A public widget's token ships in the page source of a public site to anyone,
+  so it needs its own scope that can **create only** — never list, patch or
+  delete. The existing widget has read and mutate endpoints (draft listing,
+  update, delete) that must not be reachable with a public token.
+- There is no draft/send cycle. The current widget batches drafts locally and
+  submits a review; an anonymous visitor submits one piece of feedback and
+  leaves. That removes most of the widget's state machine.
+- Abuse controls become load-bearing rather than incidental.
+  `RateLimitSiteReviewWrites` keys on the authenticated user and falls back to
+  client IP; for anonymous traffic only the fallback applies, so it needs
+  per-project limits, body size caps and a spam story before this is exposed.
+- CORS currently answers for a project's configured domain
+  (`SiteReviewCorsSubscriber`); the same mechanism should work, but the origin
+  allow-list becomes a security boundary rather than a convenience.
+
+Also decide before building: where public feedback surfaces in the app (its own
+inbox screen, not the site-review list), whether it notifies by email, and its
+retention story — the account-deletion and data-export purgers exist for
+`User`-owned data, and anonymous submissions with no owning user fit none of
+those paths while still potentially carrying personal data.
+
 ## Review anchoring — possible enhancement (low priority)
 
 
