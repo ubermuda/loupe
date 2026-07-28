@@ -247,6 +247,26 @@ e2e-down:
     E2E_APP_NETWORK="${project}_default" \
         docker compose -f "$main/compose.e2e.yaml" -p "${project}-e2e" down >/dev/null
 
+    # Stop the e2e worker before dropping its database. Left running it keeps
+    # retrying against a database that has gone, and — because it survives for
+    # up to its --time-limit — it is still there when the next `e2e-up`
+    # recreates app_e2e, so two workers consume the same queue and the mail
+    # specs start failing on timing. This is the same trap as a worktree
+    # teardown blocked by its own consumer.
+    #
+    # Matched by environment, not command line: the main stack's worker runs a
+    # byte-identical `messenger:consume scheduler_default async`, so a pkill on
+    # the command would kill the dev worker too. WORKTREE_DB_SUFFIX=_e2e is
+    # what actually distinguishes them.
+    docker compose exec -T php-fpm sh -c '
+        for proc in /proc/[0-9]*; do
+            pid=${proc#/proc/}
+            [ -r "$proc/environ" ] || continue
+            tr "\0" "\n" < "$proc/environ" 2>/dev/null | grep -qx "WORKTREE_DB_SUFFIX=_e2e" || continue
+            tr "\0" " " < "$proc/cmdline" 2>/dev/null | grep -q "messenger:consume" || continue
+            kill "$pid" 2>/dev/null || true
+        done' 2>/dev/null || true
+
     # The database may legitimately not exist; the sidecar removal above may
     # not. Only these are tolerant.
     docker compose exec -T database psql -U app -d postgres -tAc \
