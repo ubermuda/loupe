@@ -17,7 +17,6 @@ readonly class DataExportArchiveBuilder
         /** @var iterable<UserDataExporterInterface> */
         #[AutowireIterator('app.user_data_exporter')]
         private iterable $exporters,
-
         private FilesystemOperator $exportStorage,
     ) {
     }

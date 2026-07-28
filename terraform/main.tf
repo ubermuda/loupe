@@ -56,6 +56,19 @@ module "app" {
     var.mcp_allowed_hosts == "" ? {} : { MCP_ALLOWED_HOSTS = { value = var.mcp_allowed_hosts } },
     var.install_token == "" ? {} : { INSTALL_TOKEN = { value = var.install_token, type = "SECRET" } },
 
+    # Data-export archives. Unlike every other entry here, EXPORT_STORAGE is
+    # always set: the app's own default is `local`, which cannot work on this
+    # topology (separate web and worker containers, no shared volume), so
+    # omitting it would silently 404 every export download.
+    { EXPORT_STORAGE = { value = var.export_storage } },
+    var.export_storage_bucket == "" ? {} : { EXPORT_STORAGE_BUCKET = { value = var.export_storage_bucket } },
+    var.export_storage_prefix == "" ? {} : { EXPORT_STORAGE_PREFIX = { value = var.export_storage_prefix } },
+    var.export_storage_region == "" ? {} : { EXPORT_STORAGE_REGION = { value = var.export_storage_region } },
+    var.export_storage_endpoint == "" ? {} : { EXPORT_STORAGE_ENDPOINT = { value = var.export_storage_endpoint } },
+    var.export_storage_key == "" ? {} : { EXPORT_STORAGE_KEY = { value = var.export_storage_key, type = "SECRET" } },
+    var.export_storage_secret == "" ? {} : { EXPORT_STORAGE_SECRET = { value = var.export_storage_secret, type = "SECRET" } },
+    var.export_storage_use_path_style == "" ? {} : { EXPORT_STORAGE_USE_PATH_STYLE = { value = var.export_storage_use_path_style } },
+
     var.stripe_secret_key == "" ? {} : { STRIPE_SECRET_KEY = { value = var.stripe_secret_key, type = "SECRET" } },
     var.stripe_webhook_secret == "" ? {} : { STRIPE_WEBHOOK_SECRET = { value = var.stripe_webhook_secret, type = "SECRET" } },
 

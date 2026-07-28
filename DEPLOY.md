@@ -17,15 +17,16 @@ own requirements and hold wherever you run it.
 There is **no CI/CD pipeline** — no `.github/workflows`. Deploys are run by hand
 from a workstation with `just`.
 
-> **Read "Known gaps" before your first real deploy.** Three things the
-> application needs are not currently configured by `terraform/main.tf`, and one
-> of them (the messenger worker) silently disables a large part of the product.
+> **Read "Known gaps" before your first real deploy.** Several things the
+> application needs are not configured by `terraform/main.tf` on your behalf,
+> and two of them — the install token and the data-export bucket — leave a
+> feature broken rather than merely off.
 
 ## What runs in production
 
 | Component | What it is |
 |---|---|
-| **Web container** | `docker/prod/Dockerfile`, running supervisord as PID 1: `php-fpm` + `nginx`, plus an `export-purge` sleep-loop that runs `app:purge-expired-exports` hourly. |
+| **Web container** | `docker/prod/Dockerfile`, running supervisord as PID 1: `php-fpm` + `nginx`, plus an `export-purge` sleep-loop that runs `app:purge-expired-exports` hourly. It purges archives the *worker* wrote, which only works because both address the same export storage — see `EXPORT_STORAGE` below. |
 | **Worker container** | The *same image*, started with a different command (`enable_worker` in `terraform/main.tf`). Not part of the web container's supervisord — deliberately, so worker restarts never recycle php-fpm/nginx. It consumes `scheduler_default` first, then `async`: a deep async backlog must not delay schedule ticks. |
 | **Postgres** | A per-app database and user on a **shared** App Platform cluster (`tor` region). The module creates them; the cluster already exists. |
 | **Mercure hub** | Required for site-review push. A second service in the same app, run by the shared module when `mercure_jwt_secret` is set. In-memory, so delivery is best effort — see "Known gaps". |
@@ -136,6 +137,12 @@ rather than half-configured:
 | `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET` | Billing, checkout, webhooks | Billing paths fail |
 | `OAUTH_GOOGLE_ID` / `_SECRET`, `OAUTH_GITHUB_ID` / `_SECRET` | Social login | Those buttons fail |
 | `MCP_ALLOWED_HOSTS` | DNS-rebinding allowlist for `/mcp` | The MCP endpoint rejects your real hostname |
+| `EXPORT_STORAGE` | Where data-export archives live: `local` or `s3`. Terraform sets it to `s3` by default — see "Known gaps" | **Every export download 404s** on `local`: the worker writes the archive, the web container serves it, and they share no volume |
+| `EXPORT_STORAGE_BUCKET` | The bucket, when `EXPORT_STORAGE=s3` | Exports fail at upload |
+| `EXPORT_STORAGE_ENDPOINT`, `_REGION` | Any S3-compatible provider (MinIO, R2, Spaces). Empty targets AWS S3 | AWS S3 in `us-east-1` |
+| `EXPORT_STORAGE_KEY`, `_SECRET` | Bucket credentials | The ambient AWS credential chain (an instance role) is used — correct on AWS, nothing anywhere else |
+| `EXPORT_STORAGE_PREFIX` | Key prefix inside the bucket | Archives sit at the bucket root |
+| `EXPORT_STORAGE_USE_PATH_STYLE` | `true` for MinIO and most non-AWS providers | Virtual-hosted addressing (`https://bucket.host/key`) |
 | `SITE_REVIEW_WIDGET_TOKEN` | Only for dogfooding the widget on Loupe's own pages | Widget not loaded |
 
 `INSTALL_TOKEN` is the one to set **before** the first deploy: the wizard is how
@@ -150,7 +157,10 @@ the token.
    you.
 3. `bin/console doctrine:migrations:status` reports no pending migrations.
 4. Trigger something that queues async work (a data export) and confirm it
-   completes — that proves the worker is actually consuming.
+   completes — that proves the worker is actually consuming. **Then follow the
+   download link in the email and check you get a ZIP**: completion only proves
+   the worker ran, while the download is what proves the web container can
+   reach the archive the worker wrote.
 
 ## Known gaps
 
@@ -158,7 +168,21 @@ the token.
    in production, an unset value means `/install` returns 404 and there is no way
    to create the first administrator.
 
-2. **Set `mercure_jwt_secret` if you want site-review push.** Setting it runs a
+2. **Data exports need a bucket.** The web and worker containers have separate
+   ephemeral filesystems, so the application default of `EXPORT_STORAGE=local`
+   cannot work here: the worker would write an archive the web container cannot
+   see, every download would 404, and the hourly `export-purge` loop would
+   delete rows whose archives it cannot reach. `terraform/main.tf` therefore
+   always sets `EXPORT_STORAGE`, defaulting it to `s3` — but a bucket is not
+   created for you. Set `export_storage_bucket` plus its credentials
+   (`terraform.tfvars.example` has the block) before you rely on exports. Any
+   S3-compatible provider works; DigitalOcean Spaces sits in the same account
+   as the rest of this deployment.
+
+   Nothing else in the app writes files, so this is the only place object
+   storage is needed.
+
+3. **Set `mercure_jwt_secret` if you want site-review push.** Setting it runs a
    Mercure hub as a second service in this app (module v1.6.0's `enable_mercure`)
    and routes `/.well-known/mercure` on the app's own domain to it; the module
    injects `MERCURE_URL`, `MERCURE_PUBLIC_URL` and `MERCURE_JWT_SECRET` itself.
@@ -170,7 +194,7 @@ the token.
    submissions are recorded in the `site_review_events` outbox and the bridge
    resumes from `Last-Event-ID` — delivery is best effort, replay is not.
 
-3. **Nothing here has been applied against a live account.** `terraform validate`
+4. **Nothing here has been applied against a live account.** `terraform validate`
    passes and `plan` evaluates the full configuration, but no deploy has run. The
    Mercure component in particular is reasoned from the `dunglas/mercure` image's
    documented interface and the dev compose service, not observed working.

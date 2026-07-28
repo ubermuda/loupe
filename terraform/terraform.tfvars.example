@@ -24,6 +24,17 @@ app_encryption_key   = "GENERATED_BASE64_32_BYTE_KEY"
 # app and wires the URLs automatically; leave it out to keep push disabled.
 # mercure_jwt_secret = "GENERATE_A_LONG_RANDOM_STRING"
 
+# Data-export archives. REQUIRED: this deployment runs the web and the worker as
+# separate containers with no shared volume, so exports need a bucket both can
+# reach. export_storage defaults to "s3"; without a bucket, every export
+# download 404s. Any S3-compatible provider works.
+# export_storage_bucket        = "loupe-exports"
+# export_storage_region        = "tor1"
+# export_storage_endpoint      = "https://tor1.digitaloceanspaces.com"
+# export_storage_key           = "..."
+# export_storage_secret        = "..."
+# export_storage_use_path_style = "true"   # MinIO and most non-AWS providers
+
 # stripe_secret_key     = "sk_live_..."
 # stripe_webhook_secret = "whsec_..."
 
