@@ -692,6 +692,47 @@ them. When the fields go, delete their orphaned `account.form.*` /
 change, per the `project-translations` skill: nothing flags unused keys and
 they rot silently.
 
+## Let the agent close the loop when a human approves the work
+
+**Author:** Geoffrey · **Type:** feature · **Priority:** medium · **Status:** pending
+
+Owner note (2026-07-28): when a PR that exists *because of* a site review gets
+approved or merged, the agent should be allowed to mark those site-review
+comments **resolved** — not merely addressed. Likewise, when a document review
+is approved verbally, the agent should be able to mark that document approved.
+Probably belongs in a skill as well as in the tools.
+
+**This deliberately relaxes an invariant the code states in prose**, so it needs
+designing rather than just enabling. `AddressSiteReviewCommentsTool` documents
+itself as "the agent's only write: Pending → Addressed", and Resolved is reached
+only through `ResolveSiteReviewCommentController`, gated by
+`SiteReviewCommentVoter::RESOLVE`. On the document side there is no verdict tool
+at all — `Review/Mcp/` exposes create, get, list and revise, and nothing that
+sets a `Verdict`. The split exists so the agent cannot sign off its own work:
+*addressed* is the agent's claim, *resolved* is the human's agreement.
+
+The owner's framing keeps a human in the loop — the trigger is a human
+approving or merging. The design question is **what the tool trusts as evidence
+of that**. Taken naively the agent is simply *told* "I approved it" in chat and
+writes the status, which reduces the guard to "the agent asserts a human said
+so" — strictly weaker than today, and indistinguishable from a mistaken or
+injected instruction. The stronger option is binding the write to a verifiable
+artifact the agent can check rather than be told about: the PR's own review
+state or merge status. Decide this before writing the tool, because it is the
+whole security value of the feature.
+
+Two links that do not exist yet and this depends on:
+
+- **Nothing records which site-review comments a PR came from.** Resolving "the
+  comments this PR closes" requires that association to be captured when the
+  work starts. Same missing link as in 'Agent-authored test scenarios delivered
+  through the site-review widget'.
+- **Document approval writes state that is slated for removal.** See 'Replace
+  explicit document/site-review state with computed state' — if a document's
+  approved-ness becomes computed from its comments, "mark this document
+  approved" has no column to write and the feature means something different.
+  Design the two together or the second will invalidate the first.
+
 ## Review anchoring — possible enhancement (low priority)
 
 
