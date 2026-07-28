@@ -48,6 +48,23 @@ worktree is a full application of its own** — run `just worktree-up` and it ge
 its own URL (`https://<name>.loupe.dev.localhost`), its own migrated and seeded
 database, and its own compiled CSS. Log in with `dev@loupe.test` / `password`.
 
+- **The main session never moves into a worktree.** If you are the session
+  running in the main checkout, do not call `EnterWorktree` and do not `cd` into
+  `.claude/worktrees/`. Worktrees are entered only by sessions that exist to work
+  in one — a background job, or an agent launched with `isolation: "worktree"`.
+  Three reasons, all of which bite silently:
+  - **Write access is single-valued per agent, and plain subagents inherit the
+    parent's current worktree.** A main session that moves in binds every
+    subagent it later dispatches to that same worktree, so work aimed at any
+    other tree is rejected — or worse, lands in the wrong one.
+  - **`main` is checked out in the main checkout and nowhere else.** Merging,
+    running `just cs` on `main` after a merge, and tearing a worktree down all
+    need a session that is still standing there. Git will not let a second
+    worktree check out `main` either.
+  - **Tearing down the worktree a session is bound to strands that session** —
+    its writes keep pointing at a deleted path until it re-enters somewhere else.
+
+  Stay in the main checkout, and delegate the work that needs isolation.
 - Always branch off `main`, not the current feature branch
 - Tear down with `just worktree-down <name>`, never a bare `git worktree remove`
 - **Invoke the `project-worktrees` skill** before provisioning, debugging or
