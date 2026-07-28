@@ -34,6 +34,7 @@ app_encryption_key   = "GENERATED_BASE64_32_BYTE_KEY"
 # export_storage_key           = "..."
 # export_storage_secret        = "..."
 # export_storage_use_path_style = "true"   # MinIO and most non-AWS providers
+# export_storage_acl            = "bucket-owner-full-control"  # AWS S3 only, see DEPLOY.md
 
 # stripe_secret_key     = "sk_live_..."
 # stripe_webhook_secret = "whsec_..."

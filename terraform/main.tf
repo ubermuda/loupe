@@ -68,6 +68,7 @@ module "app" {
     var.export_storage_key == "" ? {} : { EXPORT_STORAGE_KEY = { value = var.export_storage_key, type = "SECRET" } },
     var.export_storage_secret == "" ? {} : { EXPORT_STORAGE_SECRET = { value = var.export_storage_secret, type = "SECRET" } },
     var.export_storage_use_path_style == "" ? {} : { EXPORT_STORAGE_USE_PATH_STYLE = { value = var.export_storage_use_path_style } },
+    var.export_storage_acl == "" ? {} : { EXPORT_STORAGE_ACL = { value = var.export_storage_acl } },
 
     var.stripe_secret_key == "" ? {} : { STRIPE_SECRET_KEY = { value = var.stripe_secret_key, type = "SECRET" } },
     var.stripe_webhook_secret == "" ? {} : { STRIPE_WEBHOOK_SECRET = { value = var.stripe_webhook_secret, type = "SECRET" } },

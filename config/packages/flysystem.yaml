@@ -22,10 +22,11 @@ flysystem:
             visibility: 'private'
             directory_visibility: 'private'
 
+        # The adapter is built by hand rather than through this bundle's
+        # `asyncaws:` shortcut, which hardcodes a visibility converter and so
+        # gives no way to configure the canned ACL — see
+        # App\Storage\PrivateCannedAclConverter for why that matters.
         export.storage.s3:
-            asyncaws:
-                client: 'app.export_storage.s3_client'
-                bucket: '%env(EXPORT_STORAGE_BUCKET)%'
-                prefix: '%env(EXPORT_STORAGE_PREFIX)%'
+            service: 'app.export_storage.s3_adapter'
             visibility: 'private'
             directory_visibility: 'private'

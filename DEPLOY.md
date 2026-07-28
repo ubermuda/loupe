@@ -143,6 +143,7 @@ rather than half-configured:
 | `EXPORT_STORAGE_KEY`, `_SECRET` | Bucket credentials | The ambient AWS credential chain (an instance role) is used — correct on AWS, nothing anywhere else |
 | `EXPORT_STORAGE_PREFIX` | Key prefix inside the bucket | Archives sit at the bucket root |
 | `EXPORT_STORAGE_USE_PATH_STYLE` | `true` for MinIO and most non-AWS providers | Virtual-hosted addressing (`https://bucket.host/key`) |
+| `EXPORT_STORAGE_ACL` | `bucket-owner-full-control` on AWS S3 — see "Known gaps" | `private`, which MinIO and Spaces require and a default AWS bucket rejects |
 | `SITE_REVIEW_WIDGET_TOKEN` | Only for dogfooding the widget on Loupe's own pages | Widget not loaded |
 
 `INSTALL_TOKEN` is the one to set **before** the first deploy: the wizard is how
@@ -178,6 +179,14 @@ the token.
    (`terraform.tfvars.example` has the block) before you rely on exports. Any
    S3-compatible provider works; DigitalOcean Spaces sits in the same account
    as the rest of this deployment.
+
+   **On AWS S3 itself, also set `export_storage_acl = "bucket-owner-full-control"`.**
+   The Flysystem S3 adapter always sends a canned ACL and offers no way to send
+   none, and no single value is accepted everywhere: buckets created since 2023
+   default to "Bucket owner enforced", which rejects everything except
+   `bucket-owner-full-control` with a 400 `AccessControlListNotSupported`, while
+   MinIO and DigitalOcean Spaces accept only the app's default, `private`. Get
+   this wrong and every export upload fails inside the worker.
 
    Nothing else in the app writes files, so this is the only place object
    storage is needed.

@@ -786,8 +786,11 @@ that `DataExportArchiveBuilder`'s upload-to-`<key>.tmp`-then-`move()` really is
 a server-side copy rather than a download-and-re-upload, that
 `DownloadDataExportController` streams a `GetObject` body correctly at size,
 that a missing object surfaces as a `FilesystemException` (a 404) rather than
-some other failure, and that path-style addressing
-(`EXPORT_STORAGE_USE_PATH_STYLE`) is right for the provider in use.
+some other failure, and that the two
+provider-shaped knobs are right — path-style addressing
+(`EXPORT_STORAGE_USE_PATH_STYLE`) and the canned ACL (`EXPORT_STORAGE_ACL`,
+whose whole reason to exist is that `private` and `bucket-owner-full-control`
+are each rejected by *some* provider).
 
 Closing this means running one export end to end against a real bucket —
 MinIO in compose is enough, and is closer to the self-hosting story than AWS —

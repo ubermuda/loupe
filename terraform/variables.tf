@@ -103,6 +103,12 @@ variable "export_storage_secret" {
   description = "EXPORT_STORAGE_SECRET: secret access key. Pairs with export_storage_key."
 }
 
+variable "export_storage_acl" {
+  type        = string
+  default     = ""
+  description = "EXPORT_STORAGE_ACL: canned ACL sent with every upload. Empty keeps the app default, `private`, which MinIO and DigitalOcean Spaces require. Set it to `bucket-owner-full-control` for an AWS S3 bucket left at its default \"Bucket owner enforced\" ownership, which rejects every other ACL with a 400."
+}
+
 variable "export_storage_use_path_style" {
   type        = string
   default     = ""

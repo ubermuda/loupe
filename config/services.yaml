@@ -37,6 +37,14 @@ services:
     # back to AWS's own (https://s3.<region>.amazonaws.com), and no key/secret
     # falls back to the ambient AWS credential chain (AWS_ACCESS_KEY_ID, an
     # instance role, …), which is what an AWS-hosted install wants.
+    app.export_storage.s3_adapter:
+        class: League\Flysystem\AsyncAwsS3\AsyncAwsS3Adapter
+        arguments:
+            $client: '@app.export_storage.s3_client'
+            $bucket: '%env(EXPORT_STORAGE_BUCKET)%'
+            $prefix: '%env(EXPORT_STORAGE_PREFIX)%'
+            $visibility: '@App\Storage\PrivateCannedAclConverter'
+
     app.export_storage.s3_client:
         class: AsyncAws\S3\S3Client
         arguments:
