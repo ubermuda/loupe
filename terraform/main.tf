@@ -54,6 +54,8 @@ module "app" {
   extra_env = merge(
     var.admin_email == "" ? {} : { ADMIN_EMAIL = { value = var.admin_email } },
     var.mcp_allowed_hosts == "" ? {} : { MCP_ALLOWED_HOSTS = { value = var.mcp_allowed_hosts } },
+    var.mailer_from_address == "" ? {} : { MAILER_FROM_ADDRESS = { value = var.mailer_from_address } },
+    var.mailer_from_name == "" ? {} : { MAILER_FROM_NAME = { value = var.mailer_from_name } },
     var.install_token == "" ? {} : { INSTALL_TOKEN = { value = var.install_token, type = "SECRET" } },
 
     var.stripe_secret_key == "" ? {} : { STRIPE_SECRET_KEY = { value = var.stripe_secret_key, type = "SECRET" } },
