@@ -188,3 +188,10 @@ when@test:
         App\Module\Account\Command\CreateInstallAdminHandler:
             autowire: true
             public: true
+
+        # Public so controller tests can replace it: the real handler opens an
+        # SMTP connection and an HTTP request to the Mercure hub, neither of
+        # which a WebTestCase should make.
+        App\Module\Account\Command\CheckSystemStatusHandler:
+            autowire: true
+            public: true

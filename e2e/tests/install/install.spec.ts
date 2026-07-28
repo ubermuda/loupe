@@ -33,6 +33,15 @@ test('first-install wizard creates an unverified admin who is gated until they f
     ).toHaveValue('0');
     await page.getByRole('button', { name: 'Continue' }).click();
 
+    // Systems-check page. Only its presence and the way out are asserted: the
+    // individual check results depend on what the surrounding environment
+    // happens to have running (SMTP, the Mercure hub, a messenger worker), so
+    // asserting any of them would be a flake dressed up as a test.
+    await expect(
+        page.getByRole('heading', { name: 'Check your systems' }),
+    ).toBeVisible();
+    await page.getByRole('link', { name: 'Continue' }).click();
+
     // Admin-account page.
     await expect(
         page.getByRole('heading', { name: 'Create your admin account' }),

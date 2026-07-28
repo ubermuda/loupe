@@ -1,0 +1,23 @@
+{% extends '@UbermudaAdmin/base.html.twig' %}
+
+{% block title %}{{ 'account.system_status.page.title'|trans }} — {{ 'app.name'|trans }}{% endblock %}
+
+{% block body %}
+    <div class="admin-page">
+        <div>
+            <h1 class="text-2xl font-bold">{{ 'account.system_status.heading'|trans }}</h1>
+            <p class="text-fg-mute text-sm mt-0.5">{{ 'account.system_status.subtitle'|trans }}</p>
+        </div>
+
+        <div class="admin-card p-6">
+            {% include '@Account/_system_status_checks.html.twig' with {checks: status.checks} only %}
+        </div>
+
+        <div class="admin-card p-6">
+            <h2 class="text-base font-semibold mb-2">{{ 'account.system_status.failed_transport.heading'|trans }}</h2>
+            <p class="text-sm text-fg-mute mb-4">{{ 'account.system_status.failed_transport.description'|trans }}</p>
+            <pre class="status-command-block"><code>{{ 'account.system_status.failed_transport.show_command'|trans }}
+{{ 'account.system_status.failed_transport.retry_command'|trans }}</code></pre>
+        </div>
+    </div>
+{% endblock %}
