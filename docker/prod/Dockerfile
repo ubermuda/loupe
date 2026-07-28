@@ -1,4 +1,15 @@
-FROM php:8.5-fpm-alpine
+# Pinned by digest so the same Dockerfile always produces the same base layer:
+# `php:8.5-fpm-alpine` is a mutable tag that is rebuilt on every patch release
+# and every Alpine bump, so without this two builds a week apart ship different
+# PHP binaries and different system libraries. The tag is kept alongside the
+# digest purely for readability — Docker resolves the digest, not the tag.
+#
+# This is a multi-platform manifest-list digest, so it resolves on arm64 (a
+# local `just shell-prod`) as well as on the amd64 `just build-prod` target.
+#
+# To move to a newer base:
+#   docker buildx imagetools inspect php:8.5-fpm-alpine --format '{{.Manifest.Digest}}'
+FROM php:8.5-fpm-alpine@sha256:79def1d16ece3ab1a6656c46a23bfd80ad33887fbd33626e7bd743cef54ef9c6
 
 WORKDIR /var/www/html
 
@@ -8,7 +19,16 @@ WORKDIR /var/www/html
 # pdo_pgsql: Postgres driver. intl: locale/translation. zip: composer/asset
 # handling. xsl: XSLT support. bcmath: arbitrary-precision arithmetic.
 # OPcache is already built into php:8.5-fpm-alpine — it just needs tuning (opcache.ini).
-RUN apk add --no-cache postgresql-libs libzip libxslt icu-libs icu-data-full bash nginx supervisor \
+#
+# su-exec is how a worker container drops to www-data *after* the entrypoint has
+# run as root (it needs to write .env.local.php, which the project directory only
+# lets root create). It matters when web and worker share an export volume: the
+# local Flysystem adapter writes archives 0600, so an archive written by a root
+# worker is unreadable to the web container's www-data php-fpm workers. su-exec
+# replaces itself with the command rather than forking, so the consumer keeps
+# PID 1 and still receives SIGTERM for a graceful shutdown — busybox `su` does
+# not. See compose.prod.yaml.
+RUN apk add --no-cache postgresql-libs libzip libxslt icu-libs icu-data-full bash nginx supervisor su-exec \
  && apk add --no-cache --virtual .build-deps $PHPIZE_DEPS postgresql-dev libzip-dev libxslt-dev icu-dev \
  && docker-php-ext-install bcmath pdo_pgsql zip intl xsl \
  && apk del .build-deps

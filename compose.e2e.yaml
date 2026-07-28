@@ -24,7 +24,7 @@
 # environment variable would override a `name:` key declared here.
 services:
   nginx:
-    image: nginx
+    image: nginx:1.31
     restart: unless-stopped
     volumes:
       # The main checkout, at the path php-fpm sees it.

@@ -142,10 +142,19 @@ replicas they would race. Run the release step once per deploy:
 docker run --rm --env-file <your prod env> <image> docker/prod/release.sh
 ```
 
-The maintained deployment targets DigitalOcean App Platform, and that
-infrastructure lives in [`terraform/`](terraform/README.md) — `just deploy` and
-`just logs-prod` assume it. Self-hosting elsewhere needs nothing more than the
-image, the release step, and the environment variables below.
+Two topologies ship with the project. `compose.prod.yaml` runs everything on one
+host — web, worker, Postgres and the Mercure hub — and needs no cloud account:
+
+```bash
+cp compose.prod.env.example compose.prod.env      # then fill it in
+docker compose -f compose.prod.yaml --env-file compose.prod.env up -d
+```
+
+The other targets DigitalOcean App Platform, with the infrastructure in
+[`terraform/`](terraform/README.md) — `just deploy` and `just logs-prod` assume
+it. Both are documented in [`DEPLOY.md`](DEPLOY.md). Self-hosting on anything
+else needs nothing more than the image, the release step, and the environment
+variables below.
 
 Supply these as real environment variables (never commit them):
 

@@ -1,14 +1,38 @@
 # Copy to terraform.tfvars (gitignored) and fill in, or export as TF_VAR_*.
-# Only secrets live here — all other config is in the module block in main.tf.
+# Secrets and account-specific placement live here; everything structural is in
+# the module block in main.tf.
 #
 #   app_secret         -> openssl rand -hex 16
 #   app_encryption_key -> php -r 'echo base64_encode(sodium_crypto_secretbox_keygen()), "\n";'
 
-do_token             = "dop_v1_..."             # or export DIGITALOCEAN_TOKEN and drop this
-registry_credentials = "ubermuda:ghp_xxxxxxxx"  # GHCR "username:PAT" (read:packages); empty for DOCR
+# --- Required: where this deploys, in YOUR account ---
+# Terraform creates a database and user on an existing Postgres cluster; it does
+# not create the cluster. If you have none:
+#   doctl databases create loupe-db --engine pg --region tor
+#   doctl databases list        # copy the Name column into db_cluster_name
+# region must match that cluster's region.
+
+region            = "tor"
+db_cluster_name   = "loupe-db"
+db_server_version = "18" # the cluster's actual PG major version
+
+# --- Required: credentials ---
+
+do_token             = "dop_v1_..."            # or export DIGITALOCEAN_TOKEN and drop this
+registry_credentials = "ubermuda:ghp_xxxxxxxx" # GHCR "username:PAT" (read:packages); empty for DOCR
 app_secret           = "GENERATED_HEX_32"
 app_encryption_key   = "GENERATED_BASE64_32_BYTE_KEY"
 # mailer_dsn         = "smtp://USER:PASS@HOST:PORT"
+
+# --- The container image ---
+# Defaults point at this project's own package, which you cannot push to. Set
+# these to your registry and export the matching LOUPE_PROD_IMAGE so
+# `just build-prod` and `just deploy` push what App Platform pulls:
+#   export LOUPE_PROD_IMAGE=ghcr.io/you/loupe:prod
+# registry_type    = "GHCR"
+# registry         = "you"
+# image_repository = "loupe"
+# image_tag        = "prod"
 
 # --- Application configuration (wired into extra_env in main.tf) ---
 # Omit any of these and the matching feature stays off rather than half-configured.
@@ -31,15 +55,30 @@ app_encryption_key   = "GENERATED_BASE64_32_BYTE_KEY"
 # app and wires the URLs automatically; leave it out to keep push disabled.
 # mercure_jwt_secret = "GENERATE_A_LONG_RANDOM_STRING"
 
-# Data-export archives. REQUIRED: this deployment runs the web and the worker as
-# separate containers with no shared volume, so exports need a bucket both can
-# reach. export_storage defaults to "s3"; without a bucket, every export
-# download 404s. Any S3-compatible provider works.
-# export_storage_bucket        = "loupe-exports"
-# export_storage_region        = "tor1"
-# export_storage_endpoint      = "https://tor1.digitaloceanspaces.com"
-# export_storage_key           = "..."
-# export_storage_secret        = "..."
+# --- Data-export archives ---
+# The web and worker containers have separate filesystems, so exports need a
+# bucket both can reach or every download 404s. Terraform creates a Spaces bucket
+# and a bucket-scoped access key for this and wires them into the app, so all you
+# choose is the datacenter. That needs Spaces credentials as well as the API
+# token — generate a pair under "Spaces Keys" in the control panel and either put
+# them here or export SPACES_ACCESS_KEY_ID / SPACES_SECRET_ACCESS_KEY.
+#
+# Spaces slugs are not App Platform slugs: App Platform's nyc is Spaces' nyc3.
+
+export_bucket_region = "tor1"
+# spaces_access_id  = "..."
+# spaces_secret_key = "..."
+# export_bucket_name = "loupe-exports"   # names are unique per region across all accounts
+
+# Bringing your own bucket instead — AWS S3, MinIO, Cloudflare R2, anything that
+# speaks S3. Set create_export_bucket = false and fill these in; the application
+# side is identical, only these values change.
+# create_export_bucket = false
+# export_storage_bucket         = "loupe-exports"
+# export_storage_region         = "eu-west-1"
+# export_storage_endpoint       = "https://minio.example.com"
+# export_storage_key            = "..."
+# export_storage_secret         = "..."
 # export_storage_use_path_style = "true"   # MinIO and most non-AWS providers
 # export_storage_acl            = "bucket-owner-full-control"  # AWS S3 only, see DEPLOY.md
 

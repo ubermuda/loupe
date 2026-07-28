@@ -9,6 +9,72 @@ variable "do_token" {
   description = "DigitalOcean API token. Leave null to read DIGITALOCEAN_TOKEN from the environment."
 }
 
+variable "spaces_access_id" {
+  type        = string
+  default     = null
+  sensitive   = true
+  description = "Spaces access key id. Spaces authenticates with an S3-style key pair rather than the API token, so creating the export bucket needs this as well as do_token. Leave null to read SPACES_ACCESS_KEY_ID from the environment. Unused when create_export_bucket is false."
+}
+
+variable "spaces_secret_key" {
+  type        = string
+  default     = null
+  sensitive   = true
+  description = "Spaces secret key, pairing with spaces_access_id. Leave null to read SPACES_SECRET_ACCESS_KEY from the environment."
+}
+
+# --- Placement: your account's, not anyone else's ---
+# Neither of these has a default. The shared module ships defaults that name a
+# specific cluster in a specific region, and inheriting them points a third
+# party's deployment at infrastructure they cannot reach — so this root demands
+# both explicitly.
+
+variable "region" {
+  type        = string
+  description = "App Platform region slug (e.g. tor, nyc, fra). MUST match the region of the Postgres cluster named by db_cluster_name, so app-to-database traffic stays on the private network. Note this is the App Platform slug, not the Spaces slug: Spaces uses tor1/nyc3/fra1 — see export_bucket_region."
+}
+
+variable "db_cluster_name" {
+  type        = string
+  description = "Name of an EXISTING managed Postgres cluster in your account; the module creates a per-app database and user on it but never creates the cluster itself. App-Platform-provisioned clusters are named app-<uuid> and that string IS the name. Create one first if you have none: `doctl databases create loupe-db --engine pg --region <region>`, then `doctl databases list`."
+}
+
+variable "db_server_version" {
+  type        = string
+  default     = "18"
+  description = "PostgreSQL major version advertised to Doctrine through DATABASE_URL's serverVersion. It must match the cluster db_cluster_name points at: understating it is safe, overstating it can break queries. Check with `doctl databases list`."
+}
+
+# --- Container image ---
+# The image is built and pushed by `just build-prod` / `just push-prod` and
+# pulled by App Platform, so these must agree with the justfile's prod_image.
+# Override prod_image from the environment (LOUPE_PROD_IMAGE) and set the
+# matching values here.
+
+variable "registry_type" {
+  type        = string
+  default     = "GHCR"
+  description = "Image registry type: GHCR, DOCR (DigitalOcean Container Registry) or DOCKER_HUB."
+}
+
+variable "registry" {
+  type        = string
+  default     = "ubermuda"
+  description = "Registry namespace — your GitHub org or user for GHCR, your Docker Hub user for DOCKER_HUB, empty for DOCR. The default is this project's own namespace, which nobody else can push to; set it to yours."
+}
+
+variable "image_repository" {
+  type        = string
+  default     = "loupe"
+  description = "Image repository name within the registry."
+}
+
+variable "image_tag" {
+  type        = string
+  default     = "prod"
+  description = "Image tag to deploy. A fixed tag means App Platform's deployment history is the only record of what ran; tag by commit SHA if you want one-command rollbacks."
+}
+
 variable "registry_credentials" {
   type        = string
   default     = ""
@@ -57,6 +123,36 @@ variable "mcp_allowed_hosts" {
   type        = string
   default     = ""
   description = "MCP_ALLOWED_HOSTS: comma-separated DNS-rebinding allowlist for /mcp. Must include the app's real hostname or every MCP call is rejected."
+}
+
+# --- Export bucket ---
+# When create_export_bucket is true (the default), spaces.tf creates a Spaces
+# bucket and a scoped access key, and main.tf feeds their values into
+# EXPORT_STORAGE_BUCKET / _REGION / _ENDPOINT / _KEY / _SECRET. The
+# export_storage_* variables further down are then unused — they exist for the
+# opposite case, an operator bringing their own AWS S3, MinIO or R2 bucket.
+
+variable "create_export_bucket" {
+  type        = bool
+  default     = true
+  description = "Create a DigitalOcean Spaces bucket and access key for data-export archives, and wire them into the app. Set to false to bring your own S3-compatible bucket instead and configure it through the export_storage_* variables. Creating one requires Spaces credentials on the provider (spaces_access_id / spaces_secret_key)."
+}
+
+variable "export_bucket_name" {
+  type        = string
+  default     = ""
+  description = "Name of the Spaces bucket to create. Empty derives it from the app name (\"<app_name>-exports\"). Spaces bucket names are unique across all DigitalOcean accounts in a region, so set this explicitly if creation fails as already-taken."
+}
+
+variable "export_bucket_region" {
+  type        = string
+  default     = ""
+  description = "Spaces datacenter for the export bucket, e.g. tor1, nyc3, fra1. REQUIRED when create_export_bucket is true. These slugs are not the App Platform slugs and are not derivable from them (App Platform's nyc corresponds to Spaces' nyc3), so it is asked for separately rather than guessed. Pick the one closest to `region`."
+
+  validation {
+    condition     = !var.create_export_bucket || var.export_bucket_region != ""
+    error_message = "export_bucket_region must be set when create_export_bucket is true (e.g. tor1, nyc3, fra1)."
+  }
 }
 
 variable "export_storage" {

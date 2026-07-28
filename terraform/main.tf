@@ -1,11 +1,45 @@
 # Deploys this app to DigitalOcean App Platform via the shared module.
 # Set app_name and provide the secrets via TF_VAR_* (see variables.tf and
 # terraform.tfvars.example).
-# The image repo and DB name/user default off app_name.
+# The DB name/user default off app_name.
+locals {
+  app_name = "loupe"
+
+  # Where the app reads data-export archives from. When Terraform creates the
+  # Spaces bucket these come from the resources in spaces.tf; otherwise they fall
+  # through to the export_storage_* variables, which is how a bring-your-own AWS
+  # S3, MinIO or R2 bucket is configured. Either way the app only ever sees
+  # generic S3 settings.
+  #
+  # The bucket resource exports `endpoint` as a bare hostname
+  # (tor1.digitaloceanspaces.com); EXPORT_STORAGE_ENDPOINT is a URL.
+  export_storage_bucket   = var.create_export_bucket ? digitalocean_spaces_bucket.exports[0].name : var.export_storage_bucket
+  export_storage_region   = var.create_export_bucket ? digitalocean_spaces_bucket.exports[0].region : var.export_storage_region
+  export_storage_endpoint = var.create_export_bucket ? "https://${digitalocean_spaces_bucket.exports[0].endpoint}" : var.export_storage_endpoint
+  export_storage_key      = var.create_export_bucket ? digitalocean_spaces_key.exports[0].access_key : var.export_storage_key
+  export_storage_secret   = var.create_export_bucket ? digitalocean_spaces_key.exports[0].secret_key : var.export_storage_secret
+}
+
 module "app" {
   source = "git::https://github.com/ubermuda/terraform-digitalocean-symfony-app.git//?ref=v1.6.0"
 
-  app_name = "loupe"
+  app_name = local.app_name
+
+  # Placement and the database cluster. Passed explicitly rather than left to the
+  # module's defaults, which name one specific pre-existing cluster in one
+  # specific region — inheriting them makes `terraform apply` fail for anyone
+  # else. The module creates a database and user ON this cluster; it does not
+  # create the cluster.
+  region                  = var.region
+  db_cluster_name         = var.db_cluster_name
+  database_server_version = var.db_server_version
+
+  # Image coordinates. These must agree with `prod_image` in the justfile, which
+  # builds and pushes what App Platform pulls here.
+  registry_type    = var.registry_type
+  registry         = var.registry
+  image_repository = var.image_repository
+  image_tag        = var.image_tag
 
   # Secrets (injected via TF_VAR_*, never committed).
   registry_credentials = var.registry_credentials
@@ -14,7 +48,6 @@ module "app" {
   mailer_dsn           = var.mailer_dsn
 
   # Overrides (defaults shown):
-  # image_repository = "loupe"   # defaults to app_name
   # db_name          = "loupe"   # defaults to app_name (- -> _)
   # db_user          = "loupe"   # defaults to db_name
 
@@ -46,8 +79,13 @@ module "app" {
   #
   # MERCURE_URL, MERCURE_PUBLIC_URL and MERCURE_JWT_SECRET are injected by the
   # module; setting them here as well would duplicate the env keys.
+  #
+  # The hub image is pinned to a minor version — the module would otherwise
+  # track `latest`, so two applies weeks apart would silently run different hub
+  # builds. It is the same version compose.prod.yaml runs.
   enable_mercure     = var.mercure_jwt_secret != ""
   mercure_jwt_secret = var.mercure_jwt_secret
+  mercure_image_tag  = "v0.24"
 
   # Everything the module does not set itself. Values come from variables.tf so
   # secrets stay out of this file; see terraform.tfvars.example.
@@ -62,13 +100,18 @@ module "app" {
     # always set: the app's own default is `local`, which cannot work on this
     # topology (separate web and worker containers, no shared volume), so
     # omitting it would silently 404 every export download.
+    #
+    # The values below come from the Spaces bucket in spaces.tf, or from the
+    # export_storage_* variables when create_export_bucket is false. They are
+    # ordinary S3 settings either way — nothing here is DigitalOcean-specific
+    # from the application's point of view.
     { EXPORT_STORAGE = { value = var.export_storage } },
-    var.export_storage_bucket == "" ? {} : { EXPORT_STORAGE_BUCKET = { value = var.export_storage_bucket } },
+    local.export_storage_bucket == "" ? {} : { EXPORT_STORAGE_BUCKET = { value = local.export_storage_bucket } },
     var.export_storage_prefix == "" ? {} : { EXPORT_STORAGE_PREFIX = { value = var.export_storage_prefix } },
-    var.export_storage_region == "" ? {} : { EXPORT_STORAGE_REGION = { value = var.export_storage_region } },
-    var.export_storage_endpoint == "" ? {} : { EXPORT_STORAGE_ENDPOINT = { value = var.export_storage_endpoint } },
-    var.export_storage_key == "" ? {} : { EXPORT_STORAGE_KEY = { value = var.export_storage_key, type = "SECRET" } },
-    var.export_storage_secret == "" ? {} : { EXPORT_STORAGE_SECRET = { value = var.export_storage_secret, type = "SECRET" } },
+    local.export_storage_region == "" ? {} : { EXPORT_STORAGE_REGION = { value = local.export_storage_region } },
+    local.export_storage_endpoint == "" ? {} : { EXPORT_STORAGE_ENDPOINT = { value = local.export_storage_endpoint } },
+    local.export_storage_key == "" ? {} : { EXPORT_STORAGE_KEY = { value = local.export_storage_key, type = "SECRET" } },
+    local.export_storage_secret == "" ? {} : { EXPORT_STORAGE_SECRET = { value = local.export_storage_secret, type = "SECRET" } },
     var.export_storage_use_path_style == "" ? {} : { EXPORT_STORAGE_USE_PATH_STYLE = { value = var.export_storage_use_path_style } },
     var.export_storage_acl == "" ? {} : { EXPORT_STORAGE_ACL = { value = var.export_storage_acl } },
 
