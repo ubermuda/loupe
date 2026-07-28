@@ -65,6 +65,7 @@ app_encryption_key   = "GENERATED_BASE64_32_BYTE_KEY"
 #
 # Spaces slugs are not App Platform slugs: App Platform's nyc is Spaces' nyc3.
 
+create_export_bucket = true
 export_bucket_region = "tor1"
 # spaces_access_id  = "..."
 # spaces_secret_key = "..."
