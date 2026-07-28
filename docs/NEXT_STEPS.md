@@ -1576,6 +1576,44 @@ Close this by adding a short "Backing up" section to `DEPLOY.md`: what to dump,
 what else holds state, that restore has never been rehearsed, and that the
 operator owns the schedule.
 
+## Inbound MCP events so an agent can react without being asked
+
+**Author:** Geoffrey · **Type:** idea · **Priority:** medium · **Status:** pending
+
+Owner note (2026-07-28): today every agent action in a session is pull-based —
+the human says "92 approved" and the agent goes and looks. The idea is to close
+that loop the other way: something happens outside the session, and the agent
+finds out on its own.
+
+Sketch of the chain: an external event (marking a PR approved on GitHub) hits
+webhook machinery, which queues an event in Loupe — **a new Loupe feature, the
+event queue does not exist yet** — and the agent picks it up by calling a
+`get_events` MCP tool from a monitor it set up at the start of the session. A
+skill would carry the instruction to set that monitor up, so the behaviour is
+opt-in per session rather than baked into every agent.
+
+Three things to settle before this is designable:
+
+1. **What the queue is scoped to.** Events almost certainly belong to a project
+   and a user, since the MCP token already carries both — but a PR-approved
+   event has no natural Loupe project unless something maps repository to
+   project.
+2. **Delivery semantics.** Whether `get_events` drains (at-most-once, simple,
+   loses events if the agent dies mid-handling) or acknowledges separately
+   (at-least-once, needs idempotent handling). The site-review outbox already
+   made this exact tradeoff and chose best-effort — see the self-hosting
+   audit's finding on unreplayable outbox events, whose resolution should
+   probably settle both.
+3. **What stops a polling loop from being wasteful.** A monitor that wakes
+   every 30 seconds all session is mostly empty calls; long-poll on the MCP
+   side, or a wake-up interval tied to what is actually being waited on, are
+   the obvious alternatives.
+
+Worth noting the security shape early: an inbound event queue is a channel by
+which outside parties influence what an agent does next. Event bodies are
+untrusted text and must never be treated as instructions — the same rule that
+already applies to site-review comment bodies.
+
 ## Product idea (long horizon): drag DOM elements in the widget to try layouts
 
 **Author:** Geoffrey · **Type:** idea · **Priority:** low · **Status:** pending
