@@ -20,12 +20,13 @@
 /assets/vendor/
 ###< symfony/asset-mapper ###
 
-###> symfony/ux-icons ###
-/assets/icons/lucide/
-###< symfony/ux-icons ###
-# Brand marks (Google, GitHub) come from Simple Icons; like Lucide they resolve
-# on demand from the Iconify API, so the cached SVGs are not committed.
-/assets/icons/simple-icons/
+# Icon SVGs under /assets/icons/ are COMMITTED deliberately — do not add them
+# here. A self-hosted instance must render its UI without reaching
+# api.iconify.design, and the production image is built from this tree, so the
+# icons have to be in it. Re-ignoring them silently returns the product to
+# fetching its own icons over the network at render time.
+# Refresh with `bin/console ux:icons:lock`; icons whose name is built
+# dynamically in a template need an explicit `ux:icons:import` (see CLAUDE.md).
 
 ###> friendsofphp/php-cs-fixer ###
 /.php-cs-fixer.php

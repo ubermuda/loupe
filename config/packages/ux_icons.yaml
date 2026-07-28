@@ -18,3 +18,12 @@ when@prod:
     ux_icons:
         # Suppress exceptions for missing icons in production
         ignore_not_found: true
+
+        # Never reach api.iconify.design from a production instance. The icons
+        # are committed under assets/icons/, so on-demand fetching would only
+        # ever fire for an icon that failed to get locked — and a self-hosted
+        # instance may have no egress at all, in which case that fetch hangs or
+        # fails on every render of the page. Off means a missed icon is a local
+        # miss, handled by ignore_not_found above, instead of a network call.
+        iconify:
+            on_demand: false
