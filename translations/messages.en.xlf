@@ -1762,6 +1762,102 @@
                 <source>billing.subscribe.waitlist.button_label</source>
                 <target>Join the waitlist</target>
             </trans-unit>
+            <trans-unit id="site_review.page.unsent_notice">
+                <source>site_review.page.unsent_notice</source>
+                <target>{0} All reviews delivered|{1} 1 review has not reached your agent yet|]1,Inf[ %count% reviews have not reached your agent yet</target>
+            </trans-unit>
+            <trans-unit id="site_review.outbox.page.title">
+                <source>site_review.outbox.page.title</source>
+                <target>Undelivered reviews</target>
+            </trans-unit>
+            <trans-unit id="site_review.outbox.page.description">
+                <source>site_review.outbox.page.description</source>
+                <target>Every submitted review is recorded before it is sent, so one that never reached your agent is kept here and retried automatically. Comments stay readable in the meantime — your agent can pull them at any time.</target>
+            </trans-unit>
+            <trans-unit id="site_review.outbox.count">
+                <source>site_review.outbox.count</source>
+                <target>{0} Nothing waiting|{1} 1 review waiting to be sent|]1,Inf[ %count% reviews waiting to be sent</target>
+            </trans-unit>
+            <trans-unit id="site_review.outbox.empty">
+                <source>site_review.outbox.empty</source>
+                <target>Every review has been delivered.</target>
+            </trans-unit>
+            <trans-unit id="site_review.outbox.event_label">
+                <source>site_review.outbox.event_label</source>
+                <target>Review submitted %date%</target>
+            </trans-unit>
+            <trans-unit id="site_review.outbox.status.unsent">
+                <source>site_review.outbox.status.unsent</source>
+                <target>Not sent</target>
+            </trans-unit>
+            <trans-unit id="site_review.outbox.attempts">
+                <source>site_review.outbox.attempts</source>
+                <target>{0} Not attempted yet|{1} 1 attempt|]1,Inf[ %count% attempts</target>
+            </trans-unit>
+            <trans-unit id="site_review.outbox.next_attempt.due_now">
+                <source>site_review.outbox.next_attempt.due_now</source>
+                <target>Next attempt: due now</target>
+            </trans-unit>
+            <trans-unit id="site_review.outbox.next_attempt.scheduled">
+                <source>site_review.outbox.next_attempt.scheduled</source>
+                <target>Next attempt: %date%</target>
+            </trans-unit>
+            <trans-unit id="site_review.admin.outbox.page.title">
+                <source>site_review.admin.outbox.page.title</source>
+                <target>Review outbox</target>
+            </trans-unit>
+            <trans-unit id="site_review.admin.outbox.title">
+                <source>site_review.admin.outbox.title</source>
+                <target>Undelivered site reviews</target>
+            </trans-unit>
+            <trans-unit id="site_review.admin.outbox.unit">
+                <source>site_review.admin.outbox.unit</source>
+                <target>event</target>
+            </trans-unit>
+            <trans-unit id="site_review.admin.outbox.unit_plural">
+                <source>site_review.admin.outbox.unit_plural</source>
+                <target>events</target>
+            </trans-unit>
+            <trans-unit id="site_review.admin.outbox.empty">
+                <source>site_review.admin.outbox.empty</source>
+                <target>Every site review has been delivered.</target>
+            </trans-unit>
+            <trans-unit id="site_review.admin.outbox.filter.project">
+                <source>site_review.admin.outbox.filter.project</source>
+                <target>Project</target>
+            </trans-unit>
+            <trans-unit id="site_review.admin.outbox.filter.all_projects">
+                <source>site_review.admin.outbox.filter.all_projects</source>
+                <target>All projects</target>
+            </trans-unit>
+            <trans-unit id="site_review.admin.outbox.filter.clear">
+                <source>site_review.admin.outbox.filter.clear</source>
+                <target>Clear</target>
+            </trans-unit>
+            <trans-unit id="site_review.admin.outbox.column.project">
+                <source>site_review.admin.outbox.column.project</source>
+                <target>Project</target>
+            </trans-unit>
+            <trans-unit id="site_review.admin.outbox.column.created">
+                <source>site_review.admin.outbox.column.created</source>
+                <target>Submitted</target>
+            </trans-unit>
+            <trans-unit id="site_review.admin.outbox.column.attempts">
+                <source>site_review.admin.outbox.column.attempts</source>
+                <target>Attempts</target>
+            </trans-unit>
+            <trans-unit id="site_review.admin.outbox.column.next_attempt">
+                <source>site_review.admin.outbox.column.next_attempt</source>
+                <target>Next attempt</target>
+            </trans-unit>
+            <trans-unit id="site_review.admin.outbox.column.last_error">
+                <source>site_review.admin.outbox.column.last_error</source>
+                <target>Last error</target>
+            </trans-unit>
+            <trans-unit id="site_review.admin.outbox.due_now">
+                <source>site_review.admin.outbox.due_now</source>
+                <target>Due now</target>
+            </trans-unit>
 
         </body>
     </file>

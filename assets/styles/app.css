@@ -1199,6 +1199,9 @@
     .lp-site-review-meta-line {
         @apply font-mono text-fg-dim m-0 text-xs;
     }
+    .lp-site-review-meta-line a {
+        @apply inline-flex items-center gap-1.5 text-fg-mute no-underline transition-colors hover:text-accent;
+    }
     .lp-site-review-description {
         @apply text-fg-mute m-0 text-sm;
         line-height: 1.55;
