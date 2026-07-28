@@ -45,8 +45,7 @@ final class DrainOutboxHandlerTest extends KernelTestCase
         $this->em->flush();
 
         $this->hub->expects($this->once())->method('publish')
-            ->with(self::callback(fn (Update $update): bool =>
-                ['https://app/topic'] === $update->getTopics()
+            ->with(self::callback(fn (Update $update): bool => ['https://app/topic'] === $update->getTopics()
                     && '{}' === $update->getData()
                     // The sequence rides along as the SSE id so a reconnecting
                     // subscriber can resume from it, exactly as on first publish.

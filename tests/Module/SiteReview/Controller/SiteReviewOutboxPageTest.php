@@ -107,7 +107,9 @@ final class SiteReviewOutboxPageTest extends WebTestCase
         $crawler = $client->request(Request::METHOD_GET, '/projects/'.$project->id.'/site-review');
         self::assertCount(0, $crawler->filter('a[href="'.$outboxPath.'"]'));
 
-        $em->persist(new SiteReviewEvent($em->getReference(Project::class, $project->id), 'https://app/topic', '{}'));
+        $reattached = $em->find(Project::class, $project->id);
+        self::assertNotNull($reattached);
+        $em->persist(new SiteReviewEvent($reattached, 'https://app/topic', '{}'));
         $em->flush();
         $em->clear();
 

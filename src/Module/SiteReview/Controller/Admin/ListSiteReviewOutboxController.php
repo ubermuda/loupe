@@ -15,7 +15,11 @@ use Ubermuda\AdminBundle\Listing\ListPagePagination;
 use Ubermuda\AdminBundle\Listing\ListPageRequest;
 
 #[IsGranted('ROLE_ADMIN')]
-#[Route('/admin/site-review-outbox', name: 'app_admin_site_review_outbox_list', methods: ['GET'])]
+#[Route(
+    '/admin/site-review-outbox',
+    name: 'app_admin_site_review_outbox_list',
+    methods: ['GET'],
+)]
 final class ListSiteReviewOutboxController extends AppController
 {
     private const int PER_PAGE = 20;
