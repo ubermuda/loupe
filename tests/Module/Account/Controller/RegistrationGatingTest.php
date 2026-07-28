@@ -91,6 +91,31 @@ final class RegistrationGatingTest extends WebTestCase
         self::assertResponseIsSuccessful();
     }
 
+    public function test_the_login_page_hides_its_sign_up_links_when_registration_is_closed(): void
+    {
+        $client = static::createClient();
+        $this->install($client);
+        $this->setRegistrationEnabled($client, false);
+
+        $client->request(Request::METHOD_GET, '/login');
+
+        self::assertResponseIsSuccessful();
+        self::assertSelectorNotExists('a[href="/register"]');
+    }
+
+    public function test_the_login_page_still_offers_sign_up_when_registration_is_open(): void
+    {
+        // Without this the assertion above would pass on a login page that
+        // never had the links in the first place.
+        $client = static::createClient();
+        $this->install($client);
+        $this->setRegistrationEnabled($client, true);
+
+        $client->request(Request::METHOD_GET, '/login');
+
+        self::assertSelectorExists('a[href="/register"]');
+    }
+
     private function install(KernelBrowser $client): void
     {
         $em = $client->getContainer()->get(EntityManagerInterface::class);

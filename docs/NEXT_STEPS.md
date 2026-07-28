@@ -1315,8 +1315,9 @@ What remains is operational: `terraform/main.tf` now declares `install_token`
 as a variable and wires it into `extra_env` (omitted from the app spec when
 empty), but that only means the plumbing exists — someone still has to supply
 the actual secret value when running `terraform apply` against production.
-Until that happens, `/install` 404s in prod, which blocks creating the first
-administrator rather than exposing one. Track this as a pre-launch deploy
+Until that happens, `/install` 404s in prod, so the first administrator has to
+be created from a shell instead (`bin/console app:admin:create`, see
+`DEPLOY.md` → "Recovering an instance"). Track this as a pre-launch deploy
 checklist item, not a live code vulnerability — hence the lower priority than
 when this was first filed.
 
@@ -1645,3 +1646,26 @@ It delivers the stated relationship — the part that actually survives into a C
 change — for the price of a data-model change, with none of the intent-inference
 problem above. Once multi-anchor comments exist, revisit whether dragging adds
 enough over them to be worth building at all.
+
+## Subscribe page can offer a waitlist button that 404s
+
+**Author:** Claude · **Type:** bug · **Priority:** low · **Status:** pending
+
+`templates/Module/Billing/show_subscribe.html.twig` renders a "join the
+waitlist" form when `view.capFull`, and `/waitlist` now 404s on an instance
+where the `registration.enabled` feature flag is off (see
+`RegistrationGate::allowsNewAccounts()`). So a disabled account, on an instance
+that is both at its registration cap and has sign-up switched off, is offered a
+button that leads nowhere.
+
+Narrow: the whole action block sits inside `{% if view.billingEnabled %}`, so a
+self-hosted instance with billing off — the default — never renders it. It needs
+a billing-enabled deployment that also closed registration.
+
+The fix is not simply hiding the button: `ShowSubscribeHandler` computes
+`capFull` from `RegistrationGate::isOpen()` (capacity only, correctly), and the
+`{% else %}` branch it would fall through to is a checkout form that
+`StartCheckoutHandler` rejects for the same account. Closing this properly means
+deciding what the page should say when neither checkout nor the waitlist is
+available, which is a copy decision — hence not folded into the registration
+gating work.
