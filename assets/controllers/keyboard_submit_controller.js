@@ -9,8 +9,13 @@ import { Controller } from '@hotwired/stimulus';
  *
  * requestSubmit() rather than submit() — it fires the submit event, which both
  * Turbo and the eager CSRF controller depend on.
+ *
+ * Eager, not lazy: a lazy controller is fetched asynchronously, so a reviewer
+ * who types their comment and hits ⌘⏎ straight away can land in the gap before
+ * connect() runs, and the keystroke does nothing. A shortcut that works only
+ * after an invisible delay is worse than none.
  */
-/* stimulusFetch: 'lazy' */
+/* stimulusFetch: 'eager' */
 export default class extends Controller {
     submit(event) {
         if (!event.metaKey && !event.ctrlKey) {
