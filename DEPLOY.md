@@ -255,7 +255,6 @@ bin/console messenger:failed:retry         # re-queue them, interactively
 
 `/admin/status` shows the current count, so you know whether it is worth
 looking.
->>>>>>> selfhost-health-and-status
 
 ## Known gaps
 
