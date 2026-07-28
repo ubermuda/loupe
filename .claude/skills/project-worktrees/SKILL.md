@@ -54,6 +54,16 @@ worktree bind-mounted as their document root. Use the `just` recipes, or
 `bin/worktrees/compose-exec.sh` to run something in the shared php-fpm against
 the current worktree's files.
 
+**A `docker compose -f <file>` call whose variables are unset does not fail
+safely.** `compose.e2e.yaml` and `compose.worktree.yaml` both declare their
+inputs with `${VAR:?}`. Running `down` on one of them without supplying those
+variables was observed to remove the **main stack's** containers and attempt to
+delete the `loupe_default` network — even though `-p` named a different
+project. So the `:?` markers protect `up`, not `down`, and a teardown recipe
+must pass the same variables its bring-up did. This is the same failure family
+as the bare-`docker compose` rule above: an invocation whose file cannot be
+resolved does not stay in its lane.
+
 **Tear down with `just worktree-down`, never a bare `git worktree remove`.**
 The latter leaves the sidecar and both databases behind, and the route then
 serves 502s. `just worktree-prune` cleans up after the fact.
@@ -188,9 +198,17 @@ suspecting the branch.
 ## Testing
 
 Each worktree gets its own test database via `TEST_TOKEN`, so `just ci` runs in
-parallel across worktrees safely. `just e2e` does not parallelize (shared
-Mailpit), but it can be pointed at a worktree, which is the better gate for a
-branch:
+parallel across worktrees safely.
+
+**For the full e2e suite, reach for `just e2e-up` first, not a worktree.** It
+provisions a disposable `app_e2e` database and a sidecar serving the main
+checkout, so it gates whatever branch is checked out there without provisioning
+a tree, a cert or a seeded database. The rest of this section covers pointing
+e2e at a **worktree**, which is still supported and is the right tool when you
+need to gate a branch without checking it out — but it is no longer the only
+way, and it is the more expensive one.
+
+`just e2e` does not parallelize (shared Mailpit). To aim it at a worktree:
 
 ```sh
 E2E_BASE_URL=https://<slug>.loupe.dev.localhost just e2e

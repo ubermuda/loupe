@@ -10,6 +10,10 @@ services:
       # default.conf includes /etc/nginx/docroot.conf — nginx will not start
       # without it. compose.worktree.yaml mounts a per-worktree file here.
       - ./docker/common/nginx/docroot-main.conf:/etc/nginx/docroot.conf
+      # default.conf also includes /etc/nginx/app-env.conf. The main stack has
+      # no overrides, so it gets the empty file; compose.e2e.yaml mounts a
+      # generated one to redirect the app at a disposable database.
+      - ./docker/common/nginx/app-env-none.conf:/etc/nginx/app-env.conf
     depends_on:
       - php-fpm
     networks:

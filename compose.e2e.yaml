@@ -1,0 +1,57 @@
+# A dedicated target for the end-to-end suite: the main checkout's code, served
+# at its own hostname, against a database that is expected to be destroyed.
+#
+# Why this exists. The e2e suite is destructive by design — the `install-reset`
+# project truncates every table, and `trial-end-lifecycle` flips global feature
+# flags and disables every expired-trial account. Pointed at the dev host, one
+# run wipes the dev database. The suite therefore needs a disposable database,
+# and until now the only way to get one was to provision a whole git worktree
+# per branch. That is a lot of machinery for what is really just "a second
+# database".
+#
+# Only nginx is duplicated. It serves the same /var/www/html the main stack
+# does, so it runs whatever branch is currently checked out — which is what you
+# want from a gate. The one difference is a generated app-env.conf that sets
+# WORKTREE_DB_SUFFIX (and the host-shaped variables) as fastcgi_params, landing
+# them in $_SERVER, where Symfony's Dotenv leaves them alone.
+#
+# Brought up by `just e2e-up`, which generates that file and creates the
+# database. Not usable standalone:
+#
+#   docker compose -f compose.e2e.yaml -p <project>-e2e up -d
+#
+# The explicit -p matters — .env sets COMPOSE_PROJECT_NAME, and that
+# environment variable would override a `name:` key declared here.
+services:
+  nginx:
+    image: nginx
+    restart: unless-stopped
+    volumes:
+      # The main checkout, at the path php-fpm sees it.
+      - ${E2E_MAIN:?set by just e2e-up}:/var/www/html
+      - ${E2E_MAIN:?}/docker/common/nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+      - ${E2E_MAIN:?}/docker/common/nginx/docroot-main.conf:/etc/nginx/docroot.conf:ro
+      # Generated — the only thing that distinguishes this stack from the main
+      # one. See `just e2e-up`.
+      - ${E2E_MAIN:?}/var/nginx-e2e-env.conf:/etc/nginx/app-env.conf:ro
+    networks:
+      # Both attached at creation: nginx resolves `php-fpm` while parsing its
+      # config and exits with "host not found in upstream" otherwise.
+      - traefik
+      - app
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=traefik
+      - traefik.http.routers.${E2E_PROJECT:?set by just e2e-up}-e2e.rule=Host(`${E2E_HOST:?set by just e2e-up}`)
+      - traefik.http.routers.${E2E_PROJECT:?}-e2e.entrypoints=websecure
+      - traefik.http.routers.${E2E_PROJECT:?}-e2e.tls=true
+      - traefik.http.routers.${E2E_PROJECT:?}-e2e.tls.certresolver=stepca
+      - traefik.http.services.${E2E_PROJECT:?}-e2e.loadbalancer.server.port=80
+
+networks:
+  traefik:
+    external: true
+  # The main stack's default network, where `php-fpm` and `database` resolve.
+  app:
+    external: true
+    name: ${E2E_APP_NETWORK:?set by just e2e-up}
