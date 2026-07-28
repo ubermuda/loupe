@@ -26,13 +26,39 @@
 #
 set -euo pipefail
 
-root=$(git rev-parse --show-toplevel)
 main=$(git worktree list --porcelain | awk '/^worktree /{print $2; exit}')
 
-if [ "$root" = "$main" ]; then
-    echo "This is the main checkout — nothing to bootstrap." >&2
-    exit 0
+# Target resolution. With a NAME the target is explicit, so this can be run
+# from anywhere — in particular from the main checkout, which is where the
+# session is supposed to stay (CLAUDE.md, "The main session never moves into a
+# worktree"). Without one it falls back to "whatever tree I am standing in",
+# which is what every caller used to have to arrange by cd-ing first.
+#
+# Running from main is also the safer path for another reason: the bare
+# `docker compose` calls further down resolve their compose file from the
+# current directory, and doing that from inside a worktree is the one thing
+# the project-worktrees skill says never to do.
+if [ -n "${1:-}" ]; then
+    root="$main/.claude/worktrees/$1"
+    if [ ! -d "$root" ]; then
+        echo "No worktree at .claude/worktrees/$1." >&2
+        echo "Create it first: git worktree add .claude/worktrees/$1 <branch>" >&2
+        exit 1
+    fi
+    if ! git -C "$main" worktree list --porcelain | grep -qxF "worktree $root"; then
+        echo ".claude/worktrees/$1 exists but is not a registered git worktree." >&2
+        echo "If it is a leftover directory, remove it and re-add it." >&2
+        exit 1
+    fi
+else
+    root=$(git rev-parse --show-toplevel)
+    if [ "$root" = "$main" ]; then
+        echo "This is the main checkout — nothing to bootstrap." >&2
+        echo "Name the worktree you meant: just worktree-up NAME" >&2
+        exit 0
+    fi
 fi
+
 case "$root" in
     "$main"/.claude/worktrees/*) ;;
     *) echo "Worktree is not under .claude/worktrees/ — refusing to bootstrap." >&2; exit 1 ;;

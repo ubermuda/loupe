@@ -22,7 +22,7 @@ boots with the worktree as its project directory and reads that worktree's
 
 | Command | Does |
 |---|---|
-| `just worktree-up` | Provision (or repair) the current worktree. Idempotent. |
+| `just worktree-up NAME` | Provision (or repair) a worktree, from anywhere. Idempotent. |
 | `just worktrees` | Every worktree with its URL, database and sidecar status |
 | `just worktree-down <name>` | Remove worktree + sidecar + both databases |
 | `just worktree-prune` | Clean up sidecars/databases orphaned by `git worktree remove` |
@@ -36,6 +36,16 @@ Log in with `dev@loupe.test` / `password`.
 worktree whose `.env.local` points at a database that was never created.
 
 ## Rules that prevent real damage
+
+**Prefer the `NAME` form of every worktree command, and run it from the main
+checkout.** `just worktree-up NAME`, `just worktree-down NAME`. `worktree-up`
+still accepts no argument and falls back to the tree you are standing in, but
+that fallback is the reason sessions used to `cd` into a worktree at all — and
+a `cd` persists across later tool calls, quietly moving the whole session
+(CLAUDE.md, "The main session never moves into a worktree"). Naming the target
+removes the reason to move. It is also safer: the bare `docker compose` calls
+inside the bootstrap script resolve their compose file from the current
+directory, so running it from main is the correct-by-construction path.
 
 **Never run bare `docker compose up/down/restart` from a worktree.** `.env`
 sets `COMPOSE_PROJECT_NAME=loupe`, so compose targets the **shared** stack but

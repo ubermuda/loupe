@@ -79,6 +79,9 @@ database, and its own compiled CSS. Log in with `dev@loupe.test` / `password`.
   not: the Bash tool persists its working directory between calls, so every
   later command in the session silently runs from the worktree too. That is the
   move this rule forbids, arrived at by accident.
+- **Provision by name from the main checkout: `just worktree-up NAME`.** The
+  no-argument form still works from inside a worktree, but needing it is what
+  made sessions `cd` there in the first place.
 - Always branch off `main`, not the current feature branch
 - Tear down with `just worktree-down <name>`, never a bare `git worktree remove`
 - **Invoke the `project-worktrees` skill** before provisioning, debugging or
