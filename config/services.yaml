@@ -28,11 +28,37 @@ services:
     # add more service definitions when explicit configuration is needed
     # please note that last definitions always *replace* previous ones
 
+    # Backs the `export.storage.s3` Flysystem storage. Only constructed when
+    # EXPORT_STORAGE=s3, because `export.storage` resolves its source lazily —
+    # a local-storage installation never reads any of these values.
+    #
+    # Every option goes through `default::`, which yields null for an empty
+    # variable, and AsyncAws treats null as "not configured": no endpoint falls
+    # back to AWS's own (https://s3.<region>.amazonaws.com), and no key/secret
+    # falls back to the ambient AWS credential chain (AWS_ACCESS_KEY_ID, an
+    # instance role, …), which is what an AWS-hosted install wants.
+    app.export_storage.s3_client:
+        class: AsyncAws\S3\S3Client
+        arguments:
+            $configuration:
+                region: '%env(default::EXPORT_STORAGE_REGION)%'
+                endpoint: '%env(default::EXPORT_STORAGE_ENDPOINT)%'
+                accessKeyId: '%env(default::EXPORT_STORAGE_KEY)%'
+                accessKeySecret: '%env(default::EXPORT_STORAGE_SECRET)%'
+                pathStyleEndpoint: '%env(default::EXPORT_STORAGE_USE_PATH_STYLE)%'
+
 # Command handlers are private services; expose them in the test container so
 # KernelTestCase can fetch them directly without relying on a dependent service
 # (e.g. an MCP tool) keeping them reachable.
 when@test:
     services:
+        # The export storage is private. Tests seed and assert on archives
+        # through it rather than poking at var/exports, so that they keep
+        # passing whichever adapter EXPORT_STORAGE selects.
+        test.export.storage:
+            alias: 'export.storage'
+            public: true
+
         App\Module\Review\Command\CreateDocumentHandler:
             autowire: true
             public: true

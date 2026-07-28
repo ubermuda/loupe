@@ -28,6 +28,7 @@ use App\Module\Review\ValueObject\Anchor;
 use App\Module\SiteReview\Entity\SiteReviewComment;
 use Doctrine\DBAL\Connection;
 use Doctrine\ORM\EntityManagerInterface;
+use League\Flysystem\FilesystemOperator;
 use Psr\Log\NullLogger;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Symfony\Component\Messenger\MessageBusInterface;
@@ -72,10 +73,10 @@ final class DeleteAccountHandlerTest extends KernelTestCase
         $em->flush();
         $ownerId = $owner->id;
 
-        $projectDir = self::getContainer()->getParameter('kernel.project_dir');
-        self::assertIsString($projectDir);
-        $archivePath = DataExport::computeArchivePath($projectDir, $fixture['exportId']);
-        self::assertFileExists($archivePath);
+        $storage = self::getContainer()->get('test.export.storage');
+        self::assertInstanceOf(FilesystemOperator::class, $storage);
+        $archiveKey = DataExport::computeArchiveKey($fixture['exportId']);
+        self::assertTrue($storage->fileExists($archiveKey));
 
         $handler = self::getContainer()->get(DeleteAccountHandler::class);
         self::assertInstanceOf(DeleteAccountHandler::class, $handler);
@@ -83,7 +84,7 @@ final class DeleteAccountHandlerTest extends KernelTestCase
 
         $em->clear();
         self::assertNull($em->find(User::class, $ownerId));
-        self::assertFileDoesNotExist($archivePath);
+        self::assertFalse($storage->fileExists($archiveKey));
 
         // The cancellation message is recorded inside the deletion
         // transaction (see the rollback-safety unit test below for proof a
@@ -186,7 +187,7 @@ final class DeleteAccountHandlerTest extends KernelTestCase
         $bus = $this->createMock(MessageBusInterface::class);
         $bus->expects(self::never())->method('dispatch');
 
-        $handler = new DeleteAccountHandler($users, $billingProfiles, $bus, $em, new NullLogger(), []);
+        $handler = new DeleteAccountHandler($users, $billingProfiles, $bus, $em, new NullLogger(), $this->createStub(FilesystemOperator::class), []);
 
         $this->expectException(\RuntimeException::class);
         $this->expectExceptionMessage('simulated transaction failure');
@@ -236,7 +237,7 @@ final class DeleteAccountHandlerTest extends KernelTestCase
 
         $purgers = [$makePurger(80), $makePurger(10), $makePurger(30)];
 
-        $handler = new DeleteAccountHandler($users, $billingProfiles, $this->createStub(MessageBusInterface::class), $em, new NullLogger(), $purgers);
+        $handler = new DeleteAccountHandler($users, $billingProfiles, $this->createStub(MessageBusInterface::class), $em, new NullLogger(), $this->createStub(FilesystemOperator::class), $purgers);
         $handler(new DeleteAccountCommand($token));
 
         self::assertSame([10, 30, 80], $calls->getArrayCopy());
@@ -319,13 +320,9 @@ final class DeleteAccountHandlerTest extends KernelTestCase
         $em->flush();
 
         $exportId = $export->id ?? throw new \LogicException('flushed export always has an id');
-        $projectDir = self::getContainer()->getParameter('kernel.project_dir');
-        \assert(is_string($projectDir));
-        $archivePath = DataExport::computeArchivePath($projectDir, $exportId);
-        if (!is_dir(\dirname($archivePath))) {
-            mkdir(\dirname($archivePath), 0o777, true);
-        }
-        file_put_contents($archivePath, 'fixture archive contents');
+        $storage = self::getContainer()->get('test.export.storage');
+        \assert($storage instanceof FilesystemOperator);
+        $storage->write(DataExport::computeArchiveKey($exportId), 'fixture archive contents');
 
         return [
             'owner' => $owner,

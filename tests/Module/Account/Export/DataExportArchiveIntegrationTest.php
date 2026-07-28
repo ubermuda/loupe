@@ -16,6 +16,7 @@ use App\Module\Review\Entity\Verdict;
 use App\Module\Review\ValueObject\Anchor;
 use App\Module\SiteReview\Entity\SiteReviewComment;
 use Doctrine\ORM\EntityManagerInterface;
+use League\Flysystem\FilesystemOperator;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Symfony\Component\Uid\Uuid;
 
@@ -62,11 +63,19 @@ final class DataExportArchiveIntegrationTest extends KernelTestCase
         $builder = self::getContainer()->get(DataExportArchiveBuilder::class);
         self::assertInstanceOf(DataExportArchiveBuilder::class, $builder);
 
-        $path = $builder->build($user, Uuid::v7());
+        $storage = self::getContainer()->get('test.export.storage');
+        self::assertInstanceOf(FilesystemOperator::class, $storage);
+
+        $key = $builder->build($user, Uuid::v7());
+        $localPath = tempnam(sys_get_temp_dir(), 'loupe-export-assert-');
+        self::assertIsString($localPath);
+        // ZipArchive reads local files only, so the stored archive has to come
+        // back down before it can be inspected.
+        file_put_contents($localPath, $storage->read($key));
 
         try {
             $zip = new \ZipArchive();
-            self::assertTrue($zip->open($path));
+            self::assertTrue($zip->open($localPath));
 
             $names = [];
             for ($i = 0; $i < $zip->numFiles; ++$i) {
@@ -102,7 +111,8 @@ final class DataExportArchiveIntegrationTest extends KernelTestCase
 
             $zip->close();
         } finally {
-            @unlink($path);
+            @unlink($localPath);
+            $storage->delete($key);
         }
     }
 }
