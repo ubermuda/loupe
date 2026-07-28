@@ -1,48 +1,273 @@
-# Deploying Loupe to production
+# Deploying Loupe
 
-This describes **the deployment we ship by default**: DigitalOcean App Platform,
-from a container image built locally and pushed to GHCR, with infrastructure in
-`terraform/` — a thin root over the shared module
-[`terraform-digitalocean-symfony-app`](https://github.com/ubermuda/terraform-digitalocean-symfony-app),
-pinned to a tag in `terraform/main.tf`.
+This is the deployment guide: what Loupe needs to run, every environment
+variable it reads, the two topologies that ship with the project, and how to
+get back into an instance you are locked out of. The README points here and
+keeps no copy of any of it.
 
-It is a default, not a requirement. Loupe is a container plus a Postgres
-database, so it runs anywhere that can host those, and nothing in the
-application assumes App Platform. Everything below that is genuinely
-provider-specific — the Terraform root, the `just tf-*` recipes, the App
-Platform component model — is scaffolding you can replace. What you cannot skip
-is in "Environment", "First deploy" and "Migrations": those describe the app's
-own requirements and hold wherever you run it.
+Loupe is a container plus a Postgres database, so it runs anywhere that can host
+those. Nothing in the application assumes a particular provider.
 
-**If you would rather run Loupe on a single host you control, skip to
-"Single-host Docker Compose" below.** `compose.prod.yaml` is a complete stack —
-web, worker, Postgres and the Mercure hub — and needs no cloud account at all.
+- **"What runs in production"**, **"Environment"**, **"Secrets"** and
+  **"Migrations"** describe the application's own requirements. They hold
+  wherever you run it.
+- **"Single-host Docker Compose"** is the whole application on one machine, with
+  no cloud account of any kind.
+- **"DigitalOcean App Platform"** is the deployment this project itself ships
+  by default, with infrastructure in `terraform/`. Everything genuinely
+  provider-specific — the Terraform root, the `just tf-*` recipes, the App
+  Platform component model — lives in that section and is scaffolding you can
+  replace.
+- **"First run"**, **"Recovering an instance"** and **"Operating an instance"**
+  apply to both.
 
 There is **no CI/CD pipeline** — no `.github/workflows`. Deploys are run by hand
 from a workstation with `just`.
 
 > **Read "Known gaps" before your first real deploy.** Several things the
-> application needs are not configured by `terraform/main.tf` on your behalf,
-> and two of them — the install token and the data-export bucket — leave a
-> feature broken rather than merely off.
+> application needs are not configured on your behalf, and two of them — the
+> install token and the data-export bucket — leave a feature broken rather than
+> merely off.
 
 ## What runs in production
 
-| Component | What it is |
+Loupe runs as **two processes from the same image**, plus Postgres and,
+optionally, a Mercure hub.
+
+| Process | What it is |
 |---|---|
-| **Web container** | `docker/prod/Dockerfile`, running supervisord as PID 1: `php-fpm` + `nginx`, plus an `export-purge` sleep-loop that runs `app:purge-expired-exports` hourly. It purges archives the *worker* wrote, which only works because both address the same export storage — see `EXPORT_STORAGE` below. |
-| **Worker container** | The *same image*, started with a different command (`enable_worker` in `terraform/main.tf`). Not part of the web container's supervisord — deliberately, so worker restarts never recycle php-fpm/nginx. It consumes `scheduler_default` first, then `async`: a deep async backlog must not delay schedule ticks. |
-| **Postgres** | A per-app database and user on a managed cluster you already own, named by `db_cluster_name`. Terraform creates the database and the user; it never creates the cluster. |
-| **Export bucket** | A DigitalOcean Spaces bucket plus a bucket-scoped access key, created by `terraform/spaces.tf` and wired into the app as ordinary `EXPORT_STORAGE_*` settings. |
-| **Mercure hub** | Required for site-review push. A second service in the same app, run by the shared module when `mercure_jwt_secret` is set. In-memory, so delivery is best effort — see "Known gaps". |
+| **Web** | `docker/prod/Dockerfile`, running supervisord as PID 1: `php-fpm` + `nginx`, plus an `export-purge` sleep-loop that runs `app:purge-expired-exports` hourly. It purges archives the *worker* wrote, which only works because both address the same export storage — see `EXPORT_STORAGE` below. Listens on port 80. |
+| **Worker** | The *same image*, started with a different command. Deliberately **not** a supervisord program inside the web container, so worker restarts never recycle php-fpm and nginx. |
+| **Postgres** | Any Postgres the app can reach. It also carries the message queue: `MESSENGER_TRANSPORT_DSN` defaults to `doctrine://default`, so there is no broker to run. |
+| **Mercure hub** | Only needed for site-review push. Optional, and off until `MERCURE_JWT_SECRET` is set. In-memory, so delivery is best effort — see "Known gaps". |
 
-The web container listens on port 80. Point the platform's health check at
-`GET /healthz`: it is unauthenticated, returns `{"status":"ok"}` with HTTP 200
-when the database answers and `{"status":"error"}` with HTTP 503 when it does
-not, and it deliberately says nothing else — an anonymous caller learns whether
-the instance is up, and no more.
+### The worker is not optional
 
-## Prerequisites
+Nothing consumes the queues unless you run it, and nothing warns you: queued
+mail is never delivered, data exports never build, the trial-end sweep never
+runs, and the site-review outbox never drains. Every one of those fails
+silently — the request that queued the work still returns 200.
+
+```
+php bin/console messenger:consume scheduler_default async --time-limit=3600 --memory-limit=128M
+```
+
+`scheduler_default` is listed **before** `async` deliberately: a deep async
+backlog must not delay schedule ticks. `--time-limit` recycles the process
+hourly and `--memory-limit` guards against a leak in a long-lived consumer.
+
+Both shipped topologies run exactly that command — `worker_command` in
+`terraform/main.tf`, the `worker` service in `compose.prod.yaml`. If you deploy
+some other way, this is the piece it is easiest to forget.
+
+## Environment
+
+Everything Loupe reads is documented inline in `.env`, which is also where the
+committed defaults live. Below is what a production instance must decide for
+itself. **Anything you leave unset falls back to the committed default in
+`.env`** — which is usually a development value.
+
+Where a variable is set differs by topology: in `compose.prod.env` for the
+single-host stack, in Terraform variables for App Platform. "Set by hand" in the
+last column means neither template covers it and you must add it yourself.
+
+### Always
+
+| Variable | Purpose | Set by hand? |
+|---|---|---|
+| `APP_ENV` | Must be `prod`. | Both templates set it |
+| `APP_SECRET` | Symfony secret. Generate once — see "Secrets". | No |
+| `DATABASE_URL` | Postgres DSN. `serverVersion` must match the real cluster: understating it is safe, overstating it can break queries. | No |
+| `DEFAULT_URI` | **The instance's public URL, scheme included.** The single host-shaped setting the app has. It builds absolute links in non-HTTP contexts (console commands, the worker), pins the host of links in security-sensitive email so a forged `Host` header cannot redirect them, and is the base of the Mercure topics the bridge CLI subscribes to. Get it wrong and password-reset and export-download emails point somewhere nobody can act on. | No |
+| `MCP_ALLOWED_HOSTS` | Comma-separated DNS-rebinding allowlist for `/mcp`, **hostnames only, no port**. It must contain the hostname agents actually use, or every MCP call is rejected with a 403 — one that names this variable and echoes the host it rejected, so the failure is self-explaining. | No |
+| `TRUSTED_PROXIES` | The reverse proxy in front of the app, as IPs or CIDR ranges. **Empty falls back to `PRIVATE_SUBNETS`**, which covers Docker and any balancer on a private network. Set it when your balancer reaches the app from a public address: until you do, `X-Forwarded-Proto` and `X-Forwarded-Host` are ignored (generated URLs get the wrong scheme and host) and every visitor shares the balancer's IP, so the per-IP registration and password-reset limiters throttle all your users collectively. | Compose only |
+| `APP_SOURCE_URL` | Where *this instance's* source can be obtained, rendered as a footer link on every page. A default ships in `.env` pointing at upstream, which is correct for an unmodified instance and wrong for a modified one. **If you change the code, the AGPL requires you to point this at your repository.** | **Yes — both topologies** |
+
+### Mail
+
+Email verification is **mandatory**, so nobody can register until mail works.
+
+| Variable | Purpose | Set by hand? |
+|---|---|---|
+| `MAILER_DSN` | Outbound transport. | No |
+| `MAILER_FROM_ADDRESS` | Sender of every transactional email — verification, password reset, waitlist invite, data export, account deletion. Must be on a domain you control and have published SPF/DKIM/DMARC for. **Falls back to `noreply@localhost`, which real mail servers reject**, so registration breaks. | No |
+| `MAILER_FROM_NAME` | Display name beside the address. Defaults to `Loupe`. | No |
+
+### Site-review push (Mercure)
+
+Optional. Without it, review submissions still save but never reach a running
+agent, and the publish failure is only logged — it degrades silently.
+
+| Variable | Purpose | Set by hand? |
+|---|---|---|
+| `MERCURE_JWT_SECRET` | Shared HS256 key, minimum 32 characters, **identical for the app and the hub**. No default ships: if unset, Mercure fails loudly rather than signing with a publicly-known key. | No |
+| `MERCURE_URL` | Where the app POSTs updates — the hub on the internal network. | No |
+| `MERCURE_PUBLIC_URL` | Where clients subscribe. A genuinely separate host (the bridge CLI reaches it directly), so it cannot be derived from `DEFAULT_URI`. | No |
+
+### First run
+
+| Variable | Purpose | Set by hand? |
+|---|---|---|
+| `INSTALL_TOKEN` | Gates `/install`. **Set this before the first deploy** — see "First run". | No |
+| `ADMIN_EMAIL` | Promotes that user to `ROLE_ADMIN` at login. Only works on an already-verified account, so it cannot rescue a locked-out install; `app:user:promote` can. | No |
+
+### Data exports
+
+`EXPORT_STORAGE` is `local` by default, which writes archives under
+`var/exports/`. **That is only correct when the process that generates an export
+and the process that serves its download share a filesystem.** The single-host
+stack does share one; separate web and worker containers do not, and there
+`local` means the worker writes an archive the web container cannot see, every
+download 404s, and the hourly purge loop deletes rows whose archives it cannot
+reach.
+
+| Variable | Purpose |
+|---|---|
+| `EXPORT_STORAGE` | `local` or `s3`. |
+| `EXPORT_STORAGE_BUCKET` | Required when `s3`. |
+| `EXPORT_STORAGE_PREFIX` | Key prefix. Empty stores archives at the bucket root, which is what a dedicated bucket wants. |
+| `EXPORT_STORAGE_REGION` | Empty falls back to AWS's default, `us-east-1`. |
+| `EXPORT_STORAGE_ENDPOINT` | Set for any non-AWS provider, e.g. `https://tor1.digitaloceanspaces.com`. Empty targets AWS S3 itself. |
+| `EXPORT_STORAGE_KEY` / `_SECRET` | Empty falls back to the ambient AWS credential chain, which only helps when running on AWS with an attached role. |
+| `EXPORT_STORAGE_USE_PATH_STYLE` | `true` for MinIO and most non-AWS providers, which address buckets as `https://host/bucket/key` rather than `https://bucket.host/key`. |
+| `EXPORT_STORAGE_ACL` | Canned ACL sent with every upload. **No single value works everywhere** — see "Known gaps". |
+
+AWS S3, MinIO, Cloudflare R2 and DigitalOcean Spaces all work; the application
+only ever sees generic S3 settings. Nothing else in the app writes files, so
+this is the only place object storage is needed.
+
+### Optional features
+
+| Variable | Purpose | Set by hand? |
+|---|---|---|
+| `APP_ENCRYPTION_KEY` | Only once an `encrypted_string` column is in use. **Losing it makes existing encrypted columns unreadable.** | No |
+| `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET` | Billing. Nothing instantiates the Stripe client until the `billing.enabled` feature flag is on. | No |
+| `OAUTH_GOOGLE_ID` / `_SECRET`, `OAUTH_GITHUB_ID` / `_SECRET` | Social login. A provider becomes reachable only when its credentials **and** its feature flag (`auth.google.enabled` / `auth.github.enabled`) are both set. | No |
+| `SITE_REVIEW_WIDGET_TOKEN` | Only for dogfooding the review widget on Loupe's own pages. It appears in page source, so use a dedicated SiteReview-scoped token, never an MCP or production credential. | **Yes — both topologies** |
+
+### What the Terraform root does not set
+
+Two variables above have no Terraform variable and no `extra_env` entry in
+`terraform/main.tf`: **`APP_SOURCE_URL`** and **`SITE_REVIEW_WIDGET_TOKEN`**.
+The widget is a dogfooding aid rather than part of the deploy surface, and
+`APP_SOURCE_URL` only needs changing if you modify the code. Add either by hand
+to `extra_env` if you want it — there is no variable to fill in.
+
+`TRUSTED_PROXIES` likewise has no Terraform variable; on App Platform the
+`PRIVATE_SUBNETS` fallback applies unless you add it yourself.
+
+Everything else is wired. The shared module injects `APP_ENV`, `APP_SECRET`,
+`APP_ENCRYPTION_KEY`, `DATABASE_URL`, `MAILER_DSN` and `DEFAULT_URI` — and, when
+the hub is enabled, `MERCURE_URL`, `MERCURE_PUBLIC_URL` and `MERCURE_JWT_SECRET`,
+which it derives itself. The rest goes through `extra_env` in
+`terraform/main.tf`, sourced from the variables in `terraform/variables.tf`; set
+them in `terraform.tfvars` or as `TF_VAR_*`. Each is omitted from the app spec
+entirely when left empty, so a feature is off rather than half-configured.
+
+`DEFAULT_URI` is the exception worth watching: the module injects the key, but
+*you* supply the value, through `default_uri` or `custom_domain` in
+`terraform/main.tf`. Both ship commented out.
+
+## Secrets
+
+Generate once, then keep them somewhere durable.
+
+```bash
+# APP_SECRET
+openssl rand -hex 16
+
+# APP_ENCRYPTION_KEY — base64-encoded 32-byte libsodium secret-box key
+php -r 'echo base64_encode(sodium_crypto_secretbox_keygen()), PHP_EOL;'
+
+# MERCURE_JWT_SECRET and INSTALL_TOKEN — any long random string
+openssl rand -base64 32
+```
+
+**Losing `APP_ENCRYPTION_KEY` makes existing encrypted columns unreadable.**
+There is no recovery.
+
+For App Platform, inject them as `TF_VAR_*`:
+
+```bash
+export TF_VAR_app_secret=$(openssl rand -hex 16)
+export TF_VAR_app_encryption_key=$(php -r 'echo base64_encode(sodium_crypto_secretbox_keygen());')
+export TF_VAR_registry_credentials="<github-username>:<ghcr-pat>"
+export TF_VAR_mailer_dsn="<production mailer DSN>"
+export DIGITALOCEAN_TOKEN="<do-token>"
+export SPACES_ACCESS_KEY_ID="<spaces-key>"
+export SPACES_SECRET_ACCESS_KEY="<spaces-secret>"
+```
+
+`terraform/terraform.tfvars.example` is the template; copy it to
+`terraform.tfvars` for anything you would rather not keep in the environment.
+
+> **Terraform state holds these values in plaintext.** Use an encrypted remote
+> backend — there is a commented block in `terraform/versions.tf`. Do not commit
+> `terraform.tfstate`.
+
+## Migrations
+
+**Never run migrations from the container entrypoint.**
+`docker/prod/entrypoint.sh` deliberately does not — with several replicas,
+per-container migrations race against the same database.
+`docker/prod/release.sh` is the one-shot release step, run once per deploy:
+
+```bash
+docker run --rm --env-file <your prod env file> <image> docker/prod/release.sh
+```
+
+The two topologies below each have their own way of invoking it.
+
+## Single-host Docker Compose
+
+`compose.prod.yaml` runs the whole application on one host with no cloud account
+of any kind. It is the same production image, run as four services: `web`
+(nginx + php-fpm + the hourly export purge), `worker` (the messenger consumer),
+`database` (Postgres) and `mercure` (the hub).
+
+```bash
+cp compose.prod.env.example compose.prod.env      # then fill it in
+docker compose -f compose.prod.yaml --env-file compose.prod.env up -d
+
+# Once per deploy, never from a container's entrypoint:
+docker compose -f compose.prod.yaml --env-file compose.prod.env \
+    run --rm web docker/prod/release.sh
+```
+
+`--env-file` is **not optional**. Without it Compose reads the repository's
+`.env`, which is the development configuration. Every setting with no safe
+default is guarded, so a forgotten flag aborts the command instead of starting a
+misconfigured instance.
+
+What you still have to provide:
+
+- **A reverse proxy.** Both published ports bind to loopback. Terminate TLS in
+  front, forward `X-Forwarded-Proto` and `X-Forwarded-For`, and set
+  `TRUSTED_PROXIES` if that proxy reaches the app from a public address.
+- **An SMTP server** for `MAILER_DSN`. Email verification is mandatory, so
+  registration does not work without one.
+- **A hostname for the hub.** `MERCURE_PUBLIC_URL` is a separate host that the
+  bridge CLI subscribes to directly; route it to the `mercure` service.
+- **Backups** of the `database_data` and `exports` volumes.
+
+Unlike App Platform, this topology *can* share a filesystem, so `EXPORT_STORAGE`
+stays at `local` and both containers mount the same `exports` volume. That is
+also why the worker runs its consumer as `www-data` rather than root: archives
+are written `0600`, and a root-written archive would be unreadable to the web
+container's php-fpm workers.
+
+## DigitalOcean App Platform
+
+The deployment this project ships by default: a container image built locally
+and pushed to GHCR, with infrastructure in `terraform/` — a thin root over the
+shared module
+[`terraform-digitalocean-symfony-app`](https://github.com/ubermuda/terraform-digitalocean-symfony-app),
+pinned to a tag in `terraform/main.tf`.
+
+Point the platform's health check at `GET /healthz` (see "Operating an
+instance").
+
+### Prerequisites
 
 1. `doctl`, authenticated against the DigitalOcean account.
 2. `terraform`.
@@ -78,29 +303,7 @@ the instance is up, and no more.
    `SPACES_ACCESS_KEY_ID` / `SPACES_SECRET_ACCESS_KEY`. (Not needed if you set
    `create_export_bucket = false` and bring your own S3 bucket.)
 
-## Secrets
-
-Generate once, then keep them somewhere durable — losing `APP_ENCRYPTION_KEY`
-makes existing encrypted columns unreadable.
-
-```bash
-export TF_VAR_app_secret=$(openssl rand -hex 16)
-export TF_VAR_app_encryption_key=$(php -r 'echo base64_encode(sodium_crypto_secretbox_keygen());')
-export TF_VAR_registry_credentials="<github-username>:<ghcr-pat>"
-export TF_VAR_mailer_dsn="<production mailer DSN>"
-export DIGITALOCEAN_TOKEN="<do-token>"
-export SPACES_ACCESS_KEY_ID="<spaces-key>"
-export SPACES_SECRET_ACCESS_KEY="<spaces-secret>"
-```
-
-`terraform/terraform.tfvars.example` is the template; copy it to
-`terraform.tfvars` for anything you would rather not keep in the environment.
-
-> **Terraform state holds these values in plaintext.** Use an encrypted remote
-> backend — there is a commented block in `terraform/versions.tf`. Do not commit
-> `terraform.tfstate`.
-
-## First deploy
+### First deploy
 
 The first deploy has two steps that cannot be Terraformed, because a firewall
 resource would cut off the sibling apps sharing the cluster.
@@ -134,58 +337,55 @@ After the first apply, note the assigned `*.ondigitalocean.app` URL and set
 module derive it). Without that, CLI- and worker-generated absolute URLs —
 password reset links, data-export download links — point at the wrong host.
 
-## Routine deploys
+### Routine deploys
 
 ```bash
-just deploy
-```
-
-That builds the amd64 image, pushes it, and creates an App Platform deployment,
-waiting for it to go live. With `enable_predeploy_migrations = true`, migrations
-run as a `PRE_DEPLOY` job before the new containers roll.
-
-```bash
+just deploy           # build amd64, push, create a deployment, wait for it to go live
 just logs-prod        # tail production logs
 just shell-prod       # shell into the prod image locally, for build debugging
 ```
 
-## Migrations
+With `enable_predeploy_migrations = true`, migrations run as a `PRE_DEPLOY` job
+before the new containers roll.
 
-**Never run migrations from the container entrypoint.** `docker/prod/entrypoint.sh`
-deliberately does not — with several replicas, per-container migrations race
-against the same database. `docker/prod/release.sh` is the one-shot release step,
-run either by the `PRE_DEPLOY` job or by hand as in step 4 above.
+### Infrastructure it creates
 
-## Environment variables
+| Resource | What it is |
+|---|---|
+| **Web + worker services** | Two components from the same image; the worker is `enable_worker` / `worker_command` in `terraform/main.tf`. |
+| **Postgres** | A per-app database and user on a managed cluster you already own, named by `db_cluster_name`. Terraform creates the database and the user; it never creates the cluster. |
+| **Export bucket** | A DigitalOcean Spaces bucket plus a bucket-scoped access key, created by `terraform/spaces.tf` and wired in as ordinary `EXPORT_STORAGE_*` settings. |
+| **Mercure hub** | A second service in the same app, run by the shared module when `mercure_jwt_secret` is set. |
 
-The module sets `APP_ENV`, `APP_SECRET`, `APP_ENCRYPTION_KEY`, `DATABASE_URL`,
-`MAILER_DSN` and `DEFAULT_URI` — and, when the hub is enabled, `MERCURE_URL`,
-`MERCURE_PUBLIC_URL` and `MERCURE_JWT_SECRET`, which it derives itself. The rest
-is wired through `extra_env` in `terraform/main.tf`, sourced from the variables
-in `terraform/variables.tf` — set them in `terraform.tfvars` or as `TF_VAR_*`.
-Each is omitted from the app spec entirely when left empty, so a feature is off
-rather than half-configured:
+### Rolling back
 
-| Variable | Needed for | If unset |
-|---|---|---|
-| `MAILER_FROM_ADDRESS`, `MAILER_FROM_NAME` | Sender of every transactional email; the address must be on a domain you control and have published SPF/DKIM/DMARC for | Falls back to `noreply@localhost`, which real mail servers reject — and since email verification is mandatory, **your users cannot complete registration** |
-| `ADMIN_EMAIL` | Promotes that user to `ROLE_ADMIN` at login — only for an already-verified account, so it cannot rescue a locked-out install; `app:user:promote` can | No admin promotion |
-| `INSTALL_TOKEN` | Gates `/install` | **In prod the wizard 404s outright** — it fails closed, so an unset value keeps first-run setup out of a stranger's reach rather than exposing it; recover with `app:admin:create` |
-| `mercure_jwt_secret` | Runs the Mercure hub for site-review push (a Terraform variable, not an env var — the module derives the URLs) | Hub not run; review submissions save but never reach a running agent |
-| `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET` | Billing, checkout, webhooks | Billing paths fail |
-| `OAUTH_GOOGLE_ID` / `_SECRET`, `OAUTH_GITHUB_ID` / `_SECRET` | Social login | Those buttons fail |
-| `MCP_ALLOWED_HOSTS` | DNS-rebinding allowlist for `/mcp` | The MCP endpoint rejects your real hostname |
-| `EXPORT_STORAGE` | Where data-export archives live: `local` or `s3`. Terraform sets it to `s3` | **Every export download 404s** on `local`: the worker writes the archive, the web container serves it, and they share no volume |
-| `EXPORT_STORAGE_BUCKET`, `_ENDPOINT`, `_REGION`, `_KEY`, `_SECRET` | The bucket and its credentials. Terraform fills all five from the Spaces bucket it creates; they are yours to set only when `create_export_bucket = false` | Exports fail at upload |
-| `EXPORT_STORAGE_PREFIX` | Key prefix inside the bucket | Archives sit at the bucket root |
-| `EXPORT_STORAGE_USE_PATH_STYLE` | `true` for MinIO and most non-AWS providers | Virtual-hosted addressing (`https://bucket.host/key`) |
-| `EXPORT_STORAGE_ACL` | `bucket-owner-full-control` on AWS S3 — see "Known gaps" | `private`, which MinIO and Spaces require and a default AWS bucket rejects |
-| `SITE_REVIEW_WIDGET_TOKEN` | Only for dogfooding the widget on Loupe's own pages | Widget not loaded |
+App Platform keeps previous deployments. Roll back through the DigitalOcean
+console, or re-push a known-good image tag and deploy again. Note that the
+default `image_tag` is a fixed `prod` — there is no per-release tag, so "the
+previous image" is only recoverable through App Platform's own deployment
+history. Building with
+`LOUPE_PROD_IMAGE=<registry>/loupe:$(git rev-parse --short HEAD)` and setting
+`image_tag` to match would make rollback a one-command operation.
 
-`INSTALL_TOKEN` is the one to set **before** the first deploy: the wizard is how
-you create the first administrator, and in production it is unreachable without
-the token. If you forget it, see "Recovering an instance" — you are not locked
-out, but the fix is a shell rather than a browser.
+## First run
+
+Set `INSTALL_TOKEN` **before** the first deploy. The install wizard at
+`/install` is how you create the first administrator, and in production it
+**fails closed**: with `APP_ENV=prod` and no token configured it returns 404
+outright. A forgotten variable locks the wizard rather than exposing it. Append
+the token once as `?token=<value>`; the app remembers it for the rest of that
+session.
+
+If you forget it you are not locked out, but the fix is a shell rather than a
+browser — see "Recovering an instance".
+
+Sign-up is closed until the instance is installed: `/register`, the OAuth
+sign-up branch and `/waitlist` all refuse to create the **first** account, so a
+missing `INSTALL_TOKEN` cannot leave a fresh instance to whoever finds it first.
+Registration is additionally gated on the `registration.enabled` feature flag,
+which the wizard seeds and the admin area can toggle at any time. When the flag
+row is absent — an instance upgraded from a version that never seeded it —
+registration stays open, so an existing instance keeps behaving as it did.
 
 ## Recovering an instance
 
@@ -208,40 +408,39 @@ docker exec <web-container> bin/console app:admin:create you@example.com
 # → Generated password (shown once): …
 ```
 
-Sign-up itself is closed until the instance is installed: `/register` (and the
-OAuth sign-up branch, and `/waitlist`) refuse to create the **first** account,
-so a forgotten `INSTALL_TOKEN` cannot leave the instance to whoever finds it
-first. Registration is additionally gated on the `registration.enabled` feature
-flag, which the wizard seeds and the admin area can toggle at any time; when the
-flag row is absent — an instance upgraded from a version that never seeded it —
-registration stays open.
+## Operating an instance
 
-## Post-deploy checks
+### Post-deploy checks
 
-1. `GET /healthz` returns 200 and `{"status":"ok"}` — the health check path.
-   A 503 means the container is serving but cannot reach the database.
+1. `GET /healthz` returns 200 and `{"status":"ok"}`. It is unauthenticated,
+   answers 503 with `{"status":"error"}` when the database does not respond, and
+   sends `Cache-Control: no-store` so a probe never reads a cached verdict from
+   a container that has since died. It deliberately says nothing else — an
+   anonymous caller learns whether the instance is up, and no more.
 2. `POST /mcp` with no credentials returns **401, not 404**. A 404 means the
    route did not register; a 401 means it registered and the firewall rejected
-   you.
+   you. A **403** is different again: that is the DNS-rebinding guard, and the
+   body names `MCP_ALLOWED_HOSTS` and echoes the host it rejected.
 3. `bin/console doctrine:migrations:status` reports no pending migrations.
 4. Open **`/admin/status`**. It reports, for this instance, whether the mail
    transport accepts a connection, whether the sender address is still the
-   undeliverable default, whether the message queue is being drained, whether
-   the Mercure hub answers, and — when billing is on — whether the Stripe keys
-   are set. The install wizard shows the same page before it creates your
-   administrator, so a broken mailer is visible *before* it can lock you out.
+   undeliverable default, whether the message queue is being drained, how many
+   messages have failed, whether the Mercure hub answers, and — when billing is
+   on — whether the Stripe keys are set. The install wizard shows the same page
+   before it creates your administrator, so a broken mailer is visible *before*
+   it can lock you out.
 
    The worker check is deliberately honest about its limits: a running worker
-   leaves no lasting trace, so an empty queue is reported as **unknown**, not
-   as healthy. What it can prove is the failure — messages sitting available
-   and unclaimed for over a minute mean nothing is consuming them.
+   leaves no lasting trace, so an empty queue is reported as **unknown**, not as
+   healthy. What it can prove is the failure — messages sitting available and
+   unclaimed for over a minute mean nothing is consuming them.
 5. Trigger something that queues async work (a data export) and confirm it
    completes — that proves the worker is actually consuming, which step 4
    cannot. **Then follow the download link in the email and check you get a
    ZIP**: completion only proves the worker ran, while the download is what
    proves the web container can reach the archive the worker wrote.
 
-## Failed messages
+### Failed messages
 
 A message that exhausts its three retries is moved to the `failed` transport
 (`doctrine://default?queue_name=failed`) rather than dropped. Nothing surfaces
@@ -256,111 +455,83 @@ bin/console messenger:failed:retry         # re-queue them, interactively
 `/admin/status` shows the current count, so you know whether it is worth
 looking.
 
+### The site-review outbox
+
+Every site-review submission is recorded in an outbox before its Mercure update
+is published, so a hub restart or an unreachable hub loses nothing permanently.
+Events whose publish never landed are visible in two places:
+
+- **`/admin/site-review-outbox`** — every undelivered event on the instance,
+  with attempt counts and next-retry times. `ROLE_ADMIN`.
+- **`/projects/<id>/site-review/outbox`** — the same, scoped to one project, for
+  whoever can view that project.
+
+The worker retries them every five minutes on the scheduler. To force a pass —
+typically after an instance whose worker was down — run:
+
+```bash
+bin/console app:drain-site-review-outbox            # or --limit=<n>
+```
+
+It is safe to run alongside the worker; the claim is atomic.
+
 ## Known gaps
 
-1. **Set `install_token` before the first deploy.** Since the wizard fails closed
-   in production, an unset value means `/install` returns 404 and the browser
-   has no route to the first administrator. Recoverable from a shell — see
-   "Recovering an instance" — but the wizard is the pleasant path.
+1. **Set `INSTALL_TOKEN` before the first deploy.** Since the wizard fails
+   closed in production, an unset value means `/install` returns 404 and the
+   browser has no route to the first administrator. Recoverable from a shell —
+   see "Recovering an instance" — but the wizard is the pleasant path.
 
-2. **The export bucket is created for you, but pick its region.** The web and
-   worker containers have separate ephemeral filesystems, so the application
-   default of `EXPORT_STORAGE=local` cannot work here: the worker would write an
-   archive the web container cannot see, every download would 404, and the hourly
-   `export-purge` loop would delete rows whose archives it cannot reach.
-   `terraform/spaces.tf` therefore creates a private Spaces bucket and a
-   bucket-scoped access key, and `main.tf` wires them into
-   `EXPORT_STORAGE_BUCKET` / `_ENDPOINT` / `_REGION` / `_KEY` / `_SECRET`. All
-   you supply is `export_bucket_region` — a Spaces datacenter slug like `tor1`,
-   which is **not** the App Platform slug (`tor`) and cannot be derived from it.
+2. **On App Platform, `EXPORT_STORAGE` cannot be `local`.** The web and worker
+   containers have separate ephemeral filesystems, so the application default
+   would have the worker write an archive the web container cannot see: every
+   download would 404, and the hourly `export-purge` loop would delete rows
+   whose archives it cannot reach. `terraform/spaces.tf` therefore creates a
+   private Spaces bucket and a bucket-scoped access key, and `main.tf` wires
+   them into `EXPORT_STORAGE_BUCKET` / `_ENDPOINT` / `_REGION` / `_KEY` /
+   `_SECRET`.
 
-   The bucket is `private`, is never destroyed while it holds objects, and has a
-   30-day lifecycle rule as a backstop against archives that outlive their
-   database row. Download links expire after 48 hours and the app deletes the
-   archive then, so that rule can never reach a live one.
+   All you supply is `export_bucket_region` — a Spaces datacenter slug like
+   `tor1`, which is **not** the App Platform slug (`tor`) and cannot be derived
+   from it. The bucket is `private`, is never destroyed while it holds objects,
+   and has a 30-day lifecycle rule as a backstop against archives that outlive
+   their database row. Download links expire after 48 hours and the app deletes
+   the archive then, so that rule can never reach a live one.
 
    **Bringing your own bucket instead**: set `create_export_bucket = false` and
-   fill in the `export_storage_*` variables. AWS S3, MinIO and Cloudflare R2 all
-   work — the application only ever sees generic S3 settings, and nothing about
-   it is DigitalOcean-specific.
+   fill in the `export_storage_*` variables.
 
-   **On AWS S3 itself, also set `export_storage_acl = "bucket-owner-full-control"`.**
+3. **No canned ACL works on every provider, so `EXPORT_STORAGE_ACL` exists.**
    The Flysystem S3 adapter always sends a canned ACL and offers no way to send
-   none, and no single value is accepted everywhere: buckets created since 2023
-   default to "Bucket owner enforced", which rejects everything except
-   `bucket-owner-full-control` with a 400 `AccessControlListNotSupported`, while
-   MinIO and DigitalOcean Spaces accept only the app's default, `private`. Get
-   this wrong and every export upload fails inside the worker.
+   none. Buckets created since 2023 on AWS default to "Bucket owner enforced",
+   which rejects everything except `bucket-owner-full-control` with a 400
+   `AccessControlListNotSupported`, while MinIO and DigitalOcean Spaces accept
+   only the app's default, `private`. Get this wrong and **every export upload
+   fails inside the worker**, where nobody is watching.
 
-   Nothing else in the app writes files, so this is the only place object
-   storage is needed.
-
-3. **Set `mercure_jwt_secret` if you want site-review push.** Setting it runs a
-   Mercure hub as a second service in this app (module v1.6.0's `enable_mercure`)
-   and routes `/.well-known/mercure` on the app's own domain to it; the module
-   injects `MERCURE_URL`, `MERCURE_PUBLIC_URL` and `MERCURE_JWT_SECRET` itself.
-   Leaving it empty keeps push off — review submissions still save, but never
-   reach the bridge CLI, and the publish failure is only logged, so it degrades
-   silently rather than erroring.
+4. **Set `MERCURE_JWT_SECRET` if you want site-review push.** On App Platform,
+   setting it runs a Mercure hub as a second service (module v1.6.0's
+   `enable_mercure`) and routes `/.well-known/mercure` on the app's own domain
+   to it; the module injects `MERCURE_URL`, `MERCURE_PUBLIC_URL` and
+   `MERCURE_JWT_SECRET` itself. Leaving it empty keeps push off — review
+   submissions still save, but never reach the bridge CLI, and the publish
+   failure is only logged, so it degrades silently rather than erroring.
 
    The hub is in-memory: a restart drops undelivered updates. That is why
    submissions are recorded in the `site_review_events` outbox and the bridge
    resumes from `Last-Event-ID` — delivery is best effort, replay is not.
 
-4. **Nothing here has been applied against a live account.** `terraform validate`
-   passes and `plan` evaluates the full configuration up to the first API call,
-   but no deploy has run. Specifically unobserved: the Mercure component, which
-   is reasoned from the `dunglas/mercure` image's documented interface and the
-   dev compose service; the Spaces bucket and key, whose `readwrite` grant is
-   taken from DigitalOcean's documentation rather than from a completed
-   upload-download-delete cycle; and the single-host Compose stack below, which
-   has been validated as configuration but never started.
+5. **Nothing here has been applied against a live account.** `terraform
+   validate` passes and `plan` evaluates the full configuration up to the first
+   API call, but no deploy has run. Specifically unobserved:
 
-## Single-host Docker Compose
-
-`compose.prod.yaml` runs the whole application on one host with no cloud account
-of any kind. It is the same production image, run as four services: `web`
-(nginx + php-fpm + the hourly export purge), `worker` (the messenger consumer),
-`database` (Postgres) and `mercure` (the hub).
-
-```bash
-cp compose.prod.env.example compose.prod.env      # then fill it in
-docker compose -f compose.prod.yaml --env-file compose.prod.env up -d
-
-# Once per deploy, never from a container's entrypoint:
-docker compose -f compose.prod.yaml --env-file compose.prod.env \
-    run --rm web docker/prod/release.sh
-```
-
-`--env-file` is not optional. Without it Compose reads the repository's `.env`,
-which is the development configuration. Every setting with no safe default is
-guarded, so a forgotten flag aborts the command instead of starting a
-misconfigured instance.
-
-What you still have to provide:
-
-- **A reverse proxy.** Both published ports bind to loopback. Terminate TLS in
-  front, forward `X-Forwarded-Proto` and `X-Forwarded-For`, and set
-  `TRUSTED_PROXIES` if that proxy reaches the app from a public address — until
-  you do, Symfony ignores those headers, generated URLs get the wrong scheme, and
-  every visitor is rate-limited as a single IP.
-- **An SMTP server** for `MAILER_DSN`. Email verification is mandatory, so
-  registration does not work without one.
-- **A hostname for the hub.** `MERCURE_PUBLIC_URL` is a separate host that the
-  bridge CLI subscribes to directly; route it to the `mercure` service.
-- **Backups** of the `database_data` and `exports` volumes.
-
-Unlike App Platform, this topology *can* share a filesystem, so
-`EXPORT_STORAGE` stays at `local` and both containers mount the same `exports`
-volume. That is also why the worker runs its consumer as `www-data` rather than
-root: archives are written `0600`, and a root-written archive would be
-unreadable to the web container's php-fpm workers.
-
-## Rolling back
-
-App Platform keeps previous deployments. Roll back through the DigitalOcean
-console, or re-push a known-good image tag and deploy again. Note that the
-default `image_tag` is a fixed `prod` — there is no per-release tag, so "the
-previous image" is only recoverable through App Platform's own deployment
-history. Building with `LOUPE_PROD_IMAGE=<registry>/loupe:$(git rev-parse --short HEAD)`
-and setting `image_tag` to match would make rollback a one-command operation.
+   - the Mercure component, reasoned from the `dunglas/mercure` image's
+     documented interface and the dev compose service;
+   - the Spaces bucket and key, whose `readwrite` grant is taken from
+     DigitalOcean's documentation rather than from a completed
+     upload-download-delete cycle;
+   - **the S3 export path as a whole — it has never touched a real bucket**;
+   - the single-host Compose stack, validated as configuration but never
+     started;
+   - the production image itself, whose base is pinned by digest in
+     `docker/prod/Dockerfile`; no image built from that pin has been deployed.
