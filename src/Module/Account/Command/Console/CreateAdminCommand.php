@@ -57,6 +57,12 @@ final class CreateAdminCommand extends Command
         $io = new SymfonyStyle($input, $output);
 
         $email = (string) $input->getArgument('email');
+        if ('' === $email) {
+            $io->error('The email argument must not be empty.');
+
+            return Command::FAILURE;
+        }
+
         $username = $this->stringOption($input, 'username');
         $fullName = $this->stringOption($input, 'full-name');
 
@@ -70,11 +76,17 @@ final class CreateAdminCommand extends Command
         // `docker exec -T` recovery works without putting a secret in shell
         // history. It is printed once below, and only when an account was made.
         $generated = null === $password;
-        $password ??= bin2hex(random_bytes(self::GENERATED_PASSWORD_BYTES));
+        if (null === $password) {
+            $password = bin2hex(random_bytes(self::GENERATED_PASSWORD_BYTES));
+        }
+
+        if ('' === $password) {
+            throw new \LogicException('Every branch above yields a non-empty password.');
+        }
 
         try {
             $result = ($this->createAdminUser)(new CreateAdminUserCommand(
-                email: '' === $email ? throw new \InvalidArgumentException('The email argument must not be empty.') : $email,
+                email: $email,
                 plainPassword: $password,
                 username: $username,
                 fullName: $fullName,

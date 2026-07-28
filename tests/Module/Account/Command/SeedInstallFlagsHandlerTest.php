@@ -6,6 +6,7 @@ namespace App\Tests\Module\Account\Command;
 
 use App\Module\Account\Command\SeedInstallFlagsCommand;
 use App\Module\Account\Command\SeedInstallFlagsHandler;
+use App\Module\Account\Service\RegistrationGate;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Ubermuda\FeatureFlagsBundle\Entity\FeatureFlag;
@@ -32,6 +33,8 @@ final class SeedInstallFlagsHandlerTest extends KernelTestCase
         $indexed = $flags->findAllIndexed();
         self::assertSame(50, $indexed['registration.cap']->value);
         self::assertSame(FeatureFlagType::Int, $indexed['registration.cap']->type);
+        self::assertTrue($indexed[RegistrationGate::ENABLED_FLAG]->value);
+        self::assertSame(FeatureFlagType::Bool, $indexed[RegistrationGate::ENABLED_FLAG]->type);
         self::assertFalse($indexed['billing.enabled']->value);
         self::assertSame(14, $indexed['billing.trial_days']->value);
         self::assertNull($indexed['billing.stripe_price_id']->value);

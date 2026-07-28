@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Tests\Module\Account\Controller\Install;
 
 use App\Module\Account\Entity\User;
+use App\Module\Account\Service\RegistrationGate;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
@@ -44,6 +45,10 @@ final class SeedFlagsControllerTest extends WebTestCase
         $flags = self::getContainer()->get(FeatureFlagRepository::class)->findAllIndexed();
         self::assertSame(25, $flags['registration.cap']->value);
         self::assertSame(30, $flags['billing.trial_days']->value);
+        // Load-bearing: the submit above leaves the registration checkbox at its
+        // prefilled default, and that default has to be "on" or a freshly
+        // installed instance cannot register anybody.
+        self::assertTrue($flags[RegistrationGate::ENABLED_FLAG]->value);
         self::assertCount(7, $flags);
     }
 
