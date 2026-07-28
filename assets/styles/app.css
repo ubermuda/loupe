@@ -1379,6 +1379,14 @@
     .lp-sidebar__spacer {
         @apply mt-auto;
     }
+    /* AGPL source-code offer, sitting just above the account row. Quiet by
+       design — it has to be present on every page, not compete with the nav. */
+    .lp-sidebar__source {
+        @apply flex items-center gap-2.5 px-2 py-1.5 text-xs text-fg-dim no-underline transition-colors;
+    }
+    .lp-sidebar__source:hover {
+        @apply text-fg;
+    }
     .lp-sidebar__account {
         @apply flex items-center gap-2.5 px-2 py-2 border-t border-line;
     }

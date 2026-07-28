@@ -10,6 +10,10 @@ parameters:
     app.mailer.from_address: 'hello@loupe.ac'
     app.mailer.from_name: 'Loupe'
     app.url: '%env(APP_URL)%'
+    # Source-code location offered to network users in the footer. Overridable
+    # per instance so a fork links to its own modified source, as the AGPL
+    # requires.
+    app.source_url: '%env(APP_SOURCE_URL)%'
     # Name of the MCP server as it appears in the connect-agent install snippet
     # and the `claude mcp add` command.
     app.mcp.server_name: 'loupe'
