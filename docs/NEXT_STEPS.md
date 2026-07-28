@@ -643,6 +643,31 @@ retention story — the account-deletion and data-export purgers exist for
 `User`-owned data, and anonymous submissions with no owning user fit none of
 those paths while still potentially carrying personal data.
 
+## The full e2e suite wipes a worktree's dev database
+
+**Author:** Claude · **Type:** docs · **Priority:** medium · **Status:** pending
+
+`just e2e` includes an `install-reset` Playwright project
+(`e2e/tests/install/install.spec.ts`) that resets the app to a fresh-install
+state to exercise the first-install wizard. Run against a worktree — which is
+the correct gate target — it destroys that worktree's **dev** data: the seeded
+`dev@loupe.test` user, its project, and anything created for manual review.
+Observed 2026-07-27: after a green suite the dev database held one user
+(`e2e-install-admin@example.com`) and zero projects, so the login handed to a
+human for manual review simply did not exist.
+
+`just worktree-up` is idempotent and re-seeds the user and its project, so the
+recovery is cheap once you know. What is missing is the signal: nothing warns
+that the suite is destructive to dev data, and the failure surfaces much later
+as "the login does not work". Options: have `just e2e` print a warning when
+pointed at a worktree, re-seed automatically on completion, or scope the
+install-reset project behind an opt-in flag so the default run is
+non-destructive. Note it also leaves `e2e-install-admin@example.com` behind as
+a stray ROLE_ADMIN account.
+
+Related: 'Worktree e2e runs now require a worktree-scoped worker' — same
+setup surface, and both are things a person only learns by losing time to them.
+
 ## Review anchoring — possible enhancement (low priority)
 
 
