@@ -226,7 +226,29 @@ e2e-down:
     set -euo pipefail
     main=$(git worktree list --porcelain | awk '/^worktree /{print $2; exit}')
     project=$(grep -E '^COMPOSE_PROJECT_NAME=' "$main/.env" | head -1 | cut -d= -f2-)
-    docker compose -f "$main/compose.e2e.yaml" -p "${project}-e2e" down >/dev/null 2>&1 || true
+    # These are not optional, and getting it wrong is not a no-op. `down`
+    # interpolates compose.e2e.yaml exactly as `up` does; with the variables
+    # unset, compose does NOT fail safely — observed behaviour is that it
+    # removes the MAIN stack's containers (loupe-database-1, loupe-mailer-1, …)
+    # and tries to delete the loupe_default network, despite the -p flag naming
+    # a different project. Same family as "never run bare docker compose from a
+    # worktree": a compose invocation whose file cannot be resolved does not
+    # stay in its lane. Assert before invoking, so a future edit that drops one
+    # of them stops here instead of taking the dev stack down.
+    for required in main project; do
+        if [ -z "${!required:-}" ]; then
+            echo "e2e-down: refusing to run — \$$required is empty." >&2
+            exit 1
+        fi
+    done
+
+    E2E_MAIN="$main" E2E_PROJECT="$project" \
+    E2E_HOST="e2e.${project}.dev.localhost" \
+    E2E_APP_NETWORK="${project}_default" \
+        docker compose -f "$main/compose.e2e.yaml" -p "${project}-e2e" down >/dev/null
+
+    # The database may legitimately not exist; the sidecar removal above may
+    # not. Only these are tolerant.
     docker compose exec -T database psql -U app -d postgres -tAc \
         "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname='app_e2e'" >/dev/null 2>&1 || true
     docker compose exec -T database dropdb -U app --if-exists app_e2e >/dev/null 2>&1 || true

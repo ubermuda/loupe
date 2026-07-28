@@ -54,6 +54,16 @@ worktree bind-mounted as their document root. Use the `just` recipes, or
 `bin/worktrees/compose-exec.sh` to run something in the shared php-fpm against
 the current worktree's files.
 
+**A `docker compose -f <file>` call whose variables are unset does not fail
+safely.** `compose.e2e.yaml` and `compose.worktree.yaml` both declare their
+inputs with `${VAR:?}`. Running `down` on one of them without supplying those
+variables was observed to remove the **main stack's** containers and attempt to
+delete the `loupe_default` network — even though `-p` named a different
+project. So the `:?` markers protect `up`, not `down`, and a teardown recipe
+must pass the same variables its bring-up did. This is the same failure family
+as the bare-`docker compose` rule above: an invocation whose file cannot be
+resolved does not stay in its lane.
+
 **Tear down with `just worktree-down`, never a bare `git worktree remove`.**
 The latter leaves the sidecar and both databases behind, and the route then
 serves 502s. `just worktree-prune` cleans up after the fact.
