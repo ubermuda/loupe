@@ -1,7 +1,6 @@
 {#- Wizard progress indicator. Props: step (int, 1-3). Carries the canonical
     data-wizard-step marker read by tests and e2e specs — do not duplicate it
-    elsewhere. Reuses the lp-ribbon step/circle/bar classes shared with the
-    document review loop ribbon (see templates/components/LoopRibbon.html.twig). -#}
+    elsewhere. Uses the shared lp-ribbon step/circle/bar classes. -#}
 {%- set steps = ['project.wizard.progress.step_1', 'project.wizard.progress.step_2', 'project.wizard.progress.step_3'] -%}
 <ol class="lp-ribbon" data-wizard-step="{{ step }}">
     {% for key in steps %}

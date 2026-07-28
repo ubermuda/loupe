@@ -67,7 +67,7 @@ final class ShowDocumentControllerTest extends WebTestCase
         self::assertSelectorExists('.lp-review-sidebar');
     }
 
-    public function test_review_page_renders_ribbon_byline_and_verdict_bar(): void
+    public function test_review_page_renders_byline_and_verdict_bar(): void
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
@@ -88,8 +88,6 @@ final class ShowDocumentControllerTest extends WebTestCase
         $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/documents/'.$id.'/review');
 
         self::assertResponseIsSuccessful();
-        // Loop ribbon renders with the current step highlighted (In review).
-        self::assertSelectorExists('.lp-ribbon .lp-ribbon__circle--current');
         // Byline names the reviewer (the author side is the literal "Claude").
         self::assertSelectorTextContains('.lp-review-doc__byline', 'reviewed by');
         // Verdict bar shows both verdict buttons and NOT the approved confirmation.
@@ -212,8 +210,6 @@ final class ShowDocumentControllerTest extends WebTestCase
         // Approved state replaces the verdict buttons with a locked confirmation.
         self::assertSelectorExists('.lp-verdict-approved');
         self::assertSelectorNotExists('button[name="submit_review_form[verdict]"]');
-        // Ribbon shows Approved as the current step (last step).
-        self::assertSelectorExists('.lp-ribbon__circle--current');
     }
 
     public function test_non_owner_gets_403(): void

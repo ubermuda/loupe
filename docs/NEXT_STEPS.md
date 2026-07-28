@@ -53,6 +53,34 @@ token scopes per resource, webhook subscription storage + signing (HMAC),
 delivery retries (the existing Messenger worker is the natural transport),
 and dogfooding the API from the CLI/widget.
 
+## Replace explicit document/site-review state with computed state
+
+**Author:** Geoffrey · **Type:** feature · **Priority:** high · **Status:** pending
+
+Owner decision (2026-07-27, via site review): documents and site reviews
+should not carry an explicit stored state at all. The only state the product
+exposes should be derived from the comments themselves — for a site review,
+things like "has drafts" / "has addressed comments"; for a document, "has
+addressed comments".
+
+The four-step loop ribbon (Proposed → In review → Revise → Approved) and the
+`LoopStage` enum that fed it were the visible half of that system, and are
+already gone. What remains is the persisted half:
+
+- `App\Module\Review\Entity\DocumentStatus` and the `status` column on
+  `Document`, set by `SubmitReviewHandler` (from the review verdict) and reset
+  to `InReview` by `ReviseDocumentHandler`.
+- The status badge on the documents list (`@Review/list_documents.html.twig`)
+  and the `document.status.*` translation keys.
+- The `status` field in the MCP/export payloads — `GetDocumentTool`,
+  `ListDocumentsTool`, `GetReviewTool`, `GetReview`, `DocumentExporter`.
+
+Closing this means designing the computed predicates, migrating the column
+away, and deciding what the MCP contract exposes instead — agents currently
+read `status` to decide whether a document still needs work, so it needs a
+replacement, not just a deletion. `e2e/tests/review/review-loop.spec.ts`
+asserts the badge and will need rewriting alongside.
+
 ## Dashboard document search + status/tag filtering
 
 
@@ -360,18 +388,6 @@ sections are settled, only re-review the delta" — per-section approval state
 multi-round spec reviews much cheaper. Interacts with the ToC item above
 (section identity comes from headings) and with comment re-anchoring.
 
-## Admin users need a visible link to /admin from the app
-
-
-
-**Author:** Geoffrey · **Type:** feature · **Priority:** medium · **Status:** pending
-
-Owner note (2026-07-25): nothing in the app UI links to the admin area — an
-admin has to type /admin by hand. Add a nav entry (sidebar or account menu)
-rendered only for ROLE_ADMIN (`is_granted('ROLE_ADMIN')` in Twig per the
-symfony-authorization skill). The reverse link exists (the admin-bundle shell
-links back to the app via its app_route config); only app → admin is missing.
-
 ## Decide fate of PlaywrightSyncEmailMiddleware (async-email follow-up)
 
 
@@ -415,6 +431,307 @@ land in this repo). Decide the rule's scope while writing it: forbid all
 repository injection in controllers (forcing query handlers for reads,
 matching the skill) or only mutation paths; then fix or baseline the ~25
 existing controllers when the rule lands.
+
+## Agent-authored test scenarios delivered through the site-review widget
+
+**Author:** Geoffrey · **Type:** feature · **Priority:** medium · **Status:** pending
+
+Owner note (2026-07-27): the agent should be able to send the human a list of
+scenarios to test. They appear in the site-review widget, and the human walks
+through them marking each one resolved or not.
+
+Scenarios probably need to be linked back to the comments that prompted them —
+the agent fixes a comment, then hands back "here is what to check". That link
+is what turns the widget from a capture tool into a round-trip: the human sees
+which of their original comments a given scenario is meant to prove.
+
+A scenario the human marks as not resolved needs somewhere to put the why, so
+a comment or bug can be attached to the scenario itself (owner note,
+2026-07-27) — the same capture the widget already does for elements, hung off
+a scenario instead of a selector. That attached comment is the natural return
+path to the agent.
+
+Open questions for the design phase: whether a scenario is its own entity or a
+typed variant of `SiteReviewComment`; whether the link is one comment per
+scenario or many-to-many; and how scenarios reach the widget, since the widget
+currently only ever *sends* comments and pulls drafts. Related:
+'Promote a site-review scenario into an e2e test' (what a passing scenario is
+worth keeping as) and 'Site-review comments have no agent-reply data model' (the
+agent has nowhere to put reply text today, which is the same missing
+return path) and 'Capture scenarios from the widget, not just anchored
+comments' (the other direction of the same object).
+
+## Capture scenarios from the widget, not just anchored comments
+
+**Author:** Geoffrey · **Type:** feature · **Priority:** medium · **Status:** pending
+
+Owner note (2026-07-27): the widget should be able to capture *scenarios*, not
+only comments anchored to a single element. Today every capture path in
+`public/site-review/widget.js` produces one comment tied to one selector (or a
+general page note) — there is no way to record "do this, then this, then this,
+and here is what should happen".
+
+This is the human→agent direction of the same object described in
+'Agent-authored test scenarios delivered through the site-review widget'; the
+two should share one data model rather than growing separately. Worth deciding
+early whether a scenario is a multi-step recording (steps captured as the human
+clicks through) or simply free text with several anchors attached, since that
+choice drives most of the widget UI work.
+
+## Promote a site-review scenario into an e2e test
+
+**Author:** Geoffrey · **Type:** feature · **Priority:** medium · **Status:** pending
+
+Owner note (2026-07-27): from a scenario in the widget, the human should be
+able to task the agent with turning it into an e2e test. A scenario is already
+a described walkthrough with an expected outcome, which is most of a Playwright
+spec — this is what stops manually-verified behaviour from silently regressing
+once the human stops re-walking it.
+
+This is a second verb on a scenario alongside attaching a comment or bug (see
+'Agent-authored test scenarios delivered through the site-review widget'). It
+needs an outbound task channel the app does not have today: site-review work
+currently flows agent→app by the agent *polling* `get_site_review` over MCP,
+so decide whether promotion enqueues something the agent picks up on its next
+poll or requires a real push. The generated spec lands in `e2e/tests/` and must
+follow the `project-e2e` conventions; worth deciding whether the agent writes
+it straight to a branch or hands back a diff for review.
+
+## Attach a screenshot to a site-review comment
+
+**Author:** Geoffrey · **Type:** feature · **Priority:** medium · **Status:** pending
+
+Owner note (2026-07-27): a reviewer should be able to attach a screenshot to a
+comment. The note came with the assumption that this needs a Chrome extension
+because embedded JS cannot screenshot the page — that assumption is only half
+right, and the difference decides the shape of the feature, so check it before
+committing to an extension:
+
+- `navigator.mediaDevices.getDisplayMedia({ preferCurrentTab: true })` captures
+  the current tab from an ordinary page, no extension. It needs transient user
+  activation and shows a source picker on every capture, and it returns a video
+  stream, so the widget must grab a frame to a canvas and `toBlob` it.
+- `getViewportMedia` (W3C Viewport Capture) captures the top-level viewport
+  behind a permission prompt rather than a picker, which is the UX we actually
+  want. Verify how widely it has shipped before relying on it.
+- A Chrome extension (`chrome.tabs.captureVisibleTab`) gives a prompt-free,
+  pixel-accurate capture — a UX optimisation over the above, not a prerequisite,
+  and it costs every reviewer an install. That trade is the real decision.
+- DOM-rasterising libraries (html2canvas and friends) need no permission but
+  re-render rather than capture, so they drift from the real paint on
+  cross-origin images, iframes and effects like backdrop-filter. For a tool
+  whose whole point is "here is what I saw", that drift is disqualifying.
+
+Whichever path: the widget must hide its own overlay (pins, panel, scrim) before
+capturing and restore it after, or every screenshot contains the review UI. Also
+needs a decision on where the image is stored and how it is served, since
+`SiteReviewComment` today carries only text, a selector and a URL. Related:
+'Drawing on the page in the site-review widget' — the two are usually one
+gesture, and a stroke drawn on a frozen screenshot is a very different feature
+from one drawn on live DOM.
+
+## Drawing on the page in the site-review widget
+
+**Author:** Geoffrey · **Type:** feature · **Priority:** medium · **Status:** pending
+
+Owner note (2026-07-27): let the reviewer draw on the page — circle the thing
+that is wrong, arrow at it — rather than only clicking one element.
+
+The decision that shapes everything else is what the strokes are drawn *on*:
+
+- **Live DOM.** Strokes are vector data in the widget's overlay, anchored the
+  way pins already are, and re-render on the real page later. Survives a redeploy
+  in the sense that the page stays current, but reflow, responsive breakpoints
+  and any content change move the page out from under the drawing.
+- **A frozen screenshot.** Capture first, then annotate the image (see 'Attach a
+  screenshot to a site-review comment'). Always shows what the reviewer saw, and
+  sidesteps anchoring entirely, but the annotation is dead pixels the agent
+  cannot map back to an element.
+
+Drawing also gives the widget a capture mode that is neither "pick one element"
+nor "general page note", so it needs its own entry in the composer alongside
+those two, and a selector-less comment shape. The overlay already owns a
+fixed-position layer above the page, which is where the canvas would live.
+
+## Anchor a site-review comment to several elements, not just one
+
+**Author:** Geoffrey · **Type:** feature · **Priority:** medium · **Status:** pending
+
+Owner note (2026-07-27): let the reviewer pick more than one element for a
+single comment, so the comment can talk about the elements *in relation* to
+each other ("these two should be side by side", "this belongs above that").
+
+This is the cheap version of what 'Product idea (long horizon): drag DOM
+elements in the widget to try layouts' is reaching for. Dragging struggles
+because a moved node does not tell the agent which rule to edit or what the
+intent was; a multi-anchor comment states the relationship in words and lets
+the agent decide the CSS. It is worth doing before, and possibly instead of,
+the drag idea.
+
+Cost is concentrated in the data model, which is single-anchor throughout:
+`SiteReviewComment` has scalar `selector`, `text` and `url` columns, so this
+needs either a related anchor entity or a JSON collection, plus a migration.
+Everything downstream reads those scalars and would follow: the widget's pin
+reconciliation is one pin per comment keyed by index (`renderPins` in
+`public/site-review/widget.js`), the site-review page renders one selector
+disclosure per comment, and the MCP `get_site_review` payload exposes
+`selector`/`text` per comment — that last one is an agent-facing contract
+change, so version it deliberately.
+
+Decide early what happens when only some anchors still resolve: today a pin
+whose element is gone is simply dropped, but a partially-orphaned relational
+comment ("these two…" with one element left) is misleading rather than merely
+incomplete. Related: 'Drawing on the page in the site-review widget' — drawing
+and multi-anchor are two ways to express the same relational feedback, and a
+stroke connecting two elements is arguably just a multi-anchor comment with a
+picture attached.
+
+## Public feedback widget (a public pendant to the site-review widget)
+
+**Author:** Geoffrey · **Type:** feature · **Priority:** medium · **Status:** pending
+
+Owner note (2026-07-27): the site-review widget is internal-only — it is for the
+project's own people reviewing their own site. We also want a widget a project
+can expose to its actual public, collecting feedback from anonymous visitors.
+That feedback goes through **its own pipeline and is never routed to the LLM**.
+
+**Make "never routed to the LLM" structural, not a filter.** The obvious
+shortcut is to reuse `SiteReviewComment` with an `isPublic` flag and exclude it
+in the agent-facing queries — do not. `GetSiteReviewTool` reads
+`findPendingForProject`, and any future query, export or MCP tool that forgets
+the flag silently leaks public feedback into an agent's context, which is
+exactly the failure the owner is ruling out. Separate storage (its own entity,
+plausibly its own module) makes the leak impossible to write rather than
+merely currently-absent.
+
+The trust model inverts, so little of the current widget's API carries over:
+
+- Today the widget only renders for a logged-in user
+  (`{% if app.user and site_review_widget_token %}` in `base.html.twig`) and its
+  token is minted per project with the `ROLE_API_SITE_REVIEW` scope that
+  `config/packages/security.yaml` names above the deny-by-default `^/api` rule.
+  A public widget's token ships in the page source of a public site to anyone,
+  so it needs its own scope that can **create only** — never list, patch or
+  delete. The existing widget has read and mutate endpoints (draft listing,
+  update, delete) that must not be reachable with a public token.
+- There is no draft/send cycle. The current widget batches drafts locally and
+  submits a review; an anonymous visitor submits one piece of feedback and
+  leaves. That removes most of the widget's state machine.
+- Abuse controls become load-bearing rather than incidental.
+  `RateLimitSiteReviewWrites` keys on the authenticated user and falls back to
+  client IP; for anonymous traffic only the fallback applies, so it needs
+  per-project limits, body size caps and a spam story before this is exposed.
+- CORS currently answers for a project's configured domain
+  (`SiteReviewCorsSubscriber`); the same mechanism should work, but the origin
+  allow-list becomes a security boundary rather than a convenience.
+
+Also decide before building: where public feedback surfaces in the app (its own
+inbox screen, not the site-review list), whether it notifies by email, and its
+retention story — the account-deletion and data-export purgers exist for
+`User`-owned data, and anonymous submissions with no owning user fit none of
+those paths while still potentially carrying personal data.
+
+## The full e2e suite wipes a worktree's dev database
+
+**Author:** Claude · **Type:** docs · **Priority:** medium · **Status:** pending
+
+`just e2e` includes an `install-reset` Playwright project
+(`e2e/tests/install/install.spec.ts`) that resets the app to a fresh-install
+state to exercise the first-install wizard. Run against a worktree — which is
+the correct gate target — it destroys that worktree's **dev** data: the seeded
+`dev@loupe.test` user, its project, and anything created for manual review.
+Observed 2026-07-27: after a green suite the dev database held one user
+(`e2e-install-admin@example.com`) and zero projects, so the login handed to a
+human for manual review simply did not exist.
+
+`just worktree-up` is idempotent and re-seeds the user and its project, so the
+recovery is cheap once you know. What is missing is the signal: nothing warns
+that the suite is destructive to dev data, and the failure surfaces much later
+as "the login does not work". Options: have `just e2e` print a warning when
+pointed at a worktree, re-seed automatically on completion, or scope the
+install-reset project behind an opt-in flag so the default run is
+non-destructive. Note it also leaves `e2e-install-admin@example.com` behind as
+a stray ROLE_ADMIN account.
+
+Related: 'Worktree e2e runs now require a worktree-scoped worker' — same
+setup surface, and both are things a person only learns by losing time to them.
+
+## Registration should not ask for full name or username
+
+**Author:** Geoffrey · **Type:** feature · **Priority:** medium · **Status:** pending
+
+Owner note (2026-07-28): the registration form collects Full name and Username
+on top of email and password. Neither is needed to sign up — drop them and cut
+the form to email + password (+ terms).
+
+**No schema change is required, because the "don't ask" path already exists.**
+`ResolveSocialLoginHandler` creates users without either field being supplied:
+it mints a username via `UsernameGenerator::fromPreferred()` and falls back to
+the email local-part for the display name. Self-service registration can use
+the same derivation, leaving `username` and `full_name` as populated NOT NULL
+columns and avoiding a migration. Removing the columns outright is a second,
+optional step.
+
+What each field is actually worth today:
+
+- **`username`** is close to vestigial. `User::getUserIdentifier()` returns the
+  **email**, so it is not the login handle; it survives as a unique column, a
+  `findOneByUsername` lookup and the `NotReservedUsername` validator. Check
+  whether anything user-facing still needs it before deciding to keep deriving
+  one at all.
+- **`fullName`** has real consumers, so it cannot simply vanish: the review
+  byline (`@Review/show_document.html.twig`) and comment author names and
+  avatar initials (`@Review/components/CommentThread.html.twig`) all render it.
+  Deriving it from the email local-part keeps those working; showing the raw
+  email there instead is a visible product decision, not a refactor.
+
+Also decide whether the install wizard's admin form (`InstallAdminFormType`)
+follows — it asks for the same two fields and has the same argument against
+them. When the fields go, delete their orphaned `account.form.*` /
+`account.registration.validator.username_*` translation keys in the same
+change, per the `project-translations` skill: nothing flags unused keys and
+they rot silently.
+
+## Let the agent close the loop when a human approves the work
+
+**Author:** Geoffrey · **Type:** feature · **Priority:** medium · **Status:** pending
+
+Owner note (2026-07-28): when a PR that exists *because of* a site review gets
+approved or merged, the agent should be allowed to mark those site-review
+comments **resolved** — not merely addressed. Likewise, when a document review
+is approved verbally, the agent should be able to mark that document approved.
+Probably belongs in a skill as well as in the tools.
+
+**This deliberately relaxes an invariant the code states in prose**, so it needs
+designing rather than just enabling. `AddressSiteReviewCommentsTool` documents
+itself as "the agent's only write: Pending → Addressed", and Resolved is reached
+only through `ResolveSiteReviewCommentController`, gated by
+`SiteReviewCommentVoter::RESOLVE`. On the document side there is no verdict tool
+at all — `Review/Mcp/` exposes create, get, list and revise, and nothing that
+sets a `Verdict`. The split exists so the agent cannot sign off its own work:
+*addressed* is the agent's claim, *resolved* is the human's agreement.
+
+The owner's framing keeps a human in the loop — the trigger is a human
+approving or merging. The design question is **what the tool trusts as evidence
+of that**. Taken naively the agent is simply *told* "I approved it" in chat and
+writes the status, which reduces the guard to "the agent asserts a human said
+so" — strictly weaker than today, and indistinguishable from a mistaken or
+injected instruction. The stronger option is binding the write to a verifiable
+artifact the agent can check rather than be told about: the PR's own review
+state or merge status. Decide this before writing the tool, because it is the
+whole security value of the feature.
+
+Two links that do not exist yet and this depends on:
+
+- **Nothing records which site-review comments a PR came from.** Resolving "the
+  comments this PR closes" requires that association to be captured when the
+  work starts. Same missing link as in 'Agent-authored test scenarios delivered
+  through the site-review widget'.
+- **Document approval writes state that is slated for removal.** See 'Replace
+  explicit document/site-review state with computed state' — if a document's
+  approved-ness becomes computed from its comments, "mark this document
+  approved" has no column to write and the feature means something different.
+  Design the two together or the second will invalidate the first.
 
 ## Review anchoring — possible enhancement (low priority)
 
@@ -1168,3 +1485,35 @@ the reference shape; **`ADMIN_EMAIL`** — already a no-op when unset.
 Relevant to self-hosting: a self-hoster who wants neither billing nor social
 login should get a working install without setting either. See "Self-hosting
 audit".
+
+## Product idea (long horizon): drag DOM elements in the widget to try layouts
+
+**Author:** Geoffrey · **Type:** idea · **Priority:** low · **Status:** pending
+
+Owner note (2026-07-27), raised with the caveat that it is probably too
+ambitious: let the reviewer actually move elements around on the page to try
+out a different layout, instead of only describing the change in words.
+
+The moving is the easy part — the widget already has an element picker and a
+fixed overlay, and dragging a node is a small amount of DOM work. The hard part
+is that the deliverable is not a moved element, it is a change an agent can
+act on. A dragged node yields a new position in *this* rendering, at *this*
+viewport width, with whatever inline styles the drag applied; none of that
+tells the agent which rule to edit, whether the intent was a flex order change
+or a margin, or what should happen at the other breakpoints. Getting from
+"reviewer moved this box" to a defensible CSS change is the whole feature, and
+it is why this stays an idea rather than a scheduled item.
+
+If it is ever picked up, the useful output is probably a description of the
+intended relationship ("this belongs above that", "these should be side by
+side") captured alongside a before/after screenshot, not a DOM diff. That makes
+it an extension of the same capture surface as 'Attach a screenshot to a
+site-review comment' and 'Drawing on the page in the site-review widget' — all
+three are the reviewer showing rather than telling, and they should share one
+composer rather than growing three parallel modes.
+
+**Do 'Anchor a site-review comment to several elements, not just one' first.**
+It delivers the stated relationship — the part that actually survives into a CSS
+change — for the price of a data-model change, with none of the intent-inference
+problem above. Once multi-anchor comments exist, revisit whether dragging adds
+enough over them to be worth building at all.

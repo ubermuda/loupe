@@ -57,12 +57,18 @@ class SiteReviewCommentRepository extends ServiceEntityRepository
     }
 
     /**
-     * Status tally of the project's non-Draft comments, used to derive the
-     * site-review loop stage. Draft comments never move the ribbon.
+     * Status tally of everything the reviewer has actually submitted. Drafts are
+     * excluded because they only exist inside the reviewer's widget and are not
+     * part of the project's shared record yet.
+     *
+     * One grouped query rather than a count per status: the app-shell nav pill
+     * needs both the submitted total (its number) and the pending count (its
+     * tint) on every authenticated page render, and asking separately made that
+     * two queries for one badge.
      *
      * @return array{pending: int, addressed: int, resolved: int}
      */
-    public function statusCountsForProject(Project $project): array
+    public function submittedStatusCountsForProject(Project $project): array
     {
         /** @var list<array{status: SiteReviewCommentStatus, count: int|string}> $rows */
         $rows = $this->createQueryBuilder('c')

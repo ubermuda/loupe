@@ -10,8 +10,6 @@
         <span class="lp-site-review-breadcrumb__current">{{ 'site_review.page.title'|trans }}</span>
     </nav>
 
-    <twig:LoopRibbon :stage="site_review_loop_stage(project)" />
-
     {% for label, messages in app.flashes %}
         {% for message in messages %}
             <div class="lp-flash lp-flash--{{ label }}">{{ message }}</div>
@@ -65,11 +63,21 @@
                             <span>{{ comment.url }}</span>
                         </span>
                         {% endif %}
+                        {#
+                          A CSS selector is long enough to dominate the row and is
+                          only of interest when someone goes looking for it, so it
+                          stays collapsed behind its icon.
+                        #}
                         {% if comment.selector is not empty %}
-                        <span class="lp-site-review-context__selector">
-                            <twig:ux:icon name="lucide:code" class="w-3.5 h-3.5 shrink-0" />
-                            <code>{{ comment.selector }}</code>
-                        </span>
+                        <details class="lp-site-review-selector" data-controller="disclosure">
+                            <summary class="lp-site-review-selector__summary" data-action="click->disclosure#toggle">
+                                <twig:ux:icon name="lucide:code" class="w-3.5 h-3.5 shrink-0" />
+                                <span>{{ 'site_review.comment.selector'|trans }}</span>
+                            </summary>
+                            <div class="lp-site-review-selector__content" data-disclosure-target="content">
+                                <code>{{ comment.selector }}</code>
+                            </div>
+                        </details>
                         {% endif %}
                     </div>
 

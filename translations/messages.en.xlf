@@ -979,10 +979,6 @@
                 <source>nav.brand</source>
                 <target>Loupe</target>
             </trans-unit>
-            <trans-unit id="nav.eyebrow">
-                <source>nav.eyebrow</source>
-                <target>LOOP</target>
-            </trans-unit>
             <trans-unit id="nav.link.documents">
                 <source>nav.link.documents</source>
                 <target>Documents</target>
@@ -994,10 +990,6 @@
             <trans-unit id="nav.link.connect">
                 <source>nav.link.connect</source>
                 <target>Connect agent</target>
-            </trans-unit>
-            <trans-unit id="nav.account.role">
-                <source>nav.account.role</source>
-                <target>Reviewer</target>
             </trans-unit>
 
             <!-- Projects -->
@@ -1355,6 +1347,10 @@
                 <source>nav.link.logout</source>
                 <target>Log out</target>
             </trans-unit>
+            <trans-unit id="nav.link.admin">
+                <source>nav.link.admin</source>
+                <target>Admin</target>
+            </trans-unit>
             <trans-unit id="nav.link.settings">
                 <source>nav.link.settings</source>
                 <target>Account settings</target>
@@ -1374,23 +1370,6 @@
                 <target>Changes requested</target>
             </trans-unit>
 
-            <!-- Loop ribbon step labels -->
-            <trans-unit id="loop.step.proposed">
-                <source>loop.step.proposed</source>
-                <target>Proposed</target>
-            </trans-unit>
-            <trans-unit id="loop.step.in_review">
-                <source>loop.step.in_review</source>
-                <target>In review</target>
-            </trans-unit>
-            <trans-unit id="loop.step.revise">
-                <source>loop.step.revise</source>
-                <target>Revise</target>
-            </trans-unit>
-            <trans-unit id="loop.step.approved">
-                <source>loop.step.approved</source>
-                <target>Approved</target>
-            </trans-unit>
 
             <!-- Pagination component -->
             <trans-unit id="pagination.nav_label">
@@ -1446,6 +1425,10 @@
             <trans-unit id="site_review.comment.via_widget">
                 <source>site_review.comment.via_widget</source>
                 <target>via review widget</target>
+            </trans-unit>
+            <trans-unit id="site_review.comment.selector">
+                <source>site_review.comment.selector</source>
+                <target>Selector</target>
             </trans-unit>
             <trans-unit id="site_review.comment.action.resolve">
                 <source>site_review.comment.action.resolve</source>

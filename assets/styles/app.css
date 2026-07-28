@@ -442,11 +442,10 @@
         @apply inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-tint text-fg-mute border border-line;
     }
 
-    /* ── Loop ribbon ────────────────────────────────────────────────────
-       Horizontal 4-step progress indicator (Proposed → In review → Revise →
-       Approved). Each step is a 22px numbered circle + label, joined by 2px
-       connector bars. State (completed / current / upcoming) is derived in the
-       LoopRibbon component from the step ordinal vs. the current stage; the
+    /* ── Step ribbon ────────────────────────────────────────────────────
+       Horizontal step progress indicator, used by the first-run project wizard.
+       Each step is a 22px numbered circle + label, joined by 2px connector bars.
+       The caller classifies each step as completed / current / upcoming; the
        filled track (accent-border bars + accent-soft circles) runs up to and
        including the current step. Sizes are expressed on the spacing scale
        (w-5.5, h-0.5) via @apply. */
@@ -532,9 +531,11 @@
 
     /* ── Workspace / projects index ─────────────────────────────────── */
 
-    /* Left-aligned page (handoff §1): margin 0, ~900px, padding 40px 44px. */
+    /* Left-aligned page container. Its top/side padding matches the document
+       and site-review screens so the breadcrumb sits at the same height on
+       every screen of the app. */
     .lp-workspace {
-        @apply max-w-225 py-10 px-11;
+        @apply max-w-225 pt-5.5 px-8 pb-15;
     }
     .lp-eyebrow {
         @apply font-mono uppercase text-fg-dim m-0 text-xs tracking-widest;
@@ -817,6 +818,17 @@
        The dialog element itself is animated exclusively via WAAPI in
        modal_controller.js; only the ::backdrop gets a CSS animation
        (WAAPI cannot target ::backdrop). */
+
+    /* Shared modal placement: horizontally centred, top edge a third of the way
+       down the viewport. The height cap keeps a tall modal on screen at that
+       offset instead of running off the bottom. */
+    .lp-dialog,
+    .admin-dialog-box {
+        margin-inline: auto;
+        margin-block: 33vh auto;
+        max-height: 60vh;
+        @apply overflow-y-auto;
+    }
 
     .lp-dialog {
         @apply w-full max-w-sm rounded-xl border border-line bg-surface-1 p-6 shadow-composer;
@@ -1233,11 +1245,19 @@
     .lp-site-review-context__url {
         @apply inline-flex items-center gap-1.5 min-w-0 max-w-full text-fg-mute no-underline break-all transition-colors hover:text-accent;
     }
-    .lp-site-review-context__selector {
-        @apply inline-flex items-center gap-1.5 min-w-0 max-w-full text-fg-dim;
+    /* Collapsed-by-default selector disclosure. The summary is the icon + label
+       chip; the selector itself only appears once it is opened. */
+    .lp-site-review-selector {
+        @apply min-w-0 max-w-full;
     }
-    .lp-site-review-context__selector code {
-        @apply break-all;
+    .lp-site-review-selector__summary {
+        @apply inline-flex items-center gap-1.5 text-fg-dim transition-colors cursor-pointer list-none hover:text-fg;
+    }
+    .lp-site-review-selector__summary::-webkit-details-marker {
+        display: none;
+    }
+    .lp-site-review-selector__content {
+        @apply overflow-hidden text-fg-dim break-all pt-1;
     }
     .lp-site-review-actions {
         @apply flex items-center gap-2 mt-1;
@@ -1291,7 +1311,7 @@
         @apply flex flex-col gap-1 bg-sidebar border-r border-line px-3 py-4;
     }
 
-    /* Brand: 26px accent mark + name with a "LOOP" mono eyebrow. */
+    /* Brand: 26px accent mark + name. */
     .lp-sidebar__brand {
         @apply flex items-center gap-2.5 px-2 mb-3 text-fg no-underline;
     }
@@ -1307,17 +1327,11 @@
     .lp-sidebar__brand-name {
         @apply text-sm font-semibold tracking-tight whitespace-nowrap;
     }
-    .lp-sidebar__brand-eyebrow {
-        @apply font-mono uppercase text-fg-dim text-xs tracking-widest;
-    }
-
-    /* Project switcher: bordered button linking to the projects index. */
+    /* Current-project identity block. Deliberately flat and non-interactive:
+       the bordered, chevroned version read as a project picker, which the app
+       does not have. */
     .lp-sidebar__switcher {
-        @apply flex items-center gap-2.5 w-full px-2.5 py-2 mb-1 border border-line-strong bg-surface-1 no-underline transition-colors rounded-lg;
-    }
-    .lp-sidebar__switcher:hover {
-        @apply bg-accent-faint-2;
-        border-color: var(--switcher-hover-border);
+        @apply flex items-center gap-2.5 w-full px-2.5 py-2 mb-1;
     }
     .lp-sidebar__switcher-avatar {
         @apply w-6 h-6 bg-ink shrink-0 inline-flex items-center justify-center text-white text-xs font-semibold rounded-md;
@@ -1330,9 +1344,6 @@
     }
     .lp-sidebar__switcher-domain {
         @apply font-mono text-fg-dim truncate text-xs;
-    }
-    .lp-sidebar__switcher-chevron {
-        @apply w-4 h-4 shrink-0 text-fg-dim;
     }
 
     .lp-sidebar__nav {
@@ -1371,8 +1382,8 @@
     .lp-sidebar__account {
         @apply flex items-center gap-2.5 px-2 py-2 border-t border-line;
     }
-    .lp-sidebar__account-avatar {
-        @apply rounded-full bg-accent-soft shrink-0 inline-flex items-center justify-center text-accent-hover text-xs font-semibold w-6.5 h-6.5;
+    .lp-sidebar__account-icon {
+        @apply w-4 h-4 shrink-0 text-fg-dim;
     }
     .lp-sidebar__account-text {
         @apply flex flex-col leading-tight min-w-0 mr-auto;
@@ -1380,22 +1391,16 @@
     .lp-sidebar__account-name {
         @apply font-medium text-fg truncate text-xs;
     }
-    .lp-sidebar__account-role {
-        @apply text-fg-dim text-xs;
-    }
     /* Keeps the button as the flex child of .lp-sidebar__account. */
     .lp-sidebar__account-logout-form {
         display: contents;
     }
-    .lp-sidebar__account-settings,
     .lp-sidebar__account-logout {
         @apply inline-flex items-center justify-center w-7 h-7 rounded-md text-fg-dim no-underline transition-colors cursor-pointer;
     }
-    .lp-sidebar__account-settings:hover,
     .lp-sidebar__account-logout:hover {
         @apply bg-tint text-fg;
     }
-    .lp-sidebar__account-settings svg,
     .lp-sidebar__account-logout svg {
         @apply w-4 h-4 shrink-0;
     }
@@ -1618,9 +1623,11 @@
         @apply bg-accent-soft text-accent;
     }
 
-    /* Admin modal <dialog>. Opened via the shared modal Stimulus controller. */
+    /* Admin modal <dialog>. Opened via the shared modal Stimulus controller.
+       Placement (centred, a third down) comes from the shared modal rule in the
+       dialog section — do not set margins here or it will win by cascade order. */
     .admin-dialog-box {
-        @apply bg-elev rounded-2xl p-7 max-w-lg w-full border-0 shadow-2xl mx-auto mb-auto mt-40;
+        @apply bg-elev rounded-2xl p-7 max-w-lg w-full border-0 shadow-2xl;
     }
     .admin-dialog-box::backdrop {
         @apply bg-slate-950/45;

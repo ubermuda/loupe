@@ -56,6 +56,14 @@ test('first-install wizard creates an unverified admin who is gated until they f
     await page.getByLabel('Email').fill(ADMIN.email);
     await page.getByLabel('Password').fill(ADMIN.password);
     await page.getByRole('button', { name: /sign in/i }).click();
+    // Turbo submits the login as XHR, so the click resolves before the session
+    // cookie exists. Navigating straight to /admin/feature-flags races that:
+    // when the goto wins, the request is still anonymous and lands on /login,
+    // where the heading below never appears. Wait for the logged-in landing
+    // page — itself the parked check-email screen — before navigating away.
+    await expect(
+        page.getByRole('heading', { name: 'Check your email' }),
+    ).toBeVisible();
     await page.goto('/admin/feature-flags');
     await expect(
         page.getByRole('heading', { name: 'Check your email' }),

@@ -43,6 +43,29 @@ final class NavTest extends WebTestCase
         self::assertSelectorExists('form[action="/logout"]');
     }
 
+    public function test_admin_link_is_only_rendered_for_admins(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $user = $this->createVerifiedUser($em, 'navplain', 'navplain@example.com');
+
+        $client->loginUser($user);
+        $client->request(Request::METHOD_GET, '/projects');
+
+        self::assertResponseIsSuccessful();
+        self::assertSelectorNotExists('a.lp-sidebar__link[href="/admin"]');
+
+        $admin = $this->createVerifiedUser($em, 'navadmin', 'navadmin@example.com');
+        $admin->roles = ['ROLE_ADMIN'];
+        $em->flush();
+
+        $client->loginUser($admin);
+        $client->request(Request::METHOD_GET, '/projects');
+
+        self::assertResponseIsSuccessful();
+        self::assertSelectorExists('a.lp-sidebar__link[href="/admin"]');
+    }
+
     public function test_login_page_does_not_show_nav(): void
     {
         $client = static::createClient();

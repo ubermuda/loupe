@@ -4,18 +4,20 @@ declare(strict_types=1);
 
 namespace App\Module\SiteReview\Twig;
 
-use App\LoopStage;
 use App\Module\Project\Entity\Project;
 use App\Module\SiteReview\Repository\SiteReviewCommentRepository;
 use Twig\Extension\AbstractExtension;
 use Twig\TwigFunction;
 
 /**
- * Exposes a project's open site-review count and derived loop stage to templates
- * (the sidebar nav pill and the site-review loop ribbon). Lives in SiteReview
- * because both are SiteReview concerns and the SiteReview → Project direction is
- * the allowed one — keeping it here avoids a Project ↔ SiteReview module cycle.
- * Importing the root-namespace App\LoopStage introduces no cross-module edge.
+ * Feeds the app-shell site-review nav pill. The pill shows how many comments
+ * have been submitted and tints amber while any of them are still pending, so
+ * both figures come back from a single call — and a single query — rather than
+ * one function per number.
+ *
+ * Lives in SiteReview because the counts are a SiteReview concern and the
+ * SiteReview → Project direction is the allowed one, which keeps a
+ * Project ↔ SiteReview module cycle from forming.
  */
 final class SiteReviewNavExtension extends AbstractExtension
 {
@@ -28,30 +30,21 @@ final class SiteReviewNavExtension extends AbstractExtension
     public function getFunctions(): array
     {
         return [
-            new TwigFunction('project_open_review_count', $this->openReviewCount(...)),
-            new TwigFunction('site_review_loop_stage', $this->loopStage(...)),
+            new TwigFunction('project_site_review_counts', $this->siteReviewCounts(...)),
         ];
     }
 
-    public function openReviewCount(Project $project): int
-    {
-        return $this->siteReviewComments->countOpenForProject($project);
-    }
-
     /**
-     * Derives the site-review loop stage from the project's submitted-review
-     * comments: any Pending → In review; else any Addressed → Revise; else any
-     * Resolved → Approved; no comments at all → Proposed.
+     * @return array{total: int, pending: int} submitted total, and how many of
+     *                                         those are still awaiting the agent
      */
-    public function loopStage(Project $project): LoopStage
+    public function siteReviewCounts(Project $project): array
     {
-        $counts = $this->siteReviewComments->statusCountsForProject($project);
+        $counts = $this->siteReviewComments->submittedStatusCountsForProject($project);
 
-        return match (true) {
-            $counts['pending'] > 0 => LoopStage::InReview,
-            $counts['addressed'] > 0 => LoopStage::Revise,
-            $counts['resolved'] > 0 => LoopStage::Approved,
-            default => LoopStage::Proposed,
-        };
+        return [
+            'total' => array_sum($counts),
+            'pending' => $counts['pending'],
+        ];
     }
 }
