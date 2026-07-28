@@ -457,12 +457,18 @@ the agent fixes a comment, then hands back "here is what to check". That link
 is what turns the widget from a capture tool into a round-trip: the human sees
 which of their original comments a given scenario is meant to prove.
 
+A scenario the human marks as not resolved needs somewhere to put the why, so
+a comment or bug can be attached to the scenario itself (owner note,
+2026-07-27) — the same capture the widget already does for elements, hung off
+a scenario instead of a selector. That attached comment is the natural return
+path to the agent.
+
 Open questions for the design phase: whether a scenario is its own entity or a
 typed variant of `SiteReviewComment`; whether the link is one comment per
-scenario or many-to-many; how an unresolved scenario feeds back to the agent
-(a new comment, or a status on the scenario itself); and how scenarios reach
-the widget, since the widget currently only ever *sends* comments and pulls
-drafts. Related: 'Site-review comments have no agent-reply data model' (the
+scenario or many-to-many; and how scenarios reach the widget, since the widget
+currently only ever *sends* comments and pulls drafts. Related:
+'Promote a site-review scenario into an e2e test' (what a passing scenario is
+worth keeping as) and 'Site-review comments have no agent-reply data model' (the
 agent has nowhere to put reply text today, which is the same missing
 return path) and 'Capture scenarios from the widget, not just anchored
 comments' (the other direction of the same object).
@@ -483,6 +489,25 @@ two should share one data model rather than growing separately. Worth deciding
 early whether a scenario is a multi-step recording (steps captured as the human
 clicks through) or simply free text with several anchors attached, since that
 choice drives most of the widget UI work.
+
+## Promote a site-review scenario into an e2e test
+
+**Author:** Geoffrey · **Type:** feature · **Priority:** medium · **Status:** pending
+
+Owner note (2026-07-27): from a scenario in the widget, the human should be
+able to task the agent with turning it into an e2e test. A scenario is already
+a described walkthrough with an expected outcome, which is most of a Playwright
+spec — this is what stops manually-verified behaviour from silently regressing
+once the human stops re-walking it.
+
+This is a second verb on a scenario alongside attaching a comment or bug (see
+'Agent-authored test scenarios delivered through the site-review widget'). It
+needs an outbound task channel the app does not have today: site-review work
+currently flows agent→app by the agent *polling* `get_site_review` over MCP,
+so decide whether promotion enqueues something the agent picks up on its next
+poll or requires a real push. The generated spec lands in `e2e/tests/` and must
+follow the `project-e2e` conventions; worth deciding whether the agent writes
+it straight to a branch or hands back a diff for review.
 
 ## Review anchoring — possible enhancement (low priority)
 
