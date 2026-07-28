@@ -57,20 +57,36 @@ class SiteReviewCommentRepository extends ServiceEntityRepository
     }
 
     /**
-     * Every comment the reviewer has actually submitted, whatever its status.
-     * Drafts are excluded because they only exist inside the reviewer's widget
-     * and are not part of the project's shared record yet.
+     * Status tally of everything the reviewer has actually submitted. Drafts are
+     * excluded because they only exist inside the reviewer's widget and are not
+     * part of the project's shared record yet.
+     *
+     * One grouped query rather than a count per status: the app-shell nav pill
+     * needs both the submitted total (its number) and the pending count (its
+     * tint) on every authenticated page render, and asking separately made that
+     * two queries for one badge.
+     *
+     * @return array{pending: int, addressed: int, resolved: int}
      */
-    public function countSubmittedForProject(Project $project): int
+    public function submittedStatusCountsForProject(Project $project): array
     {
-        return (int) $this->createQueryBuilder('c')
-            ->select('COUNT(c.id)')
+        /** @var list<array{status: SiteReviewCommentStatus, count: int|string}> $rows */
+        $rows = $this->createQueryBuilder('c')
+            ->select('c.status AS status', 'COUNT(c.id) AS count')
             ->andWhere('c.project = :project')
             ->andWhere('c.status != :draft')
             ->setParameter('project', $project)
             ->setParameter('draft', SiteReviewCommentStatus::Draft)
+            ->groupBy('c.status')
             ->getQuery()
-            ->getSingleScalarResult();
+            ->getResult();
+
+        $counts = ['pending' => 0, 'addressed' => 0, 'resolved' => 0];
+        foreach ($rows as $row) {
+            $counts[$row['status']->value] = (int) $row['count'];
+        }
+
+        return $counts;
     }
 
     /**

@@ -10,11 +10,14 @@ use Twig\Extension\AbstractExtension;
 use Twig\TwigFunction;
 
 /**
- * Exposes a project's site-review comment counts to the app-shell nav pill: the
- * submitted total it displays, and the open count that tints it. Lives in
- * SiteReview because both are SiteReview concerns and the SiteReview → Project
- * direction is the allowed one — keeping it here avoids a Project ↔ SiteReview
- * module cycle.
+ * Feeds the app-shell site-review nav pill. The pill shows how many comments
+ * have been submitted and tints amber while any of them are still pending, so
+ * both figures come back from a single call — and a single query — rather than
+ * one function per number.
+ *
+ * Lives in SiteReview because the counts are a SiteReview concern and the
+ * SiteReview → Project direction is the allowed one, which keeps a
+ * Project ↔ SiteReview module cycle from forming.
  */
 final class SiteReviewNavExtension extends AbstractExtension
 {
@@ -27,18 +30,21 @@ final class SiteReviewNavExtension extends AbstractExtension
     public function getFunctions(): array
     {
         return [
-            new TwigFunction('project_open_review_count', $this->openReviewCount(...)),
-            new TwigFunction('project_submitted_review_count', $this->submittedReviewCount(...)),
+            new TwigFunction('project_site_review_counts', $this->siteReviewCounts(...)),
         ];
     }
 
-    public function openReviewCount(Project $project): int
+    /**
+     * @return array{total: int, pending: int} submitted total, and how many of
+     *                                         those are still awaiting the agent
+     */
+    public function siteReviewCounts(Project $project): array
     {
-        return $this->siteReviewComments->countOpenForProject($project);
-    }
+        $counts = $this->siteReviewComments->submittedStatusCountsForProject($project);
 
-    public function submittedReviewCount(Project $project): int
-    {
-        return $this->siteReviewComments->countSubmittedForProject($project);
+        return [
+            'total' => array_sum($counts),
+            'pending' => $counts['pending'],
+        ];
     }
 }
