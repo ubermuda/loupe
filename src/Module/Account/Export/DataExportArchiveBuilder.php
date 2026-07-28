@@ -81,30 +81,30 @@ readonly class DataExportArchiveBuilder
     {
         $tmpKey = $key.'.tmp';
 
-        $stream = fopen($localPath, 'r');
-        if (false === $stream) {
-            throw new \RuntimeException(sprintf('Cannot read the built export archive at "%s".', $localPath));
-        }
-
         try {
-            $this->exportStorage->writeStream($tmpKey, $stream);
-        } finally {
-            if (is_resource($stream)) {
-                fclose($stream);
+            $stream = fopen($localPath, 'r');
+            if (false === $stream) {
+                throw new \RuntimeException(sprintf('Cannot read the built export archive at "%s".', $localPath));
             }
-        }
 
-        try {
+            try {
+                $this->exportStorage->writeStream($tmpKey, $stream);
+            } finally {
+                if (is_resource($stream)) {
+                    fclose($stream);
+                }
+            }
+
             $this->exportStorage->move($tmpKey, $key);
         } catch (\Throwable $e) {
-            // Nothing else ever looks at a `.tmp` key — both purgers only know
-            // `<id>.zip` — so one left behind is orphaned in the bucket
-            // forever.
+            // Covers a half-written upload as well as a failed move: nothing
+            // else ever looks at a `.tmp` key — every purger only knows
+            // `<id>.zip` — so one left behind is orphaned forever.
             try {
                 $this->exportStorage->delete($tmpKey);
             } catch (FilesystemException) {
-                // The move already failed; a failing cleanup on top of it must
-                // not mask the original error.
+                // The upload already failed; a failing cleanup on top of it
+                // must not mask the original error.
             }
 
             throw $e;

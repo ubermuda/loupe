@@ -9,9 +9,11 @@ use App\Module\Account\Entity\User;
 use App\Module\Account\Export\DataExportArchiveBuilder;
 use App\Module\Account\Export\UserDataExporterInterface;
 use League\Flysystem\Filesystem;
+use League\Flysystem\FilesystemException;
 use League\Flysystem\FilesystemOperator;
 use League\Flysystem\Local\LocalFilesystemAdapter;
 use League\Flysystem\UnableToMoveFile;
+use League\Flysystem\UnableToWriteFile;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\Uid\Uuid;
@@ -99,9 +101,54 @@ final class DataExportArchiveBuilderTest extends TestCase
         self::assertFalse($storage->fileExists($key.'.tmp'));
     }
 
+    public function test_a_failing_upload_deletes_the_temporary_object(): void
+    {
+        $id = Uuid::v7();
+        $tmpKey = DataExport::computeArchiveKey($id).'.tmp';
+
+        $storage = $this->storageExpectingTemporaryCleanup($id);
+        $storage->expects(self::once())->method('writeStream')->with($tmpKey)
+            ->willThrowException(UnableToWriteFile::atLocation($tmpKey));
+        $storage->expects(self::never())->method('move');
+
+        $this->expectException(FilesystemException::class);
+        new DataExportArchiveBuilder([$this->emptyExporter()], $storage)->build($this->user(), $id);
+    }
+
     public function test_a_failing_move_deletes_the_temporary_object(): void
     {
-        $exporter = new class implements UserDataExporterInterface {
+        $id = Uuid::v7();
+        $key = DataExport::computeArchiveKey($id);
+
+        $storage = $this->storageExpectingTemporaryCleanup($id);
+        $storage->expects(self::once())->method('writeStream')->with($key.'.tmp');
+        $storage->expects(self::once())->method('move')
+            ->willThrowException(UnableToMoveFile::because('nope', $key.'.tmp', $key));
+
+        $this->expectException(FilesystemException::class);
+        new DataExportArchiveBuilder([$this->emptyExporter()], $storage)->build($this->user(), $id);
+    }
+
+    /**
+     * Nothing else ever looks at a `.tmp` key — every purger only knows
+     * `<id>.zip` — so an upload that fails without this cleanup orphans the
+     * object forever. Both halves of the upload need it: a half-written object
+     * is as orphaned as an unmoved one.
+     *
+     * @return FilesystemOperator&MockObject
+     */
+    private function storageExpectingTemporaryCleanup(Uuid $id): FilesystemOperator
+    {
+        /** @var FilesystemOperator&MockObject $storage */
+        $storage = $this->createMock(FilesystemOperator::class);
+        $storage->expects(self::once())->method('delete')->with(DataExport::computeArchiveKey($id).'.tmp');
+
+        return $storage;
+    }
+
+    private function emptyExporter(): UserDataExporterInterface
+    {
+        return new class implements UserDataExporterInterface {
             #[\Override]
             public function filename(): string
             {
@@ -114,22 +161,6 @@ final class DataExportArchiveBuilderTest extends TestCase
                 return [];
             }
         };
-
-        $id = Uuid::v7();
-        $key = DataExport::computeArchiveKey($id);
-
-        /** @var FilesystemOperator&MockObject $storage */
-        $storage = $this->createMock(FilesystemOperator::class);
-        $storage->expects(self::once())->method('writeStream')->with($key.'.tmp');
-        $storage->expects(self::once())->method('move')->willThrowException(UnableToMoveFile::because('nope', $key.'.tmp', $key));
-        // Nothing else ever looks at a `.tmp` key, so a move that fails
-        // without this cleanup orphans the object in the bucket forever.
-        $storage->expects(self::once())->method('delete')->with($key.'.tmp');
-
-        $builder = new DataExportArchiveBuilder([$exporter], $storage);
-
-        $this->expectException(UnableToMoveFile::class);
-        $builder->build($this->user(), $id);
     }
 
     private function user(): User

@@ -56,8 +56,13 @@ class DownloadDataExportController extends AppController
         // The archive is streamed rather than redirected to: the bucket is
         // never assumed to be reachable from the browser, which is what lets a
         // self-hosted install keep it entirely private.
+        //
+        // No Content-Length: it would have to come from a separate size lookup,
+        // and the expiry purge runs concurrently with downloads — an object
+        // deleted between the two calls would send a body shorter than the
+        // advertised length, which reaches the user as a corrupt ZIP instead of
+        // an error. A chunked response is always self-consistent.
         try {
-            $size = $this->exportStorage->fileSize($key);
             $stream = $this->exportStorage->readStream($key);
         } catch (FilesystemException) {
             throw $this->createNotFoundException();
@@ -72,7 +77,6 @@ class DownloadDataExportController extends AppController
             fclose($stream);
         });
         $response->headers->set('Content-Type', 'application/zip');
-        $response->headers->set('Content-Length', (string) $size);
         $response->headers->set('Content-Disposition', HeaderUtils::makeDisposition(
             HeaderUtils::DISPOSITION_ATTACHMENT,
             sprintf('loupe-export-%s.zip', (string) $exportId),
