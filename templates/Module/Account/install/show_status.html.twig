@@ -16,6 +16,9 @@
 
 <div class="flex flex-col gap-3">
     <a href="{{ path('app_install_admin') }}" class="auth-submit">{{ 'account.install.status.continue'|trans }}</a>
-    <a href="{{ path('app_install_status') }}" class="text-center text-sm text-fg-mute hover:text-fg">{{ 'account.install.status.recheck'|trans }}</a>
+    {# Rendering this page opens an SMTP connection and calls the Mercure hub;
+       Turbo 8 prefetches links on hover, so without this, pointing at "run the
+       checks again" runs them. #}
+    <a href="{{ path('app_install_status') }}" data-turbo-prefetch="false" class="text-center text-sm text-fg-mute hover:text-fg">{{ 'account.install.status.recheck'|trans }}</a>
 </div>
 {% endblock %}

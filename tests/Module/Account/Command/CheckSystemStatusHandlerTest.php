@@ -65,6 +65,13 @@ final class CheckSystemStatusHandlerTest extends KernelTestCase
         self::assertSame(SystemCheckState::Warning, self::check($view, 'mailer_sender')->state);
     }
 
+    public function test_any_localhost_sender_address_is_flagged_not_just_the_shipped_default(): void
+    {
+        $view = (SystemStatus::handler($this->connection, mailerFromAddress: 'admin@localhost'))();
+
+        self::assertSame(SystemCheckState::Warning, self::check($view, 'mailer_sender')->state);
+    }
+
     public function test_a_real_sender_address_passes_and_is_echoed_back(): void
     {
         $view = (SystemStatus::handler($this->connection, mailerFromAddress: 'hello@example.com'))();

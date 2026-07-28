@@ -49,10 +49,12 @@ final readonly class CheckSystemStatusHandler
     private const float PROBE_TIMEOUT_SECONDS = 3.0;
 
     /**
-     * Shipped default of MAILER_FROM_ADDRESS. Deliverable nowhere, so an
-     * instance still using it cannot complete a single registration.
+     * Domain of the shipped MAILER_FROM_ADDRESS default. Any address on it is
+     * deliverable nowhere, so an instance still using one cannot complete a
+     * single registration — and matching the domain rather than the exact
+     * default also catches the operator who edited the local part and stopped.
      */
-    private const string PLACEHOLDER_FROM_ADDRESS = 'noreply@localhost';
+    private const string PLACEHOLDER_FROM_DOMAIN = '@localhost';
 
     private const string PENDING_BACKLOG_SQL = 'SELECT COUNT(*) AS pending, MIN(available_at) AS oldest FROM messenger_messages WHERE queue_name <> :failed AND delivered_at IS NULL AND available_at <= :now'; // @translation-check-ignore
 
@@ -164,7 +166,7 @@ final readonly class CheckSystemStatusHandler
 
     private function checkMailerSender(): SystemCheck
     {
-        if (self::PLACEHOLDER_FROM_ADDRESS === $this->mailerFromAddress || '' === $this->mailerFromAddress) {
+        if ('' === $this->mailerFromAddress || str_ends_with($this->mailerFromAddress, self::PLACEHOLDER_FROM_DOMAIN)) {
             return new SystemCheck('mailer_sender', SystemCheckState::Warning, 'account.system_status.mailer_sender.placeholder');
         }
 

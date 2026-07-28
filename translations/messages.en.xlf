@@ -1666,7 +1666,7 @@
             </trans-unit>
             <trans-unit id="account.system_status.mailer_sender.placeholder">
                 <source>account.system_status.mailer_sender.placeholder</source>
-                <target>MAILER_FROM_ADDRESS is still the placeholder noreply@localhost. Real mail servers reject it, and email verification is mandatory, so nobody can finish registering. Set it to an address on a domain you control.</target>
+                <target>MAILER_FROM_ADDRESS is still on the placeholder domain localhost. Real mail servers reject it, and email verification is mandatory, so nobody can finish registering. Set it to an address on a domain you control.</target>
             </trans-unit>
             <trans-unit id="account.system_status.mailer_sender.configured">
                 <source>account.system_status.mailer_sender.configured</source>
