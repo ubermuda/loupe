@@ -12,6 +12,7 @@ use App\Module\Account\Form\RegistrationFormType;
 use App\Module\Account\Form\RegistrationRequest;
 use App\Module\Account\Repository\WaitlistEntryRepository;
 use App\Module\Account\Service\RegistrationGate;
+use Psr\Log\LoggerInterface;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\Form\FormError;
 use Symfony\Component\HttpFoundation\Request;
@@ -30,6 +31,7 @@ class RegisterController extends AppController
         private readonly TranslatorInterface $translator,
         private readonly RegistrationGate $registrationGate,
         private readonly WaitlistEntryRepository $waitlistEntries,
+        private readonly LoggerInterface $logger,
 
         #[Autowire(service: 'limiter.registration')]
         private readonly RateLimiterFactory $registrationLimiter,
@@ -40,6 +42,16 @@ class RegisterController extends AppController
     {
         if ($this->getUser()) {
             return $this->redirectToRoute('app_home');
+        }
+
+        // Above the invite-token stash below on purpose: a closed instance must
+        // not write an invite token into a visitor's session either. 404 rather
+        // than a message, matching how the install wizard and every other
+        // feature-flagged route disappear when switched off.
+        if (!$this->registrationGate->allowsNewAccounts()) {
+            $this->logger->info('account.registration.denied', ['path' => $request->getPathInfo()]);
+
+            throw $this->createNotFoundException();
         }
 
         // The invite token arrives once, in the GET URL from the email link.

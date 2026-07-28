@@ -44,7 +44,7 @@ final class SeedFlagsControllerTest extends WebTestCase
         $flags = self::getContainer()->get(FeatureFlagRepository::class)->findAllIndexed();
         self::assertSame(25, $flags['registration.cap']->value);
         self::assertSame(30, $flags['billing.trial_days']->value);
-        self::assertCount(6, $flags);
+        self::assertCount(7, $flags);
     }
 
     public function test_invalid_submit_returns_422(): void

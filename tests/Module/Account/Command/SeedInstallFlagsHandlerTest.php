@@ -21,6 +21,7 @@ final class SeedInstallFlagsHandlerTest extends KernelTestCase
 
         $handler(new SeedInstallFlagsCommand(
             registrationCap: 50,
+            registrationEnabled: true,
             billingEnabled: false,
             billingTrialDays: 14,
             billingStripePriceId: null,
@@ -48,7 +49,7 @@ final class SeedInstallFlagsHandlerTest extends KernelTestCase
         $em->flush();
 
         $handler = self::getContainer()->get(SeedInstallFlagsHandler::class);
-        $handler(new SeedInstallFlagsCommand(50, false, 14, null, false, false));
+        $handler(new SeedInstallFlagsCommand(50, true, false, 14, null, false, false));
 
         $flags = self::getContainer()->get(FeatureFlagRepository::class);
         self::assertSame(999, $flags->findAllIndexed()['registration.cap']->value);
@@ -57,11 +58,11 @@ final class SeedInstallFlagsHandlerTest extends KernelTestCase
     public function test_running_twice_creates_no_duplicates(): void
     {
         $handler = self::getContainer()->get(SeedInstallFlagsHandler::class);
-        $command = new SeedInstallFlagsCommand(0, false, 14, null, false, false);
+        $command = new SeedInstallFlagsCommand(0, true, false, 14, null, false, false);
         $handler($command);
         $handler($command);
 
         $flags = self::getContainer()->get(FeatureFlagRepository::class);
-        self::assertCount(6, $flags->findAll());
+        self::assertCount(7, $flags->findAll());
     }
 }
