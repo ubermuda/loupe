@@ -320,7 +320,8 @@ tailwind:
 
 # Expose the dev app on the reserved ngrok domain (OAuth callbacks, Stripe
 # dashboard webhooks, phone testing). Requires an authenticated ngrok agent
-# and the domain reserved in the ngrok dashboard. Override with TUNNEL_HOST.
+# and the domain reserved in the ngrok dashboard. Set TUNNEL_HOST in .env — it
+# ships commented out, because a reserved domain belongs to one ngrok account.
 tunnel:
     #!/usr/bin/env bash
     set -euo pipefail
