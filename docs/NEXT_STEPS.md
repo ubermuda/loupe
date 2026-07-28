@@ -509,6 +509,62 @@ poll or requires a real push. The generated spec lands in `e2e/tests/` and must
 follow the `project-e2e` conventions; worth deciding whether the agent writes
 it straight to a branch or hands back a diff for review.
 
+## Attach a screenshot to a site-review comment
+
+**Author:** Geoffrey · **Type:** feature · **Priority:** medium · **Status:** pending
+
+Owner note (2026-07-27): a reviewer should be able to attach a screenshot to a
+comment. The note came with the assumption that this needs a Chrome extension
+because embedded JS cannot screenshot the page — that assumption is only half
+right, and the difference decides the shape of the feature, so check it before
+committing to an extension:
+
+- `navigator.mediaDevices.getDisplayMedia({ preferCurrentTab: true })` captures
+  the current tab from an ordinary page, no extension. It needs transient user
+  activation and shows a source picker on every capture, and it returns a video
+  stream, so the widget must grab a frame to a canvas and `toBlob` it.
+- `getViewportMedia` (W3C Viewport Capture) captures the top-level viewport
+  behind a permission prompt rather than a picker, which is the UX we actually
+  want. Verify how widely it has shipped before relying on it.
+- A Chrome extension (`chrome.tabs.captureVisibleTab`) gives a prompt-free,
+  pixel-accurate capture — a UX optimisation over the above, not a prerequisite,
+  and it costs every reviewer an install. That trade is the real decision.
+- DOM-rasterising libraries (html2canvas and friends) need no permission but
+  re-render rather than capture, so they drift from the real paint on
+  cross-origin images, iframes and effects like backdrop-filter. For a tool
+  whose whole point is "here is what I saw", that drift is disqualifying.
+
+Whichever path: the widget must hide its own overlay (pins, panel, scrim) before
+capturing and restore it after, or every screenshot contains the review UI. Also
+needs a decision on where the image is stored and how it is served, since
+`SiteReviewComment` today carries only text, a selector and a URL. Related:
+'Drawing on the page in the site-review widget' — the two are usually one
+gesture, and a stroke drawn on a frozen screenshot is a very different feature
+from one drawn on live DOM.
+
+## Drawing on the page in the site-review widget
+
+**Author:** Geoffrey · **Type:** feature · **Priority:** medium · **Status:** pending
+
+Owner note (2026-07-27): let the reviewer draw on the page — circle the thing
+that is wrong, arrow at it — rather than only clicking one element.
+
+The decision that shapes everything else is what the strokes are drawn *on*:
+
+- **Live DOM.** Strokes are vector data in the widget's overlay, anchored the
+  way pins already are, and re-render on the real page later. Survives a redeploy
+  in the sense that the page stays current, but reflow, responsive breakpoints
+  and any content change move the page out from under the drawing.
+- **A frozen screenshot.** Capture first, then annotate the image (see 'Attach a
+  screenshot to a site-review comment'). Always shows what the reviewer saw, and
+  sidesteps anchoring entirely, but the annotation is dead pixels the agent
+  cannot map back to an element.
+
+Drawing also gives the widget a capture mode that is neither "pick one element"
+nor "general page note", so it needs its own entry in the composer alongside
+those two, and a selector-less comment shape. The overlay already owns a
+fixed-position layer above the page, which is where the canvas would live.
+
 ## Review anchoring — possible enhancement (low priority)
 
 
@@ -1261,3 +1317,29 @@ the reference shape; **`ADMIN_EMAIL`** — already a no-op when unset.
 Relevant to self-hosting: a self-hoster who wants neither billing nor social
 login should get a working install without setting either. See "Self-hosting
 audit".
+
+## Product idea (long horizon): drag DOM elements in the widget to try layouts
+
+**Author:** Geoffrey · **Type:** idea · **Priority:** low · **Status:** pending
+
+Owner note (2026-07-27), raised with the caveat that it is probably too
+ambitious: let the reviewer actually move elements around on the page to try
+out a different layout, instead of only describing the change in words.
+
+The moving is the easy part — the widget already has an element picker and a
+fixed overlay, and dragging a node is a small amount of DOM work. The hard part
+is that the deliverable is not a moved element, it is a change an agent can
+act on. A dragged node yields a new position in *this* rendering, at *this*
+viewport width, with whatever inline styles the drag applied; none of that
+tells the agent which rule to edit, whether the intent was a flex order change
+or a margin, or what should happen at the other breakpoints. Getting from
+"reviewer moved this box" to a defensible CSS change is the whole feature, and
+it is why this stays an idea rather than a scheduled item.
+
+If it is ever picked up, the useful output is probably a description of the
+intended relationship ("this belongs above that", "these should be side by
+side") captured alongside a before/after screenshot, not a DOM diff. That makes
+it an extension of the same capture surface as 'Attach a screenshot to a
+site-review comment' and 'Drawing on the page in the site-review widget' — all
+three are the reviewer showing rather than telling, and they should share one
+composer rather than growing three parallel modes.
