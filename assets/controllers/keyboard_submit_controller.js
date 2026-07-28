@@ -26,6 +26,15 @@ export default class extends Controller {
             return;
         }
 
+        // The thread's Resolve and Delete buttons sit inside the reply form in
+        // the DOM but belong to their own forms via form=. Their keydown still
+        // bubbles through here, so without this the shortcut would post the
+        // reply while the user was focused on Resolve. A control's .form is the
+        // form that owns it, not the one it happens to nest in.
+        if (event.target.form !== this.element) {
+            return;
+        }
+
         event.preventDefault();
         this.element.requestSubmit();
     }
