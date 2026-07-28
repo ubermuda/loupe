@@ -733,6 +733,41 @@ Two links that do not exist yet and this depends on:
   approved" has no column to write and the feature means something different.
   Design the two together or the second will invalidate the first.
 
+## The worktree-scoped e2e worker OOMs instead of recycling
+
+**Author:** Claude · **Type:** tooling · **Priority:** medium · **Status:** pending
+
+The `project-worktrees` skill tells you to run a worktree-scoped consumer for
+mail-asserting e2e specs:
+
+    bin/worktrees/compose-exec.sh bin/console messenger:consume scheduler_default async
+
+That command carries no limits, unlike the shared `worker` compose service,
+which runs the same transports with `--time-limit=3600 --memory-limit=128M`.
+Running in the **dev** environment, Doctrine's `BacktraceDebugDataHolder`
+accumulates a backtrace per query for the lifetime of the process, so a
+long-lived consumer climbs until PHP's 128M limit and dies with a fatal
+`Allowed memory size of 134217728 bytes exhausted` (observed 2026-07-28 after
+roughly an hour and several full e2e runs).
+
+Why it matters more than a crashed side process: **the failure is silent and
+its symptom is misleading.** Nothing consuming `async` means no mail is
+delivered, and mail-asserting specs then fail on `getEmailWithSubject` timeouts
+that look like application or Mailpit problems. A full suite that started green
+can fail later in the same session for no reason visible in the diff.
+
+A 3-minute suite finishes well inside the window, so this bites manual sessions
+and back-to-back runs rather than a single gate. Fix is probably to document
+(and use) the limits the compose service already applies — with the messenger
+memory limit set *below* PHP's, e.g. `--time-limit=3600 --memory-limit=100M`,
+so the worker stops gracefully between messages instead of dying inside one.
+Worth deciding at the same time whether the skill should simply tell you to
+restart it, since even a graceful exit leaves nothing consuming.
+
+Related: 'Worktree e2e runs now require a worktree-scoped worker' and
+'Decide fate of PlaywrightSyncEmailMiddleware (async-email follow-up)' — the
+latter would remove the need for this consumer altogether.
+
 ## Review anchoring — possible enhancement (low priority)
 
 
