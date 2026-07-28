@@ -118,7 +118,8 @@ just tf-apply
 just tf-db-bootstrap
 
 # 4. Run migrations once, by hand.
-docker run --rm --env-file <prod env file> "$LOUPE_PROD_IMAGE" docker/prod/release.sh
+docker run --rm --env-file <prod env file> \
+    "${LOUPE_PROD_IMAGE:-ghcr.io/ubermuda/loupe:prod}" docker/prod/release.sh
 
 # 5. Turn on automated migrations for every deploy afterwards:
 #    uncomment `enable_predeploy_migrations = true` in terraform/main.tf, then
