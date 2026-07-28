@@ -65,6 +65,20 @@ database, and its own compiled CSS. Log in with `dev@loupe.test` / `password`.
     its writes keep pointing at a deleted path until it re-enters somewhere else.
 
   Stay in the main checkout, and delegate the work that needs isolation.
+
+  **Running a command inside a worktree is not the same as moving into one**,
+  and the difference is the shell's working directory surviving the call. The
+  `project-worktrees` skill tells you to run `just worktree-up`,
+  `bin/worktrees/compose-exec.sh` and the worktree e2e gate *from the worktree* —
+  those genuinely need it as their cwd. Run them in a **subshell** so the cwd
+  dies with the command:
+
+      ( cd .claude/worktrees/<name> && just worktree-up )
+
+  Bare `cd .claude/worktrees/<name> && just worktree-up` looks identical and is
+  not: the Bash tool persists its working directory between calls, so every
+  later command in the session silently runs from the worktree too. That is the
+  move this rule forbids, arrived at by accident.
 - Always branch off `main`, not the current feature branch
 - Tear down with `just worktree-down <name>`, never a bare `git worktree remove`
 - **Invoke the `project-worktrees` skill** before provisioning, debugging or
