@@ -21,14 +21,37 @@ for that reading context, not for a terminal or a README.
    Use bullets only where order and reference genuinely don't matter (e.g. a
    short set of interchangeable examples).
 
-3. **In long lists, open every entry with a short introductory sentence.**
+3. **Cross-references need stable IDs, because list numbering restarts at
+   every heading.** Markdown begins a new ordered list after each `##`, so a
+   document whose source numbers entries 1–33 straight through renders as
+   1–2 under the first heading, then 1–5 under the next, and so on. Any
+   "see finding 6" written against the source numbering points at nothing the
+   reviewer can see. This is not hypothetical: a self-hosting audit shipped
+   with every cross-reference broken, and the reviewer's first comment was
+   that finding 6 did not exist.
+
+   When entries refer to one another, give each a short ID that does not
+   depend on rendering — `C1`, `H4`, `M5` for severity-banded findings, or
+   any scheme where the prefix names the section — and lead the entry with
+   it:
+
+   ```markdown
+   4. **H4 — There is no administrative console command.** …
+   ```
+
+   Then refer to **H4**, never "finding 4". Keep the list numbered as well
+   (rule 2 still applies); the number gives the reviewer something to point
+   at, the ID gives the text something stable to cite. A document whose
+   entries never reference each other doesn't need IDs.
+
+4. **In long lists, open every entry with a short introductory sentence.**
    When a list has many entries, each one starts with a small plain sentence
    presenting what the entry is about, before the detail. A reviewer scanning
    the list must be able to grasp each entry from its first sentence alone —
    no diving into a wall of `file:line` references or jargon to find out what
    an item concerns.
 
-4. **Make decision points look like decisions.** When the document offers
+5. **Make decision points look like decisions.** When the document offers
    more than one way to do something, the formatting must show the reader a
    choice is being asked of them — an explicit "**Decision needed:**" lead-in
    (or equivalent), the alternatives as a numbered sub-list so they can be
@@ -36,7 +59,7 @@ for that reading context, not for a terminal or a README.
    alternatives into a flat sentence ("do X or do Y.") — that reads as an
    instruction, and the reader sails past the choice instead of making it.
 
-5. **After addressing review comments, revise the document.** When you act on
+6. **After addressing review comments, revise the document.** When you act on
    a reviewer's comments — answering questions, recording decisions, changing
    course — send a new version with `revise_document` so the document reflects
    the resolved state. Tracking the outcome somewhere else (an issue tracker,
@@ -95,3 +118,6 @@ Not: "Drop `x-forwarded-host` or generate these links from a pinned
   headers) are exactly what these rules exist to undo.
 - Numbering only the top level: nested lists that reviewers will discuss also
   get numbers.
+- Cross-referencing by list number across headings — the rendered numbering is
+  per-section, so the reference lands on the wrong entry or none at all. Use
+  stable IDs (rule 3).
