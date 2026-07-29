@@ -157,6 +157,7 @@ Supply these as real environment variables (never commit them):
 | `MERCURE_JWT_SECRET` | Must match the hub's publisher/subscriber keys. **No default ships** — if unset, Mercure fails loudly rather than signing with a public key. |
 | `MAILER_DSN` | Outbound mail |
 | `APP_ENCRYPTION_KEY` | Only if you use `encrypted_string` columns |
+| `APP_SOURCE_URL` | Not a secret, and a default ships in `.env`: the repository the footer "Source code" link points at. Override it if you modify Loupe (see [License](#license)). |
 
 ## Command-line bridge
 
@@ -175,3 +176,8 @@ see [SECURITY.md](SECURITY.md).
 Licensed under the [GNU Affero General Public License v3.0 or later](LICENSE)
 (AGPL-3.0-or-later). If you run a modified version of Loupe as a network service,
 the AGPL requires you to make your source available to its users.
+
+Every page carries a "Source code" link in the footer to satisfy that. It points
+wherever `APP_SOURCE_URL` says, defaulting to this repository — correct for an
+unmodified instance, and wrong for a modified one. If you change the code, set
+`APP_SOURCE_URL` to the repository that holds *your* version.

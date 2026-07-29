@@ -8,6 +8,10 @@
                 <source>app.name</source>
                 <target>Loupe</target>
             </trans-unit>
+            <trans-unit id="footer.source.label">
+                <source>footer.source.label</source>
+                <target>Source code</target>
+            </trans-unit>
 
             <!-- Home page -->
             <trans-unit id="account.home.page.title">
