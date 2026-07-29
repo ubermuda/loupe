@@ -1755,6 +1755,38 @@ green for "no errors" would reintroduce exactly the false reassurance the
 check was written to avoid. Related: "Worker heartbeat, so 'is a worker
 running?' can be answered positively".
 
+## Stale DaisyUI references survive in CLAUDE.md and the project-e2e skill
+
+**Author:** Claude · **Type:** docs · **Priority:** medium · **Status:** pending
+
+DaisyUI was deliberately dropped in the 2026-06-19 visual redesign — its design
+spec states "Tailwind v4 + custom tokens. **No DaisyUI**" and lists DaisyUI
+under what not to reintroduce. The dependency is genuinely gone: no entry in
+`package.json`, no reference anywhere under `assets/`, nothing in
+`importmap.php` or `composer.json`. Two documents still claim otherwise, and
+both are read by sessions that will act on them:
+
+- `CLAUDE.md` — the Architecture section states "**Stack:** Tailwind CSS +
+  DaisyUI 5 for UI". This is the highest-traffic line of the two; every session
+  and every subagent reads it, and it invites an agent to reach for `btn`,
+  `card` or `modal` classes that no longer exist.
+- `.claude/skills/project-e2e/SKILL.md` — carries a "## DaisyUI required field
+  labels" section instructing `getByLabel('Email address *', { exact: true })`
+  because "the DaisyUI form theme appends a `*` span to required field labels".
+  There is no `required` styling left in `assets/styles/app.css` and no spec
+  under `e2e/` uses the asterisk form, so this would send someone matching on a
+  character that never renders.
+
+Close-out: delete the project-e2e section outright rather than rewriting it —
+nothing replaced the behaviour it described — and correct the CLAUDE.md stack
+line to name the actual system (Tailwind v4 + hand-rolled semantic classes and
+CSS custom properties in `assets/styles/app.css`). The stale mentions inside
+`docs/superpowers/plans/` are historical records of what was true when those
+plans were written and should be left alone. Related: "Gamache rule: catch
+skills that document tooling which no longer exists" — this is exactly the
+class of drift that rule is meant to detect, and these two are concrete test
+cases for it.
+
 ## Product idea (long horizon): drag DOM elements in the widget to try layouts
 
 **Author:** Geoffrey · **Type:** idea · **Priority:** low · **Status:** pending
@@ -1786,3 +1818,39 @@ It delivers the stated relationship — the part that actually survives into a C
 change — for the price of a data-model change, with none of the intent-inference
 problem above. Once multi-anchor comments exist, revisit whether dragging adds
 enough over them to be worth building at all.
+
+## Dead semantic classes accumulate in app.css with nothing to catch them
+
+**Author:** Claude · **Type:** tooling · **Priority:** low · **Status:** pending
+
+`assets/styles/app.css` defines roughly 380 semantic component classes across
+1,777 lines, built with `@apply` inside `@layer components`. Because a class is
+declared in CSS rather than emitted on demand from template usage, deleting the
+markup that used it leaves the rule behind — and nothing currently notices.
+Checking every component class against `templates/`, `assets/js/`, `src/` and
+the `vendor/ubermuda/*` bundle templates, then discounting every class built by
+interpolation (`lp-flash--{{ label }}`, `lp-ribbon__bar--{{ state }}`,
+`status-check-badge-{{ state }}` and similar), leaves 25 that are referenced
+nowhere:
+
+```
+lp-doc-list  lp-doc-row  lp-doc-row__main  lp-doc-row__meta  lp-doc-row__tags
+lp-doc-row__title  lp-doc-row__title--stretched  lp-page  lp-page-header
+lp-page-title  lp-section-title  lp-table  lp-tag  lp-select  lp-code
+lp-key-values  lp-key-values__row  lp-copy-row  lp-form-hint  lp-anchor
+lp-anchor--orphan  lp-btn--warning  lp-comment-composer--untargeted  kbd
+admin-badge-off
+```
+
+Two of those are whole abandoned families rather than stragglers — the
+`lp-doc-*` row component and the `lp-page*` / `lp-section-title` page shell.
+
+Deleting them is the small half. The durable fix is a check that fails when a
+class defined in `@layer components` is referenced nowhere, since this will
+recur every time a component is replaced. It needs to understand interpolated
+class names or it will be too noisy to keep: the safe form is to treat a
+defined class as used when some template contains its prefix immediately
+followed by a Twig expression, which covers the modifier families above without
+whitelisting them by hand. Verify `admin-badge-off` against the admin bundle's
+compiled assets before removing it — the scan covered that bundle's templates
+and CSS, but a class applied from bundle JavaScript would not show up.

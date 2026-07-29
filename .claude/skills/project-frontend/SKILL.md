@@ -151,6 +151,18 @@ Some of those conversions are exact and some are not, and the difference matters
 
 **Custom values are mistakes to fix, not tokens to add.** When a value does not sit on the scale, do not invent a `@theme` token to preserve it, and do not fall back to an arbitrary value — snap to the nearest existing token and accept the pixel change. A custom token is the same problem as a bracket value wearing a different hat. `app.css` currently has zero custom `@theme` size entries, zero custom `@utility` blocks and zero literal `px`/`rem` outside the design-token blocks; keep it that way.
 
+**Design skills that ship exact bracket values.** Several installed user-level
+skills hand you literal arbitrary utilities — `beautiful-shadows` gives three
+`shadow-[0px_2px_3px_-1px_rgba(...)…]` strings, `glass-dark-ui` one more.
+Pasting those into a template fails `NoArbitraryValuesCheck`. They are still
+worth using: a six-layer box-shadow is genuinely non-expressible as a single
+utility, like the multi-layer `background:` gradients already carved out above.
+Land the value as a `--shadow-*` entry in the `@theme` design-token block and
+reference it from a semantic class in `@layer components` — never as a bracket
+utility in Twig, and never as a one-off literal inside the class body. Snapping
+such a shadow to `shadow-md` instead is also a legitimate answer; what is not
+legitimate is the bracket form in markup.
+
 **Prefer the named scale over numeric spacing multiples.** `max-w-sm` / `max-w-5xl`, not `max-w-102` / `max-w-270` — even though the numeric forms are exact and the named ones are not. Proportion consistency matters more than preserving a hand-picked width.
 
 **Ordering inside `@apply`:** a `text-*` utility carries a bundled `line-height`, so place it **before** `leading-none`, or the size will override the leading.
