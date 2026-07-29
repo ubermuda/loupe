@@ -11,6 +11,8 @@ use App\Module\Account\EventListener\MarkExportFailedOnFinalFailure;
 use App\Module\Account\Messenger\GenerateDataExportMessage;
 use App\Module\Account\Repository\DataExportRepository;
 use Doctrine\ORM\EntityManagerInterface;
+use League\Flysystem\Filesystem;
+use League\Flysystem\Local\LocalFilesystemAdapter;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\MockObject\Stub;
 use PHPUnit\Framework\TestCase;
@@ -21,6 +23,22 @@ use Symfony\Component\Uid\Uuid;
 
 final class MarkExportFailedOnFinalFailureTest extends TestCase
 {
+    /** @var list<string> */
+    private array $rootsToRemove = [];
+
+    #[\Override]
+    protected function tearDown(): void
+    {
+        foreach ($this->rootsToRemove as $root) {
+            foreach (glob($root.'/*') ?: [] as $file) {
+                unlink($file);
+            }
+            if (is_dir($root)) {
+                rmdir($root);
+            }
+        }
+    }
+
     private function persistedExport(): DataExport
     {
         $user = new User('alice', 'Alice A', 'alice@example.com', 'x');
@@ -29,6 +47,14 @@ final class MarkExportFailedOnFinalFailureTest extends TestCase
         $ref->setValue($export, Uuid::v7());
 
         return $export;
+    }
+
+    private function localStorage(): Filesystem
+    {
+        $root = sys_get_temp_dir().'/loupe-failed-export-test-'.bin2hex(random_bytes(4));
+        $this->rootsToRemove[] = $root;
+
+        return new Filesystem(new LocalFilesystemAdapter($root));
     }
 
     public function test_final_failure_marks_the_export_failed(): void
@@ -43,7 +69,7 @@ final class MarkExportFailedOnFinalFailureTest extends TestCase
         $em = $this->createMock(EntityManagerInterface::class);
         $em->expects(self::once())->method('flush');
 
-        $listener = new MarkExportFailedOnFinalFailure($exports, $em, new NullLogger(), sys_get_temp_dir());
+        $listener = new MarkExportFailedOnFinalFailure($exports, $em, new NullLogger(), $this->localStorage());
 
         $event = new WorkerMessageFailedEvent(
             new Envelope(new GenerateDataExportMessage((string) $export->id)),
@@ -62,10 +88,9 @@ final class MarkExportFailedOnFinalFailureTest extends TestCase
         $exportId = $export->id;
         self::assertNotNull($exportId);
 
-        $projectDir = sys_get_temp_dir().'/loupe-failed-export-test-'.bin2hex(random_bytes(4));
-        $path = DataExport::computeArchivePath($projectDir, $exportId);
-        mkdir(\dirname($path), 0770, true);
-        file_put_contents($path, 'partial archive bytes');
+        $storage = $this->localStorage();
+        $key = DataExport::computeArchiveKey($exportId);
+        $storage->write($key, 'partial archive bytes');
 
         /** @var DataExportRepository&Stub $exports */
         $exports = $this->createStub(DataExportRepository::class);
@@ -74,7 +99,7 @@ final class MarkExportFailedOnFinalFailureTest extends TestCase
         /** @var EntityManagerInterface&Stub $em */
         $em = $this->createStub(EntityManagerInterface::class);
 
-        $listener = new MarkExportFailedOnFinalFailure($exports, $em, new NullLogger(), $projectDir);
+        $listener = new MarkExportFailedOnFinalFailure($exports, $em, new NullLogger(), $storage);
 
         $event = new WorkerMessageFailedEvent(
             new Envelope(new GenerateDataExportMessage((string) $export->id)),
@@ -82,14 +107,9 @@ final class MarkExportFailedOnFinalFailureTest extends TestCase
             new \RuntimeException('boom'),
         );
 
-        try {
-            $listener($event);
+        $listener($event);
 
-            self::assertFileDoesNotExist($path);
-        } finally {
-            @unlink($path);
-            @rmdir(\dirname($path));
-        }
+        self::assertFalse($storage->fileExists($key));
     }
 
     public function test_a_failure_that_will_still_retry_is_left_untouched(): void
@@ -104,7 +124,7 @@ final class MarkExportFailedOnFinalFailureTest extends TestCase
         $em = $this->createMock(EntityManagerInterface::class);
         $em->expects(self::never())->method('flush');
 
-        $listener = new MarkExportFailedOnFinalFailure($exports, $em, new NullLogger(), sys_get_temp_dir());
+        $listener = new MarkExportFailedOnFinalFailure($exports, $em, new NullLogger(), $this->localStorage());
 
         $event = new WorkerMessageFailedEvent(
             new Envelope(new GenerateDataExportMessage((string) $export->id)),
@@ -127,7 +147,7 @@ final class MarkExportFailedOnFinalFailureTest extends TestCase
         $em = $this->createMock(EntityManagerInterface::class);
         $em->expects(self::never())->method('flush');
 
-        $listener = new MarkExportFailedOnFinalFailure($exports, $em, new NullLogger(), sys_get_temp_dir());
+        $listener = new MarkExportFailedOnFinalFailure($exports, $em, new NullLogger(), $this->localStorage());
 
         $event = new WorkerMessageFailedEvent(
             new Envelope(new \stdClass()),

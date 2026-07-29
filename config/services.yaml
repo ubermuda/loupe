@@ -7,9 +7,20 @@
 # Put parameters here that don't need to change on each machine where the app is deployed
 # https://symfony.com/doc/current/best_practices.html#use-parameters-for-application-configuration
 parameters:
-    app.mailer.from_address: 'hello@loupe.ac'
-    app.mailer.from_name: 'Loupe'
-    app.url: '%env(APP_URL)%'
+    # Sender of every transactional email. Environment-driven because a
+    # self-hosted instance can only pass SPF/DKIM/DMARC with a domain its
+    # operator actually owns.
+    app.mailer.from_address: '%env(MAILER_FROM_ADDRESS)%'
+    app.mailer.from_name: '%env(MAILER_FROM_NAME)%'
+    # Base of the Mercure topic identifiers for site-review push. Derived from
+    # DEFAULT_URI rather than configured separately: it only has to be a stable
+    # string both sides of the channel agree on, and the app already knows its
+    # own public URL.
+    app.url: '%env(DEFAULT_URI)%'
+    # Proxies Symfony trusts for X-Forwarded-* when TRUSTED_PROXIES is unset.
+    # Correct behind Docker and any private-network load balancer; an operator
+    # whose balancer connects from a public IP overrides it.
+    app.trusted_proxies_default: 'PRIVATE_SUBNETS'
     # Name of the MCP server as it appears in the connect-agent install snippet
     # and the `claude mcp add` command.
     app.mcp.server_name: 'loupe'
@@ -28,11 +39,45 @@ services:
     # add more service definitions when explicit configuration is needed
     # please note that last definitions always *replace* previous ones
 
+    # Backs the `export.storage.s3` Flysystem storage. Only constructed when
+    # EXPORT_STORAGE=s3, because `export.storage` resolves its source lazily —
+    # a local-storage installation never reads any of these values.
+    #
+    # Every option goes through `default::`, which yields null for an empty
+    # variable, and AsyncAws treats null as "not configured": no endpoint falls
+    # back to AWS's own (https://s3.<region>.amazonaws.com), and no key/secret
+    # falls back to the ambient AWS credential chain (AWS_ACCESS_KEY_ID, an
+    # instance role, …), which is what an AWS-hosted install wants.
+    app.export_storage.s3_adapter:
+        class: League\Flysystem\AsyncAwsS3\AsyncAwsS3Adapter
+        arguments:
+            $client: '@app.export_storage.s3_client'
+            $bucket: '%env(EXPORT_STORAGE_BUCKET)%'
+            $prefix: '%env(EXPORT_STORAGE_PREFIX)%'
+            $visibility: '@App\Storage\PrivateCannedAclConverter'
+
+    app.export_storage.s3_client:
+        class: AsyncAws\S3\S3Client
+        arguments:
+            $configuration:
+                region: '%env(default::EXPORT_STORAGE_REGION)%'
+                endpoint: '%env(default::EXPORT_STORAGE_ENDPOINT)%'
+                accessKeyId: '%env(default::EXPORT_STORAGE_KEY)%'
+                accessKeySecret: '%env(default::EXPORT_STORAGE_SECRET)%'
+                pathStyleEndpoint: '%env(default::EXPORT_STORAGE_USE_PATH_STYLE)%'
+
 # Command handlers are private services; expose them in the test container so
 # KernelTestCase can fetch them directly without relying on a dependent service
 # (e.g. an MCP tool) keeping them reachable.
 when@test:
     services:
+        # The export storage is private. Tests seed and assert on archives
+        # through it rather than poking at var/exports, so that they keep
+        # passing whichever adapter EXPORT_STORAGE selects.
+        test.export.storage:
+            alias: 'export.storage'
+            public: true
+
         App\Module\Review\Command\CreateDocumentHandler:
             autowire: true
             public: true
@@ -141,5 +186,12 @@ when@test:
             public: true
 
         App\Module\Account\Command\CreateInstallAdminHandler:
+            autowire: true
+            public: true
+
+        # Public so controller tests can replace it: the real handler opens an
+        # SMTP connection and an HTTP request to the Mercure hub, neither of
+        # which a WebTestCase should make.
+        App\Module\Account\Command\CheckSystemStatusHandler:
             autowire: true
             public: true

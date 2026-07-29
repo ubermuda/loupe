@@ -743,6 +743,37 @@ Related: 'Worktree e2e runs now require a worktree-scoped worker' and
 'Decide fate of PlaywrightSyncEmailMiddleware (async-email follow-up)' — the
 latter would remove the need for this consumer altogether.
 
+## Data-export object storage has never run against a real bucket
+
+**Author:** Claude · **Type:** tooling · **Priority:** medium · **Status:** pending
+
+Data-export archives now go through a Flysystem storage (`export.storage` in
+`config/packages/flysystem.yaml`), selected at runtime by `EXPORT_STORAGE`:
+a local directory, or an S3-compatible bucket via
+`league/flysystem-async-aws-s3`. Everything automated exercises the **local**
+adapter — the unit and integration tests build a `LocalFilesystemAdapter`, and
+dev, test and e2e all leave `EXPORT_STORAGE=local`. The S3 adapter has only
+been proven to *wire up*: booting with `EXPORT_STORAGE=s3` constructs an
+`AsyncAwsS3Adapter` over an `AsyncAws\S3\S3Client`, and nothing beyond that.
+
+So no run has yet confirmed the parts that only a live bucket can answer:
+that `DataExportArchiveBuilder`'s upload-to-`<key>.tmp`-then-`move()` really is
+a server-side copy rather than a download-and-re-upload, that
+`DownloadDataExportController` streams a `GetObject` body correctly at size,
+that a missing object surfaces as a `FilesystemException` (a 404) rather than
+some other failure, and that the two
+provider-shaped knobs are right — path-style addressing
+(`EXPORT_STORAGE_USE_PATH_STYLE`) and the canned ACL (`EXPORT_STORAGE_ACL`,
+whose whole reason to exist is that `private` and `bucket-owner-full-control`
+are each rejected by *some* provider).
+
+Closing this means running one export end to end against a real bucket —
+MinIO in compose is enough, and is closer to the self-hosting story than AWS —
+and confirming the emailed link downloads a valid ZIP. Until then, treat
+`EXPORT_STORAGE=s3` as configured-but-unverified, which matters because
+`terraform/main.tf` makes it the **default** for the shipped deployment (see
+"Known gaps" in `DEPLOY.md`).
+
 ## Review anchoring — possible enhancement (low priority)
 
 
@@ -1589,6 +1620,29 @@ Worth noting the security shape early: an inbound event queue is a channel by
 which outside parties influence what an agent does next. Event bodies are
 untrusted text and must never be treated as instructions — the same rule that
 already applies to site-review comment bodies.
+
+## Worker heartbeat, so "is a worker running?" can be answered positively
+
+**Author:** Claude · **Type:** feature · **Priority:** medium · **Status:** pending
+
+The `worker` check on `/admin/status` (`CheckSystemStatusHandler::checkWorker()`
+in `src/Module/Account/Command/`) can only prove the *failure* case: it measures
+the age of the oldest available-and-unclaimed row in `messenger_messages`, so a
+backlog nobody has touched for a minute means nothing is consuming. An empty
+queue is reported as `Unknown`, because a running worker leaves no trace and a
+green tick there would be an assertion the app cannot back up.
+
+A positive signal is possible: listen for
+`Symfony\Component\Messenger\Event\WorkerRunningEvent` (dispatched roughly once
+a second, including while idle), throttle to one write every ~15 seconds, and
+upsert a timestamp into a single-row table. The status page then reports "a
+worker reported in N seconds ago" — genuinely observed, and it works in
+production where the web and worker containers share only the database (so a
+filesystem cache pool would not do).
+
+Deliberately not built with the status page: it costs a table plus a migration
+for a check the owner had already accepted could be approximate. Revisit if
+"unknown" turns out to be the answer operators see most of the time.
 
 ## Product idea (long horizon): drag DOM elements in the widget to try layouts
 

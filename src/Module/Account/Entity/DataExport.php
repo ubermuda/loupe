@@ -88,9 +88,13 @@ class DataExport
         return null !== $this->expiresAt && $this->expiresAt <= new \DateTimeImmutable();
     }
 
-    /** Single source of truth for where an export archive lives on disk. */
-    public static function computeArchivePath(string $projectDir, Uuid $id): string
+    /**
+     * Single source of truth for an export archive's key in the export
+     * storage. Where that storage physically is — a local directory or an
+     * S3 bucket — is the storage's business, not the entity's.
+     */
+    public static function computeArchiveKey(Uuid $id): string
     {
-        return sprintf('%s/var/exports/%s.zip', $projectDir, (string) $id);
+        return sprintf('%s.zip', (string) $id);
     }
 }
