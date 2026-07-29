@@ -106,7 +106,7 @@ final class CreateAdminControllerTest extends WebTestCase
             'install_admin_form[plainPassword]' => 'a-strong-password',
         ]);
 
-        foreach ([['GET', '/install'], ['POST', '/install'], ['GET', '/install/admin'], ['POST', '/install/admin']] as [$method, $path]) {
+        foreach ([['GET', '/install'], ['POST', '/install'], ['GET', '/install/status'], ['GET', '/install/admin'], ['POST', '/install/admin']] as [$method, $path]) {
             $client->request($method, $path);
             self::assertResponseStatusCodeSame(404, sprintf('%s %s must 404 once installed', $method, $path));
         }

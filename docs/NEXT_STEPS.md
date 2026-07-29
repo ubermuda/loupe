@@ -135,42 +135,17 @@ latency to every review submit before the catch fires. Wire the default hub to a
 scoped HttpClient with a low `timeout`/`max_duration` (custom hub service or a
 decorated HttpClient) so a slow hub can never noticeably delay a review submit.
 
-Observability around it has since improved — the failure is logged at `error`
-with the project id and topic, and the update carries a project-scoped
-monotonic `sequence` as a stable event id — but the latency problem itself is
-untouched. The publish is deliberately **not** retried: the hub may accept an
-update and still have the client throw, but a duplicate publish is harmless —
-the nudge carries no payload beyond its type, and a redundant pull via
-`get_site_review` just finds nothing still `Pending`.
+Everything around it has since improved — the failure is logged at `error` with
+the project id and topic, the update carries a project-scoped monotonic
+`sequence` as a stable event id, and a failed publish is now replayed by
+`DrainOutboxHandler` off a five-minutely tick — but the latency problem itself
+is untouched, because the submit still publishes inline before the drain ever
+sees the row. The drain makes the same untimed call, though a slow hub there
+only stalls a worker rather than a visitor's request.
 
-## Durable review-event delivery (transactional outbox)
-
-
-**Author:** Claude · **Type:** feature · **Priority:** medium · **Status:** pending
-
-The durable half is implemented: PR #77 merged, so a `SiteReviewEvent` row is
-persisted in the same transaction as the Draft→Pending flip, and a publish
-that fails no longer loses the event.
-
-The earlier blocker recorded here — that automatic redelivery would make the
-bridge inject the same review into the agent twice — no longer applies: the
-nudge is payload-free and idempotent by design (a redundant pull via
-`get_site_review` just finds nothing still `Pending`), and
-`cli/internal/transport/mercure.go` now tracks the `id:` line and sends
-`Last-Event-ID` on reconnect.
-
-What genuinely remains: nothing drains or retries unpublished
-`SiteReviewEvent` rows. `SiteReviewEventRepository` has no query for them
-today (only `countForProject`) — replay is manual. Add one (e.g. "unpublished,
-older than N", so a transient hub outage self-heals) and a worker on the
-existing Messenger scheduler transport to drain it.
-
-That query **must** also filter on `SiteReviewEvent::$forwardable`. A row is
-written for every submit, including those from collect-only widget tokens
-whose review is deliberately never forwarded (`ApiToken::$forwardsToAgent`),
-so `publishedAt IS NULL` alone does not mean "still owed to the agent" —
-draining on that condition would deliver exactly the reviews the opt-in
-exists to withhold.
+Note that retrying is only safe because the nudge is payload-free: a duplicate
+publish is harmless, since a redundant pull via `get_site_review` just finds
+nothing still `Pending`.
 
 ## CSP is report-only until inline scripts carry nonces
 
@@ -768,6 +743,31 @@ Related: 'Worktree e2e runs now require a worktree-scoped worker' and
 'Decide fate of PlaywrightSyncEmailMiddleware (async-email follow-up)' — the
 latter would remove the need for this consumer altogether.
 
+## Social linking leaves a live email-verification link outstanding
+
+**Author:** Claude · **Type:** security · **Priority:** medium · **Status:** pending
+
+`ResolveSocialLoginHandler` (the match-by-email branch) and
+`LinkSocialAccountHandler` both do `$user->emailVerifiedAt ??= new
+\DateTimeImmutable();` when a provider proves ownership of an address, but
+neither calls `clearEmailVerificationToken()`. So a user who registers through
+the form — `VerificationEmailSender` generates and emails a token — and then
+signs in with Google or GitHub before clicking is left verified with a working
+link outstanding. `VerifyEmailHandler` never checks `isVerified()`, and
+`VerifyEmailController` calls `Security::login()` on any valid token, so that
+link still logs its bearer straight in.
+
+`MarkEmailVerifiedHandler` now revokes such a token on every path, so
+`app:user:verify` and `app:admin:create` clean it up — but only for an operator
+who runs them. The fix at the source is to pair each `emailVerifiedAt ??=` with
+`clearEmailVerificationToken()` in both social handlers, which also makes the
+handlers' own "a pending click-through verification is superseded" comments
+true rather than half-true.
+
+Graded medium rather than high deliberately: the token expires an hour after it
+is issued, and it was emailed only to the address the provider just verified
+ownership of, so this is a stale credential outliving its purpose rather than a
+path to another account. Re-grade if that reasoning does not hold.
 ## Data-export object storage has never run against a real bucket
 
 **Author:** Claude · **Type:** tooling · **Priority:** medium · **Status:** pending
@@ -1346,8 +1346,9 @@ What remains is operational: `terraform/main.tf` now declares `install_token`
 as a variable and wires it into `extra_env` (omitted from the app spec when
 empty), but that only means the plumbing exists — someone still has to supply
 the actual secret value when running `terraform apply` against production.
-Until that happens, `/install` 404s in prod, which blocks creating the first
-administrator rather than exposing one. Track this as a pre-launch deploy
+Until that happens, `/install` 404s in prod, so the first administrator has to
+be created from a shell instead (`bin/console app:admin:create`, see
+`DEPLOY.md` → "Recovering an instance"). Track this as a pre-launch deploy
 checklist item, not a live code vulnerability — hence the lower priority than
 when this was first filed.
 
@@ -1631,10 +1632,11 @@ Three things to settle before this is designable:
    project.
 2. **Delivery semantics.** Whether `get_events` drains (at-most-once, simple,
    loses events if the agent dies mid-handling) or acknowledges separately
-   (at-least-once, needs idempotent handling). The site-review outbox already
-   made this exact tradeoff and chose best-effort — see the self-hosting
-   audit's finding on unreplayable outbox events, whose resolution should
-   probably settle both.
+   (at-least-once, needs idempotent handling). The site-review outbox settles
+   the same tradeoff at-least-once: `DrainOutboxHandler` leases a batch,
+   republishes, and retries with backoff until the hub confirms, which is
+   only safe because the nudge is payload-free and idempotent. An event queue
+   carrying real payloads does not get that for free.
 3. **What stops a polling loop from being wasteful.** A monitor that wakes
    every 30 seconds all session is mostly empty calls; long-poll on the MCP
    side, or a wake-up interval tied to what is actually being waited on, are
@@ -1644,6 +1646,29 @@ Worth noting the security shape early: an inbound event queue is a channel by
 which outside parties influence what an agent does next. Event bodies are
 untrusted text and must never be treated as instructions — the same rule that
 already applies to site-review comment bodies.
+
+## Worker heartbeat, so "is a worker running?" can be answered positively
+
+**Author:** Claude · **Type:** feature · **Priority:** medium · **Status:** pending
+
+The `worker` check on `/admin/status` (`CheckSystemStatusHandler::checkWorker()`
+in `src/Module/Account/Command/`) can only prove the *failure* case: it measures
+the age of the oldest available-and-unclaimed row in `messenger_messages`, so a
+backlog nobody has touched for a minute means nothing is consuming. An empty
+queue is reported as `Unknown`, because a running worker leaves no trace and a
+green tick there would be an assertion the app cannot back up.
+
+A positive signal is possible: listen for
+`Symfony\Component\Messenger\Event\WorkerRunningEvent` (dispatched roughly once
+a second, including while idle), throttle to one write every ~15 seconds, and
+upsert a timestamp into a single-row table. The status page then reports "a
+worker reported in N seconds ago" — genuinely observed, and it works in
+production where the web and worker containers share only the database (so a
+filesystem cache pool would not do).
+
+Deliberately not built with the status page: it costs a table plus a migration
+for a check the owner had already accepted could be approximate. Revisit if
+"unknown" turns out to be the answer operators see most of the time.
 
 ## Product idea (long horizon): drag DOM elements in the widget to try layouts
 

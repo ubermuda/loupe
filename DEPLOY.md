@@ -36,8 +36,11 @@ from a workstation with `just`.
 | **Export bucket** | A DigitalOcean Spaces bucket plus a bucket-scoped access key, created by `terraform/spaces.tf` and wired into the app as ordinary `EXPORT_STORAGE_*` settings. |
 | **Mercure hub** | Required for site-review push. A second service in the same app, run by the shared module when `mercure_jwt_secret` is set. In-memory, so delivery is best effort — see "Known gaps". |
 
-The web container listens on port 80. App Platform health-checks `/login`,
-because `/` is behind `ROLE_USER` and 302-redirects.
+The web container listens on port 80. Point the platform's health check at
+`GET /healthz`: it is unauthenticated, returns `{"status":"ok"}` with HTTP 200
+when the database answers and `{"status":"error"}` with HTTP 503 when it does
+not, and it deliberately says nothing else — an anonymous caller learns whether
+the instance is up, and no more.
 
 ## Prerequisites
 
@@ -166,8 +169,8 @@ rather than half-configured:
 | Variable | Needed for | If unset |
 |---|---|---|
 | `MAILER_FROM_ADDRESS`, `MAILER_FROM_NAME` | Sender of every transactional email; the address must be on a domain you control and have published SPF/DKIM/DMARC for | Falls back to `noreply@localhost`, which real mail servers reject — and since email verification is mandatory, **your users cannot complete registration** |
-| `ADMIN_EMAIL` | Promotes that user to `ROLE_ADMIN` | No admin promotion |
-| `INSTALL_TOKEN` | Gates `/install` | **In prod the wizard 404s outright** — it fails closed, so an unset value locks you out of first-run setup rather than exposing it |
+| `ADMIN_EMAIL` | Promotes that user to `ROLE_ADMIN` at login — only for an already-verified account, so it cannot rescue a locked-out install; `app:user:promote` can | No admin promotion |
+| `INSTALL_TOKEN` | Gates `/install` | **In prod the wizard 404s outright** — it fails closed, so an unset value keeps first-run setup out of a stranger's reach rather than exposing it; recover with `app:admin:create` |
 | `mercure_jwt_secret` | Runs the Mercure hub for site-review push (a Terraform variable, not an env var — the module derives the URLs) | Hub not run; review submissions save but never reach a running agent |
 | `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET` | Billing, checkout, webhooks | Billing paths fail |
 | `OAUTH_GOOGLE_ID` / `_SECRET`, `OAUTH_GITHUB_ID` / `_SECRET` | Social login | Those buttons fail |
@@ -182,26 +185,92 @@ rather than half-configured:
 
 `INSTALL_TOKEN` is the one to set **before** the first deploy: the wizard is how
 you create the first administrator, and in production it is unreachable without
-the token.
+the token. If you forget it, see "Recovering an instance" — you are not locked
+out, but the fix is a shell rather than a browser.
+
+## Recovering an instance
+
+Three console commands are the supported way back into an instance with no
+reachable administrator. Run them in the web container (`docker exec`, or the
+platform's console). All three are idempotent: running one against an account
+that is already in the desired state prints "already …" and exits 0.
+
+| Command | What it does |
+|---|---|
+| `app:admin:create <email>` | Ensures the email is a **verified administrator**, creating the account if it does not exist. Options: `--username`, `--full-name`, `--password`. With no `--password` it prompts (or, non-interactively, generates one and prints it once). An existing account is promoted and verified in place and **keeps its password**. |
+| `app:user:promote <email>` | Grants `ROLE_ADMIN` to an existing account, keeping any other roles. |
+| `app:user:verify <email>` | Marks the account's email verified and burns any outstanding verification token — including on an account that was already verified, since that link logs its bearer straight in. The escape hatch when outbound mail never arrives: an unverified account is parked on the check-email page and cannot reach the admin area. |
+
+Non-interactive first admin on a fresh instance:
+
+```bash
+docker exec <web-container> bin/console app:admin:create you@example.com
+# → Created administrator you@example.com (username: you)
+# → Generated password (shown once): …
+```
+
+Sign-up itself is closed until the instance is installed: `/register` (and the
+OAuth sign-up branch, and `/waitlist`) refuse to create the **first** account,
+so a forgotten `INSTALL_TOKEN` cannot leave the instance to whoever finds it
+first. Registration is additionally gated on the `registration.enabled` feature
+flag, which the wizard seeds and the admin area can toggle at any time; when the
+flag row is absent — an instance upgraded from a version that never seeded it,
+or one recovered entirely from the shell — registration stays open.
+
+A shell-recovered instance has no feature-flag rows at all, and that is fine:
+every install flag falls back to exactly the value the wizard would have
+written (registration on, no cap, billing and social login off, a 14-day
+trial), so the instance behaves like a wizard-installed one with the defaults
+accepted. To change any of them, visit the admin **Feature flags** page — its
+scan view lists every flag the code references but the database does not
+define, and creates the rows on request.
 
 ## Post-deploy checks
 
-1. `GET /login` returns 200 — the health check path.
+1. `GET /healthz` returns 200 and `{"status":"ok"}` — the health check path.
+   A 503 means the container is serving but cannot reach the database.
 2. `POST /mcp` with no credentials returns **401, not 404**. A 404 means the
    route did not register; a 401 means it registered and the firewall rejected
    you.
 3. `bin/console doctrine:migrations:status` reports no pending migrations.
-4. Trigger something that queues async work (a data export) and confirm it
-   completes — that proves the worker is actually consuming. **Then follow the
-   download link in the email and check you get a ZIP**: completion only proves
-   the worker ran, while the download is what proves the web container can
-   reach the archive the worker wrote.
+4. Open **`/admin/status`**. It reports, for this instance, whether the mail
+   transport accepts a connection, whether the sender address is still the
+   undeliverable default, whether the message queue is being drained, whether
+   the Mercure hub answers, and — when billing is on — whether the Stripe keys
+   are set. The install wizard shows the same page before it creates your
+   administrator, so a broken mailer is visible *before* it can lock you out.
+
+   The worker check is deliberately honest about its limits: a running worker
+   leaves no lasting trace, so an empty queue is reported as **unknown**, not
+   as healthy. What it can prove is the failure — messages sitting available
+   and unclaimed for over a minute mean nothing is consuming them.
+5. Trigger something that queues async work (a data export) and confirm it
+   completes — that proves the worker is actually consuming, which step 4
+   cannot. **Then follow the download link in the email and check you get a
+   ZIP**: completion only proves the worker ran, while the download is what
+   proves the web container can reach the archive the worker wrote.
+
+## Failed messages
+
+A message that exhausts its three retries is moved to the `failed` transport
+(`doctrine://default?queue_name=failed`) rather than dropped. Nothing surfaces
+that automatically, so check it when mail or exports go missing:
+
+```bash
+bin/console messenger:failed:show          # list parked messages
+bin/console messenger:failed:show <id> -vv # full detail, including the error
+bin/console messenger:failed:retry         # re-queue them, interactively
+```
+
+`/admin/status` shows the current count, so you know whether it is worth
+looking.
 
 ## Known gaps
 
 1. **Set `install_token` before the first deploy.** Since the wizard fails closed
-   in production, an unset value means `/install` returns 404 and there is no way
-   to create the first administrator.
+   in production, an unset value means `/install` returns 404 and the browser
+   has no route to the first administrator. Recoverable from a shell — see
+   "Recovering an instance" — but the wizard is the pleasant path.
 
 2. **The export bucket is created for you, but pick its region.** The web and
    worker containers have separate ephemeral filesystems, so the application

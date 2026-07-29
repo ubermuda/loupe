@@ -9,10 +9,12 @@ use App\Module\Account\Entity\WaitlistEntry;
 use App\Module\Account\Event\UserRegistered;
 use App\Module\Account\Repository\UserRepository;
 use App\Module\Account\Repository\WaitlistEntryRepository;
+use App\Module\Account\Service\InstallationState;
 use App\Module\Account\Service\RegistrationGate;
 use App\Module\Account\Service\VerificationEmailSender;
 use App\Module\Billing\Repository\BillingProfileRepository;
 use App\Module\Billing\Service\TrialProvisioner;
+use App\Tests\Support\InstalledInstance;
 use Doctrine\DBAL\Driver\PDO\Exception as PdoDriverException;
 use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
 use Doctrine\ORM\EntityManagerInterface;
@@ -43,6 +45,10 @@ final class RegisterUserHandlerTest extends KernelTestCase
         $handler = $container->get(RegisterUserHandler::class);
         self::assertInstanceOf(RegisterUserHandler::class, $handler);
         $this->handler = $handler;
+
+        // Sign-up refuses to create the first account on an instance; these
+        // tests all register into an instance that is already installed.
+        InstalledInstance::ensure($this->em);
     }
 
     public function test_concurrent_duplicate_registration_surfaces_domain_error_not_500(): void
@@ -53,6 +59,7 @@ final class RegisterUserHandlerTest extends KernelTestCase
         $users = $this->createStub(UserRepository::class);
         $users->method('findOneByEmail')->willReturn(null);
         $users->method('findOneByUsername')->willReturn(null);
+        $users->method('count')->willReturn(1); // installation complete
 
         $em = $this->createStub(EntityManagerInterface::class);
         $em->method('wrapInTransaction')->willReturnCallback(fn (callable $func) => $func());
@@ -69,7 +76,8 @@ final class RegisterUserHandlerTest extends KernelTestCase
 
         $flags = $this->createStub(FeatureFlagService::class);
         $flags->method('getIntValue')->willReturn(0); // unlimited — gate stays open
-        $gate = new RegistrationGate($flags, $users);
+        $flags->method('isEnabled')->willReturn(true); // registration switched on
+        $gate = new RegistrationGate($flags, $users, new InstallationState($users));
 
         $handler = new RegisterUserHandler(
             users: $users,

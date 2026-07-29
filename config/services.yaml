@@ -21,6 +21,10 @@ parameters:
     # Correct behind Docker and any private-network load balancer; an operator
     # whose balancer connects from a public IP overrides it.
     app.trusted_proxies_default: 'PRIVATE_SUBNETS'
+    # Source-code location offered to network users in the footer. Overridable
+    # per instance so a fork links to its own modified source, as the AGPL
+    # requires.
+    app.source_url: '%env(APP_SOURCE_URL)%'
     # Name of the MCP server as it appears in the connect-agent install snippet
     # and the `claude mcp add` command.
     app.mcp.server_name: 'loupe'
@@ -186,5 +190,12 @@ when@test:
             public: true
 
         App\Module\Account\Command\CreateInstallAdminHandler:
+            autowire: true
+            public: true
+
+        # Public so controller tests can replace it: the real handler opens an
+        # SMTP connection and an HTTP request to the Mercure hub, neither of
+        # which a WebTestCase should make.
+        App\Module\Account\Command\CheckSystemStatusHandler:
             autowire: true
             public: true

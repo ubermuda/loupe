@@ -21,9 +21,13 @@ use Symfony\Component\Uid\Uuid;
  * event id, giving subscribers a monotonic `Last-Event-ID` to resume from.
  */
 #[ORM\Entity(repositoryClass: SiteReviewEventRepository::class)]
+#[ORM\Index(name: 'idx_site_review_events_drain', columns: ['published_at', 'forwardable', 'next_attempt_at'])]
 #[ORM\Table(name: 'site_review_events')]
 class SiteReviewEvent
 {
+    private const int MAX_BACKOFF_MINUTES = 60;
+    private const int ERROR_LENGTH_LIMIT = 500;
+
     #[ORM\Column(type: UuidType::NAME, unique: true)]
     #[ORM\CustomIdGenerator(class: 'doctrine.uuid_generator')]
     #[ORM\GeneratedValue(strategy: 'CUSTOM')]
@@ -35,6 +39,21 @@ class SiteReviewEvent
 
     #[ORM\Column(nullable: true)]
     public ?\DateTimeImmutable $publishedAt = null;
+
+    /**
+     * How many publish attempts have been made and rejected. Counted on caught
+     * failures only, so a process that dies mid-publish leaves it untouched and
+     * the row retries at the next tick rather than backing off.
+     */
+    #[ORM\Column(options: ['default' => 0])]
+    public int $publishAttempts = 0;
+
+    /** Earliest moment the drain may claim this row. Null means due now. */
+    #[ORM\Column(nullable: true)]
+    public ?\DateTimeImmutable $nextAttemptAt = null;
+
+    #[ORM\Column(type: Types::TEXT, nullable: true)]
+    public ?string $lastPublishError = null;
 
     public function __construct(
         #[ORM\JoinColumn(nullable: false)]
@@ -67,5 +86,22 @@ class SiteReviewEvent
     public function markPublished(): void
     {
         $this->publishedAt = new \DateTimeImmutable();
+    }
+
+    /**
+     * Backs the row off after a rejected publish: the wait doubles per attempt
+     * and stops growing at an hour, so a hub that has been down for a day does
+     * not push the next attempt into next week. There is no attempt ceiling —
+     * an outbox that gives up on a row is one that records a failure it can
+     * never replay, which is the thing this drain exists to prevent.
+     */
+    public function recordPublishFailure(string $error, \DateTimeImmutable $now): void
+    {
+        ++$this->publishAttempts;
+        $this->lastPublishError = mb_substr($error, 0, self::ERROR_LENGTH_LIMIT);
+        $this->nextAttemptAt = $now->add(new \DateInterval(sprintf(
+            'PT%dM',
+            min(2 ** min($this->publishAttempts - 1, 6), self::MAX_BACKOFF_MINUTES),
+        )));
     }
 }

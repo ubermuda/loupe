@@ -33,6 +33,7 @@ class ShowSiteReviewController extends AppController
             'project' => $project,
             'comments' => $this->siteReviewComments->findForProject($project),
             'submittedCount' => $this->siteReviewEvents->countForProject($project),
+            'unsentCount' => $this->siteReviewEvents->countUnsent($project),
         ]);
     }
 }

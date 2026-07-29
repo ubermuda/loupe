@@ -41,6 +41,7 @@ final class SeedFlagsController extends AppController
         if ($form->isSubmitted() && $form->isValid()) {
             ($this->seedInstallFlagsHandler)(new SeedInstallFlagsCommand(
                 registrationCap: $data->registrationCap ?? throw new \LogicException('registrationCap required after validation'),
+                registrationEnabled: $data->registrationEnabled,
                 billingEnabled: $data->billingEnabled,
                 billingTrialDays: $data->billingTrialDays ?? throw new \LogicException('billingTrialDays required after validation'),
                 billingStripePriceId: ('' === ($data->billingStripePriceId ?? '')) ? null : $data->billingStripePriceId,
@@ -50,7 +51,7 @@ final class SeedFlagsController extends AppController
             $request->getSession()->set(self::SESSION_FLAGS_SEEDED, true);
             $this->logger->info('account.install.flags_seeded', []);
 
-            return $this->redirectToRoute('app_install_admin');
+            return $this->redirectToRoute('app_install_status');
         }
 
         return $this->renderFormResponse('@Account/install/seed_flags.html.twig', $form);

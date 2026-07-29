@@ -1,0 +1,17 @@
+{#
+  The admin area renders the admin bundle's layout instead of the app's
+  base.html.twig, so it would otherwise be the one part of the UI with no AGPL
+  source offer. Overriding the layout here rather than each admin page covers
+  the app's own admin templates and the ones shipped by bundles alike.
+
+  `@!UbermudaAdmin` is the bundle's own copy of the template — extending the
+  plain `@UbermudaAdmin` name from this file would resolve back to this file.
+#}
+{% extends '@!UbermudaAdmin/base.html.twig' %}
+
+{% block sidebar_footer %}
+    {{ parent() }}
+    <div class="px-3 pb-4">
+        {% include '_source_link.html.twig' with {class: 'flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-white/50 transition hover:bg-white/15 hover:text-white'} only %}
+    </div>
+{% endblock %}

@@ -36,7 +36,6 @@ app_encryption_key   = "GENERATED_BASE64_32_BYTE_KEY"
 
 # --- Application configuration (wired into extra_env in main.tf) ---
 # Omit any of these and the matching feature stays off rather than half-configured.
-
 # REQUIRED in production: the install wizard fails closed there, so without this
 # /install 404s and you cannot create the first administrator.
 # install_token = "GENERATE_A_LONG_RANDOM_STRING"

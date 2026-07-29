@@ -8,6 +8,10 @@
                 <source>app.name</source>
                 <target>Loupe</target>
             </trans-unit>
+            <trans-unit id="footer.source.label">
+                <source>footer.source.label</source>
+                <target>Source code</target>
+            </trans-unit>
 
             <!-- Home page -->
             <trans-unit id="account.home.page.title">
@@ -131,6 +135,10 @@
             <trans-unit id="account.social.error.unverified_email">
                 <source>account.social.error.unverified_email</source>
                 <target>That account has no verified email address, so it cannot be used to sign in.</target>
+            </trans-unit>
+            <trans-unit id="account.social.error.registration_closed">
+                <source>account.social.error.registration_closed</source>
+                <target>This instance is not accepting new accounts, so that provider account cannot be used to sign up.</target>
             </trans-unit>
             <trans-unit id="account.social.link.page.title">
                 <source>account.social.link.page.title</source>
@@ -361,6 +369,10 @@
             <trans-unit id="account.error.registration_closed">
                 <source>account.error.registration_closed</source>
                 <target>Registration is currently closed — join the waitlist to get an invite.</target>
+            </trans-unit>
+            <trans-unit id="account.error.registration_disabled">
+                <source>account.error.registration_disabled</source>
+                <target>This instance is not accepting new accounts.</target>
             </trans-unit>
 
             <!-- Email subjects -->
@@ -1494,6 +1506,10 @@
                 <source>account.form.install_flags_form.registration_cap.label</source>
                 <target>Registration cap (0 = unlimited)</target>
             </trans-unit>
+            <trans-unit id="account.form.install_flags_form.registration_enabled.label">
+                <source>account.form.install_flags_form.registration_enabled.label</source>
+                <target>Allow people to register accounts</target>
+            </trans-unit>
             <trans-unit id="account.form.install_flags_form.billing_enabled.label">
                 <source>account.form.install_flags_form.billing_enabled.label</source>
                 <target>Enable billing</target>
@@ -1513,6 +1529,30 @@
             <trans-unit id="account.form.install_flags_form.auth_google_enabled.label">
                 <source>account.form.install_flags_form.auth_google_enabled.label</source>
                 <target>Enable Google login</target>
+            </trans-unit>
+            <trans-unit id="account.install.status.page.title">
+                <source>account.install.status.page.title</source>
+                <target>Install: systems check</target>
+            </trans-unit>
+            <trans-unit id="account.install.status.heading">
+                <source>account.install.status.heading</source>
+                <target>Check your systems</target>
+            </trans-unit>
+            <trans-unit id="account.install.status.intro">
+                <source>account.install.status.intro</source>
+                <target>The next step creates your administrator account and emails you a verification link. These checks cover what has to work for that link to arrive.</target>
+            </trans-unit>
+            <trans-unit id="account.install.status.warning">
+                <source>account.install.status.warning</source>
+                <target>Something below needs attention. You can still continue, but if mail cannot be delivered you will not receive your verification link — fix it first, or be ready to verify your account from the command line.</target>
+            </trans-unit>
+            <trans-unit id="account.install.status.continue">
+                <source>account.install.status.continue</source>
+                <target>Continue</target>
+            </trans-unit>
+            <trans-unit id="account.install.status.recheck">
+                <source>account.install.status.recheck</source>
+                <target>Run the checks again</target>
             </trans-unit>
             <trans-unit id="account.install.admin.page.title">
                 <source>account.install.admin.page.title</source>
@@ -1561,6 +1601,169 @@
             <trans-unit id="account.install.error.already_installed">
                 <source>account.install.error.already_installed</source>
                 <target>This application is already installed.</target>
+            </trans-unit>
+
+            <!-- Console recovery commands -->
+            <trans-unit id="account.console.error.user_not_found">
+                <source>account.console.error.user_not_found</source>
+                <target>No account exists with that email address.</target>
+            </trans-unit>
+            <trans-unit id="account.console.error.username_taken">
+                <source>account.console.error.username_taken</source>
+                <target>That username is already taken.</target>
+            </trans-unit>
+            <!-- System status (install wizard step and admin page) -->
+            <trans-unit id="account.system_status.page.title">
+                <source>account.system_status.page.title</source>
+                <target>System status</target>
+            </trans-unit>
+            <trans-unit id="account.system_status.heading">
+                <source>account.system_status.heading</source>
+                <target>System status</target>
+            </trans-unit>
+            <trans-unit id="account.system_status.subtitle">
+                <source>account.system_status.subtitle</source>
+                <target>What this instance can reach right now. Checks run when the page loads.</target>
+            </trans-unit>
+            <trans-unit id="account.system_status.state.ok">
+                <source>account.system_status.state.ok</source>
+                <target>OK</target>
+            </trans-unit>
+            <trans-unit id="account.system_status.state.warning">
+                <source>account.system_status.state.warning</source>
+                <target>Check</target>
+            </trans-unit>
+            <trans-unit id="account.system_status.state.unknown">
+                <source>account.system_status.state.unknown</source>
+                <target>Unknown</target>
+            </trans-unit>
+            <trans-unit id="account.system_status.state.failed">
+                <source>account.system_status.state.failed</source>
+                <target>Failed</target>
+            </trans-unit>
+            <trans-unit id="account.system_status.check.mailer.label">
+                <source>account.system_status.check.mailer.label</source>
+                <target>Mail transport</target>
+            </trans-unit>
+            <trans-unit id="account.system_status.check.mailer_sender.label">
+                <source>account.system_status.check.mailer_sender.label</source>
+                <target>Sender address</target>
+            </trans-unit>
+            <trans-unit id="account.system_status.check.worker.label">
+                <source>account.system_status.check.worker.label</source>
+                <target>Background worker</target>
+            </trans-unit>
+            <trans-unit id="account.system_status.check.failed_messages.label">
+                <source>account.system_status.check.failed_messages.label</source>
+                <target>Failed messages</target>
+            </trans-unit>
+            <trans-unit id="account.system_status.check.mercure.label">
+                <source>account.system_status.check.mercure.label</source>
+                <target>Mercure hub</target>
+            </trans-unit>
+            <trans-unit id="account.system_status.check.stripe.label">
+                <source>account.system_status.check.stripe.label</source>
+                <target>Stripe credentials</target>
+            </trans-unit>
+            <trans-unit id="account.system_status.mailer.unset">
+                <source>account.system_status.mailer.unset</source>
+                <target>MAILER_DSN is not set, so no email can be sent at all.</target>
+            </trans-unit>
+            <trans-unit id="account.system_status.mailer.invalid">
+                <source>account.system_status.mailer.invalid</source>
+                <target>MAILER_DSN could not be understood. Check its syntax, and that the transport it names is installed.</target>
+            </trans-unit>
+            <trans-unit id="account.system_status.mailer.null_transport">
+                <source>account.system_status.mailer.null_transport</source>
+                <target>MAILER_DSN is the shipped default null://null. It reports every message as sent and delivers none, so verification and password-reset email will silently vanish.</target>
+            </trans-unit>
+            <trans-unit id="account.system_status.mailer.unverifiable">
+                <source>account.system_status.mailer.unverifiable</source>
+                <target>A transport is configured, but it is not SMTP, so it cannot be verified without sending a real message. Send yourself one to confirm it works.</target>
+            </trans-unit>
+            <trans-unit id="account.system_status.mailer.smtp_unreachable">
+                <source>account.system_status.mailer.smtp_unreachable</source>
+                <target>The SMTP host in MAILER_DSN did not accept a connection. Check the host, port, credentials and any firewall between them.</target>
+            </trans-unit>
+            <trans-unit id="account.system_status.mailer.smtp_reachable">
+                <source>account.system_status.mailer.smtp_reachable</source>
+                <target>The SMTP host accepted a connection. That proves it is reachable and willing to talk, not that it will accept or deliver your mail.</target>
+            </trans-unit>
+            <trans-unit id="account.system_status.mailer_sender.placeholder">
+                <source>account.system_status.mailer_sender.placeholder</source>
+                <target>MAILER_FROM_ADDRESS is still on the placeholder domain localhost. Real mail servers reject it, and email verification is mandatory, so nobody can finish registering. Set it to an address on a domain you control.</target>
+            </trans-unit>
+            <trans-unit id="account.system_status.mailer_sender.configured">
+                <source>account.system_status.mailer_sender.configured</source>
+                <target>Mail is sent as %address%. Deliverability also needs SPF, DKIM and DMARC published for that domain.</target>
+            </trans-unit>
+            <trans-unit id="account.system_status.worker.queue_unreadable">
+                <source>account.system_status.worker.queue_unreadable</source>
+                <target>The message queue could not be read, so nothing can be said about the worker.</target>
+            </trans-unit>
+            <trans-unit id="account.system_status.worker.queue_empty">
+                <source>account.system_status.worker.queue_empty</source>
+                <target>The queue is empty. An idle queue cannot prove a worker is running — confirm with "bin/console messenger:stats", or watch this page after the next email is queued.</target>
+            </trans-unit>
+            <trans-unit id="account.system_status.worker.backlog_stale">
+                <source>account.system_status.worker.backlog_stale</source>
+                <target>%count% message(s) have been waiting %seconds% seconds without being processed. Nothing is consuming the queue: start a worker with "bin/console messenger:consume scheduler_default async".</target>
+            </trans-unit>
+            <trans-unit id="account.system_status.worker.claimed_in_flight">
+                <source>account.system_status.worker.claimed_in_flight</source>
+                <target>%count% message(s) are claimed by a worker and not finished. That is normal while one is being processed — but if that worker has died, they will not be offered to another one until the redelivery timeout expires an hour after the claim.</target>
+            </trans-unit>
+            <trans-unit id="account.system_status.worker.backlog_fresh">
+                <source>account.system_status.worker.backlog_fresh</source>
+                <target>%count% message(s) are queued and were enqueued moments ago. Too soon to tell whether anything is consuming them — reload in a minute.</target>
+            </trans-unit>
+            <trans-unit id="account.system_status.failed_messages.unreadable">
+                <source>account.system_status.failed_messages.unreadable</source>
+                <target>The failed-message queue could not be read.</target>
+            </trans-unit>
+            <trans-unit id="account.system_status.failed_messages.none">
+                <source>account.system_status.failed_messages.none</source>
+                <target>Nothing in the failed transport. Messages that exhaust their retries land there; inspect them with "bin/console messenger:failed:show" and re-queue them with "bin/console messenger:failed:retry".</target>
+            </trans-unit>
+            <trans-unit id="account.system_status.failed_messages.present">
+                <source>account.system_status.failed_messages.present</source>
+                <target>%count% message(s) exhausted their retries and are parked in the failed transport. Inspect them with "bin/console messenger:failed:show" and re-queue them with "bin/console messenger:failed:retry".</target>
+            </trans-unit>
+            <trans-unit id="account.system_status.mercure.unconfigured">
+                <source>account.system_status.mercure.unconfigured</source>
+                <target>No Mercure hub is configured (MERCURE_URL and MERCURE_JWT_SECRET). Site reviews are still saved, but they never reach a connected agent in real time.</target>
+            </trans-unit>
+            <trans-unit id="account.system_status.mercure.unreachable">
+                <source>account.system_status.mercure.unreachable</source>
+                <target>The configured Mercure hub did not answer. Site reviews are still saved, but real-time delivery is off until it does.</target>
+            </trans-unit>
+            <trans-unit id="account.system_status.mercure.reachable">
+                <source>account.system_status.mercure.reachable</source>
+                <target>The Mercure hub answered (HTTP %status%). Any answer proves a hub is listening; it does not prove the shared secret matches.</target>
+            </trans-unit>
+            <trans-unit id="account.system_status.stripe.configured">
+                <source>account.system_status.stripe.configured</source>
+                <target>Both Stripe keys are set. Their validity is not checked here — that would mean calling Stripe from this page.</target>
+            </trans-unit>
+            <trans-unit id="account.system_status.stripe.missing">
+                <source>account.system_status.stripe.missing</source>
+                <target>Billing is enabled but %variables% is not set, so checkout and webhooks will fail.</target>
+            </trans-unit>
+            <trans-unit id="account.system_status.failed_transport.heading">
+                <source>account.system_status.failed_transport.heading</source>
+                <target>Recovering failed messages</target>
+            </trans-unit>
+            <trans-unit id="account.system_status.failed_transport.description">
+                <source>account.system_status.failed_transport.description</source>
+                <target>A message that fails three times is moved to the failed transport instead of being lost. Run these inside the application container to see what is parked there and to put it back in the queue.</target>
+            </trans-unit>
+            <trans-unit id="account.system_status.failed_transport.show_command">
+                <source>account.system_status.failed_transport.show_command</source>
+                <target>bin/console messenger:failed:show</target>
+            </trans-unit>
+            <trans-unit id="account.system_status.failed_transport.retry_command">
+                <source>account.system_status.failed_transport.retry_command</source>
+                <target>bin/console messenger:failed:retry</target>
             </trans-unit>
 
             <!-- Admin waitlist page -->
@@ -1761,6 +1964,110 @@
             <trans-unit id="billing.subscribe.waitlist.button_label">
                 <source>billing.subscribe.waitlist.button_label</source>
                 <target>Join the waitlist</target>
+            </trans-unit>
+            <trans-unit id="site_review.page.unsent_notice">
+                <source>site_review.page.unsent_notice</source>
+                <target>{0} All reviews delivered|{1} 1 review has not reached your agent yet|]1,Inf[ %count% reviews have not reached your agent yet</target>
+            </trans-unit>
+            <trans-unit id="site_review.outbox.page.title">
+                <source>site_review.outbox.page.title</source>
+                <target>Undelivered reviews</target>
+            </trans-unit>
+            <trans-unit id="site_review.outbox.page.description">
+                <source>site_review.outbox.page.description</source>
+                <target>Every submitted review is recorded before it is sent, so one that never reached your agent is kept here and retried automatically. Comments stay readable in the meantime — your agent can pull them at any time.</target>
+            </trans-unit>
+            <trans-unit id="site_review.outbox.count">
+                <source>site_review.outbox.count</source>
+                <target>{0} Nothing waiting|{1} 1 review waiting to be sent|]1,Inf[ %count% reviews waiting to be sent</target>
+            </trans-unit>
+            <trans-unit id="site_review.outbox.empty">
+                <source>site_review.outbox.empty</source>
+                <target>Every review has been delivered.</target>
+            </trans-unit>
+            <trans-unit id="site_review.outbox.event_label">
+                <source>site_review.outbox.event_label</source>
+                <target>Review submitted %date%</target>
+            </trans-unit>
+            <trans-unit id="site_review.outbox.status.unsent">
+                <source>site_review.outbox.status.unsent</source>
+                <target>Not sent</target>
+            </trans-unit>
+            <trans-unit id="site_review.outbox.attempts">
+                <source>site_review.outbox.attempts</source>
+                <target>{0} Not attempted yet|{1} 1 attempt|]1,Inf[ %count% attempts</target>
+            </trans-unit>
+            <trans-unit id="site_review.outbox.next_attempt.due_now">
+                <source>site_review.outbox.next_attempt.due_now</source>
+                <target>Next attempt: due now</target>
+            </trans-unit>
+            <trans-unit id="site_review.outbox.next_attempt.scheduled">
+                <source>site_review.outbox.next_attempt.scheduled</source>
+                <target>Next attempt: %date%</target>
+            </trans-unit>
+            <trans-unit id="site_review.admin.outbox.page.title">
+                <source>site_review.admin.outbox.page.title</source>
+                <target>Review outbox</target>
+            </trans-unit>
+            <trans-unit id="site_review.admin.outbox.title">
+                <source>site_review.admin.outbox.title</source>
+                <target>Undelivered site reviews</target>
+            </trans-unit>
+            <trans-unit id="site_review.admin.outbox.unit">
+                <source>site_review.admin.outbox.unit</source>
+                <target>event</target>
+            </trans-unit>
+            <trans-unit id="site_review.admin.outbox.unit_plural">
+                <source>site_review.admin.outbox.unit_plural</source>
+                <target>events</target>
+            </trans-unit>
+            <trans-unit id="site_review.admin.outbox.empty">
+                <source>site_review.admin.outbox.empty</source>
+                <target>Every site review has been delivered.</target>
+            </trans-unit>
+            <trans-unit id="site_review.admin.outbox.filter.project">
+                <source>site_review.admin.outbox.filter.project</source>
+                <target>Project</target>
+            </trans-unit>
+            <trans-unit id="site_review.admin.outbox.filter.all_projects">
+                <source>site_review.admin.outbox.filter.all_projects</source>
+                <target>All projects</target>
+            </trans-unit>
+            <trans-unit id="site_review.admin.outbox.filter.clear">
+                <source>site_review.admin.outbox.filter.clear</source>
+                <target>Clear</target>
+            </trans-unit>
+            <trans-unit id="site_review.admin.outbox.column.project">
+                <source>site_review.admin.outbox.column.project</source>
+                <target>Project</target>
+            </trans-unit>
+            <trans-unit id="site_review.admin.outbox.column.created">
+                <source>site_review.admin.outbox.column.created</source>
+                <target>Submitted</target>
+            </trans-unit>
+            <trans-unit id="site_review.admin.outbox.column.attempts">
+                <source>site_review.admin.outbox.column.attempts</source>
+                <target>Attempts</target>
+            </trans-unit>
+            <trans-unit id="site_review.admin.outbox.column.next_attempt">
+                <source>site_review.admin.outbox.column.next_attempt</source>
+                <target>Next attempt</target>
+            </trans-unit>
+            <trans-unit id="site_review.admin.outbox.column.last_error">
+                <source>site_review.admin.outbox.column.last_error</source>
+                <target>Last error</target>
+            </trans-unit>
+            <trans-unit id="site_review.admin.outbox.due_now">
+                <source>site_review.admin.outbox.due_now</source>
+                <target>Due now</target>
+            </trans-unit>
+            <trans-unit id="billing.subscribe.closed.heading">
+                <source>billing.subscribe.closed.heading</source>
+                <target>We are at capacity</target>
+            </trans-unit>
+            <trans-unit id="billing.subscribe.closed.body">
+                <source>billing.subscribe.closed.body</source>
+                <target>Every spot is taken right now, and both registration and the waitlist are closed, so there is no way to subscribe at the moment. Contact the administrator of this instance if you need access.</target>
             </trans-unit>
 
         </body>

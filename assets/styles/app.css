@@ -436,6 +436,59 @@
         @apply bg-status-pending-bg text-status-pending-deep border-status-pending-border;
     }
 
+    /* ── System status checks ───────────────────────────────────────────
+       One row per infrastructure check on the install wizard's status step and
+       the admin system-status page: a state badge on the left, the label and
+       the explanatory sentence stacked on the right. Four badge states, one of
+       which — "unknown" — is deliberately neutral rather than green, because
+       some checks cannot be established from a web request. */
+    .status-check-list {
+        @apply flex flex-col gap-3 list-none p-0 m-0;
+    }
+    .status-check {
+        @apply flex items-start gap-2.5;
+    }
+    .status-check-badge {
+        @apply inline-flex items-center gap-1 shrink-0 rounded-full border px-2 py-0.5 text-xs font-medium;
+    }
+    .status-check-badge-ok {
+        @apply bg-status-ok-bg text-status-ok-deep border-status-ok-border;
+    }
+    .status-check-badge-warning {
+        @apply bg-status-pending-bg text-status-pending-deep border-status-pending-border;
+    }
+    .status-check-badge-unknown {
+        @apply bg-tint text-fg-dim border-line;
+    }
+    .status-check-badge-failed {
+        @apply bg-red-50 text-red-700 border-red-200;
+    }
+    .status-check-text {
+        @apply flex flex-col gap-0.5 min-w-0;
+    }
+    .status-check-label {
+        @apply text-sm font-medium text-fg;
+    }
+    .status-check-detail {
+        @apply text-xs text-fg-mute leading-relaxed;
+    }
+
+    /* Page-level summary line above the check list. */
+    .status-summary {
+        @apply rounded-lg border px-3 py-2 text-xs leading-relaxed;
+    }
+    .status-summary-warning {
+        @apply bg-status-pending-bg text-status-pending-deep border-status-pending-border;
+    }
+    .status-summary-failed {
+        @apply bg-red-50 text-red-700 border-red-200;
+    }
+
+    /* Copy-ready console commands shown alongside a check. */
+    .status-command-block {
+        @apply bg-tint border border-line rounded-lg px-3 py-2 text-xs font-mono text-fg-mute overflow-x-auto;
+    }
+
     /* ── Tag chip ───────────────────────────────────────────────────── */
 
     .lp-tag {
@@ -1199,6 +1252,9 @@
     .lp-site-review-meta-line {
         @apply font-mono text-fg-dim m-0 text-xs;
     }
+    .lp-site-review-meta-line a {
+        @apply inline-flex items-center gap-1.5 text-fg-mute no-underline transition-colors hover:text-accent;
+    }
     .lp-site-review-description {
         @apply text-fg-mute m-0 text-sm;
         line-height: 1.55;
@@ -1378,6 +1434,14 @@
 
     .lp-sidebar__spacer {
         @apply mt-auto;
+    }
+    /* AGPL source-code offer, sitting just above the account row. Quiet by
+       design — it has to be present on every page, not compete with the nav. */
+    .lp-sidebar__source {
+        @apply flex items-center gap-2.5 px-2 py-1.5 text-xs text-fg-dim no-underline transition-colors;
+    }
+    .lp-sidebar__source:hover {
+        @apply text-fg;
     }
     .lp-sidebar__account {
         @apply flex items-center gap-2.5 px-2 py-2 border-t border-line;
