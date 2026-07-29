@@ -16,6 +16,17 @@ region            = "tor"
 db_cluster_name   = "loupe-db"
 db_server_version = "18" # the cluster's actual PG major version
 
+# Or let Terraform create and own a dedicated cluster instead: comment out
+# db_cluster_name above and uncomment these. Exactly one of the two is
+# required — setting neither is rejected at plan time, because an empty
+# db_cluster_name would fall through to the upstream project's own cluster.
+# db_cluster_region is a DATACENTER slug (tor1), not the App Platform region
+# (tor) set above; the wrong one plans cleanly and fails at apply.
+# create_db_cluster     = true
+# db_cluster_region     = "tor1"
+# db_cluster_size       = "db-s-1vcpu-1gb"  # smallest managed plan
+# db_cluster_node_count = 1                 # 1 = no standby
+
 # --- Required: credentials ---
 
 do_token             = "dop_v1_..."            # or export DIGITALOCEAN_TOKEN and drop this

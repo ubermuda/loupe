@@ -39,8 +39,9 @@ optionally, a Mercure hub.
 | Process | What it is |
 |---|---|
 | **Web** | `docker/prod/Dockerfile`, running supervisord as PID 1: `php-fpm` + `nginx`, and nothing else. No background process runs here. Listens on port 80. |
-| **Worker** | The *same image*, started with a different command. Deliberately **not** a supervisord program inside the web container, so worker restarts never recycle php-fpm and nginx. It is also the only thing that runs scheduled work — **everything recurring rides its schedule**, so nothing periodic happens without it. |
+| **Worker** | The *same image*, started with a different command. Deliberately **not** a supervisord program inside the web container, so worker restarts never recycle php-fpm and nginx. It consumes `scheduler_default` first, then `async` — a deep async backlog must not delay schedule ticks. It is also the only thing that runs scheduled work: **everything recurring rides its schedule**, including the hourly `app:purge-expired-exports`, so without a worker expired archives are never purged and nothing periodic happens at all. |
 | **Postgres** | Any Postgres the app can reach. It also carries the message queue: `MESSENGER_TRANSPORT_DSN` defaults to `doctrine://default?auto_setup=0`, so there is no broker to run. |
+| **Object storage** | Only needed when `EXPORT_STORAGE=s3`. Any S3-compatible bucket; required whenever the web and worker processes do not share a filesystem, or data-export downloads 404. |
 | **Mercure hub** | Only needed for site-review push. Optional, and off until `MERCURE_JWT_SECRET` is set. In-memory, so delivery is best effort — see "Known gaps". |
 
 ### The worker is not optional
@@ -318,15 +319,30 @@ instance").
 5. A **pull token** for that registry: for GHCR, a GitHub PAT with
    `read:packages`, supplied to Terraform as `"username:PAT"`. App Platform
    needs it to pull a private image.
-6. **A managed Postgres cluster.** Terraform creates a database and a user on an
-   existing cluster and never creates the cluster itself, so `db_cluster_name`
-   and `region` have no defaults and `terraform apply` fails until you supply
-   them:
+6. **A Postgres cluster — bring your own, or let Terraform create one.** Either
+   way `region` has no default and must be set.
+
+   **Bring your own** (what this deployment does): Terraform creates a database
+   and a user on a cluster that already exists, so `db_cluster_name` has no
+   default either and `terraform apply` fails until you supply it.
 
    ```bash
    doctl databases create loupe-db --engine pg --region tor
    doctl databases list      # the Name column is db_cluster_name
    ```
+
+   **Or have the module create a dedicated one** — set `create_db_cluster = true`
+   and leave `db_cluster_name` unset. The module creates a cluster named
+   `loupe-db`, sizes it from `db_cluster_size` (default `db-s-1vcpu-1gb`) and
+   `db_cluster_node_count` (default `1`), and manages its trusted sources — which
+   removes the `just tf-db-bootstrap` firewall step below. The cluster carries
+   `prevent_destroy`, so `terraform destroy` refuses and so does flipping the
+   flag back; `terraform state rm` is the deliberate override.
+
+   **`db_cluster_region` is a datacenter slug (`tor1`), not App Platform's metro
+   slug (`tor`).** They are different namespaces. Passing the wrong one plans
+   cleanly and fails at apply, so the module validates its shape and warns when
+   the two are not colocated.
 
 7. **A Spaces access key pair**, generated under "Spaces Keys" in the control
    panel. Spaces authenticates with S3-style credentials rather than the API
