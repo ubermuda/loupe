@@ -31,8 +31,11 @@ from a workstation with `just`.
 | **Postgres** | A per-app database and user on a **shared** App Platform cluster (`tor` region). The module creates them; the cluster already exists. |
 | **Mercure hub** | Required for site-review push. A second service in the same app, run by the shared module when `mercure_jwt_secret` is set. In-memory, so delivery is best effort — see "Known gaps". |
 
-The web container listens on port 80. App Platform health-checks `/login`,
-because `/` is behind `ROLE_USER` and 302-redirects.
+The web container listens on port 80. Point the platform's health check at
+`GET /healthz`: it is unauthenticated, returns `{"status":"ok"}` with HTTP 200
+when the database answers and `{"status":"error"}` with HTTP 503 when it does
+not, and it deliberately says nothing else — an anonymous caller learns whether
+the instance is up, and no more.
 
 ## Prerequisites
 
@@ -153,16 +156,43 @@ the token.
 
 ## Post-deploy checks
 
-1. `GET /login` returns 200 — the health check path.
+1. `GET /healthz` returns 200 and `{"status":"ok"}` — the health check path.
+   A 503 means the container is serving but cannot reach the database.
 2. `POST /mcp` with no credentials returns **401, not 404**. A 404 means the
    route did not register; a 401 means it registered and the firewall rejected
    you.
 3. `bin/console doctrine:migrations:status` reports no pending migrations.
-4. Trigger something that queues async work (a data export) and confirm it
-   completes — that proves the worker is actually consuming. **Then follow the
-   download link in the email and check you get a ZIP**: completion only proves
-   the worker ran, while the download is what proves the web container can
-   reach the archive the worker wrote.
+4. Open **`/admin/status`**. It reports, for this instance, whether the mail
+   transport accepts a connection, whether the sender address is still the
+   undeliverable default, whether the message queue is being drained, whether
+   the Mercure hub answers, and — when billing is on — whether the Stripe keys
+   are set. The install wizard shows the same page before it creates your
+   administrator, so a broken mailer is visible *before* it can lock you out.
+
+   The worker check is deliberately honest about its limits: a running worker
+   leaves no lasting trace, so an empty queue is reported as **unknown**, not
+   as healthy. What it can prove is the failure — messages sitting available
+   and unclaimed for over a minute mean nothing is consuming them.
+5. Trigger something that queues async work (a data export) and confirm it
+   completes — that proves the worker is actually consuming, which step 4
+   cannot. **Then follow the download link in the email and check you get a
+   ZIP**: completion only proves the worker ran, while the download is what
+   proves the web container can reach the archive the worker wrote.
+
+## Failed messages
+
+A message that exhausts its three retries is moved to the `failed` transport
+(`doctrine://default?queue_name=failed`) rather than dropped. Nothing surfaces
+that automatically, so check it when mail or exports go missing:
+
+```bash
+bin/console messenger:failed:show          # list parked messages
+bin/console messenger:failed:show <id> -vv # full detail, including the error
+bin/console messenger:failed:retry         # re-queue them, interactively
+```
+
+`/admin/status` shows the current count, so you know whether it is worth
+looking.
 
 ## Known gaps
 
