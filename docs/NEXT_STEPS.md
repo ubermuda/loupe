@@ -1755,38 +1755,6 @@ green for "no errors" would reintroduce exactly the false reassurance the
 check was written to avoid. Related: "Worker heartbeat, so 'is a worker
 running?' can be answered positively".
 
-## Stale DaisyUI references survive in CLAUDE.md and the project-e2e skill
-
-**Author:** Claude · **Type:** docs · **Priority:** medium · **Status:** pending
-
-DaisyUI was deliberately dropped in the 2026-06-19 visual redesign — its design
-spec states "Tailwind v4 + custom tokens. **No DaisyUI**" and lists DaisyUI
-under what not to reintroduce. The dependency is genuinely gone: no entry in
-`package.json`, no reference anywhere under `assets/`, nothing in
-`importmap.php` or `composer.json`. Two documents still claim otherwise, and
-both are read by sessions that will act on them:
-
-- `CLAUDE.md` — the Architecture section states "**Stack:** Tailwind CSS +
-  DaisyUI 5 for UI". This is the highest-traffic line of the two; every session
-  and every subagent reads it, and it invites an agent to reach for `btn`,
-  `card` or `modal` classes that no longer exist.
-- `.claude/skills/project-e2e/SKILL.md` — carries a "## DaisyUI required field
-  labels" section instructing `getByLabel('Email address *', { exact: true })`
-  because "the DaisyUI form theme appends a `*` span to required field labels".
-  There is no `required` styling left in `assets/styles/app.css` and no spec
-  under `e2e/` uses the asterisk form, so this would send someone matching on a
-  character that never renders.
-
-Close-out: delete the project-e2e section outright rather than rewriting it —
-nothing replaced the behaviour it described — and correct the CLAUDE.md stack
-line to name the actual system (Tailwind v4 + hand-rolled semantic classes and
-CSS custom properties in `assets/styles/app.css`). The stale mentions inside
-`docs/superpowers/plans/` are historical records of what was true when those
-plans were written and should be left alone. Related: "Gamache rule: catch
-skills that document tooling which no longer exists" — this is exactly the
-class of drift that rule is meant to detect, and these two are concrete test
-cases for it.
-
 ## Product idea (long horizon): drag DOM elements in the widget to try layouts
 
 **Author:** Geoffrey · **Type:** idea · **Priority:** low · **Status:** pending
