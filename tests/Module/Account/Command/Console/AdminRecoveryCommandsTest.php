@@ -153,6 +153,25 @@ final class AdminRecoveryCommandsTest extends KernelTestCase
         self::assertStringContainsString('already verified', $tester->getDisplay());
     }
 
+    public function test_user_verify_reports_revoking_a_stale_link_on_a_verified_account(): void
+    {
+        $user = $this->persistUser('stale-link@example.com', 'stalelink');
+        $user->generateEmailVerificationToken();
+        $user->emailVerifiedAt = new \DateTimeImmutable('-1 day');
+        $this->em->flush();
+
+        $tester = $this->tester('app:user:verify');
+
+        self::assertSame(Command::SUCCESS, $tester->execute(['email' => 'stale-link@example.com']));
+        // Collapse whitespace: SymfonyStyle hard-wraps its success block.
+        $display = (string) preg_replace('/\s+/', ' ', $tester->getDisplay());
+        self::assertStringContainsString('already verified', $display);
+        self::assertStringContainsString('revoked an outstanding verification link', $display);
+
+        $this->em->clear();
+        self::assertFalse($this->find('stale-link@example.com')->hasEmailVerificationToken());
+    }
+
     /** @return iterable<string, array{string}> */
     public static function accountScopedCommands(): iterable
     {

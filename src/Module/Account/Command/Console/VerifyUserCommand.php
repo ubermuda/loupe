@@ -53,7 +53,7 @@ final class VerifyUserCommand extends Command
         }
 
         try {
-            $verified = ($this->markEmailVerified)(new MarkEmailVerifiedCommand($email));
+            $result = ($this->markEmailVerified)(new MarkEmailVerifiedCommand($email));
         } catch (DomainErrors $e) {
             foreach ($e->errors as $translationKey) {
                 $io->error($this->translator->trans($translationKey));
@@ -62,8 +62,17 @@ final class VerifyUserCommand extends Command
             return Command::FAILURE;
         }
 
-        $io->success($verified
-            ? sprintf("Marked %s's email as verified.", $email)
+        if ($result->verified) {
+            $io->success(sprintf("Marked %s's email as verified.", $email));
+
+            return Command::SUCCESS;
+        }
+
+        // Worth saying out loud: an operator running this on an account they are
+        // worried about has just invalidated a working login link, and nothing
+        // else in the output would tell them.
+        $io->success($result->tokenRevoked
+            ? sprintf("%s's email is already verified — revoked an outstanding verification link.", $email)
             : sprintf("%s's email is already verified.", $email));
 
         return Command::SUCCESS;

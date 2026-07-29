@@ -154,7 +154,7 @@ that is already in the desired state prints "already …" and exits 0.
 |---|---|
 | `app:admin:create <email>` | Ensures the email is a **verified administrator**, creating the account if it does not exist. Options: `--username`, `--full-name`, `--password`. With no `--password` it prompts (or, non-interactively, generates one and prints it once). An existing account is promoted and verified in place and **keeps its password**. |
 | `app:user:promote <email>` | Grants `ROLE_ADMIN` to an existing account, keeping any other roles. |
-| `app:user:verify <email>` | Marks the account's email verified and burns any outstanding verification token. The escape hatch when outbound mail never arrives — an unverified account is parked on the check-email page and cannot reach the admin area. |
+| `app:user:verify <email>` | Marks the account's email verified and burns any outstanding verification token — including on an account that was already verified, since that link logs its bearer straight in. The escape hatch when outbound mail never arrives: an unverified account is parked on the check-email page and cannot reach the admin area. |
 
 Non-interactive first admin on a fresh instance:
 

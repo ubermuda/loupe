@@ -25,29 +25,34 @@ final readonly class MarkEmailVerifiedHandler
     ) {
     }
 
-    /**
-     * @return bool true when the account was newly verified, false when it already was
-     *
-     * @throws DomainErrors when no account matches the email
-     */
-    public function __invoke(MarkEmailVerifiedCommand $command): bool
+    /** @throws DomainErrors when no account matches the email */
+    public function __invoke(MarkEmailVerifiedCommand $command): MarkEmailVerifiedResult
     {
         $user = $this->users->findOneByEmail($command->email)
             ?? throw new DomainErrors(['email' => 'account.console.error.user_not_found']);
 
+        // Revoked before the already-verified check, not after it: /register/verify
+        // logs in whoever presents a valid token and never asks whether the account
+        // is verified already, while social linking sets emailVerifiedAt without
+        // clearing it. So "already verified" is precisely the state a live login
+        // link survives in, and returning early there would leave it working.
+        $tokenRevoked = $user->hasEmailVerificationToken();
+        $user->clearEmailVerificationToken();
+
         if ($user->isVerified()) {
-            return false;
+            if ($tokenRevoked) {
+                $this->em->flush();
+                $this->logger->info('account.user.verification_token_revoked_by_operator', ['userId' => (string) $user->id]);
+            }
+
+            return new MarkEmailVerifiedResult(verified: false, tokenRevoked: $tokenRevoked);
         }
 
-        // Clear the outstanding token too, mirroring VerifyEmailHandler: a
-        // pending link that still resolves after the account is verified is a
-        // live credential nobody needs.
-        $user->clearEmailVerificationToken();
         $user->emailVerifiedAt = new \DateTimeImmutable();
         $this->em->flush();
 
         $this->logger->info('account.user.email_verified_by_operator', ['userId' => (string) $user->id]);
 
-        return true;
+        return new MarkEmailVerifiedResult(verified: true, tokenRevoked: $tokenRevoked);
     }
 }

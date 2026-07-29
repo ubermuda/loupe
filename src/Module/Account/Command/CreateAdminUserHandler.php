@@ -45,7 +45,7 @@ final readonly class CreateAdminUserHandler
                 user: $existing,
                 created: false,
                 promoted: ($this->promoteUserToAdmin)(new PromoteUserToAdminCommand($email)),
-                verified: ($this->markEmailVerified)(new MarkEmailVerifiedCommand($email)),
+                verified: ($this->markEmailVerified)(new MarkEmailVerifiedCommand($email))->verified,
             );
         }
 
