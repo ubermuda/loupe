@@ -117,6 +117,18 @@ variable "export_storage_use_path_style" {
 
 
 
+variable "mailer_from_address" {
+  type        = string
+  default     = ""
+  description = "MAILER_FROM_ADDRESS: sender of every transactional email. Must be on a domain you control and have published SPF/DKIM/DMARC for. Empty falls back to the committed noreply@localhost, which real mail servers reject — and since email verification is mandatory, that breaks registration."
+}
+
+variable "mailer_from_name" {
+  type        = string
+  default     = ""
+  description = "MAILER_FROM_NAME: display name shown beside mailer_from_address. Empty falls back to the committed default."
+}
+
 variable "mercure_jwt_secret" {
   type        = string
   sensitive   = true

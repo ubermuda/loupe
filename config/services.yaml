@@ -7,9 +7,20 @@
 # Put parameters here that don't need to change on each machine where the app is deployed
 # https://symfony.com/doc/current/best_practices.html#use-parameters-for-application-configuration
 parameters:
-    app.mailer.from_address: 'hello@loupe.ac'
-    app.mailer.from_name: 'Loupe'
-    app.url: '%env(APP_URL)%'
+    # Sender of every transactional email. Environment-driven because a
+    # self-hosted instance can only pass SPF/DKIM/DMARC with a domain its
+    # operator actually owns.
+    app.mailer.from_address: '%env(MAILER_FROM_ADDRESS)%'
+    app.mailer.from_name: '%env(MAILER_FROM_NAME)%'
+    # Base of the Mercure topic identifiers for site-review push. Derived from
+    # DEFAULT_URI rather than configured separately: it only has to be a stable
+    # string both sides of the channel agree on, and the app already knows its
+    # own public URL.
+    app.url: '%env(DEFAULT_URI)%'
+    # Proxies Symfony trusts for X-Forwarded-* when TRUSTED_PROXIES is unset.
+    # Correct behind Docker and any private-network load balancer; an operator
+    # whose balancer connects from a public IP overrides it.
+    app.trusted_proxies_default: 'PRIVATE_SUBNETS'
     # Name of the MCP server as it appears in the connect-agent install snippet
     # and the `claude mcp add` command.
     app.mcp.server_name: 'loupe'

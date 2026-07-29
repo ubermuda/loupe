@@ -343,6 +343,9 @@ final class ResolveSocialLoginHandlerTest extends KernelTestCase
     {
         // Uses the real event dispatcher, so the Billing listener actually
         // runs — the trial clock starts at (social) registration.
+        $this->em->persist(new FeatureFlag(name: 'billing.enabled', type: FeatureFlagType::Bool, value: true));
+        $this->em->flush();
+
         $dispatcher = self::getContainer()->get(EventDispatcherInterface::class);
         self::assertInstanceOf(EventDispatcherInterface::class, $dispatcher);
         $handler = $this->buildHandler(new RegistrationGate($this->openFlags(), $this->users), $dispatcher);
