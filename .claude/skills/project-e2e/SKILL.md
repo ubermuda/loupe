@@ -80,10 +80,6 @@ Tests that use Mailpit (register, delete account) search by recipient address ra
 
 Tests that exercise guest (unauthenticated) flows should use `test.use({ storageState: { cookies: [], origins: [] } })` at the describe block level to ensure no session cookie is carried in. Do not rely on the absence of a `createTest` call — make the intent explicit.
 
-## DaisyUI required field labels
-
-The DaisyUI form theme appends a `*` span to required field labels. `getByLabel('Email address', { exact: true })` won't match — use `getByLabel('Email address *', { exact: true })` or drop `exact` when the label is unique enough.
-
 ## `getByLabel` substring collisions
 
 When one label is a substring of another on the same page (e.g. `"New password"` vs `"Repeat new password"`), `getByLabel('New password')` matches both and throws in strict mode. Always use `{ exact: true }` for labels that could be a substring of another label on the page.

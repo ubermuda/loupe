@@ -259,7 +259,14 @@ All features live under `src/Module/` (e.g. `src/Module/Foo/`). Admin-facing con
 
 **Doctrine entity mapping:** `config/packages/doctrine.yaml` maps `dir: '%kernel.project_dir%/src'` with `prefix: 'App'`. This covers all entities under `src/Module/*/Entity/`. Do not narrow this to `src/Entity` — that directory is empty and exists only as a skeleton placeholder. If the mapping is wrong, PHPUnit will fail with "Could not find the entity manager for class" errors on every entity.
 
-**Stack:** Tailwind CSS + DaisyUI 5 for UI, Symfony UX Icons and Stimulus.js for interactivity.
+**Stack:** Tailwind CSS v4 for UI — no component library. The visual system is
+hand-rolled: CSS custom properties in the `@theme` design-token block plus
+semantic component classes in `@layer components`, all in
+`assets/styles/app.css`. Templates use those semantic classes, not raw utility
+strings. DaisyUI was removed in the 2026-06-19 visual redesign; do not reach for
+`btn`, `card` or `modal` classes, and do not reintroduce a component library
+without a decision to. Symfony UX Icons (Lucide) and Stimulus.js for
+interactivity. Conventions live in `project-frontend`.
 
 **Core PHP conventions** (details and exact patterns live in `project-backend` and `project-command-handler` — invoke them before writing PHP):
 
