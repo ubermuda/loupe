@@ -22,6 +22,14 @@
             {% if project.domain %}{{ project.domain }} · {% endif %}{{ 'site_review.page.submitted_count'|trans({'%count%': submittedCount}) }}
         </p>
         <p class="lp-site-review-description">{{ 'site_review.page.description'|trans }}</p>
+        {% if unsentCount > 0 %}
+        <p class="lp-site-review-meta-line">
+            <a href="{{ path('app_project_site_review_outbox', {id: project.id}) }}">
+                <twig:ux:icon name="lucide:triangle-alert" class="w-3.5 h-3.5 shrink-0 inline-block text-status-pending-deep" />
+                {{ 'site_review.page.unsent_notice'|trans({'%count%': unsentCount}) }}
+            </a>
+        </p>
+        {% endif %}
     </header>
 
     {% if comments|length > 0 %}

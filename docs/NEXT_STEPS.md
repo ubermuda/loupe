@@ -135,42 +135,17 @@ latency to every review submit before the catch fires. Wire the default hub to a
 scoped HttpClient with a low `timeout`/`max_duration` (custom hub service or a
 decorated HttpClient) so a slow hub can never noticeably delay a review submit.
 
-Observability around it has since improved — the failure is logged at `error`
-with the project id and topic, and the update carries a project-scoped
-monotonic `sequence` as a stable event id — but the latency problem itself is
-untouched. The publish is deliberately **not** retried: the hub may accept an
-update and still have the client throw, but a duplicate publish is harmless —
-the nudge carries no payload beyond its type, and a redundant pull via
-`get_site_review` just finds nothing still `Pending`.
+Everything around it has since improved — the failure is logged at `error` with
+the project id and topic, the update carries a project-scoped monotonic
+`sequence` as a stable event id, and a failed publish is now replayed by
+`DrainOutboxHandler` off a five-minutely tick — but the latency problem itself
+is untouched, because the submit still publishes inline before the drain ever
+sees the row. The drain makes the same untimed call, though a slow hub there
+only stalls a worker rather than a visitor's request.
 
-## Durable review-event delivery (transactional outbox)
-
-
-**Author:** Claude · **Type:** feature · **Priority:** medium · **Status:** pending
-
-The durable half is implemented: PR #77 merged, so a `SiteReviewEvent` row is
-persisted in the same transaction as the Draft→Pending flip, and a publish
-that fails no longer loses the event.
-
-The earlier blocker recorded here — that automatic redelivery would make the
-bridge inject the same review into the agent twice — no longer applies: the
-nudge is payload-free and idempotent by design (a redundant pull via
-`get_site_review` just finds nothing still `Pending`), and
-`cli/internal/transport/mercure.go` now tracks the `id:` line and sends
-`Last-Event-ID` on reconnect.
-
-What genuinely remains: nothing drains or retries unpublished
-`SiteReviewEvent` rows. `SiteReviewEventRepository` has no query for them
-today (only `countForProject`) — replay is manual. Add one (e.g. "unpublished,
-older than N", so a transient hub outage self-heals) and a worker on the
-existing Messenger scheduler transport to drain it.
-
-That query **must** also filter on `SiteReviewEvent::$forwardable`. A row is
-written for every submit, including those from collect-only widget tokens
-whose review is deliberately never forwarded (`ApiToken::$forwardsToAgent`),
-so `publishedAt IS NULL` alone does not mean "still owed to the agent" —
-draining on that condition would deliver exactly the reviews the opt-in
-exists to withhold.
+Note that retrying is only safe because the nudge is payload-free: a duplicate
+publish is harmless, since a redundant pull via `get_site_review` just finds
+nothing still `Pending`.
 
 ## CSP is report-only until inline scripts carry nonces
 
@@ -1657,10 +1632,11 @@ Three things to settle before this is designable:
    project.
 2. **Delivery semantics.** Whether `get_events` drains (at-most-once, simple,
    loses events if the agent dies mid-handling) or acknowledges separately
-   (at-least-once, needs idempotent handling). The site-review outbox already
-   made this exact tradeoff and chose best-effort — see the self-hosting
-   audit's finding on unreplayable outbox events, whose resolution should
-   probably settle both.
+   (at-least-once, needs idempotent handling). The site-review outbox settles
+   the same tradeoff at-least-once: `DrainOutboxHandler` leases a batch,
+   republishes, and retries with backoff until the hub confirms, which is
+   only safe because the nudge is payload-free and idempotent. An event queue
+   carrying real payloads does not get that for free.
 3. **What stops a polling loop from being wasteful.** A monitor that wakes
    every 30 seconds all session is mostly empty calls; long-poll on the MCP
    side, or a wake-up interval tied to what is actually being waited on, are

@@ -159,8 +159,9 @@ final class SubmitReviewHandlerTest extends KernelTestCase
         $this->em->persist(new SiteReviewComment($project, 0, 'one', '', '', 'https://app/x'));
         $this->em->flush();
 
-        // Published exactly once — never retried, since the hub may have accepted
-        // the update before throwing.
+        // Published exactly once — the submit never retries inline, since the hub
+        // may have accepted the update before throwing and the visitor should not
+        // wait on a second attempt. Replay is the drain's job.
         $this->hub->expects($this->once())->method('publish')->willThrowException(new \RuntimeException('hub down'));
 
         $count = ($this->handler)(new SubmitReviewCommand($project));
@@ -168,10 +169,15 @@ final class SubmitReviewHandlerTest extends KernelTestCase
         self::assertSame(0, $this->comments->countDraftForProject($project));
 
         // The outbox row survives the failed publish, unpublished — the durable
-        // record a lost update leaves behind for a human to replay by hand.
+        // record the drain replays from, carrying the reason so the
+        // undelivered-events pages can say why it is stuck rather than
+        // showing an untouched row.
         $event = $this->events->findOneBy(['project' => $project]);
         self::assertNotNull($event);
         self::assertNull($event->publishedAt);
+        self::assertSame(1, $event->publishAttempts);
+        self::assertSame('hub down', $event->lastPublishError);
+        self::assertNotNull($event->nextAttemptAt);
     }
 
     public function test_addressed_and_resolved_comments_are_not_reflipped(): void

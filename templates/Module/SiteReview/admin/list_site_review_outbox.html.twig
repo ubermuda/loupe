@@ -1,0 +1,72 @@
+{% extends '@UbermudaAdmin/base.html.twig' %}
+
+{% block title %}{{ 'site_review.admin.outbox.page.title'|trans }} — {{ 'app.name'|trans }}{% endblock %}
+
+{% block body %}
+    <twig:UbermudaAdmin:AdminList
+        title="{{ 'site_review.admin.outbox.title'|trans }}"
+        :total="total"
+        unitLabel="{{ 'site_review.admin.outbox.unit'|trans }}"
+        unitLabelPlural="{{ 'site_review.admin.outbox.unit_plural'|trans }}"
+        frameId="site-review-outbox-table"
+        :filters="filters"
+        route="app_admin_site_review_outbox_list"
+        :page="page"
+        :totalPages="totalPages"
+        :pageList="pageList"
+        sort="{{ sort }}"
+        dir="{{ dir }}"
+        tableClass="admin-table"
+        emptyLabel="{{ 'site_review.admin.outbox.empty'|trans }}"
+    >
+        <twig:block name="filter_bar">
+            {# Hand-rolled rather than <AdminListFilterBar>: that component always
+               renders a free-text search box, and an outbox row has no text field
+               worth searching. Same wiring otherwise, so sort survives a filter
+               change and the table updates inside its frame. #}
+            <form method="get" action="{{ path('app_admin_site_review_outbox_list') }}"
+                  data-controller="autosearch"
+                  data-turbo-frame="site-review-outbox-table"
+                  data-turbo-action="replace"
+                  class="admin-card flex items-center gap-3 mb-6 p-4">
+                <input type="hidden" name="sort" value="{{ sort }}">
+                <input type="hidden" name="dir" value="{{ dir }}">
+                <label class="text-sm text-slate-500" for="site-review-outbox-project">{{ 'site_review.admin.outbox.filter.project'|trans }}</label>
+                <select id="site-review-outbox-project" name="project" class="admin-field-input"
+                        data-action="change->autosearch#search">
+                    <option value="">{{ 'site_review.admin.outbox.filter.all_projects'|trans }}</option>
+                    {% for candidate in projects %}
+                        {% set candidateId = candidate.id ~ '' %}
+                        <option value="{{ candidateId }}"{{ candidateId == selectedProjectId ? ' selected' : '' }}>{{ candidate.name }}</option>
+                    {% endfor %}
+                </select>
+                <a href="{{ path('app_admin_site_review_outbox_list', {sort: sort, dir: dir}) }}"
+                   data-autosearch-target="clearButton"
+                   data-turbo-frame="_top"
+                   class="admin-button-secondary admin-button-small">{{ 'site_review.admin.outbox.filter.clear'|trans }}</a>
+            </form>
+        </twig:block>
+
+        <twig:block name="thead">
+            <tr>
+                <th>{{ 'site_review.admin.outbox.column.project'|trans }}</th>
+                <th><twig:UbermudaAdmin:AdminListSortLink route="app_admin_site_review_outbox_list" column="createdAt" label="{{ 'site_review.admin.outbox.column.created'|trans }}" :currentSort="sort" :currentDir="dir" :filters="filters" /></th>
+                <th><twig:UbermudaAdmin:AdminListSortLink route="app_admin_site_review_outbox_list" column="publishAttempts" label="{{ 'site_review.admin.outbox.column.attempts'|trans }}" :currentSort="sort" :currentDir="dir" :filters="filters" /></th>
+                <th><twig:UbermudaAdmin:AdminListSortLink route="app_admin_site_review_outbox_list" column="nextAttemptAt" label="{{ 'site_review.admin.outbox.column.next_attempt'|trans }}" :currentSort="sort" :currentDir="dir" :filters="filters" /></th>
+                <th>{{ 'site_review.admin.outbox.column.last_error'|trans }}</th>
+            </tr>
+        </twig:block>
+
+        <twig:block name="tbody">
+            {% for event in events %}
+                <tr data-outbox-event-id="{{ event.id }}">
+                    <td>{{ event.project.name }}</td>
+                    <td>{{ event.createdAt|date('Y-m-d H:i') }}</td>
+                    <td>{{ event.publishAttempts }}</td>
+                    <td>{{ event.nextAttemptAt ? event.nextAttemptAt|date('Y-m-d H:i') : 'site_review.admin.outbox.due_now'|trans }}</td>
+                    <td class="break-all">{{ event.lastPublishError ?? '—' }}</td>
+                </tr>
+            {% endfor %}
+        </twig:block>
+    </twig:UbermudaAdmin:AdminList>
+{% endblock %}
