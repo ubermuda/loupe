@@ -95,8 +95,8 @@ services:
       - '8080:80'
 ```
 
-With that override you also need to point `APP_URL` and `MERCURE_PUBLIC_URL` at
-the plain-HTTP host in `.env.local`.
+With that override you also need to point `DEFAULT_URI` and `MERCURE_PUBLIC_URL`
+at the plain-HTTP host in `.env.local`.
 
 Copy the environment overrides you need into `.env.local` (never commit it):
 

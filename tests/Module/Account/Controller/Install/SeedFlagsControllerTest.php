@@ -41,7 +41,7 @@ final class SeedFlagsControllerTest extends WebTestCase
             'install_flags_form[billingTrialDays]' => 30,
         ]);
 
-        self::assertResponseRedirects('/install/admin');
+        self::assertResponseRedirects('/install/status');
         $flags = self::getContainer()->get(FeatureFlagRepository::class)->findAllIndexed();
         self::assertSame(25, $flags['registration.cap']->value);
         self::assertSame(30, $flags['billing.trial_days']->value);

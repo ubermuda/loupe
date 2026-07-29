@@ -254,6 +254,8 @@ final class RegisterUserHandlerTest extends KernelTestCase
     {
         // Uses the container handler (real dispatcher), so the Billing
         // listener actually runs — the trial clock starts at registration.
+        $this->enableBilling();
+
         $user = ($this->handler)($this->makeCommand(email: 'trial-clock@example.com'));
 
         $profiles = self::getContainer()->get(BillingProfileRepository::class);
@@ -265,6 +267,26 @@ final class RegisterUserHandlerTest extends KernelTestCase
         $expected = new \DateTimeImmutable(sprintf('+%d days', TrialProvisioner::DEFAULT_TRIAL_DAYS));
         $this->assertGreaterThan($expected->modify('-1 hour'), $profile->trialEndsAt);
         $this->assertLessThan($expected->modify('+1 hour'), $profile->trialEndsAt);
+    }
+
+    /**
+     * With billing off no profile is created, so the trial clock does not tick
+     * for accounts nobody is charging. The test above is what proves this one
+     * is not passing merely because registration failed.
+     */
+    public function test_registration_provisions_no_trial_while_billing_is_disabled(): void
+    {
+        $user = ($this->handler)($this->makeCommand(email: 'no-trial-clock@example.com'));
+
+        $profiles = self::getContainer()->get(BillingProfileRepository::class);
+        self::assertInstanceOf(BillingProfileRepository::class, $profiles);
+        $this->assertNull($profiles->findOneByUser($user));
+    }
+
+    private function enableBilling(): void
+    {
+        $this->em->persist(new FeatureFlag(name: 'billing.enabled', type: FeatureFlagType::Bool, value: true));
+        $this->em->flush();
     }
 
     public function test_duplicate_email_dispatches_no_user_registered_event(): void

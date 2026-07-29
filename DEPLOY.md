@@ -17,21 +17,25 @@ own requirements and hold wherever you run it.
 There is **no CI/CD pipeline** — no `.github/workflows`. Deploys are run by hand
 from a workstation with `just`.
 
-> **Read "Known gaps" before your first real deploy.** Three things the
-> application needs are not currently configured by `terraform/main.tf`, and one
-> of them (the messenger worker) silently disables a large part of the product.
+> **Read "Known gaps" before your first real deploy.** Several things the
+> application needs are not configured by `terraform/main.tf` on your behalf,
+> and two of them — the install token and the data-export bucket — leave a
+> feature broken rather than merely off.
 
 ## What runs in production
 
 | Component | What it is |
 |---|---|
-| **Web container** | `docker/prod/Dockerfile`, running supervisord as PID 1: `php-fpm` + `nginx`, plus an `export-purge` sleep-loop that runs `app:purge-expired-exports` hourly. |
-| **Worker container** | The *same image*, started with a different command (`enable_worker` in `terraform/main.tf`). Not part of the web container's supervisord — deliberately, so worker restarts never recycle php-fpm/nginx. It consumes `scheduler_default` first, then `async`: a deep async backlog must not delay schedule ticks. |
+| **Web container** | `docker/prod/Dockerfile`, running supervisord as PID 1: `php-fpm` + `nginx`, and nothing else. No background process runs here. |
+| **Worker container** | The *same image*, started with a different command (`enable_worker` in `terraform/main.tf`). Not part of the web container's supervisord — deliberately, so worker restarts never recycle php-fpm/nginx. It consumes `scheduler_default` first, then `async`: a deep async backlog must not delay schedule ticks. Everything recurring rides that schedule, including the hourly `app:purge-expired-exports` that deletes expired export archives — **so with `enable_worker` off, expired archives are never purged** (nor are exports ever generated). |
 | **Postgres** | A per-app database and user on a **shared** App Platform cluster (`tor` region). The module creates them; the cluster already exists. |
 | **Mercure hub** | Required for site-review push. A second service in the same app, run by the shared module when `mercure_jwt_secret` is set. In-memory, so delivery is best effort — see "Known gaps". |
 
-The web container listens on port 80. App Platform health-checks `/login`,
-because `/` is behind `ROLE_USER` and 302-redirects.
+The web container listens on port 80. Point the platform's health check at
+`GET /healthz`: it is unauthenticated, returns `{"status":"ok"}` with HTTP 200
+when the database answers and `{"status":"error"}` with HTTP 503 when it does
+not, and it deliberately says nothing else — an anonymous caller learns whether
+the instance is up, and no more.
 
 ## Prerequisites
 
@@ -130,12 +134,20 @@ rather than half-configured:
 
 | Variable | Needed for | If unset |
 |---|---|---|
+| `MAILER_FROM_ADDRESS`, `MAILER_FROM_NAME` | Sender of every transactional email; the address must be on a domain you control and have published SPF/DKIM/DMARC for | Falls back to `noreply@localhost`, which real mail servers reject — and since email verification is mandatory, **your users cannot complete registration** |
 | `ADMIN_EMAIL` | Promotes that user to `ROLE_ADMIN` at login — only for an already-verified account, so it cannot rescue a locked-out install; `app:user:promote` can | No admin promotion |
 | `INSTALL_TOKEN` | Gates `/install` | **In prod the wizard 404s outright** — it fails closed, so an unset value keeps first-run setup out of a stranger's reach rather than exposing it; recover with `app:admin:create` |
 | `mercure_jwt_secret` | Runs the Mercure hub for site-review push (a Terraform variable, not an env var — the module derives the URLs) | Hub not run; review submissions save but never reach a running agent |
 | `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET` | Billing, checkout, webhooks | Billing paths fail |
 | `OAUTH_GOOGLE_ID` / `_SECRET`, `OAUTH_GITHUB_ID` / `_SECRET` | Social login | Those buttons fail |
 | `MCP_ALLOWED_HOSTS` | DNS-rebinding allowlist for `/mcp` | The MCP endpoint rejects your real hostname |
+| `EXPORT_STORAGE` | Where data-export archives live: `local` or `s3`. Terraform sets it to `s3` by default — see "Known gaps" | **Every export download 404s** on `local`: the worker writes the archive, the web container serves it, and they share no volume |
+| `EXPORT_STORAGE_BUCKET` | The bucket, when `EXPORT_STORAGE=s3` | Exports fail at upload |
+| `EXPORT_STORAGE_ENDPOINT`, `_REGION` | Any S3-compatible provider (MinIO, R2, Spaces). Empty targets AWS S3 | AWS S3 in `us-east-1` |
+| `EXPORT_STORAGE_KEY`, `_SECRET` | Bucket credentials | The ambient AWS credential chain (an instance role) is used — correct on AWS, nothing anywhere else |
+| `EXPORT_STORAGE_PREFIX` | Key prefix inside the bucket | Archives sit at the bucket root |
+| `EXPORT_STORAGE_USE_PATH_STYLE` | `true` for MinIO and most non-AWS providers | Virtual-hosted addressing (`https://bucket.host/key`) |
+| `EXPORT_STORAGE_ACL` | `bucket-owner-full-control` on AWS S3 — see "Known gaps" | `private`, which MinIO and Spaces require and a default AWS bucket rejects |
 | `SITE_REVIEW_WIDGET_TOKEN` | Only for dogfooding the widget on Loupe's own pages | Widget not loaded |
 
 `INSTALL_TOKEN` is the one to set **before** the first deploy: the wizard is how
@@ -182,13 +194,43 @@ define, and creates the rows on request.
 
 ## Post-deploy checks
 
-1. `GET /login` returns 200 — the health check path.
+1. `GET /healthz` returns 200 and `{"status":"ok"}` — the health check path.
+   A 503 means the container is serving but cannot reach the database.
 2. `POST /mcp` with no credentials returns **401, not 404**. A 404 means the
    route did not register; a 401 means it registered and the firewall rejected
    you.
 3. `bin/console doctrine:migrations:status` reports no pending migrations.
-4. Trigger something that queues async work (a data export) and confirm it
-   completes — that proves the worker is actually consuming.
+4. Open **`/admin/status`**. It reports, for this instance, whether the mail
+   transport accepts a connection, whether the sender address is still the
+   undeliverable default, whether the message queue is being drained, whether
+   the Mercure hub answers, and — when billing is on — whether the Stripe keys
+   are set. The install wizard shows the same page before it creates your
+   administrator, so a broken mailer is visible *before* it can lock you out.
+
+   The worker check is deliberately honest about its limits: a running worker
+   leaves no lasting trace, so an empty queue is reported as **unknown**, not
+   as healthy. What it can prove is the failure — messages sitting available
+   and unclaimed for over a minute mean nothing is consuming them.
+5. Trigger something that queues async work (a data export) and confirm it
+   completes — that proves the worker is actually consuming, which step 4
+   cannot. **Then follow the download link in the email and check you get a
+   ZIP**: completion only proves the worker ran, while the download is what
+   proves the web container can reach the archive the worker wrote.
+
+## Failed messages
+
+A message that exhausts its three retries is moved to the `failed` transport
+(`doctrine://default?queue_name=failed`) rather than dropped. Nothing surfaces
+that automatically, so check it when mail or exports go missing:
+
+```bash
+bin/console messenger:failed:show          # list parked messages
+bin/console messenger:failed:show <id> -vv # full detail, including the error
+bin/console messenger:failed:retry         # re-queue them, interactively
+```
+
+`/admin/status` shows the current count, so you know whether it is worth
+looking.
 
 ## Known gaps
 
@@ -197,7 +239,29 @@ define, and creates the rows on request.
    has no route to the first administrator. Recoverable from a shell — see
    "Recovering an instance" — but the wizard is the pleasant path.
 
-2. **Set `mercure_jwt_secret` if you want site-review push.** Setting it runs a
+2. **Data exports need a bucket.** The web and worker containers have separate
+   ephemeral filesystems, so the application default of `EXPORT_STORAGE=local`
+   cannot work here: the worker writes the archive, the web container serves the
+   download, and on a local filesystem they share nothing — so every download
+   404s. `terraform/main.tf` therefore
+   always sets `EXPORT_STORAGE`, defaulting it to `s3` — but a bucket is not
+   created for you. Set `export_storage_bucket` plus its credentials
+   (`terraform.tfvars.example` has the block) before you rely on exports. Any
+   S3-compatible provider works; DigitalOcean Spaces sits in the same account
+   as the rest of this deployment.
+
+   **On AWS S3 itself, also set `export_storage_acl = "bucket-owner-full-control"`.**
+   The Flysystem S3 adapter always sends a canned ACL and offers no way to send
+   none, and no single value is accepted everywhere: buckets created since 2023
+   default to "Bucket owner enforced", which rejects everything except
+   `bucket-owner-full-control` with a 400 `AccessControlListNotSupported`, while
+   MinIO and DigitalOcean Spaces accept only the app's default, `private`. Get
+   this wrong and every export upload fails inside the worker.
+
+   Nothing else in the app writes files, so this is the only place object
+   storage is needed.
+
+3. **Set `mercure_jwt_secret` if you want site-review push.** Setting it runs a
    Mercure hub as a second service in this app (module v1.6.0's `enable_mercure`)
    and routes `/.well-known/mercure` on the app's own domain to it; the module
    injects `MERCURE_URL`, `MERCURE_PUBLIC_URL` and `MERCURE_JWT_SECRET` itself.
@@ -209,7 +273,7 @@ define, and creates the rows on request.
    submissions are recorded in the `site_review_events` outbox and the bridge
    resumes from `Last-Event-ID` — delivery is best effort, replay is not.
 
-3. **Nothing here has been applied against a live account.** `terraform validate`
+4. **Nothing here has been applied against a live account.** `terraform validate`
    passes and `plan` evaluates the full configuration, but no deploy has run. The
    Mercure component in particular is reasoned from the `dunglas/mercure` image's
    documented interface and the dev compose service, not observed working.

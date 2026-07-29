@@ -9,8 +9,9 @@ use App\Module\Account\Entity\DataExportStatus;
 use App\Module\Account\Messenger\GenerateDataExportMessage;
 use App\Module\Account\Repository\DataExportRepository;
 use Doctrine\ORM\EntityManagerInterface;
+use League\Flysystem\FilesystemException;
+use League\Flysystem\FilesystemOperator;
 use Psr\Log\LoggerInterface;
-use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\EventDispatcher\Attribute\AsEventListener;
 use Symfony\Component\Messenger\Event\WorkerMessageFailedEvent;
 use Symfony\Component\Uid\Uuid;
@@ -22,9 +23,7 @@ final readonly class MarkExportFailedOnFinalFailure
         private DataExportRepository $dataExports,
         private EntityManagerInterface $em,
         private LoggerInterface $logger,
-
-        #[Autowire(param: 'kernel.project_dir')]
-        private string $projectDir,
+        private FilesystemOperator $exportStorage,
     ) {
     }
 
@@ -42,14 +41,15 @@ final readonly class MarkExportFailedOnFinalFailure
 
         // A Failed export has no expiresAt, so ExpiredExportPurger's
         // findExpired() (expiresAt-based) would never reach it — a build
-        // that got as far as writing the ZIP before a later step (flush,
+        // that got as far as storing the ZIP before a later step (flush,
         // email) exhausted its retries would otherwise orphan that archive
-        // on disk forever. Delete it here, the one place that observes the
-        // terminal failure.
+        // forever. Delete it here, the one place that observes the terminal
+        // failure.
         $exportId = $export->id;
         if (null !== $exportId) {
-            $path = DataExport::computeArchivePath($this->projectDir, $exportId);
-            if (is_file($path) && !@unlink($path)) {
+            try {
+                $this->exportStorage->delete(DataExport::computeArchiveKey($exportId));
+            } catch (FilesystemException) {
                 $this->logger->warning('account.data_export.failed_archive_unlink_failed', ['id' => $message->dataExportId]);
             }
         }

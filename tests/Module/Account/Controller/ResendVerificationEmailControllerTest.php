@@ -39,5 +39,11 @@ final class ResendVerificationEmailControllerTest extends WebTestCase
         $email = $this->getMailerMessage();
         $this->assertNotNull($email);
         $this->assertEmailAddressContains($email, 'To', 'resend@example.com');
+
+        // The sender comes from MAILER_FROM_ADDRESS / MAILER_FROM_NAME via the
+        // app.mailer.* parameters, so an operator can send from a domain they
+        // own. Asserting the committed defaults pins the whole chain: an
+        // address hardcoded back into services.yaml fails here.
+        $this->assertEmailHeaderSame($email, 'From', 'Loupe <noreply@localhost>');
     }
 }

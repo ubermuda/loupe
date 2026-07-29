@@ -1,6 +1,7 @@
 {
   "name": "loupe",
   "private": true,
+  "license": "AGPL-3.0-or-later",
   "devDependencies": {
     "@eslint/js": "^10.0.1",
     "@tailwindcss/typography": "^0.5.19",

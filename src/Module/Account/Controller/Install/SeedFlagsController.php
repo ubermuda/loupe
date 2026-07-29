@@ -51,7 +51,7 @@ final class SeedFlagsController extends AppController
             $request->getSession()->set(self::SESSION_FLAGS_SEEDED, true);
             $this->logger->info('account.install.flags_seeded', []);
 
-            return $this->redirectToRoute('app_install_admin');
+            return $this->redirectToRoute('app_install_status');
         }
 
         return $this->renderFormResponse('@Account/install/seed_flags.html.twig', $form);
