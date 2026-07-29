@@ -79,14 +79,18 @@ final readonly class SubmitReviewHandler
 
     private function publish(SiteReviewEvent $event): void
     {
-        // Not retried: the hub may accept an update and still throw, and a
+        // Not retried inline: the hub may accept an update and still throw, and a
         // duplicate nudge is harmless (the Draft→Pending transition is itself
         // the dedup — a redundant pull just finds nothing new), but a second
-        // publish is still needless load. A failed publish leaves $event
-        // unpublished for a human to replay.
+        // publish would delay the visitor's response for no gain. Recording the
+        // failure on the row hands it to the outbox drain, and is what makes the
+        // undelivered-events pages show a reason rather than an untouched row.
         try {
             $this->hub->publish(new Update($event->topic, $event->payload, true, id: $event->sequence));
         } catch (\Throwable $e) {
+            $event->recordPublishFailure($e->getMessage(), new \DateTimeImmutable());
+            $this->em->flush();
+
             $this->logger->error('site_review.review.publish_failed', [
                 'projectId' => (string) $event->project->id,
                 'topic' => $event->topic,

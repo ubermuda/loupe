@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Module\Account\Command;
 
+use App\Module\Account\Service\RegistrationGate;
 use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
 use Doctrine\ORM\EntityManagerInterface;
 use Ubermuda\FeatureFlagsBundle\Entity\FeatureFlag;
@@ -24,7 +25,8 @@ final readonly class SeedInstallFlagsHandler
 
         /** @var list<array{string, FeatureFlagType, mixed, list<string>|null}> $defaults */
         $defaults = [
-            ['registration.cap', FeatureFlagType::Int, $command->registrationCap, null],
+            [RegistrationGate::CAP_FLAG, FeatureFlagType::Int, $command->registrationCap, null],
+            [RegistrationGate::ENABLED_FLAG, FeatureFlagType::Bool, $command->registrationEnabled, null],
             ['billing.enabled', FeatureFlagType::Bool, $command->billingEnabled, null],
             ['billing.trial_days', FeatureFlagType::Int, $command->billingTrialDays, null],
             ['billing.stripe_price_id', FeatureFlagType::Select, $command->billingStripePriceId, []],

@@ -2,6 +2,7 @@ twig:
     file_name_pattern: '*.twig'
     globals:
         site_review_widget_token: '%env(SITE_REVIEW_WIDGET_TOKEN)%'
+        app_source_url: '%app.source_url%'
     paths:
         '%kernel.project_dir%/templates/Module/Account': 'Account'
         '%kernel.project_dir%/templates/Module/Admin': 'Admin'

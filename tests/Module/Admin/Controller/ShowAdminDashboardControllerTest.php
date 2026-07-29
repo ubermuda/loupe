@@ -29,6 +29,11 @@ final class ShowAdminDashboardControllerTest extends WebTestCase
         $this->assertGreaterThan(0, $crawler->filter('a[href="/admin"]')->count());
         $this->assertGreaterThan(0, $crawler->filter('a[href="/admin/feature-flags"]')->count());
         $this->assertGreaterThan(0, $crawler->filter('a[href="/admin/waitlist"]')->count());
+        // The admin area renders the admin bundle's layout, not the app's, so it
+        // is the one place the AGPL source offer can silently go missing.
+        $sourceUrl = static::getContainer()->getParameter('app.source_url');
+        $this->assertIsString($sourceUrl);
+        $this->assertGreaterThan(0, $crawler->filter('a[href="'.$sourceUrl.'"]')->count());
     }
 
     public function test_logged_in_non_admin_gets_403(): void

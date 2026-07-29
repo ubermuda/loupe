@@ -3,10 +3,12 @@
 {% block title %}{{ 'account.login.page.title'|trans }} — {{ 'app.name'|trans }}{% endblock %}
 
 {% block topbar_nav %}
+{% if registration_open %}
 <span class="text-sm text-fg-mute">
     {{ 'account.login.topbar.prompt'|trans }}
     <a href="{{ path('app_register') }}" class="ml-1.5 text-xs text-accent hover:underline">{{ 'account.login.topbar.link'|trans }}</a>
 </span>
+{% endif %}
 {% endblock %}
 
 {% block auth_body %}
@@ -19,7 +21,13 @@
 {% if social_error %}
     <div class="auth-error" role="alert">
         <twig:UX:Icon name="lucide:x" class="w-3.5 h-3.5 shrink-0 mt-px" aria-hidden="true" />
-        {{ (social_error == 'unverified' ? 'account.social.error.unverified_email' : 'account.social.error.generic')|trans }}
+        {% if social_error == 'unverified' %}
+            {{ 'account.social.error.unverified_email'|trans }}
+        {% elseif social_error == 'closed' %}
+            {{ 'account.social.error.registration_closed'|trans }}
+        {% else %}
+            {{ 'account.social.error.generic'|trans }}
+        {% endif %}
     </div>
 {% endif %}
 
@@ -58,8 +66,10 @@
     <button type="submit" class="auth-submit mt-1.5">{{ 'account.login.form.submit'|trans }}</button>
 </form>
 
+{% if registration_open %}
 <div class="text-center text-sm text-fg-mute">
     {{ 'account.login.footer.prompt'|trans }}
     <a href="{{ path('app_register') }}" class="pl-1 text-accent font-medium hover:underline">{{ 'account.login.footer.link'|trans }}</a>
 </div>
+{% endif %}
 {% endblock %}

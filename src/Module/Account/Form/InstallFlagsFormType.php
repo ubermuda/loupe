@@ -21,6 +21,10 @@ final class InstallFlagsFormType extends AbstractType
             ->add('registrationCap', IntegerType::class, [
                 'label' => 'account.form.install_flags_form.registration_cap.label',
             ])
+            ->add('registrationEnabled', CheckboxType::class, [
+                'label' => 'account.form.install_flags_form.registration_enabled.label',
+                'required' => false,
+            ])
             ->add('billingEnabled', CheckboxType::class, [
                 'label' => 'account.form.install_flags_form.billing_enabled.label',
                 'required' => false,

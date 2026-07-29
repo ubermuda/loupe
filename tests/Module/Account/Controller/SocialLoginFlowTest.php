@@ -11,6 +11,7 @@ use App\Module\Account\Repository\ConnectedAccountRepository;
 use App\Module\Account\Repository\UserRepository;
 use App\Module\Account\Repository\WaitlistEntryRepository;
 use App\Module\Account\Service\RegistrationGate;
+use App\Tests\Support\InstalledInstance;
 use App\Tests\Support\SocialLoginScenario;
 use Doctrine\ORM\EntityManagerInterface;
 use KnpU\OAuth2ClientBundle\Client\ClientRegistry;
@@ -42,6 +43,7 @@ final class SocialLoginFlowTest extends WebTestCase
         $client = static::createClient();
         $client->disableReboot();
         $this->setProviderFlag($client, SocialProvider::Google, true);
+        InstalledInstance::ensure($client->getContainer()->get(EntityManagerInterface::class));
         $this->stubProvider($client, 'google-sub-1', ['email' => 'newbie@example.com', 'email_verified' => true, 'name' => 'New Bie']);
 
         $client->request(Request::METHOD_GET, self::CALLBACK);
@@ -159,6 +161,7 @@ final class SocialLoginFlowTest extends WebTestCase
         $client->disableReboot();
         $this->setProviderFlag($client, SocialProvider::Google, true);
         $this->setProviderFlag($client, SocialProvider::Github, false);
+        InstalledInstance::ensure($client->getContainer()->get(EntityManagerInterface::class));
 
         foreach (['/login', '/register'] as $path) {
             $client->request(Request::METHOD_GET, $path);
@@ -204,6 +207,37 @@ final class SocialLoginFlowTest extends WebTestCase
         self::assertResponseIsSuccessful();
         self::assertSelectorTextContains('body', "You're on the list");
         self::assertSelectorNotExists('.auth-error');
+    }
+
+    public function test_a_new_identity_is_refused_when_registration_is_switched_off(): void
+    {
+        // Distinct from the at-cap case above: a full instance still takes
+        // names, a switched-off one has nothing to queue the visitor for — so
+        // the login fails outright and no waitlist row appears either.
+        $client = static::createClient();
+        $client->disableReboot();
+        $this->setProviderFlag($client, SocialProvider::Google, true);
+        InstalledInstance::ensure($client->getContainer()->get(EntityManagerInterface::class));
+        $this->disableRegistration($client);
+        $this->stubProvider($client, 'google-sub-closed', ['email' => 'oauth-closed@example.com', 'email_verified' => true, 'name' => 'Closed OAuth']);
+
+        $client->request(Request::METHOD_GET, self::CALLBACK);
+
+        self::assertResponseRedirects('/login?social_error=closed');
+        self::assertNull($client->getContainer()->get(UserRepository::class)->findOneByEmail('oauth-closed@example.com'));
+        self::assertNull(
+            $client->getContainer()->get(WaitlistEntryRepository::class)->findOneByEmail('oauth-closed@example.com'),
+        );
+
+        $client->followRedirect();
+        self::assertSelectorTextContains('.auth-error', 'not accepting new accounts');
+    }
+
+    private function disableRegistration(KernelBrowser $client): void
+    {
+        $em = $client->getContainer()->get(EntityManagerInterface::class);
+        $em->persist(new FeatureFlag(name: RegistrationGate::ENABLED_FLAG, type: FeatureFlagType::Bool, value: false));
+        $em->flush();
     }
 
     private function closeRegistration(KernelBrowser $client): void

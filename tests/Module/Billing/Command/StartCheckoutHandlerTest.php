@@ -9,6 +9,7 @@ use App\Module\Account\Entity\User;
 use App\Module\Account\Entity\WaitlistEntry;
 use App\Module\Account\Repository\UserRepository;
 use App\Module\Account\Repository\WaitlistEntryRepository;
+use App\Module\Account\Service\InstallationState;
 use App\Module\Account\Service\RegistrationGate;
 use App\Module\Billing\Command\StartCheckoutCommand;
 use App\Module\Billing\Command\StartCheckoutHandler;
@@ -64,7 +65,7 @@ final class StartCheckoutHandlerTest extends TestCase
             FeatureFlags::service($flags),
             TransactionalEntityManagerStub::configure($this->createStub(EntityManagerInterface::class)),
             new NullLogger(),
-            new RegistrationGate(FeatureFlags::service($flags), $users),
+            new RegistrationGate(FeatureFlags::service($flags), $users, new InstallationState($users)),
             $waitlistEntries ?? $this->createStub(WaitlistEntryRepository::class),
         );
     }
