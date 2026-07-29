@@ -27,3 +27,13 @@ output "db_user" {
   description = "Per-app database user on the shared cluster."
   value       = module.app.db_user
 }
+
+output "export_bucket_name" {
+  description = "Bucket holding data-export archives. Null when create_export_bucket is false — you supplied the bucket yourself."
+  value       = var.create_export_bucket ? digitalocean_spaces_bucket.exports[0].name : null
+}
+
+output "export_bucket_endpoint" {
+  description = "S3 endpoint URL of the export bucket, as handed to the app as EXPORT_STORAGE_ENDPOINT."
+  value       = local.export_storage_endpoint
+}

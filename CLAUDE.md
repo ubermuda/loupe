@@ -171,7 +171,9 @@ Tailwind CSS is rebuilt automatically in the dev container — **never run `bin/
 
 The app runs at `https://loupe.dev.localhost`. PHP-FPM is on port 9000. A `worker` compose service consumes the async transport; `docker compose logs worker` to observe, `just worker` for a foreground consumer.
 
-**Production deployment — prod runs per-process containers.** Each process type (web, messenger worker) is its own container from the same image; `docker/prod/supervisord.conf` is only the web container's image-default CMD. Never add background processes as `[program:]` blocks there — the worker's command lives in deploy config (outside this repo), currently `messenger:consume scheduler_default async --time-limit=3600 --memory-limit=128M` (schedule transport first: a deep async backlog must not delay ticks).
+**Production deployment — prod runs per-process containers.** Each process type (web, messenger worker) is its own container from the same image; `docker/prod/supervisord.conf` is only the web container's image-default CMD. Never add background processes as `[program:]` blocks there — the worker's command belongs to whatever orchestrates the containers: `worker_command` in `terraform/main.tf` for App Platform, the `worker` service in `compose.prod.yaml` for a single host. Both run `messenger:consume scheduler_default async --time-limit=3600 --memory-limit=128M` (schedule transport first: a deep async backlog must not delay ticks).
+
+`compose.prod.yaml` is the reference single-host topology — web, worker, Postgres, Mercure hub — and is a distributed artefact, not a scratch file: it must keep working alongside `terraform/`. It is driven by `compose.prod.env` (gitignored; `compose.prod.env.example` is the template) and **must** be run with `--env-file`, because Compose otherwise interpolates the development `.env`. `compose.yaml` remains dev-only and shares nothing with it.
 
 **Database connectivity:** the Postgres container is exposed via Traefik TCP routing at `db.loupe.dev.localhost:5432`. The `.env` file ships with `127.0.0.1:5432` as a placeholder; override it in `.env.local` on your host machine:
 ```

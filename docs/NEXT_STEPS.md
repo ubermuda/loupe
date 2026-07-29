@@ -1722,6 +1722,39 @@ Deliberately not built with the status page: it costs a table plus a migration
 for a check the owner had already accepted could be approximate. Revisit if
 "unknown" turns out to be the answer operators see most of the time.
 
+## Decide whether health checks stay hand-rolled, move to a third-party package, or become our own
+
+**Author:** Geoffrey · **Type:** idea · **Priority:** medium · **Status:** pending
+
+The health and status surface is currently hand-rolled and lives entirely in
+this app: `App\Controller\ShowHealthController` serves `/healthz`, and
+`App\Module\Account\Command\CheckSystemStatusHandler` runs the six checks
+behind `/admin/status` and the install wizard's status step. Three options are
+worth weighing rather than letting the hand-rolled version become the answer
+by default:
+
+1. **Adopt an existing open-source package.** `liip/monitor-bundle` is the
+   long-standing Symfony option and ships checks for Doctrine connections,
+   disk space, memory, and a readiness endpoint. The question is whether its
+   check abstraction can express the two checks that carry the actual value
+   here — a real SMTP `start()`/`stop()` against the configured transport, and
+   a backlog query that distinguishes an unclaimed message from one claimed by
+   a worker that has since died — or whether wrapping them in someone else's
+   interface costs more than it saves.
+2. **Extract our own `ubermuda/*` package**, alongside the other first-party
+   bundles. Attractive only if a second application actually needs it;
+   otherwise it adds a release to every change (see the bundle-pinning
+   protocol in `CLAUDE.md`).
+3. **Keep it in-app.** Cheapest today, and the checks are unusually
+   opinionated about *this* application's failure modes.
+
+What should drive the decision is whether the honesty of the current checks
+survives the move. The worker check deliberately never reports "ok" — an idle
+queue cannot prove a consumer is running — and a generic package that reports
+green for "no errors" would reintroduce exactly the false reassurance the
+check was written to avoid. Related: "Worker heartbeat, so 'is a worker
+running?' can be answered positively".
+
 ## Product idea (long horizon): drag DOM elements in the widget to try layouts
 
 **Author:** Geoffrey · **Type:** idea · **Priority:** low · **Status:** pending
