@@ -55,6 +55,14 @@ x-app-environment: &app-environment
   # address.
   TRUSTED_PROXIES: "${TRUSTED_PROXIES:-}"
 
+  # Where this instance's source can be obtained, linked in the footer — the
+  # AGPL offer. Passed through with no fallback on purpose: when it is unset the
+  # container never receives the key at all and the image's committed default
+  # applies, so a fork that edits `.env` and rebuilds keeps its own value.
+  # Spelling a default out here would silently overwrite that, and an empty
+  # string would remove the footer link rather than leaving it at the default.
+  APP_SOURCE_URL:
+
   MAILER_DSN: "${MAILER_DSN:?set it in compose.prod.env — registration needs working mail}"
   MAILER_FROM_ADDRESS: "${MAILER_FROM_ADDRESS:?set it in compose.prod.env to an address on a domain you control}"
   MAILER_FROM_NAME: "${MAILER_FROM_NAME:-Loupe}"

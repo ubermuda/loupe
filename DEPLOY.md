@@ -172,6 +172,7 @@ rather than half-configured:
 | `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET` | Billing, checkout, webhooks | Billing paths fail |
 | `OAUTH_GOOGLE_ID` / `_SECRET`, `OAUTH_GITHUB_ID` / `_SECRET` | Social login | Those buttons fail |
 | `MCP_ALLOWED_HOSTS` | DNS-rebinding allowlist for `/mcp` | The MCP endpoint rejects your real hostname |
+| `APP_SOURCE_URL` | The AGPL source offer: where *this instance's* source can be obtained, linked in the footer of every page | The one entry here that is not simply "off": the committed default applies, pointing at the upstream repository. That is the truth for an unmodified instance and a false statement for a modified one — **if you change the code, set this to your own repository** |
 | `EXPORT_STORAGE` | Where data-export archives live: `local` or `s3`. Terraform sets it to `s3` | **Every export download 404s** on `local`: the worker writes the archive, the web container serves it, and they share no volume |
 | `EXPORT_STORAGE_BUCKET`, `_ENDPOINT`, `_REGION`, `_KEY`, `_SECRET` | The bucket and its credentials. Terraform fills all five from the Spaces bucket it creates; they are yours to set only when `create_export_bucket = false` | Exports fail at upload |
 | `EXPORT_STORAGE_PREFIX` | Key prefix inside the bucket | Archives sit at the bucket root |

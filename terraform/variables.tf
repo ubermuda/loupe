@@ -125,6 +125,12 @@ variable "mcp_allowed_hosts" {
   description = "MCP_ALLOWED_HOSTS: comma-separated DNS-rebinding allowlist for /mcp. Must include the app's real hostname or every MCP call is rejected."
 }
 
+variable "app_source_url" {
+  type        = string
+  default     = ""
+  description = "APP_SOURCE_URL: where the source of THIS instance can be obtained, rendered as a footer link on every page. Empty leaves the key out of the app spec entirely, so the image's committed default applies — it points at the upstream repository, which is the truth only while you run upstream's code unmodified. Modify Loupe and the AGPL obliges you to offer YOUR source to the people using the instance: set this to your own repository, because a link to upstream offers them code they are not interacting with."
+}
+
 # --- Export bucket ---
 # When create_export_bucket is true (the default), spaces.tf creates a Spaces
 # bucket and a scoped access key, and main.tf feeds their values into
