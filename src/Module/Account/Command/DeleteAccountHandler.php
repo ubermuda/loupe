@@ -12,6 +12,8 @@ use App\Module\Account\Repository\UserRepository;
 use App\Module\Billing\Messenger\CancelSubscriptionMessage;
 use App\Module\Billing\Repository\BillingProfileRepository;
 use Doctrine\ORM\EntityManagerInterface;
+use League\Flysystem\FilesystemException;
+use League\Flysystem\FilesystemOperator;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\DependencyInjection\Attribute\AutowireIterator;
 use Symfony\Component\Messenger\MessageBusInterface;
@@ -38,6 +40,7 @@ final readonly class DeleteAccountHandler
         private MessageBusInterface $bus,
         private EntityManagerInterface $em,
         private LoggerInterface $logger,
+        private FilesystemOperator $exportStorage,
 
         #[AutowireIterator('app.account_data_purger')]
         iterable $purgers,
@@ -91,11 +94,13 @@ final readonly class DeleteAccountHandler
         });
 
         // Only after a successful commit is it safe to act on anything a
-        // purger deferred: a rolled-back transaction must leave on-disk
+        // purger deferred: a rolled-back transaction must leave stored
         // archives untouched.
-        foreach ($cleanup->filesToUnlink() as $path) {
-            if (is_file($path) && !@unlink($path)) {
-                $this->logger->warning('account.deletion.archive_unlink_failed', ['path' => $path]);
+        foreach ($cleanup->archivesToDelete() as $key) {
+            try {
+                $this->exportStorage->delete($key);
+            } catch (FilesystemException) {
+                $this->logger->warning('account.deletion.archive_unlink_failed', ['key' => $key]);
             }
         }
 

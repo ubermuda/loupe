@@ -8,12 +8,13 @@ use App\Controller\AppController;
 use App\Module\Account\Entity\DataExport;
 use App\Module\Account\Entity\User;
 use App\Routing\PaywallExempt;
+use League\Flysystem\FilesystemException;
+use League\Flysystem\FilesystemOperator;
 use Psr\Log\LoggerInterface;
-use Symfony\Component\DependencyInjection\Attribute\Autowire;
-use Symfony\Component\HttpFoundation\BinaryFileResponse;
+use Symfony\Component\HttpFoundation\HeaderUtils;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
-use Symfony\Component\HttpFoundation\ResponseHeaderBag;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 use Symfony\Component\Routing\Attribute\Route;
 
 #[PaywallExempt]
@@ -25,8 +26,7 @@ use Symfony\Component\Routing\Attribute\Route;
 class DownloadDataExportController extends AppController
 {
     public function __construct(
-        #[Autowire(param: 'kernel.project_dir')]
-        private readonly string $projectDir,
+        private readonly FilesystemOperator $exportStorage,
         private readonly LoggerInterface $logger,
     ) {
     }
@@ -51,16 +51,36 @@ class DownloadDataExportController extends AppController
         }
 
         $exportId = $export->id ?? throw new \LogicException('resolved export always has an id');
-        $path = DataExport::computeArchivePath($this->projectDir, $exportId);
-        if (!is_file($path)) {
+        $key = DataExport::computeArchiveKey($exportId);
+
+        // The archive is streamed rather than redirected to: the bucket is
+        // never assumed to be reachable from the browser, which is what lets a
+        // self-hosted install keep it entirely private.
+        //
+        // No Content-Length: it would have to come from a separate size lookup,
+        // and the expiry purge runs concurrently with downloads — an object
+        // deleted between the two calls would send a body shorter than the
+        // advertised length, which reaches the user as a corrupt ZIP instead of
+        // an error. A chunked response is always self-consistent.
+        try {
+            $stream = $this->exportStorage->readStream($key);
+        } catch (FilesystemException) {
             throw $this->createNotFoundException();
         }
 
-        $response = new BinaryFileResponse($path);
-        $response->setContentDisposition(
-            ResponseHeaderBag::DISPOSITION_ATTACHMENT,
+        $response = new StreamedResponse(static function () use ($stream): void {
+            $output = fopen('php://output', 'wb');
+            if (false !== $output) {
+                stream_copy_to_stream($stream, $output);
+                fclose($output);
+            }
+            fclose($stream);
+        });
+        $response->headers->set('Content-Type', 'application/zip');
+        $response->headers->set('Content-Disposition', HeaderUtils::makeDisposition(
+            HeaderUtils::DISPOSITION_ATTACHMENT,
             sprintf('loupe-export-%s.zip', (string) $exportId),
-        );
+        ));
 
         return $response;
     }

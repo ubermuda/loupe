@@ -59,6 +59,62 @@ variable "mcp_allowed_hosts" {
   description = "MCP_ALLOWED_HOSTS: comma-separated DNS-rebinding allowlist for /mcp. Must include the app's real hostname or every MCP call is rejected."
 }
 
+variable "export_storage" {
+  type        = string
+  default     = "s3"
+  description = "EXPORT_STORAGE: where data-export archives are stored, `local` or `s3`. Defaults to s3 here because this deployment runs the web and the worker as separate containers with no shared volume: with `local` the worker writes an archive the web container cannot see and every download 404s. Only set it to `local` on a topology where both processes share a filesystem."
+}
+
+variable "export_storage_bucket" {
+  type        = string
+  default     = ""
+  description = "EXPORT_STORAGE_BUCKET: bucket holding data-export archives. REQUIRED whenever export_storage is `s3`."
+}
+
+variable "export_storage_prefix" {
+  type        = string
+  default     = ""
+  description = "EXPORT_STORAGE_PREFIX: key prefix inside the bucket. Empty stores archives at the bucket root, which is what a dedicated bucket wants."
+}
+
+variable "export_storage_region" {
+  type        = string
+  default     = ""
+  description = "EXPORT_STORAGE_REGION. Empty falls back to AWS's default (us-east-1). DigitalOcean Spaces uses the datacenter, e.g. tor1."
+}
+
+variable "export_storage_endpoint" {
+  type        = string
+  default     = ""
+  description = "EXPORT_STORAGE_ENDPOINT for any non-AWS S3-compatible provider, e.g. https://tor1.digitaloceanspaces.com. Empty targets AWS S3 itself."
+}
+
+variable "export_storage_key" {
+  type        = string
+  sensitive   = true
+  default     = ""
+  description = "EXPORT_STORAGE_KEY: access key id. Empty falls back to the ambient AWS credential chain, which only helps when running on AWS with an attached role."
+}
+
+variable "export_storage_secret" {
+  type        = string
+  sensitive   = true
+  default     = ""
+  description = "EXPORT_STORAGE_SECRET: secret access key. Pairs with export_storage_key."
+}
+
+variable "export_storage_acl" {
+  type        = string
+  default     = ""
+  description = "EXPORT_STORAGE_ACL: canned ACL sent with every upload. Empty keeps the app default, `private`, which MinIO and DigitalOcean Spaces require. Set it to `bucket-owner-full-control` for an AWS S3 bucket left at its default \"Bucket owner enforced\" ownership, which rejects every other ACL with a 400."
+}
+
+variable "export_storage_use_path_style" {
+  type        = string
+  default     = ""
+  description = "EXPORT_STORAGE_USE_PATH_STYLE: set to \"true\" for MinIO and most non-AWS providers, which address buckets as https://host/bucket/key rather than https://bucket.host/key."
+}
+
 
 
 variable "mailer_from_address" {

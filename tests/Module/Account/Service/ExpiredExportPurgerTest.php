@@ -8,12 +8,13 @@ use App\Module\Account\Entity\DataExport;
 use App\Module\Account\Entity\User;
 use App\Module\Account\Service\ExpiredExportPurger;
 use Doctrine\ORM\EntityManagerInterface;
+use League\Flysystem\FilesystemOperator;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 
 final class ExpiredExportPurgerTest extends KernelTestCase
 {
     private EntityManagerInterface $em;
-    private string $projectDir;
+    private FilesystemOperator $exportStorage;
 
     #[\Override]
     protected function setUp(): void
@@ -23,12 +24,12 @@ final class ExpiredExportPurgerTest extends KernelTestCase
         self::assertInstanceOf(EntityManagerInterface::class, $em);
         $this->em = $em;
 
-        $projectDir = self::getContainer()->getParameter('kernel.project_dir');
-        self::assertIsString($projectDir);
-        $this->projectDir = $projectDir;
+        $storage = self::getContainer()->get('test.export.storage');
+        self::assertInstanceOf(FilesystemOperator::class, $storage);
+        $this->exportStorage = $storage;
     }
 
-    public function test_purges_expired_exports_and_their_files(): void
+    public function test_purges_expired_exports_and_their_archives(): void
     {
         $user = new User('alice', 'Alice A', 'alice@example.com', 'x');
         $this->em->persist($user);
@@ -53,17 +54,14 @@ final class ExpiredExportPurgerTest extends KernelTestCase
         self::assertNotNull($stillValidId);
         self::assertNotNull($pendingId);
 
-        $expiredPath = DataExport::computeArchivePath($this->projectDir, $expiredId);
-        if (!is_dir(\dirname($expiredPath))) {
-            mkdir(\dirname($expiredPath), 0770, true);
-        }
-        file_put_contents($expiredPath, 'archive bytes');
+        $expiredKey = DataExport::computeArchiveKey($expiredId);
+        $this->exportStorage->write($expiredKey, 'archive bytes');
 
         $purger = self::getContainer()->get(ExpiredExportPurger::class);
         $count = $purger->purge();
 
         self::assertSame(1, $count);
-        self::assertFileDoesNotExist($expiredPath);
+        self::assertFalse($this->exportStorage->fileExists($expiredKey));
 
         $this->em->clear();
         self::assertNull($this->em->find(DataExport::class, $expiredId));

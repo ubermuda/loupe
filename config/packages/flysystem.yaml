@@ -1,0 +1,32 @@
+# Read the documentation at https://github.com/thephpleague/flysystem-bundle/blob/master/docs/1-getting-started.md
+flysystem:
+    storages:
+        # `export.storage` is the only storage the application injects
+        # (FilesystemOperator $exportStorage). It is a lazy storage: EXPORT_STORAGE
+        # picks which of the two below it resolves to, and that resolution happens
+        # at first use — so an installation on local storage never constructs the
+        # S3 client and never needs its credentials set.
+        export.storage:
+            lazy:
+                source: 'export.storage.%env(EXPORT_STORAGE)%'
+
+        # Correct for development, tests, and single-container installs with a
+        # persistent volume. NOT correct for the split web/worker topology
+        # docker/prod ships: the worker writes the archive and the web container
+        # serves it, and with no shared volume every download 404s. See .env.
+        export.storage.local:
+            local:
+                directory: '%kernel.project_dir%/var/exports'
+            # Export archives are personal data. Nothing but this app reads them
+            # — it streams them itself — so they are never world-readable.
+            visibility: 'private'
+            directory_visibility: 'private'
+
+        # The adapter is built by hand rather than through this bundle's
+        # `asyncaws:` shortcut, which hardcodes a visibility converter and so
+        # gives no way to configure the canned ACL — see
+        # App\Storage\PrivateCannedAclConverter for why that matters.
+        export.storage.s3:
+            service: 'app.export_storage.s3_adapter'
+            visibility: 'private'
+            directory_visibility: 'private'
