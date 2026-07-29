@@ -334,6 +334,35 @@ Examples:
 
 Do not create a `Service/` class for logic that is only ever called from one place — keep it in the handler or controller where it lives. The extraction threshold is **duplication, not size**.
 
+## Scheduled jobs — `#[AsCronTask]`, never a schedule provider
+
+A recurring job is an invokable task class under `src/Module/*/Scheduler/`, carrying `#[AsCronTask('<cron expression>')]` and delegating to a command handler. It needs nothing else — no message class, no `#[AsMessageHandler]`, no `messenger.yaml` routing.
+
+```php
+#[AsCronTask('*/5 * * * *')]
+final readonly class DrainSiteReviewOutboxTask
+{
+    public function __construct(private DrainOutboxHandler $drainOutbox) {}
+
+    public function __invoke(): void { ($this->drainOutbox)(new DrainOutboxCommand()); }
+}
+```
+
+**Do not add a `ScheduleProviderInterface` / `#[AsSchedule]` class.** Only one provider may claim a schedule name, so the idiom does not compose across modules: the second module would have to edit the first module's provider (a module-boundary violation) or claim a new schedule name — and a new schedule name mints a new `scheduler_<name>` transport that must then be added to *every* `messenger:consume` invocation, including `compose.yaml`, `terraform/main.tf`'s `worker_command`, and the production deploy config. Tagged tasks all land on the one `default` schedule and the single `scheduler_default` transport the worker already consumes. (`AddScheduleMessengerPass` decorates a provider when one exists and synthesises the schedule itself when none does — so removing the last provider changes nothing about the transports.)
+
+Use a cron expression, not `#[AsPeriodicTask]`: the periodic trigger counts down from worker boot, and the worker is recycled hourly by `--time-limit=3600`, so a periodic tick can starve. The cron grid is wall-clock and survives restarts.
+
+Pair every task with a manual `app:*` console command (the backstop and the dev/e2e seam) and a registration test — the wiring lives entirely in an attribute and a compiler pass, so nothing else notices a tick going missing:
+
+```php
+self::assertSame(
+    '*/5 * * * *',
+    ScheduledTasks::cronExpressions(self::getContainer())[DrainSiteReviewOutboxTask::class] ?? null,
+);
+```
+
+`App\Tests\Support\ScheduledTasks` reads the built schedule back; see `tests/Module/SiteReview/Scheduler/DrainSiteReviewOutboxTaskTest.php`.
+
 ## Email
 
 Email is delivered asynchronously: `MailerInterface::send()` enqueues a `Symfony\Component\Mailer\Messenger\SendEmailMessage` on the `async` Messenger transport (routed in `messenger.yaml`), and the messenger worker (`messenger:consume scheduler_default async`) performs the actual delivery — the dev `worker` compose service already consumes `scheduler_default async`; in production the worker runs as its own container (from the same image, with the command overridden — never inside the web container's supervisord). Failed deliveries retry 3 times, then land in the `failed` transport.
