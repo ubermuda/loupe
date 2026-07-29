@@ -29,7 +29,11 @@ final class StreamCredentialsControllerTest extends WebTestCase
         self::assertIsArray($data);
         self::assertSame('https://mercure.loupe.dev.localhost/.well-known/mercure', $data['hubUrl']);
 
-        $expectedTopic = 'https://loupe.dev.localhost/projects/'.$project->id.'/site-reviews';
+        // The topic namespace is the app's own public URL (DEFAULT_URI), which
+        // is the same value the router pins its default context to.
+        $defaultUri = static::getContainer()->getParameter('router.request_context.base_url');
+        self::assertIsString($defaultUri);
+        $expectedTopic = rtrim($defaultUri, '/').'/projects/'.$project->id.'/site-reviews';
         self::assertSame($expectedTopic, $data['topic']);
         self::assertSame((string) $project->id, $data['site']['id']);
         self::assertSame($project->name, $data['site']['name']);

@@ -14,6 +14,9 @@ use Symfony\Component\Uid\Uuid;
  * the publisher (SubmitReviewHandler) and the subscriber-JWT issuer
  * (StreamCredentialsController) — so the topic string is guaranteed to match
  * regardless of the configured base URL.
+ *
+ * The base is the app's own public URL (DEFAULT_URI). It is never dereferenced;
+ * it only namespaces the topic so two instances cannot collide on a shared hub.
  */
 final readonly class SiteReviewTopicBuilder
 {

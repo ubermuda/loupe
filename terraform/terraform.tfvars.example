@@ -12,7 +12,6 @@ app_encryption_key   = "GENERATED_BASE64_32_BYTE_KEY"
 
 # --- Application configuration (wired into extra_env in main.tf) ---
 # Omit any of these and the matching feature stays off rather than half-configured.
-
 # REQUIRED in production: the install wizard fails closed there, so without this
 # /install 404s and you cannot create the first administrator.
 # install_token = "GENERATE_A_LONG_RANDOM_STRING"
@@ -20,9 +19,28 @@ app_encryption_key   = "GENERATED_BASE64_32_BYTE_KEY"
 # admin_email       = "you@example.com"       # promoted to ROLE_ADMIN
 # mcp_allowed_hosts = "loupe.example.com"     # must list the app's real hostname
 
+# REQUIRED in production: the sender of every transactional email. It must be on
+# a domain you control and have published SPF/DKIM/DMARC for — the committed
+# fallback (noreply@localhost) is rejected by real mail servers, and email
+# verification is mandatory, so registration breaks without this.
+# mailer_from_address = "noreply@loupe.example.com"
+# mailer_from_name    = "Loupe"
+
 # Site-review push. Setting this runs a Mercure hub as a second service in the
 # app and wires the URLs automatically; leave it out to keep push disabled.
 # mercure_jwt_secret = "GENERATE_A_LONG_RANDOM_STRING"
+
+# Data-export archives. REQUIRED: this deployment runs the web and the worker as
+# separate containers with no shared volume, so exports need a bucket both can
+# reach. export_storage defaults to "s3"; without a bucket, every export
+# download 404s. Any S3-compatible provider works.
+# export_storage_bucket        = "loupe-exports"
+# export_storage_region        = "tor1"
+# export_storage_endpoint      = "https://tor1.digitaloceanspaces.com"
+# export_storage_key           = "..."
+# export_storage_secret        = "..."
+# export_storage_use_path_style = "true"   # MinIO and most non-AWS providers
+# export_storage_acl            = "bucket-owner-full-control"  # AWS S3 only, see DEPLOY.md
 
 # stripe_secret_key     = "sk_live_..."
 # stripe_webhook_secret = "whsec_..."

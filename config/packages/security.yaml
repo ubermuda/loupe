@@ -70,6 +70,9 @@ security:
         - { path: ^/dev/e2e/, roles: PUBLIC_ACCESS }
         # The OAuth start and callback URLs must be reachable unauthenticated.
         # Each route is additionally gated by its provider's feature flag.
+        # Liveness probe for load balancers, which cannot authenticate. It
+        # returns a fixed ok/error body and nothing else — see ShowHealthController.
+        - { path: ^/healthz$,        roles: PUBLIC_ACCESS }
         - { path: ^/oauth,           roles: PUBLIC_ACCESS }
         - { path: ^/login,           roles: PUBLIC_ACCESS }
         - { path: ^/register,        roles: PUBLIC_ACCESS }

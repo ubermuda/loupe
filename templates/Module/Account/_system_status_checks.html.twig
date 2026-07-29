@@ -1,0 +1,32 @@
+{#
+    System-status check list, shared by the install wizard and the admin area.
+
+    Props:
+      - checks: list of App\Module\Account\Command\SystemCheck
+
+    The icon per state is written out branch by branch rather than looked up
+    from a map because `bin/console ux:icons:lock` only imports icon names it
+    can read as literals; a computed name ships as a blank space in production.
+#}
+<ul class="status-check-list">
+    {% for check in checks %}
+        <li class="status-check" data-system-check="{{ check.key }}" data-system-check-state="{{ check.state.value }}">
+            <span class="status-check-badge status-check-badge-{{ check.state.value }}">
+                {% if check.state.value == 'ok' %}
+                    <twig:UX:Icon name="lucide:circle-check" class="w-3.5 h-3.5 shrink-0" />
+                {% elseif check.state.value == 'warning' %}
+                    <twig:UX:Icon name="lucide:triangle-alert" class="w-3.5 h-3.5 shrink-0" />
+                {% elseif check.state.value == 'failed' %}
+                    <twig:UX:Icon name="lucide:circle-x" class="w-3.5 h-3.5 shrink-0" />
+                {% else %}
+                    <twig:UX:Icon name="lucide:circle-help" class="w-3.5 h-3.5 shrink-0" />
+                {% endif %}
+                {{ ('account.system_status.state.' ~ check.state.value)|trans }}
+            </span>
+            <span class="status-check-text">
+                <span class="status-check-label">{{ ('account.system_status.check.' ~ check.key ~ '.label')|trans }}</span>
+                <span class="status-check-detail">{{ check.detail|trans(check.detailParameters) }}</span>
+            </span>
+        </li>
+    {% endfor %}
+</ul>
