@@ -282,7 +282,7 @@ Use `#[AutoconfigureTag]` + `#[AutowireIterator]` only when multiple implementat
 final readonly class TopicBuilder
 {
     public function __construct(
-        #[Autowire(env: 'APP_URL')]
+        #[Autowire(param: 'app.url')]
         private string $appUrl,
     ) {}
 

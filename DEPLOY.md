@@ -30,8 +30,8 @@ from a workstation with `just`.
 
 | Component | What it is |
 |---|---|
-| **Web container** | `docker/prod/Dockerfile`, running supervisord as PID 1: `php-fpm` + `nginx`, plus an `export-purge` sleep-loop that runs `app:purge-expired-exports` hourly. It purges archives the *worker* wrote, which only works because both address the same export storage — see `EXPORT_STORAGE` below. |
-| **Worker container** | The *same image*, started with a different command (`enable_worker` in `terraform/main.tf`). Not part of the web container's supervisord — deliberately, so worker restarts never recycle php-fpm/nginx. It consumes `scheduler_default` first, then `async`: a deep async backlog must not delay schedule ticks. |
+| **Web container** | `docker/prod/Dockerfile`, running supervisord as PID 1: `php-fpm` + `nginx`, and nothing else. No background process runs here. |
+| **Worker container** | The *same image*, started with a different command (`enable_worker` in `terraform/main.tf`). Not part of the web container's supervisord — deliberately, so worker restarts never recycle php-fpm/nginx. It consumes `scheduler_default` first, then `async`: a deep async backlog must not delay schedule ticks. Everything recurring rides that schedule, including the hourly `app:purge-expired-exports` that deletes expired export archives — **so with `enable_worker` off, expired archives are never purged** (nor are exports ever generated). |
 | **Postgres** | A per-app database and user on a managed cluster you already own, named by `db_cluster_name`. Terraform creates the database and the user; it never creates the cluster. |
 | **Export bucket** | A DigitalOcean Spaces bucket plus a bucket-scoped access key, created by `terraform/spaces.tf` and wired into the app as ordinary `EXPORT_STORAGE_*` settings. |
 | **Mercure hub** | Required for site-review push. A second service in the same app, run by the shared module when `mercure_jwt_secret` is set. In-memory, so delivery is best effort — see "Known gaps". |
@@ -206,8 +206,7 @@ the token.
 2. **The export bucket is created for you, but pick its region.** The web and
    worker containers have separate ephemeral filesystems, so the application
    default of `EXPORT_STORAGE=local` cannot work here: the worker would write an
-   archive the web container cannot see, every download would 404, and the hourly
-   `export-purge` loop would delete rows whose archives it cannot reach.
+   archive the web container cannot see, and every download would 404.
    `terraform/spaces.tf` therefore creates a private Spaces bucket and a
    bucket-scoped access key, and `main.tf` wires them into
    `EXPORT_STORAGE_BUCKET` / `_ENDPOINT` / `_REGION` / `_KEY` / `_SECRET`. All
