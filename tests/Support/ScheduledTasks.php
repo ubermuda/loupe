@@ -9,14 +9,7 @@ use Symfony\Component\Scheduler\Generator\MessageContext;
 use Symfony\Component\Scheduler\Messenger\ServiceCallMessage;
 use Symfony\Component\Scheduler\ScheduleProviderInterface;
 
-/**
- * Reads back what `#[AsCronTask]` actually registered on a schedule.
- *
- * A scheduled job's wiring lives entirely in an attribute and a compiler pass,
- * so nothing in the task's own tests notices the tick going missing. Every task
- * therefore gets a test asserting it appears here with the expression it
- * declares.
- */
+/** Reads back what `#[AsCronTask]` actually registered on a schedule. */
 final class ScheduledTasks
 {
     /**

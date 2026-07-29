@@ -9,9 +9,8 @@ use App\Tests\Support\ScheduledTasks;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 
 /**
- * Expired trials are only disabled if the hourly tick fires, and the wiring is
- * entirely in an attribute and a compiler pass — nothing in the sweep's own
- * tests would notice it going missing.
+ * The tick's wiring is entirely in an attribute and a compiler pass, so nothing
+ * in the sweep's own tests would notice it going missing.
  */
 final class SweepEndedTrialsTaskTest extends KernelTestCase
 {

@@ -9,9 +9,8 @@ use App\Tests\Support\ScheduledTasks;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 
 /**
- * The drain heals a stranded outbox only if something actually calls it, and
- * the wiring is entirely in attributes and a compiler pass — nothing in the
- * handler's own tests would notice the tick going missing.
+ * The tick's wiring is entirely in an attribute and a compiler pass, so nothing
+ * in the drain handler's own tests would notice it going missing.
  */
 final class DrainSiteReviewOutboxTaskTest extends KernelTestCase
 {

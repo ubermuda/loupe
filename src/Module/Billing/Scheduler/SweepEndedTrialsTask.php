@@ -10,16 +10,11 @@ use Psr\Log\LoggerInterface;
 use Symfony\Component\Scheduler\Attribute\AsCronTask;
 
 /**
- * Hourly trial-end sweep, run by the worker that consumes the
- * `scheduler_default` transport. `app:sweep-ended-trials` is the manual
- * backstop.
+ * Hourly trial-end sweep. `app:sweep-ended-trials` is the manual backstop.
  *
- * A cron trigger, not `every('1 hour')`: the stateless periodic trigger counts
- * down from worker boot, so a worker recycled by --time-limit=3600 restarts the
- * countdown and the tick may never fire. The cron grid is wall-clock — restarts
- * don't move it, and an hour missed while no worker ran is genuinely caught at
- * the next top of hour. The sweep is marker-idempotent, so no lock or stateful
- * cache is configured: a duplicate tick re-selects nothing.
+ * Cron, not `#[AsPeriodicTask]`: the periodic trigger counts down from worker
+ * boot, and `--time-limit=3600` recycles the worker, restarting the countdown.
+ * A missed or duplicated tick is harmless — every action is marker-guarded.
  */
 #[AsCronTask('0 * * * *')]
 final readonly class SweepEndedTrialsTask
