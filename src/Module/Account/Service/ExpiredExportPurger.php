@@ -49,6 +49,11 @@ readonly class ExpiredExportPurger
 
         $this->em->flush();
 
+        // The scheduler runs this through RunCommandMessage, which buffers and
+        // discards the command's own output — this line is the only thing that
+        // makes hourly purge liveness greppable in the worker logs.
+        $this->logger->info('account.data_export.purge_completed', ['purged' => $purged]);
+
         return $purged;
     }
 }

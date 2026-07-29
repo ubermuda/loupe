@@ -36,17 +36,18 @@ optionally, a Mercure hub.
 
 | Process | What it is |
 |---|---|
-| **Web** | `docker/prod/Dockerfile`, running supervisord as PID 1: `php-fpm` + `nginx`, plus an `export-purge` sleep-loop that runs `app:purge-expired-exports` hourly. It purges archives the *worker* wrote, which only works because both address the same export storage — see `EXPORT_STORAGE` below. Listens on port 80. |
-| **Worker** | The *same image*, started with a different command. Deliberately **not** a supervisord program inside the web container, so worker restarts never recycle php-fpm and nginx. |
+| **Web** | `docker/prod/Dockerfile`, running supervisord as PID 1: `php-fpm` + `nginx`, and nothing else. No background process runs here. Listens on port 80. |
+| **Worker** | The *same image*, started with a different command. Deliberately **not** a supervisord program inside the web container, so worker restarts never recycle php-fpm and nginx. It is also the only thing that runs scheduled work — **everything recurring rides its schedule**, so nothing periodic happens without it. |
 | **Postgres** | Any Postgres the app can reach. It also carries the message queue: `MESSENGER_TRANSPORT_DSN` defaults to `doctrine://default?auto_setup=0`, so there is no broker to run. |
 | **Mercure hub** | Only needed for site-review push. Optional, and off until `MERCURE_JWT_SECRET` is set. In-memory, so delivery is best effort — see "Known gaps". |
 
 ### The worker is not optional
 
 Nothing consumes the queues unless you run it, and nothing warns you: queued
-mail is never delivered, data exports never build, the trial-end sweep never
-runs, and the site-review outbox never drains. Every one of those fails
-silently — the request that queued the work still returns 200.
+mail is never delivered, data exports never build, expired export archives are
+never purged, the trial-end sweep never runs, and the site-review outbox never
+drains. Every one of those fails silently — the request that queued the work
+still returns 200.
 
 ```
 php bin/console messenger:consume scheduler_default async --time-limit=3600 --memory-limit=128M
@@ -82,7 +83,7 @@ slot for it?** "No" means both templates cover it.
 | `DEFAULT_URI` | **The instance's public URL, scheme included.** The single host-shaped setting the app has. It builds absolute links in non-HTTP contexts (console commands, the worker), pins the host of links in security-sensitive email so a forged `Host` header cannot redirect them, and is the base of the Mercure topics the bridge CLI subscribes to. Get it wrong and password-reset and export-download emails point somewhere nobody can act on. | No |
 | `MCP_ALLOWED_HOSTS` | Comma-separated DNS-rebinding allowlist for `/mcp`, **hostnames only, no port**. It must contain the hostname agents actually use, or every MCP call is rejected with a 403 — one that names this variable and echoes the host it rejected, so the failure is self-explaining. | No |
 | `TRUSTED_PROXIES` | The reverse proxy in front of the app, as IPs or CIDR ranges. **Empty falls back to `PRIVATE_SUBNETS`**, which covers Docker and any balancer on a private network. Set it when your balancer reaches the app from a public address: until you do, `X-Forwarded-Proto` and `X-Forwarded-Host` are ignored (generated URLs get the wrong scheme and host) and every visitor shares the balancer's IP, so the per-IP registration and password-reset limiters throttle all your users collectively. | **Yes on App Platform** — `compose.prod.env.example` has a slot, Terraform has none |
-| `APP_SOURCE_URL` | Where *this instance's* source can be obtained, rendered as a footer link on every page. A default ships in `.env` pointing at upstream, which is correct for an unmodified instance and wrong for a modified one. **If you change the code, the AGPL requires you to point this at your repository.** | **Yes, both topologies** |
+| `APP_SOURCE_URL` | Where *this instance's* source can be obtained, rendered as a footer link on every page. A default ships in `.env` pointing at upstream, which is correct for an unmodified instance and wrong for a modified one. **If you change the code, the AGPL requires you to point this at your repository.** | No |
 
 ### Mail
 
@@ -118,9 +119,8 @@ agent, and the publish failure is only logged — it degrades silently.
 `var/exports/`. **That is only correct when the process that generates an export
 and the process that serves its download share a filesystem.** The single-host
 stack does share one; separate web and worker containers do not, and there
-`local` means the worker writes an archive the web container cannot see, every
-download 404s, and the hourly purge loop deletes rows whose archives it cannot
-reach.
+`local` means the worker writes an archive the web container cannot see and
+every download 404s.
 
 | Variable | Purpose |
 |---|---|
@@ -170,14 +170,20 @@ that bucket ACL. Nothing to do on the shipped DigitalOcean path.
 
 ### What the Terraform root does not set
 
-Two variables above have no Terraform variable and no `extra_env` entry in
-`terraform/main.tf`: **`APP_SOURCE_URL`** and **`SITE_REVIEW_WIDGET_TOKEN`**.
-The widget is a dogfooding aid rather than part of the deploy surface, and
-`APP_SOURCE_URL` only needs changing if you modify the code. Add either by hand
-to `extra_env` if you want it — there is no variable to fill in.
+One variable above has no Terraform variable and no `extra_env` entry in
+`terraform/main.tf`: **`SITE_REVIEW_WIDGET_TOKEN`**. The widget is a dogfooding
+aid rather than part of the deploy surface, so add it by hand to `extra_env` if
+you want it — there is no variable to fill in.
 
 `TRUSTED_PROXIES` likewise has no Terraform variable; on App Platform the
 `PRIVATE_SUBNETS` fallback applies unless you add it yourself.
+
+`APP_SOURCE_URL` **is** wired on both topologies — `app_source_url` in
+`terraform/variables.tf` feeds an `extra_env` entry, and
+`compose.prod.env.example` carries a commented slot. Both deliberately omit the
+key entirely when it is empty, rather than passing an empty string: an absent
+key leaves the image's committed default in place, while an emitted empty one
+would remove the footer link altogether.
 
 Everything else is wired. The shared module injects `APP_ENV`, `APP_SECRET`,
 `APP_ENCRYPTION_KEY`, `DATABASE_URL`, `MAILER_DSN` and `DEFAULT_URI` — and, when
@@ -245,8 +251,8 @@ The two topologies below each have their own way of invoking it.
 
 `compose.prod.yaml` runs the whole application on one host with no cloud account
 of any kind. It is the same production image, run as four services: `web`
-(nginx + php-fpm + the hourly export purge), `worker` (the messenger consumer),
-`database` (Postgres) and `mercure` (the hub).
+(nginx + php-fpm), `worker` (the messenger consumer, which also runs everything
+on the schedule), `database` (Postgres) and `mercure` (the hub).
 
 ```bash
 cp compose.prod.env.example compose.prod.env      # then fill it in
@@ -407,8 +413,9 @@ sign-up branch and `/waitlist` all refuse to create the **first** account, so a
 missing `INSTALL_TOKEN` cannot leave a fresh instance to whoever finds it first.
 Registration is additionally gated on the `registration.enabled` feature flag,
 which the wizard seeds and the admin area can toggle at any time. When the flag
-row is absent — an instance upgraded from a version that never seeded it —
-registration stays open, so an existing instance keeps behaving as it did.
+row is absent — an instance upgraded from a version that never seeded it, or one
+recovered entirely from the shell — registration stays open, so an existing
+instance keeps behaving as it did.
 
 ## Recovering an instance
 
@@ -419,9 +426,9 @@ that is already in the desired state prints "already …" and exits 0.
 
 | Command | What it does |
 |---|---|
-| `app:admin:create <email>` | Ensures the email is a **verified administrator**, creating the account if it does not exist. Options: `--username`, `--full-name`, `--password`. With no `--password` it prompts (or, non-interactively, generates one and prints it once). An existing account is promoted and verified in place and **keeps its password**. It also seeds the install feature flags the wizard would have, so a shell-recovered instance ends up in the same state as a wizard-installed one. |
+| `app:admin:create <email>` | Ensures the email is a **verified administrator**, creating the account if it does not exist. Options: `--username`, `--full-name`, `--password`. With no `--password` it prompts (or, non-interactively, generates one and prints it once). An existing account is promoted and verified in place and **keeps its password**. |
 | `app:user:promote <email>` | Grants `ROLE_ADMIN` to an existing account, keeping any other roles. |
-| `app:user:verify <email>` | Marks the account's email verified and burns any outstanding verification token. The escape hatch when outbound mail never arrives — an unverified account is parked on the check-email page and cannot reach the admin area. |
+| `app:user:verify <email>` | Marks the account's email verified and burns any outstanding verification token — including on an account that was already verified, since that link logs its bearer straight in. The escape hatch when outbound mail never arrives: an unverified account is parked on the check-email page and cannot reach the admin area. |
 
 Non-interactive first admin on a fresh instance:
 
@@ -430,6 +437,14 @@ docker exec <web-container> bin/console app:admin:create you@example.com
 # → Created administrator you@example.com (username: you)
 # → Generated password (shown once): …
 ```
+
+A shell-recovered instance has no feature-flag rows at all, and that is fine:
+every install flag falls back to exactly the value the wizard would have written
+(registration on, no cap, billing and social login off, a 14-day trial), so the
+instance behaves like a wizard-installed one with the defaults accepted. To
+change any of them, visit the admin **Feature flags** page — its scan view lists
+every flag the code references but the database does not define, and creates the
+rows on request.
 
 ## Operating an instance
 
@@ -507,12 +522,10 @@ It is safe to run alongside the worker; the claim is atomic.
 
 2. **On App Platform, `EXPORT_STORAGE` cannot be `local`.** The web and worker
    containers have separate ephemeral filesystems, so the application default
-   would have the worker write an archive the web container cannot see: every
-   download would 404, and the hourly `export-purge` loop would delete rows
-   whose archives it cannot reach. `terraform/spaces.tf` therefore creates a
-   private Spaces bucket and a bucket-scoped access key, and `main.tf` wires
-   them into `EXPORT_STORAGE_BUCKET` / `_ENDPOINT` / `_REGION` / `_KEY` /
-   `_SECRET`.
+   would have the worker write an archive the web container cannot see, and
+   every download would 404. `terraform/spaces.tf` therefore creates a private
+   Spaces bucket and a bucket-scoped access key, and `main.tf` wires them into
+   `EXPORT_STORAGE_BUCKET` / `_ENDPOINT` / `_REGION` / `_KEY` / `_SECRET`.
 
    All you supply is `export_bucket_region` — a Spaces datacenter slug like
    `tor1`, which is **not** the App Platform slug (`tor`) and cannot be derived

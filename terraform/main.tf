@@ -96,6 +96,14 @@ module "app" {
     var.mailer_from_name == "" ? {} : { MAILER_FROM_NAME = { value = var.mailer_from_name } },
     var.install_token == "" ? {} : { INSTALL_TOKEN = { value = var.install_token, type = "SECRET" } },
 
+    # The AGPL source offer. Conditional like the rest, but for a different
+    # reason: everywhere else an empty value and an absent key mean the same
+    # thing, a feature left off. Here an absent key leaves the image's own
+    # default in place — a link to the upstream repository — while an emitted
+    # empty one removes the footer link altogether. So empty must mean "this
+    # instance has nothing to add", never "make no offer at all".
+    var.app_source_url == "" ? {} : { APP_SOURCE_URL = { value = var.app_source_url } },
+
     # Data-export archives. Unlike every other entry here, EXPORT_STORAGE is
     # always set: the app's own default is `local`, which cannot work on this
     # topology (separate web and worker containers, no shared volume), so

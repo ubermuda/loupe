@@ -743,6 +743,31 @@ Related: 'Worktree e2e runs now require a worktree-scoped worker' and
 'Decide fate of PlaywrightSyncEmailMiddleware (async-email follow-up)' — the
 latter would remove the need for this consumer altogether.
 
+## Social linking leaves a live email-verification link outstanding
+
+**Author:** Claude · **Type:** security · **Priority:** medium · **Status:** pending
+
+`ResolveSocialLoginHandler` (the match-by-email branch) and
+`LinkSocialAccountHandler` both do `$user->emailVerifiedAt ??= new
+\DateTimeImmutable();` when a provider proves ownership of an address, but
+neither calls `clearEmailVerificationToken()`. So a user who registers through
+the form — `VerificationEmailSender` generates and emails a token — and then
+signs in with Google or GitHub before clicking is left verified with a working
+link outstanding. `VerifyEmailHandler` never checks `isVerified()`, and
+`VerifyEmailController` calls `Security::login()` on any valid token, so that
+link still logs its bearer straight in.
+
+`MarkEmailVerifiedHandler` now revokes such a token on every path, so
+`app:user:verify` and `app:admin:create` clean it up — but only for an operator
+who runs them. The fix at the source is to pair each `emailVerifiedAt ??=` with
+`clearEmailVerificationToken()` in both social handlers, which also makes the
+handlers' own "a pending click-through verification is superseded" comments
+true rather than half-true.
+
+Graded medium rather than high deliberately: the token expires an hour after it
+is issued, and it was emailed only to the address the provider just verified
+ownership of, so this is a stale credential outliving its purpose rather than a
+path to another account. Re-grade if that reasoning does not hold.
 ## Data-export object storage has never run against a real bucket
 
 **Author:** Claude · **Type:** tooling · **Priority:** medium · **Status:** pending
@@ -1709,26 +1734,3 @@ It delivers the stated relationship — the part that actually survives into a C
 change — for the price of a data-model change, with none of the intent-inference
 problem above. Once multi-anchor comments exist, revisit whether dragging adds
 enough over them to be worth building at all.
-
-## Subscribe page can offer a waitlist button that 404s
-
-**Author:** Claude · **Type:** bug · **Priority:** low · **Status:** pending
-
-`templates/Module/Billing/show_subscribe.html.twig` renders a "join the
-waitlist" form when `view.capFull`, and `/waitlist` now 404s on an instance
-where the `registration.enabled` feature flag is off (see
-`RegistrationGate::allowsNewAccounts()`). So a disabled account, on an instance
-that is both at its registration cap and has sign-up switched off, is offered a
-button that leads nowhere.
-
-Narrow: the whole action block sits inside `{% if view.billingEnabled %}`, so a
-self-hosted instance with billing off — the default — never renders it. It needs
-a billing-enabled deployment that also closed registration.
-
-The fix is not simply hiding the button: `ShowSubscribeHandler` computes
-`capFull` from `RegistrationGate::isOpen()` (capacity only, correctly), and the
-`{% else %}` branch it would fall through to is a checkout form that
-`StartCheckoutHandler` rejects for the same account. Closing this properly means
-deciding what the page should say when neither checkout nor the waitlist is
-available, which is a copy decision — hence not folded into the registration
-gating work.

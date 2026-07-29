@@ -75,12 +75,10 @@ final readonly class ResolveSocialLoginHandler
             return SocialLoginOutcome::logIn($byEmail);
         }
 
-        // Only this branch creates an account, so only this branch is subject to
-        // the sign-up gate — an existing user must still be able to log in
-        // through their provider on a closed instance. No waitlist diversion
-        // here: a switched-off instance is not merely full, and while the users
-        // table is empty a diverted entry would be waiting on an administrator
-        // who does not exist.
+        // Gated here and not earlier: only this branch creates an account, and
+        // an existing user must still be able to log in on a closed instance.
+        // No waitlist diversion either — a switched-off instance is not merely
+        // full, so there is nothing an entry could be waiting for.
         if (!$this->registrationGate->allowsNewAccounts()) {
             $this->logger->info('account.social.registration_closed', ['provider' => $profile->provider->value]);
 

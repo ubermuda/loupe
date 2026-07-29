@@ -39,6 +39,12 @@ final readonly class ShowSubscribeView
          */
         public bool $capFull = false,
         /**
+         * Sign-up — and with it `/waitlist`, which 404s whenever registration
+         * is closed — is reachable. Only meaningful alongside `capFull`, which
+         * is what makes the waitlist the page's remaining offer.
+         */
+        public bool $waitlistOpen = false,
+        /**
          * Only ever a token verified against this user's own waitlist entry —
          * an invalid or foreign token is never echoed back into the page.
          */

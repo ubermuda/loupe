@@ -36,13 +36,20 @@ app_encryption_key   = "GENERATED_BASE64_32_BYTE_KEY"
 
 # --- Application configuration (wired into extra_env in main.tf) ---
 # Omit any of these and the matching feature stays off rather than half-configured.
-
 # REQUIRED in production: the install wizard fails closed there, so without this
 # /install 404s and you cannot create the first administrator.
 # install_token = "GENERATE_A_LONG_RANDOM_STRING"
 
 # admin_email       = "you@example.com"       # promoted to ROLE_ADMIN
 # mcp_allowed_hosts = "loupe.example.com"     # must list the app's real hostname
+
+# Where the source of THIS instance can be obtained, linked in the footer of
+# every page. Leaving it out keeps the committed default, which points at the
+# upstream repository — true only while you run upstream's code unmodified.
+# REQUIRED IF YOU MODIFY LOUPE: the AGPL obliges you to offer your own modified
+# source to everyone using the instance over the network, and a link to upstream
+# hands them code they are not running.
+# app_source_url = "https://github.com/you/loupe"
 
 # REQUIRED in production: the sender of every transactional email. It must be on
 # a domain you control and have published SPF/DKIM/DMARC for — the committed

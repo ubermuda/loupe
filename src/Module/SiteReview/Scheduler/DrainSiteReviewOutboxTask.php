@@ -10,19 +10,10 @@ use Symfony\Component\Scheduler\Attribute\AsCronTask;
 
 /**
  * Five-minutely drain of the site-review outbox, so a transient hub outage
- * heals without anyone noticing it happened.
+ * heals on its own. `app:drain-site-review-outbox` is the manual backstop.
  *
- * Registered with `#[AsCronTask]` rather than a `ScheduleProviderInterface`:
- * only one provider may claim a schedule name and `default` is already taken,
- * while a second schedule would mean a second transport in every
- * `messenger:consume` command — including the production one, which lives in
- * deploy config outside this repository. Tagged tasks decorate the existing
- * provider instead, so this rides the `scheduler_default` transport the worker
- * already consumes.
- *
- * A cron trigger, not `every('5 minutes')`: the periodic trigger counts down
- * from worker boot, so a worker recycled by `--time-limit` restarts the
- * countdown and the tick can starve.
+ * Cron, not `#[AsPeriodicTask]`: the periodic trigger counts down from worker
+ * boot, and `--time-limit` recycles the worker, restarting the countdown.
  */
 #[AsCronTask('*/5 * * * *')]
 final readonly class DrainSiteReviewOutboxTask

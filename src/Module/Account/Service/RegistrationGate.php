@@ -31,24 +31,18 @@ final readonly class RegistrationGate
     }
 
     /**
-     * Whether new accounts may be created at all. Two conditions on top of
-     * capacity, both of which `isOpen()` deliberately does not cover:
-     *
-     * - The `registration.enabled` master switch, so an operator can close
-     *   sign-up outright without pretending the instance is merely full.
-     * - Installation being complete. While the users table is empty the install
-     *   wizard is still open, and whoever registers first closes it forever —
-     *   on an internet-facing deploy with INSTALL_TOKEN unset that hands the
-     *   instance to a passer-by, with no administrator and no seeded flags.
-     *   The first account must come from the wizard or `app:admin:create`.
+     * Whether new accounts may be created at all — the master switch plus a
+     * completed install, neither of which `isOpen()` covers. The install check
+     * is the one that matters: while the users table is empty, whoever
+     * registers first becomes the instance's owner, so the first account must
+     * come from the wizard or `app:admin:create`.
      */
     public function allowsNewAccounts(): bool
     {
-        // Default true, not false: the flag row only exists on instances the
-        // wizard has seeded, and an instance upgraded from a version without
-        // this flag must keep registering users exactly as it did before. The
-        // fresh-deploy hole is closed by the installation check below, not by
-        // this default.
+        // Default true: the row exists only on wizard-seeded instances, and an
+        // instance upgraded from a version without this flag must keep
+        // registering users as before. The fresh-deploy hole is closed by the
+        // installation check below, not by this default.
         if (!$this->featureFlags->isEnabled(self::ENABLED_FLAG, true)) {
             return false;
         }
