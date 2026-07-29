@@ -14,6 +14,10 @@ use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Console\Style\SymfonyStyle;
+use Symfony\Component\Validator\Constraints as Assert;
+use Symfony\Component\Validator\ConstraintViolationList;
+use Symfony\Component\Validator\ConstraintViolationListInterface;
+use Symfony\Component\Validator\Validator\ValidatorInterface;
 use Symfony\Contracts\Translation\TranslatorInterface;
 
 /**
@@ -36,6 +40,7 @@ final class CreateAdminCommand extends Command
 
     public function __construct(
         private readonly CreateAdminUserHandler $createAdminUser,
+        private readonly ValidatorInterface $validator,
         private readonly TranslatorInterface $translator,
     ) {
         parent::__construct();
@@ -56,13 +61,10 @@ final class CreateAdminCommand extends Command
     {
         $io = new SymfonyStyle($input, $output);
 
-        $email = (string) $input->getArgument('email');
-        if ('' === $email) {
-            $io->error('The email argument must not be empty.');
-
-            return Command::FAILURE;
-        }
-
+        // Trim before validating, not after: Assert\Email rejects surrounding
+        // whitespace, and a pasted address that picked some up is the operator's
+        // typo to absorb rather than report.
+        $email = trim((string) $input->getArgument('email'));
         $username = $this->stringOption($input, 'username');
         $fullName = $this->stringOption($input, 'full-name');
 
@@ -80,8 +82,17 @@ final class CreateAdminCommand extends Command
             $password = bin2hex(random_bytes(self::GENERATED_PASSWORD_BYTES));
         }
 
-        if ('' === $password) {
-            throw new \LogicException('Every branch above yields a non-empty password.');
+        $violations = $this->violations($email, $password, $username);
+        if (0 < count($violations)) {
+            foreach ($violations as $violation) {
+                $io->error((string) $violation->getMessage());
+            }
+
+            return Command::FAILURE;
+        }
+
+        if ('' === $email || '' === $password) {
+            throw new \LogicException('NotBlank and Length rejected these above.');
         }
 
         try {
@@ -117,6 +128,32 @@ final class CreateAdminCommand extends Command
         ));
 
         return Command::SUCCESS;
+    }
+
+    /**
+     * The handler shape-checks nothing: over HTTP an InstallAdminRequest-bound
+     * form would have validated before it ever ran, and this command is that
+     * entry point. Declaring the same constraints here is what keeps the two
+     * paths agreeing on what a valid email, password and username are — a
+     * filter_var() second opinion would not.
+     */
+    private function violations(string $email, string $password, ?string $username): ConstraintViolationListInterface
+    {
+        $violations = new ConstraintViolationList();
+        $violations->addAll($this->validator->validate($email, [new Assert\NotBlank(), new Assert\Email()]));
+        $violations->addAll($this->validator->validate($password, [new Assert\Length(min: 8)]));
+
+        if (null !== $username) {
+            $violations->addAll($this->validator->validate($username, [
+                new Assert\Length(min: 3, max: 30),
+                new Assert\Regex(
+                    pattern: '/^[a-z][a-z0-9_-]*$/',
+                    message: 'account.registration.validator.username_format',
+                ),
+            ]));
+        }
+
+        return $violations;
     }
 
     private function stringOption(InputInterface $input, string $name): ?string

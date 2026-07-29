@@ -12,6 +12,8 @@ use App\Module\Account\Service\RegistrationGate;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
+use Ubermuda\FeatureFlagsBundle\Entity\FeatureFlag;
+use Ubermuda\FeatureFlagsBundle\Enum\FeatureFlagType;
 use Ubermuda\FeatureFlagsBundle\Repository\FeatureFlagRepository;
 
 final class CreateAdminUserHandlerTest extends KernelTestCase
@@ -48,16 +50,20 @@ final class CreateAdminUserHandlerTest extends KernelTestCase
         self::assertQueuedEmailCount(0);
     }
 
-    public function test_it_seeds_the_install_flags_the_wizard_would_have(): void
+    public function test_it_leaves_the_install_feature_flags_alone(): void
     {
-        ($this->handler)(new CreateAdminUserCommand(email: 'flags@example.com', plainPassword: 'SecurePassword1!'));
-
         $flags = self::getContainer()->get(FeatureFlagRepository::class);
         self::assertInstanceOf(FeatureFlagRepository::class, $flags);
-        $indexed = $flags->findAllIndexed();
+        $this->em->persist(new FeatureFlag(name: RegistrationGate::ENABLED_FLAG, type: FeatureFlagType::Bool, value: false));
+        $this->em->flush();
 
-        self::assertArrayHasKey(RegistrationGate::CAP_FLAG, $indexed);
-        self::assertArrayHasKey(RegistrationGate::ENABLED_FLAG, $indexed);
+        ($this->handler)(new CreateAdminUserCommand(email: 'flags@example.com', plainPassword: 'SecurePassword1!'));
+
+        // Creating an administrator is not an install: an operator adding one
+        // to a configured instance must not have its flags reset underneath it.
+        $indexed = $flags->findAllIndexed();
+        self::assertSame([RegistrationGate::ENABLED_FLAG], array_keys($indexed));
+        self::assertFalse($indexed[RegistrationGate::ENABLED_FLAG]->value);
     }
 
     public function test_rerunning_against_a_verified_administrator_changes_nothing(): void
@@ -125,25 +131,5 @@ final class CreateAdminUserHandlerTest extends KernelTestCase
         self::assertTrue($result->created);
         self::assertNotSame('ops', $result->user->username);
         self::assertStringStartsWith('ops', $result->user->username);
-    }
-
-    public function test_a_short_password_is_rejected(): void
-    {
-        try {
-            ($this->handler)(new CreateAdminUserCommand(email: 'short@example.com', plainPassword: 'short'));
-            self::fail('Expected DomainErrors to be thrown.');
-        } catch (DomainErrors $e) {
-            self::assertSame(['plainPassword' => 'account.console.error.password_too_short'], $e->errors);
-        }
-    }
-
-    public function test_a_malformed_email_is_rejected(): void
-    {
-        try {
-            ($this->handler)(new CreateAdminUserCommand(email: 'not-an-email', plainPassword: 'SecurePassword1!'));
-            self::fail('Expected DomainErrors to be thrown.');
-        } catch (DomainErrors $e) {
-            self::assertSame(['email' => 'account.console.error.email_invalid'], $e->errors);
-        }
     }
 }

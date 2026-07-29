@@ -12,13 +12,6 @@ class InstallFlagsRequest
         #[Assert\NotNull]
         #[Assert\PositiveOrZero]
         public ?int $registrationCap = 0,
-        /**
-         * Default true, and it has to stay that way: this is the value the
-         * wizard seeds, so an unchecked default would leave every freshly
-         * installed instance unable to register anyone — including the e2e
-         * suite, whose install spec runs last and leaves its seeded flags as
-         * the next run's starting state.
-         */
         public bool $registrationEnabled = true,
         public bool $billingEnabled = false,
 

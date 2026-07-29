@@ -79,6 +79,35 @@ final class AdminRecoveryCommandsTest extends KernelTestCase
         self::assertStringNotContainsString('SecurePassword1!', $tester->getDisplay());
     }
 
+    /** @return iterable<string, array{array<string, string>, string}> */
+    public static function malformedInput(): iterable
+    {
+        yield 'email' => [['email' => 'not-an-email'], 'not a valid email address'];
+        yield 'password' => [['email' => 'ok@example.com', '--password' => 'short'], 'too short'];
+        yield 'username' => [['email' => 'ok@example.com', '--username' => 'Bad Name'], 'must start with a letter'];
+    }
+
+    /**
+     * The handler validates none of this — the console command is the entry
+     * point, and it applies the same constraints the install form's DTO does.
+     *
+     * @param array<string, string> $input
+     */
+    #[DataProvider('malformedInput')]
+    public function test_admin_create_rejects_malformed_input(array $input, string $expected): void
+    {
+        $tester = $this->tester('app:admin:create');
+
+        self::assertSame(Command::FAILURE, $tester->execute($input, ['interactive' => false]));
+        // Collapse whitespace first: SymfonyStyle hard-wraps its error block, so
+        // any phrase long enough to be distinctive straddles a line break.
+        self::assertStringContainsString($expected, (string) preg_replace('/\s+/', ' ', $tester->getDisplay()));
+
+        $users = self::getContainer()->get(UserRepository::class);
+        self::assertInstanceOf(UserRepository::class, $users);
+        self::assertNull($users->findOneByEmail($input['email']));
+    }
+
     public function test_admin_create_fails_on_a_taken_username(): void
     {
         $this->persistUser('taken@example.com', 'taken');
