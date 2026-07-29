@@ -1,0 +1,197 @@
+# Reference production topology: a single-host Docker Compose deployment of
+# Loupe. It is a complete, runnable stack — web, messenger worker, Postgres and
+# the Mercure hub — not an illustration. `compose.yaml` next to it is the
+# development stack and shares nothing with this file: it bind-mounts the source
+# tree, builds a development PHP image and expects an external Traefik network.
+#
+# What this file deliberately does NOT include:
+#
+#   * TLS. Every published port binds to loopback by default and expects a
+#     reverse proxy (Caddy, nginx, Traefik) in front, terminating TLS and
+#     forwarding X-Forwarded-Proto and X-Forwarded-For. Set TRUSTED_PROXIES to
+#     that proxy's address or Symfony ignores those headers: generated URLs get
+#     the wrong scheme and every visitor is rate-limited as one IP.
+#   * Migrations. They are a one-shot release step, never a container start-up
+#     step — concurrent replicas would race each other against one database.
+#     Run, once per deploy:
+#
+#         docker compose -f compose.prod.yaml --env-file compose.prod.env \
+#             run --rm web docker/prod/release.sh
+#
+#   * An SMTP server. MAILER_DSN must point at one you operate or pay for.
+#     Email verification is mandatory, so nobody can register without it.
+#
+# Bring the stack up with:
+#
+#     docker compose -f compose.prod.yaml --env-file compose.prod.env up -d
+#
+# `--env-file` is NOT optional. Without it Docker Compose falls back to the
+# repository's `.env`, which is the *development* configuration — it would
+# supply http://localhost as DEFAULT_URI and null://null as MAILER_DSN to
+# production containers. Copy `compose.prod.env.example` to `compose.prod.env`
+# and fill it in; the required-variable guards below abort the run if you
+# forget, rather than silently starting a misconfigured instance.
+
+name: ${COMPOSE_PROJECT_NAME:-loupe}
+
+# The web container and the worker container run the same image with the same
+# configuration and differ only in what they execute, so their environment is
+# defined once here.
+x-app-environment: &app-environment
+  APP_ENV: prod
+  APP_SECRET: "${APP_SECRET:?set it in compose.prod.env — generate with openssl rand -hex 16}"
+  # Only needed once an encrypted column is in use; empty is a valid answer.
+  APP_ENCRYPTION_KEY: "${APP_ENCRYPTION_KEY:-}"
+
+  DATABASE_URL: "postgresql://${POSTGRES_USER:-loupe}:${POSTGRES_PASSWORD:?set it in compose.prod.env}@database:5432/${POSTGRES_DB:-loupe}?serverVersion=${POSTGRES_VERSION:-16}&charset=utf8"
+
+  # The URL your users actually type. It is what the worker and CLI use to build
+  # absolute links (password reset, export downloads), so a wrong value produces
+  # mail nobody can act on.
+  DEFAULT_URI: "${DEFAULT_URI:?set it in compose.prod.env to the instance's public URL}"
+  # The reverse proxy in front of this stack, as an IP or CIDR. Empty falls back
+  # to the private ranges, which is correct when the proxy is a container or is
+  # on the same private network, and wrong when it reaches the app from a public
+  # address.
+  TRUSTED_PROXIES: "${TRUSTED_PROXIES:-}"
+
+  # Where this instance's source can be obtained, linked in the footer — the
+  # AGPL offer. Passed through with no fallback on purpose: when it is unset the
+  # container never receives the key at all and the image's committed default
+  # applies, so a fork that edits `.env` and rebuilds keeps its own value.
+  # Spelling a default out here would silently overwrite that, and an empty
+  # string would remove the footer link rather than leaving it at the default.
+  APP_SOURCE_URL:
+
+  MAILER_DSN: "${MAILER_DSN:?set it in compose.prod.env — registration needs working mail}"
+  MAILER_FROM_ADDRESS: "${MAILER_FROM_ADDRESS:?set it in compose.prod.env to an address on a domain you control}"
+  MAILER_FROM_NAME: "${MAILER_FROM_NAME:-Loupe}"
+
+  # Must list the instance's real hostname or every MCP call is rejected by the
+  # DNS-rebinding guard.
+  MCP_ALLOWED_HOSTS: "${MCP_ALLOWED_HOSTS:?set it in compose.prod.env to the instance's hostname}"
+  # Gates the first-run install wizard, which fails closed in production: with no
+  # token /install returns 404 and there is no way to create the first
+  # administrator.
+  INSTALL_TOKEN: "${INSTALL_TOKEN:?set it in compose.prod.env — without it you cannot install}"
+  ADMIN_EMAIL: "${ADMIN_EMAIL:-}"
+
+  # The hub is a service in this stack, so the app reaches it over the compose
+  # network. Its public URL is a separate hostname your reverse proxy routes to
+  # the mercure service — the bridge CLI subscribes there, not through the app.
+  MERCURE_URL: http://mercure/.well-known/mercure
+  MERCURE_PUBLIC_URL: "${MERCURE_PUBLIC_URL:?set it in compose.prod.env to the hub's public URL}"
+  MERCURE_JWT_SECRET: "${MERCURE_JWT_SECRET:?set it in compose.prod.env — at least 32 characters}"
+
+  # `local` is correct here, unlike on the App Platform deployment: web and
+  # worker mount the same `exports` volume below, so the archive the worker
+  # writes is the archive the web container serves. Switch to `s3` (and fill in
+  # the rest) only if you would rather keep archives off the host — any
+  # S3-compatible provider works.
+  EXPORT_STORAGE: "${EXPORT_STORAGE:-local}"
+  EXPORT_STORAGE_BUCKET: "${EXPORT_STORAGE_BUCKET:-}"
+  EXPORT_STORAGE_PREFIX: "${EXPORT_STORAGE_PREFIX:-}"
+  EXPORT_STORAGE_REGION: "${EXPORT_STORAGE_REGION:-}"
+  EXPORT_STORAGE_ENDPOINT: "${EXPORT_STORAGE_ENDPOINT:-}"
+  EXPORT_STORAGE_KEY: "${EXPORT_STORAGE_KEY:-}"
+  EXPORT_STORAGE_SECRET: "${EXPORT_STORAGE_SECRET:-}"
+  EXPORT_STORAGE_USE_PATH_STYLE: "${EXPORT_STORAGE_USE_PATH_STYLE:-false}"
+  EXPORT_STORAGE_ACL: "${EXPORT_STORAGE_ACL:-private}"
+
+  # Optional integrations. Each stays dark while empty rather than half-working.
+  STRIPE_SECRET_KEY: "${STRIPE_SECRET_KEY:-}"
+  STRIPE_WEBHOOK_SECRET: "${STRIPE_WEBHOOK_SECRET:-}"
+  OAUTH_GOOGLE_ID: "${OAUTH_GOOGLE_ID:-}"
+  OAUTH_GOOGLE_SECRET: "${OAUTH_GOOGLE_SECRET:-}"
+  OAUTH_GITHUB_ID: "${OAUTH_GITHUB_ID:-}"
+  OAUTH_GITHUB_SECRET: "${OAUTH_GITHUB_SECRET:-}"
+
+services:
+  # nginx + php-fpm under supervisord, plus the hourly expired-export purge.
+  # That is the image's own default command, so none is given here.
+  web:
+    image: ${LOUPE_PROD_IMAGE:-ghcr.io/ubermuda/loupe:prod}
+    restart: unless-stopped
+    ports:
+      # Loopback-only: a reverse proxy terminates TLS and forwards here. Set
+      # LOUPE_HTTP_BIND to 0.0.0.0:80 only if this host is the proxy.
+      - "${LOUPE_HTTP_BIND:-127.0.0.1:8080}:80"
+    environment: *app-environment
+    volumes:
+      - exports:/var/www/html/var/exports
+    depends_on:
+      database:
+        condition: service_healthy
+
+  # Its own container from the same image, exactly as the App Platform
+  # deployment runs it — worker restarts and scaling then never recycle
+  # php-fpm and nginx. scheduler_default is listed before async deliberately:
+  # a deep async backlog must not delay schedule ticks.
+  #
+  # su-exec drops to www-data for the consumer only, after the image's
+  # entrypoint has done its root-only work. Both processes must write the shared
+  # export volume as the same user: the local storage adapter writes archives
+  # 0600, so an archive written by root is unreadable to the web container's
+  # www-data php-fpm workers and every download would 404.
+  worker:
+    image: ${LOUPE_PROD_IMAGE:-ghcr.io/ubermuda/loupe:prod}
+    restart: unless-stopped
+    command:
+      - su-exec
+      - www-data
+      - php
+      - bin/console
+      - messenger:consume
+      - scheduler_default
+      - async
+      - --time-limit=3600
+      - --memory-limit=128M
+    environment: *app-environment
+    volumes:
+      - exports:/var/www/html/var/exports
+    depends_on:
+      database:
+        condition: service_healthy
+
+  database:
+    image: postgres:${POSTGRES_VERSION:-16}-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-loupe}
+      POSTGRES_USER: ${POSTGRES_USER:-loupe}
+      POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:?set it in compose.prod.env}"
+    healthcheck:
+      test: ["CMD", "pg_isready", "-d", "${POSTGRES_DB:-loupe}", "-U", "${POSTGRES_USER:-loupe}"]
+      timeout: 5s
+      retries: 5
+      start_period: 60s
+    volumes:
+      - database_data:/var/lib/postgresql/data:rw
+
+  # Site-review push. The publisher is the app; the only subscriber is the Go
+  # bridge CLI, which is not a browser, so no CORS configuration is needed.
+  #
+  # The hub keeps updates in memory, so a restart drops anything undelivered.
+  # That is by design: submissions are recorded in the site_review_events outbox
+  # and the bridge resumes from Last-Event-ID, making delivery best effort and
+  # replay authoritative.
+  mercure:
+    image: dunglas/mercure:v0.24
+    restart: unless-stopped
+    ports:
+      # Route MERCURE_PUBLIC_URL's hostname here from your reverse proxy.
+      - "${LOUPE_MERCURE_BIND:-127.0.0.1:8081}:80"
+    environment:
+      # Plain HTTP on the compose network; the proxy in front terminates TLS.
+      # Without this the hub's Caddy tries to obtain its own certificate.
+      SERVER_NAME: ":80"
+      # Both keys are the app's MERCURE_JWT_SECRET: it signs the publisher token
+      # it sends and the subscriber tokens it mints for the bridge.
+      MERCURE_PUBLISHER_JWT_KEY: "${MERCURE_JWT_SECRET:?set it in compose.prod.env — at least 32 characters}"
+      MERCURE_SUBSCRIBER_JWT_KEY: "${MERCURE_JWT_SECRET:?set it in compose.prod.env — at least 32 characters}"
+
+volumes:
+  database_data:
+  # Generated data-export archives, shared between the worker that writes them
+  # and the web container that serves and purges them.
+  exports:

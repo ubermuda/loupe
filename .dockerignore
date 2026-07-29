@@ -12,6 +12,9 @@ e2e/
 # image and let them override real production environment variables.
 .env.local
 .env.*.local
+# Same reasoning: the filled-in configuration for the reference production stack
+# holds real secrets and must never be baked into the image it configures.
+compose.prod.env
 .env.dev*
 .env.test*
 # Never ship the repository history (and its size) inside the runtime image.

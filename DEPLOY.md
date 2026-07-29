@@ -14,6 +14,10 @@ Platform component model — is scaffolding you can replace. What you cannot ski
 is in "Environment", "First deploy" and "Migrations": those describe the app's
 own requirements and hold wherever you run it.
 
+**If you would rather run Loupe on a single host you control, skip to
+"Single-host Docker Compose" below.** `compose.prod.yaml` is a complete stack —
+web, worker, Postgres and the Mercure hub — and needs no cloud account at all.
+
 There is **no CI/CD pipeline** — no `.github/workflows`. Deploys are run by hand
 from a workstation with `just`.
 
@@ -28,7 +32,8 @@ from a workstation with `just`.
 |---|---|
 | **Web container** | `docker/prod/Dockerfile`, running supervisord as PID 1: `php-fpm` + `nginx`, and nothing else. No background process runs here. |
 | **Worker container** | The *same image*, started with a different command (`enable_worker` in `terraform/main.tf`). Not part of the web container's supervisord — deliberately, so worker restarts never recycle php-fpm/nginx. It consumes `scheduler_default` first, then `async`: a deep async backlog must not delay schedule ticks. Everything recurring rides that schedule, including the hourly `app:purge-expired-exports` that deletes expired export archives — **so with `enable_worker` off, expired archives are never purged** (nor are exports ever generated). |
-| **Postgres** | A per-app database and user on a **shared** App Platform cluster (`tor` region). The module creates them; the cluster already exists. |
+| **Postgres** | A per-app database and user. Either on a managed cluster you already run (`db_cluster_name`), or on one Terraform creates and owns for this app (`create_db_cluster = true`). Exactly one of the two — see "Prerequisites". |
+| **Export bucket** | A DigitalOcean Spaces bucket plus a bucket-scoped access key, created by `terraform/spaces.tf` and wired into the app as ordinary `EXPORT_STORAGE_*` settings. |
 | **Mercure hub** | Required for site-review push. A second service in the same app, run by the shared module when `mercure_jwt_secret` is set. In-memory, so delivery is best effort — see "Known gaps". |
 
 The web container listens on port 80. Point the platform's health check at
@@ -43,10 +48,50 @@ the instance is up, and no more.
 2. `terraform`.
 3. Docker with `buildx` — App Platform runs **amd64**, so the image must be
    cross-built from an Apple Silicon workstation.
-4. A **GHCR pull token**: a GitHub PAT with `read:packages`, supplied to
-   Terraform as `"username:PAT"`. App Platform needs it to pull the private
-   image.
-5. Push access to `ghcr.io/ubermuda/loupe`.
+4. **A container registry you can push to.** The defaults name this project's
+   own package, `ghcr.io/ubermuda/loupe:prod`, which nobody else can write to.
+   Point the tooling at yours in both places, or the image you push is not the
+   image App Platform pulls:
+
+   ```bash
+   export LOUPE_PROD_IMAGE=ghcr.io/you/loupe:prod   # just build-prod / push-prod / deploy
+   ```
+
+   and set `registry`, `image_repository`, `image_tag` (and `registry_type`, if
+   not GHCR) in `terraform.tfvars` to match.
+5. A **pull token** for that registry: for GHCR, a GitHub PAT with
+   `read:packages`, supplied to Terraform as `"username:PAT"`. App Platform
+   needs it to pull a private image.
+6. **A Postgres cluster — bring your own, or let Terraform create one.** Either
+   way `region` has no default and must be set.
+
+   **Bring your own** (what this deployment does): Terraform creates a database
+   and a user on a cluster that already exists, so `db_cluster_name` has no
+   default either and `terraform apply` fails until you supply it.
+
+   ```bash
+   doctl databases create loupe-db --engine pg --region tor
+   doctl databases list      # the Name column is db_cluster_name
+   ```
+
+   **Or have the module create a dedicated one** — set `create_db_cluster = true`
+   and leave `db_cluster_name` unset. The module creates a cluster named
+   `loupe-db`, sizes it from `db_cluster_size` (default `db-s-1vcpu-1gb`) and
+   `db_cluster_node_count` (default `1`), and manages its trusted sources — which
+   removes the `just tf-db-bootstrap` firewall step below. The cluster carries
+   `prevent_destroy`, so `terraform destroy` refuses and so does flipping the
+   flag back; `terraform state rm` is the deliberate override.
+
+   **`db_cluster_region` is a datacenter slug (`tor1`), not App Platform's metro
+   slug (`tor`).** They are different namespaces. Passing the wrong one plans
+   cleanly and fails at apply, so the module validates its shape and warns when
+   the two are not colocated.
+
+7. **A Spaces access key pair**, generated under "Spaces Keys" in the control
+   panel. Spaces authenticates with S3-style credentials rather than the API
+   token, so Terraform needs both to create the export bucket. Export them as
+   `SPACES_ACCESS_KEY_ID` / `SPACES_SECRET_ACCESS_KEY`. (Not needed if you set
+   `create_export_bucket = false` and bring your own S3 bucket.)
 
 ## Secrets
 
@@ -59,6 +104,8 @@ export TF_VAR_app_encryption_key=$(php -r 'echo base64_encode(sodium_crypto_secr
 export TF_VAR_registry_credentials="<github-username>:<ghcr-pat>"
 export TF_VAR_mailer_dsn="<production mailer DSN>"
 export DIGITALOCEAN_TOKEN="<do-token>"
+export SPACES_ACCESS_KEY_ID="<spaces-key>"
+export SPACES_SECRET_ACCESS_KEY="<spaces-secret>"
 ```
 
 `terraform/terraform.tfvars.example` is the template; copy it to
@@ -74,12 +121,13 @@ The first deploy has two steps that cannot be Terraformed, because a firewall
 resource would cut off the sibling apps sharing the cluster.
 
 ```bash
-# 1. Build and push the amd64 image.
-just build-prod
-docker push ghcr.io/ubermuda/loupe:prod
+# 1. Build and push the amd64 image. Export LOUPE_PROD_IMAGE first unless you
+#    are pushing to this project's own package.
+just push-prod
 
-# 2. Create the infrastructure. Leave enable_predeploy_migrations OFF for now —
-#    the migration job cannot reach the database until step 3.
+# 2. Create the infrastructure, including the export bucket. Leave
+#    enable_predeploy_migrations OFF for now — the migration job cannot reach
+#    the database until step 3.
 just tf-init
 just tf-apply
 
@@ -88,7 +136,8 @@ just tf-apply
 just tf-db-bootstrap
 
 # 4. Run migrations once, by hand.
-docker run --rm --env-file <prod env file> ghcr.io/ubermuda/loupe:prod docker/prod/release.sh
+docker run --rm --env-file <prod env file> \
+    "${LOUPE_PROD_IMAGE:-ghcr.io/ubermuda/loupe:prod}" docker/prod/release.sh
 
 # 5. Turn on automated migrations for every deploy afterwards:
 #    uncomment `enable_predeploy_migrations = true` in terraform/main.tf, then
@@ -141,10 +190,9 @@ rather than half-configured:
 | `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET` | Billing, checkout, webhooks | Billing paths fail |
 | `OAUTH_GOOGLE_ID` / `_SECRET`, `OAUTH_GITHUB_ID` / `_SECRET` | Social login | Those buttons fail |
 | `MCP_ALLOWED_HOSTS` | DNS-rebinding allowlist for `/mcp` | The MCP endpoint rejects your real hostname |
-| `EXPORT_STORAGE` | Where data-export archives live: `local` or `s3`. Terraform sets it to `s3` by default — see "Known gaps" | **Every export download 404s** on `local`: the worker writes the archive, the web container serves it, and they share no volume |
-| `EXPORT_STORAGE_BUCKET` | The bucket, when `EXPORT_STORAGE=s3` | Exports fail at upload |
-| `EXPORT_STORAGE_ENDPOINT`, `_REGION` | Any S3-compatible provider (MinIO, R2, Spaces). Empty targets AWS S3 | AWS S3 in `us-east-1` |
-| `EXPORT_STORAGE_KEY`, `_SECRET` | Bucket credentials | The ambient AWS credential chain (an instance role) is used — correct on AWS, nothing anywhere else |
+| `APP_SOURCE_URL` | The AGPL source offer: where *this instance's* source can be obtained, linked in the footer of every page | The one entry here that is not simply "off": the committed default applies, pointing at the upstream repository. That is the truth for an unmodified instance and a false statement for a modified one — **if you change the code, set this to your own repository** |
+| `EXPORT_STORAGE` | Where data-export archives live: `local` or `s3`. Terraform sets it to `s3` | **Every export download 404s** on `local`: the worker writes the archive, the web container serves it, and they share no volume |
+| `EXPORT_STORAGE_BUCKET`, `_ENDPOINT`, `_REGION`, `_KEY`, `_SECRET` | The bucket and its credentials. Terraform fills all five from the Spaces bucket it creates; they are yours to set only when `create_export_bucket = false` | Exports fail at upload |
 | `EXPORT_STORAGE_PREFIX` | Key prefix inside the bucket | Archives sit at the bucket root |
 | `EXPORT_STORAGE_USE_PATH_STYLE` | `true` for MinIO and most non-AWS providers | Virtual-hosted addressing (`https://bucket.host/key`) |
 | `EXPORT_STORAGE_ACL` | `bucket-owner-full-control` on AWS S3 — see "Known gaps" | `private`, which MinIO and Spaces require and a default AWS bucket rejects |
@@ -239,16 +287,25 @@ looking.
    has no route to the first administrator. Recoverable from a shell — see
    "Recovering an instance" — but the wizard is the pleasant path.
 
-2. **Data exports need a bucket.** The web and worker containers have separate
-   ephemeral filesystems, so the application default of `EXPORT_STORAGE=local`
-   cannot work here: the worker writes the archive, the web container serves the
-   download, and on a local filesystem they share nothing — so every download
-   404s. `terraform/main.tf` therefore
-   always sets `EXPORT_STORAGE`, defaulting it to `s3` — but a bucket is not
-   created for you. Set `export_storage_bucket` plus its credentials
-   (`terraform.tfvars.example` has the block) before you rely on exports. Any
-   S3-compatible provider works; DigitalOcean Spaces sits in the same account
-   as the rest of this deployment.
+2. **The export bucket is created for you, but pick its region.** The web and
+   worker containers have separate ephemeral filesystems, so the application
+   default of `EXPORT_STORAGE=local` cannot work here: the worker would write an
+   archive the web container cannot see, and every download would 404.
+   `terraform/spaces.tf` therefore creates a private Spaces bucket and a
+   bucket-scoped access key, and `main.tf` wires them into
+   `EXPORT_STORAGE_BUCKET` / `_ENDPOINT` / `_REGION` / `_KEY` / `_SECRET`. All
+   you supply is `export_bucket_region` — a Spaces datacenter slug like `tor1`,
+   which is **not** the App Platform slug (`tor`) and cannot be derived from it.
+
+   The bucket is `private`, is never destroyed while it holds objects, and has a
+   30-day lifecycle rule as a backstop against archives that outlive their
+   database row. Download links expire after 48 hours and the app deletes the
+   archive then, so that rule can never reach a live one.
+
+   **Bringing your own bucket instead**: set `create_export_bucket = false` and
+   fill in the `export_storage_*` variables. AWS S3, MinIO and Cloudflare R2 all
+   work — the application only ever sees generic S3 settings, and nothing about
+   it is DigitalOcean-specific.
 
    **On AWS S3 itself, also set `export_storage_acl = "bucket-owner-full-control"`.**
    The Flysystem S3 adapter always sends a canned ACL and offers no way to send
@@ -274,15 +331,59 @@ looking.
    resumes from `Last-Event-ID` — delivery is best effort, replay is not.
 
 4. **Nothing here has been applied against a live account.** `terraform validate`
-   passes and `plan` evaluates the full configuration, but no deploy has run. The
-   Mercure component in particular is reasoned from the `dunglas/mercure` image's
-   documented interface and the dev compose service, not observed working.
+   passes and `plan` evaluates the full configuration up to the first API call,
+   but no deploy has run. Specifically unobserved: the Mercure component, which
+   is reasoned from the `dunglas/mercure` image's documented interface and the
+   dev compose service; the Spaces bucket and key, whose `readwrite` grant is
+   taken from DigitalOcean's documentation rather than from a completed
+   upload-download-delete cycle; and the single-host Compose stack below, which
+   has been validated as configuration but never started.
+
+## Single-host Docker Compose
+
+`compose.prod.yaml` runs the whole application on one host with no cloud account
+of any kind. It is the same production image, run as four services: `web`
+(nginx + php-fpm + the hourly export purge), `worker` (the messenger consumer),
+`database` (Postgres) and `mercure` (the hub).
+
+```bash
+cp compose.prod.env.example compose.prod.env      # then fill it in
+docker compose -f compose.prod.yaml --env-file compose.prod.env up -d
+
+# Once per deploy, never from a container's entrypoint:
+docker compose -f compose.prod.yaml --env-file compose.prod.env \
+    run --rm web docker/prod/release.sh
+```
+
+`--env-file` is not optional. Without it Compose reads the repository's `.env`,
+which is the development configuration. Every setting with no safe default is
+guarded, so a forgotten flag aborts the command instead of starting a
+misconfigured instance.
+
+What you still have to provide:
+
+- **A reverse proxy.** Both published ports bind to loopback. Terminate TLS in
+  front, forward `X-Forwarded-Proto` and `X-Forwarded-For`, and set
+  `TRUSTED_PROXIES` if that proxy reaches the app from a public address — until
+  you do, Symfony ignores those headers, generated URLs get the wrong scheme, and
+  every visitor is rate-limited as a single IP.
+- **An SMTP server** for `MAILER_DSN`. Email verification is mandatory, so
+  registration does not work without one.
+- **A hostname for the hub.** `MERCURE_PUBLIC_URL` is a separate host that the
+  bridge CLI subscribes to directly; route it to the `mercure` service.
+- **Backups** of the `database_data` and `exports` volumes.
+
+Unlike App Platform, this topology *can* share a filesystem, so
+`EXPORT_STORAGE` stays at `local` and both containers mount the same `exports`
+volume. That is also why the worker runs its consumer as `www-data` rather than
+root: archives are written `0600`, and a root-written archive would be
+unreadable to the web container's php-fpm workers.
 
 ## Rolling back
 
 App Platform keeps previous deployments. Roll back through the DigitalOcean
-console, or re-push a known-good image tag and deploy again. Note that
-`prod_image` in the `justfile` is a fixed `:prod` tag — there is no per-release
-tag, so "the previous image" is only recoverable through App Platform's own
-deployment history. Tagging releases by commit SHA would make rollback a
-one-command operation.
+console, or re-push a known-good image tag and deploy again. Note that the
+default `image_tag` is a fixed `prod` — there is no per-release tag, so "the
+previous image" is only recoverable through App Platform's own deployment
+history. Building with `LOUPE_PROD_IMAGE=<registry>/loupe:$(git rev-parse --short HEAD)`
+and setting `image_tag` to match would make rollback a one-command operation.

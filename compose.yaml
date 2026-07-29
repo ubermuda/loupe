@@ -2,7 +2,11 @@ name: ${COMPOSE_PROJECT_NAME:?COMPOSE_PROJECT_NAME is not set. Define it in .env
 
 services:
   nginx:
-    image: nginx
+    # Pinned to a minor version: the bare `nginx` tag moves with every mainline
+    # release, so an unpinned stack silently changes web server under you between
+    # two `docker compose pull`s. 1.31 is nginx mainline, which is what the bare
+    # tag resolved to when this was pinned.
+    image: nginx:1.31
     restart: unless-stopped
     volumes:
       - .:/var/www/html
@@ -81,7 +85,7 @@ services:
   # mailpit is reached via traefik at mailpit.${COMPOSE_PROJECT_NAME}.dev.localhost
   # (the e2e suite uses that URL); no host port is published.
   mailer:
-    image: axllent/mailpit
+    image: axllent/mailpit:v1.30
     restart: unless-stopped
     environment:
       MP_SMTP_AUTH_ACCEPT_ANY: 1
@@ -103,7 +107,7 @@ services:
   # Reached internally by php-fpm at http://mercure, publicly via Traefik at
   # mercure.${COMPOSE_PROJECT_NAME}.dev.localhost.
   mercure:
-    image: dunglas/mercure
+    image: dunglas/mercure:v0.24
     restart: unless-stopped
     environment:
       SERVER_NAME: ':80'
