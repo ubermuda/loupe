@@ -110,6 +110,22 @@ Before opening a pull request, you must:
 
 Do not open a PR until both commands pass cleanly. Pre-existing failures are not exempt; fix them as part of the branch.
 
+### Documentation-only branches skip e2e and Codex
+
+**When a branch changes nothing but Markdown, run steps 1 and 2 only.** Skip `just e2e` and the Codex review, and say so in the PR body so the record shows the gate was reduced deliberately rather than forgotten.
+
+The test is the diff, not the intent: **every changed file must end in `.md`**. Check it, do not assume —
+
+```bash
+git diff --name-only origin/main...HEAD | grep -v '\.md$'
+```
+
+Any output at all means the full gate applies. A branch that also touches `.env`, a Twig template, a fixture, `composer.json` or a `justfile` recipe is not documentation-only, however small the change looks.
+
+Two things this does **not** license. `just ci` still runs, because Markdown is not inert here: prettier covers some of it, `gamache`'s checks read `docs/`, and a docs commit can still break a build that greps them. And it does not extend to Markdown that is *executed* — a `.md` file a script or skill parses for commands is code wearing a `.md` suffix, so gate it fully.
+
+The reason is proportion rather than speed. `just e2e` is a serial ~4 minutes that cannot be parallelised (shared Mailpit), and running it to prove that a paragraph of prose did not break a browser test is a cost with no corresponding signal — while the habit of running a gate that can never fail is what teaches a reader to stop trusting gate results.
+
 ## Parallel feature branches: merge protocol
 
 When several feature branches are in flight (worktrees, parallel agents), merges to `main` follow a strict protocol:
@@ -155,7 +171,9 @@ Tailwind CSS is rebuilt automatically in the dev container — **never run `bin/
 
 The app runs at `https://loupe.dev.localhost`. PHP-FPM is on port 9000. A `worker` compose service consumes the async transport; `docker compose logs worker` to observe, `just worker` for a foreground consumer.
 
-**Production deployment — prod runs per-process containers.** Each process type (web, messenger worker) is its own container from the same image; `docker/prod/supervisord.conf` is only the web container's image-default CMD. Never add background processes as `[program:]` blocks there — the worker's command lives in deploy config (outside this repo), currently `messenger:consume scheduler_default async --time-limit=3600 --memory-limit=128M` (schedule transport first: a deep async backlog must not delay ticks).
+**Production deployment — prod runs per-process containers.** Each process type (web, messenger worker) is its own container from the same image; `docker/prod/supervisord.conf` is only the web container's image-default CMD. Never add background processes as `[program:]` blocks there — the worker's command belongs to whatever orchestrates the containers: `worker_command` in `terraform/main.tf` for App Platform, the `worker` service in `compose.prod.yaml` for a single host. Both run `messenger:consume scheduler_default async --time-limit=3600 --memory-limit=128M` (schedule transport first: a deep async backlog must not delay ticks).
+
+`compose.prod.yaml` is the reference single-host topology — web, worker, Postgres, Mercure hub — and is a distributed artefact, not a scratch file: it must keep working alongside `terraform/`. It is driven by `compose.prod.env` (gitignored; `compose.prod.env.example` is the template) and **must** be run with `--env-file`, because Compose otherwise interpolates the development `.env`. `compose.yaml` remains dev-only and shares nothing with it.
 
 **Database connectivity:** the Postgres container is exposed via Traefik TCP routing at `db.loupe.dev.localhost:5432`. The `.env` file ships with `127.0.0.1:5432` as a placeholder; override it in `.env.local` on your host machine:
 ```
@@ -170,6 +188,30 @@ From inside the php-fpm container (`just shell`), use the `database` Docker serv
 **The full suite runs against the dedicated e2e target, not a worktree and never the dev host.** `just e2e-up` creates a disposable `app_e2e` database and an nginx sidecar at `e2e.<project>.dev.localhost` serving **this checkout** — so it gates whatever branch you have checked out, with no worktree involved. `just e2e` defaults there and refuses to start if it is not up. Add `just e2e-worker` in another shell for specs that assert on mail or a download link. Tear down with `just e2e-down`.
 
 Why the dev host is not an option: the suite is destructive by design. The `install-reset` project **truncates every table**, and `trial-end-lifecycle` flips global feature flags and disables every expired-trial account — so one run against `loupe.dev.localhost` wipes your development database. Pointing e2e at a worktree still works (`E2E_BASE_URL=https://<slug>.loupe.dev.localhost just e2e --workers=1`) and remains the right tool when you need to gate a branch *without* checking it out; it is no longer the only one. The DB-free static gate (`just cs`, `just phpstan`, `just lint`, `just arkitect`, `just gamache`) is always safe to run in parallel.
+
+**Before every worktree e2e run, warm the dev cache and leave it alone for the duration:**
+
+```bash
+( cd .claude/worktrees/<name> && bin/worktrees/compose-exec.sh bin/console cache:warmup )
+```
+
+A run started against a cold `var/cache/dev`, or one whose cache is rebuilt mid-flight by a concurrent `just cs` / `just ci` in the same worktree, produces **false failures that look like unrelated flaky specs**. The container is swapped underneath in-flight requests, and a container-load fatal happens before Monolog exists — so the request logs nothing at all and php-fpm returns an empty response. It surfaced three separate times in one session, always as a request that never completed: a logout that stayed on the same page, a registration that stayed on `/register`, an admin page that never rendered. Each showed a submit button left in its disabled state with **no validation errors**, which is the signature to recognise.
+
+So: warm first, then run e2e, and do not run a gate against a worktree while its suite is in flight. If a spec fails and then passes in isolation, check `ls var/cache/dev/ | grep -c '^Container'` — more than one container hash means a rebuild happened during the run, and the failure is environmental rather than yours. That is a diagnosis, not a licence to re-run until green: confirm the cause before dismissing any failure.
+
+**A worktree e2e run also needs its own consumer, and forgetting it fails ~19 specs at once.** The suite's authenticated fixture registers a user and verifies it through the emailed link, so with nothing consuming `async` the failures are not confined to the obviously mail-shaped specs — login, signup, delete-account, forgot-password, the first-run wizard, admin smoke, paywall and delete-project all go down together. Nineteen failures spanning unrelated areas, with the app returning 200 and `just ci` green, means **no worker**, not a broken branch:
+
+```bash
+docker exec <project>-php-fpm-1 sh -c "ps aux | grep -c '[m]essenger:consume'"   # 0 = that is your bug
+```
+
+Start one before the suite and leave it running:
+
+```bash
+( cd .claude/worktrees/<name> && bin/worktrees/compose-exec.sh bin/console messenger:consume scheduler_default async --time-limit=3600 --memory-limit=256M )
+```
+
+Distinguish the two failure modes by their shape: a **cache** problem produces one or two odd failures with a disabled button and no logged error, while a **missing consumer** produces a large, auth-shaped block of them. Reaching for a re-run without telling them apart is how a real regression gets mistaken for a flake.
 
 **php-cs-fixer works from worktrees.** `.php-cs-fixer.dist.php` uses explicit excludes rather than `ignoreVCSIgnored(true)`, and throws when the finder matches zero files. Both matter: the old VCS-ignore heuristic matched **0 files** under the gitignored `.claude/worktrees/`, so `just cs` fixed nothing and `just ci`'s cs-check leg passed vacuously (a committed brace jam once sailed through a "green" gate that way). `.claude` stays excluded deliberately — worktrees live inside the main checkout, so without it the main run would scan every worktree's copy of the tree. No explicit-path workaround is needed any more; if you see one in an old PR body, it predates this.
 

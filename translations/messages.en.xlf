@@ -1612,6 +1612,7 @@
                 <source>account.console.error.username_taken</source>
                 <target>That username is already taken.</target>
             </trans-unit>
+
             <!-- System status (install wizard step and admin page) -->
             <trans-unit id="account.system_status.page.title">
                 <source>account.system_status.page.title</source>

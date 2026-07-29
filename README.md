@@ -105,8 +105,9 @@ DATABASE_URL="postgresql://app:!ChangeMe!@db.loupe.dev.localhost:5432/app?server
 ```
 
 Set a real `MERCURE_JWT_SECRET`, `APP_SECRET`, and (if you use encrypted columns)
-`APP_ENCRYPTION_KEY` per environment — see `.env` for the full list. **Never
-commit real secrets.**
+`APP_ENCRYPTION_KEY` per environment. `.env` documents every variable inline;
+[`DEPLOY.md`](DEPLOY.md#secrets) has the commands that generate these three.
+**Never commit real secrets.**
 
 ## Common commands
 
@@ -125,39 +126,21 @@ Run a single unit test: `just phpunit --filter TestClassName`
 
 ## Production
 
-`docker/prod/` builds a self-contained image (nginx + php-fpm under supervisord,
-OPcache tuned, optimized autoloader, assets compiled and cache warmed):
+Loupe in production is a container plus a Postgres database, and it runs
+anywhere that can host both. `docker/prod/` builds the image: nginx and php-fpm
+under supervisord, OPcache tuned, optimized autoloader, assets compiled and
+cache warmed. A **second container from that same image runs the messenger
+worker** — without it, queued mail is never delivered, data exports never build,
+the trial-end sweep never runs and the site-review outbox never drains.
 
-```bash
-just build-prod    # build the linux/amd64 image
-just deploy        # build, push, and roll out a new deployment
-just logs-prod     # tail production logs
-just shell-prod    # shell into the prod image locally, for debugging the build
-```
+Two topologies ship with the project: `compose.prod.yaml`, a complete single-host
+stack needing no cloud account, and DigitalOcean App Platform with the
+infrastructure in [`terraform/`](terraform/README.md).
 
-Migrations are deliberately **not** run from the entrypoint — with several
-replicas they would race. Run the release step once per deploy:
-
-```bash
-docker run --rm --env-file <your prod env> <image> docker/prod/release.sh
-```
-
-The maintained deployment targets DigitalOcean App Platform, and that
-infrastructure lives in [`terraform/`](terraform/README.md) — `just deploy` and
-`just logs-prod` assume it. Self-hosting elsewhere needs nothing more than the
-image, the release step, and the environment variables below.
-
-Supply these as real environment variables (never commit them):
-
-| Variable | Purpose |
-|---|---|
-| `APP_SECRET` | Symfony secret |
-| `DATABASE_URL` | Postgres DSN |
-| `MERCURE_URL` / `MERCURE_PUBLIC_URL` | Mercure hub endpoints |
-| `MERCURE_JWT_SECRET` | Must match the hub's publisher/subscriber keys. **No default ships** — if unset, Mercure fails loudly rather than signing with a public key. |
-| `MAILER_DSN` | Outbound mail |
-| `APP_ENCRYPTION_KEY` | Only if you use `encrypted_string` columns |
-| `APP_SOURCE_URL` | Not a secret, and a default ships in `.env`: the repository the footer "Source code" link points at. Override it if you modify Loupe (see [License](#license)). |
+**[`DEPLOY.md`](DEPLOY.md) is the deployment guide** — both topologies, every
+environment variable, the release step, first-run setup, and how to recover an
+instance you are locked out of. It is the single home for that; this file
+deliberately keeps no copy to drift out of date.
 
 ## Command-line bridge
 

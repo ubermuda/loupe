@@ -81,6 +81,58 @@ read `status` to decide whether a document still needs work, so it needs a
 replacement, not just a deletion. `e2e/tests/review/review-loop.spec.ts`
 asserts the badge and will need rewriting alongside.
 
+## Automate the worktree lifecycle instead of driving it by hand
+
+**Author:** Geoffrey · **Type:** tooling · **Priority:** high · **Status:** pending
+
+`just worktree-up` provisions a worktree well, but nothing *invokes* it and
+nothing tears it down, so every step around it is manual and each one failed at
+least once during the nine-branch self-hosting wave on 2026-07-28. The failures
+were all lifecycle, never provisioning:
+
+- **A harness-created worktree is not a provisioned one.** An agent launched
+  with `isolation: "worktree"` gets a real git worktree under
+  `.claude/worktrees/agent-<id>` with no `vendor/`, no `.env.local`, no
+  database and no sidecar — so it cannot run `just ci`. That is why the wave
+  hand-created and hand-named every worktree instead of using harness
+  isolation.
+- **`worktree-up` dies on a large container.** `cache:clear` runs
+  `str_replace` over the whole compiled container XML and exceeds the php-fpm
+  container's 128M CLI `memory_limit`. Two of the nine worktrees failed to
+  provision until the limit was raised by hand, and that change lives only in
+  the running container — a rebuild loses it.
+- **`vendor/` goes stale silently.** `worktree-up` rsyncs `vendor/` from the
+  main checkout, but nothing re-runs `composer install` on main after a merge
+  changes `composer.lock`. After the export-storage branch merged, main's
+  `vendor/` had no Flysystem, so every worktree provisioned from it failed
+  `just ci` with a missing-class error that looks exactly like broken code.
+- **Messenger consumers die when the cache rebuilds under them**, and a live
+  consumer then blocks `just worktree-down`, which drops the database *after*
+  git has already deregistered the worktree — leaving a directory behind.
+- **Running `just cs`/`just ci` in a worktree while an e2e suite runs against
+  it corrupts the run.** It produced two false-red failures in that wave, both
+  presenting as an unrelated flaky spec.
+
+The shape of the fix is Claude Code's `WorktreeCreate` and `WorktreeRemove`
+hooks: create runs the bootstrap (making harness isolation usable, which is the
+biggest win), remove kills consumers before `just worktree-down`. Two fixes do
+not belong in hooks and are worth doing regardless — `worktree-up` should run
+`composer install` when `vendor/` does not match the lock it is being given,
+and it should raise the CLI memory limit itself rather than depending on a
+hand-edited container.
+
+Prior art worth reading before designing this: `raine/workmux` exposes
+`post_create` / `pre_merge` / `pre_remove` hooks plus declarative file
+copy/symlink and pane layout; `gausejakub/claude-skills` ships a
+`laravel-worktrees` skill doing per-worktree database, domain and port
+provisioning with Claude Code hooks for init and teardown — the same problem
+solved for Herd. There is also a "5 Claude Code worktree tips from creator
+of…" thread on r/ClaudeAI (`/r/ClaudeAI/comments/1rae05r/`) the owner flagged
+as worth mining.
+
+Related: 'Worktree e2e runs now require a worktree-scoped worker', which this
+would subsume.
+
 ## Dashboard document search + status/tag filtering
 
 
@@ -1669,6 +1721,39 @@ filesystem cache pool would not do).
 Deliberately not built with the status page: it costs a table plus a migration
 for a check the owner had already accepted could be approximate. Revisit if
 "unknown" turns out to be the answer operators see most of the time.
+
+## Decide whether health checks stay hand-rolled, move to a third-party package, or become our own
+
+**Author:** Geoffrey · **Type:** idea · **Priority:** medium · **Status:** pending
+
+The health and status surface is currently hand-rolled and lives entirely in
+this app: `App\Controller\ShowHealthController` serves `/healthz`, and
+`App\Module\Account\Command\CheckSystemStatusHandler` runs the six checks
+behind `/admin/status` and the install wizard's status step. Three options are
+worth weighing rather than letting the hand-rolled version become the answer
+by default:
+
+1. **Adopt an existing open-source package.** `liip/monitor-bundle` is the
+   long-standing Symfony option and ships checks for Doctrine connections,
+   disk space, memory, and a readiness endpoint. The question is whether its
+   check abstraction can express the two checks that carry the actual value
+   here — a real SMTP `start()`/`stop()` against the configured transport, and
+   a backlog query that distinguishes an unclaimed message from one claimed by
+   a worker that has since died — or whether wrapping them in someone else's
+   interface costs more than it saves.
+2. **Extract our own `ubermuda/*` package**, alongside the other first-party
+   bundles. Attractive only if a second application actually needs it;
+   otherwise it adds a release to every change (see the bundle-pinning
+   protocol in `CLAUDE.md`).
+3. **Keep it in-app.** Cheapest today, and the checks are unusually
+   opinionated about *this* application's failure modes.
+
+What should drive the decision is whether the honesty of the current checks
+survives the move. The worker check deliberately never reports "ok" — an idle
+queue cannot prove a consumer is running — and a generic package that reports
+green for "no errors" would reintroduce exactly the false reassurance the
+check was written to avoid. Related: "Worker heartbeat, so 'is a worker
+running?' can be answered positively".
 
 ## Product idea (long horizon): drag DOM elements in the widget to try layouts
 

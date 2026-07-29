@@ -1,6 +1,13 @@
-# Production image coordinates — must match the terraform image_* variables
-# (registry / image_repository / image_tag).
-prod_image := "ghcr.io/ubermuda/loupe:prod"
+# Production image coordinates. The default is this project's own package, which
+# nobody else can push to, so it is overridable from the environment:
+#
+#     export LOUPE_PROD_IMAGE=ghcr.io/you/loupe:prod
+#
+# Set the same value in three places or they drift apart: this variable (build
+# and push), the terraform registry / image_repository / image_tag variables
+# (what App Platform pulls), and LOUPE_PROD_IMAGE in compose.prod.env (what the
+# reference compose stack runs).
+prod_image := env("LOUPE_PROD_IMAGE", "ghcr.io/ubermuda/loupe:prod")
 
 default:
     @just --list
@@ -346,9 +353,13 @@ cli-build goos="darwin" goarch="arm64":
 build-prod:
     docker buildx build --platform linux/amd64 -t {{prod_image}} -f docker/prod/Dockerfile .
 
-# Build, push, and roll out a new deployment (waits for it to go live).
-deploy: build-prod
+# Build and push the image without deploying — the first deploy needs this,
+# because the App Platform app does not exist yet to deploy to.
+push-prod: build-prod
     docker push {{prod_image}}
+
+# Build, push, and roll out a new deployment (waits for it to go live).
+deploy: push-prod
     doctl apps create-deployment $(cd terraform && terraform output -raw app_id) --wait
 
 # Tail production logs.
