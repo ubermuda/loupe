@@ -21,7 +21,7 @@ locals {
 }
 
 module "app" {
-  source = "git::https://github.com/ubermuda/terraform-digitalocean-symfony-app.git//?ref=v1.6.0"
+  source = "git::https://github.com/ubermuda/terraform-digitalocean-symfony-app.git//?ref=v1.7.0"
 
   app_name = local.app_name
 
