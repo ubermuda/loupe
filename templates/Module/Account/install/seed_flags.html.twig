@@ -19,6 +19,11 @@
     </div>
 
     <label class="flex items-center gap-2 text-sm text-fg cursor-pointer select-none">
+        {{ form_widget(form.registrationEnabled, {'attr': {'class': 'w-3.5 h-3.5 cursor-pointer accent-accent'}}) }}
+        <span>{{ 'account.form.install_flags_form.registration_enabled.label'|trans }}</span>
+    </label>
+
+    <label class="flex items-center gap-2 text-sm text-fg cursor-pointer select-none">
         {{ form_widget(form.billingEnabled, {'attr': {'class': 'w-3.5 h-3.5 cursor-pointer accent-accent'}}) }}
         <span>{{ 'account.form.install_flags_form.billing_enabled.label'|trans }}</span>
     </label>

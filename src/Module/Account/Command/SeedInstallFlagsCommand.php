@@ -8,6 +8,7 @@ final readonly class SeedInstallFlagsCommand
 {
     public function __construct(
         public int $registrationCap,
+        public bool $registrationEnabled,
         public bool $billingEnabled,
         public int $billingTrialDays,
         public ?string $billingStripePriceId,

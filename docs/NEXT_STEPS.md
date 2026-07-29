@@ -768,6 +768,31 @@ Related: 'Worktree e2e runs now require a worktree-scoped worker' and
 'Decide fate of PlaywrightSyncEmailMiddleware (async-email follow-up)' — the
 latter would remove the need for this consumer altogether.
 
+## Social linking leaves a live email-verification link outstanding
+
+**Author:** Claude · **Type:** security · **Priority:** medium · **Status:** pending
+
+`ResolveSocialLoginHandler` (the match-by-email branch) and
+`LinkSocialAccountHandler` both do `$user->emailVerifiedAt ??= new
+\DateTimeImmutable();` when a provider proves ownership of an address, but
+neither calls `clearEmailVerificationToken()`. So a user who registers through
+the form — `VerificationEmailSender` generates and emails a token — and then
+signs in with Google or GitHub before clicking is left verified with a working
+link outstanding. `VerifyEmailHandler` never checks `isVerified()`, and
+`VerifyEmailController` calls `Security::login()` on any valid token, so that
+link still logs its bearer straight in.
+
+`MarkEmailVerifiedHandler` now revokes such a token on every path, so
+`app:user:verify` and `app:admin:create` clean it up — but only for an operator
+who runs them. The fix at the source is to pair each `emailVerifiedAt ??=` with
+`clearEmailVerificationToken()` in both social handlers, which also makes the
+handlers' own "a pending click-through verification is superseded" comments
+true rather than half-true.
+
+Graded medium rather than high deliberately: the token expires an hour after it
+is issued, and it was emailed only to the address the provider just verified
+ownership of, so this is a stale credential outliving its purpose rather than a
+path to another account. Re-grade if that reasoning does not hold.
 ## Data-export object storage has never run against a real bucket
 
 **Author:** Claude · **Type:** tooling · **Priority:** medium · **Status:** pending
@@ -1346,8 +1371,9 @@ What remains is operational: `terraform/main.tf` now declares `install_token`
 as a variable and wires it into `extra_env` (omitted from the app spec when
 empty), but that only means the plumbing exists — someone still has to supply
 the actual secret value when running `terraform apply` against production.
-Until that happens, `/install` 404s in prod, which blocks creating the first
-administrator rather than exposing one. Track this as a pre-launch deploy
+Until that happens, `/install` 404s in prod, so the first administrator has to
+be created from a shell instead (`bin/console app:admin:create`, see
+`DEPLOY.md` → "Recovering an instance"). Track this as a pre-launch deploy
 checklist item, not a live code vulnerability — hence the lower priority than
 when this was first filed.
 

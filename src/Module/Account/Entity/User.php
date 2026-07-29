@@ -136,6 +136,11 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface, AdminPr
         return $token;
     }
 
+    public function hasEmailVerificationToken(): bool
+    {
+        return null !== $this->emailVerificationTokenHash;
+    }
+
     public function isEmailVerificationTokenValid(string $token): bool
     {
         $hash = $this->emailVerificationTokenHash;
