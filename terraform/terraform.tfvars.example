@@ -19,6 +19,13 @@ app_encryption_key   = "GENERATED_BASE64_32_BYTE_KEY"
 # admin_email       = "you@example.com"       # promoted to ROLE_ADMIN
 # mcp_allowed_hosts = "loupe.example.com"     # must list the app's real hostname
 
+# REQUIRED in production: the sender of every transactional email. It must be on
+# a domain you control and have published SPF/DKIM/DMARC for — the committed
+# fallback (noreply@localhost) is rejected by real mail servers, and email
+# verification is mandatory, so registration breaks without this.
+# mailer_from_address = "noreply@loupe.example.com"
+# mailer_from_name    = "Loupe"
+
 # Site-review push. Setting this runs a Mercure hub as a second service in the
 # app and wires the URLs automatically; leave it out to keep push disabled.
 # mercure_jwt_secret = "GENERATE_A_LONG_RANDOM_STRING"

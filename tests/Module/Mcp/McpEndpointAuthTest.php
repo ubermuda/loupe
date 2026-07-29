@@ -114,7 +114,7 @@ final class McpEndpointAuthTest extends WebTestCase
         ], $names);
     }
 
-    public function test_request_on_an_unlisted_host_is_rejected(): void
+    public function test_request_on_an_unlisted_host_is_rejected_with_a_self_diagnosing_body(): void
     {
         $client = static::createClient();
         $raw = $this->persistValidToken();
@@ -124,7 +124,58 @@ final class McpEndpointAuthTest extends WebTestCase
             'CONTENT_TYPE' => 'application/json',
             'HTTP_AUTHORIZATION' => 'Bearer '.$raw,
         ], content: self::INIT);
-        self::assertSame(403, $client->getResponse()->getStatusCode());
+
+        $response = $client->getResponse();
+        self::assertSame(403, $response->getStatusCode());
+        self::assertSame(
+            "Forbidden: Invalid Host header.\nThe Host header of this request (evil.example.com) is not listed in MCP_ALLOWED_HOSTS, so the MCP endpoint's DNS-rebinding protection rejected it. This is not an authentication failure: add the hostname agents use to reach this instance to MCP_ALLOWED_HOSTS (comma-separated, no port) and restart the app.\n",
+            (string) $response->getContent(),
+        );
+    }
+
+    public function test_request_with_an_unlisted_origin_is_rejected_with_a_self_diagnosing_body(): void
+    {
+        $client = static::createClient();
+        $raw = $this->persistValidToken();
+
+        // Origin is checked before Host and short-circuits it, so this is a
+        // second rejection path an operator can land on.
+        $client->request(\Symfony\Component\HttpFoundation\Request::METHOD_POST, '/mcp', server: [
+            'HTTP_ORIGIN' => 'https://evil.example.com',
+            'CONTENT_TYPE' => 'application/json',
+            'HTTP_AUTHORIZATION' => 'Bearer '.$raw,
+        ], content: self::INIT);
+
+        $response = $client->getResponse();
+        self::assertSame(403, $response->getStatusCode());
+        self::assertSame(
+            "Forbidden: Invalid Origin header.\nThe Origin header of this request (https://evil.example.com) is not listed in MCP_ALLOWED_HOSTS, so the MCP endpoint's DNS-rebinding protection rejected it. This is not an authentication failure: add the hostname agents use to reach this instance to MCP_ALLOWED_HOSTS (comma-separated, no port) and restart the app.\n",
+            (string) $response->getContent(),
+        );
+    }
+
+    public function test_rejected_origin_is_echoed_truncated(): void
+    {
+        $client = static::createClient();
+        $raw = $this->persistValidToken();
+
+        // The echoed value is attacker-controlled, so it is bounded. (Control
+        // characters are stripped as well, but HttpFoundation removes those
+        // before the listener ever sees the header, so only the length cap is
+        // reachable over HTTP.)
+        $client->request(\Symfony\Component\HttpFoundation\Request::METHOD_POST, '/mcp', server: [
+            'HTTP_ORIGIN' => 'https://'.str_repeat('a', 200).'.example.com',
+            'CONTENT_TYPE' => 'application/json',
+            'HTTP_AUTHORIZATION' => 'Bearer '.$raw,
+        ], content: self::INIT);
+
+        $response = $client->getResponse();
+        self::assertSame(403, $response->getStatusCode());
+        self::assertStringContainsString(
+            // 128 characters kept: "https://" plus 120 of the a's.
+            '(https://'.str_repeat('a', 120).'...)',
+            (string) $response->getContent(),
+        );
     }
 
     private function persistValidToken(): string
