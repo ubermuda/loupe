@@ -26,8 +26,10 @@ from a workstation with `just`.
 
 > **Read "Known gaps" before your first real deploy.** Several things the
 > application needs are not configured on your behalf, and two of them — the
-> install token and the data-export bucket — leave a feature broken rather than
-> merely off.
+> install token and the export bucket's canned ACL — leave a feature broken
+> rather than merely off. The bucket itself is created for you on the shipped
+> App Platform path, and Terraform refuses to apply until you pick its region,
+> so that part fails loudly; `EXPORT_STORAGE_ACL` does not.
 
 ## What runs in production
 
