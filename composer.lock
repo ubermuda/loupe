@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "d86592161baddcb6399e51b38c9e6108",
+    "content-hash": "4d8b07fce861702c7c5060071174d90c",
     "packages": [
         {
             "name": "async-aws/core",
@@ -8393,16 +8393,16 @@
         },
         {
             "name": "symfony/polyfill-php85",
-            "version": "v1.38.1",
+            "version": "v1.41.0",
             "source": {
                 "type": "git",
                 "url": "https://github.com/symfony/polyfill-php85.git",
-                "reference": "ba2ba04f3352cfa2dcbbcb90aee13ed967f505b1"
+                "reference": "255fab485aaa1006ed411040c42aecd7b5302d7a"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/symfony/polyfill-php85/zipball/ba2ba04f3352cfa2dcbbcb90aee13ed967f505b1",
-                "reference": "ba2ba04f3352cfa2dcbbcb90aee13ed967f505b1",
+                "url": "https://api.github.com/repos/symfony/polyfill-php85/zipball/255fab485aaa1006ed411040c42aecd7b5302d7a",
+                "reference": "255fab485aaa1006ed411040c42aecd7b5302d7a",
                 "shasum": ""
             },
             "require": {
@@ -8449,7 +8449,7 @@
                 "shim"
             ],
             "support": {
-                "source": "https://github.com/symfony/polyfill-php85/tree/v1.38.1"
+                "source": "https://github.com/symfony/polyfill-php85/tree/v1.41.0"
             },
             "funding": [
                 {
@@ -8469,7 +8469,7 @@
                     "type": "tidelift"
                 }
             ],
-            "time": "2026-05-26T02:25:22+00:00"
+            "time": "2026-07-01T12:47:55+00:00"
         },
         {
             "name": "symfony/polyfill-uuid",
@@ -11668,12 +11668,12 @@
             "source": {
                 "type": "git",
                 "url": "https://github.com/ubermuda/admin-bundle.git",
-                "reference": "417766fbf3333b699a10ac8f061c7c7786049331"
+                "reference": "e1acfd023cc9f5330bb43d3ecc025c069ae4b2d7"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/ubermuda/admin-bundle/zipball/417766fbf3333b699a10ac8f061c7c7786049331",
-                "reference": "417766fbf3333b699a10ac8f061c7c7786049331",
+                "url": "https://api.github.com/repos/ubermuda/admin-bundle/zipball/e1acfd023cc9f5330bb43d3ecc025c069ae4b2d7",
+                "reference": "e1acfd023cc9f5330bb43d3ecc025c069ae4b2d7",
                 "shasum": ""
             },
             "require": {
@@ -11719,7 +11719,7 @@
                 "source": "https://github.com/ubermuda/admin-bundle/tree/main",
                 "issues": "https://github.com/ubermuda/admin-bundle/issues"
             },
-            "time": "2026-07-25T16:29:09+00:00"
+            "time": "2026-07-29T02:06:02+00:00"
         },
         {
             "name": "ubermuda/doctrine-extra",

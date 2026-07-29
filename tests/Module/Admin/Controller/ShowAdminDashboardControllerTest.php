@@ -36,6 +36,35 @@ final class ShowAdminDashboardControllerTest extends WebTestCase
         $this->assertGreaterThan(0, $crawler->filter('a[href="'.$sourceUrl.'"]')->count());
     }
 
+    /**
+     * Rendering the system status page opens an SMTP connection and probes the
+     * Mercure hub, so its sidebar entry opts out of Turbo's hover prefetch by
+     * implementing NonPrefetchableAdminMenuItem. The opt-out lives in the admin
+     * bundle's layout, which no test other than this one renders — asserting the
+     * marker interface is present would not prove the attribute reaches the page.
+     */
+    public function test_only_the_system_status_sidebar_link_opts_out_of_turbo_prefetch(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $admin = $this->seedUser($em, 'prefetch-sidebar@admin-test.example.com', ['ROLE_ADMIN']);
+
+        $client->loginUser($admin);
+        $crawler = $client->request(Request::METHOD_GET, '/admin');
+
+        $this->assertResponseIsSuccessful();
+
+        $optedOut = $crawler->filter('a.admin-nav-link[data-turbo-prefetch="false"]');
+        // Exactly one, so a layout that stamped the attribute on every nav link
+        // — which would disable prefetching wholesale — fails here too.
+        $this->assertSame(1, $optedOut->count());
+        $this->assertSame('/admin/status', $optedOut->attr('href'));
+
+        // The cheap list pages keep their prefetch; they are plain paginated reads.
+        $this->assertGreaterThan(0, $crawler->filter('a.admin-nav-link[href="/admin/waitlist"]')->count());
+        $this->assertSame(0, $crawler->filter('a.admin-nav-link[href="/admin/waitlist"][data-turbo-prefetch]')->count());
+    }
+
     public function test_logged_in_non_admin_gets_403(): void
     {
         $client = static::createClient();
