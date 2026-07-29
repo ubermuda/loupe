@@ -12,6 +12,7 @@ class InstallFlagsRequest
         #[Assert\NotNull]
         #[Assert\PositiveOrZero]
         public ?int $registrationCap = 0,
+        public bool $registrationEnabled = true,
         public bool $billingEnabled = false,
 
         #[Assert\NotNull]
