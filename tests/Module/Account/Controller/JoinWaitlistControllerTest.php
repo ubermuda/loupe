@@ -8,6 +8,7 @@ use App\Module\Account\Entity\User;
 use App\Module\Account\Repository\UserRepository;
 use App\Module\Account\Repository\WaitlistEntryRepository;
 use App\Module\Account\Service\RegistrationGate;
+use App\Tests\Support\InstalledInstance;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use Symfony\Component\HttpFoundation\Request;
@@ -19,6 +20,8 @@ final class JoinWaitlistControllerTest extends WebTestCase
     public function test_gate_open_redirects_to_register(): void
     {
         $client = static::createClient();
+        InstalledInstance::ensure(static::getContainer()->get(EntityManagerInterface::class));
+
         $client->request(Request::METHOD_GET, '/waitlist');
 
         $this->assertResponseRedirects('/register');

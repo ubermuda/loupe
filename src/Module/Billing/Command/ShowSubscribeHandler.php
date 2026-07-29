@@ -55,6 +55,7 @@ final readonly class ShowSubscribeHandler
             trialDaysLeft: null === $profile ? 0 : $this->daysLeft($profile, $now),
             accountDisabled: $accountDisabled,
             capFull: $capFull,
+            waitlistOpen: $this->registrationGate->allowsNewAccounts(),
             inviteToken: $inviteValid ? $command->inviteToken : null,
         );
     }

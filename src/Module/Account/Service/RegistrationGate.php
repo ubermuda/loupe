@@ -12,6 +12,9 @@ final readonly class RegistrationGate
 {
     public const string CAP_FLAG = 'registration.cap';
 
+    /** Master switch: off closes sign-up entirely, whatever the cap says. */
+    public const string ENABLED_FLAG = 'registration.enabled';
+
     /**
      * Arbitrary app-unique Postgres advisory-lock key. Shared by the form
      * registration handler and the OAuth registration branch so a capacity
@@ -23,9 +26,36 @@ final readonly class RegistrationGate
     public function __construct(
         private FeatureFlagService $featureFlags,
         private UserRepository $users,
+        private InstallationState $installationState,
     ) {
     }
 
+    /**
+     * Whether new accounts may be created at all — the master switch plus a
+     * completed install, neither of which `isOpen()` covers. The install check
+     * is the one that matters: while the users table is empty, whoever
+     * registers first becomes the instance's owner, so the first account must
+     * come from the wizard or `app:admin:create`.
+     */
+    public function allowsNewAccounts(): bool
+    {
+        // Default true: the row exists only on wizard-seeded instances, and an
+        // instance upgraded from a version without this flag must keep
+        // registering users as before. The fresh-deploy hole is closed by the
+        // installation check below, not by this default.
+        if (!$this->featureFlags->isEnabled(self::ENABLED_FLAG, true)) {
+            return false;
+        }
+
+        return !$this->installationState->isOpen();
+    }
+
+    /**
+     * Capacity only — whether a registration-cap slot is free. Says nothing
+     * about whether sign-up is allowed; that is `allowsNewAccounts()`. Billing
+     * calls this one on purpose: a disabled account re-subscribing needs a free
+     * slot, not permission to register.
+     */
     public function isOpen(): bool
     {
         $cap = $this->featureFlags->getIntValue(self::CAP_FLAG, 0);

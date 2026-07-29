@@ -11,6 +11,7 @@ use App\Module\Account\Form\WaitlistJoinFormType;
 use App\Module\Account\Form\WaitlistJoinRequest;
 use App\Module\Account\Service\RegistrationGate;
 use App\Routing\PaywallExempt;
+use Psr\Log\LoggerInterface;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\Form\FormError;
 use Symfony\Component\HttpFoundation\Request;
@@ -31,6 +32,7 @@ final class JoinWaitlistController extends AppController
         private readonly RegistrationGate $gate,
         private readonly JoinWaitlistHandler $joinWaitlist,
         private readonly TranslatorInterface $translator,
+        private readonly LoggerInterface $logger,
 
         #[Autowire(service: 'limiter.waitlist_join')]
         private readonly RateLimiterFactory $waitlistJoinLimiter,
@@ -39,6 +41,16 @@ final class JoinWaitlistController extends AppController
 
     public function __invoke(Request $request): Response
     {
+        // A waitlist only means something on an instance that intends to let
+        // people in eventually. With sign-up switched off — or the install
+        // wizard still pending — /register 404s, so redirecting there would
+        // dead-end and collecting addresses would promise nothing.
+        if (!$this->gate->allowsNewAccounts()) {
+            $this->logger->info('account.waitlist.denied', ['path' => $request->getPathInfo()]);
+
+            throw $this->createNotFoundException();
+        }
+
         if ($this->gate->isOpen()) {
             return $this->redirectToRoute('app_register');
         }

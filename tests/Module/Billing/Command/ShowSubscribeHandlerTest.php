@@ -8,6 +8,7 @@ use App\Module\Account\Entity\User;
 use App\Module\Account\Entity\WaitlistEntry;
 use App\Module\Account\Repository\UserRepository;
 use App\Module\Account\Repository\WaitlistEntryRepository;
+use App\Module\Account\Service\InstallationState;
 use App\Module\Account\Service\RegistrationGate;
 use App\Module\Billing\Command\ShowSubscribeCommand;
 use App\Module\Billing\Command\ShowSubscribeHandler;
@@ -43,13 +44,16 @@ final class ShowSubscribeHandlerTest extends TestCase
 
         $users = $this->createStub(UserRepository::class);
         $users->method('countActive')->willReturn(1);
+        // A non-empty users table: the install wizard is closed, which is what
+        // RegistrationGate::allowsNewAccounts() checks on top of the flag.
+        $users->method('count')->willReturn(1);
 
         return new ShowSubscribeHandler(
             $profiles,
             new ActivePriceProvider(FeatureFlags::service($flags), $this->createStub(StripeGatewayInterface::class), new ArrayAdapter(), new NullLogger()),
             new TrialProvisioner($profiles, FeatureFlags::service($flags), $this->createStub(EntityManagerInterface::class)),
             FeatureFlags::service($flags),
-            new RegistrationGate(FeatureFlags::service($flags), $users),
+            new RegistrationGate(FeatureFlags::service($flags), $users, new InstallationState($users)),
             $waitlistEntries ?? $this->createStub(WaitlistEntryRepository::class),
         );
     }
@@ -64,7 +68,21 @@ final class ShowSubscribeHandlerTest extends TestCase
 
         self::assertTrue($view->accountDisabled);
         self::assertTrue($view->capFull);
+        self::assertTrue($view->waitlistOpen);
         self::assertNull($view->inviteToken);
+    }
+
+    public function test_a_closed_instance_leaves_the_waitlist_shut_as_well(): void
+    {
+        $user = $this->user();
+        $user->disabledAt = new \DateTimeImmutable();
+        $profile = new BillingProfile($user, trialEndsAt: new \DateTimeImmutable('-30 days'));
+
+        $flags = self::CAP_CLOSED_FLAGS + [RegistrationGate::ENABLED_FLAG => false];
+        $view = ($this->handler($profile, $flags))(new ShowSubscribeCommand($user));
+
+        self::assertTrue($view->capFull);
+        self::assertFalse($view->waitlistOpen);
     }
 
     public function test_a_disabled_user_sees_no_full_cap_while_the_cap_has_room(): void

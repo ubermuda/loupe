@@ -41,6 +41,7 @@ final class SeedFlagsController extends AppController
         if ($form->isSubmitted() && $form->isValid()) {
             ($this->seedInstallFlagsHandler)(new SeedInstallFlagsCommand(
                 registrationCap: $data->registrationCap ?? throw new \LogicException('registrationCap required after validation'),
+                registrationEnabled: $data->registrationEnabled,
                 billingEnabled: $data->billingEnabled,
                 billingTrialDays: $data->billingTrialDays ?? throw new \LogicException('billingTrialDays required after validation'),
                 billingStripePriceId: ('' === ($data->billingStripePriceId ?? '')) ? null : $data->billingStripePriceId,

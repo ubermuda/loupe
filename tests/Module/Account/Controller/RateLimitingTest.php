@@ -5,6 +5,7 @@ namespace App\Tests\Module\Account\Controller;
 use App\Module\Account\Entity\User;
 use App\Module\Account\Repository\UserRepository;
 use App\Module\Account\Service\RegistrationGate;
+use App\Tests\Support\InstalledInstance;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use Symfony\Component\HttpFoundation\Request;
@@ -28,6 +29,7 @@ final class RateLimitingTest extends WebTestCase
         $client = static::createClient();
         $client->disableReboot(); // keep the limiter override alive across requests
         static::getContainer()->set('limiter.registration', self::lowLimitFactory('registration'));
+        InstalledInstance::ensure(static::getContainer()->get(EntityManagerInterface::class));
 
         $client->request(Request::METHOD_GET, '/register');
         $client->submitForm('Create account', [

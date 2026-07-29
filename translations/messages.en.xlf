@@ -132,6 +132,10 @@
                 <source>account.social.error.unverified_email</source>
                 <target>That account has no verified email address, so it cannot be used to sign in.</target>
             </trans-unit>
+            <trans-unit id="account.social.error.registration_closed">
+                <source>account.social.error.registration_closed</source>
+                <target>This instance is not accepting new accounts, so that provider account cannot be used to sign up.</target>
+            </trans-unit>
             <trans-unit id="account.social.link.page.title">
                 <source>account.social.link.page.title</source>
                 <target>Confirm your password</target>
@@ -361,6 +365,10 @@
             <trans-unit id="account.error.registration_closed">
                 <source>account.error.registration_closed</source>
                 <target>Registration is currently closed — join the waitlist to get an invite.</target>
+            </trans-unit>
+            <trans-unit id="account.error.registration_disabled">
+                <source>account.error.registration_disabled</source>
+                <target>This instance is not accepting new accounts.</target>
             </trans-unit>
 
             <!-- Email subjects -->
@@ -1494,6 +1502,10 @@
                 <source>account.form.install_flags_form.registration_cap.label</source>
                 <target>Registration cap (0 = unlimited)</target>
             </trans-unit>
+            <trans-unit id="account.form.install_flags_form.registration_enabled.label">
+                <source>account.form.install_flags_form.registration_enabled.label</source>
+                <target>Allow people to register accounts</target>
+            </trans-unit>
             <trans-unit id="account.form.install_flags_form.billing_enabled.label">
                 <source>account.form.install_flags_form.billing_enabled.label</source>
                 <target>Enable billing</target>
@@ -1587,6 +1599,15 @@
                 <target>This application is already installed.</target>
             </trans-unit>
 
+            <!-- Console recovery commands -->
+            <trans-unit id="account.console.error.user_not_found">
+                <source>account.console.error.user_not_found</source>
+                <target>No account exists with that email address.</target>
+            </trans-unit>
+            <trans-unit id="account.console.error.username_taken">
+                <source>account.console.error.username_taken</source>
+                <target>That username is already taken.</target>
+            </trans-unit>
             <!-- System status (install wizard step and admin page) -->
             <trans-unit id="account.system_status.page.title">
                 <source>account.system_status.page.title</source>
@@ -1939,6 +1960,14 @@
             <trans-unit id="billing.subscribe.waitlist.button_label">
                 <source>billing.subscribe.waitlist.button_label</source>
                 <target>Join the waitlist</target>
+            </trans-unit>
+            <trans-unit id="billing.subscribe.closed.heading">
+                <source>billing.subscribe.closed.heading</source>
+                <target>We are at capacity</target>
+            </trans-unit>
+            <trans-unit id="billing.subscribe.closed.body">
+                <source>billing.subscribe.closed.body</source>
+                <target>Every spot is taken right now, and both registration and the waitlist are closed, so there is no way to subscribe at the moment. Contact the administrator of this instance if you need access.</target>
             </trans-unit>
 
         </body>

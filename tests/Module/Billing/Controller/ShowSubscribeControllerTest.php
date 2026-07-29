@@ -179,6 +179,39 @@ final class ShowSubscribeControllerTest extends WebTestCase
         self::assertResponseRedirects('/waitlist?joined=1');
     }
 
+    public function test_a_disabled_user_is_told_the_waitlist_is_shut_when_registration_is_off(): void
+    {
+        $client = static::createClient();
+        $client->disableReboot();
+        $scenario = new BillingScenario(static::getContainer());
+        $scenario->enableBilling();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+
+        $user = $scenario->verifiedUser('closedout');
+        $user->disabledAt = new \DateTimeImmutable();
+        $scenario->profile($user, new \DateTimeImmutable('-30 days'));
+
+        $scenario->verifiedUser('closedfiller');
+        $activeCount = static::getContainer()->get(UserRepository::class)->countActive();
+        $em->persist(new FeatureFlag(name: RegistrationGate::CAP_FLAG, type: FeatureFlagType::Int, value: $activeCount));
+        $em->persist(new FeatureFlag(name: RegistrationGate::ENABLED_FLAG, type: FeatureFlagType::Bool, value: false));
+        $em->flush();
+        $em->clear();
+
+        $client->loginUser($user);
+        $crawler = $client->request(Request::METHOD_GET, '/billing/subscribe');
+
+        self::assertResponseIsSuccessful();
+        // The waitlist route 404s while registration is off, so the button that
+        // led there must be gone — replaced by copy that says both are closed.
+        self::assertCount(0, $crawler->filter('form[action="/waitlist"]'));
+        self::assertCount(0, $crawler->filter('form[action="/billing/checkout"]'));
+        self::assertStringContainsString(
+            'both registration and the waitlist are closed',
+            $crawler->filter('.lp-billing-block')->last()->text(),
+        );
+    }
+
     public function test_with_billing_disabled_the_page_offers_no_actions(): void
     {
         $client = static::createClient();
