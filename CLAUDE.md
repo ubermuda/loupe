@@ -187,6 +187,16 @@ From inside the php-fpm container (`just shell`), use the `database` Docker serv
 
 Why the dev host is not an option: the suite is destructive by design. The `install-reset` project **truncates every table**, and `trial-end-lifecycle` flips global feature flags and disables every expired-trial account — so one run against `loupe.dev.localhost` wipes your development database. Pointing e2e at a worktree still works (`E2E_BASE_URL=https://<slug>.loupe.dev.localhost just e2e --workers=1`) and remains the right tool when you need to gate a branch *without* checking it out; it is no longer the only one. The DB-free static gate (`just cs`, `just phpstan`, `just lint`, `just arkitect`, `just gamache`) is always safe to run in parallel.
 
+**Before every worktree e2e run, warm the dev cache and leave it alone for the duration:**
+
+```bash
+( cd .claude/worktrees/<name> && bin/worktrees/compose-exec.sh bin/console cache:warmup )
+```
+
+A run started against a cold `var/cache/dev`, or one whose cache is rebuilt mid-flight by a concurrent `just cs` / `just ci` in the same worktree, produces **false failures that look like unrelated flaky specs**. The container is swapped underneath in-flight requests, and a container-load fatal happens before Monolog exists — so the request logs nothing at all and php-fpm returns an empty response. It surfaced three separate times in one session, always as a request that never completed: a logout that stayed on the same page, a registration that stayed on `/register`, an admin page that never rendered. Each showed a submit button left in its disabled state with **no validation errors**, which is the signature to recognise.
+
+So: warm first, then run e2e, and do not run a gate against a worktree while its suite is in flight. If a spec fails and then passes in isolation, check `ls var/cache/dev/ | grep -c '^Container'` — more than one container hash means a rebuild happened during the run, and the failure is environmental rather than yours. That is a diagnosis, not a licence to re-run until green: confirm the cause before dismissing any failure.
+
 **php-cs-fixer works from worktrees.** `.php-cs-fixer.dist.php` uses explicit excludes rather than `ignoreVCSIgnored(true)`, and throws when the finder matches zero files. Both matter: the old VCS-ignore heuristic matched **0 files** under the gitignored `.claude/worktrees/`, so `just cs` fixed nothing and `just ci`'s cs-check leg passed vacuously (a committed brace jam once sailed through a "green" gate that way). `.claude` stays excluded deliberately — worktrees live inside the main checkout, so without it the main run would scan every worktree's copy of the tree. No explicit-path workaround is needed any more; if you see one in an old PR body, it predates this.
 
 ## Common Commands
