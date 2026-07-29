@@ -107,8 +107,9 @@ x-app-environment: &app-environment
   OAUTH_GITHUB_SECRET: "${OAUTH_GITHUB_SECRET:-}"
 
 services:
-  # nginx + php-fpm under supervisord, plus the hourly expired-export purge.
-  # That is the image's own default command, so none is given here.
+  # nginx + php-fpm under supervisord, and nothing else — the image's own
+  # default command, so none is given here. Expired-export purging is not run
+  # here any more: it rides the worker's schedule below.
   web:
     image: ${LOUPE_PROD_IMAGE:-ghcr.io/ubermuda/loupe:prod}
     restart: unless-stopped
@@ -192,6 +193,6 @@ services:
 
 volumes:
   database_data:
-  # Generated data-export archives, shared between the worker that writes them
-  # and the web container that serves and purges them.
+  # Generated data-export archives, shared between the worker that writes and
+  # purges them and the web container that serves them.
   exports:
