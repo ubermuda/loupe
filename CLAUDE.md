@@ -199,6 +199,20 @@ A run started against a cold `var/cache/dev`, or one whose cache is rebuilt mid-
 
 So: warm first, then run e2e, and do not run a gate against a worktree while its suite is in flight. If a spec fails and then passes in isolation, check `ls var/cache/dev/ | grep -c '^Container'` — more than one container hash means a rebuild happened during the run, and the failure is environmental rather than yours. That is a diagnosis, not a licence to re-run until green: confirm the cause before dismissing any failure.
 
+**A worktree e2e run also needs its own consumer, and forgetting it fails ~19 specs at once.** The suite's authenticated fixture registers a user and verifies it through the emailed link, so with nothing consuming `async` the failures are not confined to the obviously mail-shaped specs — login, signup, delete-account, forgot-password, the first-run wizard, admin smoke, paywall and delete-project all go down together. Nineteen failures spanning unrelated areas, with the app returning 200 and `just ci` green, means **no worker**, not a broken branch:
+
+```bash
+docker exec <project>-php-fpm-1 sh -c "ps aux | grep -c '[m]essenger:consume'"   # 0 = that is your bug
+```
+
+Start one before the suite and leave it running:
+
+```bash
+( cd .claude/worktrees/<name> && bin/worktrees/compose-exec.sh bin/console messenger:consume scheduler_default async --time-limit=3600 --memory-limit=256M )
+```
+
+Distinguish the two failure modes by their shape: a **cache** problem produces one or two odd failures with a disabled button and no logged error, while a **missing consumer** produces a large, auth-shaped block of them. Reaching for a re-run without telling them apart is how a real regression gets mistaken for a flake.
+
 **php-cs-fixer works from worktrees.** `.php-cs-fixer.dist.php` uses explicit excludes rather than `ignoreVCSIgnored(true)`, and throws when the finder matches zero files. Both matter: the old VCS-ignore heuristic matched **0 files** under the gitignored `.claude/worktrees/`, so `just cs` fixed nothing and `just ci`'s cs-check leg passed vacuously (a committed brace jam once sailed through a "green" gate that way). `.claude` stays excluded deliberately — worktrees live inside the main checkout, so without it the main run would scan every worktree's copy of the tree. No explicit-path workaround is needed any more; if you see one in an old PR body, it predates this.
 
 ## Common Commands
