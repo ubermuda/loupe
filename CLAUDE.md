@@ -110,6 +110,22 @@ Before opening a pull request, you must:
 
 Do not open a PR until both commands pass cleanly. Pre-existing failures are not exempt; fix them as part of the branch.
 
+### Documentation-only branches skip e2e and Codex
+
+**When a branch changes nothing but Markdown, run steps 1 and 2 only.** Skip `just e2e` and the Codex review, and say so in the PR body so the record shows the gate was reduced deliberately rather than forgotten.
+
+The test is the diff, not the intent: **every changed file must end in `.md`**. Check it, do not assume —
+
+```bash
+git diff --name-only origin/main...HEAD | grep -v '\.md$'
+```
+
+Any output at all means the full gate applies. A branch that also touches `.env`, a Twig template, a fixture, `composer.json` or a `justfile` recipe is not documentation-only, however small the change looks.
+
+Two things this does **not** license. `just ci` still runs, because Markdown is not inert here: prettier covers some of it, `gamache`'s checks read `docs/`, and a docs commit can still break a build that greps them. And it does not extend to Markdown that is *executed* — a `.md` file a script or skill parses for commands is code wearing a `.md` suffix, so gate it fully.
+
+The reason is proportion rather than speed. `just e2e` is a serial ~4 minutes that cannot be parallelised (shared Mailpit), and running it to prove that a paragraph of prose did not break a browser test is a cost with no corresponding signal — while the habit of running a gate that can never fail is what teaches a reader to stop trusting gate results.
+
 ## Parallel feature branches: merge protocol
 
 When several feature branches are in flight (worktrees, parallel agents), merges to `main` follow a strict protocol:
