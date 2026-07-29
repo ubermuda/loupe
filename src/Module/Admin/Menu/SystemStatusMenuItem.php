@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Module\Admin\Menu;
 
-use Ubermuda\AdminBundle\Menu\AdminMenuItemInterface;
+use Ubermuda\AdminBundle\Menu\NonPrefetchableAdminMenuItem;
 
 /**
  * Contributes the "System status" entry to the admin sidebar.
@@ -14,8 +14,14 @@ use Ubermuda\AdminBundle\Menu\AdminMenuItemInterface;
  *
  * Labels here are rendered raw by the bundle's sidebar template, which has no
  * translator available, so they stay in English like the bundle's own strings.
+ *
+ * Non-prefetchable because rendering the status page opens an SMTP connection
+ * to the configured mailer and issues an HTTP GET to the Mercure hub, each
+ * bounded at 3 seconds. Turbo prefetches sidebar links on hover, so without the
+ * opt-out merely pointing at this entry fires both probes against third-party
+ * infrastructure with no user intent behind it.
  */
-final class SystemStatusMenuItem implements AdminMenuItemInterface
+final class SystemStatusMenuItem implements NonPrefetchableAdminMenuItem
 {
     public function getLabel(): string
     {
