@@ -34,16 +34,43 @@ terraform apply
 and roll out the image; the `prod_image` variable there must match the module's
 `registry`/`image_repository`/`image_tag`.
 
-## You must bring a Postgres cluster
+## Postgres: bring your own cluster, or have Terraform create one
 
-Terraform creates a database and a user *on* an existing managed cluster; it
-never creates the cluster. `db_cluster_name` and `region` therefore have no
-defaults — pass your own, or `terraform apply` fails asking for them:
+Pick one — `terraform apply` fails at plan time if you pick neither or both.
+`region` is required either way.
+
+**Attach to a cluster you already run.** Terraform creates a database and a user
+*on* it:
+
+```hcl
+db_cluster_name = "loupe-db"
+```
 
 ```bash
-doctl databases create loupe-db --engine pg --region tor
+doctl databases create loupe-db --engine pg --region tor   # if you have none
 doctl databases list      # the Name column is db_cluster_name
 ```
+
+**Or have Terraform create a dedicated one**, leaving `db_cluster_name` unset:
+
+```hcl
+create_db_cluster = true
+db_cluster_region = "tor1"   # datacenter slug, NOT the App Platform region
+```
+
+Sized by `db_cluster_size` (default `db-s-1vcpu-1gb`) and
+`db_cluster_node_count` (default `1` — no standby). This mode also manages the
+cluster's trusted sources, which removes the firewall half of
+`just tf-db-bootstrap`.
+
+**Setting neither is rejected on purpose.** An empty `db_cluster_name` falls
+through to the shared module's own historical default, which is the upstream
+project's cluster rather than yours — so the choice is forced rather than
+defaulted.
+
+`db_cluster_region` is a **datacenter** slug (`tor1`, `nyc3`); `region` is an
+**App Platform** slug (`tor`, `nyc`). They are different namespaces, and the
+wrong one plans cleanly and fails at apply.
 
 ## First deploy needs a one-time DB bootstrap
 

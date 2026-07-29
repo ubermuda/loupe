@@ -34,6 +34,13 @@ module "app" {
   db_cluster_name         = var.db_cluster_name
   database_server_version = var.db_server_version
 
+  # Either attach to a cluster the operator already runs, or have the module
+  # create a dedicated one. The sizing arguments are inert in attach mode.
+  create_db_cluster     = var.create_db_cluster
+  db_cluster_region     = var.db_cluster_region
+  db_cluster_size       = var.db_cluster_size
+  db_cluster_node_count = var.db_cluster_node_count
+
   # Image coordinates. These must agree with `prod_image` in the justfile, which
   # builds and pushes what App Platform pulls here.
   registry_type    = var.registry_type

@@ -34,9 +34,39 @@ variable "region" {
   description = "App Platform region slug (e.g. tor, nyc, fra). MUST match the region of the Postgres cluster named by db_cluster_name, so app-to-database traffic stays on the private network. Note this is the App Platform slug, not the Spaces slug: Spaces uses tor1/nyc3/fra1 — see export_bucket_region."
 }
 
+variable "create_db_cluster" {
+  type        = bool
+  default     = false
+  description = "Create a dedicated Postgres cluster for this app instead of attaching to one you already run. Leave db_cluster_name unset when this is true. Sized by db_cluster_size / db_cluster_node_count, placed by db_cluster_region. The cluster is guarded with prevent_destroy, so `terraform destroy` refuses and so does setting this back to false; `terraform state rm` is the deliberate override."
+}
+
 variable "db_cluster_name" {
   type        = string
-  description = "Name of an EXISTING managed Postgres cluster in your account; the module creates a per-app database and user on it but never creates the cluster itself. App-Platform-provisioned clusters are named app-<uuid> and that string IS the name. Create one first if you have none: `doctl databases create loupe-db --engine pg --region <region>`, then `doctl databases list`."
+  default     = ""
+  description = "Name of an EXISTING managed Postgres cluster in your account; the module creates a per-app database and user on it. App-Platform-provisioned clusters are named app-<uuid> and that string IS the name — `doctl databases list`. Leave this empty and set create_db_cluster = true to have the module create a dedicated cluster instead. Exactly one of the two is required: an empty name with create_db_cluster = false would fall through to the module's own historical default, which is this project's cluster and not yours."
+
+  validation {
+    condition     = (var.db_cluster_name != "") != var.create_db_cluster
+    error_message = "Set exactly one of db_cluster_name (attach to a cluster you already run) or create_db_cluster = true (have Terraform create a dedicated one). Setting neither would silently attach to the upstream project's own cluster; setting both is ambiguous."
+  }
+}
+
+variable "db_cluster_region" {
+  type        = string
+  default     = "tor1"
+  description = "Datacenter slug for the dedicated cluster, used only when create_db_cluster = true. This is a DATACENTER slug (tor1, nyc3, fra1), a different namespace from the App Platform `region` above (tor, nyc, fra). Passing the App Platform slug here plans cleanly and fails at apply. Keep it colocated with `region` or app-to-database traffic leaves the private network."
+}
+
+variable "db_cluster_size" {
+  type        = string
+  default     = "db-s-1vcpu-1gb"
+  description = "Node size for the dedicated cluster (create_db_cluster = true). The default is the smallest managed Postgres plan — adequate for a small instance, and a real cost decision worth revisiting before it holds anything you care about."
+}
+
+variable "db_cluster_node_count" {
+  type        = number
+  default     = 1
+  description = "Node count for the dedicated cluster (create_db_cluster = true). 1 means no standby: a node failure is downtime and restore-from-backup, not failover."
 }
 
 variable "db_server_version" {

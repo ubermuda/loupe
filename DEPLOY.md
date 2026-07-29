@@ -32,7 +32,7 @@ from a workstation with `just`.
 |---|---|
 | **Web container** | `docker/prod/Dockerfile`, running supervisord as PID 1: `php-fpm` + `nginx`, and nothing else. No background process runs here. |
 | **Worker container** | The *same image*, started with a different command (`enable_worker` in `terraform/main.tf`). Not part of the web container's supervisord — deliberately, so worker restarts never recycle php-fpm/nginx. It consumes `scheduler_default` first, then `async`: a deep async backlog must not delay schedule ticks. Everything recurring rides that schedule, including the hourly `app:purge-expired-exports` that deletes expired export archives — **so with `enable_worker` off, expired archives are never purged** (nor are exports ever generated). |
-| **Postgres** | A per-app database and user on a managed cluster you already own, named by `db_cluster_name`. Terraform creates the database and the user; it never creates the cluster. |
+| **Postgres** | A per-app database and user. Either on a managed cluster you already run (`db_cluster_name`), or on one Terraform creates and owns for this app (`create_db_cluster = true`). Exactly one of the two — see "Prerequisites". |
 | **Export bucket** | A DigitalOcean Spaces bucket plus a bucket-scoped access key, created by `terraform/spaces.tf` and wired into the app as ordinary `EXPORT_STORAGE_*` settings. |
 | **Mercure hub** | Required for site-review push. A second service in the same app, run by the shared module when `mercure_jwt_secret` is set. In-memory, so delivery is best effort — see "Known gaps". |
 
