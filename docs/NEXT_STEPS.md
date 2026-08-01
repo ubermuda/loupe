@@ -162,6 +162,52 @@ Two pieces of work, in order:
    fails, fix the violation, confirm it passes. A rule that has never been seen
    rejecting anything is how this entry came to exist in the first place.
 
+## The MCP connection drops repeatedly, and reconnecting does not restore the tools
+
+**Author:** Claude · **Type:** bug · **Priority:** high · **Status:** pending
+
+An agent session connected to this app over MCP lost the connection three
+separate times on 2026-08-01, in three different ways: `ConnectionRefused`, a
+silent drop mid-task, and finally a reconnect that reported success but left the
+client with no tools. Once in that last state the client sees `MCP error -32001:
+Request timed out` and cannot call anything. The only recovery found was
+restarting the agent session entirely; `/mcp reconnect` restores the transport
+without repopulating the tool list.
+
+This matters more than a flaky dev convenience: submitting and revising
+documents over MCP is how documents get into the app at all, so a dropped
+connection stops the primary workflow, and it did so mid-task here.
+
+**The server side is healthy — do not start by debugging it.** Verified while
+the client was in the broken state: `bin/console debug:mcp` lists all seven
+tools; `var/log/dev.log` shows every tool registering on each handshake
+(`create_document`, `get_document`, `get_review`, `list_documents`,
+`revise_document`, `address_site_review_comments`, `get_site_review`); `POST
+/mcp` answers 200; unauthenticated requests answer 401; and all app containers
+were up with the app serving normally.
+
+**Two dead ends, recorded so they are not chased again.** `GET /mcp` answering
+405 and `POST /mcp` answering 202 both look like smoking guns and are neither —
+405 on GET is a legal way to say the server offers no server-initiated stream,
+and 202 is the correct response to a notification, which has no reply by design.
+Both were mistaken for the cause before being ruled out.
+
+**The one real anomaly worth pulling on:** every tool registers **twice** per
+handshake, with two separate `Manual element registration complete` lines in the
+log. That is either benign client retry or the bundle mishandling session state.
+`symfony/mcp-bundle` is pinned `^0.12.0` and resolves `mcp/sdk v0.7.0` — both
+pre-1.0 — so checking whether a newer release mentions tool-list delivery or
+session handling is the cheapest next step.
+
+**Open question that sets the real severity:** every observation here was against
+the local dev host. Whether a deployed instance drops connections the same way is
+unknown, and it decides whether this is a local annoyance or a production defect
+affecting every agent that connects. Establishing that comes before any fix.
+
+Related: "Make `revise_document` surface real errors instead of generic
+`-32603`" — both are about MCP failures being hard to diagnose from the client
+side.
+
 ## Dashboard document search + status/tag filtering
 
 
