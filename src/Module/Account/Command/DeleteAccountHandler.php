@@ -24,9 +24,12 @@ use Symfony\Component\Messenger\MessageBusInterface;
  *
  * Each module contributes an AccountDataPurgerInterface (tagged
  * app.account_data_purger, mirroring the UserDataExporterInterface export
- * design) that clears its own tables; this handler only orders and iterates
- * them, then deletes the user row itself — it no longer names any other
- * module's table directly.
+ * design) that clears its own tables; this handler orders and iterates them,
+ * then deletes the user row itself.
+ *
+ * Billing is the one module this handler still depends on directly: the Stripe
+ * identifiers must be read before BillingProfileAccountPurger deletes the row
+ * holding them, so it cannot be reached through the purger alone.
  */
 final readonly class DeleteAccountHandler
 {
