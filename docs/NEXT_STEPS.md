@@ -133,6 +133,35 @@ as worth mining.
 Related: 'Worktree e2e runs now require a worktree-scoped worker', which this
 would subsume.
 
+## `phparkitect.php` enforces nothing — the CI leg has never rejected anything
+
+**Author:** Claude · **Type:** tooling · **Priority:** high · **Status:** pending
+
+`phparkitect.php` at the project root contains no rules — only the
+commented-out example from the package's own documentation. `just arkitect`
+runs on every commit as part of `just ci`, passes every time, and has never
+checked a single thing. A gate that reports success for doing nothing is worse
+than no gate: it occupies the slot where architecture enforcement is supposed
+to be, so nobody notices the enforcement is absent.
+
+This is the same class of failure as the php-cs-fixer finder that matched zero
+files and let a formatting bug through a green pipeline — fixed since by
+switching `.php-cs-fixer.dist.php` to explicit excludes plus a throw when the
+finder matches nothing. The arkitect equivalent has no such guard.
+
+Two pieces of work, in order:
+
+1. Write real rules. The obvious first candidates are the module boundaries
+   under `src/Module/` (a module must not depend on another module's internals)
+   and the domain/infrastructure direction: a dependency rule catches
+   infrastructure leaking *into* the domain, which is the half that is
+   mechanically checkable — it says nothing about domain logic leaking *out*
+   into an adapter, since adapters may depend on everything. See also "Domain
+   boundaries sweep (after the current feature wave)", which this overlaps.
+2. Prove each rule red before green. Point it at a real violation, confirm it
+   fails, fix the violation, confirm it passes. A rule that has never been seen
+   rejecting anything is how this entry came to exist in the first place.
+
 ## Dashboard document search + status/tag filtering
 
 
@@ -327,6 +356,21 @@ the title set at `create_document` time is frozen. The document is now titled
 "Eight features — design spec" while its content says nine. Add an optional
 `title` parameter to `revise_document` (and consider surfacing title history
 alongside version history).
+
+Hit again on 2026-08-01, submitting five blog drafts one document per draft:
+two were titled "Post 5 — …" / "Post 6 — …" and three were given bare titles,
+and there was no way to make the naming consistent afterwards. Worth noting
+what makes this worse than an annoyance — there is no delete route for a
+document either (`debug:router` lists only list, review, version, comment-add
+and submit), so a document created with the wrong title cannot be renamed *or*
+removed. The only recourse is creating a replacement and leaving the original
+in the project's list forever, which is why this is worth more than its
+"cosmetic" appearance.
+
+An agent submitting a batch of related documents is the case that exposes it,
+so the fix is worth scoping as "rename", not just "revise with a title":
+whatever the MCP gains, an agent needs to be able to correct a naming scheme
+across several already-created documents.
 
 ## ProjectDeleter misreports a stale entity when looped without clearing
 
@@ -850,6 +894,217 @@ and confirming the emailed link downloads a valid ZIP. Until then, treat
 `EXPORT_STORAGE=s3` as configured-but-unverified, which matters because
 `terraform/main.tf` makes it the **default** for the shipped deployment (see
 "Known gaps" in `DEPLOY.md`).
+
+## Review renderer: front matter renders as prose, HTML comments render as nothing
+
+**Author:** Geoffrey · **Type:** feature · **Priority:** medium · **Status:** pending
+
+A Markdown document that opens with a YAML front-matter block — the `---`
+fenced key/value header that Hugo, Jekyll, Astro and most static site
+generators put at the top of every source file — renders as garbage in the
+review UI. The opening `---` becomes a horizontal rule, the keys become a
+paragraph of `title: "…"` / `date: …` / `tags: […]` text, and the closing
+`---` becomes a second rule. The reviewer sees three lines of noise before the
+first real sentence, and can select and comment on them as if they were
+content.
+
+This surfaced on 2026-08-01 submitting blog drafts for review: the workaround
+was to strip the front matter by hand before calling `create_document`, which
+means the reviewed document no longer matches the file on disk. That is the
+actual cost — a revision cannot be pasted straight back, and anything the
+reviewer might want to say about the tags or the publish date has nowhere to
+land.
+
+**Decision needed** — what the renderer should do with a front-matter block:
+
+1. Parse it and render it as a small metadata panel above the document
+   (recommended: it is real content, and reviewers have opinions about titles
+   and tags).
+2. Parse it and hide it, keeping it in the stored source so a round-trip is
+   lossless.
+3. Detect it and strip it on ingest, which is the current manual workaround
+   moved server-side — simplest, but throws information away.
+
+Whichever is chosen, detection is the same: a leading `---` line, YAML up to
+the next `---`, and nothing before it. Note that a document may legitimately
+*begin* with a horizontal rule, so the parse must fail closed and treat an
+unterminated block as prose.
+
+HTML comments are the same bug with a worse failure mode, and belong in the
+same fix. `<!-- … -->` renders as *nothing* — the reviewer sees no gap, no
+placeholder, and cannot select or comment on it. Front matter at least looks
+wrong; a hidden comment looks like clean prose. This bit on the same day: two
+of the submitted blog drafts carry `<!-- TODO: link the skeleton repo here -->`
+markers, which are exactly the open questions their author most wants a
+decision on, and they are invisible in the review UI. Decide the same three
+ways — surface as a visible annotation, keep but hide, or strip on ingest —
+and prefer surfacing, since an author who wrote a comment into a document
+meant it for a reader.
+
+The two places this can live are `src/Module/Review/Mcp/CreateDocumentTool.php`
+(ingest — where stripping or extraction would happen once, at submission) and
+`src/Module/Review/Service/MarkdownRenderer.php` (render — where it would
+happen on every view, and where the anchor offsets that comments depend on are
+computed). Ingest is the better home for options 2 and 3; option 1 needs both,
+since the panel has to render somewhere. Whichever is picked, check the effect
+on comment anchor offsets before shipping — removing characters from the source
+after comments exist would shift every anchor in the document.
+
+## Documents have no organizing structure — tags, categories or something else
+
+**Author:** Geoffrey · **Type:** feature · **Priority:** medium · **Status:** pending
+
+A project's documents are a flat list ordered by creation. That is fine at five
+documents and stops working well before fifty. Submitting a blog series on
+2026-08-01 put seventeen related documents into one project — eleven posts, six
+companion threads — with nothing expressing that the threads belong to the
+posts, that both belong to one series, or that some are drafts and some are
+outlines. The only structure available was baking it into the titles by hand
+("Post 5 — …", "Thread 5 — …"), which is a naming convention pretending to be
+a data model: nothing enforces it, nothing can filter on it, and it breaks the
+moment a title is wrong (and titles cannot be corrected — see "MCP:
+`revise_document` cannot update the title").
+
+**Decision needed** — what the organizing primitive should be:
+
+1. Tags, many-to-many and free-form (recommended: cheapest to build, and
+   "Dashboard document search + status/tag filtering" is already written
+   against a tag entity that does not exist yet, so this unblocks work already
+   scoped).
+2. Categories or folders, one-to-many and hierarchical — better for a series,
+   worse for documents that belong to several groupings at once.
+3. Both, as most document tools end up doing.
+
+Whichever is chosen, it needs to be settable from the MCP at `create_document`
+time, not only in the UI — the agent submitting the batch is the one that knows
+how the documents relate, and asking a human to tag seventeen documents
+afterwards means it does not happen.
+
+Related: "Reference another document from a document", which is the other half
+of the same problem.
+
+## Reference another document from a document
+
+**Author:** Geoffrey · **Type:** feature · **Priority:** medium · **Status:** pending
+
+There is no way for one document to point at another. A companion thread that
+accompanies a blog post, an implementation plan that supersedes a spec, an
+audit that references the design it audited — all of these currently say so in
+prose, if at all, and the reader has to go find the other document by name.
+
+Submitting the blog series on 2026-08-01 made this concrete: each thread
+document opens with "Companion thread for post 4" as plain text, which the
+reviewer cannot click, and which will be wrong if the post is ever renumbered.
+A real reference would survive both.
+
+Two things worth separating when this is designed. A **link** is one document
+mentioning another and is cheap. A **relationship** is typed and directional
+("thread-of", "supersedes", "audits") and is what makes a document list
+navigable rather than just cross-linked. Start with the link; do not build the
+typed graph before something needs it.
+
+Worth checking how this interacts with revisions: a reference to a document
+that is later revised should still resolve, and probably to the current
+version rather than the one that existed when the link was written.
+
+Related: "Documents have no organizing structure — tags, categories or
+something else".
+
+## Edit a document in the app, not only through an agent
+
+**Author:** Geoffrey · **Type:** feature · **Priority:** medium · **Status:** pending
+
+A document can only be written by an agent over MCP. `debug:router` has no
+create, edit or delete route for documents — `app_project_documents` lists them
+and `app_document_review` shows one, and that is the whole surface. So fixing a
+typo, correcting a stale sentence, or writing a document by hand all require
+going back to an agent and asking it to revise, which is absurd for a one-word
+change and impossible if no agent session is open.
+
+The domain work is already done, which is what makes this worth scheduling: the
+command + handler pairs exist as `Module/Review/Command/CreateDocumentCommand`
++ `CreateDocumentHandler` and `ReviseDocumentCommand` + `ReviseDocumentHandler`.
+`Module/Review/Mcp/CreateDocumentTool` and `ReviseDocumentTool` are thin
+wrappers over them. What is missing is only a form, a controller and a template.
+
+**Go through `ReviseDocumentHandler`, do not write a second revision path.**
+Revising is not a text overwrite: it creates a new `DocumentVersion` and
+re-anchors open comments onto it via `Module/Review/Service/AnchorService`,
+flagging as orphaned any whose quoted text no longer appears. An editor that
+updates the markdown directly would silently strand every comment on the
+document. The MCP path already returns carried/orphaned counts, and the UI
+should surface the same thing — ideally warning before saving when an edit is
+about to orphan comments, since a human editing in-place has no equivalent of
+the agent's deliberate revise step.
+
+Two decisions to make when this is picked up. Whether an in-app edit creates a
+version on every save or only on an explicit "publish" — per-keystroke
+versioning would make the version list useless, so some form of draft state is
+probably needed. And who may edit: today authorship is implicit in whoever's
+agent token created the document, and there is no edit permission modelled.
+
+Doing this also closes "MCP: `revise_document` cannot update the title" from the
+UI side, though not for agents. Related: "Review UI: version diff view", which
+becomes considerably more useful once humans are producing versions too.
+
+## Review comments should be able to express an edit, not just describe one
+
+**Author:** Geoffrey · **Type:** feature · **Priority:** medium · **Status:** pending
+
+Every review comment is untyped prose. `Module/Review/Entity/Comment` carries a
+free-text `body`, an `Anchor`, `resolved`/`orphaned` flags and an optional
+`parent` for replies — and nothing else. So "delete this paragraph" and "reword
+this as X" have to be written out longhand and then applied by hand by whoever
+owns the document, which is slow for the reviewer and lossy for the author.
+
+Two tools worth having: a **strike** that means "remove this passage" with no
+prose required, and a **suggest rewording** that carries replacement text.
+
+**These are two tools in the interface and one mechanism underneath, and the
+two statements must not be confused.**
+
+In the UI, striking is its own action: select a passage, strike it, done. No
+form, no prose, no empty field to skip past — plausibly a single keystroke, the
+way the site-review widget's `t` shortcut works. Removing text is likely the
+commonest edit a reviewer makes, so it must be the cheapest gesture on offer.
+Suggesting a rewording is the one that opens an input. The two should also
+*render* differently: a strike as struck-through text, a rewording as
+before/after.
+
+Underneath, a strike is a suggestion whose replacement text is empty, so one
+anchored-comment-plus-optional-replacement model serves both and the accept path
+is written once. `body` then holds the rationale rather than the replacement.
+
+That equivalence is an implementation note and nothing more. It must not surface
+as "create a suggestion, leave the replacement blank" — that turns the most
+common action into the most tedious one, which is exactly backwards.
+
+**This is where it meets in-app editing** (see "Edit a document in the app, not
+only through an agent"). A suggestion that cannot be accepted is just a comment
+with better formatting; the value is in applying it. Accepting one has to go
+through `ReviseDocumentHandler`, which means a new `DocumentVersion` and a
+re-anchoring pass. Consequences worth knowing up front:
+
+- Applying a suggestion changes the exact text its own comment is anchored to,
+  so the comment orphans itself on accept. The accept flow must mark it resolved
+  deliberately rather than letting `AnchorService` report it as orphaned, or
+  every accepted suggestion looks like a failure.
+- Accepting several suggestions should produce **one** new version, not one per
+  suggestion. Per-suggestion versions would make the version list unreadable and
+  would re-anchor repeatedly for no reason.
+- Overlapping suggestions on the same passage need a rule. Simplest is
+  first-accepted wins and the rest orphan, but that should be a decision rather
+  than an accident.
+
+Also unresolved: how this interacts with `Review` and `Verdict` — whether a
+document can be approved while unaccepted suggestions are outstanding, or
+whether those must be accepted or rejected first.
+
+The MCP side matters too, since agents are the main authors of documents here: a
+human's accepted rewording should be visible to the agent that wrote the
+document, and an agent should plausibly be able to *make* suggestions on a human
+edit. Neither needs building first, but the comment model should not make them
+awkward later.
 
 ## Review anchoring — possible enhancement (low priority)
 
