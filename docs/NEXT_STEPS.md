@@ -1047,6 +1047,52 @@ Doing this also closes "MCP: `revise_document` cannot update the title" from the
 UI side, though not for agents. Related: "Review UI: version diff view", which
 becomes considerably more useful once humans are producing versions too.
 
+## Review comments should be able to express an edit, not just describe one
+
+**Author:** Geoffrey · **Type:** feature · **Priority:** medium · **Status:** pending
+
+Every review comment is untyped prose. `Module/Review/Entity/Comment` carries a
+free-text `body`, an `Anchor`, `resolved`/`orphaned` flags and an optional
+`parent` for replies — and nothing else. So "delete this paragraph" and "reword
+this as X" have to be written out longhand and then applied by hand by whoever
+owns the document, which is slow for the reviewer and lossy for the author.
+
+Two tools worth having: a **strike** that means "remove this passage" with no
+prose required, and a **suggest rewording** that carries replacement text.
+
+Worth noticing before designing two features: a strike is a suggestion whose
+replacement text is empty. One mechanism — an anchored comment with an optional
+replacement payload — probably covers both, and `body` then holds the rationale
+rather than the replacement. Modelling them separately would duplicate the
+accept path.
+
+**This is where it meets in-app editing** (see "Edit a document in the app, not
+only through an agent"). A suggestion that cannot be accepted is just a comment
+with better formatting; the value is in applying it. Accepting one has to go
+through `ReviseDocumentHandler`, which means a new `DocumentVersion` and a
+re-anchoring pass. Consequences worth knowing up front:
+
+- Applying a suggestion changes the exact text its own comment is anchored to,
+  so the comment orphans itself on accept. The accept flow must mark it resolved
+  deliberately rather than letting `AnchorService` report it as orphaned, or
+  every accepted suggestion looks like a failure.
+- Accepting several suggestions should produce **one** new version, not one per
+  suggestion. Per-suggestion versions would make the version list unreadable and
+  would re-anchor repeatedly for no reason.
+- Overlapping suggestions on the same passage need a rule. Simplest is
+  first-accepted wins and the rest orphan, but that should be a decision rather
+  than an accident.
+
+Also unresolved: how this interacts with `Review` and `Verdict` — whether a
+document can be approved while unaccepted suggestions are outstanding, or
+whether those must be accepted or rejected first.
+
+The MCP side matters too, since agents are the main authors of documents here: a
+human's accepted rewording should be visible to the agent that wrote the
+document, and an agent should plausibly be able to *make* suggestions on a human
+edit. Neither needs building first, but the comment model should not make them
+awkward later.
+
 ## Review anchoring — possible enhancement (low priority)
 
 
