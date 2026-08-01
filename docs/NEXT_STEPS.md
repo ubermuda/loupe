@@ -1060,11 +1060,24 @@ owns the document, which is slow for the reviewer and lossy for the author.
 Two tools worth having: a **strike** that means "remove this passage" with no
 prose required, and a **suggest rewording** that carries replacement text.
 
-Worth noticing before designing two features: a strike is a suggestion whose
-replacement text is empty. One mechanism — an anchored comment with an optional
-replacement payload — probably covers both, and `body` then holds the rationale
-rather than the replacement. Modelling them separately would duplicate the
-accept path.
+**These are two tools in the interface and one mechanism underneath, and the
+two statements must not be confused.**
+
+In the UI, striking is its own action: select a passage, strike it, done. No
+form, no prose, no empty field to skip past — plausibly a single keystroke, the
+way the site-review widget's `t` shortcut works. Removing text is likely the
+commonest edit a reviewer makes, so it must be the cheapest gesture on offer.
+Suggesting a rewording is the one that opens an input. The two should also
+*render* differently: a strike as struck-through text, a rewording as
+before/after.
+
+Underneath, a strike is a suggestion whose replacement text is empty, so one
+anchored-comment-plus-optional-replacement model serves both and the accept path
+is written once. `body` then holds the rationale rather than the replacement.
+
+That equivalence is an implementation note and nothing more. It must not surface
+as "create a suggestion, leave the replacement blank" — that turns the most
+common action into the most tedious one, which is exactly backwards.
 
 **This is where it meets in-app editing** (see "Edit a document in the app, not
 only through an agent"). A suggestion that cannot be accepted is just a comment
