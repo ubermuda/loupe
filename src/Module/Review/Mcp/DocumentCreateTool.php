@@ -16,7 +16,7 @@ use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
  * Create a Markdown document for human review and return its id and review URL.
  */
 #[McpTool(name: 'document_create', description: 'Create a Markdown document for human review.')]
-final readonly class CreateDocumentTool
+final readonly class DocumentCreateTool
 {
     use ResolvesBoundProject;
 

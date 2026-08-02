@@ -7,18 +7,18 @@ namespace App\Tests\Module\Review\Mcp;
 use App\Module\Account\Entity\User;
 use App\Module\Project\Entity\Project;
 use App\Module\Review\Entity\Document;
-use App\Module\Review\Mcp\GetReviewTool;
+use App\Module\Review\Mcp\DocumentGetReviewTool;
 use App\Tests\Support\McpTokenScenario;
 use Doctrine\ORM\EntityManagerInterface;
 use Mcp\Exception\ToolCallException;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 
-final class GetReviewToolTest extends KernelTestCase
+final class DocumentGetReviewToolTest extends KernelTestCase
 {
     use McpTokenScenario;
 
     private EntityManagerInterface $em;
-    private GetReviewTool $tool;
+    private DocumentGetReviewTool $tool;
 
     protected function setUp(): void
     {
@@ -28,8 +28,8 @@ final class GetReviewToolTest extends KernelTestCase
         self::assertInstanceOf(EntityManagerInterface::class, $em);
         $this->em = $em;
 
-        $tool = self::getContainer()->get(GetReviewTool::class);
-        self::assertInstanceOf(GetReviewTool::class, $tool);
+        $tool = self::getContainer()->get(DocumentGetReviewTool::class);
+        self::assertInstanceOf(DocumentGetReviewTool::class, $tool);
         $this->tool = $tool;
     }
 

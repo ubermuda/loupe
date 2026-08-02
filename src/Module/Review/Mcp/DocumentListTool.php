@@ -16,7 +16,7 @@ use Mcp\Exception\ToolCallException;
  * List documents in the project bound to the authenticated MCP token.
  */
 #[McpTool(name: 'document_list', description: 'List documents in the token\'s project, with their current status and version. Paginated: pass page to walk further, and keep going while hasMore is true.')]
-final readonly class ListDocumentsTool
+final readonly class DocumentListTool
 {
     use ResolvesBoundProject;
 

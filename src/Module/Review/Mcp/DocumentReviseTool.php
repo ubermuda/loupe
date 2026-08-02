@@ -15,7 +15,7 @@ use Mcp\Exception\ToolCallException;
  * comments whose quoted text no longer appears are flagged orphaned. Returns the re-anchoring summary.
  */
 #[McpTool(name: 'document_revise', description: 'Submit a new Markdown version of a document. Open comments are re-anchored onto the new version; those whose quoted text no longer appears are flagged orphaned.')]
-final readonly class ReviseDocumentTool
+final readonly class DocumentReviseTool
 {
     public function __construct(
         private ReviseDocumentHandler $handler,
@@ -34,7 +34,7 @@ final readonly class ReviseDocumentTool
         try {
             $document = $this->subjects->requireDocument($documentId, McpBoundProjectVoter::DOCUMENT_WRITE);
 
-            if (\strlen($markdown) > CreateDocumentTool::MAX_MARKDOWN_BYTES) {
+            if (\strlen($markdown) > DocumentCreateTool::MAX_MARKDOWN_BYTES) {
                 throw new ToolCallException('The markdown content exceeds the maximum allowed size.');
             }
 

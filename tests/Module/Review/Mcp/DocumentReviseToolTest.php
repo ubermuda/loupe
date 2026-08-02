@@ -7,19 +7,19 @@ namespace App\Tests\Module\Review\Mcp;
 use App\Module\Account\Entity\User;
 use App\Module\Project\Entity\Project;
 use App\Module\Review\Entity\Document;
-use App\Module\Review\Mcp\CreateDocumentTool;
-use App\Module\Review\Mcp\ReviseDocumentTool;
+use App\Module\Review\Mcp\DocumentCreateTool;
+use App\Module\Review\Mcp\DocumentReviseTool;
 use App\Tests\Support\McpTokenScenario;
 use Doctrine\ORM\EntityManagerInterface;
 use Mcp\Exception\ToolCallException;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 
-final class ReviseDocumentToolTest extends KernelTestCase
+final class DocumentReviseToolTest extends KernelTestCase
 {
     use McpTokenScenario;
 
     private EntityManagerInterface $em;
-    private ReviseDocumentTool $tool;
+    private DocumentReviseTool $tool;
 
     protected function setUp(): void
     {
@@ -29,8 +29,8 @@ final class ReviseDocumentToolTest extends KernelTestCase
         self::assertInstanceOf(EntityManagerInterface::class, $em);
         $this->em = $em;
 
-        $tool = self::getContainer()->get(ReviseDocumentTool::class);
-        self::assertInstanceOf(ReviseDocumentTool::class, $tool);
+        $tool = self::getContainer()->get(DocumentReviseTool::class);
+        self::assertInstanceOf(DocumentReviseTool::class, $tool);
         $this->tool = $tool;
     }
 
@@ -124,7 +124,7 @@ final class ReviseDocumentToolTest extends KernelTestCase
         // rewritten into the catch-all's generic one.
         $this->expectException(ToolCallException::class);
         $this->expectExceptionMessage('The markdown content exceeds the maximum allowed size.');
-        ($this->tool)((string) $document->id, str_repeat('a', CreateDocumentTool::MAX_MARKDOWN_BYTES + 1));
+        ($this->tool)((string) $document->id, str_repeat('a', DocumentCreateTool::MAX_MARKDOWN_BYTES + 1));
     }
 
     public function test_a_malformed_document_id_keeps_its_own_message(): void

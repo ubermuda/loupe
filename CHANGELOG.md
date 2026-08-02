@@ -16,8 +16,8 @@ file alone. Each entry is tagged `Added` / `Changed` / `Removed` / `Fixed`.
 
 ## [Unreleased]
 
-- `1b7758f` … `9c3de9e` (the `feat/mcp-scoped-authz` branch; exhaustive list via
-  `git log a825b59..feat/mcp-scoped-authz`) — **Changed:** every
+- `1b7758f` … (the `feat/mcp-scoped-authz` branch, branched from `a825b59`;
+  exhaustive list via `git log a825b59..feat/mcp-scoped-authz`) — **Changed:** every
   MCP tool renamed with a feature prefix, with no aliases and no deprecation
   window (breaking MCP change): `create_document` → `document_create`,
   `get_document` → `document_get`, `list_documents` → `document_list`,

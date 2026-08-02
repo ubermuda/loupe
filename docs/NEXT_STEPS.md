@@ -1175,16 +1175,42 @@ document, and an agent should plausibly be able to *make* suggestions on a human
 edit. Neither needs building first, but the comment model should not make them
 awkward later.
 
-## The tracker's own prose names MCP tools that no longer exist
+## Gamache rule: an MCP tool class name must match its tool name
+
+**Author:** Geoffrey · **Type:** tooling · **Priority:** medium · **Status:** pending
+
+The convention is that a class carrying `#[McpTool(name: 'document_create')]`
+is named `DocumentCreateTool` — the tool name in PascalCase, plus a `Tool`
+suffix. It was caught in review on the `feat/mcp-scoped-authz` pull request and
+enforced by hand across all seven tools; nothing enforces it now, so the next
+tool added can violate it silently.
+
+No rule for it exists in any of the five gamache layers — checked `src/Check/`,
+`src/PHPStan/`, `src/Rector/`, `src/PhpCsFixer/` and `src/TwigCsFixer/` in the
+`ubermuda/gamache` package, none of which mentions MCP at all. The PHPStan
+layer is where it belongs: it already holds several name-agreement rules that
+compare a class name against something else (`ControllerTemplateNameRule`,
+`DtoRequestSuffixRule`, `MessengerHandlerNamespaceRule`), and reading an
+attribute argument off a class node is the same shape as those.
+
+Gamache is an external package, so this is a pull request on
+https://github.com/ubermuda/gamache, not a class added under `src/`. Consider
+covering the paired test class in the same rule (`DocumentCreateToolTest`),
+since that half drifts just as easily.
+
+## The tracker's own prose names MCP tools and classes that no longer exist
 
 **Author:** Claude · **Type:** docs · **Priority:** medium · **Status:** pending
 
 Every MCP tool was renamed with a feature prefix (`create_document` →
 `document_create`, `get_review` → `document_get_review`, `get_site_review` →
 `site_review_get`, and so on; the full mapping is in the `CHANGELOG.md` entry
-for the `feat/mcp-scoped-authz` branch). Roughly 25 references in this file
-still use the old names, so a reader looking up a tool finds an identifier the
-server does not expose.
+for the `feat/mcp-scoped-authz` branch), and each tool class was renamed to
+match its tool name (`CreateDocumentTool` → `DocumentCreateTool`,
+`GetSiteReviewTool` → `SiteReviewGetTool`, …). Roughly 25 tool-name references
+and 8 class-name references in this file still use the old spellings, so a
+reader looking one up finds an identifier that exists neither on the server nor
+on disk.
 
 The renaming branch deliberately left them: this file is the one guaranteed
 merge-conflict surface when several branches are in flight, and rewriting 25
@@ -2322,7 +2348,7 @@ and CSS, but a class applied from bundle JavaScript would not show up.
 
 **Author:** Claude · **Type:** security · **Priority:** low · **Status:** pending
 
-`GetSiteReviewTool` (`src/Module/SiteReview/Mcp/GetSiteReviewTool.php`) answers
+`SiteReviewGetTool` (`src/Module/SiteReview/Mcp/SiteReviewGetTool.php`) answers
 its optional `site` argument with two different messages: `No site "%s" found.`
 when the lookup misses, and `Token is not bound to that project.` when it hits
 but is not the bound one. That difference tells a caller which site names exist

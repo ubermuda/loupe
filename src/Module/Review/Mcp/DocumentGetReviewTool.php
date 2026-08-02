@@ -13,7 +13,7 @@ use Mcp\Exception\ToolCallException;
  * Fetch the current review state (verdict, status, comments) for a document.
  */
 #[McpTool(name: 'document_get_review', description: 'Fetch the review state (verdict, status, and threaded comments) for a document\'s current version.')]
-final readonly class GetReviewTool
+final readonly class DocumentGetReviewTool
 {
     public function __construct(
         private GetReview $getReview,

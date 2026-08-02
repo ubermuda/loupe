@@ -7,18 +7,18 @@ namespace App\Tests\Module\Review\Mcp;
 use App\Module\Account\Entity\User;
 use App\Module\Project\Entity\Project;
 use App\Module\Review\Entity\Document;
-use App\Module\Review\Mcp\ListDocumentsTool;
+use App\Module\Review\Mcp\DocumentListTool;
 use App\Tests\Support\McpTokenScenario;
 use Doctrine\ORM\EntityManagerInterface;
 use Mcp\Exception\ToolCallException;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 
-final class ListDocumentsToolTest extends KernelTestCase
+final class DocumentListToolTest extends KernelTestCase
 {
     use McpTokenScenario;
 
     private EntityManagerInterface $em;
-    private ListDocumentsTool $tool;
+    private DocumentListTool $tool;
 
     protected function setUp(): void
     {
@@ -28,8 +28,8 @@ final class ListDocumentsToolTest extends KernelTestCase
         self::assertInstanceOf(EntityManagerInterface::class, $em);
         $this->em = $em;
 
-        $tool = self::getContainer()->get(ListDocumentsTool::class);
-        self::assertInstanceOf(ListDocumentsTool::class, $tool);
+        $tool = self::getContainer()->get(DocumentListTool::class);
+        self::assertInstanceOf(DocumentListTool::class, $tool);
         $this->tool = $tool;
     }
 
@@ -203,7 +203,7 @@ final class ListDocumentsToolTest extends KernelTestCase
 
         $result = ($this->tool)(page: 0, perPage: 10_000);
         self::assertSame(1, $result['page']);
-        self::assertSame(ListDocumentsTool::MAX_PER_PAGE, $result['perPage']);
+        self::assertSame(DocumentListTool::MAX_PER_PAGE, $result['perPage']);
 
         $result = ($this->tool)(perPage: 0);
         self::assertSame(1, $result['perPage']);

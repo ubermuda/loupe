@@ -13,7 +13,7 @@ use Mcp\Capability\Attribute\McpTool;
 use Mcp\Exception\ToolCallException;
 
 #[McpTool(name: 'site_review_get', description: 'Fetch all unaddressed site-review comments (DOM-anchored feedback captured in the browser) for the project bound to your MCP token. Address each comment, then mark it with site_review_mark_comment_addressed.')]
-final readonly class GetSiteReviewTool
+final readonly class SiteReviewGetTool
 {
     use ResolvesBoundProject;
 

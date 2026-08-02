@@ -18,7 +18,7 @@ use Symfony\Component\Uid\Uuid;
  * human in the web UI and is unreachable from MCP by design.
  */
 #[McpTool(name: 'site_review_mark_comment_addressed', description: 'Mark site-review comments as addressed after fixing them. Accepts the comment ids returned by site_review_get. Comments that are unknown, already addressed, or resolved are skipped, not fatal.')]
-final readonly class AddressSiteReviewCommentsTool
+final readonly class SiteReviewMarkCommentAddressedTool
 {
     use ResolvesBoundProject;
 

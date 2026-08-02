@@ -8,19 +8,19 @@ use App\Module\Account\Entity\User;
 use App\Module\Project\Entity\Project;
 use App\Module\SiteReview\Entity\SiteReviewComment;
 use App\Module\SiteReview\Entity\SiteReviewCommentStatus;
-use App\Module\SiteReview\Mcp\AddressSiteReviewCommentsTool;
+use App\Module\SiteReview\Mcp\SiteReviewMarkCommentAddressedTool;
 use App\Tests\Support\McpTokenScenario;
 use Doctrine\ORM\EntityManagerInterface;
 use Mcp\Exception\ToolCallException;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Symfony\Component\Uid\Uuid;
 
-final class AddressSiteReviewCommentsToolTest extends KernelTestCase
+final class SiteReviewMarkCommentAddressedToolTest extends KernelTestCase
 {
     use McpTokenScenario;
 
     private EntityManagerInterface $em;
-    private AddressSiteReviewCommentsTool $tool;
+    private SiteReviewMarkCommentAddressedTool $tool;
 
     protected function setUp(): void
     {
@@ -30,8 +30,8 @@ final class AddressSiteReviewCommentsToolTest extends KernelTestCase
         self::assertInstanceOf(EntityManagerInterface::class, $em);
         $this->em = $em;
 
-        $tool = self::getContainer()->get(AddressSiteReviewCommentsTool::class);
-        self::assertInstanceOf(AddressSiteReviewCommentsTool::class, $tool);
+        $tool = self::getContainer()->get(SiteReviewMarkCommentAddressedTool::class);
+        self::assertInstanceOf(SiteReviewMarkCommentAddressedTool::class, $tool);
         $this->tool = $tool;
     }
 

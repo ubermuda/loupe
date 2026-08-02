@@ -7,19 +7,19 @@ namespace App\Tests\Module\Review\Mcp;
 use App\Module\Account\Entity\User;
 use App\Module\Project\Entity\Project;
 use App\Module\Review\Entity\Document;
-use App\Module\Review\Mcp\CreateDocumentTool;
+use App\Module\Review\Mcp\DocumentCreateTool;
 use App\Tests\Support\McpTokenScenario;
 use Doctrine\ORM\EntityManagerInterface;
 use Mcp\Exception\ToolCallException;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Symfony\Component\Uid\Uuid;
 
-final class CreateDocumentToolTest extends KernelTestCase
+final class DocumentCreateToolTest extends KernelTestCase
 {
     use McpTokenScenario;
 
     private EntityManagerInterface $em;
-    private CreateDocumentTool $tool;
+    private DocumentCreateTool $tool;
 
     protected function setUp(): void
     {
@@ -29,8 +29,8 @@ final class CreateDocumentToolTest extends KernelTestCase
         self::assertInstanceOf(EntityManagerInterface::class, $em);
         $this->em = $em;
 
-        $tool = self::getContainer()->get(CreateDocumentTool::class);
-        self::assertInstanceOf(CreateDocumentTool::class, $tool);
+        $tool = self::getContainer()->get(DocumentCreateTool::class);
+        self::assertInstanceOf(DocumentCreateTool::class, $tool);
         $this->tool = $tool;
     }
 

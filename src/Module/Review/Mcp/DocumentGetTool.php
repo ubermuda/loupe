@@ -13,7 +13,7 @@ use Mcp\Exception\ToolCallException;
  * Fetch a document's current Markdown source and status by id.
  */
 #[McpTool(name: 'document_get', description: 'Fetch a document\'s current Markdown source, title, status, and version number.')]
-final readonly class GetDocumentTool
+final readonly class DocumentGetTool
 {
     public function __construct(
         private GetDocument $getDocument,
