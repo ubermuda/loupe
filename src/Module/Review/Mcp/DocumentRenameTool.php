@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace App\Module\Review\Mcp;
 
+use App\Exception\DomainErrors;
 use App\Module\Review\Command\RenameDocumentCommand;
 use App\Module\Review\Command\RenameDocumentHandler;
-use App\Module\Review\Entity\Document;
 use App\Module\Review\Security\McpBoundProjectVoter;
 use Mcp\Capability\Attribute\McpTool;
 use Mcp\Exception\ToolCallException;
@@ -22,6 +22,7 @@ final readonly class DocumentRenameTool
     public function __construct(
         private RenameDocumentHandler $handler,
         private ReviewSubjectResolver $subjects,
+        private ToolCallErrorMessages $errorMessages,
     ) {
     }
 
@@ -36,15 +37,11 @@ final readonly class DocumentRenameTool
         try {
             $document = $this->subjects->requireDocument($documentId, McpBoundProjectVoter::DOCUMENT_WRITE);
 
-            $title = trim($title);
-
-            if ('' === $title || mb_strlen($title) > Document::MAX_TITLE_LENGTH) {
-                throw new ToolCallException(\sprintf('A title must not be blank and must be at most %d characters.', Document::MAX_TITLE_LENGTH));
-            }
-
             ($this->handler)(new RenameDocumentCommand($document, $title));
 
             return ['documentId' => (string) $document->id, 'title' => $document->title];
+        } catch (DomainErrors $e) {
+            throw $this->errorMessages->forAgent($e);
         } catch (ToolCallException $e) {
             throw $e;
         } catch (\Throwable $e) {

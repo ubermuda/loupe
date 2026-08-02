@@ -46,12 +46,14 @@ final readonly class DocumentCreateTool
                 throw new ToolCallException('The markdown content exceeds the maximum allowed size.');
             }
 
-            $doc = ($this->createDocument)(new CreateDocumentCommand(
-                $project,
-                $title,
-                $markdown,
-                null === $description ? null : (trim($description) ?: null),
-            ));
+            // A whitespace-only description means "none given", but "0" is a
+            // description a caller actually sent — `?:` would discard it.
+            $description = null === $description ? null : trim($description);
+            if ('' === $description) {
+                $description = null;
+            }
+
+            $doc = ($this->createDocument)(new CreateDocumentCommand($project, $title, $markdown, $description));
 
             return [
                 'documentId' => (string) $doc->id,

@@ -70,7 +70,7 @@ final class RenameDocumentController extends AppController
 
         return $this->renderFormResponse('@Review/rename_document.html.twig', $form, [
             'document' => $document,
-            'listParams' => $listQuery->routeParams(),
+            'listQuery' => $listQuery,
         ]);
     }
 }

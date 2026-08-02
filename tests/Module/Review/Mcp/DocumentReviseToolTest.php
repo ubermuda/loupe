@@ -125,7 +125,7 @@ final class DocumentReviseToolTest extends KernelTestCase
         $this->actAsMcpTokenBoundTo($document->project);
 
         $this->expectException(ToolCallException::class);
-        $this->expectExceptionMessage('A title must not be blank and must be at most 255 characters.');
+        $this->expectExceptionMessage('A document title must not be blank.');
         ($this->tool)((string) $document->id, '# Revised', 'Tightened the wording.', '   ');
     }
 

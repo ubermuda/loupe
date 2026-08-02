@@ -10,7 +10,7 @@ final readonly class RenameDocumentCommand
 {
     public function __construct(
         public Document $document,
-        /** @phpstan-var non-empty-string */
+        /** Raw as typed or sent; the handler trims it and rejects blank or over-long. */
         public string $title,
     ) {
     }

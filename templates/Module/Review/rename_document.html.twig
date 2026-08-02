@@ -3,7 +3,7 @@
 {% block title %}{{ 'review.rename.page.title'|trans }} — {{ 'app.name'|trans }}{% endblock %}
 
 {% block body %}
-{% set backPath = path('app_project_documents', {id: document.project.id}|merge(listParams)) %}
+{% set backPath = path('app_project_documents', {id: document.project.id}|merge(listQuery.routeParams)) %}
 <div class="lp-workspace">
     <nav class="lp-crumbs">
         <a href="{{ backPath }}" class="lp-crumbs__link">{{ document.project.name }}</a>

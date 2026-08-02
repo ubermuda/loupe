@@ -36,6 +36,13 @@ final class DocumentVoter extends Voter
     {
         $user = $token->getUser();
 
-        return $subject->owner === $user;
+        // The two arms apply the same rule today and are kept apart on purpose:
+        // widening reading to collaborators is a change to the VIEW arm alone,
+        // and must not hand every collaborator rename and archive as a side
+        // effect of an edit that never mentioned them.
+        return match ($attribute) {
+            self::VIEW => $subject->owner === $user,
+            self::MANAGE => $subject->owner === $user,
+        };
     }
 }

@@ -847,9 +847,13 @@
                 <source>review.dashboard.meta.open_threads</source>
                 <target>{0}0 open threads|{1}1 open thread|]1,Inf[%count% open threads</target>
             </trans-unit>
-            <trans-unit id="review.dashboard.filter.archived">
-                <source>review.dashboard.filter.archived</source>
+            <trans-unit id="review.dashboard.filter.show_archived">
+                <source>review.dashboard.filter.show_archived</source>
                 <target>Show archived</target>
+            </trans-unit>
+            <trans-unit id="review.dashboard.filter.hide_archived">
+                <source>review.dashboard.filter.hide_archived</source>
+                <target>Hide archived</target>
             </trans-unit>
             <trans-unit id="review.dashboard.archived_tag">
                 <source>review.dashboard.archived_tag</source>
@@ -896,6 +900,10 @@
             <trans-unit id="review.rename.error.too_long">
                 <source>review.rename.error.too_long</source>
                 <target>That title is too long.</target>
+            </trans-unit>
+            <trans-unit id="review.revise.error.description_blank">
+                <source>review.revise.error.description_blank</source>
+                <target>Say what changed in this version.</target>
             </trans-unit>
             <trans-unit id="review.form.rename_document_form.title.label">
                 <source>review.form.rename_document_form.title.label</source>

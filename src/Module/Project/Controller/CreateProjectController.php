@@ -71,7 +71,7 @@ class CreateProjectController extends AppController
         $items = array_map(
             fn ($project) => new ProjectListItem(
                 project: $project,
-                documentCount: $this->documents->countByProject($project),
+                documentCount: $this->documents->countActiveByProject($project),
                 reviewCount: $this->siteReviewEvents->countForProject($project),
                 openCount: $this->siteReviewComments->countOpenForProject($project),
             ),

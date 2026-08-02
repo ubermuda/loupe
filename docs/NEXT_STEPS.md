@@ -1201,6 +1201,35 @@ commit straight to `main` once the current wave has merged.
 
 No stale name is a heading any more, so this is a body-text pass only.
 
+## Archiving a document stays a human action — no `document_archive` MCP tool
+
+**Author:** Geoffrey · **Type:** docs · **Priority:** medium · **Status:** pending
+
+Decided while building archiving (2026-08-02): the MCP gets no tool that sets
+archive state, and the asymmetry is deliberate rather than an omission someone
+should later "complete".
+
+What the agent *can* do: `document_list` takes `includeArchived` and returns an
+`archived` flag per row, and `document_get` reports `archived` too. So an agent
+can see archive state and filter on it — enough to avoid revising a document
+the human has put away, and enough to explain why one is missing from a
+default listing.
+
+What it cannot do is set it. Archiving is what decides which documents a human
+sees on their own dashboard, which makes it curation rather than authoring, and
+the party whose work is being reviewed should not be the party that can take a
+document out of the reviewer's list. The sharp version: an agent that can
+archive can make its own mistakes disappear.
+
+`ArchiveDocumentHandler` and `UnarchiveDocumentHandler` are ordinary handlers
+with no MCP tool wired to them, so exposing this later is a small change — but
+it needs a decision reversing the one above, not just the observation that the
+handlers already exist.
+
+Related: "Edit a document in the app, not only through an agent", which is the
+same question from the other side (what a *human* may do to a document the
+agent authored).
+
 ## Review anchoring — possible enhancement (low priority)
 
 

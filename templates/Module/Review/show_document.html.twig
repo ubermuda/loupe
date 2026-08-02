@@ -58,9 +58,12 @@
                    the whole thread is unreachable once the document is revised. The
                    newest version links to the canonical unnumbered URL.
 
-                   Rendered even for a single-version document, because each entry
-                   also carries that version's description — the account of what it
-                   changed, which nothing else on the page shows. #}
+                   A single version with a description still earns the list, because
+                   the description appears nowhere else on the page. A single version
+                   with none has nothing to show and nowhere to switch to, so the list
+                   is omitted rather than rendered as a lone pill. #}
+                {% set hasVersionDescription = versions|filter(meta => meta.description is not empty)|length > 0 %}
+                {% if versions|length > 1 or hasVersionDescription %}
                 <nav class="lp-version-switcher" aria-label="{{ 'review.document.version.switcher_label'|trans }}">
                     {% for meta in versions %}
                     <div class="lp-version-entry">
@@ -79,6 +82,7 @@
                     </div>
                     {% endfor %}
                 </nav>
+                {% endif %}
             </div>
 
             <div class="prose max-w-2xl lp-prose lp-review-doc__prose" data-comment-anchor-target="doc">{{ version.renderedHtml|raw }}</div>

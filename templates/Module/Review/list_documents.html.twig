@@ -21,21 +21,25 @@
 
     {# Outside the empty-list branch on purpose: a filter that disappears the
        moment it matches nothing leaves the reader on a dead end with no way
-       back. Later filters join this bar rather than replacing it. #}
+       back. Later filters join this bar rather than replacing it.
+
+       Each state is labelled with what following the link does, rather than one
+       label plus aria-pressed: that attribute is defined for role="button" and is
+       dropped on an anchor, so both states would announce identically while doing
+       opposite things. The icon and the accent background carry the same
+       distinction visually. #}
     <div class="lp-list-filters">
         {% if listQuery.includeArchived %}
             <a class="lp-filter-chip lp-filter-chip--on"
-               href="{{ path('app_project_documents', {id: project.id}) }}"
-               aria-pressed="true">
+               href="{{ path('app_project_documents', {id: project.id}) }}">
                 <twig:ux:icon name="lucide:check" class="w-3.5 h-3.5 shrink-0" />
-                {{ 'review.dashboard.filter.archived'|trans }}
+                {{ 'review.dashboard.filter.hide_archived'|trans }}
             </a>
         {% else %}
             <a class="lp-filter-chip"
-               href="{{ path('app_project_documents', {id: project.id, archived: 1}) }}"
-               aria-pressed="false">
+               href="{{ path('app_project_documents', {id: project.id, archived: 1}) }}">
                 <twig:ux:icon name="lucide:archive" class="w-3.5 h-3.5 shrink-0" />
-                {{ 'review.dashboard.filter.archived'|trans }}
+                {{ 'review.dashboard.filter.show_archived'|trans }}
             </a>
         {% endif %}
     </div>
@@ -68,7 +72,7 @@
                 {{ document.status.translationKey()|trans }}
             </span>
             <div class="lp-document-row__actions">
-                <a href="{{ path('app_document_rename', {projectId: project.id, documentId: document.id}|merge(listParams)) }}"
+                <a href="{{ path('app_document_rename', {projectId: project.id, documentId: document.id}|merge(listQuery.routeParams)) }}"
                    class="lp-document-row__action"
                    aria-label="{{ 'review.dashboard.rename'|trans({'%title%': document.title}) }}">
                     <twig:ux:icon name="lucide:pencil" class="w-4 h-4" />
@@ -77,7 +81,7 @@
                    importer only sees icon names it can read as literals, and an
                    icon it never imported renders as nothing in production. #}
                 {% if archived %}
-                <form method="POST" action="{{ path('app_document_unarchive', {projectId: project.id, documentId: document.id}|merge(listParams)) }}">
+                <form method="POST" action="{{ path('app_document_unarchive', {projectId: project.id, documentId: document.id}|merge(listQuery.routeParams)) }}">
                     <input type="hidden" name="_csrf_token" value="{{ csrf_token('document-archive') }}">
                     <button type="submit"
                             class="lp-document-row__action"
@@ -86,7 +90,7 @@
                     </button>
                 </form>
                 {% else %}
-                <form method="POST" action="{{ path('app_document_archive', {projectId: project.id, documentId: document.id}|merge(listParams)) }}">
+                <form method="POST" action="{{ path('app_document_archive', {projectId: project.id, documentId: document.id}|merge(listQuery.routeParams)) }}">
                     <input type="hidden" name="_csrf_token" value="{{ csrf_token('document-archive') }}">
                     <button type="submit"
                             class="lp-document-row__action"
@@ -101,7 +105,7 @@
         {% endfor %}
     </div>
 
-    <twig:Pagination route="app_project_documents" :page="page" :totalPages="totalPages" :pageList="pageList" :routeParams="{id: project.id}|merge(listParams)" />
+    <twig:Pagination route="app_project_documents" :page="page" :totalPages="totalPages" :pageList="pageList" :routeParams="{id: project.id}|merge(listQuery.routeParams)" />
     {% else %}
     <div class="lp-card flex flex-col items-center text-center gap-3 py-12">
         <twig:ux:icon name="lucide:file-text" class="w-8 h-8 text-fg-dim" />

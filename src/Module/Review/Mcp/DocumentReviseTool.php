@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace App\Module\Review\Mcp;
 
+use App\Exception\DomainErrors;
 use App\Module\Review\Command\ReviseDocumentCommand;
 use App\Module\Review\Command\ReviseDocumentHandler;
-use App\Module\Review\Entity\Document;
 use App\Module\Review\Security\McpBoundProjectVoter;
 use Mcp\Capability\Attribute\McpTool;
 use Mcp\Exception\ToolCallException;
@@ -21,6 +21,7 @@ final readonly class DocumentReviseTool
     public function __construct(
         private ReviseDocumentHandler $handler,
         private ReviewSubjectResolver $subjects,
+        private ToolCallErrorMessages $errorMessages,
     ) {
     }
 
@@ -37,23 +38,17 @@ final readonly class DocumentReviseTool
         try {
             $document = $this->subjects->requireDocument($documentId, McpBoundProjectVoter::DOCUMENT_WRITE);
 
+            // The size cap is a transport concern — it protects this endpoint
+            // from a payload it should never parse, which is not a rule about
+            // what a document may contain. Title and description are domain
+            // rules and are enforced by the handler.
             if (\strlen($markdown) > DocumentCreateTool::MAX_MARKDOWN_BYTES) {
                 throw new ToolCallException('The markdown content exceeds the maximum allowed size.');
             }
 
-            if ('' === trim($description)) {
-                throw new ToolCallException('A description of what changed in this version is required.');
-            }
-
-            if (null !== $title) {
-                $title = trim($title);
-
-                if ('' === $title || mb_strlen($title) > Document::MAX_TITLE_LENGTH) {
-                    throw new ToolCallException(\sprintf('A title must not be blank and must be at most %d characters.', Document::MAX_TITLE_LENGTH));
-                }
-            }
-
-            return ($this->handler)(new ReviseDocumentCommand($document, $markdown, trim($description), $title));
+            return ($this->handler)(new ReviseDocumentCommand($document, $markdown, $description, $title));
+        } catch (DomainErrors $e) {
+            throw $this->errorMessages->forAgent($e);
         } catch (ToolCallException $e) {
             throw $e;
         } catch (\Throwable $e) {

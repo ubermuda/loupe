@@ -198,26 +198,63 @@ final class ListDocumentsControllerTest extends WebTestCase
 
         $alice = $this->createUser($em, 'alice-archive', 'alice-archive@example.com');
         $project = $this->project($em, $alice);
-        $this->document($em, $alice, $project, 'Still open');
+        $live = $this->document($em, $alice, $project, 'Still open');
         $archived = $this->document($em, $alice, $project, 'Put away');
         $archived->archivedAt = new \DateTimeImmutable();
+
+        $em->flush();
+        $projectId = (string) $project->id;
+        $liveId = (string) $live->id;
+        $archivedId = (string) $archived->id;
+        $em->clear();
+
+        $client->loginUser($alice);
+        // Asserted on the row hook rather than the page text: a title appearing
+        // in a flash or a tooltip would satisfy a whole-body search without the
+        // document being listed at all.
+        $crawler = $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/documents');
+
+        self::assertResponseIsSuccessful();
+        self::assertCount(1, $crawler->filter('[data-document-id="'.$liveId.'"]'));
+        self::assertCount(0, $crawler->filter('[data-document-id="'.$archivedId.'"]'));
+
+        $crawler = $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/documents?archived=1');
+
+        self::assertResponseIsSuccessful();
+        self::assertCount(1, $crawler->filter('[data-document-id="'.$liveId.'"]'));
+        self::assertCount(1, $crawler->filter('[data-document-id="'.$archivedId.'"]'));
+        self::assertSelectorTextContains('[data-document-id="'.$archivedId.'"] .lp-document-row__archived', 'Archived');
+    }
+
+    public function test_the_sidebar_and_project_card_counts_exclude_archived_documents(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+
+        $alice = $this->createUser($em, 'alice-counts', 'alice-counts@example.com');
+        $project = $this->project($em, $alice);
+        $this->document($em, $alice, $project, 'Still open');
+        $this->document($em, $alice, $project, 'Also open');
+        $put = $this->document($em, $alice, $project, 'Put away');
+        $put->archivedAt = new \DateTimeImmutable();
 
         $em->flush();
         $projectId = (string) $project->id;
         $em->clear();
 
         $client->loginUser($alice);
-        $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/documents');
 
+        // The nav pill sits directly above the list; three documents exist and
+        // two are listed, so the pill must read 2.
+        $crawler = $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/documents');
         self::assertResponseIsSuccessful();
-        self::assertStringContainsString('Still open', (string) $client->getResponse()->getContent());
-        self::assertStringNotContainsString('Put away', (string) $client->getResponse()->getContent());
+        self::assertCount(2, $crawler->filter('[data-document-id]'));
+        self::assertSame('2', trim($crawler->filter('.lp-sidebar__pill')->first()->text()));
 
-        $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/documents?archived=1');
-
+        // Same number on the project card.
+        $client->request(Request::METHOD_GET, '/projects');
         self::assertResponseIsSuccessful();
-        self::assertStringContainsString('Put away', (string) $client->getResponse()->getContent());
-        self::assertStringContainsString('Still open', (string) $client->getResponse()->getContent());
+        self::assertSelectorTextContains('[data-project-id="'.$projectId.'"] .lp-project-row__meta', '2 documents');
     }
 
     public function test_the_filter_bar_survives_an_empty_list(): void

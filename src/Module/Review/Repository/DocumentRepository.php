@@ -59,11 +59,18 @@ class DocumentRepository extends ServiceEntityRepository
         return $this->findBy(['owner' => $owner], ['createdAt' => 'DESC']);
     }
 
-    public function countByProject(Project $project): int
+    /**
+     * How many documents a reader would find in the project's list — archived
+     * ones excluded, because a count that disagrees with the rows under it reads
+     * as a bug. Anything that must account for every document that exists (an
+     * export, a quota) counts its own way rather than calling this.
+     */
+    public function countActiveByProject(Project $project): int
     {
         return (int) $this->createQueryBuilder('d')
             ->select('COUNT(d.id)')
             ->andWhere('d.project = :project')
+            ->andWhere('d.archivedAt IS NULL')
             ->setParameter('project', $project)
             ->getQuery()
             ->getSingleScalarResult();

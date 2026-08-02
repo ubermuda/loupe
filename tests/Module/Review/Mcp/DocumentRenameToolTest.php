@@ -118,7 +118,7 @@ final class DocumentRenameToolTest extends KernelTestCase
         $this->actAsMcpTokenBoundTo($document->project);
 
         $this->expectException(ToolCallException::class);
-        $this->expectExceptionMessage('A title must not be blank and must be at most 255 characters.');
+        $this->expectExceptionMessage('A document title must not be blank.');
         ($this->tool)((string) $document->id, '   ');
     }
 
@@ -130,7 +130,7 @@ final class DocumentRenameToolTest extends KernelTestCase
         $this->actAsMcpTokenBoundTo($document->project);
 
         $this->expectException(ToolCallException::class);
-        $this->expectExceptionMessage('A title must not be blank and must be at most 255 characters.');
+        $this->expectExceptionMessage('A document title must be at most 255 characters.');
         ($this->tool)((string) $document->id, str_repeat('a', Document::MAX_TITLE_LENGTH + 1));
     }
 

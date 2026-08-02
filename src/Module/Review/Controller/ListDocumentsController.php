@@ -88,7 +88,6 @@ class ListDocumentsController extends AppController
             'totalPages' => $totalPages,
             'pageList' => PageList::build($page, $totalPages),
             'listQuery' => $listQuery,
-            'listParams' => $listQuery->routeParams(),
         ]);
     }
 }

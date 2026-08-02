@@ -22,6 +22,9 @@ final readonly class ArchiveDocumentHandler
 
         // Archiving an already-archived document keeps the original timestamp:
         // it records when the document left the list, and nothing happened here.
+        // The read and the write are not locked together, so two simultaneous
+        // archives can both pass this check — the whole consequence is a stamp
+        // differing by milliseconds, which is not worth serializing for.
         if (null === $document->archivedAt) {
             $document->archivedAt = new \DateTimeImmutable();
             $this->em->flush();
