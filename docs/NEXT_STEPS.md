@@ -204,10 +204,6 @@ the local dev host. Whether a deployed instance drops connections the same way i
 unknown, and it decides whether this is a local annoyance or a production defect
 affecting every agent that connects. Establishing that comes before any fix.
 
-Related: "Make `revise_document` surface real errors instead of generic
-`-32603`" — both are about MCP failures being hard to diagnose from the client
-side.
-
 ## Dashboard document search + status/tag filtering
 
 
@@ -220,21 +216,6 @@ submits to the server, so making search real needs backend work: a query param o
 the documents controller and a repository filter (title contains, status equals,
 tag in). Tag filtering further depends on the not-yet-built tag entity. When tags
 land, wire search + status + tag filters into the existing `.bp-doc-list` header.
-
-## Make `revise_document` surface real errors instead of generic `-32603`
-
-
-
-**Author:** Claude · **Type:** bug · **Priority:** medium · **Status:** pending
-
-Partially addressed: `ReviseDocumentTool` now maps its known failure modes —
-an invalid document UUID, `DocumentNotFound`, and oversized markdown — to
-`ToolCallException` with a useful message. Still open: the call to the
-handler itself (`($this->handler)(...)`) has no catch-all around it, so any
-unmapped failure (e.g. a DB exception) still propagates unwrapped and the MCP
-layer flattens it to `-32603 Error while executing tool` with no detail.
-Consider a catch-all around the handler call that maps anything else to a
-generic `ToolCallException` too, so clients always get a real message.
 
 ## Anchor offset-unit mismatch (latent)
 

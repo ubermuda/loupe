@@ -5,9 +5,7 @@ declare(strict_types=1);
 namespace App\Module\Review\Command;
 
 use App\Module\Review\Entity\DocumentStatus;
-use App\Module\Review\Query\DocumentNotFound;
 use App\Module\Review\Repository\CommentRepository;
-use App\Module\Review\Repository\DocumentRepository;
 use App\Module\Review\Service\MarkdownRenderer;
 use App\Module\Review\Service\ReanchoringService;
 use Doctrine\DBAL\LockMode;
@@ -17,7 +15,6 @@ final readonly class ReviseDocumentHandler
 {
     public function __construct(
         private EntityManagerInterface $em,
-        private DocumentRepository $documents,
         private MarkdownRenderer $renderer,
         private ReanchoringService $reanchoringService,
         private CommentRepository $comments,
@@ -29,10 +26,7 @@ final readonly class ReviseDocumentHandler
      */
     public function __invoke(ReviseDocumentCommand $command): array
     {
-        $document = $this->documents->findOneByIdAndProject($command->documentId, $command->project);
-        if (null === $document) {
-            throw DocumentNotFound::forId($command->documentId);
-        }
+        $document = $command->document;
 
         return $this->em->wrapInTransaction(function () use ($document, $command): array {
             // Locks the documents row before anything reads $document->versions, so two

@@ -26,7 +26,7 @@ Put the resulting binary somewhere on your `PATH` (e.g. `~/bin/loupe`).
   not the project-bound widget token that gets embedded in page HTML: the widget
   token is public by design and is rejected by the endpoints the bridge needs.
 - The Loupe MCP server configured in the target tmux session's `claude`. The
-  injected directive only names the `get_site_review` MCP tool — it does not
+  injected directive only names the `site_review_get` MCP tool — it does not
   carry a self-contained prompt — so the agent cannot act on it without the
   MCP available.
 
@@ -94,7 +94,7 @@ id and a comment count — never reviewer-controlled text such as comment URLs,
 comment bodies, or the site name. Anyone who can post through the embedded
 widget controls that text, so it is never interpolated into the
 auto-submitted prompt; the agent fetches the actual comment content itself
-via the `get_site_review` MCP tool, which resolves the site from its own
+via the `site_review_get` MCP tool, which resolves the site from its own
 bound token.
 
 Dropped connections are retried with capped backoff, and a **fresh subscriber

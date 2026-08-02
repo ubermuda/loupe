@@ -12,7 +12,7 @@ use App\Module\SiteReview\Repository\SiteReviewCommentRepository;
 use Mcp\Capability\Attribute\McpTool;
 use Mcp\Exception\ToolCallException;
 
-#[McpTool(name: 'get_site_review', description: 'Fetch all unaddressed site-review comments (DOM-anchored feedback captured in the browser) for the project bound to your MCP token. Address each comment, then mark it with address_site_review_comments.')]
+#[McpTool(name: 'site_review_get', description: 'Fetch all unaddressed site-review comments (DOM-anchored feedback captured in the browser) for the project bound to your MCP token. Address each comment, then mark it with site_review_mark_comment_addressed.')]
 final readonly class GetSiteReviewTool
 {
     use ResolvesBoundProject;

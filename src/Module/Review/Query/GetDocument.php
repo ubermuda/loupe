@@ -4,34 +4,23 @@ declare(strict_types=1);
 
 namespace App\Module\Review\Query;
 
-use App\Module\Project\Entity\Project;
-use App\Module\Review\Repository\DocumentRepository;
+use App\Module\Review\Entity\Document;
 use App\Module\Review\Repository\DocumentVersionRepository;
-use Symfony\Component\Uid\Uuid;
 
 final readonly class GetDocument
 {
     public function __construct(
-        private DocumentRepository $documents,
         private DocumentVersionRepository $documentVersions,
     ) {
     }
 
     /**
-     * Returns document data scoped to the given project.
+     * Returns the data of an already-authorized document.
      *
      * @return array{documentId: string, title: string, status: string, version: int, markdown: string}
-     *
-     * @throws DocumentNotFound if no document with the given id belongs to $project
      */
-    public function __invoke(Uuid $documentId, Project $project): array
+    public function __invoke(Document $document): array
     {
-        $document = $this->documents->findOneByIdAndProject($documentId, $project);
-
-        if (null === $document) {
-            throw DocumentNotFound::forId($documentId);
-        }
-
         $currentVersion = $this->documentVersions->findLatest($document);
 
         return [

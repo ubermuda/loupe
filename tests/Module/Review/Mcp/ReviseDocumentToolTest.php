@@ -7,6 +7,7 @@ namespace App\Tests\Module\Review\Mcp;
 use App\Module\Account\Entity\User;
 use App\Module\Project\Entity\Project;
 use App\Module\Review\Entity\Document;
+use App\Module\Review\Mcp\CreateDocumentTool;
 use App\Module\Review\Mcp\ReviseDocumentTool;
 use App\Tests\Support\McpTokenScenario;
 use Doctrine\ORM\EntityManagerInterface;
@@ -109,6 +110,20 @@ final class ReviseDocumentToolTest extends KernelTestCase
         }
 
         self::assertSame('# Original', $document->currentVersion()->markdownSource);
+    }
+
+    public function test_oversized_markdown_keeps_its_own_message(): void
+    {
+        $owner = $this->user('revise-oversized@example.com');
+        $document = $this->documentInNewProject($owner, 'Too Big');
+
+        $this->actAsMcpTokenBoundTo($document->project);
+
+        // The catch-all around the handler must not swallow the specific
+        // failures raised before it.
+        $this->expectException(ToolCallException::class);
+        $this->expectExceptionMessage('The markdown content exceeds the maximum allowed size.');
+        ($this->tool)((string) $document->id, str_repeat('a', CreateDocumentTool::MAX_MARKDOWN_BYTES + 1));
     }
 
     public function test_unbound_mcp_token_is_rejected(): void

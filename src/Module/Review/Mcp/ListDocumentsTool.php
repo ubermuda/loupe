@@ -10,11 +10,12 @@ use App\Module\Review\Entity\Document;
 use App\Module\Review\Repository\DocumentRepository;
 use App\Module\Review\Repository\DocumentVersionRepository;
 use Mcp\Capability\Attribute\McpTool;
+use Mcp\Exception\ToolCallException;
 
 /**
  * List documents in the project bound to the authenticated MCP token.
  */
-#[McpTool(name: 'list_documents', description: 'List documents in the token\'s project, with their current status and version. Paginated: pass page to walk further, and keep going while hasMore is true.')]
+#[McpTool(name: 'document_list', description: 'List documents in the token\'s project, with their current status and version. Paginated: pass page to walk further, and keep going while hasMore is true.')]
 final readonly class ListDocumentsTool
 {
     use ResolvesBoundProject;
@@ -48,31 +49,35 @@ final readonly class ListDocumentsTool
         $page = max(1, $page);
         $perPage = min(self::MAX_PER_PAGE, max(1, $perPage));
 
-        $paginator = $this->documents->findPaginatedByProject($project, $page, $perPage);
-        $total = \count($paginator);
+        try {
+            $paginator = $this->documents->findPaginatedByProject($project, $page, $perPage);
+            $total = \count($paginator);
 
-        /** @var list<Document> $documents */
-        $documents = array_values(iterator_to_array($paginator));
-        $latestVersions = $this->documentVersions->findLatestMetaByDocuments($documents);
+            /** @var list<Document> $documents */
+            $documents = array_values(iterator_to_array($paginator));
+            $latestVersions = $this->documentVersions->findLatestMetaByDocuments($documents);
 
-        return [
-            'documents' => array_map(
-                static function (Document $doc) use ($latestVersions) {
-                    $meta = $latestVersions[(string) $doc->id] ?? throw new \LogicException('Document has no versions.');
+            return [
+                'documents' => array_map(
+                    static function (Document $doc) use ($latestVersions) {
+                        $meta = $latestVersions[(string) $doc->id] ?? throw new \LogicException('Document has no versions.');
 
-                    return [
-                        'documentId' => (string) $doc->id,
-                        'title' => $doc->title,
-                        'status' => $doc->status->value,
-                        'currentVersion' => $meta['versionNumber'],
-                    ];
-                },
-                $documents,
-            ),
-            'page' => $page,
-            'perPage' => $perPage,
-            'total' => $total,
-            'hasMore' => $page * $perPage < $total,
-        ];
+                        return [
+                            'documentId' => (string) $doc->id,
+                            'title' => $doc->title,
+                            'status' => $doc->status->value,
+                            'currentVersion' => $meta['versionNumber'],
+                        ];
+                    },
+                    $documents,
+                ),
+                'page' => $page,
+                'perPage' => $perPage,
+                'total' => $total,
+                'hasMore' => $page * $perPage < $total,
+            ];
+        } catch (\Throwable $e) {
+            throw new ToolCallException('The document list could not be read. The error has been logged.', previous: $e);
+        }
     }
 }

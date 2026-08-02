@@ -12,6 +12,7 @@ use App\Tests\Support\McpTokenScenario;
 use Doctrine\ORM\EntityManagerInterface;
 use Mcp\Exception\ToolCallException;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
+use Symfony\Component\Uid\Uuid;
 
 final class GetDocumentToolTest extends KernelTestCase
 {
@@ -82,6 +83,55 @@ final class GetDocumentToolTest extends KernelTestCase
         $this->expectException(ToolCallException::class);
         $this->expectExceptionMessage('not found or not accessible');
         ($this->tool)((string) $document->id);
+    }
+
+    public function test_an_unknown_id_and_a_foreign_document_are_rejected_identically(): void
+    {
+        $owner = $this->user('getdoc-probe@example.com');
+        $foreign = $this->documentInNewProject($owner, 'Hidden');
+
+        $projectB = new Project($owner, 'p-'.uniqid());
+        $this->em->persist($projectB);
+        $this->em->flush();
+        $this->actAsMcpTokenBoundTo($projectB);
+
+        $unknownId = (string) Uuid::v7();
+
+        $foreignMessage = null;
+        try {
+            ($this->tool)((string) $foreign->id);
+        } catch (ToolCallException $e) {
+            $foreignMessage = $e->getMessage();
+        }
+
+        $unknownMessage = null;
+        try {
+            ($this->tool)($unknownId);
+        } catch (ToolCallException $e) {
+            $unknownMessage = $e->getMessage();
+        }
+
+        self::assertNotNull($foreignMessage, 'a foreign document must be rejected');
+        self::assertNotNull($unknownMessage, 'an unknown id must be rejected');
+
+        // Only the echoed id may differ; anything else would let a caller probe
+        // which ids exist outside the project its token is bound to.
+        self::assertSame(
+            str_replace((string) $foreign->id, 'ID', $foreignMessage),
+            str_replace($unknownId, 'ID', $unknownMessage),
+        );
+    }
+
+    public function test_a_malformed_document_id_is_rejected_with_a_clear_message(): void
+    {
+        $owner = $this->user('getdoc-malformed@example.com');
+        $document = $this->documentInNewProject($owner, 'Whatever');
+
+        $this->actAsMcpTokenBoundTo($document->project);
+
+        $this->expectException(ToolCallException::class);
+        $this->expectExceptionMessage('"not-a-uuid" is not a valid document ID.');
+        ($this->tool)('not-a-uuid');
     }
 
     public function test_unbound_mcp_token_is_rejected(): void

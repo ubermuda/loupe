@@ -6,16 +6,16 @@ namespace App\Module\Review\Mcp;
 
 use App\Mcp\ResolvesBoundProject;
 use App\Module\Project\Security\AuthenticatedProjectResolver;
-use App\Module\Review\Query\DocumentNotFound;
 use App\Module\Review\Query\GetDocument;
+use App\Module\Review\Repository\DocumentRepository;
 use Mcp\Capability\Attribute\McpTool;
 use Mcp\Exception\ToolCallException;
-use Symfony\Component\Uid\Uuid;
+use Symfony\Component\Security\Core\Authorization\AuthorizationCheckerInterface;
 
 /**
  * Fetch a document's current Markdown source and status by id.
  */
-#[McpTool(name: 'get_document', description: 'Fetch a document\'s current Markdown source, title, status, and version number.')]
+#[McpTool(name: 'document_get', description: 'Fetch a document\'s current Markdown source, title, status, and version number.')]
 final readonly class GetDocumentTool
 {
     use ResolvesBoundProject;
@@ -23,6 +23,8 @@ final readonly class GetDocumentTool
     public function __construct(
         private GetDocument $getDocument,
         private AuthenticatedProjectResolver $projectResolver,
+        private DocumentRepository $documents,
+        private AuthorizationCheckerInterface $authorization,
     ) {
     }
 
@@ -33,14 +35,12 @@ final readonly class GetDocumentTool
      */
     public function __invoke(string $documentId): array
     {
-        $project = $this->requireBoundProject($this->projectResolver);
+        $document = $this->requireDocument($documentId, $this->projectResolver, $this->documents, $this->authorization);
 
         try {
-            return ($this->getDocument)(Uuid::fromString($documentId), $project);
-        } catch (DocumentNotFound $e) {
-            throw new ToolCallException($e->getMessage(), previous: $e);
-        } catch (\InvalidArgumentException $e) {
-            throw new ToolCallException(\sprintf('"%s" is not a valid document ID.', $documentId), previous: $e);
+            return ($this->getDocument)($document);
+        } catch (\Throwable $e) {
+            throw new ToolCallException('The document could not be read. The error has been logged.', previous: $e);
         }
     }
 }

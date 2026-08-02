@@ -16,7 +16,7 @@ use Symfony\Component\Uid\Uuid;
  * The agent's only write: Pending → Addressed. Resolved is reserved for the
  * human in the web UI and is unreachable from MCP by design.
  */
-#[McpTool(name: 'address_site_review_comments', description: 'Mark site-review comments as addressed after fixing them. Accepts the comment ids returned by get_site_review. Comments that are unknown, already addressed, or resolved are skipped, not fatal.')]
+#[McpTool(name: 'site_review_mark_comment_addressed', description: 'Mark site-review comments as addressed after fixing them. Accepts the comment ids returned by site_review_get. Comments that are unknown, already addressed, or resolved are skipped, not fatal.')]
 final readonly class AddressSiteReviewCommentsTool
 {
     use ResolvesBoundProject;
@@ -29,7 +29,7 @@ final readonly class AddressSiteReviewCommentsTool
     }
 
     /**
-     * @param list<string> $commentIds comment ids from get_site_review
+     * @param list<string> $commentIds comment ids from site_review_get
      *
      * @return array{addressed: list<string>, skipped: list<array{id: string, reason: string}>}
      */

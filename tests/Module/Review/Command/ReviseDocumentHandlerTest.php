@@ -68,7 +68,7 @@ final class ReviseDocumentHandlerTest extends KernelTestCase
         // Revise with new markdown that keeps "JWTs" but removes "rate limiting".
         /** @var ReviseDocumentHandler $reviseHandler */
         $reviseHandler = self::getContainer()->get(ReviseDocumentHandler::class);
-        $summary = $reviseHandler(new ReviseDocumentCommand($docId, $project, 'use JWTs only'));
+        $summary = $reviseHandler(new ReviseDocumentCommand($doc, 'use JWTs only'));
 
         self::assertSame(1, $summary['carried']);
         self::assertSame(1, $summary['orphaned']);
@@ -145,7 +145,7 @@ final class ReviseDocumentHandlerTest extends KernelTestCase
 
         /** @var ReviseDocumentHandler $reviseHandler */
         $reviseHandler = self::getContainer()->get(ReviseDocumentHandler::class);
-        $summary = $reviseHandler(new ReviseDocumentCommand($docId, $project, 'use JWTs only'));
+        $summary = $reviseHandler(new ReviseDocumentCommand($doc, 'use JWTs only'));
 
         self::assertSame(0, $summary['carried'], 'a resolved thread (root or reply) must carry nothing forward');
         self::assertSame(0, $summary['orphaned']);
@@ -190,8 +190,8 @@ final class ReviseDocumentHandlerTest extends KernelTestCase
 
         /** @var ReviseDocumentHandler $reviseHandler */
         $reviseHandler = self::getContainer()->get(ReviseDocumentHandler::class);
-        $reviseHandler(new ReviseDocumentCommand($docId, $project, 'v2 content'));
-        $reviseHandler(new ReviseDocumentCommand($docId, $project, 'v3 content'));
+        $reviseHandler(new ReviseDocumentCommand($doc, 'v2 content'));
+        $reviseHandler(new ReviseDocumentCommand($doc, 'v3 content'));
 
         $em->clear();
         $freshDoc = $em->find(Document::class, $docId);

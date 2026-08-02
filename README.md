@@ -16,7 +16,7 @@ Built with Symfony, Tailwind CSS + DaisyUI, and Symfony UX (Stimulus + Turbo).
 - **Document review** — submit Markdown, review it rendered, comment on selected
   passages, approve or request changes, and revise across versions.
 - **MCP endpoint** — agents authenticate with a scoped API token and call
-  `create_document` / `revise_document`, receiving a shareable review URL.
+  `document_create` / `document_revise`, receiving a shareable review URL.
 - **Site review** — an embeddable widget for leaving review comments on any web
   page, streamed back to the reviewer in real time over Mercure.
 - **Command-line bridge** — a Go binary ([`cli/`](cli/README.md)) that streams

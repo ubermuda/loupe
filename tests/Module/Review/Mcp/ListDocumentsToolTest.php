@@ -120,6 +120,24 @@ final class ListDocumentsToolTest extends KernelTestCase
         ($this->tool)();
     }
 
+    public function test_an_unexpected_failure_is_reported_instead_of_escaping_unwrapped(): void
+    {
+        $owner = $this->user('list-broken@example.com');
+        $project = $this->project($owner);
+
+        // A document with no version is a broken invariant the listing hits as
+        // a LogicException; without a catch-all the MCP layer would flatten it
+        // to "-32603 Error while executing tool" with no detail at all.
+        $this->em->persist(new Document(owner: $owner, project: $project, title: 'Versionless'));
+        $this->em->flush();
+
+        $this->actAsMcpTokenBoundTo($project);
+
+        $this->expectException(ToolCallException::class);
+        $this->expectExceptionMessage('The document list could not be read. The error has been logged.');
+        ($this->tool)();
+    }
+
     public function test_pages_through_the_projects_documents(): void
     {
         $owner = $this->user('list-paged@example.com');

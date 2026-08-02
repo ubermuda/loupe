@@ -22,7 +22,7 @@ final class Version20260727210416 extends AbstractMigration
         // minted before the flag existed. The visible effect on an existing
         // install is that submitted reviews stop nudging the agent until the
         // owner opts in on the project's connect page; the reviews themselves
-        // still arrive, and the agent still reads them with get_site_review.
+        // still arrive, and the agent still reads them with site_review_get.
         $this->addSql('ALTER TABLE api_tokens ADD forwards_to_agent BOOLEAN DEFAULT false NOT NULL');
 
         // Events already in the table were written under the old always-forward

@@ -15,7 +15,7 @@ use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 /**
  * Create a Markdown document for human review and return its id and review URL.
  */
-#[McpTool(name: 'create_document', description: 'Create a Markdown document for human review.')]
+#[McpTool(name: 'document_create', description: 'Create a Markdown document for human review.')]
 final readonly class CreateDocumentTool
 {
     use ResolvesBoundProject;
@@ -44,12 +44,14 @@ final readonly class CreateDocumentTool
             throw new ToolCallException('The markdown content exceeds the maximum allowed size.');
         }
 
-        $doc = ($this->createDocument)(new CreateDocumentCommand($project, $title, $markdown));
+        try {
+            $doc = ($this->createDocument)(new CreateDocumentCommand($project, $title, $markdown));
+        } catch (\Throwable $e) {
+            throw new ToolCallException('The document could not be created. The error has been logged.', previous: $e);
+        }
 
         return [
             'documentId' => (string) $doc->id,
-            // Route app_document_review is provided by the reviewer UI (Task 11); the tool
-            // resolves it to an absolute URL the agent shares with the human reviewer.
             'reviewUrl' => $this->urls->generate('app_document_review', [
                 'projectId' => (string) $doc->project->id,
                 'documentId' => (string) $doc->id,

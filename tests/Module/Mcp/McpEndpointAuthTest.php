@@ -104,13 +104,13 @@ final class McpEndpointAuthTest extends WebTestCase
         sort($names);
 
         self::assertSame([
-            'address_site_review_comments',
-            'create_document',
-            'get_document',
-            'get_review',
-            'get_site_review',
-            'list_documents',
-            'revise_document',
+            'document_create',
+            'document_get',
+            'document_get_review',
+            'document_list',
+            'document_revise',
+            'site_review_get',
+            'site_review_mark_comment_addressed',
         ], $names);
     }
 
