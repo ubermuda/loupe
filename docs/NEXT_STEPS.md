@@ -838,38 +838,59 @@ Owner note (2026-07-28): when a PR that exists *because of* a site review gets
 approved or merged, the agent should be allowed to mark those site-review
 comments **resolved** — not merely addressed. Likewise, when a document review
 is approved verbally, the agent should be able to mark that document approved.
-Probably belongs in a skill as well as in the tools.
 
-**This deliberately relaxes an invariant the code states in prose**, so it needs
-designing rather than just enabling. `AddressSiteReviewCommentsTool` documents
-itself as "the agent's only write: Pending → Addressed", and Resolved is reached
-only through `ResolveSiteReviewCommentController`, gated by
-`SiteReviewCommentVoter::RESOLVE`. On the document side there is no verdict tool
-at all — `Review/Mcp/` exposes create, get, list and revise, and nothing that
-sets a `Verdict`. The split exists so the agent cannot sign off its own work:
-*addressed* is the agent's claim, *resolved* is the human's agreement.
+**The PR-driven half is parked (owner decision, 2026-08-02).** Mapping what it
+would take found that none of its prerequisites exist, and each is a piece of
+work in its own right rather than a detail of this one:
 
-The owner's framing keeps a human in the loop — the trigger is a human
-approving or merging. The design question is **what the tool trusts as evidence
-of that**. Taken naively the agent is simply *told* "I approved it" in chat and
-writes the status, which reduces the guard to "the agent asserts a human said
-so" — strictly weaker than today, and indistinguishable from a mistaken or
-injected instruction. The stronger option is binding the write to a verifiable
-artifact the agent can check rather than be told about: the PR's own review
-state or merge status. Decide this before writing the tool, because it is the
-whole security value of the feature.
+1. **Nothing records which site-review comments a PR came from.** No entity,
+   column or migration anywhere carries a PR, branch, commit or issue
+   reference. The nearest thing in the whole model is `SiteReviewComment::$url`,
+   which is the page a comment was anchored on — a browsing location, not a work
+   item. Same missing link as in 'Agent-authored test scenarios delivered
+   through the site-review widget'.
+2. **There is no GitHub credential to ask with.** GitHub integration is OAuth
+   login only: `league/oauth2-github` for sign-in, one read-only call to
+   `api.github.com/user/emails` during login, and the access token is passed
+   transiently to `SocialProfileFactory` and **discarded**. `ConnectedAccount`
+   persists no token. So the app cannot query a PR's review state on anyone's
+   behalf.
+3. **There is no inbound webhook path from GitHub.** The only third-party
+   receiver is `/webhooks/stripe`. It is the right template if this is ever
+   built — signature-verified over raw request bytes, outside `/api` on purpose
+   — but it is billing-specific today.
+4. **Addressed comments become invisible to the agent.** `get_site_review`
+   calls `findPendingForProject`, which filters on `status = Pending`. The
+   moment the agent marks a comment addressed, its id is returned by no MCP
+   tool, so "resolve the comments this PR closed" cannot enumerate them. Tracked
+   separately in 'Addressed site-review comments disappear from the MCP'.
 
-Two links that do not exist yet and this depends on:
+What remains open here is the **document-approval** half — letting an agent
+record that a human approved a document. It carries the same evidence problem
+and is now sharper than the original note assumed, for two reasons found while
+mapping it.
 
-- **Nothing records which site-review comments a PR came from.** Resolving "the
-  comments this PR closes" requires that association to be captured when the
-  work starts. Same missing link as in 'Agent-authored test scenarios delivered
-  through the site-review widget'.
-- **Document approval writes state that is slated for removal.** See 'Replace
-  explicit document/site-review state with computed state' — if a document's
-  approved-ness becomes computed from its comments, "mark this document
-  approved" has no column to write and the feature means something different.
-  Design the two together or the second will invalidate the first.
+`Review` is append-only and requires a non-nullable `reviewer: User`. An MCP
+request already holds that `User`, because `ApiTokenAuthenticator` authenticates
+as the project owner. So a tool writing a `Review` would produce a row
+**indistinguishable from one the owner clicked** — their name on an approval
+they never gave — and there is no audit trail to separate the two afterwards
+(see 'No audit trail distinguishes agent-written state from human action').
+
+The second reason cuts the other way and is worth recording, because the
+original note had it backwards: document approval does **not** depend on
+'Replace explicit document/site-review state with computed state' removing a
+column it needs. `Document::$status` is a denormalised copy of the latest
+`Review`'s verdict — `SubmitReviewHandler` maps one to the other 1:1 — so once
+status is computed, "mark this document approved" still has somewhere to write.
+It writes a `Review`, which is exactly the row whose provenance is the problem.
+
+The precedent worth copying if this is picked up: `GithubPrimaryEmailFetcher` →
+`SocialProfileFactory` → `ResolveSocialLoginHandler` is the one place in the
+codebase where a third party's word permits a local state change, and it works
+because **the app makes the call itself**, with a credential whose control the
+caller just proved, and fails closed on any ambiguity. "The agent was told in
+chat" has neither property.
 
 ## The worktree-scoped e2e worker OOMs instead of recycling
 
@@ -2093,13 +2114,30 @@ Surfaced on 2026-08-01 while revising a blog post through the MCP: reporting
 which sentences had been rewritten, and which were deliberately left alone,
 needed line numbers that mean nothing in the rendered review UI.
 
-Wanted: a way for the agent to attach a highlight to a quoted span — to flag a
-passage it is unsure about, mark what a revision changed, or point at the exact
-text behind a decision point. The anchoring machinery already exists for human
-comments. The open design question is whether an agent highlight is just an
-agent-authored anchored comment (in which case "MCP: no way to reply to
-document-review comments" wants solving first, since both need the agent to be
-able to write into a review) or a separate, lighter annotation with no thread.
+Wanted: a way for the agent to attach a highlight to a quoted span. **The
+purpose is directing attention** (owner clarification, 2026-08-02): the agent
+marks the passages it judges most important so the reviewer reads those first,
+rather than flagging its own uncertainty. On a long document that is the
+difference between a reviewer starting where it matters and starting at the top.
+
+That settles the design question this entry used to leave open. A highlight is
+**a separate, lighter annotation with no thread** — not an agent-authored
+anchored comment. It carries no body, expects no reply, and does not belong in
+the comment ladder. It therefore does not depend on "MCP: no way to reply to
+document-review comments", though both need the agent to be able to write into a
+review.
+
+Most of the machinery is already there and unused. `comment_anchor_controller.js`
+re-locates a quote in the live DOM from anchor context (`#findRange`), and its
+`STATUS_HIGHLIGHTS` map plus the `::highlight()` rules in `app.css` already
+register and style rungs that no template emits. An emphasis highlight needs its
+own rung rather than borrowing the `addressed` one, whose meaning is different,
+but it needs no new highlight mechanism. Note `::highlight()` honours only
+colour, background-colour and text-decoration, which caps how a highlight can
+look without mutating the DOM — and mutating it is not an option, because the
+document pane's `textContent` must stay identical to `DocumentVersion::plainText()`
+or every anchor offset shifts.
+
 Related: "Review comments should be able to express an edit, not just describe
 one".
 
@@ -2135,6 +2173,81 @@ version is "OAuth for the MCP and site-review widget, with project selection at
 consent", which replaces the pasted token entirely — but that still authorizes
 per directory unless the resulting credential is stored user-wide, so the scope
 question outlives the token question and should be answered on its own.
+
+## "Unreachable from MCP by design" describes a guard that is not the one in force
+
+**Author:** Claude · **Type:** security · **Priority:** medium · **Status:** pending
+
+`AddressSiteReviewCommentsTool`'s class docblock says "The agent's only write:
+Pending → Addressed. Resolved is reserved for the human in the web UI and is
+unreachable from MCP by design." The property holds today, but not for the
+reason a reader would infer, and the gap matters the next time someone adds a
+tool.
+
+An MCP request is authenticated **as the project owner**:
+`ApiTokenAuthenticator` builds its passport with
+`new UserBadge($token->owner->getUserIdentifier(), fn () => $token->owner)` and
+grants `[...$user->getRoles(), $scopeRole]`. `SiteReviewCommentVoter`'s entire
+rule is `$subject->project->owner === $token->getUser()`. So the voter **would
+grant** `site_review_comment.resolve` to an MCP-token request. It is not what
+stops it.
+
+What actually stops it is two things the docblock does not mention: no MCP tool
+calls the resolve path, and `ApiTokenAuthenticator` is registered only on the
+`mcp` and `api` firewalls, so a Bearer token cannot authenticate against
+`/site-review/comments/{id}/resolve` on the `main` firewall at all — a route
+that additionally carries a session-backed `#[CsrfToken]`.
+
+The risk is a future tool that calls a voter and reads the result as a
+meaningful check. Every ownership-based voter in the app returns true for an
+MCP request by construction. Fix the comment to name the real guard, and
+consider whether ownership voters should be unreachable from tool context
+rather than merely unused there.
+
+## No audit trail distinguishes agent-written state from human action
+
+**Author:** Claude · **Type:** security · **Priority:** medium · **Status:** pending
+
+There is no audit entity, no audit table and no dedicated Monolog channel —
+`config/packages/monolog.yaml` declares only `deprecation`. What exists is
+scattered `LoggerInterface::info` calls, and of every review-related write only
+`review.document.verdict_submitted` records an actor at all. The MCP write in
+`AddressSiteReviewCommentsTool` logs nothing.
+
+This is becoming load-bearing rather than merely untidy, because the agent is
+gaining writes: a singleton agent `User` authoring comments, a reply tool and a
+mark-addressed tool. Attribution on a `Comment` covers those. It does not cover
+`Review`, which requires a non-nullable `reviewer: User` — and since an MCP
+request authenticates as the project owner, any agent-written `Review` would be
+byte-for-byte identical to one the owner clicked.
+
+`SiteReviewEvent` looks like an event log and is not one: it is a Mercure
+delivery outbox recording deliveries rather than decisions, and it carries no
+actor.
+
+Worth deciding what the app needs before something writes state that cannot be
+attributed afterwards — a real audit record, or at minimum an actor field on
+every write that a human could be blamed for.
+
+## Addressed site-review comments disappear from the MCP
+
+**Author:** Claude · **Type:** bug · **Priority:** medium · **Status:** pending
+
+`GetSiteReviewTool` calls `SiteReviewCommentRepository::findPendingForProject`,
+which filters on `status = Pending`. So the moment an agent marks a comment
+addressed through `address_site_review_comments`, that comment's id is returned
+by no MCP tool at all.
+
+The agent therefore cannot re-read what it addressed, report on it, or act on it
+in a later session — its own write makes the record unreachable. Anything that
+needs to enumerate previously-addressed comments is blocked by this, including
+the parked PR-driven half of 'Let the agent close the loop when a human approves
+the work'.
+
+The fix is a read path that can return non-pending comments — either a status
+filter parameter on `get_site_review` or a companion tool. Note the document
+side does not have this problem: `GetReview` uses `findByVersion`, which returns
+every comment regardless of state.
 
 ## Product idea (long horizon): drag DOM elements in the widget to try layouts
 
