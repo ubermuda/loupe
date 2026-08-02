@@ -15,8 +15,8 @@ use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 /**
  * Create a Markdown document for human review and return its id and review URL.
  */
-#[McpTool(name: 'create_document', description: 'Create a Markdown document for human review.')]
-final readonly class CreateDocumentTool
+#[McpTool(name: 'document_create', description: 'Create a Markdown document for human review.')]
+final readonly class DocumentCreateTool
 {
     use ResolvesBoundProject;
 
@@ -38,22 +38,26 @@ final readonly class CreateDocumentTool
      */
     public function __invoke(string $title, string $markdown): array
     {
-        $project = $this->requireBoundProject($this->projectResolver);
+        try {
+            $project = $this->requireBoundProject($this->projectResolver);
 
-        if (\strlen($markdown) > self::MAX_MARKDOWN_BYTES) {
-            throw new ToolCallException('The markdown content exceeds the maximum allowed size.');
-        }
+            if (\strlen($markdown) > self::MAX_MARKDOWN_BYTES) {
+                throw new ToolCallException('The markdown content exceeds the maximum allowed size.');
+            }
 
-        $doc = ($this->createDocument)(new CreateDocumentCommand($project, $title, $markdown));
+            $doc = ($this->createDocument)(new CreateDocumentCommand($project, $title, $markdown));
 
-        return [
-            'documentId' => (string) $doc->id,
-            // Route app_document_review is provided by the reviewer UI (Task 11); the tool
-            // resolves it to an absolute URL the agent shares with the human reviewer.
-            'reviewUrl' => $this->urls->generate('app_document_review', [
-                'projectId' => (string) $doc->project->id,
+            return [
                 'documentId' => (string) $doc->id,
-            ], UrlGeneratorInterface::ABSOLUTE_URL),
-        ];
+                'reviewUrl' => $this->urls->generate('app_document_review', [
+                    'projectId' => (string) $doc->project->id,
+                    'documentId' => (string) $doc->id,
+                ], UrlGeneratorInterface::ABSOLUTE_URL),
+            ];
+        } catch (ToolCallException $e) {
+            throw $e;
+        } catch (\Throwable $e) {
+            throw new ToolCallException('The document could not be created. The error has been logged.', previous: $e);
+        }
     }
 }

@@ -16,6 +16,19 @@ file alone. Each entry is tagged `Added` / `Changed` / `Removed` / `Fixed`.
 
 ## [Unreleased]
 
+- `1b7758f` … (the `feat/mcp-scoped-authz` branch, branched from `a825b59`;
+  exhaustive list via `git log a825b59..feat/mcp-scoped-authz`) — **Changed:** every
+  MCP tool renamed with a feature prefix, with no aliases and no deprecation
+  window (breaking MCP change): `create_document` → `document_create`,
+  `get_document` → `document_get`, `list_documents` → `document_list`,
+  `revise_document` → `document_revise`, `get_review` → `document_get_review`,
+  `get_site_review` → `site_review_get`, `address_site_review_comments` →
+  `site_review_mark_comment_addressed`. A connected agent sees its tool names
+  change on the next handshake; update any prompt, skill, or script that names
+  them. Also **Changed:** tool access is now scoped by `McpBoundProjectVoter`
+  (the token's bound project, not the user's ownership) applied through
+  `ReviewSubjectResolver`, and unrecognised failures are reported with a real
+  message instead of a bare `-32603`.
 - `6eb95f6` … `690bc04` (the `site-review-per-site` branch; exhaustive list via
   `git log 4e7b5b0..690bc04`) — **Changed:** site review rebuilt from ephemeral
   batches to a persistent per-site model: a `Site` entity with site-bound widget

@@ -283,7 +283,7 @@ final class ShowDocumentControllerTest extends WebTestCase
         $em->persist($resolved);
         $em->flush();
 
-        ($reviseDocument)(new ReviseDocumentCommand($doc->id ?? self::fail('document has no id'), $project, '# Rewritten'));
+        ($reviseDocument)(new ReviseDocumentCommand($doc, '# Rewritten'));
 
         $projectId = (string) $project->id;
         $id = (string) $doc->id;
@@ -320,7 +320,7 @@ final class ShowDocumentControllerTest extends WebTestCase
         $em->persist(new Comment($version, $owner, 'Still open', new Anchor('Body', '', '', 0)));
         $em->flush();
 
-        ($reviseDocument)(new ReviseDocumentCommand($doc->id ?? self::fail('document has no id'), $project, '# Body'));
+        ($reviseDocument)(new ReviseDocumentCommand($doc, '# Body'));
 
         $projectId = (string) $project->id;
         $id = (string) $doc->id;

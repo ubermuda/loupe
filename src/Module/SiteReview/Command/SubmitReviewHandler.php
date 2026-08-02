@@ -60,7 +60,7 @@ final readonly class SubmitReviewHandler
             $this->publish($event);
         } else {
             // Collect-only token: the comments are Pending and the agent can still
-            // pull them with get_site_review whenever the owner asks it to. What is
+            // pull them with site_review_get whenever the owner asks it to. What is
             // withheld is the unsolicited nudge, which is what would otherwise let
             // any visitor of a public page drive the owner's agent.
             $this->logger->info('site_review.review.forwarding_suppressed', [

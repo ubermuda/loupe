@@ -116,7 +116,7 @@ final class SubmitReviewHandlerTest extends KernelTestCase
 
         $count = ($this->handler)(new SubmitReviewCommand($project));
 
-        // Collect-only, not reject: the comments still land, and get_site_review
+        // Collect-only, not reject: the comments still land, and site_review_get
         // still serves them when the owner's agent asks.
         self::assertSame(1, $count);
         self::assertSame(0, $this->comments->countDraftForProject($project));

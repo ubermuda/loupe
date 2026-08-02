@@ -34,9 +34,9 @@ func Parse(data []byte) (Event, error) {
 // It interpolates nothing. Any value carried on the wire is either
 // reviewer-controlled (a prompt-injection vector in an auto-submitted prompt)
 // or redundant: the agent resolves its own project from the MCP token bound to
-// the session, and get_site_review returns whatever is pending at the moment it
+// the session, and site_review_get returns whatever is pending at the moment it
 // asks. A duplicate nudge is therefore harmless — the second pull finds nothing
 // still pending and the agent no-ops.
 func Directive() string {
-	return "A site review was just submitted. Fetch the pending comments with the get_site_review MCP tool, address them, and mark each one with address_site_review_comments."
+	return "A site review was just submitted. Fetch the pending comments with the site_review_get MCP tool, address them, and mark each one with site_review_mark_comment_addressed."
 }

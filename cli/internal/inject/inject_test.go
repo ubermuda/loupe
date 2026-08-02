@@ -37,7 +37,7 @@ func TestParseMalformedJSON(t *testing.T) {
 
 func TestDirectiveExactString(t *testing.T) {
 	got := Directive()
-	want := `A site review was just submitted. Fetch the pending comments with the get_site_review MCP tool, address them, and mark each one with address_site_review_comments.`
+	want := `A site review was just submitted. Fetch the pending comments with the site_review_get MCP tool, address them, and mark each one with site_review_mark_comment_addressed.`
 	if got != want {
 		t.Fatalf("directive mismatch\ngot:  %q\nwant: %q", got, want)
 	}

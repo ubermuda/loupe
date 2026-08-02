@@ -7,18 +7,18 @@ namespace App\Tests\Module\Review\Mcp;
 use App\Module\Account\Entity\User;
 use App\Module\Project\Entity\Project;
 use App\Module\Review\Entity\Document;
-use App\Module\Review\Mcp\ListDocumentsTool;
+use App\Module\Review\Mcp\DocumentListTool;
 use App\Tests\Support\McpTokenScenario;
 use Doctrine\ORM\EntityManagerInterface;
 use Mcp\Exception\ToolCallException;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 
-final class ListDocumentsToolTest extends KernelTestCase
+final class DocumentListToolTest extends KernelTestCase
 {
     use McpTokenScenario;
 
     private EntityManagerInterface $em;
-    private ListDocumentsTool $tool;
+    private DocumentListTool $tool;
 
     protected function setUp(): void
     {
@@ -28,8 +28,8 @@ final class ListDocumentsToolTest extends KernelTestCase
         self::assertInstanceOf(EntityManagerInterface::class, $em);
         $this->em = $em;
 
-        $tool = self::getContainer()->get(ListDocumentsTool::class);
-        self::assertInstanceOf(ListDocumentsTool::class, $tool);
+        $tool = self::getContainer()->get(DocumentListTool::class);
+        self::assertInstanceOf(DocumentListTool::class, $tool);
         $this->tool = $tool;
     }
 
@@ -120,6 +120,31 @@ final class ListDocumentsToolTest extends KernelTestCase
         ($this->tool)();
     }
 
+    public function test_an_unexpected_failure_is_reported_instead_of_escaping_unwrapped(): void
+    {
+        $owner = $this->user('list-broken@example.com');
+        $project = $this->project($owner);
+
+        // A document with no version is a broken invariant the listing hits as
+        // a LogicException; without a catch-all the MCP layer would flatten it
+        // to "-32603 Error while executing tool" with no detail at all.
+        $this->em->persist(new Document(owner: $owner, project: $project, title: 'Versionless'));
+        $this->em->flush();
+
+        $this->actAsMcpTokenBoundTo($project);
+
+        try {
+            ($this->tool)();
+            self::fail('a broken listing must be reported as a tool call failure');
+        } catch (ToolCallException $e) {
+            self::assertSame('The document list could not be read. The error has been logged.', $e->getMessage());
+            // The original must survive as `previous`: the MCP handler logs the
+            // ToolCallException with its chain, which is the only place the real
+            // cause is recoverable from.
+            self::assertInstanceOf(\LogicException::class, $e->getPrevious());
+        }
+    }
+
     public function test_pages_through_the_projects_documents(): void
     {
         $owner = $this->user('list-paged@example.com');
@@ -178,7 +203,7 @@ final class ListDocumentsToolTest extends KernelTestCase
 
         $result = ($this->tool)(page: 0, perPage: 10_000);
         self::assertSame(1, $result['page']);
-        self::assertSame(ListDocumentsTool::MAX_PER_PAGE, $result['perPage']);
+        self::assertSame(DocumentListTool::MAX_PER_PAGE, $result['perPage']);
 
         $result = ($this->tool)(perPage: 0);
         self::assertSame(1, $result['perPage']);

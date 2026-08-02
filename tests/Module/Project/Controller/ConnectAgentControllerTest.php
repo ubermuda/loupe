@@ -50,13 +50,13 @@ final class ConnectAgentControllerTest extends WebTestCase
         // All 7 agent tools render.
         $toolNames = $crawler->filter('.lp-tools__name')->each(fn ($node) => $node->text());
         self::assertSame([
-            'create_document',
-            'list_documents',
-            'get_document',
-            'get_review',
-            'revise_document',
-            'get_site_review',
-            'address_site_review_comments',
+            'document_create',
+            'document_list',
+            'document_get',
+            'document_get_review',
+            'document_revise',
+            'site_review_get',
+            'site_review_mark_comment_addressed',
         ], $toolNames);
     }
 

@@ -1248,33 +1248,33 @@
                 <source>project.connect.tag.project_scoped</source>
                 <target>project-scoped</target>
             </trans-unit>
-            <trans-unit id="project.connect.tool.create_document">
-                <source>project.connect.tool.create_document</source>
+            <trans-unit id="project.connect.tool.document_create">
+                <source>project.connect.tool.document_create</source>
                 <target>Create a Markdown document for human review.</target>
             </trans-unit>
-            <trans-unit id="project.connect.tool.list_documents">
-                <source>project.connect.tool.list_documents</source>
+            <trans-unit id="project.connect.tool.document_list">
+                <source>project.connect.tool.document_list</source>
                 <target>List all documents in the token's project, with their current status and version.</target>
             </trans-unit>
-            <trans-unit id="project.connect.tool.get_document">
-                <source>project.connect.tool.get_document</source>
+            <trans-unit id="project.connect.tool.document_get">
+                <source>project.connect.tool.document_get</source>
                 <target>Fetch a document's current Markdown source, title, status, and version number.</target>
             </trans-unit>
-            <trans-unit id="project.connect.tool.get_review">
-                <source>project.connect.tool.get_review</source>
+            <trans-unit id="project.connect.tool.document_get_review">
+                <source>project.connect.tool.document_get_review</source>
                 <target>Fetch the review state (verdict, status, and threaded comments) for a document's current version.</target>
             </trans-unit>
-            <trans-unit id="project.connect.tool.revise_document">
-                <source>project.connect.tool.revise_document</source>
+            <trans-unit id="project.connect.tool.document_revise">
+                <source>project.connect.tool.document_revise</source>
                 <target>Submit a new Markdown version of a document. Open comments are re-anchored onto the new version; those whose quoted text no longer appears are flagged orphaned.</target>
             </trans-unit>
-            <trans-unit id="project.connect.tool.get_site_review">
-                <source>project.connect.tool.get_site_review</source>
-                <target>Fetch all unaddressed site-review comments (DOM-anchored feedback captured in the browser) for the project bound to your MCP token. Address each comment, then mark it with address_site_review_comments.</target>
+            <trans-unit id="project.connect.tool.site_review_get">
+                <source>project.connect.tool.site_review_get</source>
+                <target>Fetch all unaddressed site-review comments (DOM-anchored feedback captured in the browser) for the project bound to your MCP token. Address each comment, then mark it with site_review_mark_comment_addressed.</target>
             </trans-unit>
-            <trans-unit id="project.connect.tool.address_site_review_comments">
-                <source>project.connect.tool.address_site_review_comments</source>
-                <target>Mark site-review comments as addressed after fixing them. Accepts the comment ids returned by get_site_review. Comments that are unknown, already addressed, or resolved are skipped, not fatal.</target>
+            <trans-unit id="project.connect.tool.site_review_mark_comment_addressed">
+                <source>project.connect.tool.site_review_mark_comment_addressed</source>
+                <target>Mark site-review comments as addressed after fixing them. Accepts the comment ids returned by site_review_get. Comments that are unknown, already addressed, or resolved are skipped, not fatal.</target>
             </trans-unit>
 
             <!-- First-run wizard -->

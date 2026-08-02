@@ -4,25 +4,20 @@ declare(strict_types=1);
 
 namespace App\Module\Review\Mcp;
 
-use App\Mcp\ResolvesBoundProject;
-use App\Module\Project\Security\AuthenticatedProjectResolver;
-use App\Module\Review\Query\DocumentNotFound;
 use App\Module\Review\Query\GetReview;
+use App\Module\Review\Security\McpBoundProjectVoter;
 use Mcp\Capability\Attribute\McpTool;
 use Mcp\Exception\ToolCallException;
-use Symfony\Component\Uid\Uuid;
 
 /**
  * Fetch the current review state (verdict, status, comments) for a document.
  */
-#[McpTool(name: 'get_review', description: 'Fetch the review state (verdict, status, and threaded comments) for a document\'s current version.')]
-final readonly class GetReviewTool
+#[McpTool(name: 'document_get_review', description: 'Fetch the review state (verdict, status, and threaded comments) for a document\'s current version.')]
+final readonly class DocumentGetReviewTool
 {
-    use ResolvesBoundProject;
-
     public function __construct(
         private GetReview $getReview,
-        private AuthenticatedProjectResolver $projectResolver,
+        private ReviewSubjectResolver $subjects,
     ) {
     }
 
@@ -35,14 +30,14 @@ final readonly class GetReviewTool
      */
     public function __invoke(string $documentId): array
     {
-        $project = $this->requireBoundProject($this->projectResolver);
-
         try {
-            return ($this->getReview)(Uuid::fromString($documentId), $project);
-        } catch (DocumentNotFound $e) {
-            throw new ToolCallException($e->getMessage(), previous: $e);
-        } catch (\InvalidArgumentException $e) {
-            throw new ToolCallException(\sprintf('"%s" is not a valid document ID.', $documentId), previous: $e);
+            $document = $this->subjects->requireDocument($documentId, McpBoundProjectVoter::DOCUMENT_READ);
+
+            return ($this->getReview)($document);
+        } catch (ToolCallException $e) {
+            throw $e;
+        } catch (\Throwable $e) {
+            throw new ToolCallException('The review could not be read. The error has been logged.', previous: $e);
         }
     }
 }

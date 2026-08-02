@@ -154,12 +154,12 @@ when@test:
             autowire: true
             public: true
 
-        App\Module\SiteReview\Mcp\GetSiteReviewTool:
+        App\Module\SiteReview\Mcp\SiteReviewGetTool:
             autowire: true
             autoconfigure: true
             public: true
 
-        App\Module\SiteReview\Mcp\AddressSiteReviewCommentsTool:
+        App\Module\SiteReview\Mcp\SiteReviewMarkCommentAddressedTool:
             autowire: true
             autoconfigure: true
             public: true

@@ -7,18 +7,18 @@ namespace App\Tests\Module\Review\Mcp;
 use App\Module\Account\Entity\User;
 use App\Module\Project\Entity\Project;
 use App\Module\Review\Entity\Document;
-use App\Module\Review\Mcp\GetDocumentTool;
+use App\Module\Review\Mcp\DocumentGetReviewTool;
 use App\Tests\Support\McpTokenScenario;
 use Doctrine\ORM\EntityManagerInterface;
 use Mcp\Exception\ToolCallException;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 
-final class GetDocumentToolTest extends KernelTestCase
+final class DocumentGetReviewToolTest extends KernelTestCase
 {
     use McpTokenScenario;
 
     private EntityManagerInterface $em;
-    private GetDocumentTool $tool;
+    private DocumentGetReviewTool $tool;
 
     protected function setUp(): void
     {
@@ -28,8 +28,8 @@ final class GetDocumentToolTest extends KernelTestCase
         self::assertInstanceOf(EntityManagerInterface::class, $em);
         $this->em = $em;
 
-        $tool = self::getContainer()->get(GetDocumentTool::class);
-        self::assertInstanceOf(GetDocumentTool::class, $tool);
+        $tool = self::getContainer()->get(DocumentGetReviewTool::class);
+        self::assertInstanceOf(DocumentGetReviewTool::class, $tool);
         $this->tool = $tool;
     }
 
@@ -55,23 +55,24 @@ final class GetDocumentToolTest extends KernelTestCase
         return $document;
     }
 
-    public function test_returns_a_document_of_the_bound_project(): void
+    public function test_returns_the_review_state_of_the_bound_projects_document(): void
     {
-        $owner = $this->user('getdoc-bound@example.com');
-        $document = $this->documentInNewProject($owner, 'Readable');
+        $owner = $this->user('getreview-bound@example.com');
+        $document = $this->documentInNewProject($owner, 'Reviewable');
 
         $this->actAsMcpTokenBoundTo($document->project);
 
         $result = ($this->tool)((string) $document->id);
 
-        self::assertSame((string) $document->id, $result['documentId']);
-        self::assertSame('Readable', $result['title']);
-        self::assertSame('# Hello', $result['markdown']);
+        self::assertSame('in-review', $result['status']);
+        self::assertNull($result['verdict']);
+        self::assertSame(1, $result['version']);
+        self::assertSame([], $result['comments']);
     }
 
-    public function test_cannot_read_a_document_of_another_project_of_the_same_owner(): void
+    public function test_cannot_read_the_review_of_another_project_of_the_same_owner(): void
     {
-        $owner = $this->user('getdoc-cross@example.com');
+        $owner = $this->user('getreview-cross@example.com');
         $document = $this->documentInNewProject($owner, 'Hidden');
 
         $projectB = new Project($owner, 'p-'.uniqid());
@@ -86,7 +87,7 @@ final class GetDocumentToolTest extends KernelTestCase
 
     public function test_unbound_mcp_token_is_rejected(): void
     {
-        $owner = $this->user('getdoc-unbound@example.com');
+        $owner = $this->user('getreview-unbound@example.com');
         $document = $this->documentInNewProject($owner, 'Unreachable');
 
         $this->actAsUnboundMcpToken($owner);

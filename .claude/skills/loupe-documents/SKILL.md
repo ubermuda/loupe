@@ -1,11 +1,11 @@
 ---
 name: loupe-documents
-description: Use when writing or revising a document for the Loupe app — anything sent through the loupe MCP's create_document or revise_document (implementation plans, specs, RFCs, audit reports, retrospectives, any long-form review document).
+description: Use when writing or revising a document for the Loupe app — anything sent through the loupe MCP's document_create or document_revise (implementation plans, specs, RFCs, audit reports, retrospectives, any long-form review document).
 ---
 
 # Writing documents for Loupe review
 
-Documents submitted via `create_document` / `revise_document` are read in the
+Documents submitted via `document_create` / `document_revise` are read in the
 Loupe review UI, where reviewers select passages and comment on them. Format
 for that reading context, not for a terminal or a README.
 
@@ -61,7 +61,7 @@ for that reading context, not for a terminal or a README.
 
 6. **After addressing review comments, revise the document.** When you act on
    a reviewer's comments — answering questions, recording decisions, changing
-   course — send a new version with `revise_document` so the document reflects
+   course — send a new version with `document_revise` so the document reflects
    the resolved state. Tracking the outcome somewhere else (an issue tracker,
    the chat, a commit message) does not close the loop: the reviewer returns
    to the document, and a document still showing the proposal state after its
@@ -113,7 +113,7 @@ Not: "Drop `x-forwarded-host` or generate these links from a pinned
 
 ## Common mistakes
 
-- Pasting a report drafted for the terminal into `create_document` unchanged —
+- Pasting a report drafted for the terminal into `document_create` unchanged —
   terminal formatting habits (dense bullets, `·`-separated fragments, H1
   headers) are exactly what these rules exist to undo.
 - Numbering only the top level: nested lists that reviewers will discuss also

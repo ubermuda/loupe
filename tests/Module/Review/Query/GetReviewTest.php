@@ -10,13 +10,11 @@ use App\Module\Review\Entity\Comment;
 use App\Module\Review\Entity\Document;
 use App\Module\Review\Entity\Review;
 use App\Module\Review\Entity\Verdict;
-use App\Module\Review\Query\DocumentNotFound;
 use App\Module\Review\Query\GetDocument;
 use App\Module\Review\Query\GetReview;
 use App\Module\Review\ValueObject\Anchor;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
-use Symfony\Component\Uid\Uuid;
 
 final class GetReviewTest extends KernelTestCase
 {
@@ -86,10 +84,7 @@ final class GetReviewTest extends KernelTestCase
         $this->em->persist($review);
         $this->em->flush();
 
-        $docId = $doc->id;
-        self::assertNotNull($docId);
-
-        $result = ($this->getReview)($docId, $this->project);
+        $result = ($this->getReview)($doc);
 
         self::assertSame('in-review', $result['status']);
         self::assertSame('changes-requested', $result['verdict']);
@@ -122,46 +117,11 @@ final class GetReviewTest extends KernelTestCase
         $this->em->persist($doc);
         $this->em->flush();
 
-        $docId = $doc->id;
-        self::assertNotNull($docId);
-        $result = ($this->getReview)($docId, $this->project);
+        $result = ($this->getReview)($doc);
 
         self::assertNull($result['verdict']);
         self::assertSame('in-review', $result['status']);
         self::assertSame([], $result['comments']);
-    }
-
-    public function test_throws_document_not_found_for_unknown_id(): void
-    {
-        $this->expectException(DocumentNotFound::class);
-
-        ($this->getReview)(Uuid::v7(), $this->project);
-    }
-
-    public function test_throws_document_not_found_for_foreign_document(): void
-    {
-        $otherUser = new User(
-            username: 'other',
-            fullName: 'Other User',
-            email: 'other@example.com',
-            password: 'hashed',
-        );
-        $this->em->persist($otherUser);
-
-        $otherProject = new Project($otherUser, 'p-'.uniqid());
-        $this->em->persist($otherProject);
-
-        $foreignDoc = new Document(owner: $otherUser, project: $otherProject, title: 'Foreign Doc');
-        $foreignDoc->addVersion('Content.', '<p>Content.</p>');
-        $this->em->persist($foreignDoc);
-        $this->em->flush();
-
-        $this->expectException(DocumentNotFound::class);
-
-        // Scoped to $this->project, but the document belongs to $otherProject.
-        $foreignDocId = $foreignDoc->id;
-        self::assertNotNull($foreignDocId);
-        ($this->getReview)($foreignDocId, $this->project);
     }
 
     public function test_get_document_returns_correct_shape(): void
@@ -172,32 +132,12 @@ final class GetReviewTest extends KernelTestCase
         $this->em->persist($doc);
         $this->em->flush();
 
-        $docId = $doc->id;
-        self::assertNotNull($docId);
-        $result = ($this->getDocument)($docId, $this->project);
+        $result = ($this->getDocument)($doc);
 
-        self::assertSame((string) $docId, $result['documentId']);
+        self::assertSame((string) $doc->id, $result['documentId']);
         self::assertSame('Shape Test', $result['title']);
         self::assertSame('in-review', $result['status']);
         self::assertSame(1, $result['version']);
         self::assertSame('# Hello', $result['markdown']);
-    }
-
-    public function test_get_document_throws_for_foreign_project(): void
-    {
-        // Same owner, different project — project scoping alone must deny access.
-        $otherProject = new Project($this->owner, 'p-'.uniqid());
-        $this->em->persist($otherProject);
-
-        $foreignDoc = new Document(owner: $this->owner, project: $otherProject, title: 'Foreign');
-        $foreignDoc->addVersion('X', '<p>X</p>');
-        $this->em->persist($foreignDoc);
-        $this->em->flush();
-
-        $this->expectException(DocumentNotFound::class);
-
-        $foreignDocId = $foreignDoc->id;
-        self::assertNotNull($foreignDocId);
-        ($this->getDocument)($foreignDocId, $this->project);
     }
 }

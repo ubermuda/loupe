@@ -22,19 +22,19 @@ class ConnectAgentController extends AppController
 {
     /**
      * The real MCP tools exposed to the connected agent, in the order they
-     * appear in the "Agent tools" section (handoff §5). Each description is a
-     * translation key so the copy stays in the message catalog.
+     * appear in the "Agent tools" section. Each description is a translation
+     * key so the copy stays in the message catalog.
      *
      * @var list<array{name: string, descriptionKey: string}>
      */
     private const array TOOLS = [
-        ['name' => 'create_document', 'descriptionKey' => 'project.connect.tool.create_document'],
-        ['name' => 'list_documents', 'descriptionKey' => 'project.connect.tool.list_documents'],
-        ['name' => 'get_document', 'descriptionKey' => 'project.connect.tool.get_document'],
-        ['name' => 'get_review', 'descriptionKey' => 'project.connect.tool.get_review'],
-        ['name' => 'revise_document', 'descriptionKey' => 'project.connect.tool.revise_document'],
-        ['name' => 'get_site_review', 'descriptionKey' => 'project.connect.tool.get_site_review'],
-        ['name' => 'address_site_review_comments', 'descriptionKey' => 'project.connect.tool.address_site_review_comments'],
+        ['name' => 'document_create', 'descriptionKey' => 'project.connect.tool.document_create'],
+        ['name' => 'document_list', 'descriptionKey' => 'project.connect.tool.document_list'],
+        ['name' => 'document_get', 'descriptionKey' => 'project.connect.tool.document_get'],
+        ['name' => 'document_get_review', 'descriptionKey' => 'project.connect.tool.document_get_review'],
+        ['name' => 'document_revise', 'descriptionKey' => 'project.connect.tool.document_revise'],
+        ['name' => 'site_review_get', 'descriptionKey' => 'project.connect.tool.site_review_get'],
+        ['name' => 'site_review_mark_comment_addressed', 'descriptionKey' => 'project.connect.tool.site_review_mark_comment_addressed'],
     ];
 
     public function __construct(

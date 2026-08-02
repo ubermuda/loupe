@@ -8,18 +8,18 @@ use App\Module\Account\Entity\User;
 use App\Module\Project\Entity\Project;
 use App\Module\SiteReview\Entity\SiteReviewComment;
 use App\Module\SiteReview\Entity\SiteReviewCommentStatus;
-use App\Module\SiteReview\Mcp\GetSiteReviewTool;
+use App\Module\SiteReview\Mcp\SiteReviewGetTool;
 use App\Tests\Support\McpTokenScenario;
 use Doctrine\ORM\EntityManagerInterface;
 use Mcp\Exception\ToolCallException;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 
-final class GetSiteReviewToolTest extends KernelTestCase
+final class SiteReviewGetToolTest extends KernelTestCase
 {
     use McpTokenScenario;
 
     private EntityManagerInterface $em;
-    private GetSiteReviewTool $tool;
+    private SiteReviewGetTool $tool;
 
     protected function setUp(): void
     {
@@ -29,8 +29,8 @@ final class GetSiteReviewToolTest extends KernelTestCase
         self::assertInstanceOf(EntityManagerInterface::class, $em);
         $this->em = $em;
 
-        $tool = self::getContainer()->get(GetSiteReviewTool::class);
-        self::assertInstanceOf(GetSiteReviewTool::class, $tool);
+        $tool = self::getContainer()->get(SiteReviewGetTool::class);
+        self::assertInstanceOf(SiteReviewGetTool::class, $tool);
         $this->tool = $tool;
     }
 

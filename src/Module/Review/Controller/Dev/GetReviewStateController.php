@@ -6,7 +6,6 @@ namespace App\Module\Review\Controller\Dev;
 
 use App\Controller\AppController;
 use App\Module\Account\Entity\User;
-use App\Module\Review\Query\DocumentNotFound;
 use App\Module\Review\Query\GetReview;
 use App\Module\Review\Repository\DocumentRepository;
 use Symfony\Component\DependencyInjection\Attribute\When;
@@ -45,19 +44,12 @@ final class GetReviewStateController extends AppController
             return $this->json(['error' => 'invalid id'], JsonResponse::HTTP_BAD_REQUEST);
         }
 
-        // GetReview is project-scoped; resolve the document's project while keeping
-        // this dev endpoint owner-scoped for the e2e harness user.
+        // Owner-scoped for the e2e harness user.
         $document = $this->documents->findOneBy(['id' => $id, 'owner' => $user]);
         if (null === $document) {
             return $this->json(['error' => 'not found'], JsonResponse::HTTP_NOT_FOUND);
         }
 
-        try {
-            $state = ($this->getReview)($id, $document->project);
-        } catch (DocumentNotFound) {
-            return $this->json(['error' => 'not found'], JsonResponse::HTTP_NOT_FOUND);
-        }
-
-        return $this->json($state);
+        return $this->json(($this->getReview)($document));
     }
 }
