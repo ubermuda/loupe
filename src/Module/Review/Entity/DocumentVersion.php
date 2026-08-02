@@ -41,6 +41,10 @@ class DocumentVersion
         #[ORM\Column(type: Types::TEXT)]
         public readonly string $renderedHtml,
 
+        /** What this revision changed, written once when the version is created. */
+        #[ORM\Column(type: Types::TEXT, nullable: true)]
+        public readonly ?string $description = null,
+
         #[ORM\Column]
         public readonly \DateTimeImmutable $createdAt = new \DateTimeImmutable(),
     ) {

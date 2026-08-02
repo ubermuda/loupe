@@ -31,6 +31,7 @@ final readonly class DocumentExporter implements UserDataExporterInterface
                 $versions[] = [
                     'id' => (string) $version->id,
                     'versionNumber' => $version->versionNumber,
+                    'description' => $version->description,
                     'markdownSource' => $version->markdownSource,
                     'createdAt' => $version->createdAt->format(\DateTimeInterface::ATOM),
                 ];
@@ -41,6 +42,7 @@ final readonly class DocumentExporter implements UserDataExporterInterface
                 'project' => $document->project->name,
                 'title' => $document->title,
                 'status' => $document->status->value,
+                'archivedAt' => $document->archivedAt?->format(\DateTimeInterface::ATOM),
                 'createdAt' => $document->createdAt->format(\DateTimeInterface::ATOM),
                 'versions' => $versions,
             ];

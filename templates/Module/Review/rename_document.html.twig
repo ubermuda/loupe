@@ -1,0 +1,33 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}{{ 'review.rename.page.title'|trans }} — {{ 'app.name'|trans }}{% endblock %}
+
+{% block body %}
+{% set backPath = path('app_project_documents', {id: document.project.id}|merge(listParams)) %}
+<div class="lp-workspace">
+    <nav class="lp-crumbs">
+        <a href="{{ backPath }}" class="lp-crumbs__link">{{ document.project.name }}</a>
+        <span class="lp-crumbs__sep">/</span>
+        <a href="{{ backPath }}" class="lp-crumbs__link">{{ 'nav.link.documents'|trans }}</a>
+        <span class="lp-crumbs__sep">/</span>
+        <span class="lp-crumbs__here">{{ 'review.rename.page.title'|trans }}</span>
+    </nav>
+
+    <h1 class="lp-workspace-title">{{ 'review.rename.page.title'|trans }}</h1>
+    <p class="lp-workspace-desc">{{ 'review.rename.description'|trans }}</p>
+
+    <div class="lp-card max-w-lg">
+        {{ form_start(form, {'attr': {'class': 'lp-form'}}) }}
+            <div class="lp-form-field">
+                {{ form_label(form.title, null, {'label_attr': {'class': 'lp-label'}}) }}
+                {{ form_widget(form.title, {'attr': {'class': 'lp-input'}}) }}
+                <div class="lp-field-errors">{{ form_errors(form.title) }}</div>
+            </div>
+            <div class="flex items-center justify-end gap-3 pt-2">
+                <a href="{{ backPath }}" class="lp-btn lp-btn--ghost mr-auto">{{ 'review.rename.cancel'|trans }}</a>
+                <button type="submit" class="lp-btn lp-btn--primary">{{ 'review.rename.submit'|trans }}</button>
+            </div>
+        {{ form_end(form) }}
+    </div>
+</div>
+{% endblock %}

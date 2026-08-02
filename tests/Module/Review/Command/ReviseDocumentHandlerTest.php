@@ -68,7 +68,7 @@ final class ReviseDocumentHandlerTest extends KernelTestCase
         // Revise with new markdown that keeps "JWTs" but removes "rate limiting".
         /** @var ReviseDocumentHandler $reviseHandler */
         $reviseHandler = self::getContainer()->get(ReviseDocumentHandler::class);
-        $summary = $reviseHandler(new ReviseDocumentCommand($doc, 'use JWTs only'));
+        $summary = $reviseHandler(new ReviseDocumentCommand($doc, 'use JWTs only', 'Dropped rate limiting.'));
 
         self::assertSame(1, $summary['carried']);
         self::assertSame(1, $summary['orphaned']);
@@ -145,7 +145,7 @@ final class ReviseDocumentHandlerTest extends KernelTestCase
 
         /** @var ReviseDocumentHandler $reviseHandler */
         $reviseHandler = self::getContainer()->get(ReviseDocumentHandler::class);
-        $summary = $reviseHandler(new ReviseDocumentCommand($doc, 'use JWTs only'));
+        $summary = $reviseHandler(new ReviseDocumentCommand($doc, 'use JWTs only', 'Dropped rate limiting.'));
 
         self::assertSame(0, $summary['carried'], 'a resolved thread (root or reply) must carry nothing forward');
         self::assertSame(0, $summary['orphaned']);
@@ -190,8 +190,8 @@ final class ReviseDocumentHandlerTest extends KernelTestCase
 
         /** @var ReviseDocumentHandler $reviseHandler */
         $reviseHandler = self::getContainer()->get(ReviseDocumentHandler::class);
-        $reviseHandler(new ReviseDocumentCommand($doc, 'v2 content'));
-        $reviseHandler(new ReviseDocumentCommand($doc, 'v3 content'));
+        $reviseHandler(new ReviseDocumentCommand($doc, 'v2 content', 'Second pass.'));
+        $reviseHandler(new ReviseDocumentCommand($doc, 'v3 content', 'Third pass.'));
 
         $em->clear();
         $freshDoc = $em->find(Document::class, $docId);
@@ -203,5 +203,77 @@ final class ReviseDocumentHandlerTest extends KernelTestCase
         );
 
         self::assertSame([1, 2, 3], $versionNumbers);
+    }
+
+    public function test_revise_stores_the_description_on_the_new_version_only(): void
+    {
+        self::bootKernel();
+        $em = self::getContainer()->get(EntityManagerInterface::class);
+
+        $user = new User(username: 'agent4', fullName: 'Agent', email: 'agent4@example.com', password: 'hashed');
+        $em->persist($user);
+        $project = new Project($user, 'p-'.uniqid());
+        $em->persist($project);
+        $em->flush();
+
+        /** @var CreateDocumentHandler $createHandler */
+        $createHandler = self::getContainer()->get(CreateDocumentHandler::class);
+        $doc = $createHandler(new CreateDocumentCommand($project, 'Described Doc', 'v1 content', 'The original brief.'));
+
+        $docId = $doc->id;
+        self::assertInstanceOf(Uuid::class, $docId);
+
+        /** @var ReviseDocumentHandler $reviseHandler */
+        $reviseHandler = self::getContainer()->get(ReviseDocumentHandler::class);
+        $reviseHandler(new ReviseDocumentCommand($doc, 'v2 content', 'Replaced the rollout section with a phased plan.'));
+
+        $em->clear();
+        $freshDoc = $em->find(Document::class, $docId);
+        self::assertInstanceOf(Document::class, $freshDoc);
+
+        $descriptions = array_map(
+            static fn (DocumentVersion $version): ?string => $version->description,
+            $freshDoc->versions->toArray(),
+        );
+
+        self::assertSame(
+            ['The original brief.', 'Replaced the rollout section with a phased plan.'],
+            $descriptions,
+        );
+    }
+
+    public function test_revise_updates_the_title_when_one_is_given_and_keeps_it_otherwise(): void
+    {
+        self::bootKernel();
+        $em = self::getContainer()->get(EntityManagerInterface::class);
+
+        $user = new User(username: 'agent5', fullName: 'Agent', email: 'agent5@example.com', password: 'hashed');
+        $em->persist($user);
+        $project = new Project($user, 'p-'.uniqid());
+        $em->persist($project);
+        $em->flush();
+
+        /** @var CreateDocumentHandler $createHandler */
+        $createHandler = self::getContainer()->get(CreateDocumentHandler::class);
+        $doc = $createHandler(new CreateDocumentCommand($project, 'Eight features', 'v1 content'));
+
+        $docId = $doc->id;
+        self::assertInstanceOf(Uuid::class, $docId);
+
+        /** @var ReviseDocumentHandler $reviseHandler */
+        $reviseHandler = self::getContainer()->get(ReviseDocumentHandler::class);
+        $reviseHandler(new ReviseDocumentCommand($doc, 'v2 content', 'Added a ninth feature.', 'Nine features'));
+
+        $em->clear();
+        $renamed = $em->find(Document::class, $docId);
+        self::assertInstanceOf(Document::class, $renamed);
+        self::assertSame('Nine features', $renamed->title);
+
+        $reviseHandler(new ReviseDocumentCommand($renamed, 'v3 content', 'Tightened the wording.'));
+
+        $em->clear();
+        $unchanged = $em->find(Document::class, $docId);
+        self::assertInstanceOf(Document::class, $unchanged);
+        self::assertSame('Nine features', $unchanged->title);
     }
 }

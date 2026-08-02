@@ -63,10 +63,70 @@ final class DocumentReviseToolTest extends KernelTestCase
 
         $this->actAsMcpTokenBoundTo($document->project);
 
-        $summary = ($this->tool)((string) $document->id, '# Revised');
+        $summary = ($this->tool)((string) $document->id, '# Revised', 'Rewrote the body.');
 
         self::assertSame(['carried' => 0, 'orphaned' => 0], $summary);
         self::assertSame('# Revised', $document->currentVersion()->markdownSource);
+    }
+
+    public function test_a_title_passed_alongside_the_markdown_corrects_the_document(): void
+    {
+        $owner = $this->user('revise-title@example.com');
+        $document = $this->documentInNewProject($owner, 'Eight features — design spec');
+
+        $this->actAsMcpTokenBoundTo($document->project);
+
+        ($this->tool)((string) $document->id, '# Nine', 'Added a ninth feature.', 'Nine features — design spec');
+
+        self::assertSame('Nine features — design spec', $document->title);
+    }
+
+    public function test_omitting_the_title_leaves_it_alone(): void
+    {
+        $owner = $this->user('revise-no-title@example.com');
+        $document = $this->documentInNewProject($owner, 'Keep this title');
+
+        $this->actAsMcpTokenBoundTo($document->project);
+
+        ($this->tool)((string) $document->id, '# Revised', 'Tightened the wording.');
+
+        self::assertSame('Keep this title', $document->title);
+    }
+
+    public function test_the_description_is_stored_on_the_new_version(): void
+    {
+        $owner = $this->user('revise-description@example.com');
+        $document = $this->documentInNewProject($owner, 'Described');
+
+        $this->actAsMcpTokenBoundTo($document->project);
+
+        ($this->tool)((string) $document->id, '# Revised', '  Replaced the rollout section.  ');
+
+        self::assertSame('Replaced the rollout section.', $document->currentVersion()->description);
+    }
+
+    public function test_a_blank_description_keeps_its_own_message(): void
+    {
+        $owner = $this->user('revise-blank-desc@example.com');
+        $document = $this->documentInNewProject($owner, 'Undescribed');
+
+        $this->actAsMcpTokenBoundTo($document->project);
+
+        $this->expectException(ToolCallException::class);
+        $this->expectExceptionMessage('A description of what changed in this version is required.');
+        ($this->tool)((string) $document->id, '# Revised', '   ');
+    }
+
+    public function test_a_blank_title_keeps_its_own_message(): void
+    {
+        $owner = $this->user('revise-blank-title@example.com');
+        $document = $this->documentInNewProject($owner, 'Keep this title');
+
+        $this->actAsMcpTokenBoundTo($document->project);
+
+        $this->expectException(ToolCallException::class);
+        $this->expectExceptionMessage('A title must not be blank and must be at most 255 characters.');
+        ($this->tool)((string) $document->id, '# Revised', 'Tightened the wording.', '   ');
     }
 
     public function test_cannot_revise_a_document_of_another_project_of_the_same_owner(): void
@@ -81,7 +141,7 @@ final class DocumentReviseToolTest extends KernelTestCase
         $this->actAsMcpTokenBoundTo($projectB);
 
         try {
-            ($this->tool)((string) $documentInProjectA->id, '# Hijacked');
+            ($this->tool)((string) $documentInProjectA->id, '# Hijacked', 'Nope.');
             self::fail('revising another project\'s document must throw');
         } catch (ToolCallException $e) {
             self::assertStringContainsString('not found or not accessible', $e->getMessage());
@@ -103,7 +163,7 @@ final class DocumentReviseToolTest extends KernelTestCase
         $this->actAsMcpTokenBoundTo($attackerProject);
 
         try {
-            ($this->tool)((string) $document->id, '# Hijacked');
+            ($this->tool)((string) $document->id, '# Hijacked', 'Nope.');
             self::fail('revising another user\'s document must throw');
         } catch (ToolCallException $e) {
             self::assertStringContainsString('not found or not accessible', $e->getMessage());
@@ -124,7 +184,7 @@ final class DocumentReviseToolTest extends KernelTestCase
         // rewritten into the catch-all's generic one.
         $this->expectException(ToolCallException::class);
         $this->expectExceptionMessage('The markdown content exceeds the maximum allowed size.');
-        ($this->tool)((string) $document->id, str_repeat('a', DocumentCreateTool::MAX_MARKDOWN_BYTES + 1));
+        ($this->tool)((string) $document->id, str_repeat('a', DocumentCreateTool::MAX_MARKDOWN_BYTES + 1), 'Too big.');
     }
 
     public function test_a_malformed_document_id_keeps_its_own_message(): void
@@ -137,7 +197,7 @@ final class DocumentReviseToolTest extends KernelTestCase
         // Raised during resolution, which is now inside the try.
         $this->expectException(ToolCallException::class);
         $this->expectExceptionMessage('"not-a-uuid" is not a valid document ID.');
-        ($this->tool)('not-a-uuid', '# Fine');
+        ($this->tool)('not-a-uuid', '# Fine', 'Fine.');
     }
 
     public function test_unbound_mcp_token_is_rejected(): void
@@ -149,6 +209,6 @@ final class DocumentReviseToolTest extends KernelTestCase
 
         $this->expectException(ToolCallException::class);
         $this->expectExceptionMessage('MCP token is not bound to a project. Mint a project token from the Connect page.');
-        ($this->tool)((string) $document->id, '# Nope');
+        ($this->tool)((string) $document->id, '# Nope', 'Nope.');
     }
 }

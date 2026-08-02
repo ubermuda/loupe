@@ -6,6 +6,7 @@ namespace App\Module\Review\Mcp;
 
 use App\Module\Review\Command\ReviseDocumentCommand;
 use App\Module\Review\Command\ReviseDocumentHandler;
+use App\Module\Review\Entity\Document;
 use App\Module\Review\Security\McpBoundProjectVoter;
 use Mcp\Capability\Attribute\McpTool;
 use Mcp\Exception\ToolCallException;
@@ -14,7 +15,7 @@ use Mcp\Exception\ToolCallException;
  * Submit a revised Markdown document. Unresolved comments are carried forward by fuzzy re-anchoring;
  * comments whose quoted text no longer appears are flagged orphaned. Returns the re-anchoring summary.
  */
-#[McpTool(name: 'document_revise', description: 'Submit a new Markdown version of a document. Open comments are re-anchored onto the new version; those whose quoted text no longer appears are flagged orphaned.')]
+#[McpTool(name: 'document_revise', description: 'Submit a new Markdown version of a document, described by what changed in it. Open comments are re-anchored onto the new version; those whose quoted text no longer appears are flagged orphaned. Pass title to correct the document title at the same time.')]
 final readonly class DocumentReviseTool
 {
     public function __construct(
@@ -24,12 +25,14 @@ final readonly class DocumentReviseTool
     }
 
     /**
-     * @param string $documentId The UUID of the document to revise
-     * @param string $markdown   The new Markdown content for the document
+     * @param string      $documentId  The UUID of the document to revise
+     * @param string      $markdown    The new Markdown content for the document
+     * @param string      $description What changed in this version and why, in one or two sentences, for a reviewer who read the previous one — name what you rewrote, added or dropped, not that you revised it
+     * @param string|null $title       A corrected title for the document; omit to keep the current one
      *
      * @return array{carried: int, orphaned: int}
      */
-    public function __invoke(string $documentId, string $markdown): array
+    public function __invoke(string $documentId, string $markdown, string $description, ?string $title = null): array
     {
         try {
             $document = $this->subjects->requireDocument($documentId, McpBoundProjectVoter::DOCUMENT_WRITE);
@@ -38,7 +41,19 @@ final readonly class DocumentReviseTool
                 throw new ToolCallException('The markdown content exceeds the maximum allowed size.');
             }
 
-            return ($this->handler)(new ReviseDocumentCommand($document, $markdown));
+            if ('' === trim($description)) {
+                throw new ToolCallException('A description of what changed in this version is required.');
+            }
+
+            if (null !== $title) {
+                $title = trim($title);
+
+                if ('' === $title || mb_strlen($title) > Document::MAX_TITLE_LENGTH) {
+                    throw new ToolCallException(\sprintf('A title must not be blank and must be at most %d characters.', Document::MAX_TITLE_LENGTH));
+                }
+            }
+
+            return ($this->handler)(new ReviseDocumentCommand($document, $markdown, trim($description), $title));
         } catch (ToolCallException $e) {
             throw $e;
         } catch (\Throwable $e) {

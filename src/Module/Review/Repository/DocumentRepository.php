@@ -28,8 +28,13 @@ class DocumentRepository extends ServiceEntityRepository
         return $this->findBy(['project' => $project], ['createdAt' => 'DESC']);
     }
 
-    /** @return Paginator<Document> */
-    public function findPaginatedByProject(Project $project, int $page, int $perPage): Paginator
+    /**
+     * Archived documents are excluded unless asked for: they stay reachable at
+     * their own URL, but a list is the one place they are meant to leave.
+     *
+     * @return Paginator<Document>
+     */
+    public function findPaginatedByProject(Project $project, int $page, int $perPage, bool $includeArchived = false): Paginator
     {
         $qb = $this->createQueryBuilder('d')
             ->andWhere('d.project = :project')
@@ -40,6 +45,10 @@ class DocumentRepository extends ServiceEntityRepository
             ->addOrderBy('d.id', 'DESC')
             ->setFirstResult(($page - 1) * $perPage)
             ->setMaxResults($perPage);
+
+        if (!$includeArchived) {
+            $qb->andWhere('d.archivedAt IS NULL');
+        }
 
         return new Paginator($qb->getQuery());
     }

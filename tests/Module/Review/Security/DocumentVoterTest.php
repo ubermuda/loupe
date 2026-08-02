@@ -63,6 +63,29 @@ final class DocumentVoterTest extends TestCase
         self::assertSame(VoterInterface::ACCESS_DENIED, $result);
     }
 
+    public function test_owner_is_granted_document_manage(): void
+    {
+        $owner = $this->makeUser('alice');
+        $document = new Document(owner: $owner, project: new Project($owner, 'p'), title: 'My doc');
+        $token = $this->makeToken($owner);
+
+        $result = $this->voter->vote($token, $document, [DocumentVoter::MANAGE]);
+
+        self::assertSame(VoterInterface::ACCESS_GRANTED, $result);
+    }
+
+    public function test_non_owner_is_denied_document_manage(): void
+    {
+        $owner = $this->makeUser('alice');
+        $other = $this->makeUser('eve');
+        $document = new Document(owner: $owner, project: new Project($owner, 'p'), title: 'Alice doc');
+        $token = $this->makeToken($other);
+
+        $result = $this->voter->vote($token, $document, [DocumentVoter::MANAGE]);
+
+        self::assertSame(VoterInterface::ACCESS_DENIED, $result);
+    }
+
     public function test_unsupported_attribute_abstains(): void
     {
         $owner = $this->makeUser('alice');

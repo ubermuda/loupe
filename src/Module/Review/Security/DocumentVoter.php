@@ -10,14 +10,18 @@ use Symfony\Component\Security\Core\Authorization\Voter\Vote;
 use Symfony\Component\Security\Core\Authorization\Voter\Voter;
 
 /**
- * @extends Voter<'document.view', Document>
+ * @extends Voter<'document.view'|'document.manage', Document>
  */
 final class DocumentVoter extends Voter
 {
     public const string VIEW = 'document.view';
 
+    /** Every write on a document — renaming it, archiving it, restoring it. */
+    public const string MANAGE = 'document.manage';
+
     private const array SUPPORTED_ATTRIBUTES = [
         self::VIEW,
+        self::MANAGE,
     ];
 
     #[\Override]

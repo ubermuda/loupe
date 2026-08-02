@@ -208,4 +208,34 @@ final class DocumentListToolTest extends KernelTestCase
         $result = ($this->tool)(perPage: 0);
         self::assertSame(1, $result['perPage']);
     }
+
+    public function test_archived_documents_are_omitted_unless_asked_for(): void
+    {
+        $owner = $this->user('list-archived@example.com');
+        $project = $this->project($owner);
+
+        $live = new Document(owner: $owner, project: $project, title: 'Still open');
+        $live->addVersion('# L', '<h1>L</h1>');
+        $this->em->persist($live);
+
+        $archived = new Document(owner: $owner, project: $project, title: 'Put away');
+        $archived->addVersion('# A', '<h1>A</h1>');
+        $archived->archivedAt = new \DateTimeImmutable();
+        $this->em->persist($archived);
+        $this->em->flush();
+
+        $this->actAsMcpTokenBoundTo($project);
+
+        $default = ($this->tool)();
+        self::assertSame([(string) $live->id], array_column($default['documents'], 'documentId'));
+        self::assertSame(1, $default['total']);
+        self::assertFalse($default['documents'][0]['archived']);
+
+        $withArchived = ($this->tool)(includeArchived: true);
+        self::assertSame(2, $withArchived['total']);
+
+        $byId = array_column($withArchived['documents'], 'archived', 'documentId');
+        self::assertTrue($byId[(string) $archived->id]);
+        self::assertFalse($byId[(string) $live->id]);
+    }
 }

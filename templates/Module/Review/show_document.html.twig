@@ -56,10 +56,14 @@
                 {# The way back to a discussion that a revision left behind: comments
                    resolved on an earlier version stay on that version, so without this
                    the whole thread is unreachable once the document is revised. The
-                   newest version links to the canonical unnumbered URL. #}
-                {% if versions|length > 1 %}
+                   newest version links to the canonical unnumbered URL.
+
+                   Rendered even for a single-version document, because each entry
+                   also carries that version's description — the account of what it
+                   changed, which nothing else on the page shows. #}
                 <nav class="lp-version-switcher" aria-label="{{ 'review.document.version.switcher_label'|trans }}">
                     {% for meta in versions %}
+                    <div class="lp-version-entry">
                         {% if meta.versionNumber == version.versionNumber %}
                             <span class="lp-version-pill" aria-current="page">{{ 'v' ~ meta.versionNumber }}</span>
                         {% else %}
@@ -69,9 +73,12 @@
                                    : path('app_document_review_version', {projectId: document.project.id, documentId: document.id, versionNumber: meta.versionNumber}) }}"
                             >{{ 'v' ~ meta.versionNumber }}</a>
                         {% endif %}
+                        {% if meta.description %}
+                        <p class="lp-version-entry__description">{{ meta.description }}</p>
+                        {% endif %}
+                    </div>
                     {% endfor %}
                 </nav>
-                {% endif %}
             </div>
 
             <div class="prose max-w-2xl lp-prose lp-review-doc__prose" data-comment-anchor-target="doc">{{ version.renderedHtml|raw }}</div>

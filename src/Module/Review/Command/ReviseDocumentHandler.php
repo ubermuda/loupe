@@ -43,7 +43,14 @@ final readonly class ReviseDocumentHandler
             $newVersion = $document->addVersion(
                 $command->markdown,
                 $this->renderer->render($command->markdown),
+                $command->description,
             );
+
+            // A revision may also correct the title; leaving it out means "keep
+            // the current one" rather than "clear it".
+            if (null !== $command->title) {
+                $document->title = $command->title;
+            }
 
             // Collect all open (unresolved) comments from the previous version. Orphaned-but-
             // unresolved comments are intentionally included so they are re-evaluated against the

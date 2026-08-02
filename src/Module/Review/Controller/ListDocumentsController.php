@@ -12,6 +12,7 @@ use App\Module\Review\Repository\CommentRepository;
 use App\Module\Review\Repository\DocumentRepository;
 use App\Module\Review\Repository\DocumentVersionRepository;
 use App\Module\Review\View\DocumentListItem;
+use App\Module\Review\View\DocumentListQuery;
 use App\Utils\PageList;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\HttpFoundation\Request;
@@ -39,9 +40,10 @@ class ListDocumentsController extends AppController
 
     public function __invoke(Project $project, Request $request): Response
     {
-        $page = max(1, $request->query->getInt('page', 1));
+        $listQuery = DocumentListQuery::fromQuery($request->query);
+        $page = $listQuery->page;
 
-        $paginator = $this->documents->findPaginatedByProject($project, $page, self::PER_PAGE);
+        $paginator = $this->documents->findPaginatedByProject($project, $page, self::PER_PAGE, $listQuery->includeArchived);
         $total = count($paginator);
 
         $clampedPage = PageList::clampedPage($page, $total, self::PER_PAGE);
@@ -52,7 +54,10 @@ class ListDocumentsController extends AppController
                 'clampedPage' => $clampedPage,
             ]);
 
-            return $this->redirectToRoute('app_project_documents', ['id' => (string) $project->id, 'page' => $clampedPage]);
+            return $this->redirectToRoute('app_project_documents', [
+                'id' => (string) $project->id,
+                ...$listQuery->withPage($clampedPage)->routeParams(),
+            ]);
         }
 
         $totalPages = max(1, (int) ceil($total / self::PER_PAGE));
@@ -82,6 +87,8 @@ class ListDocumentsController extends AppController
             'page' => $page,
             'totalPages' => $totalPages,
             'pageList' => PageList::build($page, $totalPages),
+            'listQuery' => $listQuery,
+            'listParams' => $listQuery->routeParams(),
         ]);
     }
 }

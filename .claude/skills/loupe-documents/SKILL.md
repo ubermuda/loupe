@@ -80,6 +80,45 @@ for that reading context, not for a terminal or a README.
    reason to avoid revising, but keep the reviewer's quoted phrases intact
    where you can, and expect the orphan count in the tool's response.
 
+7. **Say what changed in the version description.** `document_revise` requires
+   a `description`, and `document_create` takes an optional one. It is shown
+   under that version in the review UI's version list, and it is what a
+   reviewer coming back to "v4" reads to decide whether they need to re-read
+   the document at all. Write it for that reader: name what you rewrote,
+   added or dropped, and why — in one or two plain sentences.
+
+   Useful, because a reviewer can act on it:
+
+   ```
+   Replaced the rollout section with a phased plan, and answered the two
+   questions on caching. Section 3 is unchanged.
+   ```
+
+   Useless, because it restates the mechanism the version already proves:
+
+   ```
+   Updated the document. · Revision 4. · Addressed review comments.
+   ```
+
+   Three habits that make the difference. Name the sections or entries you
+   touched, so a reviewer can skip straight to them. Say explicitly when
+   something they commented on did **not** change and why, since silence
+   reads as an oversight. And do not restate the title, the date or the
+   version number — Loupe records all three itself.
+
+   On `document_create` the description answers a different question: what
+   this document is and what it exists to settle. One sentence is usually
+   enough ("Design spec for the site-review widget, deciding the auth model").
+
+8. **Renaming is `document_rename`, not a revision.** Correcting a title —
+   fixing a typo, making a batch of related documents consistent — goes
+   through `document_rename`, which changes the title and nothing else. Do not
+   resubmit unchanged markdown through `document_revise` to carry a new title:
+   that mints a version whose description can only say "renamed", and every
+   version after it is one more entry a reviewer has to skip. `document_revise`
+   takes a `title` only for the case where the content and the title change
+   together.
+
 ## Example
 
 Entry shape — lead sentence first, detail after:

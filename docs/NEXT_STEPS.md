@@ -227,24 +227,25 @@ submits to the server, so making search real needs backend work: a query param o
 the documents controller and a repository filter (title contains, status equals,
 tag in). Tag filtering further depends on the not-yet-built tag entity.
 
-There is **no existing header to wire this into**. An earlier version of this
-entry said to extend the one on `.bp-doc-list`; that prefix was renamed to `lp-`,
-and `.lp-doc-list` is dead CSS with no template consumers. The live list is
-`.lp-document-list` in `templates/Module/Review/list_documents.html.twig`, and it
-has no toolbar or filter region at all — this work creates one.
+The filter bar now exists: `.lp-list-filters` in
+`templates/Module/Review/list_documents.html.twig`, sitting outside the
+`{% if items|length > 0 %}` block, carrying the archived filter. Add search and
+status/tag filters to it rather than building a second one.
 
 Three things that will bite whoever picks it up:
 
-- `ListDocumentsController` reads only the `page` query param, and its
-  out-of-range clamp redirect rebuilds the URL with `id` and `page` alone. Any
-  filter param not threaded through that `redirectToRoute` — and through
-  `routeParams` on the `Pagination` component — vanishes silently.
-- The filter bar must sit outside the `{% if items|length > 0 %}` block, or it
-  disappears as soon as a filter matches nothing and the screen becomes a dead
-  end. The empty-state copy (`review.dashboard.empty`, "No documents yet.") is
-  worded for "no documents at all" and will read wrong for "nothing matched".
+- Every filter param must be threaded through `App\Module\Review\View\DocumentListQuery`
+  — its `routeParams()` is what the clamp redirect, the `Pagination` component's
+  `routeParams`, the rename link and the archive actions all merge. A filter read
+  straight off the request and not added there vanishes from whichever of those
+  four forgets it.
+- The empty-state copy (`review.dashboard.empty`, "No documents yet.") is worded
+  for "no documents at all". The archived filter can only widen the list so it
+  never needs different copy, but a search or status filter can match nothing —
+  that needs a second key chosen by whether any filter is narrowing.
 - `findPaginatedByProject()` is shared by this controller and the MCP document
-  listing, so an added filter argument must be optional or both callers change.
+  listing, so an added filter argument must be optional or both callers change
+  (`$includeArchived` is the existing example).
 
 Note the list already issues one `countOpenByVersion()` query per row; adding
 per-row tag lookups without batching would compound an existing N+1.
@@ -402,34 +403,6 @@ this repo's `gamache.php` (rule classes must not be added directly here).
 
 Generalises past worktrees — every `project-*` skill cites recipes and paths,
 and all of them rot the same way.
-
-## MCP: `revise_document` cannot update the title
-
-
-
-**Author:** Geoffrey · **Type:** feature · **Priority:** medium · **Status:** pending
-
-Found while dogfooding the nine-features design review: the review scope grew
-from eight to nine features, but `revise_document` only accepts `markdown` —
-the title set at `create_document` time is frozen. The document is now titled
-"Eight features — design spec" while its content says nine. Add an optional
-`title` parameter to `revise_document` (and consider surfacing title history
-alongside version history).
-
-Hit again on 2026-08-01, submitting five blog drafts one document per draft:
-two were titled "Post 5 — …" / "Post 6 — …" and three were given bare titles,
-and there was no way to make the naming consistent afterwards. Worth noting
-what makes this worse than an annoyance — there is no delete route for a
-document either (`debug:router` lists only list, review, version, comment-add
-and submit), so a document created with the wrong title cannot be renamed *or*
-removed. The only recourse is creating a replacement and leaving the original
-in the project's list forever, which is why this is worth more than its
-"cosmetic" appearance.
-
-An agent submitting a batch of related documents is the case that exposes it,
-so the fix is worth scoping as "rename", not just "revise with a title":
-whatever the MCP gains, an agent needs to be able to correct a naming scheme
-across several already-created documents.
 
 ## ProjectDeleter misreports a stale entity when looped without clearing
 
@@ -1042,8 +1015,7 @@ posts, that both belong to one series, or that some are drafts and some are
 outlines. The only structure available was baking it into the titles by hand
 ("Post 5 — …", "Thread 5 — …"), which is a naming convention pretending to be
 a data model: nothing enforces it, nothing can filter on it, and it breaks the
-moment a title is wrong (and titles cannot be corrected — see "MCP:
-`revise_document` cannot update the title").
+moment a title is wrong.
 
 **Decision needed** — what the organizing primitive should be:
 
@@ -1123,9 +1095,8 @@ versioning would make the version list useless, so some form of draft state is
 probably needed. And who may edit: today authorship is implicit in whoever's
 agent token created the document, and there is no edit permission modelled.
 
-Doing this also closes "MCP: `revise_document` cannot update the title" from the
-UI side, though not for agents. Related: "Review UI: version diff view", which
-becomes considerably more useful once humans are producing versions too.
+Related: "Review UI: version diff view", which becomes considerably more useful
+once humans are producing versions too.
 
 ## Review comments should be able to express an edit, not just describe one
 
@@ -1228,9 +1199,7 @@ merge-conflict surface when several branches are in flight, and rewriting 25
 lines across it would have collided with every sibling. The fix is a docs-only
 commit straight to `main` once the current wave has merged.
 
-One of the stale names is a heading — `## MCP: \`revise_document\` cannot update
-the title` — and two other entries cross-reference it by that exact title, so
-retitling it means updating those references in the same pass.
+No stale name is a heading any more, so this is a body-text pass only.
 
 ## Review anchoring — possible enhancement (low priority)
 

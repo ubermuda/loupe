@@ -847,6 +847,72 @@
                 <source>review.dashboard.meta.open_threads</source>
                 <target>{0}0 open threads|{1}1 open thread|]1,Inf[%count% open threads</target>
             </trans-unit>
+            <trans-unit id="review.dashboard.filter.archived">
+                <source>review.dashboard.filter.archived</source>
+                <target>Show archived</target>
+            </trans-unit>
+            <trans-unit id="review.dashboard.archived_tag">
+                <source>review.dashboard.archived_tag</source>
+                <target>Archived</target>
+            </trans-unit>
+            <trans-unit id="review.dashboard.rename">
+                <source>review.dashboard.rename</source>
+                <target>Rename %title%</target>
+            </trans-unit>
+            <trans-unit id="review.dashboard.archive">
+                <source>review.dashboard.archive</source>
+                <target>Archive %title%</target>
+            </trans-unit>
+            <trans-unit id="review.dashboard.unarchive">
+                <source>review.dashboard.unarchive</source>
+                <target>Restore %title%</target>
+            </trans-unit>
+
+            <!-- Rename a document -->
+            <trans-unit id="review.rename.page.title">
+                <source>review.rename.page.title</source>
+                <target>Rename document</target>
+            </trans-unit>
+            <trans-unit id="review.rename.description">
+                <source>review.rename.description</source>
+                <target>Change the title only. The document keeps its versions, comments and review history.</target>
+            </trans-unit>
+            <trans-unit id="review.rename.submit">
+                <source>review.rename.submit</source>
+                <target>Save title</target>
+            </trans-unit>
+            <trans-unit id="review.rename.cancel">
+                <source>review.rename.cancel</source>
+                <target>Cancel</target>
+            </trans-unit>
+            <trans-unit id="review.rename.flash.success">
+                <source>review.rename.flash.success</source>
+                <target>Renamed to “%title%”.</target>
+            </trans-unit>
+            <trans-unit id="review.rename.error.blank">
+                <source>review.rename.error.blank</source>
+                <target>A document needs a title.</target>
+            </trans-unit>
+            <trans-unit id="review.rename.error.too_long">
+                <source>review.rename.error.too_long</source>
+                <target>That title is too long.</target>
+            </trans-unit>
+            <trans-unit id="review.form.rename_document_form.title.label">
+                <source>review.form.rename_document_form.title.label</source>
+                <target>Title</target>
+            </trans-unit>
+            <trans-unit id="review.form.rename_document_form.title.placeholder">
+                <source>review.form.rename_document_form.title.placeholder</source>
+                <target>Auth design spec</target>
+            </trans-unit>
+            <trans-unit id="review.archive.flash.archived">
+                <source>review.archive.flash.archived</source>
+                <target>“%title%” was archived.</target>
+            </trans-unit>
+            <trans-unit id="review.archive.flash.unarchived">
+                <source>review.archive.flash.unarchived</source>
+                <target>“%title%” is back in the list.</target>
+            </trans-unit>
 
             <!-- Document review page -->
             <trans-unit id="review.document.page.title">

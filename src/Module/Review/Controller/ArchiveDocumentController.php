@@ -1,0 +1,49 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Module\Review\Controller;
+
+use App\Controller\AppController;
+use App\Module\Review\Command\ArchiveDocumentCommand;
+use App\Module\Review\Command\ArchiveDocumentHandler;
+use App\Module\Review\Entity\Document;
+use App\Module\Review\Security\DocumentVoter;
+use App\Module\Review\View\DocumentListQuery;
+use Symfony\Bridge\Doctrine\Attribute\MapEntity;
+use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\Routing\Attribute\Route;
+use Symfony\Component\Security\Http\Attribute\IsGranted;
+use Symfony\Contracts\Translation\TranslatorInterface;
+use Ubermuda\SymfonyExtra\Csrf\Attribute\CsrfToken;
+
+#[CsrfToken('document-archive')]
+#[IsGranted(DocumentVoter::MANAGE, subject: 'document')]
+#[Route(
+    '/projects/{projectId}/documents/{documentId}/archive',
+    name: 'app_document_archive',
+    methods: ['POST'],
+)]
+final class ArchiveDocumentController extends AppController
+{
+    public function __construct(
+        private readonly ArchiveDocumentHandler $archiveDocument,
+        private readonly TranslatorInterface $translator,
+    ) {
+    }
+
+    public function __invoke(
+        Request $request,
+        #[MapEntity(expr: 'repository.findOneByIdAndProjectId(documentId, projectId)')] Document $document,
+    ): Response {
+        ($this->archiveDocument)(new ArchiveDocumentCommand($document));
+
+        $this->addFlash('success', $this->translator->trans('review.archive.flash.archived', ['%title%' => $document->title]));
+
+        return $this->redirectToRoute('app_project_documents', [
+            'id' => (string) $document->project->id,
+            ...DocumentListQuery::fromQuery($request->query)->routeParams(),
+        ]);
+    }
+}
