@@ -2056,6 +2056,65 @@ green for "no errors" would reintroduce exactly the false reassurance the
 check was written to avoid. Related: "Worker heartbeat, so 'is a worker
 running?' can be answered positively".
 
+## MCP: an agent cannot highlight a passage in a document
+
+**Author:** Geoffrey · **Type:** feature · **Priority:** medium · **Status:** pending
+
+Anchoring is one-directional. A human reviewer selects text in the review UI and
+their comment carries the quote, so `get_review` hands the agent an exact
+passage to act on. The agent has no equivalent: `create_document` and
+`revise_document` take whole-document Markdown and nothing else, so an agent
+that wants to point at one sentence can only describe where it is ("line 15",
+"the third paragraph"). The reader then has to find it by hand, and the
+reference goes stale as soon as the document is revised.
+
+Surfaced on 2026-08-01 while revising a blog post through the MCP: reporting
+which sentences had been rewritten, and which were deliberately left alone,
+needed line numbers that mean nothing in the rendered review UI.
+
+Wanted: a way for the agent to attach a highlight to a quoted span — to flag a
+passage it is unsure about, mark what a revision changed, or point at the exact
+text behind a decision point. The anchoring machinery already exists for human
+comments. The open design question is whether an agent highlight is just an
+agent-authored anchored comment (in which case "MCP: no way to reply to
+document-review comments" wants solving first, since both need the agent to be
+able to write into a review) or a separate, lighter annotation with no thread.
+Related: "Review comments should be able to express an edit, not just describe
+one".
+
+## Binding one Loupe project to several Claude Code projects is manual repetition
+
+**Author:** Geoffrey · **Type:** feature · **Priority:** medium · **Status:** pending
+
+A Loupe project's MCP credential is an `ApiToken` bound to that project when it
+is minted, handed over as a copy-paste command by
+`templates/Module/Project/_connect_instructions.html.twig`. That command is
+`claude mcp add --transport http <name> <url> --header "Authorization: Bearer
+<token>"` with no `-s/--scope` flag, so it takes Claude Code's default `local`
+scope — a registration that applies to the directory it was run in and nowhere
+else. Using the same Loupe project from a second checkout, a docs repo, or any
+worktree therefore means running the command again in each, and nothing on
+either side knows the registrations are the same project.
+
+Worktrees make this routine rather than occasional: every
+`.claude/worktrees/<name>` is its own path, and `CLAUDE.md` already records
+`codex-cli` going missing from worktree sessions for exactly this reason.
+
+Nothing is broken; it is repetition with no propagation. Rotating or revoking
+the token means finding every copy by hand, and a stale copy surfaces as "can't
+connect" rather than as an obviously expired credential — see "Unbound legacy
+MCP tokens look like a connection failure to agents" for how that reads to an
+agent.
+
+Worth deciding the shape of the fix before building one. The cheap version is
+presentational: offer the `-s user` form (or both, labelled) in the connect
+instructions, since a user-scoped registration is visible from every directory
+and would make one Loupe project reachable everywhere in one step. The larger
+version is "OAuth for the MCP and site-review widget, with project selection at
+consent", which replaces the pasted token entirely — but that still authorizes
+per directory unless the resulting credential is stored user-wide, so the scope
+question outlives the token question and should be answered on its own.
+
 ## Product idea (long horizon): drag DOM elements in the widget to try layouts
 
 **Author:** Geoffrey · **Type:** idea · **Priority:** low · **Status:** pending
