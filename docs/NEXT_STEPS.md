@@ -2023,6 +2023,47 @@ Deliberately not built with the status page: it costs a table plus a migration
 for a check the owner had already accepted could be approximate. Revisit if
 "unknown" turns out to be the answer operators see most of the time.
 
+## Pick the analytics vendor — PostHog or Umami — before the CSP commits us further
+
+**Author:** Geoffrey · **Type:** idea · **Priority:** medium · **Status:** pending
+
+`config/packages/nelmio_security.yaml` already allows `https://cloud.umami.is`
+in both `script-src` (line 37) and `connect-src` (line 43), but **no analytics
+code exists anywhere** — a grep across `src/`, `templates/` and `assets/` for
+either vendor returns nothing. So the CSP pre-authorises a vendor that has not
+landed, and picking PostHog instead would leave those two entries pointing at
+the wrong origin.
+
+The self-hosting audit withdrew this as a finding on the grounds that Umami was
+coming shortly, and noted the part that still matters whichever vendor wins:
+**the origin should be env-driven rather than hardcoded**, so an operator who
+does not want third-party analytics can drop it. A self-hosted instance that
+silently phones a third party contradicts the "no phone-home of any kind"
+property the audit verified across every other subsystem, and that property is
+the single most valuable claim in the report.
+
+What to weigh:
+
+- **Both self-host**, which is what keeps that property intact — the question is
+  which is less work to run alongside Postgres and the Mercure hub, not which
+  cloud is cheaper.
+- **Scope.** Umami is page analytics. PostHog is analytics plus session replay,
+  feature flags and experiments — and this app already has its own feature-flag
+  system (`ubermuda/feature-flags-bundle`), so adopting PostHog raises the
+  question of whether two flag systems coexist or one absorbs the other. That is
+  a bigger decision than the analytics one and should be made deliberately
+  rather than inherited.
+- **Payload weight and CSP surface.** PostHog's client is substantially larger
+  and, with session replay on, records DOM content — which is a privacy posture
+  decision for an app whose users paste their own documents into it, not merely
+  a performance one.
+
+Whichever is chosen, the work is: make the origin a parameter, add the snippet
+behind a feature flag so it is off by default, and correct or remove the two
+`cloud.umami.is` CSP entries. If the answer turns out to be "neither for now",
+delete those entries — a CSP that allows an origin nothing uses is a standing
+invitation to assume something does.
+
 ## Decide whether health checks stay hand-rolled, move to a third-party package, or become our own
 
 **Author:** Geoffrey · **Type:** idea · **Priority:** medium · **Status:** pending
