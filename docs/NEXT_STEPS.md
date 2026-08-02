@@ -53,33 +53,44 @@ token scopes per resource, webhook subscription storage + signing (HMAC),
 delivery retries (the existing Messenger worker is the natural transport),
 and dogfooding the API from the CLI/widget.
 
-## Replace explicit document/site-review state with computed state
+## Surface what the comments say about a document, not just the review verdict
 
 **Author:** Geoffrey · **Type:** feature · **Priority:** high · **Status:** pending
 
-Owner decision (2026-07-27, via site review): documents and site reviews
-should not carry an explicit stored state at all. The only state the product
-exposes should be derived from the comments themselves — for a site review,
-things like "has drafts" / "has addressed comments"; for a document, "has
-addressed comments".
+Owner decision (2026-07-27, via site review): the state the product exposes
+should be derived from the comments themselves — for a site review, things like
+"has drafts" / "has addressed comments"; for a document, "has addressed
+comments". The four-step loop ribbon (Proposed → In review → Revise → Approved)
+and the `LoopStage` enum behind it were the visible half of that idea and are
+already gone.
 
-The four-step loop ribbon (Proposed → In review → Revise → Approved) and the
-`LoopStage` enum that fed it were the visible half of that system, and are
-already gone. What remains is the persisted half:
+**This entry used to also propose deleting `Document::$status`, and that half
+was dropped on 2026-08-02 because its premise was wrong.** `status` is not a
+comment-derived value that drifted — it is a denormalised copy of the latest
+`Review`'s verdict, mapped one-to-one by `SubmitReviewHandler`. Removing it
+would have been a refactor with no product content, and it is not happening; the
+column stays. Two conclusions that were drawn from the old framing and are also
+wrong, recorded so they are not re-derived: filtering the documents list by
+status is a plain `WHERE` and not a join, and document approval does not lose
+its write target, because approval writes a `Review`.
 
-- `App\Module\Review\Entity\DocumentStatus` and the `status` column on
-  `Document`, set by `SubmitReviewHandler` (from the review verdict) and reset
-  to `InReview` by `ReviseDocumentHandler`.
-- The status badge on the documents list (`@Review/list_documents.html.twig`)
-  and the `document.status.*` translation keys.
-- The `status` field in the MCP/export payloads — `GetDocumentTool`,
-  `ListDocumentsTool`, `GetReviewTool`, `GetReview`, `DocumentExporter`.
+What remains is the part that was the actual intent, and it does not exist in
+any form: **signals computed from the comments on a document.** "Has addressed
+comments" is the named example, and plausible neighbours are open-thread counts,
+orphaned counts, and whether every thread has been answered.
 
-Closing this means designing the computed predicates, migrating the column
-away, and deciding what the MCP contract exposes instead — agents currently
-read `status` to decide whether a document still needs work, so it needs a
-replacement, not just a deletion. `e2e/tests/review/review-loop.spec.ts`
-asserts the badge and will need rewriting alongside.
+The raw material only just arrived. Document comments had two booleans,
+`resolved` and `orphaned`, and no notion of *addressed* at all — that concept
+existed only on `SiteReviewComment`. The comment-status work replaces the
+boolean with a three-case status (pending, addressed, resolved) on the thread
+root, which is what makes "has addressed comments" answerable for a document.
+
+Worth settling when this is picked up: whether these signals are computed per
+request or denormalised (the documents list already issues one
+`countOpenByVersion()` per row, so a naive per-row derivation compounds an
+existing N+1 — `SiteReviewCommentRepository::submittedStatusCountsForProject()`
+is the in-repo precedent for a single grouped tally), where they surface
+alongside the existing status badge, and whether the MCP payload carries them.
 
 ## Automate the worktree lifecycle instead of driving it by hand
 
@@ -2289,6 +2300,36 @@ The fix is a read path that can return non-pending comments — either a status
 filter parameter on `get_site_review` or a companion tool. Note the document
 side does not have this problem: `GetReview` uses `findByVersion`, which returns
 every comment regardless of state.
+
+## Comment on a diff, not only on a document
+
+**Author:** Geoffrey · **Type:** feature · **Priority:** medium · **Status:** pending
+
+Owner note (2026-08-02): once the review UI can show a word-level diff between
+two document versions, a reviewer should be able to comment on the diff itself.
+Pointing at a change while looking at the change is the obvious thing to want,
+and today the only commentable surface is the current version's prose.
+
+The version-diff work deliberately does **not** ship this, and equally
+deliberately does not foreclose it. Two constraints were built in for that
+reason and should not be undone:
+
+- The diff renders **in place of** the document, so while it is on screen the
+  pane's `textContent` is not `DocumentVersion::plainText()`. Anchoring is
+  therefore inert in diff mode — no toolbar, no composer, no highlight painting
+  — reusing the same `readOnly` mechanism that already disables writes when
+  viewing an older version.
+- The diff renderer must emit segments tagged unchanged, inserted and deleted,
+  so that **either side's plain text can be reconstructed from the diff markup**:
+  unchanged plus inserted yields the new version, unchanged plus deleted the
+  old. That is what gives a comment made in diff mode a well-defined anchoring
+  basis to resolve against.
+
+The open design question, which did not need answering to keep the door open:
+whether a comment made while looking at a diff anchors to the new version, the
+old one, or records which side it was made on. Anchoring to the new version is
+the intuitive default — a reviewer commenting on a change is usually commenting
+on the result — but a comment on deleted text has no home there.
 
 ## Product idea (long horizon): drag DOM elements in the widget to try layouts
 
