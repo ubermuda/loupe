@@ -249,19 +249,6 @@ Three things that will bite whoever picks it up:
 Note the list already issues one `countOpenByVersion()` query per row; adding
 per-row tag lookups without batching would compound an existing N+1.
 
-## Anchor offset-unit mismatch (latent)
-
-
-
-**Author:** Claude · **Type:** bug · **Priority:** medium · **Status:** pending
-
-`AnchorService` now slices UTF-8-safely (`mb_strcut`), but offsets are still
-byte-based (`strpos`/`strlen`/`offsetHint`) while the frontend computes selection
-offsets in JS string units (UTF-16 code units). For documents with multibyte
-characters this can mis-place an anchor by a few positions even though it no
-longer crashes. If anchors drift on real content, reconcile the offset unit
-end-to-end (characters throughout, or bytes throughout).
-
 ## Site-review: harden Mercure publish against a hung hub (still open)
 
 
@@ -1232,7 +1219,7 @@ One of the stale names is a heading — `## MCP: \`revise_document\` cannot upda
 the title` — and two other entries cross-reference it by that exact title, so
 retitling it means updating those references in the same pass.
 
-## Review anchoring — possible enhancement (low priority)
+## Review anchoring — structural fallback anchor (low priority)
 
 
 
@@ -1248,11 +1235,6 @@ a secondary **structural anchor** (e.g. nearest heading path + relative offset)
 alongside the existing quote/prefix/suffix text anchor, and fall back to it when
 the text match fails. Would let a comment survive a rewrite of its surrounding
 prose by re-attaching to the same section. Not worth doing pre-emptively.
-
-Minor/cosmetic: the `quote` returned by `get_review` uses arbitrary character
-boundaries (mid-word, mid-sentence), which makes mapping a comment back to its
-section take some inference. Snapping quote boundaries to word/line edges would
-read more cleanly. Cosmetic only.
 
 ## Host PHPUnit can't reach Postgres through Traefik
 
@@ -2441,3 +2423,24 @@ Minor because the lookup is already narrowed to the token owner's own projects
 (`ProjectRepository::findOneByIdOrNameForOwner()`), so a caller can only probe
 names it is entitled to see. The fix is to collapse both branches onto a single
 message the way the document resolver does.
+
+## Anchor offsets still diverge from the browser above the BMP
+
+**Author:** Claude · **Type:** bug · **Priority:** low · **Status:** pending
+
+`AnchorService` counts codepoints (`mb_substr`/`mb_strpos`/`mb_strlen`) while
+`assets/controllers/comment_anchor_controller.js` counts UTF-16 code units. The
+two agree for every character in the Basic Multilingual Plane, so ordinary
+accented Latin, Greek, Cyrillic and CJK text is fine — but each emoji or other
+astral-plane character costs one unit on the server and two in the browser. The
+observable effect is limited: no offset crosses the wire, so this only shifts
+the 32-character context window and the 8-character fingerprint by a character
+or two, which at worst reranks two occurrences of a repeated quote differently
+on the two sides. A real fix means counting UTF-16 units on the PHP side (or
+normalising astral characters out of the basis). Not worth doing until a
+document with emoji actually mis-highlights.
+
+Close-out detail: that controller's `#findRange` docblock still describes
+`offsetHint` as "a PHP byte offset". Its conclusion (never walk `offsetHint`
+from JS) is still right, but the unit name is stale — correct it whenever the
+file is next touched.

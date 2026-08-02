@@ -57,9 +57,8 @@ class DocumentVersion
      *     gives textContent, NOT innerText — innerText collapses whitespace and
      *     would desync from this basis).
      *
-     * Known v1 limitation: AnchorService uses byte offsets (strlen/substr) while
-     * JavaScript string offsets are UTF-16 code units. These agree for ASCII content
-     * but diverge on multibyte text. Anchoring is reliable for ASCII in v1.
+     * Offsets and context windows are counted in characters on both sides, so
+     * they agree on multibyte text as well as ASCII.
      */
     public function plainText(): string
     {

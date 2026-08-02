@@ -109,6 +109,83 @@ final class GetReviewTest extends KernelTestCase
         self::assertFalse($replyData['orphaned']);
     }
 
+    public function test_quotes_are_widened_to_whole_words(): void
+    {
+        $doc = new Document(owner: $this->owner, project: $this->project, title: 'Snapping');
+        $version = $doc->addVersion(
+            'We authenticate every request.',
+            '<p>We authenticate every request.</p>',
+        );
+
+        // A selection that began and ended mid-word: "uthenticate ever".
+        $root = new Comment(
+            $version,
+            $this->owner,
+            'Which scheme?',
+            new Anchor('uthenticate ever', 'We a', 'y request.', 4),
+        );
+        $reply = new Comment(
+            $version,
+            $this->owner,
+            'OAuth.',
+            new Anchor('uthenticate ever', 'We a', 'y request.', 4),
+            parent: $root,
+        );
+
+        $this->em->persist($doc);
+        $this->em->persist($root);
+        $this->em->persist($reply);
+        $this->em->flush();
+
+        $result = ($this->getReview)($doc);
+
+        // Replies inherit the parent's anchor, so both entries must widen alike.
+        self::assertSame('authenticate every', $result['comments'][0]['quote']);
+        self::assertSame('authenticate every', $result['comments'][0]['thread'][0]['quote']);
+
+        // The stored anchor is untouched — widening is reporting only.
+        self::assertSame('uthenticate ever', $root->anchor->quote);
+    }
+
+    public function test_quotes_already_on_word_edges_are_left_alone(): void
+    {
+        $doc = new Document(owner: $this->owner, project: $this->project, title: 'No Snapping');
+        $version = $doc->addVersion(
+            "First line here\nSecond line here",
+            '<p>First line here<br>Second line here</p>',
+        );
+
+        // "here" ends the first line, so the following newline is already an edge:
+        // the second line's "Second" must not be dragged in.
+        $lineEnd = new Comment(
+            $version,
+            $this->owner,
+            'Ends a line.',
+            new Anchor('here', 'First line ', "\nSecond line here", 11),
+        );
+        // A whitespace-delimited selection stays exactly as captured.
+        $whole = new Comment(
+            $version,
+            $this->owner,
+            'Whole word.',
+            new Anchor(' line ', 'First', 'here', 5),
+        );
+        // An untargeted comment has no context to widen against.
+        $untargeted = new Comment($version, $this->owner, 'General note.', Anchor::unanchored());
+
+        $this->em->persist($doc);
+        $this->em->persist($lineEnd);
+        $this->em->persist($whole);
+        $this->em->persist($untargeted);
+        $this->em->flush();
+
+        $quotes = array_column(($this->getReview)($doc)['comments'], 'quote');
+
+        self::assertContains('here', $quotes);
+        self::assertContains(' line ', $quotes);
+        self::assertContains('', $quotes);
+    }
+
     public function test_verdict_is_null_when_no_review_submitted(): void
     {
         $doc = new Document(owner: $this->owner, project: $this->project, title: 'No Review Yet');
