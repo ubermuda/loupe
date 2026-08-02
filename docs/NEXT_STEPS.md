@@ -218,8 +218,29 @@ Deferred from the SaaS visual redesign (visual-only phase). The dashboard mockup
 envisioned a search box + status filter + tag filter, but `autosearch_controller`
 submits to the server, so making search real needs backend work: a query param on
 the documents controller and a repository filter (title contains, status equals,
-tag in). Tag filtering further depends on the not-yet-built tag entity. When tags
-land, wire search + status + tag filters into the existing `.bp-doc-list` header.
+tag in). Tag filtering further depends on the not-yet-built tag entity.
+
+There is **no existing header to wire this into**. An earlier version of this
+entry said to extend the one on `.bp-doc-list`; that prefix was renamed to `lp-`,
+and `.lp-doc-list` is dead CSS with no template consumers. The live list is
+`.lp-document-list` in `templates/Module/Review/list_documents.html.twig`, and it
+has no toolbar or filter region at all — this work creates one.
+
+Three things that will bite whoever picks it up:
+
+- `ListDocumentsController` reads only the `page` query param, and its
+  out-of-range clamp redirect rebuilds the URL with `id` and `page` alone. Any
+  filter param not threaded through that `redirectToRoute` — and through
+  `routeParams` on the `Pagination` component — vanishes silently.
+- The filter bar must sit outside the `{% if items|length > 0 %}` block, or it
+  disappears as soon as a filter matches nothing and the screen becomes a dead
+  end. The empty-state copy (`review.dashboard.empty`, "No documents yet.") is
+  worded for "no documents at all" and will read wrong for "nothing matched".
+- `findPaginatedByProject()` is shared by this controller and the MCP document
+  listing, so an added filter argument must be optional or both callers change.
+
+Note the list already issues one `countOpenByVersion()` query per row; adding
+per-row tag lookups without batching would compound an existing N+1.
 
 ## Make `revise_document` surface real errors instead of generic `-32603`
 
