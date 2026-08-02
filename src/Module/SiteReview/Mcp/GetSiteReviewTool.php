@@ -42,21 +42,25 @@ final readonly class GetSiteReviewTool
             }
         }
 
-        $pending = $this->siteReviewComments->findPendingForProject($project);
+        try {
+            $pending = $this->siteReviewComments->findPendingForProject($project);
 
-        return [
-            'site' => ['id' => (string) $project->id, 'name' => $project->name],
-            'comments' => array_values(array_map(
-                static fn (SiteReviewComment $c): array => [
-                    'id' => (string) $c->id,
-                    'url' => $c->url,
-                    'selector' => $c->selector,
-                    'text' => $c->text,
-                    'body' => $c->body,
-                    'createdAt' => $c->createdAt->format(\DateTimeInterface::ATOM),
-                ],
-                $pending,
-            )),
-        ];
+            return [
+                'site' => ['id' => (string) $project->id, 'name' => $project->name],
+                'comments' => array_values(array_map(
+                    static fn (SiteReviewComment $c): array => [
+                        'id' => (string) $c->id,
+                        'url' => $c->url,
+                        'selector' => $c->selector,
+                        'text' => $c->text,
+                        'body' => $c->body,
+                        'createdAt' => $c->createdAt->format(\DateTimeInterface::ATOM),
+                    ],
+                    $pending,
+                )),
+            ];
+        } catch (\Throwable $e) {
+            throw new ToolCallException('The site review could not be read. The error has been logged.', previous: $e);
+        }
     }
 }

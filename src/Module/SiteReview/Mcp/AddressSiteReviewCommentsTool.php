@@ -10,6 +10,7 @@ use App\Module\SiteReview\Entity\SiteReviewCommentStatus;
 use App\Module\SiteReview\Repository\SiteReviewCommentRepository;
 use Doctrine\ORM\EntityManagerInterface;
 use Mcp\Capability\Attribute\McpTool;
+use Mcp\Exception\ToolCallException;
 use Symfony\Component\Uid\Uuid;
 
 /**
@@ -39,33 +40,38 @@ final readonly class AddressSiteReviewCommentsTool
 
         $addressed = [];
         $skipped = [];
-        foreach ($commentIds as $id) {
-            try {
-                $uuid = Uuid::fromString($id);
-            } catch (\InvalidArgumentException) {
-                $skipped[] = ['id' => $id, 'reason' => 'invalid_id'];
-                continue;
+
+        try {
+            foreach ($commentIds as $id) {
+                try {
+                    $uuid = Uuid::fromString($id);
+                } catch (\InvalidArgumentException) {
+                    $skipped[] = ['id' => $id, 'reason' => 'invalid_id'];
+                    continue;
+                }
+
+                $comment = $this->siteReviewComments->findOneForProject($uuid, $project);
+                if (null === $comment) {
+                    $skipped[] = ['id' => $id, 'reason' => 'unknown'];
+                    continue;
+                }
+                if (SiteReviewCommentStatus::Pending !== $comment->status) {
+                    $skipped[] = ['id' => $id, 'reason' => match ($comment->status) {
+                        SiteReviewCommentStatus::Draft => 'not_submitted',
+                        SiteReviewCommentStatus::Addressed => 'already_addressed',
+                        default => 'resolved',
+                    }];
+                    continue;
+                }
+
+                $comment->status = SiteReviewCommentStatus::Addressed;
+                $addressed[] = $id;
             }
 
-            $comment = $this->siteReviewComments->findOneForProject($uuid, $project);
-            if (null === $comment) {
-                $skipped[] = ['id' => $id, 'reason' => 'unknown'];
-                continue;
-            }
-            if (SiteReviewCommentStatus::Pending !== $comment->status) {
-                $skipped[] = ['id' => $id, 'reason' => match ($comment->status) {
-                    SiteReviewCommentStatus::Draft => 'not_submitted',
-                    SiteReviewCommentStatus::Addressed => 'already_addressed',
-                    default => 'resolved',
-                }];
-                continue;
-            }
-
-            $comment->status = SiteReviewCommentStatus::Addressed;
-            $addressed[] = $id;
+            $this->em->flush();
+        } catch (\Throwable $e) {
+            throw new ToolCallException('The comments could not be marked as addressed. The error has been logged.', previous: $e);
         }
-
-        $this->em->flush();
 
         return ['addressed' => $addressed, 'skipped' => $skipped];
     }

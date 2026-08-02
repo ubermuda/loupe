@@ -133,9 +133,16 @@ final class ListDocumentsToolTest extends KernelTestCase
 
         $this->actAsMcpTokenBoundTo($project);
 
-        $this->expectException(ToolCallException::class);
-        $this->expectExceptionMessage('The document list could not be read. The error has been logged.');
-        ($this->tool)();
+        try {
+            ($this->tool)();
+            self::fail('a broken listing must be reported as a tool call failure');
+        } catch (ToolCallException $e) {
+            self::assertSame('The document list could not be read. The error has been logged.', $e->getMessage());
+            // The original must survive as `previous`: the MCP handler logs the
+            // ToolCallException with its chain, which is the only place the real
+            // cause is recoverable from.
+            self::assertInstanceOf(\LogicException::class, $e->getPrevious());
+        }
     }
 
     public function test_pages_through_the_projects_documents(): void
