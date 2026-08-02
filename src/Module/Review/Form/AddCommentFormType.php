@@ -23,16 +23,25 @@ class AddCommentFormType extends AbstractType
     #[\Override]
     public function buildForm(FormBuilderInterface $builder, array $options): void
     {
+        // trim => false on all three: the Form component trims by default, which for
+        // machine-captured context is data corruption, not sanitisation. AnchorService
+        // matches the last 8 characters of the prefix against the document, so losing
+        // the boundary space makes the fingerprint unmatchable for every selection that
+        // begins or ends at a word boundary — and the quote itself may legitimately
+        // start or end with whitespace the reviewer selected.
         $builder->add('quote', HiddenType::class, [
             'required' => false,
+            'trim' => false,
             'attr' => ['data-comment-anchor-target' => 'quote'],
         ]);
         $builder->add('prefix', HiddenType::class, [
             'required' => false,
+            'trim' => false,
             'attr' => ['data-comment-anchor-target' => 'prefix'],
         ]);
         $builder->add('suffix', HiddenType::class, [
             'required' => false,
+            'trim' => false,
             'attr' => ['data-comment-anchor-target' => 'suffix'],
         ]);
         $builder->add('body', TextareaType::class, [
