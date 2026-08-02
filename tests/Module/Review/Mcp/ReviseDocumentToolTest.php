@@ -119,11 +119,25 @@ final class ReviseDocumentToolTest extends KernelTestCase
 
         $this->actAsMcpTokenBoundTo($document->project);
 
-        // The catch-all around the handler must not swallow the specific
-        // failures raised before it.
+        // The try covers resolution and the size check as well as the handler,
+        // so without the ToolCallException re-throw guard this message would be
+        // rewritten into the catch-all's generic one.
         $this->expectException(ToolCallException::class);
         $this->expectExceptionMessage('The markdown content exceeds the maximum allowed size.');
         ($this->tool)((string) $document->id, str_repeat('a', CreateDocumentTool::MAX_MARKDOWN_BYTES + 1));
+    }
+
+    public function test_a_malformed_document_id_keeps_its_own_message(): void
+    {
+        $owner = $this->user('revise-malformed@example.com');
+        $document = $this->documentInNewProject($owner, 'Whatever');
+
+        $this->actAsMcpTokenBoundTo($document->project);
+
+        // Raised during resolution, which is now inside the try.
+        $this->expectException(ToolCallException::class);
+        $this->expectExceptionMessage('"not-a-uuid" is not a valid document ID.');
+        ($this->tool)('not-a-uuid', '# Fine');
     }
 
     public function test_unbound_mcp_token_is_rejected(): void

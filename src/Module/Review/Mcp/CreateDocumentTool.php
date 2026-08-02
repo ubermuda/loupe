@@ -38,24 +38,26 @@ final readonly class CreateDocumentTool
      */
     public function __invoke(string $title, string $markdown): array
     {
-        $project = $this->requireBoundProject($this->projectResolver);
-
-        if (\strlen($markdown) > self::MAX_MARKDOWN_BYTES) {
-            throw new ToolCallException('The markdown content exceeds the maximum allowed size.');
-        }
-
         try {
+            $project = $this->requireBoundProject($this->projectResolver);
+
+            if (\strlen($markdown) > self::MAX_MARKDOWN_BYTES) {
+                throw new ToolCallException('The markdown content exceeds the maximum allowed size.');
+            }
+
             $doc = ($this->createDocument)(new CreateDocumentCommand($project, $title, $markdown));
+
+            return [
+                'documentId' => (string) $doc->id,
+                'reviewUrl' => $this->urls->generate('app_document_review', [
+                    'projectId' => (string) $doc->project->id,
+                    'documentId' => (string) $doc->id,
+                ], UrlGeneratorInterface::ABSOLUTE_URL),
+            ];
+        } catch (ToolCallException $e) {
+            throw $e;
         } catch (\Throwable $e) {
             throw new ToolCallException('The document could not be created. The error has been logged.', previous: $e);
         }
-
-        return [
-            'documentId' => (string) $doc->id,
-            'reviewUrl' => $this->urls->generate('app_document_review', [
-                'projectId' => (string) $doc->project->id,
-                'documentId' => (string) $doc->id,
-            ], UrlGeneratorInterface::ABSOLUTE_URL),
-        ];
     }
 }

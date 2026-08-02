@@ -31,18 +31,18 @@ final readonly class GetSiteReviewTool
      */
     public function __invoke(?string $site = null): array
     {
-        $project = $this->requireBoundProject($this->projectResolver);
-
-        if (null !== $site) {
-            $resolved = $this->projects->findOneByIdOrNameForOwner($site, $project->owner)
-                ?? throw new ToolCallException(\sprintf('No site "%s" found.', $site));
-
-            if ($resolved !== $project) {
-                throw new ToolCallException('Token is not bound to that project.');
-            }
-        }
-
         try {
+            $project = $this->requireBoundProject($this->projectResolver);
+
+            if (null !== $site) {
+                $resolved = $this->projects->findOneByIdOrNameForOwner($site, $project->owner)
+                    ?? throw new ToolCallException(\sprintf('No site "%s" found.', $site));
+
+                if ($resolved !== $project) {
+                    throw new ToolCallException('Token is not bound to that project.');
+                }
+            }
+
             $pending = $this->siteReviewComments->findPendingForProject($project);
 
             return [
@@ -59,6 +59,8 @@ final readonly class GetSiteReviewTool
                     $pending,
                 )),
             ];
+        } catch (ToolCallException $e) {
+            throw $e;
         } catch (\Throwable $e) {
             throw new ToolCallException('The site review could not be read. The error has been logged.', previous: $e);
         }

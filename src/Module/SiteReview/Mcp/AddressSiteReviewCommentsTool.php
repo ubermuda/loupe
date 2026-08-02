@@ -36,12 +36,12 @@ final readonly class AddressSiteReviewCommentsTool
      */
     public function __invoke(array $commentIds): array
     {
-        $project = $this->requireBoundProject($this->projectResolver);
-
         $addressed = [];
         $skipped = [];
 
         try {
+            $project = $this->requireBoundProject($this->projectResolver);
+
             foreach ($commentIds as $id) {
                 try {
                     $uuid = Uuid::fromString($id);
@@ -69,6 +69,8 @@ final readonly class AddressSiteReviewCommentsTool
             }
 
             $this->em->flush();
+        } catch (ToolCallException $e) {
+            throw $e;
         } catch (\Throwable $e) {
             throw new ToolCallException('The comments could not be marked as addressed. The error has been logged.', previous: $e);
         }

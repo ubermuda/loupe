@@ -42,14 +42,14 @@ final readonly class ListDocumentsTool
      */
     public function __invoke(int $page = 1, int $perPage = self::DEFAULT_PER_PAGE): array
     {
-        $project = $this->requireBoundProject($this->projectResolver);
-
         // Clamped rather than rejected: an out-of-range page from an agent
         // should return an empty page, not fail the tool call.
         $page = max(1, $page);
         $perPage = min(self::MAX_PER_PAGE, max(1, $perPage));
 
         try {
+            $project = $this->requireBoundProject($this->projectResolver);
+
             $paginator = $this->documents->findPaginatedByProject($project, $page, $perPage);
             $total = \count($paginator);
 
@@ -76,6 +76,8 @@ final readonly class ListDocumentsTool
                 'total' => $total,
                 'hasMore' => $page * $perPage < $total,
             ];
+        } catch (ToolCallException $e) {
+            throw $e;
         } catch (\Throwable $e) {
             throw new ToolCallException('The document list could not be read. The error has been logged.', previous: $e);
         }

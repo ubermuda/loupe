@@ -13,6 +13,8 @@ use App\Module\Review\ValueObject\Anchor;
 use App\Tests\Support\McpTokenScenario;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
+use Symfony\Component\Security\Core\Authentication\Token\Storage\TokenStorageInterface;
+use Symfony\Component\Security\Core\Authentication\Token\UsernamePasswordToken;
 use Symfony\Component\Security\Core\Authorization\AuthorizationCheckerInterface;
 
 final class McpBoundProjectVoterTest extends KernelTestCase
@@ -71,7 +73,36 @@ final class McpBoundProjectVoterTest extends KernelTestCase
         $document = $this->documentInNewProject($this->user('voter-grant@example.com'));
         $this->actAsMcpTokenBoundTo($document->project);
 
-        self::assertTrue($this->authorization->isGranted(McpBoundProjectVoter::DOCUMENT_ACCESS, $document));
+        self::assertTrue($this->authorization->isGranted(McpBoundProjectVoter::DOCUMENT_READ, $document));
+        self::assertTrue($this->authorization->isGranted(McpBoundProjectVoter::DOCUMENT_WRITE, $document));
+    }
+
+    public function test_denies_when_the_request_carries_no_token_at_all(): void
+    {
+        $document = $this->documentInNewProject($this->user('voter-anon@example.com'));
+
+        $tokenStorage = self::getContainer()->get('security.token_storage');
+        self::assertInstanceOf(TokenStorageInterface::class, $tokenStorage);
+        $tokenStorage->setToken(null);
+
+        self::assertFalse($this->authorization->isGranted(McpBoundProjectVoter::DOCUMENT_READ, $document));
+        self::assertFalse($this->authorization->isGranted(McpBoundProjectVoter::DOCUMENT_WRITE, $document));
+    }
+
+    public function test_denies_a_token_that_did_not_authenticate_through_an_api_token(): void
+    {
+        $owner = $this->user('voter-session@example.com');
+        $document = $this->documentInNewProject($owner);
+
+        // A form-login session carries no API token id, so there is no binding
+        // to compare against — the owner's own session must not reach the MCP
+        // surface's subjects through this voter.
+        $tokenStorage = self::getContainer()->get('security.token_storage');
+        self::assertInstanceOf(TokenStorageInterface::class, $tokenStorage);
+        $tokenStorage->setToken(new UsernamePasswordToken($owner, 'main', $owner->getRoles()));
+
+        self::assertFalse($this->authorization->isGranted(McpBoundProjectVoter::DOCUMENT_READ, $document));
+        self::assertFalse($this->authorization->isGranted(McpBoundProjectVoter::DOCUMENT_WRITE, $document));
     }
 
     public function test_denies_a_document_in_another_project_of_the_same_owner(): void
@@ -86,7 +117,7 @@ final class McpBoundProjectVoterTest extends KernelTestCase
 
         // Ownership is not the question the MCP surface asks: the owner is the
         // same person, and DocumentVoter would grant this.
-        self::assertFalse($this->authorization->isGranted(McpBoundProjectVoter::DOCUMENT_ACCESS, $document));
+        self::assertFalse($this->authorization->isGranted(McpBoundProjectVoter::DOCUMENT_READ, $document));
     }
 
     public function test_denies_everything_for_a_token_bound_to_no_project(): void
@@ -95,7 +126,7 @@ final class McpBoundProjectVoterTest extends KernelTestCase
         $document = $this->documentInNewProject($owner);
         $this->actAsUnboundMcpToken($owner);
 
-        self::assertFalse($this->authorization->isGranted(McpBoundProjectVoter::DOCUMENT_ACCESS, $document));
+        self::assertFalse($this->authorization->isGranted(McpBoundProjectVoter::DOCUMENT_READ, $document));
     }
 
     public function test_grants_a_comment_of_the_bound_project(): void
@@ -104,7 +135,7 @@ final class McpBoundProjectVoterTest extends KernelTestCase
         $comment = $this->commentOn($document);
         $this->actAsMcpTokenBoundTo($document->project);
 
-        self::assertTrue($this->authorization->isGranted(McpBoundProjectVoter::COMMENT_ACCESS, $comment));
+        self::assertTrue($this->authorization->isGranted(McpBoundProjectVoter::COMMENT_READ, $comment));
     }
 
     public function test_denies_a_comment_in_another_project_of_the_same_owner(): void
@@ -117,6 +148,6 @@ final class McpBoundProjectVoterTest extends KernelTestCase
         $this->em->flush();
         $this->actAsMcpTokenBoundTo($projectB);
 
-        self::assertFalse($this->authorization->isGranted(McpBoundProjectVoter::COMMENT_ACCESS, $comment));
+        self::assertFalse($this->authorization->isGranted(McpBoundProjectVoter::COMMENT_READ, $comment));
     }
 }

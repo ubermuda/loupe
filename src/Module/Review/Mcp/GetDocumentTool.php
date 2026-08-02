@@ -4,13 +4,10 @@ declare(strict_types=1);
 
 namespace App\Module\Review\Mcp;
 
-use App\Mcp\ResolvesBoundProject;
-use App\Module\Project\Security\AuthenticatedProjectResolver;
 use App\Module\Review\Query\GetDocument;
-use App\Module\Review\Repository\DocumentRepository;
+use App\Module\Review\Security\McpBoundProjectVoter;
 use Mcp\Capability\Attribute\McpTool;
 use Mcp\Exception\ToolCallException;
-use Symfony\Component\Security\Core\Authorization\AuthorizationCheckerInterface;
 
 /**
  * Fetch a document's current Markdown source and status by id.
@@ -18,13 +15,9 @@ use Symfony\Component\Security\Core\Authorization\AuthorizationCheckerInterface;
 #[McpTool(name: 'document_get', description: 'Fetch a document\'s current Markdown source, title, status, and version number.')]
 final readonly class GetDocumentTool
 {
-    use ResolvesBoundProject;
-
     public function __construct(
         private GetDocument $getDocument,
-        private AuthenticatedProjectResolver $projectResolver,
-        private DocumentRepository $documents,
-        private AuthorizationCheckerInterface $authorization,
+        private ReviewSubjectResolver $subjects,
     ) {
     }
 
@@ -35,10 +28,17 @@ final readonly class GetDocumentTool
      */
     public function __invoke(string $documentId): array
     {
-        $document = $this->requireDocument($documentId, $this->projectResolver, $this->documents, $this->authorization);
-
+        // Resolution is inside the try because it queries the database, and an
+        // unwrapped failure there reaches the client as an internal error with
+        // no detail. The re-throw guard keeps the messages it raises on
+        // purpose — including the deliberately identical authorization ones —
+        // from being flattened by the catch-all below.
         try {
+            $document = $this->subjects->requireDocument($documentId, McpBoundProjectVoter::DOCUMENT_READ);
+
             return ($this->getDocument)($document);
+        } catch (ToolCallException $e) {
+            throw $e;
         } catch (\Throwable $e) {
             throw new ToolCallException('The document could not be read. The error has been logged.', previous: $e);
         }

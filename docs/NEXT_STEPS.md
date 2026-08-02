@@ -1133,6 +1133,26 @@ document, and an agent should plausibly be able to *make* suggestions on a human
 edit. Neither needs building first, but the comment model should not make them
 awkward later.
 
+## The tracker's own prose names MCP tools that no longer exist
+
+**Author:** Claude · **Type:** docs · **Priority:** medium · **Status:** pending
+
+Every MCP tool was renamed with a feature prefix (`create_document` →
+`document_create`, `get_review` → `document_get_review`, `get_site_review` →
+`site_review_get`, and so on; the full mapping is in the `CHANGELOG.md` entry
+for the `feat/mcp-scoped-authz` branch). Roughly 25 references in this file
+still use the old names, so a reader looking up a tool finds an identifier the
+server does not expose.
+
+The renaming branch deliberately left them: this file is the one guaranteed
+merge-conflict surface when several branches are in flight, and rewriting 25
+lines across it would have collided with every sibling. The fix is a docs-only
+commit straight to `main` once the current wave has merged.
+
+One of the stale names is a heading — `## MCP: \`revise_document\` cannot update
+the title` — and two other entries cross-reference it by that exact title, so
+retitling it means updating those references in the same pass.
+
 ## Review anchoring — possible enhancement (low priority)
 
 
@@ -2163,3 +2183,19 @@ followed by a Twig expression, which covers the modifier families above without
 whitelisting them by hand. Verify `admin-badge-off` against the admin bundle's
 compiled assets before removing it — the scan covered that bundle's templates
 and CSS, but a class applied from bundle JavaScript would not show up.
+
+## `site_review_get` reveals whether a site name exists
+
+**Author:** Claude · **Type:** security · **Priority:** low · **Status:** pending
+
+`GetSiteReviewTool` (`src/Module/SiteReview/Mcp/GetSiteReviewTool.php`) answers
+its optional `site` argument with two different messages: `No site "%s" found.`
+when the lookup misses, and `Token is not bound to that project.` when it hits
+but is not the bound one. That difference tells a caller which site names exist
+— the kind of existence oracle `ReviewSubjectResolver::requireDocument()`
+returns one message for, on purpose.
+
+Minor because the lookup is already narrowed to the token owner's own projects
+(`ProjectRepository::findOneByIdOrNameForOwner()`), so a caller can only probe
+names it is entitled to see. The fix is to collapse both branches onto a single
+message the way the document resolver does.

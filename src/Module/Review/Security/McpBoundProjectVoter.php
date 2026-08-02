@@ -20,12 +20,18 @@ use Symfony\Component\Security\Core\Authorization\Voter\Voter;
  * answer: those ask whether the *user* owns the subject, which would let a
  * token bound to one of a user's projects reach documents in another.
  *
- * @extends Voter<'document.mcp_access'|'comment.mcp_access', Comment|Document>
+ * Read and write are separate attributes even though the binding answers both
+ * identically today, so restricting a token to reads later is a change to this
+ * policy rather than an audit of every call site.
+ *
+ * @extends Voter<'document.mcp_read'|'document.mcp_write'|'comment.mcp_read'|'comment.mcp_write', Comment|Document>
  */
 final class McpBoundProjectVoter extends Voter
 {
-    public const string DOCUMENT_ACCESS = 'document.mcp_access';
-    public const string COMMENT_ACCESS = 'comment.mcp_access';
+    public const string DOCUMENT_READ = 'document.mcp_read';
+    public const string DOCUMENT_WRITE = 'document.mcp_write';
+    public const string COMMENT_READ = 'comment.mcp_read';
+    public const string COMMENT_WRITE = 'comment.mcp_write';
 
     public function __construct(
         private readonly AuthenticatedProjectResolver $projectResolver,
@@ -37,8 +43,8 @@ final class McpBoundProjectVoter extends Voter
     protected function supports(string $attribute, mixed $subject): bool
     {
         return match ($attribute) {
-            self::DOCUMENT_ACCESS => $subject instanceof Document,
-            self::COMMENT_ACCESS => $subject instanceof Comment,
+            self::DOCUMENT_READ, self::DOCUMENT_WRITE => $subject instanceof Document,
+            self::COMMENT_READ, self::COMMENT_WRITE => $subject instanceof Comment,
             default => false,
         };
     }

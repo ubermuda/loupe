@@ -60,11 +60,6 @@ class DocumentRepository extends ServiceEntityRepository
             ->getSingleScalarResult();
     }
 
-    public function findOneByIdAndProject(Uuid $id, Project $project): ?Document
-    {
-        return $this->findOneBy(['id' => $id, 'project' => $project]);
-    }
-
     /**
      * Route-binding lookup: both ids arrive as raw strings from the router
      * (EntityValueResolver expr variables are never entities).
