@@ -94,10 +94,9 @@ final readonly class GetReview
      *
      * Reporting only — the stored anchor is untouched, and nothing here feeds
      * AnchorService, so resolution and offsetHint are unaffected. The widening draws
-     * on the anchor's own prefix/suffix rather than the document text, which bounds
-     * it to the 32 characters of context each carries: a word longer than that window
-     * is only partly recovered, and an orphaned comment widens against the context it
-     * was captured with rather than the current version's.
+     * on the anchor's own prefix/suffix rather than the document text: for an orphaned
+     * comment the stored offset points into a version that no longer exists, so the
+     * document text would splice in characters from an unrelated location.
      */
     private static function snapToWordEdges(Anchor $anchor): string
     {
@@ -108,15 +107,30 @@ final readonly class GetReview
         $lead = '';
         // \z, not $ — $ also matches before a trailing newline, which would drag a
         // word across a line break onto a quote that already starts at a line edge.
-        if (1 === preg_match('/^\S/u', $anchor->quote) && 1 === preg_match('/\S+\z/u', $anchor->prefix, $before)) {
-            $lead = $before[0];
+        if (1 === preg_match('/\A\S/u', $anchor->quote) && 1 === preg_match('/\S+\z/u', $anchor->prefix, $before)) {
+            $lead = self::completesAWord($before[0], $anchor->prefix);
         }
 
         $trail = '';
         if (1 === preg_match('/\S\z/u', $anchor->quote) && 1 === preg_match('/\A\S+/u', $anchor->suffix, $after)) {
-            $trail = $after[0];
+            $trail = self::completesAWord($after[0], $anchor->suffix);
         }
 
         return $lead.$anchor->quote.$trail;
+    }
+
+    /**
+     * The run of non-whitespace to splice on, or '' when it fills the whole context.
+     *
+     * A run that reaches the far end of the captured context means no word boundary
+     * was found inside it, so the real boundary lies somewhere the anchor never
+     * recorded. Splicing then adds text the commenter did not select rather than
+     * completing their word — and it is the normal case, not an edge case: scripts
+     * written without spaces (Japanese, Chinese, Thai, Lao, Khmer) have no boundary
+     * to find at all, and neither do URLs, file paths or identifiers.
+     */
+    private static function completesAWord(string $run, string $context): string
+    {
+        return $run === $context ? '' : $run;
     }
 }

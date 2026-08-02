@@ -23,11 +23,17 @@ use App\Module\Review\ValueObject\Anchor;
  * locate() trusts the (fresh, exact) captured context alone, while resolve()
  * also weighs proximity to the previous version's offsetHint.
  *
- * Every offset, length and window here counts CHARACTERS, never bytes — the
- * same unit the browser slices textContent in (comment_anchor_controller's
- * #extractAnchor and #findRange). Mixing the two makes an anchor rebuilt by
- * create() cover a different span from the one the browser captured, and makes
- * the two sides rank the occurrences of a repeated quote differently.
+ * Every offset, length and window this class exposes counts CHARACTERS, never
+ * bytes — matching how the browser slices textContent (comment_anchor_controller's
+ * #extractAnchor and #findRange), up to the caveat that JS counts UTF-16 code
+ * units, so the two agree only within the Basic Multilingual Plane. Mixing the
+ * units makes an anchor rebuilt by create() cover a different span from the one
+ * the browser captured, and makes the two sides rank the occurrences of a
+ * repeated quote differently.
+ *
+ * Searching and scoring nonetheless happen in byte space internally, converted to
+ * characters once at the end (see characterOffsets) — mb_* seeking is linear in the
+ * offset, and doing it per occurrence per comparison makes resolution quadratic.
  */
 final class AnchorService
 {
@@ -83,20 +89,16 @@ final class AnchorService
      */
     private function locate(string $text, Anchor $anchor): ?int
     {
-        $offsets = [];
-        $from = 0;
-        while (false !== ($pos = mb_strpos($text, $anchor->quote, $from, 'UTF-8'))) {
-            $offsets[] = $pos;
-            $from = $pos + 1;
-        }
-        if ([] === $offsets) {
+        $byteOffsets = $this->occurrences($text, $anchor->quote);
+        if ([] === $byteOffsets) {
             return null;
         }
+        $characterOffsets = $this->characterOffsets($text, $byteOffsets);
 
-        usort($offsets, fn (int $a, int $b): int => [$this->contextScore($text, $b, $anchor), $a]
+        usort($byteOffsets, fn (int $a, int $b): int => [$this->contextScore($text, $b, $anchor), $a]
             <=> [$this->contextScore($text, $a, $anchor), $b]);
 
-        return $offsets[0];
+        return $characterOffsets[$byteOffsets[0]];
     }
 
     public function resolve(string $text, Anchor $anchor): ?int
@@ -105,35 +107,97 @@ final class AnchorService
             return null;
         }
 
-        $offsets = [];
-        $from = 0;
-        while (false !== ($pos = mb_strpos($text, $anchor->quote, $from, 'UTF-8'))) {
-            $offsets[] = $pos;
-            $from = $pos + 1;
-        }
-        if ([] === $offsets) {
+        $byteOffsets = $this->occurrences($text, $anchor->quote);
+        if ([] === $byteOffsets) {
             return null;
         }
+        $characterOffsets = $this->characterOffsets($text, $byteOffsets);
 
-        usort($offsets, function (int $a, int $b) use ($anchor, $text): int {
-            $score = fn (int $o): int => abs($o - $anchor->offsetHint)
+        usort($byteOffsets, function (int $a, int $b) use ($anchor, $text, $characterOffsets): int {
+            // offsetHint is a character offset, so the distance term compares against
+            // the converted offset rather than the byte one it is sorting.
+            $score = fn (int $o): int => abs($characterOffsets[$o] - $anchor->offsetHint)
                 - ($this->contextScore($text, $o, $anchor) * self::CONTEXT);
 
             return $score($a) <=> $score($b);
         });
 
-        return $offsets[0];
+        return $characterOffsets[$byteOffsets[0]];
     }
 
-    private function contextScore(string $text, int $offset, Anchor $anchor): int
+    /**
+     * Ascending BYTE offsets of every occurrence of $quote, overlaps included.
+     *
+     * Searching in byte space finds exactly the occurrences a character-space search
+     * would: a UTF-8 lead byte can never equal a continuation byte, so a byte match
+     * cannot start mid-character.
+     *
+     * @return list<int>
+     */
+    private function occurrences(string $text, string $quote): array
     {
-        $before = mb_substr($text, max(0, $offset - self::CONTEXT), min(self::CONTEXT, $offset), 'UTF-8');
-        $after = mb_substr($text, $offset + mb_strlen($anchor->quote, 'UTF-8'), self::CONTEXT, 'UTF-8');
+        $byteOffsets = [];
+        $from = 0;
+        while (false !== ($at = strpos($text, $quote, $from))) {
+            $byteOffsets[] = $at;
+            $from = $at + 1;
+        }
+
+        return $byteOffsets;
+    }
+
+    /**
+     * Maps each byte offset to its character offset, for ASCENDING $byteOffsets.
+     *
+     * One left-to-right pass over the text converts the whole set. Converting each
+     * offset on its own — mb_strlen(substr($text, 0, $offset)) — re-scans from the
+     * start every time, which is what makes anchor resolution quadratic in document
+     * length: seconds of CPU on a 200 KB document, inside a synchronous revise request.
+     *
+     * @param list<int> $byteOffsets
+     *
+     * @return array<int, int>
+     */
+    private function characterOffsets(string $text, array $byteOffsets): array
+    {
+        $map = [];
+        $scannedBytes = 0;
+        $characters = 0;
+        foreach ($byteOffsets as $byteOffset) {
+            $characters += mb_strlen(substr($text, $scannedBytes, $byteOffset - $scannedBytes), 'UTF-8');
+            $scannedBytes = $byteOffset;
+            $map[$byteOffset] = $characters;
+        }
+
+        return $map;
+    }
+
+    /**
+     * How much of the captured context still surrounds the occurrence at $byteOffset:
+     * one point for the prefix, one for the suffix.
+     *
+     * The fingerprints are the last/first FINGERPRINT *characters* of the captured
+     * context — that character count is what the browser's #findRange weighs — but
+     * they are compared byte-wise against the text. Byte equality implies character
+     * equality in UTF-8, and it keeps this O(1): slicing $text with mb_substr would
+     * scan from byte 0 on every call, and every call sits inside a sort comparator.
+     */
+    private function contextScore(string $text, int $byteOffset, Anchor $anchor): int
+    {
         $score = 0;
-        if ('' !== $anchor->prefix && str_ends_with($before, mb_substr($anchor->prefix, -self::FINGERPRINT, null, 'UTF-8'))) {
+
+        $before = mb_substr($anchor->prefix, -self::FINGERPRINT, null, 'UTF-8');
+        $beforeLength = \strlen($before);
+        if ('' !== $before
+            && $byteOffset >= $beforeLength
+            && $before === substr($text, $byteOffset - $beforeLength, $beforeLength)
+        ) {
             ++$score;
         }
-        if ('' !== $anchor->suffix && str_starts_with($after, mb_substr($anchor->suffix, 0, self::FINGERPRINT, 'UTF-8'))) {
+
+        $after = mb_substr($anchor->suffix, 0, self::FINGERPRINT, 'UTF-8');
+        $quoteEnd = $byteOffset + \strlen($anchor->quote);
+        if ('' !== $after && $after === substr($text, $quoteEnd, \strlen($after))) {
             ++$score;
         }
 

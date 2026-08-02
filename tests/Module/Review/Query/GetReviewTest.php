@@ -179,11 +179,47 @@ final class GetReviewTest extends KernelTestCase
         $this->em->persist($untargeted);
         $this->em->flush();
 
+        // CommentRepository orders by offsetHint, so the payload order is deterministic.
         $quotes = array_column(($this->getReview)($doc)['comments'], 'quote');
 
-        self::assertContains('here', $quotes);
-        self::assertContains(' line ', $quotes);
-        self::assertContains('', $quotes);
+        self::assertSame(['', ' line ', 'here'], $quotes);
+    }
+
+    public function test_quotes_are_not_widened_when_the_context_holds_no_word_boundary(): void
+    {
+        $doc = new Document(owner: $this->owner, project: $this->project, title: 'No Boundary');
+        $version = $doc->addVersion('placeholder', '<p>placeholder</p>');
+
+        // Japanese is written without spaces, so the whole 32-character context is one
+        // run of non-whitespace. Widening would report a paragraph for a four-character
+        // selection.
+        $japanese = new Comment(
+            $version,
+            $this->owner,
+            'Which plan?',
+            new Anchor(
+                '設計方針',
+                '本書は前提条件を整理したうえで結論を先に述べる。読者はまず',
+                'について検討し、次に運用体制と移行手順を順に確認していく。',
+                29,
+            ),
+        );
+        // Same shape in ASCII: a URL has no whitespace to snap to either.
+        $url = new Comment(
+            $version,
+            $this->owner,
+            'Broken link.',
+            new Anchor('review', 'https://example.test/documents/', '/comments?page=2&sort=created', 31),
+        );
+
+        $this->em->persist($doc);
+        $this->em->persist($japanese);
+        $this->em->persist($url);
+        $this->em->flush();
+
+        $quotes = array_column(($this->getReview)($doc)['comments'], 'quote');
+
+        self::assertSame(['設計方針', 'review'], $quotes);
     }
 
     public function test_verdict_is_null_when_no_review_submitted(): void

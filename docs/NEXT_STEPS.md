@@ -2440,7 +2440,32 @@ on the two sides. A real fix means counting UTF-16 units on the PHP side (or
 normalising astral characters out of the basis). Not worth doing until a
 document with emoji actually mis-highlights.
 
-Close-out detail: that controller's `#findRange` docblock still describes
-`offsetHint` as "a PHP byte offset". Its conclusion (never walk `offsetHint`
-from JS) is still right, but the unit name is stale — correct it whenever the
-file is next touched.
+## `comments.anchor_offset_hint` changed units with no backfill
+
+**Author:** Claude · **Type:** bug · **Priority:** low · **Status:** pending
+
+`AnchorService` used to write `Anchor::$offsetHint` as a byte offset into
+`DocumentVersion::plainText()` and now writes a character offset. The column was
+deliberately not migrated: there was no historical data at the time — the owner
+confirmed it, `SeedDevDataCommand` creates no comments, and e2e rows are created
+fresh per run. Nothing to do today; this exists so a future deploy over real
+data does not rediscover it.
+
+If that ever changes, the danger is a **mixed** version — some rows written
+before the switch, some after — not old rows on their own. Two consequences,
+both invisible until someone reads the sidebar:
+
+- `CommentRepository` orders threads by `offsetHint`. Byte offsets are monotonic
+  in character offsets row-by-row, so a version that is entirely one unit still
+  sorts correctly; a version holding both does not, and the sidebar reading
+  order is wrong until that version is revised.
+- `AnchorService::resolve()` weighs proximity to `offsetHint` when a revised
+  document repeats a quote, so a stale byte offset can pull the match to the
+  wrong occurrence. That pick is **permanent**: `create()` then writes a
+  confident character offset for the wrong span, and nothing afterwards can tell
+  it was ever wrong.
+
+Either backfill (`offsetHint = mb_strlen(substr(plainText, 0, offsetHint))` per
+comment, against its own version's text) or accept a one-revision settling
+period, but decide it before the first deploy that carries real comments across
+the change.

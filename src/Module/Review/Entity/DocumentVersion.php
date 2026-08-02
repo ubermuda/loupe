@@ -57,8 +57,10 @@ class DocumentVersion
      *     gives textContent, NOT innerText — innerText collapses whitespace and
      *     would desync from this basis).
      *
-     * Offsets and context windows are counted in characters on both sides, so
-     * they agree on multibyte text as well as ASCII.
+     * Offsets and context windows are counted in characters on both sides. PHP
+     * counts codepoints and JavaScript counts UTF-16 code units, so the two agree
+     * throughout the Basic Multilingual Plane — including accented Latin, Greek,
+     * Cyrillic and CJK — and diverge only on astral characters such as emoji.
      */
     public function plainText(): string
     {
