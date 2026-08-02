@@ -60,8 +60,7 @@ final readonly class ReanchoringService
         }
 
         // Resolve parent: if the old parent is among the open comments being copied, map it.
-        // Otherwise the parent was resolved (or never open), so the copied reply is detached
-        // to a root comment (parent stays null).
+        // A root comment has no parent to map and keeps null.
         $newParent = null;
         if (null !== $old->parent && \in_array($old->parent, $openComments, true)) {
             $newParent = $this->copyComment($old->parent, $openComments, $oldToNew, $newVersion, $carried, $orphaned);
@@ -71,6 +70,9 @@ final readonly class ReanchoringService
         // carry it forward unchanged; it is never orphaned.
         if ('' === $old->anchor->quote) {
             $copy = new Comment($newVersion, $old->author, $old->body, $old->anchor, $newParent);
+            // An addressed thread carries its status onto the copy: the agent's
+            // claim that it acted survives the revision, only the human clears it.
+            $copy->status = $old->status;
             $newVersion->comments->add($copy);
             $oldToNew[$old] = $copy;
             ++$carried;
@@ -98,6 +100,8 @@ final readonly class ReanchoringService
             $copy->orphaned = true;
             ++$orphaned;
         }
+
+        $copy->status = $old->status;
 
         // Attach to the version so the Document→versions→comments cascade persists it.
         $newVersion->comments->add($copy);

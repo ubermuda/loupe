@@ -15,10 +15,10 @@
   reply is authored by the reviewer. The design's accent-soft "C" agent avatar
   awaits a real agent-reply signal (address_comment MCP tool), not wired yet.
 #}
-{% set status = comment.resolved ? 'resolved' : 'pending' %}
+{% set status = comment.threadStatus.value %}
 <div
     id="comment-thread-{{ comment.id }}"
-    class="lp-comment-thread{% if comment.resolved %} lp-comment-thread--resolved{% endif %}{% if comment.orphaned %} lp-comment-thread--orphaned{% endif %}"
+    class="lp-comment-thread{% if status == 'resolved' %} lp-comment-thread--resolved{% endif %}{% if comment.orphaned %} lp-comment-thread--orphaned{% endif %}"
     data-comment-anchor-target="thread"
     data-anchor-quote="{{ comment.anchor.quote }}"
     data-anchor-prefix="{{ comment.anchor.prefix }}"
@@ -65,7 +65,7 @@
         <input type="hidden" name="_csrf_token" value="{{ csrf_token('comment-action') }}">
     </form>
 
-    {% if not comment.resolved %}
+    {% if status != 'resolved' %}
     <div class="lp-comment-reply-form">
         {% set replyForm = replyForm ?? comment_reply_form(comment) %}
 

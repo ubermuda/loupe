@@ -1170,6 +1170,12 @@
     .lp-status-chip--pending .lp-status-chip__dot {
         @apply bg-status-pending;
     }
+    .lp-status-chip--addressed {
+        @apply bg-status-ok-bg text-status-ok-deep border-status-ok-border;
+    }
+    .lp-status-chip--addressed .lp-status-chip__dot {
+        @apply bg-status-ok;
+    }
     .lp-status-chip--resolved {
         @apply bg-tint text-fg-dim border-line;
     }

@@ -7,6 +7,7 @@ namespace App\Tests\Module\Review\Service;
 use App\Module\Account\Entity\User;
 use App\Module\Project\Entity\Project;
 use App\Module\Review\Entity\Comment;
+use App\Module\Review\Entity\CommentStatus;
 use App\Module\Review\Entity\Document;
 use App\Module\Review\Repository\CommentRepository;
 use App\Module\Review\Service\CommentExporter;
@@ -26,7 +27,8 @@ final class CommentExporterTest extends TestCase
         $anchor = new Anchor('some quote', 'pre', 'post', 4);
         $parent = new Comment($version, $author, 'parent body', Anchor::unanchored());
         $reply = new Comment($version, $author, 'reply body', $anchor, $parent);
-        $reply->resolved = true;
+        // Status lives on the thread root; the reply's own value is never set.
+        $parent->status = CommentStatus::Resolved;
 
         /** @var CommentRepository&Stub $repo */
         $repo = $this->createStub(CommentRepository::class);
@@ -40,7 +42,8 @@ final class CommentExporterTest extends TestCase
         self::assertSame('My doc', $rows[1]['document']);
         self::assertSame(1, $rows[1]['versionNumber']);
         self::assertSame('reply body', $rows[1]['body']);
-        self::assertTrue($rows[1]['resolved']);
+        self::assertSame('resolved', $rows[0]['status']);
+        self::assertSame('resolved', $rows[1]['status'], 'A reply row reports the status of its thread');
         self::assertFalse($rows[1]['orphaned']);
         self::assertSame([
             'quote' => 'some quote',

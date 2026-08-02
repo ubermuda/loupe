@@ -3,11 +3,11 @@
   threads header (resolved count) and progress bar. Rendered both on initial page
   load and by the whole-list Turbo Stream (add / delete / resolve all replace
   #comment-threads), so everything that must refresh on a mutation — the count,
-  the progress bar, and the pending/resolved grouping — lives inside this element.
+  the progress bar, and the status grouping — lives inside this element.
 
-  Threads are grouped into a status ladder: PENDING (unresolved) and RESOLVED.
-  An ADDRESSED-BY-AGENT group also exists in the design but has no data signal in
-  this codebase yet (no agent-reply concept), so it renders only when populated.
+  Threads are grouped into a status ladder — PENDING, ADDRESSED BY AGENT,
+  RESOLVED — reading each root comment's status. A group renders only when
+  populated.
 
   Vars:
     comments  list<Comment>   All comments for the version (roots and replies).
@@ -20,7 +20,7 @@
 {% set readOnly = readOnly ?? false %}
 {% set rootComments = comments|filter(c => c.parent is null)|map(c => c) %}
 {% set totalCount = rootComments|length %}
-{% set resolvedCount = rootComments|filter(c => c.resolved)|length %}
+{% set resolvedCount = rootComments|filter(c => c.threadStatus.value == 'resolved')|length %}
 {% set progressPct = totalCount > 0 ? (resolvedCount / totalCount * 100)|round : 0 %}
 <div id="comment-threads" class="lp-comment-threads">
     <div class="lp-review-sidebar__header">
@@ -43,8 +43,9 @@
     <div class="lp-review-sidebar__scroll">
         {% if rootComments|length > 0 %}
             {% set groups = [
-                {key: 'pending', items: rootComments|filter(c => not c.resolved)|map(c => c)},
-                {key: 'resolved', items: rootComments|filter(c => c.resolved)|map(c => c)},
+                {key: 'pending', items: rootComments|filter(c => c.threadStatus.value == 'pending')|map(c => c)},
+                {key: 'addressed', items: rootComments|filter(c => c.threadStatus.value == 'addressed')|map(c => c)},
+                {key: 'resolved', items: rootComments|filter(c => c.threadStatus.value == 'resolved')|map(c => c)},
             ] %}
             {% for group in groups %}
                 {% if group.items|length > 0 %}

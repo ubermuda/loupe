@@ -14,6 +14,7 @@ use App\Module\Review\Command\ReplyToCommentCommand;
 use App\Module\Review\Command\ReplyToCommentHandler;
 use App\Module\Review\Command\ResolveCommentCommand;
 use App\Module\Review\Command\ResolveCommentHandler;
+use App\Module\Review\Entity\CommentStatus;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 
@@ -38,16 +39,16 @@ final class ResolveCommentHandlerTest extends KernelTestCase
         $addHandler = self::getContainer()->get(AddCommentHandler::class);
         $comment = $addHandler(new AddCommentCommand($owner, $doc, 'will be resolved', '', '', 'This needs resolving'));
 
-        self::assertFalse($comment->resolved, 'Comment must start unresolved');
+        self::assertSame(CommentStatus::Pending, $comment->status, 'Comment must start pending');
 
         /** @var ResolveCommentHandler $resolveHandler */
         $resolveHandler = self::getContainer()->get(ResolveCommentHandler::class);
         $resolveHandler(new ResolveCommentCommand(comment: $comment));
 
-        self::assertTrue($comment->resolved);
+        self::assertSame(CommentStatus::Resolved, $comment->status);
     }
 
-    public function test_resolving_a_thread_resolves_its_unresolved_replies(): void
+    public function test_resolving_a_thread_closes_it_without_writing_its_replies(): void
     {
         self::bootKernel();
         $em = self::getContainer()->get(EntityManagerInterface::class);
@@ -70,13 +71,14 @@ final class ResolveCommentHandlerTest extends KernelTestCase
         $replyHandler = self::getContainer()->get(ReplyToCommentHandler::class);
         $reply = $replyHandler(new ReplyToCommentCommand(actor: $owner, parent: $root, body: 'A reply'));
 
-        self::assertFalse($reply->resolved, 'Reply must start unresolved');
+        self::assertSame(CommentStatus::Pending, $reply->threadStatus, 'The thread must start pending');
 
         /** @var ResolveCommentHandler $resolveHandler */
         $resolveHandler = self::getContainer()->get(ResolveCommentHandler::class);
         $resolveHandler(new ResolveCommentCommand(comment: $root));
 
-        self::assertTrue($root->resolved);
-        self::assertTrue($reply->resolved, 'Resolving the thread must resolve its replies too');
+        self::assertSame(CommentStatus::Resolved, $root->status);
+        self::assertSame(CommentStatus::Resolved, $reply->threadStatus, 'The whole thread reads as resolved');
+        self::assertSame(CommentStatus::Pending, $reply->status, 'The reply row itself is never written');
     }
 }

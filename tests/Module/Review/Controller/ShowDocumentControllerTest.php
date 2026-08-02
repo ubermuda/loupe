@@ -9,6 +9,7 @@ use App\Module\Project\Entity\Project;
 use App\Module\Review\Command\ReviseDocumentCommand;
 use App\Module\Review\Command\ReviseDocumentHandler;
 use App\Module\Review\Entity\Comment;
+use App\Module\Review\Entity\CommentStatus;
 use App\Module\Review\Entity\Document;
 use App\Module\Review\Entity\DocumentStatus;
 use App\Module\Review\ValueObject\Anchor;
@@ -110,7 +111,7 @@ final class ShowDocumentControllerTest extends WebTestCase
 
         $pending = new Comment($version, $owner, 'A pending comment', new Anchor('Body', '', '', 0));
         $resolved = new Comment($version, $owner, 'A resolved comment', new Anchor('Body', '', '', 10));
-        $resolved->resolved = true;
+        $resolved->status = CommentStatus::Resolved;
         $em->persist($pending);
         $em->persist($resolved);
         $em->flush();
@@ -182,7 +183,7 @@ final class ShowDocumentControllerTest extends WebTestCase
         // The comment is actually persisted as resolved.
         $fetched = $em->find(Comment::class, $comment->id);
         self::assertNotNull($fetched);
-        self::assertTrue($fetched->resolved);
+        self::assertSame(CommentStatus::Resolved, $fetched->status);
     }
 
     public function test_approved_document_shows_locked_confirmation(): void
@@ -279,7 +280,7 @@ final class ShowDocumentControllerTest extends WebTestCase
         $em->persist($doc);
 
         $resolved = new Comment($version, $owner, 'Settled in v1', new Anchor('Body', '', '', 0));
-        $resolved->resolved = true;
+        $resolved->status = CommentStatus::Resolved;
         $em->persist($resolved);
         $em->flush();
 
