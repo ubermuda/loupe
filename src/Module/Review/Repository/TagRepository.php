@@ -102,7 +102,7 @@ class TagRepository extends ServiceEntityRepository
      */
     public function findByProjectWithDocumentCounts(Project $project): array
     {
-        $tags = $this->findBy(['project' => $project], ['name' => 'ASC']);
+        $tags = $this->findByProject($project);
 
         // Counted in a second query rather than a left join off the tag, because
         // the join table has no inverse side to join from — and grouped by name

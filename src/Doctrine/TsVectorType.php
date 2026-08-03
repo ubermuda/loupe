@@ -27,9 +27,11 @@ final class TsVectorType extends Type
     }
 
     /**
-     * Claims the introspected `tsvector` column type. Without it the comparator
-     * reverse-engineers the column as something else and every migrate-diff
-     * proposes an ALTER that has already been applied.
+     * Claims the introspected `tsvector` column type, which is the single thing
+     * keeping migrate-diff stable: without it the comparator cannot map the
+     * reverse-engineered column back to this type, and every run proposes an
+     * ALTER that has already been applied. A `mapping_types` entry in
+     * doctrine.yaml does the same job, but this travels with the class.
      *
      * @return list<string>
      */

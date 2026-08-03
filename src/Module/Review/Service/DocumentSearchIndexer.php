@@ -14,8 +14,15 @@ use Doctrine\DBAL\Connection;
  *
  * Every write that changes either input calls this — creating a document,
  * revising one, renaming one. A database trigger would do the same work
- * invisibly; this codebase has none and keeping the behaviour in the handlers is
- * what makes it greppable.
+ * invisibly; this codebase has none, and keeping it in the handlers is what makes
+ * it greppable.
+ *
+ * The three callers do not wrap this the same way, and that is deliberate.
+ * ReviseDocumentHandler already holds a transaction for the version-number lock,
+ * so the index lands inside it. Create and rename each end in a single flush, and
+ * wrapping those would close the EntityManager on a rejected tag name — changing
+ * error handling that has nothing to do with search. What all three share is the
+ * ordering: the rows must be flushed before this runs.
  */
 final readonly class DocumentSearchIndexer
 {
@@ -25,29 +32,36 @@ final readonly class DocumentSearchIndexer
     }
 
     /**
-     * Must run after the document (and any new version) has been flushed: it is
-     * a SQL UPDATE against a row the ORM has to have written first, and inside
-     * the caller's transaction when there is one, so a rolled-back revision does
-     * not leave the vector describing a version that never existed.
+     * The current version is read back over SQL rather than through the entity:
+     * `$document->currentVersion()` initialises the whole `versions` collection,
+     * and every row of it carries the full markdown and rendered HTML — so a
+     * rename would load the entire revision history to change a title.
      */
     public function index(Document $document): void
     {
+        // DISTINCT ON picks the highest version number, matching the backfill in
+        // the migration that introduced the column. The two are written out
+        // separately on purpose: a migration is a frozen record of what already
+        // ran, so it must not change meaning when this expression is next edited.
         $this->connection->executeStatement(
             \sprintf(
-                'UPDATE documents SET search_vector ='
-                ." setweight(to_tsvector('%s', :title), '%s')"
-                ." || setweight(to_tsvector('%s', :body), '%s')"
-                .' WHERE id = :id',
+                <<<'SQL'
+                    UPDATE documents d
+                    SET search_vector = setweight(to_tsvector('%1$s', d.title), '%2$s')
+                        || setweight(to_tsvector('%1$s', v.markdown_source), '%3$s')
+                    FROM (
+                        SELECT DISTINCT ON (document_id) document_id, markdown_source
+                        FROM document_versions
+                        WHERE document_id = :id
+                        ORDER BY document_id, version_number DESC
+                    ) v
+                    WHERE d.id = :id AND v.document_id = d.id
+                    SQL,
                 FullTextSearch::CONFIGURATION,
                 FullTextSearch::TITLE_WEIGHT,
-                FullTextSearch::CONFIGURATION,
                 FullTextSearch::BODY_WEIGHT,
             ),
-            [
-                'title' => $document->title,
-                'body' => $document->currentVersion()->markdownSource,
-                'id' => (string) $document->id,
-            ],
+            ['id' => (string) $document->id],
         );
     }
 }

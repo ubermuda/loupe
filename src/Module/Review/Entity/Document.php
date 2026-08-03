@@ -18,6 +18,10 @@ use Symfony\Component\Uid\Uuid;
 // Declared without an access method because DBAL's Postgres platform ignores
 // index flags; the migration creates it USING gin, and this mapping exists so
 // the comparator sees an index it already knows about rather than dropping it.
+// Do not "fix" this by adding flags: ['gin'] — the comparator would then read a
+// flag the introspected index cannot report, and emit a DROP plus a plain
+// CREATE INDEX, silently downgrading the GIN index to a B-tree one that @@ never
+// uses.
 #[ORM\Index(name: 'idx_documents_search_vector', columns: ['search_vector'])]
 #[ORM\Table(name: 'documents')]
 class Document
@@ -48,6 +52,11 @@ class Document
      * historical version would return a document for text it no longer contains,
      * and because a list query already filters this table — one row per document
      * keeps the GIN scan and the project/archived/status predicates together.
+     *
+     * The cost is on reads: the column is now in the SELECT list of every Document
+     * query in the app, and the paginator projects it once more per matching row.
+     * A 1:1 document_search table would keep it out of those reads, at the price of
+     * a join on the one query that wants it.
      *
      * Only Postgres can build a tsvector, so the ORM never writes this column:
      * DocumentSearchIndexer maintains it, and the mapping exists so DQL can name
