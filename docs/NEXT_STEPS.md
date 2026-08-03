@@ -5,18 +5,6 @@ Open work and observations worth revisiting. Delete items entirely once resolved
 Entries are ordered by priority (high → medium → low); insert new entries at
 the end of their priority band. Format and rules: `project-next-steps` skill.
 
-## Review UI: version diff view
-
-
-
-**Author:** Geoffrey · **Type:** feature · **Priority:** high · **Status:** pending
-
-Found while dogfooding the nine-features design review: after `revise_document`,
-the reviewer sees only the new version — there is no way to see what changed
-since the version they commented on. Add a diff view between document versions
-(at minimum current vs previous; ideally any two), so re-review means reading
-the delta, not the whole document again.
-
 ## Proper HTTP API + outbound webhooks
 
 

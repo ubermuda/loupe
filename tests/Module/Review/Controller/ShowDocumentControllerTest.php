@@ -489,6 +489,149 @@ final class ShowDocumentControllerTest extends WebTestCase
         self::assertCount(0, $crawler->filter('.lp-version-entry__description'));
     }
 
+    public function test_the_diff_replaces_the_document_and_marks_what_changed(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+
+        $owner = $this->createUser($em, 'owner-diff', 'owner-diff@example.com');
+        $project = $this->project($em, $owner);
+
+        $doc = new Document(owner: $owner, project: $project, title: 'Diffed Doc');
+        $doc->addVersion("# Plan\n\nThe rollout happens in one step.", '<h1>Plan</h1>', 'The original brief.');
+        $doc->addVersion("# Plan\n\nThe rollout happens in three steps.", '<h1>Plan</h1>', 'Phased the rollout.');
+        $em->persist($doc);
+        $em->flush();
+
+        $projectId = (string) $project->id;
+        $id = (string) $doc->id;
+        $em->clear();
+
+        $client->loginUser($owner);
+        $crawler = $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/documents/'.$id.'/review/diff/1/2');
+
+        self::assertResponseIsSuccessful();
+        self::assertCount(1, $crawler->filter('.lp-diff'));
+        self::assertCount(0, $crawler->filter('.lp-review-doc__prose'), 'the diff stands in for the document, not beside it');
+        // "one step" and "three steps" are single runs, not four: adjacent changed
+        // words separated by nothing but a space are glued into one mark.
+        self::assertSame(['one step'], $crawler->filter('.lp-diff__mark--deleted')->each(
+            static fn (\Symfony\Component\DomCrawler\Crawler $node): string => $node->text(),
+        ));
+        self::assertSame(['three steps'], $crawler->filter('.lp-diff__mark--inserted')->each(
+            static fn (\Symfony\Component\DomCrawler\Crawler $node): string => $node->text(),
+        ));
+
+        // What the author claims changed, read next to what actually did.
+        self::assertSelectorTextContains('.lp-diff-notes', 'Phased the rollout.');
+        self::assertStringNotContainsString('The original brief.', $crawler->filter('.lp-diff-notes')->text());
+    }
+
+    public function test_a_diff_accepts_no_comment_and_leaves_anchoring_unattached(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+
+        $owner = $this->createUser($em, 'owner-diff-ro', 'owner-diff-ro@example.com');
+        $project = $this->project($em, $owner);
+
+        $doc = new Document(owner: $owner, project: $project, title: 'Read Only Diff');
+        $version = $doc->addVersion('# Body', '<h1>Body</h1>');
+        $em->persist($doc);
+        $em->persist(new Comment($version, $owner, 'Still open', new Anchor('Body', '', '', 0)));
+        $doc->addVersion('# Rewritten body', '<h1>Rewritten body</h1>');
+        $em->flush();
+
+        $projectId = (string) $project->id;
+        $id = (string) $doc->id;
+        $em->clear();
+
+        $client->loginUser($owner);
+        $diff = $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/documents/'.$id.'/review/diff/1/2');
+
+        self::assertResponseIsSuccessful();
+        // The pane's text is diff markup, not DocumentVersion::plainText(), so the
+        // controller that walks it must not be attached at all — a flag telling it
+        // to stay quiet would not stop its highlight painting.
+        self::assertCount(0, $diff->filter('[data-controller="comment-anchor"]'));
+        self::assertCount(0, $diff->filter('[data-comment-anchor-target="doc"]'));
+        self::assertCount(0, $diff->filter('.lp-comment-composer'));
+        self::assertCount(0, $diff->filter('.lp-anchor-toolbar'));
+        self::assertCount(0, $diff->filter('.lp-verdict-bar'));
+
+        // The same page on the current version, so the assertions above cannot
+        // pass merely because the selectors never match anything.
+        $latest = $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/documents/'.$id.'/review');
+        self::assertCount(1, $latest->filter('[data-controller="comment-anchor"]'));
+        self::assertCount(1, $latest->filter('[data-comment-anchor-target="doc"]'));
+        self::assertCount(1, $latest->filter('.lp-comment-composer'));
+        self::assertCount(1, $latest->filter('.lp-verdict-bar'));
+    }
+
+    public function test_the_version_switcher_links_to_each_version_s_diff(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+
+        $owner = $this->createUser($em, 'owner-diff-link', 'owner-diff-link@example.com');
+        $project = $this->project($em, $owner);
+
+        $doc = new Document(owner: $owner, project: $project, title: 'Linked Doc');
+        $doc->addVersion('# v1', '<h1>v1</h1>');
+        $doc->addVersion('# v2', '<h1>v2</h1>');
+        $doc->addVersion('# v3', '<h1>v3</h1>');
+        $em->persist($doc);
+        $em->flush();
+
+        $projectId = (string) $project->id;
+        $id = (string) $doc->id;
+        $em->clear();
+
+        $client->loginUser($owner);
+        $crawler = $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/documents/'.$id.'/review');
+
+        self::assertResponseIsSuccessful();
+        $base = '/projects/'.$projectId.'/documents/'.$id.'/review/diff/';
+        self::assertSame(
+            [$base.'2/3', $base.'1/2'],
+            $crawler->filter('.lp-version-entry__diff')->each(
+                static fn (\Symfony\Component\DomCrawler\Crawler $node): string => (string) $node->attr('href'),
+            ),
+            'the first version has no predecessor to compare against',
+        );
+    }
+
+    public function test_a_diff_that_does_not_run_forwards_is_not_found(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+
+        $owner = $this->createUser($em, 'owner-diff-404', 'owner-diff-404@example.com');
+        $project = $this->project($em, $owner);
+
+        $doc = new Document(owner: $owner, project: $project, title: 'Backwards Diff');
+        $doc->addVersion('# v1', '<h1>v1</h1>');
+        $doc->addVersion('# v2', '<h1>v2</h1>');
+        $em->persist($doc);
+        $em->flush();
+
+        $projectId = (string) $project->id;
+        $id = (string) $doc->id;
+        $em->clear();
+
+        $client->loginUser($owner);
+        $base = '/projects/'.$projectId.'/documents/'.$id.'/review/diff/';
+
+        $client->request(Request::METHOD_GET, $base.'2/1');
+        self::assertResponseStatusCodeSame(404);
+
+        $client->request(Request::METHOD_GET, $base.'1/1');
+        self::assertResponseStatusCodeSame(404);
+
+        $client->request(Request::METHOD_GET, $base.'1/9');
+        self::assertResponseStatusCodeSame(404);
+    }
+
     public function test_unauthenticated_user_is_redirected(): void
     {
         $client = static::createClient();

@@ -8,11 +8,13 @@ use App\Controller\AppController;
 use App\Module\Project\Entity\Project;
 use App\Module\Review\Entity\Comment;
 use App\Module\Review\Entity\Document;
+use App\Module\Review\Entity\DocumentVersion;
 use App\Module\Review\Form\AddCommentFormType;
 use App\Module\Review\Form\AddCommentRequest;
 use App\Module\Review\Repository\CommentRepository;
 use App\Module\Review\Repository\DocumentVersionRepository;
 use App\Module\Review\Security\DocumentVoter;
+use App\Module\Review\Service\MarkdownDiffer;
 use Symfony\Bridge\Doctrine\Attribute\MapEntity;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
@@ -35,11 +37,21 @@ use Symfony\Component\Security\Http\Attribute\IsGranted;
     requirements: ['versionNumber' => '\d+'],
     methods: ['GET'],
 )]
+// Re-reviewing a revised document otherwise means reading all of it again. This
+// route shows the delta between any two versions instead, in place of the
+// document rather than beside it.
+#[Route(
+    '/projects/{projectId}/documents/{documentId}/review/diff/{fromVersionNumber}/{toVersionNumber}',
+    name: 'app_document_review_diff',
+    requirements: ['fromVersionNumber' => '\d+', 'toVersionNumber' => '\d+'],
+    methods: ['GET'],
+)]
 final class ShowDocumentController extends AppController
 {
     public function __construct(
         private readonly DocumentVersionRepository $documentVersions,
         private readonly CommentRepository $comments,
+        private readonly MarkdownDiffer $markdownDiffer,
     ) {
     }
 
@@ -47,17 +59,31 @@ final class ShowDocumentController extends AppController
         #[MapEntity(mapping: ['projectId' => 'id'])] Project $project,
         #[MapEntity(expr: 'repository.findOneByIdAndProjectId(documentId, projectId)')] Document $document,
         ?int $versionNumber = null,
+        ?int $fromVersionNumber = null,
+        ?int $toVersionNumber = null,
     ): Response {
         $latest = $this->documentVersions->findLatest($document);
-        $version = null === $versionNumber
-            ? $latest
-            : $this->documentVersions->findByNumber($document, $versionNumber)
-                ?? throw $this->createNotFoundException(sprintf('Document has no version %d.', $versionNumber));
+
+        $diff = null;
+        if (null !== $fromVersionNumber && null !== $toVersionNumber) {
+            if ($fromVersionNumber >= $toVersionNumber) {
+                throw $this->createNotFoundException('A diff runs from an earlier version to a later one.');
+            }
+            $version = $this->version($document, $toVersionNumber);
+            $diff = $this->markdownDiffer->diff(
+                $this->version($document, $fromVersionNumber)->markdownSource,
+                $version->markdownSource,
+            );
+        } else {
+            $version = null === $versionNumber ? $latest : $this->version($document, $versionNumber);
+        }
 
         // Every write on this page targets the current version: the composer posts
         // a comment onto whatever is latest, and the verdict applies to the document
         // as it stands. An older version is therefore rendered as a read-only record
-        // of what was discussed then.
+        // of what was discussed then. A diff is read-only for a second reason — the
+        // document pane holds diff markup, so its textContent is no longer
+        // DocumentVersion::plainText() and anchoring has no basis to resolve against.
         $isLatest = $version->versionNumber === $latest->versionNumber;
         $comments = $this->comments->findByVersion($version);
 
@@ -73,10 +99,18 @@ final class ShowDocumentController extends AppController
             'document' => $document,
             'version' => $version,
             'versions' => $this->documentVersions->findAllMetaByDocument($document),
-            'readOnly' => !$isLatest,
+            'diff' => $diff,
+            'diffFromVersion' => $fromVersionNumber,
+            'readOnly' => null !== $diff || !$isLatest,
             'comments' => $comments,
             'orphanedCount' => count(array_filter($comments, static fn (Comment $c) => $c->orphaned)),
             'addCommentForm' => $addCommentForm,
         ]);
+    }
+
+    private function version(Document $document, int $versionNumber): DocumentVersion
+    {
+        return $this->documentVersions->findByNumber($document, $versionNumber)
+            ?? throw $this->createNotFoundException(sprintf('Document has no version %d.', $versionNumber));
     }
 }

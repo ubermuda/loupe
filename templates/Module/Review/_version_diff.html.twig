@@ -1,0 +1,25 @@
+{#
+    Word-level diff of two versions' Markdown source.
+
+    Every line of both versions is present exactly once per side, so the pane's
+    text is a faithful rendering of the DocumentDiff — see DocumentDiff, whose
+    oldSource()/newSource() read the same structure back. Lines are laid out
+    with `white-space: pre-wrap`, so no whitespace may leak in from this
+    template's own indentation.
+
+    Params:
+      diff — App\Module\Review\ValueObject\DocumentDiff
+#}
+<div class="lp-diff">
+    {%- for line in diff.lines -%}
+        <div class="lp-diff__line lp-diff__line--{{ line.kind.value }}">
+            {%- for segment in line.segments -%}
+                {%- if segment.kind.value == 'unchanged' -%}
+                    {{- segment.text -}}
+                {%- else -%}
+                    <span class="lp-diff__mark lp-diff__mark--{{ segment.kind.value }}">{{- segment.text -}}</span>
+                {%- endif -%}
+            {%- endfor -%}
+        </div>
+    {%- endfor -%}
+</div>

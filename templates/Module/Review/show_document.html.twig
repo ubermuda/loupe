@@ -16,7 +16,15 @@
     </div>
     {% endif %}
 
-    {% if readOnly %}
+    {% if diff %}
+    <div class="lp-version-banner">
+        <twig:ux:icon name="lucide:git-compare" class="w-4 h-4 shrink-0" />
+        <span>{{ 'review.document.diff.banner'|trans({'%from%': diffFromVersion, '%to%': version.versionNumber}) }}</span>
+        <a class="lp-btn lp-btn--ghost lp-btn--sm" href="{{ path('app_document_review', {projectId: document.project.id, documentId: document.id}) }}">
+            {{ 'review.document.version.back_to_latest'|trans }}
+        </a>
+    </div>
+    {% elseif readOnly %}
     <div class="lp-version-banner">
         <twig:ux:icon name="lucide:history" class="w-4 h-4 shrink-0" />
         <span>{{ 'review.document.version.read_only'|trans({'%version%': version.versionNumber}) }}</span>
@@ -36,7 +44,14 @@
         </nav>
     </header>
 
-    <div class="lp-review-layout" data-controller="comment-anchor">
+    {#
+        In diff mode the comment-anchor controller is not attached at all, rather
+        than attached and told to stay quiet. Its highlight painting runs on every
+        layout regardless of readOnly, and the pane it walks holds diff markup
+        whose textContent is not DocumentVersion::plainText() — so leaving the
+        controller connected would paint anchors against the wrong basis.
+    #}
+    <div class="lp-review-layout"{% if not diff %} data-controller="comment-anchor"{% endif %}>
         {#
             The outer .lp-review-doc provides position:relative + the internal
             scroll for the floating composer/toolbar. The inner
@@ -79,13 +94,46 @@
                         {% if meta.description %}
                         <p class="lp-version-entry__description">{{ meta.description }}</p>
                         {% endif %}
+                        {% if meta.versionNumber > 1 %}
+                        <a class="lp-version-entry__diff"
+                           href="{{ path('app_document_review_diff', {projectId: document.project.id, documentId: document.id, fromVersionNumber: meta.versionNumber - 1, toVersionNumber: meta.versionNumber}) }}"
+                           {% if diff and diffFromVersion == meta.versionNumber - 1 and version.versionNumber == meta.versionNumber %}aria-current="page"{% endif %}
+                        >{{ 'review.document.diff.link'|trans({'%from%': meta.versionNumber - 1}) }}</a>
+                        {% endif %}
                     </div>
                     {% endfor %}
                 </nav>
                 {% endif %}
             </div>
 
+            {% if diff %}
+                {# What the author said each revision changed, read next to what it
+                   actually changed. Only the versions the diff spans are listed. #}
+                {% set changeNotes = versions|filter(meta =>
+                    meta.versionNumber > diffFromVersion
+                    and meta.versionNumber <= version.versionNumber
+                    and meta.description is not empty
+                ) %}
+                {% if changeNotes|length > 0 %}
+                <aside class="lp-diff-notes">
+                    <h2 class="lp-diff-notes__title">{{ 'review.document.diff.notes_title'|trans }}</h2>
+                    {% for meta in changeNotes %}
+                    <p class="lp-diff-notes__entry">
+                        <span class="lp-version-pill">{{ 'v' ~ meta.versionNumber }}</span>
+                        <span>{{ meta.description }}</span>
+                    </p>
+                    {% endfor %}
+                </aside>
+                {% endif %}
+
+                {% if diff.hasChanges %}
+                    {% include '@Review/_version_diff.html.twig' with {diff: diff} only %}
+                {% else %}
+                    <p class="lp-empty">{{ 'review.document.diff.identical'|trans }}</p>
+                {% endif %}
+            {% else %}
             <div class="prose max-w-2xl lp-prose lp-review-doc__prose" data-comment-anchor-target="doc">{{ version.renderedHtml|raw }}</div>
+            {% endif %}
 
             {# The composer and its toolbar post onto the CURRENT version, so on an
                earlier one they are omitted entirely rather than shown and ignored. #}
