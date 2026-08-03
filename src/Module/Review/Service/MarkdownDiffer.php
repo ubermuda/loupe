@@ -52,14 +52,14 @@ final readonly class MarkdownDiffer
     /** A {@see DiffRefusal} in place of a diff when the pair cannot be compared. */
     public function diff(string $oldSource, string $newSource): DocumentDiff|DiffRefusal
     {
-        if (self::holdsSentinel($oldSource) || self::holdsSentinel($newSource)) {
+        if ($this->holdsSentinel($oldSource) || $this->holdsSentinel($newSource)) {
             return DiffRefusal::UnsupportedCharacters;
         }
 
         $oldLines = explode("\n", $oldSource);
         $newLines = explode("\n", $newSource);
 
-        if (!self::withinBounds($oldLines) || !self::withinBounds($newLines)) {
+        if (!$this->withinBounds($oldLines) || !$this->withinBounds($newLines)) {
             return DiffRefusal::TooLarge;
         }
 
@@ -104,7 +104,7 @@ final readonly class MarkdownDiffer
     }
 
     /** @param list<string> $lines */
-    private static function withinBounds(array $lines): bool
+    private function withinBounds(array $lines): bool
     {
         if (count($lines) > self::MAX_LINES) {
             return false;
@@ -132,7 +132,7 @@ final readonly class MarkdownDiffer
      * such a character would then compare as identical, and nothing on the page
      * would say so.
      */
-    private static function holdsSentinel(string $source): bool
+    private function holdsSentinel(string $source): bool
     {
         // The library types these constants as bare `array`, so their elements
         // arrive as mixed.
@@ -156,15 +156,15 @@ final readonly class MarkdownDiffer
             // An equal block carries the same lines under both keys; taking both
             // would silently double every unchanged region of the document.
             SequenceMatcher::OP_EQ => array_map(
-                static fn (string $line): DiffLine => DiffLine::unchanged(self::decode($line)),
+                fn (string $line): DiffLine => DiffLine::unchanged($this->decode($line)),
                 $new,
             ),
             SequenceMatcher::OP_INS => array_map(
-                static fn (string $line): DiffLine => DiffLine::inserted(self::decode($line)),
+                fn (string $line): DiffLine => DiffLine::inserted($this->decode($line)),
                 $new,
             ),
             SequenceMatcher::OP_DEL => array_map(
-                static fn (string $line): DiffLine => DiffLine::deleted(self::decode($line)),
+                fn (string $line): DiffLine => DiffLine::deleted($this->decode($line)),
                 $old,
             ),
             SequenceMatcher::OP_REP => $this->linesForReplacement($old, $new),
@@ -188,15 +188,15 @@ final readonly class MarkdownDiffer
 
         if (!$marked) {
             return [
-                ...array_map(static fn (string $line): DiffLine => DiffLine::deleted(self::stripMarks($line)), $old),
-                ...array_map(static fn (string $line): DiffLine => DiffLine::inserted(self::stripMarks($line)), $new),
+                ...array_map(fn (string $line): DiffLine => DiffLine::deleted($this->stripMarks($line)), $old),
+                ...array_map(fn (string $line): DiffLine => DiffLine::inserted($this->stripMarks($line)), $new),
             ];
         }
 
         $lines = [];
         foreach ($old as $index => $oldLine) {
-            $lines[] = new DiffLine(DiffKind::Deleted, self::segments($oldLine, DiffKind::Deleted));
-            $lines[] = new DiffLine(DiffKind::Inserted, self::segments($new[$index], DiffKind::Inserted));
+            $lines[] = new DiffLine(DiffKind::Deleted, $this->segments($oldLine, DiffKind::Deleted));
+            $lines[] = new DiffLine(DiffKind::Inserted, $this->segments($new[$index], DiffKind::Inserted));
         }
 
         return $lines;
@@ -216,8 +216,8 @@ final readonly class MarkdownDiffer
         $oldLine = implode("\n", $old);
         $newLine = implode("\n", $new);
 
-        $changed = self::markedLength($oldLine, 'del') + self::markedLength($newLine, 'ins');
-        $total = strlen(self::stripMarks($oldLine)) + strlen(self::stripMarks($newLine));
+        $changed = $this->markedLength($oldLine, 'del') + $this->markedLength($newLine, 'ins');
+        $total = strlen($this->stripMarks($oldLine)) + strlen($this->stripMarks($newLine));
 
         return $changed / ($total + 1);
     }
@@ -227,11 +227,11 @@ final readonly class MarkdownDiffer
      * on the same scale as the line it is divided by: a changed `&` is one
      * character, not the five of `&amp;`.
      */
-    private static function markedLength(string $line, string $tag): int
+    private function markedLength(string $line, string $tag): int
     {
         preg_match_all('#<'.$tag.'>(.*?)</'.$tag.'>#us', $line, $matches);
 
-        return array_sum(array_map(static fn (string $run): int => strlen(self::decode($run)), $matches[1]));
+        return array_sum(array_map(fn (string $run): int => strlen($this->decode($run)), $matches[1]));
     }
 
     /**
@@ -240,7 +240,7 @@ final readonly class MarkdownDiffer
      *
      * @return list<DiffSegment>
      */
-    private static function segments(string $line, DiffKind $changed): array
+    private function segments(string $line, DiffKind $changed): array
     {
         $tag = DiffKind::Deleted === $changed ? 'del' : 'ins';
         $parts = preg_split(
@@ -250,7 +250,7 @@ final readonly class MarkdownDiffer
             \PREG_SPLIT_DELIM_CAPTURE | \PREG_SPLIT_NO_EMPTY,
         );
         if (false === $parts) {
-            return [new DiffSegment(DiffKind::Unchanged, self::decode($line))];
+            return [new DiffSegment(DiffKind::Unchanged, $this->decode($line))];
         }
 
         $segments = [];
@@ -260,16 +260,16 @@ final readonly class MarkdownDiffer
             if ('' === $text) {
                 continue;
             }
-            $segments[] = new DiffSegment($isMarked ? $changed : DiffKind::Unchanged, self::decode($text));
+            $segments[] = new DiffSegment($isMarked ? $changed : DiffKind::Unchanged, $this->decode($text));
         }
 
         return $segments;
     }
 
     /** The line's own text, with the diff markup removed but its content kept. */
-    private static function stripMarks(string $line): string
+    private function stripMarks(string $line): string
     {
-        return self::decode(str_replace(['<del>', '</del>', '<ins>', '</ins>'], '', $line));
+        return $this->decode(str_replace(['<del>', '</del>', '<ins>', '</ins>'], '', $line));
     }
 
     /**
@@ -277,7 +277,7 @@ final readonly class MarkdownDiffer
      * inserted, which is why a literal `<del>` in the Markdown cannot be
      * mistaken for one — by this point it reads `&lt;del&gt;`.
      */
-    private static function decode(string $text): string
+    private function decode(string $text): string
     {
         return htmlspecialchars_decode($text, \ENT_NOQUOTES);
     }
