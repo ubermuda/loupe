@@ -2751,3 +2751,30 @@ Either backfill (`offsetHint = mb_strlen(substr(plainText, 0, offsetHint))` per
 comment, against its own version's text) or accept a one-revision settling
 period, but decide it before the first deploy that carries real comments across
 the change.
+
+## No table of contents on document versions rendered before headings had ids
+
+**Author:** Claude · **Type:** bug · **Priority:** low · **Status:** pending
+
+`App\Module\Review\Service\HeadingExtractor` reads heading ids back out of
+`DocumentVersion::$renderedHtml`. A version rendered before `MarkdownRenderer`
+began emitting those ids carries none, so nothing is extracted and the review
+screen shows no contents panel for it. New and revised versions are unaffected.
+
+Nothing needs doing on deploy, and no migration was written on purpose: this app
+does not keep backward compatibility for stored renderings. The failure is also
+quiet in the right direction — a version with no ids shows no panel at all,
+rather than a panel of links that go nowhere.
+
+The remedy for a given document is `app:review:rerender-versions`, with one
+caveat worth knowing before reaching for it. That command refuses to run when
+re-rendering would leave an existing comment unable to resolve, unless
+`--accept-comment-orphaning` is passed. Adding heading ids does not itself move
+any text — ids live in attributes, which `plainText()` never sees — so a version
+that predates only that change re-renders cleanly. A version old enough to
+predate a renderer change that *did* move text is the one where the guard fires,
+and where the choice is between a table of contents and stranded comments.
+
+What removes that choice is the re-anchoring pass described in "A renderer change
+that moves plainText needs a reanchor pass, not just a rerender": with it, an old
+version can be brought forward and its comments re-resolved in the same motion.

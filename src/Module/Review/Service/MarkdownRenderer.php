@@ -197,9 +197,10 @@ final readonly class MarkdownRenderer
 
     private static function slug(string $headingHtml): string
     {
-        $text = html_entity_decode(strip_tags($headingHtml), ENT_QUOTES | ENT_HTML5, 'UTF-8');
-        $slug = trim((string) preg_replace('~[^\p{L}\p{N}]+~u', '-', $text), '-');
+        $slug = trim((string) preg_replace('~[^\p{L}\p{N}]+~u', '-', HeadingLabel::fromHtml($headingHtml)), '-');
 
+        // A heading with no derivable label still needs an id, so in-page links and
+        // structural positions keep working; the suffixing makes them distinct.
         return '' === $slug ? 'section' : mb_strtolower($slug);
     }
 }

@@ -8,8 +8,8 @@ namespace App\Module\Review\ValueObject;
  * One heading of a rendered document version.
  *
  * Read back out of DocumentVersion::$renderedHtml rather than parsed from the
- * Markdown source, so the text is the same text DocumentVersion::plainText()
- * exposes — the basis comment anchors are measured against.
+ * Markdown source, so $offset lands in DocumentVersion::plainText() — the basis
+ * comment anchors are measured against.
  */
 final readonly class DocumentHeading
 {
@@ -19,9 +19,11 @@ final readonly class DocumentHeading
         /** The `id` MarkdownRenderer gave the heading, without the `#`. */
         public string $id,
         /**
-         * Trimmed for display, so it is NOT guaranteed to equal the slice of
-         * plainText() at $offset — read the slice itself when the exact characters
-         * matter.
+         * A label for display, NOT a slice of plainText(): it is trimmed, its inner
+         * whitespace is collapsed, and an image contributes its `alt` text, which is
+         * in an attribute and so is absent from plainText() entirely. Read the slice
+         * at $offset when the exact characters matter. Empty when the heading is an
+         * image with no `alt` — there is then nothing to label it with.
          */
         public string $text,
         /**
