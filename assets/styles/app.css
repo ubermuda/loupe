@@ -1063,9 +1063,9 @@
     .lp-review-contents__link {
         @apply block truncate rounded no-underline text-fg-mute text-sm py-1 px-1.5 transition-colors hover:bg-tint hover:text-fg;
     }
-    .lp-review-contents__link[data-level='2'] {
-        @apply pl-1.5;
-    }
+    /* Levels 1 and 2 share the base indent on purpose: a Loupe document keeps its
+       title out of the body and opens at `##`, so h2 is the top section level and
+       an h1 is the exception rather than the outer tier. */
     .lp-review-contents__link[data-level='3'] {
         @apply pl-5;
     }
@@ -1073,10 +1073,10 @@
         @apply pl-9;
     }
     .lp-review-contents__link[data-level='5'] {
-        @apply pl-12;
+        @apply pl-13;
     }
     .lp-review-contents__link[data-level='6'] {
-        @apply pl-16;
+        @apply pl-17;
     }
 
     /* Rendered Markdown (incl. GFM tables) is styled by the Tailwind typography
