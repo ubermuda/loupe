@@ -4,13 +4,13 @@ declare(strict_types=1);
 
 namespace App\Module\Review\Entity;
 
-use App\Doctrine\TsVectorType;
 use App\Module\Account\Entity\User;
 use App\Module\Project\Entity\Project;
 use App\Module\Review\Repository\DocumentRepository;
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
 use Doctrine\ORM\Mapping as ORM;
+use MartinGeorgiev\Doctrine\DBAL\Type as PostgresType;
 use Symfony\Bridge\Doctrine\Types\UuidType;
 use Symfony\Component\Uid\Uuid;
 
@@ -62,7 +62,7 @@ class Document
      * DocumentSearchIndexer maintains it, and the mapping exists so DQL can name
      * it. Null until a document is next written — see the backfill migration.
      */
-    #[ORM\Column(name: 'search_vector', type: TsVectorType::NAME, nullable: true, insertable: false, updatable: false)]
+    #[ORM\Column(name: 'search_vector', type: PostgresType::TSVECTOR, nullable: true, insertable: false, updatable: false)]
     public ?string $searchVector = null;
 
     /** @var Collection<int, DocumentVersion> */

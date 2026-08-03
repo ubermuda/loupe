@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Module\Review\Repository;
 
+use App\Doctrine\FullTextSearch;
 use App\Module\Account\Entity\User;
 use App\Module\Project\Entity\Project;
 use App\Module\Review\Entity\Document;
@@ -72,9 +73,15 @@ class DocumentRepository extends ServiceEntityRepository
         }
 
         if (null !== $search) {
-            $qb->andWhere('TSMATCH(d.searchVector, :search) = true')
+            // The configuration is concatenated rather than bound: Postgres
+            // overloads websearch_to_tsquery as (regconfig, text) and (text), so
+            // a bound parameter has no type to resolve against and picks the
+            // wrong arity. It is a class constant, never user input.
+            $tsquery = \sprintf("WEBSEARCH_TO_TSQUERY('%s', :search)", FullTextSearch::CONFIGURATION);
+
+            $qb->andWhere(\sprintf('TSMATCH(d.searchVector, %s) = true', $tsquery))
                 ->setParameter('search', $search)
-                ->orderBy('TSRANK(d.searchVector, :search)', 'DESC');
+                ->orderBy(\sprintf('TS_RANK(d.searchVector, %s)', $tsquery), 'DESC');
         } else {
             $qb->orderBy('d.createdAt', 'DESC');
         }
