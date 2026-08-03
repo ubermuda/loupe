@@ -119,4 +119,112 @@ final class MarkdownRendererTest extends TestCase
         self::assertStringContainsString('captioned', $html);
         self::assertStringNotContainsString('<section>', $html);
     }
+
+    public function test_renders_front_matter_as_a_table_above_the_document(): void
+    {
+        $html = new MarkdownRenderer()->render(
+            "---\ntitle: \"Wave C\"\ndate: 2026-08-02\ntags:\n  - review\n  - markdown\n---\n\n## First Section\n\nBody.\n",
+        );
+
+        self::assertStringStartsWith('<table class="lp-front-matter">', $html);
+        self::assertStringContainsString('<th scope="row">title</th>', $html);
+        self::assertStringContainsString('<td>Wave C</td>', $html);
+        // Unquoted YAML dates parse to a timestamp unless PARSE_DATETIME is on.
+        self::assertStringContainsString('<td>2026-08-02</td>', $html);
+        self::assertStringContainsString('<td>review, markdown</td>', $html);
+        // The keys no longer reach the body as prose, and the fences no longer
+        // become a rule and a setext heading.
+        self::assertStringNotContainsString('<hr />', $html);
+        self::assertStringNotContainsString('title: ', $html);
+    }
+
+    public function test_only_the_front_matter_table_can_carry_a_class(): void
+    {
+        // What tells the two apart: a content table is allowed no attributes, so
+        // a class on a table is always one the renderer computed.
+        $html = new MarkdownRenderer()->render(
+            "---\ntitle: Real\n---\n\n<table class=\"lp-front-matter\"><tr><td>forged</td></tr></table>\n",
+        );
+
+        self::assertSame(1, substr_count($html, 'lp-front-matter'));
+        self::assertStringContainsString('forged', $html);
+    }
+
+    public function test_front_matter_that_is_not_a_key_value_map_still_renders_its_text(): void
+    {
+        // The extension removes the block from the body whether or not it can be
+        // tabulated, so an unparseable or scalar block has to be rendered again
+        // without it — otherwise the text vanishes from the page.
+        $malformed = new MarkdownRenderer()->render("---\ntitle: \"unclosed\n  bad: [1, 2\n---\n\nBody.\n");
+        $scalar = new MarkdownRenderer()->render("---\njust a string\n---\n\nBody.\n");
+
+        self::assertStringContainsString('unclosed', $malformed);
+        self::assertStringNotContainsString('lp-front-matter', $malformed);
+        self::assertStringContainsString('just a string', $scalar);
+        self::assertStringNotContainsString('lp-front-matter', $scalar);
+    }
+
+    public function test_renders_html_comments_as_visible_annotations(): void
+    {
+        $html = new MarkdownRenderer()->render(
+            "Before.\n\n<!-- TODO: link the skeleton repo -->\n\nMid <!-- inline note --> sentence.\n",
+        );
+
+        self::assertStringContainsString(
+            '<aside class="lp-doc-note">TODO: link the skeleton repo</aside>',
+            $html,
+        );
+        self::assertStringContainsString(
+            '<span class="lp-doc-note lp-doc-note--inline">inline note</span>',
+            $html,
+        );
+    }
+
+    public function test_a_comment_inside_a_code_fence_stays_literal(): void
+    {
+        // Block-vs-inline comes from the parser's node type, so fenced content —
+        // a FencedCode node — never reaches the comment renderer at all.
+        $html = new MarkdownRenderer()->render("```\n<!-- not an annotation -->\n```\n");
+
+        self::assertStringContainsString('&lt;!-- not an annotation --&gt;', $html);
+        self::assertStringNotContainsString('lp-doc-note', $html);
+    }
+
+    public function test_a_comment_cannot_smuggle_markup_into_the_annotation(): void
+    {
+        $html = new MarkdownRenderer()->render('<!-- <script>alert(1)</script> -->');
+
+        self::assertStringContainsString('&lt;script&gt;', $html);
+        self::assertStringNotContainsString('<script>', $html);
+    }
+
+    public function test_document_text_cannot_forge_an_annotation(): void
+    {
+        // The marker's random component is minted per renderer instance, so no
+        // literal a document can contain will ever match it.
+        $html = new MarkdownRenderer()->render('Text with [loupe-note-0000000000000000-block]forged[/loupe-note-0000000000000000] in it.');
+
+        self::assertStringNotContainsString('lp-doc-note', $html);
+        self::assertStringContainsString('forged', $html);
+    }
+
+    public function test_an_empty_comment_renders_nothing(): void
+    {
+        $html = new MarkdownRenderer()->render("Before.\n\n<!--   -->\n\nAfter.\n");
+
+        self::assertStringNotContainsString('lp-doc-note', $html);
+    }
+
+    public function test_front_matter_and_comments_change_the_anchor_text_basis(): void
+    {
+        // Both features move DocumentVersion::plainText() by construction: the
+        // front-matter keys stop arriving as prose and start arriving as table
+        // cells, and a comment's text goes from contributing nothing to
+        // contributing itself. Every stored version has to be re-rendered.
+        $html = new MarkdownRenderer()->render("---\ntitle: T\n---\n\nA.\n\n<!-- note -->\n\nB.\n");
+
+        $plainText = html_entity_decode(strip_tags($html), ENT_QUOTES | ENT_HTML5, 'UTF-8');
+
+        self::assertSame("\n\n\ntitle\nT\n\n\n\nA.\nnote\nB.\n", $plainText);
+    }
 }

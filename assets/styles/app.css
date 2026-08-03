@@ -1103,6 +1103,39 @@
         --tw-prose-td-borders: var(--border);
     }
 
+    /* ── Front matter ───────────────────────────────────────────────────
+       The document's opening YAML block, rendered as a key/value table above
+       the body instead of the horizontal rule and stray prose it used to
+       produce. The renderer adds this class after sanitization, and a table
+       written by the document is allowed no attributes at all — so the muted
+       panel treatment here can only ever mean front matter, never content. */
+    .lp-front-matter {
+        @apply w-full mt-0 mb-8 rounded-lg border border-line bg-surface-2 text-sm;
+    }
+    .lp-front-matter tr {
+        @apply border-0;
+    }
+    .lp-front-matter th {
+        @apply w-40 py-1.5 px-3 text-left align-top font-mono font-normal text-fg-dim;
+    }
+    .lp-front-matter td {
+        @apply py-1.5 px-3 text-left align-top text-fg;
+    }
+
+    /* ── Rendered HTML comments ─────────────────────────────────────────
+       An `<!-- … -->` marker from the source, shown rather than swallowed: its
+       author wrote it for a reader, and a reviewer can only answer a question
+       they can select. Held apart from .lp-anchor's accent tint so a note is
+       never mistaken for an existing comment highlight. */
+    .lp-doc-note {
+        @apply block my-4 py-2 px-3 rounded-r border-l-2 border-status-pending-border bg-status-pending-bg text-fg-mute text-sm;
+    }
+    /* Defined after the base class so its overrides win: a comment written
+       mid-sentence stays in the line rather than breaking the paragraph. */
+    .lp-doc-note--inline {
+        @apply inline my-0 py-0.5;
+    }
+
     /* ── Text selection highlight in the doc ─────────────────────────── */
 
     .lp-anchor {
