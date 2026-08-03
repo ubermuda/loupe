@@ -107,14 +107,7 @@ final readonly class MarkdownRenderer
             ->allowElement('samp')
             ->allowElement('var')
             ->allowElement('q', ['cite'])
-            ->allowElement('cite')
-            // A checkbox is the one form control documents use. `type` is forced
-            // rather than allowed, because the sanitizer cannot constrain an
-            // attribute's value and a document would otherwise render a password or
-            // file field. `name`, `value` and `form` stay out, so a document cannot
-            // smuggle a field into any form on the page.
-            ->allowElement('input', ['type', 'checked', 'disabled'])
-            ->forceAttribute('input', 'type', 'checkbox');
+            ->allowElement('cite');
 
         // Every remaining W3C-safe element is blocked rather than dropped: the tag
         // and its attributes go, its text stays. Text is the basis

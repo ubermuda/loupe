@@ -102,27 +102,16 @@ final class MarkdownRendererTest extends TestCase
         self::assertStringContainsString('<td align="right">2</td>', $html);
     }
 
-    public function test_keeps_checkboxes(): void
+    public function test_a_document_cannot_render_a_form_control(): void
     {
-        $html = new MarkdownRenderer()->render('<input type="checkbox" checked disabled> shipped');
+        // No form control has a producer: nothing in the pipeline emits one, and
+        // Markdown's `- [ ]` renders as literal text because TaskListExtension is
+        // not registered. `input` is void, so dropping it takes no text with it and
+        // the surrounding words keep their offsets in plainText().
+        $html = new MarkdownRenderer()->render('<input type="password" name="pw" checked> shipped');
 
-        self::assertStringContainsString('<input type="checkbox" checked disabled />', $html);
+        self::assertStringNotContainsString('<input', $html);
         self::assertStringContainsString('shipped', $html);
-    }
-
-    public function test_an_input_can_only_ever_be_a_bare_checkbox(): void
-    {
-        // The sanitizer cannot constrain an attribute's value, so `type` is forced;
-        // `name`/`value`/`form` are withheld so nothing can join a form on the page.
-        $html = new MarkdownRenderer()->render(
-            '<input type="password" name="pw" value="secret" form="submit-review-form" checked>',
-        );
-
-        self::assertStringContainsString('<input type="checkbox" checked />', $html);
-        self::assertStringNotContainsString('password', $html);
-        self::assertStringNotContainsString('name=', $html);
-        self::assertStringNotContainsString('value=', $html);
-        self::assertStringNotContainsString('form=', $html);
     }
 
     public function test_a_code_class_may_only_ever_be_a_language_token(): void

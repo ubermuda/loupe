@@ -1285,8 +1285,8 @@ unresolvable ones `orphaned` rather than leaving them pointing at moved text.
 
 Two known changes are blocked on this, both deliberately deferred rather than
 forgotten — see "Simplify the sanitizer block list with defaultAction(Block)" and
-"Task-list checkboxes need markdown task-list syntax enabled". Build this first,
-then either becomes a normal change.
+"A document cannot render a checkbox, by either route". Build this first, then
+either becomes a normal change.
 
 ## Simplify the sanitizer block list with defaultAction(Block)
 
@@ -1313,22 +1313,33 @@ need an explicit `dropElement()`, and note that `dropElement('style')` and
 `dropElement('title')` are **no-ops in body context** — `HtmlSanitizer` filters
 `W3CReference::HEAD_ELEMENTS` out of the body element config entirely.
 
-## Task-list checkboxes need markdown task-list syntax enabled
+## A document cannot render a checkbox, by either route
 
 
 
-**Author:** Claude · **Type:** feature · **Priority:** medium · **Status:** pending
+**Author:** Claude · **Type:** feature · **Priority:** low · **Status:** pending
 
-`MarkdownRenderer` renders `<input type="checkbox">` (forced to that type, with
-only `checked` and `disabled` alongside), so a checkbox written as raw HTML in a
-document works. Markdown's `- [ ] item` syntax does **not**: `TaskListExtension`
-is not registered, so it renders literally as `[ ] item`.
+Neither route works today, and that is deliberate rather than an oversight.
+`MarkdownRenderer` does not allow `<input>`, so a checkbox written as raw HTML is
+dropped; and `TaskListExtension` is not registered, so Markdown's `- [ ] item`
+renders literally as `[ ] item`.
 
-Enabling the extension removes those four characters from the rendered text and
-therefore from `DocumentVersion::plainText()`, moving every comment anchor below
-the first task list in every affected document. Like the sanitizer default above,
-it needs a rerender plus a reanchor pass — see "A renderer change that moves
-plainText needs a reanchor pass, not just a rerender".
+The allowance existed briefly and was removed for want of a consumer: rendering
+every document in the development database that mentions `<input>` produced zero
+inputs, because every occurrence is inside a code fence or backticks. Dropping it
+costs no text — `input` is void — so the anchor basis is unaffected either way.
+
+**Do not close this gap by registering `TaskListExtension`.** It deletes the two
+characters between the brackets from the rendered text and therefore from
+`DocumentVersion::plainText()`, so every comment anchor below the first task list
+moves; existing document versions use that syntax, and their open comments would
+orphan on the next revision. Like the sanitizer default above, it needs a rerender
+plus a reanchor pass — see "A renderer change that moves plainText needs a
+reanchor pass, not just a rerender". Re-allowing `<input>` is the cheaper half and
+has no anchor cost, but on its own it only serves hand-written HTML.
+
+Note the review screen's decision controls are **not** this: they are minted after
+sanitization and so never pass through the allowlist.
 
 ## Document images are fetched from wherever the document points
 
