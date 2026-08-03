@@ -49,8 +49,8 @@ class Document
      *
      * @var Collection<int, self>
      */
-    #[ORM\InverseJoinColumn(name: 'target_document_id', nullable: false)]
-    #[ORM\JoinColumn(name: 'source_document_id', nullable: false)]
+    #[ORM\InverseJoinColumn(name: 'target_document_id')]
+    #[ORM\JoinColumn(name: 'source_document_id')]
     #[ORM\JoinTable(name: 'document_references')]
     #[ORM\ManyToMany(targetEntity: self::class, inversedBy: 'referencedBy')]
     #[ORM\OrderBy(['createdAt' => 'ASC', 'id' => 'ASC'])]
