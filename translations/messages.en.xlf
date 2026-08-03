@@ -1004,6 +1004,16 @@
                 <target>Document versions</target>
             </trans-unit>
 
+            <!-- Document review table of contents -->
+            <trans-unit id="review.document.contents.label">
+                <source>review.document.contents.label</source>
+                <target>Contents</target>
+            </trans-unit>
+            <trans-unit id="review.document.contents.nav_label">
+                <source>review.document.contents.nav_label</source>
+                <target>Document sections</target>
+            </trans-unit>
+
             <!-- References between documents -->
             <trans-unit id="review.document.references.outgoing">
                 <source>review.document.references.outgoing</source>
@@ -1074,6 +1084,50 @@
             <trans-unit id="comment.error.not_owner">
                 <source>comment.error.not_owner</source>
                 <target>You can only comment on your own documents.</target>
+            </trans-unit>
+            <trans-unit id="review.document.suggestion.add">
+                <source>review.document.suggestion.add</source>
+                <target>Suggest</target>
+            </trans-unit>
+            <trans-unit id="review.document.suggestion.submit">
+                <source>review.document.suggestion.submit</source>
+                <target>Suggest</target>
+            </trans-unit>
+            <trans-unit id="review.document.suggestion.replacement_placeholder">
+                <source>review.document.suggestion.replacement_placeholder</source>
+                <target>Replace it with…</target>
+            </trans-unit>
+            <trans-unit id="review.document.suggestion.rationale_placeholder">
+                <source>review.document.suggestion.rationale_placeholder</source>
+                <target>Why? (optional)</target>
+            </trans-unit>
+            <trans-unit id="review.document.suggestion.failed">
+                <source>review.document.suggestion.failed</source>
+                <target>Couldn’t save the suggestion. Please try selecting the text again.</target>
+            </trans-unit>
+            <trans-unit id="review.document.suggestion.error.no_anchor">
+                <source>review.document.suggestion.error.no_anchor</source>
+                <target>Select the text you want to change first.</target>
+            </trans-unit>
+            <trans-unit id="review.document.strike.add">
+                <source>review.document.strike.add</source>
+                <target>Strike</target>
+            </trans-unit>
+            <trans-unit id="review.document.strike.shortcut">
+                <source>review.document.strike.shortcut</source>
+                <target>S</target>
+            </trans-unit>
+            <trans-unit id="review.document.strike.failed">
+                <source>review.document.strike.failed</source>
+                <target>Couldn’t strike that passage. Please try selecting the text again.</target>
+            </trans-unit>
+            <trans-unit id="review.document.kind.strike">
+                <source>review.document.kind.strike</source>
+                <target>Strike</target>
+            </trans-unit>
+            <trans-unit id="review.document.kind.suggestion">
+                <source>review.document.kind.suggestion</source>
+                <target>Suggestion</target>
             </trans-unit>
             <trans-unit id="comment.error.reply_to_reply">
                 <source>comment.error.reply_to_reply</source>

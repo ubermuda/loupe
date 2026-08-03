@@ -17,6 +17,10 @@ import { Controller } from '@hotwired/stimulus';
  * Custom Highlight API — no DOM mutation, so `textContent` stays intact) and the
  * thread card is positioned vertically near its anchor. Positioning degrades to
  * normal document flow on any failure.
+ *
+ * Three actions share that one captured selection. Comment and Suggest open a
+ * composer; Strike submits a hidden form outright, which is what lets it also be
+ * a single keypress.
  */
 export default class extends Controller {
     static targets = [
@@ -28,6 +32,19 @@ export default class extends Controller {
         'quotePreview',
         'prefix',
         'suffix',
+        'suggestComposer',
+        'suggestComposerError',
+        'suggestQuote',
+        'suggestQuotePreview',
+        'suggestPrefix',
+        'suggestSuffix',
+        'suggestReplacement',
+        'suggestBody',
+        'strikeForm',
+        'strikeQuote',
+        'strikePrefix',
+        'strikeSuffix',
+        'actionError',
         'toolbar',
         'thread',
     ];
@@ -41,10 +58,20 @@ export default class extends Controller {
         resolved: 'lp-anchor-resolved',
     };
 
+    // Painted in addition to the status highlight rather than instead of it, so a
+    // struck passage keeps its status tint and gains the line-through.
+    static STRUCK_HIGHLIGHT = 'lp-anchor-struck';
+
     static CONTEXT = 32;
+
+    // Strike is the only action that completes without a form, so it is the only
+    // one worth a keystroke — one for Comment or Suggest would still leave a
+    // composer to fill in.
+    static STRIKE_KEY = 's';
 
     connect() {
         this.pendingSelection = null;
+        this.strikeInFlight = false;
         this.#hideToolbar();
         this.#hideComposer();
         this.#registerHighlights();
@@ -52,6 +79,12 @@ export default class extends Controller {
         this.scheduledLayout = null;
         this.onResize = () => this.#scheduleLayout();
         window.addEventListener('resize', this.onResize);
+
+        // Bound on the document, not on the pane: a mouse selection inside a plain
+        // div leaves activeElement on <body>, so keydown never reaches an element
+        // action here.
+        this.onKeydown = (event) => this.#onKeydown(event);
+        document.addEventListener('keydown', this.onKeydown);
 
         // Re-measure once layout settles (connect() fires before layout during
         // Turbo navigation, when getBoundingClientRect would read zeros).
@@ -73,6 +106,7 @@ export default class extends Controller {
 
     disconnect() {
         window.removeEventListener('resize', this.onResize);
+        document.removeEventListener('keydown', this.onKeydown);
         this.resizeObserver?.disconnect();
         this.threadObserver?.disconnect();
         if (this.scheduledLayout !== null) {
@@ -80,6 +114,7 @@ export default class extends Controller {
         }
         this.anchorHighlight?.clear();
         this.activeHighlight?.clear();
+        this.struckHighlight?.clear();
         for (const highlight of Object.values(this.statusHighlights ?? {})) {
             highlight.clear();
         }
@@ -90,6 +125,12 @@ export default class extends Controller {
      * show the floating toolbar. Clicks on the toolbar/composer (inside
      * .lp-review-doc but outside the doc text) are ignored, so they never hide
      * the toolbar or clobber the pending selection.
+     *
+     * Every other outcome DISCARDS the captured anchor rather than merely hiding
+     * the toolbar. The two must not be able to disagree: the strike shortcut reads
+     * pendingSelection and not the toolbar, so a click that clears the selection
+     * would otherwise leave `s` armed against a passage the reviewer can no longer
+     * see highlighted.
      */
     onDocMouseup(event) {
         if (!this.docTarget.contains(event.target)) {
@@ -98,19 +139,19 @@ export default class extends Controller {
 
         const selection = window.getSelection();
         if (!selection || selection.isCollapsed || selection.rangeCount === 0) {
-            this.#hideToolbar();
+            this.#clearPendingSelection();
             return;
         }
 
         const range = selection.getRangeAt(0);
         if (!this.docTarget.contains(range.commonAncestorContainer)) {
-            this.#hideToolbar();
+            this.#clearPendingSelection();
             return;
         }
 
         const anchor = this.#extractAnchor(range);
         if (anchor === null) {
-            this.#hideToolbar();
+            this.#clearPendingSelection();
             return;
         }
 
@@ -118,7 +159,12 @@ export default class extends Controller {
         this.#showToolbarNear(range);
     }
 
-    /** Toolbar action: open the composer for the captured selection. */
+    #clearPendingSelection() {
+        this.pendingSelection = null;
+        this.#hideToolbar();
+    }
+
+    /** Toolbar action: open the comment composer for the captured selection. */
     startComment(event) {
         event?.preventDefault();
         if (this.pendingSelection === null) {
@@ -134,7 +180,112 @@ export default class extends Controller {
 
         this.#setActiveHighlight(this.pendingSelection.range);
         this.#hideToolbar();
-        this.#showComposerNear(this.pendingSelection.range);
+        this.#showComposerNear(
+            this.composerTarget,
+            this.pendingSelection.range,
+        );
+        this.composerErrorTarget.textContent = '';
+        this.composerBodyTarget.value = '';
+        this.composerBodyTarget.focus();
+    }
+
+    /**
+     * Toolbar action: open the rewording composer. The replacement field starts as
+     * the selected text so the reviewer edits the passage rather than retyping it.
+     */
+    startSuggestion(event) {
+        event?.preventDefault();
+        if (this.pendingSelection === null || !this.hasSuggestComposerTarget) {
+            return;
+        }
+
+        this.suggestQuoteTarget.value = this.pendingSelection.quote;
+        this.suggestPrefixTarget.value = this.pendingSelection.prefix;
+        this.suggestSuffixTarget.value = this.pendingSelection.suffix;
+        this.suggestQuotePreviewTarget.textContent =
+            this.pendingSelection.quote;
+
+        this.#setActiveHighlight(this.pendingSelection.range);
+        this.#hideToolbar();
+        this.#showComposerNear(
+            this.suggestComposerTarget,
+            this.pendingSelection.range,
+        );
+        this.suggestComposerErrorTarget.textContent = '';
+        this.suggestBodyTarget.value = '';
+        this.suggestReplacementTarget.value = this.pendingSelection.quote;
+        this.suggestReplacementTarget.focus();
+        this.suggestReplacementTarget.select();
+    }
+
+    /**
+     * Toolbar action (and the `s` shortcut): strike the captured selection. No
+     * composer, no field — fill the hidden form and post it.
+     */
+    strike(event) {
+        event?.preventDefault();
+        if (this.pendingSelection === null || !this.hasStrikeFormTarget) {
+            return;
+        }
+        // Nothing clears pendingSelection until the response lands, so without this
+        // a double-tap (or a second click) posts the same passage twice. Reopened by
+        // onSubmitEnd, which Turbo fires on failure as well as success.
+        if (this.strikeInFlight) {
+            return;
+        }
+        this.strikeInFlight = true;
+
+        this.strikeQuoteTarget.value = this.pendingSelection.quote;
+        this.strikePrefixTarget.value = this.pendingSelection.prefix;
+        this.strikeSuffixTarget.value = this.pendingSelection.suffix;
+
+        this.#hideToolbar();
+        this.#hideComposer();
+        // requestSubmit(), not submit(): only the former fires the submit event
+        // Turbo listens for, so submit() would trigger a full page navigation.
+        this.strikeFormTarget.requestSubmit();
+    }
+
+    /**
+     * Single-key shortcut for striking. Ignored while a modifier is held or the
+     * caret is in a field, so it never eats a typed character; and ignored with no
+     * live selection, since a strike with no target means nothing.
+     */
+    #onKeydown(event) {
+        if (event.key !== this.constructor.STRIKE_KEY) {
+            return;
+        }
+        // Auto-repeat fires keydown continuously while the key is held, and each one
+        // would be a separate strike on the same passage.
+        if (event.repeat) {
+            return;
+        }
+        if (event.metaKey || event.ctrlKey || event.altKey) {
+            return;
+        }
+        const active = document.activeElement;
+        if (
+            active &&
+            (active.tagName === 'INPUT' ||
+                active.tagName === 'TEXTAREA' ||
+                active.isContentEditable)
+        ) {
+            return;
+        }
+        // An open composer means the reviewer already chose a different action for
+        // this selection; striking it from under them would discard what they typed.
+        if (this.#anyComposerOpen()) {
+            return;
+        }
+        this.strike(event);
+    }
+
+    #anyComposerOpen() {
+        return (
+            (this.hasComposerTarget && !this.composerTarget.hidden) ||
+            (this.hasSuggestComposerTarget &&
+                !this.suggestComposerTarget.hidden)
+        );
     }
 
     /** Sidebar action: open the composer for a comment with no anchor. */
@@ -161,10 +312,14 @@ export default class extends Controller {
 
     /**
      * After a successful Turbo submission the new thread has been inserted by the
-     * returned stream; clear and hide the composer, then re-layout. On failure
+     * returned stream; clear and hide the composers, then re-layout. On failure
      * the composer stays open showing the streamed error.
      */
     onSubmitEnd(event) {
+        // Released before the success check: a rejected strike must leave the action
+        // usable, or one failure disables striking for the rest of the page's life.
+        this.strikeInFlight = false;
+
         if (!event.detail?.success) {
             return;
         }
@@ -172,6 +327,14 @@ export default class extends Controller {
         this.composerBodyTarget.value = '';
         if (this.hasComposerErrorTarget) {
             this.composerErrorTarget.textContent = '';
+        }
+        if (this.hasSuggestComposerTarget) {
+            this.suggestReplacementTarget.value = '';
+            this.suggestBodyTarget.value = '';
+            this.suggestComposerErrorTarget.textContent = '';
+        }
+        if (this.hasActionErrorTarget) {
+            this.actionErrorTarget.textContent = '';
         }
         this.pendingSelection = null;
         this.#clearActiveHighlight();
@@ -331,6 +494,12 @@ export default class extends Controller {
             this.statusHighlights[status] = highlight;
             window.CSS.highlights.set(name, highlight);
         }
+
+        this.struckHighlight = new window.Highlight();
+        window.CSS.highlights.set(
+            this.constructor.STRUCK_HIGHLIGHT,
+            this.struckHighlight,
+        );
     }
 
     #setActiveHighlight(range) {
@@ -378,6 +547,7 @@ export default class extends Controller {
         for (const highlight of Object.values(this.statusHighlights)) {
             highlight.clear();
         }
+        this.struckHighlight?.clear();
         for (const thread of this.threadTargets) {
             const status = thread.dataset.anchorStatus ?? 'pending';
             const highlight =
@@ -387,8 +557,12 @@ export default class extends Controller {
                 thread.dataset.anchorPrefix ?? '',
                 thread.dataset.anchorSuffix ?? '',
             );
-            if (range !== null) {
-                highlight.add(range);
+            if (range === null) {
+                continue;
+            }
+            highlight.add(range);
+            if (thread.dataset.anchorKind === 'strike') {
+                this.struckHighlight?.add(range);
             }
         }
     }
@@ -457,50 +631,45 @@ export default class extends Controller {
 
     // Opens with its top-left at the toolbar's top-left (the composer is wider, so
     // it extends rightward from there), clamped to stay within the doc column.
-    #showComposerNear(range) {
-        if (!this.hasComposerTarget) {
-            return;
-        }
-        this.composerTarget.classList.remove('lp-comment-composer--untargeted');
-        this.composerTarget.hidden = false; // unhide so offsetWidth is measurable
+    #showComposerNear(panel, range) {
+        this.#hideComposer();
+        panel.classList.remove('lp-comment-composer--untargeted');
+        panel.hidden = false; // unhide so offsetWidth is measurable
         const base =
             this.toolbarPosition ??
-            this.#anchorBelowSelection(range, this.composerTarget.offsetWidth);
+            this.#anchorBelowSelection(range, panel.offsetWidth);
         const host = this.docTarget.parentElement;
-        const maxLeft = Math.max(
-            0,
-            host.clientWidth - this.composerTarget.offsetWidth,
-        );
-        this.composerTarget.style.top = `${base.top}px`;
-        this.composerTarget.style.left = `${Math.min(base.left, maxLeft)}px`;
-        this.#openComposer();
+        const maxLeft = Math.max(0, host.clientWidth - panel.offsetWidth);
+        panel.style.top = `${base.top}px`;
+        panel.style.left = `${Math.min(base.left, maxLeft)}px`;
     }
 
     #showComposerUntargeted() {
         if (!this.hasComposerTarget) {
             return;
         }
+        this.#hideComposer();
         this.composerTarget.classList.add('lp-comment-composer--untargeted');
         this.composerTarget.style.top = '';
         this.composerTarget.style.left = '';
-        this.#openComposer();
-    }
-
-    #openComposer() {
+        this.composerTarget.hidden = false;
         this.composerBodyTarget.value = '';
         if (this.hasComposerErrorTarget) {
             this.composerErrorTarget.textContent = '';
         }
-        this.composerTarget.hidden = false;
         this.composerBodyTarget.focus();
     }
 
     #hideComposer() {
-        if (this.hasComposerTarget) {
-            this.composerTarget.hidden = true;
-            this.composerTarget.classList.remove(
-                'lp-comment-composer--untargeted',
-            );
+        for (const panel of [
+            this.hasComposerTarget ? this.composerTarget : null,
+            this.hasSuggestComposerTarget ? this.suggestComposerTarget : null,
+        ]) {
+            if (panel === null) {
+                continue;
+            }
+            panel.hidden = true;
+            panel.classList.remove('lp-comment-composer--untargeted');
         }
     }
 }
