@@ -44,12 +44,21 @@
             <div class="lp-filter-search">
                 <twig:ux:icon name="lucide:search" class="lp-filter-search__icon" />
                 <label class="sr-only" for="document-search">{{ 'review.dashboard.filter.search_label'|trans }}</label>
+                {# The field target is what lets the controller put focus and the
+                   caret back after a debounced submit: this is a full Turbo
+                   visit, so the body — and the field being typed into — is
+                   replaced mid-word.
+
+                   A full visit rather than a turbo-frame on purpose: the query
+                   belongs in the address bar so a search is linkable and
+                   survives a reload. #}
                 <input type="search"
                        id="document-search"
                        name="search"
                        class="lp-input lp-filter-input"
                        value="{{ listQuery.search }}"
                        placeholder="{{ 'review.dashboard.filter.search_placeholder'|trans }}"
+                       data-autosearch-target="field"
                        data-action="input->autosearch#search">
             </div>
 
