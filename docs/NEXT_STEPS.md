@@ -2510,6 +2510,46 @@ whitelisting them by hand. Verify `admin-badge-off` against the admin bundle's
 compiled assets before removing it — the scan covered that bundle's templates
 and CSS, but a class applied from bundle JavaScript would not show up.
 
+## There is no JavaScript test harness, and the JS is no longer trivial
+
+**Author:** Geoffrey · **Type:** tooling · **Priority:** medium · **Status:** pending
+
+`package.json` carries `eslint`, `prettier` and Tailwind and nothing else — no
+test runner, no DOM environment, no `test` script. The only way to execute any
+JavaScript in this project is Playwright, which needs a booted app, a database
+and a mail catcher, and costs minutes.
+
+That was proportionate when the front end was a handful of small Stimulus
+controllers. It is not any more: `assets/controllers/comment_anchor_controller.js`
+is ~500 lines carrying the selection capture, the anchor extraction and the
+highlight painting that document review depends on, and
+`public/site-review/widget.js` is ~1600 lines that ships to other people's sites.
+
+Two consequences already visible:
+
+- **Real bugs reach review with no way to write a failing test.** A review of the
+  strike shortcut found two: a stale `pendingSelection` could be struck after the
+  user clicked the selection away, and keyboard auto-repeat submitted duplicate
+  strikes. Both are pure controller-state bugs, reachable in a browser in
+  seconds, and neither was expressible except as an e2e spec.
+- **The fallback is source-content assertions.** `WidgetFileTest` and the newer
+  strike-guard test read the JS as *text* and assert a guard appears in it. They
+  catch a deletion and nothing else — not a reintroduction elsewhere, not wrong
+  behaviour, not a regression in a path the string still matches.
+
+What a harness would buy, concretely: `#findRange`'s ranking is a pure function
+over a string and three anchor fields and could be tested directly rather than
+through a browser; `#extractAnchor`'s offsets are the browser half of the
+anchoring contract that PHP currently asserts alone; and the widget's fatal-state
+transitions are a state machine currently covered only by whole-app e2e specs.
+
+Worth deciding together with "Ship a minified site-review widget", since that
+entry introduces a build step for the same file and the two share tooling. The
+open questions are which runner (vitest is the obvious default given no bundler
+is present), whether the widget's tests run against source or the minified
+artefact, and whether `just ci` gains a leg or it stays opt-in until the suite
+earns its place.
+
 ## `site_review_get` reveals whether a site name exists
 
 **Author:** Claude · **Type:** security · **Priority:** low · **Status:** pending
