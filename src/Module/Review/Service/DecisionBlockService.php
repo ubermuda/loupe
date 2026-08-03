@@ -27,19 +27,24 @@ final readonly class DecisionBlockService
     /**
      * Namespaces minted ids away from the page's own (`composer-error` and
      * friends) and from the heading ids computed next to them.
+     *
+     * Joined with `_`, which ID_PATTERN forbids inside a document's own id, so
+     * the block and option namespaces cannot meet. Joining them with `-` did
+     * let them: a document declaring both `x-0` and `block-x` minted
+     * `decision-block-x-0` twice, once as a block and once as an option.
      */
-    private const string OPTION_ID_PREFIX = 'decision-';
+    private const string OPTION_ID_PREFIX = 'decision_option_';
+
+    private const string ID_SEPARATOR = '_';
 
     /** Groups a block's radios; inert as a form field, the controls post nothing themselves. */
     private const string RADIO_NAME_PREFIX = 'lp-decision-';
 
     /**
      * Turbo stream target for one block, so a failed submission can put the
-     * radios back without touching the surrounding prose. Distinct from the
-     * option prefix: `decision-<id>` would collide with option 0 of a document
-     * that declared the id `<id>-0`.
+     * radios back without touching the surrounding prose.
      */
-    private const string BLOCK_ID_PREFIX = 'decision-block-';
+    private const string BLOCK_ID_PREFIX = 'decision_block_';
 
     /**
      * The two attributes every reader keys on. Emission writes them and every
@@ -281,7 +286,7 @@ final readonly class DecisionBlockService
 
         $options = '';
         foreach ($items[1] as $index => $item) {
-            $optionId = self::OPTION_ID_PREFIX.$id.'-'.$index;
+            $optionId = self::OPTION_ID_PREFIX.$id.self::ID_SEPARATOR.$index;
             $options .= sprintf(
                 '<div class="lp-decision__option"><input type="radio" name="%s%s" value="%d" id="%s" %s="%s:%d"><label for="%s">%s</label></div>',
                 self::RADIO_NAME_PREFIX,

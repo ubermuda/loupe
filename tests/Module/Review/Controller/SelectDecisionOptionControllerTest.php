@@ -66,8 +66,8 @@ final class SelectDecisionOptionControllerTest extends WebTestCase
         self::assertSame(1, $selection->optionIndex);
 
         $client->request(Request::METHOD_GET, $this->reviewPath($document));
-        self::assertSelectorExists('#decision-deploy-target-1[checked]');
-        self::assertSelectorNotExists('#decision-deploy-target-0[checked]');
+        self::assertSelectorExists('#decision_option_deploy-target_1[checked]');
+        self::assertSelectorNotExists('#decision_option_deploy-target_0[checked]');
     }
 
     /**
@@ -96,7 +96,7 @@ final class SelectDecisionOptionControllerTest extends WebTestCase
         $client->request(Request::METHOD_GET, $this->reviewPath($document).'/versions/1');
 
         self::assertResponseIsSuccessful();
-        self::assertSelectorExists('#decision-deploy-target-1[checked][disabled]');
+        self::assertSelectorExists('#decision_option_deploy-target_1[checked][disabled]');
         self::assertSelectorNotExists('[data-decision-target="form"]');
     }
 
@@ -168,8 +168,8 @@ final class SelectDecisionOptionControllerTest extends WebTestCase
         $this->answer($client, $document, 'deploy-target', '1');
 
         $client->request(Request::METHOD_GET, $this->reviewPath($document));
-        self::assertSelectorExists('#decision-deploy-target-1[checked]');
-        self::assertSelectorNotExists('#decision-deploy-target-0[checked]');
+        self::assertSelectorExists('#decision_option_deploy-target_1[checked]');
+        self::assertSelectorNotExists('#decision_option_deploy-target_0[checked]');
 
         $getReview = static::getContainer()->get(GetReview::class);
         self::assertInstanceOf(GetReview::class, $getReview);
@@ -261,7 +261,7 @@ final class SelectDecisionOptionControllerTest extends WebTestCase
         // The browser leaves the clicked radio checked, so a refusal that only
         // replaced the status line would leave the page claiming a selection
         // the database does not hold.
-        self::assertStringContainsString('target="decision-block-deploy-target"', $body);
+        self::assertStringContainsString('target="decision_block_deploy-target"', $body);
         self::assertStringNotContainsString('checked', $body);
     }
 
@@ -289,7 +289,7 @@ final class SelectDecisionOptionControllerTest extends WebTestCase
 
         self::assertResponseStatusCodeSame(Response::HTTP_UNPROCESSABLE_ENTITY);
         $body = (string) $client->getResponse()->getContent();
-        self::assertStringContainsString('target="decision-block-deploy-target"', $body);
+        self::assertStringContainsString('target="decision_block_deploy-target"', $body);
         self::assertStringContainsString('data-decision-option="deploy-target:1"', $body);
         self::assertStringNotContainsString('checked', $body);
 

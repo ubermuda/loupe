@@ -46,7 +46,7 @@ final class DecisionBlockServiceTest extends TestCase
         $html = $this->renderer->render(self::FENCE);
 
         // The id is the Turbo stream target a refused submission replaces.
-        self::assertStringContainsString('<fieldset class="lp-decision" id="decision-block-deploy-target" data-decision-id="deploy-target">', $html);
+        self::assertStringContainsString('<fieldset class="lp-decision" id="decision_block_deploy-target" data-decision-id="deploy-target">', $html);
         self::assertStringContainsString('<input type="radio" name="lp-decision-deploy-target" value="0"', $html);
         self::assertStringContainsString('<input type="radio" name="lp-decision-deploy-target" value="1"', $html);
         // Inline formatting inside an option survives; the task-list marker does not.
@@ -116,6 +116,25 @@ final class DecisionBlockServiceTest extends TestCase
         // No alt is nothing to label with, exactly as for a heading.
         yield 'image with no alt' => ['- ![](d.png)', ['']];
         yield 'task marker then image' => ['- [ ] ![Diagram](d.png)', ['Diagram']];
+    }
+
+    /**
+     * Block ids and option ids share one namespace, and a document chooses part
+     * of both. Joined with `-` they could meet: `x-0` and `block-x` together
+     * minted `decision-block-x-0` as a block and again as an option, so a Turbo
+     * stream aimed at the block could replace a radio instead. `_` cannot appear
+     * inside a document's id, which is what keeps the two apart.
+     */
+    public function test_no_pair_of_decision_ids_can_mint_the_same_element_id(): void
+    {
+        $html = $this->renderer->render(
+            "<!-- decision: x-0 -->\n\n- [ ] A\n\n<!-- /decision -->\n\n<!-- decision: block-x -->\n\n- [ ] B\n\n<!-- /decision -->\n",
+        );
+
+        preg_match_all('~ id="([^"]+)"~', $html, $ids);
+
+        self::assertNotEmpty($ids[1], 'the fences must actually have been converted');
+        self::assertSame(array_unique($ids[1]), $ids[1], 'a document minted the same DOM id twice');
     }
 
     public function test_a_fence_quoted_inside_a_code_block_is_inert(): void

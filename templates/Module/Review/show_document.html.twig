@@ -135,14 +135,49 @@
                earlier one they are omitted entirely rather than shown and ignored. #}
             {% if not readOnly %}
             {# Floating toolbar — appears on text selection so selecting text no
-               longer steals focus or blocks copying. Clicking it opens the
-               composer and highlights the selection. #}
+               longer steals focus or blocks copying. Comment and Suggest open a
+               composer; Strike posts on the spot, which is why it also carries the
+               only keyboard shortcut on this pane. #}
             <div class="lp-anchor-toolbar" data-comment-anchor-target="toolbar" hidden>
                 <button type="button" class="lp-anchor-toolbar__btn" data-action="comment-anchor#startComment">
                     <twig:ux:icon name="lucide:message-square-plus" class="w-3.5 h-3.5 shrink-0" />
                     {{ 'review.document.comment.add'|trans }}
                 </button>
+                <button type="button" class="lp-anchor-toolbar__btn" data-action="comment-anchor#startSuggestion">
+                    <twig:ux:icon name="lucide:replace" class="w-3.5 h-3.5 shrink-0" />
+                    {{ 'review.document.suggestion.add'|trans }}
+                </button>
+                <button type="button" class="lp-anchor-toolbar__btn" data-action="comment-anchor#strike">
+                    <twig:ux:icon name="lucide:strikethrough" class="w-3.5 h-3.5 shrink-0" />
+                    {{ 'review.document.strike.add'|trans }}
+                    <kbd class="lp-anchor-toolbar__key">{{ 'review.document.strike.shortcut'|trans }}</kbd>
+                </button>
             </div>
+
+            {# Standing error region: a strike posts with no composer open, so a
+               rejected one has nowhere else to report itself. #}
+            <p
+                id="review-action-error"
+                class="lp-review-action-error"
+                role="status"
+                data-comment-anchor-target="actionError"
+            ></p>
+
+            {# The strike form is never shown — the Stimulus controller fills its
+               anchor fields from the selection and submits it. It stays a Symfony
+               form so CSRF and validation work exactly as they do elsewhere. #}
+            {# No display class: a `display` declaration in a layered component class
+               outranks the UA [hidden] rule, so adding one here would un-hide the
+               form the moment it gained a visible child. #}
+            {{ form_start(strikePassageForm, {attr: {
+                'data-comment-anchor-target': 'strikeForm',
+                'data-action': 'turbo:submit-end->comment-anchor#onSubmitEnd',
+                hidden: true,
+            }}) }}
+                {{ form_widget(strikePassageForm.quote) }}
+                {{ form_widget(strikePassageForm.prefix) }}
+                {{ form_widget(strikePassageForm.suffix) }}
+            {{ form_end(strikePassageForm) }}
 
             {# Floating composer — a Symfony form, hidden until the user opts in.
                The Stimulus controller positions it and fills the anchor fields;
@@ -178,6 +213,41 @@
                     >{{ 'review.document.comment.submit'|trans }}</button>
                 </div>
             {{ form_end(addCommentForm) }}
+
+            {# Floating rewording composer — the same card as the comment composer,
+               but leading with what the passage should become. The struck original
+               sits above it so the before/after reads at a glance. #}
+            {{ form_start(suggestRewordingForm, {attr: {
+                class: 'lp-comment-composer',
+                'data-comment-anchor-target': 'suggestComposer',
+                'data-controller': 'keyboard-submit',
+                'data-action': 'turbo:submit-end->comment-anchor#onSubmitEnd keydown->keyboard-submit#submit',
+                hidden: true,
+            }}) }}
+                {{ form_widget(suggestRewordingForm.quote) }}
+                {{ form_widget(suggestRewordingForm.prefix) }}
+                {{ form_widget(suggestRewordingForm.suffix) }}
+                <blockquote class="lp-composer-quote lp-composer-quote--struck" data-comment-anchor-target="suggestQuotePreview"></blockquote>
+                {{ form_widget(suggestRewordingForm.replacement) }}
+                {{ form_widget(suggestRewordingForm.body) }}
+                <div class="lp-comment-composer__actions">
+                    <span class="lp-composer-hint">{{ 'review.document.comment.hint'|trans }}</span>
+                    <span
+                        id="suggest-composer-error"
+                        class="lp-comment-composer__error"
+                        data-comment-anchor-target="suggestComposerError"
+                    ></span>
+                    <button
+                        type="button"
+                        class="lp-btn lp-btn--ghost lp-btn--sm"
+                        data-action="comment-anchor#hideComposer"
+                    >{{ 'review.document.comment.cancel'|trans }}</button>
+                    <button
+                        type="submit"
+                        class="lp-btn lp-btn--primary lp-btn--sm"
+                    >{{ 'review.document.suggestion.submit'|trans }}</button>
+                </div>
+            {{ form_end(suggestRewordingForm) }}
             {% endif %}
         </div>
 

@@ -12,6 +12,10 @@ use App\Module\Review\Form\AddCommentFormType;
 use App\Module\Review\Form\AddCommentRequest;
 use App\Module\Review\Form\SelectDecisionOptionFormType;
 use App\Module\Review\Form\SelectDecisionOptionRequest;
+use App\Module\Review\Form\StrikePassageFormType;
+use App\Module\Review\Form\StrikePassageRequest;
+use App\Module\Review\Form\SuggestRewordingFormType;
+use App\Module\Review\Form\SuggestRewordingRequest;
 use App\Module\Review\Repository\CommentRepository;
 use App\Module\Review\Repository\DecisionSelectionRepository;
 use App\Module\Review\Repository\DocumentVersionRepository;
@@ -77,14 +81,26 @@ final class ShowDocumentController extends AppController
             'method' => 'POST',
         ]);
 
+        $routeParameters = [
+            'projectId' => (string) $project->id,
+            'documentId' => (string) $document->id,
+        ];
+
+        $suggestRewordingForm = $this->createForm(SuggestRewordingFormType::class, new SuggestRewordingRequest(), [
+            'action' => $this->generateUrl('app_comment_suggest', $routeParameters),
+            'method' => 'POST',
+        ]);
+
+        $strikePassageForm = $this->createForm(StrikePassageFormType::class, new StrikePassageRequest(), [
+            'action' => $this->generateUrl('app_comment_strike', $routeParameters),
+            'method' => 'POST',
+        ]);
+
         // Stamped with the version whose options are being rendered, so a
         // submission that arrives after a revision can be told apart from one
         // that describes the current list.
         $selectDecisionForm = $this->createForm(SelectDecisionOptionFormType::class, new SelectDecisionOptionRequest(versionNumber: $version->versionNumber), [
-            'action' => $this->generateUrl('app_document_decision_select', [
-                'projectId' => (string) $project->id,
-                'documentId' => (string) $document->id,
-            ]),
+            'action' => $this->generateUrl('app_document_decision_select', $routeParameters),
             'method' => 'POST',
         ]);
 
@@ -115,6 +131,8 @@ final class ShowDocumentController extends AppController
             'headings' => $this->headings->extract($version->renderedHtml),
             'orphanedCount' => count(array_filter($comments, static fn (Comment $c) => $c->orphaned)),
             'addCommentForm' => $addCommentForm,
+            'suggestRewordingForm' => $suggestRewordingForm,
+            'strikePassageForm' => $strikePassageForm,
             'selectDecisionForm' => $selectDecisionForm,
             'hasDecisions' => [] !== $decisions,
             'decisionMarkedHtml' => $this->decisionBlocks->withSelections(

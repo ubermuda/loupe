@@ -1126,6 +1126,25 @@
     .lp-anchor-toolbar__btn:hover {
         @apply opacity-90;
     }
+    /* Three actions now share the pill, so it is a row rather than a lone button. */
+    .lp-anchor-toolbar {
+        @apply flex items-center gap-1;
+    }
+    .lp-anchor-toolbar__key {
+        @apply rounded border border-white/30 font-mono leading-none py-0.5 px-1 text-xs;
+    }
+
+    /* Standing error region for a strike, which posts with no composer open.
+       Fixed rather than absolute: .lp-review-doc is the internal scroll container,
+       so an absolutely-positioned child sits in scrolled content space and would
+       render above the viewport for a reviewer working further down the page. */
+    .lp-review-action-error {
+        @apply fixed bottom-6 left-1/2 z-30 m-0 rounded-lg border border-line bg-elev shadow-composer py-2 px-3 text-xs text-danger;
+        transform: translateX(-50%);
+    }
+    .lp-review-action-error:empty {
+        display: none;
+    }
 
     /* ── Floating comment composer ──────────────────────────────────────
        A 340px white card anchored at the selection. Shows the quoted selection
@@ -1149,6 +1168,10 @@
     }
     .lp-composer-general {
         @apply font-mono text-fg-dim text-xs;
+    }
+    /* The passage a rewording replaces, shown struck above the replacement field. */
+    .lp-composer-quote--struck {
+        @apply line-through decoration-danger;
     }
     .lp-comment-composer__actions {
         @apply flex items-center justify-end gap-2;
@@ -1292,6 +1315,33 @@
        blow out the margin. */
     .lp-comment-quote {
         @apply bg-accent-faint-2 border-l-2 border-accent-border text-fg-mute rounded-r line-clamp-3 m-0 py-1.5 px-2.5 text-xs;
+    }
+    /* Before/after for an edit: the doomed passage muted under a red strike line,
+       what replaces it in the green "ok" trio. The <del>/<ins> tags carry the
+       meaning; these only colour them. */
+    .lp-comment-quote--struck {
+        @apply bg-tint border-line text-fg-dim;
+    }
+    .lp-comment-quote--struck del {
+        @apply line-through decoration-danger decoration-2;
+    }
+    .lp-comment-quote--inserted {
+        @apply bg-status-ok-bg border-status-ok text-status-ok-deep;
+    }
+    .lp-comment-quote--inserted ins {
+        @apply no-underline;
+    }
+
+    /* Names the action a thread proposes — only on a strike or a rewording, since
+       a prose comment proposes nothing and needs no label. */
+    .lp-kind-chip {
+        @apply inline-flex items-center rounded-full font-medium border text-xs py-0.5 px-2;
+    }
+    .lp-kind-chip--strike {
+        @apply bg-tint text-danger border-line;
+    }
+    .lp-kind-chip--suggestion {
+        @apply bg-status-ok-bg text-status-ok-deep border-status-ok-border;
     }
 
     .lp-comment-author {
@@ -1874,6 +1924,14 @@
     text-decoration-line: underline;
     text-decoration-color: var(--border-strong);
     @apply decoration-1;
+}
+/* Struck passages, painted on top of whichever status highlight already covers
+   them: highlights overlay rather than replace each other, so the status tint
+   survives and this adds only the line-through. */
+::highlight(lp-anchor-struck) {
+    text-decoration-line: line-through;
+    text-decoration-color: var(--color-danger);
+    @apply decoration-2;
 }
 
 /* ── Keyframes ──────────────────────────────────────────────────────── */
