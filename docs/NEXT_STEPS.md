@@ -451,6 +451,39 @@ So the rule generalises past `pkill` to every stop mechanism: **a process
 started inside the container can only be observed and stopped from inside it.**
 Verify with `docker exec … ps aux` after any stop, whatever issued it.
 
+## A signature change on a long-lived branch makes every merge a phpstan question
+
+**Author:** Claude · **Type:** tooling · **Priority:** medium · **Status:** pending
+
+When a branch changes a constructor or method signature and then lives long
+enough to absorb several merges, **git cannot tell you what broke**. Each
+incoming merge may add a call site using the old signature, in a file the branch
+never touched — so there is no conflict, the merge is clean, and the result is a
+runtime `ArgumentCountError`.
+
+This happened **fourteen times** across four syncs of one branch on 2026-08-03,
+after it made a logger a required constructor argument of `MarkdownRenderer`.
+The last instance is the clearest: a construction inside
+`DiffDocumentVersionsControllerTest.php`, a **brand-new file** arriving from a
+sibling. It existed on only one side of the merge, so git had nothing to report
+at all. Twelve of the fourteen were found only because `just ci` ran.
+
+The rule worth internalising: after merging into a branch that changed a
+signature, the question "did this merge break anything" is answered by
+**phpstan, not by the absence of conflict markers**. A grep for the changed
+symbol is a good first pass but is not sufficient — it only finds shapes you
+thought to search for, and it goes stale the moment another merge lands.
+
+This is the same family as the rename/rename case already documented in
+`CLAUDE.md`'s merge protocol ("a conflict-free merge is not a correct merge"),
+but with a different tell: there, a file moves and a reference goes stale; here,
+a *new* file arrives already speaking the old contract. Both are invisible to
+git and visible to static analysis.
+
+Relevant when planning a wave: it argues for landing signature changes early
+rather than letting them ride at the back of a queue, since every sibling merged
+ahead of them multiplies the exposure.
+
 ## Set up ADRs and a stated list of architectural priorities
 
 **Author:** Geoffrey · **Type:** docs · **Priority:** medium · **Status:** pending
