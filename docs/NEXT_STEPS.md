@@ -276,6 +276,49 @@ Worth automating: a lock that a gate run and an e2e run both have to take, so
 this is enforced rather than remembered. Until then it has to be coordinated by
 hand, which does not survive parallel agents. See `docs/AUTOMATIONS.md`.
 
+## Give each agent its own container in the cloud instead of sharing one dev stack
+
+**Author:** Geoffrey · **Type:** tooling · **Priority:** medium · **Status:** pending
+
+Every git worktree gets its own nginx sidecar, database and URL, but they all
+share **one php-fpm container, one Mailpit and one Postgres**. That sharing is
+the root of most of the parallel-work pain, and on 2026-08-03 it cost most of a
+day across nine concurrent branches.
+
+What sharing actually causes, all observed rather than predicted:
+
+- **php-fpm worker exhaustion.** `docker/dev/php-fpm/zz-pm.conf` sets
+  `pm.max_children = 20` with `pm = dynamic` and `pm.start_servers = 4`. One
+  pool serves every worktree plus all e2e traffic. The logs carry both failure
+  modes — 71 "seems busy … 0 idle" spawn-rate warnings and 4 "server reached
+  pm.max_children setting (20)". A request that gets no worker returns nothing:
+  no response body, no fatal, no log line, and a submit button left disabled
+  with no validation error. That signature is documented elsewhere as a
+  cold-cache symptom and has been misattributed that way more than once.
+- **e2e cannot be parallelised at all**, because Mailpit is shared and
+  mail-asserting specs across concurrent runs read each other's messages. That
+  forces `workers: 1` and one branch at a time — roughly 8.5 minutes per branch,
+  which becomes the throughput ceiling for a multi-branch wave.
+- **Any sibling's `just ci` starves an in-flight e2e run**, so gating has to be
+  coordinated by hand. That coordination does not survive parallel agents; it
+  has to be remembered by whoever is orchestrating.
+
+Per-agent containers would remove all three by construction rather than by
+convention, and would also end the class of bug where a stop or a kill reaches
+only the host-side wrapper (see 'Host `pkill` does not kill a process inside the
+php-fpm container').
+
+Worth deciding alongside it: whether the e2e suite still needs to be destructive.
+Today the `install-reset` project truncates every table as its last act, which
+is only tolerable because the target is disposable — see 'A green e2e run leaves
+the worktree database unusable for the next one'.
+
+Cheaper interim step if this stays unbuilt: raise the pool limits. Observed peak
+demand is 17–20 concurrent, so `pm.max_children = 40` with
+`pm.start_servers = 12` and `pm.min_spare_servers = 8` gives headroom for bursts
+without waiting on the spawn rate. That addresses reliability but not
+parallelism.
+
 ## `composer require`/`update` cannot resolve here — anonymous GitHub API rate limiting
 
 **Author:** Claude · **Type:** tooling · **Priority:** high · **Status:** pending
