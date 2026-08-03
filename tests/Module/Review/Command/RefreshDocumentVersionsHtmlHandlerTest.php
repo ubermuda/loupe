@@ -124,6 +124,33 @@ final class RefreshDocumentVersionsHtmlHandlerTest extends KernelTestCase
         ));
     }
 
+    public function test_an_edit_that_leaves_every_anchor_resolvable_does_not_refuse(): void
+    {
+        // The guard has to fire on stranded anchors, not on any text change at
+        // all. Here the stored HTML carries an extra paragraph the fresh render
+        // drops — plain text differs, but the quoted sentence is still there, so
+        // every comment resolves and there is nothing to warn about. Refusing
+        // here is what would teach people to pass the override by reflex.
+        [$container, $connection, $versionId] = $this->seedVersion(
+            'resolvable',
+            markdown: "The quoted sentence lives here.\n",
+            storedHtml: "<p>The quoted sentence lives here.</p>\n<p>A paragraph since removed.</p>\n",
+            quote: 'The quoted sentence lives here.',
+        );
+
+        /** @var RefreshDocumentVersionsHtmlHandler $handler */
+        $handler = $container->get(RefreshDocumentVersionsHtmlHandler::class);
+        $result = $handler(new RefreshDocumentVersionsHtmlCommand());
+
+        self::assertFalse($result->refused);
+        self::assertSame(0, $result->atRisk);
+        self::assertGreaterThanOrEqual(1, $result->changed, 'the re-render should still have happened');
+        self::assertStringNotContainsString('A paragraph since removed.', (string) $connection->fetchOne(
+            'SELECT rendered_html FROM document_versions WHERE id = :id::uuid',
+            ['id' => (string) $versionId],
+        ));
+    }
+
     public function test_an_untargeted_comment_is_not_treated_as_at_risk(): void
     {
         // An empty quote is the storage sentinel for a comment attached to no
@@ -148,6 +175,16 @@ final class RefreshDocumentVersionsHtmlHandlerTest extends KernelTestCase
      */
     private function seedStaleVersionWithComment(string $slug, string $quote): array
     {
+        // '# Fresh title' renders to "Fresh title", which does not contain the
+        // quote — so an anchored comment here is genuinely stranded.
+        return $this->seedVersion($slug, '# Fresh title', '<p>stale</p>', $quote);
+    }
+
+    /**
+     * @return array{ContainerInterface, Connection, Uuid}
+     */
+    private function seedVersion(string $slug, string $markdown, string $storedHtml, string $quote): array
+    {
         self::bootKernel();
         $container = self::getContainer();
         $em = $container->get(EntityManagerInterface::class);
@@ -161,7 +198,7 @@ final class RefreshDocumentVersionsHtmlHandlerTest extends KernelTestCase
 
         /** @var CreateDocumentHandler $createHandler */
         $createHandler = $container->get(CreateDocumentHandler::class);
-        $document = $createHandler(new CreateDocumentCommand($project, "Doc {$slug}", '# Fresh title'));
+        $document = $createHandler(new CreateDocumentCommand($project, "Doc {$slug}", $markdown));
         $version = $document->currentVersion();
 
         $em->persist(new Comment($version, $user, 'probe', new Anchor($quote, '', '', 0)));
@@ -171,7 +208,7 @@ final class RefreshDocumentVersionsHtmlHandlerTest extends KernelTestCase
         self::assertNotNull($versionId);
         $connection->executeStatement(
             'UPDATE document_versions SET rendered_html = :html WHERE id = :id::uuid',
-            ['html' => '<p>stale</p>', 'id' => (string) $versionId],
+            ['html' => $storedHtml, 'id' => (string) $versionId],
         );
 
         return [$container, $connection, $versionId];

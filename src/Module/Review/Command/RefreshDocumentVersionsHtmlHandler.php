@@ -5,7 +5,9 @@ declare(strict_types=1);
 namespace App\Module\Review\Command;
 
 use App\Module\Review\Entity\DocumentVersion;
+use App\Module\Review\Service\AnchorService;
 use App\Module\Review\Service\MarkdownRenderer;
+use App\Module\Review\ValueObject\Anchor;
 use Doctrine\DBAL\Connection;
 
 /**
@@ -25,12 +27,13 @@ final readonly class RefreshDocumentVersionsHtmlHandler
     public function __construct(
         private Connection $connection,
         private MarkdownRenderer $renderer,
+        private AnchorService $anchorService,
     ) {
     }
 
     public function __invoke(RefreshDocumentVersionsHtmlCommand $command): RefreshDocumentVersionsHtmlResult
     {
-        $atRisk = $this->countVersionsWhoseAnchorsWouldMove();
+        $atRisk = $this->countCommentsThatWouldStopResolving();
         if ($atRisk > 0 && !$command->acceptCommentOrphaning) {
             return new RefreshDocumentVersionsHtmlResult(atRisk: $atRisk, refused: true);
         }
@@ -57,34 +60,52 @@ final readonly class RefreshDocumentVersionsHtmlHandler
     }
 
     /**
-     * Versions that carry a comment this run would strand.
+     * Comments this run would strand, resolved individually rather than inferred
+     * from the version's text changing.
      *
-     * A whole inspection pass runs before anything is written, so a refusal
-     * leaves the table exactly as it was rather than half-rewritten. That costs
-     * a second render of every row, which is the right trade for a maintenance
-     * command that must not report a count it has already invalidated.
+     * Comparing whole before/after plain text refuses for any edit anywhere,
+     * including text added far from every anchor where each comment still
+     * resolves perfectly. Asking the resolver the same question ReanchoringService
+     * asks — does this quote still appear — is what makes a refusal mean
+     * something. A guard that fires on harmless edits is what teaches people to
+     * reach for the override flag by reflex.
      *
-     * Only anchored comments are counted. An untargeted comment carries an empty
-     * quote and is never relocated, so including it would raise an alarm that
-     * cannot come true — and an alarm that cries wolf is how the opt-in flag
-     * becomes something people pass by reflex.
+     * Untargeted comments are excluded in SQL: an empty quote is never
+     * relocated, so counting one would be an alarm that cannot come true.
+     *
+     * The whole inspection completes before the first write, so a refusal leaves
+     * the table exactly as it was rather than half-rewritten. Rows are ordered by
+     * version so each version's HTML is rendered once and held for its own
+     * comments only.
      */
-    private function countVersionsWhoseAnchorsWouldMove(): int
+    private function countCommentsThatWouldStopResolving(): int
     {
-        /** @var iterable<array{markdown_source: string, rendered_html: string}> $rows */
+        /** @var iterable<array{id: string, markdown_source: string, anchor_quote: string, anchor_prefix: string, anchor_suffix: string, anchor_offset_hint: int}> $rows */
         $rows = $this->connection->iterateAssociative(
-            "SELECT v.markdown_source, v.rendered_html
+            "SELECT v.id, v.markdown_source, c.anchor_quote, c.anchor_prefix, c.anchor_suffix, c.anchor_offset_hint
              FROM document_versions v
-             WHERE EXISTS (
-                 SELECT 1 FROM comments c WHERE c.version_id = v.id AND c.anchor_quote <> ''
-             )",
+             JOIN comments c ON c.version_id = v.id AND c.anchor_quote <> ''
+             ORDER BY v.id",
         );
 
         $atRisk = 0;
+        $renderedVersionId = null;
+        $plainText = '';
+
         foreach ($rows as $row) {
-            $before = DocumentVersion::plainTextOf($row['rendered_html']);
-            $after = DocumentVersion::plainTextOf($this->renderer->render($row['markdown_source']));
-            if ($before !== $after) {
+            if ($row['id'] !== $renderedVersionId) {
+                $renderedVersionId = $row['id'];
+                $plainText = DocumentVersion::plainTextOf($this->renderer->render($row['markdown_source']));
+            }
+
+            $anchor = new Anchor(
+                $row['anchor_quote'],
+                $row['anchor_prefix'],
+                $row['anchor_suffix'],
+                (int) $row['anchor_offset_hint'],
+            );
+
+            if (null === $this->anchorService->resolve($plainText, $anchor)) {
                 ++$atRisk;
             }
         }

@@ -53,7 +53,7 @@ final class RerenderDocumentVersionsCommand extends Command
 
         if ($result->refused) {
             $io->error(sprintf(
-                'Refusing: %d version(s) carry comments whose anchors this re-render would move. Nothing was written.',
+                'Refusing: %d comment(s) would no longer resolve after this re-render. Nothing was written.',
                 $result->atRisk,
             ));
             $io->text([
@@ -75,7 +75,7 @@ final class RerenderDocumentVersionsCommand extends Command
         $io->success(sprintf('Re-rendered %d of %d document version(s).', $result->changed, $result->total));
 
         if ($result->atRisk > 0) {
-            $io->warning(sprintf('%d version(s) carried comments whose anchors have moved.', $result->atRisk));
+            $io->warning(sprintf('%d comment(s) no longer resolve and will not highlight.', $result->atRisk));
         }
 
         return Command::SUCCESS;
