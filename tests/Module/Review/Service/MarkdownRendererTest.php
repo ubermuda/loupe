@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Tests\Module\Review\Service;
 
 use App\Module\Review\Service\MarkdownRenderer;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\NullLogger;
 
@@ -239,14 +240,28 @@ final class MarkdownRendererTest extends TestCase
         self::assertStringNotContainsString('lp-doc-note', $html);
     }
 
-    public function test_a_yaml_alias_bomb_does_not_expand_into_the_page(): void
+    /**
+     * The empty-container seed is the case a leaf-only budget misses entirely:
+     * it flattens to no text, so charging scalars alone lets the whole expanded
+     * tree be walked for free. Both seeds must terminate.
+     *
+     * @return iterable<string, array{string}>
+     */
+    public static function aliasBombSeeds(): iterable
+    {
+        yield 'scalar leaves' => ['["lol"]'];
+        yield 'empty containers' => ['[]'];
+    }
+
+    #[DataProvider('aliasBombSeeds')]
+    public function test_a_yaml_alias_bomb_does_not_expand_into_the_page(string $seed): void
     {
         // YAML aliases expand with no budget of their own, so this multiplies by
         // nine per level: unguarded, these 400-odd bytes flatten to tens of
         // megabytes of table, get stored, and are re-expanded by every
         // re-render. The block must fall back to being rendered as text.
-        $yaml = "---\na0: &a0 [\"lol\"]\n";
-        for ($level = 1; $level <= 7; ++$level) {
+        $yaml = "---\na0: &a0 {$seed}\n";
+        for ($level = 1; $level <= 8; ++$level) {
             $references = implode(', ', array_fill(0, 9, sprintf('*a%d', $level - 1)));
             $yaml .= sprintf("a%d: &a%d [%s]\n", $level, $level, $references);
         }
@@ -260,6 +275,17 @@ final class MarkdownRendererTest extends TestCase
         self::assertLessThan(100_000, \strlen($html));
         self::assertLessThan(2.0, microtime(true) - $started);
         self::assertStringContainsString('Body.', $html);
+    }
+
+    public function test_a_top_level_sequence_is_not_tabulated(): void
+    {
+        // A sequence is an array with no keys, so tabulating it would invent 0
+        // and 1 and show them as if the document had written them.
+        $html = new MarkdownRenderer(new NullLogger())->render("---\n- one\n- two\n---\n\nBody.\n");
+
+        self::assertStringNotContainsString('lp-front-matter', $html);
+        self::assertStringContainsString('one', $html);
+        self::assertStringContainsString('two', $html);
     }
 
     public function test_a_large_but_legitimate_front_matter_still_tabulates(): void

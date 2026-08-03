@@ -61,9 +61,14 @@ final readonly class MarkdownRenderer
      * aliased arrays); only flattening them is not. It also persists: the
      * expansion is stored, served, and redone by every re-render.
      *
+     * The budget is spent per node visited, not per character emitted, because
+     * a bomb seeded with `[]` produces no text at all — charging only the
+     * scalars would let its whole expanded tree be walked for free.
+     *
      * 64 KiB leaves 14x headroom over a deliberately extreme block (40 keys of
      * 20 words plus 50 tags costs 4 566) and ~116x over a rich Hugo-style page.
-     * Guarded, the 409-byte bomb renders in 0.046 s.
+     * Guarded, both bomb shapes stop tabulating at the same level and render in
+     * under 0.07 s with memory flat as the level rises.
      */
     private const int FRONT_MATTER_TEXT_BUDGET = 65_536;
 
@@ -181,7 +186,10 @@ final readonly class MarkdownRenderer
             $rendered = $this->converter->convert($markdown);
             if ($rendered instanceof RenderedContentWithFrontMatter) {
                 $data = $rendered->getFrontMatter();
-                if (!\is_array($data) || [] === $data) {
+                // array_is_list() rejects a top-level sequence (`---\n- one\n- two\n---`),
+                // which is an array but has no keys — tabulating it invents `0`
+                // and `1` as if the document had written them.
+                if (!\is_array($data) || [] === $data || array_is_list($data)) {
                     $reason = 'not a key/value map';
                 } else {
                     $table = self::frontMatterTable($data);
@@ -306,10 +314,15 @@ final readonly class MarkdownRenderer
      * Returns null once $budget is exhausted. The budget is decremented as the
      * value is walked rather than checked against the finished string, so an
      * aliased structure costs the budget and not what it would have expanded to.
+     *
+     * Every visit is charged, containers included. Charging only the scalars
+     * leaves the same hole one level down: a bomb whose leaves are empty arrays
+     * produces no text at all, so it would traverse all nine-to-the-nth expanded
+     * nodes for free.
      */
     private static function formatFrontMatterValue(mixed $value, int &$budget, int $depth = 0): ?string
     {
-        if ($depth > self::FRONT_MATTER_MAX_DEPTH) {
+        if (--$budget < 0 || $depth > self::FRONT_MATTER_MAX_DEPTH) {
             return null;
         }
 
@@ -342,13 +355,13 @@ final readonly class MarkdownRenderer
     }
 
     /**
-     * Charges one flattened scalar to the budget, returning null once it is spent.
-     * The `+ 1` per node matters: a structure whose leaves are all empty strings
-     * would otherwise expand forever against a length-only budget.
+     * Charges a flattened scalar's length to the budget, returning null once it
+     * is spent. The visit itself was already charged by the caller, so this adds
+     * only the text — which is what keeps a structure of empty strings finite.
      */
     private static function charge(int &$budget, string $text): ?string
     {
-        $budget -= \strlen($text) + 1;
+        $budget -= \strlen($text);
 
         return $budget < 0 ? null : $text;
     }
