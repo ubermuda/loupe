@@ -2513,9 +2513,53 @@ astral-plane character costs one unit on the server and two in the browser. The
 observable effect is limited: no offset crosses the wire, so this only shifts
 the 32-character context window and the 8-character fingerprint by a character
 or two, which at worst reranks two occurrences of a repeated quote differently
-on the two sides. A real fix means counting UTF-16 units on the PHP side (or
-normalising astral characters out of the basis). Not worth doing until a
-document with emoji actually mis-highlights.
+on the two sides.
+
+**Fix the browser, not the server** (owner decision, 2026-08-02, deferred rather
+than declined). Making PHP count UTF-16 units is the expensive direction: PHP has
+no native UTF-16 length, so every window slice would need a conversion or a
+surrogate count, inside the context-scoring path that was deliberately moved back
+to byte-space search precisely because `mb_*` slicing made resolution quadratic —
+6.4 seconds on a 205 KB document before that fix. JavaScript can iterate
+codepoints for nothing (`Array.from`, or spread), so changing `#extractAnchor`
+and `#findRange` to slice by codepoint costs no server time and makes both sides
+agree completely, closing this entry rather than narrowing it.
+
+Wave C already edits that controller for strike, suggest and agent highlights, so
+that is the natural moment.
+
+## Nothing tests the anchor capture path from browser to database
+
+**Author:** Claude · **Type:** tooling · **Priority:** medium · **Status:** pending
+
+Every anchoring test builds an `Anchor` object by hand and hands it straight to
+`AnchorService` or `ReanchoringService`. Nothing exercises the path the data
+actually travels: a DOM selection in `comment_anchor_controller.js`, three hidden
+form fields, `AddCommentFormType`, `AddCommentRequest`, `AddCommentHandler`, then
+the row. Every test therefore starts from data that is already correct by
+construction, which is exactly the shape that cannot catch corruption occurring
+*before* the service sees it.
+
+That is not hypothetical — it is how one bug survived from the feature shipping
+until 2026-08-02. Symfony's form `trim` option defaults to `true` and
+`HiddenType` inherits it, so the boundary whitespace was being stripped off every
+captured `prefix` and `suffix`. `contextScore()` compares the last 8 characters
+of the stored prefix against the document: the document reads `…ains a ` before a
+quote and the trimmed fingerprint was `…ins a`, which can never match. Context
+disambiguation had been silently scoring zero and falling back to
+earliest-position for every selection whose neighbouring character is whitespace
+— which is nearly all of them. The whole unit suite passed throughout.
+
+Two things worth doing, and the second is cheap:
+
+- Add tests that bind through the real Form component rather than constructing
+  the DTO. Two now exist in `AddCommentHandlerTest` (the ones that caught the
+  trim), but as specific regressions rather than as coverage of the path.
+- Have `e2e/tests/review/review-loop.spec.ts` assert the stored **prefix and
+  suffix** through `/dev/review/{id}/state`, not only the quote. That run caught
+  the trim bug only by luck: word-edge snapping happened to make the corruption
+  visible in the one field the spec already asserted. Had snapping not shipped in
+  the same branch, the suite would still be green and the anchors still wrong.
 
 ## `comments.anchor_offset_hint` changed units with no backfill
 
