@@ -120,7 +120,7 @@ final class AnchorServiceTest extends TestCase
         // em dash is stored and located exactly.
         $text = 'Redesign — Implementation Plan. Goal: replace the top-nav shell.';
         $quote = 'replace the top-nav shell';
-        $start = strpos($text, $quote);
+        $start = mb_strpos($text, $quote);
         self::assertIsInt($start);
 
         $anchor = $this->service->fromSelection($text, $quote, 'Goal: ', '.');
@@ -131,13 +131,13 @@ final class AnchorServiceTest extends TestCase
         self::assertSame($start, $this->service->resolve($text, $anchor));
     }
 
-    public function test_create_keeps_prefix_valid_utf8_when_window_splits_multibyte_char(): void
+    public function test_create_keeps_prefix_valid_utf8_over_multibyte_context(): void
     {
-        // The em dash (3 bytes) sits so the 32-byte prefix window's left edge lands
-        // mid-character. A raw substr would keep a dangling 0x80 continuation byte,
-        // which then fails to persist into a UTF8 column (Postgres SQLSTATE[22021]).
+        // The em dash (3 bytes) sits inside the prefix window. A byte-counting
+        // window would end mid-character and keep a dangling 0x80 continuation
+        // byte, which fails to persist into a UTF8 column (Postgres SQLSTATE[22021]).
         $text = str_repeat('a', 7).'—'.str_repeat('b', 30).'TARGET'.str_repeat('c', 5);
-        $start = strpos($text, 'TARGET');
+        $start = mb_strpos($text, 'TARGET');
         self::assertIsInt($start);
 
         $anchor = $this->service->create($text, $start, 6);
@@ -147,14 +147,107 @@ final class AnchorServiceTest extends TestCase
         self::assertSame($start, $this->service->resolve($text, $anchor));
     }
 
-    public function test_create_keeps_suffix_valid_utf8_when_window_splits_multibyte_char(): void
+    public function test_create_keeps_suffix_valid_utf8_over_multibyte_context(): void
     {
-        // The em dash sits so the 32-byte suffix window's right edge cuts it.
+        // The em dash sits at the far edge of the suffix window.
         $text = 'TARGET'.str_repeat('c', 31).'—'.str_repeat('d', 5);
 
         $anchor = $this->service->create($text, 0, 6);
 
         self::assertSame('TARGET', $anchor->quote);
         self::assertTrue(mb_check_encoding($anchor->suffix, 'UTF-8'), 'suffix must be valid UTF-8');
+    }
+
+    public function test_locate_ranks_repeated_multibyte_quote_like_the_browser(): void
+    {
+        // "設計" appears twice. Each occurrence is preceded by the same three
+        // characters ("ののの") and followed by the same three ("ををを"), so a
+        // fingerprint measured in BYTES (8 bytes ≈ 2⅔ of these 3-byte characters)
+        // matches BOTH occurrences and the tie falls to the earlier one. Measured
+        // in CHARACTERS the fingerprint reaches five characters further out, where
+        // the two contexts differ, and only the intended occurrence matches.
+        $text = '甲乙丙丁戊ののの設計ををを己庚辛壬癸。子丑寅卯辰ののの設計ををを午未申酉戌';
+        $secondStart = mb_strrpos($text, '設計');
+        self::assertSame(27, $secondStart);
+
+        // What #extractAnchor would capture for the second occurrence: 32 characters
+        // of context on each side, sliced out of the same text.
+        $prefix = mb_substr($text, max(0, $secondStart - 32), min(32, $secondStart));
+        $suffix = mb_substr($text, $secondStart + 2, 32);
+
+        $anchor = $this->service->fromSelection($text, '設計', $prefix, $suffix);
+
+        self::assertInstanceOf(Anchor::class, $anchor);
+        self::assertSame(27, $anchor->offsetHint);
+        self::assertSame(
+            self::browserRangeStart($text, '設計', $prefix, $suffix),
+            $anchor->offsetHint,
+            'server and browser must agree on which occurrence the anchor points at',
+        );
+    }
+
+    public function test_create_captures_the_same_context_window_the_browser_sends(): void
+    {
+        // Forty multibyte characters on each side of the quote, so a 32-BYTE window
+        // would cover only ten of them while the browser always sends 32.
+        $text = str_repeat('あ', 40).'TARGET'.str_repeat('い', 40);
+        $start = mb_strpos($text, 'TARGET');
+        self::assertIsInt($start);
+
+        // The add-comment path: the browser slices 32 characters either side.
+        $captured = $this->service->fromSelection(
+            $text,
+            'TARGET',
+            mb_substr($text, $start - 32, 32),
+            mb_substr($text, $start + 6, 32),
+        );
+        // The reanchoring path: the server rebuilds the anchor for the same span.
+        $rebuilt = $this->service->create($text, $start, 6);
+
+        self::assertInstanceOf(Anchor::class, $captured);
+        self::assertSame(32, mb_strlen($rebuilt->prefix));
+        self::assertSame(32, mb_strlen($rebuilt->suffix));
+        self::assertSame($captured->prefix, $rebuilt->prefix);
+        self::assertSame($captured->suffix, $rebuilt->suffix);
+    }
+
+    /**
+     * Transcription of comment_anchor_controller's #findRange ranking: collect every
+     * occurrence of the quote (advancing one character at a time so overlaps count),
+     * score each by whether the 32 characters before it end with the last 8 characters
+     * of the prefix and the 32 characters after it start with the first 8 of the
+     * suffix, then take the highest score, earliest position winning a tie.
+     *
+     * PHP counts codepoints where JS counts UTF-16 code units; the two agree for
+     * every character in the Basic Multilingual Plane, which is what this covers.
+     */
+    private static function browserRangeStart(string $fullText, string $quote, string $prefix, string $suffix): ?int
+    {
+        $occurrences = [];
+        $from = 0;
+        while (false !== ($at = mb_strpos($fullText, $quote, $from))) {
+            $occurrences[] = $at;
+            $from = $at + 1;
+        }
+        if ([] === $occurrences) {
+            return null;
+        }
+
+        $score = static function (int $start) use ($fullText, $quote, $prefix, $suffix): int {
+            $value = 0;
+            $before = mb_substr($fullText, max(0, $start - 32), min(32, $start));
+            $after = mb_substr($fullText, $start + mb_strlen($quote), 32);
+            if ('' !== $prefix && str_ends_with($before, mb_substr($prefix, -8))) {
+                ++$value;
+            }
+            if ('' !== $suffix && str_starts_with($after, mb_substr($suffix, 0, 8))) {
+                ++$value;
+            }
+
+            return $value;
+        };
+        usort($occurrences, static fn (int $a, int $b): int => $score($b) <=> $score($a) ?: $a <=> $b);
+
+        return $occurrences[0];
     }
 }

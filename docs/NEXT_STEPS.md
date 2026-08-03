@@ -250,19 +250,6 @@ Three things that will bite whoever picks it up:
 Note the list already issues one `countOpenByVersion()` query per row; adding
 per-row tag lookups without batching would compound an existing N+1.
 
-## Anchor offset-unit mismatch (latent)
-
-
-
-**Author:** Claude · **Type:** bug · **Priority:** medium · **Status:** pending
-
-`AnchorService` now slices UTF-8-safely (`mb_strcut`), but offsets are still
-byte-based (`strpos`/`strlen`/`offsetHint`) while the frontend computes selection
-offsets in JS string units (UTF-16 code units). For documents with multibyte
-characters this can mis-place an anchor by a few positions even though it no
-longer crashes. If anchors drift on real content, reconcile the offset unit
-end-to-end (characters throughout, or bytes throughout).
-
 ## Site-review: harden Mercure publish against a hung hub (still open)
 
 
@@ -1230,7 +1217,7 @@ Related: "Edit a document in the app, not only through an agent", which is the
 same question from the other side (what a *human* may do to a document the
 agent authored).
 
-## Review anchoring — possible enhancement (low priority)
+## Review anchoring — structural fallback anchor (low priority)
 
 
 
@@ -1246,11 +1233,6 @@ a secondary **structural anchor** (e.g. nearest heading path + relative offset)
 alongside the existing quote/prefix/suffix text anchor, and fall back to it when
 the text match fails. Would let a comment survive a rewrite of its surrounding
 prose by re-attaching to the same section. Not worth doing pre-emptively.
-
-Minor/cosmetic: the `quote` returned by `get_review` uses arbitrary character
-boundaries (mid-word, mid-sentence), which makes mapping a comment back to its
-section take some inference. Snapping quote boundaries to word/line edges would
-read more cleanly. Cosmetic only.
 
 ## Host PHPUnit can't reach Postgres through Traefik
 
@@ -2439,3 +2421,49 @@ Minor because the lookup is already narrowed to the token owner's own projects
 (`ProjectRepository::findOneByIdOrNameForOwner()`), so a caller can only probe
 names it is entitled to see. The fix is to collapse both branches onto a single
 message the way the document resolver does.
+
+## Anchor offsets still diverge from the browser above the BMP
+
+**Author:** Claude · **Type:** bug · **Priority:** low · **Status:** pending
+
+`AnchorService` counts codepoints (`mb_substr`/`mb_strpos`/`mb_strlen`) while
+`assets/controllers/comment_anchor_controller.js` counts UTF-16 code units. The
+two agree for every character in the Basic Multilingual Plane, so ordinary
+accented Latin, Greek, Cyrillic and CJK text is fine — but each emoji or other
+astral-plane character costs one unit on the server and two in the browser. The
+observable effect is limited: no offset crosses the wire, so this only shifts
+the 32-character context window and the 8-character fingerprint by a character
+or two, which at worst reranks two occurrences of a repeated quote differently
+on the two sides. A real fix means counting UTF-16 units on the PHP side (or
+normalising astral characters out of the basis). Not worth doing until a
+document with emoji actually mis-highlights.
+
+## `comments.anchor_offset_hint` changed units with no backfill
+
+**Author:** Claude · **Type:** bug · **Priority:** low · **Status:** pending
+
+`AnchorService` used to write `Anchor::$offsetHint` as a byte offset into
+`DocumentVersion::plainText()` and now writes a character offset. The column was
+deliberately not migrated: there was no historical data at the time — the owner
+confirmed it, `SeedDevDataCommand` creates no comments, and e2e rows are created
+fresh per run. Nothing to do today; this exists so a future deploy over real
+data does not rediscover it.
+
+If that ever changes, the danger is a **mixed** version — some rows written
+before the switch, some after — not old rows on their own. Two consequences,
+both invisible until someone reads the sidebar:
+
+- `CommentRepository` orders threads by `offsetHint`. Byte offsets are monotonic
+  in character offsets row-by-row, so a version that is entirely one unit still
+  sorts correctly; a version holding both does not, and the sidebar reading
+  order is wrong until that version is revised.
+- `AnchorService::resolve()` weighs proximity to `offsetHint` when a revised
+  document repeats a quote, so a stale byte offset can pull the match to the
+  wrong occurrence. That pick is **permanent**: `create()` then writes a
+  confident character offset for the wrong span, and nothing afterwards can tell
+  it was ever wrong.
+
+Either backfill (`offsetHint = mb_strlen(substr(plainText, 0, offsetHint))` per
+comment, against its own version's text) or accept a one-revision settling
+period, but decide it before the first deploy that carries real comments across
+the change.

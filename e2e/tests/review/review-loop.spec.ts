@@ -201,9 +201,11 @@ test('full review loop: comment, request changes, reload persistence', async ({
         KNOWN_PHRASE,
     );
 
-    // Step 8: Assert the stored quote equals exactly the selected phrase
-    // via the dev read-back endpoint. This is the critical anchor reconciliation
-    // assertion from Task 14 — it would catch a subtly-wrong offset.
+    // Step 8: Read the review payload back and assert the quote is the selected
+    // phrase. The endpoint reports the quote widened to word edges rather than the
+    // stored one, and KNOWN_PHRASE is whitespace-delimited in the document, so this
+    // proves the anchor round-tripped through capture, storage and reporting without
+    // picking up neighbouring words — not that the stored quote is byte-identical.
     const stateRes = await page.request.get(`/dev/review/${documentId}/state`);
     expect(stateRes.status()).toBe(200);
     const state = (await stateRes.json()) as {

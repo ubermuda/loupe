@@ -9,6 +9,7 @@ use App\Module\Review\Entity\Document;
 use App\Module\Review\Repository\CommentRepository;
 use App\Module\Review\Repository\DocumentVersionRepository;
 use App\Module\Review\Repository\ReviewRepository;
+use App\Module\Review\ValueObject\Anchor;
 
 final readonly class GetReview
 {
@@ -24,6 +25,9 @@ final readonly class GetReview
      *
      * Comments are grouped into threads: the top-level list contains only root comments (no parent);
      * each root comment carries its direct replies in the `thread` key.
+     *
+     * Each reported `quote` is widened to whole words (see snapToWordEdges) so a reader
+     * doesn't have to guess which sentence a mid-word excerpt came from.
      *
      * @return array{
      *     status: string,
@@ -59,7 +63,7 @@ final readonly class GetReview
 
             $thread = array_map(
                 static fn (Comment $reply) => [
-                    'quote' => $reply->anchor->quote,
+                    'quote' => self::snapToWordEdges($reply->anchor),
                     'body' => $reply->body,
                     'resolved' => $reply->resolved,
                     'orphaned' => $reply->orphaned,
@@ -68,7 +72,7 @@ final readonly class GetReview
             );
 
             $threadedComments[] = [
-                'quote' => $comment->anchor->quote,
+                'quote' => self::snapToWordEdges($comment->anchor),
                 'body' => $comment->body,
                 'resolved' => $comment->resolved,
                 'orphaned' => $comment->orphaned,
@@ -82,5 +86,51 @@ final readonly class GetReview
             'version' => $currentVersion->versionNumber,
             'comments' => $threadedComments,
         ];
+    }
+
+    /**
+     * Widens a quote outwards to the nearest whitespace on each side, so a selection
+     * that started or ended mid-word is reported as whole words.
+     *
+     * Reporting only — the stored anchor is untouched, and nothing here feeds
+     * AnchorService, so resolution and offsetHint are unaffected. The widening draws
+     * on the anchor's own prefix/suffix rather than the document text: for an orphaned
+     * comment the stored offset points into a version that no longer exists, so the
+     * document text would splice in characters from an unrelated location.
+     */
+    private static function snapToWordEdges(Anchor $anchor): string
+    {
+        if ('' === $anchor->quote) {
+            return '';
+        }
+
+        $lead = '';
+        // \z, not $ — $ also matches before a trailing newline, which would drag a
+        // word across a line break onto a quote that already starts at a line edge.
+        if (1 === preg_match('/\A\S/u', $anchor->quote) && 1 === preg_match('/\S+\z/u', $anchor->prefix, $before)) {
+            $lead = self::completesAWord($before[0], $anchor->prefix);
+        }
+
+        $trail = '';
+        if (1 === preg_match('/\S\z/u', $anchor->quote) && 1 === preg_match('/\A\S+/u', $anchor->suffix, $after)) {
+            $trail = self::completesAWord($after[0], $anchor->suffix);
+        }
+
+        return $lead.$anchor->quote.$trail;
+    }
+
+    /**
+     * The run of non-whitespace to splice on, or '' when it fills the whole context.
+     *
+     * A run that reaches the far end of the captured context means no word boundary
+     * was found inside it, so the real boundary lies somewhere the anchor never
+     * recorded. Splicing then adds text the commenter did not select rather than
+     * completing their word — and it is the normal case, not an edge case: scripts
+     * written without spaces (Japanese, Chinese, Thai, Lao, Khmer) have no boundary
+     * to find at all, and neither do URLs, file paths or identifiers.
+     */
+    private static function completesAWord(string $run, string $context): string
+    {
+        return $run === $context ? '' : $run;
     }
 }

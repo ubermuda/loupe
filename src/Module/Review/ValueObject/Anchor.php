@@ -37,18 +37,18 @@ final readonly class Anchor
         #[ORM\Column(length: 255)]
         public string $suffix,
 
-        // Byte offset of the quote's start within plainText() — a cached "how far
-        // down the document this comment sits". Two SERVER-SIDE uses; it is never
-        // sent to the browser:
+        // Character offset of the quote's start within plainText() — a cached "how
+        // far down the document this comment sits". Two SERVER-SIDE uses; it is
+        // never sent to the browser:
         //   1. Sort key — CommentRepository orders threads by it so the sidebar
         //      lists them in reading order (top of the document first).
         //   2. Reanchoring tiebreaker — AnchorService::resolve() prefers the
         //      occurrence nearest the old offset when a revised document repeats
         //      the same quote.
         // The browser does NOT use this for positioning: it re-finds the quote in
-        // the live DOM and reads real pixel rects. Mapping this byte offset to a
-        // DOM position would reintroduce the PHP-byte vs JS-UTF16 drift that
-        // content anchoring exists to avoid.
+        // the live DOM and reads real pixel rects. PHP counts codepoints and JS
+        // counts UTF-16 code units, so walking this offset in the DOM would still
+        // drift past any character outside the BMP.
         #[ORM\Column]
         public int $offsetHint,
     ) {

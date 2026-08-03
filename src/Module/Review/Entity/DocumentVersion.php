@@ -61,9 +61,10 @@ class DocumentVersion
      *     gives textContent, NOT innerText — innerText collapses whitespace and
      *     would desync from this basis).
      *
-     * Known v1 limitation: AnchorService uses byte offsets (strlen/substr) while
-     * JavaScript string offsets are UTF-16 code units. These agree for ASCII content
-     * but diverge on multibyte text. Anchoring is reliable for ASCII in v1.
+     * Offsets and context windows are counted in characters on both sides. PHP
+     * counts codepoints and JavaScript counts UTF-16 code units, so the two agree
+     * throughout the Basic Multilingual Plane — including accented Latin, Greek,
+     * Cyrillic and CJK — and diverge only on astral characters such as emoji.
      */
     public function plainText(): string
     {
