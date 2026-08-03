@@ -52,6 +52,9 @@ final class DocumentHighlightToolTest extends KernelTestCase
         $document = $this->document('highlight-tool-clear@example.com');
         $this->actAsMcpTokenBoundTo($document->project);
         ($this->tool)((string) $document->id, ['short-lived JWTs']);
+        // Without this the assertions below also pass on a tool that never stored
+        // anything in the first place.
+        self::assertCount(1, $document->currentVersion()->highlights);
 
         $result = ($this->tool)((string) $document->id, []);
 

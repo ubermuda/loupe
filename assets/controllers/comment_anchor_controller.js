@@ -52,16 +52,22 @@ export default class extends Controller {
     // from a data-anchor-status value.
     static AGENT_HIGHLIGHT = 'lp-agent-highlight';
 
-    // Paint order for a span two rungs both cover. Without explicit values the
-    // order is whichever Highlight was registered last, which is incidental.
+    // Resolution order for a span two rungs both cover. Without explicit values
+    // it is whichever Highlight was registered last, which is incidental.
     //
-    // Priority decides the BACKGROUND only — the highest one is painted last and
-    // covers the rest — while every rung still draws its own underline. So a
-    // passage the agent marked that the reviewer has since commented on shows the
-    // human tint with the agent's wavy underline still visible under the human's
-    // straight one: both marks readable, neither mistakable for the other, which
-    // is the honest reading of a span that genuinely carries both. (Verified in
-    // Chrome against overlapping ranges; a blended tint would be the failure.)
+    // How the API actually composes, verified in Chrome against every pairing:
+    // each inherited property is settled independently by the highest-priority
+    // highlight that DECLARES it, while text decorations are additive and all of
+    // them draw. Two consequences worth knowing before changing a rung:
+    //   - Overlapping the agent with pending/addressed/active gives the human
+    //     tint, with the agent's wavy underline still legible beside the human's
+    //     straight one — both marks readable, neither mistakable for the other,
+    //     which is the honest reading of a span that carries both.
+    //   - Overlapping it with resolved gives grey text on the agent's OWN tint:
+    //     resolved wins `color` on priority but declares no background, so the
+    //     lower-priority background is what shows. Priority does not hide a rung;
+    //     it only settles the properties both rungs set.
+    //
     // The human rung outranks the agent's, and the selection being composed right
     // now outranks both.
     static PRIORITY = { agent: 0, status: 1, active: 2 };

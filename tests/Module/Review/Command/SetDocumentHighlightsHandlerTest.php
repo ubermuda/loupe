@@ -6,6 +6,8 @@ namespace App\Tests\Module\Review\Command;
 
 use App\Module\Account\Entity\User;
 use App\Module\Project\Entity\Project;
+use App\Module\Review\Command\ReviseDocumentCommand;
+use App\Module\Review\Command\ReviseDocumentHandler;
 use App\Module\Review\Command\SetDocumentHighlightsCommand;
 use App\Module\Review\Command\SetDocumentHighlightsHandler;
 use App\Module\Review\Entity\Document;
@@ -88,6 +90,9 @@ final class SetDocumentHighlightsHandlerTest extends KernelTestCase
     {
         $document = $this->document('highlight-clear@example.com');
         ($this->handler)(new SetDocumentHighlightsCommand($document, ['short-lived JWTs']));
+        // Without this the assertions below also pass on a handler that never
+        // stored anything in the first place.
+        self::assertCount(1, $document->currentVersion()->highlights);
 
         $result = ($this->handler)(new SetDocumentHighlightsCommand($document, []));
 
@@ -113,9 +118,11 @@ final class SetDocumentHighlightsHandlerTest extends KernelTestCase
         ]));
 
         self::assertSame(['short-lived JWTs', 'rotates hourly'], $result['highlighted']);
+        // Each skip names the string the caller actually sent — the whitespace-only
+        // entry included, which trimming would otherwise report as ''.
         self::assertSame([
             ['quote' => '**rotating key**', 'reason' => 'not_found'],
-            ['quote' => '', 'reason' => 'blank'],
+            ['quote' => '   ', 'reason' => 'blank'],
             ['quote' => 'short-lived JWTs', 'reason' => 'duplicate'],
         ], $result['skipped']);
         self::assertCount(2, $document->currentVersion()->highlights);
@@ -126,13 +133,20 @@ final class SetDocumentHighlightsHandlerTest extends KernelTestCase
         $document = $this->document('highlight-revision@example.com');
         ($this->handler)(new SetDocumentHighlightsCommand($document, ['short-lived JWTs']));
         $reviewed = $document->currentVersion();
+        self::assertCount(1, $reviewed->highlights);
+
+        // Through the real revise handler, not addVersion(): the claim is about
+        // what document_revise does, and re-anchoring is the step that would have
+        // carried highlights forward had it been asked to.
+        $revise = self::getContainer()->get(ReviseDocumentHandler::class);
+        self::assertInstanceOf(ReviseDocumentHandler::class, $revise);
+        $revise(new ReviseDocumentCommand($document, '# Key rotation', 'Reworded.'));
 
         // A highlight is pure position with nothing to display once its passage is
         // gone, so a new version simply starts with none and the agent restates
         // what matters in the text it has just written.
-        $revised = $document->addVersion('# Key rotation', self::HTML, 'Reworded.');
-        $this->em->flush();
-
+        $revised = $document->currentVersion();
+        self::assertNotSame($reviewed, $revised);
         self::assertCount(1, $reviewed->highlights);
         self::assertCount(0, $revised->highlights);
     }

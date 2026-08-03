@@ -130,6 +130,23 @@ final class AnchorServiceTest extends TestCase
         self::assertEquals($selected, $quoted);
     }
 
+    public function test_from_quote_lands_on_the_first_occurrence_of_a_repeated_passage(): void
+    {
+        // The caller has no context to disambiguate with, so locate() falls back
+        // to earliest position. Pinned because it is silent: a caller meaning the
+        // second occurrence gets the first one and is told the call succeeded.
+        $text = 'Rotate the key. Some other sentence. Rotate the key.';
+
+        $anchor = $this->service->fromQuote($text, 'Rotate the key.');
+
+        self::assertNotNull($anchor);
+        self::assertSame(0, $anchor->offsetHint);
+        // Context is still sliced from the document, so the anchor the browser
+        // re-locates and the one stored here agree on which occurrence it is.
+        self::assertSame('', $anchor->prefix);
+        self::assertStringStartsWith(' Some other', $anchor->suffix);
+    }
+
     public function test_from_quote_returns_null_when_the_passage_is_not_in_the_text(): void
     {
         // What an agent quoting its Markdown source hits: the rendered plain text

@@ -16,8 +16,11 @@ use Doctrine\ORM\EntityManagerInterface;
  * document would otherwise block the user delete.
  *
  * Same FK-safe order as ProjectDeleter's own document-subtree cleanup
- * (reviews, comments, versions, then the document), keyed on document
- * ownership instead of the project.
+ * (reviews, comments, highlights, versions, then the document), keyed on
+ * document ownership instead of the project. Every table with a FK onto
+ * document_versions must be listed here: the constraints are NOT DEFERRABLE, so
+ * one missing statement turns account deletion into a 500 rather than a silent
+ * orphan.
  */
 final readonly class DocumentOwnershipAccountPurger implements AccountDataPurgerInterface
 {
@@ -44,6 +47,10 @@ final readonly class DocumentOwnershipAccountPurger implements AccountDataPurger
         );
         $conn->executeStatement(
             'DELETE FROM comments WHERE version_id IN (SELECT v.id FROM document_versions v JOIN documents d ON v.document_id = d.id WHERE d.owner_id = :id)',
+            ['id' => $id],
+        );
+        $conn->executeStatement(
+            'DELETE FROM document_highlights WHERE version_id IN (SELECT v.id FROM document_versions v JOIN documents d ON v.document_id = d.id WHERE d.owner_id = :id)',
             ['id' => $id],
         );
         $conn->executeStatement(

@@ -92,6 +92,12 @@ final class AnchorService
      * with no fingerprint to rank a repeated quote by, and each would silently
      * settle on the earliest occurrence.
      *
+     * A quote that appears more than once resolves to the FIRST occurrence, and
+     * the caller is not told: with no context to score against, locate() has only
+     * its earliest-position tiebreak left. Server and browser both land there, so
+     * nothing drifts — but a caller that meant a later occurrence gets the wrong
+     * span cleanly, and its only remedy is to extend the quote until it is unique.
+     *
      * Returns null when the quote does not appear in $text at all.
      *
      * @param non-empty-string $quote

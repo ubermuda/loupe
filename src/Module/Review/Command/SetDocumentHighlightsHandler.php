@@ -38,27 +38,30 @@ final readonly class SetDocumentHighlightsHandler
         $highlighted = [];
         $skipped = [];
 
-        foreach ($command->quotes as $quote) {
+        foreach ($command->quotes as $original) {
             // Surrounding whitespace is never part of the passage a reader sees
             // tinted, and a newline carried over from a Markdown source would stop
             // the quote matching at all.
-            $quote = trim($quote);
+            $quote = trim($original);
 
+            // Every skip echoes the caller's own string rather than the trimmed
+            // one: a whitespace-only entry trims to '', which matches nothing the
+            // caller sent and leaves it unable to tell which entry was rejected.
             if ('' === $quote) {
-                $skipped[] = ['quote' => $quote, 'reason' => 'blank'];
+                $skipped[] = ['quote' => $original, 'reason' => 'blank'];
                 continue;
             }
 
             // The same quote always resolves to the same occurrence, so a repeat
             // would paint a span already painted rather than reach a second one.
             if (\in_array($quote, $highlighted, true)) {
-                $skipped[] = ['quote' => $quote, 'reason' => 'duplicate'];
+                $skipped[] = ['quote' => $original, 'reason' => 'duplicate'];
                 continue;
             }
 
             $anchor = $this->anchorService->fromQuote($text, $quote);
             if (null === $anchor) {
-                $skipped[] = ['quote' => $quote, 'reason' => 'not_found'];
+                $skipped[] = ['quote' => $original, 'reason' => 'not_found'];
                 continue;
             }
 

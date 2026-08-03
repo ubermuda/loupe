@@ -152,12 +152,24 @@
     --status-ok-border: #d4ecdd;
 
     /* Agent mark (fuchsia) — passages the agent flagged as worth reading first.
-       Deliberately outside the amber/green status ladder, and outside the indigo
-       accent: a reviewer must be able to tell at a glance that a mark came from
-       the agent rather than from their own earlier pass, so the two vocabularies
-       never share a hue. Against every persistent human rung this sits at
-       ΔE2000 >= 22 in normal vision and under simulated deutan, protan and tritan
-       vision alike. */
+       Deliberately outside the amber/green status ladder: a reviewer must be able
+       to tell at a glance that a mark came from the agent rather than from their
+       own earlier pass, so the two vocabularies never share a hue.
+
+       The claim holds for --agent-mark, the DECORATION colour: CIEDE2000 >= 22
+       from --status-pending, --status-ok and --border-strong (the three rungs a
+       reviewer sees persistently), in normal vision and under simulated deutan,
+       protan and tritan vision alike. Its nearest neighbour is --accent at
+       ΔE ~8 under protanopia, but that rung paints only the selection being
+       composed right now, and wavy-versus-straight separates them anyway.
+
+       It does NOT hold for --agent-mark-bg. Against --status-pending-bg the two
+       are ΔE ~1-2 under tritanopia depending on the simulation model — the pale
+       tints are simply too close to white to carry a hue signal. That is why the
+       wavy underline on the rung below is load-bearing rather than decorative:
+       the tint is the large-area percept, and for some readers it says nothing
+       at all. Do not drop the decoration in favour of a stronger tint; a tint
+       strong enough to separate would fight the prose. */
     --agent-mark: #b23aa0;
     --agent-mark-bg: #fbecf7;
 
@@ -1813,16 +1825,20 @@
     @apply decoration-1;
 }
 
-/* The agent's own marks. Hue alone would be a weak signal here — ::highlight()
-   grants no border, no icon and no gutter mark, so a reader with a colour vision
-   deficiency would have only the tint to go on. The wavy underline gives the rung
-   a second, non-colour axis: an agent mark is the only one in the document whose
-   underline is not straight. (Verified painting under ::highlight() in Chrome —
+/* The agent's own marks. The wavy underline is what actually carries the rung —
+   see the ΔE numbers on --agent-mark-bg above: the tint is the large-area percept
+   but under tritanopia it is indistinguishable from the pending tint, so an agent
+   mark is instead the only one in the document whose underline is not straight.
+   ::highlight() grants no border, no icon and no gutter mark, so that decoration
+   axis is the whole of the non-colour signal. (Verified painting in Chrome —
    text-decoration-style and text-underline-offset are honoured, unlike border or
-   box-shadow.) */
+   box-shadow.)
+
+   No `color` here on purpose: body prose already inherits the right one, and
+   setting it would flatten a link inside a marked passage from --accent to body
+   ink. */
 ::highlight(lp-agent-highlight) {
     background-color: var(--agent-mark-bg);
-    color: var(--ink);
     text-decoration-line: underline;
     text-decoration-color: var(--agent-mark);
     text-decoration-style: wavy;
