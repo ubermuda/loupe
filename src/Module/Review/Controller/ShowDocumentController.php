@@ -10,6 +10,10 @@ use App\Module\Review\Entity\Comment;
 use App\Module\Review\Entity\Document;
 use App\Module\Review\Form\AddCommentFormType;
 use App\Module\Review\Form\AddCommentRequest;
+use App\Module\Review\Form\StrikePassageFormType;
+use App\Module\Review\Form\StrikePassageRequest;
+use App\Module\Review\Form\SuggestRewordingFormType;
+use App\Module\Review\Form\SuggestRewordingRequest;
 use App\Module\Review\Repository\CommentRepository;
 use App\Module\Review\Repository\DocumentVersionRepository;
 use App\Module\Review\Security\DocumentVoter;
@@ -69,6 +73,21 @@ final class ShowDocumentController extends AppController
             'method' => 'POST',
         ]);
 
+        $routeParameters = [
+            'projectId' => (string) $project->id,
+            'documentId' => (string) $document->id,
+        ];
+
+        $suggestRewordingForm = $this->createForm(SuggestRewordingFormType::class, new SuggestRewordingRequest(), [
+            'action' => $this->generateUrl('app_comment_suggest', $routeParameters),
+            'method' => 'POST',
+        ]);
+
+        $strikePassageForm = $this->createForm(StrikePassageFormType::class, new StrikePassageRequest(), [
+            'action' => $this->generateUrl('app_comment_strike', $routeParameters),
+            'method' => 'POST',
+        ]);
+
         return $this->render('@Review/show_document.html.twig', [
             'document' => $document,
             'version' => $version,
@@ -77,6 +96,8 @@ final class ShowDocumentController extends AppController
             'comments' => $comments,
             'orphanedCount' => count(array_filter($comments, static fn (Comment $c) => $c->orphaned)),
             'addCommentForm' => $addCommentForm,
+            'suggestRewordingForm' => $suggestRewordingForm,
+            'strikePassageForm' => $strikePassageForm,
         ]);
     }
 }
