@@ -419,6 +419,42 @@ So the rule generalises past `pkill` to every stop mechanism: **a process
 started inside the container can only be observed and stopped from inside it.**
 Verify with `docker exec … ps aux` after any stop, whatever issued it.
 
+## Update the agent instructions to weigh trade-offs instead of defending one option
+
+**Author:** Geoffrey · **Type:** tooling · **Priority:** medium · **Status:** pending
+
+Claude tends to pick an approach and then argue for it, rather than laying out
+the options with honest costs on each side and letting the reader decide. The
+instructions should push toward the second behaviour explicitly.
+
+The failure is not that the recommendation is usually wrong — it is that the
+*reasoning is inflated to match the conclusion*. A minor downside of the
+rejected option gets described in the register of a serious one, which makes the
+argument unfalsifiable and hides how close the call actually was.
+
+Concrete example from 2026-08-03, on whether document search indexing should be
+synchronous. The measurement settled it easily: 1.07 ms for a typical document,
+109 ms at the 1 MiB input ceiling. "One millisecond, so async adds machinery for
+no gain" is the whole argument. What was written instead was that async would
+introduce "a window where a freshly created document is not yet findable" and a
+"real correctness cost" — for a delay of a second or two, in a document-review
+tool, which nobody would notice. The conclusion was right and the case for it
+was overstated, which is worse than a weaker conclusion honestly argued.
+
+What the instructions should ask for:
+
+1. State the options and what each actually costs, in proportionate language.
+2. Give a recommendation and the confidence behind it, without padding the
+   rejected options' downsides to justify it.
+3. Say plainly when a call is close, or when it rests on taste rather than
+   evidence — "either is fine, I lean X" is a legitimate answer.
+4. Keep the alternatives genuinely available rather than mentioning them as a
+   courtesy before dismissing them.
+
+Related: the existing instruction not to capitulate under pressure. These pull
+in opposite directions and the tension is the point — hold a position against
+disagreement, but do not manufacture support for it.
+
 ## Shrink the e2e suite and push its assertions down to functional tests
 
 **Author:** Geoffrey · **Type:** tooling · **Priority:** medium · **Status:** pending
