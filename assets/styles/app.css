@@ -87,6 +87,10 @@
     --color-status-ok-deep: var(--status-ok-deep);
     --color-status-ok-bg: var(--status-ok-bg);
     --color-status-ok-border: var(--status-ok-border);
+    --color-status-danger: var(--status-danger);
+    --color-status-danger-deep: var(--status-danger-deep);
+    --color-status-danger-bg: var(--status-danger-bg);
+    --color-status-danger-border: var(--status-danger-border);
 
     /* Dark .mcp.json code block (Connect page) */
     --color-code-dark-header: var(--code-dark-header);
@@ -141,7 +145,7 @@
     --bg-hover: #fbfbfe;
     --bg-active: #ececf4;
 
-    /* Status ladder — pending (amber) / addressed·resolved (green) */
+    /* Status ladder — pending (amber) / addressed·resolved (green) / removed (red) */
     --status-pending: #e09a3e;
     --status-pending-deep: #c17a2f;
     --status-pending-bg: #fdf3e6;
@@ -150,6 +154,10 @@
     --status-ok-deep: #3d8a5c;
     --status-ok-bg: #f0f9f3;
     --status-ok-border: #d4ecdd;
+    --status-danger: #c83a3a;
+    --status-danger-deep: #a92f2f;
+    --status-danger-bg: #fdf1f1;
+    --status-danger-border: #f2d6d6;
 
     /* Agent mark (fuchsia) — passages the agent flagged as worth reading first.
        Deliberately outside the amber/green status ladder: a reviewer must be able
@@ -1072,6 +1080,72 @@
     .lp-version-entry__description {
         @apply text-fg-dim m-0 text-xs;
     }
+    /* Way into the diff between a version and the one before it. */
+    .lp-version-entry__diff {
+        @apply font-mono text-fg-dim no-underline transition-colors text-xs hover:text-accent;
+    }
+    .lp-version-entry__diff[aria-current] {
+        @apply text-accent;
+    }
+
+    /* ── Version diff ───────────────────────────────────────────────────
+       Stands in for the rendered document while a diff is on screen, in the
+       same reading column and body type. It shows the Markdown SOURCE: a
+       reference link inlined or a paragraph reflowed changes nothing in the
+       rendered HTML, and diffing that output would hide the edit entirely.
+       Source line breaks are preserved with pre-wrap, so the template must
+       emit no indentation of its own inside a line. */
+    .lp-diff {
+        @apply max-w-2xl text-fg;
+    }
+    /* Added and removed lines are <ins>/<del>, whose default underline and
+       strike would otherwise run across the whole line. */
+    .lp-diff__line {
+        @apply block no-underline whitespace-pre-wrap break-words border-l-2 border-transparent pl-2 text-base leading-relaxed;
+    }
+    /* Gutter marker: the cue that survives colour blindness, on the view where
+       added-versus-removed IS the content. Generated content, so it never
+       reaches textContent and cannot leak into a reconstructed source. It also
+       gives a blank line its height, which an empty box would collapse away —
+       and a blank line is a paragraph break in Markdown. */
+    .lp-diff__line::before {
+        @apply inline-block w-5 select-none text-fg-faint;
+        content: '\00a0';
+    }
+    .lp-diff__line--deleted::before {
+        content: '−';
+    }
+    .lp-diff__line--inserted::before {
+        content: '+';
+    }
+    .lp-diff__line--deleted {
+        @apply bg-status-danger-bg border-status-danger text-fg-mute;
+    }
+    .lp-diff__line--inserted {
+        @apply bg-status-ok-bg border-status-ok;
+    }
+    .lp-diff__mark {
+        @apply rounded-sm;
+    }
+    .lp-diff__mark--deleted {
+        @apply bg-status-danger-border text-status-danger-deep line-through;
+    }
+    .lp-diff__mark--inserted {
+        @apply bg-status-ok-border text-status-ok-deep underline;
+    }
+
+    /* What the author said a revision changed, sitting directly above what it
+       actually changed. */
+    .lp-diff-notes {
+        @apply max-w-2xl flex flex-col gap-1.5 mb-6 p-4 rounded-lg border bg-surface-2 border-line;
+    }
+    .lp-diff-notes__title {
+        @apply font-mono text-fg-dim m-0 text-xs uppercase tracking-widest;
+    }
+    .lp-diff-notes__entry {
+        @apply flex items-start gap-2 m-0 text-sm text-fg-mute;
+    }
+
     .lp-doc-references {
         @apply flex flex-col gap-2 mt-4;
     }

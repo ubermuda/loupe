@@ -36,6 +36,7 @@
         "doctrine/doctrine-migrations-bundle": "^4.0",
         "doctrine/orm": "^3.6.7",
         "dragonmantank/cron-expression": "^3.6",
+        "jfcherng/php-diff": "^7.0.1",
         "knpuniversity/oauth2-client-bundle": "^2.20",
         "league/commonmark": "^2.8.3",
         "league/flysystem-async-aws-s3": "^3.31",

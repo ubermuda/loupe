@@ -5,18 +5,6 @@ Open work and observations worth revisiting. Delete items entirely once resolved
 Entries are ordered by priority (high → medium → low); insert new entries at
 the end of their priority band. Format and rules: `project-next-steps` skill.
 
-## Review UI: version diff view
-
-
-
-**Author:** Geoffrey · **Type:** feature · **Priority:** high · **Status:** pending
-
-Found while dogfooding the nine-features design review: after `revise_document`,
-the reviewer sees only the new version — there is no way to see what changed
-since the version they commented on. Add a diff view between document versions
-(at minimum current vs previous; ideally any two), so re-review means reading
-the delta, not the whole document again.
-
 ## Proper HTTP API + outbound webhooks
 
 
@@ -3001,14 +2989,22 @@ reason and should not be undone:
 
 - The diff renders **in place of** the document, so while it is on screen the
   pane's `textContent` is not `DocumentVersion::plainText()`. Anchoring is
-  therefore inert in diff mode — no toolbar, no composer, no highlight painting
-  — reusing the same `readOnly` mechanism that already disables writes when
-  viewing an older version.
+  therefore inert in diff mode — no toolbar, no composer, no highlight painting.
+  `readOnly` alone does **not** achieve this and was not used for it:
+  `comment_anchor_controller.js` repaints highlights on every layout regardless
+  of that flag. `show_document.html.twig` instead omits
+  `data-controller="comment-anchor"` entirely in diff mode, so the controller
+  never connects. Re-enabling comments here means attaching it deliberately, not
+  flipping a flag.
 - The diff renderer must emit segments tagged unchanged, inserted and deleted,
   so that **either side's plain text can be reconstructed from the diff markup**:
   unchanged plus inserted yields the new version, unchanged plus deleted the
-  old. That is what gives a comment made in diff mode a well-defined anchoring
-  basis to resolve against.
+  old. `App\Module\Review\ValueObject\DocumentDiff` does this
+  (`oldSource()`/`newSource()`), and it is the **server** half only — the
+  rendered pane's `textContent` is neither side, because deleted and inserted
+  lines interleave and line breaks are block layout rather than newlines. A
+  comment captured in the browser will additionally need per-side markers or
+  offsets in the DOM.
 
 The open design question, which did not need answering to keep the door open:
 whether a comment made while looking at a diff anchors to the new version, the
@@ -3321,6 +3317,39 @@ Either backfill (`offsetHint = mb_strlen(substr(plainText, 0, offsetHint))` per
 comment, against its own version's text) or accept a one-revision settling
 period, but decide it before the first deploy that carries real comments across
 the change.
+
+## Version diff loses word marks when a revision changes a line and adds one beside it
+
+**Author:** Claude · **Type:** feature · **Priority:** low · **Status:** pending
+
+`jfcherng/php-diff` only marks individual words inside a replaced block when
+both sides have the same line count (`AbstractHtml::getChanges()`), so a
+revision that rewords a paragraph *and* inserts another right after it produces
+one replace block of 1 old line against 3 new ones — and the reworded paragraph
+comes out as a whole-line delete plus insert instead of a word-marked pair. The
+output is correct and readable, just coarser than it needs to be, and this shape
+(edit a sentence, add a paragraph) is common.
+
+The library's own `Combined` renderer handles it by joining both sides with
+`\n`, running the word line-renderer over the joined strings, then splitting
+back (`markReplaceBlockDiff`). Doing the same in
+`App\Module\Review\Service\MarkdownDiffer` means driving
+`LineRendererFactory`/`MbString` directly and reproducing the renderer's
+escape-then-mark ordering by hand, which is why it was not done up front — the
+escaping order is what stops a literal `<del>` in the Markdown being read as a
+diff mark. Any fix must keep `DocumentDiff::oldSource()`/`newSource()` exact;
+`MarkdownDifferTest` pins that.
+
+## Version diff is only reachable for adjacent version pairs
+
+**Author:** Claude · **Type:** feature · **Priority:** low · **Status:** pending
+
+The `app_document_review_diff` route takes any two version numbers, but the only
+links to it are the "What changed since v(n-1)" entries in the version switcher
+on the document review page, so comparing v1 with v4 means editing the URL. A
+reviewer who left comments on v1 and comes back after three revisions wants
+exactly that comparison. Needs a version picker on the diff view itself, not
+another set of links in the switcher.
 
 ## No table of contents on document versions rendered before headings had ids
 
