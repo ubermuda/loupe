@@ -63,6 +63,7 @@ class ListDocumentsController extends AppController
         $totalPages = max(1, (int) ceil($total / self::PER_PAGE));
 
         $documents = iterator_to_array($paginator, false);
+        $this->documents->preloadTags($documents);
         $latestVersions = $this->documentVersions->findLatestMetaByDocuments($documents);
 
         $items = array_map(

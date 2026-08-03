@@ -2417,6 +2417,29 @@ the reply without inventing an identity. Attribution stays on the singleton user
 and provenance rides beside it. Related: 'No audit trail distinguishes
 agent-written state from human action'.
 
+## Implicit tag creation races two concurrent MCP calls into a constraint violation
+
+**Author:** Claude · **Type:** bug · **Priority:** medium · **Status:** pending
+
+`App\Module\Review\Command\SetDocumentTagsHandler` resolves each tag name with
+`TagRepository::findOneByProjectAndName()` and constructs a `Tag` when the lookup
+misses. That is a read-check-write with no lock: two calls tagging different
+documents with the same brand-new name in the same project both miss, both
+insert, and the second `flush()` fails the `uniq_tag_project_name` unique index —
+surfacing to the agent as the generic "could not be set" message with no hint
+that a retry would succeed.
+
+It has not been hit: an MCP token is bound to one project and agents drive it
+serially. The two fixes that fit are catching
+`Doctrine\DBAL\Exception\UniqueConstraintViolationException` and re-resolving
+(needs a fresh EntityManager, because a failed flush closes it), or an upsert via
+`INSERT … ON CONFLICT DO NOTHING` followed by a re-read. Neither is
+unit-testable here — `dama/doctrine-test-bundle` runs each test inside one
+connection's transaction, so two overlapping DB transactions cannot be
+expressed — so pair whichever lands with a sequential regression test and verify
+the concurrency by review. Same shape as 'Marking a comment addressed can
+overwrite a human's Resolve'.
+
 ## Product idea (long horizon): drag DOM elements in the widget to try layouts
 
 **Author:** Geoffrey · **Type:** idea · **Priority:** low · **Status:** pending

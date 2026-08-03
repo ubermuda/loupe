@@ -37,10 +37,16 @@ final readonly class DocumentExporter implements UserDataExporterInterface
                 ];
             }
 
+            $tags = [];
+            foreach ($document->tags as $tag) {
+                $tags[] = $tag->name;
+            }
+
             $rows[] = [
                 'id' => (string) $document->id,
                 'project' => $document->project->name,
                 'title' => $document->title,
+                'tags' => $tags,
                 'status' => $document->status->value,
                 'archivedAt' => $document->archivedAt?->format(\DateTimeInterface::ATOM),
                 'createdAt' => $document->createdAt->format(\DateTimeInterface::ATOM),

@@ -905,6 +905,10 @@
                 <source>review.revise.error.description_blank</source>
                 <target>Say what changed in this version.</target>
             </trans-unit>
+            <trans-unit id="review.tags.error.too_long">
+                <source>review.tags.error.too_long</source>
+                <target>That tag name is too long.</target>
+            </trans-unit>
             <trans-unit id="review.form.rename_document_form.title.label">
                 <source>review.form.rename_document_form.title.label</source>
                 <target>Title</target>

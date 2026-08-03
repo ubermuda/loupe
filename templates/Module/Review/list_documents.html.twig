@@ -67,6 +67,13 @@
                     <span class="lp-document-row__open">{{ 'review.dashboard.meta.open_threads'|trans({'%count%': item.openThreadCount}) }}</span>
                     {% endif %}
                 </div>
+                {% if document.tags|length > 0 %}
+                <div class="lp-doc-row__tags">
+                    {% for tag in document.tags %}
+                    <span class="lp-tag">{{ tag.name }}</span>
+                    {% endfor %}
+                </div>
+                {% endif %}
             </div>
             <span class="lp-badge lp-badge--{{ document.status.value }}">
                 {{ document.status.translationKey()|trans }}

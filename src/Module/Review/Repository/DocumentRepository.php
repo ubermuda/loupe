@@ -53,6 +53,28 @@ class DocumentRepository extends ServiceEntityRepository
         return new Paginator($qb->getQuery());
     }
 
+    /**
+     * Hydrates the tag collections of a page of documents in one query, so
+     * rendering the list does not fire one per row. Nothing is returned: the
+     * collections are populated on the Document instances the caller already has.
+     *
+     * @param list<Document> $documents
+     */
+    public function preloadTags(array $documents): void
+    {
+        if ([] === $documents) {
+            return;
+        }
+
+        $this->createQueryBuilder('d')
+            ->addSelect('t')
+            ->leftJoin('d.tags', 't')
+            ->andWhere('d IN (:documents)')
+            ->setParameter('documents', $documents)
+            ->getQuery()
+            ->getResult();
+    }
+
     /** @return list<Document> */
     public function findByOwner(User $owner): array
     {

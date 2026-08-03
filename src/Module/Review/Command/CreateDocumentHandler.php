@@ -13,6 +13,7 @@ final readonly class CreateDocumentHandler
     public function __construct(
         private EntityManagerInterface $em,
         private MarkdownRenderer $renderer,
+        private SetDocumentTagsHandler $setTags,
     ) {
     }
 
@@ -23,6 +24,10 @@ final readonly class CreateDocumentHandler
 
         $this->em->persist($document);
         $this->em->flush();
+
+        if ([] !== $command->tagNames) {
+            ($this->setTags)(new SetDocumentTagsCommand($document, $command->tagNames));
+        }
 
         return $document;
     }

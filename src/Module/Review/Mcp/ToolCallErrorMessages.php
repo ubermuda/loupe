@@ -6,6 +6,7 @@ namespace App\Module\Review\Mcp;
 
 use App\Exception\DomainErrors;
 use App\Module\Review\Entity\Document;
+use App\Module\Review\Entity\Tag;
 use Mcp\Exception\ToolCallException;
 
 /**
@@ -26,6 +27,7 @@ final readonly class ToolCallErrorMessages
             'review.rename.error.blank' => 'A document title must not be blank.',
             'review.rename.error.too_long' => \sprintf('A document title must be at most %d characters.', Document::MAX_TITLE_LENGTH),
             'review.revise.error.description_blank' => 'A description of what changed in this version is required.',
+            'review.tags.error.too_long' => \sprintf('A tag name must be at most %d characters.', Tag::MAX_NAME_LENGTH),
             default => 'The request was rejected. The error has been logged.',
         }, previous: $errors);
     }

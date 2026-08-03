@@ -9,6 +9,7 @@ use App\Module\Project\Entity\Project;
 use App\Module\Review\Entity\Comment;
 use App\Module\Review\Entity\CommentStatus;
 use App\Module\Review\Entity\Document;
+use App\Module\Review\Entity\Tag;
 use App\Module\Review\ValueObject\Anchor;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
@@ -72,6 +73,33 @@ final class ListDocumentsControllerTest extends WebTestCase
         self::assertResponseIsSuccessful();
         self::assertSelectorTextContains('body', 'Alice Draft');
         self::assertStringNotContainsString('Bob Secret', (string) $client->getResponse()->getContent());
+    }
+
+    public function test_a_documents_tags_are_rendered_on_its_row(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+
+        $alice = $this->createUser($em, 'alice', 'alice@example.com');
+        $project = $this->project($em, $alice);
+        $tagged = $this->document($em, $alice, $project, 'Tagged Draft');
+        $this->document($em, $alice, $project, 'Bare Draft');
+        $design = new Tag($project, 'Design');
+        $em->persist($design);
+        $tagged->tags->add($design);
+
+        $em->flush();
+        $projectId = (string) $project->id;
+        $em->clear();
+
+        $client->loginUser($alice);
+        $crawler = $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/documents');
+
+        self::assertResponseIsSuccessful();
+        // Only the tagged row renders a chip — a page-wide count would pass even
+        // if every row rendered the whole project's vocabulary.
+        self::assertCount(1, $crawler->filter('[data-document-id="'.$tagged->id.'"] .lp-tag'));
+        self::assertSame('design', trim($crawler->filter('.lp-tag')->text()));
     }
 
     public function test_a_project_shows_only_its_own_documents(): void

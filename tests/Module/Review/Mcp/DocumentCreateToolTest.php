@@ -7,6 +7,7 @@ namespace App\Tests\Module\Review\Mcp;
 use App\Module\Account\Entity\User;
 use App\Module\Project\Entity\Project;
 use App\Module\Review\Entity\Document;
+use App\Module\Review\Entity\Tag;
 use App\Module\Review\Mcp\DocumentCreateTool;
 use App\Tests\Support\McpTokenScenario;
 use Doctrine\ORM\EntityManagerInterface;
@@ -62,6 +63,37 @@ final class DocumentCreateToolTest extends KernelTestCase
         self::assertSame((string) $project->id, (string) $document->project->id);
         self::assertSame((string) $owner->id, (string) $document->owner->id);
         self::assertSame('Auth PRD', $document->title);
+    }
+
+    public function test_tags_passed_at_creation_are_created_and_attached(): void
+    {
+        $owner = $this->user('create-tagged@example.com');
+        $project = new Project($owner, 'p-'.uniqid());
+        $this->em->persist($project);
+        $this->em->flush();
+
+        $this->actAsMcpTokenBoundTo($project);
+
+        $result = ($this->tool)('Auth PRD', '# Auth', null, ['Release', 'design', 'DESIGN']);
+
+        self::assertSame(['design', 'release'], $result['tags']);
+
+        $this->em->clear();
+        $document = $this->em->find(Document::class, Uuid::fromString($result['documentId']));
+        self::assertInstanceOf(Document::class, $document);
+        self::assertSame(['design', 'release'], array_map(static fn (Tag $t): string => $t->name, $document->tags->toArray()));
+    }
+
+    public function test_a_document_created_without_tags_carries_none(): void
+    {
+        $owner = $this->user('create-untagged@example.com');
+        $project = new Project($owner, 'p-'.uniqid());
+        $this->em->persist($project);
+        $this->em->flush();
+
+        $this->actAsMcpTokenBoundTo($project);
+
+        self::assertSame([], ($this->tool)('Auth PRD', '# Auth')['tags']);
     }
 
     public function test_unbound_mcp_token_is_rejected(): void

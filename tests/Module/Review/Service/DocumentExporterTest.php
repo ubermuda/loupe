@@ -7,6 +7,7 @@ namespace App\Tests\Module\Review\Service;
 use App\Module\Account\Entity\User;
 use App\Module\Project\Entity\Project;
 use App\Module\Review\Entity\Document;
+use App\Module\Review\Entity\Tag;
 use App\Module\Review\Repository\DocumentRepository;
 use App\Module\Review\Service\DocumentExporter;
 use PHPUnit\Framework\MockObject\Stub;
@@ -36,6 +37,37 @@ final class DocumentExporterTest extends TestCase
         self::assertSame('# v1', $rows[0]['versions'][0]['markdownSource']);
         self::assertArrayNotHasKey('renderedHtml', $rows[0]['versions'][0]);
         self::assertSame('documents.json', new DocumentExporter($repo)->filename());
+    }
+
+    public function test_exports_the_tags_a_document_carries(): void
+    {
+        $user = new User('alice', 'Alice A', 'alice@example.com', 'x');
+        $project = new Project($user, 'My project');
+        $document = new Document($user, $project, 'My doc');
+        $document->addVersion('# v1', '<h1>v1</h1>');
+        $document->tags->add(new Tag($project, 'Design'));
+        $document->tags->add(new Tag($project, 'release'));
+
+        /** @var DocumentRepository&Stub $repo */
+        $repo = $this->createStub(DocumentRepository::class);
+        $repo->method('findByOwner')->willReturn([$document]);
+
+        $rows = new DocumentExporter($repo)->export($user);
+
+        self::assertSame(['design', 'release'], $rows[0]['tags']);
+    }
+
+    public function test_an_untagged_document_exports_an_empty_tag_list(): void
+    {
+        $user = new User('alice', 'Alice A', 'alice@example.com', 'x');
+        $document = new Document($user, new Project($user, 'My project'), 'My doc');
+        $document->addVersion('# v1', '<h1>v1</h1>');
+
+        /** @var DocumentRepository&Stub $repo */
+        $repo = $this->createStub(DocumentRepository::class);
+        $repo->method('findByOwner')->willReturn([$document]);
+
+        self::assertSame([], new DocumentExporter($repo)->export($user)[0]['tags']);
     }
 
     public function test_exports_archive_state_and_version_descriptions(): void

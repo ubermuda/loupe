@@ -42,6 +42,20 @@ class Document
     #[ORM\OrderBy(['versionNumber' => 'ASC'])]
     public Collection $versions;
 
+    /**
+     * Owning side of the only many-to-many in the app. No cascade and no
+     * orphanRemoval: a tag is project vocabulary that outlives the documents
+     * carrying it, so dropping it from one document must not delete the row.
+     *
+     * @var Collection<int, Tag>
+     */
+    #[ORM\InverseJoinColumn(name: 'tag_id', nullable: false)]
+    #[ORM\JoinColumn(name: 'document_id', nullable: false)]
+    #[ORM\JoinTable(name: 'document_tags')]
+    #[ORM\ManyToMany(targetEntity: Tag::class)]
+    #[ORM\OrderBy(['name' => 'ASC'])]
+    public Collection $tags;
+
     public function __construct(
         #[ORM\JoinColumn(nullable: false)]
         #[ORM\ManyToOne(targetEntity: User::class)]
@@ -58,6 +72,7 @@ class Document
         public readonly \DateTimeImmutable $createdAt = new \DateTimeImmutable(),
     ) {
         $this->versions = new ArrayCollection();
+        $this->tags = new ArrayCollection();
     }
 
     public function addVersion(string $markdown, string $renderedHtml, ?string $description = null): DocumentVersion
