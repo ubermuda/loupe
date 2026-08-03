@@ -685,7 +685,7 @@ final class ShowDocumentControllerTest extends WebTestCase
 
         $markdown = "## First\n\nBody.\n\n## Second\n\nMore.\n";
         $source = new Document(owner: $owner, project: $project, title: 'Sectioned Companion');
-        $source->addVersion($markdown, new MarkdownRenderer()->render($markdown));
+        $source->addVersion($markdown, new MarkdownRenderer(new NullLogger())->render($markdown));
         $source->references->add($target);
         $em->persist($source);
         $em->flush();
