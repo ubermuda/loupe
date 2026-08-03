@@ -8,6 +8,7 @@ use App\Module\Account\Entity\User;
 use App\Module\Project\Entity\Project;
 use App\Module\Review\Entity\Comment;
 use App\Module\Review\Entity\Document;
+use App\Module\Review\Service\MarkdownRenderer;
 use App\Module\Review\ValueObject\Anchor;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
@@ -168,8 +169,12 @@ final class DiffDocumentVersionsControllerTest extends WebTestCase
         $latest = $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/documents/'.$id.'/review');
         self::assertCount(1, $latest->filter('[data-controller="comment-anchor"]'));
         self::assertCount(1, $latest->filter('[data-comment-anchor-target="doc"]'));
-        self::assertCount(1, $latest->filter('.lp-comment-composer'));
         self::assertCount(1, $latest->filter('.lp-verdict-bar'));
+        // Not an exact count: how many composers the review page offers is the
+        // business of whatever review actions exist, and it has already grown from
+        // one to two. What this control has to establish is that the selector
+        // matches something when comments are accepted.
+        self::assertGreaterThan(0, $latest->filter('.lp-comment-composer')->count());
     }
 
     /**
@@ -236,6 +241,53 @@ final class DiffDocumentVersionsControllerTest extends WebTestCase
         self::assertResponseIsSuccessful();
         self::assertCount(0, $crawler->filter('.lp-diff'));
         self::assertSelectorTextContains('.lp-empty', 'cannot handle');
+    }
+
+    /**
+     * The contents panel is built from heading ids that live in the rendered HTML,
+     * and diff mode replaces that markup with the Markdown source — so every entry
+     * would point at an element no longer on the page. Neither branch that met here
+     * could catch it alone: the panel's tests never render a diff, and the diff's
+     * never had a panel.
+     */
+    public function test_a_diff_renders_no_contents_panel_and_no_heading_targets(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+
+        $owner = $this->createUser($em, 'owner-diff-toc', 'owner-diff-toc@example.com');
+        $project = $this->project($em, $owner);
+
+        // Rendered for real: the ids the panel links to exist only in
+        // MarkdownRenderer's output, not in the Markdown the diff shows.
+        $renderer = new MarkdownRenderer();
+        $old = "## First\n\nBody.\n\n## Second\n\nMore.\n";
+        $new = "## First\n\nRevised body.\n\n## Second\n\nMore.\n";
+
+        $doc = new Document(owner: $owner, project: $project, title: 'Sectioned Diff');
+        $doc->addVersion($old, $renderer->render($old));
+        $doc->addVersion($new, $renderer->render($new));
+        $em->persist($doc);
+        $em->flush();
+
+        $projectId = (string) $project->id;
+        $id = (string) $doc->id;
+        $em->clear();
+
+        $client->loginUser($owner);
+        $diff = $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/documents/'.$id.'/review/diff/1/2');
+
+        self::assertResponseIsSuccessful();
+        self::assertCount(0, $diff->filter('.lp-review-contents'));
+        // A panel entry pointing into replaced markup would be a broken link rather
+        // than a missing feature, so the targets must be gone too.
+        self::assertCount(0, $diff->filter('[id^="heading-"]'));
+
+        // The review page for the same document, so neither assertion can pass
+        // merely because this document never had a contents panel.
+        $latest = $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/documents/'.$id.'/review');
+        self::assertCount(1, $latest->filter('.lp-review-contents'));
+        self::assertCount(2, $latest->filter('[id^="heading-"]'));
     }
 
     public function test_a_diff_that_does_not_run_forwards_is_not_found(): void

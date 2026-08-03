@@ -16,6 +16,9 @@ final readonly class AddCommentCommand
         public ?string $prefix,
         public ?string $suffix,
         public string $body,
+        // null for a prose comment, '' for a strike, non-empty for a suggested
+        // rewording. See Comment::$replacement.
+        public ?string $replacement = null,
     ) {
     }
 }

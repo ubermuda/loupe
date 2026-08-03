@@ -12,7 +12,7 @@ use Mcp\Exception\ToolCallException;
 /**
  * Fetch the current review state (verdict, status, comments) for a document.
  */
-#[McpTool(name: 'document_get_review', description: 'Fetch the review state (verdict, status, and threaded comments) for a document\'s current version. Every comment and reply reports whether an agent or a human wrote it.')]
+#[McpTool(name: 'document_get_review', description: 'Fetch the review state (verdict, status, and threaded comments) for a document\'s current version. Every comment and reply reports whether an agent or a human wrote it, and a comment may carry a replacement for the text it quotes.')]
 final readonly class DocumentGetReviewTool
 {
     public function __construct(
@@ -34,7 +34,18 @@ final readonly class DocumentGetReviewTool
      * `author` is agent or human — the class of writer, not an identity, so no name or address
      * of a human reviewer is reported
      *
-     * @return array{status: string, verdict: string|null, version: int, comments: list<array{id: string, quote: string, body: string, author: 'agent'|'human', status: string, orphaned: bool, thread: list<array{id: string, quote: string, body: string, author: 'agent'|'human', orphaned: bool}>}>}
+     * `replacement` is what the reviewer wants the quoted passage to become: null means they
+     * proposed no edit, an empty string means delete the passage, and any other value is the
+     * text to put in its place. Only root comments carry it. Loupe never edits the document —
+     * applying these is your job: rewrite the markdown and call document_revise. On a comment
+     * with a replacement the `quote` is the verbatim selected span, so it can be substituted
+     * as-is; on every other comment it is widened to whole words for readability and must not
+     * be used for a find-and-replace
+     *
+     * An `orphaned: true` comment's quote no longer appears in the document, so its replacement
+     * has no target and cannot be applied — reply to it instead of guessing
+     *
+     * @return array{status: string, verdict: string|null, version: int, comments: list<array{id: string, quote: string, body: string, replacement: string|null, author: 'agent'|'human', status: string, orphaned: bool, thread: list<array{id: string, quote: string, body: string, author: 'agent'|'human', orphaned: bool}>}>}
      */
     public function __invoke(string $documentId): array
     {

@@ -37,6 +37,19 @@ class Comment
         get => null !== $this->parent ? $this->parent->status : $this->status;
     }
 
+    /**
+     * True when this comment proposes an edit — a strike or a rewording. Both are
+     * the same thing underneath, a replacement for the anchored passage.
+     */
+    public bool $isSuggestion {
+        get => null !== $this->replacement;
+    }
+
+    /** True for a strike: a suggestion whose replacement is nothing at all. */
+    public bool $isStrike {
+        get => '' === $this->replacement;
+    }
+
     public function __construct(
         #[ORM\JoinColumn(nullable: false)]
         #[ORM\ManyToOne(targetEntity: DocumentVersion::class, inversedBy: 'comments')]
@@ -55,6 +68,15 @@ class Comment
         #[ORM\JoinColumn(nullable: true)]
         #[ORM\ManyToOne(targetEntity: self::class)]
         public readonly ?Comment $parent = null,
+
+        // What the anchored passage should become. Three states, and the empty
+        // string is NOT the same as null: null is an ordinary prose comment
+        // proposing no edit, '' is a strike (replace the passage with nothing),
+        // and a non-empty value is a suggested rewording. Read it through
+        // $isSuggestion/$isStrike rather than truthiness — '' and null are both
+        // falsy in Twig and PHP, which would collapse two of the three states.
+        #[ORM\Column(type: Types::TEXT, nullable: true)]
+        public readonly ?string $replacement = null,
     ) {
     }
 }

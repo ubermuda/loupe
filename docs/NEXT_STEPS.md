@@ -184,6 +184,186 @@ the local dev host. Whether a deployed instance drops connections the same way i
 unknown, and it decides whether this is a local annoyance or a production defect
 affecting every agent that connects. Establishing that comes before any fix.
 
+## Merging the open document-review branches must union the two deletion paths, never take one side
+
+**Author:** Claude · **Type:** tooling · **Priority:** high · **Status:** pending
+
+Several in-flight branches each add a table with a foreign key into the
+document subtree, and each adds its own `DELETE` to the same two FK-ordered
+cleanup paths:
+`src/Module/Review/EventListener/DeleteReviewDataOnProjectDeleting.php` (DQL
+bulk deletes) and `src/Module/Review/Service/DocumentOwnershipAccountPurger.php`
+(raw SQL). Git will conflict in both files on every merge after the first.
+
+The tables, and what each hangs off — the parent decides where its `DELETE`
+belongs in FK order, and they are not all the same:
+
+- `document_references` → `documents` (PR #122)
+- `tags` + `document_tags` → `documents`, `projects`, `tags` (PR #123)
+- `decision_selections` → `documents` (`feat/review-decision-controls`)
+- `document_highlights` → **`document_versions`** (`feat/review-agent-highlights`)
+
+Only the last must be deleted before `DELETE FROM document_versions`; the rest
+must come before `DELETE FROM documents`. PR #124 (`feat/document-search`) adds
+no table of its own — it adds a `tsvector` column and index — but inherits
+#123's tables through the git ancestry noted below.
+
+**The resolution is always the union of every branch's statements, in FK order.**
+Taking either side of the conflict silently drops a table's `DELETE`. The FKs
+are `NOT DEFERRABLE` with no `ON DELETE CASCADE`, so the omission is not an
+orphaned row — it is a Postgres FK violation that aborts project deletion or
+account deletion with a 500.
+
+This is not hypothetical: two separate branches shipped exactly this omission,
+each adding its table to the listener and missing the purger, and both passed a
+full green `just ci`. The reason the suite does not catch it is that
+`ProjectDeleterTest::seedFullProject` and the foreign-owned-document fixture in
+`DeleteAccountHandlerTest` only exercise the statement if the deleted project
+actually has a row in the new table. A fixture without one makes the test pass
+vacuously.
+
+So, when adding a table with an FK onto `document_versions`: add the `DELETE`
+to **both** files, seed a row in **both** fixtures, and mutation-check each —
+remove the statement, confirm the test fails with `SQLSTATE[23503]`, restore it.
+Note the two paths use different mechanisms, so the fix is not copy-paste, and
+DQL bulk delete bypasses `orphanRemoval`, so entity-level cascade configuration
+is not a substitute for either.
+
+Related ordering constraint: PR #124 (`feat/document-search`) has PR #123
+(`feat/document-tags`) as a git ancestor, so #123 merges first or #124 brings
+tags in with it.
+
+## Serialising `just e2e` does not protect a run — the shared php-fpm container does
+
+**Author:** Claude · **Type:** tooling · **Priority:** high · **Status:** pending
+
+Every worktree gets its own nginx sidecar but they all share **one** php-fpm
+container. So a sibling's `just ci`, `phpunit`, `bin/console` or scratch PHP
+script lands in the same container as an in-flight e2e run and starves it.
+Serialising e2e is therefore necessary but **not sufficient** — the resource
+that has to be quiet is the container, not the recipe.
+
+Observed cost: three consecutive e2e runs on one branch produced 11 failures
+that had nothing to do with the branch. The signature is always the same — a
+form POST that never returns inside Playwright's assertion window, submit
+button left **disabled**, form still populated, **no** validation error, and
+nothing in `dev.log`.
+
+**The discriminator is which specs fail, not how many.** Across those three
+runs the failing specs were *disjoint* (fixture/data-export/wizard/login, then
+forgot-password/signup/remember-me/social-login, then delete-account/wizard-
+skip). A real defect fails the same spec every time; contention moves around.
+Check that before investigating a branch.
+
+Both documented causes must be excluded before reaching for this one: count
+`Container` hashes in `var/cache/dev/` (more than one means a mid-run rebuild)
+and confirm a consumer is alive with `messenger_messages` empty. If both are
+clean and the failures are disjoint, it is contention.
+
+Worth automating: a lock that a gate run and an e2e run both have to take, so
+this is enforced rather than remembered. Until then it has to be coordinated by
+hand, which does not survive parallel agents. See `docs/AUTOMATIONS.md`.
+
+## `composer require`/`update` cannot resolve here — anonymous GitHub API rate limiting
+
+**Author:** Claude · **Type:** tooling · **Priority:** high · **Status:** pending
+
+Any dependency change fails, and **the error message names the wrong cause**.
+Composer reports *"Could not authenticate against github.com"* against
+`git@github.com:ubermuda/admin-bundle.git`, which reads as a missing SSH key or
+a private repository. It is neither: all five `ubermuda/*` repos are public and
+`composer.json` already declares `github-protocols: ["https"]`, with no
+`insteadOf` rewrite anywhere.
+
+The real failure is `[403] https://api.github.com/repos/ubermuda/admin-bundle`
+with `"limit": 60, "remaining": 0`. Composer then calls
+`attemptCloneFallback()`, which switches to SSH, fails, and reports *that*
+error — so the authentication message belongs to the fallback, not the original
+request.
+
+Resolving across five VCS repositories costs roughly 35–40 API calls against a
+60/hour anonymous budget, so it cannot reliably complete. The budget is also
+per-origin: the host and the container have separate ones, and a wait loop
+watching the wrong meter reports headroom that the failing process does not
+have.
+
+**Fix: put a GitHub token in the container's composer config** (60 → 5,000 per
+hour). Until then the workaround is to resolve on the host, which is already
+authenticated, then materialise in the container:
+
+```sh
+composer require --no-install --no-scripts <package>   # host
+bin/worktrees/compose-exec.sh composer install         # container, correct PHP
+```
+
+Diagnose with `composer diagnose` or by requesting the API URL directly and
+reading the rate-limit headers — not from composer's own message, which is
+misleading by construction here.
+
+## Writing into a torn-down worktree path silently succeeds and loses the work
+
+**Author:** Claude · **Type:** tooling · **Priority:** high · **Status:** pending
+
+When a worktree is removed while an agent is still bound to it, a `Write` to
+the old path **reports success**. It recreates a bare directory that is not a
+git worktree, so nothing lands on the branch and nothing raises an error.
+`git status` from inside that directory falls through to the main checkout and
+reports `main`, which makes the situation look normal on inspection.
+
+That combination is the dangerous part: an agent that trusts the successful
+write will keep working, commit nothing to its branch, and report completion.
+The failure is indistinguishable from success until someone checks the branch.
+
+An agent that finds itself in this state must **stop**, not improvise. The
+plausible-looking recoveries are all worse than the problem: checking the
+branch out into the main checkout collides with `main` being checked out there,
+and `cp`/`rsync`/`git checkout` of another worktree's path all bypass the write
+binding rather than repair it. The fix is to provision a worktree with the
+branch checked out and rebind — which only the orchestrating session can do.
+
+Detection, before trusting any write: confirm the path appears in
+`git worktree list`, not merely that it exists on disk. Existence on disk is
+exactly what is misleading here.
+
+Related: 'Serena's edit tools do not work from a worktree' — the same class of
+silent misdirection, where the write succeeds against the wrong target.
+
+## Host `pkill` does not kill a process inside the php-fpm container
+
+**Author:** Claude · **Type:** tooling · **Priority:** medium · **Status:** pending
+
+`bin/worktrees/compose-exec.sh` ends in `exec docker compose exec … php-fpm
+"$@"`, so a host-side `pkill -f <script>` matches only the **client** process.
+The container has a separate PID namespace — on macOS, a separate VM entirely —
+so the real process keeps running, orphaned and invisible to the host process
+table, until it completes on its own.
+
+This is how a runaway scratch script consumed 26+ CPU-minutes while its author
+believed it had been killed, starving concurrent e2e runs the whole time. The
+symptom is deceptive: `ps` on the host shows nothing, so the container looks
+quiet when it is not.
+
+Kill container work from inside the container:
+
+```sh
+docker compose exec php-fpm pkill -f <script>
+```
+
+And check for it the same way — `docker exec <project>-php-fpm-1 ps aux` — since
+a host-side check will report a quiet container that is fully loaded.
+
+**The agent harness's own `TaskStop` has the same blind spot.** Stopping a
+background task that was launched through `compose-exec.sh` reports success and
+kills the **host-side wrapper**, leaving the real process running inside the
+container. This was observed with a `messenger:consume` consumer: `TaskStop`
+succeeded, a host-side check showed a clean shell, and the consumer was still
+holding the container. Anything that reports "the slot is free" on that basis is
+wrong.
+
+So the rule generalises past `pkill` to every stop mechanism: **a process
+started inside the container can only be observed and stopped from inside it.**
+Verify with `docker exec … ps aux` after any stop, whatever issued it.
+
 ## Dashboard document search + status/tag filtering
 
 
@@ -246,8 +426,6 @@ nothing still `Pending`.
 
 ## CSP is report-only until inline scripts carry nonces
 
-
-
 **Author:** Claude · **Type:** security · **Priority:** medium · **Status:** pending
 
 `config/packages/nelmio_security.yaml` sends the policy under `report` rather
@@ -256,10 +434,27 @@ per-request nonces on the inline scripts (importmap, theme styles) — Nelmio's
 `csp_nonce()` Twig helper — because `script-src` currently relies on
 `'unsafe-inline'`.
 
+Note also that `NelmioSecurityBundle` is registered **prod-only** in
+`config/bundles.php`, so no policy is sent in dev or test at all. Any
+verification that a policy blocks something must run against a prod-like
+build; a dev-environment check will show no CSP header and prove nothing.
+
 Also revisit the allowlist when flipping it: `connect-src` does not include the
 Mercure hub origin. That is fine today (browser-side Mercure turbo streams are
 disabled in `assets/controllers.json`; the only subscriber is the Go bridge,
 which CSP does not govern), but enabling browser SSE would need it added.
+
+**Do not treat this flip as a mitigation for markup-injection findings.** A
+review of the Markdown sanitizer produced an attack where a `class` attribute
+on document-supplied `<code>` selected the app's own compiled stylesheet rules
+to paint a full-screen phishing overlay. An enforcing CSP would not have
+stopped it: CSP governs neither `class` attributes nor which of the app's own
+rules apply, and `style-src 'self'` permits exactly the stylesheet the payload
+used. The mitigation for that class of attack is restricting what the
+sanitizer admits — which is what the sanitizer work did, by constraining
+`class` on `<code>` to a `language-*` allowlist. Flipping the CSP is worth
+doing on its own merits; it buys script-injection defence, not markup-shaped
+attacks that stay inside the app's own CSS.
 
 ## Site-review bridge CLI (`cli/`): polish before shipping
 
@@ -421,18 +616,6 @@ and `CreateProjectController.php` import `DocumentRepository`,
 two Project controllers is the natural first extraction seam (one provider
 service fixes the reverse edges and the 3-counts-per-project N+1 together).
 
-## Review UI: clickable table of contents
-
-
-
-**Author:** Geoffrey · **Type:** feature · **Priority:** medium · **Status:** pending
-
-Owner request (2026-07-25): the document review screen needs a clickable ToC.
-Long specs (e.g. the trial-end sweep design, ~15 sections) currently require
-scrolling to navigate; generate a ToC from the rendered document's headings
-(anchor links, probably a sticky sidebar or collapsible panel) so a reviewer
-can jump between sections while commenting.
-
 ## Review UI: per-section approval
 
 
@@ -444,8 +627,9 @@ reviewer approve individual sections. During the trial-end sweep spec review,
 each revision orphaned most open comments and there was no way to mark "these
 sections are settled, only re-review the delta" — per-section approval state
 (persisting across revisions when a section's content is unchanged) would make
-multi-round spec reviews much cheaper. Interacts with the ToC item above
-(section identity comes from headings) and with comment re-anchoring.
+multi-round spec reviews much cheaper. Section identity comes from headings, so
+`App\Module\Review\Service\HeadingExtractor` is the existing source of it; also
+interacts with comment re-anchoring.
 
 ## Decide fate of PlaywrightSyncEmailMiddleware (async-email follow-up)
 
@@ -1264,6 +1448,124 @@ Worth checking what the MCP specification says about structured error payloads
 before designing anything, since the wire format may already have a place to
 put field-level detail.
 
+## A renderer change that moves plainText needs a reanchor pass, not just a rerender
+
+
+
+**Author:** Claude · **Type:** bug · **Priority:** medium · **Status:** pending
+
+`app:review:rerender-versions` rewrites `document_versions.rendered_html` from the
+stored Markdown and nothing else. Every comment anchor is an offset plus a quote
+into `DocumentVersion::plainText()`, which is derived from that HTML — so any
+renderer change that alters the **text** silently invalidates every anchor at or
+after the change, and the command will not fix or even report it.
+
+There is no counterpart command that re-resolves anchors, though
+`App\Module\Review\Service\ReanchoringService` already has the matching logic (it
+runs on revision). What is missing is a maintenance entry point that walks stored
+comments and re-resolves them against the re-rendered basis, marking the
+unresolvable ones `orphaned` rather than leaving them pointing at moved text.
+
+Two known changes are blocked on this, both deliberately deferred rather than
+forgotten — see "Simplify the sanitizer block list with defaultAction(Block)" and
+"A document cannot render a checkbox, by either route". Build this first, then
+either becomes a normal change.
+
+## Simplify the sanitizer block list with defaultAction(Block)
+
+
+
+**Author:** Claude · **Type:** tooling · **Priority:** medium · **Status:** pending
+
+`App\Module\Review\Service\MarkdownRenderer` ends its config with a loop that
+calls `blockElement()` on every `W3CReference::BODY_ELEMENTS` entry it does not
+render, so an element it does not know about keeps its text instead of being
+dropped with it. `HtmlSanitizerConfig::defaultAction(HtmlSanitizerAction::Block)`
+expresses exactly that intent in one call, and additionally covers element names
+the reference has never heard of (`<foobar>`), which the loop cannot.
+
+It was not done on the branch that introduced the loop because it is not a
+refactor: with Block as the default, `<script>`, `<style>`, `<iframe>`, `<form>`,
+`<textarea>` and `<select>` stop being dropped and start contributing their
+contents as visible text — a script body would render as prose. That changes
+`plainText()` for any stored document containing one, which moves every comment
+anchor below it. Doing it therefore needs a rerender **and** a reanchor pass; see
+"A renderer change that moves plainText needs a reanchor pass, not just a
+rerender". Elements whose text must stay out (`script`, `style`) would also each
+need an explicit `dropElement()`, and note that `dropElement('style')` and
+`dropElement('title')` are **no-ops in body context** — `HtmlSanitizer` filters
+`W3CReference::HEAD_ELEMENTS` out of the body element config entirely.
+
+## A document cannot render a checkbox, by either route
+
+
+
+**Author:** Claude · **Type:** feature · **Priority:** low · **Status:** pending
+
+Neither route works today, and that is deliberate rather than an oversight.
+`MarkdownRenderer` does not allow `<input>`, so a checkbox written as raw HTML is
+dropped; and `TaskListExtension` is not registered, so Markdown's `- [ ] item`
+renders literally as `[ ] item`.
+
+The allowance existed briefly and was removed for want of a consumer: rendering
+every document in the development database that mentions `<input>` produced zero
+inputs, because every occurrence is inside a code fence or backticks. Dropping it
+costs no text — `input` is void — so the anchor basis is unaffected either way.
+
+**Do not close this gap by registering `TaskListExtension`.** It deletes the two
+characters between the brackets from the rendered text and therefore from
+`DocumentVersion::plainText()`, so every comment anchor below the first task list
+moves; existing document versions use that syntax, and their open comments would
+orphan on the next revision. Like the sanitizer default above, it needs a rerender
+plus a reanchor pass — see "A renderer change that moves plainText needs a
+reanchor pass, not just a rerender". Re-allowing `<input>` is the cheaper half and
+has no anchor cost, but on its own it only serves hand-written HTML.
+
+Note the review screen's decision controls are **not** this: they are minted after
+sanitization and so never pass through the allowlist.
+
+## Document images are fetched from wherever the document points
+
+
+
+**Author:** Claude · **Type:** security · **Priority:** medium · **Status:** pending
+
+`MarkdownRenderer` allows `<img src>` with no origin restriction, so a document
+can point an image at any host and the reviewer's browser fetches it on page
+open, handing that host the reviewer's IP, User-Agent and a timestamp. Documents
+are agent-authored, which makes the content a plausible injection surface rather
+than something only the reviewer writes.
+
+This is not new — the pre-existing sanitizer config allowed `img` with the full
+W3C-safe attribute set — but it sits badly beside this project's stated no-egress
+posture (`assets/icons/` is committed and `iconify.on_demand` is off in prod
+precisely so a self-hosted instance never calls out).
+
+`config/packages/nelmio_security.yaml` does not currently constrain it either:
+the CSP is registered prod-only and sent under `report`, and its `img-src`
+allows `https:` wholesale. Options are to proxy or inline document images at
+render time, restrict `img-src` when the CSP goes enforcing (see "CSP is
+report-only until inline scripts carry nonces"), or accept it explicitly. Worth a
+decision rather than drift.
+
+## A document's own in-page links lose their href
+
+
+
+**Author:** Claude · **Type:** bug · **Priority:** medium · **Status:** pending
+
+`HtmlSanitizerConfig::allowRelativeLinks()` is not enabled in
+`App\Module\Review\Service\MarkdownRenderer`, so the sanitizer strips the `href`
+from any non-absolute link. A document that hand-writes `[jump](#heading-intro)`
+renders as unclickable text with no error anywhere.
+
+Pre-existing, but newly worth fixing: the renderer now mints stable
+`heading-<slug>` ids for every heading (that is what the review screen's table of
+contents links to), so a document author has a real reason to write intra-page
+links and they will silently not work. `allowRelativeLinks()` also permits
+same-origin paths like `/projects/…`, so decide whether that is wanted before
+switching it on.
+
 ## Review anchoring — structural fallback anchor (low priority)
 
 
@@ -1280,6 +1582,13 @@ a secondary **structural anchor** (e.g. nearest heading path + relative offset)
 alongside the existing quote/prefix/suffix text anchor, and fall back to it when
 the text match fails. Would let a comment survive a rewrite of its surrounding
 prose by re-attaching to the same section. Not worth doing pre-emptively.
+
+The heading half of that already exists:
+`App\Module\Review\Service\HeadingExtractor` returns each heading's level, id and
+character offset into `DocumentVersion::plainText()` — the same basis anchors are
+measured against — read out of the stored rendered HTML, so it works on versions
+that were written long before. Note `DocumentHeading::$text` is trimmed and so is
+not guaranteed to equal the plainText slice at that offset.
 
 ## Host PHPUnit can't reach Postgres through Traefik
 
@@ -2506,6 +2815,46 @@ whitelisting them by hand. Verify `admin-badge-off` against the admin bundle's
 compiled assets before removing it — the scan covered that bundle's templates
 and CSS, but a class applied from bundle JavaScript would not show up.
 
+## There is no JavaScript test harness, and the JS is no longer trivial
+
+**Author:** Geoffrey · **Type:** tooling · **Priority:** medium · **Status:** pending
+
+`package.json` carries `eslint`, `prettier` and Tailwind and nothing else — no
+test runner, no DOM environment, no `test` script. The only way to execute any
+JavaScript in this project is Playwright, which needs a booted app, a database
+and a mail catcher, and costs minutes.
+
+That was proportionate when the front end was a handful of small Stimulus
+controllers. It is not any more: `assets/controllers/comment_anchor_controller.js`
+is ~500 lines carrying the selection capture, the anchor extraction and the
+highlight painting that document review depends on, and
+`public/site-review/widget.js` is ~1600 lines that ships to other people's sites.
+
+Two consequences already visible:
+
+- **Real bugs reach review with no way to write a failing test.** A review of the
+  strike shortcut found two: a stale `pendingSelection` could be struck after the
+  user clicked the selection away, and keyboard auto-repeat submitted duplicate
+  strikes. Both are pure controller-state bugs, reachable in a browser in
+  seconds, and neither was expressible except as an e2e spec.
+- **The fallback is source-content assertions.** `WidgetFileTest` and the newer
+  strike-guard test read the JS as *text* and assert a guard appears in it. They
+  catch a deletion and nothing else — not a reintroduction elsewhere, not wrong
+  behaviour, not a regression in a path the string still matches.
+
+What a harness would buy, concretely: `#findRange`'s ranking is a pure function
+over a string and three anchor fields and could be tested directly rather than
+through a browser; `#extractAnchor`'s offsets are the browser half of the
+anchoring contract that PHP currently asserts alone; and the widget's fatal-state
+transitions are a state machine currently covered only by whole-app e2e specs.
+
+Worth deciding together with "Ship a minified site-review widget", since that
+entry introduces a build step for the same file and the two share tooling. The
+open questions are which runner (vitest is the obvious default given no bundler
+is present), whether the widget's tests run against source or the minified
+artefact, and whether `just ci` gains a leg or it stays opt-in until the suite
+earns its place.
+
 ## `site_review_get` reveals whether a site name exists
 
 **Author:** Claude · **Type:** security · **Priority:** low · **Status:** pending
@@ -2644,3 +2993,30 @@ on the document review page, so comparing v1 with v4 means editing the URL. A
 reviewer who left comments on v1 and comes back after three revisions wants
 exactly that comparison. Needs a version picker on the diff view itself, not
 another set of links in the switcher.
+
+## No table of contents on document versions rendered before headings had ids
+
+**Author:** Claude · **Type:** bug · **Priority:** low · **Status:** pending
+
+`App\Module\Review\Service\HeadingExtractor` reads heading ids back out of
+`DocumentVersion::$renderedHtml`. A version rendered before `MarkdownRenderer`
+began emitting those ids carries none, so nothing is extracted and the review
+screen shows no contents panel for it. New and revised versions are unaffected.
+
+Nothing needs doing on deploy, and no migration was written on purpose: this app
+does not keep backward compatibility for stored renderings. The failure is also
+quiet in the right direction — a version with no ids shows no panel at all,
+rather than a panel of links that go nowhere.
+
+The remedy for a given document is `app:review:rerender-versions`, with one
+caveat worth knowing before reaching for it. That command refuses to run when
+re-rendering would leave an existing comment unable to resolve, unless
+`--accept-comment-orphaning` is passed. Adding heading ids does not itself move
+any text — ids live in attributes, which `plainText()` never sees — so a version
+that predates only that change re-renders cleanly. A version old enough to
+predate a renderer change that *did* move text is the one where the guard fires,
+and where the choice is between a table of contents and stranded comments.
+
+What removes that choice is the re-anchoring pass described in "A renderer change
+that moves plainText needs a reanchor pass, not just a rerender": with it, an old
+version can be brought forward and its comments re-resolved in the same motion.
