@@ -273,6 +273,12 @@ final readonly class MarkdownRenderer
      * is one this class put there. It runs before withHeadingIds() so a comment
      * inside a heading counts as that heading's text when its id is computed.
      * The captured text went into the sanitizer escaped and comes back escaped.
+     *
+     * Throws rather than returning $html unchanged, for the reason withHeadingIds()
+     * throws and then some: the un-substituted string still holds the markers, so
+     * a silent fallback would print a raw nonce on the page and make the same
+     * source render differently on each attempt — the non-determinism
+     * withMaxInputLength(-1) exists to prevent.
      */
     private function withDocumentNotes(string $html): string
     {
@@ -286,7 +292,7 @@ final readonly class MarkdownRenderer
                 ? sprintf('<aside role="note" class="lp-doc-note">%s</aside>', $matches[2])
                 : sprintf('<span class="lp-doc-note lp-doc-note--inline">%s</span>', $matches[2]),
             $html,
-        ) ?? $html;
+        ) ?? throw new \RuntimeException('Comment annotation pass failed: '.preg_last_error_msg().'.');
     }
 
     /**

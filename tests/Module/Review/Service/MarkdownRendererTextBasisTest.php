@@ -84,6 +84,43 @@ final class MarkdownRendererTextBasisTest extends TestCase
         self::assertSame([], $swallowed);
     }
 
+    /**
+     * The element sweep builds its inputs from tag names, so nothing in it carries
+     * a `---` block or an HTML comment and neither rendered form is covered there.
+     *
+     * The front-matter table needs this most: it is emitted with newlines between
+     * its tags, which puts whitespace text nodes in table context — the one place
+     * this file already documents PHP and the HTML5 parser disagreeing, since a
+     * non-whitespace text node there is foster-parented out to before the table
+     * while strip_tags() leaves it where it was.
+     */
+    public function test_front_matter_and_annotations_read_the_same_on_both_sides(): void
+    {
+        $renderer = new MarkdownRenderer(new NullLogger());
+
+        $documents = [
+            'front matter only' => "---\ntitle: Wave C\ndate: 2026-08-02\ntags:\n  - review\n  - markdown\n---\n\n## Section\n\nBody.\n",
+            'block annotation' => "Before.\n\n<!-- TODO: link the skeleton repo -->\n\nAfter.\n",
+            'inline annotation' => "Mid <!-- inline note --> sentence.\n",
+            'annotation in a heading' => "## Title <!-- note in heading -->\n\nBody.\n",
+            'both together' => "---\ntitle: Wave C\n---\n\n## Section\n\nA.\n\n<!-- a note -->\n\nB <!-- and another --> C.\n",
+            'front matter beside a content table' => "---\ntitle: Wave C\n---\n\n| a | b |\n|:--|--:|\n| 1 | 2 |\n",
+        ];
+
+        $mismatches = [];
+        foreach ($documents as $label => $markdown) {
+            $html = $renderer->render($markdown);
+            $php = html_entity_decode(strip_tags($html), ENT_QUOTES | ENT_HTML5, 'UTF-8');
+            $dom = $this->textContent($html);
+
+            if ($php !== $dom) {
+                $mismatches[] = sprintf('%s: php=%s dom=%s', $label, json_encode($php), json_encode($dom));
+            }
+        }
+
+        self::assertSame([], $mismatches);
+    }
+
     /** @return list<string> */
     private function elementNames(): array
     {

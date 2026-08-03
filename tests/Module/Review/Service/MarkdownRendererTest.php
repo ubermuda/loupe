@@ -290,6 +290,39 @@ final class MarkdownRendererTest extends TestCase
         self::assertStringContainsString('Tail.', $first);
     }
 
+    public function test_a_failed_annotation_pass_throws_instead_of_shipping_markers(): void
+    {
+        // preg_replace_callback returns null only on a PCRE error, which no
+        // document can provoke — but returning the subject unchanged would leave
+        // the markers in it, printing a raw nonce on the page and making the same
+        // source render differently each time.
+        //
+        // Reached through the private method because driving it from render()
+        // cannot work: starving the backtrack limit breaks the comment renderer's
+        // own patterns first, so no marker is ever emitted and the pass has
+        // nothing to fail on.
+        $renderer = new MarkdownRenderer(new NullLogger());
+        $reflection = new \ReflectionClass($renderer);
+        $open = $reflection->getProperty('noteBlockOpen')->getValue($renderer);
+        $close = $reflection->getProperty('noteClose')->getValue($renderer);
+        self::assertIsString($open);
+        self::assertIsString($close);
+
+        $subject = '<p>'.$open.str_repeat('a', 2_000).$close.'</p>';
+        $backtrackLimit = \ini_get('pcre.backtrack_limit');
+        \ini_set('pcre.backtrack_limit', '1');
+
+        // Not a try/catch: PHPUnit's own failure exception extends RuntimeException,
+        // so catching that type here would swallow the "it did not throw" report.
+        try {
+            $this->expectException(\RuntimeException::class);
+            $this->expectExceptionMessage('Comment annotation pass failed');
+            $reflection->getMethod('withDocumentNotes')->invoke($renderer, $subject);
+        } finally {
+            \ini_set('pcre.backtrack_limit', false === $backtrackLimit ? '1000000' : $backtrackLimit);
+        }
+    }
+
     public function test_two_comments_on_one_line_become_two_annotations(): void
     {
         // `<!-- a --><!-- b -->` is a single HtmlBlock, and a greedy match reads
