@@ -32,8 +32,8 @@ async function markSearchInput(page: Page): Promise<void> {
     await page.locator(SEARCH_BOX).evaluate((element, attribute) => {
         element.setAttribute(attribute, '1');
     }, STALE);
-    // Without this the untagged-input wait below could match the tag's own
-    // round trip rather than the visit's.
+    // The tag must land on exactly one input: the waits below key on its absence,
+    // so a second untagged one already in the page would satisfy them for free.
     await expect(page.locator(`${SEARCH_BOX}[${STALE}]`)).toHaveCount(1);
 }
 
