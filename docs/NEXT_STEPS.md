@@ -3232,22 +3232,6 @@ is present), whether the widget's tests run against source or the minified
 artefact, and whether `just ci` gains a leg or it stays opt-in until the suite
 earns its place.
 
-## `site_review_get` reveals whether a site name exists
-
-**Author:** Claude · **Type:** security · **Priority:** low · **Status:** pending
-
-`SiteReviewGetTool` (`src/Module/SiteReview/Mcp/SiteReviewGetTool.php`) answers
-its optional `site` argument with two different messages: `No site "%s" found.`
-when the lookup misses, and `Token is not bound to that project.` when it hits
-but is not the bound one. That difference tells a caller which site names exist
-— the kind of existence oracle `ReviewSubjectResolver::requireDocument()`
-returns one message for, on purpose.
-
-Minor because the lookup is already narrowed to the token owner's own projects
-(`ProjectRepository::findOneByIdOrNameForOwner()`), so a caller can only probe
-names it is entitled to see. The fix is to collapse both branches onto a single
-message the way the document resolver does.
-
 ## Anchor offsets still diverge from the browser above the BMP
 
 **Author:** Claude · **Type:** bug · **Priority:** low · **Status:** pending
