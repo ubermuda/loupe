@@ -578,40 +578,57 @@ Whichever is chosen, check the change against the case above: reinstate a
 still appears. A logging change that passes its own tests while removing the
 ability to answer "did this not happen" has made things worse.
 
-## Dashboard document search + status/tag filtering
-
-
+## Document search stems every document as English
 
 **Author:** Claude · **Type:** feature · **Priority:** medium · **Status:** pending
 
-Deferred from the SaaS visual redesign (visual-only phase). The dashboard mockup
-envisioned a search box + status filter + tag filter, but `autosearch_controller`
-submits to the server, so making search real needs backend work: a query param on
-the documents controller and a repository filter (title contains, status equals,
-tag in). Tag filtering further depends on the not-yet-built tag entity.
+`App\Doctrine\FullTextSearch::CONFIGURATION` is `english`, and both the stored
+vector (`documents.search_vector`, written by
+`App\Module\Review\Service\DocumentSearchIndexer`) and the query
+(`TSMATCH` / `TS_RANK`, from martin-georgiev/postgresql-for-doctrine) use it.
+That is what makes "reviewing" match "review". It is also wrong for every other
+language: a French document is stemmed with English rules, so its own words
+often fail to match themselves.
 
-The filter bar now exists: `.lp-list-filters` in
-`templates/Module/Review/list_documents.html.twig`, sitting outside the
-`{% if items|length > 0 %}` block, carrying the archived filter. Add search and
-status/tag filters to it rather than building a second one.
+Accepted knowingly, because there is nowhere to read a better answer from — a
+`Document` has no locale, and neither does the project or the submitting agent.
+Closing this means deciding where a language comes from first. The options are a
+per-project setting, a per-document one set at `create_document` time, or
+detection at ingest; only then does the column become
+`to_tsvector(<per-row regconfig>, …)`.
 
-Three things that will bite whoever picks it up:
+Whichever is chosen, changing the configuration requires rebuilding every stored
+vector in the same change — a vector stemmed as English and a query parsed as
+French do not meet. The migration that introduced the column
+(`Version20260803015620`) has the backfill statement to copy.
 
-- Every filter param must be threaded through `App\Module\Review\View\DocumentListQuery`
-  — its `routeParams()` is what the clamp redirect, the `Pagination` component's
-  `routeParams`, the rename link and the archive actions all merge. A filter read
-  straight off the request and not added there vanishes from whichever of those
-  four forgets it.
-- The empty-state copy (`review.dashboard.empty`, "No documents yet.") is worded
-  for "no documents at all". The archived filter can only widen the list so it
-  never needs different copy, but a search or status filter can match nothing —
-  that needs a second key chosen by whether any filter is narrowing.
-- `findPaginatedByProject()` is shared by this controller and the MCP document
-  listing, so an added filter argument must be optional or both callers change
-  (`$includeArchived` is the existing example).
+## The documents filter bar reloads the page, which probably drops focus mid-typing
 
-Note the list already issues one `countOpenByVersion()` query per row; adding
-per-row tag lookups without batching would compound an existing N+1.
+**Author:** Claude · **Type:** bug · **Priority:** medium · **Status:** pending
+
+The search box in `templates/Module/Review/list_documents.html.twig` wires
+`input->autosearch#search` on a plain GET form with no `data-turbo-frame`, so the
+300ms debounce fires a Turbo Drive **page visit**. Turbo replaces `document.body`
+on render, so the focused input is destroyed and focus falls back to the body —
+Turbo only restores focus to an `[autofocus]` element. A reader still typing when
+the debounce fires should therefore lose the rest of their keystrokes.
+
+**Unverified in a browser.** The reasoning is from Turbo's render semantics and is
+high confidence, but an attempt to confirm it against a worktree failed for an
+unrelated reason: the stateless double-submit CSRF rejects a login driven through
+the Chrome extension. Confirm before fixing — with Playwright, which does log in
+successfully, asserting `document.activeElement` after the debounce.
+
+Two candidate fixes, both with a catch:
+
+- Conditional `autofocus` on the search input when a term is present. One line,
+  and Turbo re-focuses it after the visit. It also focuses the box on a cold load
+  of a shared search URL, which may or may not be wanted.
+- A `<turbo-frame>` around the results with the form **outside** it, which is why
+  `templates/Module/SiteReview/admin/list_site_review_outbox.html.twig` does not
+  have this problem. The catch here is layout: the page description and the
+  archived chip both change with the filters and are not contiguous with the
+  list, so a frame around the list alone leaves them stale.
 
 ## Site-review: harden Mercure publish against a hung hub (still open)
 
@@ -1374,9 +1391,9 @@ moment a title is wrong.
 **Decision needed** — what the organizing primitive should be:
 
 1. Tags, many-to-many and free-form (recommended: cheapest to build, and
-   "Dashboard document search + status/tag filtering" is already written
-   against a tag entity that does not exist yet, so this unblocks work already
-   scoped).
+   already partly built — a project-scoped `Tag` entity exists, the documents
+   list filters on it, and `create_document` accepts tag names — so this option
+   is mostly a question of whether tags alone are enough).
 2. Categories or folders, one-to-many and hierarchical — better for a series,
    worse for documents that belong to several groupings at once.
 3. Both, as most document tools end up doing.
@@ -3275,3 +3292,27 @@ several users with differentiated grants — someone who may only read a
 document can still add a line to it. Requiring WRITE on the target is the
 wrong fix: it would break pointing at something you are allowed to read,
 which is the normal case. Revisit when per-document grants exist.
+
+## Search indexing can fail on a document the app itself accepts
+
+**Author:** Claude · **Type:** bug · **Priority:** low · **Status:** pending
+
+`to_tsvector` caps a vector at 1,048,575 bytes while `MAX_MARKDOWN_BYTES` allows
+1,048,576, so there is a narrow band where a document passes the app's own limit
+and `App\Module\Review\Service\DocumentSearchIndexer` raises.
+
+Measured on 2026-08-03, the band is narrower than the two numbers suggest:
+indexing a full 1 MiB of varied prose succeeded, and 1,154,787 bytes of source
+produced a 360,310-byte vector — 34% of the cap. Stemming and de-duplication mean
+realistic text shrinks by roughly two thirds, so reaching the cap needs
+pathological input (a very large number of long, distinct, unstemmable tokens),
+not a long document. Recorded for the asymmetry rather than as a live incident.
+
+It bites unevenly. `ReviseDocumentHandler` indexes inside its transaction, so a
+failure rolls the revision back. `CreateDocumentHandler` and
+`RenameDocumentHandler` index after their flush, so the row commits and the
+document is left permanently unsearchable with nothing to retry it. Closing this
+means either bounding what is fed to `to_tsvector` or lowering
+`MAX_MARKDOWN_BYTES` below the tsvector cap; making all three handlers
+transactional is **not** the answer, because wrapping create would close the
+EntityManager on a rejected tag name.

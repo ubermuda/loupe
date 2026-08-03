@@ -7,6 +7,7 @@ namespace App\Module\Review\Command;
 use App\Module\Review\Entity\Document;
 use App\Module\Review\Entity\Tag;
 use App\Module\Review\Service\DocumentReferenceValidator;
+use App\Module\Review\Service\DocumentSearchIndexer;
 use App\Module\Review\Service\MarkdownRenderer;
 use Doctrine\ORM\EntityManagerInterface;
 
@@ -17,6 +18,7 @@ final readonly class CreateDocumentHandler
         private MarkdownRenderer $renderer,
         private SetDocumentTagsHandler $setTags,
         private DocumentReferenceValidator $referenceValidator,
+        private DocumentSearchIndexer $searchIndexer,
     ) {
     }
 
@@ -42,6 +44,10 @@ final readonly class CreateDocumentHandler
         // and its references are written together or not at all.
         $this->em->persist($document);
         ($this->setTags)(new SetDocumentTagsCommand($document, $command->tagNames));
+
+        // After setTags, because that is the flush: the indexer reads the rows
+        // back over SQL, so it sees nothing until they exist.
+        $this->searchIndexer->index($document);
 
         return $document;
     }

@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Module\Review\View;
 
+use App\Module\Review\Entity\DocumentStatus;
+use App\Module\Review\Entity\Tag;
 use Symfony\Component\HttpFoundation\InputBag;
 
 /**
@@ -22,30 +24,79 @@ final readonly class DocumentListQuery
     public function __construct(
         public int $page = 1,
         public bool $includeArchived = false,
+        public ?string $search = null,
+        public ?DocumentStatus $status = null,
+        public ?string $tagName = null,
     ) {
     }
 
     /** @param InputBag<string> $query */
     public static function fromQuery(InputBag $query): self
     {
+        $search = trim($query->getString('search'));
+        $tagName = trim($query->getString('tag'));
+
         return new self(
             page: max(1, $query->getInt('page', 1)),
             includeArchived: $query->getBoolean('archived'),
+            search: '' === $search ? null : $search,
+            // An unknown status is dropped rather than rejected: a hand-edited
+            // URL should show the unfiltered list, not a 404.
+            status: DocumentStatus::tryFrom($query->getString('status')),
+            tagName: '' === $tagName ? null : Tag::normalizeName($tagName),
         );
     }
 
+    /**
+     * Clone-with rather than a constructor call, so a filter added to this class
+     * cannot be dropped here — which is the failure the clamp redirect would
+     * otherwise show as a filter vanishing on an out-of-range page.
+     */
     public function withPage(int $page): self
     {
-        return new self($page, $this->includeArchived);
+        return clone ($this, ['page' => $page]);
     }
 
-    /** @return array{page: int, archived?: int} */
+    /**
+     * The same view with the archived toggle flipped, back at page one — the
+     * chip that renders this must carry the other filters with it, or turning
+     * archived on would silently drop the reader's search.
+     */
+    public function withIncludeArchived(bool $includeArchived): self
+    {
+        return clone ($this, ['page' => 1, 'includeArchived' => $includeArchived]);
+    }
+
+    /**
+     * Whether the reader has narrowed the list — which is what separates "no
+     * documents yet" from "nothing matched". The archived filter is deliberately
+     * excluded: it widens the list, so an empty result under it still means the
+     * project has no documents.
+     */
+    public function isNarrowed(): bool
+    {
+        return null !== $this->search || null !== $this->status || null !== $this->tagName;
+    }
+
+    /** @return array{page: int, archived?: int, search?: string, status?: string, tag?: string} */
     public function routeParams(): array
     {
         $params = ['page' => $this->page];
 
         if ($this->includeArchived) {
             $params['archived'] = 1;
+        }
+
+        if (null !== $this->search) {
+            $params['search'] = $this->search;
+        }
+
+        if (null !== $this->status) {
+            $params['status'] = $this->status->value;
+        }
+
+        if (null !== $this->tagName) {
+            $params['tag'] = $this->tagName;
         }
 
         return $params;

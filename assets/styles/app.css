@@ -839,6 +839,24 @@
         @apply bg-accent-soft text-accent-hover border-transparent;
     }
 
+    /* The bar's GET form. Its controls sit on .lp-input / .lp-select and are
+       sized down here, so they must be declared after those base classes. */
+    .lp-filter-form {
+        @apply flex flex-wrap items-center gap-2;
+    }
+    .lp-filter-search {
+        @apply relative flex items-center;
+    }
+    .lp-filter-search__icon {
+        @apply absolute left-3 w-4 h-4 text-fg-dim pointer-events-none;
+    }
+    .lp-filter-input {
+        @apply w-64 py-1.5 pl-9;
+    }
+    .lp-filter-select {
+        @apply w-auto py-1.5;
+    }
+
     /* ── Flash messages ─────────────────────────────────────────────── */
 
     .lp-flash {

@@ -82,6 +82,12 @@ class TagRepository extends ServiceEntityRepository
             ?? throw new \LogicException('the tag was just inserted or already existed');
     }
 
+    /** @return list<Tag> */
+    public function findByProject(Project $project): array
+    {
+        return $this->findBy(['project' => $project], ['name' => 'ASC']);
+    }
+
     /**
      * The project's whole vocabulary with how many documents carry each entry.
      *
@@ -96,7 +102,7 @@ class TagRepository extends ServiceEntityRepository
      */
     public function findByProjectWithDocumentCounts(Project $project): array
     {
-        $tags = $this->findBy(['project' => $project], ['name' => 'ASC']);
+        $tags = $this->findByProject($project);
 
         // Counted in a second query rather than a left join off the tag, because
         // the join table has no inverse side to join from — and grouped by name
