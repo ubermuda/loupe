@@ -28,7 +28,7 @@ final class InstallAccessGuardTest extends TestCase
     {
         /** @var UserRepository&Stub $users */
         $users = $this->createStub(UserRepository::class);
-        $users->method('count')->willReturn($userCount);
+        $users->method('countHumans')->willReturn($userCount);
 
         return new InstallationState($users);
     }

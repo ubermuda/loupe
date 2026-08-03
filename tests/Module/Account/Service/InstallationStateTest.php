@@ -25,7 +25,7 @@ final class InstallationStateTest extends TestCase
     {
         /** @var UserRepository&Stub $users */
         $users = $this->createStub(UserRepository::class);
-        $users->method('count')->willReturn($count);
+        $users->method('countHumans')->willReturn($count);
 
         return new InstallationState($users);
     }

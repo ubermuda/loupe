@@ -7,7 +7,7 @@ namespace App\Module\Account\Service;
 use App\Module\Account\Repository\UserRepository;
 
 /**
- * The install wizard is open only while the users table is empty; creating the
+ * The install wizard is open only while no human account exists; creating the
  * first (admin) account closes it permanently.
  */
 final readonly class InstallationState
@@ -19,6 +19,6 @@ final readonly class InstallationState
 
     public function isOpen(): bool
     {
-        return 0 === $this->users->count([]);
+        return 0 === $this->users->countHumans();
     }
 }

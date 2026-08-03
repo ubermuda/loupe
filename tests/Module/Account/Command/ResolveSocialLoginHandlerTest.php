@@ -445,7 +445,7 @@ final class ResolveSocialLoginHandlerTest extends KernelTestCase
         $users = $this->createStub(UserRepository::class);
         $users->method('findOneByEmail')->willReturn(null);
         $users->method('findOneByUsername')->willReturn(null);
-        $users->method('count')->willReturn(1); // installation complete
+        $users->method('countHumans')->willReturn(1); // installation complete
 
         $waitlistEntries = $this->createStub(WaitlistEntryRepository::class);
         $waitlistEntries->method('findOneByEmail')->willReturn(null);

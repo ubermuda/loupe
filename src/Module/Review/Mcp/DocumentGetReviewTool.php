@@ -29,7 +29,9 @@ final readonly class DocumentGetReviewTool
      * A comment's `status` is one of pending, addressed or resolved and belongs to the whole
      * thread, so only the root comment reports it
      *
-     * @return array{status: string, verdict: string|null, version: int, comments: list<array{quote: string, body: string, status: string, orphaned: bool, thread: list<array{quote: string, body: string, orphaned: bool}>}>}
+     * Each `id` is the value document_reply_to_comment and document_mark_comment_addressed take
+     *
+     * @return array{status: string, verdict: string|null, version: int, comments: list<array{id: string, quote: string, body: string, status: string, orphaned: bool, thread: list<array{id: string, quote: string, body: string, orphaned: bool}>}>}
      */
     public function __invoke(string $documentId): array
     {

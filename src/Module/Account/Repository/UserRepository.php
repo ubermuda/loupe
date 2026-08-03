@@ -11,6 +11,7 @@ use Symfony\Component\Security\Core\Exception\UserNotFoundException;
 use Symfony\Component\Security\Core\User\PasswordAuthenticatedUserInterface;
 use Symfony\Component\Security\Core\User\PasswordUpgraderInterface;
 use Symfony\Component\Security\Core\User\UserInterface;
+use Symfony\Component\Uid\Uuid;
 
 /**
  * @extends ServiceEntityRepository<User>
@@ -25,7 +26,10 @@ class UserRepository extends ServiceEntityRepository implements PasswordUpgrader
     public function loadUserByIdentifier(string $identifier): UserInterface
     {
         $user = $this->findOneBy(['email' => strtolower($identifier)]);
-        if (!$user instanceof User) {
+        // The agent account is never a principal: it holds no usable password,
+        // but refusing to load it at all keeps every future authenticator that
+        // goes through the user provider out of it too.
+        if (!$user instanceof User || $user->isAgent()) {
             throw new UserNotFoundException(sprintf('User "%s" not found.', $identifier));
         }
 
@@ -88,6 +92,37 @@ class UserRepository extends ServiceEntityRepository implements PasswordUpgrader
      */
     public function countActive(): int
     {
-        return $this->count(['disabledAt' => null]);
+        return $this->countHumans(activeOnly: true);
+    }
+
+    /**
+     * Every account a person could sign into. The agent is excluded because the
+     * migration that inserts it runs before anyone registers: counted, it would
+     * make a brand-new install look already populated and lock the install
+     * wizard out permanently.
+     */
+    public function countHumans(bool $activeOnly = false): int
+    {
+        $qb = $this->createQueryBuilder('u')
+            ->select('COUNT(u.id)')
+            ->where('u.id != :agent')
+            ->setParameter('agent', User::AGENT_ID);
+
+        if ($activeOnly) {
+            $qb->andWhere('u.disabledAt IS NULL');
+        }
+
+        return (int) $qb->getQuery()->getSingleScalarResult();
+    }
+
+    /**
+     * The singleton account that authors agent-written content. Inserted by a
+     * migration, so its absence is a broken schema rather than a runtime state
+     * a caller could recover from.
+     */
+    public function agent(): User
+    {
+        return $this->find(Uuid::fromString(User::AGENT_ID))
+            ?? throw new \LogicException('The agent user is missing; the database has not been fully migrated.');
     }
 }
