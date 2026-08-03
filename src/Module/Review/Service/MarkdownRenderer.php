@@ -63,6 +63,11 @@ final readonly class MarkdownRenderer
             ->allowElement('dt')
             ->allowElement('dd')
             ->allowElement('table')
+            // Rendered for the anchor basis, not for looks: blocking it would leave
+            // a bare text node inside <table>, which the HTML5 parser foster-parents
+            // out to BEFORE the table. strip_tags() does not reorder, so PHP and the
+            // browser would then read the document's text in different orders.
+            ->allowElement('caption')
             ->allowElement('thead')
             ->allowElement('tbody')
             ->allowElement('tfoot')
@@ -73,10 +78,11 @@ final readonly class MarkdownRenderer
             ->allowElement('td', ['align', 'colspan', 'rowspan'])
             ->allowElement('a', ['href', 'title'])
             ->allowElement('img', ['src', 'alt', 'title', 'width', 'height'])
-            // `class` carries the fenced-code info string as `language-<name>`,
-            // the standard hook a syntax highlighter reads. Scoped to <code> so
-            // document content cannot put the app's own classes on a container.
+            // `class` carries the fenced-code info string as `language-<name>`, the
+            // standard hook a syntax highlighter reads. Scoping it to <code> is not
+            // enough on its own — CodeLanguageClassSanitizer constrains the value.
             ->allowElement('code', ['class'])
+            ->withAttributeSanitizer(new CodeLanguageClassSanitizer())
             ->allowElement('em')
             ->allowElement('strong')
             ->allowElement('i')
@@ -95,15 +101,27 @@ final readonly class MarkdownRenderer
             ->allowElement('var')
             ->allowElement('q', ['cite'])
             ->allowElement('cite')
-            // A checkbox is the one form control documents use, and it renders
-            // nothing without these three. `name`, `value` and `form` stay out, so
-            // a document cannot smuggle a field into any form on the page.
-            ->allowElement('input', ['type', 'checked', 'disabled']);
+            // A checkbox is the one form control documents use. `type` is forced
+            // rather than allowed, because the sanitizer cannot constrain an
+            // attribute's value and a document would otherwise render a password or
+            // file field. `name`, `value` and `form` stay out, so a document cannot
+            // smuggle a field into any form on the page.
+            ->allowElement('input', ['type', 'checked', 'disabled'])
+            ->forceAttribute('input', 'type', 'checkbox');
 
         // Every remaining W3C-safe element is blocked rather than dropped: the tag
         // and its attributes go, its text stays. Text is the basis
         // DocumentVersion::plainText() measures every comment anchor against, so an
         // element this list did not anticipate must not take a paragraph with it.
+        //
+        // This covers only names W3CReference knows. A tag outside it — `<foobar>`,
+        // or an element a future Symfony release reclassifies as unsafe — is still
+        // dropped with its text; MarkdownRendererTextBasisTest is what notices.
+        //
+        // `details`/`summary` are deliberately among the blocked, so a collapsible
+        // section renders permanently open. A reviewer can anchor a comment to any
+        // text in the document, and text that is collapsed by default would carry
+        // comments nobody can see without knowing to expand it.
         $rendered = $config->getAllowedElements();
         foreach (array_keys(array_filter(W3CReference::BODY_ELEMENTS)) as $element) {
             if (!isset($rendered[$element])) {
@@ -133,19 +151,30 @@ final readonly class MarkdownRenderer
     {
         /** @var array<string, true> $used */
         $used = [];
+        // Where to resume suffixing a slug that has been seen before. Without it,
+        // N headings sharing one slug rescan every earlier suffix — quadratic, and
+        // a document may hold tens of thousands of headings.
+        /** @var array<string, int> $nextSuffix */
+        $nextSuffix = [];
 
         // Headings are allowed with no attributes, so a sanitized opening tag is
         // always exactly `<hN>`.
-        return preg_replace_callback(
+        $withIds = preg_replace_callback(
             '~<h([1-6])>(.*?)</h\1>~s',
-            /** @param array<int, string> $matches */
-            static function (array $matches) use (&$used): string {
-                $slug = self::slug($matches[2]);
-                $base = $slug;
-                $suffix = 1;
+            /**
+             * @param array<int, string> $matches
+             */
+            static function (array $matches) use (&$used, &$nextSuffix): string {
+                $base = self::slug($matches[2]);
+                $slug = $base;
+                $suffix = $nextSuffix[$base] ?? 1;
+                // Still a scan, because a slug can also be taken by a DIFFERENT
+                // heading whose own text slugged to `<base>-2`. Every step raises
+                // the resume point permanently, so the total stays linear.
                 while (isset($used[$slug])) {
                     $slug = $base.'-'.++$suffix;
                 }
+                $nextSuffix[$base] = $suffix;
                 $used[$slug] = true;
 
                 return sprintf(
@@ -156,7 +185,11 @@ final readonly class MarkdownRenderer
                 );
             },
             $html,
-        ) ?? $html;
+        );
+
+        // Falling back to the un-idded HTML would store a version indistinguishable
+        // from one rendered before ids existed: no table of contents, no error.
+        return $withIds ?? throw new \RuntimeException('Heading id injection failed: '.preg_last_error_msg().'.');
     }
 
     private static function slug(string $headingHtml): string

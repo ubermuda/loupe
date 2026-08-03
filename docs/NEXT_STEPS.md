@@ -433,18 +433,6 @@ and `CreateProjectController.php` import `DocumentRepository`,
 two Project controllers is the natural first extraction seam (one provider
 service fixes the reverse edges and the 3-counts-per-project N+1 together).
 
-## Review UI: clickable table of contents
-
-
-
-**Author:** Geoffrey · **Type:** feature · **Priority:** medium · **Status:** pending
-
-Owner request (2026-07-25): the document review screen needs a clickable ToC.
-Long specs (e.g. the trial-end sweep design, ~15 sections) currently require
-scrolling to navigate; generate a ToC from the rendered document's headings
-(anchor links, probably a sticky sidebar or collapsible panel) so a reviewer
-can jump between sections while commenting.
-
 ## Review UI: per-section approval
 
 
@@ -456,8 +444,9 @@ reviewer approve individual sections. During the trial-end sweep spec review,
 each revision orphaned most open comments and there was no way to mark "these
 sections are settled, only re-review the delta" — per-section approval state
 (persisting across revisions when a section's content is unchanged) would make
-multi-round spec reviews much cheaper. Interacts with the ToC item above
-(section identity comes from headings) and with comment re-anchoring.
+multi-round spec reviews much cheaper. Section identity comes from headings, so
+`App\Module\Review\Service\HeadingExtractor` is the existing source of it; also
+interacts with comment re-anchoring.
 
 ## Decide fate of PlaywrightSyncEmailMiddleware (async-email follow-up)
 
@@ -1276,6 +1265,113 @@ Worth checking what the MCP specification says about structured error payloads
 before designing anything, since the wire format may already have a place to
 put field-level detail.
 
+## A renderer change that moves plainText needs a reanchor pass, not just a rerender
+
+
+
+**Author:** Claude · **Type:** bug · **Priority:** medium · **Status:** pending
+
+`app:review:rerender-versions` rewrites `document_versions.rendered_html` from the
+stored Markdown and nothing else. Every comment anchor is an offset plus a quote
+into `DocumentVersion::plainText()`, which is derived from that HTML — so any
+renderer change that alters the **text** silently invalidates every anchor at or
+after the change, and the command will not fix or even report it.
+
+There is no counterpart command that re-resolves anchors, though
+`App\Module\Review\Service\ReanchoringService` already has the matching logic (it
+runs on revision). What is missing is a maintenance entry point that walks stored
+comments and re-resolves them against the re-rendered basis, marking the
+unresolvable ones `orphaned` rather than leaving them pointing at moved text.
+
+Two known changes are blocked on this, both deliberately deferred rather than
+forgotten — see "Simplify the sanitizer block list with defaultAction(Block)" and
+"Task-list checkboxes need markdown task-list syntax enabled". Build this first,
+then either becomes a normal change.
+
+## Simplify the sanitizer block list with defaultAction(Block)
+
+
+
+**Author:** Claude · **Type:** tooling · **Priority:** medium · **Status:** pending
+
+`App\Module\Review\Service\MarkdownRenderer` ends its config with a loop that
+calls `blockElement()` on every `W3CReference::BODY_ELEMENTS` entry it does not
+render, so an element it does not know about keeps its text instead of being
+dropped with it. `HtmlSanitizerConfig::defaultAction(HtmlSanitizerAction::Block)`
+expresses exactly that intent in one call, and additionally covers element names
+the reference has never heard of (`<foobar>`), which the loop cannot.
+
+It was not done on the branch that introduced the loop because it is not a
+refactor: with Block as the default, `<script>`, `<style>`, `<iframe>`, `<form>`,
+`<textarea>` and `<select>` stop being dropped and start contributing their
+contents as visible text — a script body would render as prose. That changes
+`plainText()` for any stored document containing one, which moves every comment
+anchor below it. Doing it therefore needs a rerender **and** a reanchor pass; see
+"A renderer change that moves plainText needs a reanchor pass, not just a
+rerender". Elements whose text must stay out (`script`, `style`) would also each
+need an explicit `dropElement()`, and note that `dropElement('style')` and
+`dropElement('title')` are **no-ops in body context** — `HtmlSanitizer` filters
+`W3CReference::HEAD_ELEMENTS` out of the body element config entirely.
+
+## Task-list checkboxes need markdown task-list syntax enabled
+
+
+
+**Author:** Claude · **Type:** feature · **Priority:** medium · **Status:** pending
+
+`MarkdownRenderer` renders `<input type="checkbox">` (forced to that type, with
+only `checked` and `disabled` alongside), so a checkbox written as raw HTML in a
+document works. Markdown's `- [ ] item` syntax does **not**: `TaskListExtension`
+is not registered, so it renders literally as `[ ] item`.
+
+Enabling the extension removes those four characters from the rendered text and
+therefore from `DocumentVersion::plainText()`, moving every comment anchor below
+the first task list in every affected document. Like the sanitizer default above,
+it needs a rerender plus a reanchor pass — see "A renderer change that moves
+plainText needs a reanchor pass, not just a rerender".
+
+## Document images are fetched from wherever the document points
+
+
+
+**Author:** Claude · **Type:** security · **Priority:** medium · **Status:** pending
+
+`MarkdownRenderer` allows `<img src>` with no origin restriction, so a document
+can point an image at any host and the reviewer's browser fetches it on page
+open, handing that host the reviewer's IP, User-Agent and a timestamp. Documents
+are agent-authored, which makes the content a plausible injection surface rather
+than something only the reviewer writes.
+
+This is not new — the pre-existing sanitizer config allowed `img` with the full
+W3C-safe attribute set — but it sits badly beside this project's stated no-egress
+posture (`assets/icons/` is committed and `iconify.on_demand` is off in prod
+precisely so a self-hosted instance never calls out).
+
+`config/packages/nelmio_security.yaml` does not currently constrain it either:
+the CSP is registered prod-only and sent under `report`, and its `img-src`
+allows `https:` wholesale. Options are to proxy or inline document images at
+render time, restrict `img-src` when the CSP goes enforcing (see "CSP is
+report-only until inline scripts carry nonces"), or accept it explicitly. Worth a
+decision rather than drift.
+
+## A document's own in-page links lose their href
+
+
+
+**Author:** Claude · **Type:** bug · **Priority:** medium · **Status:** pending
+
+`HtmlSanitizerConfig::allowRelativeLinks()` is not enabled in
+`App\Module\Review\Service\MarkdownRenderer`, so the sanitizer strips the `href`
+from any non-absolute link. A document that hand-writes `[jump](#heading-intro)`
+renders as unclickable text with no error anywhere.
+
+Pre-existing, but newly worth fixing: the renderer now mints stable
+`heading-<slug>` ids for every heading (that is what the review screen's table of
+contents links to), so a document author has a real reason to write intra-page
+links and they will silently not work. `allowRelativeLinks()` also permits
+same-origin paths like `/projects/…`, so decide whether that is wanted before
+switching it on.
+
 ## Review anchoring — structural fallback anchor (low priority)
 
 
@@ -1292,6 +1388,13 @@ a secondary **structural anchor** (e.g. nearest heading path + relative offset)
 alongside the existing quote/prefix/suffix text anchor, and fall back to it when
 the text match fails. Would let a comment survive a rewrite of its surrounding
 prose by re-attaching to the same section. Not worth doing pre-emptively.
+
+The heading half of that already exists:
+`App\Module\Review\Service\HeadingExtractor` returns each heading's level, id and
+character offset into `DocumentVersion::plainText()` — the same basis anchors are
+measured against — read out of the stored rendered HTML, so it works on versions
+that were written long before. Note `DocumentHeading::$text` is trimmed and so is
+not guaranteed to equal the plainText slice at that offset.
 
 ## Host PHPUnit can't reach Postgres through Traefik
 

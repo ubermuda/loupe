@@ -18,7 +18,19 @@ final readonly class DocumentHeading
         public int $level,
         /** The `id` MarkdownRenderer gave the heading, without the `#`. */
         public string $id,
+        /**
+         * Trimmed for display, so it is NOT guaranteed to equal the slice of
+         * plainText() at $offset — read the slice itself when the exact characters
+         * matter.
+         */
         public string $text,
+        /**
+         * Character offset of the heading's text within
+         * DocumentVersion::plainText(), which is what makes a heading usable as a
+         * structural position and not only as a link target. Repeated heading text
+         * is told apart by this and by $id, never by $text alone.
+         */
+        public int $offset,
     ) {
     }
 }

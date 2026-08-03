@@ -25,17 +25,38 @@ final readonly class HeadingExtractor
      */
     public function extract(string $renderedHtml): array
     {
-        preg_match_all('~<h([1-6]) id="([^"]+)">(.*?)</h\1>~s', $renderedHtml, $matches, PREG_SET_ORDER);
+        // Matches any heading and reads the id out of its attributes, rather than
+        // pinning one attribute in one position: a renderer that later emits a
+        // second attribute would otherwise silently yield no headings at all.
+        preg_match_all(
+            '~<h([1-6])((?:\s[^>]*)?)>(.*?)</h\1>~s',
+            $renderedHtml,
+            $matches,
+            PREG_SET_ORDER | PREG_OFFSET_CAPTURE,
+        );
 
         $headings = [];
         foreach ($matches as $match) {
+            if (1 !== preg_match('~\bid="([^"]*)"~', $match[2][0], $id)) {
+                continue;
+            }
+
             $headings[] = new DocumentHeading(
-                (int) $match[1],
-                html_entity_decode($match[2], ENT_QUOTES | ENT_HTML5, 'UTF-8'),
-                trim(html_entity_decode(strip_tags($match[3]), ENT_QUOTES | ENT_HTML5, 'UTF-8')),
+                (int) $match[1][0],
+                $this->decode($id[1]),
+                trim($this->decode(strip_tags($match[3][0]))),
+                // Everything before the heading's own text, measured the way
+                // plainText() measures it. strip_tags() and entity decoding both act
+                // per character, so the basis for a prefix is the prefix of the basis.
+                mb_strlen($this->decode(strip_tags(substr($renderedHtml, 0, $match[3][1])))),
             );
         }
 
         return $headings;
+    }
+
+    private function decode(string $html): string
+    {
+        return html_entity_decode($html, ENT_QUOTES | ENT_HTML5, 'UTF-8');
     }
 }

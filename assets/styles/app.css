@@ -1054,7 +1054,9 @@
     .lp-review-contents__chevron {
         @apply transition-transform;
     }
-    details[open] > .lp-review-contents__summary .lp-review-contents__chevron {
+    .lp-review-contents[open]
+        > .lp-review-contents__summary
+        .lp-review-contents__chevron {
         @apply rotate-90;
     }
     .lp-review-contents__list {
