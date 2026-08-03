@@ -58,6 +58,29 @@ final class DocumentExporterTest extends TestCase
         self::assertNull($rows[0]['versions'][1]['description']);
     }
 
+    public function test_exports_the_documents_a_document_references_and_not_the_ones_referencing_it(): void
+    {
+        $user = new User('alice', 'Alice A', 'alice@example.com', 'x');
+        $project = new Project($user, 'My project');
+        $document = new Document($user, $project, 'My doc');
+        $document->addVersion('# v1', '<h1>v1</h1>');
+
+        $target = new Document($user, $project, 'The spec it answers');
+        $document->references->add($target);
+
+        $inbound = new Document($user, $project, 'A thread pointing here');
+        $document->referencedBy->add($inbound);
+
+        /** @var DocumentRepository&Stub $repo */
+        $repo = $this->createStub(DocumentRepository::class);
+        $repo->method('findByOwner')->willReturn([$document]);
+
+        $rows = new DocumentExporter($repo)->export($user);
+
+        self::assertCount(1, $rows[0]['references']);
+        self::assertSame('The spec it answers', $rows[0]['references'][0]['title']);
+    }
+
     public function test_a_document_that_was_never_archived_exports_a_null_timestamp(): void
     {
         $user = new User('alice', 'Alice A', 'alice@example.com', 'x');

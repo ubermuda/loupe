@@ -160,6 +160,9 @@ final class DiffDocumentVersionsControllerTest extends WebTestCase
         // to stay quiet would not stop its highlight painting.
         self::assertCount(0, $diff->filter('[data-controller="comment-anchor"]'));
         self::assertCount(0, $diff->filter('[data-comment-anchor-target="doc"]'));
+        // Anchor carriers of every kind, not just the pane: each holds a quote to be
+        // re-located against text that diff mode does not render.
+        self::assertCount(0, $diff->filter('[data-comment-anchor-target="agentHighlight"]'));
         self::assertCount(0, $diff->filter('.lp-comment-composer'));
         self::assertCount(0, $diff->filter('.lp-anchor-toolbar'));
         self::assertCount(0, $diff->filter('.lp-verdict-bar'));
