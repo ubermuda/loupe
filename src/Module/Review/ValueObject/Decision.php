@@ -31,13 +31,23 @@ final readonly class Decision
      * Where a previously chosen option now sits, or null once it is gone.
      *
      * Both the page and the review payload resolve a stored answer through this
-     * rather than trusting the index it was recorded at. A revision that
-     * reorders or shortens a block leaves that index pointing at a different
-     * option — and resolving it in two places by two rules is how the reviewer
-     * ends up seeing one option ticked while the agent is told another.
+     * one method. Resolving in two places by two rules is how the reviewer ends
+     * up seeing one option ticked while the agent is told another.
+     *
+     * The label leads and the recorded index breaks ties, because each alone is
+     * wrong in a case the other handles: trusting the index means a revision
+     * that reorders a block ticks an option the reviewer never chose, while
+     * trusting the label alone collapses two options that happen to read the
+     * same onto whichever comes first. So the recorded index wins only while it
+     * still points at a matching label — which is exactly when reordering
+     * cannot have invalidated it.
      */
-    public function indexOf(string $option): ?int
+    public function resolveIndex(string $option, int $recordedIndex): ?int
     {
+        if (($this->options[$recordedIndex] ?? null) === $option) {
+            return $recordedIndex;
+        }
+
         $index = array_search($option, $this->options, strict: true);
 
         return false === $index ? null : $index;

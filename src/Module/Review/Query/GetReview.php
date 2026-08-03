@@ -102,15 +102,18 @@ final readonly class GetReview
         $decisions = [];
         foreach ($this->decisionBlocks->extract($currentVersion->renderedHtml) as $decision) {
             $selection = $selections[$decision->id] ?? null;
+            $selectedIndex = null === $selection
+                ? null
+                : $decision->resolveIndex($selection->optionLabel, $selection->optionIndex);
 
             $decisions[] = [
                 'id' => $decision->id,
                 'options' => $decision->options,
                 'selected' => $selection?->optionLabel,
-                // Resolved from the recorded label, never the recorded index, so
-                // it always indexes the `options` reported alongside it. Null
-                // means the chosen option is no longer offered.
-                'selected_index' => null === $selection ? null : $decision->indexOf($selection->optionLabel),
+                // Always indexes the `options` reported alongside it, because the
+                // page resolves it by the same rule. Null means the chosen option
+                // is no longer offered.
+                'selected_index' => $selectedIndex,
                 'answered_at' => $selection?->selectedAt->format(\DateTimeInterface::ATOM),
                 'answered_at_version' => $selection?->versionNumber,
             ];

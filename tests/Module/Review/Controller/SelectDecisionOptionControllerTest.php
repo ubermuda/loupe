@@ -11,6 +11,7 @@ use App\Module\Review\Command\CreateDocumentHandler;
 use App\Module\Review\Command\ReviseDocumentCommand;
 use App\Module\Review\Command\ReviseDocumentHandler;
 use App\Module\Review\Entity\Document;
+use App\Module\Review\Query\GetReview;
 use App\Module\Review\Repository\DecisionSelectionRepository;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
@@ -132,6 +133,49 @@ final class SelectDecisionOptionControllerTest extends WebTestCase
         $body = (string) $client->getResponse()->getContent();
         self::assertStringContainsString('<turbo-stream action="replace" target="decision-status">', $body);
         self::assertStringNotContainsString('lp-review-doc__prose', $body);
+    }
+
+    /**
+     * Two options that render to the same label are an authoring smell, not an
+     * error, so the block still converts — which makes the label alone unable to
+     * say which one was clicked. The page and the payload must at least agree,
+     * and both must land on the second.
+     */
+    public function test_choosing_the_later_of_two_identically_worded_options_sticks(): void
+    {
+        $client = static::createClient();
+        $client->disableReboot();
+
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        self::assertInstanceOf(EntityManagerInterface::class, $em);
+
+        $owner = new User(username: 'twin-'.uniqid(), fullName: 'Twin', email: 'twin-'.uniqid().'@example.com', password: 'hashed');
+        $owner->emailVerifiedAt = new \DateTimeImmutable();
+        $em->persist($owner);
+        $project = new Project($owner, 'p-'.uniqid());
+        $em->persist($project);
+        $em->flush();
+
+        $create = static::getContainer()->get(CreateDocumentHandler::class);
+        self::assertInstanceOf(CreateDocumentHandler::class, $create);
+        $document = $create(new CreateDocumentCommand(
+            $project,
+            'Twin options',
+            "<!-- decision: deploy-target -->\n\n1. Ship it\n2. Ship it\n\n<!-- /decision -->\n",
+        ));
+
+        $client->loginUser($owner);
+        $this->answer($client, $document, 'deploy-target', '1');
+
+        $client->request(Request::METHOD_GET, $this->reviewPath($document));
+        self::assertSelectorExists('#decision-deploy-target-1[checked]');
+        self::assertSelectorNotExists('#decision-deploy-target-0[checked]');
+
+        $getReview = static::getContainer()->get(GetReview::class);
+        self::assertInstanceOf(GetReview::class, $getReview);
+        $decisions = $getReview($document)['decisions'];
+        self::assertSame(['Ship it', 'Ship it'], $decisions[0]['options']);
+        self::assertSame(1, $decisions[0]['selected_index']);
     }
 
     /**

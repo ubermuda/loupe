@@ -90,15 +90,14 @@ final class ShowDocumentController extends AppController
         // reads as unanswered, which is a different claim from "answered before
         // this version".
         //
-        // Resolved through the recorded label, exactly as GetReview does. Ticking
-        // the recorded index instead would, after a revision that reordered a
-        // block, show the reviewer an option they never chose.
+        // Resolved through Decision::resolveIndex, exactly as GetReview does, so
+        // the radio the reviewer sees ticked is the option the agent is told.
         $decisions = $this->decisionBlocks->extract($version->renderedHtml);
         $selections = $this->decisionSelections->findByDocumentIndexedByDecisionId($document);
         $selectedIndexByDecisionId = [];
         foreach ($decisions as $decision) {
             $selection = $selections[$decision->id] ?? null;
-            $index = null === $selection ? null : $decision->indexOf($selection->optionLabel);
+            $index = null === $selection ? null : $decision->resolveIndex($selection->optionLabel, $selection->optionIndex);
             if (null !== $index) {
                 $selectedIndexByDecisionId[$decision->id] = $index;
             }
