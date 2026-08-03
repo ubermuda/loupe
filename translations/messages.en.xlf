@@ -1048,6 +1048,32 @@
                 <target>Document versions</target>
             </trans-unit>
 
+            <!-- Document version diff -->
+            <trans-unit id="review.document.diff.banner">
+                <source>review.document.diff.banner</source>
+                <target>You are reading what changed between version %from% and version %to%, not the document itself. Commenting and the verdict apply to the current version.</target>
+            </trans-unit>
+            <trans-unit id="review.document.diff.link">
+                <source>review.document.diff.link</source>
+                <target>What changed since v%from%</target>
+            </trans-unit>
+            <trans-unit id="review.document.diff.notes_title">
+                <source>review.document.diff.notes_title</source>
+                <target>What the author said changed</target>
+            </trans-unit>
+            <trans-unit id="review.document.diff.identical">
+                <source>review.document.diff.identical</source>
+                <target>These two versions have identical source.</target>
+            </trans-unit>
+            <trans-unit id="review.document.diff.refused.too_large">
+                <source>review.document.diff.refused.too_large</source>
+                <target>This document is too large to compare. Use the version list above to read either version in full.</target>
+            </trans-unit>
+            <trans-unit id="review.document.diff.refused.unsupported_characters">
+                <source>review.document.diff.refused.unsupported_characters</source>
+                <target>These versions contain characters this comparison cannot handle, and showing it anyway would misreport what changed. Use the version list above to read either version in full.</target>
+            </trans-unit>
+
             <!-- Document review table of contents -->
             <trans-unit id="review.document.contents.label">
                 <source>review.document.contents.label</source>

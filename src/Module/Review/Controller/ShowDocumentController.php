@@ -8,6 +8,7 @@ use App\Controller\AppController;
 use App\Module\Project\Entity\Project;
 use App\Module\Review\Entity\Comment;
 use App\Module\Review\Entity\Document;
+use App\Module\Review\Entity\DocumentVersion;
 use App\Module\Review\Form\AddCommentFormType;
 use App\Module\Review\Form\AddCommentRequest;
 use App\Module\Review\Form\SelectDecisionOptionFormType;
@@ -61,10 +62,7 @@ final class ShowDocumentController extends AppController
         ?int $versionNumber = null,
     ): Response {
         $latest = $this->documentVersions->findLatest($document);
-        $version = null === $versionNumber
-            ? $latest
-            : $this->documentVersions->findByNumber($document, $versionNumber)
-                ?? throw $this->createNotFoundException(sprintf('Document has no version %d.', $versionNumber));
+        $version = null === $versionNumber ? $latest : $this->version($document, $versionNumber);
 
         // Every write on this page targets the current version: the composer posts
         // a comment onto whatever is latest, and the verdict applies to the document
@@ -126,6 +124,10 @@ final class ShowDocumentController extends AppController
             'document' => $document,
             'version' => $version,
             'versions' => $this->documentVersions->findAllMetaByDocument($document),
+            // The shared page shell reads these to decide whether it is showing a
+            // document or a comparison of two; here it is always the document.
+            'diffMode' => false,
+            'diffFromVersion' => null,
             'readOnly' => !$isLatest,
             'comments' => $comments,
             'headings' => $this->headings->extract($version->renderedHtml),
@@ -141,5 +143,11 @@ final class ShowDocumentController extends AppController
                 readOnly: !$isLatest,
             ),
         ]);
+    }
+
+    private function version(Document $document, int $versionNumber): DocumentVersion
+    {
+        return $this->documentVersions->findByNumber($document, $versionNumber)
+            ?? throw $this->createNotFoundException(sprintf('Document has no version %d.', $versionNumber));
     }
 }

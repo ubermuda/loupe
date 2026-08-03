@@ -16,7 +16,20 @@
     </div>
     {% endif %}
 
-    {% if readOnly %}
+    {# diffMode is passed explicitly by both controllers rather than defaulted
+       here, because Twig's `default` filter substitutes on any FALSY value, not
+       just an undefined one — it cannot tell an absent variable from one
+       deliberately passed as false. So `|default(true)` would send every
+       show-page render down the diff branch while looking entirely reasonable. #}
+    {% if diffMode %}
+    <div class="lp-version-banner">
+        <twig:ux:icon name="lucide:git-compare" class="w-4 h-4 shrink-0" />
+        <span>{{ 'review.document.diff.banner'|trans({'%from%': diffFromVersion, '%to%': version.versionNumber}) }}</span>
+        <a class="lp-btn lp-btn--ghost lp-btn--sm" href="{{ path('app_document_review', {projectId: document.project.id, documentId: document.id}) }}">
+            {{ 'review.document.version.back_to_latest'|trans }}
+        </a>
+    </div>
+    {% elseif readOnly %}
     <div class="lp-version-banner">
         <twig:ux:icon name="lucide:history" class="w-4 h-4 shrink-0" />
         <span>
@@ -43,7 +56,11 @@
         </nav>
     </header>
 
-    <div class="lp-review-layout" data-controller="comment-anchor">
+    {# In diff mode the comment-anchor controller is not attached at all rather
+       than told to stay quiet: its highlight painting runs on every layout
+       regardless of readOnly, and the pane it walks no longer holds
+       DocumentVersion::plainText(). #}
+    <div class="lp-review-layout"{% if not diffMode %} data-controller="comment-anchor"{% endif %}>
         {#
             The outer .lp-review-doc provides position:relative + the internal
             scroll for the floating composer/toolbar. The inner
@@ -74,7 +91,11 @@
                 <nav class="lp-version-switcher" aria-label="{{ 'review.document.version.switcher_label'|trans }}">
                     {% for meta in versions %}
                     <div class="lp-version-entry">
-                        {% if meta.versionNumber == version.versionNumber %}
+                        {# A diff is not one of the versions it compares, so in diff
+                           mode every pill stays a link — reading the newer version
+                           on its own is a click away, and the only element claiming
+                           to be the current page is the diff link below. #}
+                        {% if not diffMode and meta.versionNumber == version.versionNumber %}
                             <span class="lp-version-pill" aria-current="page">{{ 'v' ~ meta.versionNumber }}</span>
                         {% else %}
                             <a class="lp-version-pill lp-version-pill--link"
@@ -85,6 +106,12 @@
                         {% endif %}
                         {% if meta.description %}
                         <p class="lp-version-entry__description">{{ meta.description }}</p>
+                        {% endif %}
+                        {% if meta.versionNumber > 1 %}
+                        <a class="lp-version-entry__diff"
+                           href="{{ path('app_document_review_diff', {projectId: document.project.id, documentId: document.id, fromVersionNumber: meta.versionNumber - 1, toVersionNumber: meta.versionNumber}) }}"
+                           {% if diffMode and diffFromVersion == meta.versionNumber - 1 and version.versionNumber == meta.versionNumber %}aria-current="page"{% endif %}
+                        >{{ 'review.document.diff.link'|trans({'%from%': meta.versionNumber - 1}) }}</a>
                         {% endif %}
                     </div>
                     {% endfor %}
@@ -98,6 +125,14 @@
                 {# A heading with nothing to label it — an image with no alt text — would
                    render as a blank link: unreachable by a screen reader and invisible
                    to a mouse. It keeps its id, so anything linking to it still works. #}
+                {# Gated here rather than moved into the documentPane block, which the
+                   diff view overrides wholesale: the panel belongs to the document
+                   head, alongside the title and version switcher the diff keeps, and
+                   moving it would make the block mean "the pane plus one head
+                   element". The heading ids it links to live in the rendered HTML
+                   that diff mode replaces, so in that mode every entry would be a
+                   dead link — and `headings` is not passed there at all. #}
+                {% if not diffMode %}
                 {% set contentsHeadings = headings|filter(heading => heading.text is not empty) %}
                 {% if contentsHeadings|length > 1 %}
                 <details class="lp-review-contents">
@@ -117,7 +152,14 @@
                     </nav>
                 </details>
                 {% endif %}
+                {% endif %}
 
+                {# Not gated on diffMode, unlike the contents panel above: a
+                   reference is document-level rather than version-level, and its
+                   links point at other documents rather than into the markup the
+                   diff replaces. `document` is passed in both modes, so these
+                   render and resolve beside a diff exactly as they do beside the
+                   document. #}
                 {% if document.references|length > 0 or document.referencedBy|length > 0 %}
                 <div class="lp-doc-references">
                     {% for group in [
@@ -147,16 +189,28 @@
                 {% endif %}
             </div>
 
+            {# The one part the diff view replaces — see diff_document_versions.html.twig.
+               Everything else on this page is the same in both modes, which is why
+               the diff is a block override rather than a page of its own. #}
+            {% block documentPane %}
             <div class="prose max-w-2xl lp-prose lp-review-doc__prose" data-comment-anchor-target="doc">{{ decisionMarkedHtml|raw }}</div>
+            {% endblock %}
 
             {# Outside the prose on purpose: that element's textContent must stay
                identical to DocumentVersion::plainText(). The radios inside the
                prose are grouping-only inputs that post nothing themselves — the
-               controller copies the clicked one into this form's hidden fields. #}
-            {% if hasDecisions %}
+               controller copies the clicked one into this form's hidden fields.
+
+               Gated on diffMode as well, because the radios they serve live in
+               the block above, which the diff replaces wholesale: a status line
+               with nothing to report and a form with no control to fill it would
+               be all that survived. `hasDecisions` and `selectDecisionForm` are
+               not passed in diff mode either, so the guard is what keeps this a
+               structural omission rather than an undefined-variable 500. #}
+            {% if not diffMode and hasDecisions %}
             <p id="decision-status" class="lp-decision-status" aria-live="polite"></p>
             {% endif %}
-            {% if hasDecisions and not readOnly %}
+            {% if not diffMode and hasDecisions and not readOnly %}
             {{ form_start(selectDecisionForm, {attr: {
                 'data-decision-target': 'form',
                 hidden: true,
@@ -172,6 +226,12 @@
                DocumentVersion::plainText(), so nothing may be inserted into it. The
                Stimulus controller re-locates each quote and tints it through the CSS
                Custom Highlight API, which paints without touching the DOM. #}
+            {# Omitted in diff mode for the same reason the controller is not attached
+               there: every one of these carries a quote to be re-located against the
+               pane's textContent, and in diff mode that text is the Markdown source
+               rather than plainText(). They are inert today only because nothing is
+               listening — this makes it structural instead. #}
+            {% if not diffMode %}
             {% for highlight in version.highlights %}
             <span
                 data-comment-anchor-target="agentHighlight"
@@ -181,6 +241,7 @@
                 hidden
             ></span>
             {% endfor %}
+            {% endif %}
 
             {# The composer and its toolbar post onto the CURRENT version, so on an
                earlier one they are omitted entirely rather than shown and ignored. #}

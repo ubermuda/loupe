@@ -354,6 +354,45 @@ final class SelectDecisionOptionControllerTest extends WebTestCase
     }
 
     /**
+     * A diff replaces the document pane with Markdown source lines, so the
+     * radios the form serves are not on the page at all — leaving a status line
+     * with nothing to report and a form with no control to fill it.
+     *
+     * Omitted structurally rather than left to render harmlessly: the diff
+     * controller passes neither `hasDecisions` nor `selectDecisionForm`, and
+     * `strict_variables` is on, so without the guard this is a 500 rather than a
+     * cosmetic gap.
+     */
+    public function test_the_decision_controls_are_absent_from_a_diff(): void
+    {
+        $client = static::createClient();
+        [$owner, $document] = $this->seed($client);
+
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        self::assertInstanceOf(EntityManagerInterface::class, $em);
+        $managed = $em->find(Document::class, $document->id);
+        self::assertInstanceOf(Document::class, $managed);
+
+        $revise = static::getContainer()->get(ReviseDocumentHandler::class);
+        self::assertInstanceOf(ReviseDocumentHandler::class, $revise);
+        $revise(new ReviseDocumentCommand($managed, self::MARKDOWN."\n\nA closing note.\n", 'Added a note.'));
+
+        $client->loginUser($owner);
+        $client->request(Request::METHOD_GET, $this->reviewPath($document).'/diff/1/2');
+
+        self::assertResponseIsSuccessful();
+        self::assertSelectorNotExists('[data-decision-target="form"]');
+        self::assertSelectorNotExists('#decision-status');
+        self::assertSelectorNotExists('[data-decision-option]');
+
+        // And the same document still shows them on the review page, so the
+        // absence above is the diff's doing rather than a broken fixture.
+        $client->request(Request::METHOD_GET, $this->reviewPath($document));
+        self::assertSelectorExists('[data-decision-target="form"]');
+        self::assertSelectorExists('[data-decision-option]');
+    }
+
+    /**
      * Authorization runs before the form, so test_a_non_owner_cannot_answer
      * cannot cover this: only a legitimate owner reaches the token check.
      */

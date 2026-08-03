@@ -725,6 +725,39 @@ final class ShowDocumentControllerTest extends WebTestCase
         self::assertCount(0, $crawler->filter('.lp-doc-references'));
     }
 
+    public function test_the_version_switcher_links_to_each_version_s_diff(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+
+        $owner = $this->createUser($em, 'owner-diff-link', 'owner-diff-link@example.com');
+        $project = $this->project($em, $owner);
+
+        $doc = new Document(owner: $owner, project: $project, title: 'Linked Doc');
+        $doc->addVersion('# v1', '<h1>v1</h1>');
+        $doc->addVersion('# v2', '<h1>v2</h1>');
+        $doc->addVersion('# v3', '<h1>v3</h1>');
+        $em->persist($doc);
+        $em->flush();
+
+        $projectId = (string) $project->id;
+        $id = (string) $doc->id;
+        $em->clear();
+
+        $client->loginUser($owner);
+        $crawler = $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/documents/'.$id.'/review');
+
+        self::assertResponseIsSuccessful();
+        $base = '/projects/'.$projectId.'/documents/'.$id.'/review/diff/';
+        self::assertSame(
+            [$base.'2/3', $base.'1/2'],
+            $crawler->filter('.lp-version-entry__diff')->each(
+                static fn (\Symfony\Component\DomCrawler\Crawler $node): string => (string) $node->attr('href'),
+            ),
+            'the first version has no predecessor to compare against',
+        );
+    }
+
     public function test_unauthenticated_user_is_redirected(): void
     {
         $client = static::createClient();
