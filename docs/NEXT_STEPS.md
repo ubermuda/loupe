@@ -1297,11 +1297,24 @@ quote spanned the point where a previously invisible HTML comment now
 contributes text. The re-render reported "1 of 3 versions" and left all four
 `comments` rows byte-identical, `orphaned` still false.
 
-The fix is to give the command a reanchoring pass — resolve every open comment
-against the new text and set `orphaned` where the quote is gone — so the damage
-is recorded when it happens rather than surfacing at the next revision. Add a
+**Mitigated, not fixed.** The command now inspects every version before writing
+anything and refuses outright when any version carries an anchored comment whose
+plain text the re-render would move, reporting the count and exiting non-zero.
+Passing `--accept-comment-orphaning` proceeds anyway and still reports the count
+as a warning. So the silent data problem is now a loud one — but the damage is
+unchanged if the flag is passed, and the flag is the only way to re-render a
+document whose rendering has legitimately changed.
+
+Untargeted comments (empty anchor quote) are deliberately not counted: they are
+never relocated, and an alarm that cannot come true is how an opt-in flag turns
+into something people pass by reflex.
+
+The real fix is still a reanchoring pass — resolve every open comment against
+the new text and set `orphaned` where the quote is gone — so the damage is
+recorded when it happens rather than surfacing at the next revision. Add a
 `--dry-run` that reports the counts before writing, since that is what you want
-before running a renderer migration.
+before running a renderer migration. Once that lands, the refusal and its flag
+should go away rather than being kept alongside it.
 
 Two things make this more than it looks. `ReanchoringService::reanchor()` cannot
 be reused: it builds *new* `Comment` rows against a *new* `DocumentVersion`,

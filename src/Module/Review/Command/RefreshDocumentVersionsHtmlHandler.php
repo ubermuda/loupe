@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Module\Review\Command;
 
+use App\Module\Review\Entity\DocumentVersion;
 use App\Module\Review\Service\MarkdownRenderer;
 use Doctrine\DBAL\Connection;
 
@@ -29,6 +30,11 @@ final readonly class RefreshDocumentVersionsHtmlHandler
 
     public function __invoke(RefreshDocumentVersionsHtmlCommand $command): RefreshDocumentVersionsHtmlResult
     {
+        $atRisk = $this->countVersionsWhoseAnchorsWouldMove();
+        if ($atRisk > 0 && !$command->acceptCommentOrphaning) {
+            return new RefreshDocumentVersionsHtmlResult(atRisk: $atRisk, refused: true);
+        }
+
         $total = 0;
         $changed = 0;
 
@@ -47,6 +53,42 @@ final readonly class RefreshDocumentVersionsHtmlHandler
             );
         }
 
-        return new RefreshDocumentVersionsHtmlResult($total, $changed);
+        return new RefreshDocumentVersionsHtmlResult($total, $changed, $atRisk);
+    }
+
+    /**
+     * Versions that carry a comment this run would strand.
+     *
+     * A whole inspection pass runs before anything is written, so a refusal
+     * leaves the table exactly as it was rather than half-rewritten. That costs
+     * a second render of every row, which is the right trade for a maintenance
+     * command that must not report a count it has already invalidated.
+     *
+     * Only anchored comments are counted. An untargeted comment carries an empty
+     * quote and is never relocated, so including it would raise an alarm that
+     * cannot come true — and an alarm that cries wolf is how the opt-in flag
+     * becomes something people pass by reflex.
+     */
+    private function countVersionsWhoseAnchorsWouldMove(): int
+    {
+        /** @var iterable<array{markdown_source: string, rendered_html: string}> $rows */
+        $rows = $this->connection->iterateAssociative(
+            "SELECT v.markdown_source, v.rendered_html
+             FROM document_versions v
+             WHERE EXISTS (
+                 SELECT 1 FROM comments c WHERE c.version_id = v.id AND c.anchor_quote <> ''
+             )",
+        );
+
+        $atRisk = 0;
+        foreach ($rows as $row) {
+            $before = DocumentVersion::plainTextOf($row['rendered_html']);
+            $after = DocumentVersion::plainTextOf($this->renderer->render($row['markdown_source']));
+            if ($before !== $after) {
+                ++$atRisk;
+            }
+        }
+
+        return $atRisk;
     }
 }
