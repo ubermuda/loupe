@@ -16,6 +16,7 @@ use League\CommonMark\Node\Block\Document;
 use League\CommonMark\Parser\MarkdownParser;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
+use Psr\Log\NullLogger;
 
 final class DecisionBlockServiceTest extends TestCase
 {
@@ -37,7 +38,7 @@ final class DecisionBlockServiceTest extends TestCase
 
     protected function setUp(): void
     {
-        $this->renderer = new MarkdownRenderer();
+        $this->renderer = new MarkdownRenderer(new NullLogger());
         $this->decisions = new DecisionBlockService();
     }
 
@@ -170,6 +171,51 @@ final class DecisionBlockServiceTest extends TestCase
         // one that converts and the abandoned outer list renders as prose.
         yield 'opened inside another opener' => ["<!-- decision: outer -->\n\n- [ ] A\n\n".$valid, ['good']];
         yield 'two valid fences still both convert' => [$valid."\n<!-- decision: other -->\n\n- [ ] Z\n\n<!-- /decision -->\n", ['good', 'other']];
+    }
+
+    /**
+     * Three post-sanitize passes now run over the same string — annotations,
+     * decision controls, heading ids — and a fence marker is itself an HTML
+     * comment, which is what the annotation pass exists to make visible.
+     *
+     * A paired fence's markers are rewritten to sentinels during parsing, so the
+     * comment renderer never sees a comment and hands them back untouched. An
+     * unpaired marker keeps its literal and becomes an annotation like any other
+     * comment, which is the outcome worth having: the author sees the marker
+     * they mistyped instead of it vanishing.
+     *
+     * @param non-empty-string $markdown
+     * @param list<string>     $expectedIds
+     */
+    #[DataProvider('fencesBesideAnnotations')]
+    public function test_fences_and_annotations_do_not_rewrite_each_other(
+        string $markdown,
+        array $expectedIds,
+        bool $expectAnnotation,
+    ): void {
+        $html = $this->renderer->render($markdown);
+
+        self::assertSame($expectedIds, array_map(static fn (object $d): string => $d->id, $this->decisions->extract($html)));
+        self::assertSame($expectAnnotation, str_contains($html, 'lp-doc-note'));
+        self::assertStringNotContainsString('LPDECISION', $html);
+    }
+
+    /**
+     * @return iterable<string, array{string, list<string>, bool}>
+     */
+    public static function fencesBesideAnnotations(): iterable
+    {
+        $fence = "<!-- decision: good -->\n\n- [ ] X\n- [ ] Y\n\n<!-- /decision -->\n";
+
+        yield 'a paired fence is not an annotation' => [$fence, ['good'], false];
+        yield 'an unpaired opener becomes one' => ["<!-- decision: lonely -->\n\n- [ ] X\n", [], true];
+        yield 'an annotation inside an option' => ["<!-- decision: good -->\n\n- [ ] X <!-- why -->\n- [ ] Y\n\n<!-- /decision -->\n", ['good'], true];
+        yield 'a fence below front matter' => ["---\ntitle: T\n---\n\n".$fence, ['good'], false];
+        // Both reach render()'s plain-converter fallback — a top-level sequence
+        // is not a key/value map, and the second parses at all — so the fence
+        // only survives because that converter carries the listener too.
+        yield 'a fence below a front-matter sequence' => ["---\n- one\n- two\n---\n\n".$fence, ['good'], false];
+        yield 'a fence below unparseable front matter' => ["---\n\tbad: [unclosed\n---\n\n".$fence, ['good'], false];
     }
 
     public function test_a_fence_quoted_inside_a_code_block_is_inert(): void

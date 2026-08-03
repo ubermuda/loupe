@@ -7,12 +7,13 @@ namespace App\Tests\Module\Review\Service;
 use App\Module\Review\Service\HeadingExtractor;
 use App\Module\Review\Service\MarkdownRenderer;
 use PHPUnit\Framework\TestCase;
+use Psr\Log\NullLogger;
 
 final class HeadingExtractorTest extends TestCase
 {
     public function test_lists_every_heading_in_document_order(): void
     {
-        $html = new MarkdownRenderer()->render("# Title\n\nIntro.\n\n## First\n\n### Deeper\n\n## Second\n");
+        $html = new MarkdownRenderer(new NullLogger())->render("# Title\n\nIntro.\n\n## First\n\n### Deeper\n\n## Second\n");
 
         $headings = new HeadingExtractor()->extract($html);
 
@@ -25,7 +26,7 @@ final class HeadingExtractorTest extends TestCase
 
     public function test_reads_the_text_through_inline_markup(): void
     {
-        $html = new MarkdownRenderer()->render("## Use `render()` *now*\n");
+        $html = new MarkdownRenderer(new NullLogger())->render("## Use `render()` *now*\n");
 
         $headings = new HeadingExtractor()->extract($html);
 
@@ -37,7 +38,7 @@ final class HeadingExtractorTest extends TestCase
     {
         // Otherwise the table of contents renders a blank link: nothing for a screen
         // reader to announce and nothing for a mouse to hit.
-        $html = new MarkdownRenderer()->render("## ![System diagram](architecture.png)\n");
+        $html = new MarkdownRenderer(new NullLogger())->render("## ![System diagram](architecture.png)\n");
 
         $headings = new HeadingExtractor()->extract($html);
 
@@ -47,7 +48,7 @@ final class HeadingExtractorTest extends TestCase
 
     public function test_labels_a_mixed_text_and_image_heading_without_doubling_it(): void
     {
-        $html = new MarkdownRenderer()->render("## Request flow ![System diagram](architecture.png)\n");
+        $html = new MarkdownRenderer(new NullLogger())->render("## Request flow ![System diagram](architecture.png)\n");
 
         $headings = new HeadingExtractor()->extract($html);
 
@@ -58,7 +59,7 @@ final class HeadingExtractorTest extends TestCase
     {
         // The label is empty rather than invented; the review template drops such an
         // entry instead of rendering an unreachable blank link.
-        $html = new MarkdownRenderer()->render("## ![](architecture.png)\n");
+        $html = new MarkdownRenderer(new NullLogger())->render("## ![](architecture.png)\n");
 
         $headings = new HeadingExtractor()->extract($html);
 
@@ -69,7 +70,7 @@ final class HeadingExtractorTest extends TestCase
     public function test_reports_each_heading_offset_into_the_anchor_basis(): void
     {
         $markdown = "Intro paragraph.\n\n## First\n\nBody.\n\n## Second\n";
-        $html = new MarkdownRenderer()->render($markdown);
+        $html = new MarkdownRenderer(new NullLogger())->render($markdown);
         $plainText = html_entity_decode(strip_tags($html), ENT_QUOTES | ENT_HTML5, 'UTF-8');
 
         $headings = new HeadingExtractor()->extract($html);

@@ -7,6 +7,7 @@ namespace App\Tests\Module\Review\Service;
 use App\Module\Review\Service\DecisionBlockService;
 use App\Module\Review\Service\MarkdownRenderer;
 use PHPUnit\Framework\TestCase;
+use Psr\Log\NullLogger;
 use Symfony\Component\HtmlSanitizer\Reference\W3CReference;
 
 /**
@@ -33,7 +34,7 @@ final class MarkdownRendererTextBasisTest extends TestCase
      */
     public function test_php_and_the_html5_parser_read_the_same_text_in_the_same_order(): void
     {
-        $renderer = new MarkdownRenderer();
+        $renderer = new MarkdownRenderer(new NullLogger());
         $mismatches = [];
         $checked = 0;
 
@@ -62,7 +63,7 @@ final class MarkdownRendererTextBasisTest extends TestCase
      */
     public function test_every_element_the_sanitizer_considers_safe_still_contributes_its_text(): void
     {
-        $renderer = new MarkdownRenderer();
+        $renderer = new MarkdownRenderer(new NullLogger());
         $swallowed = [];
         $checked = 0;
 
@@ -85,13 +86,50 @@ final class MarkdownRendererTextBasisTest extends TestCase
     }
 
     /**
+     * The element sweep builds its inputs from tag names, so nothing in it carries
+     * a `---` block or an HTML comment and neither rendered form is covered there.
+     *
+     * The front-matter table needs this most: it is emitted with newlines between
+     * its tags, which puts whitespace text nodes in table context — the one place
+     * this file already documents PHP and the HTML5 parser disagreeing, since a
+     * non-whitespace text node there is foster-parented out to before the table
+     * while strip_tags() leaves it where it was.
+     */
+    public function test_front_matter_and_annotations_read_the_same_on_both_sides(): void
+    {
+        $renderer = new MarkdownRenderer(new NullLogger());
+
+        $documents = [
+            'front matter only' => "---\ntitle: Wave C\ndate: 2026-08-02\ntags:\n  - review\n  - markdown\n---\n\n## Section\n\nBody.\n",
+            'block annotation' => "Before.\n\n<!-- TODO: link the skeleton repo -->\n\nAfter.\n",
+            'inline annotation' => "Mid <!-- inline note --> sentence.\n",
+            'annotation in a heading' => "## Title <!-- note in heading -->\n\nBody.\n",
+            'both together' => "---\ntitle: Wave C\n---\n\n## Section\n\nA.\n\n<!-- a note -->\n\nB <!-- and another --> C.\n",
+            'front matter beside a content table' => "---\ntitle: Wave C\n---\n\n| a | b |\n|:--|--:|\n| 1 | 2 |\n",
+        ];
+
+        $mismatches = [];
+        foreach ($documents as $label => $markdown) {
+            $html = $renderer->render($markdown);
+            $php = html_entity_decode(strip_tags($html), ENT_QUOTES | ENT_HTML5, 'UTF-8');
+            $dom = $this->textContent($html);
+
+            if ($php !== $dom) {
+                $mismatches[] = sprintf('%s: php=%s dom=%s', $label, json_encode($php), json_encode($dom));
+            }
+        }
+
+        self::assertSame([], $mismatches);
+    }
+
+    /**
      * A decision fence mints elements no document may write — fieldset, label,
      * a radio input — after sanitization, so the sweep above never sees them.
      * They are the newest chance for the two readings to diverge.
      */
     public function test_a_decision_block_reads_the_same_to_php_and_the_html5_parser(): void
     {
-        $html = new MarkdownRenderer()->render(
+        $html = new MarkdownRenderer(new NullLogger())->render(
             "Before.\n\n<!-- decision: pick-one -->\n\n- [ ] First option\n- [ ] Second **option**\n\n<!-- /decision -->\n\nAfter.\n",
         );
 
