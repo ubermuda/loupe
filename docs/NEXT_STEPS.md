@@ -419,6 +419,69 @@ So the rule generalises past `pkill` to every stop mechanism: **a process
 started inside the container can only be observed and stopped from inside it.**
 Verify with `docker exec … ps aux` after any stop, whatever issued it.
 
+## Set up ADRs and a stated list of architectural priorities
+
+**Author:** Geoffrey · **Type:** docs · **Priority:** medium · **Status:** pending
+
+Two artifacts, one purpose: make architectural judgement explicit and durable
+instead of re-deriving it per decision, per session, per agent.
+
+**Architecture Decision Records** — one short document per significant decision:
+what was chosen, what was rejected, and why. Several decisions made on
+2026-08-03 have their reasoning only in PR comments and code docblocks, where it
+is discoverable by accident at best: adopting
+`martin-georgiev/postgresql-for-doctrine` over four hand-rolled Doctrine
+classes (with the `php: <8.6` bound as an accepted cost); keeping search
+indexing synchronous; resolving a stale decision-form submission by refusing it
+rather than resolving against the version the reviewer saw; and the sanitizer
+moving to an explicit per-element allowlist. Each one is a question that will be
+asked again.
+
+**A stated ranking of architectural priorities** — performance versus
+correctness versus simplicity versus shipping speed, ordered rather than merely
+listed. Every one of them sounds good in isolation; the value is entirely in
+knowing which yields when two collide.
+
+That list is the durable fix for a problem recorded separately in 'The owner
+sets the quality bar, not the agent'. Without it, an agent facing "this is
+technically wrong but nobody would notice" has to either guess or ask every
+time — and guessing has produced both over-engineering and misplaced
+blocking. With it, most of those calls answer themselves and only genuine edge
+cases need escalating.
+
+Worth deciding when writing it: whether ADRs are required for a class of change
+(new dependency, schema change, cross-module boundary) or written on judgement,
+since a process nobody follows is worse than none.
+
+## `just e2e` from a worktree gates the main checkout unless `E2E_BASE_URL` is set
+
+**Author:** Claude · **Type:** tooling · **Priority:** high · **Status:** pending
+
+There are **two** independent fallbacks that both silently point an e2e run away
+from the branch under test, and neither announces itself.
+
+`just e2e-up` resolves its target with
+`git worktree list --porcelain | awk '/^worktree /{print $2; exit}'` — the
+**first** entry, which is always the main checkout — and serves that. This is
+by design and documented. The trap is the consequence: a `just e2e` run started
+from a worktree, without `E2E_BASE_URL`, exercises the main checkout's code and
+**passes while gating none of the branch**. Separately, `playwright.config.ts`
+falls back to `https://loupe.dev.localhost` when `E2E_BASE_URL` is unset, which
+points at the developer's own dev host — and the suite is destructive, so that
+path truncates every table in the working database.
+
+Observed on 2026-08-03: a worktree run "failed" because the rendered page had no
+filter bar at all. It was serving `main`'s template. The failure was only
+noticeable because the branch added visible UI — a branch changing behaviour
+without changing markup would have gone green while testing nothing.
+
+Two fixes worth considering together: make `playwright.config.ts` **throw**
+rather than default when `E2E_BASE_URL` is unset, since a wrong target is worse
+than a refusal; and have `just e2e` detect that it is being run from a worktree
+and either target that worktree or refuse. Until then the only reliable check is
+to prove the target after every run — the worktree database must show the
+`install-reset` truncation while the main `app` database is untouched.
+
 ## The owner sets the quality bar, not the agent — say so in the instructions
 
 **Author:** Geoffrey · **Type:** tooling · **Priority:** medium · **Status:** pending
@@ -494,6 +557,44 @@ What the instructions should ask for:
 Related: the existing instruction not to capitulate under pressure. These pull
 in opposite directions and the tension is the point — hold a position against
 disagreement, but do not manufacture support for it.
+
+## A better framework for planning and running multi-branch waves
+
+**Author:** Geoffrey · **Type:** tooling · **Priority:** medium · **Status:** pending
+
+Running nine parallel branches on 2026-08-03 worked, but the coordination lived
+in one session's head and in ad-hoc prose briefs. Everything below is a real
+cost paid that day, not a hypothetical.
+
+What the current approach does not hold:
+
+1. **Queue and gate state.** Which branch is synced, gated, Codex-clean, or
+   holding the exclusive e2e slot existed as prose in a task description. It was
+   correct only because one session kept rewriting it.
+2. **Cross-branch obligations.** "Whichever of these two merges second must wrap
+   the contents panel in `{% if not diffMode %}`" was tracked as a note. Nobody's
+   tests could catch it, and skipping it turned out to produce a hard 500 rather
+   than a cosmetic flaw. A framework should make an obligation like that block
+   the second merge automatically.
+3. **Lessons between siblings.** Findings had to be relayed by hand — that
+   `TaskStop` does not kill a container process, that counts and even natural
+   keys survive a truncate-and-reseed so only surrogate keys discriminate, that
+   `nullable: false` on a many-to-many join column is a silent no-op. Each
+   reached later agents only because someone remembered to forward it.
+4. **Merge ordering.** Every merge invalidates the gates of everything behind
+   it, so the order determines how much re-work the wave costs. It was chosen by
+   hand each time.
+
+What would have helped most, in rough value order: a machine-readable per-branch
+state (synced/gated/reviewed/blocked-on) rather than prose; explicit dependency
+and conflict edges between branches, since the deletion paths and one template
+were touched by four branches each; and a shared findings log that new agents
+read on start instead of being told.
+
+Worth weighing against building anything: much of the pain was a single shared
+php-fpm pool, now fixed, and the rest may dissolve if agents move to their own
+containers — see 'Give each agent its own container in the cloud instead of
+sharing one dev stack'. Build the coordination layer only for what survives that.
 
 ## Shrink the e2e suite and push its assertions down to functional tests
 
