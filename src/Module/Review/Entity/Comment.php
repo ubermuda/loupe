@@ -22,11 +22,20 @@ class Comment
     #[ORM\Id]
     public private(set) ?Uuid $id = null;
 
-    #[ORM\Column]
-    public bool $resolved = false;
+    /**
+     * Status is a property of the thread, carried by its root comment. On a reply
+     * it stays at its default and is not the thread's status — read $threadStatus.
+     */
+    #[ORM\Column(length: 20, enumType: CommentStatus::class)]
+    public CommentStatus $status = CommentStatus::Pending;
 
     #[ORM\Column]
     public bool $orphaned = false;
+
+    /** The status of the thread this comment belongs to. */
+    public CommentStatus $threadStatus {
+        get => null !== $this->parent ? $this->parent->status : $this->status;
+    }
 
     public function __construct(
         #[ORM\JoinColumn(nullable: false)]

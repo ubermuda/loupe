@@ -7,6 +7,7 @@ namespace App\Tests\Module\Review\Query;
 use App\Module\Account\Entity\User;
 use App\Module\Project\Entity\Project;
 use App\Module\Review\Entity\Comment;
+use App\Module\Review\Entity\CommentStatus;
 use App\Module\Review\Entity\Document;
 use App\Module\Review\Entity\Review;
 use App\Module\Review\Entity\Verdict;
@@ -97,7 +98,7 @@ final class GetReviewTest extends KernelTestCase
         $root = $comments[0];
         self::assertSame('JWTs', $root['quote']);
         self::assertSame('Why JWTs? Consider opaque tokens.', $root['body']);
-        self::assertFalse($root['resolved']);
+        self::assertSame('pending', $root['status']);
         self::assertFalse($root['orphaned']);
 
         // The reply must appear in thread, not at the top level.
@@ -105,8 +106,26 @@ final class GetReviewTest extends KernelTestCase
         $replyData = $root['thread'][0];
         self::assertSame('JWTs', $replyData['quote']);
         self::assertSame('JWTs allow stateless auth which suits the agent use-case.', $replyData['body']);
-        self::assertFalse($replyData['resolved']);
+        self::assertArrayNotHasKey('status', $replyData, 'Status belongs to the thread, so a reply carries none');
         self::assertFalse($replyData['orphaned']);
+    }
+
+    public function test_a_thread_reports_the_status_held_by_its_root(): void
+    {
+        $doc = new Document(owner: $this->owner, project: $this->project, title: 'Addressed PRD');
+        $version = $doc->addVersion('Use JWTs.', '<p>Use JWTs.</p>');
+
+        $root = new Comment($version, $this->owner, 'Why JWTs?', new Anchor('JWTs', 'Use ', '.', 4));
+        $root->status = CommentStatus::Addressed;
+
+        $this->em->persist($doc);
+        $this->em->persist($root);
+        $this->em->flush();
+
+        $comments = ($this->getReview)($doc)['comments'];
+
+        self::assertCount(1, $comments);
+        self::assertSame('addressed', $comments[0]['status']);
     }
 
     public function test_quotes_are_widened_to_whole_words(): void

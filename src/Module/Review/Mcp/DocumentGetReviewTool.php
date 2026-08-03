@@ -26,7 +26,10 @@ final readonly class DocumentGetReviewTool
      *
      * `verdict` is null when no review has been submitted for the current version yet
      *
-     * @return array{status: string, verdict: string|null, version: int, comments: list<array{quote: string, body: string, resolved: bool, orphaned: bool, thread: list<array{quote: string, body: string, resolved: bool, orphaned: bool}>}>}
+     * A comment's `status` is one of pending, addressed or resolved and belongs to the whole
+     * thread, so only the root comment reports it
+     *
+     * @return array{status: string, verdict: string|null, version: int, comments: list<array{quote: string, body: string, status: string, orphaned: bool, thread: list<array{quote: string, body: string, orphaned: bool}>}>}
      */
     public function __invoke(string $documentId): array
     {

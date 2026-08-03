@@ -1119,8 +1119,8 @@ becomes considerably more useful once humans are producing versions too.
 **Author:** Geoffrey · **Type:** feature · **Priority:** medium · **Status:** pending
 
 Every review comment is untyped prose. `Module/Review/Entity/Comment` carries a
-free-text `body`, an `Anchor`, `resolved`/`orphaned` flags and an optional
-`parent` for replies — and nothing else. So "delete this paragraph" and "reword
+free-text `body`, an `Anchor`, a thread `status`, an `orphaned` flag and an
+optional `parent` for replies — and nothing else. So "delete this paragraph" and "reword
 this as X" have to be written out longhand and then applied by hand by whoever
 owns the document, which is slow for the reviewer and lossy for the author.
 
@@ -1556,35 +1556,6 @@ still all talk to the shared instance. Interacts with "Decide fate of
 PlaywrightSyncEmailMiddleware": if Playwright-headed requests ever deliver mail
 synchronously, the worktree-scoped worker requirement for mail specs goes away,
 but the Mailpit isolation problem does not.
-
-## Resolution state is denormalised across every comment in a thread
-
-
-
-**Author:** Geoffrey · **Type:** bug · **Priority:** low · **Status:** pending
-
-Owner note (2026-07-26, reviewing the resolved-threads fix): would it be
-simpler if `resolved` lived on the thread rather than on each message inside
-it?
-
-Today `resolved` is a column on `Comment`, so every row in a thread carries its
-own flag. `ResolveCommentHandler` cascades the root's value to its direct
-replies, because `findOpenByVersion()` selects on `resolved = false` and
-unresolved replies of a resolved thread would otherwise be copied onto the next
-version as fresh top-level threads. The alternative shape — leave the flag on
-the root only and have the open-set query exclude comments whose thread root is
-resolved — models it as a thread-level property and removes the duplication.
-
-Not urgent: there is no UI path to resolve a reply independently (the Resolve
-button renders only on the root in
-`templates/Module/Review/components/CommentThread.html.twig`), so the replies' own flags are
-redundant rather than contradictory. It becomes a real problem if per-message
-resolution is ever added, at which point the two representations can disagree.
-
-Touches `findOpenByVersion()`, the re-anchoring copy in `ReanchoringService`,
-and the `resolved` field in the `get_review` MCP payload — replies of a
-resolved thread currently report `resolved: true` there, which is an
-externally-visible contract.
 
 ## Deleting an API token (as distinct from revoking it)
 

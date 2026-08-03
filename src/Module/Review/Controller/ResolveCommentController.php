@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Module\Review\Controller;
 
 use App\Controller\AppController;
+use App\Exception\DomainErrors;
 use App\Module\Review\Command\ResolveCommentCommand;
 use App\Module\Review\Command\ResolveCommentHandler;
 use App\Module\Review\Entity\Comment;
@@ -14,6 +15,7 @@ use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
+use Symfony\Contracts\Translation\TranslatorInterface;
 use Symfony\UX\Turbo\TurboBundle;
 use Ubermuda\SymfonyExtra\Csrf\Attribute\CsrfToken;
 
@@ -33,6 +35,7 @@ final class ResolveCommentController extends AppController
     public function __construct(
         private readonly ResolveCommentHandler $resolveCommentHandler,
         private readonly CommentRepository $comments,
+        private readonly TranslatorInterface $translator,
     ) {
     }
 
@@ -40,9 +43,22 @@ final class ResolveCommentController extends AppController
     {
         $version = $comment->version;
 
-        ($this->resolveCommentHandler)(new ResolveCommentCommand(
-            comment: $comment,
-        ));
+        try {
+            ($this->resolveCommentHandler)(new ResolveCommentCommand(
+                comment: $comment,
+            ));
+        } catch (DomainErrors $e) {
+            foreach ($e->errors as $translationKey) {
+                $this->addFlash('error', $this->translator->trans($translationKey));
+            }
+
+            // Redirect rather than stream: the flash lives outside #comment-threads,
+            // so a stream replacing that region alone would swallow the message.
+            return $this->redirectToRoute('app_document_review', [
+                'projectId' => (string) $version->document->project->id,
+                'documentId' => (string) $version->document->id,
+            ]);
+        }
 
         if (TurboBundle::STREAM_FORMAT !== $request->getPreferredFormat()) {
             return $this->redirectToRoute('app_document_review', [

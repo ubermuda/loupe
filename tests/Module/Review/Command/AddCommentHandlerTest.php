@@ -12,6 +12,7 @@ use App\Module\Review\Command\AddCommentHandler;
 use App\Module\Review\Command\CreateDocumentCommand;
 use App\Module\Review\Command\CreateDocumentHandler;
 use App\Module\Review\Entity\Comment;
+use App\Module\Review\Entity\CommentStatus;
 use App\Module\Review\Form\AddCommentFormType;
 use App\Module\Review\Form\AddCommentRequest;
 use App\Module\Review\Service\AnchorService;
@@ -48,7 +49,7 @@ final class AddCommentHandlerTest extends KernelTestCase
 
         self::assertInstanceOf(Comment::class, $comment);
         self::assertSame($version, $comment->version);
-        self::assertFalse($comment->resolved);
+        self::assertSame(CommentStatus::Pending, $comment->status);
         self::assertSame($owner, $comment->author);
         self::assertSame('Great point!', $comment->body);
 

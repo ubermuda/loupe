@@ -24,7 +24,8 @@ final readonly class GetReview
      * Returns the review state for the current version of an already-authorized document.
      *
      * Comments are grouped into threads: the top-level list contains only root comments (no parent);
-     * each root comment carries its direct replies in the `thread` key.
+     * each root comment carries its direct replies in the `thread` key. Only the root reports a
+     * `status` — it is a property of the thread, and a reply has none of its own.
      *
      * Each reported `quote` is widened to whole words (see snapToWordEdges) so a reader
      * doesn't have to guess which sentence a mid-word excerpt came from.
@@ -33,7 +34,7 @@ final readonly class GetReview
      *     status: string,
      *     verdict: string|null,
      *     version: int,
-     *     comments: list<array{quote: string, body: string, resolved: bool, orphaned: bool, thread: list<array{quote: string, body: string, resolved: bool, orphaned: bool}>}>
+     *     comments: list<array{quote: string, body: string, status: string, orphaned: bool, thread: list<array{quote: string, body: string, orphaned: bool}>}>
      * }
      */
     public function __invoke(Document $document): array
@@ -65,7 +66,6 @@ final readonly class GetReview
                 static fn (Comment $reply) => [
                     'quote' => self::snapToWordEdges($reply->anchor),
                     'body' => $reply->body,
-                    'resolved' => $reply->resolved,
                     'orphaned' => $reply->orphaned,
                 ],
                 $replies,
@@ -74,7 +74,7 @@ final readonly class GetReview
             $threadedComments[] = [
                 'quote' => self::snapToWordEdges($comment->anchor),
                 'body' => $comment->body,
-                'resolved' => $comment->resolved,
+                'status' => $comment->threadStatus->value,
                 'orphaned' => $comment->orphaned,
                 'thread' => array_values($thread),
             ];
