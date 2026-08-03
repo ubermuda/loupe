@@ -6,13 +6,10 @@ namespace App\Module\Review\Command;
 
 use App\Module\Review\Entity\Document;
 
-final readonly class ReviseDocumentCommand
+final readonly class ArchiveDocumentCommand
 {
     public function __construct(
         public Document $document,
-        public string $markdown,
-        public string $description,
-        public ?string $title = null,
     ) {
     }
 }

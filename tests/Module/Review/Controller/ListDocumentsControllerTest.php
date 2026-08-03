@@ -192,6 +192,122 @@ final class ListDocumentsControllerTest extends WebTestCase
         self::assertResponseRedirects('/projects/'.$projectId.'/documents?page=1');
     }
 
+    public function test_archived_documents_drop_out_of_the_list_until_the_filter_is_on(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+
+        $alice = $this->createUser($em, 'alice-archive', 'alice-archive@example.com');
+        $project = $this->project($em, $alice);
+        $live = $this->document($em, $alice, $project, 'Still open');
+        $archived = $this->document($em, $alice, $project, 'Put away');
+        $archived->archivedAt = new \DateTimeImmutable();
+
+        $em->flush();
+        $projectId = (string) $project->id;
+        $liveId = (string) $live->id;
+        $archivedId = (string) $archived->id;
+        $em->clear();
+
+        $client->loginUser($alice);
+        // Asserted on the row hook rather than the page text: a title appearing
+        // in a flash or a tooltip would satisfy a whole-body search without the
+        // document being listed at all.
+        $crawler = $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/documents');
+
+        self::assertResponseIsSuccessful();
+        self::assertCount(1, $crawler->filter('[data-document-id="'.$liveId.'"]'));
+        self::assertCount(0, $crawler->filter('[data-document-id="'.$archivedId.'"]'));
+
+        $crawler = $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/documents?archived=1');
+
+        self::assertResponseIsSuccessful();
+        self::assertCount(1, $crawler->filter('[data-document-id="'.$liveId.'"]'));
+        self::assertCount(1, $crawler->filter('[data-document-id="'.$archivedId.'"]'));
+        self::assertSelectorTextContains('[data-document-id="'.$archivedId.'"] .lp-document-row__archived', 'Archived');
+    }
+
+    public function test_the_sidebar_and_project_card_counts_exclude_archived_documents(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+
+        $alice = $this->createUser($em, 'alice-counts', 'alice-counts@example.com');
+        $project = $this->project($em, $alice);
+        $this->document($em, $alice, $project, 'Still open');
+        $this->document($em, $alice, $project, 'Also open');
+        $put = $this->document($em, $alice, $project, 'Put away');
+        $put->archivedAt = new \DateTimeImmutable();
+
+        $em->flush();
+        $projectId = (string) $project->id;
+        $em->clear();
+
+        $client->loginUser($alice);
+
+        // The nav pill sits directly above the list; three documents exist and
+        // two are listed, so the pill must read 2.
+        $crawler = $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/documents');
+        self::assertResponseIsSuccessful();
+        self::assertCount(2, $crawler->filter('[data-document-id]'));
+        self::assertSame('2', trim($crawler->filter('.lp-sidebar__pill')->first()->text()));
+
+        // Same number on the project card.
+        $client->request(Request::METHOD_GET, '/projects');
+        self::assertResponseIsSuccessful();
+        self::assertSelectorTextContains('[data-project-id="'.$projectId.'"] .lp-project-row__meta', '2 documents');
+    }
+
+    public function test_the_filter_bar_survives_an_empty_list(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+
+        $alice = $this->createUser($em, 'alice-empty', 'alice-empty@example.com');
+        $project = $this->project($em, $alice);
+        $em->flush();
+        $projectId = (string) $project->id;
+        $em->clear();
+
+        $client->loginUser($alice);
+        // With no documents at all the list is empty; the filter must still be
+        // on screen, or a filter that matched nothing would be unturn-off-able.
+        $crawler = $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/documents?archived=1');
+
+        self::assertResponseIsSuccessful();
+        self::assertCount(1, $crawler->filter('.lp-list-filters .lp-filter-chip'));
+    }
+
+    public function test_the_filter_survives_the_clamp_redirect_and_the_pagination_links(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+
+        $alice = $this->createUser($em, 'alice-filter-page', 'alice-filter-page@example.com');
+        $project = $this->project($em, $alice);
+        for ($i = 0; $i < 21; ++$i) {
+            $this->document($em, $alice, $project, 'Doc '.$i);
+        }
+        $em->flush();
+        $projectId = (string) $project->id;
+        $em->clear();
+
+        $client->loginUser($alice);
+
+        $crawler = $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/documents?archived=1');
+        self::assertResponseIsSuccessful();
+        // The next-page arrow and the "2" both point at it; what matters is that
+        // neither dropped the filter.
+        self::assertGreaterThan(
+            0,
+            $crawler->filter('.lp-pagination a[href="/projects/'.$projectId.'/documents?page=2&archived=1"]')->count(),
+        );
+        self::assertCount(0, $crawler->filter('.lp-pagination a[href="/projects/'.$projectId.'/documents?page=2"]'));
+
+        $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/documents?page=9&archived=1');
+        self::assertResponseRedirects('/projects/'.$projectId.'/documents?page=2&archived=1');
+    }
+
     public function test_non_owner_cannot_view_a_projects_dashboard(): void
     {
         $client = static::createClient();

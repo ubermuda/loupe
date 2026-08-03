@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace App\Module\Review\Twig;
 
 use App\Module\Review\Entity\Comment;
+use App\Module\Review\Entity\Document;
+use App\Module\Review\Form\ArchiveDocumentFormType;
 use App\Module\Review\Form\ReplyFormType;
 use App\Module\Review\Form\ReplyRequest;
 use Symfony\Component\Form\FormFactoryInterface;
@@ -33,6 +35,7 @@ final class ReviewExtension extends AbstractExtension
     {
         return [
             new TwigFunction('comment_reply_form', $this->commentReplyForm(...)),
+            new TwigFunction('document_archive_form', $this->documentArchiveForm(...)),
         ];
     }
 
@@ -87,5 +90,42 @@ final class ReviewExtension extends AbstractExtension
     public static function replyFormName(Comment $comment): string
     {
         return 'reply_'.$comment->id?->toBase32();
+    }
+
+    /**
+     * The archive control for one row of the documents list, pointed at whichever
+     * of the two routes the document's current state calls for.
+     *
+     * The list state rides on the action URL so the redirect afterwards returns
+     * to the page and filter the reader submitted from.
+     *
+     * @param array<string, int|string> $listParams
+     */
+    public function documentArchiveForm(Document $document, array $listParams = []): FormView
+    {
+        $route = null === $document->archivedAt ? 'app_document_archive' : 'app_document_unarchive';
+
+        return $this->formFactory->createNamed(
+            self::archiveFormName($document),
+            ArchiveDocumentFormType::class,
+            null,
+            [
+                'action' => $this->urlGenerator->generate($route, [
+                    'projectId' => (string) $document->project->id,
+                    'documentId' => (string) $document->id,
+                    ...$listParams,
+                ]),
+                'method' => 'POST',
+            ],
+        )->createView();
+    }
+
+    /**
+     * One name per document rather than one for the whole list: the rendered
+     * token input would otherwise repeat the same DOM id on every row.
+     */
+    public static function archiveFormName(Document $document): string
+    {
+        return 'archive_document_'.$document->id?->toBase32();
     }
 }

@@ -90,4 +90,29 @@ final class DocumentVersionRepositoryTest extends KernelTestCase
     {
         self::assertSame([], $this->documentVersions->findLatestMetaByDocuments([]));
     }
+
+    public function test_find_all_meta_by_document_carries_each_versions_description(): void
+    {
+        $owner = new User(username: 'dv-owner3', fullName: 'DV Owner 3', email: 'dv-owner3@example.com', password: 'x');
+        $this->em->persist($owner);
+        $project = new Project($owner, 'p-'.uniqid());
+        $this->em->persist($project);
+
+        $doc = new Document(owner: $owner, project: $project, title: 'Described history');
+        $doc->addVersion('# v1', '<h1>v1</h1>', 'The original brief.');
+        $doc->addVersion('# v2', '<h1>v2</h1>');
+        $this->em->persist($doc);
+        $this->em->flush();
+        $this->em->clear();
+
+        $fetched = $this->em->find(Document::class, $doc->id);
+        self::assertInstanceOf(Document::class, $fetched);
+
+        $meta = $this->documentVersions->findAllMetaByDocument($fetched);
+
+        // Newest first.
+        self::assertSame([2, 1], array_column($meta, 'versionNumber'));
+        self::assertNull($meta[0]['description']);
+        self::assertSame('The original brief.', $meta[1]['description']);
+    }
 }

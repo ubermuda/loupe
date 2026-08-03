@@ -208,24 +208,25 @@ submits to the server, so making search real needs backend work: a query param o
 the documents controller and a repository filter (title contains, status equals,
 tag in). Tag filtering further depends on the not-yet-built tag entity.
 
-There is **no existing header to wire this into**. An earlier version of this
-entry said to extend the one on `.bp-doc-list`; that prefix was renamed to `lp-`,
-and `.lp-doc-list` is dead CSS with no template consumers. The live list is
-`.lp-document-list` in `templates/Module/Review/list_documents.html.twig`, and it
-has no toolbar or filter region at all — this work creates one.
+The filter bar now exists: `.lp-list-filters` in
+`templates/Module/Review/list_documents.html.twig`, sitting outside the
+`{% if items|length > 0 %}` block, carrying the archived filter. Add search and
+status/tag filters to it rather than building a second one.
 
 Three things that will bite whoever picks it up:
 
-- `ListDocumentsController` reads only the `page` query param, and its
-  out-of-range clamp redirect rebuilds the URL with `id` and `page` alone. Any
-  filter param not threaded through that `redirectToRoute` — and through
-  `routeParams` on the `Pagination` component — vanishes silently.
-- The filter bar must sit outside the `{% if items|length > 0 %}` block, or it
-  disappears as soon as a filter matches nothing and the screen becomes a dead
-  end. The empty-state copy (`review.dashboard.empty`, "No documents yet.") is
-  worded for "no documents at all" and will read wrong for "nothing matched".
+- Every filter param must be threaded through `App\Module\Review\View\DocumentListQuery`
+  — its `routeParams()` is what the clamp redirect, the `Pagination` component's
+  `routeParams`, the rename link and the archive actions all merge. A filter read
+  straight off the request and not added there vanishes from whichever of those
+  four forgets it.
+- The empty-state copy (`review.dashboard.empty`, "No documents yet.") is worded
+  for "no documents at all". The archived filter can only widen the list so it
+  never needs different copy, but a search or status filter can match nothing —
+  that needs a second key chosen by whether any filter is narrowing.
 - `findPaginatedByProject()` is shared by this controller and the MCP document
-  listing, so an added filter argument must be optional or both callers change.
+  listing, so an added filter argument must be optional or both callers change
+  (`$includeArchived` is the existing example).
 
 Note the list already issues one `countOpenByVersion()` query per row; adding
 per-row tag lookups without batching would compound an existing N+1.
@@ -370,34 +371,6 @@ this repo's `gamache.php` (rule classes must not be added directly here).
 
 Generalises past worktrees — every `project-*` skill cites recipes and paths,
 and all of them rot the same way.
-
-## MCP: `revise_document` cannot update the title
-
-
-
-**Author:** Geoffrey · **Type:** feature · **Priority:** medium · **Status:** pending
-
-Found while dogfooding the nine-features design review: the review scope grew
-from eight to nine features, but `revise_document` only accepts `markdown` —
-the title set at `create_document` time is frozen. The document is now titled
-"Eight features — design spec" while its content says nine. Add an optional
-`title` parameter to `revise_document` (and consider surfacing title history
-alongside version history).
-
-Hit again on 2026-08-01, submitting five blog drafts one document per draft:
-two were titled "Post 5 — …" / "Post 6 — …" and three were given bare titles,
-and there was no way to make the naming consistent afterwards. Worth noting
-what makes this worse than an annoyance — there is no delete route for a
-document either (`debug:router` lists only list, review, version, comment-add
-and submit), so a document created with the wrong title cannot be renamed *or*
-removed. The only recourse is creating a replacement and leaving the original
-in the project's list forever, which is why this is worth more than its
-"cosmetic" appearance.
-
-An agent submitting a batch of related documents is the case that exposes it,
-so the fix is worth scoping as "rename", not just "revise with a title":
-whatever the MCP gains, an agent needs to be able to correct a naming scheme
-across several already-created documents.
 
 ## ProjectDeleter misreports a stale entity when looped without clearing
 
@@ -1010,8 +983,7 @@ posts, that both belong to one series, or that some are drafts and some are
 outlines. The only structure available was baking it into the titles by hand
 ("Post 5 — …", "Thread 5 — …"), which is a naming convention pretending to be
 a data model: nothing enforces it, nothing can filter on it, and it breaks the
-moment a title is wrong (and titles cannot be corrected — see "MCP:
-`revise_document` cannot update the title").
+moment a title is wrong.
 
 **Decision needed** — what the organizing primitive should be:
 
@@ -1091,9 +1063,8 @@ versioning would make the version list useless, so some form of draft state is
 probably needed. And who may edit: today authorship is implicit in whoever's
 agent token created the document, and there is no edit permission modelled.
 
-Doing this also closes "MCP: `revise_document` cannot update the title" from the
-UI side, though not for agents. Related: "Review UI: version diff view", which
-becomes considerably more useful once humans are producing versions too.
+Related: "Review UI: version diff view", which becomes considerably more useful
+once humans are producing versions too.
 
 ## Review comments should be able to express an edit, not just describe one
 
@@ -1196,9 +1167,114 @@ merge-conflict surface when several branches are in flight, and rewriting 25
 lines across it would have collided with every sibling. The fix is a docs-only
 commit straight to `main` once the current wave has merged.
 
-One of the stale names is a heading — `## MCP: \`revise_document\` cannot update
-the title` — and two other entries cross-reference it by that exact title, so
-retitling it means updating those references in the same pass.
+No stale name is a heading any more, so this is a body-text pass only.
+
+## Archiving a document stays a human action — no `document_archive` MCP tool
+
+**Author:** Geoffrey · **Type:** docs · **Priority:** medium · **Status:** pending
+
+Decided while building archiving (2026-08-02): the MCP gets no tool that sets
+archive state, and the asymmetry is deliberate rather than an omission someone
+should later "complete".
+
+What the agent *can* do: `document_list` takes `includeArchived` and returns an
+`archived` flag per row, and `document_get` reports `archived` too. So an agent
+can see archive state and filter on it — enough to avoid revising a document
+the human has put away, and enough to explain why one is missing from a
+default listing.
+
+What it cannot do is set it. Archiving is what decides which documents a human
+sees on their own dashboard, which makes it curation rather than authoring, and
+the party whose work is being reviewed should not be the party that can take a
+document out of the reviewer's list. The sharp version: an agent that can
+archive can make its own mistakes disappear.
+
+`ArchiveDocumentHandler` and `UnarchiveDocumentHandler` are ordinary handlers
+with no MCP tool wired to them, so exposing this later is a small change — but
+it needs a decision reversing the one above, not just the observation that the
+handlers already exist.
+
+Related: "Edit a document in the app, not only through an agent", which is the
+same question from the other side (what a *human* may do to a document the
+agent authored).
+
+## Two patterns now exist for fieldless POST actions — converge them
+
+**Author:** Claude · **Type:** tooling · **Priority:** medium · **Status:** pending
+
+Archiving and unarchiving a document were converted (2026-08-02, review comment
+on pull request #118) from a hand-written `<form>` plus
+`#[CsrfToken('document-archive')]` to a real Symfony form —
+`Module/Review/Form/ArchiveDocumentFormType`, built per row by
+`ReviewExtension::documentArchiveForm()` and rebuilt by name in the controller,
+with the form component issuing and checking the token. The
+`document-archive` entry came out of `config/packages/csrf.yaml` with it.
+
+Four controllers still use the pattern that replaced:
+
+- `Module/Review/Controller/DeleteCommentController` and `ResolveCommentController`
+  (`comment-action`), submitted from `templates/Module/Review/components/CommentThread.html.twig`
+- `Module/SiteReview/Controller/ReopenSiteReviewCommentController` and
+  `ResolveSiteReviewCommentController` (`site-review-comment-action`), submitted
+  from `templates/Module/SiteReview/show_site_review.html.twig`
+
+They were left alone deliberately — they were outside the branch that made the
+change — so the divergence is known rather than accidental. But it is still two
+ways to write one shape of action in the same module, and the next fieldless
+POST has no obvious precedent to copy.
+
+**Decision needed** — which way to converge:
+
+1. Convert the four to Symfony forms, matching archive (recommended: the form
+   component already owns CSRF, so `stateless_token_ids` shrinks toward holding
+   only the genuinely form-less endpoints, and there is now a worked example
+   including the per-row `createNamed` naming).
+2. Keep `#[CsrfToken]` for fieldless actions and revert archive to it, treating
+   "a form with no fields" as ceremony not worth the indirection.
+
+Whichever is chosen, `SubmitReviewController` (`submit-review`) is **not** part
+of this: it submits a verdict value, so it is not the fieldless shape.
+
+One thing the conversion surfaced that the attribute form hides: a per-row
+fieldless form still needs a unique name (`createNamed`), or every row renders
+the same DOM id on its hidden token input.
+
+## MCP tools flatten field-level errors into one string for agents
+
+**Author:** Geoffrey · **Type:** feature · **Priority:** medium · **Status:** pending
+
+Error reporting to agents is thinner than what the app already knows. When a
+handler rejects an MCP call it throws `DomainErrors`, which is a map of field
+name to reason — `['title' => 'review.rename.error.too_long']`.
+`Module/Review/Mcp/ToolCallErrorMessages` then collapses that map to a single
+English sentence and throws it as a `ToolCallException`, so the agent learns
+that something was wrong but not *which argument* was wrong. With one failing
+field that is merely lossy; with two it is actively unhelpful, because the
+agent has to guess which of its arguments to change. Tools that validate at
+their own boundary (the markdown size cap) hand-roll their message separately,
+so there is no single shape for "your call was rejected, here is why".
+
+The idea worth trying: Symfony's form and validation component already models
+exactly this — a tree of fields, each with its own violations — and the app
+already relies on it for every HTML endpoint. An MCP tool call is a set of
+named arguments, which is the same shape as a submitted form. If a tool's
+arguments were bound and validated the way a form is, the tool could return
+structured per-argument errors instead of a sentence, and the rules would live
+in one place instead of being written twice.
+
+Two facts that constrain any solution, both deliberate today. MCP tools do
+**not** use forms: they are plain invokable classes whose arguments come from
+the JSON-RPC payload, and their argument types and docblocks are what the MCP
+SDK publishes as the tool schema — so anything that binds them must not break
+that schema generation. And `#[IsGranted]` does not fire on them either;
+authorization goes through `ReviewSubjectResolver` plus `McpBoundProjectVoter`
+by explicit call. So this is not "make MCP tools controllers" — it is finding
+which part of the validation machinery can be reused without the HTTP
+scaffolding that surrounds it.
+
+Worth checking what the MCP specification says about structured error payloads
+before designing anything, since the wire format may already have a place to
+put field-level detail.
 
 ## Review anchoring — structural fallback anchor (low priority)
 

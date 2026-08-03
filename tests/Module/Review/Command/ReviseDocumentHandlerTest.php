@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Tests\Module\Review\Command;
 
+use App\Exception\DomainErrors;
 use App\Module\Account\Entity\User;
 use App\Module\Project\Entity\Project;
 use App\Module\Review\Command\CreateDocumentCommand;
@@ -69,7 +70,7 @@ final class ReviseDocumentHandlerTest extends KernelTestCase
         // Revise with new markdown that keeps "JWTs" but removes "rate limiting".
         /** @var ReviseDocumentHandler $reviseHandler */
         $reviseHandler = self::getContainer()->get(ReviseDocumentHandler::class);
-        $summary = $reviseHandler(new ReviseDocumentCommand($doc, 'use JWTs only'));
+        $summary = $reviseHandler(new ReviseDocumentCommand($doc, 'use JWTs only', 'Dropped rate limiting.'));
 
         self::assertSame(1, $summary['carried']);
         self::assertSame(1, $summary['orphaned']);
@@ -146,7 +147,7 @@ final class ReviseDocumentHandlerTest extends KernelTestCase
 
         /** @var ReviseDocumentHandler $reviseHandler */
         $reviseHandler = self::getContainer()->get(ReviseDocumentHandler::class);
-        $summary = $reviseHandler(new ReviseDocumentCommand($doc, 'use JWTs only'));
+        $summary = $reviseHandler(new ReviseDocumentCommand($doc, 'use JWTs only', 'Dropped rate limiting.'));
 
         self::assertSame(0, $summary['carried'], 'a resolved thread (root or reply) must carry nothing forward');
         self::assertSame(0, $summary['orphaned']);
@@ -198,7 +199,7 @@ final class ReviseDocumentHandlerTest extends KernelTestCase
 
         /** @var ReviseDocumentHandler $reviseHandler */
         $reviseHandler = self::getContainer()->get(ReviseDocumentHandler::class);
-        $summary = $reviseHandler(new ReviseDocumentCommand($doc, 'use JWTs only'));
+        $summary = $reviseHandler(new ReviseDocumentCommand($doc, 'use JWTs only', 'Narrowed the token guidance to JWTs.'));
 
         self::assertSame(2, $summary['carried'], 'an addressed thread carries its root and its reply forward');
         self::assertSame(0, $summary['orphaned']);
@@ -252,8 +253,8 @@ final class ReviseDocumentHandlerTest extends KernelTestCase
 
         /** @var ReviseDocumentHandler $reviseHandler */
         $reviseHandler = self::getContainer()->get(ReviseDocumentHandler::class);
-        $reviseHandler(new ReviseDocumentCommand($doc, 'v2 content'));
-        $reviseHandler(new ReviseDocumentCommand($doc, 'v3 content'));
+        $reviseHandler(new ReviseDocumentCommand($doc, 'v2 content', 'Second pass.'));
+        $reviseHandler(new ReviseDocumentCommand($doc, 'v3 content', 'Third pass.'));
 
         $em->clear();
         $freshDoc = $em->find(Document::class, $docId);
@@ -265,5 +266,214 @@ final class ReviseDocumentHandlerTest extends KernelTestCase
         );
 
         self::assertSame([1, 2, 3], $versionNumbers);
+    }
+
+    public function test_revise_stores_the_description_on_the_new_version_only(): void
+    {
+        self::bootKernel();
+        $em = self::getContainer()->get(EntityManagerInterface::class);
+
+        $user = new User(username: 'agent4', fullName: 'Agent', email: 'agent4@example.com', password: 'hashed');
+        $em->persist($user);
+        $project = new Project($user, 'p-'.uniqid());
+        $em->persist($project);
+        $em->flush();
+
+        /** @var CreateDocumentHandler $createHandler */
+        $createHandler = self::getContainer()->get(CreateDocumentHandler::class);
+        $doc = $createHandler(new CreateDocumentCommand($project, 'Described Doc', 'v1 content', 'The original brief.'));
+
+        $docId = $doc->id;
+        self::assertInstanceOf(Uuid::class, $docId);
+
+        /** @var ReviseDocumentHandler $reviseHandler */
+        $reviseHandler = self::getContainer()->get(ReviseDocumentHandler::class);
+        $reviseHandler(new ReviseDocumentCommand($doc, 'v2 content', 'Replaced the rollout section with a phased plan.'));
+
+        $em->clear();
+        $freshDoc = $em->find(Document::class, $docId);
+        self::assertInstanceOf(Document::class, $freshDoc);
+
+        $descriptions = array_map(
+            static fn (DocumentVersion $version): ?string => $version->description,
+            $freshDoc->versions->toArray(),
+        );
+
+        self::assertSame(
+            ['The original brief.', 'Replaced the rollout section with a phased plan.'],
+            $descriptions,
+        );
+    }
+
+    public function test_revise_updates_the_title_when_one_is_given_and_keeps_it_otherwise(): void
+    {
+        self::bootKernel();
+        $em = self::getContainer()->get(EntityManagerInterface::class);
+
+        $user = new User(username: 'agent5', fullName: 'Agent', email: 'agent5@example.com', password: 'hashed');
+        $em->persist($user);
+        $project = new Project($user, 'p-'.uniqid());
+        $em->persist($project);
+        $em->flush();
+
+        /** @var CreateDocumentHandler $createHandler */
+        $createHandler = self::getContainer()->get(CreateDocumentHandler::class);
+        $doc = $createHandler(new CreateDocumentCommand($project, 'Eight features', 'v1 content'));
+
+        $docId = $doc->id;
+        self::assertInstanceOf(Uuid::class, $docId);
+
+        /** @var ReviseDocumentHandler $reviseHandler */
+        $reviseHandler = self::getContainer()->get(ReviseDocumentHandler::class);
+        $reviseHandler(new ReviseDocumentCommand($doc, 'v2 content', 'Added a ninth feature.', 'Nine features'));
+
+        $em->clear();
+        $renamed = $em->find(Document::class, $docId);
+        self::assertInstanceOf(Document::class, $renamed);
+        self::assertSame('Nine features', $renamed->title);
+
+        $reviseHandler(new ReviseDocumentCommand($renamed, 'v3 content', 'Tightened the wording.'));
+
+        $em->clear();
+        $unchanged = $em->find(Document::class, $docId);
+        self::assertInstanceOf(Document::class, $unchanged);
+        self::assertSame('Nine features', $unchanged->title);
+    }
+
+    /**
+     * The guard is the handler's, not any one caller's: an over-long title
+     * reaching the column would abort inside the transaction and discard an
+     * otherwise-correct revision — new version, re-anchored comments and all —
+     * as a database error rather than a field error.
+     */
+    public function test_an_over_long_title_is_rejected_without_adding_a_version(): void
+    {
+        self::bootKernel();
+        $em = self::getContainer()->get(EntityManagerInterface::class);
+
+        $user = new User(username: 'agent6', fullName: 'Agent', email: 'agent6@example.com', password: 'hashed');
+        $em->persist($user);
+        $project = new Project($user, 'p-'.uniqid());
+        $em->persist($project);
+        $em->flush();
+
+        /** @var CreateDocumentHandler $createHandler */
+        $createHandler = self::getContainer()->get(CreateDocumentHandler::class);
+        $doc = $createHandler(new CreateDocumentCommand($project, 'Keep me', 'v1 content'));
+
+        $docId = $doc->id;
+        self::assertInstanceOf(Uuid::class, $docId);
+
+        /** @var ReviseDocumentHandler $reviseHandler */
+        $reviseHandler = self::getContainer()->get(ReviseDocumentHandler::class);
+
+        try {
+            $reviseHandler(new ReviseDocumentCommand(
+                $doc,
+                'v2 content',
+                'Would have been fine.',
+                str_repeat('a', Document::MAX_TITLE_LENGTH + 1),
+            ));
+            self::fail('an over-long title must be rejected');
+        } catch (DomainErrors $e) {
+            self::assertSame(['title' => 'review.rename.error.too_long'], $e->errors);
+        }
+
+        $em->clear();
+        $fresh = $em->find(Document::class, $docId);
+        self::assertInstanceOf(Document::class, $fresh);
+        self::assertSame('Keep me', $fresh->title);
+        self::assertCount(1, $fresh->versions);
+    }
+
+    public function test_a_blank_title_is_rejected(): void
+    {
+        self::bootKernel();
+        $em = self::getContainer()->get(EntityManagerInterface::class);
+
+        $user = new User(username: 'agent7', fullName: 'Agent', email: 'agent7@example.com', password: 'hashed');
+        $em->persist($user);
+        $project = new Project($user, 'p-'.uniqid());
+        $em->persist($project);
+        $em->flush();
+
+        /** @var CreateDocumentHandler $createHandler */
+        $createHandler = self::getContainer()->get(CreateDocumentHandler::class);
+        $doc = $createHandler(new CreateDocumentCommand($project, 'Keep me too', 'v1 content'));
+
+        /** @var ReviseDocumentHandler $reviseHandler */
+        $reviseHandler = self::getContainer()->get(ReviseDocumentHandler::class);
+
+        try {
+            $reviseHandler(new ReviseDocumentCommand($doc, 'v2 content', 'Fine.', '   '));
+            self::fail('a blank title must be rejected');
+        } catch (DomainErrors $e) {
+            self::assertSame(['title' => 'review.rename.error.blank'], $e->errors);
+        }
+
+        self::assertSame('Keep me too', $doc->title);
+    }
+
+    public function test_a_blank_description_is_rejected_without_adding_a_version(): void
+    {
+        self::bootKernel();
+        $em = self::getContainer()->get(EntityManagerInterface::class);
+
+        $user = new User(username: 'agent8', fullName: 'Agent', email: 'agent8@example.com', password: 'hashed');
+        $em->persist($user);
+        $project = new Project($user, 'p-'.uniqid());
+        $em->persist($project);
+        $em->flush();
+
+        /** @var CreateDocumentHandler $createHandler */
+        $createHandler = self::getContainer()->get(CreateDocumentHandler::class);
+        $doc = $createHandler(new CreateDocumentCommand($project, 'Undescribed', 'v1 content'));
+
+        $docId = $doc->id;
+        self::assertInstanceOf(Uuid::class, $docId);
+
+        /** @var ReviseDocumentHandler $reviseHandler */
+        $reviseHandler = self::getContainer()->get(ReviseDocumentHandler::class);
+
+        try {
+            $reviseHandler(new ReviseDocumentCommand($doc, 'v2 content', '   '));
+            self::fail('a blank description must be rejected');
+        } catch (DomainErrors $e) {
+            self::assertSame(['description' => 'review.revise.error.description_blank'], $e->errors);
+        }
+
+        $em->clear();
+        $fresh = $em->find(Document::class, $docId);
+        self::assertInstanceOf(Document::class, $fresh);
+        self::assertCount(1, $fresh->versions);
+    }
+
+    public function test_the_stored_description_and_title_are_trimmed(): void
+    {
+        self::bootKernel();
+        $em = self::getContainer()->get(EntityManagerInterface::class);
+
+        $user = new User(username: 'agent9', fullName: 'Agent', email: 'agent9@example.com', password: 'hashed');
+        $em->persist($user);
+        $project = new Project($user, 'p-'.uniqid());
+        $em->persist($project);
+        $em->flush();
+
+        /** @var CreateDocumentHandler $createHandler */
+        $createHandler = self::getContainer()->get(CreateDocumentHandler::class);
+        $doc = $createHandler(new CreateDocumentCommand($project, 'Untrimmed', 'v1 content'));
+
+        $docId = $doc->id;
+        self::assertInstanceOf(Uuid::class, $docId);
+
+        /** @var ReviseDocumentHandler $reviseHandler */
+        $reviseHandler = self::getContainer()->get(ReviseDocumentHandler::class);
+        $reviseHandler(new ReviseDocumentCommand($doc, 'v2 content', '  Trimmed me.  ', '  Trimmed title  '));
+
+        $em->clear();
+        $fresh = $em->find(Document::class, $docId);
+        self::assertInstanceOf(Document::class, $fresh);
+        self::assertSame('Trimmed title', $fresh->title);
+        self::assertSame('Trimmed me.', $fresh->currentVersion()->description);
     }
 }

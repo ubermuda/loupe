@@ -15,7 +15,7 @@ use Mcp\Exception\ToolCallException;
 /**
  * List documents in the project bound to the authenticated MCP token.
  */
-#[McpTool(name: 'document_list', description: 'List documents in the token\'s project, with their current status and version. Paginated: pass page to walk further, and keep going while hasMore is true.')]
+#[McpTool(name: 'document_list', description: 'List documents in the token\'s project, with their current status and version. Archived documents are omitted unless includeArchived is true. Paginated: pass page to walk further, and keep going while hasMore is true.')]
 final readonly class DocumentListTool
 {
     use ResolvesBoundProject;
@@ -38,9 +38,13 @@ final readonly class DocumentListTool
      * `hasMore` is returned alongside the counts so a caller can walk the whole
      * set without computing page arithmetic itself.
      *
-     * @return array{documents: list<array{documentId: string, title: string, status: string, currentVersion: int}>, page: int, perPage: int, total: int, hasMore: bool}
+     * @param int  $page            The 1-based page to read
+     * @param int  $perPage         How many documents to return per page
+     * @param bool $includeArchived Include archived documents, which are omitted by default
+     *
+     * @return array{documents: list<array{documentId: string, title: string, status: string, currentVersion: int, archived: bool}>, page: int, perPage: int, total: int, hasMore: bool}
      */
-    public function __invoke(int $page = 1, int $perPage = self::DEFAULT_PER_PAGE): array
+    public function __invoke(int $page = 1, int $perPage = self::DEFAULT_PER_PAGE, bool $includeArchived = false): array
     {
         // Clamped rather than rejected: an out-of-range page from an agent
         // should return an empty page, not fail the tool call.
@@ -50,7 +54,7 @@ final readonly class DocumentListTool
         try {
             $project = $this->requireBoundProject($this->projectResolver);
 
-            $paginator = $this->documents->findPaginatedByProject($project, $page, $perPage);
+            $paginator = $this->documents->findPaginatedByProject($project, $page, $perPage, $includeArchived);
             $total = \count($paginator);
 
             /** @var list<Document> $documents */
@@ -67,6 +71,7 @@ final readonly class DocumentListTool
                             'title' => $doc->title,
                             'status' => $doc->status->value,
                             'currentVersion' => $meta['versionNumber'],
+                            'archived' => null !== $doc->archivedAt,
                         ];
                     },
                     $documents,

@@ -12,7 +12,7 @@ use Mcp\Exception\ToolCallException;
 /**
  * Fetch a document's current Markdown source and status by id.
  */
-#[McpTool(name: 'document_get', description: 'Fetch a document\'s current Markdown source, title, status, and version number.')]
+#[McpTool(name: 'document_get', description: 'Fetch a document\'s current Markdown source, title, status, archive state, version number, and that version\'s description.')]
 final readonly class DocumentGetTool
 {
     public function __construct(
@@ -24,7 +24,7 @@ final readonly class DocumentGetTool
     /**
      * @param string $documentId The UUID of the document to retrieve
      *
-     * @return array{documentId: string, title: string, status: string, version: int, markdown: string}
+     * @return array{documentId: string, title: string, status: string, archived: bool, version: int, versionDescription: ?string, markdown: string}
      */
     public function __invoke(string $documentId): array
     {

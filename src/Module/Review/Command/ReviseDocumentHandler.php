@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Module\Review\Command;
 
+use App\Exception\DomainErrors;
+use App\Module\Review\Entity\Document;
 use App\Module\Review\Entity\DocumentStatus;
 use App\Module\Review\Repository\CommentRepository;
 use App\Module\Review\Service\MarkdownRenderer;
@@ -28,7 +30,27 @@ final readonly class ReviseDocumentHandler
     {
         $document = $command->document;
 
-        return $this->em->wrapInTransaction(function () use ($document, $command): array {
+        // Checked before the transaction opens: an over-long title would
+        // otherwise reach Postgres inside wrapInTransaction and roll back the
+        // whole revision — new version, re-anchored comments and all — as a 500
+        // rather than a field error.
+        $description = trim($command->description);
+        if ('' === $description) {
+            throw new DomainErrors(['description' => 'review.revise.error.description_blank']);
+        }
+
+        $title = null === $command->title ? null : trim($command->title);
+        if (null !== $title) {
+            if ('' === $title) {
+                throw new DomainErrors(['title' => 'review.rename.error.blank']);
+            }
+
+            if (mb_strlen($title) > Document::MAX_TITLE_LENGTH) {
+                throw new DomainErrors(['title' => 'review.rename.error.too_long']);
+            }
+        }
+
+        return $this->em->wrapInTransaction(function () use ($document, $command, $description, $title): array {
             // Locks the documents row before anything reads $document->versions, so two
             // concurrent revisions of the same document serialize here instead of both
             // computing the same "next version number" from a collection loaded before
@@ -43,7 +65,14 @@ final readonly class ReviseDocumentHandler
             $newVersion = $document->addVersion(
                 $command->markdown,
                 $this->renderer->render($command->markdown),
+                $description,
             );
+
+            // A revision may also correct the title; leaving it out means "keep
+            // the current one" rather than "clear it".
+            if (null !== $title) {
+                $document->title = $title;
+            }
 
             // Collect all open (unresolved) comments from the previous version. Orphaned-but-
             // unresolved comments are intentionally included so they are re-evaluated against the
