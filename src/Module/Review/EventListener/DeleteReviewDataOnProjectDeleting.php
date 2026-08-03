@@ -10,8 +10,8 @@ use Symfony\Component\EventDispatcher\Attribute\AsEventListener;
 
 /**
  * Bulk-deletes the Review-module subtree of a project in FK order:
- * reviews / comments -> document_versions -> documents. DQL bulk deletes, no
- * entity hydration; runs inside ProjectDeleter's transaction.
+ * reviews / comments / highlights -> document_versions -> documents. DQL bulk
+ * deletes, no entity hydration; runs inside ProjectDeleter's transaction.
  */
 #[AsEventListener]
 final readonly class DeleteReviewDataOnProjectDeleting
@@ -31,6 +31,10 @@ final readonly class DeleteReviewDataOnProjectDeleting
 
         $this->em->createQuery(
             'DELETE App\Module\Review\Entity\Comment c WHERE c.version IN ('.$versionSubselect.')',
+        )->setParameter('project', $event->project)->execute();
+
+        $this->em->createQuery(
+            'DELETE App\Module\Review\Entity\Highlight h WHERE h.version IN ('.$versionSubselect.')',
         )->setParameter('project', $event->project)->execute();
 
         $this->em->createQuery(

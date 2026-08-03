@@ -17,6 +17,10 @@ import { Controller } from '@hotwired/stimulus';
  * Custom Highlight API — no DOM mutation, so `textContent` stays intact) and the
  * thread card is positioned vertically near its anchor. Positioning degrades to
  * normal document flow on any failure.
+ *
+ * The same painting path serves the agent's own marks, which carry an anchor and
+ * nothing else — no body, no thread. They get their own rung and their own colour
+ * so a reviewer can tell the agent's marks from their own at a glance.
  */
 export default class extends Controller {
     static targets = [
@@ -30,6 +34,7 @@ export default class extends Controller {
         'suffix',
         'toolbar',
         'thread',
+        'agentHighlight',
     ];
 
     // Anchor highlight names keyed by a thread's data-anchor-status. Each maps to
@@ -40,6 +45,19 @@ export default class extends Controller {
         addressed: 'lp-anchor-addressed',
         resolved: 'lp-anchor-resolved',
     };
+
+    // Passages the agent flagged as worth reading first. Kept out of
+    // STATUS_HIGHLIGHTS on purpose: that map is keyed by a comment thread's
+    // status, and listing the agent rung there would make its colour reachable
+    // from a data-anchor-status value.
+    static AGENT_HIGHLIGHT = 'lp-agent-highlight';
+
+    // Painting order for overlapping ranges. The API composites highlights by
+    // priority, and without explicit values the winner would be whichever
+    // Highlight happened to be registered last. A human mark outranks an agent
+    // one — a span the reviewer has already commented on is a span they have
+    // read — and the selection being composed right now outranks both.
+    static PRIORITY = { agent: 0, status: 1, active: 2 };
 
     static CONTEXT = 32;
 
@@ -80,6 +98,7 @@ export default class extends Controller {
         }
         this.anchorHighlight?.clear();
         this.activeHighlight?.clear();
+        this.agentHighlight?.clear();
         for (const highlight of Object.values(this.statusHighlights ?? {})) {
             highlight.clear();
         }
@@ -316,8 +335,11 @@ export default class extends Controller {
         if (!this.#highlightsSupported()) {
             return;
         }
+        const priority = this.constructor.PRIORITY;
+
         this.anchorHighlight = new window.Highlight();
         this.activeHighlight = new window.Highlight();
+        this.activeHighlight.priority = priority.active;
         window.CSS.highlights.set('lp-anchor', this.anchorHighlight);
         window.CSS.highlights.set('lp-anchor-active', this.activeHighlight);
 
@@ -328,9 +350,17 @@ export default class extends Controller {
             this.constructor.STATUS_HIGHLIGHTS,
         )) {
             const highlight = new window.Highlight();
+            highlight.priority = priority.status;
             this.statusHighlights[status] = highlight;
             window.CSS.highlights.set(name, highlight);
         }
+
+        this.agentHighlight = new window.Highlight();
+        this.agentHighlight.priority = priority.agent;
+        window.CSS.highlights.set(
+            this.constructor.AGENT_HIGHLIGHT,
+            this.agentHighlight,
+        );
     }
 
     #setActiveHighlight(range) {
@@ -360,6 +390,7 @@ export default class extends Controller {
     #layout() {
         try {
             this.#highlightAnchors();
+            this.#highlightAgentMarks();
         } catch {
             this.anchorHighlight?.clear();
         }
@@ -389,6 +420,32 @@ export default class extends Controller {
             );
             if (range !== null) {
                 highlight.add(range);
+            }
+        }
+    }
+
+    /**
+     * Paints the agent's marks, re-locating each quote with the same #findRange
+     * the comment anchors use.
+     *
+     * The marks are carried by empty elements outside the doc pane rather than by
+     * wrapping the passages themselves: the pane's textContent has to stay
+     * byte-identical to the server's plain-text basis, and any element inserted
+     * into it would shift every anchor offset after it.
+     */
+    #highlightAgentMarks() {
+        if (!this.agentHighlight) {
+            return;
+        }
+        this.agentHighlight.clear();
+        for (const mark of this.agentHighlightTargets) {
+            const range = this.#findRange(
+                mark.dataset.anchorQuote ?? '',
+                mark.dataset.anchorPrefix ?? '',
+                mark.dataset.anchorSuffix ?? '',
+            );
+            if (range !== null) {
+                this.agentHighlight.add(range);
             }
         }
     }

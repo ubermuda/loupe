@@ -151,6 +151,16 @@
     --status-ok-bg: #f0f9f3;
     --status-ok-border: #d4ecdd;
 
+    /* Agent mark (fuchsia) — passages the agent flagged as worth reading first.
+       Deliberately outside the amber/green status ladder, and outside the indigo
+       accent: a reviewer must be able to tell at a glance that a mark came from
+       the agent rather than from their own earlier pass, so the two vocabularies
+       never share a hue. Against every persistent human rung this sits at
+       ΔE2000 >= 22 in normal vision and under simulated deutan, protan and tritan
+       vision alike. */
+    --agent-mark: #b23aa0;
+    --agent-mark-bg: #fbecf7;
+
     /* Dark code block (Connect page .mcp.json) — handoff §5. Intentionally a
        dark component on the otherwise light Connect screen, not a theme. */
     --code-dark-header: #17172a;
@@ -1769,9 +1779,11 @@
    Unlayered so they reliably paint over the rendered prose. The controller
    registers `lp-anchor`/`lp-anchor-active` (never renamed) plus per-status
    highlights (`lp-anchor-pending|addressed|resolved`) and routes each thread's
-   range to the one matching its data-anchor-status. ::highlight() only honours
-   a small set of properties (color, background-color, text-decoration) — the
-   handoff's "2px underline" is expressed with text-decoration, not box-shadow. */
+   range to the one matching its data-anchor-status. `lp-agent-highlight` is
+   separate from that ladder — it carries no comment status and is painted from
+   the agent's own marks. ::highlight() only honours a small set of properties
+   (color, background-color, text-decoration) — the handoff's "2px underline" is
+   expressed with text-decoration, not box-shadow. */
 
 ::highlight(lp-anchor) {
     background-color: var(--status-pending-bg);
@@ -1799,6 +1811,23 @@
     text-decoration-line: underline;
     text-decoration-color: var(--border-strong);
     @apply decoration-1;
+}
+
+/* The agent's own marks. Hue alone would be a weak signal here — ::highlight()
+   grants no border, no icon and no gutter mark, so a reader with a colour vision
+   deficiency would have only the tint to go on. The wavy underline gives the rung
+   a second, non-colour axis: an agent mark is the only one in the document whose
+   underline is not straight. (Verified painting under ::highlight() in Chrome —
+   text-decoration-style and text-underline-offset are honoured, unlike border or
+   box-shadow.) */
+::highlight(lp-agent-highlight) {
+    background-color: var(--agent-mark-bg);
+    color: var(--ink);
+    text-decoration-line: underline;
+    text-decoration-color: var(--agent-mark);
+    text-decoration-style: wavy;
+    text-underline-offset: 3px;
+    @apply decoration-2;
 }
 
 /* ── Keyframes ──────────────────────────────────────────────────────── */

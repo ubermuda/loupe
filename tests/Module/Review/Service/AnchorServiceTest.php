@@ -102,6 +102,41 @@ final class AnchorServiceTest extends TestCase
         self::assertNull($this->service->fromSelection($text, 'short-lived JWTs', 'issue ', ' signed'));
     }
 
+    public function test_from_quote_slices_the_context_the_caller_could_not_supply(): void
+    {
+        // An agent naming a passage has no selection and therefore no context. If
+        // the empty strings it passes were stored as the anchor's context, both
+        // resolvers would lose their only fingerprint for a repeated quote.
+        $text = 'We will issue short-lived JWTs signed with a rotating key.';
+
+        $anchor = $this->service->fromQuote($text, 'short-lived JWTs');
+
+        self::assertNotNull($anchor);
+        self::assertSame('short-lived JWTs', $anchor->quote);
+        self::assertStringEndsWith('issue ', $anchor->prefix);
+        self::assertStringStartsWith(' signed', $anchor->suffix);
+        self::assertSame(mb_strpos($text, 'short-lived JWTs'), $anchor->offsetHint);
+    }
+
+    public function test_from_quote_produces_the_anchor_a_human_selection_would_have(): void
+    {
+        $text = 'We will issue short-lived JWTs signed with a rotating key.';
+        $start = mb_strpos($text, 'short-lived JWTs');
+        self::assertIsInt($start);
+
+        $selected = $this->service->create($text, $start, mb_strlen('short-lived JWTs'));
+        $quoted = $this->service->fromQuote($text, 'short-lived JWTs');
+
+        self::assertEquals($selected, $quoted);
+    }
+
+    public function test_from_quote_returns_null_when_the_passage_is_not_in_the_text(): void
+    {
+        // What an agent quoting its Markdown source hits: the rendered plain text
+        // has no asterisks, so the quote is nowhere to be found.
+        self::assertNull($this->service->fromQuote('We will rotate the key.', '**rotate**'));
+    }
+
     public function test_unanchored_yields_empty_anchor(): void
     {
         $anchor = Anchor::unanchored();
