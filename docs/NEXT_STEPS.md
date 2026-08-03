@@ -1376,6 +1376,41 @@ Fixing it means rendering the unparseable block as literal text (a code block)
 instead of as Markdown, which changes `plainText()` again and so needs a
 re-render; that is why it was left alone rather than done inline.
 
+## An HTML comment inside a raw HTML block still renders as nothing
+
+**Author:** Claude · **Type:** bug · **Priority:** low · **Status:** pending
+
+`<!-- note -->` on its own line renders as a visible annotation. The same
+comment wrapped in a block-level element does not:
+
+```
+<div>
+<!-- note -->
+</div>
+```
+
+CommonMark treats that whole region as one `HtmlBlock`, and
+`HtmlCommentNodeRenderer` only converts literals made up entirely of comments,
+so it declines the node and the default renderer emits the region verbatim. The
+sanitizer then keeps the wrapper — `div`, `span` and `pre` are all allowed — and
+drops the comment, so the reviewer sees an empty box where the note was.
+
+This is an incompleteness in a new capability rather than a regression: before
+this work every HTML comment rendered as nothing, and the shape that motivated
+it (a `<!-- TODO -->` on its own line) does work. The workaround is to unwrap
+the comment.
+
+**Do not fix it by wrapping every comment found anywhere in the literal.** That
+is the obvious change and it is unsafe: a comment inside an attribute value —
+`<a title="<!-- note -->">` — would have the markers substituted inside the
+attribute, and since `a` is allowed to carry `title` they survive sanitization.
+The post-sanitization pass would then insert `<span class="…">` inside the
+quoted value, whose own quote closes the attribute early and lets document
+content add arbitrary attributes to the tag. Telling a comment in text position
+from one in attribute position needs an HTML tokeniser, which is the sanitizer's
+job — so any real fix has to run after sanitization, on parsed markup, rather
+than on the raw literal.
+
 ## Review anchoring — structural fallback anchor (low priority)
 
 
