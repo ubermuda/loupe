@@ -199,7 +199,7 @@ final class ReviseDocumentHandlerTest extends KernelTestCase
 
         /** @var ReviseDocumentHandler $reviseHandler */
         $reviseHandler = self::getContainer()->get(ReviseDocumentHandler::class);
-        $summary = $reviseHandler(new ReviseDocumentCommand($doc, 'use JWTs only'));
+        $summary = $reviseHandler(new ReviseDocumentCommand($doc, 'use JWTs only', 'Narrowed the token guidance to JWTs.'));
 
         self::assertSame(2, $summary['carried'], 'an addressed thread carries its root and its reply forward');
         self::assertSame(0, $summary['orphaned']);
