@@ -42,6 +42,7 @@
         "league/flysystem-bundle": "^3.7",
         "league/oauth2-github": "^3.1",
         "league/oauth2-google": "^5.0",
+        "martin-georgiev/postgresql-for-doctrine": "^4.7",
         "nelmio/security-bundle": "^3.9",
         "nyholm/psr7": "^1.8.2",
         "phpdocumentor/reflection-docblock": "^6.0.3",

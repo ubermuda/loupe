@@ -276,6 +276,49 @@ Worth automating: a lock that a gate run and an e2e run both have to take, so
 this is enforced rather than remembered. Until then it has to be coordinated by
 hand, which does not survive parallel agents. See `docs/AUTOMATIONS.md`.
 
+## Give each agent its own container in the cloud instead of sharing one dev stack
+
+**Author:** Geoffrey · **Type:** tooling · **Priority:** medium · **Status:** pending
+
+Every git worktree gets its own nginx sidecar, database and URL, but they all
+share **one php-fpm container, one Mailpit and one Postgres**. That sharing is
+the root of most of the parallel-work pain, and on 2026-08-03 it cost most of a
+day across nine concurrent branches.
+
+What sharing actually causes, all observed rather than predicted:
+
+- **php-fpm worker exhaustion.** `docker/dev/php-fpm/zz-pm.conf` sets
+  `pm.max_children = 20` with `pm = dynamic` and `pm.start_servers = 4`. One
+  pool serves every worktree plus all e2e traffic. The logs carry both failure
+  modes — 71 "seems busy … 0 idle" spawn-rate warnings and 4 "server reached
+  pm.max_children setting (20)". A request that gets no worker returns nothing:
+  no response body, no fatal, no log line, and a submit button left disabled
+  with no validation error. That signature is documented elsewhere as a
+  cold-cache symptom and has been misattributed that way more than once.
+- **e2e cannot be parallelised at all**, because Mailpit is shared and
+  mail-asserting specs across concurrent runs read each other's messages. That
+  forces `workers: 1` and one branch at a time — roughly 8.5 minutes per branch,
+  which becomes the throughput ceiling for a multi-branch wave.
+- **Any sibling's `just ci` starves an in-flight e2e run**, so gating has to be
+  coordinated by hand. That coordination does not survive parallel agents; it
+  has to be remembered by whoever is orchestrating.
+
+Per-agent containers would remove all three by construction rather than by
+convention, and would also end the class of bug where a stop or a kill reaches
+only the host-side wrapper (see 'Host `pkill` does not kill a process inside the
+php-fpm container').
+
+Worth deciding alongside it: whether the e2e suite still needs to be destructive.
+Today the `install-reset` project truncates every table as its last act, which
+is only tolerable because the target is disposable — see 'A green e2e run leaves
+the worktree database unusable for the next one'.
+
+Cheaper interim step if this stays unbuilt: raise the pool limits. Observed peak
+demand is 17–20 concurrent, so `pm.max_children = 40` with
+`pm.start_servers = 12` and `pm.min_spare_servers = 8` gives headroom for bursts
+without waiting on the spawn rate. That addresses reliability but not
+parallelism.
+
 ## `composer require`/`update` cannot resolve here — anonymous GitHub API rate limiting
 
 **Author:** Claude · **Type:** tooling · **Priority:** high · **Status:** pending
@@ -376,40 +419,317 @@ So the rule generalises past `pkill` to every stop mechanism: **a process
 started inside the container can only be observed and stopped from inside it.**
 Verify with `docker exec … ps aux` after any stop, whatever issued it.
 
-## Dashboard document search + status/tag filtering
+## Set up ADRs and a stated list of architectural priorities
 
+**Author:** Geoffrey · **Type:** docs · **Priority:** medium · **Status:** pending
 
+Two artifacts, one purpose: make architectural judgement explicit and durable
+instead of re-deriving it per decision, per session, per agent.
+
+**Architecture Decision Records** — one short document per significant decision:
+what was chosen, what was rejected, and why. Several decisions made on
+2026-08-03 have their reasoning only in PR comments and code docblocks, where it
+is discoverable by accident at best: adopting
+`martin-georgiev/postgresql-for-doctrine` over four hand-rolled Doctrine
+classes (with the `php: <8.6` bound as an accepted cost); keeping search
+indexing synchronous; resolving a stale decision-form submission by refusing it
+rather than resolving against the version the reviewer saw; and the sanitizer
+moving to an explicit per-element allowlist. Each one is a question that will be
+asked again.
+
+**A stated ranking of architectural priorities** — performance versus
+correctness versus simplicity versus shipping speed, ordered rather than merely
+listed. Every one of them sounds good in isolation; the value is entirely in
+knowing which yields when two collide.
+
+That list is the durable fix for a problem recorded separately in 'The owner
+sets the quality bar, not the agent'. Without it, an agent facing "this is
+technically wrong but nobody would notice" has to either guess or ask every
+time — and guessing has produced both over-engineering and misplaced
+blocking. With it, most of those calls answer themselves and only genuine edge
+cases need escalating.
+
+Worth deciding when writing it: whether ADRs are required for a class of change
+(new dependency, schema change, cross-module boundary) or written on judgement,
+since a process nobody follows is worse than none.
+
+## `just e2e` from a worktree gates the main checkout unless `E2E_BASE_URL` is set
+
+**Author:** Claude · **Type:** tooling · **Priority:** high · **Status:** pending
+
+There are **two** independent fallbacks that both silently point an e2e run away
+from the branch under test, and neither announces itself.
+
+`just e2e-up` resolves its target with
+`git worktree list --porcelain | awk '/^worktree /{print $2; exit}'` — the
+**first** entry, which is always the main checkout — and serves that. This is
+by design and documented. The trap is the consequence: a `just e2e` run started
+from a worktree, without `E2E_BASE_URL`, exercises the main checkout's code and
+**passes while gating none of the branch**. Separately, `playwright.config.ts`
+falls back to `https://loupe.dev.localhost` when `E2E_BASE_URL` is unset, which
+points at the developer's own dev host — and the suite is destructive, so that
+path truncates every table in the working database.
+
+Observed on 2026-08-03: a worktree run "failed" because the rendered page had no
+filter bar at all. It was serving `main`'s template. The failure was only
+noticeable because the branch added visible UI — a branch changing behaviour
+without changing markup would have gone green while testing nothing.
+
+Two fixes worth considering together: make `playwright.config.ts` **throw**
+rather than default when `E2E_BASE_URL` is unset, since a wrong target is worse
+than a refusal; and have `just e2e` detect that it is being run from a worktree
+and either target that worktree or refuse. Until then the only reliable check is
+to prove the target after every run — the worktree database must show the
+`install-reset` truncation while the main `app` database is untouched.
+
+## The owner sets the quality bar, not the agent — say so in the instructions
+
+**Author:** Geoffrey · **Type:** tooling · **Priority:** medium · **Status:** pending
+
+Deciding what is good enough and what has to be exactly right is the owner's
+call. Claude has been making it silently and then presenting the outcome as a
+technical necessity, which removes the decision rather than informing it.
+
+Observed on 2026-08-03, across a wave of nine branches:
+
+- Findings were ranked "must-fix" and "should-fix" and agents were told to block
+  on the former. That ranking is a priority judgement wearing a severity label.
+- A branch's failing e2e run was declared to "outrank the merge queue".
+- Mutation-checking every fix was imposed as a standard rather than offered as
+  an option with a cost.
+- A stale form submission was required to be **refused** rather than resolved
+  against the version the reviewer saw — a product decision about what the user
+  experiences, presented as correctness.
+
+Some of these were probably the right calls. That is not the point: each was a
+choice about how much rigour a given thing deserves, and each was made without
+the person who gets to make it being asked.
+
+What the instructions should ask for: name the severity and the cost of fixing,
+recommend, and let the owner set the bar — especially where the fix is
+expensive, where the defect is unreachable in practice, or where "leave it and
+note it" is a legitimate answer. Reserve blocking language for things that are
+genuinely unsafe to ship, and say plainly when something is a judgement call
+rather than a requirement.
+
+The tell to watch for: describing a preference as though it were a property of
+the code. "This must refuse" and "I think refusing is better, here is the cost
+of each" are different sentences, and only the second leaves the decision where
+it belongs.
+
+Related: 'Update the agent instructions to weigh trade-offs instead of defending
+one option' — the same root, one level up. Inflating an argument defends a
+chosen approach; setting the bar unasked decides whether the approach was even
+needed.
+
+## Update the agent instructions to weigh trade-offs instead of defending one option
+
+**Author:** Geoffrey · **Type:** tooling · **Priority:** medium · **Status:** pending
+
+Claude tends to pick an approach and then argue for it, rather than laying out
+the options with honest costs on each side and letting the reader decide. The
+instructions should push toward the second behaviour explicitly.
+
+The failure is not that the recommendation is usually wrong — it is that the
+*reasoning is inflated to match the conclusion*. A minor downside of the
+rejected option gets described in the register of a serious one, which makes the
+argument unfalsifiable and hides how close the call actually was.
+
+Concrete example from 2026-08-03, on whether document search indexing should be
+synchronous. The measurement settled it easily: 1.07 ms for a typical document,
+109 ms at the 1 MiB input ceiling. "One millisecond, so async adds machinery for
+no gain" is the whole argument. What was written instead was that async would
+introduce "a window where a freshly created document is not yet findable" and a
+"real correctness cost" — for a delay of a second or two, in a document-review
+tool, which nobody would notice. The conclusion was right and the case for it
+was overstated, which is worse than a weaker conclusion honestly argued.
+
+What the instructions should ask for:
+
+1. State the options and what each actually costs, in proportionate language.
+2. Give a recommendation and the confidence behind it, without padding the
+   rejected options' downsides to justify it.
+3. Say plainly when a call is close, or when it rests on taste rather than
+   evidence — "either is fine, I lean X" is a legitimate answer.
+4. Keep the alternatives genuinely available rather than mentioning them as a
+   courtesy before dismissing them.
+
+Related: the existing instruction not to capitulate under pressure. These pull
+in opposite directions and the tension is the point — hold a position against
+disagreement, but do not manufacture support for it.
+
+## A better framework for planning and running multi-branch waves
+
+**Author:** Geoffrey · **Type:** tooling · **Priority:** medium · **Status:** pending
+
+Running nine parallel branches on 2026-08-03 worked, but the coordination lived
+in one session's head and in ad-hoc prose briefs. Everything below is a real
+cost paid that day, not a hypothetical.
+
+What the current approach does not hold:
+
+1. **Queue and gate state.** Which branch is synced, gated, Codex-clean, or
+   holding the exclusive e2e slot existed as prose in a task description. It was
+   correct only because one session kept rewriting it.
+2. **Cross-branch obligations.** "Whichever of these two merges second must wrap
+   the contents panel in `{% if not diffMode %}`" was tracked as a note. Nobody's
+   tests could catch it, and skipping it turned out to produce a hard 500 rather
+   than a cosmetic flaw. A framework should make an obligation like that block
+   the second merge automatically.
+3. **Lessons between siblings.** Findings had to be relayed by hand — that
+   `TaskStop` does not kill a container process, that counts and even natural
+   keys survive a truncate-and-reseed so only surrogate keys discriminate, that
+   `nullable: false` on a many-to-many join column is a silent no-op. Each
+   reached later agents only because someone remembered to forward it.
+4. **Merge ordering.** Every merge invalidates the gates of everything behind
+   it, so the order determines how much re-work the wave costs. It was chosen by
+   hand each time.
+
+What would have helped most, in rough value order: a machine-readable per-branch
+state (synced/gated/reviewed/blocked-on) rather than prose; explicit dependency
+and conflict edges between branches, since the deletion paths and one template
+were touched by four branches each; and a shared findings log that new agents
+read on start instead of being told.
+
+Worth weighing against building anything: much of the pain was a single shared
+php-fpm pool, now fixed, and the rest may dissolve if agents move to their own
+containers — see 'Give each agent its own container in the cloud instead of
+sharing one dev stack'. Build the coordination layer only for what survives that.
+
+## Shrink the e2e suite and push its assertions down to functional tests
+
+**Author:** Geoffrey · **Type:** tooling · **Priority:** medium · **Status:** pending
+
+The e2e suite is 64 specs and cannot be parallelised (shared Mailpit), so it is
+a serial gate every branch queues behind. Most of it is asserting things that do
+not need a browser.
+
+**The discriminating question for each spec: does this assertion depend on a
+real browser?** If it asserts a status code, a redirect, a flash message, or the
+presence of text in rendered HTML, `WebTestCase` does the same thing against the
+same kernel and the same database in milliseconds.
+
+By that test, the bulk of the suite is a candidate — signup, login, remember-me,
+forgot-password, social-login, delete-account, data-export, paywall, waitlist,
+trial-end. These are form-submit-redirect-flash flows whose assertions never
+exercise the browser realism the layer provides.
+
+What genuinely earns e2e is the review UX, and it is the minority: comment
+anchoring through the Selection API, the CSS Custom Highlight rungs and their
+priority resolution, keyboard auto-repeat on the strike shortcut, Turbo stream
+targeting, and focus behaviour during debounced navigation. None of those can be
+asserted without a browser, and each has produced a real defect.
+
+**Mail is not a reason to keep e2e, contrary to the obvious assumption.**
+`Symfony\Bundle\FrameworkBundle\Test\MailerAssertionsTrait` ships with
+framework-bundle and **is currently used in zero tests here**.
+`getMailerMessages()` returns the sent `Message` objects, so a functional test
+can extract a verification or download link from the body and follow it with
+`$client->request()` — the whole round trip, no Mailpit and no browser. Adopting
+it is worth doing on its own merits even if no e2e spec is ever deleted, and it
+removes the shared-Mailpit constraint from the specs that move.
+
+**Do not size this work from the symptom that prompted it.** The complaint was
+that e2e was slow and flaky; that was one php-fpm pool at its ceiling, and after
+raising it the full suite went from ~8.5 minutes to ~3.6 with zero saturation
+warnings. Cutting specs to fix that would be paying twice for the same problem.
+The case for the cut is that fast unit and functional tests catch these defects
+earlier and more precisely — not that the gate is slow.
+
+Two things to protect in any reduction:
+
+1. **Keep at least one real-browser path through each critical flow.** Something
+   has to actually run the application in a browser, or a whole class of defect
+   goes unobserved — the `nullable: false` deprecation flood on the
+   many-to-many join columns surfaced only because a run drove the real app.
+2. **Convert rather than delete.** A spec removed without its assertions
+   reappearing at a lower layer is coverage lost, and the loss is invisible
+   because the suite still passes.
+
+## Reduce how much the test suite logs by default
+
+**Author:** Geoffrey · **Type:** tooling · **Priority:** medium · **Status:** pending
+
+One `just ci` run writes roughly **4.6 MB** to `var/log/test.log`. That is noise
+for the overwhelming majority of runs: nobody reads it, it grows without bound
+across a working day, and it makes the file useless for spotting anything by
+eye. `config/packages/monolog.yaml`'s `when@test` handler is where to change it.
+
+**Do not simply silence it.** On 2026-08-03 that volume was the evidence that
+settled a real question. Doctrine logs a deprecation on *every* mapping read
+when `nullable: false` is set on a many-to-many join column — a no-op annotation
+that becomes a hard error in Doctrine 4, and one that `just ci` cannot fail on.
+Proving a branch was clean of it meant pointing at a 4.6 MB log written by a
+suite that had read every mapping thousands of times and showing it contained
+zero deprecation lines. A quiet log would have made that a much weaker argument,
+and the same shape recurs whenever the question is "did this *not* happen".
+
+So the goal is less volume without losing that capability. Options worth
+weighing rather than a single obvious answer:
+
+1. Keep deprecations and warnings, drop `info`/`debug` — the bulk is almost
+   certainly SQL and request logging, not the lines anyone wants.
+2. Route deprecations to their own file, so the useful signal stays greppable
+   and cheap regardless of what the main handler does.
+3. Make verbosity opt-in for a single run via an env var, so the default is
+   quiet and a session investigating something can turn it back up.
+
+Whichever is chosen, check the change against the case above: reinstate a
+`nullable: false` on a many-to-many join column and confirm the deprecation
+still appears. A logging change that passes its own tests while removing the
+ability to answer "did this not happen" has made things worse.
+
+## Document search stems every document as English
 
 **Author:** Claude · **Type:** feature · **Priority:** medium · **Status:** pending
 
-Deferred from the SaaS visual redesign (visual-only phase). The dashboard mockup
-envisioned a search box + status filter + tag filter, but `autosearch_controller`
-submits to the server, so making search real needs backend work: a query param on
-the documents controller and a repository filter (title contains, status equals,
-tag in). Tag filtering further depends on the not-yet-built tag entity.
+`App\Doctrine\FullTextSearch::CONFIGURATION` is `english`, and both the stored
+vector (`documents.search_vector`, written by
+`App\Module\Review\Service\DocumentSearchIndexer`) and the query
+(`TSMATCH` / `TS_RANK`, from martin-georgiev/postgresql-for-doctrine) use it.
+That is what makes "reviewing" match "review". It is also wrong for every other
+language: a French document is stemmed with English rules, so its own words
+often fail to match themselves.
 
-The filter bar now exists: `.lp-list-filters` in
-`templates/Module/Review/list_documents.html.twig`, sitting outside the
-`{% if items|length > 0 %}` block, carrying the archived filter. Add search and
-status/tag filters to it rather than building a second one.
+Accepted knowingly, because there is nowhere to read a better answer from — a
+`Document` has no locale, and neither does the project or the submitting agent.
+Closing this means deciding where a language comes from first. The options are a
+per-project setting, a per-document one set at `create_document` time, or
+detection at ingest; only then does the column become
+`to_tsvector(<per-row regconfig>, …)`.
 
-Three things that will bite whoever picks it up:
+Whichever is chosen, changing the configuration requires rebuilding every stored
+vector in the same change — a vector stemmed as English and a query parsed as
+French do not meet. The migration that introduced the column
+(`Version20260803015620`) has the backfill statement to copy.
 
-- Every filter param must be threaded through `App\Module\Review\View\DocumentListQuery`
-  — its `routeParams()` is what the clamp redirect, the `Pagination` component's
-  `routeParams`, the rename link and the archive actions all merge. A filter read
-  straight off the request and not added there vanishes from whichever of those
-  four forgets it.
-- The empty-state copy (`review.dashboard.empty`, "No documents yet.") is worded
-  for "no documents at all". The archived filter can only widen the list so it
-  never needs different copy, but a search or status filter can match nothing —
-  that needs a second key chosen by whether any filter is narrowing.
-- `findPaginatedByProject()` is shared by this controller and the MCP document
-  listing, so an added filter argument must be optional or both callers change
-  (`$includeArchived` is the existing example).
+## The documents filter bar reloads the page, which probably drops focus mid-typing
 
-Note the list already issues one `countOpenByVersion()` query per row; adding
-per-row tag lookups without batching would compound an existing N+1.
+**Author:** Claude · **Type:** bug · **Priority:** medium · **Status:** pending
+
+The search box in `templates/Module/Review/list_documents.html.twig` wires
+`input->autosearch#search` on a plain GET form with no `data-turbo-frame`, so the
+300ms debounce fires a Turbo Drive **page visit**. Turbo replaces `document.body`
+on render, so the focused input is destroyed and focus falls back to the body —
+Turbo only restores focus to an `[autofocus]` element. A reader still typing when
+the debounce fires should therefore lose the rest of their keystrokes.
+
+**Unverified in a browser.** The reasoning is from Turbo's render semantics and is
+high confidence, but an attempt to confirm it against a worktree failed for an
+unrelated reason: the stateless double-submit CSRF rejects a login driven through
+the Chrome extension. Confirm before fixing — with Playwright, which does log in
+successfully, asserting `document.activeElement` after the debounce.
+
+Two candidate fixes, both with a catch:
+
+- Conditional `autofocus` on the search input when a term is present. One line,
+  and Turbo re-focuses it after the visit. It also focuses the box on a cold load
+  of a shared search URL, which may or may not be wanted.
+- A `<turbo-frame>` around the results with the form **outside** it, which is why
+  `templates/Module/SiteReview/admin/list_site_review_outbox.html.twig` does not
+  have this problem. The catch here is layout: the page description and the
+  archived chip both change with the filters and are not contiguous with the
+  list, so a frame around the list alone leaves them stale.
 
 ## Site-review: harden Mercure publish against a hung hub (still open)
 
@@ -1172,9 +1492,9 @@ moment a title is wrong.
 **Decision needed** — what the organizing primitive should be:
 
 1. Tags, many-to-many and free-form (recommended: cheapest to build, and
-   "Dashboard document search + status/tag filtering" is already written
-   against a tag entity that does not exist yet, so this unblocks work already
-   scoped).
+   already partly built — a project-scoped `Tag` entity exists, the documents
+   list filters on it, and `create_document` accepts tag names — so this option
+   is mostly a question of whether tags alone are enough).
 2. Categories or folders, one-to-many and hierarchical — better for a series,
    worse for documents that belong to several groupings at once.
 3. Both, as most document tools end up doing.
@@ -2494,48 +2814,23 @@ green for "no errors" would reintroduce exactly the false reassurance the
 check was written to avoid. Related: "Worker heartbeat, so 'is a worker
 running?' can be answered positively".
 
-## MCP: an agent cannot highlight a passage in a document
+## An agent highlight is invisible to a screen reader
 
-**Author:** Geoffrey · **Type:** feature · **Priority:** medium · **Status:** pending
+**Author:** Claude · **Type:** feature · **Priority:** medium · **Status:** pending
 
-Anchoring is one-directional. A human reviewer selects text in the review UI and
-their comment carries the quote, so `get_review` hands the agent an exact
-passage to act on. The agent has no equivalent: `create_document` and
-`revise_document` take whole-document Markdown and nothing else, so an agent
-that wants to point at one sentence can only describe where it is ("line 15",
-"the third paragraph"). The reader then has to find it by hand, and the
-reference goes stale as soon as the document is revised.
+`document_highlight` marks passages through the CSS Custom Highlight API, which
+paints without touching the DOM — deliberately, because the review pane's
+`textContent` must stay identical to `DocumentVersion::plainText()` or every
+anchor offset shifts. The cost is that the mark carries no semantics: it has no
+element, no role and no accessible name, so a reviewer using a screen reader is
+told nothing about which passages the agent flagged. The carriers themselves
+(`templates/Module/Review/show_document.html.twig`, the
+`data-comment-anchor-target="agentHighlight"` spans) are empty and hidden.
 
-Surfaced on 2026-08-01 while revising a blog post through the MCP: reporting
-which sentences had been rewritten, and which were deliberately left alone,
-needed line numbers that mean nothing in the rendered review UI.
-
-Wanted: a way for the agent to attach a highlight to a quoted span. **The
-purpose is directing attention** (owner clarification, 2026-08-02): the agent
-marks the passages it judges most important so the reviewer reads those first,
-rather than flagging its own uncertainty. On a long document that is the
-difference between a reviewer starting where it matters and starting at the top.
-
-That settles the design question this entry used to leave open. A highlight is
-**a separate, lighter annotation with no thread** — not an agent-authored
-anchored comment. It carries no body, expects no reply, and does not belong in
-the comment ladder. It therefore does not depend on "MCP: no way to reply to
-document-review comments", though both need the agent to be able to write into a
-review.
-
-Most of the machinery is already there and unused. `comment_anchor_controller.js`
-re-locates a quote in the live DOM from anchor context (`#findRange`), and its
-`STATUS_HIGHLIGHTS` map plus the `::highlight()` rules in `app.css` already
-register and style rungs that no template emits. An emphasis highlight needs its
-own rung rather than borrowing the `addressed` one, whose meaning is different,
-but it needs no new highlight mechanism. Note `::highlight()` honours only
-colour, background-colour and text-decoration, which caps how a highlight can
-look without mutating the DOM — and mutating it is not an option, because the
-document pane's `textContent` must stay identical to `DocumentVersion::plainText()`
-or every anchor offset shifts.
-
-Related: "Review comments should be able to express an edit, not just describe
-one".
+The same gap already applies to comment anchors, so a fix should cover both.
+Candidates that do not mutate the pane: a sidebar list of marked passages a
+screen reader can walk, or an `aria-describedby` region summarising them. Do not
+solve it by wrapping the passages in elements.
 
 ## Binding one Loupe project to several Claude Code projects is manual repetition
 
@@ -2749,6 +3044,40 @@ Two things would fix it, and they are not exclusive:
 Related symptom, same cause: `bin/console cache:warmup` has also OOM'd at 128M
 while compiling Twig in a worktree, twice, with no template change involved.
 
+## No MCP read path returns a single document's tags
+
+**Author:** Claude · **Type:** feature · **Priority:** medium · **Status:** pending
+
+`tag_list` returns a project's whole vocabulary and `document_set_tags` returns
+what it just wrote, but neither `document_get` nor `document_list` includes the
+tags a document carries. An agent resuming work on an existing document can see
+which names the project uses and not which of them apply to the document in front
+of it — so the only way to preserve tags while changing one is to have written
+them in the same session.
+
+Adding them means a `tags` key on `App\Module\Review\Query\GetDocument`'s result
+and on `DocumentListTool`'s per-row array. The list case needs the batch preload
+`DocumentRepository::preloadTags()` already provides, or it fires one query per
+row.
+
+## `tag_input_controller.js` is a dead Stimulus controller shipped eagerly
+
+**Author:** Claude · **Type:** tooling · **Priority:** low · **Status:** pending
+
+`assets/controllers/tag_input_controller.js` has no template consumer anywhere —
+it was built for an admin feature-flags form that no longer uses it — and it is
+marked `/* stimulusFetch: 'eager' */`, so it is in the main bundle for every
+page load regardless. Now that documents carry tags, a future session will find
+it and reasonably assume it is the live tag input.
+
+Either delete it or make it the input for a real tag-editing form. Adopting it
+needs three fixes: it renders pills as `admin-badge admin-badge-neutral` rather
+than `.lp-tag`, its dropdown and remove buttons use raw `slate-*` utility strings
+instead of semantic classes, and it reads its vocabulary from a hardcoded
+`tag-input-data` DOM id rather than a Stimulus value, so two tag inputs cannot
+share a page. Related: 'Dead semantic classes accumulate in app.css with nothing
+to catch them'.
+
 ## Decision controls have no browser coverage
 
 **Author:** Claude · **Type:** tooling · **Priority:** medium · **Status:** pending
@@ -2816,13 +3145,13 @@ markup that used it leaves the rule behind — and nothing currently notices.
 Checking every component class against `templates/`, `assets/js/`, `src/` and
 the `vendor/ubermuda/*` bundle templates, then discounting every class built by
 interpolation (`lp-flash--{{ label }}`, `lp-ribbon__bar--{{ state }}`,
-`status-check-badge-{{ state }}` and similar), leaves 25 that are referenced
+`status-check-badge-{{ state }}` and similar), leaves 24 that are referenced
 nowhere:
 
 ```
 lp-doc-list  lp-doc-row  lp-doc-row__main  lp-doc-row__meta  lp-doc-row__tags
 lp-doc-row__title  lp-doc-row__title--stretched  lp-page  lp-page-header
-lp-page-title  lp-section-title  lp-table  lp-tag  lp-select  lp-code
+lp-page-title  lp-section-title  lp-table  lp-select  lp-code
 lp-key-values  lp-key-values__row  lp-copy-row  lp-form-hint  lp-anchor
 lp-anchor--orphan  lp-btn--warning  lp-comment-composer--untargeted  kbd
 admin-badge-off
@@ -3013,6 +3342,103 @@ and where the choice is between a table of contents and stranded comments.
 What removes that choice is the re-anchoring pass described in "A renderer change
 that moves plainText needs a reanchor pass, not just a rerender": with it, an old
 version can be brought forward and its comments re-resolved in the same motion.
+
+## The data export initialises one Project proxy per distinct project
+
+**Author:** Claude · **Type:** bug · **Priority:** low · **Status:** pending
+
+`App\Module\Review\Service\DocumentExporter::export()` reads
+`$document->project->name` for every row. `Document::$project` is a `ManyToOne`,
+so the first read of each distinct project initialises its proxy with its own
+`SELECT`. The document collections beside it are batch-loaded
+(`DocumentRepository::preloadTags()` / `preloadVersions()`); this one is not.
+
+Lower severity than it looks, which is why it was left: the cost is bounded by
+the number of **distinct projects** the user owns, not by the number of
+documents, so an account with forty documents across two projects pays two
+queries rather than forty. It only becomes interesting for an account with many
+sparsely-populated projects.
+
+The fix is a fetch-join on `DocumentRepository::findByOwner()`, whose only
+production caller is that exporter. It was deliberately not done alongside the
+collection preloads, because changing a finder's own query is a wider change
+than adding a preload beside it, and `findByOwner` is also what
+`DocumentRepositoryTest` pins as the path the export reads.
+
+## `list<T>` in an MCP tool docblock generates an untyped `items: {}`
+
+**Author:** Claude · **Type:** bug · **Priority:** low · **Status:** pending
+
+The schema generator in `mcp/sdk` reads `string[]` and `array<string>` and
+emits `{"type":"string"}` for the array's elements, but does not understand
+`list<string>` — that one produces `"items": {}`, so a client sees "an array
+of anything". `bin/console debug:mcp <tool>` prints the generated schema.
+
+`document_mark_comment_addressed` and `site_review_mark_comment_addressed`
+still declare `@param list<string> $commentIds` and are affected. The
+document-reference parameters were converted to `array<string>` when this was
+found; these two were left alone deliberately so the change is made on its
+own rather than inside an unrelated branch.
+
+It has not bitten yet — the tools validate each element themselves — but a
+client that schema-checks its arguments has nothing to check against.
+
+## A document's incoming references are stale in memory after a write
+
+**Author:** Claude · **Type:** bug · **Priority:** low · **Status:** pending
+
+`Document::$referencedBy` (`src/Module/Review/Entity/Document.php`) is the
+inverse side of the `document_references` join, so Doctrine fills it when the
+document is loaded and never when one is written. Adding to document A's
+`$references` does not appear in document B's `$referencedBy` for the rest of
+that request; it is correct again on the next load.
+
+Invisible today because nothing reads the inverse side in the same request
+that writes the owning side — the review page only ever reads. It becomes a
+real bug the moment a Turbo stream re-renders the target after a write, or
+`document_get` starts returning incoming links. The fix is to maintain both
+sides on write (an `addReference()` on the entity that appends to the target's
+`referencedBy` too), not to reload.
+
+## Referencing a document changes a page the referrer may not write to
+
+**Author:** Claude · **Type:** security · **Priority:** low · **Status:** pending
+
+Creating a reference requires `McpBoundProjectVoter::DOCUMENT_WRITE` on the
+source document and only `DOCUMENT_READ` on the target
+(`ReviewSubjectResolver::requireReferences()`), yet the target's rendered page
+visibly changes: its "Referenced by" list grows.
+
+Harmless while a project's documents share one owner, since read and write
+land on the same people. It becomes a graffiti vector the day a project has
+several users with differentiated grants — someone who may only read a
+document can still add a line to it. Requiring WRITE on the target is the
+wrong fix: it would break pointing at something you are allowed to read,
+which is the normal case. Revisit when per-document grants exist.
+
+## Search indexing can fail on a document the app itself accepts
+
+**Author:** Claude · **Type:** bug · **Priority:** low · **Status:** pending
+
+`to_tsvector` caps a vector at 1,048,575 bytes while `MAX_MARKDOWN_BYTES` allows
+1,048,576, so there is a narrow band where a document passes the app's own limit
+and `App\Module\Review\Service\DocumentSearchIndexer` raises.
+
+Measured on 2026-08-03, the band is narrower than the two numbers suggest:
+indexing a full 1 MiB of varied prose succeeded, and 1,154,787 bytes of source
+produced a 360,310-byte vector — 34% of the cap. Stemming and de-duplication mean
+realistic text shrinks by roughly two thirds, so reaching the cap needs
+pathological input (a very large number of long, distinct, unstemmable tokens),
+not a long document. Recorded for the asymmetry rather than as a live incident.
+
+It bites unevenly. `ReviseDocumentHandler` indexes inside its transaction, so a
+failure rolls the revision back. `CreateDocumentHandler` and
+`RenameDocumentHandler` index after their flush, so the row commits and the
+document is left permanently unsearchable with nothing to retry it. Closing this
+means either bounding what is fed to `to_tsvector` or lowering
+`MAX_MARKDOWN_BYTES` below the tsvector cap; making all three handlers
+transactional is **not** the answer, because wrapping create would close the
+EntityManager on a rejected tag name.
 
 ## `HeadingLabel` is named for one of the two things it labels
 

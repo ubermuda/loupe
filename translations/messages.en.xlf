@@ -839,6 +839,14 @@
                 <source>review.dashboard.description</source>
                 <target>Documents the agent submitted for review, newest first.</target>
             </trans-unit>
+            <trans-unit id="review.dashboard.description_ranked">
+                <source>review.dashboard.description_ranked</source>
+                <target>Documents the agent submitted for review, best matches first.</target>
+            </trans-unit>
+            <trans-unit id="review.dashboard.empty_filtered">
+                <source>review.dashboard.empty_filtered</source>
+                <target>No documents match these filters.</target>
+            </trans-unit>
             <trans-unit id="review.dashboard.meta.updated">
                 <source>review.dashboard.meta.updated</source>
                 <target>Updated %time%</target>
@@ -854,6 +862,34 @@
             <trans-unit id="review.dashboard.filter.hide_archived">
                 <source>review.dashboard.filter.hide_archived</source>
                 <target>Hide archived</target>
+            </trans-unit>
+            <trans-unit id="review.dashboard.filter.search_label">
+                <source>review.dashboard.filter.search_label</source>
+                <target>Search documents</target>
+            </trans-unit>
+            <trans-unit id="review.dashboard.filter.search_placeholder">
+                <source>review.dashboard.filter.search_placeholder</source>
+                <target>Search titles and text…</target>
+            </trans-unit>
+            <trans-unit id="review.dashboard.filter.status_label">
+                <source>review.dashboard.filter.status_label</source>
+                <target>Filter by status</target>
+            </trans-unit>
+            <trans-unit id="review.dashboard.filter.all_statuses">
+                <source>review.dashboard.filter.all_statuses</source>
+                <target>All statuses</target>
+            </trans-unit>
+            <trans-unit id="review.dashboard.filter.tag_label">
+                <source>review.dashboard.filter.tag_label</source>
+                <target>Filter by tag</target>
+            </trans-unit>
+            <trans-unit id="review.dashboard.filter.all_tags">
+                <source>review.dashboard.filter.all_tags</source>
+                <target>All tags</target>
+            </trans-unit>
+            <trans-unit id="review.dashboard.filter.clear">
+                <source>review.dashboard.filter.clear</source>
+                <target>Clear</target>
             </trans-unit>
             <trans-unit id="review.dashboard.archived_tag">
                 <source>review.dashboard.archived_tag</source>
@@ -904,6 +940,22 @@
             <trans-unit id="review.revise.error.description_blank">
                 <source>review.revise.error.description_blank</source>
                 <target>Say what changed in this version.</target>
+            </trans-unit>
+            <trans-unit id="review.dashboard.tags.label">
+                <source>review.dashboard.tags.label</source>
+                <target>Tags</target>
+            </trans-unit>
+            <trans-unit id="review.tags.error.too_long">
+                <source>review.tags.error.too_long</source>
+                <target>That tag name is too long.</target>
+            </trans-unit>
+            <trans-unit id="review.references.error.self_reference">
+                <source>review.references.error.self_reference</source>
+                <target>A document cannot reference itself.</target>
+            </trans-unit>
+            <trans-unit id="review.references.error.other_project">
+                <source>review.references.error.other_project</source>
+                <target>A document can only reference documents in the same project.</target>
             </trans-unit>
             <trans-unit id="review.form.rename_document_form.title.label">
                 <source>review.form.rename_document_form.title.label</source>
@@ -987,6 +1039,10 @@
                 <source>review.document.version.back_to_latest</source>
                 <target>Go to the current version</target>
             </trans-unit>
+            <trans-unit id="review.document.version.references_are_current">
+                <source>review.document.version.references_are_current</source>
+                <target>References below reflect the document as it stands today.</target>
+            </trans-unit>
             <trans-unit id="review.document.version.switcher_label">
                 <source>review.document.version.switcher_label</source>
                 <target>Document versions</target>
@@ -1000,6 +1056,20 @@
             <trans-unit id="review.document.contents.nav_label">
                 <source>review.document.contents.nav_label</source>
                 <target>Document sections</target>
+            </trans-unit>
+
+            <!-- References between documents -->
+            <trans-unit id="review.document.references.outgoing">
+                <source>review.document.references.outgoing</source>
+                <target>References</target>
+            </trans-unit>
+            <trans-unit id="review.document.references.incoming">
+                <source>review.document.references.incoming</source>
+                <target>Referenced by</target>
+            </trans-unit>
+            <trans-unit id="review.document.references.archived">
+                <source>review.document.references.archived</source>
+                <target>Archived</target>
             </trans-unit>
 
             <!-- Document review comment composer -->

@@ -23,7 +23,9 @@ use App\Module\Project\Entity\Project;
 use App\Module\Review\Entity\Comment;
 use App\Module\Review\Entity\DecisionSelection;
 use App\Module\Review\Entity\Document;
+use App\Module\Review\Entity\Highlight;
 use App\Module\Review\Entity\Review;
+use App\Module\Review\Entity\Tag;
 use App\Module\Review\Entity\Verdict;
 use App\Module\Review\ValueObject\Anchor;
 use App\Module\SiteReview\Entity\SiteReviewComment;
@@ -136,12 +138,20 @@ final class DeleteAccountHandlerTest extends KernelTestCase
         // else — is gone too.
         self::assertSame(0, (int) $conn->fetchOne('SELECT count(*) FROM documents WHERE id = :id', ['id' => (string) $fixture['foreignDocumentId']]));
         self::assertSame(0, (int) $conn->fetchOne('SELECT count(*) FROM comments WHERE id = :id', ['id' => (string) $fixture['foreignDocumentCommentId']]));
+        self::assertSame(0, (int) $conn->fetchOne(
+            'SELECT count(*) FROM document_highlights h JOIN document_versions v ON h.version_id = v.id WHERE v.document_id = :id',
+            ['id' => (string) $fixture['foreignDocumentId']],
+        ));
+        self::assertSame(0, (int) $conn->fetchOne('SELECT count(*) FROM document_references WHERE target_document_id = :id', ['id' => (string) $fixture['foreignDocumentId']]));
 
         // Two of the owner's own projects were both fully torn down.
         foreach (['doomedProject1Id', 'doomedProject2Id'] as $key) {
             self::assertNull($em->find(Project::class, $fixture[$key]));
         }
         self::assertSame(0, (int) $conn->fetchOne('SELECT count(*) FROM document_versions WHERE document_id = :id', ['id' => (string) $fixture['foreignDocumentId']]));
+        // Asserted on the document id rather than through a join, so it cannot
+        // pass merely because the document row is already gone.
+        self::assertSame(0, (int) $conn->fetchOne('SELECT count(*) FROM document_tags WHERE document_id = :id', ['id' => (string) $fixture['foreignDocumentId']]));
         self::assertSame(0, (int) $conn->fetchOne('SELECT count(*) FROM decision_selections WHERE document_id = :id', ['id' => (string) $fixture['foreignDocumentId']]));
 
         // Nothing belonging to the other, untouched users was removed: their
@@ -307,6 +317,23 @@ final class DeleteAccountHandlerTest extends KernelTestCase
         // CASCADE, so an answered decision on this document aborts the whole
         // account deletion unless DocumentOwnershipAccountPurger clears it.
         $em->persist(new DecisionSelection($foreignDocument, 'deploy-target', 1, 'Ship straight to production', 1));
+
+        // Tagged, because that document is deleted by DocumentOwnershipAccountPurger
+        // rather than by ProjectDeleter, and the join table's FK has no cascade —
+        // an untagged fixture cannot tell whether that purger clears it.
+        $foreignTag = new Tag($otherProject, 'design');
+        $em->persist($foreignTag);
+        $foreignDocument->tags->add($foreignTag);
+
+        // A third FK onto document_versions, and NOT DEFERRABLE like the others:
+        // a purger that forgets it fails the version delete outright, which is
+        // the whole reason this owner-mismatch fixture exists.
+        $em->persist(new Highlight(version: $foreignVersion, anchor: Anchor::unanchored()));
+
+        // A surviving document pointing AT the doomed one: only the incoming
+        // half of the join-table cleanup can clear this, and without it the
+        // delete fails on the foreign key.
+        $otherDocument->references->add($foreignDocument);
 
         // A loose API token not bound to any project's widget/mcp slots.
         [$looseToken] = ApiToken::issue($owner, 'loose-token', ApiTokenScope::Mcp);

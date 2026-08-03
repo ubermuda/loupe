@@ -24,8 +24,17 @@ final readonly class DocumentExporter implements UserDataExporterInterface
     #[\Override]
     public function export(User $user): array
     {
+        $documents = $this->documents->findByOwner($user);
+
+        // Every collection read below is lazy, so reading them per row would put
+        // the whole export at one query per document per collection. An account
+        // being exported is exactly the case with many documents.
+        $this->documents->preloadTags($documents);
+        $this->documents->preloadVersions($documents);
+        $this->documents->preloadReferences($documents);
+
         $rows = [];
-        foreach ($this->documents->findByOwner($user) as $document) {
+        foreach ($documents as $document) {
             $versions = [];
             foreach ($document->versions as $version) {
                 $versions[] = [
@@ -37,13 +46,30 @@ final readonly class DocumentExporter implements UserDataExporterInterface
                 ];
             }
 
+            $tags = [];
+            foreach ($document->tags as $tag) {
+                $tags[] = $tag->name;
+            }
+
+            // Outgoing only: what this document points at is the owner's own
+            // statement, while an incoming link is someone else's.
+            $references = [];
+            foreach ($document->references as $reference) {
+                $references[] = [
+                    'id' => (string) $reference->id,
+                    'title' => $reference->title,
+                ];
+            }
+
             $rows[] = [
                 'id' => (string) $document->id,
                 'project' => $document->project->name,
                 'title' => $document->title,
+                'tags' => $tags,
                 'status' => $document->status->value,
                 'archivedAt' => $document->archivedAt?->format(\DateTimeInterface::ATOM),
                 'createdAt' => $document->createdAt->format(\DateTimeInterface::ATOM),
+                'references' => $references,
                 'versions' => $versions,
             ];
         }

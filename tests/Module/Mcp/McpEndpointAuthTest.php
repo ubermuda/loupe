@@ -107,13 +107,16 @@ final class McpEndpointAuthTest extends WebTestCase
             'document_create',
             'document_get',
             'document_get_review',
+            'document_highlight',
             'document_list',
             'document_mark_comment_addressed',
             'document_rename',
             'document_reply_to_comment',
             'document_revise',
+            'document_set_tags',
             'site_review_get',
             'site_review_mark_comment_addressed',
+            'tag_list',
         ], $names);
     }
 

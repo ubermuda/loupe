@@ -27,6 +27,18 @@ class DocumentVersion
     #[ORM\OneToMany(targetEntity: Comment::class, mappedBy: 'version', cascade: ['persist'])]
     public Collection $comments;
 
+    /**
+     * Passages the agent marked as worth reading first on this version.
+     *
+     * orphanRemoval is what makes the set replaceable: the agent restates the
+     * whole set on each call, so clearing the collection has to delete the rows
+     * rather than leave them behind with a dangling version.
+     *
+     * @var Collection<int, Highlight>
+     */
+    #[ORM\OneToMany(targetEntity: Highlight::class, mappedBy: 'version', cascade: ['persist'], orphanRemoval: true)]
+    public Collection $highlights;
+
     public function __construct(
         #[ORM\JoinColumn(nullable: false)]
         #[ORM\ManyToOne(targetEntity: Document::class, inversedBy: 'versions')]
@@ -49,6 +61,7 @@ class DocumentVersion
         public readonly \DateTimeImmutable $createdAt = new \DateTimeImmutable(),
     ) {
         $this->comments = new ArrayCollection();
+        $this->highlights = new ArrayCollection();
     }
 
     /**
