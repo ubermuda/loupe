@@ -2636,3 +2636,9 @@ on the document review page, so comparing v1 with v4 means editing the URL. A
 reviewer who left comments on v1 and comes back after three revisions wants
 exactly that comparison. Needs a version picker on the diff view itself, not
 another set of links in the switcher.
+
+The same picker fixes a smaller gap: while a diff is on screen the switcher
+renders the diff's newer version as the non-link "you are here" pill, so there
+is no one-click way to go and *read* that version — only the banner's link back
+to the current one, which is a different version whenever the diff does not end
+at the latest.

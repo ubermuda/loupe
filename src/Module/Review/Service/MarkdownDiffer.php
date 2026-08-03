@@ -107,7 +107,9 @@ final readonly class MarkdownDiffer
                 $old,
             ),
             SequenceMatcher::OP_REP => $this->linesForReplacement($old, $new),
-            default => [],
+            // Dropping a block would shorten the reconstructed source with nothing
+            // to show for it, and the matcher only ever emits the four above.
+            default => throw new \LogicException(sprintf('Unknown diff operation %d.', $block['tag'])),
         };
     }
 
