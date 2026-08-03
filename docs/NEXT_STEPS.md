@@ -245,6 +245,61 @@ Related ordering constraint: PR #124 (`feat/document-search`) has PR #123
 (`feat/document-tags`) as a git ancestor, so #123 merges first or #124 brings
 tags in with it.
 
+## Serialising `just e2e` does not protect a run — the shared php-fpm container does
+
+**Author:** Claude · **Type:** tooling · **Priority:** high · **Status:** pending
+
+Every worktree gets its own nginx sidecar but they all share **one** php-fpm
+container. So a sibling's `just ci`, `phpunit`, `bin/console` or scratch PHP
+script lands in the same container as an in-flight e2e run and starves it.
+Serialising e2e is therefore necessary but **not sufficient** — the resource
+that has to be quiet is the container, not the recipe.
+
+Observed cost: three consecutive e2e runs on one branch produced 11 failures
+that had nothing to do with the branch. The signature is always the same — a
+form POST that never returns inside Playwright's assertion window, submit
+button left **disabled**, form still populated, **no** validation error, and
+nothing in `dev.log`.
+
+**The discriminator is which specs fail, not how many.** Across those three
+runs the failing specs were *disjoint* (fixture/data-export/wizard/login, then
+forgot-password/signup/remember-me/social-login, then delete-account/wizard-
+skip). A real defect fails the same spec every time; contention moves around.
+Check that before investigating a branch.
+
+Both documented causes must be excluded before reaching for this one: count
+`Container` hashes in `var/cache/dev/` (more than one means a mid-run rebuild)
+and confirm a consumer is alive with `messenger_messages` empty. If both are
+clean and the failures are disjoint, it is contention.
+
+Worth automating: a lock that a gate run and an e2e run both have to take, so
+this is enforced rather than remembered. Until then it has to be coordinated by
+hand, which does not survive parallel agents. See `docs/AUTOMATIONS.md`.
+
+## Host `pkill` does not kill a process inside the php-fpm container
+
+**Author:** Claude · **Type:** tooling · **Priority:** medium · **Status:** pending
+
+`bin/worktrees/compose-exec.sh` ends in `exec docker compose exec … php-fpm
+"$@"`, so a host-side `pkill -f <script>` matches only the **client** process.
+The container has a separate PID namespace — on macOS, a separate VM entirely —
+so the real process keeps running, orphaned and invisible to the host process
+table, until it completes on its own.
+
+This is how a runaway scratch script consumed 26+ CPU-minutes while its author
+believed it had been killed, starving concurrent e2e runs the whole time. The
+symptom is deceptive: `ps` on the host shows nothing, so the container looks
+quiet when it is not.
+
+Kill container work from inside the container:
+
+```sh
+docker compose exec php-fpm pkill -f <script>
+```
+
+And check for it the same way — `docker exec <project>-php-fpm-1 ps aux` — since
+a host-side check will report a quiet container that is fully loaded.
+
 ## Dashboard document search + status/tag filtering
 
 
