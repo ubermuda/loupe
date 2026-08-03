@@ -93,6 +93,29 @@ were all lifecycle, never provisioning:
   container's 128M CLI `memory_limit`. Two of the nine worktrees failed to
   provision until the limit was raised by hand, and that change lives only in
   the running container — a rebuild loses it.
+
+  Because of this, `worktree-up` cannot be used to **reset** a worktree whose
+  database an e2e run has truncated, which is the case that matters most. The
+  working sequence, reconstructed by hand three separate times before being
+  written down, takes about ninety seconds — run from the worktree, and note
+  the `-d memory_limit=512M` is load-bearing on **every** line:
+
+  ```bash
+  bin/worktrees/compose-exec.sh php -d memory_limit=512M bin/console doctrine:database:drop --force --if-exists
+  bin/worktrees/compose-exec.sh php -d memory_limit=512M bin/console doctrine:database:create
+  bin/worktrees/compose-exec.sh php -d memory_limit=512M bin/console doctrine:migrations:migrate --no-interaction
+  bin/worktrees/compose-exec.sh php -d memory_limit=512M bin/console app:dev:seed --reissue-widget-token
+  # paste the printed token into .env.local as SITE_REVIEW_WIDGET_TOKEN, then:
+  bin/worktrees/compose-exec.sh php -d memory_limit=512M bin/console tailwind:build
+  ```
+
+  Three things that waste time if missed: the drop fails with *"1 other session
+  using the database"* unless the messenger consumer is stopped first; the token
+  step is not optional — skipping it leaves the site-review widget in its
+  rejected-token state, which surfaces as unrelated-looking spec failures; and
+  the final `tailwind:build` matters whenever `app.css` changed in a merge,
+  because a worktree serving stale CSS fails any spec asserting on a new class
+  in a way that reads as a template bug rather than a missing build.
 - **`vendor/` goes stale silently.** `worktree-up` rsyncs `vendor/` from the
   main checkout, but nothing re-runs `composer install` on main after a merge
   changes `composer.lock`. After the export-storage branch merged, main's
@@ -3208,22 +3231,6 @@ open questions are which runner (vitest is the obvious default given no bundler
 is present), whether the widget's tests run against source or the minified
 artefact, and whether `just ci` gains a leg or it stays opt-in until the suite
 earns its place.
-
-## `site_review_get` reveals whether a site name exists
-
-**Author:** Claude · **Type:** security · **Priority:** low · **Status:** pending
-
-`SiteReviewGetTool` (`src/Module/SiteReview/Mcp/SiteReviewGetTool.php`) answers
-its optional `site` argument with two different messages: `No site "%s" found.`
-when the lookup misses, and `Token is not bound to that project.` when it hits
-but is not the bound one. That difference tells a caller which site names exist
-— the kind of existence oracle `ReviewSubjectResolver::requireDocument()`
-returns one message for, on purpose.
-
-Minor because the lookup is already narrowed to the token owner's own projects
-(`ProjectRepository::findOneByIdOrNameForOwner()`), so a caller can only probe
-names it is entitled to see. The fix is to collapse both branches onto a single
-message the way the document resolver does.
 
 ## Anchor offsets still diverge from the browser above the BMP
 
