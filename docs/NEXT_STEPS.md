@@ -196,6 +196,41 @@ the local dev host. Whether a deployed instance drops connections the same way i
 unknown, and it decides whether this is a local annoyance or a production defect
 affecting every agent that connects. Establishing that comes before any fix.
 
+## Merging the open document-review branches must union the two deletion paths, never take one side
+
+**Author:** Claude · **Type:** tooling · **Priority:** high · **Status:** pending
+
+Five in-flight branches each add a table hanging off `document_versions`, and
+each adds its own `DELETE` to the same two FK-ordered cleanup paths:
+`src/Module/Review/EventListener/DeleteReviewDataOnProjectDeleting.php` (DQL
+bulk deletes) and `src/Module/Review/Service/DocumentOwnershipAccountPurger.php`
+(raw SQL). Git will conflict in both files on every merge after the first.
+
+**The resolution is always the union of every branch's statements, in FK order.**
+Taking either side of the conflict silently drops a table's `DELETE`. The FKs
+are `NOT DEFERRABLE` with no `ON DELETE CASCADE`, so the omission is not an
+orphaned row — it is a Postgres FK violation that aborts project deletion or
+account deletion with a 500.
+
+This is not hypothetical: two separate branches shipped exactly this omission,
+each adding its table to the listener and missing the purger, and both passed a
+full green `just ci`. The reason the suite does not catch it is that
+`ProjectDeleterTest::seedFullProject` and the foreign-owned-document fixture in
+`DeleteAccountHandlerTest` only exercise the statement if the deleted project
+actually has a row in the new table. A fixture without one makes the test pass
+vacuously.
+
+So, when adding a table with an FK onto `document_versions`: add the `DELETE`
+to **both** files, seed a row in **both** fixtures, and mutation-check each —
+remove the statement, confirm the test fails with `SQLSTATE[23503]`, restore it.
+Note the two paths use different mechanisms, so the fix is not copy-paste, and
+DQL bulk delete bypasses `orphanRemoval`, so entity-level cascade configuration
+is not a substitute for either.
+
+Related ordering constraint: PR #124 (`feat/document-search`) has PR #123
+(`feat/document-tags`) as a git ancestor, so #123 merges first or #124 brings
+tags in with it.
+
 ## Dashboard document search + status/tag filtering
 
 
