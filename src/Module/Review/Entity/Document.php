@@ -43,6 +43,24 @@ class Document
     public Collection $versions;
 
     /**
+     * No cascade and no orphanRemoval: a tag is project vocabulary that outlives
+     * the documents carrying it, so dropping it from one document must not
+     * delete the row.
+     *
+     * Neither join column carries nullable: false — Doctrine ignores it on a
+     * many-to-many and logs a deprecation on every mapping read. They are the
+     * join table's composite primary key, so they are NOT NULL regardless.
+     *
+     * @var Collection<int, Tag>
+     */
+    #[ORM\InverseJoinColumn(name: 'tag_id')]
+    #[ORM\JoinColumn(name: 'document_id')]
+    #[ORM\JoinTable(name: 'document_tags')]
+    #[ORM\ManyToMany(targetEntity: Tag::class)]
+    #[ORM\OrderBy(['name' => 'ASC'])]
+    public Collection $tags;
+
+    /**
      * The documents this one points at. A reference targets the document rather
      * than one of its versions, so it keeps resolving — to whatever is current —
      * once the target is revised.
@@ -84,6 +102,7 @@ class Document
         public readonly \DateTimeImmutable $createdAt = new \DateTimeImmutable(),
     ) {
         $this->versions = new ArrayCollection();
+        $this->tags = new ArrayCollection();
         $this->references = new ArrayCollection();
         $this->referencedBy = new ArrayCollection();
     }

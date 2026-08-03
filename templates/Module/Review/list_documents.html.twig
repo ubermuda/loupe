@@ -67,6 +67,16 @@
                     <span class="lp-document-row__open">{{ 'review.dashboard.meta.open_threads'|trans({'%count%': item.openThreadCount}) }}</span>
                     {% endif %}
                 </div>
+                {# A list, not a run of spans: without the semantics a screen
+                   reader reads the chips as a continuation of the meta line above
+                   them, with no boundary and no count. #}
+                {% if document.tags|length > 0 %}
+                <ul class="lp-document-row__tags" aria-label="{{ 'review.dashboard.tags.label'|trans }}">
+                    {% for tag in document.tags %}
+                    <li class="lp-tag">{{ tag.name }}</li>
+                    {% endfor %}
+                </ul>
+                {% endif %}
             </div>
             <span class="lp-badge lp-badge--{{ document.status.value }}">
                 {{ document.status.translationKey()|trans }}

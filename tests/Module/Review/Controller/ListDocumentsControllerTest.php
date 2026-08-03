@@ -9,9 +9,11 @@ use App\Module\Project\Entity\Project;
 use App\Module\Review\Entity\Comment;
 use App\Module\Review\Entity\CommentStatus;
 use App\Module\Review\Entity\Document;
+use App\Module\Review\Entity\Tag;
 use App\Module\Review\ValueObject\Anchor;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
+use Symfony\Component\DomCrawler\Crawler;
 use Symfony\Component\HttpFoundation\Request;
 
 final class ListDocumentsControllerTest extends WebTestCase
@@ -72,6 +74,42 @@ final class ListDocumentsControllerTest extends WebTestCase
         self::assertResponseIsSuccessful();
         self::assertSelectorTextContains('body', 'Alice Draft');
         self::assertStringNotContainsString('Bob Secret', (string) $client->getResponse()->getContent());
+    }
+
+    public function test_a_documents_tags_are_rendered_on_its_row(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+
+        $alice = $this->createUser($em, 'alice', 'alice@example.com');
+        $project = $this->project($em, $alice);
+        $tagged = $this->document($em, $alice, $project, 'Tagged Draft');
+        $this->document($em, $alice, $project, 'Bare Draft');
+        // Attached in reverse-alphabetical order: the rendered order must come
+        // from the mapping, not from how the rows happen to come back.
+        foreach (['Release', 'Design'] as $name) {
+            $tag = new Tag($project, $name);
+            $em->persist($tag);
+            $tagged->tags->add($tag);
+        }
+
+        $em->flush();
+        $projectId = (string) $project->id;
+        $em->clear();
+
+        $client->loginUser($alice);
+        $crawler = $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/documents');
+
+        self::assertResponseIsSuccessful();
+        // Scoped to the tagged row — a page-wide count would pass even if every
+        // row rendered the whole project's vocabulary.
+        self::assertSame(
+            ['design', 'release'],
+            $crawler->filter('[data-document-id="'.$tagged->id.'"] .lp-tag')->each(
+                static fn (Crawler $chip): string => trim($chip->text()),
+            ),
+        );
+        self::assertCount(2, $crawler->filter('.lp-tag'));
     }
 
     public function test_a_project_shows_only_its_own_documents(): void

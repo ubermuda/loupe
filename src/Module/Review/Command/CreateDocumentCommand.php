@@ -10,6 +10,9 @@ use App\Module\Review\Entity\Document;
 final readonly class CreateDocumentCommand
 {
     /**
+     * @param string[]       $tagNames   raw names as typed; normalisation and
+     *                                   implicit creation are
+     *                                   SetDocumentTagsHandler's job
      * @param list<Document> $references documents the new one points at
      */
     public function __construct(
@@ -17,6 +20,7 @@ final readonly class CreateDocumentCommand
         public string $title,
         public string $markdown,
         public ?string $description = null,
+        public array $tagNames = [],
         public array $references = [],
     ) {
     }

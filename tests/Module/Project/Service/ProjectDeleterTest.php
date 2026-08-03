@@ -14,6 +14,7 @@ use App\Module\Review\Entity\Comment;
 use App\Module\Review\Entity\Document;
 use App\Module\Review\Entity\Highlight;
 use App\Module\Review\Entity\Review;
+use App\Module\Review\Entity\Tag;
 use App\Module\Review\Entity\Verdict;
 use App\Module\Review\ValueObject\Anchor;
 use App\Module\SiteReview\Entity\SiteReviewComment;
@@ -41,13 +42,25 @@ final class ProjectDeleterTest extends KernelTestCase
 
         // Captured before the delete: once the documents are gone, a join-table
         // count reached through them can no longer fail, so the id is what makes
-        // the assertion below able to catch a surviving reference row.
+        // the assertions below able to catch a surviving join row.
         $conn = $em->getConnection();
         $doomedReferenceSourceId = (string) $conn->fetchOne(
             'SELECT r.source_document_id FROM document_references r JOIN documents d ON r.source_document_id = d.id WHERE d.project_id = :id',
             ['id' => (string) $doomedId],
         );
         self::assertNotSame('', $doomedReferenceSourceId);
+        // Resolved through document_tags rather than by picking any document of
+        // the project, so it stays the tagged one however many the fixture seeds.
+        $doomedDocumentId = (string) $conn->fetchOne(
+            'SELECT dt.document_id FROM document_tags dt JOIN documents d ON dt.document_id = d.id WHERE d.project_id = :id',
+            ['id' => (string) $doomedId],
+        );
+        $sparedDocumentId = (string) $conn->fetchOne(
+            'SELECT dt.document_id FROM document_tags dt JOIN documents d ON dt.document_id = d.id WHERE d.project_id = :id',
+            ['id' => (string) $sparedId],
+        );
+        self::assertNotSame('', $doomedDocumentId);
+        self::assertNotSame('', $sparedDocumentId);
 
         $doomed = $em->find(Project::class, $doomedId);
         self::assertNotNull($doomed);
@@ -57,11 +70,13 @@ final class ProjectDeleterTest extends KernelTestCase
         $em->clear();
 
         self::assertNull($em->find(Project::class, $doomedId));
+        self::assertSame(0, (int) $conn->fetchOne('SELECT count(*) FROM document_tags WHERE document_id = :id', ['id' => $doomedDocumentId]));
         self::assertSame(0, (int) $conn->fetchOne(
             'SELECT count(*) FROM document_references WHERE source_document_id = :id',
             ['id' => $doomedReferenceSourceId],
         ));
         foreach ([
+            'tags' => 'SELECT count(*) FROM tags WHERE project_id = :id',
             'site_review_events' => 'SELECT count(*) FROM site_review_events WHERE project_id = :id',
             'site_review_comments' => 'SELECT count(*) FROM site_review_comments WHERE project_id = :id',
             'comments' => 'SELECT count(*) FROM comments c JOIN document_versions v ON c.version_id = v.id JOIN documents d ON v.document_id = d.id WHERE d.project_id = :id',
@@ -85,6 +100,8 @@ final class ProjectDeleterTest extends KernelTestCase
         self::assertSame(1, (int) $conn->fetchOne('SELECT count(*) FROM document_references r JOIN documents d ON r.source_document_id = d.id WHERE d.project_id = :id', ['id' => (string) $sparedId]));
         self::assertSame(1, (int) $conn->fetchOne('SELECT count(*) FROM site_review_comments WHERE project_id = :id', ['id' => (string) $sparedId]));
         self::assertSame(1, (int) $conn->fetchOne('SELECT count(*) FROM site_review_events WHERE project_id = :id', ['id' => (string) $sparedId]));
+        self::assertSame(1, (int) $conn->fetchOne('SELECT count(*) FROM tags WHERE project_id = :id', ['id' => (string) $sparedId]));
+        self::assertSame(1, (int) $conn->fetchOne('SELECT count(*) FROM document_tags WHERE document_id = :id', ['id' => $sparedDocumentId]));
         self::assertNotNull($spared->widgetToken);
         self::assertNotNull($spared->mcpToken);
     }
@@ -122,6 +139,7 @@ final class ProjectDeleterTest extends KernelTestCase
         $conn = $em->getConnection();
         self::assertSame(2, (int) $conn->fetchOne('SELECT count(*) FROM documents WHERE project_id = :id', ['id' => (string) $projectId]));
         self::assertSame(1, (int) $conn->fetchOne('SELECT count(*) FROM site_review_comments WHERE project_id = :id', ['id' => (string) $projectId]));
+        self::assertSame(1, (int) $conn->fetchOne('SELECT count(*) FROM tags WHERE project_id = :id', ['id' => (string) $projectId]));
     }
 
     private function makeUser(EntityManagerInterface $em, string $slug): User
@@ -143,6 +161,9 @@ final class ProjectDeleterTest extends KernelTestCase
         $em->persist($project);
 
         $document = new Document(owner: $owner, project: $project, title: $slug.' doc');
+        $tag = new Tag(project: $project, name: 'design');
+        $em->persist($tag);
+        $document->tags->add($tag);
         $em->persist($document);
         // A referenced document too: document_references rows point at documents
         // from both ends, so the join table has to go before either row does.
