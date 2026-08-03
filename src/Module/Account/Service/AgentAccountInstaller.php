@@ -23,11 +23,18 @@ final class AgentAccountInstaller
         // No password and no roles: nothing can authenticate as it. The dot in
         // the username puts it out of reach of registration, which accepts
         // [a-z][a-z0-9_-]* only, and `.invalid` is reserved by IANA.
+        //
+        // The conflict target is deliberate. A bare ON CONFLICT DO NOTHING also
+        // swallows the username and email unique violations, so an account
+        // already holding one of those identities would leave this a no-op and
+        // the app with no agent row — surfacing later as a failure deep inside
+        // a reply. Only a repeat of the id itself is the idempotency wanted
+        // here; anything else is a real conflict and must raise.
         $connection->executeStatement(
             <<<'SQL'
                 INSERT INTO users (id, roles, username, full_name, email, password, created_at)
                 VALUES (:id, '[]', 'loupe.agent', 'Agent', 'agent@loupe.invalid', NULL, now())
-                ON CONFLICT DO NOTHING
+                ON CONFLICT (id) DO NOTHING
                 SQL,
             ['id' => User::AGENT_ID],
         );
