@@ -547,6 +547,23 @@ and either target that worktree or refuse. Until then the only reliable check is
 to prove the target after every run — the worktree database must show the
 `install-reset` truncation while the main `app` database is untouched.
 
+## The self-hosting outbox work targets a data model a later decision deletes
+
+**Author:** Claude · **Type:** bug · **Priority:** high · **Status:** pending
+
+The Loupe document "Self-hosting audit — implementation plan" schedules
+outbox drain-with-retry work built on `SiteReviewEvent` keyed by site-review
+id. A later design document in the same project, "Replace the SiteReview
+container entity with per-comment draft status", records a decision to delete
+the `SiteReview` entity outright and re-key `SiteReviewEvent` on project plus
+a monotonic sequence.
+
+The plan pre-dates the decision and was never updated, so whoever picks the
+outbox work up builds against a model that is slated for removal — and the
+conflict is invisible from either document alone, because neither links to
+the other. Reconcile before starting: either the outbox work adopts the new
+keying up front, or the entity-removal decision is revisited.
+
 ## The owner sets the quality bar, not the agent — say so in the instructions
 
 **Author:** Geoffrey · **Type:** tooling · **Priority:** medium · **Status:** pending
@@ -3562,6 +3579,39 @@ one new author type. "There is a conversation view in the widget" is a chat
 product, in a crowded space, and easy to sink months into. The first probably
 carries most of the value.
 
+## Two unpublished blog drafts still carry TODO placeholders for the skeleton repo link
+
+**Author:** Claude · **Type:** docs · **Priority:** medium · **Status:** pending
+
+The drafts titled "I spent weeks on a skeleton so my agents inherit my
+standards" and "A skeleton drifts, so I turned mine into packages" (Loupe
+project, tagged `blog-post`) both contain an unresolved HTML comment asking
+for the skeleton repository's exact name and URL to be filled in.
+
+Neither can publish with the placeholder in place, and an HTML comment
+survives most Markdown renderers as invisible-but-present text rather than
+failing loudly. Resolve the repo URL once and fix both.
+
+## The blog series hand-off lines are stale in three places
+
+**Author:** Claude · **Type:** docs · **Priority:** medium · **Status:** pending
+
+The blog series in the Loupe project was written as a six-post arc, then had
+a post inserted mid-sequence and five more appended. Three closing hand-offs
+were never updated to match:
+
+- "I spent weeks on a skeleton so my agents inherit my standards" closes with
+  "that's the next post" pointing at the deterministic-guardrails piece, but
+  the packages post now sits between them.
+- The companion thread for that same post repeats the identical wrong
+  hand-off, so fixing one without the other leaves the chain broken.
+- "Deterministic guardrails: let machines catch the boring stuff" closes with
+  "it's the last post in this series" — five later posts exist.
+
+Each will read as a broken promise to anyone reading in order. Decide whether
+the later posts are the same series or a second one, then fix the three
+closers to match that answer.
+
 ## `comments.anchor_offset_hint` changed units with no backfill
 
 **Author:** Claude · **Type:** bug · **Priority:** low · **Status:** pending
@@ -3769,3 +3819,35 @@ This was deliberately not done when the second caller was added: the class had
 just landed on a branch that two others were stacked on and frozen, so renaming
 it would have cost both of them a re-sync for a cosmetic gain. That constraint
 disappears once the stack lands.
+
+## The per-worktree isolation design says it is unimplemented, but it shipped
+
+**Author:** Claude · **Type:** docs · **Priority:** low · **Status:** pending
+
+The Loupe document "Per-worktree app isolation (shipped) — own database, own
+URL" opens with "Status: design, awaiting approval. Nothing here is
+implemented." Its body was revised through several versions as the work
+landed — the certificate-authority alias fix is marked applied and verified —
+but the status line at the top never moved.
+
+`CLAUDE.md` documents the result as shipped behaviour: `just worktree-up NAME`,
+per-worktree hostnames, `app_wt_<name>` databases selected by
+`WORKTREE_DB_SUFFIX`, and `just worktree-down`. A reader who trusts the status
+line concludes none of that exists. The document title now says "(shipped)",
+which contradicts its own first paragraph; correcting the body needs a
+revision.
+
+## The nine-feature design spec is still filed under an eight-feature filename
+
+**Author:** Claude · **Type:** docs · **Priority:** low · **Status:** pending
+
+`docs/superpowers/specs/2026-07-25-eight-features-design.md` has the heading
+"Nine features — design spec (2026-07-25, rev 3)" — a ninth feature, the
+first-deployment install wizard, was added at review in revision 2 and the
+filename was never updated. The matching Loupe document has since been
+retitled to say "Nine-feature", so the two now disagree.
+
+Nothing in the repository greps for the path, so renaming the file is safe;
+the only known citation is inside a Loupe implementation plan, which would
+need updating in the same pass. Low priority — it misleads a reader searching
+for "nine features" and nothing more.
