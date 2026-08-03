@@ -13,6 +13,7 @@ use App\Module\Review\Entity\Tag;
 use App\Module\Review\ValueObject\Anchor;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
+use Symfony\Component\DomCrawler\Crawler;
 use Symfony\Component\HttpFoundation\Request;
 
 final class ListDocumentsControllerTest extends WebTestCase
@@ -84,9 +85,13 @@ final class ListDocumentsControllerTest extends WebTestCase
         $project = $this->project($em, $alice);
         $tagged = $this->document($em, $alice, $project, 'Tagged Draft');
         $this->document($em, $alice, $project, 'Bare Draft');
-        $design = new Tag($project, 'Design');
-        $em->persist($design);
-        $tagged->tags->add($design);
+        // Attached in reverse-alphabetical order: the rendered order must come
+        // from the mapping, not from how the rows happen to come back.
+        foreach (['Release', 'Design'] as $name) {
+            $tag = new Tag($project, $name);
+            $em->persist($tag);
+            $tagged->tags->add($tag);
+        }
 
         $em->flush();
         $projectId = (string) $project->id;
@@ -96,10 +101,15 @@ final class ListDocumentsControllerTest extends WebTestCase
         $crawler = $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/documents');
 
         self::assertResponseIsSuccessful();
-        // Only the tagged row renders a chip — a page-wide count would pass even
-        // if every row rendered the whole project's vocabulary.
-        self::assertCount(1, $crawler->filter('[data-document-id="'.$tagged->id.'"] .lp-tag'));
-        self::assertSame('design', trim($crawler->filter('.lp-tag')->text()));
+        // Scoped to the tagged row — a page-wide count would pass even if every
+        // row rendered the whole project's vocabulary.
+        self::assertSame(
+            ['design', 'release'],
+            $crawler->filter('[data-document-id="'.$tagged->id.'"] .lp-tag')->each(
+                static fn (Crawler $chip): string => trim($chip->text()),
+            ),
+        );
+        self::assertCount(2, $crawler->filter('.lp-tag'));
     }
 
     public function test_a_project_shows_only_its_own_documents(): void
