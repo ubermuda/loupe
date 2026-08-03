@@ -24,8 +24,16 @@ final readonly class DocumentExporter implements UserDataExporterInterface
     #[\Override]
     public function export(User $user): array
     {
+        $documents = $this->documents->findByOwner($user);
+
+        // Both collections are lazy, so reading them per row would put the whole
+        // export at one query per document, twice over. An account being exported
+        // is exactly the case with many of them.
+        $this->documents->preloadTags($documents);
+        $this->documents->preloadVersions($documents);
+
         $rows = [];
-        foreach ($this->documents->findByOwner($user) as $document) {
+        foreach ($documents as $document) {
             $versions = [];
             foreach ($document->versions as $version) {
                 $versions[] = [
