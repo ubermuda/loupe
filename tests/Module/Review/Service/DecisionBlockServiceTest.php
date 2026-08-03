@@ -137,6 +137,41 @@ final class DecisionBlockServiceTest extends TestCase
         self::assertSame(array_unique($ids[1]), $ids[1], 'a document minted the same DOM id twice');
     }
 
+    /**
+     * Every other malformed shape degrades where it stands. This one used to
+     * reach downstream: the unclosed opener left a sentinel, the pairing regex
+     * matched it against the LATER fence's closer, and both lists came back as
+     * ordinary markup — so a typo in one block silently cost a correct block
+     * its controls, with no error anywhere.
+     *
+     * @param non-empty-string $markdown
+     * @param list<string>     $expected
+     */
+    #[DataProvider('fencesAroundAValidOne')]
+    public function test_a_malformed_fence_never_costs_a_valid_one_its_controls(string $markdown, array $expected): void
+    {
+        $decisions = $this->decisions->extract($this->renderer->render($markdown));
+
+        self::assertSame($expected, array_map(static fn (object $d): string => $d->id, $decisions));
+    }
+
+    /**
+     * @return iterable<string, array{string, list<string>}>
+     */
+    public static function fencesAroundAValidOne(): iterable
+    {
+        $valid = "<!-- decision: good -->\n\n- [ ] X\n- [ ] Y\n\n<!-- /decision -->\n";
+
+        yield 'unmatched opener before it' => ["<!-- decision: bad -->\n\n- [ ] A\n\n".$valid, ['good']];
+        yield 'unmatched opener after it' => [$valid."\n<!-- decision: bad -->\n\n- [ ] A\n", ['good']];
+        yield 'unmatched closer before it' => ["<!-- /decision -->\n\n".$valid, ['good']];
+        yield 'two unmatched openers before it' => ["<!-- decision: b1 -->\n\n- [ ] A\n\n<!-- decision: b2 -->\n\n- [ ] B\n\n".$valid, ['good']];
+        // The closer pairs with the nearest opener, so the inner fence is the
+        // one that converts and the abandoned outer list renders as prose.
+        yield 'opened inside another opener' => ["<!-- decision: outer -->\n\n- [ ] A\n\n".$valid, ['good']];
+        yield 'two valid fences still both convert' => [$valid."\n<!-- decision: other -->\n\n- [ ] Z\n\n<!-- /decision -->\n", ['good', 'other']];
+    }
+
     public function test_a_fence_quoted_inside_a_code_block_is_inert(): void
     {
         $html = $this->renderer->render("````\n<!-- decision: nope -->\n\n- [ ] A\n\n<!-- /decision -->\n````\n");

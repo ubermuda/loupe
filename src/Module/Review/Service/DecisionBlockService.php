@@ -84,8 +84,8 @@ final readonly class DecisionBlockService
      */
     public function markParsedDocument(DocumentParsedEvent $event): void
     {
-        /** @var array<string, true> $seen */
-        $seen = [];
+        /** @var list<array{HtmlBlock, string|null}> $markers */
+        $markers = [];
         $walker = $event->getDocument()->walker();
 
         while (null !== $walkerEvent = $walker->next()) {
@@ -97,18 +97,60 @@ final readonly class DecisionBlockService
             $literal = trim($node->getLiteral());
 
             if (1 === preg_match('~^<!--\s*decision:\s*('.self::ID_PATTERN.')\s*-->$~', $literal, $matches)) {
-                if (isset($seen[$matches[1]])) {
-                    continue;
-                }
-                $seen[$matches[1]] = true;
-                $node->setLiteral($this->openSentinel($matches[1]));
+                $markers[] = [$node, $matches[1]];
+            } elseif (1 === preg_match('~^<!--\s*/decision\s*-->$~', $literal)) {
+                $markers[] = [$node, null];
+            }
+        }
+
+        $this->sentinelPairedFences($markers);
+    }
+
+    /**
+     * Writes a sentinel only where an opener and a closer actually pair up.
+     *
+     * Pairing here rather than in the markup is what stops a malformed fence
+     * breaking a well-formed one further down: an unclosed opener used to leave
+     * a sentinel that the pairing regex then matched against the NEXT fence's
+     * closer, swallowing both lists and silently costing the valid block its
+     * controls. Every other malformed shape degrades where it stands, and this
+     * was the one that reached downstream.
+     *
+     * It also leaves toControls() a guarantee it cannot establish itself: the
+     * sentinels it sees are flat and non-overlapping, so its `.*?` can never
+     * cross another fence.
+     *
+     * @param list<array{HtmlBlock, string|null}> $markers in document order, id null for a closer
+     */
+    private function sentinelPairedFences(array $markers): void
+    {
+        /** @var array<string, true> $paired */
+        $paired = [];
+        /** @var array{HtmlBlock, string}|null $open */
+        $open = null;
+
+        foreach ($markers as [$node, $id]) {
+            if (null !== $id) {
+                // A second opener means the first never closed, so it is
+                // abandoned: only the nearest can pair with the next closer.
+                // A repeated id is abandoned too, and takes the following
+                // closer with it — two blocks sharing an id would answer each
+                // other's question and collide on the minted element ids.
+                $open = isset($paired[$id]) ? null : [$node, $id];
 
                 continue;
             }
 
-            if (1 === preg_match('~^<!--\s*/decision\s*-->$~', $literal)) {
-                $node->setLiteral($this->closeSentinel());
+            // A closer with nothing open — the document's own stray marker.
+            if (null === $open) {
+                continue;
             }
+
+            [$openNode, $openId] = $open;
+            $openNode->setLiteral($this->openSentinel($openId));
+            $node->setLiteral($this->closeSentinel());
+            $paired[$openId] = true;
+            $open = null;
         }
     }
 
