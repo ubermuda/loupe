@@ -109,10 +109,13 @@ were all lifecycle, never provisioning:
   bin/worktrees/compose-exec.sh php -d memory_limit=512M bin/console tailwind:build
   ```
 
-  Two things that waste time if missed: the drop fails with *"1 other session
-  using the database"* unless the messenger consumer is stopped first, and the
-  token step is not optional — skipping it leaves the site-review widget in its
-  rejected-token state, which surfaces as unrelated-looking spec failures.
+  Three things that waste time if missed: the drop fails with *"1 other session
+  using the database"* unless the messenger consumer is stopped first; the token
+  step is not optional — skipping it leaves the site-review widget in its
+  rejected-token state, which surfaces as unrelated-looking spec failures; and
+  the final `tailwind:build` matters whenever `app.css` changed in a merge,
+  because a worktree serving stale CSS fails any spec asserting on a new class
+  in a way that reads as a template bug rather than a missing build.
 - **`vendor/` goes stale silently.** `worktree-up` rsyncs `vendor/` from the
   main checkout, but nothing re-runs `composer install` on main after a merge
   changes `composer.lock`. After the export-storage branch merged, main's
