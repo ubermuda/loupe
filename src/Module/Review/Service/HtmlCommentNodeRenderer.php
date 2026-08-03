@@ -24,6 +24,12 @@ use League\CommonMark\Renderer\NodeRendererInterface;
  */
 final readonly class HtmlCommentNodeRenderer implements NodeRendererInterface
 {
+    /** The whole literal is one or more comments and nothing else. */
+    private const string COMMENT_RUN = '~^(?:\s*<!--(?:(?!-->).)*-->)+\s*$~s';
+
+    /** One comment within such a run, capturing its text. */
+    private const string ONE_COMMENT = '~<!--((?:(?!-->).)*)-->~s';
+
     public function __construct(
         private string $blockOpen,
         private string $inlineOpen,
@@ -38,22 +44,31 @@ final readonly class HtmlCommentNodeRenderer implements NodeRendererInterface
             return null;
         }
 
-        // Anchored at both ends: a block that merely starts with a comment, or
-        // carries trailing markup on the closing line, falls through untouched
-        // rather than being partly swallowed.
-        if (1 !== preg_match('~^<!--(.*)-->$~s', trim($node->getLiteral()), $matches)) {
+        $literal = trim($node->getLiteral());
+
+        // `<!-- a --><!-- b -->` is one HtmlBlock, so the literal has to be read
+        // as a run of comments rather than as one. `(?:(?!-->).)*` is what makes
+        // that honest: with `.*?` the run would also match `<!-- a --> trailing
+        // -->`, swallowing the markup between two comments into the annotation.
+        if (1 !== preg_match(self::COMMENT_RUN, $literal)) {
             return null;
         }
 
-        $text = trim($matches[1]);
-        if ('' === $text) {
-            return null;
+        preg_match_all(self::ONE_COMMENT, $literal, $matches);
+
+        $open = $node instanceof HtmlBlock ? $this->blockOpen : $this->inlineOpen;
+        $wrapped = '';
+        foreach ($matches[1] as $text) {
+            $text = trim($text);
+            if ('' === $text) {
+                continue;
+            }
+
+            // Unescaped, a comment containing `<script>` would reach the
+            // sanitizer as a real element and be dropped, taking the note with it.
+            $wrapped .= $open.htmlspecialchars($text, \ENT_QUOTES | \ENT_SUBSTITUTE, 'UTF-8').$this->close;
         }
 
-        // Unescaped, a comment containing `<script>` would reach the sanitizer
-        // as a real element and be dropped, taking the note with it.
-        return ($node instanceof HtmlBlock ? $this->blockOpen : $this->inlineOpen)
-            .htmlspecialchars($text, \ENT_QUOTES | \ENT_SUBSTITUTE, 'UTF-8')
-            .$this->close;
+        return '' === $wrapped ? null : $wrapped;
     }
 }

@@ -1299,9 +1299,69 @@ contributes text. The re-render reported "1 of 3 versions" and left all four
 
 The fix is to give the command a reanchoring pass — resolve every open comment
 against the new text and set `orphaned` where the quote is gone — so the damage
-is recorded when it happens rather than surfacing at the next revision. Consider
-a `--dry-run` that reports the counts before writing, since that is exactly what
-you want before running a renderer migration.
+is recorded when it happens rather than surfacing at the next revision. Add a
+`--dry-run` that reports the counts before writing, since that is what you want
+before running a renderer migration.
+
+Two things make this more than it looks. `ReanchoringService::reanchor()` cannot
+be reused: it builds *new* `Comment` rows against a *new* `DocumentVersion`,
+whereas this needs an in-place update of the existing rows — a different
+operation against the same `AnchorService::resolve()` predicate. And
+`RefreshDocumentVersionsHtmlHandler` runs without a transaction, so a reanchor
+pass has to wrap rewrite-plus-reanchor per version; a mid-run crash that left
+new HTML beside stale anchors would be worse than today's uniform silent
+de-highlight.
+
+## A symfony/yaml bump can silently move every anchor in a document
+
+**Author:** Claude · **Type:** bug · **Priority:** medium · **Status:** pending
+
+`MarkdownRenderer` renders a document's opening `---` block as a key/value table
+when its YAML parses to a map, and otherwise falls back to rendering the block
+as ordinary Markdown text. Which path a given document takes is therefore
+decided by `symfony/yaml`'s parser, and the two paths produce very different
+`DocumentVersion::plainText()`.
+
+So a `symfony/yaml` upgrade that changes how any edge-case document parses will
+flip it between the two — moving every comment anchor below the block — with
+nothing to trigger a re-render and no signal that it happened. The renderer logs
+`review.markdown.front_matter_not_tabulated` whenever it takes the fallback,
+which is the hook to watch: a document that starts or stops logging it across a
+dependency bump has moved. Worth deciding whether the fallback path should be
+pinned by storing which path a version used, rather than recomputed.
+
+## Rendered front matter and annotations have no accessible name
+
+**Author:** Claude · **Type:** feature · **Priority:** low · **Status:** pending
+
+`MarkdownRenderer` emits the front-matter table with no `<caption>`, so screen
+readers announce an unnamed table. Block-level HTML comments carry
+`role="note"`, which keeps them out of the landmark list, but they are unnamed
+too.
+
+Naming either one needs a translated string, and `MarkdownRenderer` has no
+translator — it renders document content rather than UI, and is constructed
+directly in tests. Adding one is the decision to make; an untranslated English
+label would be worse than none. Note that any visible label would also land in
+`plainText()` and shift every anchor below it, so this needs the same re-render
+treatment as any other rendering change.
+
+## Malformed front matter puts a phantom entry in the table of contents
+
+**Author:** Claude · **Type:** bug · **Priority:** low · **Status:** pending
+
+When a document's `---` block cannot become a table, `MarkdownRenderer` renders
+it as ordinary Markdown — and the closing `---` turns the lines above it into a
+setext heading. `HeadingExtractor` reads the rendered HTML, so that heading
+becomes an entry in the document's table of contents: `---\njust a string\n---`
+yields `<h2 id="heading-just-a-string">`.
+
+Spoofing only — the `heading-` prefix keeps a computed id from colliding with a
+real page id — and it is the behaviour every front-matter document had before
+the block was tabulated at all, so this is a leftover rather than a regression.
+Fixing it means rendering the unparseable block as literal text (a code block)
+instead of as Markdown, which changes `plainText()` again and so needs a
+re-render; that is why it was left alone rather than done inline.
 
 ## Review anchoring — structural fallback anchor (low priority)
 

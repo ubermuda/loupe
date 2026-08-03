@@ -13,6 +13,7 @@ use League\CommonMark\Extension\FrontMatter\FrontMatterExtension;
 use League\CommonMark\Extension\FrontMatter\Output\RenderedContentWithFrontMatter;
 use League\CommonMark\Extension\Table\TableExtension;
 use League\CommonMark\MarkdownConverter;
+use Psr\Log\LoggerInterface;
 use Symfony\Component\HtmlSanitizer\HtmlSanitizer;
 use Symfony\Component\HtmlSanitizer\HtmlSanitizerConfig;
 use Symfony\Component\HtmlSanitizer\Reference\W3CReference;
@@ -46,8 +47,32 @@ final readonly class MarkdownRenderer
     /** Matches one wrapped comment, capturing block-vs-inline and the text. */
     private string $notePattern;
 
-    public function __construct()
-    {
+    /**
+     * Ceiling on the text one front-matter block may flatten to, counted as it
+     * is built so the work stops at the ceiling rather than after it.
+     *
+     * YAML aliases expand without a budget, so `a: &a [*b, *b, *b, …]` repeated
+     * per level multiplies by nine each time. Measured unguarded: 409 bytes of
+     * source became 27 MB of HTML in 9.5 s, and each further level costs another
+     * 9x. Neither existing guard helps — DocumentCreateTool::MAX_MARKDOWN_BYTES
+     * caps the source and the growth is exponential in it, while the sanitizer's
+     * own limit never sees this table, which is built outside it so that a
+     * content table cannot carry a class. The parse is cheap (PHP shares the
+     * aliased arrays); only flattening them is not. It also persists: the
+     * expansion is stored, served, and redone by every re-render.
+     *
+     * 64 KiB leaves 14x headroom over a deliberately extreme block (40 keys of
+     * 20 words plus 50 tags costs 4 566) and ~116x over a rich Hugo-style page.
+     * Guarded, the 409-byte bomb renders in 0.046 s.
+     */
+    private const int FRONT_MATTER_TEXT_BUDGET = 65_536;
+
+    /** Depth ceiling, for a block that nests deeply rather than broadly. */
+    private const int FRONT_MATTER_MAX_DEPTH = 16;
+
+    public function __construct(
+        private LoggerInterface $logger,
+    ) {
         $nonce = bin2hex(random_bytes(8));
         $this->noteBlockOpen = sprintf('[loupe-note-%s-block]', $nonce);
         $this->noteInlineOpen = sprintf('[loupe-note-%s-inline]', $nonce);
@@ -64,9 +89,13 @@ final readonly class MarkdownRenderer
         // attribute set rather than merging into it, so a bare allowElement('h2')
         // after that call silently revoked everything it had just granted.
         $config = new HtmlSanitizerConfig()
-            // The sanitizer's default max input length is 20 000 bytes, beyond which it
-            // silently truncates — long documents lost their tail at render time.
-            ->withMaxInputLength(1_000_000)
+            // The sanitizer truncates silently past this length rather than
+            // refusing, so any finite value drops a long document's tail with no
+            // error. A finite value also cuts through the markers that carry an
+            // HTML comment's text across (see withDocumentNotes), printing one on
+            // the page and making the same source render differently each time.
+            // The source is already capped by DocumentCreateTool::MAX_MARKDOWN_BYTES.
+            ->withMaxInputLength(-1)
             // Headings are attribute-free on purpose: their ids are computed from
             // their own text after sanitization, see withHeadingIds().
             ->allowElement('h1')
@@ -144,25 +173,38 @@ final readonly class MarkdownRenderer
 
     public function render(string $markdown): string
     {
-        $frontMatter = null;
+        $table = null;
         $rendered = null;
+        $reason = null;
 
         try {
             $rendered = $this->converter->convert($markdown);
             if ($rendered instanceof RenderedContentWithFrontMatter) {
                 $data = $rendered->getFrontMatter();
-                if (\is_array($data) && [] !== $data) {
-                    $frontMatter = $data;
+                if (!\is_array($data) || [] === $data) {
+                    $reason = 'not a key/value map';
+                } else {
+                    $table = self::frontMatterTable($data);
+                    $reason = null === $table ? 'expands past the size budget' : null;
                 }
             }
-        } catch (InvalidFrontMatterException) {
+        } catch (InvalidFrontMatterException $e) {
+            $reason = 'unparseable YAML: '.$e->getMessage();
         }
 
-        // An opening `---` block fails to become a table when its YAML does not
-        // parse, or parses to something other than a key/value map. The
-        // extension has already lifted it out of the body by then, so rendering
-        // again without it is what keeps the text on the page.
-        if (null === $rendered || (null === $frontMatter && $rendered instanceof RenderedContentWithFrontMatter)) {
+        // Three ways an opening `---` block fails to become a table, and in all
+        // of them the extension has already lifted it out of the body — so
+        // rendering again without the extension is what keeps the text on the
+        // page. Logged because a document that silently takes this path renders
+        // fine and looks fine, and would otherwise be invisible in a batch run.
+        if (null !== $reason) {
+            $this->logger->warning('review.markdown.front_matter_not_tabulated', [
+                'reason' => $reason,
+                'markdown_bytes' => \strlen($markdown),
+            ]);
+        }
+
+        if (null === $rendered || (null === $table && $rendered instanceof RenderedContentWithFrontMatter)) {
             $rendered = $this->plainConverter->convert($markdown);
         }
 
@@ -170,7 +212,7 @@ final readonly class MarkdownRenderer
             $this->withDocumentNotes($this->sanitizer->sanitize($rendered->getContent())),
         );
 
-        return null === $frontMatter ? $html : $this->frontMatterTable($frontMatter).$html;
+        return ($table ?? '').$html;
     }
 
     private function buildEnvironment(bool $withFrontMatter): Environment
@@ -206,8 +248,11 @@ final readonly class MarkdownRenderer
         return preg_replace_callback(
             $this->notePattern,
             /** @param array<int, string> $matches */
+            // role="note" rather than <aside>'s implicit "complementary": a
+            // document with six markers would otherwise add six unnamed
+            // landmarks to the page's landmark list.
             static fn (array $matches): string => 'block' === $matches[1]
-                ? sprintf('<aside class="lp-doc-note">%s</aside>', $matches[2])
+                ? sprintf('<aside role="note" class="lp-doc-note">%s</aside>', $matches[2])
                 : sprintf('<span class="lp-doc-note lp-doc-note--inline">%s</span>', $matches[2]),
             $html,
         ) ?? $html;
@@ -221,20 +266,32 @@ final readonly class MarkdownRenderer
      * both ways: `table` is allowed no attributes at all, so a content table can
      * never carry a class and can never be mistaken for this one.
      *
+     * Returns null when the block expands past FRONT_MATTER_TEXT_BUDGET, which
+     * is the caller's signal to render the document without the extension.
+     *
      * @param array<array-key, mixed> $frontMatter
      */
-    private function frontMatterTable(array $frontMatter): string
+    private static function frontMatterTable(array $frontMatter): ?string
     {
+        $budget = self::FRONT_MATTER_TEXT_BUDGET;
         $rows = '';
         foreach ($frontMatter as $key => $value) {
             // One tag per line, matching how CommonMark lays a content table
             // out. strip_tags() inserts nothing of its own, so without the
             // newlines every cell would run into the next one in plainText() —
             // the string every comment anchor is measured against.
+            // Keys are charged to the budget too: a `<<:` merge key can multiply
+            // them the same way an alias multiplies values.
+            $budget -= \strlen((string) $key) + 1;
+            $formatted = self::formatFrontMatterValue($value, $budget);
+            if ($budget < 0 || null === $formatted) {
+                return null;
+            }
+
             $rows .= sprintf(
                 "<tr>\n<th scope=\"row\">%s</th>\n<td>%s</td>\n</tr>\n",
                 self::escape((string) $key),
-                self::escape(self::formatFrontMatterValue($value)),
+                self::escape($formatted),
             );
         }
 
@@ -245,32 +302,55 @@ final readonly class MarkdownRenderer
      * Flattens one front-matter value to a single line of display text — a tag
      * list becomes one comma-separated row rather than a nested table a reviewer
      * would have to select across.
+     *
+     * Returns null once $budget is exhausted. The budget is decremented as the
+     * value is walked rather than checked against the finished string, so an
+     * aliased structure costs the budget and not what it would have expanded to.
      */
-    private static function formatFrontMatterValue(mixed $value): string
+    private static function formatFrontMatterValue(mixed $value, int &$budget, int $depth = 0): ?string
     {
-        if (\is_bool($value)) {
-            return $value ? 'true' : 'false'; // @translation-check-ignore
-        }
-
-        // Printed back the way front matter is normally written: a bare date
-        // stays a date, and only a value that carried a time keeps one.
-        if ($value instanceof \DateTimeInterface) {
-            return '00:00:00' === $value->format('H:i:s')
-                ? $value->format('Y-m-d')
-                : $value->format('Y-m-d H:i:s');
+        if ($depth > self::FRONT_MATTER_MAX_DEPTH) {
+            return null;
         }
 
         if (\is_array($value)) {
             $parts = [];
             foreach ($value as $key => $item) {
-                $formatted = self::formatFrontMatterValue($item);
+                $formatted = self::formatFrontMatterValue($item, $budget, $depth + 1);
+                if (null === $formatted) {
+                    return null;
+                }
                 $parts[] = \is_int($key) ? $formatted : $key.': '.$formatted;
             }
 
             return implode(', ', $parts);
         }
 
-        return \is_scalar($value) ? (string) $value : '';
+        if (\is_bool($value)) {
+            return self::charge($budget, $value ? 'true' : 'false'); // @translation-check-ignore
+        }
+
+        // Printed back the way front matter is normally written: a bare date
+        // stays a date, and only a value that carried a time keeps one.
+        if ($value instanceof \DateTimeInterface) {
+            return self::charge($budget, '00:00:00' === $value->format('H:i:s')
+                ? $value->format('Y-m-d')
+                : $value->format('Y-m-d H:i:s'));
+        }
+
+        return self::charge($budget, \is_scalar($value) ? (string) $value : '');
+    }
+
+    /**
+     * Charges one flattened scalar to the budget, returning null once it is spent.
+     * The `+ 1` per node matters: a structure whose leaves are all empty strings
+     * would otherwise expand forever against a length-only budget.
+     */
+    private static function charge(int &$budget, string $text): ?string
+    {
+        $budget -= \strlen($text) + 1;
+
+        return $budget < 0 ? null : $text;
     }
 
     private static function escape(string $text): string

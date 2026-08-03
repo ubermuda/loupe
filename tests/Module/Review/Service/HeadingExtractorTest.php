@@ -7,12 +7,13 @@ namespace App\Tests\Module\Review\Service;
 use App\Module\Review\Service\HeadingExtractor;
 use App\Module\Review\Service\MarkdownRenderer;
 use PHPUnit\Framework\TestCase;
+use Psr\Log\NullLogger;
 
 final class HeadingExtractorTest extends TestCase
 {
     public function test_lists_every_heading_in_document_order(): void
     {
-        $html = new MarkdownRenderer()->render("# Title\n\nIntro.\n\n## First\n\n### Deeper\n\n## Second\n");
+        $html = new MarkdownRenderer(new NullLogger())->render("# Title\n\nIntro.\n\n## First\n\n### Deeper\n\n## Second\n");
 
         $headings = new HeadingExtractor()->extract($html);
 
@@ -24,7 +25,7 @@ final class HeadingExtractorTest extends TestCase
 
     public function test_reads_the_text_through_inline_markup(): void
     {
-        $html = new MarkdownRenderer()->render("## Use `render()` *now*\n");
+        $html = new MarkdownRenderer(new NullLogger())->render("## Use `render()` *now*\n");
 
         $headings = new HeadingExtractor()->extract($html);
 
