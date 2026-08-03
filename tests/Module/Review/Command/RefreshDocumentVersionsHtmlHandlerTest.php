@@ -21,6 +21,9 @@ use Symfony\Component\Uid\Uuid;
 
 final class RefreshDocumentVersionsHtmlHandlerTest extends KernelTestCase
 {
+    private const string STRANDING_QUOTE = 'The quoted sentence lives here.';
+    private const string STRANDING_STORED_HTML = '<p>The quoted sentence lives here.</p>';
+
     public function test_stale_rendered_html_is_refreshed_from_markdown_source(): void
     {
         self::bootKernel();
@@ -90,7 +93,7 @@ final class RefreshDocumentVersionsHtmlHandlerTest extends KernelTestCase
 
     public function test_it_refuses_and_writes_nothing_when_a_comment_anchor_would_move(): void
     {
-        [$container, $connection, $versionId] = $this->seedStaleVersionWithComment('would-move', 'a quote');
+        [$container, $connection, $versionId] = $this->seedStrandingVersion('would-move');
 
         /** @var RefreshDocumentVersionsHtmlHandler $handler */
         $handler = $container->get(RefreshDocumentVersionsHtmlHandler::class);
@@ -101,7 +104,7 @@ final class RefreshDocumentVersionsHtmlHandlerTest extends KernelTestCase
         self::assertSame(0, $result->changed);
         // The whole point of refusing: the table is left exactly as it was, not
         // rewritten up to the first at-risk row.
-        self::assertSame('<p>stale</p>', $connection->fetchOne(
+        self::assertSame(self::STRANDING_STORED_HTML, $connection->fetchOne(
             'SELECT rendered_html FROM document_versions WHERE id = :id::uuid',
             ['id' => (string) $versionId],
         ));
@@ -109,7 +112,7 @@ final class RefreshDocumentVersionsHtmlHandlerTest extends KernelTestCase
 
     public function test_the_opt_in_flag_lets_it_through(): void
     {
-        [$container, $connection, $versionId] = $this->seedStaleVersionWithComment('opt-in', 'a quote');
+        [$container, $connection, $versionId] = $this->seedStrandingVersion('opt-in');
 
         /** @var RefreshDocumentVersionsHtmlHandler $handler */
         $handler = $container->get(RefreshDocumentVersionsHtmlHandler::class);
@@ -118,10 +121,56 @@ final class RefreshDocumentVersionsHtmlHandlerTest extends KernelTestCase
         self::assertFalse($result->refused);
         self::assertSame(1, $result->atRisk, 'the count is still reported, so the damage is on the record');
         self::assertGreaterThanOrEqual(1, $result->changed);
-        self::assertNotSame('<p>stale</p>', $connection->fetchOne(
+        self::assertNotSame(self::STRANDING_STORED_HTML, $connection->fetchOne(
             'SELECT rendered_html FROM document_versions WHERE id = :id::uuid',
             ['id' => (string) $versionId],
         ));
+    }
+
+    public function test_a_comment_already_unresolvable_does_not_block_the_run(): void
+    {
+        // It was stranded before this run and is no worse off after it, so
+        // refusing on its account offers the operator nothing but the
+        // destructive flag. The quote appears in neither the stored HTML nor the
+        // re-rendered HTML; the orphaned flag is set to match how such a comment
+        // reaches this state in production, but the guard never reads it.
+        [$container] = $this->seedVersion(
+            'already-orphaned',
+            markdown: '# Fresh title',
+            storedHtml: '<p>stale</p>',
+            quote: 'a quote that appears nowhere',
+            orphaned: true,
+        );
+
+        /** @var RefreshDocumentVersionsHtmlHandler $handler */
+        $handler = $container->get(RefreshDocumentVersionsHtmlHandler::class);
+        $result = $handler(new RefreshDocumentVersionsHtmlCommand());
+
+        self::assertFalse($result->refused);
+        self::assertSame(0, $result->atRisk);
+        self::assertGreaterThanOrEqual(1, $result->changed);
+    }
+
+    public function test_a_flagged_comment_whose_quote_came_back_is_still_protected(): void
+    {
+        // Why resolvability is measured rather than read off comments.orphaned:
+        // the flag is only written when a document is revised, so a comment can
+        // carry it while its quote has since reappeared. Skipping every flagged
+        // comment would let this run silently take it away again.
+        [$container] = $this->seedVersion(
+            'flag-is-stale',
+            markdown: '# Fresh title',
+            storedHtml: '<p>The quoted sentence lives here.</p>',
+            quote: 'The quoted sentence lives here.',
+            orphaned: true,
+        );
+
+        /** @var RefreshDocumentVersionsHtmlHandler $handler */
+        $handler = $container->get(RefreshDocumentVersionsHtmlHandler::class);
+        $result = $handler(new RefreshDocumentVersionsHtmlCommand());
+
+        self::assertTrue($result->refused);
+        self::assertSame(1, $result->atRisk);
     }
 
     public function test_an_edit_that_leaves_every_anchor_resolvable_does_not_refuse(): void
@@ -175,15 +224,24 @@ final class RefreshDocumentVersionsHtmlHandlerTest extends KernelTestCase
      */
     private function seedStaleVersionWithComment(string $slug, string $quote): array
     {
-        // '# Fresh title' renders to "Fresh title", which does not contain the
-        // quote — so an anchored comment here is genuinely stranded.
         return $this->seedVersion($slug, '# Fresh title', '<p>stale</p>', $quote);
+    }
+
+    /**
+     * A comment that resolves against the stored HTML and stops resolving after
+     * the re-render — the only shape that is genuinely damaged by this run.
+     *
+     * @return array{ContainerInterface, Connection, Uuid}
+     */
+    private function seedStrandingVersion(string $slug): array
+    {
+        return $this->seedVersion($slug, '# Fresh title', self::STRANDING_STORED_HTML, self::STRANDING_QUOTE);
     }
 
     /**
      * @return array{ContainerInterface, Connection, Uuid}
      */
-    private function seedVersion(string $slug, string $markdown, string $storedHtml, string $quote): array
+    private function seedVersion(string $slug, string $markdown, string $storedHtml, string $quote, bool $orphaned = false): array
     {
         self::bootKernel();
         $container = self::getContainer();
@@ -201,7 +259,9 @@ final class RefreshDocumentVersionsHtmlHandlerTest extends KernelTestCase
         $document = $createHandler(new CreateDocumentCommand($project, "Doc {$slug}", $markdown));
         $version = $document->currentVersion();
 
-        $em->persist(new Comment($version, $user, 'probe', new Anchor($quote, '', '', 0)));
+        $comment = new Comment($version, $user, 'probe', new Anchor($quote, '', '', 0));
+        $comment->orphaned = $orphaned;
+        $em->persist($comment);
         $em->flush();
 
         $versionId = $version->id;

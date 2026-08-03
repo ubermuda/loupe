@@ -60,42 +60,61 @@ final readonly class RefreshDocumentVersionsHtmlHandler
     }
 
     /**
-     * Comments this run would strand, resolved individually rather than inferred
-     * from the version's text changing.
+     * Comments that resolve against the stored HTML and would stop resolving
+     * against the re-rendered HTML — the damage this run would newly cause.
      *
-     * Comparing whole before/after plain text refuses for any edit anywhere,
+     * Two narrowings, both for the same reason: a guard that fires where there
+     * is nothing to lose is what teaches people to reach for the override flag
+     * by reflex, and then it protects nothing.
+     *
+     * Comparing whole before/after plain text fires for any edit anywhere,
      * including text added far from every anchor where each comment still
-     * resolves perfectly. Asking the resolver the same question ReanchoringService
-     * asks — does this quote still appear — is what makes a refusal mean
-     * something. A guard that fires on harmless edits is what teaches people to
-     * reach for the override flag by reflex.
+     * resolves. So each anchor is asked individually, using the predicate
+     * ReanchoringService uses. And asking only about the new text counts anchors
+     * that were already unresolvable — a comment stranded by an earlier revision
+     * is no worse off, yet its version could not be re-rendered without the flag.
+     *
+     * Resolvability is measured rather than read off `comments.orphaned`, which
+     * is only written when a document is revised and so can be stale both ways:
+     * a flagged comment whose quote has since reappeared still counts here if
+     * this run would remove it again, and an unflagged comment whose quote is
+     * already gone does not.
      *
      * Untargeted comments are excluded in SQL: an empty quote is never
      * relocated, so counting one would be an alarm that cannot come true.
      *
      * The whole inspection completes before the first write, so a refusal leaves
      * the table exactly as it was rather than half-rewritten. Rows are ordered by
-     * version so each version's HTML is rendered once and held for its own
-     * comments only.
+     * version so each version is rendered once.
      */
     private function countCommentsThatWouldStopResolving(): int
     {
-        /** @var iterable<array{id: string, markdown_source: string, anchor_quote: string, anchor_prefix: string, anchor_suffix: string, anchor_offset_hint: int}> $rows */
+        /** @var iterable<array{id: string, markdown_source: string, rendered_html: string, anchor_quote: string, anchor_prefix: string, anchor_suffix: string, anchor_offset_hint: int}> $rows */
         $rows = $this->connection->iterateAssociative(
-            "SELECT v.id, v.markdown_source, c.anchor_quote, c.anchor_prefix, c.anchor_suffix, c.anchor_offset_hint
+            "SELECT v.id, v.markdown_source, v.rendered_html,
+                    c.anchor_quote, c.anchor_prefix, c.anchor_suffix, c.anchor_offset_hint
              FROM document_versions v
              JOIN comments c ON c.version_id = v.id AND c.anchor_quote <> ''
              ORDER BY v.id",
         );
 
         $atRisk = 0;
-        $renderedVersionId = null;
-        $plainText = '';
+        $inspectedVersionId = null;
+        $before = '';
+        $after = '';
 
         foreach ($rows as $row) {
-            if ($row['id'] !== $renderedVersionId) {
-                $renderedVersionId = $row['id'];
-                $plainText = DocumentVersion::plainTextOf($this->renderer->render($row['markdown_source']));
+            if ($row['id'] !== $inspectedVersionId) {
+                $inspectedVersionId = $row['id'];
+                $before = DocumentVersion::plainTextOf($row['rendered_html']);
+                $after = DocumentVersion::plainTextOf($this->renderer->render($row['markdown_source']));
+            }
+
+            // Identical text resolves identically, so no comment on this version
+            // can newly break — the common case in a re-render, and it skips two
+            // resolutions per comment.
+            if ($before === $after) {
+                continue;
             }
 
             $anchor = new Anchor(
@@ -105,7 +124,9 @@ final readonly class RefreshDocumentVersionsHtmlHandler
                 (int) $row['anchor_offset_hint'],
             );
 
-            if (null === $this->anchorService->resolve($plainText, $anchor)) {
+            if (null !== $this->anchorService->resolve($before, $anchor)
+                && null === $this->anchorService->resolve($after, $anchor)
+            ) {
                 ++$atRisk;
             }
         }
