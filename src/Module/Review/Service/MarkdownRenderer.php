@@ -79,7 +79,12 @@ final readonly class MarkdownRenderer
      */
     private const int FRONT_MATTER_MAX_VISITS = 65_536;
 
-    /** Depth ceiling, for a block that nests deeply rather than broadly. */
+    /**
+     * Ceiling on nesting depth, for a block that nests deeply rather than
+     * broadly. Enforced inside BoundedHtmlBuilder::visit() with the other two:
+     * checked here in the caller it once returned without latching, which stored
+     * a table whose deep value silently rendered empty.
+     */
     private const int FRONT_MATTER_MAX_DEPTH = 16;
 
     public function __construct(
@@ -288,7 +293,11 @@ final readonly class MarkdownRenderer
      */
     private static function frontMatterTable(array $frontMatter): ?string
     {
-        $out = new BoundedHtmlBuilder(self::FRONT_MATTER_MAX_OUTPUT, self::FRONT_MATTER_MAX_VISITS);
+        $out = new BoundedHtmlBuilder(
+            self::FRONT_MATTER_MAX_OUTPUT,
+            self::FRONT_MATTER_MAX_VISITS,
+            self::FRONT_MATTER_MAX_DEPTH,
+        );
 
         // One tag per line, matching how CommonMark lays a content table out.
         // strip_tags() inserts nothing of its own, so without the newlines every
@@ -296,7 +305,7 @@ final readonly class MarkdownRenderer
         // comment anchor is measured against.
         $out->append("<table class=\"lp-front-matter\">\n<tbody>\n");
         foreach ($frontMatter as $key => $value) {
-            $out->visit();
+            $out->visit(0);
             $out->append("<tr>\n<th scope=\"row\">");
             $out->appendText((string) $key);
             $out->append("</th>\n<td>");
@@ -321,7 +330,7 @@ final readonly class MarkdownRenderer
      */
     private static function appendFrontMatterValue(mixed $value, BoundedHtmlBuilder $out, int $depth): void
     {
-        if (!$out->visit() || $depth > self::FRONT_MATTER_MAX_DEPTH) {
+        if (!$out->visit($depth)) {
             return;
         }
 

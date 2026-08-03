@@ -262,6 +262,7 @@ final class MarkdownRendererTest extends TestCase
         yield 'wide fan-out' => ['['.implode(', ', array_fill(0, 40, '"x"')).']'];
         yield 'mixed containers and scalars' => ['[[], "x", {a: []}, [[]]]'];
         yield 'nested long keys with no leaf text' => [sprintf('{%s: {}}', $longKey)];
+        yield 'nested past the depth ceiling' => [str_repeat('[', 12).'"x"'.str_repeat(']', 12)];
     }
 
     /**
@@ -311,6 +312,21 @@ final class MarkdownRendererTest extends TestCase
         self::assertLessThan(200_000, \strlen($html));
         self::assertLessThan(5.0, microtime(true) - $started);
         self::assertStringContainsString('Body.', $html);
+    }
+
+    public function test_nesting_past_the_depth_ceiling_falls_back_rather_than_truncating(): void
+    {
+        // All three ceilings have to behave the same way: discard the table and
+        // render the block as text. Depth used to stop the traversal without
+        // latching, so the table was kept and stored with the deep value
+        // rendered empty — a reviewer sees a key the document filled in, shown
+        // blank, with nothing saying anything was dropped.
+        $deep = str_repeat('[', 18).'"buried"'.str_repeat(']', 18);
+
+        $html = new MarkdownRenderer(new NullLogger())->render("---\nkey: {$deep}\n---\n\nBody.\n");
+
+        self::assertStringNotContainsString('lp-front-matter', $html);
+        self::assertStringContainsString('buried', $html);
     }
 
     public function test_a_top_level_sequence_is_not_tabulated(): void

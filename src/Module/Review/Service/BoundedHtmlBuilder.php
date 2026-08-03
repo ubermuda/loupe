@@ -15,13 +15,21 @@ namespace App\Module\Review\Service;
  * reaching the output has to pass through append(), so a new append is charged
  * whether or not its author thought about it.
  *
- * Two ceilings, because neither implies the other. Length bounds what a reader
- * is served; visits bound pure traversal, which length cannot see — a structure
- * of empty containers expands exponentially while emitting nothing at all.
+ * Three ceilings — output length, nodes visited, nesting depth — and all three
+ * live here rather than at the call sites so that crossing any of them has the
+ * same consequence. Depth was checked by the caller once and quietly returned
+ * instead of latching, which stored a truncated table: a key whose value the
+ * document had written, rendered empty, with nothing to tell a reviewer that
+ * anything was dropped. All-or-fallback is the property the design depends on.
  *
- * Once either ceiling is crossed the builder latches: further calls are no-ops
- * and result() returns null, so a caller that fails to check a return value
- * still cannot overflow it.
+ * Once any ceiling is crossed the builder latches: further calls are no-ops and
+ * result() returns null, so a caller that fails to check a return value still
+ * cannot overflow it or keep a partial result.
+ *
+ * The honest limit of this defence: it bounds what the renderer does with an
+ * already-parsed structure, and nothing before that. Yaml::parse() materialises
+ * a `<<:` merge key into a real array while building the structure this class
+ * is handed, so that allocation happens upstream and no ceiling here can bound it.
  */
 final class BoundedHtmlBuilder
 {
@@ -32,13 +40,18 @@ final class BoundedHtmlBuilder
     public function __construct(
         private readonly int $maxLength,
         private readonly int $maxVisits,
+        private readonly int $maxDepth,
     ) {
     }
 
-    /** Records one node visit. Returns false once the traversal ceiling is crossed. */
-    public function visit(): bool
+    /**
+     * Records one node visit at $depth. Returns false once any ceiling is
+     * crossed. Depth is passed in rather than checked by the caller so that it
+     * cannot be tested without also latching.
+     */
+    public function visit(int $depth): bool
     {
-        if (++$this->visits > $this->maxVisits) {
+        if (++$this->visits > $this->maxVisits || $depth > $this->maxDepth) {
             $this->exceeded = true;
         }
 
