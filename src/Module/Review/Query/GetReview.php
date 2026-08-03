@@ -34,7 +34,7 @@ final readonly class GetReview
      *     status: string,
      *     verdict: string|null,
      *     version: int,
-     *     comments: list<array{quote: string, body: string, status: string, orphaned: bool, thread: list<array{quote: string, body: string, orphaned: bool}>}>
+     *     comments: list<array{id: string, quote: string, body: string, status: string, orphaned: bool, thread: list<array{id: string, quote: string, body: string, orphaned: bool}>}>
      * }
      */
     public function __invoke(Document $document): array
@@ -64,6 +64,7 @@ final readonly class GetReview
 
             $thread = array_map(
                 static fn (Comment $reply) => [
+                    'id' => (string) $reply->id,
                     'quote' => self::snapToWordEdges($reply->anchor),
                     'body' => $reply->body,
                     'orphaned' => $reply->orphaned,
@@ -72,6 +73,7 @@ final readonly class GetReview
             );
 
             $threadedComments[] = [
+                'id' => $commentId,
                 'quote' => self::snapToWordEdges($comment->anchor),
                 'body' => $comment->body,
                 'status' => $comment->threadStatus->value,

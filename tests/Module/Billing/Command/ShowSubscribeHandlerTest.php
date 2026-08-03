@@ -46,7 +46,7 @@ final class ShowSubscribeHandlerTest extends TestCase
         $users->method('countActive')->willReturn(1);
         // A non-empty users table: the install wizard is closed, which is what
         // RegistrationGate::allowsNewAccounts() checks on top of the flag.
-        $users->method('count')->willReturn(1);
+        $users->method('countHumans')->willReturn(1);
 
         return new ShowSubscribeHandler(
             $profiles,

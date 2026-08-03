@@ -43,7 +43,7 @@ final class RegistrationGateTest extends TestCase
         bool $expected,
     ): void {
         $users = $this->createStub(UserRepository::class);
-        $users->method('count')->willReturn($totalUsers);
+        $users->method('countHumans')->willReturn($totalUsers);
 
         self::assertSame($expected, $this->gate(FeatureFlags::service($flags), $users)->allowsNewAccounts());
     }

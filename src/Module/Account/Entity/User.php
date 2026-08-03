@@ -14,6 +14,15 @@ use Ubermuda\AdminBundle\Security\AdminPromotableUser;
 #[ORM\Table(name: 'users')]
 class User implements UserInterface, PasswordAuthenticatedUserInterface, AdminPromotableUser
 {
+    /**
+     * The one account that authors everything an agent writes, so a machine
+     * reply is never attributed to the human whose token carried it. Inserted
+     * by a migration with this literal id, which is why it is a constant rather
+     * than a lookup by email: every query that must exclude it can do so
+     * without loading a row.
+     */
+    public const string AGENT_ID = '1073e0a5-9b1c-42f7-8e44-a10a6e57c3d9';
+
     #[ORM\Column(type: UuidType::NAME, unique: true)]
     #[ORM\CustomIdGenerator(class: 'doctrine.uuid_generator')]
     #[ORM\GeneratedValue(strategy: 'CUSTOM')]
@@ -121,6 +130,11 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface, AdminPr
     public function isDisabled(): bool
     {
         return null !== $this->disabledAt;
+    }
+
+    public function isAgent(): bool
+    {
+        return self::AGENT_ID === (string) $this->id;
     }
 
     // -------------------------------------------------------------------------

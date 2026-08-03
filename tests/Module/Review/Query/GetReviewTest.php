@@ -96,6 +96,9 @@ final class GetReviewTest extends KernelTestCase
         self::assertCount(1, $comments);
 
         $root = $comments[0];
+        // The id is what document_reply_to_comment and
+        // document_mark_comment_addressed take, at both levels.
+        self::assertSame((string) $rootComment->id, $root['id']);
         self::assertSame('JWTs', $root['quote']);
         self::assertSame('Why JWTs? Consider opaque tokens.', $root['body']);
         self::assertSame('pending', $root['status']);
@@ -104,6 +107,7 @@ final class GetReviewTest extends KernelTestCase
         // The reply must appear in thread, not at the top level.
         self::assertCount(1, $root['thread']);
         $replyData = $root['thread'][0];
+        self::assertSame((string) $reply->id, $replyData['id']);
         self::assertSame('JWTs', $replyData['quote']);
         self::assertSame('JWTs allow stateless auth which suits the agent use-case.', $replyData['body']);
         self::assertArrayNotHasKey('status', $replyData, 'Status belongs to the thread, so a reply carries none');
