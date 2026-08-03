@@ -38,6 +38,16 @@ final class ProjectDeleterTest extends KernelTestCase
         $doomedMcpTokenId = $doomed->mcpToken->id ?? throw new \LogicException('mcp token seeded');
         $em->clear();
 
+        // Captured before the delete: once the documents are gone, a join-table
+        // count reached through them can no longer fail, so the id is what makes
+        // the assertion below able to catch a surviving reference row.
+        $conn = $em->getConnection();
+        $doomedReferenceSourceId = (string) $conn->fetchOne(
+            'SELECT r.source_document_id FROM document_references r JOIN documents d ON r.source_document_id = d.id WHERE d.project_id = :id',
+            ['id' => (string) $doomedId],
+        );
+        self::assertNotSame('', $doomedReferenceSourceId);
+
         $doomed = $em->find(Project::class, $doomedId);
         self::assertNotNull($doomed);
         $deleter = self::getContainer()->get(ProjectDeleter::class);
@@ -46,14 +56,16 @@ final class ProjectDeleterTest extends KernelTestCase
         $em->clear();
 
         self::assertNull($em->find(Project::class, $doomedId));
-        $conn = $em->getConnection();
+        self::assertSame(0, (int) $conn->fetchOne(
+            'SELECT count(*) FROM document_references WHERE source_document_id = :id',
+            ['id' => $doomedReferenceSourceId],
+        ));
         foreach ([
             'site_review_events' => 'SELECT count(*) FROM site_review_events WHERE project_id = :id',
             'site_review_comments' => 'SELECT count(*) FROM site_review_comments WHERE project_id = :id',
             'comments' => 'SELECT count(*) FROM comments c JOIN document_versions v ON c.version_id = v.id JOIN documents d ON v.document_id = d.id WHERE d.project_id = :id',
             'reviews' => 'SELECT count(*) FROM reviews rv JOIN document_versions v ON rv.version_id = v.id JOIN documents d ON v.document_id = d.id WHERE d.project_id = :id',
             'document_versions' => 'SELECT count(*) FROM document_versions v JOIN documents d ON v.document_id = d.id WHERE d.project_id = :id',
-            'document_references' => 'SELECT count(*) FROM document_references r JOIN documents d ON r.source_document_id = d.id WHERE d.project_id = :id',
             'documents' => 'SELECT count(*) FROM documents WHERE project_id = :id',
         ] as $table => $sql) {
             self::assertSame(0, (int) $conn->fetchOne($sql, ['id' => (string) $doomedId]), sprintf('orphans left in %s', $table));

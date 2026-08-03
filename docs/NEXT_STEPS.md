@@ -2590,3 +2590,26 @@ Either backfill (`offsetHint = mb_strlen(substr(plainText, 0, offsetHint))` per
 comment, against its own version's text) or accept a one-revision settling
 period, but decide it before the first deploy that carries real comments across
 the change.
+
+## MCP array parameters ship an untyped `items: {}` schema
+
+**Author:** Claude · **Type:** bug · **Priority:** low · **Status:** pending
+
+Every array parameter on an MCP tool generates `"items": {}` in its JSON
+schema, so a client sees "an array of anything" where the PHP signature says
+`list<string>`. `bin/console debug:mcp document_create` and
+`debug:mcp document_mark_comment_addressed` both show it: the `@param
+list<string>` docblock's element type is dropped by the schema generator in
+`symfony/mcp-bundle` (`McpPass::generate()` on the method reflection).
+
+It has not bitten yet — agents pass string ids anyway, and the tools validate
+each element themselves — but a client that schema-checks its arguments has
+nothing to check against, and a caller passing numbers or objects only finds
+out from the "not a valid document ID" error. Affected today:
+`document_create` and `document_revise` (`references`),
+`document_mark_comment_addressed` and `site_review_mark_comment_addressed`
+(`commentIds`).
+
+Close it by checking whether a newer `symfony/mcp-bundle` reads generic
+docblock types, and if not, whether the bundle accepts an explicit schema
+override per parameter.
