@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace App\Module\Review\Service;
 
 /**
- * Accumulates HTML under a hard output-length ceiling and a hard visit ceiling.
+ * Accumulates HTML under hard output-length, visit-count and depth ceilings.
  *
  * The buffer is private on purpose, and that is the whole design. Front-matter
  * expansion was bounded three times by charging a budget at each call site, and
@@ -78,7 +78,32 @@ final class BoundedHtmlBuilder
         return $this->append(htmlspecialchars($text, \ENT_QUOTES | \ENT_SUBSTITUTE, 'UTF-8'));
     }
 
-    /** The accumulated HTML, or null if either ceiling was crossed. */
+    /**
+     * Iterates $items, stopping the moment a ceiling is crossed.
+     *
+     * The loop belongs here for the same reason the buffer does. Latching makes
+     * every guarded call a no-op, but it does not by itself stop a `foreach`
+     * that is already running: a loop at a call site keeps stepping through its
+     * remaining siblings. That is harmless only while every guard sits above its
+     * loop, so no exceeded call ever enters one — an ordering nothing enforces
+     * and a future edit can invert without any visible symptom. Owning the loop
+     * removes the ordering question instead of relying on getting it right.
+     *
+     * @param iterable<int|string, mixed>      $items
+     * @param callable(int|string, mixed):void $visitor
+     */
+    public function each(iterable $items, callable $visitor): void
+    {
+        foreach ($items as $key => $item) {
+            if ($this->exceeded) {
+                return;
+            }
+
+            $visitor($key, $item);
+        }
+    }
+
+    /** The accumulated HTML, or null if any ceiling was crossed. */
     public function result(): ?string
     {
         return $this->exceeded ? null : $this->html;

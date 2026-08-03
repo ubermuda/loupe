@@ -324,6 +324,31 @@ final class MarkdownRendererTest extends TestCase
         self::assertStringContainsString('Body.', $html);
     }
 
+    public function test_a_broad_alias_tree_is_bounded(): void
+    {
+        // Breadth rather than depth. Latching stops the traversal only because
+        // every budget check sits above its loop and BoundedHtmlBuilder::each()
+        // stops the loops themselves; a check moved below a loop would let each
+        // ancestor keep walking its remaining siblings, and with a fan-out this
+        // wide that is exponential in calls even though each call is cheap.
+        $fanout = 30;
+        $leaves = implode(', ', array_fill(0, $fanout, '"x"'));
+        $yaml = "---\na0: &a0 [{$leaves}]\n";
+        for ($level = 1; $level <= 6; ++$level) {
+            $references = implode(', ', array_fill(0, $fanout, sprintf('*a%d', $level - 1)));
+            $yaml .= sprintf("a%d: &a%d [%s]\n", $level, $level, $references);
+        }
+        // Roughly 2e10 logical leaves from about a kilobyte of source.
+        self::assertLessThan(2_000, \strlen($yaml));
+
+        $started = microtime(true);
+        $html = new MarkdownRenderer(new NullLogger())->render($yaml."---\n\nBody.\n");
+
+        self::assertStringNotContainsString('lp-front-matter', $html);
+        self::assertLessThan(2.0, microtime(true) - $started);
+        self::assertStringContainsString('Body.', $html);
+    }
+
     public function test_a_yaml_merge_key_bomb_is_bounded(): void
     {
         // `<<:` duplicates a whole mapping rather than referencing one value, so

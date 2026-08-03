@@ -304,14 +304,14 @@ final readonly class MarkdownRenderer
         // cell would run into the next one in plainText() — the string every
         // comment anchor is measured against.
         $out->append("<table class=\"lp-front-matter\">\n<tbody>\n");
-        foreach ($frontMatter as $key => $value) {
+        $out->each($frontMatter, static function (int|string $key, mixed $value) use ($out): void {
             $out->visit(0);
             $out->append("<tr>\n<th scope=\"row\">");
             $out->appendText((string) $key);
             $out->append("</th>\n<td>");
             self::appendFrontMatterValue($value, $out, 0);
             $out->append("</td>\n</tr>\n");
-        }
+        });
         $out->append("</tbody>\n</table>\n");
 
         return $out->result();
@@ -336,7 +336,7 @@ final readonly class MarkdownRenderer
 
         if (\is_array($value)) {
             $first = true;
-            foreach ($value as $key => $item) {
+            $out->each($value, static function (int|string $key, mixed $item) use ($out, $depth, &$first): void {
                 if (!$first) {
                     $out->append(', ');
                 }
@@ -346,7 +346,7 @@ final readonly class MarkdownRenderer
                     $out->append(': ');
                 }
                 self::appendFrontMatterValue($item, $out, $depth + 1);
-            }
+            });
 
             return;
         }
