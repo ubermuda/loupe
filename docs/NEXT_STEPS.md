@@ -2520,6 +2520,31 @@ the reply without inventing an identity. Attribution stays on the singleton user
 and provenance rides beside it. Related: 'No audit trail distinguishes
 agent-written state from human action'.
 
+## `just phpstan` runs out of memory in a worktree, and the crash does not say so
+
+**Author:** Claude · **Type:** tooling · **Priority:** medium · **Status:** pending
+
+`just phpstan` runs `vendor/bin/phpstan analyse -a worktree-bootstrap.php` with no
+`--memory-limit`, so it inherits the container's 128M default. In a worktree with
+a stale or cold `var/cache/dev` it exhausts that and dies with **exit code 255**
+and a `DebugClassLoader` stack trace ending somewhere in `symfony/var-dumper`.
+
+The failure reads like a real analysis error. It is not: the same tree analyses
+clean at `--memory-limit=1G`. Three separate agents hit this in one session and
+each spent time treating it as a defect in their own branch before recognising
+it, which is the actual cost.
+
+Two things would fix it, and they are not exclusive:
+
+- Pass an explicit `--memory-limit` in the `phpstan` recipe, so the limit is a
+  project decision rather than whatever the container defaults to.
+- Note in the recipe or in `project-worktrees` that an exit-255 phpstan crash
+  with a `DebugClassLoader` trace means memory, and that clearing
+  `var/cache/dev` and re-warming usually resolves it.
+
+Related symptom, same cause: `bin/console cache:warmup` has also OOM'd at 128M
+while compiling Twig in a worktree, twice, with no template change involved.
+
 ## Product idea (long horizon): drag DOM elements in the widget to try layouts
 
 **Author:** Geoffrey · **Type:** idea · **Priority:** low · **Status:** pending
