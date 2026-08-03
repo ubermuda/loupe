@@ -44,7 +44,7 @@ final readonly class HeadingExtractor
             $headings[] = new DocumentHeading(
                 (int) $match[1][0],
                 $this->decode($id[1]),
-                trim($this->decode(strip_tags($match[3][0]))),
+                HeadingLabel::fromHtml($match[3][0]),
                 // Everything before the heading's own text, measured the way
                 // plainText() measures it. strip_tags() and entity decoding both act
                 // per character, so the basis for a prefix is the prefix of the basis.

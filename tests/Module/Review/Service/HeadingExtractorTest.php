@@ -33,6 +33,39 @@ final class HeadingExtractorTest extends TestCase
         self::assertSame('Use render() now', $headings[0]->text);
     }
 
+    public function test_labels_an_image_only_heading_from_its_alt_text(): void
+    {
+        // Otherwise the table of contents renders a blank link: nothing for a screen
+        // reader to announce and nothing for a mouse to hit.
+        $html = new MarkdownRenderer()->render("## ![System diagram](architecture.png)\n");
+
+        $headings = new HeadingExtractor()->extract($html);
+
+        self::assertCount(1, $headings);
+        self::assertSame('System diagram', $headings[0]->text);
+    }
+
+    public function test_labels_a_mixed_text_and_image_heading_without_doubling_it(): void
+    {
+        $html = new MarkdownRenderer()->render("## Request flow ![System diagram](architecture.png)\n");
+
+        $headings = new HeadingExtractor()->extract($html);
+
+        self::assertSame('Request flow System diagram', $headings[0]->text);
+    }
+
+    public function test_a_heading_whose_image_has_no_alt_text_yields_no_label(): void
+    {
+        // The label is empty rather than invented; the review template drops such an
+        // entry instead of rendering an unreachable blank link.
+        $html = new MarkdownRenderer()->render("## ![](architecture.png)\n");
+
+        $headings = new HeadingExtractor()->extract($html);
+
+        self::assertCount(1, $headings);
+        self::assertSame('', $headings[0]->text);
+    }
+
     public function test_reports_each_heading_offset_into_the_anchor_basis(): void
     {
         $markdown = "Intro paragraph.\n\n## First\n\nBody.\n\n## Second\n";
@@ -43,12 +76,10 @@ final class HeadingExtractorTest extends TestCase
 
         // The offset must address the heading in the same string comment anchors are
         // measured against, which is what a structural anchor would resolve through.
-        foreach ($headings as $heading) {
-            self::assertSame(
-                $heading->text,
-                mb_substr($plainText, $heading->offset, mb_strlen($heading->text)),
-            );
-        }
+        // Asserted against the literal text rather than against $text, which is a
+        // display label and only coincides with the slice for a simple heading.
+        self::assertSame('First', mb_substr($plainText, $headings[0]->offset, 5));
+        self::assertSame('Second', mb_substr($plainText, $headings[1]->offset, 6));
         // "Intro paragraph.\n" then "First\nBody.\n" before the second heading.
         self::assertSame([17, 29], array_map(static fn ($heading): int => $heading->offset, $headings));
     }

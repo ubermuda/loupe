@@ -68,6 +68,33 @@ final class MarkdownRendererTest extends TestCase
         self::assertStringContainsString('id="heading-notes-3"', $html);
     }
 
+    public function test_an_illustrated_heading_is_slugged_from_the_image_alt_text(): void
+    {
+        // strip_tags() alone reduces an image-only heading to nothing, which used to
+        // give every one of them the same generic id.
+        $renderer = new MarkdownRenderer();
+
+        self::assertStringContainsString(
+            '<h2 id="heading-diagram">',
+            $renderer->render("## ![Diagram](architecture.png)\n"),
+        );
+        // Mixed: one space between the two parts, neither doubled nor run together.
+        self::assertStringContainsString(
+            '<h2 id="heading-request-flow-diagram">',
+            $renderer->render("## Request flow ![Diagram](architecture.png)\n"),
+        );
+    }
+
+    public function test_a_heading_with_nothing_to_label_it_still_gets_a_distinct_id(): void
+    {
+        // An image with no alt leaves no text, and no filename either — the sanitizer
+        // drops a relative src. The id has to exist regardless, so links resolve.
+        $html = new MarkdownRenderer()->render("## ![](one.png)\n\n## ![](two.png)\n");
+
+        self::assertStringContainsString('<h2 id="heading-section">', $html);
+        self::assertStringContainsString('<h2 id="heading-section-2">', $html);
+    }
+
     public function test_heading_ids_leave_the_anchor_text_basis_untouched(): void
     {
         // DocumentVersion::plainText() — the basis every comment anchor offset is
