@@ -1086,9 +1086,13 @@
         @apply rounded border border-white/30 font-mono leading-none py-0.5 px-1 text-xs;
     }
 
-    /* Standing error region for a strike, which posts with no composer open. */
+    /* Standing error region for a strike, which posts with no composer open.
+       Fixed rather than absolute: .lp-review-doc is the internal scroll container,
+       so an absolutely-positioned child sits in scrolled content space and would
+       render above the viewport for a reviewer working further down the page. */
     .lp-review-action-error {
-        @apply absolute right-0 top-0 z-20 m-0 text-xs text-danger;
+        @apply fixed bottom-6 left-1/2 z-30 m-0 rounded-lg border border-line bg-elev shadow-composer py-2 px-3 text-xs text-danger;
+        transform: translateX(-50%);
     }
     .lp-review-action-error:empty {
         display: none;

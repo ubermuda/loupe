@@ -122,8 +122,10 @@
             {# The strike form is never shown — the Stimulus controller fills its
                anchor fields from the selection and submits it. It stays a Symfony
                form so CSRF and validation work exactly as they do elsewhere. #}
+            {# No display class: a `display` declaration in a layered component class
+               outranks the UA [hidden] rule, so adding one here would un-hide the
+               form the moment it gained a visible child. #}
             {{ form_start(strikePassageForm, {attr: {
-                class: 'contents',
                 'data-comment-anchor-target': 'strikeForm',
                 'data-action': 'turbo:submit-end->comment-anchor#onSubmitEnd',
                 hidden: true,
