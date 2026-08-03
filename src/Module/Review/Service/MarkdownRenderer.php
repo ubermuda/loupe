@@ -215,7 +215,7 @@ final readonly class MarkdownRenderer
                 if (!\is_array($data) || [] === $data || array_is_list($data)) {
                     $reason = 'not a key/value map';
                 } else {
-                    $table = self::frontMatterTable($data);
+                    $table = $this->frontMatterTable($data);
                     $reason = null === $table ? 'expands past the size budget' : null;
                 }
             }
@@ -308,7 +308,7 @@ final readonly class MarkdownRenderer
      *
      * @param array<array-key, mixed> $frontMatter
      */
-    private static function frontMatterTable(array $frontMatter): ?string
+    private function frontMatterTable(array $frontMatter): ?string
     {
         $out = new BoundedHtmlBuilder(
             self::FRONT_MATTER_MAX_OUTPUT,
@@ -321,12 +321,12 @@ final readonly class MarkdownRenderer
         // cell would run into the next one in plainText() — the string every
         // comment anchor is measured against.
         $out->append("<table class=\"lp-front-matter\">\n<tbody>\n");
-        $out->each($frontMatter, static function (int|string $key, mixed $value) use ($out): void {
+        $out->each($frontMatter, function (int|string $key, mixed $value) use ($out): void {
             $out->visit(0);
             $out->append("<tr>\n<th scope=\"row\">");
             $out->appendText((string) $key);
             $out->append("</th>\n<td>");
-            self::appendFrontMatterValue($value, $out, 0);
+            $this->appendFrontMatterValue($value, $out, 0);
             $out->append("</td>\n</tr>\n");
         });
         $out->append("</tbody>\n</table>\n");
@@ -345,7 +345,7 @@ final readonly class MarkdownRenderer
      * call: the builder latches once a ceiling is crossed, so the remaining
      * traversal appends nothing and frontMatterTable() sees null either way.
      */
-    private static function appendFrontMatterValue(mixed $value, BoundedHtmlBuilder $out, int $depth): void
+    private function appendFrontMatterValue(mixed $value, BoundedHtmlBuilder $out, int $depth): void
     {
         if (!$out->visit($depth)) {
             return;
@@ -353,7 +353,7 @@ final readonly class MarkdownRenderer
 
         if (\is_array($value)) {
             $first = true;
-            $out->each($value, static function (int|string $key, mixed $item) use ($out, $depth, &$first): void {
+            $out->each($value, function (int|string $key, mixed $item) use ($out, $depth, &$first): void {
                 if (!$first) {
                     $out->append(', ');
                 }
@@ -362,17 +362,17 @@ final readonly class MarkdownRenderer
                     $out->appendText((string) $key);
                     $out->append(': ');
                 }
-                self::appendFrontMatterValue($item, $out, $depth + 1);
+                $this->appendFrontMatterValue($item, $out, $depth + 1);
             });
 
             return;
         }
 
-        $out->appendText(self::scalarToText($value));
+        $out->appendText($this->scalarToText($value));
     }
 
     /** Renders one YAML scalar the way front matter is normally written. */
-    private static function scalarToText(mixed $value): string
+    private function scalarToText(mixed $value): string
     {
         if (\is_bool($value)) {
             return $value ? 'true' : 'false'; // @translation-check-ignore
@@ -413,8 +413,8 @@ final readonly class MarkdownRenderer
             /**
              * @param array<int, string> $matches
              */
-            static function (array $matches) use (&$used, &$nextSuffix): string {
-                $base = self::slug($matches[2]);
+            function (array $matches) use (&$used, &$nextSuffix): string {
+                $base = $this->slug($matches[2]);
                 $slug = $base;
                 $suffix = $nextSuffix[$base] ?? 1;
                 // Still a scan, because a slug can also be taken by a DIFFERENT
@@ -441,7 +441,7 @@ final readonly class MarkdownRenderer
         return $withIds ?? throw new \RuntimeException('Heading id injection failed: '.preg_last_error_msg().'.');
     }
 
-    private static function slug(string $headingHtml): string
+    private function slug(string $headingHtml): string
     {
         $slug = trim((string) preg_replace('~[^\p{L}\p{N}]+~u', '-', HeadingLabel::fromHtml($headingHtml)), '-');
 

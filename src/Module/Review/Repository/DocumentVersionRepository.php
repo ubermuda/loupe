@@ -154,8 +154,8 @@ class DocumentVersionRepository extends ServiceEntityRepository
         // declared type honest and the cursor lazy.
         foreach ($rows as $row) {
             yield [
-                'id' => self::text($row['id'], 'id'),
-                'markdown_source' => self::text($row['markdown_source'], 'markdown_source'),
+                'id' => $this->text($row['id'], 'id'),
+                'markdown_source' => $this->text($row['markdown_source'], 'markdown_source'),
             ];
         }
     }
@@ -209,12 +209,12 @@ class DocumentVersionRepository extends ServiceEntityRepository
             $offsetHint = $row['anchor_offset_hint'];
 
             yield [
-                'id' => self::text($row['id'], 'id'),
-                'markdown_source' => self::text($row['markdown_source'], 'markdown_source'),
-                'rendered_html' => self::text($row['rendered_html'], 'rendered_html'),
-                'anchor_quote' => self::text($row['anchor_quote'], 'anchor_quote'),
-                'anchor_prefix' => self::text($row['anchor_prefix'], 'anchor_prefix'),
-                'anchor_suffix' => self::text($row['anchor_suffix'], 'anchor_suffix'),
+                'id' => $this->text($row['id'], 'id'),
+                'markdown_source' => $this->text($row['markdown_source'], 'markdown_source'),
+                'rendered_html' => $this->text($row['rendered_html'], 'rendered_html'),
+                'anchor_quote' => $this->text($row['anchor_quote'], 'anchor_quote'),
+                'anchor_prefix' => $this->text($row['anchor_prefix'], 'anchor_prefix'),
+                'anchor_suffix' => $this->text($row['anchor_suffix'], 'anchor_suffix'),
                 // Integer columns arrive as a numeric string on some drivers.
                 'anchor_offset_hint' => is_numeric($offsetHint)
                     ? (int) $offsetHint
@@ -224,7 +224,7 @@ class DocumentVersionRepository extends ServiceEntityRepository
     }
 
     /** One text column, narrowed from the driver's `mixed` to the declared shape. */
-    private static function text(mixed $value, string $column): string
+    private function text(mixed $value, string $column): string
     {
         return \is_string($value)
             ? $value
