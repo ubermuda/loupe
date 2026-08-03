@@ -7,8 +7,10 @@ namespace App\Module\Review\Query;
 use App\Module\Review\Entity\Comment;
 use App\Module\Review\Entity\Document;
 use App\Module\Review\Repository\CommentRepository;
+use App\Module\Review\Repository\DecisionSelectionRepository;
 use App\Module\Review\Repository\DocumentVersionRepository;
 use App\Module\Review\Repository\ReviewRepository;
+use App\Module\Review\Service\DecisionBlockService;
 use App\Module\Review\ValueObject\Anchor;
 
 final readonly class GetReview
@@ -17,6 +19,8 @@ final readonly class GetReview
         private DocumentVersionRepository $documentVersions,
         private CommentRepository $comments,
         private ReviewRepository $reviews,
+        private DecisionSelectionRepository $decisionSelections,
+        private DecisionBlockService $decisionBlocks,
     ) {
     }
 
@@ -41,11 +45,18 @@ final readonly class GetReview
      * `author` reports the class of writer rather than the writer: the payload is machine-facing,
      * so a human reviewer's name, email and id stay out of it.
      *
+     * `decisions` lists every decision block in the current version, answered or
+     * not, keyed by the identifier the document declared. `selected` reports the
+     * option as it read when the reviewer chose it rather than whatever now sits
+     * at that index, so a reworded or reordered block cannot rewrite the answer;
+     * `answered_at_version` says which version they were reading at the time.
+     *
      * @return array{
      *     status: string,
      *     verdict: string|null,
      *     version: int,
-     *     comments: list<array{id: string, quote: string, body: string, replacement: string|null, author: 'agent'|'human', status: string, orphaned: bool, thread: list<array{id: string, quote: string, body: string, author: 'agent'|'human', orphaned: bool}>}>
+     *     comments: list<array{id: string, quote: string, body: string, replacement: string|null, author: 'agent'|'human', status: string, orphaned: bool, thread: list<array{id: string, quote: string, body: string, author: 'agent'|'human', orphaned: bool}>}>,
+     *     decisions: list<array{id: string, options: list<string>, selected: string|null, selected_index: int|null, answered_at: string|null, answered_at_version: int|null}>
      * }
      */
     public function __invoke(Document $document): array
@@ -98,11 +109,33 @@ final readonly class GetReview
             ];
         }
 
+        $selections = $this->decisionSelections->findByDocumentIndexedByDecisionId($document);
+        $decisions = [];
+        foreach ($this->decisionBlocks->extract($currentVersion->renderedHtml) as $decision) {
+            $selection = $selections[$decision->id] ?? null;
+            $selectedIndex = null === $selection
+                ? null
+                : $decision->resolveIndex($selection->optionLabel, $selection->optionIndex);
+
+            $decisions[] = [
+                'id' => $decision->id,
+                'options' => $decision->options,
+                'selected' => $selection?->optionLabel,
+                // Always indexes the `options` reported alongside it, because the
+                // page resolves it by the same rule. Null means the chosen option
+                // is no longer offered.
+                'selected_index' => $selectedIndex,
+                'answered_at' => $selection?->selectedAt->format(\DateTimeInterface::ATOM),
+                'answered_at_version' => $selection?->versionNumber,
+            ];
+        }
+
         return [
             'status' => $document->status->value,
             'verdict' => $review?->verdict->value,
             'version' => $currentVersion->versionNumber,
             'comments' => $threadedComments,
+            'decisions' => $decisions,
         ];
     }
 

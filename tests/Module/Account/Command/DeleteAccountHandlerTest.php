@@ -21,6 +21,7 @@ use App\Module\Billing\Messenger\CancelSubscriptionMessage;
 use App\Module\Billing\Repository\BillingProfileRepository;
 use App\Module\Project\Entity\Project;
 use App\Module\Review\Entity\Comment;
+use App\Module\Review\Entity\DecisionSelection;
 use App\Module\Review\Entity\Document;
 use App\Module\Review\Entity\Highlight;
 use App\Module\Review\Entity\Review;
@@ -151,6 +152,7 @@ final class DeleteAccountHandlerTest extends KernelTestCase
         // Asserted on the document id rather than through a join, so it cannot
         // pass merely because the document row is already gone.
         self::assertSame(0, (int) $conn->fetchOne('SELECT count(*) FROM document_tags WHERE document_id = :id', ['id' => (string) $fixture['foreignDocumentId']]));
+        self::assertSame(0, (int) $conn->fetchOne('SELECT count(*) FROM decision_selections WHERE document_id = :id', ['id' => (string) $fixture['foreignDocumentId']]));
 
         // Nothing belonging to the other, untouched users was removed: their
         // own project, their comment authored on the foreign document, and
@@ -311,6 +313,11 @@ final class DeleteAccountHandlerTest extends KernelTestCase
         $foreignVersion = $foreignDocument->addVersion('# Foreign', '<h1>Foreign</h1>');
         $foreignDocumentComment = new Comment(version: $foreignVersion, author: $other, body: 'other user comments on it', anchor: Anchor::unanchored());
         $em->persist($foreignDocumentComment);
+        // decision_selections.document_id is NOT DEFERRABLE with no ON DELETE
+        // CASCADE, so an answered decision on this document aborts the whole
+        // account deletion unless DocumentOwnershipAccountPurger clears it.
+        $em->persist(new DecisionSelection($foreignDocument, 'deploy-target', 1, 'Ship straight to production', 1));
+
         // Tagged, because that document is deleted by DocumentOwnershipAccountPurger
         // rather than by ProjectDeleter, and the join table's FK has no cascade —
         // an untagged fixture cannot tell whether that purger clears it.

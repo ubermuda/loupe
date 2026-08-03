@@ -59,6 +59,10 @@ for that reading context, not for a terminal or a README.
    alternatives into a flat sentence ("do X or do Y.") — that reads as an
    instruction, and the reader sails past the choice instead of making it.
 
+   Where the alternatives are a clean either/or, wrap them in a **decision
+   fence** (rule 11) as well, so the reviewer clicks the option instead of
+   typing "option 2" into a comment for you to parse back out.
+
 6. **After addressing review comments, revise the document.** When you act on
    a reviewer's comments — answering questions, recording decisions, changing
    course — send a new version with `document_revise` so the document reflects
@@ -160,6 +164,46 @@ for that reading context, not for a terminal or a README.
     `document_revise` does not carry them forward — restate them after
     revising, on the text you have just written. Use a handful: a document
     where everything is marked has nothing marked.
+
+11. **A decision fence turns a choice into something the reviewer clicks.**
+    Wrap the alternatives in a pair of HTML comments carrying an identifier,
+    and Loupe renders them as a group of radio buttons whose answer comes back
+    in `document_get_review` under `decisions`:
+
+    ```markdown
+    <!-- decision: reset-link-host -->
+
+    1. Drop `x-forwarded-host` from `trusted_headers`
+    2. Generate emailed links from a pinned `default_uri`
+
+    <!-- /decision -->
+    ```
+
+    Numbered and bulleted lists both convert, and rule 2 applies here as
+    everywhere — prefer numbers, so a reviewer can still write "option 2" in a
+    comment alongside clicking it. A `- [ ]` task-list marker is accepted and
+    stripped, which is what makes the block render as checkboxes on GitHub.
+
+    The comments are invisible in every other Markdown renderer, so a document
+    read outside Loupe still shows the list — that is why the fence is written
+    this way rather than with a visible marker. Keep the entries a flat list of
+    one-line options: a nested list is refused and renders as an ordinary list,
+    and so is a second fence reusing an id already used above it.
+
+    **An id is permanent once published.** The answer is stored against the id,
+    not against the words, precisely so you can reword a decision block in the
+    revision that responds to feedback about it. The other side of that bargain
+    is that **changing an id silently discards the answer** — there is no error
+    and no warning, the decision simply reads as unanswered again. Treat one
+    like a database column name: rewrite the options freely, never the id.
+
+    Ids are lowercase letters, digits and hyphens; they must **start** with a
+    letter or digit, and 64 characters is the exact ceiling — 65 is refused, and
+    like every other malformed fence it renders as a plain list with no error.
+
+    Prose still does the work — keep the "**Decision needed**" lead-in and your
+    recommendation (rule 5) above the fence, because the fence carries no
+    question of its own, only the options.
 
 ## Example
 

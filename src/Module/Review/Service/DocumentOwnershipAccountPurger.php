@@ -16,15 +16,20 @@ use Doctrine\ORM\EntityManagerInterface;
  * document would otherwise block the user delete.
  *
  * Same FK-safe order as ProjectDeleter's own document-subtree cleanup (reviews,
- * comments, highlights, versions, tag join rows, references, then the document),
- * keyed on document ownership instead of the project. Every table with a FK onto
- * document_versions or documents must be listed here: the constraints are NOT
- * DEFERRABLE, so one missing statement turns account deletion into a 500 rather
- * than a silent orphan.
+ * comments, highlights, versions, tag join rows, references, decision
+ * selections, then the document), keyed on document ownership instead of the
+ * project. Every table with a FK onto document_versions or documents must be
+ * listed here: the constraints are NOT DEFERRABLE, so one missing statement
+ * turns account deletion into a 500 rather than a silent orphan.
  *
  * Two chains, not one list — what hangs off document_versions precedes it, what
  * hangs off documents precedes that. A new table put in the wrong chain still
  * reads plausibly and fails only at runtime.
+ *
+ * The two cleanup paths also use different mechanisms — this one raw SQL, the
+ * listener DQL bulk deletes — and DQL bulk delete bypasses orphanRemoval, so
+ * neither an entity-level cascade nor the other path covers this one. A table
+ * added to one must be added to both.
  *
  * The `tags` rows themselves are project-scoped rather than document-scoped, so
  * they belong to project deletion and are deliberately not touched here.
@@ -73,6 +78,12 @@ final readonly class DocumentOwnershipAccountPurger implements AccountDataPurger
         $conn->executeStatement(
             'DELETE FROM document_references WHERE source_document_id IN (SELECT id FROM documents WHERE owner_id = :id)
                 OR target_document_id IN (SELECT id FROM documents WHERE owner_id = :id)',
+            ['id' => $id],
+        );
+        // Second chain, with the tag and reference rows above: a selection hangs
+        // off documents, not versions, so it only has to precede the delete below.
+        $conn->executeStatement(
+            'DELETE FROM decision_selections WHERE document_id IN (SELECT id FROM documents WHERE owner_id = :id)',
             ['id' => $id],
         );
         $conn->executeStatement('DELETE FROM documents WHERE owner_id = :id', ['id' => $id]);

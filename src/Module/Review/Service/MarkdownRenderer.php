@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Module\Review\Service;
 
 use League\CommonMark\Environment\Environment;
+use League\CommonMark\Event\DocumentParsedEvent;
 use League\CommonMark\Extension\CommonMark\CommonMarkCoreExtension;
 use League\CommonMark\Extension\CommonMark\Node\Block\HtmlBlock;
 use League\CommonMark\Extension\CommonMark\Node\Inline\HtmlInline;
@@ -87,8 +88,15 @@ final readonly class MarkdownRenderer
      */
     private const int FRONT_MATTER_MAX_DEPTH = 16;
 
+    /**
+     * `$decisions` is defaulted rather than required only so the many unit tests
+     * that build a renderer directly keep working; the container injects the
+     * shared service, so the app never runs two instances with two different
+     * nonces.
+     */
     public function __construct(
         private LoggerInterface $logger,
+        private DecisionBlockService $decisions = new DecisionBlockService(),
     ) {
         $nonce = bin2hex(random_bytes(8));
         $this->noteBlockOpen = sprintf('[loupe-note-%s-block]', $nonce);
@@ -239,8 +247,14 @@ final readonly class MarkdownRenderer
             $rendered = $this->plainConverter->convert($markdown);
         }
 
+        // toControls() innermost, so the decision markup exists before notes and
+        // heading ids are computed over it: an annotation written inside an
+        // option is then converted within the label rather than left as a raw
+        // marker, and a heading inside one is idded like any other.
         $html = $this->withHeadingIds(
-            $this->withDocumentNotes($this->sanitizer->sanitize($rendered->getContent())),
+            $this->withDocumentNotes(
+                $this->decisions->toControls($this->sanitizer->sanitize($rendered->getContent())),
+            ),
         );
 
         return ($table ?? '').$html;
@@ -255,6 +269,17 @@ final readonly class MarkdownRenderer
         if ($withFrontMatter) {
             $environment->addExtension(new FrontMatterExtension(new FrontMatterYamlParser()));
         }
+
+        // On both environments, not just the front-matter one: the plain
+        // converter is the fallback for a document whose front matter failed to
+        // tabulate, and such a document keeps whatever decision fences it has.
+        //
+        // Parsing precedes rendering, so a paired fence's markers are already
+        // sentinels — plain text — by the time the comment renderer below looks
+        // at them, and it hands them straight back. An UNpaired marker keeps its
+        // comment literal and becomes an annotation like any other comment,
+        // which is the right outcome: the author sees the marker they mistyped.
+        $environment->addEventListener(DocumentParsedEvent::class, $this->decisions->markParsedDocument(...));
 
         // Outranks CommonMark's own HTML renderers, which stay registered
         // underneath and take over for anything that is not exactly a comment.

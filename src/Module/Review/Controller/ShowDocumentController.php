@@ -11,13 +11,17 @@ use App\Module\Review\Entity\Document;
 use App\Module\Review\Entity\DocumentVersion;
 use App\Module\Review\Form\AddCommentFormType;
 use App\Module\Review\Form\AddCommentRequest;
+use App\Module\Review\Form\SelectDecisionOptionFormType;
+use App\Module\Review\Form\SelectDecisionOptionRequest;
 use App\Module\Review\Form\StrikePassageFormType;
 use App\Module\Review\Form\StrikePassageRequest;
 use App\Module\Review\Form\SuggestRewordingFormType;
 use App\Module\Review\Form\SuggestRewordingRequest;
 use App\Module\Review\Repository\CommentRepository;
+use App\Module\Review\Repository\DecisionSelectionRepository;
 use App\Module\Review\Repository\DocumentVersionRepository;
 use App\Module\Review\Security\DocumentVoter;
+use App\Module\Review\Service\DecisionBlockService;
 use App\Module\Review\Service\HeadingExtractor;
 use Symfony\Bridge\Doctrine\Attribute\MapEntity;
 use Symfony\Component\HttpFoundation\Response;
@@ -46,7 +50,9 @@ final class ShowDocumentController extends AppController
     public function __construct(
         private readonly DocumentVersionRepository $documentVersions,
         private readonly CommentRepository $comments,
+        private readonly DecisionSelectionRepository $decisionSelections,
         private readonly HeadingExtractor $headings,
+        private readonly DecisionBlockService $decisionBlocks,
     ) {
     }
 
@@ -88,6 +94,32 @@ final class ShowDocumentController extends AppController
             'method' => 'POST',
         ]);
 
+        // Stamped with the version whose options are being rendered, so a
+        // submission that arrives after a revision can be told apart from one
+        // that describes the current list.
+        $selectDecisionForm = $this->createForm(SelectDecisionOptionFormType::class, new SelectDecisionOptionRequest(versionNumber: $version->versionNumber), [
+            'action' => $this->generateUrl('app_document_decision_select', $routeParameters),
+            'method' => 'POST',
+        ]);
+
+        // Answers are keyed to the document, so an earlier version shows the same
+        // ones the latest does — read-only, but shown: a decision rendered blank
+        // reads as unanswered, which is a different claim from "answered before
+        // this version".
+        //
+        // Resolved through Decision::resolveIndex, exactly as GetReview does, so
+        // the radio the reviewer sees ticked is the option the agent is told.
+        $decisions = $this->decisionBlocks->extract($version->renderedHtml);
+        $selections = $this->decisionSelections->findByDocumentIndexedByDecisionId($document);
+        $selectedIndexByDecisionId = [];
+        foreach ($decisions as $decision) {
+            $selection = $selections[$decision->id] ?? null;
+            $index = null === $selection ? null : $decision->resolveIndex($selection->optionLabel, $selection->optionIndex);
+            if (null !== $index) {
+                $selectedIndexByDecisionId[$decision->id] = $index;
+            }
+        }
+
         return $this->render('@Review/show_document.html.twig', [
             'document' => $document,
             'version' => $version,
@@ -103,6 +135,13 @@ final class ShowDocumentController extends AppController
             'addCommentForm' => $addCommentForm,
             'suggestRewordingForm' => $suggestRewordingForm,
             'strikePassageForm' => $strikePassageForm,
+            'selectDecisionForm' => $selectDecisionForm,
+            'hasDecisions' => [] !== $decisions,
+            'decisionMarkedHtml' => $this->decisionBlocks->withSelections(
+                $version->renderedHtml,
+                $selectedIndexByDecisionId,
+                readOnly: !$isLatest,
+            ),
         ]);
     }
 

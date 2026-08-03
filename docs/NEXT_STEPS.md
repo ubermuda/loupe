@@ -2648,45 +2648,43 @@ supposed to read everything, so there is nothing to attach pagination controls
 to. Bound it only if exports start running out of memory, and then by
 streaming, not paging.
 
-## Document review: render selectable radios and checkboxes for decision points
+## Decision controls: multi-select, and whether a choice should carry a comment
 
 **Author:** Geoffrey · **Type:** feature · **Priority:** medium · **Status:** pending
 
-Owner idea (2026-07-27): let the review UI render selectable controls for
-decision points, so a reviewer picks an option instead of writing a comment
-saying which one they want. Proposed authoring syntax, produced by the agent in
-the document markdown and handled by Loupe from there:
+Single-choice decision controls ship: a document fences a decision with
+`<!-- decision: some-id -->` around a list, the reviewer clicks one option, and
+`document_get_review` reports the answer under `decisions`. `DecisionBlockService`
+renders and reads them; `loupe-documents` rule 10 teaches the syntax. Three
+things were deliberately left out.
 
-- `- ( )` renders a radio (single choice within its group)
-- `- [ ]` renders a checkbox (multi-select) — this is already GFM task-list
-  syntax, so it round-trips through other markdown tooling
-
-Why it matters: every design document currently ends in decision points the
-reviewer has to answer in prose. The `loupe-documents` skill tells agents to
-format them as a "**Decision needed:**" lead-in plus a numbered sub-list
-precisely so a reviewer can write "option 2" in a comment. That works, but it
-makes the reviewer transcribe a choice the document already enumerated, and the
-agent then has to parse intent back out of free text. A worked example already
-exists: the 2026-07-27 site-review design document carried three such decisions,
-each answered in a comment and then written back into the document by hand. That
-round trip is what this would remove.
-
-Questions to settle when picking this up:
-
-1. How a radio group is delimited — consecutive `- ( )` items, or an explicit
-   fence. Consecutive-run detection is simpler to author but ambiguous when two
-   groups sit back to back.
-2. How a selection is stored. It is document state, not comment state, but it
-   belongs to a version — decide whether selections carry across a
-   `revise_document` the way comments re-anchor, or reset per version.
-3. How the agent reads the result. `get_review` returns verdict plus threaded
-   comments today; selections need a place in that payload, or a companion
-   tool.
-4. Whether a selection needs an accompanying comment for the "why", and
-   whether selecting should be able to resolve the thread attached to that
-   passage.
-5. What happens to the `loupe-documents` skill guidance, which should switch to
-   teaching the new syntax once this ships.
+1. **Multi-select.** Every block is a radio group — exactly one answer. A
+   decision that legitimately takes several answers ("which of these do we
+   ship?") has no representation. `- [ ]` is already GFM task-list syntax and
+   round-trips through other tooling, so it is the natural marker for a
+   multi-select block, but it is currently accepted and stripped in the
+   single-choice fence too. Any multi-select syntax has to distinguish itself
+   from that rather than reuse it, and the storage would move from one row per
+   decision to one per chosen option.
+2. **Whether a selection needs an accompanying comment for the "why".**
+   Currently no: a reviewer can already anchor a comment to the decision block,
+   so requiring one adds friction to answering without adding a capability.
+   Revisit if answers start arriving without any recorded reasoning.
+3. **Whether selecting should resolve the thread attached to that passage.**
+   Currently no, on the same grounds `CommentRepository::findOpenByVersion`
+   already applies to `addressed`: the human choosing is not the human agreeing
+   the discussion is finished, and the agent still has to act on the choice.
+4. **An answer to a decision a later version dropped is retained but never
+   reported.** `GetReview` iterates the current version's blocks, so a row whose
+   `decision_id` no longer appears is invisible — neither surfaced nor cleaned
+   up. Harmless while ids are permanent (re-adding the id brings the answer
+   back, which is arguably right), but it means the table grows without bound
+   and an agent cannot see that a decision it removed had been answered.
+5. **Option text runs together in `plainText()`.** Converted options are
+   adjacent inline elements, so `…staging firstShip straight to…` is what both
+   `strip_tags()` and the browser read. The two agree, so anchors are correct
+   and this is cosmetic — but a reviewer selecting across two options gets a
+   quote with no separator in it.
 
 ## Arbitrary Tailwind values remain in the vendored ubermuda bundles
 
@@ -3294,6 +3292,30 @@ instead of semantic classes, and it reads its vocabulary from a hardcoded
 share a page. Related: 'Dead semantic classes accumulate in app.css with nothing
 to catch them'.
 
+## Decision controls have no browser coverage
+
+**Author:** Claude · **Type:** tooling · **Priority:** medium · **Status:** pending
+
+The reviewer-selectable decision blocks (`DecisionBlockService`,
+`decision_controller.js`, `SelectDecisionOptionController`) have no Playwright
+coverage; PHPUnit covers the PHP side only.
+
+The untested surface is the JavaScript. `decision_controller.js` reads the
+clicked radio, copies its decision id and option index into the hidden form's
+fields and calls `requestSubmit()` — nothing exercises any of that, so the
+Stimulus target names (`optionIndexTarget`, `formTarget`), the `change`
+delegation and the `requestSubmit()` choice can all break with a green
+`just ci`. The `requestSubmit()` one is the sharpest: `.submit()` fires no
+submit event, so `csrf_protection_controller.js` would never run the
+double-submit and every password-login session would 403 — invisible to a suite
+that runs no JS.
+
+The other thing a spec should confirm is specific to this feature: the radios
+live in the stored `renderedHtml` inside `[data-comment-anchor-target="doc"]`,
+whose `textContent` must stay identical to `DocumentVersion::plainText()`. Click
+an option, confirm the answer survives a reload, then select text *below* the
+block and confirm the comment anchors where the reviewer put it.
+
 ## Product idea (long horizon): drag DOM elements in the widget to try layouts
 
 **Author:** Geoffrey · **Type:** idea · **Priority:** low · **Status:** pending
@@ -3648,3 +3670,24 @@ means either bounding what is fed to `to_tsvector` or lowering
 `MAX_MARKDOWN_BYTES` below the tsvector cap; making all three handlers
 transactional is **not** the answer, because wrapping create would close the
 EntityManager on a rejected tag name.
+
+## `HeadingLabel` is named for one of the two things it labels
+
+**Author:** Claude · **Type:** tooling · **Priority:** low · **Status:** pending
+
+`App\Module\Review\Service\HeadingLabel::fromHtml()` derives a human-readable
+display label from sanitized HTML — text plus any image's `alt`, whitespace
+collapsed. It is used for headings (`MarkdownRenderer` slugs it into the id,
+`HeadingExtractor` shows it in the table of contents) and for decision-block
+option labels (`DecisionBlockService::extract`, where it is what reaches the
+agent through `document_get_review` and what a stored answer is matched
+against). The name under-describes it, and a reader looking at the decision path
+has no reason to expect a class called `HeadingLabel` to be the right tool.
+
+Rename it to something neutral — `DisplayLabel` or `LabelFromHtml` — and update
+the three call sites. Nothing depends on the name beyond those.
+
+This was deliberately not done when the second caller was added: the class had
+just landed on a branch that two others were stacked on and frozen, so renaming
+it would have cost both of them a re-sync for a cosmetic gain. That constraint
+disappears once the stack lands.

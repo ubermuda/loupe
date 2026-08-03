@@ -69,7 +69,7 @@
             so that its textContent === DocumentVersion::plainText() and JS
             text-node offsets agree with the PHP anchor basis.
         #}
-        <div class="lp-review-doc"{% if not readOnly %} data-action="mouseup->comment-anchor#onDocMouseup"{% endif %}>
+        <div class="lp-review-doc" data-controller="decision"{% if not readOnly %} data-action="mouseup->comment-anchor#onDocMouseup change->decision#select"{% endif %}>
             <div class="lp-review-doc__head">
                 <h1 class="lp-review-doc__title">
                     {{ document.title }}
@@ -193,8 +193,32 @@
                Everything else on this page is the same in both modes, which is why
                the diff is a block override rather than a page of its own. #}
             {% block documentPane %}
-            <div class="prose max-w-2xl lp-prose lp-review-doc__prose" data-comment-anchor-target="doc">{{ version.renderedHtml|raw }}</div>
+            <div class="prose max-w-2xl lp-prose lp-review-doc__prose" data-comment-anchor-target="doc">{{ decisionMarkedHtml|raw }}</div>
             {% endblock %}
+
+            {# Outside the prose on purpose: that element's textContent must stay
+               identical to DocumentVersion::plainText(). The radios inside the
+               prose are grouping-only inputs that post nothing themselves — the
+               controller copies the clicked one into this form's hidden fields.
+
+               Gated on diffMode as well, because the radios they serve live in
+               the block above, which the diff replaces wholesale: a status line
+               with nothing to report and a form with no control to fill it would
+               be all that survived. `hasDecisions` and `selectDecisionForm` are
+               not passed in diff mode either, so the guard is what keeps this a
+               structural omission rather than an undefined-variable 500. #}
+            {% if not diffMode and hasDecisions %}
+            <p id="decision-status" class="lp-decision-status" aria-live="polite"></p>
+            {% endif %}
+            {% if not diffMode and hasDecisions and not readOnly %}
+            {{ form_start(selectDecisionForm, {attr: {
+                'data-decision-target': 'form',
+                hidden: true,
+            }}) }}
+                {{ form_widget(selectDecisionForm.decisionId) }}
+                {{ form_widget(selectDecisionForm.optionIndex) }}
+            {{ form_end(selectDecisionForm) }}
+            {% endif %}
 
             {# The agent's marks — the passages it flagged as worth reading first.
                Each is an empty carrier for its anchor, deliberately OUTSIDE the doc
