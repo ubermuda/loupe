@@ -276,6 +276,42 @@ Worth automating: a lock that a gate run and an e2e run both have to take, so
 this is enforced rather than remembered. Until then it has to be coordinated by
 hand, which does not survive parallel agents. See `docs/AUTOMATIONS.md`.
 
+## `composer require`/`update` cannot resolve here — anonymous GitHub API rate limiting
+
+**Author:** Claude · **Type:** tooling · **Priority:** high · **Status:** pending
+
+Any dependency change fails, and **the error message names the wrong cause**.
+Composer reports *"Could not authenticate against github.com"* against
+`git@github.com:ubermuda/admin-bundle.git`, which reads as a missing SSH key or
+a private repository. It is neither: all five `ubermuda/*` repos are public and
+`composer.json` already declares `github-protocols: ["https"]`, with no
+`insteadOf` rewrite anywhere.
+
+The real failure is `[403] https://api.github.com/repos/ubermuda/admin-bundle`
+with `"limit": 60, "remaining": 0`. Composer then calls
+`attemptCloneFallback()`, which switches to SSH, fails, and reports *that*
+error — so the authentication message belongs to the fallback, not the original
+request.
+
+Resolving across five VCS repositories costs roughly 35–40 API calls against a
+60/hour anonymous budget, so it cannot reliably complete. The budget is also
+per-origin: the host and the container have separate ones, and a wait loop
+watching the wrong meter reports headroom that the failing process does not
+have.
+
+**Fix: put a GitHub token in the container's composer config** (60 → 5,000 per
+hour). Until then the workaround is to resolve on the host, which is already
+authenticated, then materialise in the container:
+
+```sh
+composer require --no-install --no-scripts <package>   # host
+bin/worktrees/compose-exec.sh composer install         # container, correct PHP
+```
+
+Diagnose with `composer diagnose` or by requesting the API URL directly and
+reading the rate-limit headers — not from composer's own message, which is
+misleading by construction here.
+
 ## Writing into a torn-down worktree path silently succeeds and loses the work
 
 **Author:** Claude · **Type:** tooling · **Priority:** high · **Status:** pending
