@@ -294,61 +294,20 @@ final class MarkdownRendererTest extends TestCase
         self::assertStringContainsString('Body.', $html);
     }
 
-    public function test_an_expanding_payload_is_rejected_before_the_yaml_parser_runs(): void
+    public function test_ordinary_yaml_reuse_still_renders(): void
     {
-        // Asserting only that the block was refused would pass while still
-        // having parsed and walked it, so the cost is measured too. The margin
-        // is modest and worth knowing: with the pre-parse rejection removed this
-        // allocates about 2.5 MB rather than hundreds, because Yaml::parse()
-        // shares aliased nodes copy-on-write instead of expanding them. What the
-        // rejection buys is that nothing downstream is ever handed the sharing.
-        $yaml = "---\na0: &a0 [\"lol\", \"lol\", \"lol\"]\n";
-        for ($level = 1; $level <= 12; ++$level) {
-            $references = implode(', ', array_fill(0, 9, sprintf('*a%d', $level - 1)));
-            $yaml .= sprintf("a%d: &a%d [%s]\n", $level, $level, $references);
-        }
-        $markdown = $yaml."---\n\nBody.\n";
+        // Rejecting `&`, `*` and `<<:` before parsing looks like obvious
+        // hardening, was tried, and was removed: Yaml::parse() shares aliased
+        // nodes copy-on-write rather than expanding them, so it prevented
+        // nothing that BoundedHtmlBuilder does not already bound — while
+        // refusing prose like `- *starred phrase*`. This pins that a document
+        // using aliases legitimately still gets its table.
+        $html = new MarkdownRenderer(new NullLogger())->render(
+            "---\ndefaults: &defaults\n  team: platform\nowner:\n  <<: *defaults\ntags: [a, b]\n---\n\nBody.\n",
+        );
 
-        gc_collect_cycles();
-        $memoryBefore = memory_get_usage();
-        $started = microtime(true);
-        $html = new MarkdownRenderer(new NullLogger())->render($markdown);
-        $elapsed = microtime(true) - $started;
-        $allocated = memory_get_usage() - $memoryBefore;
-
-        self::assertStringNotContainsString('lp-front-matter', $html);
-        self::assertStringContainsString('Body.', $html);
-        self::assertLessThan(0.5, $elapsed, 'the block must be refused before it is parsed');
-        self::assertLessThan(2_000_000, $allocated, 'refusing must not allocate the expansion');
-    }
-
-    /**
-     * @return iterable<string, array{string, bool}>
-     */
-    public static function frontMatterSigils(): iterable
-    {
-        // The rejection is narrow on purpose: `&` and `*` are ordinary
-        // characters in prose, and refusing a legitimate block costs a reviewer
-        // its table. Left of the comma is the block, right is whether it should
-        // still tabulate.
-        yield 'ampersand in prose' => ['title: Rock & Roll', true];
-        yield 'ampersand with no space' => ['title: R&D roadmap', true];
-        yield 'query string' => ['url: https://example.test/?a=1&b=2', true];
-        yield 'asterisk as multiplication' => ['ratio: 3 * 4', true];
-        yield 'markdown emphasis in a block scalar' => ["notes: |\n  some *bold* text", true];
-        yield 'markdown bullet in a block scalar' => ["notes: |\n  * item one\n  * item two", true];
-        yield 'anchor' => ['a: &anchor value', false];
-        yield 'alias' => ["a: &anchor value\nb: *anchor", false];
-        yield 'flow alias' => ["a: &anchor value\nb: [*anchor, *anchor]", false];
-        yield 'merge key' => ["a: &anchor {k: v}\nb:\n  <<: *anchor", false];
-    }
-
-    #[DataProvider('frontMatterSigils')]
-    public function test_only_real_expansion_constructs_are_refused(string $block, bool $shouldTabulate): void
-    {
-        $html = new MarkdownRenderer(new NullLogger())->render("---\n{$block}\n---\n\nBody.\n");
-
-        self::assertSame($shouldTabulate, str_contains($html, 'lp-front-matter'));
+        self::assertStringContainsString('lp-front-matter', $html);
+        self::assertStringContainsString('platform', $html);
     }
 
     public function test_an_oversized_front_matter_block_is_refused(): void
