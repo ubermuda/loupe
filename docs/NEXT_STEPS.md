@@ -2651,10 +2651,14 @@ the change.
 
 `to_tsvector` caps a vector at 1,048,575 bytes while `MAX_MARKDOWN_BYTES` allows
 1,048,576, so there is a narrow band where a document passes the app's own limit
-and `App\Module\Review\Service\DocumentSearchIndexer` raises. Nobody has produced
-markdown that does it with realistic prose — the vector is normally far smaller
-than its source — so this is recorded for the asymmetry rather than as a live
-incident.
+and `App\Module\Review\Service\DocumentSearchIndexer` raises.
+
+Measured on 2026-08-03, the band is narrower than the two numbers suggest:
+indexing a full 1 MiB of varied prose succeeded, and 1,154,787 bytes of source
+produced a 360,310-byte vector — 34% of the cap. Stemming and de-duplication mean
+realistic text shrinks by roughly two thirds, so reaching the cap needs
+pathological input (a very large number of long, distinct, unstemmable tokens),
+not a long document. Recorded for the asymmetry rather than as a live incident.
 
 It bites unevenly. `ReviseDocumentHandler` indexes inside its transaction, so a
 failure rolls the revision back. `CreateDocumentHandler` and
