@@ -64,6 +64,72 @@ final class DocumentCreateToolTest extends KernelTestCase
         self::assertSame('Auth PRD', $document->title);
     }
 
+    public function test_references_are_recorded_and_visible_from_the_document_they_point_at(): void
+    {
+        $owner = $this->user('create-references@example.com');
+        $project = new Project($owner, 'p-'.uniqid());
+        $this->em->persist($project);
+        $target = new Document(owner: $owner, project: $project, title: 'The spec');
+        $target->addVersion('# Spec', '<h1>Spec</h1>');
+        $this->em->persist($target);
+        $this->em->flush();
+
+        $this->actAsMcpTokenBoundTo($project);
+
+        // The same id twice must land as one link, not two.
+        $result = ($this->tool)('Companion thread', '# Thread', null, [(string) $target->id, (string) $target->id]);
+
+        $this->em->clear();
+        $document = $this->em->find(Document::class, Uuid::fromString($result['documentId']));
+        self::assertInstanceOf(Document::class, $document);
+        self::assertCount(1, $document->references);
+        $reference = $document->references->first();
+        self::assertInstanceOf(Document::class, $reference);
+        self::assertSame((string) $target->id, (string) $reference->id);
+
+        // The reverse direction is derived from the same row.
+        $reloadedTarget = $this->em->find(Document::class, $target->id);
+        self::assertInstanceOf(Document::class, $reloadedTarget);
+        self::assertCount(1, $reloadedTarget->referencedBy);
+        $inbound = $reloadedTarget->referencedBy->first();
+        self::assertInstanceOf(Document::class, $inbound);
+        self::assertSame($result['documentId'], (string) $inbound->id);
+    }
+
+    public function test_a_reference_to_another_projects_document_is_rejected(): void
+    {
+        $owner = $this->user('create-xref@example.com');
+        $otherProject = new Project($owner, 'p-'.uniqid());
+        $this->em->persist($otherProject);
+        $foreign = new Document(owner: $owner, project: $otherProject, title: 'Elsewhere');
+        $foreign->addVersion('# Elsewhere', '<h1>Elsewhere</h1>');
+        $this->em->persist($foreign);
+
+        $boundProject = new Project($owner, 'p-'.uniqid());
+        $this->em->persist($boundProject);
+        $this->em->flush();
+
+        $this->actAsMcpTokenBoundTo($boundProject);
+
+        try {
+            ($this->tool)('Companion', '# Body', null, [(string) $foreign->id]);
+            self::fail('referencing another project\'s document must throw');
+        } catch (ToolCallException $e) {
+            self::assertStringContainsString('not found or not accessible', $e->getMessage());
+        }
+
+        // The call failed outright rather than dropping the bad reference and
+        // creating the document without it.
+        $this->em->clear();
+        self::assertSame(
+            0,
+            (int) $this->em->getConnection()->fetchOne(
+                'SELECT count(*) FROM documents WHERE project_id = :id',
+                ['id' => (string) $boundProject->id],
+            ),
+        );
+    }
+
     public function test_unbound_mcp_token_is_rejected(): void
     {
         $owner = $this->user('create-unbound@example.com');

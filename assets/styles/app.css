@@ -151,6 +151,33 @@
     --status-ok-bg: #f0f9f3;
     --status-ok-border: #d4ecdd;
 
+    /* Agent mark (fuchsia) — passages the agent flagged as worth reading first.
+       Deliberately outside the amber/green status ladder: a reviewer must be able
+       to tell at a glance that a mark came from the agent rather than from their
+       own earlier pass, so the two vocabularies never share a hue.
+
+       The claim holds for --agent-mark, the DECORATION colour: CIEDE2000 >= 22
+       from --status-pending, --status-ok and --border-strong in normal vision and
+       under simulated deutan, protan and tritan vision alike. Two neighbours come
+       closer, and both are separated by something other than hue:
+         - --color-danger, the strike line, at ΔE ~13 under tritanopia. A strike
+           is a line-through across the middle of the text and an agent mark is a
+           wavy underline below it, so the two never occupy the same position even
+           when they cover the same words.
+         - --accent at ΔE ~8 under protanopia, but that rung paints only the
+           selection being composed right now, and it is straight where the agent
+           mark is wavy.
+
+       It does NOT hold for --agent-mark-bg. Against --status-pending-bg the two
+       are ΔE ~1-2 under tritanopia depending on the simulation model — the pale
+       tints are simply too close to white to carry a hue signal. That is why the
+       wavy underline on the rung below is load-bearing rather than decorative:
+       the tint is the large-area percept, and for some readers it says nothing
+       at all. Do not drop the decoration in favour of a stronger tint; a tint
+       strong enough to separate would fight the prose. */
+    --agent-mark: #b23aa0;
+    --agent-mark-bg: #fbecf7;
+
     /* Dark code block (Connect page .mcp.json) — handoff §5. Intentionally a
        dark component on the otherwise light Connect screen, not a theme. */
     --code-dark-header: #17172a;
@@ -1021,6 +1048,30 @@
     .lp-version-entry__description {
         @apply text-fg-dim m-0 text-xs;
     }
+    .lp-doc-references {
+        @apply flex flex-col gap-2 mt-4;
+    }
+    .lp-doc-references__group {
+        @apply flex flex-col gap-1;
+    }
+    .lp-doc-references__label {
+        @apply font-mono uppercase tracking-wide text-fg-dim text-xs;
+    }
+    .lp-doc-references__list {
+        @apply flex flex-col gap-1 list-none m-0 p-0;
+    }
+    .lp-doc-references__item {
+        @apply flex items-center gap-2 text-sm;
+    }
+    .lp-doc-references__link {
+        @apply inline-flex items-center gap-1.5 text-fg-mute no-underline transition-colors hover:text-fg;
+    }
+    /* An archived target is still a live link, so the marker sits beside it
+       rather than dimming or dropping the row. */
+    .lp-doc-references__archived {
+        @apply inline-flex items-center rounded-full bg-surface-2 text-fg-dim text-xs py-0.5 px-2;
+    }
+
     /* Shown above an earlier version of a document, which is read-only: the
        composer, reply and verdict controls all act on the current version. */
     .lp-version-banner {
@@ -1911,9 +1962,12 @@
    Unlayered so they reliably paint over the rendered prose. The controller
    registers `lp-anchor`/`lp-anchor-active` (never renamed) plus per-status
    highlights (`lp-anchor-pending|addressed|resolved`) and routes each thread's
-   range to the one matching its data-anchor-status. ::highlight() only honours
-   a small set of properties (color, background-color, text-decoration) — the
-   handoff's "2px underline" is expressed with text-decoration, not box-shadow. */
+   range to the one matching its data-anchor-status. Two rungs sit outside that
+   ladder and paint in addition to it: `lp-anchor-struck` for a passage the
+   reviewer asked to delete, and `lp-agent-highlight` for the agent's own marks,
+   which carry no comment status at all. ::highlight() only honours a small set of properties
+   (color, background-color, text-decoration) — the handoff's "2px underline" is
+   expressed with text-decoration, not box-shadow. */
 
 ::highlight(lp-anchor) {
     background-color: var(--status-pending-bg);
@@ -1948,6 +2002,27 @@
 ::highlight(lp-anchor-struck) {
     text-decoration-line: line-through;
     text-decoration-color: var(--color-danger);
+    @apply decoration-2;
+}
+
+/* The agent's own marks. The wavy underline is what actually carries the rung —
+   see the ΔE numbers on --agent-mark-bg above: the tint is the large-area percept
+   but under tritanopia it is indistinguishable from the pending tint, so an agent
+   mark is instead the only one in the document whose underline is not straight.
+   ::highlight() grants no border, no icon and no gutter mark, so that decoration
+   axis is the whole of the non-colour signal. (Verified painting in Chrome —
+   text-decoration-style and text-underline-offset are honoured, unlike border or
+   box-shadow.)
+
+   No `color` here on purpose: body prose already inherits the right one, and
+   setting it would flatten a link inside a marked passage from --accent to body
+   ink. */
+::highlight(lp-agent-highlight) {
+    background-color: var(--agent-mark-bg);
+    text-decoration-line: underline;
+    text-decoration-color: var(--agent-mark);
+    text-decoration-style: wavy;
+    text-underline-offset: 3px;
     @apply decoration-2;
 }
 

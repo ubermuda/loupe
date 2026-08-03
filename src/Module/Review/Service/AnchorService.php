@@ -82,6 +82,37 @@ final class AnchorService
     }
 
     /**
+     * Builds an anchor for a caller that can only name the passage verbatim and
+     * has no selection to capture context from — an agent pointing at a span it
+     * never rendered.
+     *
+     * The context window is sliced out of $text here rather than supplied, so the
+     * stored anchor is shaped exactly like one a human selection produced. Storing
+     * the empty prefix/suffix the caller has instead would leave both resolvers
+     * with no fingerprint to rank a repeated quote by, and each would silently
+     * settle on the earliest occurrence.
+     *
+     * A quote that appears more than once resolves to the FIRST occurrence, and
+     * the caller is not told: with no context to score against, locate() has only
+     * its earliest-position tiebreak left. Server and browser both land there, so
+     * nothing drifts — but a caller that meant a later occurrence gets the wrong
+     * span cleanly, and its only remedy is to extend the quote until it is unique.
+     *
+     * Returns null when the quote does not appear in $text at all.
+     *
+     * @param non-empty-string $quote
+     */
+    public function fromQuote(string $text, string $quote): ?Anchor
+    {
+        $offset = $this->locate($text, new Anchor($quote, '', '', 0));
+        if (null === $offset) {
+            return null;
+        }
+
+        return $this->create($text, $offset, mb_strlen($quote, 'UTF-8'));
+    }
+
+    /**
      * Picks the occurrence of the quote whose surrounding context best matches
      * the captured prefix/suffix, breaking ties by earliest position. Unlike
      * resolve(), it does not lean on offsetHint — at add-time the captured

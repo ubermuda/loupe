@@ -2637,48 +2637,23 @@ green for "no errors" would reintroduce exactly the false reassurance the
 check was written to avoid. Related: "Worker heartbeat, so 'is a worker
 running?' can be answered positively".
 
-## MCP: an agent cannot highlight a passage in a document
+## An agent highlight is invisible to a screen reader
 
-**Author:** Geoffrey · **Type:** feature · **Priority:** medium · **Status:** pending
+**Author:** Claude · **Type:** feature · **Priority:** medium · **Status:** pending
 
-Anchoring is one-directional. A human reviewer selects text in the review UI and
-their comment carries the quote, so `get_review` hands the agent an exact
-passage to act on. The agent has no equivalent: `create_document` and
-`revise_document` take whole-document Markdown and nothing else, so an agent
-that wants to point at one sentence can only describe where it is ("line 15",
-"the third paragraph"). The reader then has to find it by hand, and the
-reference goes stale as soon as the document is revised.
+`document_highlight` marks passages through the CSS Custom Highlight API, which
+paints without touching the DOM — deliberately, because the review pane's
+`textContent` must stay identical to `DocumentVersion::plainText()` or every
+anchor offset shifts. The cost is that the mark carries no semantics: it has no
+element, no role and no accessible name, so a reviewer using a screen reader is
+told nothing about which passages the agent flagged. The carriers themselves
+(`templates/Module/Review/show_document.html.twig`, the
+`data-comment-anchor-target="agentHighlight"` spans) are empty and hidden.
 
-Surfaced on 2026-08-01 while revising a blog post through the MCP: reporting
-which sentences had been rewritten, and which were deliberately left alone,
-needed line numbers that mean nothing in the rendered review UI.
-
-Wanted: a way for the agent to attach a highlight to a quoted span. **The
-purpose is directing attention** (owner clarification, 2026-08-02): the agent
-marks the passages it judges most important so the reviewer reads those first,
-rather than flagging its own uncertainty. On a long document that is the
-difference between a reviewer starting where it matters and starting at the top.
-
-That settles the design question this entry used to leave open. A highlight is
-**a separate, lighter annotation with no thread** — not an agent-authored
-anchored comment. It carries no body, expects no reply, and does not belong in
-the comment ladder. It therefore does not depend on "MCP: no way to reply to
-document-review comments", though both need the agent to be able to write into a
-review.
-
-Most of the machinery is already there and unused. `comment_anchor_controller.js`
-re-locates a quote in the live DOM from anchor context (`#findRange`), and its
-`STATUS_HIGHLIGHTS` map plus the `::highlight()` rules in `app.css` already
-register and style rungs that no template emits. An emphasis highlight needs its
-own rung rather than borrowing the `addressed` one, whose meaning is different,
-but it needs no new highlight mechanism. Note `::highlight()` honours only
-colour, background-colour and text-decoration, which caps how a highlight can
-look without mutating the DOM — and mutating it is not an option, because the
-document pane's `textContent` must stay identical to `DocumentVersion::plainText()`
-or every anchor offset shifts.
-
-Related: "Review comments should be able to express an edit, not just describe
-one".
+The same gap already applies to comment anchors, so a fix should cover both.
+Candidates that do not mutate the pane: a sidebar list of marked passages a
+screen reader can walk, or an `aria-describedby` region summarising them. Do not
+solve it by wrapping the passages in elements.
 
 ## Binding one Loupe project to several Claude Code projects is manual repetition
 
@@ -3132,3 +3107,54 @@ and where the choice is between a table of contents and stranded comments.
 What removes that choice is the re-anchoring pass described in "A renderer change
 that moves plainText needs a reanchor pass, not just a rerender": with it, an old
 version can be brought forward and its comments re-resolved in the same motion.
+
+## `list<T>` in an MCP tool docblock generates an untyped `items: {}`
+
+**Author:** Claude · **Type:** bug · **Priority:** low · **Status:** pending
+
+The schema generator in `mcp/sdk` reads `string[]` and `array<string>` and
+emits `{"type":"string"}` for the array's elements, but does not understand
+`list<string>` — that one produces `"items": {}`, so a client sees "an array
+of anything". `bin/console debug:mcp <tool>` prints the generated schema.
+
+`document_mark_comment_addressed` and `site_review_mark_comment_addressed`
+still declare `@param list<string> $commentIds` and are affected. The
+document-reference parameters were converted to `array<string>` when this was
+found; these two were left alone deliberately so the change is made on its
+own rather than inside an unrelated branch.
+
+It has not bitten yet — the tools validate each element themselves — but a
+client that schema-checks its arguments has nothing to check against.
+
+## A document's incoming references are stale in memory after a write
+
+**Author:** Claude · **Type:** bug · **Priority:** low · **Status:** pending
+
+`Document::$referencedBy` (`src/Module/Review/Entity/Document.php`) is the
+inverse side of the `document_references` join, so Doctrine fills it when the
+document is loaded and never when one is written. Adding to document A's
+`$references` does not appear in document B's `$referencedBy` for the rest of
+that request; it is correct again on the next load.
+
+Invisible today because nothing reads the inverse side in the same request
+that writes the owning side — the review page only ever reads. It becomes a
+real bug the moment a Turbo stream re-renders the target after a write, or
+`document_get` starts returning incoming links. The fix is to maintain both
+sides on write (an `addReference()` on the entity that appends to the target's
+`referencedBy` too), not to reload.
+
+## Referencing a document changes a page the referrer may not write to
+
+**Author:** Claude · **Type:** security · **Priority:** low · **Status:** pending
+
+Creating a reference requires `McpBoundProjectVoter::DOCUMENT_WRITE` on the
+source document and only `DOCUMENT_READ` on the target
+(`ReviewSubjectResolver::requireReferences()`), yet the target's rendered page
+visibly changes: its "Referenced by" list grows.
+
+Harmless while a project's documents share one owner, since read and write
+land on the same people. It becomes a graffiti vector the day a project has
+several users with differentiated grants — someone who may only read a
+document can still add a line to it. Requiring WRITE on the target is the
+wrong fix: it would break pointing at something you are allowed to read,
+which is the normal case. Revisit when per-document grants exist.

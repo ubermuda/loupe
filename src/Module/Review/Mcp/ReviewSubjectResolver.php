@@ -56,6 +56,23 @@ final readonly class ReviewSubjectResolver
     }
 
     /**
+     * Resolves the targets of a reference list. Pointing at a document is not a
+     * write to it, so a read grant is enough — but the grant is still required,
+     * which is what keeps a reference inside the token's project.
+     *
+     * @param array<string> $documentIds
+     *
+     * @return list<Document>
+     */
+    public function requireReferences(array $documentIds): array
+    {
+        return array_map(
+            fn (string $id): Document => $this->requireDocument($id, McpBoundProjectVoter::DOCUMENT_READ),
+            array_values($documentIds),
+        );
+    }
+
+    /**
      * @param McpBoundProjectVoter::COMMENT_* $attribute
      */
     public function requireComment(string $commentId, string $attribute): Comment
