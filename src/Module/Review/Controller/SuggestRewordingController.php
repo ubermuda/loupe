@@ -11,8 +11,8 @@ use App\Module\Project\Entity\Project;
 use App\Module\Review\Command\AddCommentCommand;
 use App\Module\Review\Command\AddCommentHandler;
 use App\Module\Review\Entity\Document;
-use App\Module\Review\Form\AddCommentFormType;
-use App\Module\Review\Form\AddCommentRequest;
+use App\Module\Review\Form\SuggestRewordingFormType;
+use App\Module\Review\Form\SuggestRewordingRequest;
 use App\Module\Review\Repository\CommentRepository;
 use App\Module\Review\Repository\DocumentVersionRepository;
 use App\Module\Review\Security\DocumentVoter;
@@ -25,13 +25,17 @@ use Symfony\Component\Security\Http\Attribute\IsGranted;
 use Symfony\Contracts\Translation\TranslatorInterface;
 use Symfony\UX\Turbo\TurboBundle;
 
+/**
+ * Suggests a rewording of the selected passage: an anchored comment carrying the
+ * text that should stand in its place, plus an optional rationale.
+ */
 #[IsGranted(DocumentVoter::VIEW, subject: 'document')]
 #[Route(
-    '/projects/{projectId}/documents/{documentId}/comments',
-    name: 'app_comment_add',
+    '/projects/{projectId}/documents/{documentId}/suggestions',
+    name: 'app_comment_suggest',
     methods: ['POST'],
 )]
-final class AddCommentController extends AppController
+final class SuggestRewordingController extends AppController
 {
     public function __construct(
         private readonly AddCommentHandler $addCommentHandler,
@@ -51,8 +55,8 @@ final class AddCommentController extends AppController
             throw new \LogicException(\sprintf('%s reached without an authenticated User (got %s); this route must stay behind the ROLE_USER catch-all.', self::class, get_debug_type($user)));
         }
 
-        $data = new AddCommentRequest();
-        $form = $this->createForm(AddCommentFormType::class, $data);
+        $data = new SuggestRewordingRequest();
+        $form = $this->createForm(SuggestRewordingFormType::class, $data);
         $form->handleRequest($request);
 
         if (!$form->isSubmitted() || !$form->isValid()) {
@@ -65,7 +69,8 @@ final class AddCommentController extends AppController
                     quote: $data->quote,
                     prefix: $data->prefix,
                     suffix: $data->suffix,
-                    body: $data->body ?: throw new \LogicException('body required after validation'),
+                    body: $data->body ?? '',
+                    replacement: $data->replacement ?? throw new \LogicException('replacement required after validation'),
                 ));
                 $errorMessage = null;
             } catch (DomainErrors $e) {
@@ -86,7 +91,7 @@ final class AddCommentController extends AppController
         if (null !== $errorMessage) {
             return new Response(
                 $this->renderView('@Review/_composer_error.stream.html.twig', [
-                    'target' => 'composer-error',
+                    'target' => 'suggest-composer-error',
                     'message' => $errorMessage,
                 ]),
                 Response::HTTP_UNPROCESSABLE_ENTITY,
@@ -104,7 +109,7 @@ final class AddCommentController extends AppController
     }
 
     /**
-     * @param FormInterface<AddCommentRequest> $form
+     * @param FormInterface<SuggestRewordingRequest> $form
      */
     private function formErrorMessage(FormInterface $form): string
     {
@@ -113,6 +118,6 @@ final class AddCommentController extends AppController
             $messages[] = $error->getMessage();
         }
 
-        return implode(' ', $messages) ?: $this->translator->trans('review.document.comment.add_failed');
+        return implode(' ', $messages) ?: $this->translator->trans('review.document.suggestion.failed');
     }
 }

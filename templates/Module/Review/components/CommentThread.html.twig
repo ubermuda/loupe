@@ -15,6 +15,7 @@
   account, which authors every reply written through the MCP.
 #}
 {% set status = comment.threadStatus.value %}
+{% set kind = comment.isStrike ? 'strike' : (comment.isSuggestion ? 'suggestion' : 'comment') %}
 <div
     id="comment-thread-{{ comment.id }}"
     class="lp-comment-thread{% if status == 'resolved' %} lp-comment-thread--resolved{% endif %}{% if comment.orphaned %} lp-comment-thread--orphaned{% endif %}"
@@ -23,21 +24,37 @@
     data-anchor-prefix="{{ comment.anchor.prefix }}"
     data-anchor-suffix="{{ comment.anchor.suffix }}"
     data-anchor-status="{{ status }}"
+    data-anchor-kind="{{ kind }}"
 >
     <div class="lp-comment-thread__header">
         <span class="avatar">{{ comment.author.fullName|slice(0, 1)|upper }}</span>
         <span class="lp-comment-author lp-comment-thread__author">{{ comment.author.fullName }}</span>
+        {% if kind != 'comment' %}
+        <span class="lp-kind-chip lp-kind-chip--{{ kind }}">{{ ('review.document.kind.' ~ kind)|trans }}</span>
+        {% endif %}
         <span class="lp-status-chip lp-status-chip--{{ status }}">
             <span class="lp-status-chip__dot"></span>
             {{ ('review.document.group.' ~ status)|trans }}
         </span>
     </div>
 
-    {% if comment.anchor.quote %}
+    {# A strike shows the doomed passage struck through; a rewording shows it
+       above what should replace it. Neither is markup from the document — these
+       are tags this template emits around escaped text. #}
+    {% if comment.isSuggestion %}
+    <blockquote class="lp-comment-quote lp-comment-quote--struck"><del>{{ comment.anchor.quote }}</del></blockquote>
+        {% if not comment.isStrike %}
+        <blockquote class="lp-comment-quote lp-comment-quote--inserted"><ins>{{ comment.replacement }}</ins></blockquote>
+        {% endif %}
+    {% elseif comment.anchor.quote %}
     <blockquote class="lp-comment-quote">{{ comment.anchor.quote }}</blockquote>
     {% endif %}
 
+    {# A strike carries no rationale — nothing was typed — so the body element is
+       omitted rather than rendered empty. #}
+    {% if comment.body is not empty %}
     <div class="lp-comment-body">{{ comment.body }}</div>
+    {% endif %}
 
     {% if replies|length > 0 %}
     <div class="lp-comment-replies">

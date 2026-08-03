@@ -157,11 +157,16 @@
        own earlier pass, so the two vocabularies never share a hue.
 
        The claim holds for --agent-mark, the DECORATION colour: CIEDE2000 >= 22
-       from --status-pending, --status-ok and --border-strong (the three rungs a
-       reviewer sees persistently), in normal vision and under simulated deutan,
-       protan and tritan vision alike. Its nearest neighbour is --accent at
-       ΔE ~8 under protanopia, but that rung paints only the selection being
-       composed right now, and wavy-versus-straight separates them anyway.
+       from --status-pending, --status-ok and --border-strong in normal vision and
+       under simulated deutan, protan and tritan vision alike. Two neighbours come
+       closer, and both are separated by something other than hue:
+         - --color-danger, the strike line, at ΔE ~13 under tritanopia. A strike
+           is a line-through across the middle of the text and an agent mark is a
+           wavy underline below it, so the two never occupy the same position even
+           when they cover the same words.
+         - --accent at ΔE ~8 under protanopia, but that rung paints only the
+           selection being composed right now, and it is straight where the agent
+           mark is wavy.
 
        It does NOT hold for --agent-mark-bg. Against --status-pending-bg the two
        are ΔE ~1-2 under tritanopia depending on the simulation model — the pale
@@ -1054,6 +1059,54 @@
     .lp-review-doc__prose {
         @apply mt-0;
     }
+    /* Headings sit under the document pane's own scroll, so a table-of-contents
+       jump would otherwise land them flush against the top edge. */
+    .lp-review-doc__prose :is(h1, h2, h3, h4, h5, h6) {
+        @apply scroll-mt-4;
+    }
+
+    /* ── Table of contents ──────────────────────────────────────────────
+       A collapsible panel in the document head that scrolls with the document.
+       It must stay out of the rendered-HTML container: that element's
+       textContent is the basis every comment anchor is measured against. */
+    .lp-review-contents {
+        @apply rounded-lg border border-line bg-surface-2 mt-4;
+    }
+    .lp-review-contents__summary {
+        @apply flex items-center gap-2 list-none cursor-pointer select-none font-medium text-fg-mute px-3 py-2 text-xs transition-colors hover:text-fg;
+    }
+    .lp-review-contents__summary::-webkit-details-marker {
+        @apply hidden;
+    }
+    .lp-review-contents__chevron {
+        @apply transition-transform;
+    }
+    .lp-review-contents[open]
+        > .lp-review-contents__summary
+        .lp-review-contents__chevron {
+        @apply rotate-90;
+    }
+    .lp-review-contents__list {
+        @apply flex flex-col list-none m-0 px-3 pb-2.5 pt-0;
+    }
+    .lp-review-contents__link {
+        @apply block truncate rounded no-underline text-fg-mute text-sm py-1 px-1.5 transition-colors hover:bg-tint hover:text-fg;
+    }
+    /* Levels 1 and 2 share the base indent on purpose: a Loupe document keeps its
+       title out of the body and opens at `##`, so h2 is the top section level and
+       an h1 is the exception rather than the outer tier. */
+    .lp-review-contents__link[data-level='3'] {
+        @apply pl-5;
+    }
+    .lp-review-contents__link[data-level='4'] {
+        @apply pl-9;
+    }
+    .lp-review-contents__link[data-level='5'] {
+        @apply pl-13;
+    }
+    .lp-review-contents__link[data-level='6'] {
+        @apply pl-17;
+    }
 
     /* Rendered Markdown (incl. GFM tables) is styled by the Tailwind typography
        plugin via `prose`, themed to the app's design tokens so light and dark
@@ -1100,6 +1153,25 @@
     .lp-anchor-toolbar__btn:hover {
         @apply opacity-90;
     }
+    /* Three actions now share the pill, so it is a row rather than a lone button. */
+    .lp-anchor-toolbar {
+        @apply flex items-center gap-1;
+    }
+    .lp-anchor-toolbar__key {
+        @apply rounded border border-white/30 font-mono leading-none py-0.5 px-1 text-xs;
+    }
+
+    /* Standing error region for a strike, which posts with no composer open.
+       Fixed rather than absolute: .lp-review-doc is the internal scroll container,
+       so an absolutely-positioned child sits in scrolled content space and would
+       render above the viewport for a reviewer working further down the page. */
+    .lp-review-action-error {
+        @apply fixed bottom-6 left-1/2 z-30 m-0 rounded-lg border border-line bg-elev shadow-composer py-2 px-3 text-xs text-danger;
+        transform: translateX(-50%);
+    }
+    .lp-review-action-error:empty {
+        display: none;
+    }
 
     /* ── Floating comment composer ──────────────────────────────────────
        A 340px white card anchored at the selection. Shows the quoted selection
@@ -1123,6 +1195,10 @@
     }
     .lp-composer-general {
         @apply font-mono text-fg-dim text-xs;
+    }
+    /* The passage a rewording replaces, shown struck above the replacement field. */
+    .lp-composer-quote--struck {
+        @apply line-through decoration-danger;
     }
     .lp-comment-composer__actions {
         @apply flex items-center justify-end gap-2;
@@ -1266,6 +1342,33 @@
        blow out the margin. */
     .lp-comment-quote {
         @apply bg-accent-faint-2 border-l-2 border-accent-border text-fg-mute rounded-r line-clamp-3 m-0 py-1.5 px-2.5 text-xs;
+    }
+    /* Before/after for an edit: the doomed passage muted under a red strike line,
+       what replaces it in the green "ok" trio. The <del>/<ins> tags carry the
+       meaning; these only colour them. */
+    .lp-comment-quote--struck {
+        @apply bg-tint border-line text-fg-dim;
+    }
+    .lp-comment-quote--struck del {
+        @apply line-through decoration-danger decoration-2;
+    }
+    .lp-comment-quote--inserted {
+        @apply bg-status-ok-bg border-status-ok text-status-ok-deep;
+    }
+    .lp-comment-quote--inserted ins {
+        @apply no-underline;
+    }
+
+    /* Names the action a thread proposes — only on a strike or a rewording, since
+       a prose comment proposes nothing and needs no label. */
+    .lp-kind-chip {
+        @apply inline-flex items-center rounded-full font-medium border text-xs py-0.5 px-2;
+    }
+    .lp-kind-chip--strike {
+        @apply bg-tint text-danger border-line;
+    }
+    .lp-kind-chip--suggestion {
+        @apply bg-status-ok-bg text-status-ok-deep border-status-ok-border;
     }
 
     .lp-comment-author {
@@ -1791,9 +1894,10 @@
    Unlayered so they reliably paint over the rendered prose. The controller
    registers `lp-anchor`/`lp-anchor-active` (never renamed) plus per-status
    highlights (`lp-anchor-pending|addressed|resolved`) and routes each thread's
-   range to the one matching its data-anchor-status. `lp-agent-highlight` is
-   separate from that ladder — it carries no comment status and is painted from
-   the agent's own marks. ::highlight() only honours a small set of properties
+   range to the one matching its data-anchor-status. Two rungs sit outside that
+   ladder and paint in addition to it: `lp-anchor-struck` for a passage the
+   reviewer asked to delete, and `lp-agent-highlight` for the agent's own marks,
+   which carry no comment status at all. ::highlight() only honours a small set of properties
    (color, background-color, text-decoration) — the handoff's "2px underline" is
    expressed with text-decoration, not box-shadow. */
 
@@ -1823,6 +1927,14 @@
     text-decoration-line: underline;
     text-decoration-color: var(--border-strong);
     @apply decoration-1;
+}
+/* Struck passages, painted on top of whichever status highlight already covers
+   them: highlights overlay rather than replace each other, so the status tint
+   survives and this adds only the line-through. */
+::highlight(lp-anchor-struck) {
+    text-decoration-line: line-through;
+    text-decoration-color: var(--color-danger);
+    @apply decoration-2;
 }
 
 /* The agent's own marks. The wavy underline is what actually carries the rung —

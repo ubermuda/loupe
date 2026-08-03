@@ -47,6 +47,33 @@ final class ReanchoringServiceTest extends TestCase
         self::assertNotSame($parent, $copiedReply->parent, 'Copied reply must NOT point to the original v1 parent');
     }
 
+    /**
+     * A revision that does not act on a suggestion must not silently discard it —
+     * dropping the replacement would turn an unapplied edit into a bare comment.
+     */
+    public function test_carries_the_replacement_onto_the_new_version(): void
+    {
+        $user = new User(username: 'r3', fullName: 'R3', email: 'r3@example.com');
+        $doc = new Document(owner: $user, project: new Project($user, 'p'), title: 'Doc');
+        $v1 = $doc->addVersion('use JWTs and rate limiting', 'use JWTs and rate limiting');
+
+        $rewording = new Comment($v1, $user, 'plainer', new Anchor('JWTs', 'use ', ' and', 4), null, 'tokens');
+        $strike = new Comment($v1, $user, '', new Anchor('rate limiting', 'and ', '', 13), null, '');
+        $prose = new Comment($v1, $user, 'thoughts?', new Anchor('use', '', ' JWTs', 0));
+
+        $v2 = $doc->addVersion('use JWTs and rate limiting', 'use JWTs and rate limiting');
+        new ReanchoringService(new AnchorService())->reanchor([$rewording, $strike, $prose], $v2);
+
+        $replacements = [];
+        foreach ($v2->comments as $copy) {
+            $replacements[$copy->anchor->quote] = $copy->replacement;
+        }
+
+        self::assertSame('tokens', $replacements['JWTs']);
+        self::assertSame('', $replacements['rate limiting'], 'a carried strike must not become a plain comment');
+        self::assertNull($replacements['use']);
+    }
+
     public function test_carries_surviving_comment_and_orphans_the_rest(): void
     {
         $user = new User(username: 'r', fullName: 'R', email: 'r@example.com');
