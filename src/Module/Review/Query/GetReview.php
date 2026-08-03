@@ -28,7 +28,15 @@ final readonly class GetReview
      * `status` — it is a property of the thread, and a reply has none of its own.
      *
      * Each reported `quote` is widened to whole words (see snapToWordEdges) so a reader
-     * doesn't have to guess which sentence a mid-word excerpt came from.
+     * doesn't have to guess which sentence a mid-word excerpt came from — EXCEPT on a
+     * comment carrying a `replacement`, where the quote is the span to be substituted
+     * rather than an excerpt to read. Widening one of those would hand back a string
+     * containing characters the reviewer never selected, and replacing it in the
+     * markdown would delete them.
+     *
+     * `replacement` is null for a prose comment, '' for a strike (remove the quote),
+     * and the new text for a suggested rewording. Only root comments carry it — a
+     * reply proposes nothing.
      *
      * `author` reports the class of writer rather than the writer: the payload is machine-facing,
      * so a human reviewer's name, email and id stay out of it.
@@ -37,7 +45,7 @@ final readonly class GetReview
      *     status: string,
      *     verdict: string|null,
      *     version: int,
-     *     comments: list<array{id: string, quote: string, body: string, author: 'agent'|'human', status: string, orphaned: bool, thread: list<array{id: string, quote: string, body: string, author: 'agent'|'human', orphaned: bool}>}>
+     *     comments: list<array{id: string, quote: string, body: string, replacement: string|null, author: 'agent'|'human', status: string, orphaned: bool, thread: list<array{id: string, quote: string, body: string, author: 'agent'|'human', orphaned: bool}>}>
      * }
      */
     public function __invoke(Document $document): array
@@ -78,8 +86,11 @@ final readonly class GetReview
 
             $threadedComments[] = [
                 'id' => $commentId,
-                'quote' => self::snapToWordEdges($comment->anchor),
+                'quote' => $comment->isSuggestion
+                    ? $comment->anchor->quote
+                    : self::snapToWordEdges($comment->anchor),
                 'body' => $comment->body,
+                'replacement' => $comment->replacement,
                 'author' => $comment->author->isAgent() ? 'agent' : 'human',
                 'status' => $comment->threadStatus->value,
                 'orphaned' => $comment->orphaned,

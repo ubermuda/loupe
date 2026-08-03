@@ -335,13 +335,16 @@ final class ShowDocumentControllerTest extends WebTestCase
         self::assertResponseIsSuccessful();
         self::assertCount(0, $earlier->filter('.lp-comment-composer'), 'the composer posts onto the current version');
         self::assertCount(0, $earlier->filter('.lp-anchor-toolbar'));
+        self::assertCount(0, $earlier->filter('form[name="strike_passage_form"]'), 'a strike would land on the wrong version');
         self::assertCount(0, $earlier->filter('.lp-verdict-bar'), 'the verdict applies to the document as it stands');
         self::assertCount(0, $earlier->filter('.lp-comment-thread form'), 'reply, resolve and delete all act on the live discussion');
 
         // Same page on the current version, to prove the assertions above are not
         // passing simply because the selectors never match anything.
         $latest = $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/documents/'.$id.'/review');
-        self::assertCount(1, $latest->filter('.lp-comment-composer'));
+        // Two composers: one for a comment, one for a rewording.
+        self::assertCount(2, $latest->filter('.lp-comment-composer'));
+        self::assertCount(1, $latest->filter('form[name="strike_passage_form"]'));
         self::assertCount(1, $latest->filter('.lp-verdict-bar'));
         self::assertGreaterThan(0, $latest->filter('.lp-comment-thread form')->count());
     }
