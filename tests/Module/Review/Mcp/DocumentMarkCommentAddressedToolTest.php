@@ -75,6 +75,9 @@ final class DocumentMarkCommentAddressedToolTest extends KernelTestCase
 
         $result = ($this->tool)([
             'not-a-uuid',
+            // Right length and shape, one character out of range: it must land
+            // in invalid_id, not be mistaken for a real id that went missing.
+            'zzzzzzzz-9b1c-42f7-8e44-a10a6e57c3d9',
             (string) $foreign->id,
             (string) $reply->id,
             (string) $addressed->id,
@@ -85,6 +88,7 @@ final class DocumentMarkCommentAddressedToolTest extends KernelTestCase
         self::assertSame([(string) $pending->id], $result['addressed']);
         self::assertSame([
             ['id' => 'not-a-uuid', 'reason' => 'invalid_id'],
+            ['id' => 'zzzzzzzz-9b1c-42f7-8e44-a10a6e57c3d9', 'reason' => 'invalid_id'],
             ['id' => (string) $foreign->id, 'reason' => 'not_found'],
             ['id' => (string) $reply->id, 'reason' => 'is_reply'],
             ['id' => (string) $addressed->id, 'reason' => 'already_addressed'],
