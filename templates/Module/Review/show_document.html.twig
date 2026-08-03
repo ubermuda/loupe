@@ -149,6 +149,22 @@
 
             <div class="prose max-w-2xl lp-prose lp-review-doc__prose" data-comment-anchor-target="doc">{{ version.renderedHtml|raw }}</div>
 
+            {# The agent's marks — the passages it flagged as worth reading first.
+               Each is an empty carrier for its anchor, deliberately OUTSIDE the doc
+               element above: that element's textContent must stay byte-identical to
+               DocumentVersion::plainText(), so nothing may be inserted into it. The
+               Stimulus controller re-locates each quote and tints it through the CSS
+               Custom Highlight API, which paints without touching the DOM. #}
+            {% for highlight in version.highlights %}
+            <span
+                data-comment-anchor-target="agentHighlight"
+                data-anchor-quote="{{ highlight.anchor.quote }}"
+                data-anchor-prefix="{{ highlight.anchor.prefix }}"
+                data-anchor-suffix="{{ highlight.anchor.suffix }}"
+                hidden
+            ></span>
+            {% endfor %}
+
             {# The composer and its toolbar post onto the CURRENT version, so on an
                earlier one they are omitted entirely rather than shown and ignored. #}
             {% if not readOnly %}

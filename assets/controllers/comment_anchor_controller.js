@@ -21,6 +21,10 @@ import { Controller } from '@hotwired/stimulus';
  * Three actions share that one captured selection. Comment and Suggest open a
  * composer; Strike submits a hidden form outright, which is what lets it also be
  * a single keypress.
+ *
+ * The same painting path serves the agent's own marks, which carry an anchor and
+ * nothing else — no body, no thread. They get their own rung and their own colour
+ * so a reviewer can tell the agent's marks from their own at a glance.
  */
 export default class extends Controller {
     static targets = [
@@ -47,6 +51,7 @@ export default class extends Controller {
         'actionError',
         'toolbar',
         'thread',
+        'agentHighlight',
     ];
 
     // Anchor highlight names keyed by a thread's data-anchor-status. Each maps to
@@ -61,6 +66,42 @@ export default class extends Controller {
     // Painted in addition to the status highlight rather than instead of it, so a
     // struck passage keeps its status tint and gains the line-through.
     static STRUCK_HIGHLIGHT = 'lp-anchor-struck';
+
+    // Passages the agent flagged as worth reading first. Kept out of
+    // STATUS_HIGHLIGHTS on purpose: that map is keyed by a comment thread's
+    // status, and listing the agent rung there would make its colour reachable
+    // from a data-anchor-status value.
+    static AGENT_HIGHLIGHT = 'lp-agent-highlight';
+
+    // Resolution order for a span several rungs cover. Without explicit values it
+    // is whichever Highlight was registered last, which is incidental.
+    //
+    // How the API actually composes, verified in Chrome across every pairing:
+    // each inherited property is settled independently by the highest-priority
+    // highlight that DECLARES it, while text decorations are additive and every
+    // one of them draws. So priority never hides a rung — it only settles the
+    // properties two rungs both set, and today that is `background-color` and
+    // `color` alone. Three consequences worth knowing before changing a rung:
+    //   - Agent over pending/addressed/active gives the human tint, with the
+    //     agent's wavy underline still legible beside the human's straight one —
+    //     both marks readable, neither mistakable for the other, which is the
+    //     honest reading of a span that carries both.
+    //   - Agent over resolved gives grey text on the agent's OWN tint: resolved
+    //     wins `color` on priority but declares no background, so the
+    //     lower-priority background is what shows.
+    //   - Agent over struck keeps the agent tint for the same reason, and adds
+    //     the strike's line-through. A struck passage always carries its thread's
+    //     status rung too, so the densest real span is four marks at once —
+    //     status tint, status underline, agent wavy underline, strike
+    //     line-through — and it stays legible because each sits at its own
+    //     position relative to the text rather than competing for one.
+    //     Struck declares neither background nor colour, so its rank changes
+    //     nothing today; it is ordered anyway so that giving it one later is a
+    //     decision rather than a surprise.
+    //
+    // The ladder reads: agent advisory < the thread's own state < the edit the
+    // reviewer asked for on it < the selection being composed right now.
+    static PRIORITY = { agent: 0, status: 1, struck: 2, active: 3 };
 
     static CONTEXT = 32;
 
@@ -115,6 +156,7 @@ export default class extends Controller {
         this.anchorHighlight?.clear();
         this.activeHighlight?.clear();
         this.struckHighlight?.clear();
+        this.agentHighlight?.clear();
         for (const highlight of Object.values(this.statusHighlights ?? {})) {
             highlight.clear();
         }
@@ -479,8 +521,11 @@ export default class extends Controller {
         if (!this.#highlightsSupported()) {
             return;
         }
+        const priority = this.constructor.PRIORITY;
+
         this.anchorHighlight = new window.Highlight();
         this.activeHighlight = new window.Highlight();
+        this.activeHighlight.priority = priority.active;
         window.CSS.highlights.set('lp-anchor', this.anchorHighlight);
         window.CSS.highlights.set('lp-anchor-active', this.activeHighlight);
 
@@ -491,14 +536,23 @@ export default class extends Controller {
             this.constructor.STATUS_HIGHLIGHTS,
         )) {
             const highlight = new window.Highlight();
+            highlight.priority = priority.status;
             this.statusHighlights[status] = highlight;
             window.CSS.highlights.set(name, highlight);
         }
 
         this.struckHighlight = new window.Highlight();
+        this.struckHighlight.priority = priority.struck;
         window.CSS.highlights.set(
             this.constructor.STRUCK_HIGHLIGHT,
             this.struckHighlight,
+        );
+
+        this.agentHighlight = new window.Highlight();
+        this.agentHighlight.priority = priority.agent;
+        window.CSS.highlights.set(
+            this.constructor.AGENT_HIGHLIGHT,
+            this.agentHighlight,
         );
     }
 
@@ -526,11 +580,19 @@ export default class extends Controller {
         });
     }
 
+    // The two passes are independently guarded: they read different anchors from
+    // different elements, so one unlocatable comment quote must not take every
+    // agent mark on the page down with it.
     #layout() {
         try {
             this.#highlightAnchors();
         } catch {
             this.anchorHighlight?.clear();
+        }
+        try {
+            this.#highlightAgentMarks();
+        } catch {
+            this.agentHighlight?.clear();
         }
     }
 
@@ -563,6 +625,32 @@ export default class extends Controller {
             highlight.add(range);
             if (thread.dataset.anchorKind === 'strike') {
                 this.struckHighlight?.add(range);
+            }
+        }
+    }
+
+    /**
+     * Paints the agent's marks, re-locating each quote with the same #findRange
+     * the comment anchors use.
+     *
+     * The marks are carried by empty elements outside the doc pane rather than by
+     * wrapping the passages themselves: the pane's textContent has to stay
+     * byte-identical to the server's plain-text basis, and any element inserted
+     * into it would shift every anchor offset after it.
+     */
+    #highlightAgentMarks() {
+        if (!this.agentHighlight) {
+            return;
+        }
+        this.agentHighlight.clear();
+        for (const mark of this.agentHighlightTargets) {
+            const range = this.#findRange(
+                mark.dataset.anchorQuote ?? '',
+                mark.dataset.anchorPrefix ?? '',
+                mark.dataset.anchorSuffix ?? '',
+            );
+            if (range !== null) {
+                this.agentHighlight.add(range);
             }
         }
     }

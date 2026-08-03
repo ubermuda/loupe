@@ -10,9 +10,14 @@ use Symfony\Component\EventDispatcher\Attribute\AsEventListener;
 
 /**
  * Bulk-deletes the Review-module subtree of a project in FK order:
- * reviews / comments -> document_versions -> document_references -> documents.
- * DQL bulk deletes, no entity hydration; runs inside ProjectDeleter's
- * transaction.
+ * reviews / comments / highlights -> document_versions -> document_references
+ * -> documents. DQL bulk deletes, no entity hydration; runs inside
+ * ProjectDeleter's transaction.
+ *
+ * The order is two independent chains, not one list: highlights, comments and
+ * reviews hang off document_versions and so precede it, while references hang
+ * off documents and so precede that. A table added to the wrong chain still
+ * reads plausibly here and fails only at runtime.
  */
 #[AsEventListener]
 final readonly class DeleteReviewDataOnProjectDeleting
@@ -32,6 +37,10 @@ final readonly class DeleteReviewDataOnProjectDeleting
 
         $this->em->createQuery(
             'DELETE App\Module\Review\Entity\Comment c WHERE c.version IN ('.$versionSubselect.')',
+        )->setParameter('project', $event->project)->execute();
+
+        $this->em->createQuery(
+            'DELETE App\Module\Review\Entity\Highlight h WHERE h.version IN ('.$versionSubselect.')',
         )->setParameter('project', $event->project)->execute();
 
         $this->em->createQuery(

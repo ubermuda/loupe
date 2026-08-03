@@ -8,6 +8,8 @@ use App\Module\Account\Entity\User;
 use App\Module\Project\Entity\Project;
 use App\Module\Review\Command\ReviseDocumentCommand;
 use App\Module\Review\Command\ReviseDocumentHandler;
+use App\Module\Review\Command\SetDocumentHighlightsCommand;
+use App\Module\Review\Command\SetDocumentHighlightsHandler;
 use App\Module\Review\Entity\Comment;
 use App\Module\Review\Entity\CommentStatus;
 use App\Module\Review\Entity\Document;
@@ -96,6 +98,43 @@ final class ShowDocumentControllerTest extends WebTestCase
         self::assertSelectorExists('button[name="submit_review_form[verdict]"][value="approved"]');
         self::assertSelectorExists('button[name="submit_review_form[verdict]"][value="changes-requested"]');
         self::assertSelectorNotExists('.lp-verdict-approved');
+    }
+
+    public function test_agent_highlights_are_carried_outside_the_document_pane(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+
+        $owner = $this->createUser($em, 'markowner', 'marks@example.com');
+        $project = $this->project($em, $owner);
+
+        $html = '<h1>Hello</h1><p>We will issue short-lived JWTs.</p>';
+        $doc = new Document(owner: $owner, project: $project, title: 'Marked Doc');
+        $version = $doc->addVersion('# Hello', $html);
+        $em->persist($doc);
+        $em->flush();
+
+        $handler = static::getContainer()->get(SetDocumentHighlightsHandler::class);
+        self::assertInstanceOf(SetDocumentHighlightsHandler::class, $handler);
+        $handler(new SetDocumentHighlightsCommand($doc, ['short-lived JWTs']));
+
+        $projectId = (string) $project->id;
+        $id = (string) $doc->id;
+        $em->clear();
+
+        $client->loginUser($owner);
+        $crawler = $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/documents/'.$id.'/review');
+
+        self::assertResponseIsSuccessful();
+        $marks = $crawler->filter('[data-comment-anchor-target="agentHighlight"]');
+        self::assertCount(1, $marks);
+        self::assertSame('short-lived JWTs', $marks->attr('data-anchor-quote'));
+
+        // The pane's text must still equal the basis every anchor offset is
+        // counted against, so the carriers cannot have landed inside it.
+        $pane = $crawler->filter('[data-comment-anchor-target="doc"]');
+        self::assertSame($version->plainText(), $pane->text(null, false));
+        self::assertCount(0, $pane->filter('[data-comment-anchor-target="agentHighlight"]'));
     }
 
     public function test_review_page_groups_threads_into_status_ladder(): void
