@@ -89,6 +89,11 @@ final class BoundedHtmlBuilder
      * and a future edit can invert without any visible symptom. Owning the loop
      * removes the ordering question instead of relying on getting it right.
      *
+     * Testing this by hand needs both loops reverted at once. Reverting only the
+     * inner one leaves the outer each() containing the whole thing, and the run
+     * comes back fast — which reads as "the guard was never needed" and is the
+     * opposite of what it shows.
+     *
      * @param iterable<int|string, mixed>      $items
      * @param callable(int|string, mixed):void $visitor
      */
