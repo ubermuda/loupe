@@ -71,6 +71,7 @@ export default class extends Controller {
 
     connect() {
         this.pendingSelection = null;
+        this.strikeInFlight = false;
         this.#hideToolbar();
         this.#hideComposer();
         this.#registerHighlights();
@@ -124,6 +125,12 @@ export default class extends Controller {
      * show the floating toolbar. Clicks on the toolbar/composer (inside
      * .lp-review-doc but outside the doc text) are ignored, so they never hide
      * the toolbar or clobber the pending selection.
+     *
+     * Every other outcome DISCARDS the captured anchor rather than merely hiding
+     * the toolbar. The two must not be able to disagree: the strike shortcut reads
+     * pendingSelection and not the toolbar, so a click that clears the selection
+     * would otherwise leave `s` armed against a passage the reviewer can no longer
+     * see highlighted.
      */
     onDocMouseup(event) {
         if (!this.docTarget.contains(event.target)) {
@@ -132,24 +139,29 @@ export default class extends Controller {
 
         const selection = window.getSelection();
         if (!selection || selection.isCollapsed || selection.rangeCount === 0) {
-            this.#hideToolbar();
+            this.#clearPendingSelection();
             return;
         }
 
         const range = selection.getRangeAt(0);
         if (!this.docTarget.contains(range.commonAncestorContainer)) {
-            this.#hideToolbar();
+            this.#clearPendingSelection();
             return;
         }
 
         const anchor = this.#extractAnchor(range);
         if (anchor === null) {
-            this.#hideToolbar();
+            this.#clearPendingSelection();
             return;
         }
 
         this.pendingSelection = { ...anchor, range: range.cloneRange() };
         this.#showToolbarNear(range);
+    }
+
+    #clearPendingSelection() {
+        this.pendingSelection = null;
+        this.#hideToolbar();
     }
 
     /** Toolbar action: open the comment composer for the captured selection. */
@@ -215,6 +227,13 @@ export default class extends Controller {
         if (this.pendingSelection === null || !this.hasStrikeFormTarget) {
             return;
         }
+        // Nothing clears pendingSelection until the response lands, so without this
+        // a double-tap (or a second click) posts the same passage twice. Reopened by
+        // onSubmitEnd, which Turbo fires on failure as well as success.
+        if (this.strikeInFlight) {
+            return;
+        }
+        this.strikeInFlight = true;
 
         this.strikeQuoteTarget.value = this.pendingSelection.quote;
         this.strikePrefixTarget.value = this.pendingSelection.prefix;
@@ -234,6 +253,11 @@ export default class extends Controller {
      */
     #onKeydown(event) {
         if (event.key !== this.constructor.STRIKE_KEY) {
+            return;
+        }
+        // Auto-repeat fires keydown continuously while the key is held, and each one
+        // would be a separate strike on the same passage.
+        if (event.repeat) {
             return;
         }
         if (event.metaKey || event.ctrlKey || event.altKey) {
@@ -292,6 +316,10 @@ export default class extends Controller {
      * the composer stays open showing the streamed error.
      */
     onSubmitEnd(event) {
+        // Released before the success check: a rejected strike must leave the action
+        // usable, or one failure disables striking for the rest of the page's life.
+        this.strikeInFlight = false;
+
         if (!event.detail?.success) {
             return;
         }
