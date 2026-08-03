@@ -12,7 +12,7 @@ use Mcp\Exception\ToolCallException;
 /**
  * Fetch the current review state (verdict, status, comments) for a document.
  */
-#[McpTool(name: 'document_get_review', description: 'Fetch the review state (verdict, status, and threaded comments) for a document\'s current version.')]
+#[McpTool(name: 'document_get_review', description: 'Fetch the review state (verdict, status, and threaded comments) for a document\'s current version. Every comment and reply reports whether an agent or a human wrote it.')]
 final readonly class DocumentGetReviewTool
 {
     public function __construct(
@@ -31,7 +31,10 @@ final readonly class DocumentGetReviewTool
      *
      * Each `id` is the value document_reply_to_comment and document_mark_comment_addressed take
      *
-     * @return array{status: string, verdict: string|null, version: int, comments: list<array{id: string, quote: string, body: string, status: string, orphaned: bool, thread: list<array{id: string, quote: string, body: string, orphaned: bool}>}>}
+     * `author` is agent or human — the class of writer, not an identity, so no name or address
+     * of a human reviewer is reported
+     *
+     * @return array{status: string, verdict: string|null, version: int, comments: list<array{id: string, quote: string, body: string, author: 'agent'|'human', status: string, orphaned: bool, thread: list<array{id: string, quote: string, body: string, author: 'agent'|'human', orphaned: bool}>}>}
      */
     public function __invoke(string $documentId): array
     {
