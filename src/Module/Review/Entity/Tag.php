@@ -31,6 +31,13 @@ class Tag
     /**
      * Normalised on the way in, never on the way out, so the unique constraint on
      * (project_id, name) is a plain one and every lookup can compare raw strings.
+     *
+     * Not promoted: the constructor rewrites the argument, and a promoted readonly
+     * property cannot be reassigned in the body. Promotion would mean
+     * `public private(set)`, which this class keeps for `$id` alone — the one
+     * property Doctrine must write after the constructor has run. `readonly` is
+     * also the stronger guarantee: nothing can later store a name that the key
+     * used to find it no longer matches.
      */
     #[ORM\Column(length: self::MAX_NAME_LENGTH)]
     public readonly string $name;

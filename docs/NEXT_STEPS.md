@@ -2506,10 +2506,6 @@ lp-anchor--orphan  lp-btn--warning  lp-comment-composer--untargeted  kbd
 admin-badge-off
 ```
 
-`lp-tag` left this list when the documents list started rendering tag chips; the
-whole `lp-doc-*` family stayed on it, because that list uses the parallel
-`lp-document-row__*` component and gained its own `lp-document-row__tags`.
-
 Two of those are whole abandoned families rather than stragglers — the
 `lp-doc-*` row component and the `lp-page*` / `lp-section-title` page shell.
 
