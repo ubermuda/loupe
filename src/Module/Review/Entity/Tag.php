@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Module\Review\Entity;
 
+use App\Exception\DomainErrors;
 use App\Module\Project\Entity\Project;
 use App\Module\Review\Repository\TagRepository;
 use Doctrine\ORM\Mapping as ORM;
@@ -68,5 +69,45 @@ class Tag
     public static function normalizeName(string $name): string
     {
         return mb_strtolower(trim((string) preg_replace('/\s+/u', ' ', $name)));
+    }
+
+    /**
+     * The set of names a document should end up carrying: normalised, blanks
+     * dropped, duplicates collapsed, alphabetical.
+     *
+     * Separate from the constructor so a caller can find out whether a set is
+     * acceptable *before* it starts writing. CreateDocumentHandler depends on
+     * that: it must reject an over-long name while it can still decline to
+     * persist the document.
+     *
+     * @param string[] $names
+     *
+     * @return list<string>
+     *
+     * @throws DomainErrors if any name exceeds MAX_NAME_LENGTH once normalised
+     */
+    public static function normalizeNames(array $names): array
+    {
+        $normalized = [];
+
+        foreach ($names as $rawName) {
+            $name = self::normalizeName($rawName);
+
+            if ('' === $name) {
+                continue;
+            }
+
+            if (mb_strlen($name) > self::MAX_NAME_LENGTH) {
+                throw new DomainErrors(['tags' => 'review.tags.error.too_long']);
+            }
+
+            if (!\in_array($name, $normalized, true)) {
+                $normalized[] = $name;
+            }
+        }
+
+        sort($normalized);
+
+        return $normalized;
     }
 }

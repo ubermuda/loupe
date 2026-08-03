@@ -3025,3 +3025,25 @@ and where the choice is between a table of contents and stranded comments.
 What removes that choice is the re-anchoring pass described in "A renderer change
 that moves plainText needs a reanchor pass, not just a rerender": with it, an old
 version can be brought forward and its comments re-resolved in the same motion.
+
+## The data export initialises one Project proxy per distinct project
+
+**Author:** Claude · **Type:** bug · **Priority:** low · **Status:** pending
+
+`App\Module\Review\Service\DocumentExporter::export()` reads
+`$document->project->name` for every row. `Document::$project` is a `ManyToOne`,
+so the first read of each distinct project initialises its proxy with its own
+`SELECT`. The document collections beside it are batch-loaded
+(`DocumentRepository::preloadTags()` / `preloadVersions()`); this one is not.
+
+Lower severity than it looks, which is why it was left: the cost is bounded by
+the number of **distinct projects** the user owns, not by the number of
+documents, so an account with forty documents across two projects pays two
+queries rather than forty. It only becomes interesting for an account with many
+sparsely-populated projects.
+
+The fix is a fetch-join on `DocumentRepository::findByOwner()`, whose only
+production caller is that exporter. It was deliberately not done alongside the
+collection preloads, because changing a finder's own query is a wider change
+than adding a preload beside it, and `findByOwner` is also what
+`DocumentRepositoryTest` pins as the path the export reads.
