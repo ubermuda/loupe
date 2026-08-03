@@ -328,6 +328,18 @@ docker compose exec php-fpm pkill -f <script>
 And check for it the same way — `docker exec <project>-php-fpm-1 ps aux` — since
 a host-side check will report a quiet container that is fully loaded.
 
+**The agent harness's own `TaskStop` has the same blind spot.** Stopping a
+background task that was launched through `compose-exec.sh` reports success and
+kills the **host-side wrapper**, leaving the real process running inside the
+container. This was observed with a `messenger:consume` consumer: `TaskStop`
+succeeded, a host-side check showed a clean shell, and the consumer was still
+holding the container. Anything that reports "the slot is free" on that basis is
+wrong.
+
+So the rule generalises past `pkill` to every stop mechanism: **a process
+started inside the container can only be observed and stopped from inside it.**
+Verify with `docker exec … ps aux` after any stop, whatever issued it.
+
 ## Dashboard document search + status/tag filtering
 
 
