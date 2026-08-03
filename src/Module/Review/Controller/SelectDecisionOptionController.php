@@ -12,7 +12,10 @@ use App\Module\Review\Command\SelectDecisionOptionHandler;
 use App\Module\Review\Entity\Document;
 use App\Module\Review\Form\SelectDecisionOptionFormType;
 use App\Module\Review\Form\SelectDecisionOptionRequest;
+use App\Module\Review\Repository\DecisionSelectionRepository;
+use App\Module\Review\Repository\DocumentVersionRepository;
 use App\Module\Review\Security\DocumentVoter;
+use App\Module\Review\Service\DecisionBlockService;
 use Symfony\Bridge\Doctrine\Attribute\MapEntity;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -31,6 +34,9 @@ final class SelectDecisionOptionController extends AppController
 {
     public function __construct(
         private readonly SelectDecisionOptionHandler $selectDecisionOption,
+        private readonly DocumentVersionRepository $documentVersions,
+        private readonly DecisionSelectionRepository $decisionSelections,
+        private readonly DecisionBlockService $decisionBlocks,
         private readonly TranslatorInterface $translator,
     ) {
     }
@@ -85,16 +91,66 @@ final class SelectDecisionOptionController extends AppController
             ]);
         }
 
-        // Only the status line is streamed back. The radio the reviewer clicked
-        // is already in the state they left it, and replacing the prose would
-        // tear out the comment highlights anchored into it.
+        // A refused submission leaves the clicked radio checked in the browser,
+        // so the block is streamed back from what is stored. On success it is
+        // not: the reviewer's click already matches the database, and replacing
+        // the block would discard live comment highlights for nothing.
+        $restoredBlockHtml = $failed ? $this->persistedBlockHtml($document, $data) : null;
+
         return new Response(
             $this->renderView('@Review/_decision_status.stream.html.twig', [
                 'message' => $message,
                 'failed' => $failed,
+                'restoredBlockId' => null === $restoredBlockHtml
+                    ? null
+                    : DecisionBlockService::blockElementId($data->decisionId ?? ''),
+                'restoredBlockHtml' => $restoredBlockHtml,
             ]),
             $failed ? Response::HTTP_UNPROCESSABLE_ENTITY : Response::HTTP_OK,
             ['Content-Type' => TurboBundle::STREAM_MEDIA_TYPE],
         );
+    }
+
+    /**
+     * The submitted block as the database has it, or null when there is nothing
+     * trustworthy to put back.
+     *
+     * Rendered from the version the form named rather than the current one: the
+     * reviewer's page still shows that version's options, and swapping in a
+     * newer block would leave one part of the document ahead of the rest.
+     *
+     * A decision with no stored answer yields a block with nothing checked,
+     * which is the point — a first-ever answer that fails must clear the radio,
+     * not fall back to some earlier one.
+     */
+    private function persistedBlockHtml(Document $document, SelectDecisionOptionRequest $data): ?string
+    {
+        // Both come off an invalid submission on the CSRF path, so neither is
+        // trusted: an unparseable id or an unknown version simply means the
+        // status line goes back alone.
+        if (null === $data->decisionId || null === $data->versionNumber) {
+            return null;
+        }
+
+        $version = $this->documentVersions->findByNumber($document, $data->versionNumber);
+        if (null === $version) {
+            return null;
+        }
+
+        $blockHtml = $this->decisionBlocks->blockHtml($version->renderedHtml, $data->decisionId);
+        if (null === $blockHtml) {
+            return null;
+        }
+
+        $selected = [];
+        foreach ($this->decisionBlocks->extract($blockHtml) as $decision) {
+            $selection = $this->decisionSelections->findOneByDocumentAndDecisionId($document, $decision->id);
+            $index = null === $selection ? null : $decision->resolveIndex($selection->optionLabel, $selection->optionIndex);
+            if (null !== $index) {
+                $selected[$decision->id] = $index;
+            }
+        }
+
+        return $this->decisionBlocks->withSelections($blockHtml, $selected, readOnly: false);
     }
 }

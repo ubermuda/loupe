@@ -1,3 +1,16 @@
+{# A refused submission leaves the clicked radio checked in the browser, so the
+   page would go on showing an unsaved choice as selected. Putting the block
+   back from what is stored keeps the control honest — including when nothing
+   is stored, which must leave every radio clear rather than restoring some
+   earlier answer.
+
+   Only the block is replaced, never the pane around it: comment anchors
+   resolve against the document text and have no reason to be disturbed. #}
+{% if restoredBlockId %}
+<turbo-stream action="replace" target="{{ restoredBlockId }}">
+    <template>{{ restoredBlockHtml|raw }}</template>
+</turbo-stream>
+{% endif %}
 <turbo-stream action="replace" target="decision-status">
     <template>
         <p id="decision-status" class="lp-decision-status{{ failed ? ' lp-decision-status--failed' }}" aria-live="polite">{{ message }}</p>

@@ -34,6 +34,14 @@ final readonly class DecisionBlockService
     private const string RADIO_NAME_PREFIX = 'lp-decision-';
 
     /**
+     * Turbo stream target for one block, so a failed submission can put the
+     * radios back without touching the surrounding prose. Distinct from the
+     * option prefix: `decision-<id>` would collide with option 0 of a document
+     * that declared the id `<id>-0`.
+     */
+    private const string BLOCK_ID_PREFIX = 'decision-block-';
+
+    /**
      * The two attributes every reader keys on. Emission writes them and every
      * matcher below looks for nothing else, so no regex depends on the order the
      * surrounding attributes happen to be written in — an emission the matchers
@@ -195,6 +203,35 @@ final readonly class DecisionBlockService
     }
 
     /**
+     * One block's markup, verbatim from the version it was rendered into.
+     *
+     * A failed submission streams this back so the radios show what is stored
+     * rather than the click that was refused. Taken from the stored HTML rather
+     * than re-rendered, so what replaces the block is byte-identical to what the
+     * reviewer already has apart from the selection attributes.
+     */
+    public function blockHtml(string $html, string $decisionId): ?string
+    {
+        if (1 !== preg_match('~^'.self::ID_PATTERN.'$~', $decisionId)) {
+            return null;
+        }
+
+        $found = preg_match(
+            '~<fieldset[^>]*\s'.self::BLOCK_MARKER.'="'.preg_quote($decisionId, '~').'"[^>]*>.*?</fieldset>~s',
+            $html,
+            $matches,
+        );
+
+        return 1 === $found ? $matches[0] : null;
+    }
+
+    /** The DOM id blockHtml()'s markup carries, for a Turbo stream to target. */
+    public static function blockElementId(string $decisionId): string
+    {
+        return self::BLOCK_ID_PREFIX.$decisionId;
+    }
+
+    /**
      * Shows the recorded answers, and on an earlier version locks them.
      *
      * Applied at display time rather than baked into the stored HTML, so a
@@ -259,7 +296,14 @@ final readonly class DecisionBlockService
             );
         }
 
-        return sprintf('<fieldset class="lp-decision" %s="%s">%s</fieldset>', self::BLOCK_MARKER, $id, $options);
+        return sprintf(
+            '<fieldset class="lp-decision" id="%s%s" %s="%s">%s</fieldset>',
+            self::BLOCK_ID_PREFIX,
+            $id,
+            self::BLOCK_MARKER,
+            $id,
+            $options,
+        );
     }
 
     /**

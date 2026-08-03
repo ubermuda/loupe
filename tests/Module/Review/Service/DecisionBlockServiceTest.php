@@ -45,7 +45,8 @@ final class DecisionBlockServiceTest extends TestCase
     {
         $html = $this->renderer->render(self::FENCE);
 
-        self::assertStringContainsString('<fieldset class="lp-decision" data-decision-id="deploy-target">', $html);
+        // The id is the Turbo stream target a refused submission replaces.
+        self::assertStringContainsString('<fieldset class="lp-decision" id="decision-block-deploy-target" data-decision-id="deploy-target">', $html);
         self::assertStringContainsString('<input type="radio" name="lp-decision-deploy-target" value="0"', $html);
         self::assertStringContainsString('<input type="radio" name="lp-decision-deploy-target" value="1"', $html);
         // Inline formatting inside an option survives; the task-list marker does not.

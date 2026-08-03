@@ -257,6 +257,100 @@ final class SelectDecisionOptionControllerTest extends WebTestCase
         $body = (string) $client->getResponse()->getContent();
         self::assertStringContainsString('target="decision-status"', $body);
         self::assertStringContainsString('changed while you were reading', $body);
+
+        // The browser leaves the clicked radio checked, so a refusal that only
+        // replaced the status line would leave the page claiming a selection
+        // the database does not hold.
+        self::assertStringContainsString('target="decision-block-deploy-target"', $body);
+        self::assertStringNotContainsString('checked', $body);
+    }
+
+    /**
+     * The case a "re-render the block" fix gets wrong: with nothing stored, the
+     * restored block must clear the radio rather than fall back to some earlier
+     * answer. This reviewer has never answered, so nothing may come back checked.
+     */
+    public function test_a_refused_first_answer_streams_the_block_back_with_nothing_checked(): void
+    {
+        $client = static::createClient();
+        [$owner, $document] = $this->seed($client);
+
+        $client->loginUser($owner);
+        [, $versionNumber] = $this->renderForm($client, $document);
+        $this->submitAnswer(
+            $client,
+            $document,
+            'deploy-target',
+            '1',
+            'not-a-real-token',
+            $versionNumber,
+            ['HTTP_ACCEPT' => 'text/vnd.turbo-stream.html'],
+        );
+
+        self::assertResponseStatusCodeSame(Response::HTTP_UNPROCESSABLE_ENTITY);
+        $body = (string) $client->getResponse()->getContent();
+        self::assertStringContainsString('target="decision-block-deploy-target"', $body);
+        self::assertStringContainsString('data-decision-option="deploy-target:1"', $body);
+        self::assertStringNotContainsString('checked', $body);
+
+        $selections = static::getContainer()->get(DecisionSelectionRepository::class);
+        self::assertInstanceOf(DecisionSelectionRepository::class, $selections);
+        self::assertSame([], $selections->findBy(['document' => $document]));
+    }
+
+    /**
+     * With an answer already stored, a later refused submission must put THAT
+     * answer back — not the clicked one, and not nothing.
+     */
+    public function test_a_refused_change_streams_the_block_back_showing_the_stored_answer(): void
+    {
+        $client = static::createClient();
+        [$owner, $document] = $this->seed($client);
+
+        $client->loginUser($owner);
+        $this->answer($client, $document, 'deploy-target', '0');
+
+        [, $versionNumber] = $this->renderForm($client, $document);
+        $this->submitAnswer(
+            $client,
+            $document,
+            'deploy-target',
+            '1',
+            'not-a-real-token',
+            $versionNumber,
+            ['HTTP_ACCEPT' => 'text/vnd.turbo-stream.html'],
+        );
+
+        $body = (string) $client->getResponse()->getContent();
+        self::assertStringContainsString('data-decision-option="deploy-target:0" checked', $body);
+        self::assertStringNotContainsString('data-decision-option="deploy-target:1" checked', $body);
+    }
+
+    /**
+     * The prose carries every comment anchor, so a stream that replaced it would
+     * disturb them for no reason. Only the block is a target.
+     */
+    public function test_a_refusal_never_streams_back_the_document_pane(): void
+    {
+        $client = static::createClient();
+        [$owner, $document] = $this->seed($client);
+
+        $client->loginUser($owner);
+        [, $versionNumber] = $this->renderForm($client, $document);
+        $this->submitAnswer(
+            $client,
+            $document,
+            'deploy-target',
+            '1',
+            'not-a-real-token',
+            $versionNumber,
+            ['HTTP_ACCEPT' => 'text/vnd.turbo-stream.html'],
+        );
+
+        $body = (string) $client->getResponse()->getContent();
+        self::assertStringNotContainsString('lp-review-doc__prose', $body);
+        self::assertStringNotContainsString('data-comment-anchor-target', $body);
+        self::assertSame(2, substr_count($body, '<turbo-stream'), 'exactly the block and the status line');
     }
 
     /**
