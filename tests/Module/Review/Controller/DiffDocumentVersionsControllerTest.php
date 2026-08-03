@@ -11,6 +11,7 @@ use App\Module\Review\Entity\Document;
 use App\Module\Review\Service\MarkdownRenderer;
 use App\Module\Review\ValueObject\Anchor;
 use Doctrine\ORM\EntityManagerInterface;
+use Psr\Log\NullLogger;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use Symfony\Component\DomCrawler\Crawler;
 use Symfony\Component\HttpFoundation\Request;
@@ -263,7 +264,7 @@ final class DiffDocumentVersionsControllerTest extends WebTestCase
 
         // Rendered for real: the ids the panel links to exist only in
         // MarkdownRenderer's output, not in the Markdown the diff shows.
-        $renderer = new MarkdownRenderer();
+        $renderer = new MarkdownRenderer(new NullLogger());
         $old = "## First\n\nBody.\n\n## Second\n\nMore.\n";
         $new = "## First\n\nRevised body.\n\n## Second\n\nMore.\n";
 

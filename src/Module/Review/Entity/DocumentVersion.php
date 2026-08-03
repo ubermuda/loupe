@@ -81,6 +81,17 @@ class DocumentVersion
      */
     public function plainText(): string
     {
-        return html_entity_decode(strip_tags($this->renderedHtml), ENT_QUOTES | ENT_HTML5, 'UTF-8');
+        return self::plainTextOf($this->renderedHtml);
+    }
+
+    /**
+     * The same derivation for HTML that is not (yet) a stored version — the
+     * re-render command compares a version's current plain text against what a
+     * fresh render would produce, and the two must be measured the same way or
+     * the comparison means nothing.
+     */
+    public static function plainTextOf(string $renderedHtml): string
+    {
+        return html_entity_decode(strip_tags($renderedHtml), ENT_QUOTES | ENT_HTML5, 'UTF-8');
     }
 }

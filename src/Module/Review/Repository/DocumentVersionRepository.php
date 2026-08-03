@@ -133,4 +133,101 @@ class DocumentVersionRepository extends ServiceEntityRepository
         return $this->getEntityManager()->getReference(DocumentVersion::class, $id)
             ?? throw new \LogicException('getReference() never returns null for a valid class/id pair.');
     }
+
+    /**
+     * Every version's id and Markdown source.
+     *
+     * A cursor rather than a fetch, and that is part of the contract: this walks
+     * the whole table and each row carries a document in full, so materialising
+     * the result is a memory problem on a real installation.
+     *
+     * @return iterable<array{id: string, markdown_source: string}>
+     */
+    public function streamAllSources(): iterable
+    {
+        $rows = $this->getEntityManager()->getConnection()->iterateAssociative(
+            'SELECT id, markdown_source FROM document_versions',
+        );
+
+        // Yielded one at a time rather than returned: the driver hands back
+        // `mixed` per column, and shaping each row as it arrives keeps both the
+        // declared type honest and the cursor lazy.
+        foreach ($rows as $row) {
+            yield [
+                'id' => $this->text($row['id'], 'id'),
+                'markdown_source' => $this->text($row['markdown_source'], 'markdown_source'),
+            ];
+        }
+    }
+
+    /**
+     * Rewrites one version's rendered HTML, returning 1 when the row changed and
+     * 0 when the new HTML already matched what was stored.
+     *
+     * Writes the column directly because DocumentVersion::$renderedHtml is
+     * readonly — versions are immutable by design, and re-rendering stored HTML
+     * from unchanged Markdown is the one sanctioned exception.
+     */
+    public function updateRenderedHtml(string $id, string $html): int
+    {
+        // executeStatement() is typed int|string because some drivers report the
+        // affected-row count as a numeric string; an UPDATE's count is numeric.
+        return (int) $this->getEntityManager()->getConnection()->executeStatement(
+            'UPDATE document_versions SET rendered_html = :html WHERE id = :id::uuid AND rendered_html <> :html',
+            ['html' => $html, 'id' => $id],
+        );
+    }
+
+    /**
+     * Every anchored comment paired with its version's Markdown source and
+     * stored HTML, **ordered by version id**.
+     *
+     * The ordering is a correctness requirement rather than tidiness: callers
+     * render each version once by watching for the id to change, so unordered
+     * rows would re-render per comment instead of per version.
+     *
+     * Comments with an empty quote are excluded here rather than left to the
+     * caller. An empty quote is the storage sentinel for a comment attached to
+     * no span, and such a comment is never relocated — so including one could
+     * only ever raise an alarm that cannot come true.
+     *
+     * A cursor rather than a fetch, for the same reason as streamAllSources().
+     *
+     * @return iterable<array{id: string, markdown_source: string, rendered_html: string, anchor_quote: string, anchor_prefix: string, anchor_suffix: string, anchor_offset_hint: int}>
+     */
+    public function streamAnchoredCommentsByVersion(): iterable
+    {
+        $rows = $this->getEntityManager()->getConnection()->iterateAssociative(
+            "SELECT v.id, v.markdown_source, v.rendered_html,
+                    c.anchor_quote, c.anchor_prefix, c.anchor_suffix, c.anchor_offset_hint
+             FROM document_versions v
+             JOIN comments c ON c.version_id = v.id AND c.anchor_quote <> ''
+             ORDER BY v.id",
+        );
+
+        foreach ($rows as $row) {
+            $offsetHint = $row['anchor_offset_hint'];
+
+            yield [
+                'id' => $this->text($row['id'], 'id'),
+                'markdown_source' => $this->text($row['markdown_source'], 'markdown_source'),
+                'rendered_html' => $this->text($row['rendered_html'], 'rendered_html'),
+                'anchor_quote' => $this->text($row['anchor_quote'], 'anchor_quote'),
+                'anchor_prefix' => $this->text($row['anchor_prefix'], 'anchor_prefix'),
+                'anchor_suffix' => $this->text($row['anchor_suffix'], 'anchor_suffix'),
+                // Integer columns arrive as a numeric string on some drivers.
+                'anchor_offset_hint' => is_numeric($offsetHint)
+                    ? (int) $offsetHint
+                    : throw new \LogicException('anchor_offset_hint must be numeric.'),
+            ];
+        }
+    }
+
+    /** One text column, narrowed from the driver's `mixed` to the declared shape. */
+    private function text(mixed $value, string $column): string
+    {
+        return \is_string($value)
+            ? $value
+            : throw new \LogicException(sprintf('Column %s must be a string.', $column));
+    }
 }

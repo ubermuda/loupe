@@ -1812,6 +1812,140 @@ Worth checking what the MCP specification says about structured error payloads
 before designing anything, since the wire format may already have a place to
 put field-level detail.
 
+## Re-rendering stored versions un-highlights comments without flagging them
+
+**Author:** Claude · **Type:** bug · **Priority:** medium · **Status:** pending
+
+`app:review:rerender-versions` (`RefreshDocumentVersionsHtmlHandler`) rewrites
+`document_versions.rendered_html` and touches nothing else. Any renderer change
+that alters `DocumentVersion::plainText()` can therefore leave a stored comment
+whose quote no longer appears in the new text — and nothing notices. The browser
+re-locates each anchor by quote and context (`comment_anchor_controller`'s
+`#findRange`), so it simply adds no highlight; the comment stays in the sidebar
+looking healthy, and `comments.orphaned` is only ever set later, by
+`ReanchoringService`, when someone next revises the document.
+
+Measured on seeded data while adding front-matter and HTML-comment rendering:
+of four comments placed around the affected regions, two resolved cleanly
+against the re-rendered text (shifted +2 and +35 characters) and two resolved to
+nothing — one anchored on front-matter text that is now table cells, one whose
+quote spanned the point where a previously invisible HTML comment now
+contributes text. The re-render reported "1 of 3 versions" and left all four
+`comments` rows byte-identical, `orphaned` still false.
+
+**Mitigated, not fixed.** The command now inspects every version before writing
+anything and refuses outright when any version carries an anchored comment whose
+plain text the re-render would move, reporting the count and exiting non-zero.
+Passing `--accept-comment-orphaning` proceeds anyway and still reports the count
+as a warning. So the silent data problem is now a loud one — but the damage is
+unchanged if the flag is passed, and the flag is the only way to re-render a
+document whose rendering has legitimately changed.
+
+Untargeted comments (empty anchor quote) are deliberately not counted: they are
+never relocated, and an alarm that cannot come true is how an opt-in flag turns
+into something people pass by reflex.
+
+The real fix is still a reanchoring pass — resolve every open comment against
+the new text and set `orphaned` where the quote is gone — so the damage is
+recorded when it happens rather than surfacing at the next revision. Add a
+`--dry-run` that reports the counts before writing, since that is what you want
+before running a renderer migration. Once that lands, the refusal and its flag
+should go away rather than being kept alongside it.
+
+Two things make this more than it looks. `ReanchoringService::reanchor()` cannot
+be reused: it builds *new* `Comment` rows against a *new* `DocumentVersion`,
+whereas this needs an in-place update of the existing rows — a different
+operation against the same `AnchorService::resolve()` predicate. And
+`RefreshDocumentVersionsHtmlHandler` runs without a transaction, so a reanchor
+pass has to wrap rewrite-plus-reanchor per version; a mid-run crash that left
+new HTML beside stale anchors would be worse than today's uniform silent
+de-highlight.
+
+## A symfony/yaml bump can silently move every anchor in a document
+
+**Author:** Claude · **Type:** bug · **Priority:** medium · **Status:** pending
+
+`MarkdownRenderer` renders a document's opening `---` block as a key/value table
+when its YAML parses to a map, and otherwise falls back to rendering the block
+as ordinary Markdown text. Which path a given document takes is therefore
+decided by `symfony/yaml`'s parser, and the two paths produce very different
+`DocumentVersion::plainText()`.
+
+So a `symfony/yaml` upgrade that changes how any edge-case document parses will
+flip it between the two — moving every comment anchor below the block — with
+nothing to trigger a re-render and no signal that it happened. The renderer logs
+`review.markdown.front_matter_not_tabulated` whenever it takes the fallback,
+which is the hook to watch: a document that starts or stops logging it across a
+dependency bump has moved. Worth deciding whether the fallback path should be
+pinned by storing which path a version used, rather than recomputed.
+
+## Rendered front matter and annotations have no accessible name
+
+**Author:** Claude · **Type:** feature · **Priority:** low · **Status:** pending
+
+`MarkdownRenderer` emits the front-matter table with no `<caption>`, so screen
+readers announce an unnamed table. Block-level HTML comments carry
+`role="note"`, which keeps them out of the landmark list, but they are unnamed
+too.
+
+Naming either one needs a translated string, and `MarkdownRenderer` has no
+translator — it renders document content rather than UI, and is constructed
+directly in tests. Adding one is the decision to make; an untranslated English
+label would be worse than none. Note that any visible label would also land in
+`plainText()` and shift every anchor below it, so this needs the same re-render
+treatment as any other rendering change.
+
+## Malformed front matter puts a phantom entry in the table of contents
+
+**Author:** Claude · **Type:** bug · **Priority:** low · **Status:** pending
+
+When a document's `---` block cannot become a table, `MarkdownRenderer` renders
+it as ordinary Markdown — and the closing `---` turns the lines above it into a
+setext heading. `HeadingExtractor` reads the rendered HTML, so that heading
+becomes an entry in the document's table of contents: `---\njust a string\n---`
+yields `<h2 id="heading-just-a-string">`.
+
+Spoofing only — the `heading-` prefix keeps a computed id from colliding with a
+real page id — and it is the behaviour every front-matter document had before
+the block was tabulated at all, so this is a leftover rather than a regression.
+Fixing it means rendering the unparseable block as literal text (a code block)
+instead of as Markdown, which changes `plainText()` again and so needs a
+re-render; that is why it was left alone rather than done inline.
+
+## An HTML comment inside a raw HTML block still renders as nothing
+
+**Author:** Claude · **Type:** bug · **Priority:** low · **Status:** pending
+
+`<!-- note -->` on its own line renders as a visible annotation. The same
+comment wrapped in a block-level element does not:
+
+```
+<div>
+<!-- note -->
+</div>
+```
+
+CommonMark treats that whole region as one `HtmlBlock`, and
+`HtmlCommentNodeRenderer` only converts literals made up entirely of comments,
+so it declines the node and the default renderer emits the region verbatim. The
+sanitizer then keeps the wrapper — `div`, `span` and `pre` are all allowed — and
+drops the comment, so the reviewer sees an empty box where the note was.
+
+This is an incompleteness in a new capability rather than a regression: before
+this work every HTML comment rendered as nothing, and the shape that motivated
+it (a `<!-- TODO -->` on its own line) does work. The workaround is to unwrap
+the comment.
+
+**Do not fix it by wrapping every comment found anywhere in the literal.** That
+is the obvious change and it is unsafe: a comment inside an attribute value —
+`<a title="<!-- note -->">` — would have the markers substituted inside the
+attribute, and since `a` is allowed to carry `title` they survive sanitization.
+The post-sanitization pass would then insert `<span class="…">` inside the
+quoted value, whose own quote closes the attribute early and lets document
+content add arbitrary attributes to the tag. Telling a comment in text position
+from one in attribute position needs an HTML tokeniser, which is the sanitizer's
+job — so any real fix has to run after sanitization, on parsed markup, rather
+than on the raw literal.
 ## A renderer change that moves plainText needs a reanchor pass, not just a rerender
 
 
@@ -1822,9 +1956,16 @@ put field-level detail.
 stored Markdown and nothing else. Every comment anchor is an offset plus a quote
 into `DocumentVersion::plainText()`, which is derived from that HTML — so any
 renderer change that alters the **text** silently invalidates every anchor at or
-after the change, and the command will not fix or even report it.
+after the change.
 
-There is no counterpart command that re-resolves anchors, though
+The command no longer does that silently: it now inspects every version first
+and refuses, reporting how many comments would stop resolving, unless
+`--accept-comment-orphaning` is passed. That makes the damage loud but does not
+prevent it — see "Re-rendering stored versions un-highlights comments without
+flagging them", which records the measured carry/orphan split and why reusing
+`ReanchoringService` as-is does not work.
+
+There is still no counterpart command that re-resolves anchors, though
 `App\Module\Review\Service\ReanchoringService` already has the matching logic (it
 runs on revision). What is missing is a maintenance entry point that walks stored
 comments and re-resolves them against the re-rendered basis, marking the
