@@ -17,11 +17,38 @@ test.use({ storageState: { cookies: [], origins: [] } });
 
 const RUN = Date.now();
 
-// Longer than autosearch_controller's 300ms debounce, so a wait of this length
-// guarantees the submit has fired rather than merely probably having fired.
-const PAST_DEBOUNCE = 600;
-
 const SEARCH_BOX = 'input[name="search"]';
+
+// Marks the input that is live *now*, so the swap that replaces it is
+// observable. Nothing in the app reads it.
+const STALE = 'data-e2e-stale';
+
+/**
+ * Tags the live search input. Submitting is a full Turbo visit that replaces the
+ * body, so the input rendered by the response is a different element and carries
+ * no tag.
+ */
+async function markSearchInput(page: Page): Promise<void> {
+    await page.locator(SEARCH_BOX).evaluate((element, attribute) => {
+        element.setAttribute(attribute, '1');
+    }, STALE);
+    // Without this the untagged-input wait below could match the tag's own
+    // round trip rather than the visit's.
+    await expect(page.locator(`${SEARCH_BOX}[${STALE}]`)).toHaveCount(1);
+}
+
+/**
+ * Waits for the debounced submit to have both committed to the address bar and
+ * rendered. Sleeping past the debounce instead only buys a fixed margin for a
+ * dev-mode round trip that has none, and typing resumed early goes into an input
+ * Turbo is about to throw away — which is the very bug these tests describe.
+ */
+async function searchVisitLanded(page: Page, term: string): Promise<void> {
+    await expect(page).toHaveURL(
+        (url) => url.searchParams.get('search') === term,
+    );
+    await expect(page.locator(`${SEARCH_BOX}:not([${STALE}])`)).toHaveCount(1);
+}
 
 /**
  * Register, log in and seed two documents, returning the list URL. `tag` keeps
@@ -83,15 +110,21 @@ test('typing through the debounce keeps every keystroke in the search box', asyn
     const search = page.locator(SEARCH_BOX);
     await search.click();
 
-    // Type, pause past the debounce so the search actually submits, then keep
-    // typing WITHOUT clicking back into the field. That pause is ordinary typing,
-    // and it is the whole bug: if the submit destroys the focused input, the
-    // second half of the word lands nowhere.
+    // Type, let the search submit, then keep typing WITHOUT clicking back into
+    // the field. Breaking off mid-word is ordinary typing, and it is the whole
+    // bug: if the submit destroys the focused input, the second half of the word
+    // lands nowhere.
+    await markSearchInput(page);
     await page.keyboard.type('kafka');
-    await page.waitForTimeout(PAST_DEBOUNCE);
-    await page.keyboard.type(' partition');
-    await page.waitForTimeout(PAST_DEBOUNCE);
+    await searchVisitLanded(page, 'kafka');
 
+    await markSearchInput(page);
+    await page.keyboard.type(' partition');
+    // Checked before the second visit as well as after it: waiting first would
+    // report a lost keystroke as a timeout rather than naming the value kept.
+    await expect(search).toHaveValue('kafka partition');
+
+    await searchVisitLanded(page, 'kafka partition');
     await expect(search).toHaveValue('kafka partition');
 });
 
@@ -107,11 +140,15 @@ test('the caret stays at the end, so continued typing is not reordered', async (
     // keystrokes into re-ordered ones — "onkafka" rather than "kafkaon" — which
     // looks like the app working and is worse. Asserted separately from the
     // value test above because the two fail for different reasons.
+    await markSearchInput(page);
     await page.keyboard.type('kafka');
-    await page.waitForTimeout(PAST_DEBOUNCE);
-    await page.keyboard.type('on');
-    await page.waitForTimeout(PAST_DEBOUNCE);
+    await searchVisitLanded(page, 'kafka');
 
+    await markSearchInput(page);
+    await page.keyboard.type('on');
+    await expect(search).toHaveValue('kafkaon');
+
+    await searchVisitLanded(page, 'kafkaon');
     await expect(search).toHaveValue('kafkaon');
     await expect(search).toBeFocused();
 });
@@ -123,7 +160,6 @@ test('a debounced search filters the list and stays linkable in the URL', async 
 
     await page.locator(SEARCH_BOX).click();
     await page.keyboard.type('kafka');
-    await page.waitForTimeout(PAST_DEBOUNCE);
 
     // The address bar has to carry the query, or a search cannot be shared or
     // survive a reload — that is what a full navigation buys, and a fix that
