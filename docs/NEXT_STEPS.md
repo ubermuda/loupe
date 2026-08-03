@@ -1569,8 +1569,12 @@ time, not only in the UI — the agent submitting the batch is the one that know
 how the documents relate, and asking a human to tag seventeen documents
 afterwards means it does not happen.
 
-Related: "Reference another document from a document", which is the other half
-of the same problem.
+Document-to-document references cover the other half of the same problem and
+already exist: a document points at others through `document_references`, the
+links render on both documents, and `document_create`, `document_revise` and
+`document_set_references` all set them. What is still missing is grouping —
+references say two documents are related, not that seventeen of them are one
+series.
 
 ## Edit a document in the app, not only through an agent
 
