@@ -48,29 +48,36 @@ final readonly class MarkdownRenderer
     private string $notePattern;
 
     /**
-     * Ceiling on the text one front-matter block may flatten to, counted as it
-     * is built so the work stops at the ceiling rather than after it.
+     * Ceiling on the HTML one front-matter block may produce.
      *
      * YAML aliases expand without a budget, so `a: &a [*b, *b, *b, …]` repeated
      * per level multiplies by nine each time. Measured unguarded: 409 bytes of
      * source became 27 MB of HTML in 9.5 s, and each further level costs another
-     * 9x. Neither existing guard helps — DocumentCreateTool::MAX_MARKDOWN_BYTES
+     * 9x. Neither pre-existing guard helps — DocumentCreateTool::MAX_MARKDOWN_BYTES
      * caps the source and the growth is exponential in it, while the sanitizer's
      * own limit never sees this table, which is built outside it so that a
      * content table cannot carry a class. The parse is cheap (PHP shares the
      * aliased arrays); only flattening them is not. It also persists: the
      * expansion is stored, served, and redone by every re-render.
      *
-     * The budget is spent per node visited, not per character emitted, because
-     * a bomb seeded with `[]` produces no text at all — charging only the
-     * scalars would let its whole expanded tree be walked for free.
-     *
-     * 64 KiB leaves 14x headroom over a deliberately extreme block (40 keys of
-     * 20 words plus 50 tags costs 4 566) and ~116x over a rich Hugo-style page.
-     * Guarded, both bomb shapes stop tabulating at the same level and render in
-     * under 0.07 s with memory flat as the level rises.
+     * 64 KiB leaves ~14x headroom over a deliberately extreme block (40 keys of
+     * 20 words plus 50 tags) and ~116x over a rich Hugo-style page.
      */
-    private const int FRONT_MATTER_TEXT_BUDGET = 65_536;
+    private const int FRONT_MATTER_MAX_OUTPUT = 65_536;
+
+    /**
+     * Ceiling on nodes visited while flattening, bounding traversal cost the way
+     * FRONT_MATTER_MAX_OUTPUT bounds what a reader is served.
+     *
+     * Measured, either ceiling alone stops every bomb shape tried, because
+     * whichever one latches first discards the whole table. This one is kept
+     * anyway: without it, traversal is bounded only *indirectly*, by the
+     * observation that sibling nodes emit a separator and only-child chains are
+     * capped by FRONT_MATTER_MAX_DEPTH — which leaves traversal at up to depth x
+     * output. Depending on that argument is what went wrong three times already;
+     * a direct count costs an increment.
+     */
+    private const int FRONT_MATTER_MAX_VISITS = 65_536;
 
     /** Depth ceiling, for a block that nests deeply rather than broadly. */
     private const int FRONT_MATTER_MAX_DEPTH = 16;
@@ -274,101 +281,85 @@ final readonly class MarkdownRenderer
      * both ways: `table` is allowed no attributes at all, so a content table can
      * never carry a class and can never be mistaken for this one.
      *
-     * Returns null when the block expands past FRONT_MATTER_TEXT_BUDGET, which
-     * is the caller's signal to render the document without the extension.
+     * Returns null when the block crosses either ceiling, which is the caller's
+     * signal to render the document without the extension.
      *
      * @param array<array-key, mixed> $frontMatter
      */
     private static function frontMatterTable(array $frontMatter): ?string
     {
-        $budget = self::FRONT_MATTER_TEXT_BUDGET;
-        $rows = '';
+        $out = new BoundedHtmlBuilder(self::FRONT_MATTER_MAX_OUTPUT, self::FRONT_MATTER_MAX_VISITS);
+
+        // One tag per line, matching how CommonMark lays a content table out.
+        // strip_tags() inserts nothing of its own, so without the newlines every
+        // cell would run into the next one in plainText() — the string every
+        // comment anchor is measured against.
+        $out->append("<table class=\"lp-front-matter\">\n<tbody>\n");
         foreach ($frontMatter as $key => $value) {
-            // One tag per line, matching how CommonMark lays a content table
-            // out. strip_tags() inserts nothing of its own, so without the
-            // newlines every cell would run into the next one in plainText() —
-            // the string every comment anchor is measured against.
-            // Keys are charged to the budget too: a `<<:` merge key can multiply
-            // them the same way an alias multiplies values.
-            $budget -= \strlen((string) $key) + 1;
-            $formatted = self::formatFrontMatterValue($value, $budget);
-            if ($budget < 0 || null === $formatted) {
-                return null;
-            }
-
-            $rows .= sprintf(
-                "<tr>\n<th scope=\"row\">%s</th>\n<td>%s</td>\n</tr>\n",
-                self::escape((string) $key),
-                self::escape($formatted),
-            );
+            $out->visit();
+            $out->append("<tr>\n<th scope=\"row\">");
+            $out->appendText((string) $key);
+            $out->append("</th>\n<td>");
+            self::appendFrontMatterValue($value, $out, 0);
+            $out->append("</td>\n</tr>\n");
         }
+        $out->append("</tbody>\n</table>\n");
 
-        return sprintf("<table class=\"lp-front-matter\">\n<tbody>\n%s</tbody>\n</table>\n", $rows);
+        return $out->result();
     }
 
     /**
-     * Flattens one front-matter value to a single line of display text — a tag
-     * list becomes one comma-separated row rather than a nested table a reviewer
-     * would have to select across.
+     * Flattens one front-matter value into $out — a tag list becomes one
+     * comma-separated row rather than a nested table a reviewer would have to
+     * select across.
      *
-     * Returns null once $budget is exhausted. The budget is decremented as the
-     * value is walked rather than checked against the finished string, so an
-     * aliased structure costs the budget and not what it would have expanded to.
-     *
-     * Every visit is charged, containers included. Charging only the scalars
-     * leaves the same hole one level down: a bomb whose leaves are empty arrays
-     * produces no text at all, so it would traverse all nine-to-the-nth expanded
-     * nodes for free.
+     * Writes straight into the builder rather than returning a string, so the
+     * ceilings apply to the text as it is produced instead of to a finished
+     * string that has already been built. Return values are not checked at every
+     * call: the builder latches once a ceiling is crossed, so the remaining
+     * traversal appends nothing and frontMatterTable() sees null either way.
      */
-    private static function formatFrontMatterValue(mixed $value, int &$budget, int $depth = 0): ?string
+    private static function appendFrontMatterValue(mixed $value, BoundedHtmlBuilder $out, int $depth): void
     {
-        if (--$budget < 0 || $depth > self::FRONT_MATTER_MAX_DEPTH) {
-            return null;
+        if (!$out->visit() || $depth > self::FRONT_MATTER_MAX_DEPTH) {
+            return;
         }
 
         if (\is_array($value)) {
-            $parts = [];
+            $first = true;
             foreach ($value as $key => $item) {
-                $formatted = self::formatFrontMatterValue($item, $budget, $depth + 1);
-                if (null === $formatted) {
-                    return null;
+                if (!$first) {
+                    $out->append(', ');
                 }
-                $parts[] = \is_int($key) ? $formatted : $key.': '.$formatted;
+                $first = false;
+                if (!\is_int($key)) {
+                    $out->appendText((string) $key);
+                    $out->append(': ');
+                }
+                self::appendFrontMatterValue($item, $out, $depth + 1);
             }
 
-            return implode(', ', $parts);
+            return;
         }
 
+        $out->appendText(self::scalarToText($value));
+    }
+
+    /** Renders one YAML scalar the way front matter is normally written. */
+    private static function scalarToText(mixed $value): string
+    {
         if (\is_bool($value)) {
-            return self::charge($budget, $value ? 'true' : 'false'); // @translation-check-ignore
+            return $value ? 'true' : 'false'; // @translation-check-ignore
         }
 
-        // Printed back the way front matter is normally written: a bare date
-        // stays a date, and only a value that carried a time keeps one.
+        // A bare date stays a date; only a value that carried a time keeps one.
         if ($value instanceof \DateTimeInterface) {
-            return self::charge($budget, '00:00:00' === $value->format('H:i:s')
+            return '00:00:00' === $value->format('H:i:s')
                 ? $value->format('Y-m-d')
-                : $value->format('Y-m-d H:i:s'));
+                : $value->format('Y-m-d H:i:s');
         }
 
-        return self::charge($budget, \is_scalar($value) ? (string) $value : '');
-    }
-
-    /**
-     * Charges a flattened scalar's length to the budget, returning null once it
-     * is spent. The visit itself was already charged by the caller, so this adds
-     * only the text — which is what keeps a structure of empty strings finite.
-     */
-    private static function charge(int &$budget, string $text): ?string
-    {
-        $budget -= \strlen($text);
-
-        return $budget < 0 ? null : $text;
-    }
-
-    private static function escape(string $text): string
-    {
-        return htmlspecialchars($text, \ENT_QUOTES | \ENT_SUBSTITUTE, 'UTF-8');
+        return \is_scalar($value) ? (string) $value : '';
     }
 
     /**

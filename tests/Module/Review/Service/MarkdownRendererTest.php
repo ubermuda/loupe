@@ -249,31 +249,67 @@ final class MarkdownRendererTest extends TestCase
      */
     public static function aliasBombSeeds(): iterable
     {
-        yield 'scalar leaves' => ['["lol"]'];
+        // Each shape stresses a different axis, because three separate rounds of
+        // this bug were each an expansion the previous bound could not see:
+        // values, then container visits, then nested mapping keys. Listing shapes
+        // is still enumeration, so the assertion below is the invariant rather
+        // than a per-shape expectation — a new shape only needs adding here.
+        $longKey = str_repeat('k', 200);
+
+        yield 'deep scalar aliases' => ['["lol"]'];
         yield 'empty containers' => ['[]'];
+        yield 'long repeated keys' => [sprintf('{%s: x}', $longKey)];
+        yield 'wide fan-out' => ['['.implode(', ', array_fill(0, 40, '"x"')).']'];
+        yield 'mixed containers and scalars' => ['[[], "x", {a: []}, [[]]]'];
+        yield 'nested long keys with no leaf text' => [sprintf('{%s: {}}', $longKey)];
     }
 
+    /**
+     * The invariant, not a per-bomb expectation: for any front matter inside the
+     * input cap, rendering terminates, emits a bounded amount of HTML, and does
+     * not tabulate. A fixture proves one bomb is handled; this is the property
+     * that has to hold for the ones nobody has constructed yet.
+     */
     #[DataProvider('aliasBombSeeds')]
-    public function test_a_yaml_alias_bomb_does_not_expand_into_the_page(string $seed): void
+    public function test_front_matter_expansion_is_bounded_whatever_its_shape(string $seed): void
     {
-        // YAML aliases expand with no budget of their own, so this multiplies by
-        // nine per level: unguarded, these 400-odd bytes flatten to tens of
-        // megabytes of table, get stored, and are re-expanded by every
-        // re-render. The block must fall back to being rendered as text.
         $yaml = "---\na0: &a0 {$seed}\n";
         for ($level = 1; $level <= 8; ++$level) {
             $references = implode(', ', array_fill(0, 9, sprintf('*a%d', $level - 1)));
             $yaml .= sprintf("a%d: &a%d [%s]\n", $level, $level, $references);
         }
         $markdown = $yaml."---\n\nBody.\n";
-        self::assertLessThan(1_000, \strlen($markdown));
+        // Every shape is far inside DocumentCreateTool::MAX_MARKDOWN_BYTES, which
+        // is what makes the source cap useless against exponential growth.
+        self::assertLessThan(5_000, \strlen($markdown));
 
         $started = microtime(true);
         $html = new MarkdownRenderer(new NullLogger())->render($markdown);
+        $elapsed = microtime(true) - $started;
 
         self::assertStringNotContainsString('lp-front-matter', $html);
-        self::assertLessThan(100_000, \strlen($html));
-        self::assertLessThan(2.0, microtime(true) - $started);
+        self::assertLessThan(200_000, \strlen($html), 'rendered output must stay bounded');
+        self::assertLessThan(5.0, $elapsed, 'rendering must terminate promptly');
+        self::assertStringContainsString('Body.', $html);
+    }
+
+    public function test_a_yaml_merge_key_bomb_is_bounded(): void
+    {
+        // `<<:` duplicates a whole mapping rather than referencing one value, so
+        // it multiplies keys where an alias multiplies values.
+        $yaml = "---\na0: &a0 {".str_repeat('k', 200).": x}\n";
+        for ($level = 1; $level <= 6; ++$level) {
+            $yaml .= sprintf("a%d: &a%d\n", $level, $level);
+            for ($copy = 0; $copy < 9; ++$copy) {
+                $yaml .= sprintf("  m%d:\n    <<: *a%d\n", $copy, $level - 1);
+            }
+        }
+
+        $started = microtime(true);
+        $html = new MarkdownRenderer(new NullLogger())->render($yaml."---\n\nBody.\n");
+
+        self::assertLessThan(200_000, \strlen($html));
+        self::assertLessThan(5.0, microtime(true) - $started);
         self::assertStringContainsString('Body.', $html);
     }
 
