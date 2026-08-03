@@ -90,10 +90,20 @@ final class ShowDocumentController extends AppController
         // ones the latest does — read-only, but shown: a decision rendered blank
         // reads as unanswered, which is a different claim from "answered before
         // this version".
-        $selectedIndexByDecisionId = array_map(
-            static fn (DecisionSelection $selection): int => $selection->optionIndex,
-            $this->decisionSelections->findByDocumentIndexedByDecisionId($document),
-        );
+        //
+        // Resolved through the recorded label, exactly as GetReview does. Ticking
+        // the recorded index instead would, after a revision that reordered a
+        // block, show the reviewer an option they never chose.
+        $decisions = $this->decisionBlocks->extract($version->renderedHtml);
+        $selections = $this->decisionSelections->findByDocumentIndexedByDecisionId($document);
+        $selectedIndexByDecisionId = [];
+        foreach ($decisions as $decision) {
+            $selection = $selections[$decision->id] ?? null;
+            $index = null === $selection ? null : $decision->indexOf($selection->optionLabel);
+            if (null !== $index) {
+                $selectedIndexByDecisionId[$decision->id] = $index;
+            }
+        }
 
         return $this->render('@Review/show_document.html.twig', [
             'document' => $document,
@@ -105,7 +115,7 @@ final class ShowDocumentController extends AppController
             'orphanedCount' => count(array_filter($comments, static fn (Comment $c) => $c->orphaned)),
             'addCommentForm' => $addCommentForm,
             'selectDecisionForm' => $selectDecisionForm,
-            'hasDecisions' => [] !== $this->decisionBlocks->extract($version->renderedHtml),
+            'hasDecisions' => [] !== $decisions,
             'decisionMarkedHtml' => $this->decisionBlocks->withSelections(
                 $version->renderedHtml,
                 $selectedIndexByDecisionId,

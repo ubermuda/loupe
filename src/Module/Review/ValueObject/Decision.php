@@ -26,4 +26,20 @@ final readonly class Decision
     {
         return $this->options[$index] ?? null;
     }
+
+    /**
+     * Where a previously chosen option now sits, or null once it is gone.
+     *
+     * Both the page and the review payload resolve a stored answer through this
+     * rather than trusting the index it was recorded at. A revision that
+     * reorders or shortens a block leaves that index pointing at a different
+     * option — and resolving it in two places by two rules is how the reviewer
+     * ends up seeing one option ticked while the agent is told another.
+     */
+    public function indexOf(string $option): ?int
+    {
+        $index = array_search($option, $this->options, strict: true);
+
+        return false === $index ? null : $index;
+    }
 }

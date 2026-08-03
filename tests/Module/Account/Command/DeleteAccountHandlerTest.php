@@ -21,6 +21,7 @@ use App\Module\Billing\Messenger\CancelSubscriptionMessage;
 use App\Module\Billing\Repository\BillingProfileRepository;
 use App\Module\Project\Entity\Project;
 use App\Module\Review\Entity\Comment;
+use App\Module\Review\Entity\DecisionSelection;
 use App\Module\Review\Entity\Document;
 use App\Module\Review\Entity\Review;
 use App\Module\Review\Entity\Verdict;
@@ -141,6 +142,7 @@ final class DeleteAccountHandlerTest extends KernelTestCase
             self::assertNull($em->find(Project::class, $fixture[$key]));
         }
         self::assertSame(0, (int) $conn->fetchOne('SELECT count(*) FROM document_versions WHERE document_id = :id', ['id' => (string) $fixture['foreignDocumentId']]));
+        self::assertSame(0, (int) $conn->fetchOne('SELECT count(*) FROM decision_selections WHERE document_id = :id', ['id' => (string) $fixture['foreignDocumentId']]));
 
         // Nothing belonging to the other, untouched users was removed: their
         // own project, their comment authored on the foreign document, and
@@ -301,6 +303,10 @@ final class DeleteAccountHandlerTest extends KernelTestCase
         $foreignVersion = $foreignDocument->addVersion('# Foreign', '<h1>Foreign</h1>');
         $foreignDocumentComment = new Comment(version: $foreignVersion, author: $other, body: 'other user comments on it', anchor: Anchor::unanchored());
         $em->persist($foreignDocumentComment);
+        // decision_selections.document_id is NOT DEFERRABLE with no ON DELETE
+        // CASCADE, so an answered decision on this document aborts the whole
+        // account deletion unless DocumentOwnershipAccountPurger clears it.
+        $em->persist(new DecisionSelection($foreignDocument, 'deploy-target', 1, 'Ship straight to production', 1));
 
         // A loose API token not bound to any project's widget/mcp slots.
         [$looseToken] = ApiToken::issue($owner, 'loose-token', ApiTokenScope::Mcp);

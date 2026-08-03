@@ -17,9 +17,7 @@ use Symfony\Component\Uid\Uuid;
  * or to the quoted text: a revision that rewords a decision block is exactly
  * what a revision responding to feedback about that decision does, and keying
  * on the text would discard the answer at the moment it is being acted upon.
- *
- * The cost of that is real and belongs with the syntax rather than here — an id
- * is permanent once published, because changing one silently drops the answer.
+ * The trade is that changing a published id silently drops its answer.
  */
 #[ORM\Entity(repositoryClass: DecisionSelectionRepository::class)]
 #[ORM\Table(name: 'decision_selections')]

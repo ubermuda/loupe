@@ -37,10 +37,13 @@ final readonly class DocumentGetReviewTool
      * `decisions` lists every decision block in the current version. `selected` is null while a
      * decision is unanswered, and otherwise the option as it read when the reviewer chose it
      *
+     * `selected_index` points into the same entry's `options`, and is null when the chosen option
+     * is no longer among them — `answered_at_version` then says which version it came from
+     *
      * Each decision's `id` is the one the document declared in its fence, and it is permanent:
      * changing it in a revision discards the answer keyed to the old one
      *
-     * @return array{status: string, verdict: string|null, version: int, comments: list<array{id: string, quote: string, body: string, author: 'agent'|'human', status: string, orphaned: bool, thread: list<array{id: string, quote: string, body: string, author: 'agent'|'human', orphaned: bool}>}>, decisions: list<array{id: string, options: list<string>, selected: string|null, selected_index: int|null, answered_at: string|null}>}
+     * @return array{status: string, verdict: string|null, version: int, comments: list<array{id: string, quote: string, body: string, author: 'agent'|'human', status: string, orphaned: bool, thread: list<array{id: string, quote: string, body: string, author: 'agent'|'human', orphaned: bool}>}>, decisions: list<array{id: string, options: list<string>, selected: string|null, selected_index: int|null, answered_at: string|null, answered_at_version: int|null}>}
      */
     public function __invoke(string $documentId): array
     {

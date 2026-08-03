@@ -134,6 +134,54 @@ final class SelectDecisionOptionControllerTest extends WebTestCase
         self::assertStringNotContainsString('lp-review-doc__prose', $body);
     }
 
+    /**
+     * Authorization runs before the form, so test_a_non_owner_cannot_answer
+     * cannot cover this: only a legitimate owner reaches the token check.
+     */
+    public function test_an_answer_without_a_valid_csrf_token_is_refused(): void
+    {
+        $client = static::createClient();
+        [$owner, $document] = $this->seed($client);
+
+        $client->loginUser($owner);
+        $client->request(Request::METHOD_POST, $this->decisionPath($document), [
+            'select_decision_option_form' => [
+                'decisionId' => 'deploy-target',
+                'optionIndex' => '1',
+                '_token' => 'not-a-real-token',
+            ],
+        ]);
+
+        // Rejected as an invalid form, not as a 403 or a routing miss — the same
+        // request with a real token records the answer in the test above, so the
+        // token is the only difference between the two outcomes.
+        self::assertResponseRedirects($this->reviewPath($document));
+        $client->followRedirect();
+        self::assertSelectorExists('.lp-flash--error');
+
+        $selections = static::getContainer()->get(DecisionSelectionRepository::class);
+        self::assertInstanceOf(DecisionSelectionRepository::class, $selections);
+        self::assertSame([], $selections->findBy(['document' => $document]), 'a forged token must not record an answer');
+    }
+
+    /**
+     * Without Turbo the status line is never streamed, so a rejected answer is
+     * only visible as a flash — the branch that turns a silent no-op into
+     * something the reviewer can see.
+     */
+    public function test_a_rejected_answer_without_turbo_says_so_on_the_page(): void
+    {
+        $client = static::createClient();
+        [$owner, $document] = $this->seed($client);
+
+        $client->loginUser($owner);
+        $this->answer($client, $document, 'invented', '0');
+
+        self::assertResponseRedirects($this->reviewPath($document));
+        $client->followRedirect();
+        self::assertSelectorExists('.lp-flash--error');
+    }
+
     public function test_a_non_owner_cannot_answer(): void
     {
         $client = static::createClient();

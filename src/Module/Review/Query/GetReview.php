@@ -40,14 +40,15 @@ final readonly class GetReview
      * `decisions` lists every decision block in the current version, answered or
      * not, keyed by the identifier the document declared. `selected` reports the
      * option as it read when the reviewer chose it rather than whatever now sits
-     * at that index, so a reworded or reordered block cannot rewrite the answer.
+     * at that index, so a reworded or reordered block cannot rewrite the answer;
+     * `answered_at_version` says which version they were reading at the time.
      *
      * @return array{
      *     status: string,
      *     verdict: string|null,
      *     version: int,
      *     comments: list<array{id: string, quote: string, body: string, author: 'agent'|'human', status: string, orphaned: bool, thread: list<array{id: string, quote: string, body: string, author: 'agent'|'human', orphaned: bool}>}>,
-     *     decisions: list<array{id: string, options: list<string>, selected: string|null, selected_index: int|null, answered_at: string|null}>
+     *     decisions: list<array{id: string, options: list<string>, selected: string|null, selected_index: int|null, answered_at: string|null, answered_at_version: int|null}>
      * }
      */
     public function __invoke(Document $document): array
@@ -106,8 +107,12 @@ final readonly class GetReview
                 'id' => $decision->id,
                 'options' => $decision->options,
                 'selected' => $selection?->optionLabel,
-                'selected_index' => $selection?->optionIndex,
+                // Resolved from the recorded label, never the recorded index, so
+                // it always indexes the `options` reported alongside it. Null
+                // means the chosen option is no longer offered.
+                'selected_index' => null === $selection ? null : $decision->indexOf($selection->optionLabel),
                 'answered_at' => $selection?->selectedAt->format(\DateTimeInterface::ATOM),
+                'answered_at_version' => $selection?->versionNumber,
             ];
         }
 

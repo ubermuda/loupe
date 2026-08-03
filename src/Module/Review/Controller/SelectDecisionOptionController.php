@@ -59,6 +59,11 @@ final class SelectDecisionOptionController extends AppController
                 $message = $this->translator->trans('review.decision.status.saved');
                 $failed = false;
             } catch (DomainErrors $e) {
+                // Deliberately not mapped onto the form fields. The form is
+                // hidden and renders no field a reviewer can see, so a
+                // form_errors() output would be invisible; the status line is
+                // the only surface. The field names in $e->errors are dropped
+                // and only the messages survive.
                 $message = implode(' ', array_map(
                     fn (string $key): string => $this->translator->trans($key),
                     $e->errors,

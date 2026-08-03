@@ -65,22 +65,44 @@ final class DecisionBlockServiceTest extends TestCase
         );
     }
 
+    /**
+     * Reviewers refer to options by number, so an ordered list has to convert
+     * too — the skill tells authors to number them.
+     */
+    public function test_an_ordered_list_converts_the_same_way_a_bullet_list_does(): void
+    {
+        $html = $this->renderer->render(
+            "<!-- decision: deploy-target -->\n\n1. Ship to staging first\n2. Ship straight to production\n\n<!-- /decision -->\n",
+        );
+
+        $decisions = $this->decisions->extract($html);
+        self::assertCount(1, $decisions);
+        self::assertSame(['Ship to staging first', 'Ship straight to production'], $decisions[0]->options);
+        self::assertStringContainsString('<input type="radio" name="lp-decision-deploy-target" value="1"', $html);
+    }
+
     public function test_a_fence_quoted_inside_a_code_block_is_inert(): void
     {
         $html = $this->renderer->render("````\n<!-- decision: nope -->\n\n- [ ] A\n\n<!-- /decision -->\n````\n");
 
+        // The example is still rendered as the code block it was written as.
+        self::assertStringContainsString('&lt;!-- decision: nope --&gt;', $html);
+        self::assertStringContainsString('- [ ] A', $html);
         self::assertStringNotContainsString('lp-decision', $html);
         self::assertSame([], $this->decisions->extract($html));
     }
 
     /**
      * @param non-empty-string $markdown
+     * @param non-empty-string $stillRendered
      */
     #[\PHPUnit\Framework\Attributes\DataProvider('malformedFences')]
-    public function test_a_malformed_fence_degrades_to_the_list_it_already_was(string $markdown): void
+    public function test_a_malformed_fence_degrades_to_the_list_it_already_was(string $markdown, string $stillRendered): void
     {
         $html = $this->renderer->render($markdown);
 
+        // The content survives — the block degrades, it does not disappear.
+        self::assertStringContainsString($stillRendered, $html);
         self::assertStringNotContainsString('lp-decision', $html);
         // A sentinel that reached renderedHtml would sit in plainText() forever,
         // shifting every comment anchor below it on that version.
@@ -88,15 +110,25 @@ final class DecisionBlockServiceTest extends TestCase
     }
 
     /**
-     * @return iterable<string, array{string}>
+     * @return iterable<string, array{string, string}>
      */
     public static function malformedFences(): iterable
     {
-        yield 'unmatched open' => ["<!-- decision: lonely -->\n\n- [ ] A\n"];
-        yield 'unmatched close' => ["- [ ] A\n\n<!-- /decision -->\n"];
-        yield 'no list inside' => ["<!-- decision: x -->\n\nJust prose.\n\n<!-- /decision -->\n"];
-        yield 'nested list' => ["<!-- decision: nest -->\n\n- [ ] A\n  - inner\n- [ ] B\n\n<!-- /decision -->\n"];
-        yield 'uppercase id' => ["<!-- decision: Bad_Id -->\n\n- [ ] A\n\n<!-- /decision -->\n"];
+        yield 'unmatched open' => ["<!-- decision: lonely -->\n\n- [ ] A\n", '<li>[ ] A</li>'];
+        yield 'unmatched close' => ["- [ ] A\n\n<!-- /decision -->\n", '<li>[ ] A</li>'];
+        yield 'no list inside' => ["<!-- decision: x -->\n\nJust prose.\n\n<!-- /decision -->\n", '<p>Just prose.</p>'];
+        yield 'nested list' => ["<!-- decision: nest -->\n\n- [ ] A\n  - inner\n- [ ] B\n\n<!-- /decision -->\n", '<li>inner</li>'];
+        yield 'uppercase id' => ["<!-- decision: Bad_Id -->\n\n- [ ] A\n\n<!-- /decision -->\n", '<li>[ ] A</li>'];
+        yield 'id starting with a hyphen' => ["<!-- decision: -lead -->\n\n- [ ] A\n\n<!-- /decision -->\n", '<li>[ ] A</li>'];
+        yield 'id one character over the ceiling' => ["<!-- decision: ".str_repeat('a', 65)." -->\n\n- [ ] A\n\n<!-- /decision -->\n", '<li>[ ] A</li>'];
+    }
+
+    public function test_an_id_at_the_exact_ceiling_still_converts(): void
+    {
+        $id = str_repeat('a', 64);
+        $html = $this->renderer->render("<!-- decision: $id -->\n\n- [ ] A\n\n<!-- /decision -->\n");
+
+        self::assertSame([$id], array_map(static fn (object $d): string => $d->id, $this->decisions->extract($html)));
     }
 
     /**
@@ -123,6 +155,10 @@ final class DecisionBlockServiceTest extends TestCase
     {
         $html = $this->renderer->render("LPDECISION_0000_OPEN_x_END\n\n- [ ] A\n\nLPDECISION_0000_CLOSE\n");
 
+        // The forged text is the author's own, so it is preserved verbatim
+        // alongside the list — neither converted nor swallowed.
+        self::assertStringContainsString('LPDECISION_0000_OPEN_x_END', $html);
+        self::assertStringContainsString('<li>[ ] A</li>', $html);
         self::assertStringNotContainsString('lp-decision', $html);
         self::assertSame([], $this->decisions->extract($html));
     }
@@ -180,6 +216,51 @@ final class DecisionBlockServiceTest extends TestCase
     }
 
     /**
+     * HtmlSanitizer cuts its input with a raw substr() at getMaxInputLength()
+     * before parsing, so a large enough document loses the tail of a sentinel
+     * and the remaining fragment is stored inside renderedHtml — where it sits
+     * in plainText() forever, shifting every anchor below it.
+     *
+     * Driven at the sweep rather than through render(): reproducing the real cut
+     * needs a 1 MB document per offset, and sweeping every cut position of the
+     * sentinel here is both faster and stricter than sampling document sizes.
+     */
+    public function test_a_sentinel_severed_by_the_sanitizers_truncation_never_survives(): void
+    {
+        $sentinels = self::sentinelsFor($this->decisions, "<!-- decision: t -->\n\n- [ ] A\n\n<!-- /decision -->\n");
+        self::assertCount(2, $sentinels, 'the fence must actually have produced both sentinels');
+
+        foreach ($sentinels as $sentinel) {
+            for ($cut = 1; $cut < strlen($sentinel); ++$cut) {
+                $truncated = '<p>kept</p>'.substr($sentinel, 0, $cut);
+
+                $swept = $this->decisions->toControls($truncated);
+                self::assertSame('<p>kept</p>', $swept, sprintf('fragment of length %d leaked', $cut));
+            }
+        }
+    }
+
+    /**
+     * The sentinels the listener writes for a given source, read straight off the
+     * AST — the only way to see a nonce the service keeps to itself.
+     *
+     * @return list<string>
+     */
+    private static function sentinelsFor(DecisionBlockService $decisions, string $markdown): array
+    {
+        $environment = new Environment(['html_input' => 'allow', 'allow_unsafe_links' => false]);
+        $environment->addExtension(new CommonMarkCoreExtension());
+
+        $parsed = new MarkdownParser($environment)->parse($markdown);
+        $decisions->markParsedDocument(new DocumentParsedEvent($parsed));
+
+        return array_values(array_filter(
+            self::htmlBlockLiterals($parsed),
+            static fn (string $literal): bool => str_starts_with($literal, 'LPDECISION_'),
+        ));
+    }
+
+    /**
      * @return list<string>
      */
     private static function htmlBlockLiterals(Document $document): array
@@ -201,13 +282,13 @@ final class DecisionBlockServiceTest extends TestCase
         $html = $this->renderer->render(self::FENCE);
 
         $marked = $this->decisions->withSelections($html, ['deploy-target' => 1], readOnly: false);
-        self::assertStringContainsString('value="1" id="decision-deploy-target-1" data-decision-option checked>', $marked);
-        self::assertStringContainsString('value="0" id="decision-deploy-target-0" data-decision-option>', $marked);
+        self::assertStringContainsString('data-decision-option="deploy-target:1" checked>', $marked);
+        self::assertStringContainsString('data-decision-option="deploy-target:0">', $marked);
         self::assertStringNotContainsString('disabled', $marked);
 
         $readOnly = $this->decisions->withSelections($html, ['deploy-target' => 1], readOnly: true);
-        self::assertStringContainsString('data-decision-option checked disabled>', $readOnly);
-        self::assertStringContainsString('data-decision-option disabled>', $readOnly);
+        self::assertStringContainsString('data-decision-option="deploy-target:1" checked disabled>', $readOnly);
+        self::assertStringContainsString('data-decision-option="deploy-target:0" disabled>', $readOnly);
     }
 
     /**

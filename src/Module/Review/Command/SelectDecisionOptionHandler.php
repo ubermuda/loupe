@@ -26,29 +26,33 @@ final readonly class SelectDecisionOptionHandler
 
     public function __invoke(SelectDecisionOptionCommand $command): DecisionSelection
     {
-        $version = $this->documentVersions->findLatest($command->document);
-
-        $decision = null;
-        foreach ($this->decisionBlocks->extract($version->renderedHtml) as $candidate) {
-            if ($candidate->id === $command->decisionId) {
-                $decision = $candidate;
-            }
-        }
-
-        if (null === $decision) {
-            throw new DomainErrors(['decisionId' => 'review.decision.error.unknown']);
-        }
-
-        $label = $decision->optionAt($command->optionIndex)
-            ?? throw new DomainErrors(['optionIndex' => 'review.decision.error.unknown_option']);
-
-        return $this->em->wrapInTransaction(function () use ($command, $version, $label): DecisionSelection {
+        return $this->em->wrapInTransaction(function () use ($command): DecisionSelection {
             // Answering is a click, so a reviewer changing their mind fires two
             // overlapping requests routinely. Both would find no row and both
             // would insert, tripping the (document, decision) unique index. The
             // document is the only row that exists before the first answer, so
             // it is what serialises them.
+            //
+            // The version is read inside the lock too: a revision landing between
+            // the read and the write would otherwise be validated against the old
+            // version and stamped with its number.
             $this->em->lock($command->document, LockMode::PESSIMISTIC_WRITE);
+
+            $version = $this->documentVersions->findLatest($command->document);
+
+            $decision = null;
+            foreach ($this->decisionBlocks->extract($version->renderedHtml) as $candidate) {
+                if ($candidate->id === $command->decisionId) {
+                    $decision = $candidate;
+                }
+            }
+
+            if (null === $decision) {
+                throw new DomainErrors(['decisionId' => 'review.decision.error.unknown']);
+            }
+
+            $label = $decision->optionAt($command->optionIndex)
+                ?? throw new DomainErrors(['optionIndex' => 'review.decision.error.unknown_option']);
 
             $selection = $this->decisionSelections->findOneByDocumentAndDecisionId($command->document, $command->decisionId);
             if (null === $selection) {

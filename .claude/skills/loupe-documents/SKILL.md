@@ -153,11 +153,16 @@ for that reading context, not for a terminal or a README.
     ```markdown
     <!-- decision: reset-link-host -->
 
-    - [ ] Drop `x-forwarded-host` from `trusted_headers`
-    - [ ] Generate emailed links from a pinned `default_uri`
+    1. Drop `x-forwarded-host` from `trusted_headers`
+    2. Generate emailed links from a pinned `default_uri`
 
     <!-- /decision -->
     ```
+
+    Numbered and bulleted lists both convert, and rule 2 applies here as
+    everywhere — prefer numbers, so a reviewer can still write "option 2" in a
+    comment alongside clicking it. A `- [ ]` task-list marker is accepted and
+    stripped, which is what makes the block render as checkboxes on GitHub.
 
     The comments are invisible in every other Markdown renderer, so a document
     read outside Loupe still shows the list — that is why the fence is written
@@ -172,8 +177,11 @@ for that reading context, not for a terminal or a README.
     and no warning, the decision simply reads as unanswered again. Treat one
     like a database column name: rewrite the options freely, never the id.
 
-    Ids are lowercase letters, digits and hyphens, up to 64 characters. Prose
-    still does the work — keep the "**Decision needed**" lead-in and your
+    Ids are lowercase letters, digits and hyphens; they must **start** with a
+    letter or digit, and 64 characters is the exact ceiling — 65 is refused, and
+    like every other malformed fence it renders as a plain list with no error.
+
+    Prose still does the work — keep the "**Decision needed**" lead-in and your
     recommendation (rule 5) above the fence, because the fence carries no
     question of its own, only the options.
 

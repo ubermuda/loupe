@@ -1916,45 +1916,32 @@ supposed to read everything, so there is nothing to attach pagination controls
 to. Bound it only if exports start running out of memory, and then by
 streaming, not paging.
 
-## Document review: render selectable radios and checkboxes for decision points
+## Decision controls: multi-select, and whether a choice should carry a comment
 
 **Author:** Geoffrey · **Type:** feature · **Priority:** medium · **Status:** pending
 
-Owner idea (2026-07-27): let the review UI render selectable controls for
-decision points, so a reviewer picks an option instead of writing a comment
-saying which one they want. Proposed authoring syntax, produced by the agent in
-the document markdown and handled by Loupe from there:
+Single-choice decision controls ship: a document fences a decision with
+`<!-- decision: some-id -->` around a list, the reviewer clicks one option, and
+`document_get_review` reports the answer under `decisions`. `DecisionBlockService`
+renders and reads them; `loupe-documents` rule 10 teaches the syntax. Three
+things were deliberately left out.
 
-- `- ( )` renders a radio (single choice within its group)
-- `- [ ]` renders a checkbox (multi-select) — this is already GFM task-list
-  syntax, so it round-trips through other markdown tooling
-
-Why it matters: every design document currently ends in decision points the
-reviewer has to answer in prose. The `loupe-documents` skill tells agents to
-format them as a "**Decision needed:**" lead-in plus a numbered sub-list
-precisely so a reviewer can write "option 2" in a comment. That works, but it
-makes the reviewer transcribe a choice the document already enumerated, and the
-agent then has to parse intent back out of free text. A worked example already
-exists: the 2026-07-27 site-review design document carried three such decisions,
-each answered in a comment and then written back into the document by hand. That
-round trip is what this would remove.
-
-Questions to settle when picking this up:
-
-1. How a radio group is delimited — consecutive `- ( )` items, or an explicit
-   fence. Consecutive-run detection is simpler to author but ambiguous when two
-   groups sit back to back.
-2. How a selection is stored. It is document state, not comment state, but it
-   belongs to a version — decide whether selections carry across a
-   `revise_document` the way comments re-anchor, or reset per version.
-3. How the agent reads the result. `get_review` returns verdict plus threaded
-   comments today; selections need a place in that payload, or a companion
-   tool.
-4. Whether a selection needs an accompanying comment for the "why", and
-   whether selecting should be able to resolve the thread attached to that
-   passage.
-5. What happens to the `loupe-documents` skill guidance, which should switch to
-   teaching the new syntax once this ships.
+1. **Multi-select.** Every block is a radio group — exactly one answer. A
+   decision that legitimately takes several answers ("which of these do we
+   ship?") has no representation. `- [ ]` is already GFM task-list syntax and
+   round-trips through other tooling, so it is the natural marker for a
+   multi-select block, but it is currently accepted and stripped in the
+   single-choice fence too. Any multi-select syntax has to distinguish itself
+   from that rather than reuse it, and the storage would move from one row per
+   decision to one per chosen option.
+2. **Whether a selection needs an accompanying comment for the "why".**
+   Currently no: a reviewer can already anchor a comment to the decision block,
+   so requiring one adds friction to answering without adding a capability.
+   Revisit if answers start arriving without any recorded reasoning.
+3. **Whether selecting should resolve the thread attached to that passage.**
+   Currently no, on the same grounds `CommentRepository::findOpenByVersion`
+   already applies to `addressed`: the human choosing is not the human agreeing
+   the discussion is finished, and the agent still has to act on the choice.
 
 ## Arbitrary Tailwind values remain in the vendored ubermuda bundles
 
@@ -2550,18 +2537,24 @@ while compiling Twig in a worktree, twice, with no template change involved.
 **Author:** Claude · **Type:** tooling · **Priority:** medium · **Status:** pending
 
 The reviewer-selectable decision blocks (`DecisionBlockService`,
-`decision_controller.js`, `SelectDecisionOptionController`) are covered by
-PHPUnit only — the branch that added them was instructed not to run `just e2e`,
-so no Playwright spec clicks one.
+`decision_controller.js`, `SelectDecisionOptionController`) have no Playwright
+coverage; PHPUnit covers the PHP side only.
 
-The gap that matters is specific to this feature: the radios live in the stored
-`renderedHtml` inside `[data-comment-anchor-target="doc"]`, whose `textContent`
-must stay identical to `DocumentVersion::plainText()`. A spec should click an
-option, confirm the answer is saved and re-shown after a reload, and then select
-text *below* the decision block and confirm the comment anchors where the
-reviewer put it. Nothing in PHPUnit exercises the Stimulus controller that fills
-the hidden fields, so a rename of `data-decision-option` or
-`data-decision-target` breaks the feature with a green `just ci`.
+The untested surface is the JavaScript. `decision_controller.js` reads the
+clicked radio, copies its decision id and option index into the hidden form's
+fields and calls `requestSubmit()` — nothing exercises any of that, so the
+Stimulus target names (`optionIndexTarget`, `formTarget`), the `change`
+delegation and the `requestSubmit()` choice can all break with a green
+`just ci`. The `requestSubmit()` one is the sharpest: `.submit()` fires no
+submit event, so `csrf_protection_controller.js` would never run the
+double-submit and every password-login session would 403 — invisible to a suite
+that runs no JS.
+
+The other thing a spec should confirm is specific to this feature: the radios
+live in the stored `renderedHtml` inside `[data-comment-anchor-target="doc"]`,
+whose `textContent` must stay identical to `DocumentVersion::plainText()`. Click
+an option, confirm the answer survives a reload, then select text *below* the
+block and confirm the comment anchors where the reviewer put it.
 
 ## Product idea (long horizon): drag DOM elements in the widget to try layouts
 

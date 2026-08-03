@@ -24,12 +24,14 @@ final readonly class MarkdownRenderer
 
     private MarkdownConverter $converter;
     private HtmlSanitizer $sanitizer;
-    private DecisionBlockService $decisions;
 
-    public function __construct()
+    /**
+     * Defaulted rather than required only so the many unit tests that build a
+     * renderer directly keep working; the container injects the shared service,
+     * so the app never runs two instances with two different nonces.
+     */
+    public function __construct(private DecisionBlockService $decisions = new DecisionBlockService())
     {
-        $this->decisions = new DecisionBlockService();
-
         $environment = new Environment(['html_input' => 'allow', 'allow_unsafe_links' => false]);
         $environment->addExtension(new CommonMarkCoreExtension());
         $environment->addExtension(new TableExtension());

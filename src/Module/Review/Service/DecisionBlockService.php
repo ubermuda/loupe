@@ -10,17 +10,8 @@ use League\CommonMark\Extension\CommonMark\Node\Block\HtmlBlock;
 
 /**
  * Turns a decision fence in a document into a group of radio controls, and reads
- * the result back.
- *
- * The fence is a pair of HTML comments around an ordinary list:
- *
- *     <!-- decision: deploy-target -->
- *     - [ ] Ship to staging first
- *     - [ ] Ship straight to production
- *     <!-- /decision -->
- *
- * Comments were chosen over a visible marker because every other Markdown
- * renderer hides them, so the block degrades to the list it already is.
+ * the result back. The syntax itself is documented for authors in the
+ * loupe-documents skill.
  *
  * Detection happens on the parsed AST rather than on the source text, which is
  * what makes a fence quoted inside a code block inert: CommonMark hands it over
@@ -43,8 +34,18 @@ final readonly class DecisionBlockService
     private const string RADIO_NAME_PREFIX = 'lp-decision-';
 
     /**
+     * The two attributes every reader keys on. Emission writes them and every
+     * matcher below looks for nothing else, so no regex depends on the order the
+     * surrounding attributes happen to be written in — an emission the matchers
+     * silently stopped recognising would read every stored version as unanswered.
+     */
+    private const string BLOCK_MARKER = 'data-decision-id';
+    private const string OPTION_MARKER = 'data-decision-option';
+
+    /**
      * An id is what a selection is keyed by, so it is deliberately narrow: safe
-     * verbatim in an attribute, in a regex character class, and in a URL.
+     * verbatim in an attribute, in a regex character class, and in a URL. The
+     * leading character excludes `-`, and 64 is the ceiling.
      */
     private const string ID_PATTERN = '[a-z0-9][a-z0-9-]{0,63}';
 
@@ -101,6 +102,10 @@ final readonly class DecisionBlockService
     /**
      * Rewrites each sentinel-delimited list into its controls.
      *
+     * Ordered and unordered lists both convert. Numbering is what lets a reviewer
+     * say "option 2" in a comment, so refusing `<ol>` would fight the documents
+     * this exists to serve.
+     *
      * The trailing sweep is not tidiness: the result is persisted as a version's
      * renderedHtml, and a sentinel left in it would sit in plainText() forever —
      * shifting every comment anchor below it on that version.
@@ -111,16 +116,47 @@ final readonly class DecisionBlockService
         // anything else — prose, no list at all — keeps whatever it had; only
         // the markers go.
         $withControls = preg_replace_callback(
-            '~'.$this->sentinelPrefix().'OPEN_('.self::ID_PATTERN.')_END\s*<ul>(.*?)</ul>\s*'.$this->sentinelPrefix().'CLOSE~s',
-            fn (array $matches): string => $this->fieldset($matches[1], $matches[2]) ?? '<ul>'.$matches[2].'</ul>',
+            '~'.$this->sentinelPrefix().'OPEN_('.self::ID_PATTERN.')_END\s*(<(ul|ol)(?:\s[^>]*)?>)(.*?)(</\3>)\s*'.$this->sentinelPrefix().'CLOSE~s',
+            fn (array $matches): string => $this->fieldset($matches[1], $matches[4])
+                ?? $matches[2].$matches[4].$matches[5],
             $html,
         );
 
-        return (string) preg_replace(
-            '~'.$this->sentinelPrefix().'(OPEN_'.self::ID_PATTERN.'_END|CLOSE)~',
+        // Deliberately not the well-formed sentinel pattern. HtmlSanitizer cuts
+        // its input with a raw substr() at getMaxInputLength() before parsing it,
+        // so a large document can lose the second half of a sentinel — and the
+        // surviving fragment would then match no exact pattern and be stored as
+        // 40-odd characters of gibberish inside plainText(). Matching the nonce
+        // plus whatever follows catches every cut after the nonce.
+        $swept = preg_replace(
+            '~'.$this->sentinelRoot().'[A-Za-z0-9_-]*~',
             '',
             $withControls ?? $html,
         );
+
+        return self::withoutTrailingPrefixOf(
+            $swept ?? throw new \RuntimeException('Decision sentinel sweep failed: '.preg_last_error_msg().'.'),
+            $this->sentinelRoot(),
+        );
+    }
+
+    /**
+     * Drops a trailing fragment that is a proper prefix of $marker.
+     *
+     * The regex sweep above needs the whole nonce to recognise a fragment, so it
+     * cannot see a cut that landed inside the nonce itself. Anything severed by
+     * truncation is at the very end of the string by construction, so comparing
+     * suffixes against prefixes settles it exactly.
+     */
+    private static function withoutTrailingPrefixOf(string $html, string $marker): string
+    {
+        for ($length = min(strlen($marker), strlen($html)); $length > 0; --$length) {
+            if (substr($html, -$length) === substr($marker, 0, $length)) {
+                return substr($html, 0, -$length);
+            }
+        }
+
+        return $html;
     }
 
     /**
@@ -135,7 +171,7 @@ final readonly class DecisionBlockService
     public function extract(string $html): array
     {
         preg_match_all(
-            '~<fieldset class="lp-decision" data-decision-id="('.self::ID_PATTERN.')">(.*?)</fieldset>~s',
+            '~<fieldset[^>]*\s'.self::BLOCK_MARKER.'="('.self::ID_PATTERN.')"[^>]*>(.*?)</fieldset>~s',
             $html,
             $blocks,
             PREG_SET_ORDER,
@@ -143,7 +179,7 @@ final readonly class DecisionBlockService
 
         $decisions = [];
         foreach ($blocks as $block) {
-            preg_match_all('~<label for="[^"]*">(.*?)</label>~s', $block[2], $labels);
+            preg_match_all('~<label[^>]*>(.*?)</label>~s', $block[2], $labels);
 
             $decisions[] = new Decision(
                 $block[1],
@@ -165,27 +201,25 @@ final readonly class DecisionBlockService
      */
     public function withSelections(string $html, array $selectedIndexByDecisionId, bool $readOnly): string
     {
-        return (string) preg_replace_callback(
-            '~<input type="radio" name="'.self::RADIO_NAME_PREFIX.'('.self::ID_PATTERN.')" value="(\d+)"([^>]*)>~',
+        $marked = preg_replace_callback(
+            '~<input[^>]*\s'.self::OPTION_MARKER.'="('.self::ID_PATTERN.'):(\d+)"[^>]*>~',
             static function (array $matches) use ($selectedIndexByDecisionId, $readOnly): string {
-                $attributes = $matches[3];
+                $added = '';
                 if (($selectedIndexByDecisionId[$matches[1]] ?? null) === (int) $matches[2]) {
-                    $attributes .= ' checked';
+                    $added .= ' checked';
                 }
                 if ($readOnly) {
-                    $attributes .= ' disabled';
+                    $added .= ' disabled';
                 }
 
-                return sprintf(
-                    '<input type="radio" name="%s%s" value="%s"%s>',
-                    self::RADIO_NAME_PREFIX,
-                    $matches[1],
-                    $matches[2],
-                    $attributes,
-                );
+                return substr($matches[0], 0, -1).$added.'>';
             },
             $html,
         );
+
+        // Falling back to '' would blank the document body on screen; the
+        // neighbouring heading-id pass throws for the same reason.
+        return $marked ?? throw new \RuntimeException('Decision selection marking failed: '.preg_last_error_msg().'.');
     }
 
     /**
@@ -208,17 +242,20 @@ final readonly class DecisionBlockService
         foreach ($items[1] as $index => $item) {
             $optionId = self::OPTION_ID_PREFIX.$id.'-'.$index;
             $options .= sprintf(
-                '<div class="lp-decision__option"><input type="radio" name="%s%s" value="%d" id="%s" data-decision-option><label for="%s">%s</label></div>',
+                '<div class="lp-decision__option"><input type="radio" name="%s%s" value="%d" id="%s" %s="%s:%d"><label for="%s">%s</label></div>',
                 self::RADIO_NAME_PREFIX,
                 $id,
                 $index,
                 $optionId,
+                self::OPTION_MARKER,
+                $id,
+                $index,
                 $optionId,
                 self::optionLabel($item),
             );
         }
 
-        return sprintf('<fieldset class="lp-decision" data-decision-id="%s">%s</fieldset>', $id, $options);
+        return sprintf('<fieldset class="lp-decision" %s="%s">%s</fieldset>', self::BLOCK_MARKER, $id, $options);
     }
 
     /**
@@ -240,9 +277,15 @@ final readonly class DecisionBlockService
         return trim(html_entity_decode(strip_tags($html), ENT_QUOTES | ENT_HTML5, 'UTF-8'));
     }
 
+    /** Everything a sentinel shares, whichever kind it is — the sweep keys on this. */
+    private function sentinelRoot(): string
+    {
+        return 'LPDECISION_'.$this->nonce;
+    }
+
     private function sentinelPrefix(): string
     {
-        return 'LPDECISION_'.$this->nonce.'_';
+        return $this->sentinelRoot().'_';
     }
 
     private function openSentinel(string $id): string
