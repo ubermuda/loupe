@@ -83,6 +83,33 @@
                     {% endfor %}
                 </nav>
                 {% endif %}
+
+                {# Deliberately inside .lp-review-doc__head and never inside
+                   [data-comment-anchor-target="doc"]: that element's textContent must
+                   stay identical to DocumentVersion::plainText(), which every comment
+                   anchor offset is measured against. A single heading needs no list. #}
+                {# A heading with nothing to label it — an image with no alt text — would
+                   render as a blank link: unreachable by a screen reader and invisible
+                   to a mouse. It keeps its id, so anything linking to it still works. #}
+                {% set contentsHeadings = headings|filter(heading => heading.text is not empty) %}
+                {% if contentsHeadings|length > 1 %}
+                <details class="lp-review-contents">
+                    <summary class="lp-review-contents__summary">
+                        <twig:ux:icon name="lucide:chevron-right" class="lp-review-contents__chevron w-3.5 h-3.5 shrink-0" />
+                        {{ 'review.document.contents.label'|trans }}
+                    </summary>
+                    <nav aria-label="{{ 'review.document.contents.nav_label'|trans }}">
+                        <ul class="lp-review-contents__list">
+                            {% for heading in contentsHeadings %}
+                            <li>
+                                {# title= so a heading truncated by the panel width is still readable on hover. #}
+                                <a class="lp-review-contents__link" data-level="{{ heading.level }}" href="#{{ heading.id }}" title="{{ heading.text }}">{{ heading.text }}</a>
+                            </li>
+                            {% endfor %}
+                        </ul>
+                    </nav>
+                </details>
+                {% endif %}
             </div>
 
             <div class="prose max-w-2xl lp-prose lp-review-doc__prose" data-comment-anchor-target="doc">{{ version.renderedHtml|raw }}</div>

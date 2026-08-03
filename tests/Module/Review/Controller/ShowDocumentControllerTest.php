@@ -12,6 +12,7 @@ use App\Module\Review\Entity\Comment;
 use App\Module\Review\Entity\CommentStatus;
 use App\Module\Review\Entity\Document;
 use App\Module\Review\Entity\DocumentStatus;
+use App\Module\Review\Service\MarkdownRenderer;
 use App\Module\Review\ValueObject\Anchor;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
@@ -487,6 +488,96 @@ final class ShowDocumentControllerTest extends WebTestCase
         self::assertResponseIsSuccessful();
         self::assertCount(1, $crawler->filter('.lp-version-switcher'));
         self::assertCount(0, $crawler->filter('.lp-version-entry__description'));
+    }
+
+    public function test_the_table_of_contents_links_to_headings_from_outside_the_anchoring_target(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+
+        $owner = $this->createUser($em, 'owner-contents', 'owner-contents@example.com');
+        $project = $this->project($em, $owner);
+
+        // Rendered for real: the heading ids the table of contents links to only
+        // exist in MarkdownRenderer's output.
+        $markdown = "## First\n\nBody.\n\n## Second\n\nMore.\n";
+        $doc = new Document(owner: $owner, project: $project, title: 'Sectioned Doc');
+        $doc->addVersion($markdown, new MarkdownRenderer()->render($markdown));
+        $em->persist($doc);
+        $em->flush();
+
+        $projectId = (string) $project->id;
+        $id = (string) $doc->id;
+        $em->clear();
+
+        $client->loginUser($owner);
+        $crawler = $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/documents/'.$id.'/review');
+
+        self::assertResponseIsSuccessful();
+        self::assertSame(
+            ['#heading-first', '#heading-second'],
+            $crawler->filter('.lp-review-contents__link')->each(static fn ($node): string => (string) $node->attr('href')),
+        );
+        // The panel must sit outside the prose container, whose textContent has to
+        // stay identical to DocumentVersion::plainText() for anchors to resolve.
+        self::assertCount(0, $crawler->filter('[data-comment-anchor-target="doc"] .lp-review-contents'));
+    }
+
+    public function test_a_heading_with_no_derivable_label_is_left_out_of_the_table_of_contents(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+
+        $owner = $this->createUser($em, 'owner-blanktoc', 'owner-blanktoc@example.com');
+        $project = $this->project($em, $owner);
+
+        // The middle heading is an image with no alt text: nothing to label it with,
+        // so it must not become a blank link between the two real entries.
+        $markdown = "## First\n\nBody.\n\n## ![](diagram.png)\n\nMore.\n\n## Second\n\nEnd.\n";
+        $doc = new Document(owner: $owner, project: $project, title: 'Illustrated Doc');
+        $doc->addVersion($markdown, new MarkdownRenderer()->render($markdown));
+        $em->persist($doc);
+        $em->flush();
+
+        $projectId = (string) $project->id;
+        $id = (string) $doc->id;
+        $em->clear();
+
+        $client->loginUser($owner);
+        $crawler = $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/documents/'.$id.'/review');
+
+        self::assertResponseIsSuccessful();
+        self::assertSame(
+            ['#heading-first', '#heading-second'],
+            $crawler->filter('.lp-review-contents__link')->each(static fn ($node): string => (string) $node->attr('href')),
+        );
+        // It keeps its id in the document, so anything already linking to it resolves.
+        self::assertStringContainsString('id="heading-section"', (string) $client->getResponse()->getContent());
+    }
+
+    public function test_a_document_with_one_heading_renders_no_table_of_contents(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+
+        $owner = $this->createUser($em, 'owner-nocontents', 'owner-nocontents@example.com');
+        $project = $this->project($em, $owner);
+
+        $markdown = "## Only\n\nBody.\n";
+        $doc = new Document(owner: $owner, project: $project, title: 'Flat Doc');
+        $doc->addVersion($markdown, new MarkdownRenderer()->render($markdown));
+        $em->persist($doc);
+        $em->flush();
+
+        $projectId = (string) $project->id;
+        $id = (string) $doc->id;
+        $em->clear();
+
+        $client->loginUser($owner);
+        $crawler = $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/documents/'.$id.'/review');
+
+        self::assertResponseIsSuccessful();
+        self::assertCount(0, $crawler->filter('.lp-review-contents'));
     }
 
     public function test_unauthenticated_user_is_redirected(): void
