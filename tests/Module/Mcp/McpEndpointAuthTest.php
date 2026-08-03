@@ -104,6 +104,7 @@ final class McpEndpointAuthTest extends WebTestCase
         sort($names);
 
         self::assertSame([
+            'document_archive',
             'document_create',
             'document_get',
             'document_get_review',
@@ -115,6 +116,7 @@ final class McpEndpointAuthTest extends WebTestCase
             'document_revise',
             'document_set_references',
             'document_set_tags',
+            'document_unarchive',
             'site_review_get',
             'site_review_mark_comment_addressed',
             'tag_list',
