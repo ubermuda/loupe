@@ -419,6 +419,39 @@ So the rule generalises past `pkill` to every stop mechanism: **a process
 started inside the container can only be observed and stopped from inside it.**
 Verify with `docker exec … ps aux` after any stop, whatever issued it.
 
+## Reduce how much the test suite logs by default
+
+**Author:** Geoffrey · **Type:** tooling · **Priority:** medium · **Status:** pending
+
+One `just ci` run writes roughly **4.6 MB** to `var/log/test.log`. That is noise
+for the overwhelming majority of runs: nobody reads it, it grows without bound
+across a working day, and it makes the file useless for spotting anything by
+eye. `config/packages/monolog.yaml`'s `when@test` handler is where to change it.
+
+**Do not simply silence it.** On 2026-08-03 that volume was the evidence that
+settled a real question. Doctrine logs a deprecation on *every* mapping read
+when `nullable: false` is set on a many-to-many join column — a no-op annotation
+that becomes a hard error in Doctrine 4, and one that `just ci` cannot fail on.
+Proving a branch was clean of it meant pointing at a 4.6 MB log written by a
+suite that had read every mapping thousands of times and showing it contained
+zero deprecation lines. A quiet log would have made that a much weaker argument,
+and the same shape recurs whenever the question is "did this *not* happen".
+
+So the goal is less volume without losing that capability. Options worth
+weighing rather than a single obvious answer:
+
+1. Keep deprecations and warnings, drop `info`/`debug` — the bulk is almost
+   certainly SQL and request logging, not the lines anyone wants.
+2. Route deprecations to their own file, so the useful signal stays greppable
+   and cheap regardless of what the main handler does.
+3. Make verbosity opt-in for a single run via an env var, so the default is
+   quiet and a session investigating something can turn it back up.
+
+Whichever is chosen, check the change against the case above: reinstate a
+`nullable: false` on a many-to-many join column and confirm the deprecation
+still appears. A logging change that passes its own tests while removing the
+ability to answer "did this not happen" has made things worse.
+
 ## Dashboard document search + status/tag filtering
 
 
