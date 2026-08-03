@@ -1054,7 +1054,9 @@
     .lp-review-contents__chevron {
         @apply transition-transform;
     }
-    details[open] > .lp-review-contents__summary .lp-review-contents__chevron {
+    .lp-review-contents[open]
+        > .lp-review-contents__summary
+        .lp-review-contents__chevron {
         @apply rotate-90;
     }
     .lp-review-contents__list {
@@ -1132,9 +1134,11 @@
        (.lp-anchor--orphan) — and this is the branch that orphans comments, so
        all three land on the same page. A note is document content, not a status.
 
-       Qualified by element because <code> is the one tag a document may put a
-       class on, so a bare `.lp-doc-note` would let `<code class="lp-doc-note">`
-       render as a real annotation. */
+       Qualified by element as a second line rather than the only one. `<code>`
+       is the one tag a document may put a class on, and CodeLanguageClassSanitizer
+       now reduces that value to `language-<name>`, so a forged annotation class
+       cannot survive sanitization in the first place. Naming the elements keeps
+       that true if the attribute constraint is ever loosened. */
     aside.lp-doc-note,
     span.lp-doc-note {
         @apply block my-4 py-2 px-3 rounded-r border-l-2 border-line-strong bg-sunken text-fg-mute text-sm;

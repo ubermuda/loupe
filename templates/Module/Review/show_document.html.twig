@@ -88,7 +88,11 @@
                    [data-comment-anchor-target="doc"]: that element's textContent must
                    stay identical to DocumentVersion::plainText(), which every comment
                    anchor offset is measured against. A single heading needs no list. #}
-                {% if headings|length > 1 %}
+                {# A heading with nothing to label it — an image with no alt text — would
+                   render as a blank link: unreachable by a screen reader and invisible
+                   to a mouse. It keeps its id, so anything linking to it still works. #}
+                {% set contentsHeadings = headings|filter(heading => heading.text is not empty) %}
+                {% if contentsHeadings|length > 1 %}
                 <details class="lp-review-contents">
                     <summary class="lp-review-contents__summary">
                         <twig:ux:icon name="lucide:chevron-right" class="lp-review-contents__chevron w-3.5 h-3.5 shrink-0" />
@@ -96,9 +100,10 @@
                     </summary>
                     <nav aria-label="{{ 'review.document.contents.nav_label'|trans }}">
                         <ul class="lp-review-contents__list">
-                            {% for heading in headings %}
+                            {% for heading in contentsHeadings %}
                             <li>
-                                <a class="lp-review-contents__link" data-level="{{ heading.level }}" href="#{{ heading.id }}">{{ heading.text }}</a>
+                                {# title= so a heading truncated by the panel width is still readable on hover. #}
+                                <a class="lp-review-contents__link" data-level="{{ heading.level }}" href="#{{ heading.id }}" title="{{ heading.text }}">{{ heading.text }}</a>
                             </li>
                             {% endfor %}
                         </ul>

@@ -524,6 +524,38 @@ final class ShowDocumentControllerTest extends WebTestCase
         self::assertCount(0, $crawler->filter('[data-comment-anchor-target="doc"] .lp-review-contents'));
     }
 
+    public function test_a_heading_with_no_derivable_label_is_left_out_of_the_table_of_contents(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+
+        $owner = $this->createUser($em, 'owner-blanktoc', 'owner-blanktoc@example.com');
+        $project = $this->project($em, $owner);
+
+        // The middle heading is an image with no alt text: nothing to label it with,
+        // so it must not become a blank link between the two real entries.
+        $markdown = "## First\n\nBody.\n\n## ![](diagram.png)\n\nMore.\n\n## Second\n\nEnd.\n";
+        $doc = new Document(owner: $owner, project: $project, title: 'Illustrated Doc');
+        $doc->addVersion($markdown, new MarkdownRenderer(new NullLogger())->render($markdown));
+        $em->persist($doc);
+        $em->flush();
+
+        $projectId = (string) $project->id;
+        $id = (string) $doc->id;
+        $em->clear();
+
+        $client->loginUser($owner);
+        $crawler = $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/documents/'.$id.'/review');
+
+        self::assertResponseIsSuccessful();
+        self::assertSame(
+            ['#heading-first', '#heading-second'],
+            $crawler->filter('.lp-review-contents__link')->each(static fn ($node): string => (string) $node->attr('href')),
+        );
+        // It keeps its id in the document, so anything already linking to it resolves.
+        self::assertStringContainsString('id="heading-section"', (string) $client->getResponse()->getContent());
+    }
+
     public function test_a_document_with_one_heading_renders_no_table_of_contents(): void
     {
         $client = static::createClient();

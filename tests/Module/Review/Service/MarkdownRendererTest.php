@@ -70,6 +70,33 @@ final class MarkdownRendererTest extends TestCase
         self::assertStringContainsString('id="heading-notes-3"', $html);
     }
 
+    public function test_an_illustrated_heading_is_slugged_from_the_image_alt_text(): void
+    {
+        // strip_tags() alone reduces an image-only heading to nothing, which used to
+        // give every one of them the same generic id.
+        $renderer = new MarkdownRenderer(new NullLogger());
+
+        self::assertStringContainsString(
+            '<h2 id="heading-diagram">',
+            $renderer->render("## ![Diagram](architecture.png)\n"),
+        );
+        // Mixed: one space between the two parts, neither doubled nor run together.
+        self::assertStringContainsString(
+            '<h2 id="heading-request-flow-diagram">',
+            $renderer->render("## Request flow ![Diagram](architecture.png)\n"),
+        );
+    }
+
+    public function test_a_heading_with_nothing_to_label_it_still_gets_a_distinct_id(): void
+    {
+        // An image with no alt leaves no text, and no filename either — the sanitizer
+        // drops a relative src. The id has to exist regardless, so links resolve.
+        $html = new MarkdownRenderer(new NullLogger())->render("## ![](one.png)\n\n## ![](two.png)\n");
+
+        self::assertStringContainsString('<h2 id="heading-section">', $html);
+        self::assertStringContainsString('<h2 id="heading-section-2">', $html);
+    }
+
     public function test_heading_ids_leave_the_anchor_text_basis_untouched(): void
     {
         // DocumentVersion::plainText() — the basis every comment anchor offset is
@@ -104,13 +131,55 @@ final class MarkdownRendererTest extends TestCase
         self::assertStringContainsString('<td align="right">2</td>', $html);
     }
 
-    public function test_keeps_checkboxes(): void
+    public function test_a_document_cannot_render_a_form_control(): void
     {
-        $html = new MarkdownRenderer(new NullLogger())->render('<input type="checkbox" checked disabled> shipped');
+        // No form control has a producer: nothing in the pipeline emits one, and
+        // Markdown's `- [ ]` renders as literal text because TaskListExtension is
+        // not registered. `input` is void, so dropping it takes no text with it and
+        // the surrounding words keep their offsets in plainText().
+        $html = new MarkdownRenderer(new NullLogger())->render('<input type="password" name="pw" checked> shipped');
 
-        self::assertStringContainsString('type="checkbox"', $html);
-        self::assertStringContainsString('checked', $html);
+        self::assertStringNotContainsString('<input', $html);
         self::assertStringContainsString('shipped', $html);
+    }
+
+    public function test_a_code_class_may_only_ever_be_a_language_token(): void
+    {
+        // <code> is an ordinary box and every component class is compiled
+        // unconditionally, so an unconstrained value is a full-viewport overlay.
+        $renderer = new MarkdownRenderer(new NullLogger());
+
+        self::assertStringContainsString(
+            '<code class="language-php">',
+            $renderer->render("```php\necho 1;\n```"),
+        );
+        self::assertSame(
+            '<p><code>overlay</code></p>',
+            trim($renderer->render('<code class="fixed w-full min-h-screen bg-white z-10 block">overlay</code>')),
+        );
+        self::assertSame(
+            '<p><code>overlay</code></p>',
+            trim($renderer->render('<code class="lp-review lp-review-layout">overlay</code>')),
+        );
+        // A language token smuggling a second class alongside it is refused whole.
+        self::assertSame(
+            '<p><code>overlay</code></p>',
+            trim($renderer->render('<code class="language-php lp-review-layout">overlay</code>')),
+        );
+    }
+
+    public function test_repeated_headings_stay_linear_to_de_duplicate(): void
+    {
+        // Quadratic de-duplication made a document of many same-named headings pin a
+        // worker for minutes; rendering is synchronous inside the MCP request.
+        $renderer = new MarkdownRenderer(new NullLogger());
+
+        $start = microtime(true);
+        $html = $renderer->render(str_repeat("## Same\n\n", 20_000));
+        $elapsed = microtime(true) - $start;
+
+        self::assertStringContainsString('id="heading-same-20000"', $html);
+        self::assertLessThan(5.0, $elapsed);
     }
 
     public function test_an_element_it_does_not_render_still_contributes_its_text(): void
