@@ -627,6 +627,41 @@ final class ShowDocumentControllerTest extends WebTestCase
         self::assertCount(0, $crawler->filter('.lp-doc-references__archived'));
     }
 
+    /**
+     * The contents panel and the reference list are separate features that landed
+     * in the same region of the document head, so one page has to render both.
+     */
+    public function test_the_contents_panel_and_the_reference_list_render_together(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+
+        $owner = $this->createUser($em, 'owner-both', 'owner-both@example.com');
+        $project = $this->project($em, $owner);
+
+        $target = new Document(owner: $owner, project: $project, title: 'The Spec');
+        $target->addVersion('# Spec', '<h1>Spec</h1>');
+        $em->persist($target);
+
+        $markdown = "## First\n\nBody.\n\n## Second\n\nMore.\n";
+        $source = new Document(owner: $owner, project: $project, title: 'Sectioned Companion');
+        $source->addVersion($markdown, new MarkdownRenderer()->render($markdown));
+        $source->references->add($target);
+        $em->persist($source);
+        $em->flush();
+
+        $projectId = (string) $project->id;
+        $sourceId = (string) $source->id;
+        $em->clear();
+
+        $client->loginUser($owner);
+        $crawler = $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/documents/'.$sourceId.'/review');
+
+        self::assertResponseIsSuccessful();
+        self::assertCount(2, $crawler->filter('.lp-review-contents__link'));
+        self::assertSelectorTextContains('.lp-doc-references', 'The Spec');
+    }
+
     public function test_a_document_with_no_references_renders_no_reference_block(): void
     {
         $client = static::createClient();
