@@ -16,6 +16,19 @@ file alone. Each entry is tagged `Added` / `Changed` / `Removed` / `Fixed`.
 
 ## [Unreleased]
 
+- `afebc8e` — **Added:** `document_archive` and `document_unarchive` MCP tools.
+  Archiving had been kept out of the MCP surface on purpose — it decides which
+  documents a reviewer sees by default, so an agent that can archive can take
+  its own work out of the list it is being reviewed in. That decision was
+  reversed, and the `docs/NEXT_STEPS.md` entry recording it is deleted in the
+  same commit. Both tools take a single `documentId`, return
+  `{documentId, archived}` read back off the entity, and guard with
+  `McpBoundProjectVoter::DOCUMENT_WRITE` through `ReviewSubjectResolver` exactly
+  as `document_rename` does. Neither mints a version: archive state is metadata,
+  like a title or a tag. Both are idempotent — re-archiving preserves the
+  original timestamp, unarchiving an unarchived document is a no-op. The
+  Connect page's tool list is a curated highlight reel, not a manifest, so it is
+  unchanged (it omits `document_rename` and `document_set_tags` too).
 - `83a3e5e` (the `feat/review-decision-controls` branch; exhaustive list via
   `git log c00bba0..fbb670f`) — **Added:** reviewer-selectable decision controls.
   An author wraps a flat list in an HTML-comment fence
