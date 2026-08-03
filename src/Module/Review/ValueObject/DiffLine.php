@@ -25,16 +25,27 @@ final readonly class DiffLine
 
     public static function unchanged(string $text): self
     {
-        return new self(DiffKind::Unchanged, [new DiffSegment(DiffKind::Unchanged, $text)]);
+        return self::of(DiffKind::Unchanged, $text);
     }
 
     public static function inserted(string $text): self
     {
-        return new self(DiffKind::Inserted, [new DiffSegment(DiffKind::Inserted, $text)]);
+        return self::of(DiffKind::Inserted, $text);
     }
 
     public static function deleted(string $text): self
     {
-        return new self(DiffKind::Deleted, [new DiffSegment(DiffKind::Deleted, $text)]);
+        return self::of(DiffKind::Deleted, $text);
+    }
+
+    /**
+     * A blank source line carries no segment at all. It still reconstructs as an
+     * empty line, and leaving the segment out is what lets the stylesheet give
+     * the line back its height — a line holding an empty inline element is not
+     * `:empty`, and collapses to nothing.
+     */
+    private static function of(DiffKind $kind, string $text): self
+    {
+        return new self($kind, '' === $text ? [] : [new DiffSegment($kind, $text)]);
     }
 }

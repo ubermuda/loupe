@@ -2603,3 +2603,36 @@ Either backfill (`offsetHint = mb_strlen(substr(plainText, 0, offsetHint))` per
 comment, against its own version's text) or accept a one-revision settling
 period, but decide it before the first deploy that carries real comments across
 the change.
+
+## Version diff loses word marks when a revision changes a line and adds one beside it
+
+**Author:** Claude · **Type:** feature · **Priority:** low · **Status:** pending
+
+`jfcherng/php-diff` only marks individual words inside a replaced block when
+both sides have the same line count (`AbstractHtml::getChanges()`), so a
+revision that rewords a paragraph *and* inserts another right after it produces
+one replace block of 1 old line against 3 new ones — and the reworded paragraph
+comes out as a whole-line delete plus insert instead of a word-marked pair. The
+output is correct and readable, just coarser than it needs to be, and this shape
+(edit a sentence, add a paragraph) is common.
+
+The library's own `Combined` renderer handles it by joining both sides with
+`\n`, running the word line-renderer over the joined strings, then splitting
+back (`markReplaceBlockDiff`). Doing the same in
+`App\Module\Review\Service\MarkdownDiffer` means driving
+`LineRendererFactory`/`MbString` directly and reproducing the renderer's
+escape-then-mark ordering by hand, which is why it was not done up front — the
+escaping order is what stops a literal `<del>` in the Markdown being read as a
+diff mark. Any fix must keep `DocumentDiff::oldSource()`/`newSource()` exact;
+`MarkdownDifferTest` pins that.
+
+## Version diff is only reachable for adjacent version pairs
+
+**Author:** Claude · **Type:** feature · **Priority:** low · **Status:** pending
+
+The `app_document_review_diff` route takes any two version numbers, but the only
+links to it are the "What changed since v(n-1)" entries in the version switcher
+on the document review page, so comparing v1 with v4 means editing the URL. A
+reviewer who left comments on v1 and comes back after three revisions wants
+exactly that comparison. Needs a version picker on the diff view itself, not
+another set of links in the switcher.

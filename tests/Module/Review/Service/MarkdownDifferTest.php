@@ -125,7 +125,7 @@ final class MarkdownDifferTest extends TestCase
 
         $unchanged = array_filter($diff->lines, static fn (DiffLine $l): bool => DiffKind::Unchanged === $l->kind);
         self::assertSame(['alpha', ''], array_values(array_map(
-            static fn (DiffLine $l): string => $l->segments[0]->text,
+            static fn (DiffLine $l): string => $l->segments[0]->text ?? '',
             $unchanged,
         )));
     }
