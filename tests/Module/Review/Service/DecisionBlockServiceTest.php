@@ -14,6 +14,7 @@ use League\CommonMark\Extension\Table\TableExtension;
 use League\CommonMark\MarkdownConverter;
 use League\CommonMark\Node\Block\Document;
 use League\CommonMark\Parser\MarkdownParser;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
 final class DecisionBlockServiceTest extends TestCase
@@ -80,6 +81,42 @@ final class DecisionBlockServiceTest extends TestCase
         self::assertStringContainsString('<input type="radio" name="lp-decision-deploy-target" value="1"', $html);
     }
 
+    /**
+     * An option's label reaches the agent and is what a stored answer is matched
+     * against, so an illustrated option must not reduce to ''. Two image-only
+     * options would otherwise store the same empty label and become
+     * indistinguishable to everything downstream.
+     *
+     * @param non-empty-string $markdown
+     * @param list<string>     $expected
+     */
+    #[DataProvider('illustratedOptions')]
+    public function test_an_option_is_labelled_from_its_image_alt_text(string $markdown, array $expected): void
+    {
+        $html = $this->renderer->render("<!-- decision: art -->\n\n".$markdown."\n\n<!-- /decision -->\n");
+
+        $decisions = $this->decisions->extract($html);
+        self::assertCount(1, $decisions, 'the fence must actually have been converted');
+        self::assertSame($expected, $decisions[0]->options);
+        // The control still shows the picture; only the derived label changed.
+        self::assertStringContainsString('<img', $html);
+    }
+
+    /**
+     * @return iterable<string, array{string, list<string>}>
+     */
+    public static function illustratedOptions(): iterable
+    {
+        yield 'image only' => ["- ![Diagram](d.png)\n- Plain text", ['Diagram', 'Plain text']];
+        // The shape a naive substitution runs together or doubles.
+        yield 'text then image' => ['- Ship it ![icon](i.png)', ['Ship it icon']];
+        yield 'image then text' => ['- ![icon](i.png) Ship it', ['icon Ship it']];
+        yield 'image between words' => ['- Ship ![icon](i.png) it', ['Ship icon it']];
+        // No alt is nothing to label with, exactly as for a heading.
+        yield 'image with no alt' => ['- ![](d.png)', ['']];
+        yield 'task marker then image' => ['- [ ] ![Diagram](d.png)', ['Diagram']];
+    }
+
     public function test_a_fence_quoted_inside_a_code_block_is_inert(): void
     {
         $html = $this->renderer->render("````\n<!-- decision: nope -->\n\n- [ ] A\n\n<!-- /decision -->\n````\n");
@@ -95,7 +132,7 @@ final class DecisionBlockServiceTest extends TestCase
      * @param non-empty-string $markdown
      * @param non-empty-string $stillRendered
      */
-    #[\PHPUnit\Framework\Attributes\DataProvider('malformedFences')]
+    #[DataProvider('malformedFences')]
     public function test_a_malformed_fence_degrades_to_the_list_it_already_was(string $markdown, string $stillRendered): void
     {
         $html = $this->renderer->render($markdown);
@@ -182,7 +219,7 @@ final class DecisionBlockServiceTest extends TestCase
      * listener rewrites no node and toControls() returns its input is proving
      * the whole rendering is byte-identical.
      */
-    #[\PHPUnit\Framework\Attributes\DataProvider('fenceFreeDocuments')]
+    #[DataProvider('fenceFreeDocuments')]
     public function test_a_document_without_a_fence_passes_through_both_passes_untouched(string $markdown): void
     {
         $environment = new Environment(['html_input' => 'allow', 'allow_unsafe_links' => false]);

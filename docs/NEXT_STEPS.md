@@ -2778,3 +2778,24 @@ and where the choice is between a table of contents and stranded comments.
 What removes that choice is the re-anchoring pass described in "A renderer change
 that moves plainText needs a reanchor pass, not just a rerender": with it, an old
 version can be brought forward and its comments re-resolved in the same motion.
+
+## `HeadingLabel` is named for one of the two things it labels
+
+**Author:** Claude · **Type:** tooling · **Priority:** low · **Status:** pending
+
+`App\Module\Review\Service\HeadingLabel::fromHtml()` derives a human-readable
+display label from sanitized HTML — text plus any image's `alt`, whitespace
+collapsed. It is used for headings (`MarkdownRenderer` slugs it into the id,
+`HeadingExtractor` shows it in the table of contents) and for decision-block
+option labels (`DecisionBlockService::extract`, where it is what reaches the
+agent through `document_get_review` and what a stored answer is matched
+against). The name under-describes it, and a reader looking at the decision path
+has no reason to expect a class called `HeadingLabel` to be the right tool.
+
+Rename it to something neutral — `DisplayLabel` or `LabelFromHtml` — and update
+the three call sites. Nothing depends on the name beyond those.
+
+This was deliberately not done when the second caller was added: the class had
+just landed on a branch that two others were stacked on and frozen, so renaming
+it would have cost both of them a re-sync for a cosmetic gain. That constraint
+disappears once the stack lands.

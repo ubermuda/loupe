@@ -183,7 +183,11 @@ final readonly class DecisionBlockService
 
             $decisions[] = new Decision(
                 $block[1],
-                array_map(self::plainText(...), $labels[1]),
+                // Shared with headings rather than stripping tags here: an option
+                // written as an image alone reduced to '' under strip_tags(), so it
+                // reached the agent as an empty string and two such options stored
+                // the same label. HeadingLabel reads the `alt` instead.
+                array_map(HeadingLabel::fromHtml(...), $labels[1]),
             );
         }
 
@@ -270,11 +274,6 @@ final readonly class DecisionBlockService
         $label = (string) preg_replace('~^<p>(.*)</p>$~s', '$1', $label);
 
         return trim((string) preg_replace('~^\[[ xX]\]\s*~', '', trim($label)));
-    }
-
-    private static function plainText(string $html): string
-    {
-        return trim(html_entity_decode(strip_tags($html), ENT_QUOTES | ENT_HTML5, 'UTF-8'));
     }
 
     /** Everything a sentinel shares, whichever kind it is — the sweep keys on this. */
