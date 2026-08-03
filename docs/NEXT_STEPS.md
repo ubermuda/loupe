@@ -258,8 +258,6 @@ nothing still `Pending`.
 
 ## CSP is report-only until inline scripts carry nonces
 
-
-
 **Author:** Claude · **Type:** security · **Priority:** medium · **Status:** pending
 
 `config/packages/nelmio_security.yaml` sends the policy under `report` rather
@@ -268,10 +266,27 @@ per-request nonces on the inline scripts (importmap, theme styles) — Nelmio's
 `csp_nonce()` Twig helper — because `script-src` currently relies on
 `'unsafe-inline'`.
 
+Note also that `NelmioSecurityBundle` is registered **prod-only** in
+`config/bundles.php`, so no policy is sent in dev or test at all. Any
+verification that a policy blocks something must run against a prod-like
+build; a dev-environment check will show no CSP header and prove nothing.
+
 Also revisit the allowlist when flipping it: `connect-src` does not include the
 Mercure hub origin. That is fine today (browser-side Mercure turbo streams are
 disabled in `assets/controllers.json`; the only subscriber is the Go bridge,
 which CSP does not govern), but enabling browser SSE would need it added.
+
+**Do not treat this flip as a mitigation for markup-injection findings.** A
+review of the Markdown sanitizer produced an attack where a `class` attribute
+on document-supplied `<code>` selected the app's own compiled stylesheet rules
+to paint a full-screen phishing overlay. An enforcing CSP would not have
+stopped it: CSP governs neither `class` attributes nor which of the app's own
+rules apply, and `style-src 'self'` permits exactly the stylesheet the payload
+used. The mitigation for that class of attack is restricting what the
+sanitizer admits — which is what the sanitizer work did, by constraining
+`class` on `<code>` to a `language-*` allowlist. Flipping the CSP is worth
+doing on its own merits; it buys script-injection defence, not markup-shaped
+attacks that stay inside the app's own CSS.
 
 ## Site-review bridge CLI (`cli/`): polish before shipping
 
