@@ -88,7 +88,7 @@ final readonly class ReanchoringService
             $newAnchor = $this->anchorService->create(
                 $newPlain,
                 $resolvedOffset,
-                \strlen($old->anchor->quote),
+                mb_strlen($old->anchor->quote, 'UTF-8'),
             );
             $copy = new Comment($newVersion, $old->author, $old->body, $newAnchor, $newParent);
             ++$carried;

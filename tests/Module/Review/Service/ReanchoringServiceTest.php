@@ -79,4 +79,25 @@ final class ReanchoringServiceTest extends TestCase
         self::assertTrue($orphan->orphaned);
         self::assertSame('rate limiting', $orphan->anchor->quote);
     }
+
+    public function test_carries_a_multibyte_quote_without_stretching_it(): void
+    {
+        // The quote length handed to AnchorService::create() must be a character
+        // count. A byte count (3× larger for these characters) makes the rebuilt
+        // anchor swallow the rest of the sentence.
+        $user = new User(username: 'r3', fullName: 'R3', email: 'r3@example.com');
+        $doc = new Document(owner: $user, project: new Project($user, 'p'), title: 'Doc');
+        $v1 = $doc->addVersion('設計方針の草案。', '設計方針の草案。');
+        $comment = new Comment($v1, $user, 'なぜ？', new Anchor('設計方針', '', 'の草案。', 0));
+
+        $v2 = $doc->addVersion('前書き。設計方針を再検討する。', '前書き。設計方針を再検討する。');
+        $summary = new ReanchoringService(new AnchorService())->reanchor([$comment], $v2);
+
+        self::assertSame(1, $summary['carried']);
+
+        $copies = $v2->comments->toArray();
+        self::assertCount(1, $copies);
+        self::assertSame('設計方針', $copies[0]->anchor->quote);
+        self::assertSame(4, $copies[0]->anchor->offsetHint);
+    }
 }

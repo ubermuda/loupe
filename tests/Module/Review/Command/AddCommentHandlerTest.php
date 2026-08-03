@@ -12,9 +12,12 @@ use App\Module\Review\Command\AddCommentHandler;
 use App\Module\Review\Command\CreateDocumentCommand;
 use App\Module\Review\Command\CreateDocumentHandler;
 use App\Module\Review\Entity\Comment;
+use App\Module\Review\Form\AddCommentFormType;
+use App\Module\Review\Form\AddCommentRequest;
 use App\Module\Review\Service\AnchorService;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
+use Symfony\Component\Form\FormFactoryInterface;
 
 final class AddCommentHandlerTest extends KernelTestCase
 {
@@ -166,5 +169,105 @@ final class AddCommentHandlerTest extends KernelTestCase
 
         $this->expectException(DomainErrors::class);
         $handler(new AddCommentCommand($nonOwner, $doc, 'Confidential', '', '', 'I should not comment here'));
+    }
+
+    public function test_boundary_whitespace_survives_the_form_into_the_stored_anchor(): void
+    {
+        self::bootKernel();
+        $em = self::getContainer()->get(EntityManagerInterface::class);
+
+        $owner = new User(username: 'owner6', fullName: 'Owner', email: 'owner6@example.com', password: 'hashed');
+        $em->persist($owner);
+        $project = new Project($owner, 'p-'.uniqid());
+        $em->persist($project);
+        $em->flush();
+
+        /** @var CreateDocumentHandler $createHandler */
+        $createHandler = self::getContainer()->get(CreateDocumentHandler::class);
+        $doc = $createHandler(new CreateDocumentCommand($project, 'Doc', "# T\n\nThis paragraph contains a sample phrase for selection in this review."));
+
+        $plain = $doc->currentVersion()->plainText();
+        $quote = 'sample phrase for selection';
+        $start = mb_strpos($plain, $quote);
+        self::assertIsInt($start);
+
+        // Exactly what the Stimulus controller captures: whitespace-bounded context
+        // sliced straight out of the document text.
+        $captured = $this->submitAddCommentForm([
+            'quote' => $quote,
+            'prefix' => mb_substr($plain, max(0, $start - 32), min(32, $start)),
+            'suffix' => mb_substr($plain, $start + mb_strlen($quote), 32),
+            'body' => 'Why this phrasing?',
+        ]);
+
+        self::assertStringEndsWith(' ', $captured->prefix ?? '', 'the form must not trim the captured prefix');
+        self::assertStringStartsWith(' ', $captured->suffix ?? '', 'the form must not trim the captured suffix');
+
+        /** @var AddCommentHandler $handler */
+        $handler = self::getContainer()->get(AddCommentHandler::class);
+        $comment = $handler(new AddCommentCommand($owner, $doc, $captured->quote, $captured->prefix, $captured->suffix, $captured->body ?? ''));
+
+        self::assertSame($captured->prefix, $comment->anchor->prefix);
+        self::assertSame($captured->suffix, $comment->anchor->suffix);
+    }
+
+    public function test_captured_context_disambiguates_a_repeated_quote_through_the_form(): void
+    {
+        self::bootKernel();
+        $em = self::getContainer()->get(EntityManagerInterface::class);
+
+        $owner = new User(username: 'owner7', fullName: 'Owner', email: 'owner7@example.com', password: 'hashed');
+        $em->persist($owner);
+        $project = new Project($owner, 'p-'.uniqid());
+        $em->persist($project);
+        $em->flush();
+
+        /** @var CreateDocumentHandler $createHandler */
+        $createHandler = self::getContainer()->get(CreateDocumentHandler::class);
+        $doc = $createHandler(new CreateDocumentCommand($project, 'Doc', "# T\n\nCache the token in redis and never log the token in plaintext."));
+
+        // "token" appears twice; the reviewer selected the SECOND one. Both its prefix
+        // and suffix fingerprints are whitespace-bounded, so a trimmed context scores
+        // zero on every occurrence and the tie hands the anchor to the first — which is
+        // what made context disambiguation inert for ordinary selections.
+        $plain = $doc->currentVersion()->plainText();
+        $second = mb_strrpos($plain, 'token');
+        self::assertIsInt($second);
+        self::assertNotSame(mb_strpos($plain, 'token'), $second, 'the quote must genuinely repeat');
+
+        $captured = $this->submitAddCommentForm([
+            'quote' => 'token',
+            'prefix' => mb_substr($plain, max(0, $second - 32), min(32, $second)),
+            'suffix' => mb_substr($plain, $second + 5, 32),
+            'body' => 'This one leaks.',
+        ]);
+
+        /** @var AddCommentHandler $handler */
+        $handler = self::getContainer()->get(AddCommentHandler::class);
+        $comment = $handler(new AddCommentCommand($owner, $doc, $captured->quote, $captured->prefix, $captured->suffix, $captured->body ?? ''));
+
+        self::assertFalse($comment->orphaned);
+        self::assertSame($second, $comment->anchor->offsetHint, 'the captured context must win over earliest-position');
+    }
+
+    /**
+     * Binds anchor fields the way the real POST does, so the Form component's own
+     * value processing is exercised rather than bypassed.
+     *
+     * @param array<string, string> $fields
+     */
+    private function submitAddCommentForm(array $fields): AddCommentRequest
+    {
+        $formFactory = self::getContainer()->get(FormFactoryInterface::class);
+        self::assertInstanceOf(FormFactoryInterface::class, $formFactory);
+
+        $form = $formFactory->create(AddCommentFormType::class, new AddCommentRequest(), ['csrf_protection' => false]);
+        $form->submit($fields);
+        self::assertTrue($form->isValid(), 'the captured anchor must pass validation');
+
+        $data = $form->getData();
+        self::assertInstanceOf(AddCommentRequest::class, $data);
+
+        return $data;
     }
 }
