@@ -1953,6 +1953,17 @@ things were deliberately left out.
    Currently no, on the same grounds `CommentRepository::findOpenByVersion`
    already applies to `addressed`: the human choosing is not the human agreeing
    the discussion is finished, and the agent still has to act on the choice.
+4. **An answer to a decision a later version dropped is retained but never
+   reported.** `GetReview` iterates the current version's blocks, so a row whose
+   `decision_id` no longer appears is invisible — neither surfaced nor cleaned
+   up. Harmless while ids are permanent (re-adding the id brings the answer
+   back, which is arguably right), but it means the table grows without bound
+   and an agent cannot see that a decision it removed had been answered.
+5. **Option text runs together in `plainText()`.** Converted options are
+   adjacent inline elements, so `…staging firstShip straight to…` is what both
+   `strip_tags()` and the browser read. The two agree, so anchors are correct
+   and this is cosmetic — but a reviewer selecting across two options gets a
+   quote with no separator in it.
 
 ## Arbitrary Tailwind values remain in the vendored ubermuda bundles
 

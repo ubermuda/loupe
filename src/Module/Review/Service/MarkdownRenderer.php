@@ -30,8 +30,9 @@ final readonly class MarkdownRenderer
      * renderer directly keep working; the container injects the shared service,
      * so the app never runs two instances with two different nonces.
      */
-    public function __construct(private DecisionBlockService $decisions = new DecisionBlockService())
-    {
+    public function __construct(
+        private DecisionBlockService $decisions = new DecisionBlockService(),
+    ) {
         $environment = new Environment(['html_input' => 'allow', 'allow_unsafe_links' => false]);
         $environment->addExtension(new CommonMarkCoreExtension());
         $environment->addExtension(new TableExtension());

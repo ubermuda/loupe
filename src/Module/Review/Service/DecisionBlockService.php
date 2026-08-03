@@ -18,9 +18,9 @@ use League\CommonMark\Extension\CommonMark\Node\Block\HtmlBlock;
  * as FencedCode, never as the HtmlBlock this looks for.
  *
  * The controls are minted AFTER sanitization, alongside heading ids, so nothing
- * here widens what a document may write. In particular these radios are not the
- * `<input>` the sanitizer admits — that one is forced to type=checkbox, and
- * unifying the two would silently turn every decision into a checkbox.
+ * here widens what a document may write: the sanitizer admits no `<input>` at
+ * all, and markup a document writes itself can never become a control. Moving
+ * this pass ahead of sanitize() would hand that power back.
  */
 final readonly class DecisionBlockService
 {

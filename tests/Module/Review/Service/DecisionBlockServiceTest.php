@@ -53,16 +53,15 @@ final class DecisionBlockServiceTest extends TestCase
     }
 
     /**
-     * The radios are minted after sanitization, so they are not the `<input>` a
-     * document may write — that one is forced to type=checkbox, and a change
-     * that routed these through it would turn every decision into a checkbox.
+     * The radios exist only because toControls() mints them after the sanitizer
+     * has run. Markup a document writes itself never becomes one.
      */
-    public function test_a_document_supplied_input_is_still_forced_to_a_checkbox(): void
+    public function test_a_document_cannot_write_its_own_control(): void
     {
-        self::assertStringContainsString(
-            'type="checkbox"',
-            $this->renderer->render('<input type="radio" checked>'),
-        );
+        $html = $this->renderer->render('<input type="radio" name="lp-decision-x" value="0" data-decision-option="x:0">');
+
+        self::assertStringNotContainsString('<input', $html);
+        self::assertSame([], $this->decisions->extract($html));
     }
 
     /**
@@ -120,7 +119,7 @@ final class DecisionBlockServiceTest extends TestCase
         yield 'nested list' => ["<!-- decision: nest -->\n\n- [ ] A\n  - inner\n- [ ] B\n\n<!-- /decision -->\n", '<li>inner</li>'];
         yield 'uppercase id' => ["<!-- decision: Bad_Id -->\n\n- [ ] A\n\n<!-- /decision -->\n", '<li>[ ] A</li>'];
         yield 'id starting with a hyphen' => ["<!-- decision: -lead -->\n\n- [ ] A\n\n<!-- /decision -->\n", '<li>[ ] A</li>'];
-        yield 'id one character over the ceiling' => ["<!-- decision: ".str_repeat('a', 65)." -->\n\n- [ ] A\n\n<!-- /decision -->\n", '<li>[ ] A</li>'];
+        yield 'id one character over the ceiling' => ['<!-- decision: '.str_repeat('a', 65)." -->\n\n- [ ] A\n\n<!-- /decision -->\n", '<li>[ ] A</li>'];
     }
 
     public function test_an_id_at_the_exact_ceiling_still_converts(): void
@@ -213,6 +212,15 @@ final class DecisionBlockServiceTest extends TestCase
         yield 'a comment that only looks like a fence' => ["<!-- decisions: x -->\n\n- [ ] one\n\n<!-- /decisions -->\n"];
         yield 'raw html' => ["<div><p>kept</p><script>alert(1)</script></div>\n"];
         yield 'the word decision in prose' => ["The decision: ship it. Also `<!-- decision: x -->` inline.\n"];
+        yield 'an ordered list' => ["1. first\n2. second\n"];
+        yield 'an ordered list not starting at one' => ["3. third\n4. fourth\n"];
+        yield 'a nested ordered list' => ["1. outer\n   1. inner\n2. outer again\n"];
+        yield 'a blockquoted task list' => ["> quote\n>\n> - [ ] nested task\n"];
+        yield 'an opening marker with no id' => ["<!-- decision -->\n\n- [ ] one\n"];
+        yield 'an uppercase marker' => ["<!-- DECISION: x -->\n\n- [ ] one\n\n<!-- /DECISION -->\n"];
+        yield 'repeated headings' => ["# Dup\n\n# Dup\n\n# Dup\n"];
+        yield 'entities and non-ascii' => ["Text with &amp; &lt;tags&gt; and émojis ünïcode.\n"];
+        yield 'empty' => [''];
     }
 
     /**
