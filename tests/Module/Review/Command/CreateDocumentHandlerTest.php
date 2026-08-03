@@ -31,7 +31,7 @@ final class CreateDocumentHandlerTest extends KernelTestCase
 
         self::assertSame(DocumentStatus::InReview, $doc->status);
         self::assertSame(1, $doc->versions->count());
-        self::assertStringContainsString('<h1>Auth</h1>', $doc->currentVersion()->renderedHtml);
+        self::assertStringContainsString('<h1 id="heading-auth">Auth</h1>', $doc->currentVersion()->renderedHtml);
     }
 
     public function test_a_rejected_tag_name_leaves_no_document_behind(): void
@@ -67,5 +67,45 @@ final class CreateDocumentHandlerTest extends KernelTestCase
         $conn = $em->getConnection();
         self::assertSame(0, (int) $conn->fetchOne('SELECT count(*) FROM documents WHERE project_id = :id', ['id' => (string) $project->id]));
         self::assertSame(0, (int) $conn->fetchOne('SELECT count(*) FROM tags WHERE project_id = :id', ['id' => (string) $project->id]));
+    }
+
+    /**
+     * The sibling test above proves the handler wrote nothing. This one proves it
+     * left nothing for someone else to write: a scheduled insert survives a
+     * handler that simply declines to flush, and the next flush on a shared
+     * EntityManager — another operation in a long-lived process, or the worker —
+     * commits the rejected document on its behalf.
+     */
+    public function test_a_rejected_tag_name_leaves_nothing_scheduled_for_a_later_flush(): void
+    {
+        self::bootKernel();
+        $em = self::getContainer()->get(EntityManagerInterface::class);
+        self::assertInstanceOf(EntityManagerInterface::class, $em);
+        $user = new User(username: 'unflushed', fullName: 'Agent', email: 'unflushed@example.com', password: 'hashed-placeholder');
+        $em->persist($user);
+        $project = new Project($user, 'p-'.uniqid());
+        $em->persist($project);
+        $em->flush();
+
+        $handler = self::getContainer()->get(CreateDocumentHandler::class);
+        self::assertInstanceOf(CreateDocumentHandler::class, $handler);
+
+        try {
+            $handler(new CreateDocumentCommand(
+                project: $project,
+                title: 'Auth PRD',
+                markdown: '# Auth',
+                tagNames: [str_repeat('a', Tag::MAX_NAME_LENGTH + 1)],
+            ));
+            self::fail('expected DomainErrors');
+        } catch (DomainErrors) {
+        }
+
+        $em->flush();
+        $em->clear();
+
+        $conn = $em->getConnection();
+        self::assertSame(0, (int) $conn->fetchOne('SELECT count(*) FROM documents WHERE project_id = :id', ['id' => (string) $project->id]));
+        self::assertSame(0, (int) $conn->fetchOne('SELECT count(*) FROM document_versions'));
     }
 }

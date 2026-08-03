@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Module\Review\Entity;
 
+use App\Exception\DomainErrors;
 use App\Module\Project\Entity\Project;
 use App\Module\Review\Repository\TagRepository;
 use Doctrine\ORM\Mapping as ORM;
@@ -31,6 +32,13 @@ class Tag
     /**
      * Normalised on the way in, never on the way out, so the unique constraint on
      * (project_id, name) is a plain one and every lookup can compare raw strings.
+     *
+     * Not promoted: the constructor rewrites the argument, and a promoted readonly
+     * property cannot be reassigned in the body. Promotion would mean
+     * `public private(set)`, which this class keeps for `$id` alone — the one
+     * property Doctrine must write after the constructor has run. `readonly` is
+     * also the stronger guarantee: nothing can later store a name that the key
+     * used to find it no longer matches.
      */
     #[ORM\Column(length: self::MAX_NAME_LENGTH)]
     public readonly string $name;
@@ -61,5 +69,45 @@ class Tag
     public static function normalizeName(string $name): string
     {
         return mb_strtolower(trim((string) preg_replace('/\s+/u', ' ', $name)));
+    }
+
+    /**
+     * The set of names a document should end up carrying: normalised, blanks
+     * dropped, duplicates collapsed, alphabetical.
+     *
+     * Separate from the constructor so a caller can find out whether a set is
+     * acceptable *before* it starts writing. CreateDocumentHandler depends on
+     * that: it must reject an over-long name while it can still decline to
+     * persist the document.
+     *
+     * @param string[] $names
+     *
+     * @return list<string>
+     *
+     * @throws DomainErrors if any name exceeds MAX_NAME_LENGTH once normalised
+     */
+    public static function normalizeNames(array $names): array
+    {
+        $normalized = [];
+
+        foreach ($names as $rawName) {
+            $name = self::normalizeName($rawName);
+
+            if ('' === $name) {
+                continue;
+            }
+
+            if (mb_strlen($name) > self::MAX_NAME_LENGTH) {
+                throw new DomainErrors(['tags' => 'review.tags.error.too_long']);
+            }
+
+            if (!\in_array($name, $normalized, true)) {
+                $normalized[] = $name;
+            }
+        }
+
+        sort($normalized);
+
+        return $normalized;
     }
 }

@@ -103,13 +103,48 @@ class DocumentRepository extends ServiceEntityRepository
      */
     public function preloadTags(array $documents): void
     {
+        $this->preloadCollection($documents, 'tags');
+    }
+
+    /**
+     * The same, for versions. Wanted by the data export, which reads every
+     * version of every document the user owns.
+     *
+     * @param list<Document> $documents
+     */
+    public function preloadVersions(array $documents): void
+    {
+        $this->preloadCollection($documents, 'versions');
+    }
+
+    /**
+     * The same, for outgoing references. Wanted by the data export, which reads
+     * every document's references while assembling its row.
+     *
+     * @param list<Document> $documents
+     */
+    public function preloadReferences(array $documents): void
+    {
+        $this->preloadCollection($documents, 'references');
+    }
+
+    /**
+     * Kept to one query per association rather than one fetch-join carrying all
+     * of them: joining several collections at once multiplies their rows
+     * together, so a document with 3 versions and 4 tags would hydrate from 12.
+     *
+     * @param list<Document>                 $documents
+     * @param 'references'|'tags'|'versions' $association
+     */
+    private function preloadCollection(array $documents, string $association): void
+    {
         if ([] === $documents) {
             return;
         }
 
         $this->createQueryBuilder('d')
-            ->addSelect('t')
-            ->leftJoin('d.tags', 't')
+            ->addSelect('c')
+            ->leftJoin('d.'.$association, 'c')
             ->andWhere('d IN (:documents)')
             ->setParameter('documents', $documents)
             ->getQuery()

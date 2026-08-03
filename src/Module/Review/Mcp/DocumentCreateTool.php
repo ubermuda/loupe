@@ -17,7 +17,7 @@ use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 /**
  * Create a Markdown document for human review and return its id and review URL.
  */
-#[McpTool(name: 'document_create', description: 'Create a Markdown document for human review. Pass description to say what this first version is, and tags to group it with related documents. Tags are lowercased and created on first use — read tag_list first so a batch reuses the project\'s existing names.')]
+#[McpTool(name: 'document_create', description: 'Create a Markdown document for human review. Pass description to say what this first version is, tags to group it with related documents, and references to link the documents this one accompanies, supersedes or answers. Tags are lowercased and created on first use — read tag_list first so a batch reuses the project\'s existing names.')]
 final readonly class DocumentCreateTool
 {
     use ResolvesBoundProject;
@@ -30,23 +30,25 @@ final readonly class DocumentCreateTool
         private AuthenticatedProjectResolver $projectResolver,
         private ToolCallErrorMessages $errorMessages,
         private UrlGeneratorInterface $urls,
+        private ReviewSubjectResolver $subjects,
     ) {
     }
 
     /**
-     * The `string[]` on $tags is not interchangeable with `list<string>`: the SDK
-     * infers a parameter's JSON-schema `items` from the docblock type and parses
-     * only the `T[]` and `array<T>` spellings, so `list<string>` publishes an
-     * array of anything.
+     * Neither array parameter may be spelled `list<string>`: the SDK infers a
+     * parameter's JSON-schema `items` from the docblock type and parses only the
+     * `T[]` and `array<T>` forms, so `list<string>` publishes an array of
+     * anything. `string[]` and `array<string>` are both fine.
      *
-     * @param string      $title       The document title
-     * @param string      $markdown    The document content in Markdown format
-     * @param string|null $description What this first version is, in one or two sentences — the brief it answers or the question it exists to settle
-     * @param string[]    $tags        Tag names to group this document by, lowercased on write and created if the project does not have them yet
+     * @param string        $title       The document title
+     * @param string        $markdown    The document content in Markdown format
+     * @param string|null   $description What this first version is, in one or two sentences — the brief it answers or the question it exists to settle
+     * @param string[]      $tags        Tag names to group this document by, lowercased on write and created if the project does not have them yet
+     * @param array<string> $references  Ids of documents in the same project that this one points at; the link is shown on both documents
      *
      * @return array{documentId: string, reviewUrl: string, tags: list<string>}
      */
-    public function __invoke(string $title, string $markdown, ?string $description = null, array $tags = []): array
+    public function __invoke(string $title, string $markdown, ?string $description = null, array $tags = [], array $references = []): array
     {
         try {
             $project = $this->requireBoundProject($this->projectResolver);
@@ -62,14 +64,15 @@ final readonly class DocumentCreateTool
                 $description = null;
             }
 
-            // Named, not positional: the command's trailing parameters are all
-            // optional arrays of strings, so a mis-ordered call is silent.
+            // Named, not positional: the command now ends in two optional arrays
+            // of strings, so a mis-ordered call would be silent.
             $doc = ($this->createDocument)(new CreateDocumentCommand(
                 project: $project,
                 title: $title,
                 markdown: $markdown,
                 description: $description,
                 tagNames: $tags,
+                references: $this->subjects->requireReferences($references),
             ));
 
             return [

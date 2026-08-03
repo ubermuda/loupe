@@ -70,6 +70,35 @@ final class DocumentGetToolTest extends KernelTestCase
         self::assertSame('# Hello', $result['markdown']);
         self::assertFalse($result['archived']);
         self::assertNull($result['versionDescription']);
+        self::assertSame([], $result['references']);
+    }
+
+    /**
+     * Revising replaces the whole reference set, so an agent adding one link has
+     * to be able to read the current set first — including an archived target,
+     * whose link is still live.
+     */
+    public function test_reports_the_documents_it_references(): void
+    {
+        $owner = $this->user('getdoc-refs@example.com');
+        $document = $this->documentInNewProject($owner, 'Companion thread');
+
+        $target = new Document(owner: $owner, project: $document->project, title: 'The retired spec');
+        $target->addVersion('# Spec', '<h1>Spec</h1>');
+        $target->archivedAt = new \DateTimeImmutable();
+        $this->em->persist($target);
+        $document->references->add($target);
+        $this->em->flush();
+
+        $this->actAsMcpTokenBoundTo($document->project);
+
+        $result = ($this->tool)((string) $document->id);
+
+        self::assertSame([[
+            'documentId' => (string) $target->id,
+            'title' => 'The retired spec',
+            'archived' => true,
+        ]], $result['references']);
     }
 
     /**

@@ -85,7 +85,10 @@ final class AddCommentController extends AppController
 
         if (null !== $errorMessage) {
             return new Response(
-                $this->renderView('@Review/_composer_error.stream.html.twig', ['message' => $errorMessage]),
+                $this->renderView('@Review/_composer_error.stream.html.twig', [
+                    'target' => 'composer-error',
+                    'message' => $errorMessage,
+                ]),
                 Response::HTTP_UNPROCESSABLE_ENTITY,
                 ['Content-Type' => TurboBundle::STREAM_MEDIA_TYPE],
             );
