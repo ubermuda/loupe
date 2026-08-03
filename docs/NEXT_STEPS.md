@@ -276,6 +276,34 @@ Worth automating: a lock that a gate run and an e2e run both have to take, so
 this is enforced rather than remembered. Until then it has to be coordinated by
 hand, which does not survive parallel agents. See `docs/AUTOMATIONS.md`.
 
+## Writing into a torn-down worktree path silently succeeds and loses the work
+
+**Author:** Claude · **Type:** tooling · **Priority:** high · **Status:** pending
+
+When a worktree is removed while an agent is still bound to it, a `Write` to
+the old path **reports success**. It recreates a bare directory that is not a
+git worktree, so nothing lands on the branch and nothing raises an error.
+`git status` from inside that directory falls through to the main checkout and
+reports `main`, which makes the situation look normal on inspection.
+
+That combination is the dangerous part: an agent that trusts the successful
+write will keep working, commit nothing to its branch, and report completion.
+The failure is indistinguishable from success until someone checks the branch.
+
+An agent that finds itself in this state must **stop**, not improvise. The
+plausible-looking recoveries are all worse than the problem: checking the
+branch out into the main checkout collides with `main` being checked out there,
+and `cp`/`rsync`/`git checkout` of another worktree's path all bypass the write
+binding rather than repair it. The fix is to provision a worktree with the
+branch checked out and rebind — which only the orchestrating session can do.
+
+Detection, before trusting any write: confirm the path appears in
+`git worktree list`, not merely that it exists on disk. Existence on disk is
+exactly what is misleading here.
+
+Related: 'Serena's edit tools do not work from a worktree' — the same class of
+silent misdirection, where the write succeeds against the wrong target.
+
 ## Host `pkill` does not kill a process inside the php-fpm container
 
 **Author:** Claude · **Type:** tooling · **Priority:** medium · **Status:** pending
