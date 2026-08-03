@@ -276,6 +276,34 @@ Worth automating: a lock that a gate run and an e2e run both have to take, so
 this is enforced rather than remembered. Until then it has to be coordinated by
 hand, which does not survive parallel agents. See `docs/AUTOMATIONS.md`.
 
+## Writing into a torn-down worktree path silently succeeds and loses the work
+
+**Author:** Claude · **Type:** tooling · **Priority:** high · **Status:** pending
+
+When a worktree is removed while an agent is still bound to it, a `Write` to
+the old path **reports success**. It recreates a bare directory that is not a
+git worktree, so nothing lands on the branch and nothing raises an error.
+`git status` from inside that directory falls through to the main checkout and
+reports `main`, which makes the situation look normal on inspection.
+
+That combination is the dangerous part: an agent that trusts the successful
+write will keep working, commit nothing to its branch, and report completion.
+The failure is indistinguishable from success until someone checks the branch.
+
+An agent that finds itself in this state must **stop**, not improvise. The
+plausible-looking recoveries are all worse than the problem: checking the
+branch out into the main checkout collides with `main` being checked out there,
+and `cp`/`rsync`/`git checkout` of another worktree's path all bypass the write
+binding rather than repair it. The fix is to provision a worktree with the
+branch checked out and rebind — which only the orchestrating session can do.
+
+Detection, before trusting any write: confirm the path appears in
+`git worktree list`, not merely that it exists on disk. Existence on disk is
+exactly what is misleading here.
+
+Related: 'Serena's edit tools do not work from a worktree' — the same class of
+silent misdirection, where the write succeeds against the wrong target.
+
 ## Host `pkill` does not kill a process inside the php-fpm container
 
 **Author:** Claude · **Type:** tooling · **Priority:** medium · **Status:** pending
@@ -299,6 +327,18 @@ docker compose exec php-fpm pkill -f <script>
 
 And check for it the same way — `docker exec <project>-php-fpm-1 ps aux` — since
 a host-side check will report a quiet container that is fully loaded.
+
+**The agent harness's own `TaskStop` has the same blind spot.** Stopping a
+background task that was launched through `compose-exec.sh` reports success and
+kills the **host-side wrapper**, leaving the real process running inside the
+container. This was observed with a `messenger:consume` consumer: `TaskStop`
+succeeded, a host-side check showed a clean shell, and the consumer was still
+holding the container. Anything that reports "the slot is free" on that basis is
+wrong.
+
+So the rule generalises past `pkill` to every stop mechanism: **a process
+started inside the container can only be observed and stopped from inside it.**
+Verify with `docker exec … ps aux` after any stop, whatever issued it.
 
 ## Dashboard document search + status/tag filtering
 
