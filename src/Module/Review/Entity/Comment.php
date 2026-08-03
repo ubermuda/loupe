@@ -23,8 +23,8 @@ class Comment
     public private(set) ?Uuid $id = null;
 
     /**
-     * Status is a property of the thread, carried by its root comment. A reply's
-     * own value is never read — use $threadStatus.
+     * Status is a property of the thread, carried by its root comment. On a reply
+     * it stays at its default and is not the thread's status — read $threadStatus.
      */
     #[ORM\Column(length: 20, enumType: CommentStatus::class)]
     public CommentStatus $status = CommentStatus::Pending;
@@ -34,7 +34,7 @@ class Comment
 
     /** The status of the thread this comment belongs to. */
     public CommentStatus $threadStatus {
-        get => $this->parent->status ?? $this->status;
+        get => null !== $this->parent ? $this->parent->status : $this->status;
     }
 
     public function __construct(

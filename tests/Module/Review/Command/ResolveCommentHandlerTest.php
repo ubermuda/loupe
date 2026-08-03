@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Tests\Module\Review\Command;
 
+use App\Exception\DomainErrors;
 use App\Module\Account\Entity\User;
 use App\Module\Project\Entity\Project;
 use App\Module\Review\Command\AddCommentCommand;
@@ -80,5 +81,42 @@ final class ResolveCommentHandlerTest extends KernelTestCase
         self::assertSame(CommentStatus::Resolved, $root->status);
         self::assertSame(CommentStatus::Resolved, $reply->threadStatus, 'The whole thread reads as resolved');
         self::assertSame(CommentStatus::Pending, $reply->status, 'The reply row itself is never written');
+    }
+
+    public function test_a_reply_is_not_a_resolvable_target(): void
+    {
+        self::bootKernel();
+        $em = self::getContainer()->get(EntityManagerInterface::class);
+
+        $owner = new User(username: 'resolve-owner3', fullName: 'Resolve Owner', email: 'resolve-owner3@example.com', password: 'hashed');
+        $em->persist($owner);
+        $project = new Project($owner, 'p-'.uniqid());
+        $em->persist($project);
+        $em->flush();
+
+        /** @var CreateDocumentHandler $createHandler */
+        $createHandler = self::getContainer()->get(CreateDocumentHandler::class);
+        $doc = $createHandler(new CreateDocumentCommand($project, 'Resolve Reply Doc', "# Hello\n\nThis content will be resolved after commenting."));
+
+        /** @var AddCommentHandler $addHandler */
+        $addHandler = self::getContainer()->get(AddCommentHandler::class);
+        $root = $addHandler(new AddCommentCommand($owner, $doc, 'will be resolved', '', '', 'Root comment'));
+
+        /** @var ReplyToCommentHandler $replyHandler */
+        $replyHandler = self::getContainer()->get(ReplyToCommentHandler::class);
+        $reply = $replyHandler(new ReplyToCommentCommand(actor: $owner, parent: $root, body: 'A reply'));
+
+        /** @var ResolveCommentHandler $resolveHandler */
+        $resolveHandler = self::getContainer()->get(ResolveCommentHandler::class);
+
+        try {
+            $resolveHandler(new ResolveCommentCommand(comment: $reply));
+            self::fail('Resolving a reply must be rejected');
+        } catch (DomainErrors $e) {
+            self::assertContains('comment.error.resolve_reply', $e->errors);
+        }
+
+        self::assertSame(CommentStatus::Pending, $root->status, 'The thread stays open');
+        self::assertSame(CommentStatus::Pending, $reply->status);
     }
 }
