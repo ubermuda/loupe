@@ -921,6 +921,10 @@
                 <source>review.archive.flash.unarchived</source>
                 <target>“%title%” is back in the list.</target>
             </trans-unit>
+            <trans-unit id="review.archive.flash.rejected">
+                <source>review.archive.flash.rejected</source>
+                <target>That did not go through — the page had gone stale. Try again.</target>
+            </trans-unit>
 
             <!-- Document review page -->
             <trans-unit id="review.document.page.title">

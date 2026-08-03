@@ -779,6 +779,11 @@
     .lp-document-row__actions {
         @apply relative z-10 shrink-0 flex items-center gap-1;
     }
+    /* The archive form wraps a single icon button; it must not introduce a line
+       box of its own between the rename link and the chevron. */
+    .lp-document-row__action-form {
+        @apply contents;
+    }
     .lp-document-row__action {
         @apply flex items-center justify-center w-8 h-8 rounded-lg bg-transparent border-0 cursor-pointer text-fg-dim transition-colors;
     }

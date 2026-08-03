@@ -13,7 +13,6 @@ framework:
             - revoke-api-token
             - submit-review
             - comment-action
-            - document-archive
             - mint-site-token
             - mint-project-mcp-token
             - regenerate-project-mcp-token

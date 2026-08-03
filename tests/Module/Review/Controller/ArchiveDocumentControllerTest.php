@@ -28,11 +28,8 @@ final class ArchiveDocumentControllerTest extends WebTestCase
         return $user;
     }
 
-    private function document(EntityManagerInterface $em, User $owner, string $title): Document
+    private function document(EntityManagerInterface $em, User $owner, Project $project, string $title): Document
     {
-        $project = new Project($owner, 'p-'.uniqid());
-        $em->persist($project);
-
         $document = new Document(owner: $owner, project: $project, title: $title);
         $document->addVersion('# '.$title, '<h1>'.$title.'</h1>');
         $em->persist($document);
@@ -40,34 +37,47 @@ final class ArchiveDocumentControllerTest extends WebTestCase
         return $document;
     }
 
+    private function project(EntityManagerInterface $em, User $owner): Project
+    {
+        $project = new Project($owner, 'p-'.uniqid());
+        $em->persist($project);
+
+        return $project;
+    }
+
+    /**
+     * Driven through the form the list actually renders, so the form name, the
+     * action URL and the CSRF token are all exercised as shipped rather than
+     * assumed.
+     */
     public function test_archiving_from_the_list_returns_to_the_same_page_and_filter(): void
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
 
         $alice = $this->createUser($em, 'alice-arch', 'alice-arch@example.com');
-        $document = $this->document($em, $alice, 'Put me away');
+        $project = $this->project($em, $alice);
+        // Enough documents for a second page, so the redirect has a page number
+        // worth preserving rather than the default.
+        for ($i = 0; $i < 21; ++$i) {
+            $this->document($em, $alice, $project, 'Doc '.$i);
+        }
         $em->flush();
-        $projectId = (string) $document->project->id;
-        $documentId = (string) $document->id;
+        $projectId = (string) $project->id;
         $em->clear();
 
         $client->loginUser($alice);
-        // A prior GET establishes browsing history, so BrowserKit auto-sets
-        // HTTP_REFERER on the POST below — without it, SameOriginCsrfTokenManager
-        // sees neither an Origin/Referer match nor a real double-submit token
-        // and rejects the request as a 403 regardless of controller logic.
-        $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/documents');
-        $client->request(
-            Request::METHOD_POST,
-            '/projects/'.$projectId.'/documents/'.$documentId.'/archive?page=3&archived=1',
-            ['_csrf_token' => 'csrf-token'],
-        );
+        $crawler = $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/documents?page=2&archived=1');
+        self::assertResponseIsSuccessful();
 
-        self::assertResponseRedirects('/projects/'.$projectId.'/documents?page=3&archived=1');
+        $row = $crawler->filter('[data-document-id]')->first();
+        $documentId = (string) $row->attr('data-document-id');
+        $client->submit($row->filter('form')->form());
+
+        self::assertResponseRedirects('/projects/'.$projectId.'/documents?page=2&archived=1');
 
         $em->clear();
-        $fresh = $em->find(Document::class, $document->id);
+        $fresh = $em->find(Document::class, $documentId);
         self::assertInstanceOf(Document::class, $fresh);
         self::assertNotNull($fresh->archivedAt);
     }
@@ -78,20 +88,48 @@ final class ArchiveDocumentControllerTest extends WebTestCase
         $em = static::getContainer()->get(EntityManagerInterface::class);
 
         $alice = $this->createUser($em, 'alice-unarch', 'alice-unarch@example.com');
-        $document = $this->document($em, $alice, 'Bring me back');
+        $project = $this->project($em, $alice);
+        $document = $this->document($em, $alice, $project, 'Bring me back');
         $document->archivedAt = new \DateTimeImmutable();
         $em->flush();
-        $projectId = (string) $document->project->id;
+        $projectId = (string) $project->id;
         $documentId = (string) $document->id;
         $em->clear();
 
         $client->loginUser($alice);
-        $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/documents?archived=1');
-        $client->request(
-            Request::METHOD_POST,
-            '/projects/'.$projectId.'/documents/'.$documentId.'/unarchive',
-            ['_csrf_token' => 'csrf-token'],
-        );
+        // The document is archived, so it is only on screen with the filter on.
+        $crawler = $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/documents?archived=1');
+        self::assertResponseIsSuccessful();
+
+        $client->submit($crawler->filter('[data-document-id="'.$documentId.'"] form')->form());
+
+        self::assertResponseRedirects('/projects/'.$projectId.'/documents?page=1&archived=1');
+
+        $em->clear();
+        $fresh = $em->find(Document::class, $document->id);
+        self::assertInstanceOf(Document::class, $fresh);
+        self::assertNull($fresh->archivedAt);
+    }
+
+    /**
+     * A POST carrying no form submission at all — the shape a forged or stale
+     * request takes. It must change nothing and say so, rather than archiving.
+     */
+    public function test_a_post_without_the_forms_token_changes_nothing(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+
+        $alice = $this->createUser($em, 'alice-arch-notoken', 'alice-arch-notoken@example.com');
+        $project = $this->project($em, $alice);
+        $document = $this->document($em, $alice, $project, 'Leave me alone');
+        $em->flush();
+        $projectId = (string) $project->id;
+        $documentId = (string) $document->id;
+        $em->clear();
+
+        $client->loginUser($alice);
+        $client->request(Request::METHOD_POST, '/projects/'.$projectId.'/documents/'.$documentId.'/archive');
 
         self::assertResponseRedirects('/projects/'.$projectId.'/documents?page=1');
 
@@ -111,10 +149,11 @@ final class ArchiveDocumentControllerTest extends WebTestCase
         $em = static::getContainer()->get(EntityManagerInterface::class);
 
         $alice = $this->createUser($em, 'alice-arch-url', 'alice-arch-url@example.com');
-        $document = $this->document($em, $alice, 'Archived but readable');
+        $project = $this->project($em, $alice);
+        $document = $this->document($em, $alice, $project, 'Archived but readable');
         $document->archivedAt = new \DateTimeImmutable();
         $em->flush();
-        $projectId = (string) $document->project->id;
+        $projectId = (string) $project->id;
         $documentId = (string) $document->id;
         $em->clear();
 
@@ -132,21 +171,17 @@ final class ArchiveDocumentControllerTest extends WebTestCase
 
         $owner = $this->createUser($em, 'owner-arch', 'owner-arch@example.com');
         $other = $this->createUser($em, 'other-arch', 'other-arch@example.com');
-        $document = $this->document($em, $owner, 'Not yours');
+        $project = $this->project($em, $owner);
+        $document = $this->document($em, $owner, $project, 'Not yours');
         $em->flush();
-        $projectId = (string) $document->project->id;
+        $projectId = (string) $project->id;
         $documentId = (string) $document->id;
         $em->clear();
 
+        // The voter runs before the form is built, so no token is needed to
+        // prove the denial is authorization rather than CSRF.
         $client->loginUser($other);
-        // Their own project list, purely to establish a same-origin referer — so
-        // the 403 below is the voter denying, not CSRF rejecting the POST.
-        $client->request(Request::METHOD_GET, '/projects');
-        $client->request(
-            Request::METHOD_POST,
-            '/projects/'.$projectId.'/documents/'.$documentId.'/archive',
-            ['_csrf_token' => 'csrf-token'],
-        );
+        $client->request(Request::METHOD_POST, '/projects/'.$projectId.'/documents/'.$documentId.'/archive');
 
         self::assertResponseStatusCodeSame(403);
 

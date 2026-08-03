@@ -8,17 +8,18 @@ use App\Controller\AppController;
 use App\Module\Review\Command\UnarchiveDocumentCommand;
 use App\Module\Review\Command\UnarchiveDocumentHandler;
 use App\Module\Review\Entity\Document;
+use App\Module\Review\Form\ArchiveDocumentFormType;
 use App\Module\Review\Security\DocumentVoter;
+use App\Module\Review\Twig\ReviewExtension;
 use App\Module\Review\View\DocumentListQuery;
 use Symfony\Bridge\Doctrine\Attribute\MapEntity;
+use Symfony\Component\Form\FormFactoryInterface;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
 use Symfony\Contracts\Translation\TranslatorInterface;
-use Ubermuda\SymfonyExtra\Csrf\Attribute\CsrfToken;
 
-#[CsrfToken('document-archive')]
 #[IsGranted(DocumentVoter::MANAGE, subject: 'document')]
 #[Route(
     '/projects/{projectId}/documents/{documentId}/unarchive',
@@ -29,6 +30,7 @@ final class UnarchiveDocumentController extends AppController
 {
     public function __construct(
         private readonly UnarchiveDocumentHandler $unarchiveDocument,
+        private readonly FormFactoryInterface $formFactory,
         private readonly TranslatorInterface $translator,
     ) {
     }
@@ -37,9 +39,19 @@ final class UnarchiveDocumentController extends AppController
         Request $request,
         #[MapEntity(expr: 'repository.findOneByIdAndProjectId(documentId, projectId)')] Document $document,
     ): Response {
-        ($this->unarchiveDocument)(new UnarchiveDocumentCommand($document));
+        $form = $this->formFactory->createNamed(
+            ReviewExtension::archiveFormName($document),
+            ArchiveDocumentFormType::class,
+        );
+        $form->handleRequest($request);
 
-        $this->addFlash('success', $this->translator->trans('review.archive.flash.unarchived', ['%title%' => $document->title]));
+        if ($form->isSubmitted() && $form->isValid()) {
+            ($this->unarchiveDocument)(new UnarchiveDocumentCommand($document));
+
+            $this->addFlash('success', $this->translator->trans('review.archive.flash.unarchived', ['%title%' => $document->title]));
+        } else {
+            $this->addFlash('error', $this->translator->trans('review.archive.flash.rejected'));
+        }
 
         return $this->redirectToRoute('app_project_documents', [
             'id' => (string) $document->project->id,

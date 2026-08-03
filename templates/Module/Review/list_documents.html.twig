@@ -77,28 +77,24 @@
                    aria-label="{{ 'review.dashboard.rename'|trans({'%title%': document.title}) }}">
                     <twig:ux:icon name="lucide:pencil" class="w-4 h-4" />
                 </a>
-                {# The two states are written out rather than interpolated: the icon
-                   importer only sees icon names it can read as literals, and an
-                   icon it never imported renders as nothing in production. #}
-                {% if archived %}
-                <form method="POST" action="{{ path('app_document_unarchive', {projectId: project.id, documentId: document.id}|merge(listQuery.routeParams)) }}">
-                    <input type="hidden" name="_csrf_token" value="{{ csrf_token('document-archive') }}">
+                {# The form is built by the extension (one per row, named after the
+                   document) and already points at archive or unarchive; only the
+                   icon and label differ here. Both states are written out rather
+                   than interpolated because the icon importer sees only icon names
+                   it can read as literals, and an icon it never imported renders as
+                   nothing in production. #}
+                {% set archiveForm = document_archive_form(document, listQuery.routeParams) %}
+                {{ form_start(archiveForm, {attr: {class: 'lp-document-row__action-form'}}) }}
                     <button type="submit"
                             class="lp-document-row__action"
-                            aria-label="{{ 'review.dashboard.unarchive'|trans({'%title%': document.title}) }}">
+                            aria-label="{{ (archived ? 'review.dashboard.unarchive' : 'review.dashboard.archive')|trans({'%title%': document.title}) }}">
+                        {% if archived %}
                         <twig:ux:icon name="lucide:archive-restore" class="w-4 h-4" />
-                    </button>
-                </form>
-                {% else %}
-                <form method="POST" action="{{ path('app_document_archive', {projectId: project.id, documentId: document.id}|merge(listQuery.routeParams)) }}">
-                    <input type="hidden" name="_csrf_token" value="{{ csrf_token('document-archive') }}">
-                    <button type="submit"
-                            class="lp-document-row__action"
-                            aria-label="{{ 'review.dashboard.archive'|trans({'%title%': document.title}) }}">
+                        {% else %}
                         <twig:ux:icon name="lucide:archive" class="w-4 h-4" />
+                        {% endif %}
                     </button>
-                </form>
-                {% endif %}
+                {{ form_end(archiveForm) }}
             </div>
             <twig:ux:icon name="lucide:chevron-right" class="lp-document-row__chevron" />
         </div>

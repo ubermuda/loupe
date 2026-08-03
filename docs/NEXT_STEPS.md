@@ -1217,6 +1217,84 @@ Related: "Edit a document in the app, not only through an agent", which is the
 same question from the other side (what a *human* may do to a document the
 agent authored).
 
+## Two patterns now exist for fieldless POST actions — converge them
+
+**Author:** Claude · **Type:** tooling · **Priority:** medium · **Status:** pending
+
+Archiving and unarchiving a document were converted (2026-08-02, review comment
+on pull request #118) from a hand-written `<form>` plus
+`#[CsrfToken('document-archive')]` to a real Symfony form —
+`Module/Review/Form/ArchiveDocumentFormType`, built per row by
+`ReviewExtension::documentArchiveForm()` and rebuilt by name in the controller,
+with the form component issuing and checking the token. The
+`document-archive` entry came out of `config/packages/csrf.yaml` with it.
+
+Four controllers still use the pattern that replaced:
+
+- `Module/Review/Controller/DeleteCommentController` and `ResolveCommentController`
+  (`comment-action`), submitted from `templates/Module/Review/components/CommentThread.html.twig`
+- `Module/SiteReview/Controller/ReopenSiteReviewCommentController` and
+  `ResolveSiteReviewCommentController` (`site-review-comment-action`), submitted
+  from `templates/Module/SiteReview/show_site_review.html.twig`
+
+They were left alone deliberately — they were outside the branch that made the
+change — so the divergence is known rather than accidental. But it is still two
+ways to write one shape of action in the same module, and the next fieldless
+POST has no obvious precedent to copy.
+
+**Decision needed** — which way to converge:
+
+1. Convert the four to Symfony forms, matching archive (recommended: the form
+   component already owns CSRF, so `stateless_token_ids` shrinks toward holding
+   only the genuinely form-less endpoints, and there is now a worked example
+   including the per-row `createNamed` naming).
+2. Keep `#[CsrfToken]` for fieldless actions and revert archive to it, treating
+   "a form with no fields" as ceremony not worth the indirection.
+
+Whichever is chosen, `SubmitReviewController` (`submit-review`) is **not** part
+of this: it submits a verdict value, so it is not the fieldless shape.
+
+One thing the conversion surfaced that the attribute form hides: a per-row
+fieldless form still needs a unique name (`createNamed`), or every row renders
+the same DOM id on its hidden token input.
+
+## MCP tools flatten field-level errors into one string for agents
+
+**Author:** Geoffrey · **Type:** feature · **Priority:** medium · **Status:** pending
+
+Error reporting to agents is thinner than what the app already knows. When a
+handler rejects an MCP call it throws `DomainErrors`, which is a map of field
+name to reason — `['title' => 'review.rename.error.too_long']`.
+`Module/Review/Mcp/ToolCallErrorMessages` then collapses that map to a single
+English sentence and throws it as a `ToolCallException`, so the agent learns
+that something was wrong but not *which argument* was wrong. With one failing
+field that is merely lossy; with two it is actively unhelpful, because the
+agent has to guess which of its arguments to change. Tools that validate at
+their own boundary (the markdown size cap) hand-roll their message separately,
+so there is no single shape for "your call was rejected, here is why".
+
+The idea worth trying: Symfony's form and validation component already models
+exactly this — a tree of fields, each with its own violations — and the app
+already relies on it for every HTML endpoint. An MCP tool call is a set of
+named arguments, which is the same shape as a submitted form. If a tool's
+arguments were bound and validated the way a form is, the tool could return
+structured per-argument errors instead of a sentence, and the rules would live
+in one place instead of being written twice.
+
+Two facts that constrain any solution, both deliberate today. MCP tools do
+**not** use forms: they are plain invokable classes whose arguments come from
+the JSON-RPC payload, and their argument types and docblocks are what the MCP
+SDK publishes as the tool schema — so anything that binds them must not break
+that schema generation. And `#[IsGranted]` does not fire on them either;
+authorization goes through `ReviewSubjectResolver` plus `McpBoundProjectVoter`
+by explicit call. So this is not "make MCP tools controllers" — it is finding
+which part of the validation machinery can be reused without the HTTP
+scaffolding that surrounds it.
+
+Worth checking what the MCP specification says about structured error payloads
+before designing anything, since the wire format may already have a place to
+put field-level detail.
+
 ## Review anchoring — structural fallback anchor (low priority)
 
 
