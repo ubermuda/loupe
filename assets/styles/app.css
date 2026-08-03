@@ -794,6 +794,12 @@
     .lp-document-row__sep {
         @apply text-fg-dim;
     }
+    /* Line 3: the document's tag chips. Wraps, because a document may carry more
+       names than fit the row and .lp-document-row__main is min-w-0. No margin —
+       __main is a flex column with its own gap. */
+    .lp-document-row__tags {
+        @apply flex flex-wrap items-center gap-1.5;
+    }
     .lp-document-row__open {
         color: var(--status-pending-deep);
     }
@@ -839,6 +845,24 @@
     }
     .lp-filter-chip--on {
         @apply bg-accent-soft text-accent-hover border-transparent;
+    }
+
+    /* The bar's GET form. Its controls sit on .lp-input / .lp-select and are
+       sized down here, so they must be declared after those base classes. */
+    .lp-filter-form {
+        @apply flex flex-wrap items-center gap-2;
+    }
+    .lp-filter-search {
+        @apply relative flex items-center;
+    }
+    .lp-filter-search__icon {
+        @apply absolute left-3 w-4 h-4 text-fg-dim pointer-events-none;
+    }
+    .lp-filter-input {
+        @apply w-64 py-1.5 pl-9;
+    }
+    .lp-filter-select {
+        @apply w-auto py-1.5;
     }
 
     /* ── Flash messages ─────────────────────────────────────────────── */

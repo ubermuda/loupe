@@ -10,14 +10,17 @@ use Symfony\Component\EventDispatcher\Attribute\AsEventListener;
 
 /**
  * Bulk-deletes the Review-module subtree of a project in FK order:
- * reviews / comments / highlights -> document_versions -> document_references
- * -> documents. DQL bulk deletes, no entity hydration; runs inside
+ * reviews / comments / highlights -> document_versions -> document_tags /
+ * document_references -> documents -> tags. No entity hydration; runs inside
  * ProjectDeleter's transaction.
  *
  * The order is two independent chains, not one list: highlights, comments and
- * reviews hang off document_versions and so precede it, while references hang
- * off documents and so precede that. A table added to the wrong chain still
- * reads plausibly here and fails only at runtime.
+ * reviews hang off document_versions and so precede it, while tag join rows and
+ * references hang off documents and so precede that. A table added to the wrong
+ * chain still reads plausibly here and fails only at runtime.
+ *
+ * `tags` is neither chain and comes last: the join rows reference it, so it
+ * cannot precede them, and it hangs off the project rather than any document.
  */
 #[AsEventListener]
 final readonly class DeleteReviewDataOnProjectDeleting
@@ -30,6 +33,7 @@ final readonly class DeleteReviewDataOnProjectDeleting
     public function __invoke(ProjectDeleting $event): void
     {
         $versionSubselect = 'SELECT v.id FROM App\Module\Review\Entity\DocumentVersion v JOIN v.document vd WHERE vd.project = :project';
+        $projectId = (string) ($event->project->id ?? throw new \LogicException('a persisted project always has an id'));
 
         $this->em->createQuery(
             'DELETE App\Module\Review\Entity\Review r WHERE r.version IN ('.$versionSubselect.')',
@@ -47,17 +51,26 @@ final readonly class DeleteReviewDataOnProjectDeleting
             'DELETE App\Module\Review\Entity\DocumentVersion v WHERE v.document IN (SELECT d.id FROM App\Module\Review\Entity\Document d WHERE d.project = :project)',
         )->setParameter('project', $event->project)->execute();
 
-        // Native SQL because document_references is a join table: it has no
-        // entity, so DQL cannot name it. Matching either end keeps this correct
+        // Native SQL, not DQL: a many-to-many join table has no entity to name.
+        $this->em->getConnection()->executeStatement(
+            'DELETE FROM document_tags WHERE document_id IN (SELECT id FROM documents WHERE project_id = :project)',
+            ['project' => $projectId],
+        );
+
+        // Native SQL for the same reason. Matching either end keeps this correct
         // for a reference whose two documents ever stop sharing a project.
         $this->em->getConnection()->executeStatement(
             'DELETE FROM document_references WHERE source_document_id IN (SELECT id FROM documents WHERE project_id = :project)
                 OR target_document_id IN (SELECT id FROM documents WHERE project_id = :project)',
-            ['project' => (string) ($event->project->id ?? throw new \LogicException('a persisted project always has an id'))],
+            ['project' => $projectId],
         );
 
         $this->em->createQuery(
             'DELETE App\Module\Review\Entity\Document d WHERE d.project = :project',
+        )->setParameter('project', $event->project)->execute();
+
+        $this->em->createQuery(
+            'DELETE App\Module\Review\Entity\Tag t WHERE t.project = :project',
         )->setParameter('project', $event->project)->execute();
     }
 }
