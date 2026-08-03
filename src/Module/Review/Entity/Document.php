@@ -49,8 +49,11 @@ class Document
      *
      * @var Collection<int, Tag>
      */
-    #[ORM\InverseJoinColumn(name: 'tag_id', nullable: false)]
-    #[ORM\JoinColumn(name: 'document_id', nullable: false)]
+    // No nullable: false on either join column — Doctrine ignores it on a
+    // many-to-many and logs a deprecation on every mapping read. The columns are
+    // the join table's composite primary key, so they are NOT NULL regardless.
+    #[ORM\InverseJoinColumn(name: 'tag_id')]
+    #[ORM\JoinColumn(name: 'document_id')]
     #[ORM\JoinTable(name: 'document_tags')]
     #[ORM\ManyToMany(targetEntity: Tag::class)]
     #[ORM\OrderBy(['name' => 'ASC'])]
