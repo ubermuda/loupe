@@ -196,6 +196,110 @@ the local dev host. Whether a deployed instance drops connections the same way i
 unknown, and it decides whether this is a local annoyance or a production defect
 affecting every agent that connects. Establishing that comes before any fix.
 
+## Merging the open document-review branches must union the two deletion paths, never take one side
+
+**Author:** Claude · **Type:** tooling · **Priority:** high · **Status:** pending
+
+Several in-flight branches each add a table with a foreign key into the
+document subtree, and each adds its own `DELETE` to the same two FK-ordered
+cleanup paths:
+`src/Module/Review/EventListener/DeleteReviewDataOnProjectDeleting.php` (DQL
+bulk deletes) and `src/Module/Review/Service/DocumentOwnershipAccountPurger.php`
+(raw SQL). Git will conflict in both files on every merge after the first.
+
+The tables, and what each hangs off — the parent decides where its `DELETE`
+belongs in FK order, and they are not all the same:
+
+- `document_references` → `documents` (PR #122)
+- `tags` + `document_tags` → `documents`, `projects`, `tags` (PR #123)
+- `decision_selections` → `documents` (`feat/review-decision-controls`)
+- `document_highlights` → **`document_versions`** (`feat/review-agent-highlights`)
+
+Only the last must be deleted before `DELETE FROM document_versions`; the rest
+must come before `DELETE FROM documents`. PR #124 (`feat/document-search`) adds
+no table of its own — it adds a `tsvector` column and index — but inherits
+#123's tables through the git ancestry noted below.
+
+**The resolution is always the union of every branch's statements, in FK order.**
+Taking either side of the conflict silently drops a table's `DELETE`. The FKs
+are `NOT DEFERRABLE` with no `ON DELETE CASCADE`, so the omission is not an
+orphaned row — it is a Postgres FK violation that aborts project deletion or
+account deletion with a 500.
+
+This is not hypothetical: two separate branches shipped exactly this omission,
+each adding its table to the listener and missing the purger, and both passed a
+full green `just ci`. The reason the suite does not catch it is that
+`ProjectDeleterTest::seedFullProject` and the foreign-owned-document fixture in
+`DeleteAccountHandlerTest` only exercise the statement if the deleted project
+actually has a row in the new table. A fixture without one makes the test pass
+vacuously.
+
+So, when adding a table with an FK onto `document_versions`: add the `DELETE`
+to **both** files, seed a row in **both** fixtures, and mutation-check each —
+remove the statement, confirm the test fails with `SQLSTATE[23503]`, restore it.
+Note the two paths use different mechanisms, so the fix is not copy-paste, and
+DQL bulk delete bypasses `orphanRemoval`, so entity-level cascade configuration
+is not a substitute for either.
+
+Related ordering constraint: PR #124 (`feat/document-search`) has PR #123
+(`feat/document-tags`) as a git ancestor, so #123 merges first or #124 brings
+tags in with it.
+
+## Serialising `just e2e` does not protect a run — the shared php-fpm container does
+
+**Author:** Claude · **Type:** tooling · **Priority:** high · **Status:** pending
+
+Every worktree gets its own nginx sidecar but they all share **one** php-fpm
+container. So a sibling's `just ci`, `phpunit`, `bin/console` or scratch PHP
+script lands in the same container as an in-flight e2e run and starves it.
+Serialising e2e is therefore necessary but **not sufficient** — the resource
+that has to be quiet is the container, not the recipe.
+
+Observed cost: three consecutive e2e runs on one branch produced 11 failures
+that had nothing to do with the branch. The signature is always the same — a
+form POST that never returns inside Playwright's assertion window, submit
+button left **disabled**, form still populated, **no** validation error, and
+nothing in `dev.log`.
+
+**The discriminator is which specs fail, not how many.** Across those three
+runs the failing specs were *disjoint* (fixture/data-export/wizard/login, then
+forgot-password/signup/remember-me/social-login, then delete-account/wizard-
+skip). A real defect fails the same spec every time; contention moves around.
+Check that before investigating a branch.
+
+Both documented causes must be excluded before reaching for this one: count
+`Container` hashes in `var/cache/dev/` (more than one means a mid-run rebuild)
+and confirm a consumer is alive with `messenger_messages` empty. If both are
+clean and the failures are disjoint, it is contention.
+
+Worth automating: a lock that a gate run and an e2e run both have to take, so
+this is enforced rather than remembered. Until then it has to be coordinated by
+hand, which does not survive parallel agents. See `docs/AUTOMATIONS.md`.
+
+## Host `pkill` does not kill a process inside the php-fpm container
+
+**Author:** Claude · **Type:** tooling · **Priority:** medium · **Status:** pending
+
+`bin/worktrees/compose-exec.sh` ends in `exec docker compose exec … php-fpm
+"$@"`, so a host-side `pkill -f <script>` matches only the **client** process.
+The container has a separate PID namespace — on macOS, a separate VM entirely —
+so the real process keeps running, orphaned and invisible to the host process
+table, until it completes on its own.
+
+This is how a runaway scratch script consumed 26+ CPU-minutes while its author
+believed it had been killed, starving concurrent e2e runs the whole time. The
+symptom is deceptive: `ps` on the host shows nothing, so the container looks
+quiet when it is not.
+
+Kill container work from inside the container:
+
+```sh
+docker compose exec php-fpm pkill -f <script>
+```
+
+And check for it the same way — `docker exec <project>-php-fpm-1 ps aux` — since
+a host-side check will report a quiet container that is fully loaded.
+
 ## Dashboard document search + status/tag filtering
 
 
@@ -258,8 +362,6 @@ nothing still `Pending`.
 
 ## CSP is report-only until inline scripts carry nonces
 
-
-
 **Author:** Claude · **Type:** security · **Priority:** medium · **Status:** pending
 
 `config/packages/nelmio_security.yaml` sends the policy under `report` rather
@@ -268,10 +370,27 @@ per-request nonces on the inline scripts (importmap, theme styles) — Nelmio's
 `csp_nonce()` Twig helper — because `script-src` currently relies on
 `'unsafe-inline'`.
 
+Note also that `NelmioSecurityBundle` is registered **prod-only** in
+`config/bundles.php`, so no policy is sent in dev or test at all. Any
+verification that a policy blocks something must run against a prod-like
+build; a dev-environment check will show no CSP header and prove nothing.
+
 Also revisit the allowlist when flipping it: `connect-src` does not include the
 Mercure hub origin. That is fine today (browser-side Mercure turbo streams are
 disabled in `assets/controllers.json`; the only subscriber is the Go bridge,
 which CSP does not govern), but enabling browser SSE would need it added.
+
+**Do not treat this flip as a mitigation for markup-injection findings.** A
+review of the Markdown sanitizer produced an attack where a `class` attribute
+on document-supplied `<code>` selected the app's own compiled stylesheet rules
+to paint a full-screen phishing overlay. An enforcing CSP would not have
+stopped it: CSP governs neither `class` attributes nor which of the app's own
+rules apply, and `style-src 'self'` permits exactly the stylesheet the payload
+used. The mitigation for that class of attack is restricting what the
+sanitizer admits — which is what the sanitizer work did, by constraining
+`class` on `<code>` to a `language-*` allowlist. Flipping the CSP is worth
+doing on its own merits; it buys script-injection defence, not markup-shaped
+attacks that stay inside the app's own CSS.
 
 ## Site-review bridge CLI (`cli/`): polish before shipping
 
@@ -2417,6 +2536,31 @@ the reply without inventing an identity. Attribution stays on the singleton user
 and provenance rides beside it. Related: 'No audit trail distinguishes
 agent-written state from human action'.
 
+## `just phpstan` runs out of memory in a worktree, and the crash does not say so
+
+**Author:** Claude · **Type:** tooling · **Priority:** medium · **Status:** pending
+
+`just phpstan` runs `vendor/bin/phpstan analyse -a worktree-bootstrap.php` with no
+`--memory-limit`, so it inherits the container's 128M default. In a worktree with
+a stale or cold `var/cache/dev` it exhausts that and dies with **exit code 255**
+and a `DebugClassLoader` stack trace ending somewhere in `symfony/var-dumper`.
+
+The failure reads like a real analysis error. It is not: the same tree analyses
+clean at `--memory-limit=1G`. Three separate agents hit this in one session and
+each spent time treating it as a defect in their own branch before recognising
+it, which is the actual cost.
+
+Two things would fix it, and they are not exclusive:
+
+- Pass an explicit `--memory-limit` in the `phpstan` recipe, so the limit is a
+  project decision rather than whatever the container defaults to.
+- Note in the recipe or in `project-worktrees` that an exit-255 phpstan crash
+  with a `DebugClassLoader` trace means memory, and that clearing
+  `var/cache/dev` and re-warming usually resolves it.
+
+Related symptom, same cause: `bin/console cache:warmup` has also OOM'd at 128M
+while compiling Twig in a worktree, twice, with no template change involved.
+
 ## No MCP read path returns a single document's tags
 
 **Author:** Claude · **Type:** feature · **Priority:** medium · **Status:** pending
@@ -2519,6 +2663,46 @@ whitelisting them by hand. Verify `admin-badge-off` against the admin bundle's
 compiled assets before removing it — the scan covered that bundle's templates
 and CSS, but a class applied from bundle JavaScript would not show up.
 
+## There is no JavaScript test harness, and the JS is no longer trivial
+
+**Author:** Geoffrey · **Type:** tooling · **Priority:** medium · **Status:** pending
+
+`package.json` carries `eslint`, `prettier` and Tailwind and nothing else — no
+test runner, no DOM environment, no `test` script. The only way to execute any
+JavaScript in this project is Playwright, which needs a booted app, a database
+and a mail catcher, and costs minutes.
+
+That was proportionate when the front end was a handful of small Stimulus
+controllers. It is not any more: `assets/controllers/comment_anchor_controller.js`
+is ~500 lines carrying the selection capture, the anchor extraction and the
+highlight painting that document review depends on, and
+`public/site-review/widget.js` is ~1600 lines that ships to other people's sites.
+
+Two consequences already visible:
+
+- **Real bugs reach review with no way to write a failing test.** A review of the
+  strike shortcut found two: a stale `pendingSelection` could be struck after the
+  user clicked the selection away, and keyboard auto-repeat submitted duplicate
+  strikes. Both are pure controller-state bugs, reachable in a browser in
+  seconds, and neither was expressible except as an e2e spec.
+- **The fallback is source-content assertions.** `WidgetFileTest` and the newer
+  strike-guard test read the JS as *text* and assert a guard appears in it. They
+  catch a deletion and nothing else — not a reintroduction elsewhere, not wrong
+  behaviour, not a regression in a path the string still matches.
+
+What a harness would buy, concretely: `#findRange`'s ranking is a pure function
+over a string and three anchor fields and could be tested directly rather than
+through a browser; `#extractAnchor`'s offsets are the browser half of the
+anchoring contract that PHP currently asserts alone; and the widget's fatal-state
+transitions are a state machine currently covered only by whole-app e2e specs.
+
+Worth deciding together with "Ship a minified site-review widget", since that
+entry introduces a build step for the same file and the two share tooling. The
+open questions are which runner (vitest is the obvious default given no bundler
+is present), whether the widget's tests run against source or the minified
+artefact, and whether `just ci` gains a leg or it stays opt-in until the suite
+earns its place.
+
 ## `site_review_get` reveals whether a site name exists
 
 **Author:** Claude · **Type:** security · **Priority:** low · **Status:** pending
@@ -2547,9 +2731,53 @@ astral-plane character costs one unit on the server and two in the browser. The
 observable effect is limited: no offset crosses the wire, so this only shifts
 the 32-character context window and the 8-character fingerprint by a character
 or two, which at worst reranks two occurrences of a repeated quote differently
-on the two sides. A real fix means counting UTF-16 units on the PHP side (or
-normalising astral characters out of the basis). Not worth doing until a
-document with emoji actually mis-highlights.
+on the two sides.
+
+**Fix the browser, not the server** (owner decision, 2026-08-02, deferred rather
+than declined). Making PHP count UTF-16 units is the expensive direction: PHP has
+no native UTF-16 length, so every window slice would need a conversion or a
+surrogate count, inside the context-scoring path that was deliberately moved back
+to byte-space search precisely because `mb_*` slicing made resolution quadratic —
+6.4 seconds on a 205 KB document before that fix. JavaScript can iterate
+codepoints for nothing (`Array.from`, or spread), so changing `#extractAnchor`
+and `#findRange` to slice by codepoint costs no server time and makes both sides
+agree completely, closing this entry rather than narrowing it.
+
+Wave C already edits that controller for strike, suggest and agent highlights, so
+that is the natural moment.
+
+## Nothing tests the anchor capture path from browser to database
+
+**Author:** Claude · **Type:** tooling · **Priority:** medium · **Status:** pending
+
+Every anchoring test builds an `Anchor` object by hand and hands it straight to
+`AnchorService` or `ReanchoringService`. Nothing exercises the path the data
+actually travels: a DOM selection in `comment_anchor_controller.js`, three hidden
+form fields, `AddCommentFormType`, `AddCommentRequest`, `AddCommentHandler`, then
+the row. Every test therefore starts from data that is already correct by
+construction, which is exactly the shape that cannot catch corruption occurring
+*before* the service sees it.
+
+That is not hypothetical — it is how one bug survived from the feature shipping
+until 2026-08-02. Symfony's form `trim` option defaults to `true` and
+`HiddenType` inherits it, so the boundary whitespace was being stripped off every
+captured `prefix` and `suffix`. `contextScore()` compares the last 8 characters
+of the stored prefix against the document: the document reads `…ains a ` before a
+quote and the trimmed fingerprint was `…ins a`, which can never match. Context
+disambiguation had been silently scoring zero and falling back to
+earliest-position for every selection whose neighbouring character is whitespace
+— which is nearly all of them. The whole unit suite passed throughout.
+
+Two things worth doing, and the second is cheap:
+
+- Add tests that bind through the real Form component rather than constructing
+  the DTO. Two now exist in `AddCommentHandlerTest` (the ones that caught the
+  trim), but as specific regressions rather than as coverage of the path.
+- Have `e2e/tests/review/review-loop.spec.ts` assert the stored **prefix and
+  suffix** through `/dev/review/{id}/state`, not only the quote. That run caught
+  the trim bug only by luck: word-edge snapping happened to make the corruption
+  visible in the one field the spec already asserted. Had snapping not shipped in
+  the same branch, the suite would still be green and the anchors still wrong.
 
 ## `comments.anchor_offset_hint` changed units with no backfill
 
