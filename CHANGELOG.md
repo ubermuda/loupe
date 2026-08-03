@@ -16,6 +16,28 @@ file alone. Each entry is tagged `Added` / `Changed` / `Removed` / `Fixed`.
 
 ## [Unreleased]
 
+- `633a6d7` — **Added:** `document_set_references` MCP tool, which replaces the
+  set of documents a document points at without minting a version. References
+  are document-scoped — a ManyToMany over `document_references`, with no version
+  coupling — but the only way to write them was `document_create` and
+  `document_revise`, and revising mints a version, re-anchors open comments and
+  drops every highlight. That was a disproportionate price for linking two
+  documents that already exist, and it left references as the odd one out beside
+  `document_rename` and `document_set_tags`, which both mutate document-level
+  metadata without versioning. Semantics mirror `document_set_tags`: the whole
+  set is replaced and an empty list clears it. Authorization goes through
+  `ReviewSubjectResolver::requireReferences()` — `DOCUMENT_WRITE` on the source,
+  only `DOCUMENT_READ` on each target, because pointing at a document is not a
+  write to it, though the grant is still what keeps a reference inside the
+  token's project. Reference writing had no command+handler pair of its own (it
+  lived inline in `CreateDocumentHandler` and `ReviseDocumentHandler`), so
+  `SetDocumentReferencesHandler` reuses the shared `DocumentReferenceValidator`
+  and validates before clearing the collection, leaving a rejected set with the
+  document pointing where it did. The `references` parameter is declared
+  `array<string>` rather than `list<string>`, which the SDK publishes as an
+  untyped `items: {}`. The `docs/NEXT_STEPS.md` entry recording the gap is
+  deleted in the same commit; `a515c62` rewrites the cross-reference that
+  pointed at it.
 - `afebc8e` — **Added:** `document_archive` and `document_unarchive` MCP tools.
   Archiving had been kept out of the MCP surface on purpose — it decides which
   documents a reviewer sees by default, so an agent that can archive can take
