@@ -42,6 +42,30 @@ class Document
     #[ORM\OrderBy(['versionNumber' => 'ASC'])]
     public Collection $versions;
 
+    /**
+     * The documents this one points at. A reference targets the document rather
+     * than one of its versions, so it keeps resolving — to whatever is current —
+     * once the target is revised.
+     *
+     * @var Collection<int, self>
+     */
+    #[ORM\InverseJoinColumn(name: 'target_document_id', nullable: false)]
+    #[ORM\JoinColumn(name: 'source_document_id', nullable: false)]
+    #[ORM\JoinTable(name: 'document_references')]
+    #[ORM\ManyToMany(targetEntity: self::class, inversedBy: 'referencedBy')]
+    #[ORM\OrderBy(['createdAt' => 'ASC', 'id' => 'ASC'])]
+    public Collection $references;
+
+    /**
+     * Derived from the owning side above — nothing writes it. Both ends of a
+     * reference are navigable while only one row exists to keep in step.
+     *
+     * @var Collection<int, self>
+     */
+    #[ORM\ManyToMany(targetEntity: self::class, mappedBy: 'references')]
+    #[ORM\OrderBy(['createdAt' => 'ASC', 'id' => 'ASC'])]
+    public Collection $referencedBy;
+
     public function __construct(
         #[ORM\JoinColumn(nullable: false)]
         #[ORM\ManyToOne(targetEntity: User::class)]
@@ -58,6 +82,8 @@ class Document
         public readonly \DateTimeImmutable $createdAt = new \DateTimeImmutable(),
     ) {
         $this->versions = new ArrayCollection();
+        $this->references = new ArrayCollection();
+        $this->referencedBy = new ArrayCollection();
     }
 
     public function addVersion(string $markdown, string $renderedHtml, ?string $description = null): DocumentVersion

@@ -56,6 +56,16 @@ final class DocumentReviseToolTest extends KernelTestCase
         return $document;
     }
 
+    private function documentIn(Project $project, string $title): Document
+    {
+        $document = new Document(owner: $project->owner, project: $project, title: $title);
+        $document->addVersion('# Original', '<h1>Original</h1>');
+        $this->em->persist($document);
+        $this->em->flush();
+
+        return $document;
+    }
+
     public function test_revises_a_document_of_the_bound_project(): void
     {
         $owner = $this->user('revise-bound@example.com');
@@ -127,6 +137,117 @@ final class DocumentReviseToolTest extends KernelTestCase
         $this->expectException(ToolCallException::class);
         $this->expectExceptionMessage('A document title must not be blank.');
         ($this->tool)((string) $document->id, '# Revised', 'Tightened the wording.', '   ');
+    }
+
+    public function test_a_reference_list_replaces_the_whole_set(): void
+    {
+        $owner = $this->user('revise-references@example.com');
+        $document = $this->documentInNewProject($owner, 'Thread');
+        $first = $this->documentIn($document->project, 'Post one');
+        $second = $this->documentIn($document->project, 'Post two');
+
+        $this->actAsMcpTokenBoundTo($document->project);
+
+        ($this->tool)((string) $document->id, '# One', 'Pointed at post one.', null, [(string) $first->id]);
+        self::assertSame(['Post one'], $this->referenceTitles($document));
+
+        ($this->tool)((string) $document->id, '# Two', 'Repointed at post two.', null, [(string) $second->id]);
+        self::assertSame(['Post two'], $this->referenceTitles($document));
+    }
+
+    public function test_omitting_references_keeps_them_and_an_empty_list_clears_them(): void
+    {
+        $owner = $this->user('revise-ref-keep@example.com');
+        $document = $this->documentInNewProject($owner, 'Thread');
+        $target = $this->documentIn($document->project, 'The post');
+
+        $this->actAsMcpTokenBoundTo($document->project);
+
+        ($this->tool)((string) $document->id, '# One', 'Linked the post.', null, [(string) $target->id]);
+        ($this->tool)((string) $document->id, '# Two', 'Tightened the wording.');
+        self::assertSame(['The post'], $this->referenceTitles($document));
+
+        ($this->tool)((string) $document->id, '# Three', 'Dropped the link.', null, []);
+        self::assertSame([], $this->referenceTitles($document));
+    }
+
+    public function test_the_same_reference_twice_is_one_link(): void
+    {
+        $owner = $this->user('revise-ref-dupe@example.com');
+        $document = $this->documentInNewProject($owner, 'Thread');
+        $target = $this->documentIn($document->project, 'The post');
+
+        $this->actAsMcpTokenBoundTo($document->project);
+
+        ($this->tool)((string) $document->id, '# One', 'Linked the post.', null, [(string) $target->id, (string) $target->id]);
+
+        self::assertSame(['The post'], $this->referenceTitles($document));
+    }
+
+    public function test_a_reference_to_an_archived_document_is_kept(): void
+    {
+        $owner = $this->user('revise-ref-arch@example.com');
+        $document = $this->documentInNewProject($owner, 'Thread');
+        $target = $this->documentIn($document->project, 'The retired spec');
+        $target->archivedAt = new \DateTimeImmutable();
+        $this->em->flush();
+
+        $this->actAsMcpTokenBoundTo($document->project);
+
+        ($this->tool)((string) $document->id, '# One', 'Linked the retired spec.', null, [(string) $target->id]);
+
+        self::assertSame(['The retired spec'], $this->referenceTitles($document));
+    }
+
+    public function test_a_self_reference_is_rejected(): void
+    {
+        $owner = $this->user('revise-self-ref@example.com');
+        $document = $this->documentInNewProject($owner, 'Thread');
+
+        $this->actAsMcpTokenBoundTo($document->project);
+
+        try {
+            ($this->tool)((string) $document->id, '# One', 'Pointed at myself.', null, [(string) $document->id]);
+            self::fail('a self-reference must throw');
+        } catch (ToolCallException $e) {
+            self::assertSame('A document cannot reference itself.', $e->getMessage());
+        }
+
+        // Rejected outright: the revision itself did not land either.
+        self::assertSame('# Original', $document->currentVersion()->markdownSource);
+    }
+
+    public function test_a_reference_to_another_projects_document_is_rejected(): void
+    {
+        $owner = $this->user('revise-xref@example.com');
+        $document = $this->documentInNewProject($owner, 'Thread');
+        $foreign = $this->documentInNewProject($owner, 'Elsewhere');
+
+        $this->actAsMcpTokenBoundTo($document->project);
+
+        try {
+            ($this->tool)((string) $document->id, '# One', 'Pointed across projects.', null, [(string) $foreign->id]);
+            self::fail('referencing another project\'s document must throw');
+        } catch (ToolCallException $e) {
+            self::assertStringContainsString('not found or not accessible', $e->getMessage());
+        }
+
+        self::assertSame([], $this->referenceTitles($document));
+        self::assertSame('# Original', $document->currentVersion()->markdownSource);
+    }
+
+    /**
+     * Read back from the join table rather than the in-memory collection, so a
+     * set that was only ever mutated in memory cannot pass as a stored one.
+     *
+     * @return list<string>
+     */
+    private function referenceTitles(Document $document): array
+    {
+        return array_map(strval(...), $this->em->getConnection()->fetchFirstColumn(
+            'SELECT d.title FROM document_references r JOIN documents d ON r.target_document_id = d.id WHERE r.source_document_id = :id ORDER BY d.title',
+            ['id' => (string) $document->id],
+        ));
     }
 
     public function test_cannot_revise_a_document_of_another_project_of_the_same_owner(): void

@@ -135,6 +135,7 @@ final class DeleteAccountHandlerTest extends KernelTestCase
         // else — is gone too.
         self::assertSame(0, (int) $conn->fetchOne('SELECT count(*) FROM documents WHERE id = :id', ['id' => (string) $fixture['foreignDocumentId']]));
         self::assertSame(0, (int) $conn->fetchOne('SELECT count(*) FROM comments WHERE id = :id', ['id' => (string) $fixture['foreignDocumentCommentId']]));
+        self::assertSame(0, (int) $conn->fetchOne('SELECT count(*) FROM document_references WHERE target_document_id = :id', ['id' => (string) $fixture['foreignDocumentId']]));
 
         // Two of the owner's own projects were both fully torn down.
         foreach (['doomedProject1Id', 'doomedProject2Id'] as $key) {
@@ -301,6 +302,11 @@ final class DeleteAccountHandlerTest extends KernelTestCase
         $foreignVersion = $foreignDocument->addVersion('# Foreign', '<h1>Foreign</h1>');
         $foreignDocumentComment = new Comment(version: $foreignVersion, author: $other, body: 'other user comments on it', anchor: Anchor::unanchored());
         $em->persist($foreignDocumentComment);
+
+        // A surviving document pointing AT the doomed one: only the incoming
+        // half of the join-table cleanup can clear this, and without it the
+        // delete fails on the foreign key.
+        $otherDocument->references->add($foreignDocument);
 
         // A loose API token not bound to any project's widget/mcp slots.
         [$looseToken] = ApiToken::issue($owner, 'loose-token', ApiTokenScope::Mcp);

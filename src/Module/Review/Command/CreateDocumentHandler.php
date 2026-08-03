@@ -21,6 +21,13 @@ final readonly class CreateDocumentHandler
         $document = new Document(owner: $command->project->owner, project: $command->project, title: $command->title);
         $document->addVersion($command->markdown, $this->renderer->render($command->markdown), $command->description);
 
+        foreach ($command->references as $reference) {
+            // The same id twice is the same link, not a second one.
+            if (!$document->references->contains($reference)) {
+                $document->references->add($reference);
+            }
+        }
+
         $this->em->persist($document);
         $this->em->flush();
 

@@ -53,6 +53,7 @@ final class ProjectDeleterTest extends KernelTestCase
             'comments' => 'SELECT count(*) FROM comments c JOIN document_versions v ON c.version_id = v.id JOIN documents d ON v.document_id = d.id WHERE d.project_id = :id',
             'reviews' => 'SELECT count(*) FROM reviews rv JOIN document_versions v ON rv.version_id = v.id JOIN documents d ON v.document_id = d.id WHERE d.project_id = :id',
             'document_versions' => 'SELECT count(*) FROM document_versions v JOIN documents d ON v.document_id = d.id WHERE d.project_id = :id',
+            'document_references' => 'SELECT count(*) FROM document_references r JOIN documents d ON r.source_document_id = d.id WHERE d.project_id = :id',
             'documents' => 'SELECT count(*) FROM documents WHERE project_id = :id',
         ] as $table => $sql) {
             self::assertSame(0, (int) $conn->fetchOne($sql, ['id' => (string) $doomedId]), sprintf('orphans left in %s', $table));
@@ -66,7 +67,8 @@ final class ProjectDeleterTest extends KernelTestCase
         // The sibling project and its whole graph survive.
         $spared = $em->find(Project::class, $sparedId);
         self::assertNotNull($spared);
-        self::assertSame(1, (int) $conn->fetchOne('SELECT count(*) FROM documents WHERE project_id = :id', ['id' => (string) $sparedId]));
+        self::assertSame(2, (int) $conn->fetchOne('SELECT count(*) FROM documents WHERE project_id = :id', ['id' => (string) $sparedId]));
+        self::assertSame(1, (int) $conn->fetchOne('SELECT count(*) FROM document_references r JOIN documents d ON r.source_document_id = d.id WHERE d.project_id = :id', ['id' => (string) $sparedId]));
         self::assertSame(1, (int) $conn->fetchOne('SELECT count(*) FROM site_review_comments WHERE project_id = :id', ['id' => (string) $sparedId]));
         self::assertSame(1, (int) $conn->fetchOne('SELECT count(*) FROM site_review_events WHERE project_id = :id', ['id' => (string) $sparedId]));
         self::assertNotNull($spared->widgetToken);
@@ -104,7 +106,7 @@ final class ProjectDeleterTest extends KernelTestCase
 
         self::assertNotNull($em->find(Project::class, $projectId));
         $conn = $em->getConnection();
-        self::assertSame(1, (int) $conn->fetchOne('SELECT count(*) FROM documents WHERE project_id = :id', ['id' => (string) $projectId]));
+        self::assertSame(2, (int) $conn->fetchOne('SELECT count(*) FROM documents WHERE project_id = :id', ['id' => (string) $projectId]));
         self::assertSame(1, (int) $conn->fetchOne('SELECT count(*) FROM site_review_comments WHERE project_id = :id', ['id' => (string) $projectId]));
     }
 
@@ -128,6 +130,12 @@ final class ProjectDeleterTest extends KernelTestCase
 
         $document = new Document(owner: $owner, project: $project, title: $slug.' doc');
         $em->persist($document);
+        // A referenced document too: document_references rows point at documents
+        // from both ends, so the join table has to go before either row does.
+        $referenced = new Document(owner: $owner, project: $project, title: $slug.' referenced doc');
+        $referenced->addVersion('# Referenced', '<h1>Referenced</h1>');
+        $em->persist($referenced);
+        $document->references->add($referenced);
         $version = $document->addVersion('# Hi', '<h1>Hi</h1>');
         $parent = new Comment(version: $version, author: $owner, body: 'root', anchor: Anchor::unanchored());
         $em->persist($parent);

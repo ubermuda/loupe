@@ -50,6 +50,15 @@ final readonly class ReviseDocumentHandler
             }
         }
 
+        foreach ($command->references ?? [] as $reference) {
+            // Rejected rather than dropped: a document pointing at itself says
+            // nothing, and an author who passed the wrong id learns that here
+            // instead of wondering why one reference never appeared.
+            if ($reference === $document) {
+                throw new DomainErrors(['references' => 'review.revise.error.self_reference']);
+            }
+        }
+
         return $this->em->wrapInTransaction(function () use ($document, $command, $description, $title): array {
             // Locks the documents row before anything reads $document->versions, so two
             // concurrent revisions of the same document serialize here instead of both
@@ -72,6 +81,17 @@ final readonly class ReviseDocumentHandler
             // the current one" rather than "clear it".
             if (null !== $title) {
                 $document->title = $title;
+            }
+
+            // A list replaces the whole set, so leaving it out is the only way to
+            // keep the current references — an empty list is how they are cleared.
+            if (null !== $command->references) {
+                $document->references->clear();
+                foreach ($command->references as $reference) {
+                    if (!$document->references->contains($reference)) {
+                        $document->references->add($reference);
+                    }
+                }
             }
 
             // Collect all open (unresolved) comments from the previous version. Orphaned-but-

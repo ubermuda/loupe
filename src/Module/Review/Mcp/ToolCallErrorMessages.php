@@ -26,6 +26,7 @@ final readonly class ToolCallErrorMessages
             'review.rename.error.blank' => 'A document title must not be blank.',
             'review.rename.error.too_long' => \sprintf('A document title must be at most %d characters.', Document::MAX_TITLE_LENGTH),
             'review.revise.error.description_blank' => 'A description of what changed in this version is required.',
+            'review.revise.error.self_reference' => 'A document cannot reference itself.',
             default => 'The request was rejected. The error has been logged.',
         }, previous: $errors);
     }

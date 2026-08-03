@@ -83,6 +83,38 @@
                     {% endfor %}
                 </nav>
                 {% endif %}
+
+                {# Both directions, from the one stored link: what this document
+                   points at, and what points at it. An archived target keeps its
+                   link — archiving hides a document from the list, not from the
+                   documents that reference it — and says so. #}
+                {% if document.references|length > 0 or document.referencedBy|length > 0 %}
+                <div class="lp-doc-references">
+                    {% for group in [
+                        {label: 'review.document.references.outgoing', documents: document.references},
+                        {label: 'review.document.references.incoming', documents: document.referencedBy},
+                    ] %}
+                        {% if group.documents|length > 0 %}
+                        <div class="lp-doc-references__group">
+                            <span class="lp-doc-references__label">{{ group.label|trans }}</span>
+                            <ul class="lp-doc-references__list">
+                                {% for reference in group.documents %}
+                                <li class="lp-doc-references__item">
+                                    <a class="lp-doc-references__link" href="{{ path('app_document_review', {projectId: reference.project.id, documentId: reference.id}) }}">
+                                        <twig:ux:icon name="lucide:link" class="w-3.5 h-3.5 shrink-0" />
+                                        {{ reference.title }}
+                                    </a>
+                                    {% if reference.archivedAt %}
+                                    <span class="lp-doc-references__archived">{{ 'review.document.references.archived'|trans }}</span>
+                                    {% endif %}
+                                </li>
+                                {% endfor %}
+                            </ul>
+                        </div>
+                        {% endif %}
+                    {% endfor %}
+                </div>
+                {% endif %}
             </div>
 
             <div class="prose max-w-2xl lp-prose lp-review-doc__prose" data-comment-anchor-target="doc">{{ version.renderedHtml|raw }}</div>
