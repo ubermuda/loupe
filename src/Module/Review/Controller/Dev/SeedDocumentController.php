@@ -52,7 +52,7 @@ final class SeedDocumentController extends AppController
             $this->em->flush();
         }
 
-        $document = ($this->createDocument)(new CreateDocumentCommand($project, $title, $markdown));
+        $document = ($this->createDocument)(new CreateDocumentCommand(project: $project, title: $title, markdown: $markdown));
 
         return $this->json([
             'documentId' => (string) $document->id,

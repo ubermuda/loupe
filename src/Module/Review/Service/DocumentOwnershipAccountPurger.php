@@ -16,11 +16,15 @@ use Doctrine\ORM\EntityManagerInterface;
  * document would otherwise block the user delete.
  *
  * Same FK-safe order as ProjectDeleter's own document-subtree cleanup
- * (reviews, comments, highlights, versions, then the document), keyed on
- * document ownership instead of the project. Every table with a FK onto
- * document_versions must be listed here: the constraints are NOT DEFERRABLE, so
- * one missing statement turns account deletion into a 500 rather than a silent
- * orphan.
+ * (reviews, comments, highlights, versions, references, then the document),
+ * keyed on document ownership instead of the project. Every table with a FK
+ * onto document_versions or documents must be listed here: the constraints are
+ * NOT DEFERRABLE, so one missing statement turns account deletion into a 500
+ * rather than a silent orphan.
+ *
+ * Two chains, not one list — what hangs off document_versions precedes it, what
+ * hangs off documents precedes that. A new table put in the wrong chain still
+ * reads plausibly and fails only at runtime.
  */
 final readonly class DocumentOwnershipAccountPurger implements AccountDataPurgerInterface
 {
@@ -55,6 +59,13 @@ final readonly class DocumentOwnershipAccountPurger implements AccountDataPurger
         );
         $conn->executeStatement(
             'DELETE FROM document_versions WHERE document_id IN (SELECT id FROM documents WHERE owner_id = :id)',
+            ['id' => $id],
+        );
+        // Both ends, not just the outgoing one: documents are deleted by owner
+        // here, so a document belonging to someone else may point at one of these.
+        $conn->executeStatement(
+            'DELETE FROM document_references WHERE source_document_id IN (SELECT id FROM documents WHERE owner_id = :id)
+                OR target_document_id IN (SELECT id FROM documents WHERE owner_id = :id)',
             ['id' => $id],
         );
         $conn->executeStatement('DELETE FROM documents WHERE owner_id = :id', ['id' => $id]);

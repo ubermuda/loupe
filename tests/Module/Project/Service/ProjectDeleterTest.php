@@ -39,6 +39,16 @@ final class ProjectDeleterTest extends KernelTestCase
         $doomedMcpTokenId = $doomed->mcpToken->id ?? throw new \LogicException('mcp token seeded');
         $em->clear();
 
+        // Captured before the delete: once the documents are gone, a join-table
+        // count reached through them can no longer fail, so the id is what makes
+        // the assertion below able to catch a surviving reference row.
+        $conn = $em->getConnection();
+        $doomedReferenceSourceId = (string) $conn->fetchOne(
+            'SELECT r.source_document_id FROM document_references r JOIN documents d ON r.source_document_id = d.id WHERE d.project_id = :id',
+            ['id' => (string) $doomedId],
+        );
+        self::assertNotSame('', $doomedReferenceSourceId);
+
         $doomed = $em->find(Project::class, $doomedId);
         self::assertNotNull($doomed);
         $deleter = self::getContainer()->get(ProjectDeleter::class);
@@ -47,7 +57,10 @@ final class ProjectDeleterTest extends KernelTestCase
         $em->clear();
 
         self::assertNull($em->find(Project::class, $doomedId));
-        $conn = $em->getConnection();
+        self::assertSame(0, (int) $conn->fetchOne(
+            'SELECT count(*) FROM document_references WHERE source_document_id = :id',
+            ['id' => $doomedReferenceSourceId],
+        ));
         foreach ([
             'site_review_events' => 'SELECT count(*) FROM site_review_events WHERE project_id = :id',
             'site_review_comments' => 'SELECT count(*) FROM site_review_comments WHERE project_id = :id',
@@ -68,7 +81,8 @@ final class ProjectDeleterTest extends KernelTestCase
         // The sibling project and its whole graph survive.
         $spared = $em->find(Project::class, $sparedId);
         self::assertNotNull($spared);
-        self::assertSame(1, (int) $conn->fetchOne('SELECT count(*) FROM documents WHERE project_id = :id', ['id' => (string) $sparedId]));
+        self::assertSame(2, (int) $conn->fetchOne('SELECT count(*) FROM documents WHERE project_id = :id', ['id' => (string) $sparedId]));
+        self::assertSame(1, (int) $conn->fetchOne('SELECT count(*) FROM document_references r JOIN documents d ON r.source_document_id = d.id WHERE d.project_id = :id', ['id' => (string) $sparedId]));
         self::assertSame(1, (int) $conn->fetchOne('SELECT count(*) FROM site_review_comments WHERE project_id = :id', ['id' => (string) $sparedId]));
         self::assertSame(1, (int) $conn->fetchOne('SELECT count(*) FROM site_review_events WHERE project_id = :id', ['id' => (string) $sparedId]));
         self::assertNotNull($spared->widgetToken);
@@ -106,7 +120,7 @@ final class ProjectDeleterTest extends KernelTestCase
 
         self::assertNotNull($em->find(Project::class, $projectId));
         $conn = $em->getConnection();
-        self::assertSame(1, (int) $conn->fetchOne('SELECT count(*) FROM documents WHERE project_id = :id', ['id' => (string) $projectId]));
+        self::assertSame(2, (int) $conn->fetchOne('SELECT count(*) FROM documents WHERE project_id = :id', ['id' => (string) $projectId]));
         self::assertSame(1, (int) $conn->fetchOne('SELECT count(*) FROM site_review_comments WHERE project_id = :id', ['id' => (string) $projectId]));
     }
 
@@ -130,6 +144,12 @@ final class ProjectDeleterTest extends KernelTestCase
 
         $document = new Document(owner: $owner, project: $project, title: $slug.' doc');
         $em->persist($document);
+        // A referenced document too: document_references rows point at documents
+        // from both ends, so the join table has to go before either row does.
+        $referenced = new Document(owner: $owner, project: $project, title: $slug.' referenced doc');
+        $referenced->addVersion('# Referenced', '<h1>Referenced</h1>');
+        $em->persist($referenced);
+        $document->references->add($referenced);
         $version = $document->addVersion('# Hi', '<h1>Hi</h1>');
         $parent = new Comment(version: $version, author: $owner, body: 'root', anchor: Anchor::unanchored());
         $em->persist($parent);

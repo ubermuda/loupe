@@ -622,6 +622,109 @@ final class ShowDocumentControllerTest extends WebTestCase
         self::assertCount(0, $crawler->filter('.lp-review-contents'));
     }
 
+    public function test_both_ends_of_a_reference_render_it_and_an_archived_target_is_marked(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+
+        $owner = $this->createUser($em, 'owner-refs', 'owner-refs@example.com');
+        $project = $this->project($em, $owner);
+
+        $target = new Document(owner: $owner, project: $project, title: 'The Retired Spec');
+        $target->addVersion('# Spec', '<h1>Spec</h1>');
+        // Archiving takes a document out of the list, not out of the documents
+        // that point at it — the link stays, and says the target is archived.
+        $target->archivedAt = new \DateTimeImmutable();
+        $em->persist($target);
+
+        $source = new Document(owner: $owner, project: $project, title: 'The Companion Thread');
+        $source->addVersion('# Thread', '<h1>Thread</h1>');
+        $source->references->add($target);
+        $em->persist($source);
+        $em->flush();
+
+        $projectId = (string) $project->id;
+        $sourceId = (string) $source->id;
+        $targetId = (string) $target->id;
+        $em->clear();
+
+        $client->loginUser($owner);
+
+        $crawler = $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/documents/'.$sourceId.'/review');
+        self::assertResponseIsSuccessful();
+        self::assertSelectorTextContains('.lp-doc-references', 'The Retired Spec');
+        self::assertCount(1, $crawler->filter('.lp-doc-references__archived'));
+        self::assertCount(
+            1,
+            $crawler->filter('.lp-doc-references__link[href="/projects/'.$projectId.'/documents/'.$targetId.'/review"]'),
+        );
+
+        // The same row, read from the other end.
+        $crawler = $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/documents/'.$targetId.'/review');
+        self::assertResponseIsSuccessful();
+        self::assertSelectorTextContains('.lp-doc-references', 'The Companion Thread');
+        self::assertCount(0, $crawler->filter('.lp-doc-references__archived'));
+    }
+
+    /**
+     * The contents panel and the reference list are separate features that landed
+     * in the same region of the document head, so one page has to render both.
+     */
+    public function test_the_contents_panel_and_the_reference_list_render_together(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+
+        $owner = $this->createUser($em, 'owner-both', 'owner-both@example.com');
+        $project = $this->project($em, $owner);
+
+        $target = new Document(owner: $owner, project: $project, title: 'The Spec');
+        $target->addVersion('# Spec', '<h1>Spec</h1>');
+        $em->persist($target);
+
+        $markdown = "## First\n\nBody.\n\n## Second\n\nMore.\n";
+        $source = new Document(owner: $owner, project: $project, title: 'Sectioned Companion');
+        $source->addVersion($markdown, new MarkdownRenderer()->render($markdown));
+        $source->references->add($target);
+        $em->persist($source);
+        $em->flush();
+
+        $projectId = (string) $project->id;
+        $sourceId = (string) $source->id;
+        $em->clear();
+
+        $client->loginUser($owner);
+        $crawler = $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/documents/'.$sourceId.'/review');
+
+        self::assertResponseIsSuccessful();
+        self::assertCount(2, $crawler->filter('.lp-review-contents__link'));
+        self::assertSelectorTextContains('.lp-doc-references', 'The Spec');
+    }
+
+    public function test_a_document_with_no_references_renders_no_reference_block(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+
+        $owner = $this->createUser($em, 'owner-norefs', 'owner-norefs@example.com');
+        $project = $this->project($em, $owner);
+
+        $doc = new Document(owner: $owner, project: $project, title: 'Standalone Doc');
+        $doc->addVersion('# v1', '<h1>v1</h1>');
+        $em->persist($doc);
+        $em->flush();
+
+        $projectId = (string) $project->id;
+        $id = (string) $doc->id;
+        $em->clear();
+
+        $client->loginUser($owner);
+        $crawler = $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/documents/'.$id.'/review');
+
+        self::assertResponseIsSuccessful();
+        self::assertCount(0, $crawler->filter('.lp-doc-references'));
+    }
+
     public function test_unauthenticated_user_is_redirected(): void
     {
         $client = static::createClient();

@@ -1048,6 +1048,30 @@
     .lp-version-entry__description {
         @apply text-fg-dim m-0 text-xs;
     }
+    .lp-doc-references {
+        @apply flex flex-col gap-2 mt-4;
+    }
+    .lp-doc-references__group {
+        @apply flex flex-col gap-1;
+    }
+    .lp-doc-references__label {
+        @apply font-mono uppercase tracking-wide text-fg-dim text-xs;
+    }
+    .lp-doc-references__list {
+        @apply flex flex-col gap-1 list-none m-0 p-0;
+    }
+    .lp-doc-references__item {
+        @apply flex items-center gap-2 text-sm;
+    }
+    .lp-doc-references__link {
+        @apply inline-flex items-center gap-1.5 text-fg-mute no-underline transition-colors hover:text-fg;
+    }
+    /* An archived target is still a live link, so the marker sits beside it
+       rather than dimming or dropping the row. */
+    .lp-doc-references__archived {
+        @apply inline-flex items-center rounded-full bg-surface-2 text-fg-dim text-xs py-0.5 px-2;
+    }
+
     /* Shown above an earlier version of a document, which is read-only: the
        composer, reply and verdict controls all act on the current version. */
     .lp-version-banner {

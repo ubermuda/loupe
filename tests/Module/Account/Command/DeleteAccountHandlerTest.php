@@ -140,6 +140,7 @@ final class DeleteAccountHandlerTest extends KernelTestCase
             'SELECT count(*) FROM document_highlights h JOIN document_versions v ON h.version_id = v.id WHERE v.document_id = :id',
             ['id' => (string) $fixture['foreignDocumentId']],
         ));
+        self::assertSame(0, (int) $conn->fetchOne('SELECT count(*) FROM document_references WHERE target_document_id = :id', ['id' => (string) $fixture['foreignDocumentId']]));
 
         // Two of the owner's own projects were both fully torn down.
         foreach (['doomedProject1Id', 'doomedProject2Id'] as $key) {
@@ -310,6 +311,11 @@ final class DeleteAccountHandlerTest extends KernelTestCase
         // a purger that forgets it fails the version delete outright, which is
         // the whole reason this owner-mismatch fixture exists.
         $em->persist(new Highlight(version: $foreignVersion, anchor: Anchor::unanchored()));
+
+        // A surviving document pointing AT the doomed one: only the incoming
+        // half of the join-table cleanup can clear this, and without it the
+        // delete fails on the foreign key.
+        $otherDocument->references->add($foreignDocument);
 
         // A loose API token not bound to any project's widget/mcp slots.
         [$looseToken] = ApiToken::issue($owner, 'loose-token', ApiTokenScope::Mcp);

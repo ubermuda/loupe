@@ -2966,3 +2966,54 @@ and where the choice is between a table of contents and stranded comments.
 What removes that choice is the re-anchoring pass described in "A renderer change
 that moves plainText needs a reanchor pass, not just a rerender": with it, an old
 version can be brought forward and its comments re-resolved in the same motion.
+
+## `list<T>` in an MCP tool docblock generates an untyped `items: {}`
+
+**Author:** Claude · **Type:** bug · **Priority:** low · **Status:** pending
+
+The schema generator in `mcp/sdk` reads `string[]` and `array<string>` and
+emits `{"type":"string"}` for the array's elements, but does not understand
+`list<string>` — that one produces `"items": {}`, so a client sees "an array
+of anything". `bin/console debug:mcp <tool>` prints the generated schema.
+
+`document_mark_comment_addressed` and `site_review_mark_comment_addressed`
+still declare `@param list<string> $commentIds` and are affected. The
+document-reference parameters were converted to `array<string>` when this was
+found; these two were left alone deliberately so the change is made on its
+own rather than inside an unrelated branch.
+
+It has not bitten yet — the tools validate each element themselves — but a
+client that schema-checks its arguments has nothing to check against.
+
+## A document's incoming references are stale in memory after a write
+
+**Author:** Claude · **Type:** bug · **Priority:** low · **Status:** pending
+
+`Document::$referencedBy` (`src/Module/Review/Entity/Document.php`) is the
+inverse side of the `document_references` join, so Doctrine fills it when the
+document is loaded and never when one is written. Adding to document A's
+`$references` does not appear in document B's `$referencedBy` for the rest of
+that request; it is correct again on the next load.
+
+Invisible today because nothing reads the inverse side in the same request
+that writes the owning side — the review page only ever reads. It becomes a
+real bug the moment a Turbo stream re-renders the target after a write, or
+`document_get` starts returning incoming links. The fix is to maintain both
+sides on write (an `addReference()` on the entity that appends to the target's
+`referencedBy` too), not to reload.
+
+## Referencing a document changes a page the referrer may not write to
+
+**Author:** Claude · **Type:** security · **Priority:** low · **Status:** pending
+
+Creating a reference requires `McpBoundProjectVoter::DOCUMENT_WRITE` on the
+source document and only `DOCUMENT_READ` on the target
+(`ReviewSubjectResolver::requireReferences()`), yet the target's rendered page
+visibly changes: its "Referenced by" list grows.
+
+Harmless while a project's documents share one owner, since read and write
+land on the same people. It becomes a graffiti vector the day a project has
+several users with differentiated grants — someone who may only read a
+document can still add a line to it. Requiring WRITE on the target is the
+wrong fix: it would break pointing at something you are allowed to read,
+which is the normal case. Revisit when per-document grants exist.
