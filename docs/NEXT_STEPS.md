@@ -3612,6 +3612,34 @@ Each will read as a broken promise to anyone reading in order. Decide whether
 the later posts are the same series or a second one, then fix the three
 closers to match that answer.
 
+## Enable and disable individual MCP tools per instance and per project
+
+**Author:** Geoffrey · **Type:** feature · **Priority:** medium · **Status:** pending
+
+The MCP surface is all-or-nothing today: a token that reaches the server can
+call every tool registered on it. A self-hosted operator has no way to withhold
+a tool across their whole instance, and no project can run with a narrower
+surface than its neighbours.
+
+Two levels, and they are different controls. **Instance** is the operator
+deciding which tools exist at all on their deployment — a policy switch, set
+once, applying to everyone on it. **Project** is narrowing that set further for
+one project's agents, which behaves more like a permission grant than a policy.
+
+What makes this concrete: the archive tools were withheld from the MCP surface
+entirely on 2026-08-02, on the reasoning that an agent able to archive can take
+its own work out of a reviewer's list — then added on 2026-08-03 when the
+capability proved genuinely useful for retiring duplicate uploads. A per-tool
+switch is what turns that into a setting rather than a one-way decision: the
+cautious posture stays available to whoever wants it, without denying the tool
+to everyone else. The same shape will recur for any tool that is useful to most
+projects and unwanted by some.
+
+Check the existing feature-flag bundle before building a second mechanism —
+flags already have an admin UI and are already how other capabilities are
+gated. The open question is whether a per-project override fits that model or
+needs its own storage.
+
 ## `comments.anchor_offset_hint` changed units with no backfill
 
 **Author:** Claude · **Type:** bug · **Priority:** low · **Status:** pending
