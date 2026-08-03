@@ -18,8 +18,8 @@ final readonly class ReanchoringService
      * Copies each open comment onto $newVersion, resolving its anchor against the new rendered HTML.
      * Comments whose quote still appears are "carried"; those that don't are "orphaned".
      *
-     * Parent references are remapped: if a comment's parent is also in $openComments, the copy's
-     * parent points to the copied parent (old → new mapping). Otherwise, parent is set to null.
+     * Parent references are remapped onto the copies: a reply's copy points at its parent's copy,
+     * and a root's copy keeps a null parent. Nothing outside $openComments is ever copied.
      *
      * @param list<Comment> $openComments
      *
@@ -59,8 +59,9 @@ final readonly class ReanchoringService
             return $oldToNew[$old];
         }
 
-        // Resolve parent: if the old parent is among the open comments being copied, map it.
-        // A root comment has no parent to map and keeps null.
+        // Map the parent onto its copy. The set handed in is thread-complete — a reply is open
+        // only while its root is — and the in_array guard keeps the copy inside it: a parent
+        // outside the set is left behind rather than dragged onto the new version.
         $newParent = null;
         if (null !== $old->parent && \in_array($old->parent, $openComments, true)) {
             $newParent = $this->copyComment($old->parent, $openComments, $oldToNew, $newVersion, $carried, $orphaned);

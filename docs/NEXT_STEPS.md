@@ -1100,8 +1100,8 @@ becomes considerably more useful once humans are producing versions too.
 **Author:** Geoffrey · **Type:** feature · **Priority:** medium · **Status:** pending
 
 Every review comment is untyped prose. `Module/Review/Entity/Comment` carries a
-free-text `body`, an `Anchor`, `resolved`/`orphaned` flags and an optional
-`parent` for replies — and nothing else. So "delete this paragraph" and "reword
+free-text `body`, an `Anchor`, a thread `status`, an `orphaned` flag and an
+optional `parent` for replies — and nothing else. So "delete this paragraph" and "reword
 this as X" have to be written out longhand and then applied by hand by whoever
 owns the document, which is slow for the reviewer and lossy for the author.
 
