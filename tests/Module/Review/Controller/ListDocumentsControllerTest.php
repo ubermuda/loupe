@@ -444,6 +444,22 @@ final class ListDocumentsControllerTest extends WebTestCase
         $paged = '/projects/'.$projectId.'/documents?page=2&archived=1&search=kafka&status=in-review&tag=design';
         self::assertGreaterThan(0, $crawler->filter('.lp-pagination a[href="'.$paged.'"]')->count());
 
+        // Following the link rather than only rendering it: a filter can be
+        // correct in an href and still be lost when the next request re-parses
+        // it. (Whether the ordering's id tiebreak holds is not testable here —
+        // Postgres returns a stable order for this plan with or without it.)
+        $firstPage = $crawler->filter('[data-document-id]')->each(
+            static fn (Crawler $row): string => (string) $row->attr('data-document-id'),
+        );
+        $crawler = $client->request(Request::METHOD_GET, $paged);
+
+        self::assertResponseIsSuccessful();
+        $secondPage = $crawler->filter('[data-document-id]')->each(
+            static fn (Crawler $row): string => (string) $row->attr('data-document-id'),
+        );
+        self::assertCount(1, $secondPage);
+        self::assertSame([], array_intersect($firstPage, $secondPage));
+
         // The archived chip is a link built outside the form, so it is the one
         // most likely to drop the rest of the bar.
         self::assertGreaterThan(
