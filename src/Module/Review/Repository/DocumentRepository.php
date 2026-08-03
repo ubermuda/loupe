@@ -77,12 +77,23 @@ class DocumentRepository extends ServiceEntityRepository
     }
 
     /**
-     * Kept to one query per association rather than one fetch-join carrying
-     * both: joining two collections at once multiplies their rows together, so
-     * a document with 3 versions and 4 tags would hydrate from 12.
+     * The same, for outgoing references. Wanted by the data export, which reads
+     * every document's references while assembling its row.
      *
-     * @param list<Document>    $documents
-     * @param 'tags'|'versions' $association
+     * @param list<Document> $documents
+     */
+    public function preloadReferences(array $documents): void
+    {
+        $this->preloadCollection($documents, 'references');
+    }
+
+    /**
+     * Kept to one query per association rather than one fetch-join carrying all
+     * of them: joining several collections at once multiplies their rows
+     * together, so a document with 3 versions and 4 tags would hydrate from 12.
+     *
+     * @param list<Document>                 $documents
+     * @param 'references'|'tags'|'versions' $association
      */
     private function preloadCollection(array $documents, string $association): void
     {

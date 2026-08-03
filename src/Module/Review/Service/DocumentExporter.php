@@ -26,11 +26,12 @@ final readonly class DocumentExporter implements UserDataExporterInterface
     {
         $documents = $this->documents->findByOwner($user);
 
-        // Both collections are lazy, so reading them per row would put the whole
-        // export at one query per document, twice over. An account being exported
-        // is exactly the case with many of them.
+        // Every collection read below is lazy, so reading them per row would put
+        // the whole export at one query per document per collection. An account
+        // being exported is exactly the case with many documents.
         $this->documents->preloadTags($documents);
         $this->documents->preloadVersions($documents);
+        $this->documents->preloadReferences($documents);
 
         $rows = [];
         foreach ($documents as $document) {
@@ -50,6 +51,16 @@ final readonly class DocumentExporter implements UserDataExporterInterface
                 $tags[] = $tag->name;
             }
 
+            // Outgoing only: what this document points at is the owner's own
+            // statement, while an incoming link is someone else's.
+            $references = [];
+            foreach ($document->references as $reference) {
+                $references[] = [
+                    'id' => (string) $reference->id,
+                    'title' => $reference->title,
+                ];
+            }
+
             $rows[] = [
                 'id' => (string) $document->id,
                 'project' => $document->project->name,
@@ -58,6 +69,7 @@ final readonly class DocumentExporter implements UserDataExporterInterface
                 'status' => $document->status->value,
                 'archivedAt' => $document->archivedAt?->format(\DateTimeInterface::ATOM),
                 'createdAt' => $document->createdAt->format(\DateTimeInterface::ATOM),
+                'references' => $references,
                 'versions' => $versions,
             ];
         }

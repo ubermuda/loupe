@@ -6,6 +6,7 @@ namespace App\Module\Review\Command;
 
 use App\Module\Review\Entity\Document;
 use App\Module\Review\Entity\Tag;
+use App\Module\Review\Service\DocumentReferenceValidator;
 use App\Module\Review\Service\MarkdownRenderer;
 use Doctrine\ORM\EntityManagerInterface;
 
@@ -15,6 +16,7 @@ final readonly class CreateDocumentHandler
         private EntityManagerInterface $em,
         private MarkdownRenderer $renderer,
         private SetDocumentTagsHandler $setTags,
+        private DocumentReferenceValidator $referenceValidator,
     ) {
     }
 
@@ -30,8 +32,14 @@ final readonly class CreateDocumentHandler
         $document = new Document(owner: $command->project->owner, project: $command->project, title: $command->title);
         $document->addVersion($command->markdown, $this->renderer->render($command->markdown), $command->description);
 
-        // SetDocumentTagsHandler owns the only flush, so the document and its
-        // tags are written together or not at all.
+        // Also before persist(), for the same reason: this rejects a reference
+        // the project may not point at.
+        foreach ($this->referenceValidator->validated($command->project, null, $command->references) as $reference) {
+            $document->references->add($reference);
+        }
+
+        // SetDocumentTagsHandler owns the only flush, so the document, its tags
+        // and its references are written together or not at all.
         $this->em->persist($document);
         ($this->setTags)(new SetDocumentTagsCommand($document, $command->tagNames));
 

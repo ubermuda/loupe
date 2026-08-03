@@ -17,11 +17,22 @@ final readonly class GetDocument
     /**
      * Returns the data of an already-authorized document.
      *
-     * @return array{documentId: string, title: string, status: string, archived: bool, version: int, versionDescription: ?string, markdown: string}
+     * @return array{documentId: string, title: string, status: string, archived: bool, version: int, versionDescription: ?string, markdown: string, references: list<array{documentId: string, title: string, archived: bool}>}
      */
     public function __invoke(Document $document): array
     {
         $currentVersion = $this->documentVersions->findLatest($document);
+
+        // Revising replaces the whole reference set, so an agent that means to
+        // add one link has to be able to read the ones already there.
+        $references = [];
+        foreach ($document->references as $reference) {
+            $references[] = [
+                'documentId' => (string) $reference->id,
+                'title' => $reference->title,
+                'archived' => null !== $reference->archivedAt,
+            ];
+        }
 
         return [
             'documentId' => (string) $document->id,
@@ -31,6 +42,7 @@ final readonly class GetDocument
             'version' => $currentVersion->versionNumber,
             'versionDescription' => $currentVersion->description,
             'markdown' => $currentVersion->markdownSource,
+            'references' => $references,
         ];
     }
 }

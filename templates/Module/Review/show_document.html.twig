@@ -19,7 +19,14 @@
     {% if readOnly %}
     <div class="lp-version-banner">
         <twig:ux:icon name="lucide:history" class="w-4 h-4 shrink-0" />
-        <span>{{ 'review.document.version.read_only'|trans({'%version%': version.versionNumber}) }}</span>
+        <span>
+            {{ 'review.document.version.read_only'|trans({'%version%': version.versionNumber}) }}
+            {# References belong to the document, not to a version, so this page
+               shows the current ones next to an old version's number. #}
+            {% if document.references|length > 0 or document.referencedBy|length > 0 %}
+                {{ 'review.document.version.references_are_current'|trans }}
+            {% endif %}
+        </span>
         <a class="lp-btn lp-btn--ghost lp-btn--sm" href="{{ path('app_document_review', {projectId: document.project.id, documentId: document.id}) }}">
             {{ 'review.document.version.back_to_latest'|trans }}
         </a>
@@ -110,9 +117,53 @@
                     </nav>
                 </details>
                 {% endif %}
+
+                {% if document.references|length > 0 or document.referencedBy|length > 0 %}
+                <div class="lp-doc-references">
+                    {% for group in [
+                        {label: 'review.document.references.outgoing', documents: document.references},
+                        {label: 'review.document.references.incoming', documents: document.referencedBy},
+                    ] %}
+                        {% if group.documents|length > 0 %}
+                        <div class="lp-doc-references__group">
+                            <h2 class="lp-doc-references__label" id="references-{{ loop.index }}">{{ group.label|trans }}</h2>
+                            <ul class="lp-doc-references__list" aria-labelledby="references-{{ loop.index }}">
+                                {% for reference in group.documents %}
+                                <li class="lp-doc-references__item">
+                                    <a class="lp-doc-references__link" href="{{ path('app_document_review', {projectId: reference.project.id, documentId: reference.id}) }}">
+                                        <twig:ux:icon name="lucide:link" class="w-3.5 h-3.5 shrink-0" />
+                                        {{ reference.title }}
+                                    </a>
+                                    {% if reference.archivedAt %}
+                                    <span class="lp-doc-references__archived">{{ 'review.document.references.archived'|trans }}</span>
+                                    {% endif %}
+                                </li>
+                                {% endfor %}
+                            </ul>
+                        </div>
+                        {% endif %}
+                    {% endfor %}
+                </div>
+                {% endif %}
             </div>
 
             <div class="prose max-w-2xl lp-prose lp-review-doc__prose" data-comment-anchor-target="doc">{{ version.renderedHtml|raw }}</div>
+
+            {# The agent's marks — the passages it flagged as worth reading first.
+               Each is an empty carrier for its anchor, deliberately OUTSIDE the doc
+               element above: that element's textContent must stay byte-identical to
+               DocumentVersion::plainText(), so nothing may be inserted into it. The
+               Stimulus controller re-locates each quote and tints it through the CSS
+               Custom Highlight API, which paints without touching the DOM. #}
+            {% for highlight in version.highlights %}
+            <span
+                data-comment-anchor-target="agentHighlight"
+                data-anchor-quote="{{ highlight.anchor.quote }}"
+                data-anchor-prefix="{{ highlight.anchor.prefix }}"
+                data-anchor-suffix="{{ highlight.anchor.suffix }}"
+                hidden
+            ></span>
+            {% endfor %}
 
             {# The composer and its toolbar post onto the CURRENT version, so on an
                earlier one they are omitted entirely rather than shown and ignored. #}

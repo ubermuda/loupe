@@ -913,6 +913,14 @@
                 <source>review.tags.error.too_long</source>
                 <target>That tag name is too long.</target>
             </trans-unit>
+            <trans-unit id="review.references.error.self_reference">
+                <source>review.references.error.self_reference</source>
+                <target>A document cannot reference itself.</target>
+            </trans-unit>
+            <trans-unit id="review.references.error.other_project">
+                <source>review.references.error.other_project</source>
+                <target>A document can only reference documents in the same project.</target>
+            </trans-unit>
             <trans-unit id="review.form.rename_document_form.title.label">
                 <source>review.form.rename_document_form.title.label</source>
                 <target>Title</target>
@@ -995,6 +1003,10 @@
                 <source>review.document.version.back_to_latest</source>
                 <target>Go to the current version</target>
             </trans-unit>
+            <trans-unit id="review.document.version.references_are_current">
+                <source>review.document.version.references_are_current</source>
+                <target>References below reflect the document as it stands today.</target>
+            </trans-unit>
             <trans-unit id="review.document.version.switcher_label">
                 <source>review.document.version.switcher_label</source>
                 <target>Document versions</target>
@@ -1008,6 +1020,20 @@
             <trans-unit id="review.document.contents.nav_label">
                 <source>review.document.contents.nav_label</source>
                 <target>Document sections</target>
+            </trans-unit>
+
+            <!-- References between documents -->
+            <trans-unit id="review.document.references.outgoing">
+                <source>review.document.references.outgoing</source>
+                <target>References</target>
+            </trans-unit>
+            <trans-unit id="review.document.references.incoming">
+                <source>review.document.references.incoming</source>
+                <target>Referenced by</target>
+            </trans-unit>
+            <trans-unit id="review.document.references.archived">
+                <source>review.document.references.archived</source>
+                <target>Archived</target>
             </trans-unit>
 
             <!-- Document review comment composer -->

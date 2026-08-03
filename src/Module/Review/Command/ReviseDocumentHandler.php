@@ -8,6 +8,7 @@ use App\Exception\DomainErrors;
 use App\Module\Review\Entity\Document;
 use App\Module\Review\Entity\DocumentStatus;
 use App\Module\Review\Repository\CommentRepository;
+use App\Module\Review\Service\DocumentReferenceValidator;
 use App\Module\Review\Service\MarkdownRenderer;
 use App\Module\Review\Service\ReanchoringService;
 use Doctrine\DBAL\LockMode;
@@ -20,6 +21,7 @@ final readonly class ReviseDocumentHandler
         private MarkdownRenderer $renderer,
         private ReanchoringService $reanchoringService,
         private CommentRepository $comments,
+        private DocumentReferenceValidator $referenceValidator,
     ) {
     }
 
@@ -50,7 +52,14 @@ final readonly class ReviseDocumentHandler
             }
         }
 
-        return $this->em->wrapInTransaction(function () use ($document, $command, $description, $title): array {
+        // Validated before the transaction opens, so a set holding one bad id
+        // never reaches the clear-and-re-add below: the whole revision is
+        // rejected rather than landing with the good references only.
+        $references = null === $command->references
+            ? null
+            : $this->referenceValidator->validated($document->project, $document, $command->references);
+
+        return $this->em->wrapInTransaction(function () use ($document, $command, $description, $title, $references): array {
             // Locks the documents row before anything reads $document->versions, so two
             // concurrent revisions of the same document serialize here instead of both
             // computing the same "next version number" from a collection loaded before
@@ -72,6 +81,15 @@ final readonly class ReviseDocumentHandler
             // the current one" rather than "clear it".
             if (null !== $title) {
                 $document->title = $title;
+            }
+
+            // A list replaces the whole set, so leaving it out is the only way to
+            // keep the current references — an empty list is how they are cleared.
+            if (null !== $references) {
+                $document->references->clear();
+                foreach ($references as $reference) {
+                    $document->references->add($reference);
+                }
             }
 
             // Collect all open (unresolved) comments from the previous version. Orphaned-but-

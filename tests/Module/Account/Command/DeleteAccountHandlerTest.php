@@ -22,6 +22,7 @@ use App\Module\Billing\Repository\BillingProfileRepository;
 use App\Module\Project\Entity\Project;
 use App\Module\Review\Entity\Comment;
 use App\Module\Review\Entity\Document;
+use App\Module\Review\Entity\Highlight;
 use App\Module\Review\Entity\Review;
 use App\Module\Review\Entity\Tag;
 use App\Module\Review\Entity\Verdict;
@@ -136,6 +137,11 @@ final class DeleteAccountHandlerTest extends KernelTestCase
         // else — is gone too.
         self::assertSame(0, (int) $conn->fetchOne('SELECT count(*) FROM documents WHERE id = :id', ['id' => (string) $fixture['foreignDocumentId']]));
         self::assertSame(0, (int) $conn->fetchOne('SELECT count(*) FROM comments WHERE id = :id', ['id' => (string) $fixture['foreignDocumentCommentId']]));
+        self::assertSame(0, (int) $conn->fetchOne(
+            'SELECT count(*) FROM document_highlights h JOIN document_versions v ON h.version_id = v.id WHERE v.document_id = :id',
+            ['id' => (string) $fixture['foreignDocumentId']],
+        ));
+        self::assertSame(0, (int) $conn->fetchOne('SELECT count(*) FROM document_references WHERE target_document_id = :id', ['id' => (string) $fixture['foreignDocumentId']]));
 
         // Two of the owner's own projects were both fully torn down.
         foreach (['doomedProject1Id', 'doomedProject2Id'] as $key) {
@@ -311,6 +317,16 @@ final class DeleteAccountHandlerTest extends KernelTestCase
         $foreignTag = new Tag($otherProject, 'design');
         $em->persist($foreignTag);
         $foreignDocument->tags->add($foreignTag);
+
+        // A third FK onto document_versions, and NOT DEFERRABLE like the others:
+        // a purger that forgets it fails the version delete outright, which is
+        // the whole reason this owner-mismatch fixture exists.
+        $em->persist(new Highlight(version: $foreignVersion, anchor: Anchor::unanchored()));
+
+        // A surviving document pointing AT the doomed one: only the incoming
+        // half of the join-table cleanup can clear this, and without it the
+        // delete fails on the foreign key.
+        $otherDocument->references->add($foreignDocument);
 
         // A loose API token not bound to any project's widget/mcp slots.
         [$looseToken] = ApiToken::issue($owner, 'loose-token', ApiTokenScope::Mcp);

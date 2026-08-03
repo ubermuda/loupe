@@ -43,21 +43,48 @@ class Document
     public Collection $versions;
 
     /**
-     * Owning side of the only many-to-many in the app. No cascade and no
-     * orphanRemoval: a tag is project vocabulary that outlives the documents
-     * carrying it, so dropping it from one document must not delete the row.
+     * No cascade and no orphanRemoval: a tag is project vocabulary that outlives
+     * the documents carrying it, so dropping it from one document must not
+     * delete the row.
+     *
+     * Neither join column carries nullable: false — Doctrine ignores it on a
+     * many-to-many and logs a deprecation on every mapping read. They are the
+     * join table's composite primary key, so they are NOT NULL regardless.
      *
      * @var Collection<int, Tag>
      */
-    // No nullable: false on either join column — Doctrine ignores it on a
-    // many-to-many and logs a deprecation on every mapping read. The columns are
-    // the join table's composite primary key, so they are NOT NULL regardless.
     #[ORM\InverseJoinColumn(name: 'tag_id')]
     #[ORM\JoinColumn(name: 'document_id')]
     #[ORM\JoinTable(name: 'document_tags')]
     #[ORM\ManyToMany(targetEntity: Tag::class)]
     #[ORM\OrderBy(['name' => 'ASC'])]
     public Collection $tags;
+
+    /**
+     * The documents this one points at. A reference targets the document rather
+     * than one of its versions, so it keeps resolving — to whatever is current —
+     * once the target is revised.
+     *
+     * @var Collection<int, self>
+     */
+    #[ORM\InverseJoinColumn(name: 'target_document_id')]
+    #[ORM\JoinColumn(name: 'source_document_id')]
+    #[ORM\JoinTable(name: 'document_references')]
+    #[ORM\ManyToMany(targetEntity: self::class, inversedBy: 'referencedBy')]
+    #[ORM\OrderBy(['createdAt' => 'ASC', 'id' => 'ASC'])]
+    public Collection $references;
+
+    /**
+     * Derived from the owning side above, so one row keeps both ends navigable.
+     * Doctrine populates it when the document is loaded and never at write
+     * time: adding to another document's $references leaves this collection
+     * stale for the rest of the request.
+     *
+     * @var Collection<int, self>
+     */
+    #[ORM\ManyToMany(targetEntity: self::class, mappedBy: 'references')]
+    #[ORM\OrderBy(['createdAt' => 'ASC', 'id' => 'ASC'])]
+    public Collection $referencedBy;
 
     public function __construct(
         #[ORM\JoinColumn(nullable: false)]
@@ -76,6 +103,8 @@ class Document
     ) {
         $this->versions = new ArrayCollection();
         $this->tags = new ArrayCollection();
+        $this->references = new ArrayCollection();
+        $this->referencedBy = new ArrayCollection();
     }
 
     public function addVersion(string $markdown, string $renderedHtml, ?string $description = null): DocumentVersion
