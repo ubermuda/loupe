@@ -24,10 +24,17 @@ final readonly class AddCommentHandler
             throw new DomainErrors(['actor' => 'comment.error.not_owner']);
         }
 
+        $quote = $command->quote;
+
+        // A strike or a rewording says what a specific passage should become, so it
+        // is meaningless without one. A prose comment may still be untargeted.
+        if (null !== $command->replacement && (null === $quote || '' === $quote)) {
+            throw new DomainErrors(['quote' => 'review.document.suggestion.error.no_anchor']);
+        }
+
         $version = $command->document->currentVersion();
         $text = $version->plainText();
 
-        $quote = $command->quote;
         $prefix = $command->prefix ?? '';
         $suffix = $command->suffix ?? '';
         $orphaned = false;
@@ -56,6 +63,7 @@ final readonly class AddCommentHandler
             author: $command->actor,
             body: $command->body,
             anchor: $anchor,
+            replacement: $command->replacement,
         );
         $comment->orphaned = $orphaned;
 

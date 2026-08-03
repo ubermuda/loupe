@@ -13,6 +13,7 @@ use App\Module\Review\Command\CreateDocumentCommand;
 use App\Module\Review\Command\CreateDocumentHandler;
 use App\Module\Review\Entity\Comment;
 use App\Module\Review\Entity\CommentStatus;
+use App\Module\Review\Entity\Document;
 use App\Module\Review\Form\AddCommentFormType;
 use App\Module\Review\Form\AddCommentRequest;
 use App\Module\Review\Service\AnchorService;
@@ -249,6 +250,74 @@ final class AddCommentHandlerTest extends KernelTestCase
 
         self::assertFalse($comment->orphaned);
         self::assertSame($second, $comment->anchor->offsetHint, 'the captured context must win over earliest-position');
+    }
+
+    public function test_strike_stores_an_empty_replacement_and_no_body(): void
+    {
+        $doc = $this->seedDocument('striker', "# T\n\nThis sentence should go away entirely.");
+
+        /** @var AddCommentHandler $handler */
+        $handler = self::getContainer()->get(AddCommentHandler::class);
+        $comment = $handler(new AddCommentCommand($doc->owner, $doc, 'should go away', '', '', '', ''));
+
+        self::assertSame('', $comment->replacement);
+        self::assertTrue($comment->isStrike);
+        self::assertTrue($comment->isSuggestion, 'a strike is a suggestion with nothing to put back');
+        self::assertSame('', $comment->body);
+    }
+
+    public function test_rewording_stores_the_replacement_and_is_not_a_strike(): void
+    {
+        $doc = $this->seedDocument('rewriter', "# T\n\nWe utilise a bespoke solution here.");
+
+        /** @var AddCommentHandler $handler */
+        $handler = self::getContainer()->get(AddCommentHandler::class);
+        $comment = $handler(new AddCommentCommand($doc->owner, $doc, 'utilise', '', '', 'Plainer word.', 'use'));
+
+        self::assertSame('use', $comment->replacement);
+        self::assertTrue($comment->isSuggestion);
+        self::assertFalse($comment->isStrike);
+    }
+
+    public function test_plain_comment_proposes_no_replacement(): void
+    {
+        $doc = $this->seedDocument('commenter', "# T\n\nA paragraph worth discussing.");
+
+        /** @var AddCommentHandler $handler */
+        $handler = self::getContainer()->get(AddCommentHandler::class);
+        $comment = $handler(new AddCommentCommand($doc->owner, $doc, 'worth discussing', '', '', 'Is it?'));
+
+        self::assertNull($comment->replacement);
+        self::assertFalse($comment->isSuggestion);
+        self::assertFalse($comment->isStrike, 'null must not collapse into the empty-string strike case');
+    }
+
+    public function test_rejects_a_replacement_with_no_anchor(): void
+    {
+        $doc = $this->seedDocument('anchorless', "# T\n\nSome text.");
+
+        /** @var AddCommentHandler $handler */
+        $handler = self::getContainer()->get(AddCommentHandler::class);
+
+        $this->expectException(DomainErrors::class);
+        $handler(new AddCommentCommand($doc->owner, $doc, null, null, null, '', ''));
+    }
+
+    private function seedDocument(string $username, string $markdown): Document
+    {
+        self::bootKernel();
+        $em = self::getContainer()->get(EntityManagerInterface::class);
+
+        $owner = new User(username: $username, fullName: 'Owner', email: $username.'@example.com', password: 'hashed');
+        $em->persist($owner);
+        $project = new Project($owner, 'p-'.uniqid());
+        $em->persist($project);
+        $em->flush();
+
+        /** @var CreateDocumentHandler $createHandler */
+        $createHandler = self::getContainer()->get(CreateDocumentHandler::class);
+
+        return $createHandler(new CreateDocumentCommand($project, 'Doc', $markdown));
     }
 
     /**

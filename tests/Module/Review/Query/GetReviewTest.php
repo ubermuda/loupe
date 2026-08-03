@@ -299,6 +299,69 @@ final class GetReviewTest extends KernelTestCase
         self::assertSame(['設計方針', 'review'], $quotes);
     }
 
+    /**
+     * The widening that makes a prose quote readable would corrupt a suggestion: the
+     * agent substitutes the reported quote with the replacement, so any character
+     * spliced on from the context is a character it silently deletes from the document.
+     */
+    public function test_a_suggestion_reports_the_verbatim_quote_not_the_widened_one(): void
+    {
+        $doc = new Document(owner: $this->owner, project: $this->project, title: 'Verbatim');
+        $version = $doc->addVersion('We utilise a bespoke solution.', '<p>We utilise a bespoke solution.</p>');
+
+        // Both select mid-word, so widening has something to splice on either side.
+        $prose = new Comment(
+            $version,
+            $this->owner,
+            'Odd word.',
+            new Anchor('utilis', 'We ', 'e a bespoke solution.', 3),
+        );
+        $rewording = new Comment(
+            $version,
+            $this->owner,
+            'Plainer.',
+            new Anchor('bespok', 'We utilise a ', 'e solution.', 13),
+            replacement: 'custom',
+        );
+
+        $this->em->persist($doc);
+        $this->em->persist($prose);
+        $this->em->persist($rewording);
+        $this->em->flush();
+
+        $comments = ($this->getReview)($doc)['comments'];
+
+        self::assertSame('utilise', $comments[0]['quote'], 'a prose quote is still widened to whole words');
+        self::assertNull($comments[0]['replacement']);
+        self::assertSame('bespok', $comments[1]['quote'], 'a suggestion reports exactly what was selected');
+        self::assertSame('custom', $comments[1]['replacement']);
+    }
+
+    public function test_a_strike_reports_an_empty_replacement(): void
+    {
+        $doc = new Document(owner: $this->owner, project: $this->project, title: 'Struck');
+        $version = $doc->addVersion('Delete this clause, please.', '<p>Delete this clause, please.</p>');
+
+        $strike = new Comment(
+            $version,
+            $this->owner,
+            '',
+            new Anchor('this clause', 'Delete ', ', please.', 7),
+            replacement: '',
+        );
+
+        $this->em->persist($doc);
+        $this->em->persist($strike);
+        $this->em->flush();
+
+        $comments = ($this->getReview)($doc)['comments'];
+
+        // '' and null must stay distinguishable across the wire: one says "remove
+        // this", the other says "no edit proposed".
+        self::assertSame('', $comments[0]['replacement']);
+        self::assertSame('this clause', $comments[0]['quote']);
+    }
+
     public function test_verdict_is_null_when_no_review_submitted(): void
     {
         $doc = new Document(owner: $this->owner, project: $this->project, title: 'No Review Yet');
