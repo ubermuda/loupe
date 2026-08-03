@@ -12,7 +12,6 @@ final readonly class SelectDecisionOptionCommand
         public Document $document,
         public string $decisionId,
         public int $optionIndex,
-
         /** The version whose option list the reviewer actually clicked on. */
         public int $displayedVersionNumber,
     ) {

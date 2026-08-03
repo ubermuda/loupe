@@ -150,7 +150,11 @@ final class SelectDecisionOptionHandlerTest extends KernelTestCase
         try {
             ($this->selectDecisionOption)(new SelectDecisionOptionCommand($document, 'deploy-target', 1, displayedVersionNumber: 1));
         } finally {
-            self::assertSame([], $this->selections->findBy(['document' => $document]));
+            // Names the label so a regression reports WHICH answer it invented:
+            // index 1 was 'Ship straight to production' on the version the
+            // reviewer read, and is 'Ship to staging first' on the current one.
+            $persisted = $this->selections->findOneByDocumentAndDecisionId($document, 'deploy-target');
+            self::assertNull($persisted, 'recorded an answer the reviewer never gave: '.($persisted->optionLabel ?? ''));
         }
     }
 
