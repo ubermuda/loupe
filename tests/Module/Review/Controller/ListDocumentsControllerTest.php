@@ -7,6 +7,7 @@ namespace App\Tests\Module\Review\Controller;
 use App\Module\Account\Entity\User;
 use App\Module\Project\Entity\Project;
 use App\Module\Review\Entity\Comment;
+use App\Module\Review\Entity\CommentStatus;
 use App\Module\Review\Entity\Document;
 use App\Module\Review\ValueObject\Anchor;
 use Doctrine\ORM\EntityManagerInterface;
@@ -114,7 +115,7 @@ final class ListDocumentsControllerTest extends WebTestCase
         // count → the meta line should read "1 open thread".
         $open = new Comment($current, $alice, 'Please rethink the window.', Anchor::unanchored());
         $resolved = new Comment($current, $alice, 'Fixed, thanks.', Anchor::unanchored());
-        $resolved->resolved = true;
+        $resolved->status = CommentStatus::Resolved;
         $reply = new Comment($current, $alice, 'Agreed — and one more thing.', Anchor::unanchored(), $open);
         $em->persist($open);
         $em->persist($resolved);

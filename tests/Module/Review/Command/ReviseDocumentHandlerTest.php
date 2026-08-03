@@ -16,6 +16,7 @@ use App\Module\Review\Command\ResolveCommentHandler;
 use App\Module\Review\Command\ReviseDocumentCommand;
 use App\Module\Review\Command\ReviseDocumentHandler;
 use App\Module\Review\Entity\Comment;
+use App\Module\Review\Entity\CommentStatus;
 use App\Module\Review\Entity\Document;
 use App\Module\Review\Entity\DocumentStatus;
 use App\Module\Review\Entity\DocumentVersion;
@@ -107,10 +108,10 @@ final class ReviseDocumentHandlerTest extends KernelTestCase
     }
 
     /**
-     * Regression for a resolved thread whose unresolved reply used to resurrect: findOpenByVersion()
-     * selects on resolved = false with no parent check, so an unresolved reply of a resolved root was
-     * copied onto the new version with its parent detached (the resolved root isn't in the open set),
-     * reappearing as a brand-new unresolved top-level thread on every subsequent revision.
+     * Regression for a resolved thread whose reply used to resurrect: findOpenByVersion() selected
+     * on a per-row resolved flag with no parent check, so a reply of a resolved root was copied onto
+     * the new version with its parent detached (the resolved root isn't in the open set), reappearing
+     * as a brand-new open top-level thread on every subsequent revision.
      */
     public function test_resolved_thread_carries_nothing_forward_even_with_an_unresolved_reply(): void
     {
@@ -160,6 +161,67 @@ final class ReviseDocumentHandlerTest extends KernelTestCase
         $v2Comments = $commentRepository->findByVersion($freshDoc->currentVersion());
 
         self::assertCount(0, $v2Comments, 'nothing from the resolved thread should appear on the new version');
+    }
+
+    /**
+     * An addressed thread is still open: the agent claiming it acted is not the human agreeing the
+     * thread is finished, so it must survive a revision — with its status, and with its replies
+     * still attached to it rather than detached into threads of their own.
+     */
+    public function test_addressed_thread_carries_forward_with_its_status_and_its_reply(): void
+    {
+        self::bootKernel();
+        $em = self::getContainer()->get(EntityManagerInterface::class);
+
+        $user = new User(username: 'agent4', fullName: 'Agent', email: 'agent4@example.com', password: 'hashed');
+        $em->persist($user);
+        $project = new Project($user, 'p-'.uniqid());
+        $em->persist($project);
+        $em->flush();
+
+        /** @var CreateDocumentHandler $createHandler */
+        $createHandler = self::getContainer()->get(CreateDocumentHandler::class);
+        $doc = $createHandler(new CreateDocumentCommand($project, 'Addressed Thread Doc', 'use JWTs and rate limiting'));
+
+        $v1 = $doc->currentVersion();
+
+        $root = new Comment($v1, $user, 'why JWT?', new Anchor('JWTs', 'use ', ' and', 4));
+        $root->status = CommentStatus::Addressed;
+        $em->persist($root);
+        $em->flush();
+
+        /** @var ReplyToCommentHandler $replyHandler */
+        $replyHandler = self::getContainer()->get(ReplyToCommentHandler::class);
+        $replyHandler(new ReplyToCommentCommand(actor: $user, parent: $root, body: 'Rewritten that section'));
+
+        $docId = $doc->id;
+        self::assertInstanceOf(Uuid::class, $docId);
+
+        /** @var ReviseDocumentHandler $reviseHandler */
+        $reviseHandler = self::getContainer()->get(ReviseDocumentHandler::class);
+        $summary = $reviseHandler(new ReviseDocumentCommand($doc, 'use JWTs only'));
+
+        self::assertSame(2, $summary['carried'], 'an addressed thread carries its root and its reply forward');
+        self::assertSame(0, $summary['orphaned']);
+
+        $em->clear();
+        $freshDoc = $em->find(Document::class, $docId);
+        self::assertInstanceOf(Document::class, $freshDoc);
+
+        /** @var CommentRepository $commentRepository */
+        $commentRepository = self::getContainer()->get(CommentRepository::class);
+        $v2Comments = $commentRepository->findByVersion($freshDoc->currentVersion());
+
+        self::assertCount(2, $v2Comments);
+
+        $roots = array_values(array_filter($v2Comments, static fn (Comment $c): bool => null === $c->parent));
+        $replies = array_values(array_filter($v2Comments, static fn (Comment $c): bool => null !== $c->parent));
+
+        self::assertCount(1, $roots, 'the reply must stay attached, not become a thread of its own');
+        self::assertCount(1, $replies);
+        self::assertSame(CommentStatus::Addressed, $roots[0]->status, 'the agent claim survives the revision');
+        self::assertSame($roots[0], $replies[0]->parent);
+        self::assertSame(CommentStatus::Addressed, $replies[0]->threadStatus);
     }
 
     /**

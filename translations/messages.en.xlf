@@ -1053,6 +1053,18 @@
                 <source>comment.error.reply_to_reply</source>
                 <target>Replies can only be added to the top-level comment.</target>
             </trans-unit>
+            <trans-unit id="comment.error.reply_empty">
+                <source>comment.error.reply_empty</source>
+                <target>A reply cannot be empty.</target>
+            </trans-unit>
+            <trans-unit id="comment.error.reply_too_long">
+                <source>comment.error.reply_too_long</source>
+                <target>This reply is too long.</target>
+            </trans-unit>
+            <trans-unit id="comment.error.resolve_reply">
+                <source>comment.error.resolve_reply</source>
+                <target>Only the top-level comment of a thread can be resolved.</target>
+            </trans-unit>
 
             <!-- Document review flash messages -->
             <trans-unit id="review.document.flash.verdict_submitted">

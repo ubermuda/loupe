@@ -5,25 +5,6 @@ Open work and observations worth revisiting. Delete items entirely once resolved
 Entries are ordered by priority (high → medium → low); insert new entries at
 the end of their priority band. Format and rules: `project-next-steps` skill.
 
-## MCP: no way to reply to document-review comments
-
-
-
-**Author:** Claude · **Type:** feature · **Priority:** high · **Status:** pending
-
-Found while dogfooding the nine-features design review: the MCP exposes
-`get_review` (which returns each comment's `thread`) and `revise_document`, but
-nothing that *writes* to a review thread. An agent can read comments and submit
-a new version, yet cannot reply to a comment, push back on one, or mark one
-addressed — `address_site_review_comments` covers only site-review widget
-comments. The review conversation is one-directional; the agent's side has to
-happen out-of-band. A `ReplyToCommentHandler` now exists
-(`src/Module/Review/Command/ReplyToCommentHandler.php`), but it is wired only
-to a web-UI controller (`ReplyToCommentController`) — there is still no MCP
-tool, so an agent still cannot reply through the MCP surface. Add a
-`reply_to_comment` MCP tool (and consider `mark_comment_addressed`) for
-document reviews.
-
 ## Review UI: version diff view
 
 
@@ -1090,8 +1071,8 @@ once humans are producing versions too.
 **Author:** Geoffrey · **Type:** feature · **Priority:** medium · **Status:** pending
 
 Every review comment is untyped prose. `Module/Review/Entity/Comment` carries a
-free-text `body`, an `Anchor`, `resolved`/`orphaned` flags and an optional
-`parent` for replies — and nothing else. So "delete this paragraph" and "reword
+free-text `body`, an `Anchor`, a thread `status`, an `orphaned` flag and an
+optional `parent` for replies — and nothing else. So "delete this paragraph" and "reword
 this as X" have to be written out longhand and then applied by hand by whoever
 owns the document, which is slow for the reviewer and lossy for the author.
 
@@ -1632,35 +1613,6 @@ still all talk to the shared instance. Interacts with "Decide fate of
 PlaywrightSyncEmailMiddleware": if Playwright-headed requests ever deliver mail
 synchronously, the worktree-scoped worker requirement for mail specs goes away,
 but the Mailpit isolation problem does not.
-
-## Resolution state is denormalised across every comment in a thread
-
-
-
-**Author:** Geoffrey · **Type:** bug · **Priority:** low · **Status:** pending
-
-Owner note (2026-07-26, reviewing the resolved-threads fix): would it be
-simpler if `resolved` lived on the thread rather than on each message inside
-it?
-
-Today `resolved` is a column on `Comment`, so every row in a thread carries its
-own flag. `ResolveCommentHandler` cascades the root's value to its direct
-replies, because `findOpenByVersion()` selects on `resolved = false` and
-unresolved replies of a resolved thread would otherwise be copied onto the next
-version as fresh top-level threads. The alternative shape — leave the flag on
-the root only and have the open-set query exclude comments whose thread root is
-resolved — models it as a thread-level property and removes the duplication.
-
-Not urgent: there is no UI path to resolve a reply independently (the Resolve
-button renders only on the root in
-`templates/Module/Review/components/CommentThread.html.twig`), so the replies' own flags are
-redundant rather than contradictory. It becomes a real problem if per-message
-resolution is ever added, at which point the two representations can disagree.
-
-Touches `findOpenByVersion()`, the re-anchoring copy in `ReanchoringService`,
-and the `resolved` field in the `get_review` MCP payload — replies of a
-resolved thread currently report `resolved: true` there, which is an
-externally-visible contract.
 
 ## Deleting an API token (as distinct from revoking it)
 
@@ -2415,6 +2367,55 @@ whether a comment made while looking at a diff anchors to the new version, the
 old one, or records which side it was made on. Anchoring to the new version is
 the intuitive default — a reviewer commenting on a change is usually commenting
 on the result — but a comment on deleted text has no home there.
+
+## Marking a comment addressed can overwrite a human's Resolve
+
+**Author:** Claude · **Type:** bug · **Priority:** medium · **Status:** pending
+
+Both mark-addressed tools read a comment, check its status, and write — with no
+version column, no `SELECT … FOR UPDATE`, and a `flush()` that happens after the
+whole batch. A human clicking Resolve in the web UI in that window has their
+resolution silently replaced by `addressed`, and the thread reopens in front of
+them. The check that is supposed to refuse a resolved thread passes, because it
+ran against the row as it was before they clicked.
+
+The window is short and the collision needs a reviewer and an agent working the
+same thread at the same second, which is why this is recorded rather than fixed.
+It is also **not new**: `SiteReviewMarkCommentAddressedTool` has had the identical
+shape since it shipped, and `DocumentMarkCommentAddressedTool`
+(`src/Module/Review/Mcp/`) copied it deliberately. Fixing one without the other
+would leave the surprising half in place.
+
+The fix is the read-check-write-under-a-row-lock pattern `project-backend`
+already documents — `wrapInTransaction` + `lock(PESSIMISTIC_WRITE)` + `refresh()`
+around each comment — or a conditional `UPDATE … WHERE status = 'pending'` whose
+affected-row count decides between `addressed` and a `already_resolved` skip. The
+second is cheaper and fits the batch shape better. Note that neither is
+unit-testable here: `dama/doctrine-test-bundle` runs each test inside one
+connection's transaction, so two overlapping DB transactions cannot be expressed.
+
+## Agent-written comments have no per-agent provenance
+
+**Author:** Claude · **Type:** feature · **Priority:** medium · **Status:** pending
+
+Every comment written through the MCP is authored by one global agent `User`
+(`App\Module\Account\Entity\User::AGENT_ID`, inserted by
+`migrations/Version20260803000402.php`). One account for the whole instance, not
+one per project — so two projects, two API tokens, and two different agents all
+produce replies that are byte-for-byte indistinguishable in the thread and in
+`document_get_review`. A reader can tell "an agent said this" and nothing more.
+
+This was the deliberate choice when `document_reply_to_comment` shipped: the
+alternative, a per-project or per-token agent account, multiplies rows in the
+`users` table for a distinction nobody had asked to see yet, and every count and
+sweep that must skip the agent would have to skip a set instead of an id.
+
+If provenance is ever wanted, the shape is a **nullable `ApiToken` reference on
+`Comment` alongside the existing non-nullable `author`** — the token already
+carries a name and a project binding, so it identifies which credential wrote
+the reply without inventing an identity. Attribution stays on the singleton user
+and provenance rides beside it. Related: 'No audit trail distinguishes
+agent-written state from human action'.
 
 ## Product idea (long horizon): drag DOM elements in the widget to try layouts
 

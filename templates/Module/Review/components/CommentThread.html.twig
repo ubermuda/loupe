@@ -11,14 +11,13 @@
   Resolve button via form=. Both post through Turbo; the controllers return a
   Turbo Stream that replaces this thread (targeted by the id below).
 
-  Reply avatars are green (human): document threads are owner-only, so every
-  reply is authored by the reviewer. The design's accent-soft "C" agent avatar
-  awaits a real agent-reply signal (address_comment MCP tool), not wired yet.
+  A reply avatar is green for a human and accent-soft for the singleton agent
+  account, which authors every reply written through the MCP.
 #}
-{% set status = comment.resolved ? 'resolved' : 'pending' %}
+{% set status = comment.threadStatus.value %}
 <div
     id="comment-thread-{{ comment.id }}"
-    class="lp-comment-thread{% if comment.resolved %} lp-comment-thread--resolved{% endif %}{% if comment.orphaned %} lp-comment-thread--orphaned{% endif %}"
+    class="lp-comment-thread{% if status == 'resolved' %} lp-comment-thread--resolved{% endif %}{% if comment.orphaned %} lp-comment-thread--orphaned{% endif %}"
     data-comment-anchor-target="thread"
     data-anchor-quote="{{ comment.anchor.quote }}"
     data-anchor-prefix="{{ comment.anchor.prefix }}"
@@ -45,7 +44,7 @@
         {% for reply in replies %}
         <div class="lp-comment--reply">
             <div class="lp-comment-reply__head">
-                <span class="avatar ok">{{ reply.author.fullName|slice(0, 1)|upper }}</span>
+                <span class="avatar{% if not reply.author.isAgent %} ok{% endif %}">{{ reply.author.fullName|slice(0, 1)|upper }}</span>
                 <span class="lp-comment-author">{{ reply.author.fullName }}</span>
             </div>
             <div class="lp-comment-body">{{ reply.body }}</div>
@@ -65,7 +64,7 @@
         <input type="hidden" name="_csrf_token" value="{{ csrf_token('comment-action') }}">
     </form>
 
-    {% if not comment.resolved %}
+    {% if status != 'resolved' %}
     <div class="lp-comment-reply-form">
         {% set replyForm = replyForm ?? comment_reply_form(comment) %}
 

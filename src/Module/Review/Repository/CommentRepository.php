@@ -6,6 +6,7 @@ namespace App\Module\Review\Repository;
 
 use App\Module\Account\Entity\User;
 use App\Module\Review\Entity\Comment;
+use App\Module\Review\Entity\CommentStatus;
 use App\Module\Review\Entity\DocumentVersion;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\Persistence\ManagerRegistry;
@@ -21,15 +22,24 @@ class CommentRepository extends ServiceEntityRepository
     }
 
     /**
+     * Comments belonging to a thread that is still open — status lives on the
+     * thread root, so a reply qualifies on its parent's status, not its own.
+     *
+     * Addressed threads are open: the agent claiming it acted is not the human
+     * agreeing the thread is finished, so they keep carrying forward.
+     *
      * @return list<Comment>
      */
     public function findOpenByVersion(DocumentVersion $version): array
     {
         return $this->createQueryBuilder('c')
+            // LEFT, not INNER: a root comment has no parent row, and an inner
+            // join would drop every root from the result.
+            ->leftJoin('c.parent', 'p')
             ->where('c.version = :version')
-            ->andWhere('c.resolved = :resolved')
+            ->andWhere('COALESCE(p.status, c.status) != :resolved')
             ->setParameter('version', $version)
-            ->setParameter('resolved', false)
+            ->setParameter('resolved', CommentStatus::Resolved)
             // Document order: offsetHint is the quote's position in plainText(),
             // so threads list top-to-bottom as they appear in the document.
             ->orderBy('c.anchor.offsetHint', 'ASC')
@@ -39,24 +49,25 @@ class CommentRepository extends ServiceEntityRepository
 
     /**
      * Counts the open threads on a version: top-level (parent IS NULL) comments
-     * that are not resolved. Replies never count as threads of their own.
+     * that are not resolved. Replies never count as threads of their own — and
+     * with the filter restricted to roots, their status never has to be joined.
      */
     public function countOpenByVersion(DocumentVersion $version): int
     {
         return (int) $this->createQueryBuilder('c')
             ->select('COUNT(c.id)')
             ->where('c.version = :version')
-            ->andWhere('c.resolved = :resolved')
+            ->andWhere('c.status != :resolved')
             ->andWhere('c.parent IS NULL')
             ->setParameter('version', $version)
-            ->setParameter('resolved', false)
+            ->setParameter('resolved', CommentStatus::Resolved)
             ->getQuery()
             ->getSingleScalarResult();
     }
 
     /**
-     * Returns all comments for a version (both resolved and open), in document
-     * order (by anchor offset, then id for stable ties).
+     * Returns all comments for a version (open threads and resolved ones), in
+     * document order (by anchor offset, then id for stable ties).
      *
      * @return list<Comment>
      */

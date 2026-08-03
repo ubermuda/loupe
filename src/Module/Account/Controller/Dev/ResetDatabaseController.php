@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Module\Account\Controller\Dev;
 
 use App\Controller\AppController;
+use App\Module\Account\Service\AgentAccountInstaller;
 use Doctrine\DBAL\Connection;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\DependencyInjection\Attribute\When;
@@ -58,6 +59,12 @@ final class ResetDatabaseController extends AppController
             );
             $this->conn->executeStatement('TRUNCATE TABLE '.implode(', ', $quoted).' CASCADE');
         }
+
+        // The agent account is schema, not data: a migration installs it and
+        // every agent-written comment points at it. The truncate above takes it
+        // with the rest of `users`, so it is put back. It does not reopen the
+        // install wizard — that asks for human accounts (UserRepository::countHumans).
+        AgentAccountInstaller::install($this->conn);
 
         return new JsonResponse(['ok' => true]);
     }

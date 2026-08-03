@@ -33,13 +33,13 @@ final readonly class CreateInstallAdminHandler
     public function __invoke(CreateInstallAdminCommand $command): User
     {
         $user = $this->em->wrapInTransaction(function () use ($command): User {
-            // Concurrent install submissions must not both observe an empty users
-            // table — the advisory lock serializes them for this transaction.
+            // Concurrent install submissions must not both observe an unclaimed
+            // install — the advisory lock serializes them for this transaction.
             $this->em->getConnection()->executeStatement(
                 "SELECT pg_advisory_xact_lock(hashtext('install_admin'))",
             );
 
-            if (0 !== $this->users->count([])) {
+            if (0 !== $this->users->countHumans()) {
                 throw new DomainErrors(['email' => 'account.install.error.already_installed']);
             }
 

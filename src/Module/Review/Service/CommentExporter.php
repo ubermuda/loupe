@@ -32,7 +32,9 @@ final readonly class CommentExporter implements UserDataExporterInterface
                 'document' => $comment->version->document->title,
                 'versionNumber' => $comment->version->versionNumber,
                 'body' => $comment->body,
-                'resolved' => $comment->resolved,
+                // One flat row per comment, so a reply reports the status of the
+                // thread it belongs to rather than dropping the column.
+                'status' => $comment->threadStatus->value,
                 'orphaned' => $comment->orphaned,
                 'anchor' => [
                     'quote' => $comment->anchor->quote,
