@@ -14,9 +14,6 @@ use App\Module\Review\Form\AddCommentRequest;
 use App\Module\Review\Repository\CommentRepository;
 use App\Module\Review\Repository\DocumentVersionRepository;
 use App\Module\Review\Security\DocumentVoter;
-use App\Module\Review\Service\MarkdownDiffer;
-use App\Module\Review\ValueObject\DiffRefusal;
-use Psr\Log\LoggerInterface;
 use Symfony\Bridge\Doctrine\Attribute\MapEntity;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
@@ -39,22 +36,11 @@ use Symfony\Component\Security\Http\Attribute\IsGranted;
     requirements: ['versionNumber' => '\d+'],
     methods: ['GET'],
 )]
-// Re-reviewing a revised document otherwise means reading all of it again. This
-// route shows the delta between any two versions instead, in place of the
-// document rather than beside it.
-#[Route(
-    '/projects/{projectId}/documents/{documentId}/review/diff/{fromVersionNumber}/{toVersionNumber}',
-    name: 'app_document_review_diff',
-    requirements: ['fromVersionNumber' => '\d+', 'toVersionNumber' => '\d+'],
-    methods: ['GET'],
-)]
 final class ShowDocumentController extends AppController
 {
     public function __construct(
         private readonly DocumentVersionRepository $documentVersions,
         private readonly CommentRepository $comments,
-        private readonly MarkdownDiffer $markdownDiffer,
-        private readonly LoggerInterface $logger,
     ) {
     }
 
@@ -62,43 +48,14 @@ final class ShowDocumentController extends AppController
         #[MapEntity(mapping: ['projectId' => 'id'])] Project $project,
         #[MapEntity(expr: 'repository.findOneByIdAndProjectId(documentId, projectId)')] Document $document,
         ?int $versionNumber = null,
-        ?int $fromVersionNumber = null,
-        ?int $toVersionNumber = null,
     ): Response {
         $latest = $this->documentVersions->findLatest($document);
-
-        $diffMode = null !== $fromVersionNumber && null !== $toVersionNumber;
-        $diff = null;
-        $diffRefusal = null;
-        if ($diffMode) {
-            if ($fromVersionNumber >= $toVersionNumber) {
-                throw $this->createNotFoundException('A diff runs from an earlier version to a later one.');
-            }
-            $version = $this->version($document, $toVersionNumber);
-            $result = $this->markdownDiffer->diff(
-                $this->version($document, $fromVersionNumber)->markdownSource,
-                $version->markdownSource,
-            );
-            if ($result instanceof DiffRefusal) {
-                $diffRefusal = $result;
-                $this->logger->info('review.document.diff_refused', [
-                    'documentId' => (string) $document->id,
-                    'from' => $fromVersionNumber,
-                    'to' => $toVersionNumber,
-                    'reason' => $result->value,
-                ]);
-            } else {
-                $diff = $result;
-            }
-        } else {
-            $version = null === $versionNumber ? $latest : $this->version($document, $versionNumber);
-        }
+        $version = null === $versionNumber ? $latest : $this->version($document, $versionNumber);
 
         // Every write on this page targets the current version: the composer posts
         // a comment onto whatever is latest, and the verdict applies to the document
         // as it stands. An older version is therefore rendered as a read-only record
-        // of what was discussed then. A diff is read-only for a second reason: the
-        // pane holds diff markup, so anchoring has no text basis to resolve against.
+        // of what was discussed then.
         $isLatest = $version->versionNumber === $latest->versionNumber;
         $comments = $this->comments->findByVersion($version);
 
@@ -114,11 +71,11 @@ final class ShowDocumentController extends AppController
             'document' => $document,
             'version' => $version,
             'versions' => $this->documentVersions->findAllMetaByDocument($document),
-            'diffMode' => $diffMode,
-            'diff' => $diff,
-            'diffRefusal' => $diffRefusal,
-            'diffFromVersion' => $fromVersionNumber,
-            'readOnly' => $diffMode || !$isLatest,
+            // The shared page shell reads these to decide whether it is showing a
+            // document or a comparison of two; here it is always the document.
+            'diffMode' => false,
+            'diffFromVersion' => null,
+            'readOnly' => !$isLatest,
             'comments' => $comments,
             'orphanedCount' => count(array_filter($comments, static fn (Comment $c) => $c->orphaned)),
             'addCommentForm' => $addCommentForm,

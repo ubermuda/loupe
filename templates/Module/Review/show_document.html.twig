@@ -107,39 +107,12 @@
                 {% endif %}
             </div>
 
-            {% if diffMode %}
-                {# What the author said each revision changed, read next to what it
-                   actually changed. Only the versions the diff spans are listed. #}
-                {% set changeNotes = versions|filter(meta =>
-                    meta.versionNumber > diffFromVersion
-                    and meta.versionNumber <= version.versionNumber
-                    and meta.description is not empty
-                ) %}
-                {% if changeNotes|length > 0 %}
-                <aside class="lp-diff-notes">
-                    <h2 class="lp-diff-notes__title">{{ 'review.document.diff.notes_title'|trans }}</h2>
-                    {% for meta in changeNotes %}
-                    <p class="lp-diff-notes__entry">
-                        <span class="lp-version-pill">{{ 'v' ~ meta.versionNumber }}</span>
-                        <span>{{ meta.description }}</span>
-                    </p>
-                    {% endfor %}
-                </aside>
-                {% endif %}
-
-                {% if diffRefusal %}
-                    {# Declining to compare, rather than showing a comparison that
-                       describes neither version. Each version still reads normally,
-                       and the switcher above links to every one of them. #}
-                    <p class="lp-empty">{{ diffRefusal.translationKey|trans }}</p>
-                {% elseif diff.hasChanges %}
-                    {% include '@Review/_version_diff.html.twig' with {diff: diff} only %}
-                {% else %}
-                    <p class="lp-empty">{{ 'review.document.diff.identical'|trans }}</p>
-                {% endif %}
-            {% else %}
+            {# The one part the diff view replaces — see diff_document_versions.html.twig.
+               Everything else on this page is the same in both modes, which is why
+               the diff is a block override rather than a page of its own. #}
+            {% block documentPane %}
             <div class="prose max-w-2xl lp-prose lp-review-doc__prose" data-comment-anchor-target="doc">{{ version.renderedHtml|raw }}</div>
-            {% endif %}
+            {% endblock %}
 
             {# The composer and its toolbar post onto the CURRENT version, so on an
                earlier one they are omitted entirely rather than shown and ignored. #}
