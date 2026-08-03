@@ -1055,6 +1055,22 @@
                 <source>review.document.comment.add_failed</source>
                 <target>Couldn’t add the comment. Please try selecting the text again.</target>
             </trans-unit>
+            <trans-unit id="review.decision.status.saved">
+                <source>review.decision.status.saved</source>
+                <target>Choice saved.</target>
+            </trans-unit>
+            <trans-unit id="review.decision.error.save_failed">
+                <source>review.decision.error.save_failed</source>
+                <target>Couldn’t save that choice. Please try again.</target>
+            </trans-unit>
+            <trans-unit id="review.decision.error.unknown">
+                <source>review.decision.error.unknown</source>
+                <target>That decision is no longer part of this document.</target>
+            </trans-unit>
+            <trans-unit id="review.decision.error.unknown_option">
+                <source>review.decision.error.unknown_option</source>
+                <target>That option is no longer offered for this decision.</target>
+            </trans-unit>
             <trans-unit id="comment.error.not_owner">
                 <source>comment.error.not_owner</source>
                 <target>You can only comment on your own documents.</target>

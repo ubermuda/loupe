@@ -45,7 +45,7 @@
             so that its textContent === DocumentVersion::plainText() and JS
             text-node offsets agree with the PHP anchor basis.
         #}
-        <div class="lp-review-doc"{% if not readOnly %} data-action="mouseup->comment-anchor#onDocMouseup"{% endif %}>
+        <div class="lp-review-doc" data-controller="decision"{% if not readOnly %} data-action="mouseup->comment-anchor#onDocMouseup change->decision#select"{% endif %}>
             <div class="lp-review-doc__head">
                 <h1 class="lp-review-doc__title">
                     {{ document.title }}
@@ -108,7 +108,24 @@
                 {% endif %}
             </div>
 
-            <div class="prose max-w-2xl lp-prose lp-review-doc__prose" data-comment-anchor-target="doc">{{ version.renderedHtml|raw }}</div>
+            <div class="prose max-w-2xl lp-prose lp-review-doc__prose" data-comment-anchor-target="doc">{{ decisionMarkedHtml|raw }}</div>
+
+            {# Outside the prose on purpose: that element's textContent must stay
+               identical to DocumentVersion::plainText(). The radios inside the
+               prose are grouping-only inputs that post nothing themselves — the
+               controller copies the clicked one into this form's hidden fields. #}
+            {% if hasDecisions %}
+            <p id="decision-status" class="lp-decision-status" aria-live="polite"></p>
+            {% endif %}
+            {% if hasDecisions and not readOnly %}
+            {{ form_start(selectDecisionForm, {attr: {
+                'data-decision-target': 'form',
+                hidden: true,
+            }}) }}
+                {{ form_widget(selectDecisionForm.decisionId) }}
+                {{ form_widget(selectDecisionForm.optionIndex) }}
+            {{ form_end(selectDecisionForm) }}
+            {% endif %}
 
             {# The composer and its toolbar post onto the CURRENT version, so on an
                earlier one they are omitted entirely rather than shown and ignored. #}

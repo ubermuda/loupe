@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Module\Review\Service;
 
 use League\CommonMark\Environment\Environment;
+use League\CommonMark\Event\DocumentParsedEvent;
 use League\CommonMark\Extension\CommonMark\CommonMarkCoreExtension;
 use League\CommonMark\Extension\Table\TableExtension;
 use League\CommonMark\MarkdownConverter;
@@ -23,12 +24,16 @@ final readonly class MarkdownRenderer
 
     private MarkdownConverter $converter;
     private HtmlSanitizer $sanitizer;
+    private DecisionBlockService $decisions;
 
     public function __construct()
     {
+        $this->decisions = new DecisionBlockService();
+
         $environment = new Environment(['html_input' => 'allow', 'allow_unsafe_links' => false]);
         $environment->addExtension(new CommonMarkCoreExtension());
         $environment->addExtension(new TableExtension());
+        $environment->addEventListener(DocumentParsedEvent::class, $this->decisions->markParsedDocument(...));
         $this->converter = new MarkdownConverter($environment);
 
         // Every element is listed with exactly the attributes it needs, and never
@@ -135,7 +140,9 @@ final readonly class MarkdownRenderer
     public function render(string $markdown): string
     {
         return $this->withHeadingIds(
-            $this->sanitizer->sanitize($this->converter->convert($markdown)->getContent()),
+            $this->decisions->toControls(
+                $this->sanitizer->sanitize($this->converter->convert($markdown)->getContent()),
+            ),
         );
     }
 

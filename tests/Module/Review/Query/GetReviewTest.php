@@ -7,6 +7,10 @@ namespace App\Tests\Module\Review\Query;
 use App\Module\Account\Entity\User;
 use App\Module\Account\Repository\UserRepository;
 use App\Module\Project\Entity\Project;
+use App\Module\Review\Command\CreateDocumentCommand;
+use App\Module\Review\Command\CreateDocumentHandler;
+use App\Module\Review\Command\SelectDecisionOptionCommand;
+use App\Module\Review\Command\SelectDecisionOptionHandler;
 use App\Module\Review\Entity\Comment;
 use App\Module\Review\Entity\CommentStatus;
 use App\Module\Review\Entity\Document;
@@ -312,6 +316,59 @@ final class GetReviewTest extends KernelTestCase
         self::assertNull($result['verdict']);
         self::assertSame('in-review', $result['status']);
         self::assertSame([], $result['comments']);
+    }
+
+    /**
+     * Every decision is reported, answered or not — an agent has to be able to
+     * tell "still waiting" from "answered", and a payload holding only answers
+     * cannot express the first.
+     *
+     * The option labels are pinned against the block the reviewer actually sees,
+     * so the payload cannot drift from the rendered markup without failing here.
+     */
+    public function test_decisions_are_reported_with_their_options_answered_or_not(): void
+    {
+        $markdown = "<!-- decision: deploy-target -->\n\n- [ ] Ship to staging first\n- [ ] Ship straight to production\n\n<!-- /decision -->\n\n<!-- decision: rollout -->\n\n- [ ] All at once\n\n<!-- /decision -->\n";
+
+        $create = self::getContainer()->get(CreateDocumentHandler::class);
+        self::assertInstanceOf(CreateDocumentHandler::class, $create);
+        $doc = $create(new CreateDocumentCommand($this->project, 'Deploy plan', $markdown));
+
+        $select = self::getContainer()->get(SelectDecisionOptionHandler::class);
+        self::assertInstanceOf(SelectDecisionOptionHandler::class, $select);
+        $select(new SelectDecisionOptionCommand($doc, 'deploy-target', 1));
+
+        $decisions = ($this->getReview)($doc)['decisions'];
+
+        self::assertCount(2, $decisions);
+
+        self::assertSame('deploy-target', $decisions[0]['id']);
+        self::assertSame(['Ship to staging first', 'Ship straight to production'], $decisions[0]['options']);
+        self::assertSame('Ship straight to production', $decisions[0]['selected']);
+        self::assertSame(1, $decisions[0]['selected_index']);
+        self::assertNotNull($decisions[0]['answered_at']);
+
+        self::assertSame('rollout', $decisions[1]['id']);
+        self::assertNull($decisions[1]['selected']);
+        self::assertNull($decisions[1]['selected_index']);
+        self::assertNull($decisions[1]['answered_at']);
+
+        // The reported labels are the ones rendered into the version the
+        // reviewer answered against, not a second reading of the Markdown.
+        $html = $doc->currentVersion()->renderedHtml;
+        foreach ($decisions[0]['options'] as $option) {
+            self::assertStringContainsString('>'.$option.'</label>', $html);
+        }
+    }
+
+    public function test_a_document_with_no_decisions_reports_an_empty_list(): void
+    {
+        $doc = new Document(owner: $this->owner, project: $this->project, title: 'No Decisions');
+        $doc->addVersion('Plain.', '<p>Plain.</p>');
+        $this->em->persist($doc);
+        $this->em->flush();
+
+        self::assertSame([], ($this->getReview)($doc)['decisions']);
     }
 
     public function test_get_document_returns_correct_shape(): void

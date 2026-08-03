@@ -1726,6 +1726,33 @@
         @apply flex items-center gap-2.5 px-4 py-3 mb-4 rounded-lg border text-sm bg-status-pending-bg border-status-pending-border text-status-pending-deep;
     }
 
+    /* ── Decision blocks ────────────────────────────────────────────────
+       A group of reviewer-selectable options rendered from a decision fence
+       in the document's Markdown. It sits inside the prose, so it is styled
+       as a called-out card rather than as a form. */
+
+    .lp-decision {
+        @apply flex flex-col gap-1 my-4 p-4 rounded-lg border bg-tint border-line;
+    }
+    .lp-decision__option {
+        @apply flex items-start gap-2.5 text-sm text-fg;
+    }
+    .lp-decision__option label {
+        @apply cursor-pointer;
+    }
+    .lp-decision__option input[disabled] + label {
+        @apply cursor-default text-fg-mute;
+    }
+    .lp-decision__option:has(input:focus-visible) {
+        @apply outline-2 outline-offset-2 outline-accent rounded-sm;
+    }
+    .lp-decision-status {
+        @apply mt-2 text-sm text-fg-mute;
+    }
+    .lp-decision-status--failed {
+        @apply text-danger;
+    }
+
     /* ── Admin primitives ───────────────────────────────────────────────
        The admin bundle ships only its structural chrome and leaves these
        primitive classes to the consuming app. Loupe's own equivalents are
