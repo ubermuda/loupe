@@ -1276,6 +1276,33 @@ Worth checking what the MCP specification says about structured error payloads
 before designing anything, since the wire format may already have a place to
 put field-level detail.
 
+## Re-rendering stored versions un-highlights comments without flagging them
+
+**Author:** Claude · **Type:** bug · **Priority:** medium · **Status:** pending
+
+`app:review:rerender-versions` (`RefreshDocumentVersionsHtmlHandler`) rewrites
+`document_versions.rendered_html` and touches nothing else. Any renderer change
+that alters `DocumentVersion::plainText()` can therefore leave a stored comment
+whose quote no longer appears in the new text — and nothing notices. The browser
+re-locates each anchor by quote and context (`comment_anchor_controller`'s
+`#findRange`), so it simply adds no highlight; the comment stays in the sidebar
+looking healthy, and `comments.orphaned` is only ever set later, by
+`ReanchoringService`, when someone next revises the document.
+
+Measured on seeded data while adding front-matter and HTML-comment rendering:
+of four comments placed around the affected regions, two resolved cleanly
+against the re-rendered text (shifted +2 and +35 characters) and two resolved to
+nothing — one anchored on front-matter text that is now table cells, one whose
+quote spanned the point where a previously invisible HTML comment now
+contributes text. The re-render reported "1 of 3 versions" and left all four
+`comments` rows byte-identical, `orphaned` still false.
+
+The fix is to give the command a reanchoring pass — resolve every open comment
+against the new text and set `orphaned` where the quote is gone — so the damage
+is recorded when it happens rather than surfacing at the next revision. Consider
+a `--dry-run` that reports the counts before writing, since that is exactly what
+you want before running a renderer migration.
+
 ## Review anchoring — structural fallback anchor (low priority)
 
 
