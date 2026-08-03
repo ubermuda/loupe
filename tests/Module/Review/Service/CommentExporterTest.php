@@ -53,4 +53,29 @@ final class CommentExporterTest extends TestCase
         ], $rows[1]['anchor']);
         self::assertSame('comments.json', new CommentExporter($repo)->filename());
     }
+
+    public function test_export_keeps_a_strike_distinguishable_from_a_plain_comment(): void
+    {
+        $author = new User('bob', 'Bob B', 'bob@example.com', 'x');
+        $project = new Project($author, 'My project');
+        $document = new Document($author, $project, 'My doc');
+        $version = $document->addVersion('# v1', '<h1>v1</h1>');
+
+        $anchor = new Anchor('some quote', 'pre', 'post', 4);
+        $prose = new Comment($version, $author, 'just asking', $anchor);
+        $strike = new Comment($version, $author, '', $anchor, null, '');
+        $rewording = new Comment($version, $author, '', $anchor, null, 'better wording');
+
+        /** @var CommentRepository&Stub $repo */
+        $repo = $this->createStub(CommentRepository::class);
+        $repo->method('findByAuthor')->willReturn([$prose, $strike, $rewording]);
+
+        $rows = new CommentExporter($repo)->export($author);
+
+        // A JSON export that collapsed '' into null would lose which passages the
+        // user asked to delete.
+        self::assertNull($rows[0]['replacement']);
+        self::assertSame('', $rows[1]['replacement']);
+        self::assertSame('better wording', $rows[2]['replacement']);
+    }
 }

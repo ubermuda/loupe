@@ -31,7 +31,7 @@ final class CreateDocumentHandlerTest extends KernelTestCase
 
         self::assertSame(DocumentStatus::InReview, $doc->status);
         self::assertSame(1, $doc->versions->count());
-        self::assertStringContainsString('<h1>Auth</h1>', $doc->currentVersion()->renderedHtml);
+        self::assertStringContainsString('<h1 id="heading-auth">Auth</h1>', $doc->currentVersion()->renderedHtml);
     }
 
     public function test_a_rejected_tag_name_leaves_no_document_behind(): void

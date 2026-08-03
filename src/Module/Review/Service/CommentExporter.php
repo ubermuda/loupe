@@ -32,6 +32,8 @@ final readonly class CommentExporter implements UserDataExporterInterface
                 'document' => $comment->version->document->title,
                 'versionNumber' => $comment->version->versionNumber,
                 'body' => $comment->body,
+                // null = prose comment, '' = strike, otherwise the suggested text.
+                'replacement' => $comment->replacement,
                 // One flat row per comment, so a reply reports the status of the
                 // thread it belongs to rather than dropping the column.
                 'status' => $comment->threadStatus->value,
