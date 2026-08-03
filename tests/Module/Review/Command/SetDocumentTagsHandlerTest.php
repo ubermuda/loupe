@@ -136,15 +136,36 @@ final class SetDocumentTagsHandlerTest extends KernelTestCase
         self::assertSame(['design', 'release'], $this->namesOf($reloaded));
     }
 
+    /**
+     * Asserted on the join rows rather than the in-memory collection, which
+     * would look unchanged whatever the second call emitted. Whether Doctrine
+     * re-writes the rows is not asserted — only that the same pairs survive and
+     * no tag is duplicated.
+     */
     public function test_setting_the_same_set_twice_changes_nothing(): void
     {
         [$project, $document] = $this->seed('tags-idempotent');
         ($this->handler)(new SetDocumentTagsCommand($document, ['design', 'release']));
+        $before = $this->joinRowsFor($document);
+        self::assertCount(2, $before);
 
         ($this->handler)(new SetDocumentTagsCommand($document, ['release', 'Design']));
 
+        self::assertSame($before, $this->joinRowsFor($document));
         self::assertSame(['design', 'release'], $this->namesOf($document));
         self::assertCount(2, $this->tags->findBy(['project' => $project]));
+    }
+
+    /** @return list<string> the tag ids joined to $document, sorted */
+    private function joinRowsFor(Document $document): array
+    {
+        /** @var list<string> $ids */
+        $ids = $this->em->getConnection()->fetchFirstColumn(
+            'SELECT tag_id FROM document_tags WHERE document_id = :id ORDER BY tag_id',
+            ['id' => (string) $document->id],
+        );
+
+        return $ids;
     }
 
     /**
