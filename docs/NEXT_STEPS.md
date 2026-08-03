@@ -2545,6 +2545,24 @@ Two things would fix it, and they are not exclusive:
 Related symptom, same cause: `bin/console cache:warmup` has also OOM'd at 128M
 while compiling Twig in a worktree, twice, with no template change involved.
 
+## Decision controls have no browser coverage
+
+**Author:** Claude · **Type:** tooling · **Priority:** medium · **Status:** pending
+
+The reviewer-selectable decision blocks (`DecisionBlockService`,
+`decision_controller.js`, `SelectDecisionOptionController`) are covered by
+PHPUnit only — the branch that added them was instructed not to run `just e2e`,
+so no Playwright spec clicks one.
+
+The gap that matters is specific to this feature: the radios live in the stored
+`renderedHtml` inside `[data-comment-anchor-target="doc"]`, whose `textContent`
+must stay identical to `DocumentVersion::plainText()`. A spec should click an
+option, confirm the answer is saved and re-shown after a reload, and then select
+text *below* the decision block and confirm the comment anchors where the
+reviewer put it. Nothing in PHPUnit exercises the Stimulus controller that fills
+the hidden fields, so a rename of `data-decision-option` or
+`data-decision-target` breaks the feature with a green `just ci`.
+
 ## Product idea (long horizon): drag DOM elements in the widget to try layouts
 
 **Author:** Geoffrey · **Type:** idea · **Priority:** low · **Status:** pending
