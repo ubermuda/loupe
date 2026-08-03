@@ -20,6 +20,24 @@ use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 
 final class GetReviewTest extends KernelTestCase
 {
+    /**
+     * Keys that would name the person behind a comment. `document_get_review` promises in its
+     * MCP tool description that it reports none of them, so adding one to the payload for a
+     * template's or the dev endpoint's benefit would hand a reviewer's real name to an agent.
+     */
+    private const array IDENTIFYING_KEYS = [
+        'author_id',
+        'authorEmail',
+        'authorId',
+        'authorName',
+        'email',
+        'fullName',
+        'full_name',
+        'user',
+        'userId',
+        'username',
+    ];
+
     private EntityManagerInterface $em;
     private GetReview $getReview;
     private GetDocument $getDocument;
@@ -122,6 +140,32 @@ final class GetReviewTest extends KernelTestCase
         self::assertSame('agent', $replyData['author']);
         self::assertArrayNotHasKey('status', $replyData, 'Status belongs to the thread, so a reply carries none');
         self::assertFalse($replyData['orphaned']);
+    }
+
+    public function test_a_comment_reports_its_author_class_but_never_an_identity(): void
+    {
+        $doc = new Document(owner: $this->owner, project: $this->project, title: 'Identity');
+        $version = $doc->addVersion('Use JWTs.', '<p>Use JWTs.</p>');
+
+        $root = new Comment($version, $this->owner, 'Why JWTs?', new Anchor('JWTs', 'Use ', '.', 4));
+        $reply = new Comment($version, $this->agent, 'Stateless auth.', new Anchor('JWTs', 'Use ', '.', 4), parent: $root);
+
+        $this->em->persist($doc);
+        $this->em->persist($root);
+        $this->em->persist($reply);
+        $this->em->flush();
+
+        $comments = ($this->getReview)($doc)['comments'];
+
+        // Assert the entries were built before asserting what they leave out, so the
+        // absence checks below cannot pass on an empty payload.
+        self::assertSame('human', $comments[0]['author']);
+        self::assertSame('agent', $comments[0]['thread'][0]['author']);
+
+        foreach (self::IDENTIFYING_KEYS as $key) {
+            self::assertArrayNotHasKey($key, $comments[0], \sprintf('A root comment must not report %s', $key));
+            self::assertArrayNotHasKey($key, $comments[0]['thread'][0], \sprintf('A reply must not report %s', $key));
+        }
     }
 
     public function test_a_thread_reports_the_status_held_by_its_root(): void
