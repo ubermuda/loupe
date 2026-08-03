@@ -766,6 +766,45 @@
         @apply w-4 h-4 shrink-0;
         color: var(--switcher-hover-border);
     }
+    /* An archived document still opens at its URL, so the row stays a link and
+       is dimmed rather than removed. */
+    .lp-document-row--archived {
+        @apply opacity-60;
+    }
+    .lp-document-row__archived {
+        @apply inline-flex items-center shrink-0 font-mono rounded-full text-fg-dim text-xs py-px px-2 border border-line;
+    }
+    /* Rename and archive sit above the full-row overlay link (z-10) so they stay
+       clickable rather than the row's review link swallowing the click. */
+    .lp-document-row__actions {
+        @apply relative z-10 shrink-0 flex items-center gap-1;
+    }
+    /* The archive form wraps a single icon button; it must not introduce a line
+       box of its own between the rename link and the chevron. */
+    .lp-document-row__action-form {
+        @apply contents;
+    }
+    .lp-document-row__action {
+        @apply flex items-center justify-center w-8 h-8 rounded-lg bg-transparent border-0 cursor-pointer text-fg-dim transition-colors;
+    }
+    .lp-document-row__action:hover {
+        @apply bg-line text-ink;
+    }
+
+    /* Filter bar above a list. Lives outside the list's empty-state branch so a
+       filter that matches nothing can still be turned off. */
+    .lp-list-filters {
+        @apply flex flex-wrap items-center gap-2 mt-4;
+    }
+    .lp-filter-chip {
+        @apply inline-flex items-center gap-1.5 rounded-full border border-line bg-surface-2 text-fg-mute no-underline transition-colors text-xs py-1 px-3;
+    }
+    .lp-filter-chip:hover {
+        @apply bg-tint text-fg;
+    }
+    .lp-filter-chip--on {
+        @apply bg-accent-soft text-accent-hover border-transparent;
+    }
 
     /* ── Flash messages ─────────────────────────────────────────────── */
 
@@ -971,8 +1010,16 @@
     .lp-version-pill--link {
         @apply bg-surface-2 text-fg-mute no-underline transition-colors hover:bg-tint hover:text-fg;
     }
+    /* One row per version so each entry can carry its description beneath the
+       pill, rather than a single wrapping line of pills. */
     .lp-version-switcher {
-        @apply flex flex-wrap items-center gap-1.5 mt-2;
+        @apply flex flex-col items-start gap-1.5 mt-2;
+    }
+    .lp-version-entry {
+        @apply flex flex-col items-start gap-1;
+    }
+    .lp-version-entry__description {
+        @apply text-fg-dim m-0 text-xs;
     }
     /* Shown above an earlier version of a document, which is read-only: the
        composer, reply and verdict controls all act on the current version. */

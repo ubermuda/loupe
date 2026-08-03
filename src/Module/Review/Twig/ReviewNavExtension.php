@@ -13,6 +13,9 @@ use Twig\TwigFunction;
  * Exposes a project's document count to the app-shell nav pill. Mirrors
  * SiteReviewNavExtension: the count is a Review concern, and Review → Project is
  * the allowed dependency direction.
+ *
+ * The pill counts what the documents list shows, so archived documents are left
+ * out of both or the number contradicts the rows it sits above.
  */
 final class ReviewNavExtension extends AbstractExtension
 {
@@ -31,6 +34,6 @@ final class ReviewNavExtension extends AbstractExtension
 
     public function documentCount(Project $project): int
     {
-        return $this->documents->countByProject($project);
+        return $this->documents->countActiveByProject($project);
     }
 }

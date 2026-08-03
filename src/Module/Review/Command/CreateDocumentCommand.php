@@ -12,6 +12,7 @@ final readonly class CreateDocumentCommand
         public Project $project,
         public string $title,
         public string $markdown,
+        public ?string $description = null,
     ) {
     }
 }

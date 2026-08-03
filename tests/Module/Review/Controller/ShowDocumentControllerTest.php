@@ -284,7 +284,7 @@ final class ShowDocumentControllerTest extends WebTestCase
         $em->persist($resolved);
         $em->flush();
 
-        ($reviseDocument)(new ReviseDocumentCommand($doc, '# Rewritten'));
+        ($reviseDocument)(new ReviseDocumentCommand($doc, '# Rewritten', 'Rewrote the body.'));
 
         $projectId = (string) $project->id;
         $id = (string) $doc->id;
@@ -321,7 +321,7 @@ final class ShowDocumentControllerTest extends WebTestCase
         $em->persist(new Comment($version, $owner, 'Still open', new Anchor('Body', '', '', 0)));
         $em->flush();
 
-        ($reviseDocument)(new ReviseDocumentCommand($doc, '# Body'));
+        ($reviseDocument)(new ReviseDocumentCommand($doc, '# Body', 'No content change.'));
 
         $projectId = (string) $project->id;
         $id = (string) $doc->id;
@@ -364,6 +364,129 @@ final class ShowDocumentControllerTest extends WebTestCase
         $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/documents/'.$id.'/review/versions/7');
 
         self::assertResponseStatusCodeSame(404);
+    }
+
+    public function test_each_version_entry_shows_what_that_version_changed(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+
+        $owner = $this->createUser($em, 'owner-desc', 'owner-desc@example.com');
+        $project = $this->project($em, $owner);
+
+        $doc = new Document(owner: $owner, project: $project, title: 'Described Doc');
+        $doc->addVersion('# v1', '<h1>v1</h1>', 'The original brief.');
+        $doc->addVersion('# v2', '<h1>v2</h1>', 'Replaced the rollout section with a phased plan.');
+        $em->persist($doc);
+        $em->flush();
+
+        $projectId = (string) $project->id;
+        $id = (string) $doc->id;
+        $em->clear();
+
+        $client->loginUser($owner);
+        $crawler = $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/documents/'.$id.'/review');
+
+        self::assertResponseIsSuccessful();
+
+        $descriptions = $crawler->filter('.lp-version-entry__description')->each(
+            static fn (\Symfony\Component\DomCrawler\Crawler $node): string => trim($node->text()),
+        );
+
+        self::assertSame(
+            ['Replaced the rollout section with a phased plan.', 'The original brief.'],
+            $descriptions,
+        );
+    }
+
+    /**
+     * A document with one version has no switching to do, but its description is
+     * the only account of what that version is — hiding the list would store text
+     * nothing ever shows.
+     */
+    public function test_a_single_version_document_still_shows_its_description(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+
+        $owner = $this->createUser($em, 'owner-desc-one', 'owner-desc-one@example.com');
+        $project = $this->project($em, $owner);
+
+        $doc = new Document(owner: $owner, project: $project, title: 'Single Version Doc');
+        $doc->addVersion('# v1', '<h1>v1</h1>', 'The original brief.');
+        $em->persist($doc);
+        $em->flush();
+
+        $projectId = (string) $project->id;
+        $id = (string) $doc->id;
+        $em->clear();
+
+        $client->loginUser($owner);
+        $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/documents/'.$id.'/review');
+
+        self::assertResponseIsSuccessful();
+        self::assertSelectorTextContains('.lp-version-entry__description', 'The original brief.');
+    }
+
+    /**
+     * The mirror of the case above: with one version and nothing to say about
+     * it, the list has no destination and no text, so it is omitted rather than
+     * rendered as a lone pill. Every document created before descriptions
+     * existed is in this state.
+     */
+    public function test_a_single_version_document_with_no_description_renders_no_version_list(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+
+        $owner = $this->createUser($em, 'owner-desc-none', 'owner-desc-none@example.com');
+        $project = $this->project($em, $owner);
+
+        $doc = new Document(owner: $owner, project: $project, title: 'Undescribed Doc');
+        $doc->addVersion('# v1', '<h1>v1</h1>');
+        $em->persist($doc);
+        $em->flush();
+
+        $projectId = (string) $project->id;
+        $id = (string) $doc->id;
+        $em->clear();
+
+        $client->loginUser($owner);
+        $crawler = $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/documents/'.$id.'/review');
+
+        self::assertResponseIsSuccessful();
+        self::assertCount(0, $crawler->filter('.lp-version-switcher'));
+    }
+
+    /**
+     * A description on any version earns the list even when only one version has
+     * one — otherwise the descriptions on a multi-version document would be the
+     * only ones ever shown.
+     */
+    public function test_several_versions_without_descriptions_still_render_the_switcher(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+
+        $owner = $this->createUser($em, 'owner-desc-multi', 'owner-desc-multi@example.com');
+        $project = $this->project($em, $owner);
+
+        $doc = new Document(owner: $owner, project: $project, title: 'Two Bare Versions');
+        $doc->addVersion('# v1', '<h1>v1</h1>');
+        $doc->addVersion('# v2', '<h1>v2</h1>');
+        $em->persist($doc);
+        $em->flush();
+
+        $projectId = (string) $project->id;
+        $id = (string) $doc->id;
+        $em->clear();
+
+        $client->loginUser($owner);
+        $crawler = $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/documents/'.$id.'/review');
+
+        self::assertResponseIsSuccessful();
+        self::assertCount(1, $crawler->filter('.lp-version-switcher'));
+        self::assertCount(0, $crawler->filter('.lp-version-entry__description'));
     }
 
     public function test_unauthenticated_user_is_redirected(): void

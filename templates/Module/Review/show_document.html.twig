@@ -56,10 +56,17 @@
                 {# The way back to a discussion that a revision left behind: comments
                    resolved on an earlier version stay on that version, so without this
                    the whole thread is unreachable once the document is revised. The
-                   newest version links to the canonical unnumbered URL. #}
-                {% if versions|length > 1 %}
+                   newest version links to the canonical unnumbered URL.
+
+                   A single version with a description still earns the list, because
+                   the description appears nowhere else on the page. A single version
+                   with none has nothing to show and nowhere to switch to, so the list
+                   is omitted rather than rendered as a lone pill. #}
+                {% set hasVersionDescription = versions|filter(meta => meta.description is not empty)|length > 0 %}
+                {% if versions|length > 1 or hasVersionDescription %}
                 <nav class="lp-version-switcher" aria-label="{{ 'review.document.version.switcher_label'|trans }}">
                     {% for meta in versions %}
+                    <div class="lp-version-entry">
                         {% if meta.versionNumber == version.versionNumber %}
                             <span class="lp-version-pill" aria-current="page">{{ 'v' ~ meta.versionNumber }}</span>
                         {% else %}
@@ -69,6 +76,10 @@
                                    : path('app_document_review_version', {projectId: document.project.id, documentId: document.id, versionNumber: meta.versionNumber}) }}"
                             >{{ 'v' ~ meta.versionNumber }}</a>
                         {% endif %}
+                        {% if meta.description %}
+                        <p class="lp-version-entry__description">{{ meta.description }}</p>
+                        {% endif %}
+                    </div>
                     {% endfor %}
                 </nav>
                 {% endif %}

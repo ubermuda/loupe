@@ -15,7 +15,7 @@ use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 /**
  * Create a Markdown document for human review and return its id and review URL.
  */
-#[McpTool(name: 'document_create', description: 'Create a Markdown document for human review.')]
+#[McpTool(name: 'document_create', description: 'Create a Markdown document for human review. Pass description to say what this first version is.')]
 final readonly class DocumentCreateTool
 {
     use ResolvesBoundProject;
@@ -31,12 +31,13 @@ final readonly class DocumentCreateTool
     }
 
     /**
-     * @param string $title    The document title
-     * @param string $markdown The document content in Markdown format
+     * @param string      $title       The document title
+     * @param string      $markdown    The document content in Markdown format
+     * @param string|null $description What this first version is, in one or two sentences — the brief it answers or the question it exists to settle
      *
      * @return array{documentId: string, reviewUrl: string}
      */
-    public function __invoke(string $title, string $markdown): array
+    public function __invoke(string $title, string $markdown, ?string $description = null): array
     {
         try {
             $project = $this->requireBoundProject($this->projectResolver);
@@ -45,7 +46,14 @@ final readonly class DocumentCreateTool
                 throw new ToolCallException('The markdown content exceeds the maximum allowed size.');
             }
 
-            $doc = ($this->createDocument)(new CreateDocumentCommand($project, $title, $markdown));
+            // A whitespace-only description means "none given", but "0" is a
+            // description a caller actually sent — `?:` would discard it.
+            $description = null === $description ? null : trim($description);
+            if ('' === $description) {
+                $description = null;
+            }
+
+            $doc = ($this->createDocument)(new CreateDocumentCommand($project, $title, $markdown, $description));
 
             return [
                 'documentId' => (string) $doc->id,

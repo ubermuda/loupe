@@ -19,17 +19,46 @@
         {% endfor %}
     {% endfor %}
 
+    {# Outside the empty-list branch on purpose: a filter that disappears the
+       moment it matches nothing leaves the reader on a dead end with no way
+       back. Later filters join this bar rather than replacing it.
+
+       Each state is labelled with what following the link does, rather than one
+       label plus aria-pressed: that attribute is defined for role="button" and is
+       dropped on an anchor, so both states would announce identically while doing
+       opposite things. The icon and the accent background carry the same
+       distinction visually. #}
+    <div class="lp-list-filters">
+        {% if listQuery.includeArchived %}
+            <a class="lp-filter-chip lp-filter-chip--on"
+               href="{{ path('app_project_documents', {id: project.id}) }}">
+                <twig:ux:icon name="lucide:check" class="w-3.5 h-3.5 shrink-0" />
+                {{ 'review.dashboard.filter.hide_archived'|trans }}
+            </a>
+        {% else %}
+            <a class="lp-filter-chip"
+               href="{{ path('app_project_documents', {id: project.id, archived: 1}) }}">
+                <twig:ux:icon name="lucide:archive" class="w-3.5 h-3.5 shrink-0" />
+                {{ 'review.dashboard.filter.show_archived'|trans }}
+            </a>
+        {% endif %}
+    </div>
+
     {% if items|length > 0 %}
     <div class="lp-document-list">
         {% for item in items %}
         {% set document = item.document %}
-        <div class="lp-document-row" data-document-id="{{ document.id }}">
+        {% set archived = document.archivedAt is not null %}
+        <div class="lp-document-row{% if archived %} lp-document-row--archived{% endif %}" data-document-id="{{ document.id }}">
             <a href="{{ path('app_document_review', {projectId: project.id, documentId: document.id}) }}"
                class="lp-document-row__link" aria-label="{{ document.title }}"></a>
             <div class="lp-document-row__main">
                 <div class="lp-document-row__head">
                     <span class="lp-document-row__title">{{ document.title }}</span>
                     <span class="lp-document-row__version">{{ 'v' ~ item.versionNumber }}</span>
+                    {% if archived %}
+                    <span class="lp-document-row__archived">{{ 'review.dashboard.archived_tag'|trans }}</span>
+                    {% endif %}
                 </div>
                 <div class="lp-document-row__meta">
                     <span>{{ 'review.dashboard.meta.updated'|trans({'%time%': item.updatedAt|relative_time}) }}</span>
@@ -42,12 +71,37 @@
             <span class="lp-badge lp-badge--{{ document.status.value }}">
                 {{ document.status.translationKey()|trans }}
             </span>
+            <div class="lp-document-row__actions">
+                <a href="{{ path('app_document_rename', {projectId: project.id, documentId: document.id}|merge(listQuery.routeParams)) }}"
+                   class="lp-document-row__action"
+                   aria-label="{{ 'review.dashboard.rename'|trans({'%title%': document.title}) }}">
+                    <twig:ux:icon name="lucide:pencil" class="w-4 h-4" />
+                </a>
+                {# The form is built by the extension (one per row, named after the
+                   document) and already points at archive or unarchive; only the
+                   icon and label differ here. Both states are written out rather
+                   than interpolated because the icon importer sees only icon names
+                   it can read as literals, and an icon it never imported renders as
+                   nothing in production. #}
+                {% set archiveForm = document_archive_form(document, listQuery.routeParams) %}
+                {{ form_start(archiveForm, {attr: {class: 'lp-document-row__action-form'}}) }}
+                    <button type="submit"
+                            class="lp-document-row__action"
+                            aria-label="{{ (archived ? 'review.dashboard.unarchive' : 'review.dashboard.archive')|trans({'%title%': document.title}) }}">
+                        {% if archived %}
+                        <twig:ux:icon name="lucide:archive-restore" class="w-4 h-4" />
+                        {% else %}
+                        <twig:ux:icon name="lucide:archive" class="w-4 h-4" />
+                        {% endif %}
+                    </button>
+                {{ form_end(archiveForm) }}
+            </div>
             <twig:ux:icon name="lucide:chevron-right" class="lp-document-row__chevron" />
         </div>
         {% endfor %}
     </div>
 
-    <twig:Pagination route="app_project_documents" :page="page" :totalPages="totalPages" :pageList="pageList" :routeParams="{id: project.id}" />
+    <twig:Pagination route="app_project_documents" :page="page" :totalPages="totalPages" :pageList="pageList" :routeParams="{id: project.id}|merge(listQuery.routeParams)" />
     {% else %}
     <div class="lp-card flex flex-col items-center text-center gap-3 py-12">
         <twig:ux:icon name="lucide:file-text" class="w-8 h-8 text-fg-dim" />

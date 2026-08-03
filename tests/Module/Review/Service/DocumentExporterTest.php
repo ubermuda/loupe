@@ -37,4 +37,40 @@ final class DocumentExporterTest extends TestCase
         self::assertArrayNotHasKey('renderedHtml', $rows[0]['versions'][0]);
         self::assertSame('documents.json', new DocumentExporter($repo)->filename());
     }
+
+    public function test_exports_archive_state_and_version_descriptions(): void
+    {
+        $user = new User('alice', 'Alice A', 'alice@example.com', 'x');
+        $project = new Project($user, 'My project');
+        $document = new Document($user, $project, 'My doc');
+        $document->addVersion('# v1', '<h1>v1</h1>', 'First draft of the auth design.');
+        $document->addVersion('# v2', '<h1>v2</h1>');
+        $document->archivedAt = new \DateTimeImmutable('2026-08-02 10:00:00');
+
+        /** @var DocumentRepository&Stub $repo */
+        $repo = $this->createStub(DocumentRepository::class);
+        $repo->method('findByOwner')->willReturn([$document]);
+
+        $rows = new DocumentExporter($repo)->export($user);
+
+        self::assertSame('2026-08-02T10:00:00+00:00', $rows[0]['archivedAt']);
+        self::assertSame('First draft of the auth design.', $rows[0]['versions'][0]['description']);
+        self::assertNull($rows[0]['versions'][1]['description']);
+    }
+
+    public function test_a_document_that_was_never_archived_exports_a_null_timestamp(): void
+    {
+        $user = new User('alice', 'Alice A', 'alice@example.com', 'x');
+        $document = new Document($user, new Project($user, 'My project'), 'My doc');
+        $document->addVersion('# v1', '<h1>v1</h1>');
+
+        /** @var DocumentRepository&Stub $repo */
+        $repo = $this->createStub(DocumentRepository::class);
+        $repo->method('findByOwner')->willReturn([$document]);
+
+        $rows = new DocumentExporter($repo)->export($user);
+
+        self::assertArrayHasKey('archivedAt', $rows[0]);
+        self::assertNull($rows[0]['archivedAt']);
+    }
 }

@@ -48,17 +48,18 @@ class DocumentVersionRepository extends ServiceEntityRepository
 
     /**
      * Every version of one document, newest first, as the metadata a version
-     * switcher needs — never the two TEXT columns. A document's revision history
-     * is unbounded and each row carries the full markdown and rendered HTML, so
+     * switcher needs — never the markdown or rendered HTML. A document's
+     * revision history is unbounded and each row carries both in full, so
      * hydrating entities here would make the switcher cost grow with the history
-     * it is listing.
+     * it is listing. The description is a third TEXT column but holds one line
+     * per version, and the switcher renders it.
      *
-     * @return list<array{versionNumber: int, createdAt: \DateTimeImmutable}>
+     * @return list<array{versionNumber: int, createdAt: \DateTimeImmutable, description: ?string}>
      */
     public function findAllMetaByDocument(Document $document): array
     {
         $rows = $this->createQueryBuilder('v')
-            ->select('v.versionNumber AS versionNumber', 'v.createdAt AS createdAt')
+            ->select('v.versionNumber AS versionNumber', 'v.createdAt AS createdAt', 'v.description AS description')
             ->where('v.document = :document')
             ->setParameter('document', $document)
             ->orderBy('v.versionNumber', 'DESC')
@@ -69,10 +70,12 @@ class DocumentVersionRepository extends ServiceEntityRepository
         foreach ($rows as $row) {
             $versionNumber = $row['versionNumber'];
             $createdAt = $row['createdAt'];
+            $description = $row['description'];
 
             $meta[] = [
                 'versionNumber' => is_int($versionNumber) ? $versionNumber : throw new \LogicException('versionNumber must be an int.'),
                 'createdAt' => $createdAt instanceof \DateTimeImmutable ? $createdAt : throw new \LogicException('createdAt must be a DateTimeImmutable.'),
+                'description' => null === $description || is_string($description) ? $description : throw new \LogicException('description must be a string or null.'),
             ];
         }
 

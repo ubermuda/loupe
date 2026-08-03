@@ -68,6 +68,34 @@ final class DocumentGetToolTest extends KernelTestCase
         self::assertSame((string) $document->id, $result['documentId']);
         self::assertSame('Readable', $result['title']);
         self::assertSame('# Hello', $result['markdown']);
+        self::assertFalse($result['archived']);
+        self::assertNull($result['versionDescription']);
+    }
+
+    /**
+     * An agent that fetches one document can otherwise not tell it was archived,
+     * nor read back the description it wrote with the revision.
+     */
+    public function test_reports_archive_state_and_the_current_versions_description(): void
+    {
+        $owner = $this->user('getdoc-meta@example.com');
+        $project = new Project($owner, 'p-'.uniqid());
+        $this->em->persist($project);
+
+        $document = new Document(owner: $owner, project: $project, title: 'Archived and described');
+        $document->addVersion('# v1', '<h1>v1</h1>', 'The original brief.');
+        $document->addVersion('# v2', '<h1>v2</h1>', 'Replaced the rollout section.');
+        $document->archivedAt = new \DateTimeImmutable();
+        $this->em->persist($document);
+        $this->em->flush();
+
+        $this->actAsMcpTokenBoundTo($project);
+
+        $result = ($this->tool)((string) $document->id);
+
+        self::assertTrue($result['archived']);
+        self::assertSame(2, $result['version']);
+        self::assertSame('Replaced the rollout section.', $result['versionDescription']);
     }
 
     public function test_cannot_read_a_document_of_another_project_of_the_same_owner(): void

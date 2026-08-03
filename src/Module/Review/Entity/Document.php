@@ -17,6 +17,9 @@ use Symfony\Component\Uid\Uuid;
 #[ORM\Table(name: 'documents')]
 class Document
 {
+    /** Mirrors the title column's length so callers can reject an over-long title before Postgres does. */
+    public const int MAX_TITLE_LENGTH = 255;
+
     #[ORM\Column(type: UuidType::NAME, unique: true)]
     #[ORM\CustomIdGenerator(class: 'doctrine.uuid_generator')]
     #[ORM\GeneratedValue(strategy: 'CUSTOM')]
@@ -25,6 +28,14 @@ class Document
 
     #[ORM\Column(enumType: DocumentStatus::class)]
     public DocumentStatus $status = DocumentStatus::InReview;
+
+    /**
+     * Set when the document is archived, cleared when it is restored. Kept
+     * separate from $status because the two are orthogonal: an approved
+     * document can be archived, and so can one still in review.
+     */
+    #[ORM\Column(nullable: true)]
+    public ?\DateTimeImmutable $archivedAt = null;
 
     /** @var Collection<int, DocumentVersion> */
     #[ORM\OneToMany(targetEntity: DocumentVersion::class, mappedBy: 'document', cascade: ['persist'], orphanRemoval: true)]
@@ -40,7 +51,7 @@ class Document
         #[ORM\ManyToOne(targetEntity: Project::class)]
         public readonly Project $project,
 
-        #[ORM\Column(length: 255)]
+        #[ORM\Column(length: self::MAX_TITLE_LENGTH)]
         public string $title,
 
         #[ORM\Column]
@@ -49,9 +60,9 @@ class Document
         $this->versions = new ArrayCollection();
     }
 
-    public function addVersion(string $markdown, string $renderedHtml): DocumentVersion
+    public function addVersion(string $markdown, string $renderedHtml, ?string $description = null): DocumentVersion
     {
-        $version = new DocumentVersion($this, $this->versions->count() + 1, $markdown, $renderedHtml);
+        $version = new DocumentVersion($this, $this->versions->count() + 1, $markdown, $renderedHtml, $description);
         $this->versions->add($version);
 
         return $version;
