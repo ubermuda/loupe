@@ -10,9 +10,17 @@ use League\CommonMark\Extension\Table\TableExtension;
 use League\CommonMark\MarkdownConverter;
 use Symfony\Component\HtmlSanitizer\HtmlSanitizer;
 use Symfony\Component\HtmlSanitizer\HtmlSanitizerConfig;
+use Symfony\Component\HtmlSanitizer\Reference\W3CReference;
 
 final readonly class MarkdownRenderer
 {
+    /**
+     * Namespaces every computed heading id so a document can never mint one that
+     * collides with an id the review page already uses (`composer-error` is a
+     * plausible heading and a real Turbo stream target).
+     */
+    private const string HEADING_ID_PREFIX = 'heading-';
+
     private MarkdownConverter $converter;
     private HtmlSanitizer $sanitizer;
 
@@ -22,39 +30,140 @@ final readonly class MarkdownRenderer
         $environment->addExtension(new CommonMarkCoreExtension());
         $environment->addExtension(new TableExtension());
         $this->converter = new MarkdownConverter($environment);
+
+        // Every element is listed with exactly the attributes it needs, and never
+        // layered over allowSafeElements(): allowElement() REPLACES an element's
+        // attribute set rather than merging into it, so a bare allowElement('h2')
+        // after that call silently revoked everything it had just granted.
         $config = new HtmlSanitizerConfig()
             // The sanitizer's default max input length is 20 000 bytes, beyond which it
             // silently truncates — long documents lost their tail at render time.
             ->withMaxInputLength(1_000_000)
-            ->allowSafeElements()
+            // Headings are attribute-free on purpose: their ids are computed from
+            // their own text after sanitization, see withHeadingIds().
             ->allowElement('h1')
             ->allowElement('h2')
             ->allowElement('h3')
             ->allowElement('h4')
             ->allowElement('h5')
             ->allowElement('h6')
-            ->allowElement('ul')
-            ->allowElement('ol')
-            ->allowElement('li')
             ->allowElement('p')
-            ->allowElement('pre')
-            ->allowElement('code')
             ->allowElement('blockquote')
-            ->allowElement('strong')
-            ->allowElement('em')
-            ->allowElement('a', ['href'])
+            ->allowElement('pre')
             ->allowElement('hr')
+            ->allowElement('br')
+            ->allowElement('div')
+            ->allowElement('span')
+            ->allowElement('ul')
+            // `start` is emitted by CommonMark for an ordered list that does not
+            // begin at 1; without it the list silently renumbers from 1.
+            ->allowElement('ol', ['start'])
+            ->allowElement('li')
+            ->allowElement('dl')
+            ->allowElement('dt')
+            ->allowElement('dd')
             ->allowElement('table')
             ->allowElement('thead')
             ->allowElement('tbody')
+            ->allowElement('tfoot')
             ->allowElement('tr')
-            ->allowElement('th')
-            ->allowElement('td');
+            // `align` is how the Table extension renders a column alignment marker
+            // (`|:--|--:|`); colspan/rowspan/scope come from hand-written tables.
+            ->allowElement('th', ['align', 'colspan', 'rowspan', 'scope'])
+            ->allowElement('td', ['align', 'colspan', 'rowspan'])
+            ->allowElement('a', ['href', 'title'])
+            ->allowElement('img', ['src', 'alt', 'title', 'width', 'height'])
+            // `class` carries the fenced-code info string as `language-<name>`,
+            // the standard hook a syntax highlighter reads. Scoped to <code> so
+            // document content cannot put the app's own classes on a container.
+            ->allowElement('code', ['class'])
+            ->allowElement('em')
+            ->allowElement('strong')
+            ->allowElement('i')
+            ->allowElement('b')
+            ->allowElement('s')
+            ->allowElement('u')
+            ->allowElement('del', ['datetime'])
+            ->allowElement('ins', ['datetime'])
+            ->allowElement('sub')
+            ->allowElement('sup')
+            ->allowElement('mark')
+            ->allowElement('small')
+            ->allowElement('abbr', ['title'])
+            ->allowElement('kbd')
+            ->allowElement('samp')
+            ->allowElement('var')
+            ->allowElement('q', ['cite'])
+            ->allowElement('cite')
+            // A checkbox is the one form control documents use, and it renders
+            // nothing without these three. `name`, `value` and `form` stay out, so
+            // a document cannot smuggle a field into any form on the page.
+            ->allowElement('input', ['type', 'checked', 'disabled']);
+
+        // Every remaining W3C-safe element is blocked rather than dropped: the tag
+        // and its attributes go, its text stays. Text is the basis
+        // DocumentVersion::plainText() measures every comment anchor against, so an
+        // element this list did not anticipate must not take a paragraph with it.
+        $rendered = $config->getAllowedElements();
+        foreach (array_keys(array_filter(W3CReference::BODY_ELEMENTS)) as $element) {
+            if (!isset($rendered[$element])) {
+                $config = $config->blockElement($element);
+            }
+        }
+
         $this->sanitizer = new HtmlSanitizer($config);
     }
 
     public function render(string $markdown): string
     {
-        return $this->sanitizer->sanitize($this->converter->convert($markdown)->getContent());
+        return $this->withHeadingIds(
+            $this->sanitizer->sanitize($this->converter->convert($markdown)->getContent()),
+        );
+    }
+
+    /**
+     * Gives every heading a stable, unique id so a table of contents can link to it.
+     *
+     * Ids are added after sanitization and no element is allowed to carry `id`, so
+     * every id on the page is one this method computed. Attributes never survive
+     * strip_tags(), so DocumentVersion::plainText() — the basis every comment
+     * anchor is measured against — is unchanged by this.
+     */
+    private function withHeadingIds(string $html): string
+    {
+        /** @var array<string, true> $used */
+        $used = [];
+
+        // Headings are allowed with no attributes, so a sanitized opening tag is
+        // always exactly `<hN>`.
+        return preg_replace_callback(
+            '~<h([1-6])>(.*?)</h\1>~s',
+            /** @param array<int, string> $matches */
+            static function (array $matches) use (&$used): string {
+                $slug = self::slug($matches[2]);
+                $base = $slug;
+                $suffix = 1;
+                while (isset($used[$slug])) {
+                    $slug = $base.'-'.++$suffix;
+                }
+                $used[$slug] = true;
+
+                return sprintf(
+                    '<h%1$s id="%2$s">%3$s</h%1$s>',
+                    $matches[1],
+                    self::HEADING_ID_PREFIX.$slug,
+                    $matches[2],
+                );
+            },
+            $html,
+        ) ?? $html;
+    }
+
+    private static function slug(string $headingHtml): string
+    {
+        $text = html_entity_decode(strip_tags($headingHtml), ENT_QUOTES | ENT_HTML5, 'UTF-8');
+        $slug = trim((string) preg_replace('~[^\p{L}\p{N}]+~u', '-', $text), '-');
+
+        return '' === $slug ? 'section' : mb_strtolower($slug);
     }
 }

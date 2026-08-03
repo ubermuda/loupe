@@ -13,6 +13,7 @@ use App\Module\Review\Form\AddCommentRequest;
 use App\Module\Review\Repository\CommentRepository;
 use App\Module\Review\Repository\DocumentVersionRepository;
 use App\Module\Review\Security\DocumentVoter;
+use App\Module\Review\Service\HeadingExtractor;
 use Symfony\Bridge\Doctrine\Attribute\MapEntity;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
@@ -40,6 +41,7 @@ final class ShowDocumentController extends AppController
     public function __construct(
         private readonly DocumentVersionRepository $documentVersions,
         private readonly CommentRepository $comments,
+        private readonly HeadingExtractor $headings,
     ) {
     }
 
@@ -75,6 +77,7 @@ final class ShowDocumentController extends AppController
             'versions' => $this->documentVersions->findAllMetaByDocument($document),
             'readOnly' => !$isLatest,
             'comments' => $comments,
+            'headings' => $this->headings->extract($version->renderedHtml),
             'orphanedCount' => count(array_filter($comments, static fn (Comment $c) => $c->orphaned)),
             'addCommentForm' => $addCommentForm,
         ]);

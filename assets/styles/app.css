@@ -1032,6 +1032,52 @@
     .lp-review-doc__prose {
         @apply mt-0;
     }
+    /* Headings sit under the document pane's own scroll, so a table-of-contents
+       jump would otherwise land them flush against the top edge. */
+    .lp-review-doc__prose :is(h1, h2, h3, h4, h5, h6) {
+        @apply scroll-mt-4;
+    }
+
+    /* ── Table of contents ──────────────────────────────────────────────
+       A collapsible panel in the document head that scrolls with the document.
+       It must stay out of the rendered-HTML container: that element's
+       textContent is the basis every comment anchor is measured against. */
+    .lp-review-contents {
+        @apply rounded-lg border border-line bg-surface-2 mt-4;
+    }
+    .lp-review-contents__summary {
+        @apply flex items-center gap-2 list-none cursor-pointer select-none font-medium text-fg-mute px-3 py-2 text-xs transition-colors hover:text-fg;
+    }
+    .lp-review-contents__summary::-webkit-details-marker {
+        @apply hidden;
+    }
+    .lp-review-contents__chevron {
+        @apply transition-transform;
+    }
+    details[open] > .lp-review-contents__summary .lp-review-contents__chevron {
+        @apply rotate-90;
+    }
+    .lp-review-contents__list {
+        @apply flex flex-col list-none m-0 px-3 pb-2.5 pt-0;
+    }
+    .lp-review-contents__link {
+        @apply block truncate rounded no-underline text-fg-mute text-sm py-1 px-1.5 transition-colors hover:bg-tint hover:text-fg;
+    }
+    .lp-review-contents__link[data-level='2'] {
+        @apply pl-1.5;
+    }
+    .lp-review-contents__link[data-level='3'] {
+        @apply pl-5;
+    }
+    .lp-review-contents__link[data-level='4'] {
+        @apply pl-9;
+    }
+    .lp-review-contents__link[data-level='5'] {
+        @apply pl-12;
+    }
+    .lp-review-contents__link[data-level='6'] {
+        @apply pl-16;
+    }
 
     /* Rendered Markdown (incl. GFM tables) is styled by the Tailwind typography
        plugin via `prose`, themed to the app's design tokens so light and dark

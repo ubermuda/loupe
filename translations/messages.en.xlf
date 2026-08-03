@@ -992,6 +992,16 @@
                 <target>Document versions</target>
             </trans-unit>
 
+            <!-- Document review table of contents -->
+            <trans-unit id="review.document.contents.label">
+                <source>review.document.contents.label</source>
+                <target>Contents</target>
+            </trans-unit>
+            <trans-unit id="review.document.contents.nav_label">
+                <source>review.document.contents.nav_label</source>
+                <target>Document sections</target>
+            </trans-unit>
+
             <!-- Document review comment composer -->
             <trans-unit id="review.document.comment.placeholder">
                 <source>review.document.comment.placeholder</source>
