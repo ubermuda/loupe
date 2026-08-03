@@ -759,6 +759,12 @@
     .lp-document-row__sep {
         @apply text-fg-dim;
     }
+    /* Line 3: the document's tag chips. Wraps, because a document may carry more
+       names than fit the row and .lp-document-row__main is min-w-0. No margin —
+       __main is a flex column with its own gap. */
+    .lp-document-row__tags {
+        @apply flex flex-wrap items-center gap-1.5;
+    }
     .lp-document-row__open {
         color: var(--status-pending-deep);
     }

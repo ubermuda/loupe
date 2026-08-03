@@ -15,6 +15,10 @@ use Doctrine\ORM\EntityManagerInterface;
  *
  * Replace rather than add-and-remove: it is idempotent, and a caller that knows
  * the intended set should not have to diff against the current one.
+ *
+ * Every name is validated before anything is persisted, and the single flush is
+ * last. CreateDocumentHandler relies on both: it hands over a document that is
+ * persisted but unflushed, so a rejected name leaves no row behind.
  */
 final readonly class SetDocumentTagsHandler
 {

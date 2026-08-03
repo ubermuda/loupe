@@ -35,7 +35,7 @@ final class TagToolRegistrationTest extends KernelTestCase
     public function test_both_tag_tools_are_published(): void
     {
         self::assertTrue($this->registry->hasTool('document_set_tags'));
-        self::assertTrue($this->registry->hasTool('project_list_tags'));
+        self::assertTrue($this->registry->hasTool('tag_list'));
     }
 
     /**

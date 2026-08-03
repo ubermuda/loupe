@@ -17,7 +17,7 @@ use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 /**
  * Create a Markdown document for human review and return its id and review URL.
  */
-#[McpTool(name: 'document_create', description: 'Create a Markdown document for human review. Pass description to say what this first version is, and tags to group it with related documents. Tags are lowercased and created on first use — read project_list_tags first so a batch reuses the project\'s existing names.')]
+#[McpTool(name: 'document_create', description: 'Create a Markdown document for human review. Pass description to say what this first version is, and tags to group it with related documents. Tags are lowercased and created on first use — read tag_list first so a batch reuses the project\'s existing names.')]
 final readonly class DocumentCreateTool
 {
     use ResolvesBoundProject;
@@ -62,7 +62,15 @@ final readonly class DocumentCreateTool
                 $description = null;
             }
 
-            $doc = ($this->createDocument)(new CreateDocumentCommand($project, $title, $markdown, $description, $tags));
+            // Named, not positional: the command's trailing parameters are all
+            // optional arrays of strings, so a mis-ordered call is silent.
+            $doc = ($this->createDocument)(new CreateDocumentCommand(
+                project: $project,
+                title: $title,
+                markdown: $markdown,
+                description: $description,
+                tagNames: $tags,
+            ));
 
             return [
                 'documentId' => (string) $doc->id,

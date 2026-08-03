@@ -16,7 +16,7 @@ use Mcp\Exception\ToolCallException;
  * Replaces a document's tags wholesale, so a caller that knows the intended set
  * can send it without first reading what is there and diffing.
  */
-#[McpTool(name: 'document_set_tags', description: 'Replace a document\'s tags with the given set. Passing an empty list clears them. Tags are lowercased and created on first use — read project_list_tags first so a new name is a deliberate one.')]
+#[McpTool(name: 'document_set_tags', description: 'Replace a document\'s tags with the given set. Passing an empty list clears them. Tags are lowercased and created on first use — read tag_list first so a new name is a deliberate one.')]
 final readonly class DocumentSetTagsTool
 {
     public function __construct(

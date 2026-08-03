@@ -9,18 +9,18 @@ use App\Module\Project\Entity\Project;
 use App\Module\Review\Command\SetDocumentTagsCommand;
 use App\Module\Review\Command\SetDocumentTagsHandler;
 use App\Module\Review\Entity\Document;
-use App\Module\Review\Mcp\ProjectListTagsTool;
+use App\Module\Review\Mcp\TagListTool;
 use App\Tests\Support\McpTokenScenario;
 use Doctrine\ORM\EntityManagerInterface;
 use Mcp\Exception\ToolCallException;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 
-final class ProjectListTagsToolTest extends KernelTestCase
+final class TagListToolTest extends KernelTestCase
 {
     use McpTokenScenario;
 
     private EntityManagerInterface $em;
-    private ProjectListTagsTool $tool;
+    private TagListTool $tool;
     private SetDocumentTagsHandler $setTags;
 
     protected function setUp(): void
@@ -31,8 +31,8 @@ final class ProjectListTagsToolTest extends KernelTestCase
         self::assertInstanceOf(EntityManagerInterface::class, $em);
         $this->em = $em;
 
-        $tool = self::getContainer()->get(ProjectListTagsTool::class);
-        self::assertInstanceOf(ProjectListTagsTool::class, $tool);
+        $tool = self::getContainer()->get(TagListTool::class);
+        self::assertInstanceOf(TagListTool::class, $tool);
         $this->tool = $tool;
 
         $setTags = self::getContainer()->get(SetDocumentTagsHandler::class);
@@ -97,6 +97,26 @@ final class ProjectListTagsToolTest extends KernelTestCase
             [['name' => 'design', 'documentCount' => 1], ['name' => 'design-spec', 'documentCount' => 0]],
             ($this->tool)()['tags'],
         );
+    }
+
+    public function test_archived_documents_are_counted(): void
+    {
+        $owner = $this->user('list-tags-archived@example.com');
+        $project = new Project($owner, 'p-'.uniqid());
+        $this->em->persist($project);
+        $live = $this->documentIn($project, 'live');
+        $archived = $this->documentIn($project, 'archived');
+        $archived->archivedAt = new \DateTimeImmutable();
+        $this->em->flush();
+
+        ($this->setTags)(new SetDocumentTagsCommand($live, ['design']));
+        ($this->setTags)(new SetDocumentTagsCommand($archived, ['design']));
+
+        $this->actAsMcpTokenBoundTo($project);
+
+        // The count answers how widely the name is used, not how many rows the
+        // documents list would show — which hides archived documents by default.
+        self::assertSame([['name' => 'design', 'documentCount' => 2]], ($this->tool)()['tags']);
     }
 
     public function test_another_project_vocabulary_is_not_listed(): void

@@ -2417,6 +2417,40 @@ the reply without inventing an identity. Attribution stays on the singleton user
 and provenance rides beside it. Related: 'No audit trail distinguishes
 agent-written state from human action'.
 
+## No MCP read path returns a single document's tags
+
+**Author:** Claude · **Type:** feature · **Priority:** medium · **Status:** pending
+
+`tag_list` returns a project's whole vocabulary and `document_set_tags` returns
+what it just wrote, but neither `document_get` nor `document_list` includes the
+tags a document carries. An agent resuming work on an existing document can see
+which names the project uses and not which of them apply to the document in front
+of it — so the only way to preserve tags while changing one is to have written
+them in the same session.
+
+Adding them means a `tags` key on `App\Module\Review\Query\GetDocument`'s result
+and on `DocumentListTool`'s per-row array. The list case needs the batch preload
+`DocumentRepository::preloadTags()` already provides, or it fires one query per
+row.
+
+## `tag_input_controller.js` is a dead Stimulus controller shipped eagerly
+
+**Author:** Claude · **Type:** tooling · **Priority:** low · **Status:** pending
+
+`assets/controllers/tag_input_controller.js` has no template consumer anywhere —
+it was built for an admin feature-flags form that no longer uses it — and it is
+marked `/* stimulusFetch: 'eager' */`, so it is in the main bundle for every
+page load regardless. Now that documents carry tags, a future session will find
+it and reasonably assume it is the live tag input.
+
+Either delete it or make it the input for a real tag-editing form. Adopting it
+needs three fixes: it renders pills as `admin-badge admin-badge-neutral` rather
+than `.lp-tag`, its dropdown and remove buttons use raw `slate-*` utility strings
+instead of semantic classes, and it reads its vocabulary from a hardcoded
+`tag-input-data` DOM id rather than a Stimulus value, so two tag inputs cannot
+share a page. Related: 'Dead semantic classes accumulate in app.css with nothing
+to catch them'.
+
 ## Implicit tag creation races two concurrent MCP calls into a constraint violation
 
 **Author:** Claude · **Type:** bug · **Priority:** medium · **Status:** pending
@@ -2483,17 +2517,21 @@ markup that used it leaves the rule behind — and nothing currently notices.
 Checking every component class against `templates/`, `assets/js/`, `src/` and
 the `vendor/ubermuda/*` bundle templates, then discounting every class built by
 interpolation (`lp-flash--{{ label }}`, `lp-ribbon__bar--{{ state }}`,
-`status-check-badge-{{ state }}` and similar), leaves 25 that are referenced
+`status-check-badge-{{ state }}` and similar), leaves 24 that are referenced
 nowhere:
 
 ```
 lp-doc-list  lp-doc-row  lp-doc-row__main  lp-doc-row__meta  lp-doc-row__tags
 lp-doc-row__title  lp-doc-row__title--stretched  lp-page  lp-page-header
-lp-page-title  lp-section-title  lp-table  lp-tag  lp-select  lp-code
+lp-page-title  lp-section-title  lp-table  lp-select  lp-code
 lp-key-values  lp-key-values__row  lp-copy-row  lp-form-hint  lp-anchor
 lp-anchor--orphan  lp-btn--warning  lp-comment-composer--untargeted  kbd
 admin-badge-off
 ```
+
+`lp-tag` left this list when the documents list started rendering tag chips; the
+whole `lp-doc-*` family stayed on it, because that list uses the parallel
+`lp-document-row__*` component and gained its own `lp-document-row__tags`.
 
 Two of those are whole abandoned families rather than stragglers — the
 `lp-doc-*` row component and the `lp-page*` / `lp-section-title` page shell.

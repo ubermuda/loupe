@@ -37,7 +37,7 @@ final readonly class DeleteReviewDataOnProjectDeleting
         // a DQL DELETE, and the documents rows it references are about to go.
         $this->em->getConnection()->executeStatement(
             'DELETE FROM document_tags WHERE document_id IN (SELECT id FROM documents WHERE project_id = :project)',
-            ['project' => (string) $event->project->id],
+            ['project' => (string) ($event->project->id ?? throw new \LogicException('a persisted project always has an id'))],
         );
 
         $this->em->createQuery(

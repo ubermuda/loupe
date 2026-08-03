@@ -12,8 +12,10 @@ use App\Module\Review\Command\SetDocumentTagsHandler;
 use App\Module\Review\Entity\Document;
 use App\Module\Review\Entity\Tag;
 use App\Module\Review\Repository\TagRepository;
+use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
+use Symfony\Component\Uid\Uuid;
 
 final class SetDocumentTagsHandlerTest extends KernelTestCase
 {
@@ -132,6 +134,36 @@ final class SetDocumentTagsHandlerTest extends KernelTestCase
         $reloaded = $this->em->find(Document::class, $documentId);
         self::assertInstanceOf(Document::class, $reloaded);
         self::assertSame(['design', 'release'], $this->namesOf($reloaded));
+    }
+
+    public function test_setting_the_same_set_twice_changes_nothing(): void
+    {
+        [$project, $document] = $this->seed('tags-idempotent');
+        ($this->handler)(new SetDocumentTagsCommand($document, ['design', 'release']));
+
+        ($this->handler)(new SetDocumentTagsCommand($document, ['release', 'Design']));
+
+        self::assertSame(['design', 'release'], $this->namesOf($document));
+        self::assertCount(2, $this->tags->findBy(['project' => $project]));
+    }
+
+    /**
+     * The find-or-create path means every other test here would still pass with
+     * the unique index dropped from the migration. This one asserts the index
+     * itself, so regenerating the migration cannot silently lose the invariant
+     * the whole design rests on.
+     */
+    public function test_the_database_rejects_a_duplicate_name_in_one_project(): void
+    {
+        [$project] = $this->seed('tags-unique');
+        $this->em->persist(new Tag($project, 'design'));
+        $this->em->flush();
+
+        $this->expectException(UniqueConstraintViolationException::class);
+        $this->em->getConnection()->executeStatement(
+            'INSERT INTO tags (id, project_id, name, created_at) VALUES (:id, :project, :name, NOW())',
+            ['id' => (string) Uuid::v7(), 'project' => (string) $project->id, 'name' => 'design'],
+        );
     }
 
     public function test_an_over_long_name_is_rejected_as_a_domain_error(): void

@@ -22,12 +22,12 @@ final readonly class CreateDocumentHandler
         $document = new Document(owner: $command->project->owner, project: $command->project, title: $command->title);
         $document->addVersion($command->markdown, $this->renderer->render($command->markdown), $command->description);
 
+        // Persisted but deliberately not flushed: SetDocumentTagsHandler owns the
+        // only flush, so a tag name it rejects aborts before any row is written.
+        // Flushing here instead would commit the document, hand the caller an
+        // error instead of its URL, and leave a duplicate behind on the retry.
         $this->em->persist($document);
-        $this->em->flush();
-
-        if ([] !== $command->tagNames) {
-            ($this->setTags)(new SetDocumentTagsCommand($document, $command->tagNames));
-        }
+        ($this->setTags)(new SetDocumentTagsCommand($document, $command->tagNames));
 
         return $document;
     }

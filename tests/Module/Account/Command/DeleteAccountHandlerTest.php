@@ -23,6 +23,7 @@ use App\Module\Project\Entity\Project;
 use App\Module\Review\Entity\Comment;
 use App\Module\Review\Entity\Document;
 use App\Module\Review\Entity\Review;
+use App\Module\Review\Entity\Tag;
 use App\Module\Review\Entity\Verdict;
 use App\Module\Review\ValueObject\Anchor;
 use App\Module\SiteReview\Entity\SiteReviewComment;
@@ -141,6 +142,9 @@ final class DeleteAccountHandlerTest extends KernelTestCase
             self::assertNull($em->find(Project::class, $fixture[$key]));
         }
         self::assertSame(0, (int) $conn->fetchOne('SELECT count(*) FROM document_versions WHERE document_id = :id', ['id' => (string) $fixture['foreignDocumentId']]));
+        // Asserted on the document id rather than through a join, so it cannot
+        // pass merely because the document row is already gone.
+        self::assertSame(0, (int) $conn->fetchOne('SELECT count(*) FROM document_tags WHERE document_id = :id', ['id' => (string) $fixture['foreignDocumentId']]));
 
         // Nothing belonging to the other, untouched users was removed: their
         // own project, their comment authored on the foreign document, and
@@ -301,6 +305,12 @@ final class DeleteAccountHandlerTest extends KernelTestCase
         $foreignVersion = $foreignDocument->addVersion('# Foreign', '<h1>Foreign</h1>');
         $foreignDocumentComment = new Comment(version: $foreignVersion, author: $other, body: 'other user comments on it', anchor: Anchor::unanchored());
         $em->persist($foreignDocumentComment);
+        // Tagged, because that document is deleted by DocumentOwnershipAccountPurger
+        // rather than by ProjectDeleter, and the join table's FK has no cascade —
+        // an untagged fixture cannot tell whether that purger clears it.
+        $foreignTag = new Tag($otherProject, 'design');
+        $em->persist($foreignTag);
+        $foreignDocument->tags->add($foreignTag);
 
         // A loose API token not bound to any project's widget/mcp slots.
         [$looseToken] = ApiToken::issue($owner, 'loose-token', ApiTokenScope::Mcp);

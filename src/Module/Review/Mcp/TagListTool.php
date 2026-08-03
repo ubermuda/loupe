@@ -19,8 +19,8 @@ use Mcp\Exception\ToolCallException;
  * is what makes that visible: it separates a convention in use from a name
  * somebody minted once.
  */
-#[McpTool(name: 'project_list_tags', description: 'List every tag in the token\'s project with how many documents carry it. Read this before tagging so a batch joins the existing vocabulary instead of coining near-duplicates of it.')]
-final readonly class ProjectListTagsTool
+#[McpTool(name: 'tag_list', description: 'List every tag in the token\'s project with how many documents carry it. The count includes archived documents, so it can exceed what the documents list shows. Read this before tagging so a batch joins the existing vocabulary instead of coining near-duplicates of it.')]
+final readonly class TagListTool
 {
     use ResolvesBoundProject;
 

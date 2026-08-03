@@ -48,13 +48,18 @@ class Tag
     }
 
     /**
-     * The single definition of what two tag names being "the same" means. Callers
-     * must run a name through this before looking it up, not only before storing
-     * it — a lookup on the raw string misses the stored row and then collides
-     * with it on insert.
+     * The single definition of what two tag names being "the same" means.
+     *
+     * Interior runs of whitespace collapse as well as leading and trailing ones,
+     * or "design  spec" and "design spec" become two rows — the near-duplicate
+     * problem the tools warn agents about, arrived at by a typo instead of a
+     * choice. Collapsing also folds Unicode spaces `trim()` alone would keep, so
+     * a non-breaking-space-only name normalises to nothing rather than becoming a
+     * tag. Punctuation-only names are deliberately allowed: "c++" and "v2" are
+     * names somebody means.
      */
     public static function normalizeName(string $name): string
     {
-        return mb_strtolower(trim($name));
+        return mb_strtolower(trim((string) preg_replace('/\s+/u', ' ', $name)));
     }
 }
