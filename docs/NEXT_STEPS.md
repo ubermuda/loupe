@@ -3484,6 +3484,84 @@ Two things worth doing, and the second is cheap:
   visible in the one field the spec already asserted. Had snapping not shipped in
   the same branch, the suite would still be green and the anchors still wrong.
 
+## Ship a skill bundle so agents know when to call Loupe
+
+**Author:** Geoffrey · **Type:** feature · **Priority:** medium · **Status:** pending
+
+The MCP server gives an agent the ability to submit a document and to fetch a
+review; nothing tells it *when*. Today the user has to say "pull the site
+review" by hand every time, which was hit live on 2026-08-03 while storyboarding
+the reveal video.
+
+Close it with a `SKILL.md` bundle (and/or a `/loupe` slash command) that teaches
+the agent the natural moments: submit a plan before implementing, pull pending
+site-review comments before continuing, re-fetch after a revision. This is the
+cheap half of the harness work — a skill is instructions, not an integration.
+
+`SKILL.md` was confirmed first-party in 13 of 14 agent harnesses surveyed on
+2026-08-03, so one bundle covers nearly the whole ecosystem. Caveat: Agent
+Skills is the least governed spec in that survey — no version, no RFC 2119, no
+discovery protocol — so expect churn.
+
+Do **not** solve this with a blocking hook. Almost every harness's hooks halt
+the agent until the hook returns (exit 2 to deny), which is the gate model a
+competitor uses and the source of their largest issue cluster. Only Gemini CLI
+(5 of its 11 events are explicitly advisory) and Cline (per-hook
+`mode: blocking|async`) support fire-and-forget natively.
+
+## Package Loupe as a Claude Code plugin and list it in the agent directories
+
+**Author:** Geoffrey · **Type:** tooling · **Priority:** medium · **Status:** pending
+
+Distribution research on 2026-08-03 (written up in the ubermuda.xyz repo under
+`gtm/loupe/strategy/`) found that a comparable tool reached ~7,500 GitHub stars
+with essentially no help from Reddit, Hacker News or Product Hunt — a flat
+23–39 stars/day for seven months with no decay. What drove it was being
+installable from inside the tools people already use: a one-line installer, a
+plugin marketplace entry, and listings in auto-generated directories.
+
+Two build artefacts cover most of the ecosystem, because the de facto standard
+is Claude Code's file layout — Copilot CLI, Cursor, OpenCode, Cline, Amp, Pi and
+Droid all read parts of it directly:
+
+- the existing MCP server (confirmed first-party in 11 of 11 harnesses checked)
+- the skill bundle tracked in the entry above
+
+Packaging detail that is easy to get wrong: `.mcp.json` goes at the **plugin
+root**, not inside `plugin.json`, and `.claude-plugin/marketplace.json` must sit
+at the **repo root**.
+
+Then list it. Self-serve, no gatekeeper: Gemini CLI (add the GitHub topic
+`gemini-cli-extension` plus a root `gemini-extension.json`, crawled daily), Pi
+(npm keyword `pi-package`), OpenCode (PR to their ecosystem page), skills.sh,
+and the MCP registry (still in preview). Curated but open: the Claude Code
+plugin directory, Cursor's marketplace (manual review, plugins must be open
+source — AGPL qualifies), and Kiro's Powers.
+
+Not worth investing in: Droid, Amp, Devin Desktop and Cline have no third-party
+publishing path, and Zed has no agent lifecycle hooks. Roo Code is discontinued
+(archived 2026-05-15) and Windsurf/Codeium no longer exists as a brand.
+
+## Let the agent reply inside the site-review widget
+
+**Author:** Geoffrey · **Type:** idea · **Priority:** medium · **Status:** pending
+
+Raised 2026-08-03. Today site review is one-way: comments are captured in the
+browser and the agent pulls them. If the agent could answer *in the widget* —
+acknowledging, asking a question, reporting what it changed — the loop closes
+without leaving the page.
+
+The strategic point is bigger than the feature. Every tool in this space
+assumes a terminal, which serves developers who already live in one. Someone
+who vibe codes does not. If the agent can answer in the browser, that user never
+has to open a terminal at all, which is the audience nobody currently serves.
+
+Scope caution, because these are very different builds: "the agent can post a
+reply in an existing comment thread" is close to the current comment model with
+one new author type. "There is a conversation view in the widget" is a chat
+product, in a crowded space, and easy to sink months into. The first probably
+carries most of the value.
+
 ## `comments.anchor_offset_hint` changed units with no backfill
 
 **Author:** Claude · **Type:** bug · **Priority:** low · **Status:** pending
