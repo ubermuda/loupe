@@ -245,36 +245,57 @@ Related ordering constraint: PR #124 (`feat/document-search`) has PR #123
 (`feat/document-tags`) as a git ancestor, so #123 merges first or #124 brings
 tags in with it.
 
-## Serialising `just e2e` does not protect a run — the shared php-fpm container does
+## Two separate contention mechanisms can starve an e2e run, and only one is fixed
 
-**Author:** Claude · **Type:** tooling · **Priority:** high · **Status:** pending
+**Author:** Claude · **Type:** tooling · **Priority:** medium · **Status:** pending
 
-Every worktree gets its own nginx sidecar but they all share **one** php-fpm
-container. So a sibling's `just ci`, `phpunit`, `bin/console` or scratch PHP
-script lands in the same container as an in-flight e2e run and starves it.
-Serialising e2e is therefore necessary but **not sufficient** — the resource
-that has to be quiet is the container, not the recipe.
+An earlier version of this entry blamed everything on "the shared container",
+which was imprecise. There are two distinct mechanisms and they need different
+handling:
 
-Observed cost: three consecutive e2e runs on one branch produced 11 failures
-that had nothing to do with the branch. The signature is always the same — a
-form POST that never returns inside Playwright's assertion window, submit
-button left **disabled**, form still populated, **no** validation error, and
-nothing in `dev.log`.
+1. **php-fpm worker exhaustion** — requests arrive and get no worker at all.
+   **This is fixed.** One pool served every worktree at `pm.max_children = 20`
+   and sat *at* that ceiling during runs; it is now 32 with a higher spawn
+   floor. The signature was a request that returned **nothing** — no body, no
+   fatal, nothing logged, and a submit button left disabled with no validation
+   error, which is identical to the cold-cache symptom and was misattributed
+   that way for a full day.
+2. **CPU competition from sibling CLI work** — **still real.** `phpunit`,
+   `phpstan` and `composer` run in the CLI, not through php-fpm, so they consume
+   no pool workers at all. They compete for CPU, which slows responses that do
+   get a worker and can push Playwright past its timeouts. Raising the pool does
+   nothing for this.
 
-**The discriminator is which specs fail, not how many.** Across those three
-runs the failing specs were *disjoint* (fixture/data-export/wizard/login, then
-forgot-password/signup/remember-me/social-login, then delete-account/wizard-
-skip). A real defect fails the same spec every time; contention moves around.
-Check that before investigating a branch.
+So the practical rule survives the fix, but for the second reason rather than
+the first: **do not run `just ci` while an e2e run is in flight.** Concurrent
+`just ci` runs between themselves are fine — their failures are deterministic.
 
-Both documented causes must be excluded before reaching for this one: count
-`Container` hashes in `var/cache/dev/` (more than one means a mid-run rebuild)
-and confirm a consumer is alive with `messenger_messages` empty. If both are
-clean and the failures are disjoint, it is contention.
+Distinguishing them after the fact: worker exhaustion leaves
+`WARNING: [pool www] seems busy` or `server reached pm.max_children` in
+`docker logs loupe-php-fpm-1`; CPU contention leaves nothing at all and shows up
+only as timeouts. Count those warnings before and after a run, since an absence
+now means something it did not before.
+
+**The discriminator for either, before investigating a branch at all, is which
+specs fail rather than how many.** Three consecutive runs on one branch produced
+11 failures across *disjoint* sets — fixture/data-export/wizard/login, then
+forgot-password/signup/remember-me/social-login, then delete-account/wizard-skip.
+A real defect fails the same spec every time; contention moves around.
+
+Exclude the two documented environmental causes first: confirm a consumer is
+alive with `messenger_messages` empty, and count **distinct** cache hashes in
+`var/cache/dev/` — note `grep -c '^Container'` returns 3 for one healthy build
+because Symfony writes a `.legacy` marker, so the naive count reports a rebuild
+that never happened.
 
 Worth automating: a lock that a gate run and an e2e run both have to take, so
-this is enforced rather than remembered. Until then it has to be coordinated by
-hand, which does not survive parallel agents. See `docs/AUTOMATIONS.md`.
+the rule is enforced rather than remembered. Hand coordination does not survive
+parallel agents — an orchestrator forgot to re-issue the e2e slot for two hours
+on 2026-08-03 and nothing noticed, because the state lived in one session's
+head. See `docs/AUTOMATIONS.md`.
+
+The durable fix for both mechanisms is per-agent containers — see 'Give each
+agent its own container in the cloud instead of sharing one dev stack'.
 
 ## Give each agent its own container in the cloud instead of sharing one dev stack
 
