@@ -50,6 +50,13 @@ final readonly class HtmlCommentNodeRenderer implements NodeRendererInterface
         // as a run of comments rather than as one. `(?:(?!-->).)*` is what makes
         // that honest: with `.*?` the run would also match `<!-- a --> trailing
         // -->`, swallowing the markup between two comments into the annotation.
+        //
+        // A PCRE error reads as "not a comment" here on purpose, and is not the
+        // oversight it looks like beside MarkdownRenderer's two passes that throw.
+        // This is a detection predicate, so failing it renders the comment
+        // invisibly, exactly as it did before annotations existed; those two
+        // transform, where returning the input unchanged ships marker-bearing
+        // HTML. Detection may fail safe; transformation may not.
         if (1 !== preg_match(self::COMMENT_RUN, $literal)) {
             return null;
         }
