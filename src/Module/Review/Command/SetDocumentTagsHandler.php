@@ -55,13 +55,7 @@ final readonly class SetDocumentTagsHandler
 
         $applied = [];
         foreach ($names as $name) {
-            $tag = $this->tags->findOneByProjectAndName($document->project, $name)
-                ?? new Tag($document->project, $name);
-
-            if (null === $tag->id) {
-                $this->em->persist($tag);
-            }
-
+            $tag = $this->tags->findOrCreate($document->project, $name);
             $document->tags->add($tag);
             $applied[] = $tag;
         }
