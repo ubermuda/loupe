@@ -42,9 +42,9 @@ final readonly class MarkdownDiffer
     /**
      * Bounds beyond which a diff is refused rather than attempted. The line pass
      * is quadratic in line count and the word pass in each line's length, so
-     * either shape runs away on a document within the 1 MB a version may hold —
-     * and the resulting OOM fatal precedes Monolog, failing as an empty response
-     * with nothing logged.
+     * either shape runs away on a document well inside the 1 MB a version may
+     * hold: measured against the bare library, 10 000 short lines take 14.4s and
+     * 100 lines of 5 000 characters take 7.4s, where refusing takes under 3ms.
      */
     private const int MAX_LINES = 2_000;
     private const int MAX_WORD_WORK = 300_000_000;

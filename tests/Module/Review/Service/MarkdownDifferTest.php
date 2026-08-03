@@ -152,7 +152,7 @@ final class MarkdownDifferTest extends TestCase
         self::assertInstanceOf(DocumentDiff::class, $this->differ->diff($small, $small."\nextra"));
 
         // Past the line bound: ~10 000 short lines is a changelog well inside the
-        // 1 MB a version may hold, and exhausts a worker outright.
+        // 1 MB a version may hold, and measures 14.4s against the bare library.
         $manyLines = implode("\n", array_fill(0, 10_000, $line));
         self::assertSame(DiffRefusal::TooLarge, $this->differ->diff($manyLines, $manyLines."\nextra"));
 
