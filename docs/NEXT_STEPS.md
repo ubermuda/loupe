@@ -419,6 +419,46 @@ So the rule generalises past `pkill` to every stop mechanism: **a process
 started inside the container can only be observed and stopped from inside it.**
 Verify with `docker exec … ps aux` after any stop, whatever issued it.
 
+## The owner sets the quality bar, not the agent — say so in the instructions
+
+**Author:** Geoffrey · **Type:** tooling · **Priority:** medium · **Status:** pending
+
+Deciding what is good enough and what has to be exactly right is the owner's
+call. Claude has been making it silently and then presenting the outcome as a
+technical necessity, which removes the decision rather than informing it.
+
+Observed on 2026-08-03, across a wave of nine branches:
+
+- Findings were ranked "must-fix" and "should-fix" and agents were told to block
+  on the former. That ranking is a priority judgement wearing a severity label.
+- A branch's failing e2e run was declared to "outrank the merge queue".
+- Mutation-checking every fix was imposed as a standard rather than offered as
+  an option with a cost.
+- A stale form submission was required to be **refused** rather than resolved
+  against the version the reviewer saw — a product decision about what the user
+  experiences, presented as correctness.
+
+Some of these were probably the right calls. That is not the point: each was a
+choice about how much rigour a given thing deserves, and each was made without
+the person who gets to make it being asked.
+
+What the instructions should ask for: name the severity and the cost of fixing,
+recommend, and let the owner set the bar — especially where the fix is
+expensive, where the defect is unreachable in practice, or where "leave it and
+note it" is a legitimate answer. Reserve blocking language for things that are
+genuinely unsafe to ship, and say plainly when something is a judgement call
+rather than a requirement.
+
+The tell to watch for: describing a preference as though it were a property of
+the code. "This must refuse" and "I think refusing is better, here is the cost
+of each" are different sentences, and only the second leaves the decision where
+it belongs.
+
+Related: 'Update the agent instructions to weigh trade-offs instead of defending
+one option' — the same root, one level up. Inflating an argument defends a
+chosen approach; setting the bar unasked decides whether the approach was even
+needed.
+
 ## Update the agent instructions to weigh trade-offs instead of defending one option
 
 **Author:** Geoffrey · **Type:** tooling · **Priority:** medium · **Status:** pending
