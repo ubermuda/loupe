@@ -8,6 +8,7 @@ use App\Exception\DomainErrors;
 use App\Module\Review\Entity\Document;
 use App\Module\Review\Entity\DocumentStatus;
 use App\Module\Review\Repository\CommentRepository;
+use App\Module\Review\Service\DocumentSearchIndexer;
 use App\Module\Review\Service\MarkdownRenderer;
 use App\Module\Review\Service\ReanchoringService;
 use Doctrine\DBAL\LockMode;
@@ -20,6 +21,7 @@ final readonly class ReviseDocumentHandler
         private MarkdownRenderer $renderer,
         private ReanchoringService $reanchoringService,
         private CommentRepository $comments,
+        private DocumentSearchIndexer $searchIndexer,
     ) {
     }
 
@@ -89,6 +91,10 @@ final readonly class ReviseDocumentHandler
 
             // Flush: Document → versions cascade persists new version; version → comments cascade persists copies.
             $this->em->flush();
+
+            // Inside the transaction: a revision that rolls back must not leave
+            // the vector describing a version that no longer exists.
+            $this->searchIndexer->index($document);
 
             return $summary;
         });

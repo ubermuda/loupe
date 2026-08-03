@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Module\Review\Command;
 
 use App\Module\Review\Entity\Document;
+use App\Module\Review\Service\DocumentSearchIndexer;
 use App\Module\Review\Service\MarkdownRenderer;
 use Doctrine\ORM\EntityManagerInterface;
 
@@ -14,6 +15,7 @@ final readonly class CreateDocumentHandler
         private EntityManagerInterface $em,
         private MarkdownRenderer $renderer,
         private SetDocumentTagsHandler $setTags,
+        private DocumentSearchIndexer $searchIndexer,
     ) {
     }
 
@@ -28,6 +30,10 @@ final readonly class CreateDocumentHandler
         // error instead of its URL, and leave a duplicate behind on the retry.
         $this->em->persist($document);
         ($this->setTags)(new SetDocumentTagsCommand($document, $command->tagNames));
+
+        // After setTags, because that is the flush: the indexer reads the rows
+        // back over SQL, so it sees nothing until they exist.
+        $this->searchIndexer->index($document);
 
         return $document;
     }

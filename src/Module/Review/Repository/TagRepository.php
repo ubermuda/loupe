@@ -82,6 +82,12 @@ class TagRepository extends ServiceEntityRepository
             ?? throw new \LogicException('the tag was just inserted or already existed');
     }
 
+    /** @return list<Tag> */
+    public function findByProject(Project $project): array
+    {
+        return $this->findBy(['project' => $project], ['name' => 'ASC']);
+    }
+
     /**
      * The project's whole vocabulary with how many documents carry each entry.
      *

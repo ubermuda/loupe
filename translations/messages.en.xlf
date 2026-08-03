@@ -839,6 +839,14 @@
                 <source>review.dashboard.description</source>
                 <target>Documents the agent submitted for review, newest first.</target>
             </trans-unit>
+            <trans-unit id="review.dashboard.description_ranked">
+                <source>review.dashboard.description_ranked</source>
+                <target>Documents the agent submitted for review, best matches first.</target>
+            </trans-unit>
+            <trans-unit id="review.dashboard.empty_filtered">
+                <source>review.dashboard.empty_filtered</source>
+                <target>No documents match these filters.</target>
+            </trans-unit>
             <trans-unit id="review.dashboard.meta.updated">
                 <source>review.dashboard.meta.updated</source>
                 <target>Updated %time%</target>
@@ -854,6 +862,34 @@
             <trans-unit id="review.dashboard.filter.hide_archived">
                 <source>review.dashboard.filter.hide_archived</source>
                 <target>Hide archived</target>
+            </trans-unit>
+            <trans-unit id="review.dashboard.filter.search_label">
+                <source>review.dashboard.filter.search_label</source>
+                <target>Search documents</target>
+            </trans-unit>
+            <trans-unit id="review.dashboard.filter.search_placeholder">
+                <source>review.dashboard.filter.search_placeholder</source>
+                <target>Search titles and text…</target>
+            </trans-unit>
+            <trans-unit id="review.dashboard.filter.status_label">
+                <source>review.dashboard.filter.status_label</source>
+                <target>Filter by status</target>
+            </trans-unit>
+            <trans-unit id="review.dashboard.filter.all_statuses">
+                <source>review.dashboard.filter.all_statuses</source>
+                <target>All statuses</target>
+            </trans-unit>
+            <trans-unit id="review.dashboard.filter.tag_label">
+                <source>review.dashboard.filter.tag_label</source>
+                <target>Filter by tag</target>
+            </trans-unit>
+            <trans-unit id="review.dashboard.filter.all_tags">
+                <source>review.dashboard.filter.all_tags</source>
+                <target>All tags</target>
+            </trans-unit>
+            <trans-unit id="review.dashboard.filter.clear">
+                <source>review.dashboard.filter.clear</source>
+                <target>Clear</target>
             </trans-unit>
             <trans-unit id="review.dashboard.archived_tag">
                 <source>review.dashboard.archived_tag</source>

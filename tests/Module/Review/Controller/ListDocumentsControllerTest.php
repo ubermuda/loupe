@@ -6,9 +6,12 @@ namespace App\Tests\Module\Review\Controller;
 
 use App\Module\Account\Entity\User;
 use App\Module\Project\Entity\Project;
+use App\Module\Review\Command\CreateDocumentCommand;
+use App\Module\Review\Command\CreateDocumentHandler;
 use App\Module\Review\Entity\Comment;
 use App\Module\Review\Entity\CommentStatus;
 use App\Module\Review\Entity\Document;
+use App\Module\Review\Entity\DocumentStatus;
 use App\Module\Review\Entity\Tag;
 use App\Module\Review\ValueObject\Anchor;
 use Doctrine\ORM\EntityManagerInterface;
@@ -50,6 +53,20 @@ final class ListDocumentsControllerTest extends WebTestCase
         $em->persist($document);
 
         return $document;
+    }
+
+    /**
+     * Through the handler rather than `new Document`, because that is what
+     * maintains the search vector — a directly persisted document is invisible
+     * to search.
+     *
+     * @param list<string> $tagNames
+     */
+    private function createDocument(Project $project, string $title, string $body, array $tagNames = []): Document
+    {
+        return (static::getContainer()->get(CreateDocumentHandler::class))(
+            new CreateDocumentCommand($project, $title, $body, tagNames: $tagNames),
+        );
     }
 
     public function test_owner_sees_their_projects_documents(): void
@@ -313,7 +330,129 @@ final class ListDocumentsControllerTest extends WebTestCase
         $crawler = $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/documents?archived=1');
 
         self::assertResponseIsSuccessful();
-        self::assertCount(1, $crawler->filter('.lp-list-filters .lp-filter-chip'));
+        self::assertCount(1, $crawler->filter('.lp-list-filters .lp-filter-chip--on'));
+        self::assertCount(1, $crawler->filter('.lp-list-filters input[name="search"]'));
+        self::assertCount(1, $crawler->filter('.lp-list-filters select[name="status"]'));
+    }
+
+    public function test_a_search_that_matches_nothing_says_so_and_offers_a_way_back(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+
+        $alice = $this->createUser($em, 'alice-nomatch', 'alice-nomatch@example.com');
+        $project = $this->project($em, $alice);
+        $em->flush();
+        $projectId = (string) $project->id;
+        $this->createDocument($project, 'Rate limits', 'A leaky bucket per token.');
+        $em->clear();
+
+        $client->loginUser($alice);
+        $crawler = $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/documents?search=telemetry');
+
+        self::assertResponseIsSuccessful();
+        self::assertCount(0, $crawler->filter('[data-document-id]'));
+        // Not the "No documents yet." copy — the project does have one.
+        self::assertSelectorTextContains('.lp-empty', 'No documents match these filters.');
+        self::assertCount(
+            1,
+            $crawler->filter('.lp-card a[href="/projects/'.$projectId.'/documents"]'),
+        );
+        // The search box is outside the empty branch, so it is still reachable.
+        self::assertCount(1, $crawler->filter('.lp-list-filters input[name="search"]'));
+    }
+
+    public function test_search_matches_the_markdown_body_and_keeps_the_term_in_the_box(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+
+        $alice = $this->createUser($em, 'alice-search', 'alice-search@example.com');
+        $project = $this->project($em, $alice);
+        $em->flush();
+        $projectId = (string) $project->id;
+        $hit = $this->createDocument($project, 'Rate limits', 'A leaky bucket per token.');
+        $miss = $this->createDocument($project, 'Onboarding', 'The first-run wizard.');
+        $hitId = (string) $hit->id;
+        $missId = (string) $miss->id;
+        $em->clear();
+
+        $client->loginUser($alice);
+        $crawler = $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/documents?search=bucket');
+
+        self::assertResponseIsSuccessful();
+        self::assertCount(1, $crawler->filter('[data-document-id="'.$hitId.'"]'));
+        self::assertCount(0, $crawler->filter('[data-document-id="'.$missId.'"]'));
+        self::assertSame('bucket', $crawler->filter('input[name="search"]')->attr('value'));
+        // The page no longer promises newest-first while results are ranked.
+        self::assertSelectorTextContains('.lp-workspace-desc', 'best matches first');
+    }
+
+    public function test_the_status_and_tag_filters_narrow_the_list(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+
+        $alice = $this->createUser($em, 'alice-narrow', 'alice-narrow@example.com');
+        $project = $this->project($em, $alice);
+        $em->flush();
+        $projectId = (string) $project->id;
+
+        $approved = $this->createDocument($project, 'Signed off', 'Done.', ['Design']);
+        $approved->status = DocumentStatus::Approved;
+        $open = $this->createDocument($project, 'Still going', 'Ongoing.');
+        $em->flush();
+        $approvedId = (string) $approved->id;
+        $openId = (string) $open->id;
+        $em->clear();
+
+        $client->loginUser($alice);
+
+        $crawler = $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/documents?status=approved');
+        self::assertResponseIsSuccessful();
+        self::assertCount(1, $crawler->filter('[data-document-id="'.$approvedId.'"]'));
+        self::assertCount(0, $crawler->filter('[data-document-id="'.$openId.'"]'));
+
+        $crawler = $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/documents?tag=design');
+        self::assertResponseIsSuccessful();
+        self::assertCount(1, $crawler->filter('[data-document-id="'.$approvedId.'"]'));
+        self::assertCount(0, $crawler->filter('[data-document-id="'.$openId.'"]'));
+    }
+
+    public function test_every_filter_survives_the_clamp_redirect_and_the_pagination_links(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+
+        $alice = $this->createUser($em, 'alice-all-filters', 'alice-all-filters@example.com');
+        $project = $this->project($em, $alice);
+        $em->flush();
+        $projectId = (string) $project->id;
+        for ($i = 0; $i < 21; ++$i) {
+            $this->createDocument($project, 'Kafka topic '.$i, 'Partitions and offsets.', ['Design']);
+        }
+        $em->clear();
+
+        $client->loginUser($alice);
+
+        $filters = 'archived=1&search=kafka&status=in-review&tag=design';
+        $crawler = $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/documents?'.$filters);
+
+        self::assertResponseIsSuccessful();
+        self::assertCount(20, $crawler->filter('[data-document-id]'));
+
+        $paged = '/projects/'.$projectId.'/documents?page=2&archived=1&search=kafka&status=in-review&tag=design';
+        self::assertGreaterThan(0, $crawler->filter('.lp-pagination a[href="'.$paged.'"]')->count());
+
+        // The archived chip is a link built outside the form, so it is the one
+        // most likely to drop the rest of the bar.
+        self::assertGreaterThan(
+            0,
+            $crawler->filter('.lp-list-filters a[href*="search=kafka"][href*="tag=design"]')->count(),
+        );
+
+        $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/documents?page=9&'.$filters);
+        self::assertResponseRedirects($paged);
     }
 
     public function test_the_filter_survives_the_clamp_redirect_and_the_pagination_links(): void

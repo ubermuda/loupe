@@ -11,7 +11,8 @@
     </nav>
 
     <h1 class="lp-workspace-title lp-workspace-title--doc">{{ 'review.dashboard.page.title'|trans }}</h1>
-    <p class="lp-workspace-desc">{{ 'review.dashboard.description'|trans }}</p>
+    {# The default line promises newest-first, which a ranked search makes untrue. #}
+    <p class="lp-workspace-desc">{{ (listQuery.search ? 'review.dashboard.description_ranked' : 'review.dashboard.description')|trans }}</p>
 
     {% for label, messages in app.flashes %}
         {% for message in messages %}
@@ -23,21 +24,76 @@
        moment it matches nothing leaves the reader on a dead end with no way
        back. Later filters join this bar rather than replacing it.
 
-       Each state is labelled with what following the link does, rather than one
-       label plus aria-pressed: that attribute is defined for role="button" and is
-       dropped on an anchor, so both states would announce identically while doing
-       opposite things. The icon and the accent background carry the same
-       distinction visually. #}
+       The archived state is labelled with what following the link does, rather
+       than one label plus aria-pressed: that attribute is defined for
+       role="button" and is dropped on an anchor, so both states would announce
+       identically while doing opposite things. The icon and the accent
+       background carry the same distinction visually. #}
     <div class="lp-list-filters">
+        {# A GET form, so every control lands in the URL and the whole view stays
+           shareable and back-button-able. `page` is deliberately not a field: a
+           changed filter starts again at page one. #}
+        <form method="get"
+              action="{{ path('app_project_documents', {id: project.id}) }}"
+              data-controller="autosearch"
+              class="lp-filter-form">
+            {% if listQuery.includeArchived %}
+                <input type="hidden" name="archived" value="1">
+            {% endif %}
+
+            <div class="lp-filter-search">
+                <twig:ux:icon name="lucide:search" class="lp-filter-search__icon" />
+                <label class="sr-only" for="document-search">{{ 'review.dashboard.filter.search_label'|trans }}</label>
+                <input type="search"
+                       id="document-search"
+                       name="search"
+                       class="lp-input lp-filter-input"
+                       value="{{ listQuery.search }}"
+                       placeholder="{{ 'review.dashboard.filter.search_placeholder'|trans }}"
+                       data-action="input->autosearch#search">
+            </div>
+
+            <label class="sr-only" for="document-status">{{ 'review.dashboard.filter.status_label'|trans }}</label>
+            <select id="document-status"
+                    name="status"
+                    class="lp-input lp-select lp-filter-select"
+                    data-action="change->autosearch#search">
+                <option value="">{{ 'review.dashboard.filter.all_statuses'|trans }}</option>
+                {% for status in statuses %}
+                    <option value="{{ status.value }}"{{ listQuery.status == status ? ' selected' : '' }}>{{ status.translationKey()|trans }}</option>
+                {% endfor %}
+            </select>
+
+            {% if projectTags|length > 0 %}
+                <label class="sr-only" for="document-tag">{{ 'review.dashboard.filter.tag_label'|trans }}</label>
+                <select id="document-tag"
+                        name="tag"
+                        class="lp-input lp-select lp-filter-select"
+                        data-action="change->autosearch#search">
+                    <option value="">{{ 'review.dashboard.filter.all_tags'|trans }}</option>
+                    {% for tag in projectTags %}
+                        <option value="{{ tag.name }}"{{ listQuery.tagName == tag.name ? ' selected' : '' }}>{{ tag.name }}</option>
+                    {% endfor %}
+                </select>
+            {% endif %}
+
+            <a href="{{ path('app_project_documents', {id: project.id}) }}"
+               data-autosearch-target="clearButton"
+               class="lp-filter-chip">
+                <twig:ux:icon name="lucide:x" class="w-3.5 h-3.5 shrink-0" />
+                {{ 'review.dashboard.filter.clear'|trans }}
+            </a>
+        </form>
+
         {% if listQuery.includeArchived %}
             <a class="lp-filter-chip lp-filter-chip--on"
-               href="{{ path('app_project_documents', {id: project.id}) }}">
+               href="{{ path('app_project_documents', {id: project.id}|merge(listQuery.withIncludeArchived(false).routeParams)) }}">
                 <twig:ux:icon name="lucide:check" class="w-3.5 h-3.5 shrink-0" />
                 {{ 'review.dashboard.filter.hide_archived'|trans }}
             </a>
         {% else %}
             <a class="lp-filter-chip"
-               href="{{ path('app_project_documents', {id: project.id, archived: 1}) }}">
+               href="{{ path('app_project_documents', {id: project.id}|merge(listQuery.withIncludeArchived(true).routeParams)) }}">
                 <twig:ux:icon name="lucide:archive" class="w-3.5 h-3.5 shrink-0" />
                 {{ 'review.dashboard.filter.show_archived'|trans }}
             </a>
@@ -114,8 +170,19 @@
     <twig:Pagination route="app_project_documents" :page="page" :totalPages="totalPages" :pageList="pageList" :routeParams="{id: project.id}|merge(listQuery.routeParams)" />
     {% else %}
     <div class="lp-card flex flex-col items-center text-center gap-3 py-12">
+        {# "No documents yet" is wrong once a filter is on — the project may be
+           full of documents that simply did not match. #}
+        {% if listQuery.isNarrowed %}
+        <twig:ux:icon name="lucide:search-x" class="w-8 h-8 text-fg-dim" />
+        <p class="lp-empty not-italic">{{ 'review.dashboard.empty_filtered'|trans }}</p>
+        <a class="lp-filter-chip" href="{{ path('app_project_documents', {id: project.id}) }}">
+            <twig:ux:icon name="lucide:x" class="w-3.5 h-3.5 shrink-0" />
+            {{ 'review.dashboard.filter.clear'|trans }}
+        </a>
+        {% else %}
         <twig:ux:icon name="lucide:file-text" class="w-8 h-8 text-fg-dim" />
         <p class="lp-empty not-italic">{{ 'review.dashboard.empty'|trans }}</p>
+        {% endif %}
     </div>
     {% endif %}
 </div>

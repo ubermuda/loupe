@@ -7,6 +7,8 @@ namespace App\Module\Review\Repository;
 use App\Module\Account\Entity\User;
 use App\Module\Project\Entity\Project;
 use App\Module\Review\Entity\Document;
+use App\Module\Review\Entity\DocumentStatus;
+use App\Module\Review\Entity\Tag;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\ORM\Tools\Pagination\Paginator;
 use Doctrine\Persistence\ManagerRegistry;
@@ -32,23 +34,55 @@ class DocumentRepository extends ServiceEntityRepository
      * Archived documents are excluded unless asked for: they stay reachable at
      * their own URL, but a list is the one place they are meant to leave.
      *
+     * The filter arguments are optional because the MCP document_list tool shares
+     * this method and exposes none of them.
+     *
+     * @param string|null $tagName already normalised by {@see Tag::normalizeName()}
+     *
      * @return Paginator<Document>
      */
-    public function findPaginatedByProject(Project $project, int $page, int $perPage, bool $includeArchived = false): Paginator
-    {
+    public function findPaginatedByProject(
+        Project $project,
+        int $page,
+        int $perPage,
+        bool $includeArchived = false,
+        ?string $search = null,
+        ?DocumentStatus $status = null,
+        ?string $tagName = null,
+    ): Paginator {
         $qb = $this->createQueryBuilder('d')
             ->andWhere('d.project = :project')
             ->setParameter('project', $project)
-            // created_at is TIMESTAMP(0), so same-second rows tie; without a
-            // unique tiebreak, offset pages can repeat or skip a document.
-            ->orderBy('d.createdAt', 'DESC')
-            ->addOrderBy('d.id', 'DESC')
             ->setFirstResult(($page - 1) * $perPage)
             ->setMaxResults($perPage);
 
         if (!$includeArchived) {
             $qb->andWhere('d.archivedAt IS NULL');
         }
+
+        // A plain WHERE: the status is a column on this table, not a relation.
+        if (null !== $status) {
+            $qb->andWhere('d.status = :status')->setParameter('status', $status);
+        }
+
+        if (null !== $tagName) {
+            $qb->innerJoin('d.tags', 'filterTag')
+                ->andWhere('filterTag.name = :tagName')
+                ->setParameter('tagName', $tagName);
+        }
+
+        if (null !== $search) {
+            $qb->andWhere('TSMATCH(d.searchVector, :search) = true')
+                ->setParameter('search', $search)
+                ->orderBy('TSRANK(d.searchVector, :search)', 'DESC');
+        } else {
+            $qb->orderBy('d.createdAt', 'DESC');
+        }
+
+        // created_at is TIMESTAMP(0) so same-second rows tie, and ranks tie far
+        // more often still; without a unique tiebreak, offset pages can repeat or
+        // skip a document.
+        $qb->addOrderBy('d.id', 'DESC');
 
         return new Paginator($qb->getQuery());
     }

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Module\Review\Entity;
 
+use App\Doctrine\TsVectorType;
 use App\Module\Account\Entity\User;
 use App\Module\Project\Entity\Project;
 use App\Module\Review\Repository\DocumentRepository;
@@ -14,6 +15,10 @@ use Symfony\Bridge\Doctrine\Types\UuidType;
 use Symfony\Component\Uid\Uuid;
 
 #[ORM\Entity(repositoryClass: DocumentRepository::class)]
+// Declared without an access method because DBAL's Postgres platform ignores
+// index flags; the migration creates it USING gin, and this mapping exists so
+// the comparator sees an index it already knows about rather than dropping it.
+#[ORM\Index(name: 'idx_documents_search_vector', columns: ['search_vector'])]
 #[ORM\Table(name: 'documents')]
 class Document
 {
@@ -36,6 +41,20 @@ class Document
      */
     #[ORM\Column(nullable: true)]
     public ?\DateTimeImmutable $archivedAt = null;
+
+    /**
+     * Title and current-version markdown, stemmed and weighted, as one searchable
+     * vector. It lives here rather than on DocumentVersion because searching every
+     * historical version would return a document for text it no longer contains,
+     * and because a list query already filters this table — one row per document
+     * keeps the GIN scan and the project/archived/status predicates together.
+     *
+     * Only Postgres can build a tsvector, so the ORM never writes this column:
+     * DocumentSearchIndexer maintains it, and the mapping exists so DQL can name
+     * it. Null until a document is next written — see the backfill migration.
+     */
+    #[ORM\Column(name: 'search_vector', type: TsVectorType::NAME, nullable: true, insertable: false, updatable: false)]
+    public ?string $searchVector = null;
 
     /** @var Collection<int, DocumentVersion> */
     #[ORM\OneToMany(targetEntity: DocumentVersion::class, mappedBy: 'document', cascade: ['persist'], orphanRemoval: true)]
