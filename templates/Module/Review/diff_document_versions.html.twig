@@ -1,0 +1,42 @@
+{#
+    The review page rendering a diff instead of the document. Everything around
+    the pane — breadcrumb, version switcher, comment margin — is the review
+    page's, so this overrides only the pane itself rather than restating a
+    second copy of the shell.
+
+    Params: the review page's, plus diff (?DocumentDiff), diffRefusal
+    (?DiffRefusal) and diffFromVersion (int).
+#}
+{% extends '@Review/show_document.html.twig' %}
+
+{% block documentPane %}
+    {# What the author said each revision changed, read next to what it actually
+       changed. Only the versions the diff spans are listed. #}
+    {% set changeNotes = versions|filter(meta =>
+        meta.versionNumber > diffFromVersion
+        and meta.versionNumber <= version.versionNumber
+        and meta.description is not empty
+    ) %}
+    {% if changeNotes|length > 0 %}
+    <aside class="lp-diff-notes">
+        <h2 class="lp-diff-notes__title">{{ 'review.document.diff.notes_title'|trans }}</h2>
+        {% for meta in changeNotes %}
+        <p class="lp-diff-notes__entry">
+            <span class="lp-version-pill">{{ 'v' ~ meta.versionNumber }}</span>
+            <span>{{ meta.description }}</span>
+        </p>
+        {% endfor %}
+    </aside>
+    {% endif %}
+
+    {% if diffRefusal %}
+        {# Declining to compare, rather than showing a comparison that describes
+           neither version. Each version still reads normally, and the switcher
+           above links to every one of them. #}
+        <p class="lp-empty">{{ diffRefusal.translationKey|trans }}</p>
+    {% elseif diff.hasChanges %}
+        {% include '@Review/_version_diff.html.twig' with {diff: diff} only %}
+    {% else %}
+        <p class="lp-empty">{{ 'review.document.diff.identical'|trans }}</p>
+    {% endif %}
+{% endblock %}

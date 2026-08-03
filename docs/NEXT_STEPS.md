@@ -5,18 +5,6 @@ Open work and observations worth revisiting. Delete items entirely once resolved
 Entries are ordered by priority (high → medium → low); insert new entries at
 the end of their priority band. Format and rules: `project-next-steps` skill.
 
-## Review UI: version diff view
-
-
-
-**Author:** Geoffrey · **Type:** feature · **Priority:** high · **Status:** pending
-
-Found while dogfooding the nine-features design review: after `revise_document`,
-the reviewer sees only the new version — there is no way to see what changed
-since the version they commented on. Add a diff view between document versions
-(at minimum current vs previous; ideally any two), so re-review means reading
-the delta, not the whole document again.
-
 ## Proper HTTP API + outbound webhooks
 
 
@@ -93,6 +81,29 @@ were all lifecycle, never provisioning:
   container's 128M CLI `memory_limit`. Two of the nine worktrees failed to
   provision until the limit was raised by hand, and that change lives only in
   the running container — a rebuild loses it.
+
+  Because of this, `worktree-up` cannot be used to **reset** a worktree whose
+  database an e2e run has truncated, which is the case that matters most. The
+  working sequence, reconstructed by hand three separate times before being
+  written down, takes about ninety seconds — run from the worktree, and note
+  the `-d memory_limit=512M` is load-bearing on **every** line:
+
+  ```bash
+  bin/worktrees/compose-exec.sh php -d memory_limit=512M bin/console doctrine:database:drop --force --if-exists
+  bin/worktrees/compose-exec.sh php -d memory_limit=512M bin/console doctrine:database:create
+  bin/worktrees/compose-exec.sh php -d memory_limit=512M bin/console doctrine:migrations:migrate --no-interaction
+  bin/worktrees/compose-exec.sh php -d memory_limit=512M bin/console app:dev:seed --reissue-widget-token
+  # paste the printed token into .env.local as SITE_REVIEW_WIDGET_TOKEN, then:
+  bin/worktrees/compose-exec.sh php -d memory_limit=512M bin/console tailwind:build
+  ```
+
+  Three things that waste time if missed: the drop fails with *"1 other session
+  using the database"* unless the messenger consumer is stopped first; the token
+  step is not optional — skipping it leaves the site-review widget in its
+  rejected-token state, which surfaces as unrelated-looking spec failures; and
+  the final `tailwind:build` matters whenever `app.css` changed in a merge,
+  because a worktree serving stale CSS fails any spec asserting on a new class
+  in a way that reads as a template bug rather than a missing build.
 - **`vendor/` goes stale silently.** `worktree-up` rsyncs `vendor/` from the
   main checkout, but nothing re-runs `composer install` on main after a merge
   changes `composer.lock`. After the export-storage branch merged, main's
@@ -245,36 +256,57 @@ Related ordering constraint: PR #124 (`feat/document-search`) has PR #123
 (`feat/document-tags`) as a git ancestor, so #123 merges first or #124 brings
 tags in with it.
 
-## Serialising `just e2e` does not protect a run — the shared php-fpm container does
+## Two separate contention mechanisms can starve an e2e run, and only one is fixed
 
-**Author:** Claude · **Type:** tooling · **Priority:** high · **Status:** pending
+**Author:** Claude · **Type:** tooling · **Priority:** medium · **Status:** pending
 
-Every worktree gets its own nginx sidecar but they all share **one** php-fpm
-container. So a sibling's `just ci`, `phpunit`, `bin/console` or scratch PHP
-script lands in the same container as an in-flight e2e run and starves it.
-Serialising e2e is therefore necessary but **not sufficient** — the resource
-that has to be quiet is the container, not the recipe.
+An earlier version of this entry blamed everything on "the shared container",
+which was imprecise. There are two distinct mechanisms and they need different
+handling:
 
-Observed cost: three consecutive e2e runs on one branch produced 11 failures
-that had nothing to do with the branch. The signature is always the same — a
-form POST that never returns inside Playwright's assertion window, submit
-button left **disabled**, form still populated, **no** validation error, and
-nothing in `dev.log`.
+1. **php-fpm worker exhaustion** — requests arrive and get no worker at all.
+   **This is fixed.** One pool served every worktree at `pm.max_children = 20`
+   and sat *at* that ceiling during runs; it is now 32 with a higher spawn
+   floor. The signature was a request that returned **nothing** — no body, no
+   fatal, nothing logged, and a submit button left disabled with no validation
+   error, which is identical to the cold-cache symptom and was misattributed
+   that way for a full day.
+2. **CPU competition from sibling CLI work** — **still real.** `phpunit`,
+   `phpstan` and `composer` run in the CLI, not through php-fpm, so they consume
+   no pool workers at all. They compete for CPU, which slows responses that do
+   get a worker and can push Playwright past its timeouts. Raising the pool does
+   nothing for this.
 
-**The discriminator is which specs fail, not how many.** Across those three
-runs the failing specs were *disjoint* (fixture/data-export/wizard/login, then
-forgot-password/signup/remember-me/social-login, then delete-account/wizard-
-skip). A real defect fails the same spec every time; contention moves around.
-Check that before investigating a branch.
+So the practical rule survives the fix, but for the second reason rather than
+the first: **do not run `just ci` while an e2e run is in flight.** Concurrent
+`just ci` runs between themselves are fine — their failures are deterministic.
 
-Both documented causes must be excluded before reaching for this one: count
-`Container` hashes in `var/cache/dev/` (more than one means a mid-run rebuild)
-and confirm a consumer is alive with `messenger_messages` empty. If both are
-clean and the failures are disjoint, it is contention.
+Distinguishing them after the fact: worker exhaustion leaves
+`WARNING: [pool www] seems busy` or `server reached pm.max_children` in
+`docker logs loupe-php-fpm-1`; CPU contention leaves nothing at all and shows up
+only as timeouts. Count those warnings before and after a run, since an absence
+now means something it did not before.
+
+**The discriminator for either, before investigating a branch at all, is which
+specs fail rather than how many.** Three consecutive runs on one branch produced
+11 failures across *disjoint* sets — fixture/data-export/wizard/login, then
+forgot-password/signup/remember-me/social-login, then delete-account/wizard-skip.
+A real defect fails the same spec every time; contention moves around.
+
+Exclude the two documented environmental causes first: confirm a consumer is
+alive with `messenger_messages` empty, and count **distinct** cache hashes in
+`var/cache/dev/` — note `grep -c '^Container'` returns 3 for one healthy build
+because Symfony writes a `.legacy` marker, so the naive count reports a rebuild
+that never happened.
 
 Worth automating: a lock that a gate run and an e2e run both have to take, so
-this is enforced rather than remembered. Until then it has to be coordinated by
-hand, which does not survive parallel agents. See `docs/AUTOMATIONS.md`.
+the rule is enforced rather than remembered. Hand coordination does not survive
+parallel agents — an orchestrator forgot to re-issue the e2e slot for two hours
+on 2026-08-03 and nothing noticed, because the state lived in one session's
+head. See `docs/AUTOMATIONS.md`.
+
+The durable fix for both mechanisms is per-agent containers — see 'Give each
+agent its own container in the cloud instead of sharing one dev stack'.
 
 ## Give each agent its own container in the cloud instead of sharing one dev stack
 
@@ -3098,14 +3130,22 @@ reason and should not be undone:
 
 - The diff renders **in place of** the document, so while it is on screen the
   pane's `textContent` is not `DocumentVersion::plainText()`. Anchoring is
-  therefore inert in diff mode — no toolbar, no composer, no highlight painting
-  — reusing the same `readOnly` mechanism that already disables writes when
-  viewing an older version.
+  therefore inert in diff mode — no toolbar, no composer, no highlight painting.
+  `readOnly` alone does **not** achieve this and was not used for it:
+  `comment_anchor_controller.js` repaints highlights on every layout regardless
+  of that flag. `show_document.html.twig` instead omits
+  `data-controller="comment-anchor"` entirely in diff mode, so the controller
+  never connects. Re-enabling comments here means attaching it deliberately, not
+  flipping a flag.
 - The diff renderer must emit segments tagged unchanged, inserted and deleted,
   so that **either side's plain text can be reconstructed from the diff markup**:
   unchanged plus inserted yields the new version, unchanged plus deleted the
-  old. That is what gives a comment made in diff mode a well-defined anchoring
-  basis to resolve against.
+  old. `App\Module\Review\ValueObject\DocumentDiff` does this
+  (`oldSource()`/`newSource()`), and it is the **server** half only — the
+  rendered pane's `textContent` is neither side, because deleted and inserted
+  lines interleave and line breaks are block layout rather than newlines. A
+  comment captured in the browser will additionally need per-side markers or
+  offsets in the DOM.
 
 The open design question, which did not need answering to keep the door open:
 whether a comment made while looking at a diff anchors to the new version, the
@@ -3329,22 +3369,6 @@ is present), whether the widget's tests run against source or the minified
 artefact, and whether `just ci` gains a leg or it stays opt-in until the suite
 earns its place.
 
-## `site_review_get` reveals whether a site name exists
-
-**Author:** Claude · **Type:** security · **Priority:** low · **Status:** pending
-
-`SiteReviewGetTool` (`src/Module/SiteReview/Mcp/SiteReviewGetTool.php`) answers
-its optional `site` argument with two different messages: `No site "%s" found.`
-when the lookup misses, and `Token is not bound to that project.` when it hits
-but is not the bound one. That difference tells a caller which site names exist
-— the kind of existence oracle `ReviewSubjectResolver::requireDocument()`
-returns one message for, on purpose.
-
-Minor because the lookup is already narrowed to the token owner's own projects
-(`ProjectRepository::findOneByIdOrNameForOwner()`), so a caller can only probe
-names it is entitled to see. The fix is to collapse both branches onto a single
-message the way the document resolver does.
-
 ## Anchor offsets still diverge from the browser above the BMP
 
 **Author:** Claude · **Type:** bug · **Priority:** low · **Status:** pending
@@ -3434,6 +3458,39 @@ Either backfill (`offsetHint = mb_strlen(substr(plainText, 0, offsetHint))` per
 comment, against its own version's text) or accept a one-revision settling
 period, but decide it before the first deploy that carries real comments across
 the change.
+
+## Version diff loses word marks when a revision changes a line and adds one beside it
+
+**Author:** Claude · **Type:** feature · **Priority:** low · **Status:** pending
+
+`jfcherng/php-diff` only marks individual words inside a replaced block when
+both sides have the same line count (`AbstractHtml::getChanges()`), so a
+revision that rewords a paragraph *and* inserts another right after it produces
+one replace block of 1 old line against 3 new ones — and the reworded paragraph
+comes out as a whole-line delete plus insert instead of a word-marked pair. The
+output is correct and readable, just coarser than it needs to be, and this shape
+(edit a sentence, add a paragraph) is common.
+
+The library's own `Combined` renderer handles it by joining both sides with
+`\n`, running the word line-renderer over the joined strings, then splitting
+back (`markReplaceBlockDiff`). Doing the same in
+`App\Module\Review\Service\MarkdownDiffer` means driving
+`LineRendererFactory`/`MbString` directly and reproducing the renderer's
+escape-then-mark ordering by hand, which is why it was not done up front — the
+escaping order is what stops a literal `<del>` in the Markdown being read as a
+diff mark. Any fix must keep `DocumentDiff::oldSource()`/`newSource()` exact;
+`MarkdownDifferTest` pins that.
+
+## Version diff is only reachable for adjacent version pairs
+
+**Author:** Claude · **Type:** feature · **Priority:** low · **Status:** pending
+
+The `app_document_review_diff` route takes any two version numbers, but the only
+links to it are the "What changed since v(n-1)" entries in the version switcher
+on the document review page, so comparing v1 with v4 means editing the URL. A
+reviewer who left comments on v1 and comes back after three revisions wants
+exactly that comparison. Needs a version picker on the diff view itself, not
+another set of links in the switcher.
 
 ## No table of contents on document versions rendered before headings had ids
 
