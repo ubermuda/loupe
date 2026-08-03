@@ -32,10 +32,10 @@ final readonly class DocumentCreateTool
     }
 
     /**
-     * @param string       $title       The document title
-     * @param string       $markdown    The document content in Markdown format
-     * @param string|null  $description What this first version is, in one or two sentences — the brief it answers or the question it exists to settle
-     * @param list<string> $references  Ids of documents in the same project that this one points at; the link is shown on both documents
+     * @param string        $title       The document title
+     * @param string        $markdown    The document content in Markdown format
+     * @param string|null   $description What this first version is, in one or two sentences — the brief it answers or the question it exists to settle
+     * @param array<string> $references  Ids of documents in the same project that this one points at; the link is shown on both documents
      *
      * @return array{documentId: string, reviewUrl: string}
      */
@@ -56,11 +56,11 @@ final readonly class DocumentCreateTool
             }
 
             $doc = ($this->createDocument)(new CreateDocumentCommand(
-                $project,
-                $title,
-                $markdown,
-                $description,
-                $this->subjects->requireReferences($references),
+                project: $project,
+                title: $title,
+                markdown: $markdown,
+                description: $description,
+                references: $this->subjects->requireReferences($references),
             ));
 
             return [

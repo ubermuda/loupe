@@ -905,9 +905,13 @@
                 <source>review.revise.error.description_blank</source>
                 <target>Say what changed in this version.</target>
             </trans-unit>
-            <trans-unit id="review.revise.error.self_reference">
-                <source>review.revise.error.self_reference</source>
+            <trans-unit id="review.references.error.self_reference">
+                <source>review.references.error.self_reference</source>
                 <target>A document cannot reference itself.</target>
+            </trans-unit>
+            <trans-unit id="review.references.error.other_project">
+                <source>review.references.error.other_project</source>
+                <target>A document can only reference documents in the same project.</target>
             </trans-unit>
             <trans-unit id="review.form.rename_document_form.title.label">
                 <source>review.form.rename_document_form.title.label</source>
@@ -990,6 +994,10 @@
             <trans-unit id="review.document.version.back_to_latest">
                 <source>review.document.version.back_to_latest</source>
                 <target>Go to the current version</target>
+            </trans-unit>
+            <trans-unit id="review.document.version.references_are_current">
+                <source>review.document.version.references_are_current</source>
+                <target>References below reflect the document as it stands today.</target>
             </trans-unit>
             <trans-unit id="review.document.version.switcher_label">
                 <source>review.document.version.switcher_label</source>

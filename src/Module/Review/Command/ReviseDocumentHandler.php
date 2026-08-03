@@ -8,6 +8,7 @@ use App\Exception\DomainErrors;
 use App\Module\Review\Entity\Document;
 use App\Module\Review\Entity\DocumentStatus;
 use App\Module\Review\Repository\CommentRepository;
+use App\Module\Review\Service\DocumentReferenceValidator;
 use App\Module\Review\Service\MarkdownRenderer;
 use App\Module\Review\Service\ReanchoringService;
 use Doctrine\DBAL\LockMode;
@@ -20,6 +21,7 @@ final readonly class ReviseDocumentHandler
         private MarkdownRenderer $renderer,
         private ReanchoringService $reanchoringService,
         private CommentRepository $comments,
+        private DocumentReferenceValidator $referenceValidator,
     ) {
     }
 
@@ -50,16 +52,14 @@ final readonly class ReviseDocumentHandler
             }
         }
 
-        foreach ($command->references ?? [] as $reference) {
-            // Rejected rather than dropped: a document pointing at itself says
-            // nothing, and an author who passed the wrong id learns that here
-            // instead of wondering why one reference never appeared.
-            if ($reference === $document) {
-                throw new DomainErrors(['references' => 'review.revise.error.self_reference']);
-            }
-        }
+        // Validated before the transaction opens, so a set holding one bad id
+        // never reaches the clear-and-re-add below: the whole revision is
+        // rejected rather than landing with the good references only.
+        $references = null === $command->references
+            ? null
+            : $this->referenceValidator->validated($document->project, $document, $command->references);
 
-        return $this->em->wrapInTransaction(function () use ($document, $command, $description, $title): array {
+        return $this->em->wrapInTransaction(function () use ($document, $command, $description, $title, $references): array {
             // Locks the documents row before anything reads $document->versions, so two
             // concurrent revisions of the same document serialize here instead of both
             // computing the same "next version number" from a collection loaded before
@@ -85,12 +85,10 @@ final readonly class ReviseDocumentHandler
 
             // A list replaces the whole set, so leaving it out is the only way to
             // keep the current references — an empty list is how they are cleared.
-            if (null !== $command->references) {
+            if (null !== $references) {
                 $document->references->clear();
-                foreach ($command->references as $reference) {
-                    if (!$document->references->contains($reference)) {
-                        $document->references->add($reference);
-                    }
+                foreach ($references as $reference) {
+                    $document->references->add($reference);
                 }
             }
 

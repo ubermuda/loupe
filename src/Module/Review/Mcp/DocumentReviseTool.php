@@ -26,11 +26,11 @@ final readonly class DocumentReviseTool
     }
 
     /**
-     * @param string            $documentId  The UUID of the document to revise
-     * @param string            $markdown    The new Markdown content for the document
-     * @param string            $description What changed in this version and why, in one or two sentences, for a reviewer who read the previous one — name what you rewrote, added or dropped, not that you revised it
-     * @param string|null       $title       A corrected title for the document; omit to keep the current one
-     * @param list<string>|null $references  The complete set of document ids this one points at, replacing the current set; omit to keep it, pass an empty list to clear it
+     * @param string             $documentId  The UUID of the document to revise
+     * @param string             $markdown    The new Markdown content for the document
+     * @param string             $description What changed in this version and why, in one or two sentences, for a reviewer who read the previous one — name what you rewrote, added or dropped, not that you revised it
+     * @param string|null        $title       A corrected title for the document; omit to keep the current one
+     * @param array<string>|null $references  The complete set of document ids this one points at, replacing the current set; omit to keep it, pass an empty list to clear it
      *
      * @return array{carried: int, orphaned: int}
      */

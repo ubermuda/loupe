@@ -4,8 +4,11 @@ declare(strict_types=1);
 
 namespace App\Tests\Module\Review\Mcp;
 
+use App\Exception\DomainErrors;
 use App\Module\Account\Entity\User;
 use App\Module\Project\Entity\Project;
+use App\Module\Review\Command\ReviseDocumentCommand;
+use App\Module\Review\Command\ReviseDocumentHandler;
 use App\Module\Review\Entity\Document;
 use App\Module\Review\Mcp\DocumentCreateTool;
 use App\Module\Review\Mcp\DocumentReviseTool;
@@ -217,22 +220,62 @@ final class DocumentReviseToolTest extends KernelTestCase
         self::assertSame('# Original', $document->currentVersion()->markdownSource);
     }
 
-    public function test_a_reference_to_another_projects_document_is_rejected(): void
+    /**
+     * The bad id sits between two good ones, and the document already has
+     * references: a set that were only checked as it was written would clear the
+     * originals, add the first target and abandon the rest.
+     */
+    public function test_a_reference_to_another_projects_document_rejects_the_whole_revision(): void
     {
         $owner = $this->user('revise-xref@example.com');
         $document = $this->documentInNewProject($owner, 'Thread');
+        $first = $this->documentIn($document->project, 'Post one');
+        $second = $this->documentIn($document->project, 'Post two');
         $foreign = $this->documentInNewProject($owner, 'Elsewhere');
 
         $this->actAsMcpTokenBoundTo($document->project);
 
+        ($this->tool)((string) $document->id, '# One', 'Linked both posts.', null, [(string) $first->id, (string) $second->id]);
+        self::assertSame(['Post one', 'Post two'], $this->referenceTitles($document));
+
         try {
-            ($this->tool)((string) $document->id, '# One', 'Pointed across projects.', null, [(string) $foreign->id]);
+            ($this->tool)(
+                (string) $document->id,
+                '# Two',
+                'Pointed across projects.',
+                null,
+                [(string) $first->id, (string) $foreign->id, (string) $second->id],
+            );
             self::fail('referencing another project\'s document must throw');
         } catch (ToolCallException $e) {
             self::assertStringContainsString('not found or not accessible', $e->getMessage());
         }
 
-        self::assertSame([], $this->referenceTitles($document));
+        // Nothing moved: not the references, not the markdown.
+        self::assertSame(['Post one', 'Post two'], $this->referenceTitles($document));
+        self::assertSame('# One', $document->currentVersion()->markdownSource);
+    }
+
+    /**
+     * The handlers are callable without going through the MCP resolver that
+     * scopes ids to the bound project, so the rule has to hold there too.
+     */
+    public function test_the_handler_rejects_a_cross_project_reference_on_its_own(): void
+    {
+        $owner = $this->user('revise-xref-dom@example.com');
+        $document = $this->documentInNewProject($owner, 'Thread');
+        $foreign = $this->documentInNewProject($owner, 'Elsewhere');
+
+        $handler = self::getContainer()->get(ReviseDocumentHandler::class);
+        self::assertInstanceOf(ReviseDocumentHandler::class, $handler);
+
+        try {
+            $handler(new ReviseDocumentCommand($document, '# Two', 'Pointed across projects.', null, [$foreign]));
+            self::fail('the handler must reject a reference from another project');
+        } catch (DomainErrors $e) {
+            self::assertSame(['references' => 'review.references.error.other_project'], $e->errors);
+        }
+
         self::assertSame('# Original', $document->currentVersion()->markdownSource);
     }
 

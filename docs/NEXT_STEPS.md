@@ -2591,25 +2591,53 @@ comment, against its own version's text) or accept a one-revision settling
 period, but decide it before the first deploy that carries real comments across
 the change.
 
-## MCP array parameters ship an untyped `items: {}` schema
+## `list<T>` in an MCP tool docblock generates an untyped `items: {}`
 
 **Author:** Claude · **Type:** bug · **Priority:** low · **Status:** pending
 
-Every array parameter on an MCP tool generates `"items": {}` in its JSON
-schema, so a client sees "an array of anything" where the PHP signature says
-`list<string>`. `bin/console debug:mcp document_create` and
-`debug:mcp document_mark_comment_addressed` both show it: the `@param
-list<string>` docblock's element type is dropped by the schema generator in
-`symfony/mcp-bundle` (`McpPass::generate()` on the method reflection).
+The schema generator in `mcp/sdk` reads `string[]` and `array<string>` and
+emits `{"type":"string"}` for the array's elements, but does not understand
+`list<string>` — that one produces `"items": {}`, so a client sees "an array
+of anything". `bin/console debug:mcp <tool>` prints the generated schema.
 
-It has not bitten yet — agents pass string ids anyway, and the tools validate
-each element themselves — but a client that schema-checks its arguments has
-nothing to check against, and a caller passing numbers or objects only finds
-out from the "not a valid document ID" error. Affected today:
-`document_create` and `document_revise` (`references`),
 `document_mark_comment_addressed` and `site_review_mark_comment_addressed`
-(`commentIds`).
+still declare `@param list<string> $commentIds` and are affected. The
+document-reference parameters were converted to `array<string>` when this was
+found; these two were left alone deliberately so the change is made on its
+own rather than inside an unrelated branch.
 
-Close it by checking whether a newer `symfony/mcp-bundle` reads generic
-docblock types, and if not, whether the bundle accepts an explicit schema
-override per parameter.
+It has not bitten yet — the tools validate each element themselves — but a
+client that schema-checks its arguments has nothing to check against.
+
+## A document's incoming references are stale in memory after a write
+
+**Author:** Claude · **Type:** bug · **Priority:** low · **Status:** pending
+
+`Document::$referencedBy` (`src/Module/Review/Entity/Document.php`) is the
+inverse side of the `document_references` join, so Doctrine fills it when the
+document is loaded and never when one is written. Adding to document A's
+`$references` does not appear in document B's `$referencedBy` for the rest of
+that request; it is correct again on the next load.
+
+Invisible today because nothing reads the inverse side in the same request
+that writes the owning side — the review page only ever reads. It becomes a
+real bug the moment a Turbo stream re-renders the target after a write, or
+`document_get` starts returning incoming links. The fix is to maintain both
+sides on write (an `addReference()` on the entity that appends to the target's
+`referencedBy` too), not to reload.
+
+## Referencing a document changes a page the referrer may not write to
+
+**Author:** Claude · **Type:** security · **Priority:** low · **Status:** pending
+
+Creating a reference requires `McpBoundProjectVoter::DOCUMENT_WRITE` on the
+source document and only `DOCUMENT_READ` on the target
+(`ReviewSubjectResolver::requireReferences()`), yet the target's rendered page
+visibly changes: its "Referenced by" list grows.
+
+Harmless while a project's documents share one owner, since read and write
+land on the same people. It becomes a graffiti vector the day a project has
+several users with differentiated grants — someone who may only read a
+document can still add a line to it. Requiring WRITE on the target is the
+wrong fix: it would break pointing at something you are allowed to read,
+which is the normal case. Revisit when per-document grants exist.

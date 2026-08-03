@@ -19,7 +19,14 @@
     {% if readOnly %}
     <div class="lp-version-banner">
         <twig:ux:icon name="lucide:history" class="w-4 h-4 shrink-0" />
-        <span>{{ 'review.document.version.read_only'|trans({'%version%': version.versionNumber}) }}</span>
+        <span>
+            {{ 'review.document.version.read_only'|trans({'%version%': version.versionNumber}) }}
+            {# References belong to the document, not to a version, so this page
+               shows the current ones next to an old version's number. #}
+            {% if document.references|length > 0 or document.referencedBy|length > 0 %}
+                {{ 'review.document.version.references_are_current'|trans }}
+            {% endif %}
+        </span>
         <a class="lp-btn lp-btn--ghost lp-btn--sm" href="{{ path('app_document_review', {projectId: document.project.id, documentId: document.id}) }}">
             {{ 'review.document.version.back_to_latest'|trans }}
         </a>
@@ -84,10 +91,6 @@
                 </nav>
                 {% endif %}
 
-                {# Both directions, from the one stored link: what this document
-                   points at, and what points at it. An archived target keeps its
-                   link — archiving hides a document from the list, not from the
-                   documents that reference it — and says so. #}
                 {% if document.references|length > 0 or document.referencedBy|length > 0 %}
                 <div class="lp-doc-references">
                     {% for group in [
@@ -96,8 +99,8 @@
                     ] %}
                         {% if group.documents|length > 0 %}
                         <div class="lp-doc-references__group">
-                            <span class="lp-doc-references__label">{{ group.label|trans }}</span>
-                            <ul class="lp-doc-references__list">
+                            <h2 class="lp-doc-references__label" id="references-{{ loop.index }}">{{ group.label|trans }}</h2>
+                            <ul class="lp-doc-references__list" aria-labelledby="references-{{ loop.index }}">
                                 {% for reference in group.documents %}
                                 <li class="lp-doc-references__item">
                                     <a class="lp-doc-references__link" href="{{ path('app_document_review', {projectId: reference.project.id, documentId: reference.id}) }}">

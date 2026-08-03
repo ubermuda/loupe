@@ -60,7 +60,7 @@ final readonly class ReviewSubjectResolver
      * write to it, so a read grant is enough — but the grant is still required,
      * which is what keeps a reference inside the token's project.
      *
-     * @param list<string> $documentIds
+     * @param array<string> $documentIds
      *
      * @return list<Document>
      */

@@ -1021,8 +1021,6 @@
     .lp-version-entry__description {
         @apply text-fg-dim m-0 text-xs;
     }
-    /* The documents this one points at, and the ones pointing at it, under the
-       version switcher. Two groups so a reader can tell the directions apart. */
     .lp-doc-references {
         @apply flex flex-col gap-2 mt-4;
     }

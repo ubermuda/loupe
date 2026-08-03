@@ -57,8 +57,10 @@ class Document
     public Collection $references;
 
     /**
-     * Derived from the owning side above — nothing writes it. Both ends of a
-     * reference are navigable while only one row exists to keep in step.
+     * Derived from the owning side above, so one row keeps both ends navigable.
+     * Doctrine populates it when the document is loaded and never at write
+     * time: adding to another document's $references leaves this collection
+     * stale for the rest of the request.
      *
      * @var Collection<int, self>
      */
