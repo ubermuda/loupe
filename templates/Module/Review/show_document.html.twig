@@ -16,6 +16,11 @@
     </div>
     {% endif %}
 
+    {# diffMode is passed explicitly by both controllers rather than defaulted
+       here, because Twig's `default` filter substitutes on any FALSY value, not
+       just an undefined one — it cannot tell an absent variable from one
+       deliberately passed as false. So `|default(true)` would send every
+       show-page render down the diff branch while looking entirely reasonable. #}
     {% if diffMode %}
     <div class="lp-version-banner">
         <twig:ux:icon name="lucide:git-compare" class="w-4 h-4 shrink-0" />
