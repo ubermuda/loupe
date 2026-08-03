@@ -8,9 +8,11 @@ use App\Controller\AppController;
 use App\Module\Project\Entity\Project;
 use App\Module\Project\Security\ProjectVoter;
 use App\Module\Review\Entity\Document;
+use App\Module\Review\Entity\DocumentStatus;
 use App\Module\Review\Repository\CommentRepository;
 use App\Module\Review\Repository\DocumentRepository;
 use App\Module\Review\Repository\DocumentVersionRepository;
+use App\Module\Review\Repository\TagRepository;
 use App\Module\Review\View\DocumentListItem;
 use App\Module\Review\View\DocumentListQuery;
 use App\Utils\PageList;
@@ -34,6 +36,7 @@ class ListDocumentsController extends AppController
         private readonly DocumentRepository $documents,
         private readonly DocumentVersionRepository $documentVersions,
         private readonly CommentRepository $comments,
+        private readonly TagRepository $tags,
         private readonly LoggerInterface $logger,
     ) {
     }
@@ -43,7 +46,15 @@ class ListDocumentsController extends AppController
         $listQuery = DocumentListQuery::fromQuery($request->query);
         $page = $listQuery->page;
 
-        $paginator = $this->documents->findPaginatedByProject($project, $page, self::PER_PAGE, $listQuery->includeArchived);
+        $paginator = $this->documents->findPaginatedByProject(
+            $project,
+            $page,
+            self::PER_PAGE,
+            $listQuery->includeArchived,
+            $listQuery->search,
+            $listQuery->status,
+            $listQuery->tagName,
+        );
         $total = count($paginator);
 
         $clampedPage = PageList::clampedPage($page, $total, self::PER_PAGE);
@@ -63,6 +74,7 @@ class ListDocumentsController extends AppController
         $totalPages = max(1, (int) ceil($total / self::PER_PAGE));
 
         $documents = iterator_to_array($paginator, false);
+        $this->documents->preloadTags($documents);
         $latestVersions = $this->documentVersions->findLatestMetaByDocuments($documents);
 
         $items = array_map(
@@ -88,6 +100,8 @@ class ListDocumentsController extends AppController
             'totalPages' => $totalPages,
             'pageList' => PageList::build($page, $totalPages),
             'listQuery' => $listQuery,
+            'statuses' => DocumentStatus::cases(),
+            'projectTags' => $this->tags->findByProject($project),
         ]);
     }
 }

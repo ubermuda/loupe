@@ -281,7 +281,7 @@ final class ReviseDocumentHandlerTest extends KernelTestCase
 
         /** @var CreateDocumentHandler $createHandler */
         $createHandler = self::getContainer()->get(CreateDocumentHandler::class);
-        $doc = $createHandler(new CreateDocumentCommand($project, 'Described Doc', 'v1 content', 'The original brief.'));
+        $doc = $createHandler(new CreateDocumentCommand(project: $project, title: 'Described Doc', markdown: 'v1 content', description: 'The original brief.'));
 
         $docId = $doc->id;
         self::assertInstanceOf(Uuid::class, $docId);

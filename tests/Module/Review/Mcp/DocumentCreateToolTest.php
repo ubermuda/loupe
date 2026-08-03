@@ -7,6 +7,7 @@ namespace App\Tests\Module\Review\Mcp;
 use App\Module\Account\Entity\User;
 use App\Module\Project\Entity\Project;
 use App\Module\Review\Entity\Document;
+use App\Module\Review\Entity\Tag;
 use App\Module\Review\Mcp\DocumentCreateTool;
 use App\Tests\Support\McpTokenScenario;
 use Doctrine\ORM\EntityManagerInterface;
@@ -64,6 +65,37 @@ final class DocumentCreateToolTest extends KernelTestCase
         self::assertSame('Auth PRD', $document->title);
     }
 
+    public function test_tags_passed_at_creation_are_created_and_attached(): void
+    {
+        $owner = $this->user('create-tagged@example.com');
+        $project = new Project($owner, 'p-'.uniqid());
+        $this->em->persist($project);
+        $this->em->flush();
+
+        $this->actAsMcpTokenBoundTo($project);
+
+        $result = ($this->tool)('Auth PRD', '# Auth', null, ['Release', 'design', 'DESIGN']);
+
+        self::assertSame(['design', 'release'], $result['tags']);
+
+        $this->em->clear();
+        $document = $this->em->find(Document::class, Uuid::fromString($result['documentId']));
+        self::assertInstanceOf(Document::class, $document);
+        self::assertSame(['design', 'release'], array_map(static fn (Tag $t): string => $t->name, $document->tags->toArray()));
+    }
+
+    public function test_a_document_created_without_tags_carries_none(): void
+    {
+        $owner = $this->user('create-untagged@example.com');
+        $project = new Project($owner, 'p-'.uniqid());
+        $this->em->persist($project);
+        $this->em->flush();
+
+        $this->actAsMcpTokenBoundTo($project);
+
+        self::assertSame([], ($this->tool)('Auth PRD', '# Auth')['tags']);
+    }
+
     public function test_references_are_recorded_and_visible_from_the_document_they_point_at(): void
     {
         $owner = $this->user('create-references@example.com');
@@ -76,8 +108,9 @@ final class DocumentCreateToolTest extends KernelTestCase
 
         $this->actAsMcpTokenBoundTo($project);
 
-        // The same id twice must land as one link, not two.
-        $result = ($this->tool)('Companion thread', '# Thread', null, [(string) $target->id, (string) $target->id]);
+        // The same id twice must land as one link, not two. Named argument
+        // because $tags now sits between $description and $references.
+        $result = ($this->tool)('Companion thread', '# Thread', null, references: [(string) $target->id, (string) $target->id]);
 
         $this->em->clear();
         $document = $this->em->find(Document::class, Uuid::fromString($result['documentId']));
@@ -112,7 +145,7 @@ final class DocumentCreateToolTest extends KernelTestCase
         $this->actAsMcpTokenBoundTo($boundProject);
 
         try {
-            ($this->tool)('Companion', '# Body', null, [(string) $foreign->id]);
+            ($this->tool)('Companion', '# Body', null, references: [(string) $foreign->id]);
             self::fail('referencing another project\'s document must throw');
         } catch (ToolCallException $e) {
             self::assertStringContainsString('not found or not accessible', $e->getMessage());

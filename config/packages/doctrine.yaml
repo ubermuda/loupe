@@ -18,12 +18,37 @@ doctrine:
         #server_version: '16'
 
         profiling_collect_backtrace: '%kernel.debug%'
+
+        types:
+            tsvector: MartinGeorgiev\Doctrine\DBAL\Types\Tsvector
+
+        # Required, not redundant. The package's BaseType::getSQLDeclaration()
+        # builds the column definition by calling
+        # $platform->getDoctrineTypeMapping('tsvector'), which throws without an
+        # entry here. It also claims the introspected type, so migrate-diff stops
+        # proposing an ALTER that has already been applied. Removing this looks
+        # like tidying a duplicate registration and breaks both.
+        mapping_types:
+            tsvector: tsvector
     orm:
         validate_xml_mapping: true
         naming_strategy: doctrine.orm.naming_strategy.underscore
         identity_generation_preferences:
             Doctrine\DBAL\Platforms\PostgreSQLPlatform: identity
         auto_mapping: true
+        dql:
+            numeric_functions:
+                # Postgres full-text search has no DQL equivalent. TSMATCH is the
+                # @@ operator and yields a boolean, so DQL has to compare it:
+                # "TSMATCH(...) = true" — the idiom the library's own docblock
+                # prescribes, not a workaround.
+                TSMATCH: MartinGeorgiev\Doctrine\ORM\Query\AST\Functions\Tsmatch
+                TS_RANK: MartinGeorgiev\Doctrine\ORM\Query\AST\Functions\TsRank
+            string_functions:
+                # A string function because TSMATCH and TS_RANK parse their
+                # arguments with StringPrimary(), which only accepts a nested
+                # function if it is registered as one returning a string.
+                WEBSEARCH_TO_TSQUERY: MartinGeorgiev\Doctrine\ORM\Query\AST\Functions\WebsearchToTsquery
         mappings:
             App:
                 type: attribute

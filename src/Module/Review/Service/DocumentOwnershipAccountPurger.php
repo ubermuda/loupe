@@ -15,16 +15,19 @@ use Doctrine\ORM\EntityManagerInterface;
  * creates that today — documents.owner_id is NOT NULL, so a latent such
  * document would otherwise block the user delete.
  *
- * Same FK-safe order as ProjectDeleter's own document-subtree cleanup
- * (reviews, comments, highlights, versions, references, then the document),
- * keyed on document ownership instead of the project. Every table with a FK
- * onto document_versions or documents must be listed here: the constraints are
- * NOT DEFERRABLE, so one missing statement turns account deletion into a 500
- * rather than a silent orphan.
+ * Same FK-safe order as ProjectDeleter's own document-subtree cleanup (reviews,
+ * comments, highlights, versions, tag join rows, references, then the document),
+ * keyed on document ownership instead of the project. Every table with a FK onto
+ * document_versions or documents must be listed here: the constraints are NOT
+ * DEFERRABLE, so one missing statement turns account deletion into a 500 rather
+ * than a silent orphan.
  *
  * Two chains, not one list — what hangs off document_versions precedes it, what
  * hangs off documents precedes that. A new table put in the wrong chain still
  * reads plausibly and fails only at runtime.
+ *
+ * The `tags` rows themselves are project-scoped rather than document-scoped, so
+ * they belong to project deletion and are deliberately not touched here.
  */
 final readonly class DocumentOwnershipAccountPurger implements AccountDataPurgerInterface
 {
@@ -59,6 +62,10 @@ final readonly class DocumentOwnershipAccountPurger implements AccountDataPurger
         );
         $conn->executeStatement(
             'DELETE FROM document_versions WHERE document_id IN (SELECT id FROM documents WHERE owner_id = :id)',
+            ['id' => $id],
+        );
+        $conn->executeStatement(
+            'DELETE FROM document_tags WHERE document_id IN (SELECT id FROM documents WHERE owner_id = :id)',
             ['id' => $id],
         );
         // Both ends, not just the outgoing one: documents are deleted by owner
