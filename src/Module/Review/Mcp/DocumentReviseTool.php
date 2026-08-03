@@ -15,7 +15,7 @@ use Mcp\Exception\ToolCallException;
  * Submit a revised Markdown document. Unresolved comments are carried forward by fuzzy re-anchoring;
  * comments whose quoted text no longer appears are flagged orphaned. Returns the re-anchoring summary.
  */
-#[McpTool(name: 'document_revise', description: 'Submit a new Markdown version of a document, described by what changed in it. Open comments are re-anchored onto the new version; those whose quoted text no longer appears are flagged orphaned. Pass title to correct the document title at the same time.')]
+#[McpTool(name: 'document_revise', description: 'Submit a new Markdown version of a document, described by what changed in it. Open comments are re-anchored onto the new version; those whose quoted text no longer appears are flagged orphaned. Pass title to correct the document title at the same time, and references to replace the documents this one points at.')]
 final readonly class DocumentReviseTool
 {
     public function __construct(
@@ -26,14 +26,15 @@ final readonly class DocumentReviseTool
     }
 
     /**
-     * @param string      $documentId  The UUID of the document to revise
-     * @param string      $markdown    The new Markdown content for the document
-     * @param string      $description What changed in this version and why, in one or two sentences, for a reviewer who read the previous one — name what you rewrote, added or dropped, not that you revised it
-     * @param string|null $title       A corrected title for the document; omit to keep the current one
+     * @param string             $documentId  The UUID of the document to revise
+     * @param string             $markdown    The new Markdown content for the document
+     * @param string             $description What changed in this version and why, in one or two sentences, for a reviewer who read the previous one — name what you rewrote, added or dropped, not that you revised it
+     * @param string|null        $title       A corrected title for the document; omit to keep the current one
+     * @param array<string>|null $references  The complete set of document ids this one points at, replacing the current set; omit to keep it, pass an empty list to clear it
      *
      * @return array{carried: int, orphaned: int}
      */
-    public function __invoke(string $documentId, string $markdown, string $description, ?string $title = null): array
+    public function __invoke(string $documentId, string $markdown, string $description, ?string $title = null, ?array $references = null): array
     {
         try {
             $document = $this->subjects->requireDocument($documentId, McpBoundProjectVoter::DOCUMENT_WRITE);
@@ -46,7 +47,13 @@ final readonly class DocumentReviseTool
                 throw new ToolCallException('The markdown content exceeds the maximum allowed size.');
             }
 
-            return ($this->handler)(new ReviseDocumentCommand($document, $markdown, $description, $title));
+            return ($this->handler)(new ReviseDocumentCommand(
+                $document,
+                $markdown,
+                $description,
+                $title,
+                null === $references ? null : $this->subjects->requireReferences($references),
+            ));
         } catch (DomainErrors $e) {
             throw $this->errorMessages->forAgent($e);
         } catch (ToolCallException $e) {

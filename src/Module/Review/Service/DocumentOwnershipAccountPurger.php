@@ -50,6 +50,13 @@ final readonly class DocumentOwnershipAccountPurger implements AccountDataPurger
             'DELETE FROM document_versions WHERE document_id IN (SELECT id FROM documents WHERE owner_id = :id)',
             ['id' => $id],
         );
+        // Both ends, not just the outgoing one: documents are deleted by owner
+        // here, so a document belonging to someone else may point at one of these.
+        $conn->executeStatement(
+            'DELETE FROM document_references WHERE source_document_id IN (SELECT id FROM documents WHERE owner_id = :id)
+                OR target_document_id IN (SELECT id FROM documents WHERE owner_id = :id)',
+            ['id' => $id],
+        );
         $conn->executeStatement('DELETE FROM documents WHERE owner_id = :id', ['id' => $id]);
     }
 }

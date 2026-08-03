@@ -10,8 +10,9 @@ use Symfony\Component\EventDispatcher\Attribute\AsEventListener;
 
 /**
  * Bulk-deletes the Review-module subtree of a project in FK order:
- * reviews / comments -> document_versions -> documents. DQL bulk deletes, no
- * entity hydration; runs inside ProjectDeleter's transaction.
+ * reviews / comments -> document_versions -> document_references -> documents.
+ * DQL bulk deletes, no entity hydration; runs inside ProjectDeleter's
+ * transaction.
  */
 #[AsEventListener]
 final readonly class DeleteReviewDataOnProjectDeleting
@@ -36,6 +37,15 @@ final readonly class DeleteReviewDataOnProjectDeleting
         $this->em->createQuery(
             'DELETE App\Module\Review\Entity\DocumentVersion v WHERE v.document IN (SELECT d.id FROM App\Module\Review\Entity\Document d WHERE d.project = :project)',
         )->setParameter('project', $event->project)->execute();
+
+        // Native SQL because document_references is a join table: it has no
+        // entity, so DQL cannot name it. Matching either end keeps this correct
+        // for a reference whose two documents ever stop sharing a project.
+        $this->em->getConnection()->executeStatement(
+            'DELETE FROM document_references WHERE source_document_id IN (SELECT id FROM documents WHERE project_id = :project)
+                OR target_document_id IN (SELECT id FROM documents WHERE project_id = :project)',
+            ['project' => (string) ($event->project->id ?? throw new \LogicException('a persisted project always has an id'))],
+        );
 
         $this->em->createQuery(
             'DELETE App\Module\Review\Entity\Document d WHERE d.project = :project',
