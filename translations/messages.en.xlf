@@ -1071,6 +1071,10 @@
                 <source>review.decision.error.unknown_option</source>
                 <target>That option is no longer offered for this decision.</target>
             </trans-unit>
+            <trans-unit id="review.decision.error.stale_version">
+                <source>review.decision.error.stale_version</source>
+                <target>This document changed while you were reading it. Reload the page and choose again.</target>
+            </trans-unit>
             <trans-unit id="comment.error.not_owner">
                 <source>comment.error.not_owner</source>
                 <target>You can only comment on your own documents.</target>

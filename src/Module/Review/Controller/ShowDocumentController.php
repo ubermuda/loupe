@@ -77,7 +77,10 @@ final class ShowDocumentController extends AppController
             'method' => 'POST',
         ]);
 
-        $selectDecisionForm = $this->createForm(SelectDecisionOptionFormType::class, new SelectDecisionOptionRequest(), [
+        // Stamped with the version whose options are being rendered, so a
+        // submission that arrives after a revision can be told apart from one
+        // that describes the current list.
+        $selectDecisionForm = $this->createForm(SelectDecisionOptionFormType::class, new SelectDecisionOptionRequest(versionNumber: $version->versionNumber), [
             'action' => $this->generateUrl('app_document_decision_select', [
                 'projectId' => (string) $project->id,
                 'documentId' => (string) $document->id,

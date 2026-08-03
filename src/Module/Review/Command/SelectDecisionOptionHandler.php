@@ -40,6 +40,19 @@ final readonly class SelectDecisionOptionHandler
 
             $version = $this->documentVersions->findLatest($command->document);
 
+            // An option index only means anything against the list it was
+            // rendered from. A revision landing while the reviewer had the page
+            // open leaves them submitting position 1 of a list that no longer
+            // exists, and resolving it against the current one would record a
+            // label they never clicked — the same lie Decision::resolveIndex
+            // prevents within a version, arriving across versions instead.
+            //
+            // Refused rather than resolved against the version they saw: that
+            // would answer with options the document has already dropped.
+            if ($version->versionNumber !== $command->displayedVersionNumber) {
+                throw new DomainErrors(['versionNumber' => 'review.decision.error.stale_version']);
+            }
+
             $decision = null;
             foreach ($this->decisionBlocks->extract($version->renderedHtml) as $candidate) {
                 if ($candidate->id === $command->decisionId) {

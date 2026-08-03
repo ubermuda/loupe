@@ -38,6 +38,10 @@ class SelectDecisionOptionFormType extends AbstractType
             'required' => false,
             'attr' => ['data-decision-target' => 'optionIndex'],
         ]);
+        // Server-filled, not Stimulus-filled: it names the version whose option
+        // list was rendered into the page, so it must come from the render and
+        // not from anything the browser could recompute later.
+        $builder->add('versionNumber', IntegerType::class, ['required' => false]);
     }
 
     #[\Override]

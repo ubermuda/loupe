@@ -55,6 +55,7 @@ final class SelectDecisionOptionController extends AppController
                     document: $document,
                     decisionId: $data->decisionId ?? throw new \LogicException('decisionId required after validation'),
                     optionIndex: $data->optionIndex ?? throw new \LogicException('optionIndex required after validation'),
+                    displayedVersionNumber: $data->versionNumber ?? throw new \LogicException('versionNumber required after validation'),
                 ));
                 $message = $this->translator->trans('review.decision.status.saved');
                 $failed = false;

@@ -336,7 +336,7 @@ final class GetReviewTest extends KernelTestCase
 
         $select = self::getContainer()->get(SelectDecisionOptionHandler::class);
         self::assertInstanceOf(SelectDecisionOptionHandler::class, $select);
-        $select(new SelectDecisionOptionCommand($doc, 'deploy-target', 1));
+        $select(new SelectDecisionOptionCommand($doc, 'deploy-target', 1, displayedVersionNumber: 1));
 
         $decisions = ($this->getReview)($doc)['decisions'];
 

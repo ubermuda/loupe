@@ -21,6 +21,15 @@ class SelectDecisionOptionRequest
         #[Assert\NotNull]
         #[Assert\PositiveOrZero]
         public ?int $optionIndex = null,
+
+        /**
+         * The version the reviewer was looking at when they clicked. An index
+         * only means anything against the option list it was rendered from, so
+         * the handler refuses it once a revision has moved on.
+         */
+        #[Assert\NotNull]
+        #[Assert\Positive]
+        public ?int $versionNumber = null,
     ) {
     }
 }

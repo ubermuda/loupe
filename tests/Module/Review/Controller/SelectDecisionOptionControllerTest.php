@@ -179,6 +179,87 @@ final class SelectDecisionOptionControllerTest extends WebTestCase
     }
 
     /**
+     * The real interleaving: the reviewer has the page open, a revision reorders
+     * the options underneath them, and their click arrives describing a list
+     * that no longer exists.
+     *
+     * Resolving position 1 against the new list would record "Ship to staging
+     * first" — the option they were looking at when they clicked position 1 was
+     * "Ship straight to production". Refusing costs them one click; accepting
+     * puts words in their mouth.
+     */
+    public function test_an_answer_submitted_against_a_superseded_version_is_refused(): void
+    {
+        $client = static::createClient();
+        [$owner, $document] = $this->seed($client);
+
+        $client->loginUser($owner);
+        [$token, $versionNumber] = $this->renderForm($client, $document);
+        self::assertSame('1', $versionNumber);
+
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        self::assertInstanceOf(EntityManagerInterface::class, $em);
+        $managed = $em->find(Document::class, $document->id);
+        self::assertInstanceOf(Document::class, $managed);
+
+        $revise = static::getContainer()->get(ReviseDocumentHandler::class);
+        self::assertInstanceOf(ReviseDocumentHandler::class, $revise);
+        $revise(new ReviseDocumentCommand(
+            $managed,
+            "Where should this land?\n\n<!-- decision: deploy-target -->\n\n1. Ship straight to production\n2. Ship to staging first\n\n<!-- /decision -->\n",
+            'Reordered the deploy options.',
+        ));
+
+        $this->submitAnswer($client, $document, 'deploy-target', '1', $token, $versionNumber);
+
+        $selections = static::getContainer()->get(DecisionSelectionRepository::class);
+        self::assertInstanceOf(DecisionSelectionRepository::class, $selections);
+        self::assertSame([], $selections->findBy(['document' => $document]), 'a stale index must not be recorded');
+
+        // And the reviewer is told why, rather than the click vanishing.
+        self::assertResponseRedirects($this->reviewPath($document));
+        $client->followRedirect();
+        self::assertSelectorTextContains('.lp-flash--error', 'changed while you were reading');
+    }
+
+    /**
+     * The same staleness on the Turbo path, where the status line rather than a
+     * flash is the only surface the reviewer sees.
+     */
+    public function test_a_superseded_answer_reports_on_the_turbo_path_too(): void
+    {
+        $client = static::createClient();
+        [$owner, $document] = $this->seed($client);
+
+        $client->loginUser($owner);
+        [$token, $versionNumber] = $this->renderForm($client, $document);
+
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        self::assertInstanceOf(EntityManagerInterface::class, $em);
+        $managed = $em->find(Document::class, $document->id);
+        self::assertInstanceOf(Document::class, $managed);
+
+        $revise = static::getContainer()->get(ReviseDocumentHandler::class);
+        self::assertInstanceOf(ReviseDocumentHandler::class, $revise);
+        $revise(new ReviseDocumentCommand($managed, self::MARKDOWN."\n\nMore.\n", 'Added a note.'));
+
+        $this->submitAnswer(
+            $client,
+            $document,
+            'deploy-target',
+            '1',
+            $token,
+            $versionNumber,
+            ['HTTP_ACCEPT' => 'text/vnd.turbo-stream.html'],
+        );
+
+        self::assertResponseStatusCodeSame(Response::HTTP_UNPROCESSABLE_ENTITY);
+        $body = (string) $client->getResponse()->getContent();
+        self::assertStringContainsString('target="decision-status"', $body);
+        self::assertStringContainsString('changed while you were reading', $body);
+    }
+
+    /**
      * Authorization runs before the form, so test_a_non_owner_cannot_answer
      * cannot cover this: only a legitimate owner reaches the token check.
      */
@@ -188,13 +269,10 @@ final class SelectDecisionOptionControllerTest extends WebTestCase
         [$owner, $document] = $this->seed($client);
 
         $client->loginUser($owner);
-        $client->request(Request::METHOD_POST, $this->decisionPath($document), [
-            'select_decision_option_form' => [
-                'decisionId' => 'deploy-target',
-                'optionIndex' => '1',
-                '_token' => 'not-a-real-token',
-            ],
-        ]);
+        // Everything except the token is exactly what a good submission carries,
+        // so the token is the only difference from the test that records an answer.
+        [, $versionNumber] = $this->renderForm($client, $document);
+        $this->submitAnswer($client, $document, 'deploy-target', '1', 'not-a-real-token', $versionNumber);
 
         // Rejected as an invalid form, not as a 403 or a routing miss — the same
         // request with a real token records the answer in the test above, so the
@@ -280,16 +358,47 @@ final class SelectDecisionOptionControllerTest extends WebTestCase
      */
     private function answer(KernelBrowser $client, Document $document, string $decisionId, string $optionIndex, array $server = []): void
     {
-        $client->request(Request::METHOD_GET, $this->reviewPath($document));
-        $token = $client->getCrawler()->filter('input[name="select_decision_option_form[_token]"]')->attr('value');
+        [$token, $versionNumber] = $this->renderForm($client, $document);
+        $this->submitAnswer($client, $document, $decisionId, $optionIndex, $token, $versionNumber, $server);
+    }
 
+    /**
+     * Renders the page and returns the two values the form carries from it, so a
+     * test can hold them across a revision and submit what the reviewer saw.
+     *
+     * @return array{string, string} the CSRF token and the displayed version
+     */
+    private function renderForm(KernelBrowser $client, Document $document): array
+    {
+        $client->request(Request::METHOD_GET, $this->reviewPath($document));
+        $crawler = $client->getCrawler();
+
+        return [
+            (string) $crawler->filter('input[name="select_decision_option_form[_token]"]')->attr('value'),
+            (string) $crawler->filter('input[name="select_decision_option_form[versionNumber]"]')->attr('value'),
+        ];
+    }
+
+    /**
+     * @param array<string, string> $server
+     */
+    private function submitAnswer(
+        KernelBrowser $client,
+        Document $document,
+        string $decisionId,
+        string $optionIndex,
+        string $token,
+        string $versionNumber,
+        array $server = [],
+    ): void {
         $client->request(
             Request::METHOD_POST,
             $this->decisionPath($document),
             ['select_decision_option_form' => [
                 'decisionId' => $decisionId,
                 'optionIndex' => $optionIndex,
-                '_token' => $token ?? '',
+                'versionNumber' => $versionNumber,
+                '_token' => $token,
             ]],
             [],
             $server,

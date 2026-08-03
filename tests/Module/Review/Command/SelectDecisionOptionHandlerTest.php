@@ -68,7 +68,7 @@ final class SelectDecisionOptionHandlerTest extends KernelTestCase
     {
         $document = $this->createDocument(self::MARKDOWN);
 
-        $selection = ($this->selectDecisionOption)(new SelectDecisionOptionCommand($document, 'deploy-target', 1));
+        $selection = ($this->selectDecisionOption)(new SelectDecisionOptionCommand($document, 'deploy-target', 1, displayedVersionNumber: 1));
 
         self::assertSame('deploy-target', $selection->decisionId);
         self::assertSame(1, $selection->optionIndex);
@@ -90,8 +90,8 @@ final class SelectDecisionOptionHandlerTest extends KernelTestCase
     {
         $document = $this->createDocument(self::MARKDOWN);
 
-        ($this->selectDecisionOption)(new SelectDecisionOptionCommand($document, 'deploy-target', 0));
-        $second = ($this->selectDecisionOption)(new SelectDecisionOptionCommand($document, 'deploy-target', 1));
+        ($this->selectDecisionOption)(new SelectDecisionOptionCommand($document, 'deploy-target', 0, displayedVersionNumber: 1));
+        $second = ($this->selectDecisionOption)(new SelectDecisionOptionCommand($document, 'deploy-target', 1, displayedVersionNumber: 1));
 
         self::assertCount(1, $this->selections->findBy(['document' => $document]));
         self::assertSame(1, $second->optionIndex);
@@ -106,7 +106,7 @@ final class SelectDecisionOptionHandlerTest extends KernelTestCase
     public function test_an_answer_survives_a_revision_that_rewords_its_block(): void
     {
         $document = $this->createDocument(self::MARKDOWN);
-        ($this->selectDecisionOption)(new SelectDecisionOptionCommand($document, 'deploy-target', 1));
+        ($this->selectDecisionOption)(new SelectDecisionOptionCommand($document, 'deploy-target', 1, displayedVersionNumber: 1));
 
         $revise = self::getContainer()->get(ReviseDocumentHandler::class);
         self::assertInstanceOf(ReviseDocumentHandler::class, $revise);
@@ -127,12 +127,39 @@ final class SelectDecisionOptionHandlerTest extends KernelTestCase
         self::assertSame('Ship straight to production', $selection->optionLabel);
     }
 
+    /**
+     * An index describes the list it was rendered from, so once a revision has
+     * replaced that list the submission means nothing — even when the decision
+     * id and the index are both still in range, which is the case that would
+     * otherwise pass silently.
+     */
+    public function test_an_answer_describing_a_superseded_version_is_rejected(): void
+    {
+        $document = $this->createDocument(self::MARKDOWN);
+
+        $revise = self::getContainer()->get(ReviseDocumentHandler::class);
+        self::assertInstanceOf(ReviseDocumentHandler::class, $revise);
+        $revise(new ReviseDocumentCommand(
+            $document,
+            "Pick a target.\n\n<!-- decision: deploy-target -->\n\n- [ ] Ship straight to production\n- [ ] Ship to staging first\n\n<!-- /decision -->\n",
+            'Reordered the options.',
+        ));
+
+        $this->expectException(DomainErrors::class);
+
+        try {
+            ($this->selectDecisionOption)(new SelectDecisionOptionCommand($document, 'deploy-target', 1, displayedVersionNumber: 1));
+        } finally {
+            self::assertSame([], $this->selections->findBy(['document' => $document]));
+        }
+    }
+
     public function test_a_decision_the_current_version_does_not_offer_is_rejected(): void
     {
         $document = $this->createDocument(self::MARKDOWN);
 
         $this->expectException(DomainErrors::class);
-        ($this->selectDecisionOption)(new SelectDecisionOptionCommand($document, 'no-such-decision', 0));
+        ($this->selectDecisionOption)(new SelectDecisionOptionCommand($document, 'no-such-decision', 0, displayedVersionNumber: 1));
     }
 
     public function test_an_option_index_outside_the_block_is_rejected(): void
@@ -140,7 +167,7 @@ final class SelectDecisionOptionHandlerTest extends KernelTestCase
         $document = $this->createDocument(self::MARKDOWN);
 
         $this->expectException(DomainErrors::class);
-        ($this->selectDecisionOption)(new SelectDecisionOptionCommand($document, 'deploy-target', 7));
+        ($this->selectDecisionOption)(new SelectDecisionOptionCommand($document, 'deploy-target', 7, displayedVersionNumber: 1));
     }
 
     private function createDocument(string $markdown): Document
