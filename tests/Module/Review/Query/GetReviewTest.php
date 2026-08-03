@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Tests\Module\Review\Query;
 
 use App\Module\Account\Entity\User;
+use App\Module\Account\Repository\UserRepository;
 use App\Module\Project\Entity\Project;
 use App\Module\Review\Entity\Comment;
 use App\Module\Review\Entity\CommentStatus;
@@ -23,6 +24,7 @@ final class GetReviewTest extends KernelTestCase
     private GetReview $getReview;
     private GetDocument $getDocument;
     private User $owner;
+    private User $agent;
     private Project $project;
 
     protected function setUp(): void
@@ -40,6 +42,10 @@ final class GetReviewTest extends KernelTestCase
         $getDocument = self::getContainer()->get(GetDocument::class);
         self::assertInstanceOf(GetDocument::class, $getDocument);
         $this->getDocument = $getDocument;
+
+        $users = self::getContainer()->get(UserRepository::class);
+        self::assertInstanceOf(UserRepository::class, $users);
+        $this->agent = $users->agent();
 
         $this->owner = new User(
             username: 'owner',
@@ -69,9 +75,10 @@ final class GetReviewTest extends KernelTestCase
             new Anchor('JWTs', 'Use ', ' for', 4),
         );
 
+        // Mirrors what the MCP produces: a human raises the thread, the agent answers it.
         $reply = new Comment(
             $version,
-            $this->owner,
+            $this->agent,
             'JWTs allow stateless auth which suits the agent use-case.',
             new Anchor('JWTs', 'Use ', ' for', 4),
             parent: $rootComment,
@@ -102,6 +109,7 @@ final class GetReviewTest extends KernelTestCase
         self::assertSame('JWTs', $root['quote']);
         self::assertSame('Why JWTs? Consider opaque tokens.', $root['body']);
         self::assertSame('pending', $root['status']);
+        self::assertSame('human', $root['author']);
         self::assertFalse($root['orphaned']);
 
         // The reply must appear in thread, not at the top level.
@@ -110,6 +118,8 @@ final class GetReviewTest extends KernelTestCase
         self::assertSame((string) $reply->id, $replyData['id']);
         self::assertSame('JWTs', $replyData['quote']);
         self::assertSame('JWTs allow stateless auth which suits the agent use-case.', $replyData['body']);
+        // An agent re-reading the thread must be able to tell its own reply from the human's.
+        self::assertSame('agent', $replyData['author']);
         self::assertArrayNotHasKey('status', $replyData, 'Status belongs to the thread, so a reply carries none');
         self::assertFalse($replyData['orphaned']);
     }

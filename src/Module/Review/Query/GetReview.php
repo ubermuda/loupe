@@ -30,11 +30,14 @@ final readonly class GetReview
      * Each reported `quote` is widened to whole words (see snapToWordEdges) so a reader
      * doesn't have to guess which sentence a mid-word excerpt came from.
      *
+     * `author` reports the class of writer rather than the writer: the payload is machine-facing,
+     * so a human reviewer's name, email and id stay out of it.
+     *
      * @return array{
      *     status: string,
      *     verdict: string|null,
      *     version: int,
-     *     comments: list<array{id: string, quote: string, body: string, status: string, orphaned: bool, thread: list<array{id: string, quote: string, body: string, orphaned: bool}>}>
+     *     comments: list<array{id: string, quote: string, body: string, author: 'agent'|'human', status: string, orphaned: bool, thread: list<array{id: string, quote: string, body: string, author: 'agent'|'human', orphaned: bool}>}>
      * }
      */
     public function __invoke(Document $document): array
@@ -67,6 +70,7 @@ final readonly class GetReview
                     'id' => (string) $reply->id,
                     'quote' => self::snapToWordEdges($reply->anchor),
                     'body' => $reply->body,
+                    'author' => $reply->author->isAgent() ? 'agent' : 'human',
                     'orphaned' => $reply->orphaned,
                 ],
                 $replies,
@@ -76,6 +80,7 @@ final readonly class GetReview
                 'id' => $commentId,
                 'quote' => self::snapToWordEdges($comment->anchor),
                 'body' => $comment->body,
+                'author' => $comment->author->isAgent() ? 'agent' : 'human',
                 'status' => $comment->threadStatus->value,
                 'orphaned' => $comment->orphaned,
                 'thread' => array_values($thread),
