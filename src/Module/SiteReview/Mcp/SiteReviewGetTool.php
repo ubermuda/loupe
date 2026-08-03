@@ -35,11 +35,10 @@ final readonly class SiteReviewGetTool
             $project = $this->requireBoundProject($this->projectResolver);
 
             if (null !== $site) {
-                $resolved = $this->projects->findOneByIdOrNameForOwner($site, $project->owner)
-                    ?? throw new ToolCallException(\sprintf('No site "%s" found.', $site));
+                $resolved = $this->projects->findOneByIdOrNameForOwner($site, $project->owner);
 
                 if ($resolved !== $project) {
-                    throw new ToolCallException('Token is not bound to that project.');
+                    throw new ToolCallException(\sprintf('Site "%s" not found or not accessible.', $site));
                 }
             }
 

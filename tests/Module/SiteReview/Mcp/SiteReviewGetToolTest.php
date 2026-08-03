@@ -155,11 +155,11 @@ final class SiteReviewGetToolTest extends KernelTestCase
         $this->actAsMcpTokenBoundTo($boundProject);
 
         $this->expectException(ToolCallException::class);
-        $this->expectExceptionMessage('Token is not bound to that project.');
+        $this->expectExceptionMessage('Site "other-site" not found or not accessible.');
         ($this->tool)('other-site');
     }
 
-    public function test_unknown_handle_is_not_found(): void
+    public function test_unknown_handle_is_not_accessible(): void
     {
         $userEmail = 'get-unknown@example.com';
         [$project] = $this->projectWithPendingComments($userEmail, 'known-site');
@@ -167,7 +167,7 @@ final class SiteReviewGetToolTest extends KernelTestCase
         $this->actAsMcpTokenBoundTo($project);
 
         $this->expectException(ToolCallException::class);
-        $this->expectExceptionMessage('No site "nope" found.');
+        $this->expectExceptionMessage('Site "nope" not found or not accessible.');
         ($this->tool)('nope');
     }
 
