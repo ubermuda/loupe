@@ -7,6 +7,7 @@ namespace App\Module\Review\Mcp;
 use App\Mcp\ResolvesBoundProject;
 use App\Module\Project\Security\AuthenticatedProjectResolver;
 use App\Module\Review\Entity\CommentStatus;
+use App\Module\Review\Repository\DocumentVersionRepository;
 use App\Module\Review\Security\McpBoundProjectVoter;
 use Doctrine\ORM\EntityManagerInterface;
 use Mcp\Capability\Attribute\McpTool;
@@ -18,7 +19,7 @@ use Symfony\Component\Uid\Uuid;
  * acted; Resolved is the human agreeing the thread is finished, so no MCP tool
  * writes it.
  */
-#[McpTool(name: 'document_mark_comment_addressed', description: 'Mark document-review comment threads as addressed after acting on them. Accepts the root comment ids returned by document_get_review. Ids that are unknown, already addressed, already resolved, or point at a reply rather than a thread root are skipped, not fatal.')]
+#[McpTool(name: 'document_mark_comment_addressed', description: 'Mark document-review comment threads as addressed after acting on them. Accepts the root comment ids returned by document_get_review, and only ids from the document\'s current version — revising a document mints new comment rows, so re-read the review after document_revise. Ids that are unknown, superseded by a newer version, already addressed, already resolved, or point at a reply rather than a thread root are skipped, not fatal.')]
 final readonly class DocumentMarkCommentAddressedTool
 {
     use ResolvesBoundProject;
@@ -27,6 +28,7 @@ final readonly class DocumentMarkCommentAddressedTool
         private ReviewSubjectResolver $subjects,
         private EntityManagerInterface $em,
         private AuthenticatedProjectResolver $projectResolver,
+        private DocumentVersionRepository $documentVersions,
     ) {
     }
 
@@ -46,6 +48,9 @@ final readonly class DocumentMarkCommentAddressedTool
             // id as not found instead.
             $this->requireBoundProject($this->projectResolver);
 
+            /** @var array<string, string> $currentVersionIds latest version id, keyed by document id */
+            $currentVersionIds = [];
+
             foreach ($commentIds as $id) {
                 if (!Uuid::isValid($id)) {
                     $skipped[] = ['id' => $id, 'reason' => 'invalid_id'];
@@ -62,6 +67,19 @@ final readonly class DocumentMarkCommentAddressedTool
                     continue;
                 }
 
+                // Checked before everything below, because a superseded id is
+                // wrong in a way the other reasons would mask: revising a
+                // document copies its open threads onto the new version and
+                // leaves the originals behind, so an id from before the revision
+                // still resolves and still looks pending, but flipping it moves
+                // a row nobody reads while the live thread stays open.
+                $documentId = (string) $comment->version->document->id;
+                $currentVersionIds[$documentId] ??= (string) $this->documentVersions->findLatest($comment->version->document)->id;
+                if ($currentVersionIds[$documentId] !== (string) $comment->version->id) {
+                    $skipped[] = ['id' => $id, 'reason' => 'superseded'];
+                    continue;
+                }
+
                 // Status lives on the thread root, so a reply has no status of
                 // its own to move. Checked before the status branch below:
                 // threadStatus reads through to the root and would make a reply
@@ -72,9 +90,12 @@ final readonly class DocumentMarkCommentAddressedTool
                 }
 
                 if (CommentStatus::Pending !== $comment->status) {
+                    // No default arm: a status added later must be an
+                    // unhandled match here rather than be silently reported as
+                    // already resolved.
                     $skipped[] = ['id' => $id, 'reason' => match ($comment->status) {
                         CommentStatus::Addressed => 'already_addressed',
-                        default => 'already_resolved',
+                        CommentStatus::Resolved => 'already_resolved',
                     }];
                     continue;
                 }

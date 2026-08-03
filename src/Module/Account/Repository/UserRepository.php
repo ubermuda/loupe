@@ -26,9 +26,10 @@ class UserRepository extends ServiceEntityRepository implements PasswordUpgrader
     public function loadUserByIdentifier(string $identifier): UserInterface
     {
         $user = $this->findOneBy(['email' => strtolower($identifier)]);
-        // The agent account is never a principal: it holds no usable password,
-        // but refusing to load it at all keeps every future authenticator that
-        // goes through the user provider out of it too.
+        // The agent account is never a principal. What actually makes it
+        // unreachable is its null password plus the fact that it owns no
+        // project and so can never own an API token; this only closes the
+        // form-login path, which is the one that comes through here.
         if (!$user instanceof User || $user->isAgent()) {
             throw new UserNotFoundException(sprintf('User "%s" not found.', $identifier));
         }

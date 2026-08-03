@@ -10,6 +10,12 @@ use Doctrine\ORM\EntityManagerInterface;
 
 final readonly class ReplyToCommentHandler
 {
+    /**
+     * `comments.body` is an unbounded TEXT column, so something has to say no.
+     * Generous enough that no reviewer or agent meets it in normal use.
+     */
+    public const int MAX_BODY_BYTES = 65_536;
+
     public function __construct(
         private EntityManagerInterface $em,
     ) {
@@ -18,6 +24,18 @@ final readonly class ReplyToCommentHandler
     public function __invoke(ReplyToCommentCommand $command): Comment
     {
         $parent = $command->parent;
+
+        // The web form enforces this through ReplyRequest, but MCP tools call
+        // the handler directly. An empty reply renders as a bare avatar and an
+        // empty bubble that cannot be removed on its own — only whole threads
+        // are deletable.
+        if ('' === trim($command->body)) {
+            throw new DomainErrors(['body' => 'comment.error.reply_empty']);
+        }
+
+        if (\strlen($command->body) > self::MAX_BODY_BYTES) {
+            throw new DomainErrors(['body' => 'comment.error.reply_too_long']);
+        }
 
         // Replies always attach to the thread root. Nothing else rejects a POST
         // targeting a reply (the voter checks only document ownership), and a

@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace DoctrineMigrations;
 
-use App\Module\Account\Entity\User;
 use Doctrine\DBAL\Schema\Schema;
 use Doctrine\Migrations\AbstractMigration;
 
@@ -22,27 +21,29 @@ final class Version20260803000402 extends AbstractMigration
         // inside a tool call would make the first agent reply in a fresh
         // install a users-table write inside a request that may roll back.
         //
-        // The values are spelled out rather than read from AgentAccountInstaller,
-        // which writes the same row for the e2e reset: a migration must produce
-        // the same data on every database that has ever run it, and sharing the
-        // constants would let a later edit to them silently diverge an
-        // already-migrated environment from a fresh one.
+        // Every value is a literal, including the id — no App class is imported.
+        // A migration must write the same row on every database that has ever
+        // run it, so it cannot depend on a constant a later commit could change;
+        // and an import would make `migrations:migrate` fatal on a fresh
+        // database the day that class is renamed or moved. The runtime copy of
+        // this id is App\Module\Account\Entity\User::AGENT_ID, and every
+        // comments.author_id written by an agent points at it.
         //
         // No password and no roles: nothing can authenticate as it. The dot in
         // the username puts it out of reach of registration, which accepts
         // [a-z][a-z0-9_-]* only, and `.invalid` is reserved by IANA.
         $this->addSql(<<<'SQL'
             INSERT INTO users (id, roles, username, full_name, email, password, created_at)
-            VALUES (:id, '[]', 'loupe.agent', 'Agent', 'agent@loupe.invalid', NULL, now())
-            ON CONFLICT (id) DO NOTHING
-            SQL, ['id' => User::AGENT_ID]);
+            VALUES ('1073e0a5-9b1c-42f7-8e44-a10a6e57c3d9', '[]', 'loupe.agent', 'Agent', 'agent@loupe.invalid', NULL, now())
+            ON CONFLICT DO NOTHING
+            SQL);
     }
 
     public function down(Schema $schema): void
     {
         // Comments the agent authored reference this row, so they go first —
         // comments.author_id has no ON DELETE clause.
-        $this->addSql('DELETE FROM comments WHERE author_id = :id', ['id' => User::AGENT_ID]);
-        $this->addSql('DELETE FROM users WHERE id = :id', ['id' => User::AGENT_ID]);
+        $this->addSql("DELETE FROM comments WHERE author_id = '1073e0a5-9b1c-42f7-8e44-a10a6e57c3d9'");
+        $this->addSql("DELETE FROM users WHERE id = '1073e0a5-9b1c-42f7-8e44-a10a6e57c3d9'");
     }
 }

@@ -2292,6 +2292,32 @@ old one, or records which side it was made on. Anchoring to the new version is
 the intuitive default — a reviewer commenting on a change is usually commenting
 on the result — but a comment on deleted text has no home there.
 
+## Marking a comment addressed can overwrite a human's Resolve
+
+**Author:** Claude · **Type:** bug · **Priority:** medium · **Status:** pending
+
+Both mark-addressed tools read a comment, check its status, and write — with no
+version column, no `SELECT … FOR UPDATE`, and a `flush()` that happens after the
+whole batch. A human clicking Resolve in the web UI in that window has their
+resolution silently replaced by `addressed`, and the thread reopens in front of
+them. The check that is supposed to refuse a resolved thread passes, because it
+ran against the row as it was before they clicked.
+
+The window is short and the collision needs a reviewer and an agent working the
+same thread at the same second, which is why this is recorded rather than fixed.
+It is also **not new**: `SiteReviewMarkCommentAddressedTool` has had the identical
+shape since it shipped, and `DocumentMarkCommentAddressedTool`
+(`src/Module/Review/Mcp/`) copied it deliberately. Fixing one without the other
+would leave the surprising half in place.
+
+The fix is the read-check-write-under-a-row-lock pattern `project-backend`
+already documents — `wrapInTransaction` + `lock(PESSIMISTIC_WRITE)` + `refresh()`
+around each comment — or a conditional `UPDATE … WHERE status = 'pending'` whose
+affected-row count decides between `addressed` and a `already_resolved` skip. The
+second is cheaper and fits the batch shape better. Note that neither is
+unit-testable here: `dama/doctrine-test-bundle` runs each test inside one
+connection's transaction, so two overlapping DB transactions cannot be expressed.
+
 ## Agent-written comments have no per-agent provenance
 
 **Author:** Claude · **Type:** feature · **Priority:** medium · **Status:** pending

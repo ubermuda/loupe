@@ -96,16 +96,45 @@ final class DocumentMarkCommentAddressedToolTest extends KernelTestCase
         ], $result['skipped']);
     }
 
-    public function test_nothing_the_tool_writes_can_be_resolved(): void
+    public function test_marking_an_already_addressed_thread_again_changes_nothing(): void
     {
-        $owner = $this->user('mark-never-resolves@example.com');
+        $owner = $this->user('mark-twice@example.com');
         $comment = $this->rootComment($owner);
         $this->actAsMcpTokenBoundTo($comment->version->document->project);
 
         ($this->tool)([(string) $comment->id]);
-        ($this->tool)([(string) $comment->id]);
+        $second = ($this->tool)([(string) $comment->id]);
 
+        self::assertSame([], $second['addressed']);
+        self::assertSame([['id' => (string) $comment->id, 'reason' => 'already_addressed']], $second['skipped']);
         self::assertSame(CommentStatus::Addressed, $comment->status);
+    }
+
+    public function test_an_id_from_before_a_revision_is_skipped_rather_than_flipping_a_dead_row(): void
+    {
+        $owner = $this->user('mark-superseded@example.com');
+        $comment = $this->rootComment($owner);
+        $document = $comment->version->document;
+        $this->actAsMcpTokenBoundTo($document->project);
+
+        // What document_revise does to the comment: a copy on the new version,
+        // with the original left behind and still resolvable by its own id.
+        $newVersion = $document->addVersion('# Hello again', '<h1>Hello again</h1>');
+        $copy = new Comment(
+            version: $newVersion,
+            author: $comment->author,
+            body: $comment->body,
+            anchor: $comment->anchor,
+        );
+        $this->em->persist($copy);
+        $this->em->flush();
+
+        $result = ($this->tool)([(string) $comment->id]);
+
+        self::assertSame([], $result['addressed']);
+        self::assertSame([['id' => (string) $comment->id, 'reason' => 'superseded']], $result['skipped']);
+        self::assertSame(CommentStatus::Pending, $comment->status);
+        self::assertSame(CommentStatus::Pending, $copy->status);
     }
 
     public function test_unbound_mcp_token_is_rejected_rather_than_skipping_every_id(): void

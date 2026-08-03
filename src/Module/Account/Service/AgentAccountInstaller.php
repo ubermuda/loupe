@@ -27,7 +27,7 @@ final class AgentAccountInstaller
             <<<'SQL'
                 INSERT INTO users (id, roles, username, full_name, email, password, created_at)
                 VALUES (:id, '[]', 'loupe.agent', 'Agent', 'agent@loupe.invalid', NULL, now())
-                ON CONFLICT (id) DO NOTHING
+                ON CONFLICT DO NOTHING
                 SQL,
             ['id' => User::AGENT_ID],
         );

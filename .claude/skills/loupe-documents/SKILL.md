@@ -80,6 +80,28 @@ for that reading context, not for a terminal or a README.
    reason to avoid revising, but keep the reviewer's quoted phrases intact
    where you can, and expect the orphan count in the tool's response.
 
+7. **Reply to comments before you revise, or re-read the review afterwards.**
+   `document_reply_to_comment` and `document_mark_comment_addressed` take the
+   comment ids from `document_get_review`, and **`document_revise` invalidates
+   every one of them**: re-anchoring does not move a comment forward, it
+   *copies* it onto the new version and leaves the original behind. The old
+   ids still exist and still look pending, so the natural order — read the
+   review, revise, then say what you did — writes into rows nobody reads.
+
+   Both tools reject a stale id rather than accepting it silently (a
+   `superseded` skip, or an error naming both version numbers), so the failure
+   is loud. But an agent that learns this from the error has already composed
+   a reply it now has to redo. Two orders that work:
+
+   1. Reply to each comment and mark it addressed **first**, then call
+      `document_revise` once at the end.
+   2. Revise first, then call `document_get_review` again and use the fresh
+      ids.
+
+   The first is usually better: your replies describe changes the reviewer is
+   about to see, and each thread's status is already correct when the new
+   version lands.
+
 ## Example
 
 Entry shape — lead sentence first, detail after:
@@ -121,3 +143,5 @@ Not: "Drop `x-forwarded-host` or generate these links from a pinned
 - Cross-referencing by list number across headings — the rendered numbering is
   per-section, so the reference lands on the wrong entry or none at all. Use
   stable IDs (rule 3).
+- Holding comment ids across a `document_revise` call. They do not survive it
+  (rule 7); re-read the review or reply before revising.

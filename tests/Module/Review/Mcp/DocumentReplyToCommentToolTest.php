@@ -72,8 +72,45 @@ final class DocumentReplyToCommentToolTest extends KernelTestCase
         $first = ($this->tool)((string) $comment->id, 'One.');
 
         $this->expectException(ToolCallException::class);
-        $this->expectExceptionMessage('comment.error.reply_to_reply');
+        // The translated sentence, not the key: nothing renders a template for
+        // an MCP caller, so the key would reach the agent verbatim.
+        $this->expectExceptionMessage('The reply was rejected: Replies can only be added to the top-level comment.');
         ($this->tool)($first['id'], 'Two.');
+    }
+
+    public function test_an_empty_reply_is_rejected(): void
+    {
+        $owner = $this->user('reply-empty@example.com');
+        $comment = $this->rootComment($owner);
+        $this->actAsMcpTokenBoundTo($comment->version->document->project);
+
+        $this->expectException(ToolCallException::class);
+        $this->expectExceptionMessage('The reply was rejected: A reply cannot be empty.');
+        ($this->tool)((string) $comment->id, "  \n ");
+    }
+
+    public function test_a_comment_from_before_a_revision_is_rejected(): void
+    {
+        $owner = $this->user('reply-superseded@example.com');
+        $comment = $this->rootComment($owner);
+        $document = $comment->version->document;
+        $this->actAsMcpTokenBoundTo($document->project);
+
+        // What document_revise does to the comment: a copy on the new version,
+        // with the original left behind and still resolvable by its own id. A
+        // reply written onto the original would surface nowhere.
+        $newVersion = $document->addVersion('# Hello again', '<h1>Hello again</h1>');
+        $this->em->persist(new Comment(
+            version: $newVersion,
+            author: $comment->author,
+            body: $comment->body,
+            anchor: $comment->anchor,
+        ));
+        $this->em->flush();
+
+        $this->expectException(ToolCallException::class);
+        $this->expectExceptionMessage('belongs to version 1, but the document is now on version 2');
+        ($this->tool)((string) $comment->id, 'Should never land.');
     }
 
     public function test_a_comment_in_another_project_is_not_reachable(): void
