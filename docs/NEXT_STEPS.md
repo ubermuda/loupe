@@ -419,6 +419,56 @@ So the rule generalises past `pkill` to every stop mechanism: **a process
 started inside the container can only be observed and stopped from inside it.**
 Verify with `docker exec … ps aux` after any stop, whatever issued it.
 
+## Shrink the e2e suite and push its assertions down to functional tests
+
+**Author:** Geoffrey · **Type:** tooling · **Priority:** medium · **Status:** pending
+
+The e2e suite is 64 specs and cannot be parallelised (shared Mailpit), so it is
+a serial gate every branch queues behind. Most of it is asserting things that do
+not need a browser.
+
+**The discriminating question for each spec: does this assertion depend on a
+real browser?** If it asserts a status code, a redirect, a flash message, or the
+presence of text in rendered HTML, `WebTestCase` does the same thing against the
+same kernel and the same database in milliseconds.
+
+By that test, the bulk of the suite is a candidate — signup, login, remember-me,
+forgot-password, social-login, delete-account, data-export, paywall, waitlist,
+trial-end. These are form-submit-redirect-flash flows whose assertions never
+exercise the browser realism the layer provides.
+
+What genuinely earns e2e is the review UX, and it is the minority: comment
+anchoring through the Selection API, the CSS Custom Highlight rungs and their
+priority resolution, keyboard auto-repeat on the strike shortcut, Turbo stream
+targeting, and focus behaviour during debounced navigation. None of those can be
+asserted without a browser, and each has produced a real defect.
+
+**Mail is not a reason to keep e2e, contrary to the obvious assumption.**
+`Symfony\Bundle\FrameworkBundle\Test\MailerAssertionsTrait` ships with
+framework-bundle and **is currently used in zero tests here**.
+`getMailerMessages()` returns the sent `Message` objects, so a functional test
+can extract a verification or download link from the body and follow it with
+`$client->request()` — the whole round trip, no Mailpit and no browser. Adopting
+it is worth doing on its own merits even if no e2e spec is ever deleted, and it
+removes the shared-Mailpit constraint from the specs that move.
+
+**Do not size this work from the symptom that prompted it.** The complaint was
+that e2e was slow and flaky; that was one php-fpm pool at its ceiling, and after
+raising it the full suite went from ~8.5 minutes to ~3.6 with zero saturation
+warnings. Cutting specs to fix that would be paying twice for the same problem.
+The case for the cut is that fast unit and functional tests catch these defects
+earlier and more precisely — not that the gate is slow.
+
+Two things to protect in any reduction:
+
+1. **Keep at least one real-browser path through each critical flow.** Something
+   has to actually run the application in a browser, or a whole class of defect
+   goes unobserved — the `nullable: false` deprecation flood on the
+   many-to-many join columns surfaced only because a run drove the real app.
+2. **Convert rather than delete.** A spec removed without its assertions
+   reappearing at a lower layer is coverage lost, and the loss is invisible
+   because the suite still passes.
+
 ## Reduce how much the test suite logs by default
 
 **Author:** Geoffrey · **Type:** tooling · **Priority:** medium · **Status:** pending
