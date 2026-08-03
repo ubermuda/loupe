@@ -200,11 +200,25 @@ affecting every agent that connects. Establishing that comes before any fix.
 
 **Author:** Claude · **Type:** tooling · **Priority:** high · **Status:** pending
 
-Five in-flight branches each add a table hanging off `document_versions`, and
-each adds its own `DELETE` to the same two FK-ordered cleanup paths:
+Several in-flight branches each add a table with a foreign key into the
+document subtree, and each adds its own `DELETE` to the same two FK-ordered
+cleanup paths:
 `src/Module/Review/EventListener/DeleteReviewDataOnProjectDeleting.php` (DQL
 bulk deletes) and `src/Module/Review/Service/DocumentOwnershipAccountPurger.php`
 (raw SQL). Git will conflict in both files on every merge after the first.
+
+The tables, and what each hangs off — the parent decides where its `DELETE`
+belongs in FK order, and they are not all the same:
+
+- `document_references` → `documents` (PR #122)
+- `tags` + `document_tags` → `documents`, `projects`, `tags` (PR #123)
+- `decision_selections` → `documents` (`feat/review-decision-controls`)
+- `document_highlights` → **`document_versions`** (`feat/review-agent-highlights`)
+
+Only the last must be deleted before `DELETE FROM document_versions`; the rest
+must come before `DELETE FROM documents`. PR #124 (`feat/document-search`) adds
+no table of its own — it adds a `tsvector` column and index — but inherits
+#123's tables through the git ancestry noted below.
 
 **The resolution is always the union of every branch's statements, in FK order.**
 Taking either side of the conflict silently drops a table's `DELETE`. The FKs
