@@ -692,6 +692,36 @@ final class ShowDocumentControllerTest extends WebTestCase
         self::assertGreaterThan(0, $crawler->filter('.lp-version-pill--link')->count());
     }
 
+    /**
+     * The refusal message is keyed off the reason, so each reason needs its own
+     * trans-unit — a missing one renders the raw key at the reader.
+     */
+    public function test_a_version_holding_the_diff_library_s_own_markers_says_so(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+
+        $owner = $this->createUser($em, 'owner-diff-pua', 'owner-diff-pua@example.com');
+        $project = $this->project($em, $owner);
+
+        $doc = new Document(owner: $owner, project: $project, title: 'Private Use Doc');
+        $doc->addVersion('A trap here', '<p>v1</p>');
+        $doc->addVersion("A \u{fcffc}\u{ff2fb}trap\u{fff41}\u{fcffc} here", '<p>v2</p>');
+        $em->persist($doc);
+        $em->flush();
+
+        $projectId = (string) $project->id;
+        $id = (string) $doc->id;
+        $em->clear();
+
+        $client->loginUser($owner);
+        $crawler = $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/documents/'.$id.'/review/diff/1/2');
+
+        self::assertResponseIsSuccessful();
+        self::assertCount(0, $crawler->filter('.lp-diff'));
+        self::assertSelectorTextContains('.lp-empty', 'cannot handle');
+    }
+
     public function test_a_diff_that_does_not_run_forwards_is_not_found(): void
     {
         $client = static::createClient();

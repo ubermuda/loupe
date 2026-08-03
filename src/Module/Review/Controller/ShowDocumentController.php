@@ -15,6 +15,7 @@ use App\Module\Review\Repository\CommentRepository;
 use App\Module\Review\Repository\DocumentVersionRepository;
 use App\Module\Review\Security\DocumentVoter;
 use App\Module\Review\Service\MarkdownDiffer;
+use App\Module\Review\ValueObject\DiffRefusal;
 use Psr\Log\LoggerInterface;
 use Symfony\Bridge\Doctrine\Attribute\MapEntity;
 use Symfony\Component\HttpFoundation\Response;
@@ -68,21 +69,26 @@ final class ShowDocumentController extends AppController
 
         $diffMode = null !== $fromVersionNumber && null !== $toVersionNumber;
         $diff = null;
+        $diffRefusal = null;
         if ($diffMode) {
             if ($fromVersionNumber >= $toVersionNumber) {
                 throw $this->createNotFoundException('A diff runs from an earlier version to a later one.');
             }
             $version = $this->version($document, $toVersionNumber);
-            $diff = $this->markdownDiffer->diff(
+            $result = $this->markdownDiffer->diff(
                 $this->version($document, $fromVersionNumber)->markdownSource,
                 $version->markdownSource,
             );
-            if (null === $diff) {
+            if ($result instanceof DiffRefusal) {
+                $diffRefusal = $result;
                 $this->logger->info('review.document.diff_refused', [
                     'documentId' => (string) $document->id,
                     'from' => $fromVersionNumber,
                     'to' => $toVersionNumber,
+                    'reason' => $result->value,
                 ]);
+            } else {
+                $diff = $result;
             }
         } else {
             $version = null === $versionNumber ? $latest : $this->version($document, $versionNumber);
@@ -110,7 +116,7 @@ final class ShowDocumentController extends AppController
             'versions' => $this->documentVersions->findAllMetaByDocument($document),
             'diffMode' => $diffMode,
             'diff' => $diff,
-            'diffTooLarge' => $diffMode && null === $diff,
+            'diffRefusal' => $diffRefusal,
             'diffFromVersion' => $fromVersionNumber,
             'readOnly' => $diffMode || !$isLatest,
             'comments' => $comments,

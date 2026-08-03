@@ -127,11 +127,11 @@
                 </aside>
                 {% endif %}
 
-                {% if diffTooLarge %}
-                    {# Comparing a document this size costs more memory than a
-                       worker has; the versions themselves still read normally,
-                       and the switcher above links to each of them. #}
-                    <p class="lp-empty">{{ 'review.document.diff.too_large'|trans }}</p>
+                {% if diffRefusal %}
+                    {# Declining to compare, rather than showing a comparison that
+                       describes neither version. Each version still reads normally,
+                       and the switcher above links to every one of them. #}
+                    <p class="lp-empty">{{ diffRefusal.translationKey|trans }}</p>
                 {% elseif diff.hasChanges %}
                     {% include '@Review/_version_diff.html.twig' with {diff: diff} only %}
                 {% else %}

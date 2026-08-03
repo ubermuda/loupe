@@ -6,6 +6,7 @@ namespace App\Module\Review\Service;
 
 use App\Module\Review\ValueObject\DiffKind;
 use App\Module\Review\ValueObject\DiffLine;
+use App\Module\Review\ValueObject\DiffRefusal;
 use App\Module\Review\ValueObject\DiffSegment;
 use App\Module\Review\ValueObject\DocumentDiff;
 use Jfcherng\Diff\Differ;
@@ -48,14 +49,18 @@ final readonly class MarkdownDiffer
     private const int MAX_LINES = 2_000;
     private const int MAX_WORD_WORK = 300_000_000;
 
-    /** Null when the pair is past {@see MAX_LINES} / {@see MAX_WORD_WORK}. */
-    public function diff(string $oldSource, string $newSource): ?DocumentDiff
+    /** A {@see DiffRefusal} in place of a diff when the pair cannot be compared. */
+    public function diff(string $oldSource, string $newSource): DocumentDiff|DiffRefusal
     {
-        $oldLines = explode("\n", self::neutralizeSentinels($oldSource));
-        $newLines = explode("\n", self::neutralizeSentinels($newSource));
+        if (self::holdsSentinel($oldSource) || self::holdsSentinel($newSource)) {
+            return DiffRefusal::UnsupportedCharacters;
+        }
+
+        $oldLines = explode("\n", $oldSource);
+        $newLines = explode("\n", $newSource);
 
         if (!self::withinBounds($oldLines) || !self::withinBounds($newLines)) {
-            return null;
+            return DiffRefusal::TooLarge;
         }
 
         $differ = new Differ(
@@ -117,19 +122,24 @@ final readonly class MarkdownDiffer
     }
 
     /**
-     * Strips the private-use characters the diff library reserves as its own
-     * markers. Left in place they are not escaped but consumed: its line
-     * delimiter splits one source line into two, and its mark closures vanish
-     * while rendering the text between them as a change that never happened —
-     * in both cases the diff no longer describes the document it was given.
+     * Whether the source holds one of the private-use sequences the diff library
+     * reserves as its own markers. It consumes rather than escapes them — its
+     * line delimiter splits one source line into two, and its mark closures
+     * vanish while rendering the text between them as a change that never
+     * happened — so the diff would describe neither stored version.
+     *
+     * Stripping them first is worse, not better: two versions differing only in
+     * such a character would then compare as identical, and nothing on the page
+     * would say so.
      */
-    private static function neutralizeSentinels(string $source): string
+    private static function holdsSentinel(string $source): bool
     {
-        return str_replace(
-            [RendererConstant::IMPLODE_DELIMITER, ...RendererConstant::HTML_CLOSURES, Differ::LINE_NO_EOL],
-            '',
-            $source,
-        );
+        // The library types these constants as bare `array`, so their elements
+        // arrive as mixed.
+        /** @var list<string> $sentinels */
+        $sentinels = [RendererConstant::IMPLODE_DELIMITER, ...RendererConstant::HTML_CLOSURES, Differ::LINE_NO_EOL];
+
+        return array_any($sentinels, static fn (string $sentinel): bool => str_contains($source, $sentinel));
     }
 
     /**

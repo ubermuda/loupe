@@ -7,6 +7,7 @@ namespace App\Tests\Module\Review\Service;
 use App\Module\Review\Service\MarkdownDiffer;
 use App\Module\Review\ValueObject\DiffKind;
 use App\Module\Review\ValueObject\DiffLine;
+use App\Module\Review\ValueObject\DiffRefusal;
 use App\Module\Review\ValueObject\DocumentDiff;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
@@ -76,7 +77,7 @@ final class MarkdownDifferTest extends TestCase
     {
         $diff = $this->differ->diff($old, $new);
 
-        self::assertNotNull($diff);
+        self::assertInstanceOf(DocumentDiff::class, $diff);
         self::assertSame($old, $diff->oldSource());
         self::assertSame($new, $diff->newSource());
     }
@@ -86,7 +87,7 @@ final class MarkdownDifferTest extends TestCase
         $source = "# Title\n\nOne paragraph.\n";
         $diff = $this->differ->diff($source, $source);
 
-        self::assertNotNull($diff);
+        self::assertInstanceOf(DocumentDiff::class, $diff);
         self::assertFalse($diff->hasChanges());
         // Without this the previous assertion would also hold for an empty diff,
         // which cannot reconstruct anything.
@@ -100,7 +101,7 @@ final class MarkdownDifferTest extends TestCase
             'The quick brown fox leaps over the lazy dog.',
         );
 
-        self::assertNotNull($diff);
+        self::assertInstanceOf(DocumentDiff::class, $diff);
         self::assertTrue($diff->hasChanges());
         self::assertSame(['jumps'], self::textsOfKind($diff, DiffKind::Deleted));
         self::assertSame(['leaps'], self::textsOfKind($diff, DiffKind::Inserted));
@@ -117,7 +118,7 @@ final class MarkdownDifferTest extends TestCase
 
         $diff = $this->differ->diff($old, $new);
 
-        self::assertNotNull($diff);
+        self::assertInstanceOf(DocumentDiff::class, $diff);
         self::assertSame([$old], self::textsOfKind($diff, DiffKind::Deleted));
         self::assertSame([$new], self::textsOfKind($diff, DiffKind::Inserted));
         self::assertSame([], self::textsOfKind($diff, DiffKind::Unchanged));
@@ -135,11 +136,11 @@ final class MarkdownDifferTest extends TestCase
             'Diffing the rendered HTML loses source changes that render identically.',
             'Diffing the rendered HTML drops edits a reader would want to see anyway.',
         );
-        self::assertNotNull($halfRewritten);
+        self::assertInstanceOf(DocumentDiff::class, $halfRewritten);
         self::assertNotSame([], self::textsOfKind($halfRewritten, DiffKind::Unchanged), 'below the threshold: word marks kept');
 
         $headingRewritten = $this->differ->diff('## Requirements and constraints', '## Scope');
-        self::assertNotNull($headingRewritten);
+        self::assertInstanceOf(DocumentDiff::class, $headingRewritten);
         self::assertSame([], self::textsOfKind($headingRewritten, DiffKind::Unchanged), 'above the threshold: clean delete and insert');
     }
 
@@ -148,42 +149,46 @@ final class MarkdownDifferTest extends TestCase
         $line = str_repeat('a stable line of prose here. ', 3);
 
         $small = implode("\n", array_fill(0, 100, $line));
-        self::assertNotNull($this->differ->diff($small, $small.'\nextra'));
+        self::assertInstanceOf(DocumentDiff::class, $this->differ->diff($small, $small."\nextra"));
 
         // Past the line bound: ~10 000 short lines is a changelog well inside the
         // 1 MB a version may hold, and exhausts a worker outright.
         $manyLines = implode("\n", array_fill(0, 10_000, $line));
-        self::assertNull($this->differ->diff($manyLines, $manyLines.'\nextra'));
+        self::assertSame(DiffRefusal::TooLarge, $this->differ->diff($manyLines, $manyLines."\nextra"));
 
         // Past the work bound with only a handful of lines: the word pass is
         // quadratic in a line's length, so few long lines cost far more than many
         // short ones at the same size.
         $fewLongLines = implode("\n", array_fill(0, 100, str_repeat('word ', 1_000)));
-        self::assertNull($this->differ->diff($fewLongLines, $fewLongLines.'\nextra'));
+        self::assertSame(DiffRefusal::TooLarge, $this->differ->diff($fewLongLines, $fewLongLines."\nextra"));
     }
 
     /**
-     * The library reserves private-use characters as its own markers and consumes
-     * rather than escapes them, so a document containing one would be described
-     * by a diff of something else.
+     * The library reserves private-use sequences as its own markers and consumes
+     * rather than escapes them, so a source holding one would be described by a
+     * diff of something else. Stripping them first is worse than refusing: the
+     * two sources below differ ONLY in such a sequence, so a stripped comparison
+     * reports two different versions as identical and nothing says otherwise.
      */
-    public function test_the_library_s_own_markers_cannot_survive_into_a_diff(): void
+    public function test_a_source_holding_the_library_s_own_markers_is_refused(): void
     {
-        $old = "A \u{fcffc}\u{ff2fb}trap\u{fff41}\u{fcffc} here\u{ff2fa}\u{fcffc}\u{fff42}and here";
-        $new = "A trap there\u{ff2fa}\u{fcffc}\u{fff42}and here";
+        $plain = 'A trap here';
+        $withSentinel = "A \u{fcffc}\u{ff2fb}trap\u{fff41}\u{fcffc} here";
 
-        $diff = $this->differ->diff($old, $new);
-
-        self::assertNotNull($diff);
-        self::assertSame('A trap hereand here', $diff->oldSource());
-        self::assertSame('A trap thereand here', $diff->newSource());
+        self::assertSame(DiffRefusal::UnsupportedCharacters, $this->differ->diff($plain, $withSentinel));
+        self::assertSame(DiffRefusal::UnsupportedCharacters, $this->differ->diff($withSentinel, $plain));
+        self::assertSame(
+            DiffRefusal::UnsupportedCharacters,
+            $this->differ->diff($plain, "A trap\u{ff2fa}\u{fcffc}\u{fff42}here"),
+            'the line delimiter too, which would split one source line into two',
+        );
     }
 
     public function test_an_unchanged_region_is_emitted_once_not_once_per_side(): void
     {
         $diff = $this->differ->diff("alpha\nbeta\n", "alpha\ngamma\n");
 
-        self::assertNotNull($diff);
+        self::assertInstanceOf(DocumentDiff::class, $diff);
         $unchanged = array_filter($diff->lines, static fn (DiffLine $l): bool => DiffKind::Unchanged === $l->kind);
         self::assertSame(['alpha', ''], array_values(array_map(
             static fn (DiffLine $l): string => $l->segments[0]->text ?? '',
@@ -195,7 +200,7 @@ final class MarkdownDifferTest extends TestCase
     {
         $diff = $this->differ->diff('A <del>trap</del> here.', 'A <del>trap</del> there.');
 
-        self::assertNotNull($diff);
+        self::assertInstanceOf(DocumentDiff::class, $diff);
         self::assertSame(['here'], self::textsOfKind($diff, DiffKind::Deleted));
         self::assertSame(['there'], self::textsOfKind($diff, DiffKind::Inserted));
     }
