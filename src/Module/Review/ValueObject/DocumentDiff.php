@@ -8,11 +8,11 @@ namespace App\Module\Review\ValueObject;
  * A word-level comparison of two documents' Markdown sources, as an ordered
  * list of source lines.
  *
- * Both sources are recoverable from the diff alone (`oldSource()` /
- * `newSource()`). That is not a convenience: it is what would give a comment
- * left while reading a diff a well-defined text basis to anchor against, and
- * it is far cheaper to guarantee here than to retrofit onto markup that only
- * ever described how the diff looks.
+ * Both sources are recoverable from the diff alone, which is far cheaper to
+ * guarantee here than to retrofit onto markup that only described how a diff
+ * looks. Server-side only: the rendered pane's `textContent` is neither source,
+ * since deleted and inserted lines interleave and line breaks are block layout
+ * rather than newlines.
  */
 final readonly class DocumentDiff
 {

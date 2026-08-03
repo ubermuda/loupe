@@ -1047,13 +1047,25 @@
     .lp-diff {
         @apply max-w-2xl text-fg;
     }
+    /* Added and removed lines are <ins>/<del>, whose default underline and
+       strike would otherwise run across the whole line. */
     .lp-diff__line {
-        @apply whitespace-pre-wrap break-words border-l-2 border-transparent pl-3 text-base leading-relaxed;
+        @apply block no-underline whitespace-pre-wrap break-words border-l-2 border-transparent pl-2 text-base leading-relaxed;
     }
-    /* A blank source line is a paragraph break in Markdown; an empty box would
-       collapse it away and run the paragraphs together. */
-    .lp-diff__line:empty::before {
-        content: '\200b';
+    /* Gutter marker: the cue that survives colour blindness, on the view where
+       added-versus-removed IS the content. Generated content, so it never
+       reaches textContent and cannot leak into a reconstructed source. It also
+       gives a blank line its height, which an empty box would collapse away —
+       and a blank line is a paragraph break in Markdown. */
+    .lp-diff__line::before {
+        @apply inline-block w-5 select-none text-fg-faint;
+        content: '\00a0';
+    }
+    .lp-diff__line--deleted::before {
+        content: '−';
+    }
+    .lp-diff__line--inserted::before {
+        content: '+';
     }
     .lp-diff__line--deleted {
         @apply bg-status-danger-bg border-status-danger text-fg-mute;
@@ -1068,7 +1080,7 @@
         @apply bg-status-danger-border text-status-danger-deep line-through;
     }
     .lp-diff__mark--inserted {
-        @apply bg-status-ok-border text-status-ok-deep;
+        @apply bg-status-ok-border text-status-ok-deep underline;
     }
 
     /* What the author said a revision changed, sitting directly above what it

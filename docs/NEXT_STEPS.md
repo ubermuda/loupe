@@ -2341,14 +2341,22 @@ reason and should not be undone:
 
 - The diff renders **in place of** the document, so while it is on screen the
   pane's `textContent` is not `DocumentVersion::plainText()`. Anchoring is
-  therefore inert in diff mode — no toolbar, no composer, no highlight painting
-  — reusing the same `readOnly` mechanism that already disables writes when
-  viewing an older version.
+  therefore inert in diff mode — no toolbar, no composer, no highlight painting.
+  `readOnly` alone does **not** achieve this and was not used for it:
+  `comment_anchor_controller.js` repaints highlights on every layout regardless
+  of that flag. `show_document.html.twig` instead omits
+  `data-controller="comment-anchor"` entirely in diff mode, so the controller
+  never connects. Re-enabling comments here means attaching it deliberately, not
+  flipping a flag.
 - The diff renderer must emit segments tagged unchanged, inserted and deleted,
   so that **either side's plain text can be reconstructed from the diff markup**:
   unchanged plus inserted yields the new version, unchanged plus deleted the
-  old. That is what gives a comment made in diff mode a well-defined anchoring
-  basis to resolve against.
+  old. `App\Module\Review\ValueObject\DocumentDiff` does this
+  (`oldSource()`/`newSource()`), and it is the **server** half only — the
+  rendered pane's `textContent` is neither side, because deleted and inserted
+  lines interleave and line breaks are block layout rather than newlines. A
+  comment captured in the browser will additionally need per-side markers or
+  offsets in the DOM.
 
 The open design question, which did not need answering to keep the door open:
 whether a comment made while looking at a diff anchors to the new version, the
@@ -2636,9 +2644,3 @@ on the document review page, so comparing v1 with v4 means editing the URL. A
 reviewer who left comments on v1 and comes back after three revisions wants
 exactly that comparison. Needs a version picker on the diff view itself, not
 another set of links in the switcher.
-
-The same picker fixes a smaller gap: while a diff is on screen the switcher
-renders the diff's newer version as the non-link "you are here" pill, so there
-is no one-click way to go and *read* that version — only the banner's link back
-to the current one, which is a different version whenever the diff does not end
-at the latest.

@@ -1,25 +1,33 @@
 {#
     Word-level diff of two versions' Markdown source.
 
-    Every line of both versions is present exactly once per side, so the pane's
-    text is a faithful rendering of the DocumentDiff — see DocumentDiff, whose
-    oldSource()/newSource() read the same structure back. Lines are laid out
-    with `white-space: pre-wrap`, so no whitespace may leak in from this
-    template's own indentation.
+    A line's text belongs wholly to one side or both, never to one side in part,
+    so every line that is not inserted reads back as the old source and every
+    line that is not deleted as the new one. A separator between segments or any
+    text of the template's own would break that and nothing else, so it is
+    pinned by a rendered round-trip in ShowDocumentControllerTest. Lines use
+    `white-space: pre-wrap`, hence no indentation inside one.
+
+    Added and removed text is `<ins>`/`<del>` at both levels: on the one view
+    where added-versus-removed IS the content, colour alone conveys it to
+    neither a screen reader nor the commonest colour blindness.
 
     Params:
       diff — App\Module\Review\ValueObject\DocumentDiff
 #}
 <div class="lp-diff">
     {%- for line in diff.lines -%}
-        <div class="lp-diff__line lp-diff__line--{{ line.kind.value }}">
+        {%- set tag = {'inserted': 'ins', 'deleted': 'del'}[line.kind.value]|default('div') -%}
+        <{{ tag }} class="lp-diff__line lp-diff__line--{{ line.kind.value }}">
             {%- for segment in line.segments -%}
                 {%- if segment.kind.value == 'unchanged' -%}
                     {{- segment.text -}}
+                {%- elseif segment.kind.value == 'inserted' -%}
+                    <ins class="lp-diff__mark lp-diff__mark--inserted">{{- segment.text -}}</ins>
                 {%- else -%}
-                    <span class="lp-diff__mark lp-diff__mark--{{ segment.kind.value }}">{{- segment.text -}}</span>
+                    <del class="lp-diff__mark lp-diff__mark--deleted">{{- segment.text -}}</del>
                 {%- endif -%}
             {%- endfor -%}
-        </div>
+        </{{ tag }}>
     {%- endfor -%}
 </div>

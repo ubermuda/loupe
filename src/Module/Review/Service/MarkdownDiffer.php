@@ -12,6 +12,7 @@ use Jfcherng\Diff\Differ;
 use Jfcherng\Diff\Options\DifferOptions;
 use Jfcherng\Diff\Options\RendererOptions;
 use Jfcherng\Diff\Renderer\Html\JsonHtml;
+use Jfcherng\Diff\Renderer\RendererConstant;
 use Jfcherng\Diff\SequenceMatcher;
 
 /**
@@ -27,23 +28,39 @@ final readonly class MarkdownDiffer
 {
     /**
      * Above this share of a replaced block's characters changing, word marks
-     * stop helping and the block is shown as a clean delete followed by a
-     * clean insert. Measured on real edits: a one-word swap scores 0.08, a
-     * reworded clause 0.25, a half-rewritten sentence 0.62, a heading whose
-     * text is replaced 0.83, and prose sharing nothing with what it replaces
-     * 0.97.
+     * stop helping and the block is shown as a clean delete followed by a clean
+     * insert. Headings sit near the boundary, so two similar heading rewrites
+     * can still be treated differently — that is the heuristic, not this number.
      *
-     * The library's own `mergeThreshold` option cannot be used here — only its
+     * The library's own `mergeThreshold` option cannot be used: only its
      * `Combined` renderer reads it, and that renderer emits a presentation-only
      * HTML table with no way back to either source.
      */
     private const float MERGE_THRESHOLD = 0.7;
 
-    public function diff(string $oldSource, string $newSource): DocumentDiff
+    /**
+     * Bounds beyond which a diff is refused rather than attempted. The line pass
+     * is quadratic in line count and the word pass in each line's length, so
+     * either shape runs away on a document within the 1 MB a version may hold —
+     * and the resulting OOM fatal precedes Monolog, failing as an empty response
+     * with nothing logged.
+     */
+    private const int MAX_LINES = 2_000;
+    private const int MAX_WORD_WORK = 300_000_000;
+
+    /** Null when the pair is past {@see MAX_LINES} / {@see MAX_WORD_WORK}. */
+    public function diff(string $oldSource, string $newSource): ?DocumentDiff
     {
+        $oldLines = explode("\n", self::neutralizeSentinels($oldSource));
+        $newLines = explode("\n", self::neutralizeSentinels($newSource));
+
+        if (!self::withinBounds($oldLines) || !self::withinBounds($newLines)) {
+            return null;
+        }
+
         $differ = new Differ(
-            explode("\n", $oldSource),
-            explode("\n", $newSource),
+            $oldLines,
+            $newLines,
             new DifferOptions(
                 // The diff replaces the document on screen rather than sitting
                 // beside it, so every line is shown — there are no collapsed
@@ -79,6 +96,40 @@ final readonly class MarkdownDiffer
         }
 
         return new DocumentDiff($lines);
+    }
+
+    /** @param list<string> $lines */
+    private static function withinBounds(array $lines): bool
+    {
+        if (count($lines) > self::MAX_LINES) {
+            return false;
+        }
+
+        $work = 0;
+        foreach ($lines as $line) {
+            $work += strlen($line) ** 2;
+            if ($work > self::MAX_WORD_WORK) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /**
+     * Strips the private-use characters the diff library reserves as its own
+     * markers. Left in place they are not escaped but consumed: its line
+     * delimiter splits one source line into two, and its mark closures vanish
+     * while rendering the text between them as a change that never happened —
+     * in both cases the diff no longer describes the document it was given.
+     */
+    private static function neutralizeSentinels(string $source): string
+    {
+        return str_replace(
+            [RendererConstant::IMPLODE_DELIMITER, ...RendererConstant::HTML_CLOSURES, Differ::LINE_NO_EOL],
+            '',
+            $source,
+        );
     }
 
     /**
@@ -142,8 +193,10 @@ final readonly class MarkdownDiffer
     }
 
     /**
-     * Share of the block's characters that changed, on the scale the library's
-     * own `Combined` renderer uses for the same decision.
+     * Share of the block's characters that changed. The library's `Combined`
+     * renderer scores the same thing by doubling an unchanged length read off
+     * one side, which under-counts whenever word gluing leaves the two sides'
+     * unchanged runs at different lengths.
      *
      * @param list<string> $old
      * @param list<string> $new
@@ -159,12 +212,16 @@ final readonly class MarkdownDiffer
         return $changed / ($total + 1);
     }
 
-    /** Total length of the text inside `<del>`/`<ins>` runs of one line. */
+    /**
+     * Total length inside a line's `<del>`/`<ins>` runs. Decoded first, so it is
+     * on the same scale as the line it is divided by: a changed `&` is one
+     * character, not the five of `&amp;`.
+     */
     private static function markedLength(string $line, string $tag): int
     {
         preg_match_all('#<'.$tag.'>(.*?)</'.$tag.'>#us', $line, $matches);
 
-        return array_sum(array_map(strlen(...), $matches[1]));
+        return array_sum(array_map(static fn (string $run): int => strlen(self::decode($run)), $matches[1]));
     }
 
     /**

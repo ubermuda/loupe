@@ -16,7 +16,7 @@
     </div>
     {% endif %}
 
-    {% if diff %}
+    {% if diffMode %}
     <div class="lp-version-banner">
         <twig:ux:icon name="lucide:git-compare" class="w-4 h-4 shrink-0" />
         <span>{{ 'review.document.diff.banner'|trans({'%from%': diffFromVersion, '%to%': version.versionNumber}) }}</span>
@@ -44,14 +44,11 @@
         </nav>
     </header>
 
-    {#
-        In diff mode the comment-anchor controller is not attached at all, rather
-        than attached and told to stay quiet. Its highlight painting runs on every
-        layout regardless of readOnly, and the pane it walks holds diff markup
-        whose textContent is not DocumentVersion::plainText() — so leaving the
-        controller connected would paint anchors against the wrong basis.
-    #}
-    <div class="lp-review-layout"{% if not diff %} data-controller="comment-anchor"{% endif %}>
+    {# In diff mode the comment-anchor controller is not attached at all rather
+       than told to stay quiet: its highlight painting runs on every layout
+       regardless of readOnly, and the pane it walks no longer holds
+       DocumentVersion::plainText(). #}
+    <div class="lp-review-layout"{% if not diffMode %} data-controller="comment-anchor"{% endif %}>
         {#
             The outer .lp-review-doc provides position:relative + the internal
             scroll for the floating composer/toolbar. The inner
@@ -82,7 +79,11 @@
                 <nav class="lp-version-switcher" aria-label="{{ 'review.document.version.switcher_label'|trans }}">
                     {% for meta in versions %}
                     <div class="lp-version-entry">
-                        {% if meta.versionNumber == version.versionNumber %}
+                        {# A diff is not one of the versions it compares, so in diff
+                           mode every pill stays a link — reading the newer version
+                           on its own is a click away, and the only element claiming
+                           to be the current page is the diff link below. #}
+                        {% if not diffMode and meta.versionNumber == version.versionNumber %}
                             <span class="lp-version-pill" aria-current="page">{{ 'v' ~ meta.versionNumber }}</span>
                         {% else %}
                             <a class="lp-version-pill lp-version-pill--link"
@@ -97,7 +98,7 @@
                         {% if meta.versionNumber > 1 %}
                         <a class="lp-version-entry__diff"
                            href="{{ path('app_document_review_diff', {projectId: document.project.id, documentId: document.id, fromVersionNumber: meta.versionNumber - 1, toVersionNumber: meta.versionNumber}) }}"
-                           {% if diff and diffFromVersion == meta.versionNumber - 1 and version.versionNumber == meta.versionNumber %}aria-current="page"{% endif %}
+                           {% if diffMode and diffFromVersion == meta.versionNumber - 1 and version.versionNumber == meta.versionNumber %}aria-current="page"{% endif %}
                         >{{ 'review.document.diff.link'|trans({'%from%': meta.versionNumber - 1}) }}</a>
                         {% endif %}
                     </div>
@@ -106,7 +107,7 @@
                 {% endif %}
             </div>
 
-            {% if diff %}
+            {% if diffMode %}
                 {# What the author said each revision changed, read next to what it
                    actually changed. Only the versions the diff spans are listed. #}
                 {% set changeNotes = versions|filter(meta =>
@@ -126,7 +127,12 @@
                 </aside>
                 {% endif %}
 
-                {% if diff.hasChanges %}
+                {% if diffTooLarge %}
+                    {# Comparing a document this size costs more memory than a
+                       worker has; the versions themselves still read normally,
+                       and the switcher above links to each of them. #}
+                    <p class="lp-empty">{{ 'review.document.diff.too_large'|trans }}</p>
+                {% elseif diff.hasChanges %}
                     {% include '@Review/_version_diff.html.twig' with {diff: diff} only %}
                 {% else %}
                     <p class="lp-empty">{{ 'review.document.diff.identical'|trans }}</p>

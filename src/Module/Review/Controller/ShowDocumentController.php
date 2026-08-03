@@ -15,6 +15,7 @@ use App\Module\Review\Repository\CommentRepository;
 use App\Module\Review\Repository\DocumentVersionRepository;
 use App\Module\Review\Security\DocumentVoter;
 use App\Module\Review\Service\MarkdownDiffer;
+use Psr\Log\LoggerInterface;
 use Symfony\Bridge\Doctrine\Attribute\MapEntity;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
@@ -52,6 +53,7 @@ final class ShowDocumentController extends AppController
         private readonly DocumentVersionRepository $documentVersions,
         private readonly CommentRepository $comments,
         private readonly MarkdownDiffer $markdownDiffer,
+        private readonly LoggerInterface $logger,
     ) {
     }
 
@@ -64,8 +66,9 @@ final class ShowDocumentController extends AppController
     ): Response {
         $latest = $this->documentVersions->findLatest($document);
 
+        $diffMode = null !== $fromVersionNumber && null !== $toVersionNumber;
         $diff = null;
-        if (null !== $fromVersionNumber && null !== $toVersionNumber) {
+        if ($diffMode) {
             if ($fromVersionNumber >= $toVersionNumber) {
                 throw $this->createNotFoundException('A diff runs from an earlier version to a later one.');
             }
@@ -74,6 +77,13 @@ final class ShowDocumentController extends AppController
                 $this->version($document, $fromVersionNumber)->markdownSource,
                 $version->markdownSource,
             );
+            if (null === $diff) {
+                $this->logger->info('review.document.diff_refused', [
+                    'documentId' => (string) $document->id,
+                    'from' => $fromVersionNumber,
+                    'to' => $toVersionNumber,
+                ]);
+            }
         } else {
             $version = null === $versionNumber ? $latest : $this->version($document, $versionNumber);
         }
@@ -81,9 +91,8 @@ final class ShowDocumentController extends AppController
         // Every write on this page targets the current version: the composer posts
         // a comment onto whatever is latest, and the verdict applies to the document
         // as it stands. An older version is therefore rendered as a read-only record
-        // of what was discussed then. A diff is read-only for a second reason — the
-        // document pane holds diff markup, so its textContent is no longer
-        // DocumentVersion::plainText() and anchoring has no basis to resolve against.
+        // of what was discussed then. A diff is read-only for a second reason: the
+        // pane holds diff markup, so anchoring has no text basis to resolve against.
         $isLatest = $version->versionNumber === $latest->versionNumber;
         $comments = $this->comments->findByVersion($version);
 
@@ -99,9 +108,11 @@ final class ShowDocumentController extends AppController
             'document' => $document,
             'version' => $version,
             'versions' => $this->documentVersions->findAllMetaByDocument($document),
+            'diffMode' => $diffMode,
             'diff' => $diff,
+            'diffTooLarge' => $diffMode && null === $diff,
             'diffFromVersion' => $fromVersionNumber,
-            'readOnly' => null !== $diff || !$isLatest,
+            'readOnly' => $diffMode || !$isLatest,
             'comments' => $comments,
             'orphanedCount' => count(array_filter($comments, static fn (Comment $c) => $c->orphaned)),
             'addCommentForm' => $addCommentForm,

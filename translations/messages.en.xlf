@@ -1009,6 +1009,10 @@
                 <source>review.document.diff.identical</source>
                 <target>These two versions have identical source.</target>
             </trans-unit>
+            <trans-unit id="review.document.diff.too_large">
+                <source>review.document.diff.too_large</source>
+                <target>This document is too large to compare. Use the version list above to read either version in full.</target>
+            </trans-unit>
 
             <!-- Document review comment composer -->
             <trans-unit id="review.document.comment.placeholder">

@@ -527,6 +527,60 @@ final class ShowDocumentControllerTest extends WebTestCase
         self::assertStringNotContainsString('The original brief.', $crawler->filter('.lp-diff-notes')->text());
     }
 
+    /**
+     * DocumentDiff::oldSource()/newSource() and _version_diff.html.twig walk the
+     * same structure, but nothing makes them agree — a separator between
+     * segments, a `<br>`, one more wrapping element, and the reconstruction would
+     * still pass its own unit test while no longer describing the page. This
+     * reads the two sides back out of the rendered pane instead: a line that is
+     * not inserted belongs to the old version in full, one that is not deleted to
+     * the new version in full, because a line's segments never span both sides.
+     */
+    public function test_both_sources_are_recoverable_from_the_rendered_diff(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+
+        $owner = $this->createUser($em, 'owner-roundtrip', 'owner-roundtrip@example.com');
+        $project = $this->project($em, $owner);
+
+        $old = "# Plan & scope\n\n\tWe ship in **one** step, on Monday.\n\nUnchanged tail — naïve café 🎉\n\n- alpha\n- beta\n";
+        $new = "# Plan & scope\n\n\tWe ship in **three** steps, starting Monday.\n\nAn <entirely> new paragraph.\n\nUnchanged tail — naïve café 🎉\n\n- alpha\n- gamma\n";
+
+        $doc = new Document(owner: $owner, project: $project, title: 'Round Trip');
+        $doc->addVersion($old, '<h1>Plan</h1>');
+        $doc->addVersion($new, '<h1>Plan</h1>');
+        $em->persist($doc);
+        $em->flush();
+
+        $projectId = (string) $project->id;
+        $id = (string) $doc->id;
+        $em->clear();
+
+        $client->loginUser($owner);
+        $crawler = $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/documents/'.$id.'/review/diff/1/2');
+
+        self::assertResponseIsSuccessful();
+
+        $oldLines = [];
+        $newLines = [];
+        foreach ($crawler->filter('.lp-diff__line') as $node) {
+            $line = new \Symfony\Component\DomCrawler\Crawler($node);
+            $classes = (string) $line->attr('class');
+            $text = $line->text(null, false);
+
+            if (!str_contains($classes, 'lp-diff__line--inserted')) {
+                $oldLines[] = $text;
+            }
+            if (!str_contains($classes, 'lp-diff__line--deleted')) {
+                $newLines[] = $text;
+            }
+        }
+
+        self::assertSame($old, implode("\n", $oldLines));
+        self::assertSame($new, implode("\n", $newLines));
+    }
+
     public function test_a_diff_accepts_no_comment_and_leaves_anchoring_unattached(): void
     {
         $client = static::createClient();
@@ -599,6 +653,43 @@ final class ShowDocumentControllerTest extends WebTestCase
             ),
             'the first version has no predecessor to compare against',
         );
+    }
+
+    /**
+     * A document past the diff's size bound must reach a rendered message. An
+     * unbounded diff exhausts the worker instead, and that fatal happens before
+     * Monolog exists — so the failure is an empty response with nothing logged,
+     * which reads exactly like an environment problem.
+     */
+    public function test_a_document_too_large_to_compare_still_renders_its_page(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+
+        $owner = $this->createUser($em, 'owner-diff-big', 'owner-diff-big@example.com');
+        $project = $this->project($em, $owner);
+
+        $huge = implode("\n", array_fill(0, 10_000, '- a changelog entry that stays the same'));
+
+        $doc = new Document(owner: $owner, project: $project, title: 'Huge Changelog');
+        $doc->addVersion($huge, '<p>v1</p>');
+        $doc->addVersion($huge."\n- one more entry", '<p>v2</p>');
+        $em->persist($doc);
+        $em->flush();
+
+        $projectId = (string) $project->id;
+        $id = (string) $doc->id;
+        $em->clear();
+
+        $client->loginUser($owner);
+        $crawler = $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/documents/'.$id.'/review/diff/1/2');
+
+        self::assertResponseIsSuccessful();
+        self::assertCount(0, $crawler->filter('.lp-diff'));
+        self::assertSelectorTextContains('.lp-empty', 'too large to compare');
+        // The versions themselves are still readable, which is what the message
+        // points the reviewer at.
+        self::assertGreaterThan(0, $crawler->filter('.lp-version-pill--link')->count());
     }
 
     public function test_a_diff_that_does_not_run_forwards_is_not_found(): void
