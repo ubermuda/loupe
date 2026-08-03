@@ -57,8 +57,18 @@ final class SetDocumentHighlightsHandlerTest extends KernelTestCase
     public function test_a_second_call_replaces_the_set_rather_than_adding_to_it(): void
     {
         $document = $this->document('highlight-replace@example.com');
+        $documentId = $document->id;
+        self::assertNotNull($documentId);
 
         ($this->handler)(new SetDocumentHighlightsCommand($document, ['short-lived JWTs']));
+
+        // The second call arrives on its own request, where the collection is an
+        // UNINITIALIZED PersistentCollection — a different clear() path from the
+        // in-memory one, and the only one production ever takes.
+        $this->em->clear();
+        $document = $this->em->find(Document::class, $documentId);
+        self::assertInstanceOf(Document::class, $document);
+
         ($this->handler)(new SetDocumentHighlightsCommand($document, ['rotates hourly']));
 
         $highlights = $document->currentVersion()->highlights->toArray();

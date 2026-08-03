@@ -52,11 +52,18 @@ export default class extends Controller {
     // from a data-anchor-status value.
     static AGENT_HIGHLIGHT = 'lp-agent-highlight';
 
-    // Painting order for overlapping ranges. The API composites highlights by
-    // priority, and without explicit values the winner would be whichever
-    // Highlight happened to be registered last. A human mark outranks an agent
-    // one — a span the reviewer has already commented on is a span they have
-    // read — and the selection being composed right now outranks both.
+    // Paint order for a span two rungs both cover. Without explicit values the
+    // order is whichever Highlight was registered last, which is incidental.
+    //
+    // Priority decides the BACKGROUND only — the highest one is painted last and
+    // covers the rest — while every rung still draws its own underline. So a
+    // passage the agent marked that the reviewer has since commented on shows the
+    // human tint with the agent's wavy underline still visible under the human's
+    // straight one: both marks readable, neither mistakable for the other, which
+    // is the honest reading of a span that genuinely carries both. (Verified in
+    // Chrome against overlapping ranges; a blended tint would be the failure.)
+    // The human rung outranks the agent's, and the selection being composed right
+    // now outranks both.
     static PRIORITY = { agent: 0, status: 1, active: 2 };
 
     static CONTEXT = 32;
@@ -387,12 +394,19 @@ export default class extends Controller {
         });
     }
 
+    // The two passes are independently guarded: they read different anchors from
+    // different elements, so one unlocatable comment quote must not take every
+    // agent mark on the page down with it.
     #layout() {
         try {
             this.#highlightAnchors();
-            this.#highlightAgentMarks();
         } catch {
             this.anchorHighlight?.clear();
+        }
+        try {
+            this.#highlightAgentMarks();
+        } catch {
+            this.agentHighlight?.clear();
         }
     }
 
