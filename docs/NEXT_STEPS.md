@@ -2600,32 +2600,6 @@ second is cheaper and fits the batch shape better. Note that neither is
 unit-testable here: `dama/doctrine-test-bundle` runs each test inside one
 connection's transaction, so two overlapping DB transactions cannot be expressed.
 
-## `just phpstan` runs out of memory in a worktree, and the crash does not say so
-
-
-**Author:** Claude · **Type:** tooling · **Priority:** medium · **Status:** pending
-
-`just phpstan` runs `vendor/bin/phpstan analyse -a worktree-bootstrap.php` with no
-`--memory-limit`, so it inherits the container's 128M default. In a worktree with
-a stale or cold `var/cache/dev` it exhausts that and dies with **exit code 255**
-and a `DebugClassLoader` stack trace ending somewhere in `symfony/var-dumper`.
-
-The failure reads like a real analysis error. It is not: the same tree analyses
-clean at `--memory-limit=1G`. Three separate agents hit this in one session and
-each spent time treating it as a defect in their own branch before recognising
-it, which is the actual cost.
-
-Two things would fix it, and they are not exclusive:
-
-- Pass an explicit `--memory-limit` in the `phpstan` recipe, so the limit is a
-  project decision rather than whatever the container defaults to.
-- Note in the recipe or in `project-worktrees` that an exit-255 phpstan crash
-  with a `DebugClassLoader` trace means memory, and that clearing
-  `var/cache/dev` and re-warming usually resolves it.
-
-Related symptom, same cause: `bin/console cache:warmup` has also OOM'd at 128M
-while compiling Twig in a worktree, twice, with no template change involved.
-
 ## No MCP read path returns a single document's tags
 
 
@@ -3116,17 +3090,6 @@ scope→role mapping (verified against current Symfony docs), so the migration i
 a modernization, not a scope win; per-token scope roles are slightly more
 awkward there (you don't own `createToken()`), so weigh that when revisiting.
 
-## Site-review widget: send during an in-flight delete
-
-
-
-
-**Author:** Claude · **Type:** bug · **Priority:** low · **Status:** pending
-
-`send()` doesn't check `state.deleting` — a Send clicked while a delete is
-in flight could submit a review that still contains the being-deleted comment.
-Minor for a single-reviewer tool; track only.
-
 ## Site-review widget: surface per-comment save errors more granularly
 
 
@@ -3137,19 +3100,6 @@ Minor for a single-reviewer tool; track only.
 All widget API failures render into the single `#lp-error` banner. Fine for a
 one-reviewer tool; if bulk operations ever appear, attach errors to the affected
 list row instead.
-
-## e2e tsconfig triggers TS5107 under bare tsc
-
-
-
-
-**Author:** Claude · **Type:** tooling · **Priority:** low · **Status:** pending
-
-`e2e/tsconfig.json` uses `moduleResolution: node` (node10), deprecated in
-TypeScript 5.x — a bare `npx tsc --noEmit` in `e2e/` fails with TS5107. Nothing
-in the gates runs bare tsc today (Playwright transpiles specs itself), so this is
-latent. Modernize the tsconfig (`module`/`moduleResolution` `nodenext`, or
-`bundler`) when convenient.
 
 ## Regenerate token handlers are check-then-set without locking
 
@@ -3665,25 +3615,6 @@ collection preloads, because changing a finder's own query is a wider change
 than adding a preload beside it, and `findByOwner` is also what
 `DocumentRepositoryTest` pins as the path the export reads.
 
-## `list<T>` in an MCP tool docblock generates an untyped `items: {}`
-
-
-**Author:** Claude · **Type:** bug · **Priority:** low · **Status:** pending
-
-The schema generator in `mcp/sdk` reads `string[]` and `array<string>` and
-emits `{"type":"string"}` for the array's elements, but does not understand
-`list<string>` — that one produces `"items": {}`, so a client sees "an array
-of anything". `bin/console debug:mcp <tool>` prints the generated schema.
-
-`document_mark_comment_addressed` and `site_review_mark_comment_addressed`
-still declare `@param list<string> $commentIds` and are affected. The
-document-reference parameters were converted to `array<string>` when this was
-found; these two were left alone deliberately so the change is made on its
-own rather than inside an unrelated branch.
-
-It has not bitten yet — the tools validate each element themselves — but a
-client that schema-checks its arguments has nothing to check against.
-
 ## A document's incoming references are stale in memory after a write
 
 
@@ -3744,58 +3675,3 @@ means either bounding what is fed to `to_tsvector` or lowering
 transactional is **not** the answer, because wrapping create would close the
 EntityManager on a rejected tag name.
 
-## `HeadingLabel` is named for one of the two things it labels
-
-
-**Author:** Claude · **Type:** tooling · **Priority:** low · **Status:** pending
-
-`App\Module\Review\Service\HeadingLabel::fromHtml()` derives a human-readable
-display label from sanitized HTML — text plus any image's `alt`, whitespace
-collapsed. It is used for headings (`MarkdownRenderer` slugs it into the id,
-`HeadingExtractor` shows it in the table of contents) and for decision-block
-option labels (`DecisionBlockService::extract`, where it is what reaches the
-agent through `document_get_review` and what a stored answer is matched
-against). The name under-describes it, and a reader looking at the decision path
-has no reason to expect a class called `HeadingLabel` to be the right tool.
-
-Rename it to something neutral — `DisplayLabel` or `LabelFromHtml` — and update
-the three call sites. Nothing depends on the name beyond those.
-
-This was deliberately not done when the second caller was added: the class had
-just landed on a branch that two others were stacked on and frozen, so renaming
-it would have cost both of them a re-sync for a cosmetic gain. That constraint
-disappears once the stack lands.
-
-## The per-worktree isolation design says it is unimplemented, but it shipped
-
-
-**Author:** Claude · **Type:** docs · **Priority:** low · **Status:** pending
-
-The Loupe document "Per-worktree app isolation (shipped) — own database, own
-URL" opens with "Status: design, awaiting approval. Nothing here is
-implemented." Its body was revised through several versions as the work
-landed — the certificate-authority alias fix is marked applied and verified —
-but the status line at the top never moved.
-
-`CLAUDE.md` documents the result as shipped behaviour: `just worktree-up NAME`,
-per-worktree hostnames, `app_wt_<name>` databases selected by
-`WORKTREE_DB_SUFFIX`, and `just worktree-down`. A reader who trusts the status
-line concludes none of that exists. The document title now says "(shipped)",
-which contradicts its own first paragraph; correcting the body needs a
-revision.
-
-## The nine-feature design spec is still filed under an eight-feature filename
-
-
-**Author:** Claude · **Type:** docs · **Priority:** low · **Status:** pending
-
-`docs/superpowers/specs/2026-07-25-eight-features-design.md` has the heading
-"Nine features — design spec (2026-07-25, rev 3)" — a ninth feature, the
-first-deployment install wizard, was added at review in revision 2 and the
-filename was never updated. The matching Loupe document has since been
-retitled to say "Nine-feature", so the two now disagree.
-
-Nothing in the repository greps for the path, so renaming the file is safe;
-the only known citation is inside a Loupe implementation plan, which would
-need updating in the same pass. Low priority — it misleads a reader searching
-for "nine features" and nothing more.

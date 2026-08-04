@@ -1437,7 +1437,9 @@
 
   // ---- send ----
   const send = async () => {
-    if (!pending.length || state.sending || state.saving) return;
+    // state.deleting too: a delete in flight has already spliced nothing yet,
+    // so submitting now would send a review still containing that comment.
+    if (!pending.length || state.sending || state.saving || state.deleting) return;
     state.sending = true;
     state.sendError = null;
     updatePanel();

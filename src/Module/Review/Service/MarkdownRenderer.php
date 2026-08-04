@@ -468,7 +468,7 @@ final readonly class MarkdownRenderer
 
     private function slug(string $headingHtml): string
     {
-        $slug = trim((string) preg_replace('~[^\p{L}\p{N}]+~u', '-', HeadingLabel::fromHtml($headingHtml)), '-');
+        $slug = trim((string) preg_replace('~[^\p{L}\p{N}]+~u', '-', DisplayLabel::fromHtml($headingHtml)), '-');
 
         // A heading with no derivable label still needs an id, so in-page links and
         // structural positions keep working; the suffixing makes them distinct.

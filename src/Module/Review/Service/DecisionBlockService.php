@@ -241,8 +241,8 @@ final readonly class DecisionBlockService
                 // Shared with headings rather than stripping tags here: an option
                 // written as an image alone reduced to '' under strip_tags(), so it
                 // reached the agent as an empty string and two such options stored
-                // the same label. HeadingLabel reads the `alt` instead.
-                array_map(HeadingLabel::fromHtml(...), $labels[1]),
+                // the same label. DisplayLabel reads the `alt` instead.
+                array_map(DisplayLabel::fromHtml(...), $labels[1]),
             );
         }
 

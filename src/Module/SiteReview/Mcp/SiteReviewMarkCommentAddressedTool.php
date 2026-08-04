@@ -30,7 +30,11 @@ final readonly class SiteReviewMarkCommentAddressedTool
     }
 
     /**
-     * @param list<string> $commentIds comment ids from site_review_get
+     * `string[]` not `list<string>`: the SDK infers a parameter's JSON-schema
+     * `items` from the docblock type and parses only the `T[]` and `array<T>`
+     * spellings, so `list<string>` publishes an array of anything.
+     *
+     * @param string[] $commentIds comment ids from site_review_get
      *
      * @return array{addressed: list<string>, skipped: list<array{id: string, reason: string}>}
      */
