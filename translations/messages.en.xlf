@@ -701,6 +701,42 @@
                 <source>account.settings.page.title</source>
                 <target>Account settings</target>
             </trans-unit>
+            <trans-unit id="account.form.profile_form.full_name.label">
+                <source>account.form.profile_form.full_name.label</source>
+                <target>Full name</target>
+            </trans-unit>
+            <trans-unit id="account.form.profile_form.full_name.placeholder">
+                <source>account.form.profile_form.full_name.placeholder</source>
+                <target>How your name appears on reviews and comments</target>
+            </trans-unit>
+            <trans-unit id="account.profile.page.title">
+                <source>account.profile.page.title</source>
+                <target>Your profile</target>
+            </trans-unit>
+            <trans-unit id="account.profile.page.intro">
+                <source>account.profile.page.intro</source>
+                <target>This is the name shown beside your comments and on documents you review.</target>
+            </trans-unit>
+            <trans-unit id="account.profile.save_button">
+                <source>account.profile.save_button</source>
+                <target>Save</target>
+            </trans-unit>
+            <trans-unit id="account.profile.cancel_link">
+                <source>account.profile.cancel_link</source>
+                <target>Cancel</target>
+            </trans-unit>
+            <trans-unit id="account.profile.flash.updated">
+                <source>account.profile.flash.updated</source>
+                <target>Your profile has been updated.</target>
+            </trans-unit>
+            <trans-unit id="account.settings.profile.heading">
+                <source>account.settings.profile.heading</source>
+                <target>Profile</target>
+            </trans-unit>
+            <trans-unit id="account.settings.profile.edit_link">
+                <source>account.settings.profile.edit_link</source>
+                <target>Edit profile</target>
+            </trans-unit>
             <trans-unit id="account.settings.export.heading">
                 <source>account.settings.export.heading</source>
                 <target>Download my data</target>

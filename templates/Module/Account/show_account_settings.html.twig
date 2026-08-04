@@ -14,6 +14,18 @@
 
     <twig:BillingSummary />
 
+    <section class="lp-connect-block" data-testid="profile-section">
+        <p class="lp-eyebrow">{{ 'account.settings.profile.heading'|trans }}</p>
+        <div class="lp-connect-field">
+            <twig:ux:icon name="lucide:user" class="lp-connect-field__glyph w-4 h-4" />
+            <span class="lp-connect-field__value">
+                {{ view.user.fullName }}
+                <span class="lp-connect-field__meta">{{ view.user.email }}</span>
+            </span>
+        </div>
+        <a href="{{ path('app_account_profile') }}" class="lp-btn lp-btn--ghost">{{ 'account.settings.profile.edit_link'|trans }}</a>
+    </section>
+
     <section class="lp-connect-block" data-testid="export-section">
         <p class="lp-eyebrow">{{ 'account.settings.export.heading'|trans }}</p>
         <p class="lp-workspace-desc">{{ 'account.settings.export.intro'|trans }}</p>
