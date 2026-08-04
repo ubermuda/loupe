@@ -7,6 +7,7 @@ namespace App\Module\Account\Command;
 use App\Exception\DomainErrors;
 use App\Module\Account\Entity\User;
 use App\Module\Account\Repository\UserRepository;
+use App\Module\Account\Service\AgentAccountInstaller;
 use App\Module\Account\Service\UsernameGenerator;
 use Doctrine\ORM\EntityManagerInterface;
 use Psr\Log\LoggerInterface;
@@ -63,6 +64,13 @@ final readonly class CreateAdminUserHandler
 
         $this->em->persist($user);
         $this->em->flush();
+
+        // This command is the documented way to create the first administrator
+        // when /install is unreachable — which is every production instance
+        // until INSTALL_TOKEN is set, since the guard fails closed. So it is a
+        // way an instance comes into being without the wizard ever running, and
+        // it needs the agent row for the same reason the wizard does.
+        AgentAccountInstaller::install($this->em->getConnection());
 
         $this->logger->info('account.admin.created_from_console', ['userId' => (string) $user->id]);
 

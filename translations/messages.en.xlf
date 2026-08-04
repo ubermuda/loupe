@@ -1990,6 +1990,22 @@
                 <source>account.system_status.failed_messages.unreadable</source>
                 <target>The failed-message queue could not be read.</target>
             </trans-unit>
+            <trans-unit id="account.system_status.agent_account.present">
+                <source>account.system_status.agent_account.present</source>
+                <target>The agent account exists. Every comment written through the MCP is authored by it.</target>
+            </trans-unit>
+            <trans-unit id="account.system_status.agent_account.missing">
+                <source>account.system_status.agent_account.missing</source>
+                <target>The agent account is missing, so any comment written through the MCP will fail. It is created by the database migrations and by the install wizard; re-run "bin/console doctrine:migrations:migrate" to restore it.</target>
+            </trans-unit>
+            <trans-unit id="account.system_status.agent_account.unreadable">
+                <source>account.system_status.agent_account.unreadable</source>
+                <target>The agent account could not be read. The database rejected the query; the error has been logged.</target>
+            </trans-unit>
+            <trans-unit id="account.system_status.check.agent_account.label">
+                <source>account.system_status.check.agent_account.label</source>
+                <target>Agent account</target>
+            </trans-unit>
             <trans-unit id="account.system_status.failed_messages.none">
                 <source>account.system_status.failed_messages.none</source>
                 <target>Nothing in the failed transport. Messages that exhaust their retries land there; inspect them with "bin/console messenger:failed:show" and re-queue them with "bin/console messenger:failed:retry".</target>
