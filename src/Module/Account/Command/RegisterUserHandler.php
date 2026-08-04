@@ -87,10 +87,7 @@ final readonly class RegisterUserHandler
                 // joined the waitlist earlier but registers normally once the
                 // cap reopens (no token involved) still has a waitlist row —
                 // it must not linger as "waiting" once their account exists.
-                $waitlistMatch = $invite ?? $this->waitlistEntries->findOneByEmail($command->email);
-                if (null !== $waitlistMatch && null === $waitlistMatch->convertedAt) {
-                    $waitlistMatch->markConverted();
-                }
+                ($invite ?? $this->waitlistEntries->findOneByEmail($command->email))?->markConverted();
 
                 // One flush: user creation and invite conversion commit together or not at all.
                 $this->em->flush();
@@ -156,7 +153,7 @@ final readonly class RegisterUserHandler
             return null;
         }
 
-        if (strtolower($invite->email) !== strtolower($command->email)) {
+        if (!$invite->isInviteFor($command->email)) {
             return null;
         }
 

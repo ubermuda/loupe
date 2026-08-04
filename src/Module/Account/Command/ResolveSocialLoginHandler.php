@@ -67,8 +67,12 @@ final readonly class ResolveSocialLoginHandler
             }
 
             // The provider proved ownership of this verified email — a pending
-            // click-through verification is superseded.
+            // click-through verification is superseded. Revoking the token is
+            // what makes that true: VerifyEmailHandler never checks isVerified()
+            // and VerifyEmailController logs in whoever presents a valid token,
+            // so a link left outstanding here keeps working afterwards.
             $byEmail->emailVerifiedAt ??= new \DateTimeImmutable();
+            $byEmail->clearEmailVerificationToken();
             $this->em->persist($this->link($byEmail, $profile));
             $this->flushOrRace();
 
@@ -116,10 +120,7 @@ final readonly class ResolveSocialLoginHandler
             // (directly, or via a previous at-cap OAuth attempt) and is only
             // now creating an account because the cap reopened. That row must
             // not linger as "waiting" once the account exists.
-            $waitlistMatch = $this->waitlistEntries->findOneByEmail($matchEmail);
-            if (null !== $waitlistMatch && null === $waitlistMatch->convertedAt) {
-                $waitlistMatch->markConverted();
-            }
+            $this->waitlistEntries->findOneByEmail($matchEmail)?->markConverted();
 
             $this->flushOrRace();
 

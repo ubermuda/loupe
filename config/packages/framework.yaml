@@ -13,6 +13,18 @@ framework:
     #esi: true
     #fragments: true
 
+    http_client:
+        scoped_clients:
+            # SubmitReviewHandler publishes to the hub inline, before the visitor's
+            # response, so a hung hub would add its full timeout to every review
+            # submit. symfony/mercure-bundle exposes no per-hub http_client option,
+            # so MercureHubTimeoutPass swaps this in on the hub service instead.
+            # timeout is the idle timeout, max_duration the whole exchange.
+            mercure.hub_client:
+                base_uri: '%env(MERCURE_URL)%'
+                timeout: 2
+                max_duration: 5
+
     rate_limiter:
         resend_verification_email:
             policy: fixed_window

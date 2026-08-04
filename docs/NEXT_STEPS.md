@@ -842,32 +842,6 @@ Two candidate fixes, both with a catch:
   archived chip both change with the filters and are not contiguous with the
   list, so a frame around the list alone leaves them stale.
 
-## Site-review: harden Mercure publish against a hung hub (still open)
-
-
-
-
-**Author:** Claude · **Type:** bug · **Priority:** medium · **Status:** pending
-
-`SubmitReviewHandler::publish()` makes a synchronous HTTP call to the Mercure hub
-after `flush()`. `symfony/mercure-bundle` exposes no per-hub `http_client` config
-option, so the call uses the default HttpClient timeout — a hung hub could add
-latency to every review submit before the catch fires. Wire the default hub to a
-scoped HttpClient with a low `timeout`/`max_duration` (custom hub service or a
-decorated HttpClient) so a slow hub can never noticeably delay a review submit.
-
-Everything around it has since improved — the failure is logged at `error` with
-the project id and topic, the update carries a project-scoped monotonic
-`sequence` as a stable event id, and a failed publish is now replayed by
-`DrainOutboxHandler` off a five-minutely tick — but the latency problem itself
-is untouched, because the submit still publishes inline before the drain ever
-sees the row. The drain makes the same untimed call, though a slow hub there
-only stalls a worker rather than a visitor's request.
-
-Note that retrying is only safe because the nudge is payload-free: a duplicate
-publish is harmless, since a redundant pull via `site_review_get` just finds
-nothing still `Pending`.
-
 ## Site-review bridge CLI (`cli/`): polish before shipping
 
 
@@ -1480,33 +1454,6 @@ codebase where a third party's word permits a local state change, and it works
 because **the app makes the call itself**, with a credential whose control the
 caller just proved, and fails closed on any ambiguity. "The agent was told in
 chat" has neither property.
-
-## Social linking leaves a live email-verification link outstanding
-
-
-**Author:** Claude · **Type:** security · **Priority:** medium · **Status:** pending
-
-`ResolveSocialLoginHandler` (the match-by-email branch) and
-`LinkSocialAccountHandler` both do `$user->emailVerifiedAt ??= new
-\DateTimeImmutable();` when a provider proves ownership of an address, but
-neither calls `clearEmailVerificationToken()`. So a user who registers through
-the form — `VerificationEmailSender` generates and emails a token — and then
-signs in with Google or GitHub before clicking is left verified with a working
-link outstanding. `VerifyEmailHandler` never checks `isVerified()`, and
-`VerifyEmailController` calls `Security::login()` on any valid token, so that
-link still logs its bearer straight in.
-
-`MarkEmailVerifiedHandler` now revokes such a token on every path, so
-`app:user:verify` and `app:admin:create` clean it up — but only for an operator
-who runs them. The fix at the source is to pair each `emailVerifiedAt ??=` with
-`clearEmailVerificationToken()` in both social handlers, which also makes the
-handlers' own "a pending click-through verification is superseded" comments
-true rather than half-true.
-
-Graded medium rather than high deliberately: the token expires an hour after it
-is issued, and it was emailed only to the address the provider just verified
-ownership of, so this is a stale credential outliving its purpose rather than a
-path to another account. Re-grade if that reasoning does not hold.
 
 ## Review renderer: front matter renders as prose, HTML comments render as nothing
 
@@ -3263,30 +3210,6 @@ concern?), how comments anchor to code that keeps moving (the re-anchoring
 machinery exists for markdown documents and may generalize), reviewer UX for
 navigating a tree vs a linear doc, and how findings feed back (tracker
 entries? MCP tool the agent polls, like document_get_review?).
-
-## Deduplicate the waitlist idioms (convert + invite-validation)
-
-
-
-
-**Author:** Claude · **Type:** tooling · **Priority:** low · **Status:** pending
-
-Two waitlist idioms have each hit the rule of three (as of 2026-07-26):
-
-1. Convert-on-account-activity: `findOneByEmail(...)` → `null === convertedAt`
-   → `markConverted()` in `RegisterUserHandler`, `ResolveSocialLoginHandler`,
-   and `SyncStripeSubscriptionHandler`. Fix: a
-   `WaitlistEntryRepository::convertMatching(string $email): void` helper or
-   an idempotent `markConverted()`.
-2. Invite validation: token lookup + email match in `StartCheckoutHandler`
-   and `ShowSubscribeHandler` (verbatim twins), near-verbatim (plus
-   lock/refresh) in `RegisterUserHandler::resolveMatchingInvite`. Fix: a
-   `WaitlistEntryRepository::findValidInviteFor(string $token, string $email):
-   ?WaitlistEntry` collapses the Billing copies and serves the register
-   handler's pre-lock lookup.
-
-Candidate for the domain-boundaries sweep (see "Domain boundaries sweep
-(after the current feature wave)").
 
 ## Personal reviewer tokens as an identity layer for the widget
 

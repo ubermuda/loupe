@@ -276,6 +276,29 @@ final class ResolveSocialLoginHandlerTest extends KernelTestCase
         self::assertNotNull($this->connectedAccounts->findOneByProviderAndProviderUserId(SocialProvider::Google, 'g-link'));
     }
 
+    public function test_linking_by_email_revokes_an_outstanding_verification_link(): void
+    {
+        $existing = $this->persistUser('pending-link@example.com', 'pendinglink');
+        $existing->generateEmailVerificationToken();
+        $this->em->flush();
+        // Guard: without this the assertion below passes on a user that never
+        // had a token, proving nothing about revocation.
+        self::assertTrue($existing->hasEmailVerificationToken());
+
+        ($this->handler)(new ResolveSocialLoginCommand(
+            new SocialProfile(SocialProvider::Google, 'g-pending', 'pending-link@example.com', 'Pending', emailVerified: true),
+        ));
+
+        $this->em->clear();
+        $reloaded = $this->users->find($existing->id);
+        self::assertNotNull($reloaded);
+        self::assertNotNull($reloaded->emailVerifiedAt);
+        // VerifyEmailController logs in whoever presents a valid token and never
+        // asks whether the account is already verified, so an outstanding link
+        // here is a live credential rather than a stale no-op.
+        self::assertFalse($reloaded->hasEmailVerificationToken());
+    }
+
     public function test_an_already_verified_account_keeps_its_original_verification_date(): void
     {
         $verifiedAt = new \DateTimeImmutable('2026-01-01 10:00:00');

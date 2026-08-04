@@ -75,8 +75,7 @@ final readonly class ShowSubscribeHandler
         // lock/refresh here to invalidate that.
         $invite = $this->waitlistEntries->findOneByValidInviteToken($command->inviteToken);
 
-        return null !== $invite
-            && strtolower($invite->email) === strtolower($command->user->email);
+        return null !== $invite && $invite->isInviteFor($command->user->email);
     }
 
     private function daysLeft(BillingProfile $profile, \DateTimeImmutable $now): int
