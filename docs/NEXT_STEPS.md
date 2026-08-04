@@ -2941,6 +2941,66 @@ a single delegation declares the same shape as what it delegates to — the same
 family as the existing name-agreement rules, and it would cover every future
 tool/query pair rather than this one.
 
+## The system status page is one handler with a check method per concern
+
+**Author:** Geoffrey · **Type:** tooling · **Priority:** medium · **Status:** pending
+
+Owner note (2026-08-04): the status page needs to be modularized.
+
+`App\Module\Account\Command\CheckSystemStatusHandler` holds every check as a
+private method on one class, and the class takes a constructor argument per
+thing any of them needs — a connection, an HTTP client, the mailer transport
+factory, the feature flags, and six autowired environment values. Adding the
+agent-account check meant adding a method and a SQL constant to a class that
+already knows about SMTP, Mercure, Stripe and the messenger tables.
+
+The shape to move to is one class per check behind a common interface, tagged
+and collected, so a check declares its own dependencies and can be tested
+without constructing the others. `SystemCheck` and `SystemCheckState` are
+already the right value objects for it; what is missing is the seam.
+
+Two things to preserve, because they are the parts that took thought. The
+worker check deliberately never reports "ok" — an idle queue cannot prove a
+consumer is running — and a generic collector must not tempt anyone into
+reporting green for "no errors". And the Stripe check is skipped rather than
+failed when billing is switched off, so whatever replaces the current
+`if` needs a way for a check to declare itself not-applicable that is distinct
+from passing.
+
+Related: 'Decide whether health checks stay hand-rolled, move to a third-party
+package, or become our own' — that entry asks whether to adopt
+`liip/monitor-bundle`, whose check abstraction would be the seam this entry
+wants. Settle that one first, or this refactor is done twice.
+
+## MCP tool: hand the human a list of what needs their attention
+
+**Author:** Geoffrey · **Type:** feature · **Priority:** medium · **Status:** pending
+
+Owner note (2026-08-04): a tool that lets an agent push "todos for the human" —
+pull requests waiting to be reviewed, test scenarios to walk through by hand,
+decisions the agent could not make — so that someone returning after a long
+unattended session can see what to do next instead of reconstructing it from
+the transcript.
+
+The problem it solves is real and specific: an agent working for hours produces
+a queue of things only a person can finish, and today that queue exists only in
+the chat log. A human coming back has to read the whole session to find the
+three things that need them.
+
+Worth settling before designing it. Whether an item is its own entity or a typed
+variant of something that exists — this is close to 'Agent-authored test
+scenarios delivered through the site-review widget', which asks for the same
+push in the site-review direction, and the two should share a model rather than
+growing separately. Where it surfaces: a page of its own, the dashboard, or the
+existing site-review inbox. Whether items carry a state beyond done/not-done,
+since "reviewed and rejected" is a different outcome from "done". And how an
+item points at what it concerns, given that nothing in the model records a pull
+request today — the same missing link 'Let the agent close the loop when a human
+approves the work' ran into.
+
+The read side matters as much as the write: the agent should be able to see what
+it asked for and what came back, or the next session starts by re-asking.
+
 ## `just phpunit` mangles a `--filter` containing an alternation
 
 **Author:** Claude · **Type:** tooling · **Priority:** low · **Status:** pending
