@@ -26,7 +26,7 @@ final class ResolveCommentHandlerTest extends KernelTestCase
         self::bootKernel();
         $em = self::getContainer()->get(EntityManagerInterface::class);
 
-        $owner = new User(username: 'resolve-owner', fullName: 'Resolve Owner', email: 'resolve-owner@example.com', password: 'hashed');
+        $owner = new User(fullName: 'Resolve Owner', email: 'resolve-owner@example.com', password: 'hashed');
         $em->persist($owner);
         $project = new Project($owner, 'p-'.uniqid());
         $em->persist($project);
@@ -54,7 +54,7 @@ final class ResolveCommentHandlerTest extends KernelTestCase
         self::bootKernel();
         $em = self::getContainer()->get(EntityManagerInterface::class);
 
-        $owner = new User(username: 'resolve-owner2', fullName: 'Resolve Owner', email: 'resolve-owner2@example.com', password: 'hashed');
+        $owner = new User(fullName: 'Resolve Owner', email: 'resolve-owner2@example.com', password: 'hashed');
         $em->persist($owner);
         $project = new Project($owner, 'p-'.uniqid());
         $em->persist($project);
@@ -88,7 +88,7 @@ final class ResolveCommentHandlerTest extends KernelTestCase
         self::bootKernel();
         $em = self::getContainer()->get(EntityManagerInterface::class);
 
-        $owner = new User(username: 'resolve-owner3', fullName: 'Resolve Owner', email: 'resolve-owner3@example.com', password: 'hashed');
+        $owner = new User(fullName: 'Resolve Owner', email: 'resolve-owner3@example.com', password: 'hashed');
         $em->persist($owner);
         $project = new Project($owner, 'p-'.uniqid());
         $em->persist($project);

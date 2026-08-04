@@ -27,7 +27,7 @@ final class EditProfileControllerTest extends WebTestCase
     /** @param non-empty-string $email */
     private function signedInUser(string $email, string $fullName): User
     {
-        $user = new User(username: 'profile'.substr(md5($email), 0, 8), fullName: $fullName, email: $email, password: 'hashed');
+        $user = new User(fullName: $fullName, email: $email, password: 'hashed');
         $user->emailVerifiedAt = new \DateTimeImmutable();
         $this->em->persist($user);
         $this->em->flush();

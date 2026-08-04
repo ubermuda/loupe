@@ -19,7 +19,7 @@ final class CommentExporterTest extends TestCase
 {
     public function test_exports_flat_comment_rows_with_thread_and_anchor_context(): void
     {
-        $author = new User('alice', 'Alice A', 'alice@example.com', 'x');
+        $author = new User('Alice A', 'alice@example.com', 'x');
         $project = new Project($author, 'My project');
         $document = new Document($author, $project, 'My doc');
         $version = $document->addVersion('# v1', '<h1>v1</h1>');
@@ -56,7 +56,7 @@ final class CommentExporterTest extends TestCase
 
     public function test_export_keeps_a_strike_distinguishable_from_a_plain_comment(): void
     {
-        $author = new User('bob', 'Bob B', 'bob@example.com', 'x');
+        $author = new User('Bob B', 'bob@example.com', 'x');
         $project = new Project($author, 'My project');
         $document = new Document($author, $project, 'My doc');
         $version = $document->addVersion('# v1', '<h1>v1</h1>');

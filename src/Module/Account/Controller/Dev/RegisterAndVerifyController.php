@@ -36,19 +36,18 @@ final class RegisterAndVerifyController extends AppController
 
     public function __invoke(Request $request): JsonResponse
     {
-        $username = $request->request->getString('username');
-        $fullName = $request->request->getString('fullName', 'E2E Test User');
         $email = $request->request->getString('email');
         $password = $request->request->getString('password');
 
-        if ('' === $username || '' === $email || '' === $password) {
-            return $this->json(['error' => 'username, email, and password are required'], JsonResponse::HTTP_UNPROCESSABLE_ENTITY);
+        if ('' === $email || '' === $password) {
+            return $this->json(['error' => 'email and password are required'], JsonResponse::HTTP_UNPROCESSABLE_ENTITY);
         }
 
+        // `username` and `fullName` are still accepted in the form body and
+        // ignored, so the existing specs that post them keep working; the
+        // account simply has no display name, like any other registration.
         try {
             $user = ($this->registerUser)(new RegisterUserCommand(
-                username: $username,
-                fullName: $fullName,
                 email: $email,
                 plainPassword: $password,
             ));

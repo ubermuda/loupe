@@ -91,8 +91,6 @@ class RegisterController extends AppController
 
             try {
                 $user = ($this->registerUser)(new RegisterUserCommand(
-                    username: (string) $data->username,
-                    fullName: (string) $data->fullName,
                     email: $data->email ?: throw new \LogicException('Email is required after form validation.'),
                     plainPassword: (string) $data->plainPassword,
                     inviteToken: $inviteToken,

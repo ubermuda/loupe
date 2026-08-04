@@ -9,8 +9,6 @@ const RUN = Date.now();
 test('renders signup form', async ({ page }) => {
     await page.goto('/register');
     await expect(page.locator('h1')).toContainText('Create your account');
-    await expect(page.getByLabel('Full name')).toBeVisible();
-    await expect(page.getByLabel('Username')).toBeVisible();
     await expect(page.getByLabel('Email')).toBeVisible();
     await expect(page.getByLabel('Password')).toBeVisible();
 });
@@ -29,8 +27,6 @@ test('shows validation errors on empty submit', async ({ page }) => {
 
 test('successful signup redirects to check-email page', async ({ page }) => {
     await page.goto('/register');
-    await page.getByLabel('Full name').fill('Test User');
-    await page.getByLabel('Username').fill(`testuser${RUN}`);
     await page.getByLabel('Email').fill(`test+signup+${RUN}@example.com`);
     await page.getByLabel('Password').fill('SecurePassword1!');
     await page.getByLabel('I agree to').check();
@@ -43,8 +39,6 @@ test('successful signup redirects to check-email page', async ({ page }) => {
 test('sends verification email after signup', async ({ page, request }) => {
     const email = `test+emailsend+${RUN}@example.com`;
     await page.goto('/register');
-    await page.getByLabel('Full name').fill('Email Test');
-    await page.getByLabel('Username').fill(`emailtest${RUN}`);
     await page.getByLabel('Email').fill(email);
     await page.getByLabel('Password').fill('SecurePassword1!');
     await page.getByLabel('I agree to').check();
@@ -61,8 +55,6 @@ test('shows error on duplicate email', async ({ page }) => {
 
     // First registration
     await page.goto('/register');
-    await page.getByLabel('Full name').fill('First User');
-    await page.getByLabel('Username').fill(`firstuser${RUN}`);
     await page.getByLabel('Email').fill(email);
     await page.getByLabel('Password').fill('SecurePassword1!');
     await page.getByLabel('I agree to').check();
@@ -71,8 +63,6 @@ test('shows error on duplicate email', async ({ page }) => {
 
     // Second registration with same email
     await page.goto('/register');
-    await page.getByLabel('Full name').fill('Second User');
-    await page.getByLabel('Username').fill(`seconduser${RUN}`);
     await page.getByLabel('Email').fill(email);
     await page.getByLabel('Password').fill('SecurePassword1!');
     await page.getByLabel('I agree to').check();
@@ -80,32 +70,5 @@ test('shows error on duplicate email', async ({ page }) => {
 
     await expect(page.locator('body')).toContainText(
         'There is already an account with this email.',
-    );
-});
-
-test('shows error on duplicate username', async ({ page }) => {
-    const username = `shared${RUN}`;
-
-    // First registration
-    await page.goto('/register');
-    await page.getByLabel('Full name').fill('User One');
-    await page.getByLabel('Username').fill(username);
-    await page.getByLabel('Email').fill(`test+u1+${RUN}@example.com`);
-    await page.getByLabel('Password').fill('SecurePassword1!');
-    await page.getByLabel('I agree to').check();
-    await page.getByRole('button', { name: 'Create account' }).click();
-    await expect(page).toHaveURL('/register/check-email');
-
-    // Second registration with same username
-    await page.goto('/register');
-    await page.getByLabel('Full name').fill('User Two');
-    await page.getByLabel('Username').fill(username);
-    await page.getByLabel('Email').fill(`test+u2+${RUN}@example.com`);
-    await page.getByLabel('Password').fill('SecurePassword1!');
-    await page.getByLabel('I agree to').check();
-    await page.getByRole('button', { name: 'Create account' }).click();
-
-    await expect(page.locator('body')).toContainText(
-        'This username is already taken.',
     );
 });

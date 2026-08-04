@@ -21,7 +21,6 @@ use App\Module\Account\Service\SocialLoginOutcome;
 use App\Module\Account\Service\SocialLoginRace;
 use App\Module\Account\Service\SocialProfile;
 use App\Module\Account\Service\UnverifiedProviderEmail;
-use App\Module\Account\Service\UsernameGenerator;
 use App\Module\Billing\Repository\BillingProfileRepository;
 use App\Module\Billing\Service\TrialProvisioner;
 use App\Tests\Support\InstalledInstance;
@@ -73,7 +72,6 @@ final class ResolveSocialLoginHandlerTest extends KernelTestCase
             $this->connectedAccounts,
             $this->users,
             $this->em,
-            new UsernameGenerator($this->users),
             $gate,
             $joinWaitlist,
             $this->waitlistEntries,
@@ -399,27 +397,16 @@ final class ResolveSocialLoginHandlerTest extends KernelTestCase
         ));
     }
 
-    public function test_generated_username_avoids_a_seeded_collision(): void
-    {
-        $this->persistUser('taken@example.com', 'fresh-face');
-        $this->em->flush();
-
-        $outcome = ($this->handler)(new ResolveSocialLoginCommand(
-            new SocialProfile(SocialProvider::Github, 'gh-fresh-2', 'other@example.com', 'Fresh Face', emailVerified: true),
-        ));
-
-        self::assertNotSame('fresh-face', $this->resolvedUser($outcome)->username);
-        self::assertStringStartsWith('fresh-face-', $this->resolvedUser($outcome)->username);
-    }
-
-    public function test_falls_back_to_the_email_local_part_when_the_provider_sends_no_name(): void
+    public function test_a_provider_that_sends_no_name_leaves_the_account_without_one(): void
     {
         $outcome = ($this->handler)(new ResolveSocialLoginCommand(
             new SocialProfile(SocialProvider::Google, 'g-noname', 'nameless@example.com', null, emailVerified: true),
         ));
 
-        self::assertSame('nameless', $this->resolvedUser($outcome)->fullName);
-        self::assertSame('nameless', $this->resolvedUser($outcome)->username);
+        // Nothing is derived from the address any more: the account simply has
+        // no display name, and renders its email until its owner sets one.
+        self::assertNull($this->resolvedUser($outcome)->fullName);
+        self::assertSame('nameless@example.com', $this->resolvedUser($outcome)->displayName());
     }
 
     // -------------------------------------------------------------------------
@@ -444,7 +431,6 @@ final class ResolveSocialLoginHandlerTest extends KernelTestCase
 
         $users = $this->createStub(UserRepository::class);
         $users->method('findOneByEmail')->willReturn(null);
-        $users->method('findOneByUsername')->willReturn(null);
         $users->method('countHumans')->willReturn(1); // installation complete
 
         $waitlistEntries = $this->createStub(WaitlistEntryRepository::class);
@@ -460,7 +446,6 @@ final class ResolveSocialLoginHandlerTest extends KernelTestCase
             $connectedAccounts,
             $users,
             $em,
-            new UsernameGenerator($users),
             new RegistrationGate($this->openFlags(), $users, new InstallationState($users)),
             $joinWaitlist,
             $waitlistEntries,
@@ -596,7 +581,7 @@ final class ResolveSocialLoginHandlerTest extends KernelTestCase
     /** @param non-empty-string $email */
     private function persistUser(string $email, string $username, ?string $password = null): User
     {
-        $user = new User(username: $username, fullName: 'Test User', email: $email, password: $password);
+        $user = new User(fullName: 'Test User', email: $email, password: $password);
         $this->em->persist($user);
 
         return $user;

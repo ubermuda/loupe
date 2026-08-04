@@ -12,7 +12,6 @@ final readonly class CreateAdminUserCommand
         /** @phpstan-var non-empty-string */
         public string $plainPassword,
         /** Null derives a free one from the email's local part. */
-        public ?string $username = null,
         /** Null falls back to the email's local part. */
         public ?string $fullName = null,
     ) {

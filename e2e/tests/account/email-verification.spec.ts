@@ -12,8 +12,6 @@ async function signUp(
     username: string,
 ): Promise<void> {
     await page.goto('/register');
-    await page.getByLabel('Full name').fill('Verify Test');
-    await page.getByLabel('Username').fill(username);
     await page.getByLabel('Email').fill(email);
     await page.getByLabel('Password').fill('SecurePassword1!');
     await page.getByLabel('I agree to').check();

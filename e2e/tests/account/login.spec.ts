@@ -116,8 +116,6 @@ test('unverified user after login is redirected to check-email', async ({
     const email = `test+unverified+${RUN}@example.com`;
 
     await page.goto('/register');
-    await page.getByLabel('Full name').fill('Unverified User');
-    await page.getByLabel('Username').fill(`unverifiedu${RUN}`);
     await page.getByLabel('Email').fill(email);
     await page.getByLabel('Password').fill('SecurePassword1!');
     await page.getByLabel('I agree to').check();

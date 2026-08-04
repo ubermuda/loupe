@@ -1381,43 +1381,6 @@ a stray ROLE_ADMIN account.
 Related: 'Worktree e2e runs now require a worktree-scoped worker' — same
 setup surface, and both are things a person only learns by losing time to them.
 
-## Registration should not ask for full name or username
-
-
-**Author:** Geoffrey · **Type:** feature · **Priority:** medium · **Status:** pending
-
-Owner note (2026-07-28): the registration form collects Full name and Username
-on top of email and password. Neither is needed to sign up — drop them and cut
-the form to email + password (+ terms).
-
-**No schema change is required, because the "don't ask" path already exists.**
-`ResolveSocialLoginHandler` creates users without either field being supplied:
-it mints a username via `UsernameGenerator::fromPreferred()` and falls back to
-the email local-part for the display name. Self-service registration can use
-the same derivation, leaving `username` and `full_name` as populated NOT NULL
-columns and avoiding a migration. Removing the columns outright is a second,
-optional step.
-
-What each field is actually worth today:
-
-- **`username`** is close to vestigial. `User::getUserIdentifier()` returns the
-  **email**, so it is not the login handle; it survives as a unique column, a
-  `findOneByUsername` lookup and the `NotReservedUsername` validator. Check
-  whether anything user-facing still needs it before deciding to keep deriving
-  one at all.
-- **`fullName`** has real consumers, so it cannot simply vanish: the review
-  byline (`@Review/show_document.html.twig`) and comment author names and
-  avatar initials (`@Review/components/CommentThread.html.twig`) all render it.
-  Deriving it from the email local-part keeps those working; showing the raw
-  email there instead is a visible product decision, not a refactor.
-
-Also decide whether the install wizard's admin form (`InstallAdminFormType`)
-follows — it asks for the same two fields and has the same argument against
-them. When the fields go, delete their orphaned `account.form.*` /
-`account.registration.validator.username_*` translation keys in the same
-change, per the `project-translations` skill: nothing flags unused keys and
-they rot silently.
-
 ## Let the agent close the loop when a human approves the work
 
 

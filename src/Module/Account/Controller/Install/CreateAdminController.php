@@ -44,8 +44,6 @@ final class CreateAdminController extends AppController
         if ($form->isSubmitted() && $form->isValid()) {
             try {
                 ($this->createInstallAdminHandler)(new CreateInstallAdminCommand(
-                    username: $data->username ?: throw new \LogicException('username required after validation'),
-                    fullName: $data->fullName ?: throw new \LogicException('fullName required after validation'),
                     email: $data->email ?: throw new \LogicException('email required after validation'),
                     plainPassword: $data->plainPassword ?: throw new \LogicException('plainPassword required after validation'),
                 ));

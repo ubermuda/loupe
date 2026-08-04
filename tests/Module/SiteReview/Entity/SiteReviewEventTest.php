@@ -39,7 +39,7 @@ final class SiteReviewEventTest extends TestCase
 
     private function event(): SiteReviewEvent
     {
-        $owner = new User(username: 'u@example.com', fullName: 'U', email: 'u@example.com', password: 'x');
+        $owner = new User(fullName: 'U', email: 'u@example.com', password: 'x');
 
         return new SiteReviewEvent(new Project($owner, 'site'), 'https://app/topic', '{}');
     }

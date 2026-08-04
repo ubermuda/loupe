@@ -67,11 +67,15 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface, AdminPr
     private ?\DateTimeImmutable $accountDeletionTokenExpiresAt = null;
 
     public function __construct(
-        #[ORM\Column(length: 30, unique: true)]
-        public string $username,
-
-        #[ORM\Column(length: 150)]
-        public string $fullName,
+        /**
+         * Optional, and never derived. Registration does not ask for it, so a
+         * form-registered account carries null until its owner sets one on
+         * /account/profile; social login fills it from the provider. Read it
+         * through displayName() rather than directly — null has to render as
+         * something.
+         */
+        #[ORM\Column(length: 150, nullable: true)]
+        public ?string $fullName,
 
         /** @phpstan-var non-empty-string */
         #[ORM\Column(length: 180, unique: true)]
@@ -120,6 +124,23 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface, AdminPr
     public function getUserIdentifier(): string
     {
         return $this->email;
+    }
+
+    /**
+     * What to show wherever a person is named — the review byline, a comment
+     * author, an avatar initial.
+     *
+     * Falls back to the email because there is nothing else true to show: the
+     * name is optional and never invented, so an account that has not set one
+     * has only its address. Deliberately one method rather than a `?? $email`
+     * at each call site, so changing the fallback — to the local part, to
+     * "Anonymous" — is one edit and cannot be done inconsistently.
+     */
+    public function displayName(): string
+    {
+        $fullName = trim($this->fullName ?? '');
+
+        return '' !== $fullName ? $fullName : $this->email;
     }
 
     public function isVerified(): bool

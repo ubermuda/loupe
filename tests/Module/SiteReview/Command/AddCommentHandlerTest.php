@@ -66,7 +66,7 @@ final class AddCommentHandlerTest extends KernelTestCase
     /** @param non-empty-string $email */
     private function project(string $email, string $name = 'handler-site'): Project
     {
-        $user = new User(username: $email, fullName: 'U', email: $email, password: 'x');
+        $user = new User(fullName: 'U', email: $email, password: 'x');
         $this->em->persist($user);
         $project = new Project($user, $name);
         $this->em->persist($project);

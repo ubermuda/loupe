@@ -7,7 +7,6 @@ namespace App\Module\Account\Command;
 use App\Exception\DomainErrors;
 use App\Module\Account\Entity\User;
 use App\Module\Account\Repository\UserRepository;
-use App\Module\Account\Service\UsernameGenerator;
 use Doctrine\ORM\EntityManagerInterface;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
@@ -27,7 +26,6 @@ final readonly class CreateAdminUserHandler
         private UserRepository $users,
         private EntityManagerInterface $em,
         private UserPasswordHasherInterface $passwordHasher,
-        private UsernameGenerator $usernameGenerator,
         private PromoteUserToAdminHandler $promoteUserToAdmin,
         private MarkEmailVerifiedHandler $markEmailVerified,
         private LoggerInterface $logger,
@@ -49,12 +47,14 @@ final readonly class CreateAdminUserHandler
             );
         }
 
-        $localPart = explode('@', $email)[0];
-        $username = $this->resolveUsername($command->username, $localPart);
+        // A name only if the operator gave one. Nothing is derived from the
+        // address: an account with no display name renders its email, which is
+        // truthful, where a derived one would look like something the person
+        // chose.
+        $fullName = trim($command->fullName ?? '');
 
         $user = new User(
-            username: $username,
-            fullName: substr(trim($command->fullName ?? '') ?: $localPart, 0, self::MAX_FULL_NAME_LENGTH),
+            fullName: '' !== $fullName ? substr($fullName, 0, self::MAX_FULL_NAME_LENGTH) : null,
             email: $email,
         );
         $user->password = $this->passwordHasher->hashPassword($user, $command->plainPassword);
@@ -67,29 +67,5 @@ final readonly class CreateAdminUserHandler
         $this->logger->info('account.admin.created_from_console', ['userId' => (string) $user->id]);
 
         return new CreateAdminUserResult(user: $user, created: true, promoted: false, verified: false);
-    }
-
-    /**
-     * An explicit username is taken at face value or rejected — silently
-     * suffixing it would hand the operator a login they did not ask for. Only
-     * the derived fallback is allowed to pick its own free variant.
-     *
-     * @return non-empty-string
-     *
-     * @throws DomainErrors
-     */
-    private function resolveUsername(?string $username, string $localPart): string
-    {
-        $username = trim($username ?? '');
-
-        if ('' === $username) {
-            return $this->usernameGenerator->fromPreferred($localPart);
-        }
-
-        if (null !== $this->users->findOneByUsername($username)) {
-            throw new DomainErrors(['username' => 'account.console.error.username_taken']);
-        }
-
-        return $username;
     }
 }

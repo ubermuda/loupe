@@ -28,17 +28,7 @@
         {% endfor %}
     {% endfor %}
 
-    <div class="form-field">
-        {{ form_label(form.fullName, null, {'label_attr': {'class': 'form-label'}}) }}
-        {{ form_widget(form.fullName, {'attr': {'class': 'auth-input', 'placeholder': 'account.form.registration_form.full_name.placeholder'}}) }}
-        <div class="field-errors">{{ form_errors(form.fullName) }}</div>
-    </div>
 
-    <div class="form-field">
-        {{ form_label(form.username, null, {'label_attr': {'class': 'form-label'}}) }}
-        {{ form_widget(form.username, {'attr': {'class': 'auth-input', 'placeholder': 'account.form.registration_form.username.placeholder'}}) }}
-        <div class="field-errors">{{ form_errors(form.username) }}</div>
-    </div>
 
     <div class="form-field">
         {{ form_label(form.email, null, {'label_attr': {'class': 'form-label'}}) }}

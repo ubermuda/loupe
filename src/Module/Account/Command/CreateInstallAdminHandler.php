@@ -44,8 +44,7 @@ final readonly class CreateInstallAdminHandler
             }
 
             $user = new User(
-                username: $command->username,
-                fullName: $command->fullName,
+                fullName: null,
                 email: $command->email,
             );
             $user->password = $this->passwordHasher->hashPassword($user, $command->plainPassword);

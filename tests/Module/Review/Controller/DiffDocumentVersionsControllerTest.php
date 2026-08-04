@@ -22,7 +22,6 @@ final class DiffDocumentVersionsControllerTest extends WebTestCase
     private function createUser(EntityManagerInterface $em, string $username, string $email): User
     {
         $user = new User(
-            username: $username,
             fullName: ucfirst($username),
             email: $email,
             password: 'hashed-password-placeholder',

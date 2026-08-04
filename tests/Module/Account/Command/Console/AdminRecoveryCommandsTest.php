@@ -61,30 +61,11 @@ final class AdminRecoveryCommandsTest extends KernelTestCase
         self::assertStringContainsString('already an administrator', $tester->getDisplay());
     }
 
-    public function test_admin_create_accepts_an_explicit_username_and_password(): void
-    {
-        $tester = $this->tester('app:admin:create');
-
-        self::assertSame(Command::SUCCESS, $tester->execute([
-            'email' => 'explicit@example.com',
-            '--username' => 'chosen',
-            '--full-name' => 'Chosen Name',
-            '--password' => 'SecurePassword1!',
-        ], ['interactive' => false]));
-
-        $user = $this->find('explicit@example.com');
-        self::assertSame('chosen', $user->username);
-        self::assertSame('Chosen Name', $user->fullName);
-        // A supplied password is never echoed back.
-        self::assertStringNotContainsString('SecurePassword1!', $tester->getDisplay());
-    }
-
     /** @return iterable<string, array{array<string, string>, string}> */
     public static function malformedInput(): iterable
     {
         yield 'email' => [['email' => 'not-an-email'], 'not a valid email address'];
         yield 'password' => [['email' => 'ok@example.com', '--password' => 'short'], 'too short'];
-        yield 'username' => [['email' => 'ok@example.com', '--username' => 'Bad Name'], 'must start with a letter'];
     }
 
     /**
@@ -106,19 +87,6 @@ final class AdminRecoveryCommandsTest extends KernelTestCase
         $users = self::getContainer()->get(UserRepository::class);
         self::assertInstanceOf(UserRepository::class, $users);
         self::assertNull($users->findOneByEmail($input['email']));
-    }
-
-    public function test_admin_create_fails_on_a_taken_username(): void
-    {
-        $this->persistUser('taken@example.com', 'taken');
-
-        $tester = $this->tester('app:admin:create');
-
-        self::assertSame(Command::FAILURE, $tester->execute([
-            'email' => 'other@example.com',
-            '--username' => 'taken',
-        ], ['interactive' => false]));
-        self::assertStringContainsString('already taken', $tester->getDisplay());
     }
 
     public function test_user_promote_grants_the_role_then_reports_a_no_op(): void
@@ -196,7 +164,7 @@ final class AdminRecoveryCommandsTest extends KernelTestCase
     /** @param non-empty-string $email */
     private function persistUser(string $email, string $username): User
     {
-        $user = new User(username: $username, fullName: 'Test User', email: $email);
+        $user = new User(fullName: 'Test User', email: $email);
         $user->password = 'not-a-real-hash';
         $this->em->persist($user);
         $this->em->flush();

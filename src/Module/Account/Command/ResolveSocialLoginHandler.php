@@ -15,7 +15,6 @@ use App\Module\Account\Service\SocialLoginOutcome;
 use App\Module\Account\Service\SocialLoginRace;
 use App\Module\Account\Service\SocialProfile;
 use App\Module\Account\Service\UnverifiedProviderEmail;
-use App\Module\Account\Service\UsernameGenerator;
 use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
 use Doctrine\ORM\EntityManagerInterface;
 use Psr\Log\LoggerInterface;
@@ -27,7 +26,6 @@ final readonly class ResolveSocialLoginHandler
         private ConnectedAccountRepository $connectedAccounts,
         private UserRepository $users,
         private EntityManagerInterface $em,
-        private UsernameGenerator $usernameGenerator,
         private RegistrationGate $registrationGate,
         private JoinWaitlistHandler $joinWaitlist,
         private WaitlistEntryRepository $waitlistEntries,
@@ -103,9 +101,12 @@ final readonly class ResolveSocialLoginHandler
                 return null;
             }
 
+            // The provider's name is real data and worth keeping; when it
+            // sends none the account simply has no display name, exactly like a
+            // form registration. Nothing is derived from the address.
+            $providerName = trim($profile->fullName ?? '');
             $user = new User(
-                username: $this->usernameGenerator->fromPreferred($profile->fullName ?? explode('@', $matchEmail)[0]),
-                fullName: substr(trim($profile->fullName ?? '') ?: explode('@', $matchEmail)[0], 0, 150),
+                fullName: '' !== $providerName ? substr($providerName, 0, 150) : null,
                 email: $matchEmail,
             );
             $user->emailVerifiedAt = new \DateTimeImmutable();

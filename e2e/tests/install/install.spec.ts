@@ -46,8 +46,6 @@ test('first-install wizard creates an unverified admin who is gated until they f
     await expect(
         page.getByRole('heading', { name: 'Create your admin account' }),
     ).toBeVisible();
-    await page.getByLabel('Full name').fill('E2E Admin');
-    await page.getByLabel('Username').fill('e2e-admin');
     await page.getByLabel('Email address').fill(ADMIN.email);
     await page.getByLabel('Password').fill(ADMIN.password);
     await page.getByRole('button', { name: 'Create admin account' }).click();

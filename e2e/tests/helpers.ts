@@ -254,10 +254,6 @@ export async function registerFreshUser(
     );
 
     await page.goto('/register');
-    await page.getByLabel('Full name').fill(credentials.name ?? 'E2E User');
-    await page
-        .getByLabel('Username')
-        .fill(credentials.username ?? usernameFromEmail(credentials.email));
     await page.getByLabel('Email').fill(credentials.email);
     await page.getByLabel('Password').fill(credentials.password);
     await page.getByLabel('I agree to').check();

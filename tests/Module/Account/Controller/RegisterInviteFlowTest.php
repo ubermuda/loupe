@@ -39,8 +39,6 @@ final class RegisterInviteFlowTest extends WebTestCase
         $client->request(Request::METHOD_GET, '/register?invite='.$token);
         $client->request(Request::METHOD_GET, '/register');
         $client->submitForm('Create account', [
-            'registration_form[fullName]' => 'Invited Person',
-            'registration_form[username]' => 'invitedperson',
             'registration_form[email]' => 'invitee2@example.com',
             'registration_form[plainPassword]' => 'SecurePassword1!',
             'registration_form[agreeTerms]' => true,
@@ -64,8 +62,6 @@ final class RegisterInviteFlowTest extends WebTestCase
         $client->request(Request::METHOD_GET, '/register?invite='.$token);
         $client->request(Request::METHOD_GET, '/register');
         $client->submitForm('Create account', [
-            'registration_form[fullName]' => 'Someone Else',
-            'registration_form[username]' => 'someoneelse',
             'registration_form[email]' => 'someone-else@example.com',
             'registration_form[plainPassword]' => 'SecurePassword1!',
             'registration_form[agreeTerms]' => true,
@@ -97,7 +93,7 @@ final class RegisterInviteFlowTest extends WebTestCase
         $container = static::getContainer();
         $em = $container->get(EntityManagerInterface::class);
 
-        $em->persist(new User(username: 'gate-filler', fullName: 'Gate Filler', email: 'gate-filler@example.com', password: 'x'));
+        $em->persist(new User(fullName: 'Gate Filler', email: 'gate-filler@example.com', password: 'x'));
         $em->flush();
 
         $userCount = $container->get(UserRepository::class)->countActive();

@@ -33,8 +33,6 @@ final class CreateAdminControllerTest extends WebTestCase
         $this->completeStepOne($client);
         $client->request(\Symfony\Component\HttpFoundation\Request::METHOD_GET, '/install/admin');
         $client->submitForm('Create admin account', [
-            'install_admin_form[fullName]' => 'The Admin',
-            'install_admin_form[username]' => 'admin',
             'install_admin_form[email]' => 'admin@example.com',
             'install_admin_form[plainPassword]' => 'a-strong-password',
         ]);
@@ -67,10 +65,10 @@ final class CreateAdminControllerTest extends WebTestCase
         $this->completeStepOne($client);
         $client->request(\Symfony\Component\HttpFoundation\Request::METHOD_GET, '/install/admin');
         $client->submitForm('Create admin account', [
-            'install_admin_form[fullName]' => 'The Admin',
-            'install_admin_form[username]' => 'ab', // Length(min: 3) violation
             'install_admin_form[email]' => 'admin@example.com',
-            'install_admin_form[plainPassword]' => 'a-strong-password',
+            // Length(min: 8) violation — the only DTO rule left once the wizard
+            // stopped asking for a name and a username.
+            'install_admin_form[plainPassword]' => 'short',
         ]);
 
         self::assertResponseStatusCodeSame(422);
@@ -100,8 +98,6 @@ final class CreateAdminControllerTest extends WebTestCase
         $this->completeStepOne($client);
         $client->request(\Symfony\Component\HttpFoundation\Request::METHOD_GET, '/install/admin');
         $client->submitForm('Create admin account', [
-            'install_admin_form[fullName]' => 'The Admin',
-            'install_admin_form[username]' => 'admin',
             'install_admin_form[email]' => 'admin@example.com',
             'install_admin_form[plainPassword]' => 'a-strong-password',
         ]);

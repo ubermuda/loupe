@@ -44,7 +44,7 @@ final class DocumentExporterQueryCountTest extends KernelTestCase
     /** @param non-empty-string $slug */
     private function ownerOfDocuments(string $slug, int $documentCount): User
     {
-        $user = new User(username: $slug, fullName: 'U', email: $slug.'@example.com', password: 'hashed');
+        $user = new User(fullName: 'U', email: $slug.'@example.com', password: 'hashed');
         $this->em->persist($user);
         $project = new Project($user, 'p-'.uniqid());
         $this->em->persist($project);

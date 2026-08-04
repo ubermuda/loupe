@@ -24,8 +24,8 @@ final class ReplyToCommentHandlerTest extends KernelTestCase
         self::bootKernel();
         $em = self::getContainer()->get(EntityManagerInterface::class);
 
-        $owner = new User(username: 'reply-owner', fullName: 'Reply Owner', email: 'reply-owner@example.com', password: 'hashed');
-        $replier = new User(username: 'replier', fullName: 'Replier User', email: 'replier@example.com', password: 'hashed');
+        $owner = new User(fullName: 'Reply Owner', email: 'reply-owner@example.com', password: 'hashed');
+        $replier = new User(fullName: 'Replier User', email: 'replier@example.com', password: 'hashed');
         $em->persist($owner);
         $project = new Project($owner, 'p-'.uniqid());
         $em->persist($project);
@@ -64,7 +64,7 @@ final class ReplyToCommentHandlerTest extends KernelTestCase
         self::bootKernel();
         $em = self::getContainer()->get(EntityManagerInterface::class);
 
-        $owner = new User(username: 'reply-owner2', fullName: 'Reply Owner', email: 'reply-owner2@example.com', password: 'hashed');
+        $owner = new User(fullName: 'Reply Owner', email: 'reply-owner2@example.com', password: 'hashed');
         $em->persist($owner);
         $project = new Project($owner, 'p-'.uniqid());
         $em->persist($project);

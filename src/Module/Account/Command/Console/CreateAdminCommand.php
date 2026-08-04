@@ -51,8 +51,7 @@ final class CreateAdminCommand extends Command
     {
         $this
             ->addArgument('email', InputArgument::REQUIRED, 'Email address of the administrator')
-            ->addOption('username', null, InputOption::VALUE_REQUIRED, 'Username (derived from the email when omitted)')
-            ->addOption('full-name', null, InputOption::VALUE_REQUIRED, 'Full name (derived from the email when omitted)')
+            ->addOption('full-name', null, InputOption::VALUE_REQUIRED, 'Display name; the account has none when omitted')
             ->addOption('password', null, InputOption::VALUE_REQUIRED, 'Password; prompted for, or generated and printed, when omitted');
     }
 
@@ -65,7 +64,6 @@ final class CreateAdminCommand extends Command
         // whitespace, and a pasted address that picked some up is the operator's
         // typo to absorb rather than report.
         $email = trim((string) $input->getArgument('email'));
-        $username = $this->stringOption($input, 'username');
         $fullName = $this->stringOption($input, 'full-name');
 
         $password = $this->stringOption($input, 'password');
@@ -82,7 +80,7 @@ final class CreateAdminCommand extends Command
             $password = bin2hex(random_bytes(self::GENERATED_PASSWORD_BYTES));
         }
 
-        $violations = $this->violations($email, $password, $username);
+        $violations = $this->violations($email, $password);
         if (0 < count($violations)) {
             foreach ($violations as $violation) {
                 $io->error((string) $violation->getMessage());
@@ -99,7 +97,6 @@ final class CreateAdminCommand extends Command
             $result = ($this->createAdminUser)(new CreateAdminUserCommand(
                 email: $email,
                 plainPassword: $password,
-                username: $username,
                 fullName: $fullName,
             ));
         } catch (DomainErrors $e) {
@@ -111,7 +108,7 @@ final class CreateAdminCommand extends Command
         }
 
         if ($result->created) {
-            $io->success(sprintf('Created administrator %s (username: %s).', $result->user->email, $result->user->username));
+            $io->success(sprintf('Created administrator %s.', $result->user->email));
 
             if ($generated) {
                 $io->warning(sprintf('Generated password (shown once): %s', $password));
@@ -134,24 +131,14 @@ final class CreateAdminCommand extends Command
      * The handler shape-checks nothing: over HTTP an InstallAdminRequest-bound
      * form would have validated before it ever ran, and this command is that
      * entry point. Declaring the same constraints here is what keeps the two
-     * paths agreeing on what a valid email, password and username are — a
+     * paths agreeing on what a valid email and password are — a
      * filter_var() second opinion would not.
      */
-    private function violations(string $email, string $password, ?string $username): ConstraintViolationListInterface
+    private function violations(string $email, string $password): ConstraintViolationListInterface
     {
         $violations = new ConstraintViolationList();
         $violations->addAll($this->validator->validate($email, [new Assert\NotBlank(), new Assert\Email()]));
         $violations->addAll($this->validator->validate($password, [new Assert\Length(min: 8)]));
-
-        if (null !== $username) {
-            $violations->addAll($this->validator->validate($username, [
-                new Assert\Length(min: 3, max: 30),
-                new Assert\Regex(
-                    pattern: '/^[a-z][a-z0-9_-]*$/',
-                    message: 'account.registration.validator.username_format',
-                ),
-            ]));
-        }
 
         return $violations;
     }

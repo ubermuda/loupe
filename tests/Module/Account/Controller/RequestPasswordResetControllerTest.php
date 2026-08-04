@@ -22,7 +22,7 @@ final class RequestPasswordResetControllerTest extends WebTestCase
     {
         $client = static::createClient();
         $em = self::getContainer()->get(EntityManagerInterface::class);
-        $user = new User('reset-forge', 'Reset Forge', 'reset-forge@example.com', 'hash');
+        $user = new User('Reset Forge', 'reset-forge@example.com', 'hash');
         $user->emailVerifiedAt = new \DateTimeImmutable();
         $em->persist($user);
         $em->flush();

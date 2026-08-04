@@ -88,7 +88,7 @@ final class ApiTokenLastUsedThrottleTest extends WebTestCase
     /** @return array{0: Uuid, 1: non-empty-string} */
     private function issueToken(EntityManagerInterface $em): array
     {
-        $user = new User(username: 'throttle-user', fullName: 'Throttle', email: 'throttle@example.com', password: 'x');
+        $user = new User(fullName: 'Throttle', email: 'throttle@example.com', password: 'x');
         $user->emailVerifiedAt = new \DateTimeImmutable();
         $em->persist($user);
         [$token, $raw] = ApiToken::issue($user, 'throttle token', ApiTokenScope::Mcp);

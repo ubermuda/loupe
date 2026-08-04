@@ -73,7 +73,7 @@ final class ConnectedAccountRepositoryTest extends KernelTestCase
     /** @param non-empty-string $email */
     private function persistUser(string $email, string $username): User
     {
-        $user = new User(username: $username, fullName: 'Test User', email: $email);
+        $user = new User(fullName: 'Test User', email: $email);
         $this->em->persist($user);
 
         return $user;

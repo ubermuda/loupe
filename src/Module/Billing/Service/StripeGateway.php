@@ -36,7 +36,7 @@ final readonly class StripeGateway implements StripeGatewayInterface
     {
         $customer = $this->stripe()->customers->create([
             'email' => $user->email,
-            'name' => $user->fullName,
+            'name' => $user->displayName(),
             'metadata' => ['app_user_id' => (string) $user->id],
         ]);
 

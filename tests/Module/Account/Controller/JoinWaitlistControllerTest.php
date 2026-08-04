@@ -91,7 +91,7 @@ final class JoinWaitlistControllerTest extends WebTestCase
 
         // Guarantee at least one user exists, then cap at the resulting count —
         // count(0) < cap(N>0) would leave the gate open with no users seeded.
-        $em->persist(new User(username: 'gate-filler', fullName: 'Gate Filler', email: 'gate-filler@example.com', password: 'x'));
+        $em->persist(new User(fullName: 'Gate Filler', email: 'gate-filler@example.com', password: 'x'));
         $em->flush();
 
         $userCount = $container->get(UserRepository::class)->countActive();

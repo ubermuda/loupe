@@ -35,7 +35,7 @@ final class McpEndpointAuthTest extends WebTestCase
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
-        $user = new User(username: 'agent-revoked', fullName: 'Agent', email: 'agent-revoked@example.com', password: 'hashed-placeholder');
+        $user = new User(fullName: 'Agent', email: 'agent-revoked@example.com', password: 'hashed-placeholder');
         $user->emailVerifiedAt = new \DateTimeImmutable();
         [$token, $raw] = ApiToken::issue($user, 'test', ApiTokenScope::Mcp);
         $token->revoke();
@@ -190,7 +190,7 @@ final class McpEndpointAuthTest extends WebTestCase
     private function persistValidToken(): string
     {
         $em = static::getContainer()->get(EntityManagerInterface::class);
-        $user = new User(username: 'agent', fullName: 'Agent', email: 'agent@example.com', password: 'hashed-placeholder');
+        $user = new User(fullName: 'Agent', email: 'agent@example.com', password: 'hashed-placeholder');
         $user->emailVerifiedAt = new \DateTimeImmutable();
         [$token, $raw] = ApiToken::issue($user, 'test', ApiTokenScope::Mcp);
         $em->persist($user);
