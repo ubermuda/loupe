@@ -1066,8 +1066,7 @@ multi-round spec reviews much cheaper. Section identity comes from headings, so
 `App\Module\Review\Service\HeadingExtractor` is the existing source of it; also
 interacts with comment re-anchoring.
 
-## Decide fate of PlaywrightSyncEmailMiddleware — it would remove the worktree e2e worker entirely
-
+## Decide fate of PlaywrightSyncEmailMiddleware
 
 **Author:** Claude · **Type:** tooling · **Priority:** medium · **Status:** pending
 
@@ -1077,39 +1076,22 @@ target `sync` transport is commented out in `config/packages/messenger.yaml` (li
 dormant on 2026-08-04. **Decision needed:**
 
 1. Wire it properly — register the middleware and uncomment the `sync` transport — so
-   Playwright-headed requests deliver mail synchronously (recommended: it removes the
-   worktree-consumer requirement for mail-asserting e2e specs, which is what the rest of
-   this entry is about).
+   Playwright-headed requests deliver mail synchronously, removing the consumer
+   requirement for mail-asserting e2e specs altogether.
 2. Delete the class and the header, and keep the consumer requirement.
 
-Deciding beats letting it rot, and the two problems below are the forcing function: both
-disappear under option 1.
+Deciding beats letting it rot. What made this urgent has been fixed, so it is now a
+tidiness question rather than a recurring cost: `just e2e` refuses to start without a live
+consumer, and `just e2e-worker` recycles below PHP's memory limit and relaunches itself,
+so a worker no longer silently disappears mid-session. Option 1 would delete that
+machinery rather than merely stop it hurting.
 
-**A worktree e2e run needs its own consumer, and forgetting it fails ~19 specs at once.**
-The suite's authenticated fixture registers a user and verifies it through the emailed
-link, so with nothing consuming `async` the failures are not confined to obviously
-mail-shaped specs — login, signup, delete-account, forgot-password, the first-run wizard,
-admin smoke, paywall and delete-project all go down together, with the app returning 200
-and `just ci` green. The manual procedure is documented in the `project-worktrees` skill;
-what remains open is the automation — a `just e2e` pre-hook or `just e2e-worktree` recipe
-owning the worker lifecycle (see `docs/AUTOMATIONS.md`).
-
-**That consumer then OOMs instead of recycling.** The documented command carries no
-limits, unlike the shared `worker` compose service which runs the same transports with
-`--time-limit=3600 --memory-limit=128M`. Running in the **dev** environment, Doctrine's
-`BacktraceDebugDataHolder` accumulates a backtrace per query for the lifetime of the
-process, so a long-lived consumer climbs until PHP's 128M limit and dies with a fatal
-`Allowed memory size of 134217728 bytes exhausted` (observed 2026-07-28 after roughly an
-hour and several full e2e runs). The failure is silent and its symptom misleading: nothing
-consuming `async` means no mail, and mail-asserting specs then fail on
-`getEmailWithSubject` timeouts that look like application or Mailpit problems. A full suite
-that started green can fail later in the same session for no reason visible in the diff.
-
-If option 2 wins, the fix is to document and use the limits the compose service already
-applies — with the messenger memory limit set *below* PHP's, e.g.
-`--time-limit=3600 --memory-limit=100M`, so the worker stops gracefully between messages
-instead of dying inside one — and to decide whether the skill should simply tell you to
-restart it, since even a graceful exit leaves nothing consuming.
+Background worth keeping either way. The suite's authenticated fixture registers a user
+and verifies it through the emailed link, so with nothing consuming `async` the failures
+are not confined to obviously mail-shaped specs — login, signup, delete-account,
+forgot-password, the first-run wizard, admin smoke, paywall and delete-project all go down
+together, with the app returning 200 and `just ci` green. Recognising that shape is what
+tells you the fault is the environment rather than the branch.
 
 ## Fuller billing section in account settings (manage sub in-app)
 

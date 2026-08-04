@@ -207,23 +207,39 @@ e2e-up:
     echo "Run 'just e2e-worker' in another shell before specs that need mail or exports."
 
 # Messenger worker for the e2e target. Needed by any spec that asserts on mail
-# or on a generated download link.
+# or on a generated download link. Runs until interrupted — Ctrl-C to stop.
 #
 # The environment here is not optional decoration. A worker is a CLI process,
 # so it never sees the fastcgi_params that redirect web requests at the e2e
 # database — it would consume the DEV queue and, worse, build absolute URLs
 # from the dev host, so an emailed export link would point at the wrong app and
 # serve HTML instead of a zip. Both variables have to be passed.
+#
+# Two things about the limits, both of which used to bite:
+#
+# --memory-limit must sit BELOW PHP's own (128M in this container) or it can
+# never fire: the process reaches PHP's fatal first and dies inside a message
+# rather than stopping cleanly between two. 256M here meant the recycle was
+# decorative.
+#
+# The recycle then has to be restarted, or the first one silently ends the
+# worker for the rest of the session. A consumer that exits cleanly on a limit
+# is relaunched by the loop below, so `just e2e`'s preflight keeps finding one.
+# A non-zero exit is a real failure and stops the loop.
 e2e-worker *args:
     #!/usr/bin/env bash
     set -euo pipefail
     project=$(grep -E '^COMPOSE_PROJECT_NAME=' .env | head -1 | cut -d= -f2-)
     host="e2e.${project}.dev.localhost"
-    docker compose exec -T \
-        -e WORKTREE_DB_SUFFIX=_e2e \
-        -e DEFAULT_URI="https://${host}" \
-        php-fpm bin/console messenger:consume scheduler_default async \
-        --time-limit=1800 --memory-limit=256M {{args}}
+    trap 'echo "e2e-worker: stopped." >&2; exit 0' INT TERM
+    while true; do
+        docker compose exec -T \
+            -e WORKTREE_DB_SUFFIX=_e2e \
+            -e DEFAULT_URI="https://${host}" \
+            php-fpm bin/console messenger:consume scheduler_default async \
+            --time-limit=3600 --memory-limit=100M {{args}}
+        echo "e2e-worker: consumer recycled on a limit, relaunching." >&2
+    done
 
 # Remove the e2e sidecar and drop its database.
 e2e-down:
@@ -291,6 +307,19 @@ e2e *args:
     export E2E_BASE_URL="${E2E_BASE_URL:-https://e2e.${project}.dev.localhost}"
     if ! curl -sf -o /dev/null "$E2E_BASE_URL/login"; then
         echo "e2e: $E2E_BASE_URL is not reachable — run 'just e2e-up' first." >&2
+        exit 1
+    fi
+    # The suite's authenticated fixture registers a user and verifies it through
+    # the emailed link, so with nothing consuming `async` the failures are not
+    # confined to mail-shaped specs: login, signup, delete-account,
+    # forgot-password, the wizard, admin smoke and paywall all go down together,
+    # while the app returns 200 and `just ci` is green. Refusing up front costs
+    # a second; discovering it from the failures costs ten minutes and usually
+    # an investigation into the branch, which is not where the fault is.
+    if ! docker compose exec -T php-fpm sh -c "ps ax | grep -q '[m]essenger:consume'"; then
+        echo "e2e: no messenger consumer is running — run 'just e2e-worker' in another shell." >&2
+        echo "     Without one the authenticated fixture cannot verify its user, and roughly" >&2
+        echo "     a third of the suite fails in ways that look like application bugs." >&2
         exit 1
     fi
     cd e2e && npx playwright test {{args}}
