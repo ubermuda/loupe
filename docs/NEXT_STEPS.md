@@ -3588,6 +3588,36 @@ flags already have an admin UI and are already how other capabilities are
 gated. The open question is whether a per-project override fits that model or
 needs its own storage.
 
+## Document operations leave no audit trail — no record of who, or when
+
+**Author:** Geoffrey · **Type:** feature · **Priority:** medium · **Status:** pending
+
+Renaming, archiving, tagging and setting references all mutate a document
+without leaving a trace. `Document::$archivedAt` is the only timestamp any of
+them writes, and none of them records an actor — so "who renamed this, and
+when" has no answer for a human or an agent.
+
+The content path is covered and the metadata path is not: a revision creates a
+`DocumentVersion` carrying its own description and ordering, so it is
+attributable, while the operations beside it are not. The gap widened as that
+surface grew — rename, tags, archive/unarchive and references are all
+agent-callable over MCP now, so an agent changing a document's metadata leaves
+less of a trail than one editing its text.
+
+Worth settling before building, because the two designs answer different
+questions. A per-operation audit log (actor, verb, subject, timestamp, payload)
+generalises to any future operation and can answer "what was this called
+before", but it is a table that grows without bound and needs a retention
+policy. Actor and timestamp columns on the document itself are far cheaper and
+answer "who last touched this", but nothing historical.
+
+Note the actor is not always a person: an agent acting through an MCP token
+needs to be distinguishable from the human who owns the token, or the log
+records the owner for everything an agent did.
+
+Related: "Agent-written comments have no per-agent provenance" is the same
+underlying gap on the comment side. Settle the actor model once, for both.
+
 ## `comments.anchor_offset_hint` changed units with no backfill
 
 **Author:** Claude · **Type:** bug · **Priority:** low · **Status:** pending
