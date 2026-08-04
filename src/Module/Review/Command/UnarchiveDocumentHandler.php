@@ -22,6 +22,9 @@ final readonly class UnarchiveDocumentHandler
 
         if (null !== $document->archivedAt) {
             $document->archivedAt = null;
+            // The reason goes with the archiving it explained: a document back
+            // in the list must not still read "archived because superseded".
+            $document->archiveReason = null;
             $this->em->flush();
 
             $this->logger->info('review.document.unarchived', [

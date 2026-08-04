@@ -178,6 +178,14 @@
                                     </a>
                                     {% if reference.archivedAt %}
                                     <span class="lp-doc-references__archived">{{ 'review.document.references.archived'|trans }}</span>
+                                    {# Rendered only when there is one to render — a
+                                       reason is required of the MCP tool and of
+                                       nothing else, so an archived reference
+                                       usually has none and must not look as
+                                       though its reason was lost. #}
+                                    {% if reference.archiveReason %}
+                                    <span class="lp-doc-references__archive-reason">{{ 'review.document.references.archive_reason'|trans({'%reason%': reference.archiveReason}) }}</span>
+                                    {% endif %}
                                     {% endif %}
                                 </li>
                                 {% endfor %}

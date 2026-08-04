@@ -16,6 +16,61 @@ file alone. Each entry is tagged `Added` / `Changed` / `Removed` / `Fixed`.
 
 ## [Unreleased]
 
+- `b1aad74` — **Changed:** an archive reason that is present but blank is now
+  rejected, and the guard that makes re-archiving a no-op holds between
+  concurrent callers rather than only sequential ones. A required MCP parameter
+  only forces an agent to send the field, not to fill it in, so `reason: "   "`
+  previously archived the document with an explanation that explains nothing;
+  `ArchiveDocumentHandler` trims and throws `DomainErrors`, the same shape
+  `ReviseDocumentHandler` uses for a blank version description, and
+  `ToolCallErrorMessages` renders it as a sentence the agent can act on. `null`
+  and `''` stay deliberately different: `null` is the app's button, which is
+  never asked, while `''` is a caller that was asked and answered with nothing.
+  The concurrency change revisits a trade-off made when `archived_at` was the
+  only thing at stake — the guard was a read-check-write with nothing holding
+  the two together, on the grounds that a lost write cost "a stamp differing by
+  milliseconds". A lost *reason* is a sentence a reviewer reads, and picking it
+  by whichever request committed last is arbitrary, so the guard now runs under
+  a pessimistic row lock and re-reads the stored state before deciding. The
+  re-read is a two-column query, `DocumentRepository::archiveStateOf()`, rather
+  than `EntityManager::refresh()`: Doctrine refuses to rewrite `Document`'s
+  readonly `$createdAt`, so refreshing this entity throws. The loaded timestamp
+  is left untouched when it already agrees with the row — the column is
+  `TIMESTAMP(0)`, so re-reading would quietly drop the sub-second part the
+  process holds — and is replaced only when the loaded copy says live and the
+  row says otherwise, which is the race itself. That race is not expressible as
+  a test: `dama/doctrine-test-bundle` runs every test inside one connection's
+  transaction, so two overlapping database transactions cannot exist. The
+  sequential re-archive tests are the regression guard and the lock is verified
+  by review, as the concurrency convention prescribes.
+
+- `6c86e81` — **Added:** an archive reason on documents, mandatory through MCP
+  and optional everywhere else. `document_archive` now declares `reason`
+  alongside `documentId` and both are required; `ArchiveDocumentCommand` takes
+  `?string $reason = null`, so the app's archive button keeps passing nothing.
+  The asymmetry is the point: a person archiving from the list is standing in
+  front of the document they just read, while an agent leaves nothing behind
+  unless the schema makes it. There is deliberately **no UI for setting** one —
+  no form field, no admin screen — so every document archived from the app has a
+  null reason. Both read surfaces treat that as the ordinary case and render
+  nothing at all: no empty label, no placeholder, no dash, because absence must
+  not look like a defect. Re-archiving an already-archived document still
+  changes nothing, now including its reason, and unarchiving clears the reason
+  along with the timestamp so a live document never carries a stale "archived
+  because superseded" — which makes restore-then-archive the way to restate one.
+  `document_unarchive` takes no reason parameter for the same reason. On the read
+  side, `document_get` reports `archiveReason` as a top-level key that is always
+  present and null when unset (a key that comes and goes cannot be told from a
+  missing field), the documents list shows the reason under an archived row, and
+  the reference chips on the review page show it beside an archived target;
+  `document_list` is untouched. The column is `TEXT`, matching
+  `DocumentVersion::$description` — a reason arrives from an agent and is not
+  length-bounded, and both templates clamp it to two lines rather than trusting
+  it to be short. `/dev/seed/document` gains an optional `archiveReason` so the
+  Playwright suite can exercise the display at all: MCP is the only way to set
+  one and a browser cannot call it. That endpoint is `#[When('dev')]` and is a
+  test fixture, not a second way to state a reason.
+
 - `633a6d7` — **Added:** `document_set_references` MCP tool, which replaces the
   set of documents a document points at without minting a version. References
   are document-scoped — a ManyToMany over `document_references`, with no version

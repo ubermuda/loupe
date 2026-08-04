@@ -62,28 +62,57 @@ final class DocumentArchiveToolTest extends KernelTestCase
 
         $this->actAsMcpTokenBoundTo($document->project);
 
-        $result = ($this->tool)((string) $document->id);
+        $result = ($this->tool)((string) $document->id, 'superseded by the v2 plan');
 
         self::assertSame(['documentId' => (string) $document->id, 'archived' => true], $result);
         self::assertNotNull($document->archivedAt);
+        self::assertSame('superseded by the v2 plan', $document->archiveReason);
         self::assertCount(1, $document->versions);
     }
 
-    public function test_archiving_an_archived_document_keeps_the_original_timestamp(): void
+    /**
+     * A second archive is a no-op down to the reason, so restating one means
+     * restoring the document and archiving it again.
+     */
+    public function test_archiving_an_archived_document_keeps_the_original_timestamp_and_reason(): void
     {
         $owner = $this->user('archive-twice@example.com');
         $document = $this->documentInNewProject($owner, 'Already away');
 
         $this->actAsMcpTokenBoundTo($document->project);
 
-        ($this->tool)((string) $document->id);
+        ($this->tool)((string) $document->id, 'superseded by the v2 plan');
         $firstArchivedAt = $document->archivedAt;
         self::assertNotNull($firstArchivedAt);
 
-        $result = ($this->tool)((string) $document->id);
+        $result = ($this->tool)((string) $document->id, 'duplicate of the onboarding brief');
 
         self::assertSame(['documentId' => (string) $document->id, 'archived' => true], $result);
         self::assertSame($firstArchivedAt, $document->archivedAt);
+        self::assertSame('superseded by the v2 plan', $document->archiveReason);
+    }
+
+    /**
+     * A required parameter only forces the agent to send the field; sending
+     * spaces would satisfy the schema and archive the document with an
+     * explanation that explains nothing. The message names what is wrong rather
+     * than falling through to the generic rejection.
+     */
+    public function test_a_blank_reason_is_rejected_with_a_message_the_agent_can_act_on(): void
+    {
+        $owner = $this->user('archive-blank@example.com');
+        $document = $this->documentInNewProject($owner, 'Needs a reason');
+
+        $this->actAsMcpTokenBoundTo($document->project);
+
+        try {
+            ($this->tool)((string) $document->id, '   ');
+            self::fail('a blank reason must throw');
+        } catch (ToolCallException $e) {
+            self::assertSame('A reason for archiving the document is required.', $e->getMessage());
+        }
+
+        self::assertNull($document->archivedAt);
     }
 
     public function test_cannot_archive_a_document_of_another_project_of_the_same_owner(): void
@@ -97,7 +126,7 @@ final class DocumentArchiveToolTest extends KernelTestCase
         $this->actAsMcpTokenBoundTo($projectB);
 
         try {
-            ($this->tool)((string) $documentInProjectA->id);
+            ($this->tool)((string) $documentInProjectA->id, 'superseded by the v2 plan');
             self::fail('archiving another project\'s document must throw');
         } catch (ToolCallException $e) {
             self::assertStringContainsString('not found or not accessible', $e->getMessage());
@@ -118,7 +147,7 @@ final class DocumentArchiveToolTest extends KernelTestCase
         $this->actAsMcpTokenBoundTo($attackerProject);
 
         try {
-            ($this->tool)((string) $document->id);
+            ($this->tool)((string) $document->id, 'superseded by the v2 plan');
             self::fail('archiving another user\'s document must throw');
         } catch (ToolCallException $e) {
             self::assertStringContainsString('not found or not accessible', $e->getMessage());
@@ -135,7 +164,7 @@ final class DocumentArchiveToolTest extends KernelTestCase
         $this->actAsUnboundMcpToken($owner);
 
         try {
-            ($this->tool)((string) $document->id);
+            ($this->tool)((string) $document->id, 'superseded by the v2 plan');
             self::fail('an unbound token must throw');
         } catch (ToolCallException $e) {
             self::assertSame('MCP token is not bound to a project. Mint a project token from the Connect page.', $e->getMessage());

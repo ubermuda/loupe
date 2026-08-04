@@ -17,7 +17,7 @@ final readonly class GetDocument
     /**
      * Returns the data of an already-authorized document.
      *
-     * @return array{documentId: string, title: string, status: string, archived: bool, version: int, versionDescription: ?string, markdown: string, references: list<array{documentId: string, title: string, archived: bool}>}
+     * @return array{documentId: string, title: string, status: string, archived: bool, archiveReason: ?string, version: int, versionDescription: ?string, markdown: string, references: list<array{documentId: string, title: string, archived: bool}>}
      */
     public function __invoke(Document $document): array
     {
@@ -39,6 +39,10 @@ final readonly class GetDocument
             'title' => $document->title,
             'status' => $document->status->value,
             'archived' => null !== $document->archivedAt,
+            // Always present, null unless the archiving stated one — a caller
+            // reading a key that appears and disappears has to guess which of
+            // the two it is looking at.
+            'archiveReason' => $document->archiveReason,
             'version' => $currentVersion->versionNumber,
             'versionDescription' => $currentVersion->description,
             'markdown' => $currentVersion->markdownSource,

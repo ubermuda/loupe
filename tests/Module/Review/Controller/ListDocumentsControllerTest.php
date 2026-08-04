@@ -282,6 +282,76 @@ final class ListDocumentsControllerTest extends WebTestCase
         self::assertSelectorTextContains('[data-document-id="'.$archivedId.'"] .lp-document-row__archived', 'Archived');
     }
 
+    /**
+     * Only the MCP tool requires a reason, so most archived rows carry none. The
+     * row with one shows it; the row without shows nothing at all, because an
+     * empty label or a dash would read as a reason that went missing rather than
+     * one that was never asked for.
+     */
+    public function test_an_archived_row_shows_its_reason_and_renders_nothing_when_there_is_none(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+
+        $alice = $this->createUser($em, 'alice-reason', 'alice-reason@example.com');
+        $project = $this->project($em, $alice);
+
+        $explained = $this->document($em, $alice, $project, 'Superseded draft');
+        $explained->archivedAt = new \DateTimeImmutable();
+        $explained->archiveReason = 'superseded by the v2 plan';
+
+        $silent = $this->document($em, $alice, $project, 'Tidied away');
+        $silent->archivedAt = new \DateTimeImmutable();
+
+        $em->flush();
+        $projectId = (string) $project->id;
+        $explainedId = (string) $explained->id;
+        $silentId = (string) $silent->id;
+        $em->clear();
+
+        $client->loginUser($alice);
+        $crawler = $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/documents?archived=1');
+
+        self::assertResponseIsSuccessful();
+        // Both rows are listed, so the absence asserted below is the template's
+        // doing rather than a row that never rendered.
+        self::assertCount(1, $crawler->filter('[data-document-id="'.$explainedId.'"]'));
+        self::assertCount(1, $crawler->filter('[data-document-id="'.$silentId.'"]'));
+
+        self::assertSelectorTextContains(
+            '[data-document-id="'.$explainedId.'"] .lp-document-row__archive-reason',
+            'superseded by the v2 plan',
+        );
+        self::assertCount(0, $crawler->filter('[data-document-id="'.$silentId.'"] .lp-document-row__archive-reason'));
+    }
+
+    /** A restored document must not go back into the list still explaining why it left. */
+    public function test_a_live_row_never_shows_an_archive_reason(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+
+        $alice = $this->createUser($em, 'alice-live-reason', 'alice-live-reason@example.com');
+        $project = $this->project($em, $alice);
+
+        // A reason with no archivedAt beside it is a state the handlers never
+        // produce; the template must not print one anyway.
+        $live = $this->document($em, $alice, $project, 'Back in the list');
+        $live->archiveReason = 'superseded by the v2 plan';
+
+        $em->flush();
+        $projectId = (string) $project->id;
+        $liveId = (string) $live->id;
+        $em->clear();
+
+        $client->loginUser($alice);
+        $crawler = $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/documents');
+
+        self::assertResponseIsSuccessful();
+        self::assertCount(1, $crawler->filter('[data-document-id="'.$liveId.'"]'));
+        self::assertCount(0, $crawler->filter('[data-document-id="'.$liveId.'"] .lp-document-row__archive-reason'));
+    }
+
     public function test_the_sidebar_and_project_card_counts_exclude_archived_documents(): void
     {
         $client = static::createClient();

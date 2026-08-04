@@ -175,6 +175,29 @@ class DocumentRepository extends ServiceEntityRepository
     }
 
     /**
+     * Reads the stored archive state back, past the loaded entity.
+     *
+     * A caller holding a row lock needs to see what a racing transaction
+     * committed, and `Document` cannot be refreshed — Doctrine refuses to
+     * rewrite its readonly `$createdAt` — so the two columns are selected on
+     * their own instead.
+     *
+     * @return array{archivedAt: ?\DateTimeImmutable, archiveReason: ?string}
+     */
+    public function archiveStateOf(Document $document): array
+    {
+        /** @var array{archivedAt: ?\DateTimeImmutable, archiveReason: ?string} $state */
+        $state = $this->createQueryBuilder('d')
+            ->select('d.archivedAt', 'd.archiveReason')
+            ->andWhere('d = :document')
+            ->setParameter('document', $document)
+            ->getQuery()
+            ->getSingleResult();
+
+        return $state;
+    }
+
+    /**
      * Route-binding lookup: both ids arrive as raw strings from the router
      * (EntityValueResolver expr variables are never entities).
      */

@@ -132,6 +132,13 @@
                     <span class="lp-document-row__open">{{ 'review.dashboard.meta.open_threads'|trans({'%count%': item.openThreadCount}) }}</span>
                     {% endif %}
                 </div>
+                {# Only the MCP tool requires a reason, so most archived rows have
+                   none — which is the ordinary case, not a gap. Nothing is
+                   rendered then: a label with an empty value beside it, or a
+                   dash, reads as a document whose reason went missing. #}
+                {% if archived and document.archiveReason %}
+                <p class="lp-document-row__archive-reason">{{ 'review.dashboard.archive_reason'|trans({'%reason%': document.archiveReason}) }}</p>
+                {% endif %}
                 {# A list, not a run of spans: without the semantics a screen
                    reader reads the chips as a continuation of the meta line above
                    them, with no boundary and no count. #}

@@ -27,6 +27,7 @@ final readonly class ToolCallErrorMessages
             'review.rename.error.blank' => 'A document title must not be blank.',
             'review.rename.error.too_long' => \sprintf('A document title must be at most %d characters.', Document::MAX_TITLE_LENGTH),
             'review.revise.error.description_blank' => 'A description of what changed in this version is required.',
+            'review.archive.error.reason_blank' => 'A reason for archiving the document is required.',
             'review.tags.error.too_long' => \sprintf('A tag name must be at most %d characters.', Tag::MAX_NAME_LENGTH),
             'review.references.error.self_reference' => 'A document cannot reference itself.',
             'review.references.error.other_project' => 'A document can only reference documents in the same project.',
