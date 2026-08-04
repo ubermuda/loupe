@@ -26,10 +26,22 @@ file alone. Each entry is tagged `Added` / `Changed` / `Removed` / `Fixed`.
   no form field, no admin screen — so every document archived from the app has a
   null reason. Both read surfaces treat that as the ordinary case and render
   nothing at all: no empty label, no placeholder, no dash, because absence must
-  not look like a defect. Re-archiving an already-archived document still
-  changes nothing, now including its reason, and unarchiving clears the reason
-  along with the timestamp so a live document never carries a stale "archived
-  because superseded" — which makes restore-then-archive the way to restate one.
+  not look like a defect. A reason that is present but blank is rejected —
+  `ArchiveDocumentHandler` trims and throws `DomainErrors`, the same shape
+  `ReviseDocumentHandler` uses for a blank version description — because a
+  required parameter only forces an agent to send the field, not to fill it in;
+  `null` and `''` are deliberately different cases. Re-archiving an
+  already-archived document still changes nothing, now including its reason, and
+  unarchiving clears the reason along with the timestamp so a live document never
+  carries a stale "archived because superseded" — which makes restore-then-archive
+  the way to restate one. That "changes nothing" guarantee is now enforced
+  between concurrent callers rather than only sequential ones: the handler takes
+  a pessimistic row lock and re-reads the stored archive state before deciding,
+  because the previous best-effort guard was justified on the grounds that a lost
+  write cost "a stamp differing by milliseconds" and a lost *reason* is a
+  sentence a reviewer reads. `Document` cannot be `refresh()`ed — Doctrine
+  refuses to rewrite its readonly `$createdAt` — so the re-read is a two-column
+  query, `DocumentRepository::archiveStateOf()`.
   `document_unarchive` takes no reason parameter for the same reason. On the read
   side, `document_get` reports `archiveReason` as a top-level key that is always
   present and null when unset (a key that comes and goes cannot be told from a

@@ -92,6 +92,29 @@ final class DocumentArchiveToolTest extends KernelTestCase
         self::assertSame('superseded by the v2 plan', $document->archiveReason);
     }
 
+    /**
+     * A required parameter only forces the agent to send the field; sending
+     * spaces would satisfy the schema and archive the document with an
+     * explanation that explains nothing. The message names what is wrong rather
+     * than falling through to the generic rejection.
+     */
+    public function test_a_blank_reason_is_rejected_with_a_message_the_agent_can_act_on(): void
+    {
+        $owner = $this->user('archive-blank@example.com');
+        $document = $this->documentInNewProject($owner, 'Needs a reason');
+
+        $this->actAsMcpTokenBoundTo($document->project);
+
+        try {
+            ($this->tool)((string) $document->id, '   ');
+            self::fail('a blank reason must throw');
+        } catch (ToolCallException $e) {
+            self::assertSame('A reason for archiving the document is required.', $e->getMessage());
+        }
+
+        self::assertNull($document->archivedAt);
+    }
+
     public function test_cannot_archive_a_document_of_another_project_of_the_same_owner(): void
     {
         $owner = $this->user('archive-cross@example.com');

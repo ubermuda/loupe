@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Tests\Module\Review\Command;
 
+use App\Exception\DomainErrors;
 use App\Module\Account\Entity\User;
 use App\Module\Project\Entity\Project;
 use App\Module\Review\Command\ArchiveDocumentCommand;
@@ -125,6 +126,13 @@ final class ArchiveDocumentHandlerTest extends KernelTestCase
         self::assertNull($document->archiveReason);
     }
 
+    /**
+     * The handler serializes the guard and the write under a row lock so a
+     * racing second archive cannot overwrite this reason. That race is not
+     * expressible here — every test runs inside one connection's transaction,
+     * so two overlapping database transactions cannot exist — and the lock is
+     * verified by review. This sequential case is the regression guard.
+     */
     public function test_archiving_twice_keeps_the_first_reason(): void
     {
         $document = $this->document('archive-2x-reason@example.com');
@@ -133,6 +141,35 @@ final class ArchiveDocumentHandlerTest extends KernelTestCase
         ($this->archive)(new ArchiveDocumentCommand($document, 'duplicate'));
 
         self::assertSame('superseded', $document->archiveReason);
+    }
+
+    public function test_a_reason_is_stored_trimmed(): void
+    {
+        $document = $this->document('archive-trim@example.com');
+
+        ($this->archive)(new ArchiveDocumentCommand($document, "  superseded by the v2 plan\n"));
+
+        self::assertSame('superseded by the v2 plan', $document->archiveReason);
+    }
+
+    /**
+     * A caller asked for a reason and answering with spaces is not the same as
+     * the app's button, which is never asked at all: the first is rejected, the
+     * second stores null.
+     */
+    public function test_a_blank_reason_is_rejected_and_the_document_stays_live(): void
+    {
+        $document = $this->document('archive-blank@example.com');
+
+        try {
+            ($this->archive)(new ArchiveDocumentCommand($document, '   '));
+            self::fail('a blank reason must be rejected');
+        } catch (DomainErrors $e) {
+            self::assertSame(['reason' => 'review.archive.error.reason_blank'], $e->errors);
+        }
+
+        self::assertNull($document->archivedAt);
+        self::assertNull($document->archiveReason);
     }
 
     /** A document back in the list must not still explain why it once left it. */
