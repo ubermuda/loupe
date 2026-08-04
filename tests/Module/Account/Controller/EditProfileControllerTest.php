@@ -85,6 +85,22 @@ final class EditProfileControllerTest extends WebTestCase
         self::assertSame('Original Name', $this->reload($user)->fullName);
     }
 
+    public function test_a_whitespace_only_name_is_rejected_and_nothing_is_written(): void
+    {
+        $user = $this->signedInUser('profile-space@e.com', 'Original Name');
+
+        $this->client->request(\Symfony\Component\HttpFoundation\Request::METHOD_GET, '/account/profile');
+        $this->client->submitForm('Save', [
+            'profile_form[fullName]' => '   ',
+        ]);
+
+        // TextType's `trim` option defaults to true, so the value is empty by the
+        // time NotBlank sees it. Asserted rather than assumed: without that
+        // default the handler would persist an empty display name.
+        self::assertResponseStatusCodeSame(422);
+        self::assertSame('Original Name', $this->reload($user)->fullName);
+    }
+
     public function test_a_signed_out_visitor_is_sent_to_the_login_page(): void
     {
         $this->client->request(\Symfony\Component\HttpFoundation\Request::METHOD_GET, '/account/profile');
