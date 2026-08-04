@@ -40,6 +40,16 @@ final readonly class CreateAdminUserHandler
     {
         $email = strtolower($command->email);
 
+        // Before the existing-user branch below, not after the create: this
+        // command is the documented repair for an instance whose /install is
+        // unreachable — which is every production one until INSTALL_TOKEN is
+        // set, since the guard fails closed. An operator re-running it to fix a
+        // missing agent row usually supplies an email that already exists, and
+        // that path returns early; installing only alongside a *new* admin would
+        // make the documented recovery unable to perform the repair it is for.
+        // Idempotent, so running it on every invocation costs nothing.
+        AgentAccountInstaller::install($this->em->getConnection());
+
         $existing = $this->users->findOneByEmail($email);
         if (null !== $existing) {
             return new CreateAdminUserResult(
@@ -64,13 +74,6 @@ final readonly class CreateAdminUserHandler
 
         $this->em->persist($user);
         $this->em->flush();
-
-        // This command is the documented way to create the first administrator
-        // when /install is unreachable — which is every production instance
-        // until INSTALL_TOKEN is set, since the guard fails closed. So it is a
-        // way an instance comes into being without the wizard ever running, and
-        // it needs the agent row for the same reason the wizard does.
-        AgentAccountInstaller::install($this->em->getConnection());
 
         $this->logger->info('account.admin.created_from_console', ['userId' => (string) $user->id]);
 
