@@ -3176,25 +3176,6 @@ cross-origin API surface, replace these ad-hoc subscribers with a single shared
 mechanism — either `nelmio/cors-bundle` or one app-wide CORS subscriber driven by
 a path/origin allowlist — so CORS policy lives in one place.
 
-## Port Turbo prefetch convention to the skeleton
-
-
-
-
-**Author:** Claude · **Type:** tooling · **Priority:** low · **Status:** pending
-
-Turbo 8 prefetches links on hover, which silently fires the GET behind any
-side-effecting link — we hit this with the `logout` link logging users out on
-hover. Fixed here by adding `data-turbo-prefetch="false"` to the logout link and
-documenting the convention in `.claude/skills/project-frontend/SKILL.md`
-("Disable prefetch on side-effecting GET links").
-
-The skeleton has **no logout link**, so there's nothing to fix literally — port
-the *convention* instead: copy the SKILL.md note into the skeleton's
-project-frontend skill so future consumers know to opt side-effecting GET links
-out of prefetch. Open a PR against the skeleton (`main`), then update
-`.skeleton.json`.
-
 ## Revisit: migrate API auth to Symfony's `access_token` authenticator
 
 
@@ -3912,3 +3893,17 @@ code under test rather than as a fixture that outgrew a column.
 worth grepping for. The fix is for the helpers to derive a short unique username
 instead of reusing the email, so a descriptive address stays free to be
 descriptive.
+
+## Bump `.skeleton.json` once the Turbo-prefetch PR merges
+
+**Author:** Claude · **Type:** tooling · **Priority:** low · **Status:** pending
+
+The convention itself is ported — `ubermuda/symfony-skeleton#98` adds the
+`data-turbo-prefetch="false"` note to that repo's `project-frontend` skill. What
+is left is the bookkeeping: `last_ported_commit` in `.skeleton.json` should move
+to the merge commit once it lands.
+
+Not done up front on purpose. That field records how far this project has
+absorbed the skeleton, so advancing it past an unmerged branch would claim a
+merge that has not happened and make the next `update-from-skeleton` run skip
+whatever else landed in between.
