@@ -2919,6 +2919,46 @@ Related: "A document's incoming references are stale in memory after a write"
 names exactly this change as what turns its latent bug into a real one. The
 two have to land together.
 
+## An MCP tool and the query it delegates to declare the same array shape twice
+
+**Author:** Claude · **Type:** tooling · **Priority:** medium · **Status:** pending
+
+`DocumentGetTool` is a thin wrapper over `App\Module\Review\Query\GetDocument`,
+and both carry a full `@return array{...}` describing the same payload. Adding a
+key to the query alone leaves the two disagreeing, and nothing in the tool says
+the shape is written down twice.
+
+Found on 2026-08-04 while adding `tags` and `referencedBy`: the query was updated
+and phpstan then reported four `offsetAccess.notFound` errors against the *tests*
+rather than against the tool, which reads as a broken test rather than a stale
+annotation. It is caught today only because the tests index every key.
+
+Two ways out, and the second is the general one. The tool could declare
+`@return` by referring to the query's type rather than restating it (a
+`@phpstan-type` alias on the query, imported with `@phpstan-import-type`), which
+is a local fix. Or a gamache PHPStan rule could assert that a tool whose body is
+a single delegation declares the same shape as what it delegates to — the same
+family as the existing name-agreement rules, and it would cover every future
+tool/query pair rather than this one.
+
+## `just phpunit` mangles a `--filter` containing an alternation
+
+**Author:** Claude · **Type:** tooling · **Priority:** low · **Status:** pending
+
+The recipe is `bin/worktrees/compose-exec.sh vendor/bin/phpunit {{args}}` with
+`{{args}}` unquoted, so a filter using PHPUnit's regex alternation is split by the
+shell: `just phpunit --filter A|B` pipes the phpunit run into a command named `B`
+and reports `sh: B: command not found`. Quoting at the call site does not help,
+because the recipe interpolates the value unquoted.
+
+The workaround is to bypass the recipe —
+`bin/worktrees/compose-exec.sh vendor/bin/phpunit '--filter=A|B'` — which is what
+every multi-class run in a session ends up doing once it hits this. Fixing it
+means quoting the interpolation in the recipe.
+
+Same shape as any other unquoted `{{args}}` in the justfile; worth checking the
+neighbours (`exec`, `composer`, `e2e`, `e2e-worker`) while in there.
+
 ## Rendered front matter and annotations have no accessible name
 
 
@@ -3799,3 +3839,22 @@ Nothing in the repository greps for the path, so renaming the file is safe;
 the only known citation is inside a Loupe implementation plan, which would
 need updating in the same pass. Low priority — it misleads a reader searching
 for "nine features" and nothing more.
+
+## Test helpers build a User from an email, and `username` is 30 characters
+
+**Author:** Claude · **Type:** tooling · **Priority:** low · **Status:** pending
+
+Several test fixtures do `new User(username: $email, ...)`, while
+`User::$username` maps to `#[ORM\Column(length: 30)]`. An address longer than
+that fails at flush with `SQLSTATE[22001]: value too long for type character
+varying(30)` — a Postgres error pointing at the persist call, naming neither the
+column nor the helper that chose the value.
+
+Hit on 2026-08-04 with `getdoc-incoming-samereq@example.com`, which is a perfectly
+ordinary descriptive test address. The failure reads as a schema problem in the
+code under test rather than as a fixture that outgrew a column.
+
+`DocumentGetToolTest` is one example and it is not the only one — the pattern is
+worth grepping for. The fix is for the helpers to derive a short unique username
+instead of reusing the email, so a descriptive address stays free to be
+descriptive.
