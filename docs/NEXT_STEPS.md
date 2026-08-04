@@ -250,8 +250,8 @@ connection stops the primary workflow, and it did so mid-task here.
 **The server side is healthy — do not start by debugging it.** Verified while
 the client was in the broken state: `bin/console debug:mcp` lists all seven
 tools; `var/log/dev.log` shows every tool registering on each handshake
-(`create_document`, `get_document`, `get_review`, `list_documents`,
-`revise_document`, `address_site_review_comments`, `get_site_review`); `POST
+(`document_create`, `document_get`, `document_get_review`, `document_list`,
+`document_revise`, `site_review_mark_comment_addressed`, `site_review_get`); `POST
 /mcp` answers 200; unauthenticated requests answer 401; and all app containers
 were up with the app serving normally.
 
@@ -804,7 +804,7 @@ often fail to match themselves.
 Accepted knowingly, because there is nowhere to read a better answer from — a
 `Document` has no locale, and neither does the project or the submitting agent.
 Closing this means deciding where a language comes from first. The options are a
-per-project setting, a per-document one set at `create_document` time, or
+per-project setting, a per-document one set at `document_create` time, or
 detection at ingest; only then does the column become
 `to_tsvector(<per-row regconfig>, …)`.
 
@@ -865,7 +865,7 @@ sees the row. The drain makes the same untimed call, though a slow hub there
 only stalls a worker rather than a visitor's request.
 
 Note that retrying is only safe because the nudge is payload-free: a duplicate
-publish is harmless, since a redundant pull via `get_site_review` just finds
+publish is harmless, since a redundant pull via `site_review_get` just finds
 nothing still `Pending`.
 
 ## Site-review bridge CLI (`cli/`): polish before shipping
@@ -904,7 +904,7 @@ work before it's a turnkey distributable:
 
 The approved design for the site-review screen shows agent ("Claude") replies indented under
 each comment with an "addressed" tag. `SiteReviewComment` has no reply/response
-field — the MCP `address_site_review_comments` tool only flips the status to `Addressed`, it
+field — the MCP `site_review_mark_comment_addressed` tool only flips the status to `Addressed`, it
 stores no reply text. So the site-review page renders no agent-reply block (there
 is nothing to show). When agent replies become a real requirement, add a reply/
 response field (or a related entity) to `SiteReviewComment`, have the addressing
@@ -1211,7 +1211,7 @@ once the human stops re-walking it.
 This is a second verb on a scenario alongside attaching a comment or bug (see
 'Agent-authored test scenarios delivered through the site-review widget'). It
 needs an outbound task channel the app does not have today: site-review work
-currently flows agent→app by the agent *polling* `get_site_review` over MCP,
+currently flows agent→app by the agent *polling* `site_review_get` over MCP,
 so decide whether promotion enqueues something the agent picks up on its next
 poll or requires a real push. The generated spec lands in `e2e/tests/` and must
 follow the `project-e2e` conventions; worth deciding whether the agent writes
@@ -1297,7 +1297,7 @@ needs either a related anchor entity or a JSON collection, plus a migration.
 Everything downstream reads those scalars and would follow: the widget's pin
 reconciliation is one pin per comment keyed by index (`renderPins` in
 `public/site-review/widget.js`), the site-review page renders one selector
-disclosure per comment, and the MCP `get_site_review` payload exposes
+disclosure per comment, and the MCP `site_review_get` payload exposes
 `selector`/`text` per comment — that last one is an agent-facing contract
 change, so version it deliberately.
 
@@ -1321,7 +1321,7 @@ That feedback goes through **its own pipeline and is never routed to the LLM**.
 
 **Make "never routed to the LLM" structural, not a filter.** The obvious
 shortcut is to reuse `SiteReviewComment` with an `isPublic` flag and exclude it
-in the agent-facing queries — do not. `GetSiteReviewTool` reads
+in the agent-facing queries — do not. `SiteReviewGetTool` reads
 `findPendingForProject`, and any future query, export or MCP tool that forgets
 the flag silently leaks public feedback into an agent's context, which is
 exactly the failure the owner is ruling out. Separate storage (its own entity,
@@ -1448,7 +1448,7 @@ work in its own right rather than a detail of this one:
    receiver is `/webhooks/stripe`. It is the right template if this is ever
    built — signature-verified over raw request bytes, outside `/api` on purpose
    — but it is billing-specific today.
-4. **Addressed comments become invisible to the agent.** `get_site_review`
+4. **Addressed comments become invisible to the agent.** `site_review_get`
    calls `findPendingForProject`, which filters on `status = Pending`. The
    moment the agent marks a comment addressed, its id is returned by no MCP
    tool, so "resolve the comments this PR closed" cannot enumerate them. Tracked
@@ -1523,7 +1523,7 @@ first real sentence, and can select and comment on them as if they were
 content.
 
 This surfaced on 2026-08-01 submitting blog drafts for review: the workaround
-was to strip the front matter by hand before calling `create_document`, which
+was to strip the front matter by hand before calling `document_create`, which
 means the reviewed document no longer matches the file on disk. That is the
 actual cost — a revision cannot be pasted straight back, and anything the
 reviewer might want to say about the tags or the publish date has nowhere to
@@ -1555,7 +1555,7 @@ ways — surface as a visible annotation, keep but hide, or strip on ingest —
 and prefer surfacing, since an author who wrote a comment into a document
 meant it for a reader.
 
-The two places this can live are `src/Module/Review/Mcp/CreateDocumentTool.php`
+The two places this can live are `src/Module/Review/Mcp/DocumentCreateTool.php`
 (ingest — where stripping or extraction would happen once, at submission) and
 `src/Module/Review/Service/MarkdownRenderer.php` (render — where it would
 happen on every view, and where the anchor offsets that comments depend on are
@@ -1583,13 +1583,13 @@ moment a title is wrong.
 
 1. Tags, many-to-many and free-form (recommended: cheapest to build, and
    already partly built — a project-scoped `Tag` entity exists, the documents
-   list filters on it, and `create_document` accepts tag names — so this option
+   list filters on it, and `document_create` accepts tag names — so this option
    is mostly a question of whether tags alone are enough).
 2. Categories or folders, one-to-many and hierarchical — better for a series,
    worse for documents that belong to several groupings at once.
 3. Both, as most document tools end up doing.
 
-Whichever is chosen, it needs to be settable from the MCP at `create_document`
+Whichever is chosen, it needs to be settable from the MCP at `document_create`
 time, not only in the UI — the agent submitting the batch is the one that knows
 how the documents relate, and asking a human to tag seventeen documents
 afterwards means it does not happen.
@@ -1616,7 +1616,7 @@ change and impossible if no agent session is open.
 The domain work is already done, which is what makes this worth scheduling: the
 command + handler pairs exist as `Module/Review/Command/CreateDocumentCommand`
 + `CreateDocumentHandler` and `ReviseDocumentCommand` + `ReviseDocumentHandler`.
-`Module/Review/Mcp/CreateDocumentTool` and `ReviseDocumentTool` are thin
+`Module/Review/Mcp/DocumentCreateTool` and `DocumentReviseTool` are thin
 wrappers over them. What is missing is only a form, a controller and a template.
 
 **Go through `ReviseDocumentHandler`, do not write a second revision path.**
@@ -1721,28 +1721,6 @@ Gamache is an external package, so this is a pull request on
 https://github.com/ubermuda/gamache, not a class added under `src/`. Consider
 covering the paired test class in the same rule (`DocumentCreateToolTest`),
 since that half drifts just as easily.
-
-## The tracker's own prose names MCP tools and classes that no longer exist
-
-
-**Author:** Claude · **Type:** docs · **Priority:** medium · **Status:** pending
-
-Every MCP tool was renamed with a feature prefix (`create_document` →
-`document_create`, `get_review` → `document_get_review`, `get_site_review` →
-`site_review_get`, and so on; the full mapping is in the `CHANGELOG.md` entry
-for the `feat/mcp-scoped-authz` branch), and each tool class was renamed to
-match its tool name (`CreateDocumentTool` → `DocumentCreateTool`,
-`GetSiteReviewTool` → `SiteReviewGetTool`, …). Roughly 25 tool-name references
-and 8 class-name references in this file still use the old spellings, so a
-reader looking one up finds an identifier that exists neither on the server nor
-on disk.
-
-The renaming branch deliberately left them: this file is the one guaranteed
-merge-conflict surface when several branches are in flight, and rewriting 25
-lines across it would have collided with every sibling. The fix is a docs-only
-commit straight to `main` once the current wave has merged.
-
-No stale name is a heading any more, so this is a body-text pass only.
 
 ## Two patterns now exist for fieldless POST actions — converge them
 
@@ -2452,7 +2430,7 @@ question outlives the token question and should be answered on its own.
 
 **Author:** Claude · **Type:** security · **Priority:** medium · **Status:** pending
 
-`AddressSiteReviewCommentsTool`'s class docblock says "The agent's only write:
+`SiteReviewMarkCommentAddressedTool`'s class docblock says "The agent's only write:
 Pending → Addressed. Resolved is reserved for the human in the web UI and is
 unreachable from MCP by design." The property holds today, but not for the
 reason a reader would infer, and the gap matters the next time someone adds a
@@ -2540,9 +2518,9 @@ Worth deciding before something writes state that cannot be attributed afterward
 
 **Author:** Claude · **Type:** bug · **Priority:** medium · **Status:** pending
 
-`GetSiteReviewTool` calls `SiteReviewCommentRepository::findPendingForProject`,
+`SiteReviewGetTool` calls `SiteReviewCommentRepository::findPendingForProject`,
 which filters on `status = Pending`. So the moment an agent marks a comment
-addressed through `address_site_review_comments`, that comment's id is returned
+addressed through `site_review_mark_comment_addressed`, that comment's id is returned
 by no MCP tool at all.
 
 The agent therefore cannot re-read what it addressed, report on it, or act on it
@@ -2552,7 +2530,7 @@ the parked PR-driven half of 'Let the agent close the loop when a human approves
 the work'.
 
 The fix is a read path that can return non-pending comments — either a status
-filter parameter on `get_site_review` or a companion tool. Note the document
+filter parameter on `site_review_get` or a companion tool. Note the document
 side does not have this problem: `GetReview` uses `findByVersion`, which returns
 every comment regardless of state.
 
@@ -3284,7 +3262,7 @@ the MCP agent pushes a snapshot?), review unit (file? module? architectural
 concern?), how comments anchor to code that keeps moving (the re-anchoring
 machinery exists for markdown documents and may generalize), reviewer UX for
 navigating a tree vs a linear doc, and how findings feed back (tracker
-entries? MCP tool the agent polls, like get_review?).
+entries? MCP tool the agent polls, like document_get_review?).
 
 ## Deduplicate the waitlist idioms (convert + invite-validation)
 
@@ -3416,7 +3394,7 @@ all beyond container build.
 **Author:** Claude · **Type:** bug · **Priority:** low · **Status:** pending
 
 PR #79 paginated the projects list and the per-project documents list. The MCP
-`list_documents` tool (`Mcp/ListDocumentsTool`) has since gained its own
+`document_list` tool (`Mcp/DocumentListTool`) has since gained its own
 pagination too (`page`/`perPage`/`hasMore`, backed by
 `DocumentRepository::findPaginatedByProject`), and the site-review page moved
 to a flat per-project comment list (`SiteReviewCommentRepository::findForProject`),
