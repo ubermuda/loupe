@@ -3618,6 +3618,36 @@ records the owner for everything an agent did.
 Related: "Agent-written comments have no per-agent provenance" is the same
 underlying gap on the comment side. Settle the actor model once, for both.
 
+## `document_get` never reports a document's incoming references
+
+**Author:** Claude · **Type:** feature · **Priority:** medium · **Status:** pending
+
+`document_get` returns the documents a document points at, and not the ones
+pointing at it. The web UI renders both — `show_document.html.twig` builds an
+"incoming" list from `Document::$referencedBy` — so a human browsing sees a
+two-way link where an agent sees a one-way one.
+
+That asymmetry defeats the purpose of a reference for the reader the MCP
+exists to serve. The motivating case is an audit answered by a plan written
+later: the audit cannot mention the plan, because the plan did not exist yet,
+and the entire value of the link is that an agent opening the audit discovers
+it. Today it does not, unless the edge was also written from the audit's side.
+
+The practical cost is that linking N documents takes 2N writes instead of N,
+and each pair is then maintained in two places — so a set that is correct on
+one side and stale on the other becomes representable, which it would not be
+if the inverse were derived.
+
+The fix is to include the inverse collection in the payload, kept
+distinguishable from the outgoing one rather than merged into a single list.
+One caveat when doing it: `document_set_references` echoes references in input
+order while `Document::$references` carries an `OrderBy` on creation, so the
+two orderings can already disagree.
+
+Related: "A document's incoming references are stale in memory after a write"
+names exactly this change as what turns its latent bug into a real one. The
+two have to land together.
+
 ## `comments.anchor_offset_hint` changed units with no backfill
 
 **Author:** Claude · **Type:** bug · **Priority:** low · **Status:** pending
