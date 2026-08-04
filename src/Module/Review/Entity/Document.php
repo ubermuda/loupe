@@ -9,6 +9,7 @@ use App\Module\Project\Entity\Project;
 use App\Module\Review\Repository\DocumentRepository;
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
+use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
 use MartinGeorgiev\Doctrine\DBAL\Type as PostgresType;
 use Symfony\Bridge\Doctrine\Types\UuidType;
@@ -45,6 +46,15 @@ class Document
      */
     #[ORM\Column(nullable: true)]
     public ?\DateTimeImmutable $archivedAt = null;
+
+    /**
+     * Why the document was archived, when whoever archived it said so. Only the
+     * MCP tool requires a reason; archiving from the app never sets one, so null
+     * is the ordinary case rather than missing data. Cleared on restore, so a
+     * live document never carries the reason it was once put away for.
+     */
+    #[ORM\Column(type: Types::TEXT, nullable: true)]
+    public ?string $archiveReason = null;
 
     /**
      * Title and current-version markdown, stemmed and weighted, as one searchable

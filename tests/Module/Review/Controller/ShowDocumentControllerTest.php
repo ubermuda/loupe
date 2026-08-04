@@ -636,6 +636,7 @@ final class ShowDocumentControllerTest extends WebTestCase
         // Archiving takes a document out of the list, not out of the documents
         // that point at it — the link stays, and says the target is archived.
         $target->archivedAt = new \DateTimeImmutable();
+        $target->archiveReason = 'superseded by the v2 plan';
         $em->persist($target);
 
         $source = new Document(owner: $owner, project: $project, title: 'The Companion Thread');
@@ -655,6 +656,7 @@ final class ShowDocumentControllerTest extends WebTestCase
         self::assertResponseIsSuccessful();
         self::assertSelectorTextContains('.lp-doc-references', 'The Retired Spec');
         self::assertCount(1, $crawler->filter('.lp-doc-references__archived'));
+        self::assertSelectorTextContains('.lp-doc-references__archive-reason', 'superseded by the v2 plan');
         self::assertCount(
             1,
             $crawler->filter('.lp-doc-references__link[href="/projects/'.$projectId.'/documents/'.$targetId.'/review"]'),
@@ -665,6 +667,44 @@ final class ShowDocumentControllerTest extends WebTestCase
         self::assertResponseIsSuccessful();
         self::assertSelectorTextContains('.lp-doc-references', 'The Companion Thread');
         self::assertCount(0, $crawler->filter('.lp-doc-references__archived'));
+    }
+
+    /**
+     * A reference archived from the app carries no reason, which is the ordinary
+     * case: the Archived chip still shows, and nothing stands in for the reason
+     * that was never asked for.
+     */
+    public function test_an_archived_reference_with_no_reason_renders_the_chip_alone(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+
+        $owner = $this->createUser($em, 'owner-ref-noreason', 'owner-ref-noreason@example.com');
+        $project = $this->project($em, $owner);
+
+        $target = new Document(owner: $owner, project: $project, title: 'Quietly Retired');
+        $target->addVersion('# Spec', '<h1>Spec</h1>');
+        $target->archivedAt = new \DateTimeImmutable();
+        $em->persist($target);
+
+        $source = new Document(owner: $owner, project: $project, title: 'The Companion Thread');
+        $source->addVersion('# Thread', '<h1>Thread</h1>');
+        $source->references->add($target);
+        $em->persist($source);
+        $em->flush();
+
+        $projectId = (string) $project->id;
+        $sourceId = (string) $source->id;
+        $em->clear();
+
+        $client->loginUser($owner);
+
+        $crawler = $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/documents/'.$sourceId.'/review');
+        self::assertResponseIsSuccessful();
+        // The chip proves the reference rendered, so the missing reason below is
+        // the template's choice rather than an empty page.
+        self::assertCount(1, $crawler->filter('.lp-doc-references__archived'));
+        self::assertCount(0, $crawler->filter('.lp-doc-references__archive-reason'));
     }
 
     /**

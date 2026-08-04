@@ -815,6 +815,12 @@
     .lp-document-row__archived {
         @apply inline-flex items-center shrink-0 font-mono rounded-full text-fg-dim text-xs py-px px-2 border border-line;
     }
+    /* Free text an agent wrote, so it is clamped rather than trusted to be
+       short: two lines keep a long reason from stretching the row past its
+       neighbours. Only archived rows can carry one. */
+    .lp-document-row__archive-reason {
+        @apply m-0 text-xs text-fg-dim line-clamp-2;
+    }
     /* Rename and archive sit above the full-row overlay link (z-10) so they stay
        clickable rather than the row's review link swallowing the click. */
     .lp-document-row__actions {
@@ -1168,6 +1174,12 @@
        rather than dimming or dropping the row. */
     .lp-doc-references__archived {
         @apply inline-flex items-center rounded-full bg-surface-2 text-fg-dim text-xs py-0.5 px-2;
+    }
+    /* Sits next to the Archived chip, not inside it: the chip is the state and
+       this is the sentence explaining it. Clamped for the same reason the list
+       row's is — the text comes from an agent, not from the app. */
+    .lp-doc-references__archive-reason {
+        @apply text-xs text-fg-dim line-clamp-2;
     }
 
     /* Shown above an earlier version of a document, which is read-only: the

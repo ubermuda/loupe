@@ -99,4 +99,56 @@ final class ArchiveDocumentHandlerTest extends KernelTestCase
 
         self::assertSame($first, $document->archivedAt);
     }
+
+    public function test_a_reason_is_stored_and_survives_a_round_trip_through_the_database(): void
+    {
+        $document = $this->document('archive-reason@example.com');
+        $documentId = $document->id;
+        self::assertInstanceOf(Uuid::class, $documentId);
+
+        ($this->archive)(new ArchiveDocumentCommand($document, 'superseded by the v2 plan'));
+
+        $this->em->clear();
+        $archived = $this->em->find(Document::class, $documentId);
+        self::assertInstanceOf(Document::class, $archived);
+        self::assertSame('superseded by the v2 plan', $archived->archiveReason);
+    }
+
+    /** Archiving from the app passes no reason, and that is the ordinary case rather than missing data. */
+    public function test_archiving_without_a_reason_leaves_it_null(): void
+    {
+        $document = $this->document('archive-no-reason@example.com');
+
+        ($this->archive)(new ArchiveDocumentCommand($document));
+
+        self::assertNotNull($document->archivedAt);
+        self::assertNull($document->archiveReason);
+    }
+
+    public function test_archiving_twice_keeps_the_first_reason(): void
+    {
+        $document = $this->document('archive-2x-reason@example.com');
+
+        ($this->archive)(new ArchiveDocumentCommand($document, 'superseded'));
+        ($this->archive)(new ArchiveDocumentCommand($document, 'duplicate'));
+
+        self::assertSame('superseded', $document->archiveReason);
+    }
+
+    /** A document back in the list must not still explain why it once left it. */
+    public function test_unarchiving_clears_the_reason(): void
+    {
+        $document = $this->document('unarchive-reason@example.com');
+        $documentId = $document->id;
+        self::assertInstanceOf(Uuid::class, $documentId);
+
+        ($this->archive)(new ArchiveDocumentCommand($document, 'superseded by the v2 plan'));
+        ($this->unarchive)(new UnarchiveDocumentCommand($document));
+
+        $this->em->clear();
+        $restored = $this->em->find(Document::class, $documentId);
+        self::assertInstanceOf(Document::class, $restored);
+        self::assertNull($restored->archivedAt);
+        self::assertNull($restored->archiveReason);
+    }
 }

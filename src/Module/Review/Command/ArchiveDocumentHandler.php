@@ -20,13 +20,16 @@ final readonly class ArchiveDocumentHandler
     {
         $document = $command->document;
 
-        // Archiving an already-archived document keeps the original timestamp:
-        // it records when the document left the list, and nothing happened here.
+        // Archiving an already-archived document keeps the original timestamp
+        // and the original reason: they record when and why the document left
+        // the list, and nothing happened here. Restating a reason therefore
+        // means restoring the document and archiving it again.
         // The read and the write are not locked together, so two simultaneous
         // archives can both pass this check — the whole consequence is a stamp
         // differing by milliseconds, which is not worth serializing for.
         if (null === $document->archivedAt) {
             $document->archivedAt = new \DateTimeImmutable();
+            $document->archiveReason = $command->reason;
             $this->em->flush();
 
             $this->logger->info('review.document.archived', [

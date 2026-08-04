@@ -8,6 +8,8 @@ use App\Controller\AppController;
 use App\Module\Account\Entity\User;
 use App\Module\Project\Entity\Project;
 use App\Module\Project\Repository\ProjectRepository;
+use App\Module\Review\Command\ArchiveDocumentCommand;
+use App\Module\Review\Command\ArchiveDocumentHandler;
 use App\Module\Review\Command\CreateDocumentCommand;
 use App\Module\Review\Command\CreateDocumentHandler;
 use Doctrine\ORM\EntityManagerInterface;
@@ -30,6 +32,7 @@ final class SeedDocumentController extends AppController
 {
     public function __construct(
         private readonly CreateDocumentHandler $createDocument,
+        private readonly ArchiveDocumentHandler $archiveDocument,
         private readonly ProjectRepository $projects,
         private readonly EntityManagerInterface $em,
     ) {
@@ -53,6 +56,15 @@ final class SeedDocumentController extends AppController
         }
 
         $document = ($this->createDocument)(new CreateDocumentCommand(project: $project, title: $title, markdown: $markdown));
+
+        // A reason can only be set through MCP, which a browser test has no way
+        // to call, so the seed archives with one on request. This is a test
+        // fixture, not a second way to state a reason: the app itself still
+        // offers no field for it.
+        $archiveReason = $request->request->getString('archiveReason');
+        if ('' !== $archiveReason) {
+            ($this->archiveDocument)(new ArchiveDocumentCommand($document, $archiveReason));
+        }
 
         return $this->json([
             'documentId' => (string) $document->id,

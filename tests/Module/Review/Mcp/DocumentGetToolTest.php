@@ -69,6 +69,9 @@ final class DocumentGetToolTest extends KernelTestCase
         self::assertSame('Readable', $result['title']);
         self::assertSame('# Hello', $result['markdown']);
         self::assertFalse($result['archived']);
+        // Present and null rather than absent: a caller reading a key that comes
+        // and goes cannot tell "no reason" from "no such field".
+        self::assertNull($result['archiveReason']);
         self::assertNull($result['versionDescription']);
         self::assertSame([], $result['references']);
     }
@@ -103,9 +106,9 @@ final class DocumentGetToolTest extends KernelTestCase
 
     /**
      * An agent that fetches one document can otherwise not tell it was archived,
-     * nor read back the description it wrote with the revision.
+     * why, nor read back the description it wrote with the revision.
      */
-    public function test_reports_archive_state_and_the_current_versions_description(): void
+    public function test_reports_archive_state_and_reason_and_the_current_versions_description(): void
     {
         $owner = $this->user('getdoc-meta@example.com');
         $project = new Project($owner, 'p-'.uniqid());
@@ -115,6 +118,7 @@ final class DocumentGetToolTest extends KernelTestCase
         $document->addVersion('# v1', '<h1>v1</h1>', 'The original brief.');
         $document->addVersion('# v2', '<h1>v2</h1>', 'Replaced the rollout section.');
         $document->archivedAt = new \DateTimeImmutable();
+        $document->archiveReason = 'superseded by the v2 plan';
         $this->em->persist($document);
         $this->em->flush();
 
@@ -123,8 +127,29 @@ final class DocumentGetToolTest extends KernelTestCase
         $result = ($this->tool)((string) $document->id);
 
         self::assertTrue($result['archived']);
+        self::assertSame('superseded by the v2 plan', $result['archiveReason']);
         self::assertSame(2, $result['version']);
         self::assertSame('Replaced the rollout section.', $result['versionDescription']);
+    }
+
+    /**
+     * Archiving from the app states no reason, so an archived document with a
+     * null one is ordinary — the state and the explanation are reported
+     * independently.
+     */
+    public function test_an_archived_document_with_no_reason_reports_a_null_one(): void
+    {
+        $owner = $this->user('getdoc-no-reason@example.com');
+        $document = $this->documentInNewProject($owner, 'Archived from the app');
+        $document->archivedAt = new \DateTimeImmutable();
+        $this->em->flush();
+
+        $this->actAsMcpTokenBoundTo($document->project);
+
+        $result = ($this->tool)((string) $document->id);
+
+        self::assertTrue($result['archived']);
+        self::assertNull($result['archiveReason']);
     }
 
     public function test_cannot_read_a_document_of_another_project_of_the_same_owner(): void

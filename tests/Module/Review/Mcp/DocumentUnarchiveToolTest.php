@@ -52,6 +52,7 @@ final class DocumentUnarchiveToolTest extends KernelTestCase
 
         if ($archived) {
             $document->archivedAt = new \DateTimeImmutable('2026-08-01 09:00:00');
+            $document->archiveReason = 'superseded by the v2 plan';
         }
 
         $this->em->persist($document);
@@ -71,6 +72,9 @@ final class DocumentUnarchiveToolTest extends KernelTestCase
 
         self::assertSame(['documentId' => (string) $document->id, 'archived' => false], $result);
         self::assertNull($document->archivedAt);
+        // Restoring takes the reason with it, so the document is not back in the
+        // list still explaining why it left.
+        self::assertNull($document->archiveReason);
         self::assertCount(1, $document->versions);
     }
 
