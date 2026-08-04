@@ -1066,50 +1066,44 @@ multi-round spec reviews much cheaper. Section identity comes from headings, so
 `App\Module\Review\Service\HeadingExtractor` is the existing source of it; also
 interacts with comment re-anchoring.
 
-## Decide fate of PlaywrightSyncEmailMiddleware — it would remove the worktree e2e worker entirely
+## Make messenger synchronous under Playwright so e2e needs no consumer
 
+**Author:** Geoffrey · **Type:** tooling · **Priority:** medium · **Status:** pending
 
-**Author:** Claude · **Type:** tooling · **Priority:** medium · **Status:** pending
+Owner decision (2026-08-04): e2e should not need a messenger consumer at all.
+This supersedes the earlier "wire it or delete it" question about
+`PlaywrightSyncEmailMiddleware` — the answer is wire it, and wider than mail.
 
-`src/Messenger/Middleware/PlaywrightSyncEmailMiddleware.php` is unregistered and its
-target `sync` transport is commented out in `config/packages/messenger.yaml` (line 13);
-`playwright.config.ts` still sends the `X-Playwright` header solely for it. Verified still
-dormant on 2026-08-04. **Decision needed:**
+An attempt on 2026-08-04 got most of the way and is worth reading before the
+next one starts, because the remaining gap is specific rather than general.
 
-1. Wire it properly — register the middleware and uncomment the `sync` transport — so
-   Playwright-headed requests deliver mail synchronously (recommended: it removes the
-   worktree-consumer requirement for mail-asserting e2e specs, which is what the rest of
-   this entry is about).
-2. Delete the class and the header, and keep the consumer requirement.
+What worked: a bus middleware that stamps `TransportNamesStamp(['sync'])` on any
+envelope dispatched during a request carrying `X-Playwright`, with the `sync`
+transport uncommented in `config/packages/messenger.yaml`. Registered under
+`framework.messenger.buses.messenger.bus.default.middleware`. With no consumer
+running at all, the whole authentication-shaped block passes — signup, login,
+email verification, forgot-password, waitlist, the first-run wizard — which is
+the ~19-spec failure mode that made a forgotten worker so expensive.
 
-Deciding beats letting it rot, and the two problems below are the forcing function: both
-disappear under option 1.
+What did not: the data-export chain. `GenerateDataExportMessage` is handled
+inline, but the email `ProcessDataExportHandler` sends from inside that handler
+still lands on `async` and sits there. One `SendEmailMessage` row remains queued
+after the spec runs. The likely cause is that the nested dispatch happens where
+`RequestStack::getCurrentRequest()` no longer returns the request, so the
+middleware's guard skips it — worth confirming before designing around it, since
+if that is right the fix is to capture the flag once per request rather than
+re-read the stack per dispatch.
 
-**A worktree e2e run needs its own consumer, and forgetting it fails ~19 specs at once.**
-The suite's authenticated fixture registers a user and verifies it through the emailed
-link, so with nothing consuming `async` the failures are not confined to obviously
-mail-shaped specs — login, signup, delete-account, forgot-password, the first-run wizard,
-admin smoke, paywall and delete-project all go down together, with the app returning 200
-and `just ci` green. The manual procedure is documented in the `project-worktrees` skill;
-what remains open is the automation — a `just e2e` pre-hook or `just e2e-worktree` recipe
-owning the worker lifecycle (see `docs/AUTOMATIONS.md`).
+Two traps found while testing this, both of which cost a full suite run:
 
-**That consumer then OOMs instead of recycling.** The documented command carries no
-limits, unlike the shared `worker` compose service which runs the same transports with
-`--time-limit=3600 --memory-limit=128M`. Running in the **dev** environment, Doctrine's
-`BacktraceDebugDataHolder` accumulates a backtrace per query for the lifetime of the
-process, so a long-lived consumer climbs until PHP's 128M limit and dies with a fatal
-`Allowed memory size of 134217728 bytes exhausted` (observed 2026-07-28 after roughly an
-hour and several full e2e runs). The failure is silent and its symptom misleading: nothing
-consuming `async` means no mail, and mail-asserting specs then fail on
-`getEmailWithSubject` timeouts that look like application or Mailpit problems. A full suite
-that started green can fail later in the same session for no reason visible in the diff.
-
-If option 2 wins, the fix is to document and use the limits the compose service already
-applies — with the messenger memory limit set *below* PHP's, e.g.
-`--time-limit=3600 --memory-limit=100M`, so the worker stops gracefully between messages
-instead of dying inside one — and to decide whether the skill should simply tell you to
-restart it, since even a graceful exit leaves nothing consuming.
+- Verifying the middleware is wired by grepping the compiled container gives a
+  false negative against a stale `var/cache/dev`. It showed only in
+  `removed-ids.php` until the cache was rebuilt, which reads exactly like a
+  config that never took effect.
+- `just e2e-up` migrates `app_e2e` but never rolls it back, so a database
+  migrated by one branch is ahead of another branch's code and the suite fails
+  with SQL errors that look like application bugs. Drop the database and re-run
+  `just e2e-up` when switching between branches whose schemas differ.
 
 ## Fuller billing section in account settings (manage sub in-app)
 
