@@ -24,7 +24,7 @@ final readonly class DocumentGetTool
     /**
      * @param string $documentId The UUID of the document to retrieve
      *
-     * @return array{documentId: string, title: string, status: string, archived: bool, archiveReason: ?string, version: int, versionDescription: ?string, markdown: string, references: list<array{documentId: string, title: string, archived: bool}>}
+     * @return array{documentId: string, title: string, status: string, archived: bool, archiveReason: ?string, version: int, versionDescription: ?string, markdown: string, tags: list<string>, references: list<array{documentId: string, title: string, archived: bool}>, referencedBy: list<array{documentId: string, title: string, archived: bool}>}
      */
     public function __invoke(string $documentId): array
     {
