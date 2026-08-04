@@ -999,7 +999,7 @@
           : `Show ${n} comments`;
       $('lp-clear-confirm-text').textContent =
         n === 1 ? 'Remove this comment?' : `Remove all ${n} comments?`;
-      sendBtn.disabled = state.sending || state.saving || n === 0;
+      sendBtn.disabled = state.sending || state.saving || state.deleting || n === 0;
       sendBtn.innerHTML = state.sending
         ? `<span class="lp-spin"></span>Sending…`
         : `${ICON.send(14)}Send`;
@@ -1243,6 +1243,7 @@
     if (!target) return;
     if (state.deleting) return;
     state.deleting = true;
+    sync(); // paint the disabled Send now, or the click below is silently dropped
     try {
       await ready; // don't let the boot refresh clobber an early delete
       await api('DELETE', `/api/site-review/comments/${target.id}`);
@@ -1437,8 +1438,9 @@
 
   // ---- send ----
   const send = async () => {
-    // state.deleting too: a delete in flight has already spliced nothing yet,
-    // so submitting now would send a review still containing that comment.
+    // state.deleting is the backstop for a click that lands before the disable
+    // paints: the delete has not spliced yet, so submitting now would send a
+    // review still containing the comment being removed.
     if (!pending.length || state.sending || state.saving || state.deleting) return;
     state.sending = true;
     state.sendError = null;
