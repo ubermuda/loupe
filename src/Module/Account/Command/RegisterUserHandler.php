@@ -69,9 +69,6 @@ final readonly class RegisterUserHandler
                     throw new DomainErrors($errors);
                 }
 
-                // No display name: registration does not ask for one and
-                // nothing derives one from the address. Set later on
-                // /account/profile, or left absent.
                 $user = new User(
                     fullName: null,
                     email: $command->email,

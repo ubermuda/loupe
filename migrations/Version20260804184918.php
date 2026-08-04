@@ -33,16 +33,23 @@ final class Version20260804184918 extends AbstractMigration
         // rollback can only restore the shape. Existing rows are backfilled
         // from the email local part, uniquified by row number where two
         // addresses share one, because the column is UNIQUE and NOT NULL.
+        // Only the shape comes back, not the old application invariant:
+        // `foo.bar@x.com` yields `foo.bar`, which the `^[a-z][a-z0-9_-]*$`
+        // rule the application (never the DB) enforced would have rejected.
+        //
+        // Partition and truncate on the same 30-char base, and reserve room
+        // for the suffix inside it — numbering the full local part instead
+        // lets two addresses that differ only past character 30 collide.
         $this->addSql('ALTER TABLE users ADD COLUMN username VARCHAR(30)');
         $this->addSql(<<<'SQL'
             UPDATE users SET username = sub.candidate FROM (
-                SELECT id, LEFT(
-                    split_part(email, '@', 1) || CASE WHEN rn = 1 THEN '' ELSE rn::text END,
-                    30
-                ) AS candidate
+                SELECT id, CASE
+                    WHEN rn = 1 THEN base
+                    ELSE LEFT(base, 30 - length(rn::text)) || rn::text
+                END AS candidate
                 FROM (
-                    SELECT id, email, ROW_NUMBER() OVER (
-                        PARTITION BY split_part(email, '@', 1) ORDER BY created_at, id
+                    SELECT id, LEFT(split_part(email, '@', 1), 30) AS base, ROW_NUMBER() OVER (
+                        PARTITION BY LEFT(split_part(email, '@', 1), 30) ORDER BY created_at, id
                     ) AS rn
                     FROM users
                 ) numbered

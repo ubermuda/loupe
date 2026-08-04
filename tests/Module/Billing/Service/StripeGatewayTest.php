@@ -109,6 +109,21 @@ final class StripeGatewayTest extends TestCase
         self::assertArrayHasKey('app_user_id', $request['params']['metadata']);
     }
 
+    public function test_customer_creation_sends_no_name_for_an_account_without_one(): void
+    {
+        $gateway = $this->gateway(['id' => 'cus_43', 'object' => 'customer']);
+
+        $gateway->createCustomer(new User(
+            fullName: null,
+            email: 'noname@example.com',
+            password: 'irrelevant',
+        ));
+
+        $request = $this->http->requests[0];
+        self::assertSame('noname@example.com', $request['params']['email']);
+        self::assertArrayNotHasKey('name', $request['params']);
+    }
+
     public function test_price_retrieve_maps_a_recurring_price(): void
     {
         $gateway = $this->gateway([

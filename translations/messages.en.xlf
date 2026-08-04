@@ -198,22 +198,6 @@
                 <source>account.registration.subheading</source>
                 <target>Get started for free. No credit card required.</target>
             </trans-unit>
-            <trans-unit id="account.form.registration_form.full_name.label">
-                <source>account.form.registration_form.full_name.label</source>
-                <target>Full name</target>
-            </trans-unit>
-            <trans-unit id="account.form.registration_form.full_name.placeholder">
-                <source>account.form.registration_form.full_name.placeholder</source>
-                <target>Your full name</target>
-            </trans-unit>
-            <trans-unit id="account.form.registration_form.username.label">
-                <source>account.form.registration_form.username.label</source>
-                <target>Username</target>
-            </trans-unit>
-            <trans-unit id="account.form.registration_form.username.placeholder">
-                <source>account.form.registration_form.username.placeholder</source>
-                <target>rileychen</target>
-            </trans-unit>
             <trans-unit id="account.form.registration_form.email.label">
                 <source>account.form.registration_form.email.label</source>
                 <target>Email</target>
@@ -311,10 +295,6 @@
             <trans-unit id="account.registration.error.email_duplicate">
                 <source>account.registration.error.email_duplicate</source>
                 <target>There is already an account with this email.</target>
-            </trans-unit>
-            <trans-unit id="account.registration.error.username_taken">
-                <source>account.registration.error.username_taken</source>
-                <target>This username is already taken.</target>
             </trans-unit>
             <trans-unit id="account.registration.error.throttled">
                 <source>account.registration.error.throttled</source>
@@ -1870,14 +1850,6 @@
                 <source>account.install.admin.submit</source>
                 <target>Create admin account</target>
             </trans-unit>
-            <trans-unit id="account.form.install_admin_form.full_name.label">
-                <source>account.form.install_admin_form.full_name.label</source>
-                <target>Full name</target>
-            </trans-unit>
-            <trans-unit id="account.form.install_admin_form.username.label">
-                <source>account.form.install_admin_form.username.label</source>
-                <target>Username</target>
-            </trans-unit>
             <trans-unit id="account.form.install_admin_form.email.label">
                 <source>account.form.install_admin_form.email.label</source>
                 <target>Email address</target>
@@ -1911,10 +1883,6 @@
             <trans-unit id="account.console.error.user_not_found">
                 <source>account.console.error.user_not_found</source>
                 <target>No account exists with that email address.</target>
-            </trans-unit>
-            <trans-unit id="account.console.error.username_taken">
-                <source>account.console.error.username_taken</source>
-                <target>That username is already taken.</target>
             </trans-unit>
 
             <!-- System status (install wizard step and admin page) -->

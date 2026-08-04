@@ -64,7 +64,7 @@ final class RegistrationControllerTest extends WebTestCase
         ]);
         $this->assertResponseRedirects('/register/check-email');
 
-        // Try again with the same email but a different username
+        // Submit the same email a second time
         $client->request(\Symfony\Component\HttpFoundation\Request::METHOD_GET, '/register');
         $client->submitForm('Create account', [
             'registration_form[email]' => 'duplicate@example.com',

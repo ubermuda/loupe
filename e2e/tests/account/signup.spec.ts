@@ -15,7 +15,7 @@ test('renders signup form', async ({ page }) => {
 
 test('shows validation errors on empty submit', async ({ page }) => {
     await page.goto('/register');
-    // Submit with only email filled (fullName and password empty)
+    // Submit with only the email filled — password and the terms box empty.
     await page.getByLabel('Email').fill('incomplete@example.com');
     await page.getByRole('button', { name: 'Create account' }).click();
 

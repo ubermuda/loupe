@@ -59,13 +59,10 @@ async function openDocumentList(page: Page, tag: string): Promise<string> {
     await suppressWidget(page);
 
     const email = `e2e+docsearch+${tag}+${RUN}@example.com`;
-    // User.username is length: 30, and a 13-digit run stamp leaves little room —
-    // a longer prefix here fails registration with a 500, not a clear error.
-    const username = `e2eds${tag}${RUN}`;
     const password = 'E2eDocumentSearch1!';
 
     const registered = await page.request.post('/dev/register-and-verify', {
-        form: { username, fullName: 'E2E Searcher', email, password },
+        form: { fullName: 'E2E Searcher', email, password },
     });
     expect(registered.status()).toBe(200);
 

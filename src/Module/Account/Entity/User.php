@@ -127,14 +127,9 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface, AdminPr
     }
 
     /**
-     * What to show wherever a person is named — the review byline, a comment
-     * author, an avatar initial.
-     *
-     * Falls back to the email because there is nothing else true to show: the
-     * name is optional and never invented, so an account that has not set one
-     * has only its address. Deliberately one method rather than a `?? $email`
-     * at each call site, so changing the fallback — to the local part, to
-     * "Anonymous" — is one edit and cannot be done inconsistently.
+     * The name is optional, so the email is the only other true thing to show.
+     * Read it through here rather than `?? $email` at each call site, so the
+     * fallback stays consistent and changing it is one edit.
      */
     public function displayName(): string
     {

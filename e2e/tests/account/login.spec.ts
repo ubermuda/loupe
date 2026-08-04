@@ -19,15 +19,9 @@ async function createVerifiedUser(
     page: Page,
     request: APIRequestContext,
     email: string,
-    username: string,
     password: string,
 ): Promise<void> {
-    await registerAndVerify(page, request, {
-        email,
-        username,
-        password,
-        name: 'Login Test',
-    });
+    await registerAndVerify(page, request, { email, password });
 }
 
 test('valid credentials log in and redirect to home', async ({
@@ -35,13 +29,7 @@ test('valid credentials log in and redirect to home', async ({
     request,
 }) => {
     const email = `test+login+${RUN}@example.com`;
-    await createVerifiedUser(
-        page,
-        request,
-        email,
-        `loginuser${RUN}`,
-        'SecurePassword1!',
-    );
+    await createVerifiedUser(page, request, email, 'SecurePassword1!');
 
     await logout(page);
     await page.goto('/login');
@@ -54,13 +42,7 @@ test('valid credentials log in and redirect to home', async ({
 
 test('wrong password shows auth-error', async ({ page, request }) => {
     const email = `test+badpw+${RUN}@example.com`;
-    await createVerifiedUser(
-        page,
-        request,
-        email,
-        `badpwuser${RUN}`,
-        'SecurePassword1!',
-    );
+    await createVerifiedUser(page, request, email, 'SecurePassword1!');
 
     await logout(page);
     await page.goto('/login');
@@ -78,13 +60,7 @@ test('remember-me cookie survives browser restart', async ({
     request,
 }) => {
     const email = `test+remember+${RUN}@example.com`;
-    await createVerifiedUser(
-        page,
-        request,
-        email,
-        `rememberme${RUN}`,
-        'SecurePassword1!',
-    );
+    await createVerifiedUser(page, request, email, 'SecurePassword1!');
 
     await logout(page);
     await page.goto('/login');

@@ -85,7 +85,7 @@ final class CreateAdminControllerTest extends WebTestCase
     {
         $client = static::createClient();
         $client->request(\Symfony\Component\HttpFoundation\Request::METHOD_POST, '/install/admin', [
-            'install_admin_form' => ['fullName' => 'X', 'username' => 'xxx', 'email' => 'x@example.com', 'plainPassword' => 'a-strong-password'],
+            'install_admin_form' => ['email' => 'x@example.com', 'plainPassword' => 'a-strong-password'],
         ]);
 
         self::assertResponseRedirects('/install');

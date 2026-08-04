@@ -91,7 +91,7 @@ final class AdminRecoveryCommandsTest extends KernelTestCase
 
     public function test_user_promote_grants_the_role_then_reports_a_no_op(): void
     {
-        $this->persistUser('promote@example.com', 'promote');
+        $this->persistUser('promote@example.com');
 
         $tester = $this->tester('app:user:promote');
 
@@ -107,7 +107,7 @@ final class AdminRecoveryCommandsTest extends KernelTestCase
 
     public function test_user_verify_marks_the_email_then_reports_a_no_op(): void
     {
-        $this->persistUser('verify@example.com', 'verify');
+        $this->persistUser('verify@example.com');
 
         $tester = $this->tester('app:user:verify');
 
@@ -123,7 +123,7 @@ final class AdminRecoveryCommandsTest extends KernelTestCase
 
     public function test_user_verify_reports_revoking_a_stale_link_on_a_verified_account(): void
     {
-        $user = $this->persistUser('stale-link@example.com', 'stalelink');
+        $user = $this->persistUser('stale-link@example.com');
         $user->generateEmailVerificationToken();
         $user->emailVerifiedAt = new \DateTimeImmutable('-1 day');
         $this->em->flush();
@@ -162,7 +162,7 @@ final class AdminRecoveryCommandsTest extends KernelTestCase
     }
 
     /** @param non-empty-string $email */
-    private function persistUser(string $email, string $username): User
+    private function persistUser(string $email): User
     {
         $user = new User(fullName: 'Test User', email: $email);
         $user->password = 'not-a-real-hash';

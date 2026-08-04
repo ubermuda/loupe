@@ -3802,22 +3802,3 @@ Nothing in the repository greps for the path, so renaming the file is safe;
 the only known citation is inside a Loupe implementation plan, which would
 need updating in the same pass. Low priority — it misleads a reader searching
 for "nine features" and nothing more.
-
-## Test helpers build a User from an email, and `username` is 30 characters
-
-**Author:** Claude · **Type:** tooling · **Priority:** low · **Status:** pending
-
-Several test fixtures do `new User(username: $email, ...)`, while
-`User::$username` maps to `#[ORM\Column(length: 30)]`. An address longer than
-that fails at flush with `SQLSTATE[22001]: value too long for type character
-varying(30)` — a Postgres error pointing at the persist call, naming neither the
-column nor the helper that chose the value.
-
-Hit on 2026-08-04 with `getdoc-incoming-samereq@example.com`, which is a perfectly
-ordinary descriptive test address. The failure reads as a schema problem in the
-code under test rather than as a fixture that outgrew a column.
-
-`DocumentGetToolTest` is one example and it is not the only one — the pattern is
-worth grepping for. The fix is for the helpers to derive a short unique username
-instead of reusing the email, so a descriptive address stays free to be
-descriptive.

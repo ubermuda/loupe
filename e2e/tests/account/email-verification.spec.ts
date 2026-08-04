@@ -6,11 +6,7 @@ test.use({ storageState: { cookies: [], origins: [] } });
 
 const RUN = Date.now();
 
-async function signUp(
-    page: Page,
-    email: string,
-    username: string,
-): Promise<void> {
+async function signUp(page: Page, email: string): Promise<void> {
     await page.goto('/register');
     await page.getByLabel('Email').fill(email);
     await page.getByLabel('Password').fill('SecurePassword1!');
@@ -24,7 +20,7 @@ test('clicking verification link auto-logs in and redirects to home', async ({
     request,
 }) => {
     const email = `test+verify+${RUN}@example.com`;
-    await signUp(page, email, `verifyuser${RUN}`);
+    await signUp(page, email);
 
     const received = await getLatestEmailTo(request, email);
     const verifyLink = extractLink(
@@ -55,7 +51,7 @@ test('missing id parameter redirects to check-email', async ({ page }) => {
 
 test('resend sends a new verification email', async ({ page, request }) => {
     const email = `test+resend+${RUN}@example.com`;
-    await signUp(page, email, `resenduser${RUN}`);
+    await signUp(page, email);
 
     // Wait for the signup email so the resend assertion below can't pass on it
     await expect.poll(() => countEmailsTo(request, email)).toBe(1);

@@ -23,9 +23,7 @@ final class AgentAccountInstaller
         // No password and no roles: nothing can authenticate as it. What puts
         // it out of reach of registration is the address: `.invalid` is
         // reserved by IANA precisely so it can never resolve, so no verification
-        // mail could ever be received there. (A dotted username used to be the
-        // other guard; usernames are gone, and this was always the stronger of
-        // the two.)
+        // mail could ever be received there.
         //
         // The conflict target is deliberate. A bare ON CONFLICT DO NOTHING also
         // swallows the email unique violation, so an account already holding

@@ -207,8 +207,6 @@ test.describe.serial('registration cap and waitlist', () => {
         // register form (registration open for this guest via the invite),
         // not back on the waitlist.
         await expect(guest).toHaveURL(/\/register$/);
-        // Username is capped at 30 characters — keep the prefix short so
-        // the 13-digit timestamp still fits.
         await guest.getByLabel('Email').fill(perEntryEmail);
         await guest.getByLabel('Password').fill('e2e_password_123');
         await guest.getByLabel('I agree to').check();

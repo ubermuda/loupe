@@ -219,16 +219,6 @@ export async function logout(page: Page): Promise<void> {
 export interface Credentials {
     email: string;
     password: string;
-    name?: string;
-    username?: string;
-}
-
-function usernameFromEmail(email: string): string {
-    return email
-        .split('@')[0]
-        .toLowerCase()
-        .replace(/[^a-z0-9]/g, '')
-        .slice(0, 30);
 }
 
 /**

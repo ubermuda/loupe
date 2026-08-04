@@ -43,9 +43,6 @@ final class RegisterAndVerifyController extends AppController
             return $this->json(['error' => 'email and password are required'], JsonResponse::HTTP_UNPROCESSABLE_ENTITY);
         }
 
-        // `username` and `fullName` are still accepted in the form body and
-        // ignored, so the existing specs that post them keep working; the
-        // account simply has no display name, like any other registration.
         try {
             $user = ($this->registerUser)(new RegisterUserCommand(
                 email: $email,

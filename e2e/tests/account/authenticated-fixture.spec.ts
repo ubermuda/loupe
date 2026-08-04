@@ -6,7 +6,6 @@ import { createTest } from '../fixtures';
 const test = createTest({
     email: 'e2e-fixture-user@example.com',
     password: 'e2e_password_123!',
-    name: 'Fixture User',
 });
 
 test('worker fixture provides an authenticated session', async ({ page }) => {
