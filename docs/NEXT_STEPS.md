@@ -2643,31 +2643,6 @@ and on `DocumentListTool`'s per-row array. The list case needs the batch preload
 `DocumentRepository::preloadTags()` already provides, or it fires one query per
 row.
 
-## Decision controls have no browser coverage
-
-
-**Author:** Claude · **Type:** tooling · **Priority:** medium · **Status:** pending
-
-The reviewer-selectable decision blocks (`DecisionBlockService`,
-`decision_controller.js`, `SelectDecisionOptionController`) have no Playwright
-coverage; PHPUnit covers the PHP side only.
-
-The untested surface is the JavaScript. `decision_controller.js` reads the
-clicked radio, copies its decision id and option index into the hidden form's
-fields and calls `requestSubmit()` — nothing exercises any of that, so the
-Stimulus target names (`optionIndexTarget`, `formTarget`), the `change`
-delegation and the `requestSubmit()` choice can all break with a green
-`just ci`. The `requestSubmit()` one is the sharpest: `.submit()` fires no
-submit event, so `csrf_protection_controller.js` would never run the
-double-submit and every password-login session would 403 — invisible to a suite
-that runs no JS.
-
-The other thing a spec should confirm is specific to this feature: the radios
-live in the stored `renderedHtml` inside `[data-comment-anchor-target="doc"]`,
-whose `textContent` must stay identical to `DocumentVersion::plainText()`. Click
-an option, confirm the answer survives a reload, then select text *below* the
-block and confirm the comment anchors where the reviewer put it.
-
 ## There is no JavaScript test harness, and the JS is no longer trivial
 
 
@@ -2708,40 +2683,6 @@ open questions are which runner (vitest is the obvious default given no bundler
 is present), whether the widget's tests run against source or the minified
 artefact, and whether `just ci` gains a leg or it stays opt-in until the suite
 earns its place.
-
-## Nothing tests the anchor capture path from browser to database
-
-
-**Author:** Claude · **Type:** tooling · **Priority:** medium · **Status:** pending
-
-Every anchoring test builds an `Anchor` object by hand and hands it straight to
-`AnchorService` or `ReanchoringService`. Nothing exercises the path the data
-actually travels: a DOM selection in `comment_anchor_controller.js`, three hidden
-form fields, `AddCommentFormType`, `AddCommentRequest`, `AddCommentHandler`, then
-the row. Every test therefore starts from data that is already correct by
-construction, which is exactly the shape that cannot catch corruption occurring
-*before* the service sees it.
-
-That is not hypothetical — it is how one bug survived from the feature shipping
-until 2026-08-02. Symfony's form `trim` option defaults to `true` and
-`HiddenType` inherits it, so the boundary whitespace was being stripped off every
-captured `prefix` and `suffix`. `contextScore()` compares the last 8 characters
-of the stored prefix against the document: the document reads `…ains a ` before a
-quote and the trimmed fingerprint was `…ins a`, which can never match. Context
-disambiguation had been silently scoring zero and falling back to
-earliest-position for every selection whose neighbouring character is whitespace
-— which is nearly all of them. The whole unit suite passed throughout.
-
-Two things worth doing, and the second is cheap:
-
-- Add tests that bind through the real Form component rather than constructing
-  the DTO. Two now exist in `AddCommentHandlerTest` (the ones that caught the
-  trim), but as specific regressions rather than as coverage of the path.
-- Have `e2e/tests/review/review-loop.spec.ts` assert the stored **prefix and
-  suffix** through `/dev/review/{id}/state`, not only the quote. That run caught
-  the trim bug only by luck: word-edge snapping happened to make the corruption
-  visible in the one field the spec already asserted. Had snapping not shipped in
-  the same branch, the suite would still be green and the anchors still wrong.
 
 ## Ship a skill bundle so agents know when to call Loupe
 
