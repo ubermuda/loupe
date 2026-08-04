@@ -10,6 +10,7 @@ use Doctrine\ORM\EntityManagerInterface;
 use League\Flysystem\FilesystemException;
 use League\Flysystem\FilesystemOperator;
 use Psr\Log\LoggerInterface;
+use Symfony\Component\DependencyInjection\Attribute\Target;
 
 readonly class ExpiredExportPurger
 {
@@ -17,6 +18,8 @@ readonly class ExpiredExportPurger
         private DataExportRepository $dataExports,
         private EntityManagerInterface $em,
         private LoggerInterface $logger,
+
+        #[Target('export.storage')]
         private FilesystemOperator $exportStorage,
     ) {
     }
