@@ -13,6 +13,10 @@ class InstallAdminRequest
         #[Assert\NotBlank]
         public ?string $email = null,
 
+        #[Assert\Length(max: 150)]
+        #[Assert\NotBlank]
+        public ?string $fullName = null,
+
         #[Assert\Length(min: 8)]
         #[Assert\NotBlank]
         public ?string $plainPassword = null,

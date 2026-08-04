@@ -92,6 +92,7 @@ final class RegisterUserHandlerTest extends KernelTestCase
         try {
             $handler(new RegisterUserCommand(
                 email: 'race@example.com',
+                fullName: 'Riley Chen',
                 plainPassword: 'SecurePassword1!',
             ));
             $this->fail('Expected DomainErrors to be thrown.');
@@ -374,6 +375,7 @@ final class RegisterUserHandlerTest extends KernelTestCase
     {
         return new RegisterUserCommand(
             email: $email,
+            fullName: 'Riley Chen',
             plainPassword: 'SecurePassword1!',
             inviteToken: $inviteToken,
         );

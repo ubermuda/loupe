@@ -206,6 +206,14 @@
                 <source>account.form.registration_form.email.placeholder</source>
                 <target>you@company.com</target>
             </trans-unit>
+            <trans-unit id="account.form.registration_form.full_name.label">
+                <source>account.form.registration_form.full_name.label</source>
+                <target>Display name</target>
+            </trans-unit>
+            <trans-unit id="account.form.registration_form.full_name.placeholder">
+                <source>account.form.registration_form.full_name.placeholder</source>
+                <target>Riley Chen</target>
+            </trans-unit>
             <trans-unit id="account.form.registration_form.password.label">
                 <source>account.form.registration_form.password.label</source>
                 <target>Password</target>
@@ -683,7 +691,7 @@
             </trans-unit>
             <trans-unit id="account.form.profile_form.full_name.label">
                 <source>account.form.profile_form.full_name.label</source>
-                <target>Full name</target>
+                <target>Display name</target>
             </trans-unit>
             <trans-unit id="account.form.profile_form.full_name.placeholder">
                 <source>account.form.profile_form.full_name.placeholder</source>
@@ -1853,6 +1861,10 @@
             <trans-unit id="account.form.install_admin_form.email.label">
                 <source>account.form.install_admin_form.email.label</source>
                 <target>Email address</target>
+            </trans-unit>
+            <trans-unit id="account.form.install_admin_form.full_name.label">
+                <source>account.form.install_admin_form.full_name.label</source>
+                <target>Display name</target>
             </trans-unit>
             <trans-unit id="account.form.install_admin_form.password.label">
                 <source>account.form.install_admin_form.password.label</source>

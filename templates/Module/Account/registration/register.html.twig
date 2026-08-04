@@ -17,7 +17,11 @@
 
 {% include '@Account/security/_social_buttons.html.twig' with {} only %}
 
-{{ form_start(form, {'attr': {'class': 'form-stack', 'novalidate': 'novalidate'}}) }}
+{{ form_start(form, {'attr': {
+    'class': 'form-stack',
+    'novalidate': 'novalidate',
+    'data-controller': 'display-name-suggestion',
+}}) }}
 
     {% for label, messages in app.flashes %}
         {% for message in messages %}
@@ -30,8 +34,24 @@
 
     <div class="form-field">
         {{ form_label(form.email, null, {'label_attr': {'class': 'form-label'}}) }}
-        {{ form_widget(form.email, {'attr': {'class': 'auth-input', 'placeholder': 'account.form.registration_form.email.placeholder'}}) }}
+        {{ form_widget(form.email, {'attr': {
+            'class': 'auth-input',
+            'placeholder': 'account.form.registration_form.email.placeholder',
+            'data-display-name-suggestion-target': 'email',
+            'data-action': 'input->display-name-suggestion#suggest',
+        }}) }}
         <div class="field-errors">{{ form_errors(form.email) }}</div>
+    </div>
+
+    <div class="form-field">
+        {{ form_label(form.fullName, null, {'label_attr': {'class': 'form-label'}}) }}
+        {{ form_widget(form.fullName, {'attr': {
+            'class': 'auth-input',
+            'placeholder': 'account.form.registration_form.full_name.placeholder',
+            'data-display-name-suggestion-target': 'displayName',
+            'data-action': 'input->display-name-suggestion#recordEdit',
+        }}) }}
+        <div class="field-errors">{{ form_errors(form.fullName) }}</div>
     </div>
 
     <div class="form-field">

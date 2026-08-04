@@ -10,6 +10,7 @@ test('renders signup form', async ({ page }) => {
     await page.goto('/register');
     await expect(page.locator('h1')).toContainText('Create your account');
     await expect(page.getByLabel('Email')).toBeVisible();
+    await expect(page.getByLabel('Display name')).toBeVisible();
     await expect(page.getByLabel('Password')).toBeVisible();
 });
 
@@ -28,6 +29,7 @@ test('shows validation errors on empty submit', async ({ page }) => {
 test('successful signup redirects to check-email page', async ({ page }) => {
     await page.goto('/register');
     await page.getByLabel('Email').fill(`test+signup+${RUN}@example.com`);
+    await page.getByLabel('Display name').fill('Riley Chen');
     await page.getByLabel('Password').fill('SecurePassword1!');
     await page.getByLabel('I agree to').check();
     await page.getByRole('button', { name: 'Create account' }).click();
@@ -40,6 +42,7 @@ test('sends verification email after signup', async ({ page, request }) => {
     const email = `test+emailsend+${RUN}@example.com`;
     await page.goto('/register');
     await page.getByLabel('Email').fill(email);
+    await page.getByLabel('Display name').fill('Riley Chen');
     await page.getByLabel('Password').fill('SecurePassword1!');
     await page.getByLabel('I agree to').check();
     await page.getByRole('button', { name: 'Create account' }).click();
@@ -56,6 +59,7 @@ test('shows error on duplicate email', async ({ page }) => {
     // First registration
     await page.goto('/register');
     await page.getByLabel('Email').fill(email);
+    await page.getByLabel('Display name').fill('Riley Chen');
     await page.getByLabel('Password').fill('SecurePassword1!');
     await page.getByLabel('I agree to').check();
     await page.getByRole('button', { name: 'Create account' }).click();
@@ -64,6 +68,7 @@ test('shows error on duplicate email', async ({ page }) => {
     // Second registration with same email
     await page.goto('/register');
     await page.getByLabel('Email').fill(email);
+    await page.getByLabel('Display name').fill('Riley Chen');
     await page.getByLabel('Password').fill('SecurePassword1!');
     await page.getByLabel('I agree to').check();
     await page.getByRole('button', { name: 'Create account' }).click();

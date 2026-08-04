@@ -51,7 +51,7 @@ final class CreateAdminCommand extends Command
     {
         $this
             ->addArgument('email', InputArgument::REQUIRED, 'Email address of the administrator')
-            ->addOption('full-name', null, InputOption::VALUE_REQUIRED, 'Display name; the account has none when omitted')
+            ->addOption('full-name', null, InputOption::VALUE_REQUIRED, 'Display name; derived from the email address when omitted')
             ->addOption('password', null, InputOption::VALUE_REQUIRED, 'Password; prompted for, or generated and printed, when omitted');
     }
 

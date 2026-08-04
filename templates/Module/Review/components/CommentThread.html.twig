@@ -27,8 +27,8 @@
     data-anchor-kind="{{ kind }}"
 >
     <div class="lp-comment-thread__header">
-        <span class="avatar">{{ comment.author.displayName|slice(0, 1)|upper }}</span>
-        <span class="lp-comment-author lp-comment-thread__author">{{ comment.author.displayName }}</span>
+        <span class="avatar">{{ comment.author.fullName|slice(0, 1)|upper }}</span>
+        <span class="lp-comment-author lp-comment-thread__author">{{ comment.author.fullName }}</span>
         {% if kind != 'comment' %}
         <span class="lp-kind-chip lp-kind-chip--{{ kind }}">{{ ('review.document.kind.' ~ kind)|trans }}</span>
         {% endif %}
@@ -61,8 +61,8 @@
         {% for reply in replies %}
         <div class="lp-comment--reply">
             <div class="lp-comment-reply__head">
-                <span class="avatar{% if not reply.author.isAgent %} ok{% endif %}">{{ reply.author.displayName|slice(0, 1)|upper }}</span>
-                <span class="lp-comment-author">{{ reply.author.displayName }}</span>
+                <span class="avatar{% if not reply.author.isAgent %} ok{% endif %}">{{ reply.author.fullName|slice(0, 1)|upper }}</span>
+                <span class="lp-comment-author">{{ reply.author.fullName }}</span>
             </div>
             <div class="lp-comment-body">{{ reply.body }}</div>
         </div>

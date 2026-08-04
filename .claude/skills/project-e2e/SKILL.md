@@ -118,7 +118,7 @@ When you change selectors (e.g. swapping `data-*` attribute selectors for `getBy
 
 For setting up an authenticated browser session or seeding data during **manual / visual** verification (e.g. driving the app with the Chrome MCP), use the dev-only endpoints — all gated `#[When('dev')]` — rather than the full Mailpit registration flow. They are faster and bypass email round-trips:
 
-- `POST /dev/register-and-verify` (form: `email`, `password`) — creates an already-verified user, which has no display name. Any `username` / `fullName` in the body is accepted and ignored, so older specs that still post them keep working. Then log in via the `/login` form.
+- `POST /dev/register-and-verify` (form: `email`, `password`, optional `fullName`) — creates an already-verified user. Omitting `fullName` derives one from the email, exactly as the registration form's client-side suggestion does. Any `username` in the body is accepted and ignored, so older specs that still post it keep working. Then log in via the `/login` form.
 - `POST /dev/seed/document` (form: `title`, `markdown`) — seeds a review document for the authenticated user; returns `{"documentId": "…"}`.
 - `GET /dev/site-review-harness?email=<user-email>` — issues a SiteReview API token for that user; read it from `data-token="…"` in the response HTML, then `POST /api/site-review/batches` with header `Authorization: Bearer <token>` and a JSON body `{"comments":[{"body","selector","url","text"}, …]}` to seed a batch (returns `{"batchId": "…"}`).
 

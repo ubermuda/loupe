@@ -68,14 +68,13 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface, AdminPr
 
     public function __construct(
         /**
-         * Optional, and never derived. Registration does not ask for it, so a
-         * form-registered account carries null until its owner sets one on
-         * /account/profile; social login fills it from the provider. Read it
-         * through displayName() rather than directly — null has to render as
-         * something.
+         * Every account has one, so it is always safe to render. The forms ask
+         * for it; the paths that cannot ask — social login with a nameless
+         * provider, the console admin command — derive it from the email with
+         * DisplayNameDeriver.
          */
-        #[ORM\Column(length: 150, nullable: true)]
-        public ?string $fullName,
+        #[ORM\Column(length: 150)]
+        public string $fullName,
 
         /** @phpstan-var non-empty-string */
         #[ORM\Column(length: 180, unique: true)]
@@ -124,18 +123,6 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface, AdminPr
     public function getUserIdentifier(): string
     {
         return $this->email;
-    }
-
-    /**
-     * The name is optional, so the email is the only other true thing to show.
-     * Read it through here rather than `?? $email` at each call site, so the
-     * fallback stays consistent and changing it is one edit.
-     */
-    public function displayName(): string
-    {
-        $fullName = trim($this->fullName ?? '');
-
-        return '' !== $fullName ? $fullName : $this->email;
     }
 
     public function isVerified(): bool

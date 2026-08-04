@@ -7,6 +7,7 @@ namespace App\Module\Account\Form;
 use Symfony\Component\Form\AbstractType;
 use Symfony\Component\Form\Extension\Core\Type\EmailType;
 use Symfony\Component\Form\Extension\Core\Type\PasswordType;
+use Symfony\Component\Form\Extension\Core\Type\TextType;
 use Symfony\Component\Form\FormBuilderInterface;
 use Symfony\Component\OptionsResolver\OptionsResolver;
 
@@ -20,6 +21,10 @@ final class InstallAdminFormType extends AbstractType
             ->add('email', EmailType::class, [
                 'label' => 'account.form.install_admin_form.email.label',
                 'attr' => ['autocomplete' => 'email'],
+            ])
+            ->add('fullName', TextType::class, [
+                'label' => 'account.form.install_admin_form.full_name.label',
+                'attr' => ['autocomplete' => 'name'],
             ])
             ->add('plainPassword', PasswordType::class, [
                 'label' => 'account.form.install_admin_form.password.label',

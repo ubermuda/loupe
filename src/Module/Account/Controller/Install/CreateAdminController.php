@@ -42,9 +42,18 @@ final class CreateAdminController extends AppController
         $form->handleRequest($request);
 
         if ($form->isSubmitted() && $form->isValid()) {
+            // Not the `?:` idiom used for the other fields: "0" is a legitimate
+            // display name that NotBlank accepts and a truthiness check would
+            // reject.
+            $fullName = $data->fullName;
+            if (null === $fullName || '' === $fullName) {
+                throw new \LogicException('fullName required after validation');
+            }
+
             try {
                 ($this->createInstallAdminHandler)(new CreateInstallAdminCommand(
                     email: $data->email ?: throw new \LogicException('email required after validation'),
+                    fullName: $fullName,
                     plainPassword: $data->plainPassword ?: throw new \LogicException('plainPassword required after validation'),
                 ));
                 $this->logger->info('account.install.admin_created', []);

@@ -40,6 +40,7 @@ final class RegisterInviteFlowTest extends WebTestCase
         $client->request(Request::METHOD_GET, '/register');
         $client->submitForm('Create account', [
             'registration_form[email]' => 'invitee2@example.com',
+            'registration_form[fullName]' => 'Riley Chen',
             'registration_form[plainPassword]' => 'SecurePassword1!',
             'registration_form[agreeTerms]' => true,
         ]);
@@ -63,6 +64,7 @@ final class RegisterInviteFlowTest extends WebTestCase
         $client->request(Request::METHOD_GET, '/register');
         $client->submitForm('Create account', [
             'registration_form[email]' => 'someone-else@example.com',
+            'registration_form[fullName]' => 'Riley Chen',
             'registration_form[plainPassword]' => 'SecurePassword1!',
             'registration_form[agreeTerms]' => true,
         ]);

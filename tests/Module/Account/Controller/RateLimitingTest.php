@@ -34,6 +34,7 @@ final class RateLimitingTest extends WebTestCase
         $client->request(Request::METHOD_GET, '/register');
         $client->submitForm('Create account', [
             'registration_form[email]' => 'first@example.com',
+            'registration_form[fullName]' => 'Riley Chen',
             'registration_form[plainPassword]' => 'SecurePassword1!',
             'registration_form[agreeTerms]' => true,
         ]);
@@ -42,6 +43,7 @@ final class RateLimitingTest extends WebTestCase
         $client->request(Request::METHOD_GET, '/register');
         $client->submitForm('Create account', [
             'registration_form[email]' => 'second@example.com',
+            'registration_form[fullName]' => 'Riley Chen',
             'registration_form[plainPassword]' => 'SecurePassword1!',
             'registration_form[agreeTerms]' => true,
         ]);

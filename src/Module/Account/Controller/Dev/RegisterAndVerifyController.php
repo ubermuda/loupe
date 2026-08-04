@@ -9,6 +9,7 @@ use App\Exception\DomainErrors;
 use App\Module\Account\Command\RegisterUserCommand;
 use App\Module\Account\Command\RegisterUserHandler;
 use App\Module\Account\Repository\UserRepository;
+use App\Module\Account\Service\DisplayNameDeriver;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\DependencyInjection\Attribute\When;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -31,6 +32,7 @@ final class RegisterAndVerifyController extends AppController
         private readonly RegisterUserHandler $registerUser,
         private readonly UserRepository $users,
         private readonly EntityManagerInterface $em,
+        private readonly DisplayNameDeriver $displayNameDeriver,
     ) {
     }
 
@@ -43,9 +45,17 @@ final class RegisterAndVerifyController extends AppController
             return $this->json(['error' => 'email and password are required'], JsonResponse::HTTP_UNPROCESSABLE_ENTITY);
         }
 
+        // The browser fills this field on the real form; a caller that skips it
+        // gets the same value the registration page would have suggested.
+        $fullName = $request->request->getString('fullName');
+        if ('' === $fullName) {
+            $fullName = $this->displayNameDeriver->derive($email);
+        }
+
         try {
             $user = ($this->registerUser)(new RegisterUserCommand(
                 email: $email,
+                fullName: $fullName,
                 plainPassword: $password,
             ));
         } catch (DomainErrors $e) {

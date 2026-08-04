@@ -34,6 +34,7 @@ final class CreateAdminControllerTest extends WebTestCase
         $client->request(\Symfony\Component\HttpFoundation\Request::METHOD_GET, '/install/admin');
         $client->submitForm('Create admin account', [
             'install_admin_form[email]' => 'admin@example.com',
+            'install_admin_form[fullName]' => 'Ada Lovelace',
             'install_admin_form[plainPassword]' => 'a-strong-password',
         ]);
 
@@ -43,6 +44,7 @@ final class CreateAdminControllerTest extends WebTestCase
         $user = self::getContainer()->get(UserRepository::class)->findOneByEmail('admin@example.com');
         self::assertNotNull($user);
         self::assertSame(['ROLE_ADMIN'], $user->roles);
+        self::assertSame('Ada Lovelace', $user->fullName);
         self::assertNull($user->emailVerifiedAt);
 
         // Wizard is now closed…
@@ -66,8 +68,8 @@ final class CreateAdminControllerTest extends WebTestCase
         $client->request(\Symfony\Component\HttpFoundation\Request::METHOD_GET, '/install/admin');
         $client->submitForm('Create admin account', [
             'install_admin_form[email]' => 'admin@example.com',
-            // Length(min: 8) violation — the only DTO rule left once the wizard
-            // stopped asking for a name and a username.
+            'install_admin_form[fullName]' => 'Ada Lovelace',
+            // Length(min: 8) violation.
             'install_admin_form[plainPassword]' => 'short',
         ]);
 
@@ -85,7 +87,7 @@ final class CreateAdminControllerTest extends WebTestCase
     {
         $client = static::createClient();
         $client->request(\Symfony\Component\HttpFoundation\Request::METHOD_POST, '/install/admin', [
-            'install_admin_form' => ['email' => 'x@example.com', 'plainPassword' => 'a-strong-password'],
+            'install_admin_form' => ['email' => 'x@example.com', 'fullName' => 'Ada Lovelace', 'plainPassword' => 'a-strong-password'],
         ]);
 
         self::assertResponseRedirects('/install');
@@ -99,6 +101,7 @@ final class CreateAdminControllerTest extends WebTestCase
         $client->request(\Symfony\Component\HttpFoundation\Request::METHOD_GET, '/install/admin');
         $client->submitForm('Create admin account', [
             'install_admin_form[email]' => 'admin@example.com',
+            'install_admin_form[fullName]' => 'Ada Lovelace',
             'install_admin_form[plainPassword]' => 'a-strong-password',
         ]);
 

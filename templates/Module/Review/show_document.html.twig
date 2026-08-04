@@ -75,7 +75,7 @@
                     {{ document.title }}
                     <span class="lp-version-pill">{{ 'v' ~ version.versionNumber }}</span>
                 </h1>
-                <p class="lp-review-doc__byline">{{ 'review.document.byline'|trans({'%reviewer%': app.user.displayName}) }}</p>
+                <p class="lp-review-doc__byline">{{ 'review.document.byline'|trans({'%reviewer%': app.user.fullName}) }}</p>
 
                 {# The way back to a discussion that a revision left behind: comments
                    resolved on an earlier version stay on that version, so without this

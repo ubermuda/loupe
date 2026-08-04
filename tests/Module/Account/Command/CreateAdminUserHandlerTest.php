@@ -49,6 +49,28 @@ final class CreateAdminUserHandlerTest extends KernelTestCase
         self::assertQueuedEmailCount(0);
     }
 
+    public function test_an_omitted_full_name_is_derived_from_the_email(): void
+    {
+        $result = ($this->handler)(new CreateAdminUserCommand(
+            email: 'ada.lovelace@example.com',
+            plainPassword: 'SecurePassword1!',
+        ));
+
+        // Nothing asks the operator for a name here, and every account has one.
+        self::assertSame('Ada Lovelace', $result->user->fullName);
+    }
+
+    public function test_a_given_full_name_is_kept_over_a_derived_one(): void
+    {
+        $result = ($this->handler)(new CreateAdminUserCommand(
+            email: 'ada.lovelace@example.com',
+            plainPassword: 'SecurePassword1!',
+            fullName: 'Ada, Countess of Lovelace',
+        ));
+
+        self::assertSame('Ada, Countess of Lovelace', $result->user->fullName);
+    }
+
     public function test_it_leaves_the_install_feature_flags_alone(): void
     {
         $flags = self::getContainer()->get(FeatureFlagRepository::class);

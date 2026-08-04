@@ -208,6 +208,7 @@ test.describe.serial('registration cap and waitlist', () => {
         // not back on the waitlist.
         await expect(guest).toHaveURL(/\/register$/);
         await guest.getByLabel('Email').fill(perEntryEmail);
+        await guest.getByLabel('Display name').fill('Riley Chen');
         await guest.getByLabel('Password').fill('e2e_password_123');
         await guest.getByLabel('I agree to').check();
         await guest.getByRole('button', { name: 'Create account' }).click();

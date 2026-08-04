@@ -7,6 +7,7 @@ namespace App\Module\Account\Command;
 use App\Exception\DomainErrors;
 use App\Module\Account\Entity\User;
 use App\Module\Account\Repository\UserRepository;
+use App\Module\Account\Service\DisplayNameDeriver;
 use Doctrine\ORM\EntityManagerInterface;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
@@ -29,6 +30,7 @@ final readonly class CreateAdminUserHandler
         private PromoteUserToAdminHandler $promoteUserToAdmin,
         private MarkEmailVerifiedHandler $markEmailVerified,
         private LoggerInterface $logger,
+        private DisplayNameDeriver $displayNameDeriver,
     ) {
     }
 
@@ -47,14 +49,14 @@ final readonly class CreateAdminUserHandler
             );
         }
 
-        // A name only if the operator gave one. Nothing is derived from the
-        // address: an account with no display name renders its email, which is
-        // truthful, where a derived one would look like something the person
-        // chose.
+        // Every account has a display name and this entry point has no form to
+        // ask on, so an omitted --full-name is derived from the address.
         $fullName = trim($command->fullName ?? '');
 
         $user = new User(
-            fullName: '' !== $fullName ? substr($fullName, 0, self::MAX_FULL_NAME_LENGTH) : null,
+            fullName: '' !== $fullName
+                ? mb_substr($fullName, 0, self::MAX_FULL_NAME_LENGTH)
+                : $this->displayNameDeriver->derive($email),
             email: $email,
         );
         $user->password = $this->passwordHasher->hashPassword($user, $command->plainPassword);

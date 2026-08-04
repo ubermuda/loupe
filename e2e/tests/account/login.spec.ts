@@ -93,6 +93,7 @@ test('unverified user after login is redirected to check-email', async ({
 
     await page.goto('/register');
     await page.getByLabel('Email').fill(email);
+    await page.getByLabel('Display name').fill('Riley Chen');
     await page.getByLabel('Password').fill('SecurePassword1!');
     await page.getByLabel('I agree to').check();
     await page.getByRole('button', { name: 'Create account' }).click();

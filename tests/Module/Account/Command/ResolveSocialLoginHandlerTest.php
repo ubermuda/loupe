@@ -15,6 +15,7 @@ use App\Module\Account\Event\UserRegistered;
 use App\Module\Account\Repository\ConnectedAccountRepository;
 use App\Module\Account\Repository\UserRepository;
 use App\Module\Account\Repository\WaitlistEntryRepository;
+use App\Module\Account\Service\DisplayNameDeriver;
 use App\Module\Account\Service\InstallationState;
 use App\Module\Account\Service\RegistrationGate;
 use App\Module\Account\Service\SocialLoginOutcome;
@@ -77,6 +78,7 @@ final class ResolveSocialLoginHandlerTest extends KernelTestCase
             $this->waitlistEntries,
             new NullLogger(),
             $dispatcher,
+            new DisplayNameDeriver(),
         );
     }
 
@@ -397,16 +399,24 @@ final class ResolveSocialLoginHandlerTest extends KernelTestCase
         ));
     }
 
-    public function test_a_provider_that_sends_no_name_leaves_the_account_without_one(): void
+    public function test_a_provider_that_sends_no_name_derives_one_from_the_email(): void
     {
         $outcome = ($this->handler)(new ResolveSocialLoginCommand(
-            new SocialProfile(SocialProvider::Google, 'g-noname', 'nameless@example.com', null, emailVerified: true),
+            new SocialProfile(SocialProvider::Google, 'g-noname', 'ada.lovelace@example.com', null, emailVerified: true),
         ));
 
-        // Nothing is derived from the address any more: the account simply has
-        // no display name, and renders its email until its owner sets one.
-        self::assertNull($this->resolvedUser($outcome)->fullName);
-        self::assertSame('nameless@example.com', $this->resolvedUser($outcome)->displayName());
+        // No form stands between the provider and the account, so the address
+        // is the only material left to build a display name from.
+        self::assertSame('Ada Lovelace', $this->resolvedUser($outcome)->fullName);
+    }
+
+    public function test_a_provider_name_is_kept_over_a_derived_one(): void
+    {
+        $outcome = ($this->handler)(new ResolveSocialLoginCommand(
+            new SocialProfile(SocialProvider::Google, 'g-named', 'ada.lovelace2@example.com', 'Ada, Countess of Lovelace', emailVerified: true),
+        ));
+
+        self::assertSame('Ada, Countess of Lovelace', $this->resolvedUser($outcome)->fullName);
     }
 
     // -------------------------------------------------------------------------
@@ -451,6 +461,7 @@ final class ResolveSocialLoginHandlerTest extends KernelTestCase
             $waitlistEntries,
             new NullLogger(),
             $this->neverDispatches(),
+            new DisplayNameDeriver(),
         );
 
         $this->expectException(SocialLoginRace::class);

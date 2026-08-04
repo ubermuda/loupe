@@ -29,6 +29,7 @@ final class RegistrationControllerTest extends WebTestCase
 
         $client->submitForm('Create account', [
             'registration_form[email]' => 'test@example.com',
+            'registration_form[fullName]' => 'Riley Chen',
             'registration_form[plainPassword]' => 'SecurePassword1!',
             'registration_form[agreeTerms]' => true,
         ]);
@@ -38,10 +39,7 @@ final class RegistrationControllerTest extends WebTestCase
         $container = static::getContainer();
         $user = $container->get(UserRepository::class)->findOneBy(['email' => 'test@example.com']);
         $this->assertNotNull($user);
-        // Registration asks for no name and nothing derives one, so the account
-        // renders its address until its owner sets one on /account/profile.
-        $this->assertNull($user->fullName);
-        $this->assertSame('test@example.com', $user->displayName());
+        $this->assertSame('Riley Chen', $user->fullName);
 
         $this->assertQueuedEmailCount(1);
         $email = $this->getMailerMessage();
@@ -59,6 +57,7 @@ final class RegistrationControllerTest extends WebTestCase
         $client->request(\Symfony\Component\HttpFoundation\Request::METHOD_GET, '/register');
         $client->submitForm('Create account', [
             'registration_form[email]' => 'duplicate@example.com',
+            'registration_form[fullName]' => 'Riley Chen',
             'registration_form[plainPassword]' => 'SecurePassword1!',
             'registration_form[agreeTerms]' => true,
         ]);
@@ -68,11 +67,39 @@ final class RegistrationControllerTest extends WebTestCase
         $client->request(\Symfony\Component\HttpFoundation\Request::METHOD_GET, '/register');
         $client->submitForm('Create account', [
             'registration_form[email]' => 'duplicate@example.com',
+            'registration_form[fullName]' => 'Riley Chen',
             'registration_form[plainPassword]' => 'SecurePassword1!',
             'registration_form[agreeTerms]' => true,
         ]);
 
         $this->assertResponseStatusCodeSame(422); // re-renders form with validation errors
         $this->assertSelectorTextContains('body', 'already an account');
+    }
+
+    /**
+     * The display name is filled client-side from the email as it is typed, but
+     * nothing on the server derives one for a form submission — a blank field
+     * is an ordinary validation error, and this is what proves no fallback has
+     * been added behind the form.
+     */
+    public function test_a_blank_display_name_is_a_validation_error(): void
+    {
+        $client = static::createClient();
+        // Sign-up refuses to create the *first* account on an instance — that is
+        // the install wizard's job — and the test database starts empty.
+        InstalledInstance::ensure(static::getContainer()->get(EntityManagerInterface::class));
+        $client->request(\Symfony\Component\HttpFoundation\Request::METHOD_GET, '/register');
+
+        $client->submitForm('Create account', [
+            'registration_form[email]' => 'nameless@example.com',
+            'registration_form[fullName]' => '',
+            'registration_form[plainPassword]' => 'SecurePassword1!',
+            'registration_form[agreeTerms]' => true,
+        ]);
+
+        $this->assertResponseStatusCodeSame(422);
+        $this->assertNull(
+            static::getContainer()->get(UserRepository::class)->findOneBy(['email' => 'nameless@example.com']),
+        );
     }
 }

@@ -34,19 +34,13 @@ final readonly class StripeGateway implements StripeGatewayInterface
     #[\Override]
     public function createCustomer(User $user): string
     {
-        $params = [
-            'email' => $user->email,
-            'metadata' => ['app_user_id' => (string) $user->id],
-        ];
-
         // Nothing calls customers->update, so the name written here is the
-        // customer's name on every future invoice. An account with no name
-        // gets no name sent — never a stand-in built from the address.
-        if (null !== $user->fullName) {
-            $params['name'] = $user->fullName;
-        }
-
-        $customer = $this->stripe()->customers->create($params);
+        // customer's name on every future invoice.
+        $customer = $this->stripe()->customers->create([
+            'email' => $user->email,
+            'name' => $user->fullName,
+            'metadata' => ['app_user_id' => (string) $user->id],
+        ]);
 
         return $customer->id;
     }

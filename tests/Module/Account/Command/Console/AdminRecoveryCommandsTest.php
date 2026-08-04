@@ -48,6 +48,25 @@ final class AdminRecoveryCommandsTest extends KernelTestCase
         self::assertTrue($user->hasUsablePassword());
     }
 
+    public function test_admin_create_derives_a_display_name_when_full_name_is_omitted(): void
+    {
+        $tester = $this->tester('app:admin:create');
+        $tester->execute(['email' => 'ada.lovelace@example.com'], ['interactive' => false]);
+
+        self::assertSame('Ada Lovelace', $this->find('ada.lovelace@example.com')->fullName);
+    }
+
+    public function test_admin_create_keeps_an_explicit_full_name(): void
+    {
+        $tester = $this->tester('app:admin:create');
+        $tester->execute(
+            ['email' => 'ada.lovelace@example.com', '--full-name' => 'Ada, Countess of Lovelace'],
+            ['interactive' => false],
+        );
+
+        self::assertSame('Ada, Countess of Lovelace', $this->find('ada.lovelace@example.com')->fullName);
+    }
+
     public function test_admin_create_is_idempotent(): void
     {
         $tester = $this->tester('app:admin:create');
