@@ -6,6 +6,7 @@ namespace App\Module\Project\Command;
 
 use App\Module\Account\Entity\ApiToken;
 use App\Module\Account\Entity\ApiTokenScope;
+use Doctrine\DBAL\LockMode;
 use Doctrine\ORM\EntityManagerInterface;
 use Psr\Log\LoggerInterface;
 
@@ -26,24 +27,31 @@ final readonly class RegenerateProjectWidgetTokenHandler
     {
         $project = $command->project;
 
-        $previous = $project->widgetToken;
-        if (null !== $previous) {
-            $project->widgetToken = null;
-            $this->em->remove($previous);
-        }
+        // Same row lock the mint handler takes, for the same reason: two
+        // concurrent regenerations would each delete what they read and persist
+        // their own token, leaving the loser's valid but bound to no project.
+        return $this->em->wrapInTransaction(function () use ($project): string {
+            $this->em->lock($project, LockMode::PESSIMISTIC_WRITE);
 
-        // ApiToken.label is a 100-char column while Project.name allows 100 — truncate to fit.
-        [$token, $raw] = ApiToken::issue($project->owner, 'Widget: '.mb_substr($project->name, 0, 92), ApiTokenScope::SiteReview);
-        $project->widgetToken = $token;
-        $this->em->persist($token);
-        $this->em->flush();
+            $previous = $project->widgetToken;
+            if (null !== $previous) {
+                $project->widgetToken = null;
+                $this->em->remove($previous);
+            }
 
-        $this->logger->info('project.widget_token_regenerated', [
-            'projectId' => (string) $project->id,
-            'tokenId' => (string) $token->id,
-            'previousTokenId' => null !== $previous ? (string) $previous->id : null,
-        ]);
+            // ApiToken.label is a 100-char column while Project.name allows 100 — truncate to fit.
+            [$token, $raw] = ApiToken::issue($project->owner, 'Widget: '.mb_substr($project->name, 0, 92), ApiTokenScope::SiteReview);
+            $project->widgetToken = $token;
+            $this->em->persist($token);
+            $this->em->flush();
 
-        return $raw;
+            $this->logger->info('project.widget_token_regenerated', [
+                'projectId' => (string) $project->id,
+                'tokenId' => (string) $token->id,
+                'previousTokenId' => null !== $previous ? (string) $previous->id : null,
+            ]);
+
+            return $raw;
+        });
     }
 }
