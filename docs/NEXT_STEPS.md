@@ -1586,35 +1586,12 @@ time, not only in the UI — the agent submitting the batch is the one that know
 how the documents relate, and asking a human to tag seventeen documents
 afterwards means it does not happen.
 
-Related: "Reference another document from a document", which is the other half
-of the same problem.
-
-## Reference another document from a document
-
-**Author:** Geoffrey · **Type:** feature · **Priority:** medium · **Status:** pending
-
-There is no way for one document to point at another. A companion thread that
-accompanies a blog post, an implementation plan that supersedes a spec, an
-audit that references the design it audited — all of these currently say so in
-prose, if at all, and the reader has to go find the other document by name.
-
-Submitting the blog series on 2026-08-01 made this concrete: each thread
-document opens with "Companion thread for post 4" as plain text, which the
-reviewer cannot click, and which will be wrong if the post is ever renumbered.
-A real reference would survive both.
-
-Two things worth separating when this is designed. A **link** is one document
-mentioning another and is cheap. A **relationship** is typed and directional
-("thread-of", "supersedes", "audits") and is what makes a document list
-navigable rather than just cross-linked. Start with the link; do not build the
-typed graph before something needs it.
-
-Worth checking how this interacts with revisions: a reference to a document
-that is later revised should still resolve, and probably to the current
-version rather than the one that existed when the link was written.
-
-Related: "Documents have no organizing structure — tags, categories or
-something else".
+Document-to-document references cover the other half of the same problem and
+already exist: a document points at others through `document_references`, the
+links render on both documents, and `document_create`, `document_revise` and
+`document_set_references` all set them. What is still missing is grouping —
+references say two documents are related, not that seventeen of them are one
+series.
 
 ## Edit a document in the app, not only through an agent
 
