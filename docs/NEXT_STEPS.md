@@ -1074,6 +1074,12 @@ Owner decision (2026-08-04): e2e should not need a messenger consumer at all.
 This supersedes the earlier "wire it or delete it" question about
 `PlaywrightSyncEmailMiddleware` — the answer is wire it, and wider than mail.
 
+Until it lands the consumer requirement is at least no longer silent: `just e2e`
+refuses to start unless a consumer is live, and `just e2e-worker` recycles below
+PHP's own memory limit and relaunches itself, so a worker cannot disappear
+mid-session. This entry would delete that machinery rather than merely stop it
+hurting.
+
 An attempt on 2026-08-04 got most of the way and is worth reading before the
 next one starts, because the remaining gap is specific rather than general.
 
