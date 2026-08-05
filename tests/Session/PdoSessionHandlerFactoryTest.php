@@ -23,24 +23,29 @@ final class PdoSessionHandlerFactoryTest extends TestCase
             'postgresql://app:s3cret@database:5432/app?serverVersion=16&charset=utf8',
         );
 
-        self::assertSame('postgresql://app:s3cret@database:5432/app_wt_feature', $factory->sessionUrl());
+        self::assertSame('pgsql:host=database;port=5432;dbname=app_wt_feature', $factory->sessionDsn());
     }
 
-    public function test_it_keeps_credentials_and_port_from_the_url(): void
+    public function test_it_carries_sslmode_onto_the_session_connection(): void
+    {
+        // A managed Postgres that requires TLS would otherwise refuse only the
+        // session connection, while Doctrine and the cache connect fine.
+        $factory = new PdoSessionHandlerFactory(
+            $this->connectionTo('app'),
+            'postgresql://app:s3cret@db.example.com:25060/app?sslmode=require&serverVersion=16',
+        );
+
+        self::assertSame('pgsql:host=db.example.com;port=25060;dbname=app;sslmode=require', $factory->sessionDsn());
+    }
+
+    public function test_it_drops_doctrine_only_parameters_that_libpq_would_reject(): void
     {
         $factory = new PdoSessionHandlerFactory(
             $this->connectionTo('app'),
-            'postgresql://someone:p%40ss@db.example.com:6432/app',
+            'postgresql://database/app?serverVersion=16&charset=utf8',
         );
 
-        self::assertSame('postgresql://someone:p%40ss@db.example.com:6432/app', $factory->sessionUrl());
-    }
-
-    public function test_it_omits_credentials_when_the_url_carries_none(): void
-    {
-        $factory = new PdoSessionHandlerFactory($this->connectionTo('app'), 'postgresql://database/app');
-
-        self::assertSame('postgresql://database/app', $factory->sessionUrl());
+        self::assertSame('pgsql:host=database;dbname=app', $factory->sessionDsn());
     }
 
     public function test_it_rejects_a_url_it_cannot_read(): void
@@ -49,7 +54,16 @@ final class PdoSessionHandlerFactoryTest extends TestCase
 
         $this->expectException(\LogicException::class);
 
-        $factory->sessionUrl();
+        $factory->sessionDsn();
+    }
+
+    public function test_it_rejects_a_database_that_is_not_postgres(): void
+    {
+        $factory = new PdoSessionHandlerFactory($this->connectionTo('app'), 'mysql://app@database:3306/app');
+
+        $this->expectException(\LogicException::class);
+
+        $factory->sessionDsn();
     }
 
     private function connectionTo(string $database): Connection&Stub
