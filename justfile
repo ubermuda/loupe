@@ -229,8 +229,11 @@ e2e-up:
 e2e-worker *args:
     #!/usr/bin/env bash
     set -euo pipefail
+    main=$(git worktree list --porcelain | awk '/^worktree /{print $2; exit}')
     project=$(grep -E '^COMPOSE_PROJECT_NAME=' .env | head -1 | cut -d= -f2-)
     host="e2e.${project}.dev.localhost"
+    stop_marker="$main/var/e2e-worker.stop"
+    rm -f "$stop_marker"
     trap 'echo "e2e-worker: stopped." >&2; exit 0' INT TERM
     while true; do
         if ! docker compose exec -T \
@@ -244,11 +247,14 @@ e2e-worker *args:
         # A clean exit is ambiguous: it is either a limit recycle, which should
         # relaunch, or `e2e-down` stopping the worker before it drops the
         # database, which must not. Messenger stops gracefully on SIGTERM when
-        # pcntl is loaded, so the exit code cannot tell them apart. The database
-        # can: if it has gone, this was a teardown.
-        if ! docker compose exec -T database psql -U app -d postgres -tAc \
-            "SELECT 1 FROM pg_database WHERE datname='app_e2e'" 2>/dev/null | grep -q 1; then
-            echo "e2e-worker: app_e2e is gone — teardown, not a recycle. Stopping." >&2
+        # pcntl is loaded, so the exit code cannot separate them.
+        #
+        # The marker can, and unlike inspecting the database it does not race:
+        # `e2e-down` writes it BEFORE signalling, so any iteration that observes
+        # a clean exit caused by teardown necessarily observes the marker too.
+        if [ -f "$stop_marker" ]; then
+            rm -f "$stop_marker"
+            echo "e2e-worker: teardown requested — stopping." >&2
             exit 0
         fi
         echo "e2e-worker: consumer recycled on a limit, relaunching." >&2
@@ -292,6 +298,12 @@ e2e-down:
     # byte-identical `messenger:consume scheduler_default async`, so a pkill on
     # the command would kill the dev worker too. WORKTREE_DB_SUFFIX=_e2e is
     # what actually distinguishes them.
+    #
+    # The marker goes down BEFORE the signal, and the ordering is the point: a
+    # graceful stop looks exactly like a limit recycle to `e2e-worker`, so if it
+    # could observe the clean exit before the marker existed it would relaunch
+    # into a database this recipe is about to drop.
+    : > "$main/var/e2e-worker.stop"
     docker compose exec -T php-fpm sh -c '
         for proc in /proc/[0-9]*; do
             pid=${proc#/proc/}
