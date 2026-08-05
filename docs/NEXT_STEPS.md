@@ -114,37 +114,47 @@ be created from a shell instead (`bin/console app:admin:create`, see
 checklist item, not a live code vulnerability — hence the lower priority than
 when this was first filed.
 
-## Data-export object storage has never run against a real bucket
+## Data-export object storage is proven on MinIO, not on a real provider
 
+**Author:** Claude · **Type:** tooling · **Priority:** medium · **Status:** pending
 
-**Author:** Claude · **Type:** tooling · **Priority:** high · **Status:** pending
+`EXPORT_STORAGE=s3` used to be proven only to *wire up* — every automated test
+exercised the local adapter. It has now been run end to end against a real
+S3-compatible bucket: `just minio-up` starts an opt-in MinIO container and
+creates the bucket, and pointing `.env.local` at it makes
+`e2e/tests/account/data-export.spec.ts` pass unchanged, which covers the whole
+path from requesting an export to downloading the emailed link.
 
-Data-export archives now go through a Flysystem storage (`export.storage` in
-`config/packages/flysystem.yaml`), selected at runtime by `EXPORT_STORAGE`:
-a local directory, or an S3-compatible bucket via
-`league/flysystem-async-aws-s3`. Everything automated exercises the **local**
-adapter — the unit and integration tests build a `LocalFilesystemAdapter`, and
-dev, test and e2e all leave `EXPORT_STORAGE=local`. The S3 adapter has only
-been proven to *wire up*: booting with `EXPORT_STORAGE=s3` constructs an
-`AsyncAwsS3Adapter` over an `AsyncAws\S3\S3Client`, and nothing beyond that.
+What that run settled, on 2026-08-05:
 
-So no run has yet confirmed the parts that only a live bucket can answer:
-that `DataExportArchiveBuilder`'s upload-to-`<key>.tmp`-then-`move()` really is
-a server-side copy rather than a download-and-re-upload, that
-`DownloadDataExportController` streams a `GetObject` body correctly at size,
-that a missing object surfaces as a `FilesystemException` (a 404) rather than
-some other failure, and that the two
-provider-shaped knobs are right — path-style addressing
-(`EXPORT_STORAGE_USE_PATH_STYLE`) and the canned ACL (`EXPORT_STORAGE_ACL`,
-whose whole reason to exist is that `private` and `bucket-owner-full-control`
-are each rejected by *some* provider).
+- `DataExportArchiveBuilder`'s write-to-`<key>.tmp`-then-`move()` completes and
+  leaves no `.tmp` object behind, and the move is a **server-side copy** —
+  `AsyncAwsS3Adapter::move()` issues `copyObject`, not a download and re-upload.
+- `DownloadDataExportController` streams the object: the spec asserts a 200 and
+  a `zip` content type on the emailed link.
+- Path-style addressing (`EXPORT_STORAGE_USE_PATH_STYLE=true`) works. It is also
+  **required** for MinIO, which does not serve virtual-host-style buckets without
+  wildcard DNS.
+- MinIO accepts the `private` canned ACL.
 
-Closing this means running one export end to end against a real bucket —
-MinIO in compose is enough, and is closer to the self-hosting story than AWS —
-and confirming the emailed link downloads a valid ZIP. Until then, treat
-`EXPORT_STORAGE=s3` as configured-but-unverified, which matters because
-`terraform/main.tf` makes it the **default** for the shipped deployment (see
-"Known gaps" in `DEPLOY.md`).
+What is still open, and why this is not simply closed:
+
+1. **MinIO is not the provider this deploys to.** The canned-ACL question is the
+   whole reason `EXPORT_STORAGE_ACL` exists — `private` and
+   `bucket-owner-full-control` are each rejected by *some* provider — and MinIO
+   accepting `private` says nothing about DigitalOcean Spaces, which
+   `terraform/spaces.tf` actually creates. That value is still unverified where
+   it matters. See `DEPLOY.md` → "Known gaps".
+2. **The missing-object path is code-verified, not run.** `AsyncAwsS3Adapter`
+   throws `UnableToReadFile` (a `FilesystemOperationFailed`) and
+   `DownloadDataExportController` catches `FilesystemException` and 404s, so the
+   path is sound by inspection — but no run has deleted an object and requested
+   its link.
+
+Closing this means one export against a real Spaces bucket with the ACL
+Terraform sets. Until then, treat MinIO as evidence the adapter and the
+application code are correct, and the provider-shaped knobs as untested.
+
 
 ## Sessions, cache and rate-limiter storage are container-local
 

@@ -169,6 +169,48 @@ migrate-diff: (exec "bin/console doctrine:migrations:diff")
 
 migrate-run: (exec "bin/console doctrine:migrations:migrate")
 
+# Off by default (a compose profile), because the development path is
+# EXPORT_STORAGE=local and nothing routine needs a bucket.
+#
+# To point the app at it, set these in .env.local and restart php-fpm:
+#
+#     EXPORT_STORAGE=s3
+#     EXPORT_STORAGE_BUCKET=loupe-exports
+#     EXPORT_STORAGE_ENDPOINT=http://minio:9000
+#     EXPORT_STORAGE_REGION=us-east-1
+#     EXPORT_STORAGE_KEY=loupe
+#     EXPORT_STORAGE_SECRET=loupe-secret
+#     EXPORT_STORAGE_USE_PATH_STYLE=true
+#
+# Path-style is required: MinIO does not serve virtual-host-style buckets
+# without wildcard DNS, and the failure reads as a name-resolution error rather
+# than a configuration one.
+# Start the opt-in MinIO container and create the export bucket.
+minio-up bucket="loupe-exports":
+    #!/usr/bin/env bash
+    set -euo pipefail
+    docker compose --profile minio up -d minio
+    user="${MINIO_ROOT_USER:-loupe}"
+    password="${MINIO_ROOT_PASSWORD:-loupe-secret}"
+    # `up -d` returns as soon as the container is started, not when the server
+    # accepts connections, so the alias below would race it and fail with a
+    # bare "connection refused" that reads like a networking fault.
+    for _ in $(seq 30); do
+        if docker compose exec -T minio mc alias set local http://127.0.0.1:9000 "$user" "$password" >/dev/null 2>&1; then
+            break
+        fi
+        sleep 1
+    done
+    # Re-run unsilenced so a genuine credential or network failure is reported
+    # rather than swallowed by the loop above.
+    docker compose exec -T minio mc alias set local http://127.0.0.1:9000 "$user" "$password" >/dev/null
+    docker compose exec -T minio mc mb --ignore-existing "local/{{bucket}}" >/dev/null
+    echo "minio: bucket '{{bucket}}' ready — console http://localhost:9001 (user $user)"
+
+# Stop MinIO. Add --volumes to also discard the bucket contents.
+minio-down *args:
+    docker compose --profile minio down minio "$@"
+
 # Provision the dedicated e2e target: a disposable database plus an nginx
 # sidecar serving THIS checkout at e2e.<project>.dev.localhost. Idempotent.
 #
