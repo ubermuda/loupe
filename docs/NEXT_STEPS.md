@@ -1066,32 +1066,50 @@ multi-round spec reviews much cheaper. Section identity comes from headings, so
 `App\Module\Review\Service\HeadingExtractor` is the existing source of it; also
 interacts with comment re-anchoring.
 
-## Decide fate of PlaywrightSyncEmailMiddleware
+## Make messenger synchronous under Playwright so e2e needs no consumer
 
-**Author:** Claude · **Type:** tooling · **Priority:** medium · **Status:** pending
+**Author:** Geoffrey · **Type:** tooling · **Priority:** medium · **Status:** pending
 
-`src/Messenger/Middleware/PlaywrightSyncEmailMiddleware.php` is unregistered and its
-target `sync` transport is commented out in `config/packages/messenger.yaml` (line 13);
-`playwright.config.ts` still sends the `X-Playwright` header solely for it. Verified still
-dormant on 2026-08-04. **Decision needed:**
+Owner decision (2026-08-04): e2e should not need a messenger consumer at all.
+This supersedes the earlier "wire it or delete it" question about
+`PlaywrightSyncEmailMiddleware` — the answer is wire it, and wider than mail.
 
-1. Wire it properly — register the middleware and uncomment the `sync` transport — so
-   Playwright-headed requests deliver mail synchronously, removing the consumer
-   requirement for mail-asserting e2e specs altogether.
-2. Delete the class and the header, and keep the consumer requirement.
+Until it lands the consumer requirement is at least no longer silent: `just e2e`
+refuses to start unless a consumer is live, and `just e2e-worker` recycles below
+PHP's own memory limit and relaunches itself, so a worker cannot disappear
+mid-session. This entry would delete that machinery rather than merely stop it
+hurting.
 
-Deciding beats letting it rot. What made this urgent has been fixed, so it is now a
-tidiness question rather than a recurring cost: `just e2e` refuses to start without a live
-consumer, and `just e2e-worker` recycles below PHP's memory limit and relaunches itself,
-so a worker no longer silently disappears mid-session. Option 1 would delete that
-machinery rather than merely stop it hurting.
+An attempt on 2026-08-04 got most of the way and is worth reading before the
+next one starts, because the remaining gap is specific rather than general.
 
-Background worth keeping either way. The suite's authenticated fixture registers a user
-and verifies it through the emailed link, so with nothing consuming `async` the failures
-are not confined to obviously mail-shaped specs — login, signup, delete-account,
-forgot-password, the first-run wizard, admin smoke, paywall and delete-project all go down
-together, with the app returning 200 and `just ci` green. Recognising that shape is what
-tells you the fault is the environment rather than the branch.
+What worked: a bus middleware that stamps `TransportNamesStamp(['sync'])` on any
+envelope dispatched during a request carrying `X-Playwright`, with the `sync`
+transport uncommented in `config/packages/messenger.yaml`. Registered under
+`framework.messenger.buses.messenger.bus.default.middleware`. With no consumer
+running at all, the whole authentication-shaped block passes — signup, login,
+email verification, forgot-password, waitlist, the first-run wizard — which is
+the ~19-spec failure mode that made a forgotten worker so expensive.
+
+What did not: the data-export chain. `GenerateDataExportMessage` is handled
+inline, but the email `ProcessDataExportHandler` sends from inside that handler
+still lands on `async` and sits there. One `SendEmailMessage` row remains queued
+after the spec runs. The likely cause is that the nested dispatch happens where
+`RequestStack::getCurrentRequest()` no longer returns the request, so the
+middleware's guard skips it — worth confirming before designing around it, since
+if that is right the fix is to capture the flag once per request rather than
+re-read the stack per dispatch.
+
+Two traps found while testing this, both of which cost a full suite run:
+
+- Verifying the middleware is wired by grepping the compiled container gives a
+  false negative against a stale `var/cache/dev`. It showed only in
+  `removed-ids.php` until the cache was rebuilt, which reads exactly like a
+  config that never took effect.
+- `just e2e-up` migrates `app_e2e` but never rolls it back, so a database
+  migrated by one branch is ahead of another branch's code and the suite fails
+  with SQL errors that look like application bugs. Drop the database and re-run
+  `just e2e-up` when switching between branches whose schemas differ.
 
 ## Fuller billing section in account settings (manage sub in-app)
 
@@ -2923,6 +2941,66 @@ a single delegation declares the same shape as what it delegates to — the same
 family as the existing name-agreement rules, and it would cover every future
 tool/query pair rather than this one.
 
+## The system status page is one handler with a check method per concern
+
+**Author:** Geoffrey · **Type:** tooling · **Priority:** medium · **Status:** pending
+
+Owner note (2026-08-04): the status page needs to be modularized.
+
+`App\Module\Account\Command\CheckSystemStatusHandler` holds every check as a
+private method on one class, and the class takes a constructor argument per
+thing any of them needs — a connection, an HTTP client, the mailer transport
+factory, the feature flags, and six autowired environment values. Adding the
+agent-account check meant adding a method and a SQL constant to a class that
+already knows about SMTP, Mercure, Stripe and the messenger tables.
+
+The shape to move to is one class per check behind a common interface, tagged
+and collected, so a check declares its own dependencies and can be tested
+without constructing the others. `SystemCheck` and `SystemCheckState` are
+already the right value objects for it; what is missing is the seam.
+
+Two things to preserve, because they are the parts that took thought. The
+worker check deliberately never reports "ok" — an idle queue cannot prove a
+consumer is running — and a generic collector must not tempt anyone into
+reporting green for "no errors". And the Stripe check is skipped rather than
+failed when billing is switched off, so whatever replaces the current
+`if` needs a way for a check to declare itself not-applicable that is distinct
+from passing.
+
+Related: 'Decide whether health checks stay hand-rolled, move to a third-party
+package, or become our own' — that entry asks whether to adopt
+`liip/monitor-bundle`, whose check abstraction would be the seam this entry
+wants. Settle that one first, or this refactor is done twice.
+
+## MCP tool: hand the human a list of what needs their attention
+
+**Author:** Geoffrey · **Type:** feature · **Priority:** medium · **Status:** pending
+
+Owner note (2026-08-04): a tool that lets an agent push "todos for the human" —
+pull requests waiting to be reviewed, test scenarios to walk through by hand,
+decisions the agent could not make — so that someone returning after a long
+unattended session can see what to do next instead of reconstructing it from
+the transcript.
+
+The problem it solves is real and specific: an agent working for hours produces
+a queue of things only a person can finish, and today that queue exists only in
+the chat log. A human coming back has to read the whole session to find the
+three things that need them.
+
+Worth settling before designing it. Whether an item is its own entity or a typed
+variant of something that exists — this is close to 'Agent-authored test
+scenarios delivered through the site-review widget', which asks for the same
+push in the site-review direction, and the two should share a model rather than
+growing separately. Where it surfaces: a page of its own, the dashboard, or the
+existing site-review inbox. Whether items carry a state beyond done/not-done,
+since "reviewed and rejected" is a different outcome from "done". And how an
+item points at what it concerns, given that nothing in the model records a pull
+request today — the same missing link 'Let the agent close the loop when a human
+approves the work' ran into.
+
+The read side matters as much as the write: the agent should be able to see what
+it asked for and what came back, or the next session starts by re-asking.
+
 ## `just phpunit` mangles a `--filter` containing an alternation
 
 **Author:** Claude · **Type:** tooling · **Priority:** low · **Status:** pending
@@ -3103,25 +3181,6 @@ endpoint handles CORS locally. This is intentionally per-endpoint. If we add mor
 cross-origin API surface, replace these ad-hoc subscribers with a single shared
 mechanism — either `nelmio/cors-bundle` or one app-wide CORS subscriber driven by
 a path/origin allowlist — so CORS policy lives in one place.
-
-## Port Turbo prefetch convention to the skeleton
-
-
-
-
-**Author:** Claude · **Type:** tooling · **Priority:** low · **Status:** pending
-
-Turbo 8 prefetches links on hover, which silently fires the GET behind any
-side-effecting link — we hit this with the `logout` link logging users out on
-hover. Fixed here by adding `data-turbo-prefetch="false"` to the logout link and
-documenting the convention in `.claude/skills/project-frontend/SKILL.md`
-("Disable prefetch on side-effecting GET links").
-
-The skeleton has **no logout link**, so there's nothing to fix literally — port
-the *convention* instead: copy the SKILL.md note into the skeleton's
-project-frontend skill so future consumers know to opt side-effecting GET links
-out of prefetch. Open a PR against the skeleton (`main`), then update
-`.skeleton.json`.
 
 ## Revisit: migrate API auth to Symfony's `access_token` authenticator
 
@@ -3840,3 +3899,17 @@ code under test rather than as a fixture that outgrew a column.
 worth grepping for. The fix is for the helpers to derive a short unique username
 instead of reusing the email, so a descriptive address stays free to be
 descriptive.
+
+## Bump `.skeleton.json` once the Turbo-prefetch PR merges
+
+**Author:** Claude · **Type:** tooling · **Priority:** low · **Status:** pending
+
+The convention itself is ported — `ubermuda/symfony-skeleton#98` adds the
+`data-turbo-prefetch="false"` note to that repo's `project-frontend` skill. What
+is left is the bookkeeping: `last_ported_commit` in `.skeleton.json` should move
+to the merge commit once it lands.
+
+Not done up front on purpose. That field records how far this project has
+absorbed the skeleton, so advancing it past an unmerged branch would claim a
+merge that has not happened and make the next `update-from-skeleton` run skip
+whatever else landed in between.
