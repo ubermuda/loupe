@@ -65,6 +65,37 @@ final class DocumentExporterQueryCountTest extends KernelTestCase
         return $user;
     }
 
+    /**
+     * One document in each of $projectCount projects. The project N+1 is bounded
+     * by distinct projects rather than by documents, so the fixture above cannot
+     * reach it — every document there shares one project.
+     *
+     * @param non-empty-string $slug
+     */
+    private function ownerAcrossProjects(string $slug, int $projectCount): User
+    {
+        $user = new User(fullName: 'U', email: $slug.'@example.com', password: 'hashed');
+        $this->em->persist($user);
+
+        for ($i = 0; $i < $projectCount; ++$i) {
+            $project = new Project($user, 'p-'.$slug.'-'.$i);
+            $this->em->persist($project);
+
+            $document = new Document(owner: $user, project: $project, title: 'doc '.$i);
+            $document->addVersion('# one', '<h1>one</h1>');
+            $document->addVersion('# two', '<h1>two</h1>');
+            $tag = new Tag($project, 'tag-'.$slug.'-'.$i);
+            $this->em->persist($tag);
+            $document->tags->add($tag);
+            $this->em->persist($document);
+        }
+
+        $this->em->flush();
+        $this->em->clear();
+
+        return $user;
+    }
+
     /** @return list<string> */
     private function countQueriesDuringExportOf(User $user): array
     {
@@ -105,6 +136,25 @@ final class DocumentExporterQueryCountTest extends KernelTestCase
             \count($forOne),
             \count($forSeveral),
             "Export query count grew with the number of documents:\n".implode("\n", $forSeveral),
+        );
+    }
+
+    public function test_exporting_across_more_projects_does_not_issue_more_queries(): void
+    {
+        $one = $this->ownerAcrossProjects('export-p-one', 1);
+        $several = $this->ownerAcrossProjects('export-p-many', 5);
+
+        $forOne = $this->countQueriesDuringExportOf($one);
+        $forSeveral = $this->countQueriesDuringExportOf($several);
+
+        self::assertNotEmpty($forOne);
+        // The export reads $document->project->name per row. Without the
+        // fetch-join in findByOwner that is a ManyToOne proxy, so the first read
+        // of each distinct project costs its own SELECT and this grows by four.
+        self::assertSame(
+            \count($forOne),
+            \count($forSeveral),
+            "Export query count grew with the number of distinct projects:\n".implode("\n", $forSeveral),
         );
     }
 }

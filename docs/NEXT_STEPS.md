@@ -3195,28 +3195,6 @@ in the gates runs bare tsc today (Playwright transpiles specs itself), so this i
 latent. Modernize the tsconfig (`module`/`moduleResolution` `nodenext`, or
 `bundler`) when convenient.
 
-## Regenerate token handlers are check-then-set without locking
-
-
-
-**Author:** Claude · **Type:** bug · **Priority:** low · **Status:** pending
-
-`RegenerateProjectWidgetTokenHandler` and `RegenerateProjectMcpTokenHandler`
-delete the previous token and persist a new one with no lock, so two concurrent
-regenerations can leave the loser's token valid but bound to no project.
-
-Both mint handlers are now guarded — `MintProjectWidgetTokenHandler` and, since
-PR #66, `MintProjectMcpTokenHandler` — each taking a `PESSIMISTIC_WRITE` on the
-project row and re-checking committed state through a repository query. Mirror
-that shape here.
-
-Note the mint fix deliberately avoids `EntityManager::refresh()`: it throws on
-`Project::$createdAt`, which is `readonly`, which is why the committed-state
-check is a repository query rather than a refresh.
-
-Impact stays low — regeneration is a single-owner action, and an unbound token
-resolves no project so project-scoped consumers reject it.
-
 ## Widget-token mint flow still uses site-era CSRF id and translation keys
 
 
@@ -3688,29 +3666,6 @@ and where the choice is between a table of contents and stranded comments.
 What removes that choice is the re-anchoring pass described in "A renderer change
 that moves plainText needs a reanchor pass, not just a rerender": with it, an old
 version can be brought forward and its comments re-resolved in the same motion.
-
-## The data export initialises one Project proxy per distinct project
-
-
-**Author:** Claude · **Type:** bug · **Priority:** low · **Status:** pending
-
-`App\Module\Review\Service\DocumentExporter::export()` reads
-`$document->project->name` for every row. `Document::$project` is a `ManyToOne`,
-so the first read of each distinct project initialises its proxy with its own
-`SELECT`. The document collections beside it are batch-loaded
-(`DocumentRepository::preloadTags()` / `preloadVersions()`); this one is not.
-
-Lower severity than it looks, which is why it was left: the cost is bounded by
-the number of **distinct projects** the user owns, not by the number of
-documents, so an account with forty documents across two projects pays two
-queries rather than forty. It only becomes interesting for an account with many
-sparsely-populated projects.
-
-The fix is a fetch-join on `DocumentRepository::findByOwner()`, whose only
-production caller is that exporter. It was deliberately not done alongside the
-collection preloads, because changing a finder's own query is a wider change
-than adding a preload beside it, and `findByOwner` is also what
-`DocumentRepositoryTest` pins as the path the export reads.
 
 ## `list<T>` in an MCP tool docblock generates an untyped `items: {}`
 
