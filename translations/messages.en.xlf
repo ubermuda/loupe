@@ -2012,7 +2012,7 @@
             </trans-unit>
             <trans-unit id="account.system_status.agent_account.missing">
                 <source>account.system_status.agent_account.missing</source>
-                <target>The agent account is missing, so any comment written through the MCP will fail. It is created by the database migrations and by the install wizard; re-run "bin/console doctrine:migrations:migrate" to restore it.</target>
+                <target>The agent account is missing, so any comment written through the MCP will fail. Run "bin/console app:admin:create" with your existing administrator's email to restore it — re-running the migrations will not, because the migration that creates the row is already recorded as applied.</target>
             </trans-unit>
             <trans-unit id="account.system_status.agent_account.unreadable">
                 <source>account.system_status.agent_account.unreadable</source>
