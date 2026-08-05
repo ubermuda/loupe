@@ -78,16 +78,12 @@ introduced it.
 
 - **No `TODO` / `FIXME` / `XXX`** — `NoTodosCheck` (`just gamache`) fails on
   them. Follow-ups go in `docs/NEXT_STEPS.md`.
-- **Comments must be self-contained** — no references to tasks, phases, spec
-  sections, handoff docs or dated decisions. State the underlying fact instead.
-  **Nothing enforces this.** `SelfContainedCommentsCheck` does not exist in any
-  of gamache's five layers; this skill and `CLAUDE.md` both asserted it did
-  until 2026-08-05, and a stale `(F6)` reference sat in `ProjectDeleter` the
-  whole time as a result.
+- **Comments must be self-contained** — `SelfContainedCommentsCheck` fails on
+  references to tasks, phases, spec sections, handoff docs or dated decisions.
+  State the underlying fact instead.
 
-Only the first is a hard failure. This skill is the judgment layer above it:
-passing `NoTodosCheck` does not make a 17-line comment worth keeping, and the
-self-contained rule holds on your reading alone.
+Both are hard failures, not advisory. This skill is the judgment layer above
+them: passing both checks does not make a 17-line comment worth keeping.
 
 ## Red flags
 

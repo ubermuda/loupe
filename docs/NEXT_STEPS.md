@@ -1514,69 +1514,6 @@ document, and an agent should plausibly be able to *make* suggestions on a human
 edit. Neither needs building first, but the comment model should not make them
 awkward later.
 
-## `just e2e-down` makes the worker report a failure it did not have
-
-**Author:** Claude · **Type:** tooling · **Priority:** medium · **Status:** pending
-
-`e2e-worker` loops a consumer and uses a stop marker to tell a limit recycle
-(relaunch) from `e2e-down` tearing the target down (stop). The marker is
-consulted **only on a clean exit** — the non-zero branch exits 1 immediately
-with "consumer exited non-zero — stopping rather than looping on a failure",
-without ever looking at it.
-
-Observed 2026-08-05: a normal `just e2e-down` after a fully green suite ended
-the worker with exit code 1 and that message. Nothing was actually wrong — no
-consumer was left in the container afterwards
-(`docker exec loupe-php-fpm-1 sh -c "ps aux | grep -c '[m]essenger:consume'"`
-returned 0) — but the recipe reported a failure for a routine teardown.
-
-The comment in the recipe states the assumption that made this invisible:
-"Messenger stops gracefully on SIGTERM when pcntl is loaded, so the exit code
-cannot separate them." That is a claim about a *clean* exit. When `e2e-down`
-removes the compose project first, the `docker compose exec` itself can fail,
-and the consumer's database can go out from under it — either way the exit is
-non-zero and the marker is never read.
-
-The fix is to check the marker before deciding the non-zero exit is real, in
-both branches rather than one. Worth doing because the cost is not the wrong
-exit code but the wrong signal: a teardown that always prints "consumer exited
-non-zero" teaches a reader to ignore the one time it means something, and
-`just e2e` already depends on people trusting worker diagnostics — a missing
-consumer is documented as the cause of a ~19-spec failure block.
-
-## Gamache check: `SelfContainedCommentsCheck` is cited everywhere and exists nowhere
-
-**Author:** Claude · **Type:** tooling · **Priority:** medium · **Status:** pending
-
-`CLAUDE.md` and the `project-comments` skill both stated that comments
-referencing ephemeral development artifacts — `Task 16`, `Phase 1`, `§3.5`,
-`handoff screen 8`, feature codenames like `F6` — are "enforced by
-`SelfContainedCommentsCheck` (runs in `just gamache`)". No such class exists.
-Checked all five gamache layers on 2026-08-05 (`src/Check/`, `src/PHPStan/`,
-`src/Rector/`, `src/PhpCsFixer/`, `src/TwigCsFixer/` in
-`vendor/ubermuda/gamache`): the string `SelfContained` appears nowhere in the
-package, and `gamache.php` wires eleven checks, none of them this one.
-
-The cost was measurable rather than theoretical: `ProjectDeleter`'s class
-docblock carried "Reused by delete-account (F6)" — exactly the shape the rule
-forbids — through every green `just ci` since it was written. It was found by
-grep, not by a gate, and fixed on the same branch as this entry. Both documents
-now say the rule is unenforced.
-
-Building it belongs in gamache's PHPStan layer, alongside the existing
-name-agreement rules, and gamache is an external package — so this is a pull
-request on https://github.com/ubermuda/gamache, not a class under `src/`. The
-matching is the hard part and is why it was not done inline: `Phase 1` and
-`Part 1` are common English, so a naive pattern would fire on prose like "part 1
-of the payload". Scope it to the shapes that are unambiguous — a bare `F<digits>`
-in parentheses, `§`, `Task <digits>`, `handoff`, and an ISO date paired with
-"decision" — and accept false negatives over false positives, since a check
-nobody trusts gets suppressed rather than fixed.
-
-Related: 'Gamache rule: catch skills that document tooling which no longer
-exists' — the same failure mode one level up, and this entry is a worked
-example of it.
-
 ## Gamache rule: an MCP tool class name must match its tool name
 
 
@@ -2804,6 +2741,68 @@ existing per-process split in prod is deliberate (`docker/prod/supervisord.conf`
 is the web container's CMD only, never a place to add background programs), so
 whatever runs several processes in the trial image must be scoped to that image
 and not leak back into the prod one.
+
+## The gamache pin is three commits stale, so two documented gates do not run here
+
+**Author:** Claude · **Type:** tooling · **Priority:** medium · **Status:** pending
+
+`composer.json` pins `ubermuda/gamache` to
+`dev-main#e7e9349727630b25ff4c550ac7e5f6519d47b9c1`. Upstream `main` is at
+`382155f` — three merged commits ahead, all of them rules:
+
+- `8512c45` — `SelfContainedCommentsCheck` (`src/Check/`)
+- `e60c3ed` — `SelfAssigningTernaryRule` (`src/PHPStan/`)
+- `382155f` — `ControllerNoDirectStateAccessRule` (`src/PHPStan/`)
+
+The first two matter because **`CLAUDE.md` and `project-comments` both state
+that self-contained comments are "enforced by `SelfContainedCommentsCheck`
+(runs in `just gamache`)", and in this checkout they are not** — the class is
+not in `vendor/`, so the documented gate silently does nothing. That is not a
+documentation error: the rule exists, it is merely not installed here. The cost
+is already paid once — `ProjectDeleter`'s docblock carried a `(F6)` feature
+codename, exactly the shape the rule forbids, through every green `just ci`
+until it was found by grep on 2026-08-05.
+
+Repointing the pin to `382155f` is the fix, and it is deliberately **not** a
+drive-by: three new rules arriving at once will flag existing code, and
+`SelfContainedCommentsCheck` is a `src/Check/` class, so it also has to be
+wired into `gamache.php` before it runs at all. Budget for the fallout rather
+than folding it into an unrelated branch. Note also that `just gamache` is
+advisory for some checks, so "green" after the bump does not by itself prove
+the new rules found nothing — read the output.
+
+Related: 'Gamache: ship the controller direct-state-access rule the skill
+cites', which this closes upstream but not here.
+
+## `just e2e-down` makes the worker report a failure it did not have
+
+**Author:** Claude · **Type:** tooling · **Priority:** medium · **Status:** pending
+
+`e2e-worker` loops a consumer and uses a stop marker to tell a limit recycle
+(relaunch) from `e2e-down` tearing the target down (stop). The marker is
+consulted **only on a clean exit** — the non-zero branch exits 1 immediately
+with "consumer exited non-zero — stopping rather than looping on a failure",
+without ever looking at it.
+
+Observed 2026-08-05: a normal `just e2e-down` after a fully green suite ended
+the worker with exit code 1 and that message. Nothing was actually wrong — no
+consumer was left in the container afterwards
+(`docker exec loupe-php-fpm-1 sh -c "ps aux | grep -c '[m]essenger:consume'"`
+returned 0) — but the recipe reported a failure for a routine teardown.
+
+The comment in the recipe states the assumption that made this invisible:
+"Messenger stops gracefully on SIGTERM when pcntl is loaded, so the exit code
+cannot separate them." That is a claim about a *clean* exit. When `e2e-down`
+removes the compose project first, the `docker compose exec` itself can fail,
+and the consumer's database can go out from under it — either way the exit is
+non-zero and the marker is never read.
+
+The fix is to check the marker before deciding the non-zero exit is real, in
+both branches rather than one. Worth doing because the cost is not the wrong
+exit code but the wrong signal: a teardown that always prints "consumer exited
+non-zero" teaches a reader to ignore the one time it means something, and
+`just e2e` already depends on people trusting worker diagnostics — a missing
+consumer is documented as the cause of a ~19-spec failure block.
 
 ## Rendered front matter and annotations have no accessible name
 
