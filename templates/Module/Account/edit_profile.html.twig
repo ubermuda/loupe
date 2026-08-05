@@ -1,0 +1,27 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}{{ 'account.profile.page.title'|trans }} — {{ 'app.name'|trans }}{% endblock %}
+
+{% block body %}
+<div class="lp-connect">
+    <h1 class="lp-workspace-title lp-workspace-title--doc">{{ 'account.profile.page.title'|trans }}</h1>
+    <p class="lp-workspace-desc">{{ 'account.profile.page.intro'|trans }}</p>
+
+    <section class="lp-connect-block" data-testid="profile-section">
+        {{ form_start(form, {'attr': {'class': 'form-stack', 'novalidate': 'novalidate'}}) }}
+
+            <div class="form-field">
+                {{ form_label(form.fullName, null, {'label_attr': {'class': 'form-label'}}) }}
+                {{ form_widget(form.fullName, {'attr': {'class': 'auth-input', 'placeholder': 'account.form.profile_form.full_name.placeholder'}}) }}
+                <div class="field-errors">{{ form_errors(form.fullName) }}</div>
+            </div>
+
+            <div class="lp-connect-actions">
+                <button type="submit" class="lp-btn lp-btn--primary">{{ 'account.profile.save_button'|trans }}</button>
+                <a href="{{ path('app_account_settings') }}" class="lp-btn lp-btn--ghost">{{ 'account.profile.cancel_link'|trans }}</a>
+            </div>
+
+        {{ form_end(form) }}
+    </section>
+</div>
+{% endblock %}
