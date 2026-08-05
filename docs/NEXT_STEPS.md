@@ -197,37 +197,49 @@ Close this by adding a short "Backing up" section to `DEPLOY.md`: what to dump,
 what else holds state, that restore has never been rehearsed, and that the
 operator owns the schedule.
 
-## CSP is report-only until inline scripts carry nonces
-
+## Flip the CSP from report-only to enforcing
 
 **Author:** Claude · **Type:** security · **Priority:** high · **Status:** pending
 
-`config/packages/nelmio_security.yaml` sends the policy under `report` rather
-than `enforce`, so it blocks nothing today. Switching to enforcing needs
-per-request nonces on the inline scripts (importmap, theme styles) — Nelmio's
-`csp_nonce()` Twig helper — because `script-src` currently relies on
-`'unsafe-inline'`.
+`config/packages/nelmio_security.yaml` still sends the policy under `report`
+rather than `enforce`, so it blocks nothing.
 
-Note also that `NelmioSecurityBundle` is registered **prod-only** in
-`config/bundles.php`, so no policy is sent in dev or test at all. Any
-verification that a policy blocks something must run against a prod-like
-build; a dev-environment check will show no CSP header and prove nothing.
+**The nonce work it was waiting on is done.** `importmap()` in
+`templates/base.html.twig` — the only inline scripts this app emits — carries
+`csp_nonce('script')`, and the nonce reaches the header as well as the markup:
+observed on a dev request configured with a report policy, `script-src` came
+back containing `'nonce-…'` matching the rendered tags. `NelmioSecurityBundle`
+is now registered in every environment for that to be possible, with only prod
+configuring anything that emits a header.
 
-Also revisit the allowlist when flipping it: `connect-src` does not include the
-Mercure hub origin. That is fine today (browser-side Mercure turbo streams are
-disabled in `assets/controllers.json`; the only subscriber is the Go bridge,
-which CSP does not govern), but enabling browser SSE would need it added.
+What is left is the flip itself, plus two allowlist edits it enables:
+`'unsafe-inline'` can come out of `script-src` (browsers ignore it once a nonce
+is present), and `style-src` still needs it, because the inline styles are not
+nonced.
+
+**It cannot be verified from a dev gate, and that is the real blocker.**
+`just e2e` runs against a dev-mode target, which by design sends no policy at
+all, so a green suite proves nothing about an enforcing header. Verifying needs
+a prod-like target — `compose.prod.yaml` is the obvious candidate, driven by
+`compose.prod.env`. Build that first; shipping the flip on a dev-green gate
+risks a blank page for every real user, since a policy that blocks the
+importmap breaks all JavaScript on the page.
+
+Two things already checked, so they need not be rechecked. The `cdn.jsdelivr.net`
+scripts in `base.html.twig` are gated behind `FRANKENPHP_HOT_RELOAD` and never
+render in production, so they need no allowlist entry. And `connect-src` still
+omits the Mercure hub origin, which is fine while browser-side Mercure is
+disabled in `assets/controllers.json` — enabling browser SSE would need it
+added.
 
 **Do not treat this flip as a mitigation for markup-injection findings.** A
-review of the Markdown sanitizer produced an attack where a `class` attribute
-on document-supplied `<code>` selected the app's own compiled stylesheet rules
-to paint a full-screen phishing overlay. An enforcing CSP would not have
-stopped it: CSP governs neither `class` attributes nor which of the app's own
-rules apply, and `style-src 'self'` permits exactly the stylesheet the payload
-used. The mitigation for that class of attack is restricting what the
-sanitizer admits — which is what the sanitizer work did, by constraining
-`class` on `<code>` to a `language-*` allowlist. Flipping the CSP is worth
-doing on its own merits; it buys script-injection defence, not markup-shaped
+review of the Markdown sanitizer produced an attack where a `class` attribute on
+document-supplied `<code>` selected the app's own compiled stylesheet rules to
+paint a full-screen phishing overlay. An enforcing CSP would not have stopped
+it: CSP governs neither `class` attributes nor which of the app's own rules
+apply, and `style-src 'self'` permits exactly the stylesheet the payload used.
+The mitigation for that class of attack is restricting what the sanitizer
+admits. Flipping the CSP buys script-injection defence, not markup-shaped
 attacks that stay inside the app's own CSS.
 
 ## The MCP connection drops repeatedly, and reconnecting does not restore the tools
@@ -2829,6 +2841,30 @@ existing per-process split in prod is deliberate (`docker/prod/supervisord.conf`
 is the web container's CMD only, never a place to add background programs), so
 whatever runs several processes in the trial image must be scoped to that image
 and not leak back into the prod one.
+
+## `bin/console cache:clear` runs out of memory in dev
+
+**Author:** Claude · **Type:** tooling · **Priority:** medium · **Status:** pending
+
+`just exec bin/console cache:clear` fails in the dev environment with
+`Allowed memory size of 134217728 bytes exhausted`, thrown while warming a
+compiled Twig template. Reproduced on `main` on 2026-08-05, four runs out of
+four, so it is not branch-specific; an isolated run that succeeds is luck, not
+evidence, which is what made it look like a change had caused it.
+
+It passes at a higher limit — `docker exec loupe-php-fpm-1 php -d
+memory_limit=512M bin/console cache:clear` succeeds — so the fix is the CLI
+memory limit for this container, not the cache itself.
+
+Low urgency, because nothing in the normal workflow needs it: `CLAUDE.md` says
+`cache:clear` is not required in dev, and the recipe that *is* on the gate path,
+`just phpstan`, runs `cache:warmup`, which stays inside the limit. It bites a
+session that reaches for `cache:clear` while debugging and reads the fatal as a
+symptom of whatever it was working on.
+
+Related: 'phpstan runs out of memory in a worktree' — same 128M CLI limit,
+different command, and worth fixing in one place rather than per recipe.
+
 
 ## `just phpunit` mangles a `--filter` containing an alternation
 
