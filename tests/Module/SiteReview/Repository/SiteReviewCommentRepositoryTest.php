@@ -21,7 +21,6 @@ final class SiteReviewCommentRepositoryTest extends KernelTestCase
         $repository = static::getContainer()->get(SiteReviewCommentRepository::class);
 
         $owner = new User(
-            username: 'counts@example.com',
             fullName: 'Counts',
             email: 'counts@example.com',
             password: 'x',

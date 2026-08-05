@@ -40,7 +40,7 @@ final class RevokeApiTokenHandlerTest extends KernelTestCase
 
     public function test_revoking_sets_revoked_at_but_keeps_the_row(): void
     {
-        $owner = new User(username: 'revoke-handler', fullName: 'U', email: 'revoke-handler@example.com', password: 'x');
+        $owner = new User(fullName: 'U', email: 'revoke-handler@example.com', password: 'x');
         $this->em->persist($owner);
         [$token] = ApiToken::issue($owner, 'handler-token', ApiTokenScope::Mcp);
         $this->em->persist($token);
@@ -58,7 +58,7 @@ final class RevokeApiTokenHandlerTest extends KernelTestCase
 
     public function test_revoking_a_project_bound_widget_token_clears_the_binding(): void
     {
-        $owner = new User(username: 'revoke-widget', fullName: 'U', email: 'revoke-widget@example.com', password: 'x');
+        $owner = new User(fullName: 'U', email: 'revoke-widget@example.com', password: 'x');
         $this->em->persist($owner);
         $project = new Project($owner, 'revoke-widget-project');
         [$token] = ApiToken::issue($owner, 'Widget: revoke-widget-project', ApiTokenScope::SiteReview);

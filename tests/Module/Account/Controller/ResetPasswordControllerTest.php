@@ -16,7 +16,7 @@ final class ResetPasswordControllerTest extends WebTestCase
         $em = static::getContainer()->get(EntityManagerInterface::class);
         $hasher = static::getContainer()->get(UserPasswordHasherInterface::class);
 
-        $user = new User('resetuser', 'Reset User', 'reset@example.com');
+        $user = new User('Reset User', 'reset@example.com');
         $user->password = $hasher->hashPassword($user, 'OldPassword1!');
         $user->emailVerifiedAt = new \DateTimeImmutable();
         $token = $user->generatePasswordResetToken();

@@ -10,12 +10,12 @@ use App\Module\Account\Event\UserRegistered;
 use App\Module\Account\Repository\ConnectedAccountRepository;
 use App\Module\Account\Repository\UserRepository;
 use App\Module\Account\Repository\WaitlistEntryRepository;
+use App\Module\Account\Service\DisplayNameDeriver;
 use App\Module\Account\Service\RegistrationGate;
 use App\Module\Account\Service\SocialLoginOutcome;
 use App\Module\Account\Service\SocialLoginRace;
 use App\Module\Account\Service\SocialProfile;
 use App\Module\Account\Service\UnverifiedProviderEmail;
-use App\Module\Account\Service\UsernameGenerator;
 use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
 use Doctrine\ORM\EntityManagerInterface;
 use Psr\Log\LoggerInterface;
@@ -23,16 +23,19 @@ use Symfony\Contracts\EventDispatcher\EventDispatcherInterface;
 
 final readonly class ResolveSocialLoginHandler
 {
+    /** Matches the users.full_name column. */
+    private const int MAX_FULL_NAME_LENGTH = 150;
+
     public function __construct(
         private ConnectedAccountRepository $connectedAccounts,
         private UserRepository $users,
         private EntityManagerInterface $em,
-        private UsernameGenerator $usernameGenerator,
         private RegistrationGate $registrationGate,
         private JoinWaitlistHandler $joinWaitlist,
         private WaitlistEntryRepository $waitlistEntries,
         private LoggerInterface $logger,
         private EventDispatcherInterface $eventDispatcher,
+        private DisplayNameDeriver $displayNameDeriver,
     ) {
     }
 
@@ -103,9 +106,14 @@ final readonly class ResolveSocialLoginHandler
                 return null;
             }
 
+            // The provider's name is real data and worth keeping; there is no
+            // form to ask on when it sends none, so the address is the only
+            // material left to build one from.
+            $providerName = trim($profile->fullName ?? '');
             $user = new User(
-                username: $this->usernameGenerator->fromPreferred($profile->fullName ?? explode('@', $matchEmail)[0]),
-                fullName: substr(trim($profile->fullName ?? '') ?: explode('@', $matchEmail)[0], 0, 150),
+                fullName: '' !== $providerName
+                    ? mb_substr($providerName, 0, self::MAX_FULL_NAME_LENGTH)
+                    : $this->displayNameDeriver->derive($matchEmail),
                 email: $matchEmail,
             );
             $user->emailVerifiedAt = new \DateTimeImmutable();

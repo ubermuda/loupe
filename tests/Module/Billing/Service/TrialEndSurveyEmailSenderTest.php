@@ -46,7 +46,7 @@ final class TrialEndSurveyEmailSenderTest extends TestCase
     #[DataProvider('flagsByVariant')]
     public function test_send_skips_and_logs_when_the_url_flag_is_unset(bool $subscribed, string $flag): void
     {
-        $user = new User('alice', 'Alice A', 'alice@example.com', 'hashed');
+        $user = new User('Alice A', 'alice@example.com', 'hashed');
 
         $mailer = $this->createMock(MailerInterface::class);
         $mailer->expects(self::never())->method('send');
@@ -86,7 +86,7 @@ final class TrialEndSurveyEmailSenderTest extends TestCase
         string $subjectKey,
         string $template,
     ): void {
-        $user = new User('alice', 'Alice A', 'alice@example.com', 'hashed');
+        $user = new User('Alice A', 'alice@example.com', 'hashed');
 
         $sentEmail = null;
         $mailer = $this->createMock(MailerInterface::class);

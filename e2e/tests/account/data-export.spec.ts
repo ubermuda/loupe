@@ -14,7 +14,6 @@ const EXPORT_SUBJECT = 'Your Loupe data export is ready';
 const test = createTest({
     email: 'e2e-data-export@example.com',
     password: 'e2e_password_123!',
-    name: 'Data Export User',
 });
 
 test('requesting a data export emails a working download link', async ({

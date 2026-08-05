@@ -13,7 +13,7 @@ final class ApiTokenTest extends TestCase
 {
     private function user(): User
     {
-        return new User(username: 'alice', fullName: 'Alice', email: 'alice@example.com');
+        return new User(fullName: 'Alice', email: 'alice@example.com');
     }
 
     public function test_issue_returns_raw_token_and_stores_only_hash(): void

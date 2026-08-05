@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Tests\Module\Account\Command;
 
-use App\Exception\DomainErrors;
 use App\Module\Account\Command\CreateAdminUserCommand;
 use App\Module\Account\Command\CreateAdminUserHandler;
 use App\Module\Account\Entity\User;
@@ -50,6 +49,28 @@ final class CreateAdminUserHandlerTest extends KernelTestCase
         self::assertQueuedEmailCount(0);
     }
 
+    public function test_an_omitted_full_name_is_derived_from_the_email(): void
+    {
+        $result = ($this->handler)(new CreateAdminUserCommand(
+            email: 'ada.lovelace@example.com',
+            plainPassword: 'SecurePassword1!',
+        ));
+
+        // Nothing asks the operator for a name here, and every account has one.
+        self::assertSame('Ada Lovelace', $result->user->fullName);
+    }
+
+    public function test_a_given_full_name_is_kept_over_a_derived_one(): void
+    {
+        $result = ($this->handler)(new CreateAdminUserCommand(
+            email: 'ada.lovelace@example.com',
+            plainPassword: 'SecurePassword1!',
+            fullName: 'Ada, Countess of Lovelace',
+        ));
+
+        self::assertSame('Ada, Countess of Lovelace', $result->user->fullName);
+    }
+
     public function test_it_leaves_the_install_feature_flags_alone(): void
     {
         $flags = self::getContainer()->get(FeatureFlagRepository::class);
@@ -83,7 +104,7 @@ final class CreateAdminUserHandlerTest extends KernelTestCase
         $hasher = self::getContainer()->get(UserPasswordHasherInterface::class);
         self::assertInstanceOf(UserPasswordHasherInterface::class, $hasher);
 
-        $user = new User(username: 'squatter', fullName: 'First Arrival', email: 'squatter@example.com');
+        $user = new User(fullName: 'First Arrival', email: 'squatter@example.com');
         $user->password = $hasher->hashPassword($user, 'TheirOwnPassword1!');
         $this->em->persist($user);
         $this->em->flush();
@@ -98,38 +119,5 @@ final class CreateAdminUserHandlerTest extends KernelTestCase
         self::assertTrue($result->promoted);
         self::assertTrue($result->verified);
         self::assertSame($originalHash, $result->user->password);
-    }
-
-    public function test_an_explicit_username_that_is_taken_is_rejected_rather_than_suffixed(): void
-    {
-        $existing = new User(username: 'wanted', fullName: 'Existing', email: 'existing@example.com');
-        $existing->password = 'not-a-real-hash';
-        $this->em->persist($existing);
-        $this->em->flush();
-
-        try {
-            ($this->handler)(new CreateAdminUserCommand(
-                email: 'newadmin@example.com',
-                plainPassword: 'SecurePassword1!',
-                username: 'wanted',
-            ));
-            self::fail('Expected DomainErrors to be thrown.');
-        } catch (DomainErrors $e) {
-            self::assertSame(['username' => 'account.console.error.username_taken'], $e->errors);
-        }
-    }
-
-    public function test_a_derived_username_avoids_a_collision(): void
-    {
-        $existing = new User(username: 'ops', fullName: 'Existing', email: 'ops@elsewhere.test');
-        $existing->password = 'not-a-real-hash';
-        $this->em->persist($existing);
-        $this->em->flush();
-
-        $result = ($this->handler)(new CreateAdminUserCommand(email: 'ops@example.com', plainPassword: 'SecurePassword1!'));
-
-        self::assertTrue($result->created);
-        self::assertNotSame('ops', $result->user->username);
-        self::assertStringStartsWith('ops', $result->user->username);
     }
 }

@@ -154,7 +154,7 @@ final class SetDocumentHighlightsHandlerTest extends KernelTestCase
     /** @param non-empty-string $email */
     private function document(string $email): Document
     {
-        $owner = new User(username: substr(md5($email), 0, 12), fullName: 'U', email: $email, password: 'hashed');
+        $owner = new User(fullName: 'U', email: $email, password: 'hashed');
         $this->em->persist($owner);
 
         $project = new Project($owner, 'p-'.uniqid());

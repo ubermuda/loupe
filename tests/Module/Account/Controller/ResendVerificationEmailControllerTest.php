@@ -22,7 +22,7 @@ final class ResendVerificationEmailControllerTest extends WebTestCase
         $em = static::getContainer()->get(EntityManagerInterface::class);
         $hasher = static::getContainer()->get(UserPasswordHasherInterface::class);
 
-        $user = new User('resenduser', 'Resend User', 'resend@example.com');
+        $user = new User('Resend User', 'resend@example.com');
         $user->password = $hasher->hashPassword($user, 'SecurePassword1!');
         $em->persist($user);
         $em->flush();

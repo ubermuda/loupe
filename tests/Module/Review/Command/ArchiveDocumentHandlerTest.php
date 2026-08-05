@@ -43,7 +43,7 @@ final class ArchiveDocumentHandlerTest extends KernelTestCase
     /** @param non-empty-string $email */
     private function document(string $email): Document
     {
-        $user = new User(username: $email, fullName: 'U', email: $email, password: 'hashed');
+        $user = new User(fullName: 'U', email: $email, password: 'hashed');
         $this->em->persist($user);
         $project = new Project($user, 'p-'.uniqid());
         $this->em->persist($project);

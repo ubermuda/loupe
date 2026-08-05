@@ -25,7 +25,7 @@ final class DeleteCommentHandlerTest extends KernelTestCase
         self::bootKernel();
         $em = self::getContainer()->get(EntityManagerInterface::class);
 
-        $owner = new User(username: 'del-owner', fullName: 'Delete Owner', email: 'del-owner@example.com', password: 'hashed');
+        $owner = new User(fullName: 'Delete Owner', email: 'del-owner@example.com', password: 'hashed');
         $em->persist($owner);
         $project = new Project($owner, 'p-'.uniqid());
         $em->persist($project);

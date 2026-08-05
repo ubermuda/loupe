@@ -25,7 +25,7 @@ final class FeatureFlagsAdminListTest extends WebTestCase
         $em = static::getContainer()->get(EntityManagerInterface::class);
         $hasher = static::getContainer()->get(UserPasswordHasherInterface::class);
 
-        $admin = new User(username: 'u'.bin2hex(random_bytes(4)), fullName: 'Admin', email: 'flags-admin@admin-test.example.com');
+        $admin = new User(fullName: 'Admin', email: 'flags-admin@admin-test.example.com');
         $admin->password = $hasher->hashPassword($admin, 'TestPass123!');
         $admin->emailVerifiedAt = new \DateTimeImmutable();
         $admin->roles = ['ROLE_ADMIN'];
@@ -52,7 +52,7 @@ final class FeatureFlagsAdminListTest extends WebTestCase
         $em = static::getContainer()->get(EntityManagerInterface::class);
         $hasher = static::getContainer()->get(UserPasswordHasherInterface::class);
 
-        $admin = new User(username: 'u'.bin2hex(random_bytes(4)), fullName: 'Admin', email: 'flags-filter-admin@admin-test.example.com');
+        $admin = new User(fullName: 'Admin', email: 'flags-filter-admin@admin-test.example.com');
         $admin->password = $hasher->hashPassword($admin, 'TestPass123!');
         $admin->emailVerifiedAt = new \DateTimeImmutable();
         $admin->roles = ['ROLE_ADMIN'];

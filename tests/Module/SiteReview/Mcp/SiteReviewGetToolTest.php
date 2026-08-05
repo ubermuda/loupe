@@ -41,7 +41,7 @@ final class SiteReviewGetToolTest extends KernelTestCase
      */
     private function projectWithPendingComments(string $email, string $name = 'tool-site'): array
     {
-        $user = new User(username: $email, fullName: 'U', email: $email, password: 'x');
+        $user = new User(fullName: 'U', email: $email, password: 'x');
         $this->em->persist($user);
         $project = new Project($user, $name);
         $this->em->persist($project);
@@ -59,7 +59,7 @@ final class SiteReviewGetToolTest extends KernelTestCase
     public function test_returns_pending_comments_in_position_order(): void
     {
         $userEmail = 'get-order@example.com';
-        $user = new User(username: $userEmail, fullName: 'U', email: $userEmail, password: 'x');
+        $user = new User(fullName: 'U', email: $userEmail, password: 'x');
         $this->em->persist($user);
         $project = new Project($user, 'order-site');
         $this->em->persist($project);
@@ -101,7 +101,7 @@ final class SiteReviewGetToolTest extends KernelTestCase
     public function test_addressed_and_resolved_comments_are_excluded(): void
     {
         $userEmail = 'get-status@example.com';
-        $user = new User(username: $userEmail, fullName: 'U', email: $userEmail, password: 'x');
+        $user = new User(fullName: 'U', email: $userEmail, password: 'x');
         $this->em->persist($user);
         $project = new Project($user, 'status-site');
         $this->em->persist($project);
@@ -174,7 +174,7 @@ final class SiteReviewGetToolTest extends KernelTestCase
     public function test_unbound_mcp_token_is_rejected(): void
     {
         $userEmail = 'get-unbound@example.com';
-        $user = new User(username: $userEmail, fullName: 'U', email: $userEmail, password: 'x');
+        $user = new User(fullName: 'U', email: $userEmail, password: 'x');
         $this->em->persist($user);
         $this->em->flush();
 

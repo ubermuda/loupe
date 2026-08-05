@@ -19,7 +19,6 @@ final class ApiTokenRepositoryTest extends WebTestCase
         $em = static::getContainer()->get(EntityManagerInterface::class);
 
         $user = new User(
-            username: 'carol',
             fullName: 'Carol',
             email: 'carol@example.com',
             password: 'hashed-password-placeholder',
@@ -50,7 +49,6 @@ final class ApiTokenRepositoryTest extends WebTestCase
         $em = static::getContainer()->get(EntityManagerInterface::class);
 
         $user = new User(
-            username: 'dave',
             fullName: 'Dave',
             email: 'dave@example.com',
             password: 'hashed-password-placeholder',

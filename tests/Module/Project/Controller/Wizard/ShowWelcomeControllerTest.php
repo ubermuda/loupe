@@ -16,7 +16,7 @@ final class ShowWelcomeControllerTest extends WebTestCase
     /** @param non-empty-string $email */
     private function createUser(EntityManagerInterface $em, string $username, string $email): User
     {
-        $user = new User($username, ucfirst($username), $email);
+        $user = new User(ucfirst($username), $email);
         $user->password = 'hashed-password-placeholder';
         $user->emailVerifiedAt = new \DateTimeImmutable();
         $em->persist($user);

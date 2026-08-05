@@ -1381,43 +1381,6 @@ a stray ROLE_ADMIN account.
 Related: 'Worktree e2e runs now require a worktree-scoped worker' — same
 setup surface, and both are things a person only learns by losing time to them.
 
-## Registration should not ask for full name or username
-
-
-**Author:** Geoffrey · **Type:** feature · **Priority:** medium · **Status:** pending
-
-Owner note (2026-07-28): the registration form collects Full name and Username
-on top of email and password. Neither is needed to sign up — drop them and cut
-the form to email + password (+ terms).
-
-**No schema change is required, because the "don't ask" path already exists.**
-`ResolveSocialLoginHandler` creates users without either field being supplied:
-it mints a username via `UsernameGenerator::fromPreferred()` and falls back to
-the email local-part for the display name. Self-service registration can use
-the same derivation, leaving `username` and `full_name` as populated NOT NULL
-columns and avoiding a migration. Removing the columns outright is a second,
-optional step.
-
-What each field is actually worth today:
-
-- **`username`** is close to vestigial. `User::getUserIdentifier()` returns the
-  **email**, so it is not the login handle; it survives as a unique column, a
-  `findOneByUsername` lookup and the `NotReservedUsername` validator. Check
-  whether anything user-facing still needs it before deciding to keep deriving
-  one at all.
-- **`fullName`** has real consumers, so it cannot simply vanish: the review
-  byline (`@Review/show_document.html.twig`) and comment author names and
-  avatar initials (`@Review/components/CommentThread.html.twig`) all render it.
-  Deriving it from the email local-part keeps those working; showing the raw
-  email there instead is a visible product decision, not a refactor.
-
-Also decide whether the install wizard's admin form (`InstallAdminFormType`)
-follows — it asks for the same two fields and has the same argument against
-them. When the fields go, delete their orphaned `account.form.*` /
-`account.registration.validator.username_*` translation keys in the same
-change, per the `project-translations` skill: nothing flags unused keys and
-they rot silently.
-
 ## Let the agent close the loop when a human approves the work
 
 
@@ -3881,24 +3844,26 @@ the only known citation is inside a Loupe implementation plan, which would
 need updating in the same pass. Low priority — it misleads a reader searching
 for "nine features" and nothing more.
 
-## Test helpers build a User from an email, and `username` is 30 characters
+## The display-name maximum length of 150 is written out in ten places
 
-**Author:** Claude · **Type:** tooling · **Priority:** low · **Status:** pending
+**Author:** Geoffrey · **Type:** tooling · **Priority:** low · **Status:** pending
 
-Several test fixtures do `new User(username: $email, ...)`, while
-`User::$username` maps to `#[ORM\Column(length: 30)]`. An address longer than
-that fails at flush with `SQLSTATE[22001]: value too long for type character
-varying(30)` — a Postgres error pointing at the persist call, naming neither the
-column nor the helper that chose the value.
+The `users.full_name` limit is encoded independently as `MAX_LENGTH` in
+`src/Module/Account/Service/DisplayNameDeriver.php` and in
+`assets/controllers/display_name_suggestion_controller.js`, as
+`MAX_FULL_NAME_LENGTH` in `App\Module\Account\Command\CreateAdminUserHandler`
+and `App\Module\Account\Command\ResolveSocialLoginHandler`, as
+`#[Assert\Length(max: 150)]` on `RegistrationRequest`, `InstallAdminRequest`
+and `ProfileRequest`, as `#[ORM\Column(length: 150)]` on
+`App\Module\Account\Entity\User`, as `left(..., 150)` in
+`migrations/Version20260804225237.php`, and as `mb_substr(..., 0, 150)` in
+`src/Module/Account/Controller/Dev/RegisterAndVerifyController.php`. Raising or
+lowering the limit means finding all ten, and the JS copy cannot read a PHP
+constant at all, so the two derivers can silently disagree on truncation.
 
-Hit on 2026-08-04 with `getdoc-incoming-samereq@example.com`, which is a perfectly
-ordinary descriptive test address. The failure reads as a schema problem in the
-code under test rather than as a fixture that outgrew a column.
-
-`DocumentGetToolTest` is one example and it is not the only one — the pattern is
-worth grepping for. The fix is for the helpers to derive a short unique username
-instead of reusing the email, so a descriptive address stays free to be
-descriptive.
+Consolidating touches the entity mapping, three form DTOs and the built asset
+pipeline, so it is a refactor rather than a fix — worth doing on its own branch,
+not folded into a change that happens to touch one of the ten.
 
 ## Bump `.skeleton.json` once the Turbo-prefetch PR merges
 
