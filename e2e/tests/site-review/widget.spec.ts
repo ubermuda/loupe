@@ -24,7 +24,6 @@ import { suppressToolbar } from '../fixtures';
 test.use({ storageState: { cookies: [], origins: [] } });
 
 const E2E_EMAIL = 'e2e-site-review@example.com';
-const E2E_USERNAME = 'e2esitereview';
 const E2E_PASSWORD = 'E2eSiteReview1!';
 
 const HARNESS_URL = `/dev/site-review-harness?email=${encodeURIComponent(E2E_EMAIL)}`;
@@ -40,7 +39,6 @@ const registerUser = async (page: Page): Promise<void> => {
         '/dev/register-and-verify',
         {
             form: {
-                username: E2E_USERNAME,
                 fullName: 'E2E Site Review',
                 email: E2E_EMAIL,
                 password: E2E_PASSWORD,

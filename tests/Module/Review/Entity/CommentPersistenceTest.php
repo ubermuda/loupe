@@ -26,7 +26,7 @@ final class CommentPersistenceTest extends KernelTestCase
         $em = self::getContainer()->get(EntityManagerInterface::class);
         self::assertInstanceOf(EntityManagerInterface::class, $em);
 
-        $user = new User(username: 'roundtrip', fullName: 'Round Trip', email: 'roundtrip@example.com', password: 'hashed_password');
+        $user = new User(fullName: 'Round Trip', email: 'roundtrip@example.com', password: 'hashed_password');
         $project = new Project($user, 'p-'.uniqid());
         $doc = new Document(owner: $user, project: $project, title: 'RT Doc');
         $version = $doc->addVersion('hello world', '<p>hello world</p>');

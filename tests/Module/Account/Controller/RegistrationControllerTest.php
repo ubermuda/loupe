@@ -28,9 +28,8 @@ final class RegistrationControllerTest extends WebTestCase
         $client->request(\Symfony\Component\HttpFoundation\Request::METHOD_GET, '/register');
 
         $client->submitForm('Create account', [
-            'registration_form[fullName]' => 'Test User',
-            'registration_form[username]' => 'testuser',
             'registration_form[email]' => 'test@example.com',
+            'registration_form[fullName]' => 'Riley Chen',
             'registration_form[plainPassword]' => 'SecurePassword1!',
             'registration_form[agreeTerms]' => true,
         ]);
@@ -40,7 +39,7 @@ final class RegistrationControllerTest extends WebTestCase
         $container = static::getContainer();
         $user = $container->get(UserRepository::class)->findOneBy(['email' => 'test@example.com']);
         $this->assertNotNull($user);
-        $this->assertSame('testuser', $user->username);
+        $this->assertSame('Riley Chen', $user->fullName);
 
         $this->assertQueuedEmailCount(1);
         $email = $this->getMailerMessage();
@@ -57,20 +56,18 @@ final class RegistrationControllerTest extends WebTestCase
         // Register once
         $client->request(\Symfony\Component\HttpFoundation\Request::METHOD_GET, '/register');
         $client->submitForm('Create account', [
-            'registration_form[fullName]' => 'Test User',
-            'registration_form[username]' => 'firstuser',
             'registration_form[email]' => 'duplicate@example.com',
+            'registration_form[fullName]' => 'Riley Chen',
             'registration_form[plainPassword]' => 'SecurePassword1!',
             'registration_form[agreeTerms]' => true,
         ]);
         $this->assertResponseRedirects('/register/check-email');
 
-        // Try again with the same email but a different username
+        // Submit the same email a second time
         $client->request(\Symfony\Component\HttpFoundation\Request::METHOD_GET, '/register');
         $client->submitForm('Create account', [
-            'registration_form[fullName]' => 'Another User',
-            'registration_form[username]' => 'seconduser',
             'registration_form[email]' => 'duplicate@example.com',
+            'registration_form[fullName]' => 'Riley Chen',
             'registration_form[plainPassword]' => 'SecurePassword1!',
             'registration_form[agreeTerms]' => true,
         ]);
@@ -79,34 +76,30 @@ final class RegistrationControllerTest extends WebTestCase
         $this->assertSelectorTextContains('body', 'already an account');
     }
 
-    public function test_duplicate_username_shows_error(): void
+    /**
+     * The display name is filled client-side from the email as it is typed, but
+     * nothing on the server derives one for a form submission — a blank field
+     * is an ordinary validation error, and this is what proves no fallback has
+     * been added behind the form.
+     */
+    public function test_a_blank_display_name_is_a_validation_error(): void
     {
         $client = static::createClient();
         // Sign-up refuses to create the *first* account on an instance — that is
         // the install wizard's job — and the test database starts empty.
         InstalledInstance::ensure(static::getContainer()->get(EntityManagerInterface::class));
-        // Register once
         $client->request(\Symfony\Component\HttpFoundation\Request::METHOD_GET, '/register');
-        $client->submitForm('Create account', [
-            'registration_form[fullName]' => 'Test User',
-            'registration_form[username]' => 'takenuser',
-            'registration_form[email]' => 'first@example.com',
-            'registration_form[plainPassword]' => 'SecurePassword1!',
-            'registration_form[agreeTerms]' => true,
-        ]);
-        $this->assertResponseRedirects('/register/check-email');
 
-        // Try again with the same username but a different email
-        $client->request(\Symfony\Component\HttpFoundation\Request::METHOD_GET, '/register');
         $client->submitForm('Create account', [
-            'registration_form[fullName]' => 'Another User',
-            'registration_form[username]' => 'takenuser',
-            'registration_form[email]' => 'second@example.com',
+            'registration_form[email]' => 'nameless@example.com',
+            'registration_form[fullName]' => '',
             'registration_form[plainPassword]' => 'SecurePassword1!',
             'registration_form[agreeTerms]' => true,
         ]);
 
-        $this->assertResponseStatusCodeSame(422); // re-renders form with validation errors
-        $this->assertSelectorTextContains('body', 'username is already taken');
+        $this->assertResponseStatusCodeSame(422);
+        $this->assertNull(
+            static::getContainer()->get(UserRepository::class)->findOneBy(['email' => 'nameless@example.com']),
+        );
     }
 }

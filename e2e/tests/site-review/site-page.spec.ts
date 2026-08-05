@@ -14,7 +14,6 @@ import { suppressToolbar } from '../fixtures';
 test.use({ storageState: { cookies: [], origins: [] } });
 
 const E2E_EMAIL = 'e2e-site-page@example.com';
-const E2E_USERNAME = 'e2esitepage';
 const E2E_PASSWORD = 'E2eSitePage1!';
 const COMMENT_BODY = `Please fix the header (run ${Date.now()})`;
 
@@ -26,7 +25,6 @@ test('a sent review is resolvable on the site page', async ({ page }) => {
         '/dev/register-and-verify',
         {
             form: {
-                username: E2E_USERNAME,
                 fullName: 'E2E Site Page',
                 email: E2E_EMAIL,
                 password: E2E_PASSWORD,

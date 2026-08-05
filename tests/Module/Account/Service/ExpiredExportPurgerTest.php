@@ -31,7 +31,7 @@ final class ExpiredExportPurgerTest extends KernelTestCase
 
     public function test_purges_expired_exports_and_their_archives(): void
     {
-        $user = new User('alice', 'Alice A', 'alice@example.com', 'x');
+        $user = new User('Alice A', 'alice@example.com', 'x');
         $this->em->persist($user);
 
         $expired = new DataExport($user);

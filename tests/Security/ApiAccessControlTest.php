@@ -63,7 +63,7 @@ final class ApiAccessControlTest extends KernelTestCase
         [$attributes] = $accessMap->getPatterns($request);
         self::assertNotNull($attributes, sprintf('No access_control rule matches %s.', $path));
 
-        $user = new User(username: 'caller', fullName: 'Caller', email: 'caller@example.com', password: 'x');
+        $user = new User(fullName: 'Caller', email: 'caller@example.com', password: 'x');
 
         return $decisionManager->decide(
             new PostAuthenticationToken($user, 'api', $roles),

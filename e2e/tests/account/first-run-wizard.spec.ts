@@ -18,7 +18,6 @@ test.describe('first-run wizard', () => {
         await registerFreshUser(page, request, {
             email,
             password: 'e2e_password_123',
-            name: 'Wizard Full',
         });
 
         await expect(page).toHaveURL(/\/welcome$/);
@@ -57,7 +56,6 @@ test.describe('first-run wizard', () => {
         await registerFreshUser(page, request, {
             email,
             password: 'e2e_password_123',
-            name: 'Wizard Skip',
         });
 
         await expect(page).toHaveURL(/\/welcome$/);

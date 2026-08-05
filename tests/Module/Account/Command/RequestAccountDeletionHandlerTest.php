@@ -15,7 +15,7 @@ final class RequestAccountDeletionHandlerTest extends TestCase
 {
     public function test_invoking_sends_the_confirmation_email(): void
     {
-        $user = new User('del-req', 'Del Req', 'del-req@example.com', 'hash');
+        $user = new User('Del Req', 'del-req@example.com', 'hash');
 
         $sender = $this->createMock(AccountDeletionEmailSender::class);
         $sender->expects($this->once())->method('send')->with($user);
@@ -27,7 +27,7 @@ final class RequestAccountDeletionHandlerTest extends TestCase
 
     public function test_a_second_request_while_a_token_is_still_active_sends_no_email(): void
     {
-        $user = new User('del-req-2', 'Del Req 2', 'del-req-2@example.com', 'hash');
+        $user = new User('Del Req 2', 'del-req-2@example.com', 'hash');
         $user->generateAccountDeletionToken();
 
         $sender = $this->createMock(AccountDeletionEmailSender::class);

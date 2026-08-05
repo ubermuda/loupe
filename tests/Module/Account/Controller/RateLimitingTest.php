@@ -33,9 +33,8 @@ final class RateLimitingTest extends WebTestCase
 
         $client->request(Request::METHOD_GET, '/register');
         $client->submitForm('Create account', [
-            'registration_form[fullName]' => 'First User',
-            'registration_form[username]' => 'firstuser',
             'registration_form[email]' => 'first@example.com',
+            'registration_form[fullName]' => 'Riley Chen',
             'registration_form[plainPassword]' => 'SecurePassword1!',
             'registration_form[agreeTerms]' => true,
         ]);
@@ -43,9 +42,8 @@ final class RateLimitingTest extends WebTestCase
 
         $client->request(Request::METHOD_GET, '/register');
         $client->submitForm('Create account', [
-            'registration_form[fullName]' => 'Second User',
-            'registration_form[username]' => 'seconduser',
             'registration_form[email]' => 'second@example.com',
+            'registration_form[fullName]' => 'Riley Chen',
             'registration_form[plainPassword]' => 'SecurePassword1!',
             'registration_form[agreeTerms]' => true,
         ]);
@@ -82,7 +80,7 @@ final class RateLimitingTest extends WebTestCase
         static::getContainer()->set('limiter.waitlist_join', self::lowLimitFactory('waitlist_join'));
 
         $em = static::getContainer()->get(EntityManagerInterface::class);
-        $em->persist(new User(username: 'waitlist-limit-gate-filler', fullName: 'Gate Filler', email: 'waitlist-limit-gate-filler@example.com', password: 'x'));
+        $em->persist(new User(fullName: 'Gate Filler', email: 'waitlist-limit-gate-filler@example.com', password: 'x'));
         $em->flush();
         $userCount = static::getContainer()->get(UserRepository::class)->countActive();
         $em->persist(new FeatureFlag(name: RegistrationGate::CAP_FLAG, type: FeatureFlagType::Int, value: $userCount));

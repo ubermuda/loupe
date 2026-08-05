@@ -67,36 +67,53 @@ class ProjectRepository extends ServiceEntityRepository
         return $this->findOneBy(['mcpToken' => $token]);
     }
 
-    /**
-     * Whether the project's row currently has a widget token, read straight from
-     * the database (bypassing the identity map). Used after a pessimistic lock
-     * so a concurrent mint's committed change is visible — entity refresh() is
-     * not an option here, it fails on the readonly $createdAt property.
-     */
     public function hasCommittedWidgetToken(Project $project): bool
     {
-        return null !== $this->createQueryBuilder('p')
-            ->select('IDENTITY(p.widgetToken)')
-            ->where('p = :project')
-            ->setParameter('project', $project)
-            ->getQuery()
-            ->getSingleScalarResult();
+        return null !== $this->committedWidgetTokenId($project);
+    }
+
+    public function hasCommittedMcpToken(Project $project): bool
+    {
+        return null !== $this->committedMcpTokenId($project);
     }
 
     /**
-     * Whether the project's row currently has an MCP token, read straight from
-     * the database (bypassing the identity map). Used after a pessimistic lock
-     * so a concurrent mint's committed change is visible — entity refresh() is
-     * not an option here, it fails on the readonly $createdAt property.
+     * The widget token id on the project's row, read straight from the database.
+     * {@see self::committedTokenId()} for why this exists.
      */
-    public function hasCommittedMcpToken(Project $project): bool
+    public function committedWidgetTokenId(Project $project): ?string
     {
-        return null !== $this->createQueryBuilder('p')
-            ->select('IDENTITY(p.mcpToken)')
+        return $this->committedTokenId($project, 'widgetToken');
+    }
+
+    /** The MCP token id on the project's row. {@see self::committedTokenId()}. */
+    public function committedMcpTokenId(Project $project): ?string
+    {
+        return $this->committedTokenId($project, 'mcpToken');
+    }
+
+    /**
+     * Reads a token association straight from the row, bypassing the identity
+     * map. Used after a pessimistic lock so a concurrent write's committed
+     * change is visible: the caller's in-memory Project still carries whatever
+     * the association held when it was loaded, which for a regeneration means a
+     * token another transaction has already deleted.
+     *
+     * entity refresh() is not an option here — it fails on the readonly
+     * $createdAt property.
+     *
+     * @param 'mcpToken'|'widgetToken' $association
+     */
+    private function committedTokenId(Project $project, string $association): ?string
+    {
+        $id = $this->createQueryBuilder('p')
+            ->select('IDENTITY(p.'.$association.')')
             ->where('p = :project')
             ->setParameter('project', $project)
             ->getQuery()
             ->getSingleScalarResult();
+
+        return null !== $id ? (string) $id : null;
     }
 
     /**

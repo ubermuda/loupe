@@ -17,7 +17,7 @@ final class ReanchoringServiceTest extends TestCase
 {
     public function test_remaps_reply_parent_to_the_copied_parent_on_new_version(): void
     {
-        $user = new User(username: 'r2', fullName: 'R2', email: 'r2@example.com');
+        $user = new User(fullName: 'R2', email: 'r2@example.com');
         $doc = new Document(owner: $user, project: new Project($user, 'p'), title: 'Doc');
         $v1 = $doc->addVersion('use JWTs and rate limiting', 'use JWTs and rate limiting');
 
@@ -53,7 +53,7 @@ final class ReanchoringServiceTest extends TestCase
      */
     public function test_carries_the_replacement_onto_the_new_version(): void
     {
-        $user = new User(username: 'r3', fullName: 'R3', email: 'r3@example.com');
+        $user = new User(fullName: 'R3', email: 'r3@example.com');
         $doc = new Document(owner: $user, project: new Project($user, 'p'), title: 'Doc');
         $v1 = $doc->addVersion('use JWTs and rate limiting', 'use JWTs and rate limiting');
 
@@ -76,7 +76,7 @@ final class ReanchoringServiceTest extends TestCase
 
     public function test_carries_surviving_comment_and_orphans_the_rest(): void
     {
-        $user = new User(username: 'r', fullName: 'R', email: 'r@example.com');
+        $user = new User(fullName: 'R', email: 'r@example.com');
         $doc = new Document(owner: $user, project: new Project($user, 'p'), title: 'Doc');
         $v1 = $doc->addVersion('use JWTs and rate limiting', 'use JWTs and rate limiting');
         $kept = new Comment($v1, $user, 'why JWT?', new Anchor('JWTs', 'use ', ' and', 4));
@@ -112,7 +112,7 @@ final class ReanchoringServiceTest extends TestCase
         // The quote length handed to AnchorService::create() must be a character
         // count. A byte count (3× larger for these characters) makes the rebuilt
         // anchor swallow the rest of the sentence.
-        $user = new User(username: 'r3', fullName: 'R3', email: 'r3@example.com');
+        $user = new User(fullName: 'R3', email: 'r3@example.com');
         $doc = new Document(owner: $user, project: new Project($user, 'p'), title: 'Doc');
         $v1 = $doc->addVersion('設計方針の草案。', '設計方針の草案。');
         $comment = new Comment($v1, $user, 'なぜ？', new Anchor('設計方針', '', 'の草案。', 0));

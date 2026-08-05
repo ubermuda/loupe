@@ -151,10 +151,26 @@ class DocumentRepository extends ServiceEntityRepository
             ->getResult();
     }
 
-    /** @return list<Document> */
+    /**
+     * The project is fetch-joined because DocumentExporter reads
+     * `$document->project->name` per row: as a ManyToOne it is a proxy, so
+     * without this the first read of each distinct project costs its own SELECT.
+     *
+     * @return list<Document>
+     */
     public function findByOwner(User $owner): array
     {
-        return $this->findBy(['owner' => $owner], ['createdAt' => 'DESC']);
+        /** @var list<Document> $documents */
+        $documents = $this->createQueryBuilder('d')
+            ->addSelect('p')
+            ->join('d.project', 'p')
+            ->andWhere('d.owner = :owner')
+            ->setParameter('owner', $owner)
+            ->orderBy('d.createdAt', 'DESC')
+            ->getQuery()
+            ->getResult();
+
+        return $documents;
     }
 
     /**

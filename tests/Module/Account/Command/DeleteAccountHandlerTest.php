@@ -45,7 +45,7 @@ final class DeleteAccountHandlerTest extends KernelTestCase
         self::bootKernel();
         $em = self::getContainer()->get(EntityManagerInterface::class);
         self::assertInstanceOf(EntityManagerInterface::class, $em);
-        $user = new User('del-x', 'Del X', 'del-x@example.com', 'hash');
+        $user = new User('Del X', 'del-x@example.com', 'hash');
         $em->persist($user);
         $em->flush();
         $userId = $user->id;
@@ -180,7 +180,7 @@ final class DeleteAccountHandlerTest extends KernelTestCase
      */
     public function test_transaction_failure_leaves_stripe_cancellation_undispatched(): void
     {
-        $user = new User('del-rollback', 'Del Rollback', 'del-rollback@example.com', 'hash');
+        $user = new User('Del Rollback', 'del-rollback@example.com', 'hash');
         new \ReflectionProperty(User::class, 'id')->setValue($user, Uuid::v4());
         $token = $user->generateAccountDeletionToken();
 
@@ -209,7 +209,7 @@ final class DeleteAccountHandlerTest extends KernelTestCase
     /** Purgers are invoked in ascending deletionOrder(), never registration order. */
     public function test_purgers_run_in_ascending_deletion_order(): void
     {
-        $user = new User('del-order', 'Del Order', 'del-order@example.com', 'hash');
+        $user = new User('Del Order', 'del-order@example.com', 'hash');
         new \ReflectionProperty(User::class, 'id')->setValue($user, Uuid::v4());
         $token = $user->generateAccountDeletionToken();
 
@@ -375,7 +375,7 @@ final class DeleteAccountHandlerTest extends KernelTestCase
 
     private function makeUser(EntityManagerInterface $em, string $slug): User
     {
-        $user = new User(username: $slug, fullName: 'Deleter Test', email: $slug.'@example.test', password: 'irrelevant-hash');
+        $user = new User(fullName: 'Deleter Test', email: $slug.'@example.test', password: 'irrelevant-hash');
         $em->persist($user);
 
         return $user;

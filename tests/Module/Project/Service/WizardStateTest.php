@@ -15,7 +15,7 @@ final class WizardStateTest extends TestCase
 {
     private function user(): User
     {
-        return new User('wizstate', 'Wiz State', 'wizstate@example.com');
+        return new User('Wiz State', 'wizstate@example.com');
     }
 
     public function test_is_completed_reflects_wizard_completed_at(): void

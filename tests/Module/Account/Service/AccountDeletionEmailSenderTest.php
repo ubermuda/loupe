@@ -19,7 +19,7 @@ final class AccountDeletionEmailSenderTest extends TestCase
 {
     private function makeUser(): User
     {
-        return new User(username: 'testuser', fullName: 'Test User', email: 'test@example.com', password: 'hashed');
+        return new User(fullName: 'Test User', email: 'test@example.com', password: 'hashed');
     }
 
     private function makeSender(MailerInterface&Stub $mailer, EntityManagerInterface&MockObject $em): AccountDeletionEmailSender

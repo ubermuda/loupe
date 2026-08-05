@@ -15,7 +15,7 @@ final class LoginControllerTest extends WebTestCase
         $em = static::getContainer()->get(EntityManagerInterface::class);
         $hasher = static::getContainer()->get(UserPasswordHasherInterface::class);
 
-        $user = new User('loginuser', 'Login User', 'login@example.com');
+        $user = new User('Login User', 'login@example.com');
         $user->password = $hasher->hashPassword($user, 'SecurePassword1!');
         if ($verified) {
             $user->emailVerifiedAt = new \DateTimeImmutable();

@@ -54,7 +54,7 @@ final class WaitlistInviteEmailSenderTest extends TestCase
 
     public function test_an_entry_with_an_existing_account_gets_the_returning_variant(): void
     {
-        $existingUser = new User(username: 'returning', fullName: 'Returning User', email: 'returning@example.com', password: 'x');
+        $existingUser = new User(fullName: 'Returning User', email: 'returning@example.com', password: 'x');
         $sender = $this->makeSender($existingUser);
 
         $sender->send(new WaitlistEntry('returning@example.com'), 'plain-token');

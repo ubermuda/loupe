@@ -15,7 +15,7 @@ final class ConfirmAccountDeletionControllerTest extends WebTestCase
     {
         $client = static::createClient();
         $em = self::getContainer()->get(EntityManagerInterface::class);
-        $user = new User('del-confirm', 'Del Confirm', 'del-confirm@example.com', 'hash');
+        $user = new User('Del Confirm', 'del-confirm@example.com', 'hash');
         $em->persist($user);
         $token = $user->generateAccountDeletionToken();
         $em->flush();
@@ -47,7 +47,7 @@ final class ConfirmAccountDeletionControllerTest extends WebTestCase
     {
         $client = static::createClient();
         $em = self::getContainer()->get(EntityManagerInterface::class);
-        $user = new User('del-expired', 'Del Expired', 'del-expired@example.com', 'hash');
+        $user = new User('Del Expired', 'del-expired@example.com', 'hash');
         $em->persist($user);
         $token = $user->generateAccountDeletionToken();
         $em->flush();

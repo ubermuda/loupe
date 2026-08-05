@@ -1040,50 +1040,50 @@ multi-round spec reviews much cheaper. Section identity comes from headings, so
 `App\Module\Review\Service\HeadingExtractor` is the existing source of it; also
 interacts with comment re-anchoring.
 
-## Decide fate of PlaywrightSyncEmailMiddleware — it would remove the worktree e2e worker entirely
+## Make messenger synchronous under Playwright so e2e needs no consumer
 
+**Author:** Geoffrey · **Type:** tooling · **Priority:** medium · **Status:** pending
 
-**Author:** Claude · **Type:** tooling · **Priority:** medium · **Status:** pending
+Owner decision (2026-08-04): e2e should not need a messenger consumer at all.
+This supersedes the earlier "wire it or delete it" question about
+`PlaywrightSyncEmailMiddleware` — the answer is wire it, and wider than mail.
 
-`src/Messenger/Middleware/PlaywrightSyncEmailMiddleware.php` is unregistered and its
-target `sync` transport is commented out in `config/packages/messenger.yaml` (line 13);
-`playwright.config.ts` still sends the `X-Playwright` header solely for it. Verified still
-dormant on 2026-08-04. **Decision needed:**
+Until it lands the consumer requirement is at least no longer silent: `just e2e`
+refuses to start unless a consumer is live, and `just e2e-worker` recycles below
+PHP's own memory limit and relaunches itself, so a worker cannot disappear
+mid-session. This entry would delete that machinery rather than merely stop it
+hurting.
 
-1. Wire it properly — register the middleware and uncomment the `sync` transport — so
-   Playwright-headed requests deliver mail synchronously (recommended: it removes the
-   worktree-consumer requirement for mail-asserting e2e specs, which is what the rest of
-   this entry is about).
-2. Delete the class and the header, and keep the consumer requirement.
+An attempt on 2026-08-04 got most of the way and is worth reading before the
+next one starts, because the remaining gap is specific rather than general.
 
-Deciding beats letting it rot, and the two problems below are the forcing function: both
-disappear under option 1.
+What worked: a bus middleware that stamps `TransportNamesStamp(['sync'])` on any
+envelope dispatched during a request carrying `X-Playwright`, with the `sync`
+transport uncommented in `config/packages/messenger.yaml`. Registered under
+`framework.messenger.buses.messenger.bus.default.middleware`. With no consumer
+running at all, the whole authentication-shaped block passes — signup, login,
+email verification, forgot-password, waitlist, the first-run wizard — which is
+the ~19-spec failure mode that made a forgotten worker so expensive.
 
-**A worktree e2e run needs its own consumer, and forgetting it fails ~19 specs at once.**
-The suite's authenticated fixture registers a user and verifies it through the emailed
-link, so with nothing consuming `async` the failures are not confined to obviously
-mail-shaped specs — login, signup, delete-account, forgot-password, the first-run wizard,
-admin smoke, paywall and delete-project all go down together, with the app returning 200
-and `just ci` green. The manual procedure is documented in the `project-worktrees` skill;
-what remains open is the automation — a `just e2e` pre-hook or `just e2e-worktree` recipe
-owning the worker lifecycle (see `docs/AUTOMATIONS.md`).
+What did not: the data-export chain. `GenerateDataExportMessage` is handled
+inline, but the email `ProcessDataExportHandler` sends from inside that handler
+still lands on `async` and sits there. One `SendEmailMessage` row remains queued
+after the spec runs. The likely cause is that the nested dispatch happens where
+`RequestStack::getCurrentRequest()` no longer returns the request, so the
+middleware's guard skips it — worth confirming before designing around it, since
+if that is right the fix is to capture the flag once per request rather than
+re-read the stack per dispatch.
 
-**That consumer then OOMs instead of recycling.** The documented command carries no
-limits, unlike the shared `worker` compose service which runs the same transports with
-`--time-limit=3600 --memory-limit=128M`. Running in the **dev** environment, Doctrine's
-`BacktraceDebugDataHolder` accumulates a backtrace per query for the lifetime of the
-process, so a long-lived consumer climbs until PHP's 128M limit and dies with a fatal
-`Allowed memory size of 134217728 bytes exhausted` (observed 2026-07-28 after roughly an
-hour and several full e2e runs). The failure is silent and its symptom misleading: nothing
-consuming `async` means no mail, and mail-asserting specs then fail on
-`getEmailWithSubject` timeouts that look like application or Mailpit problems. A full suite
-that started green can fail later in the same session for no reason visible in the diff.
+Two traps found while testing this, both of which cost a full suite run:
 
-If option 2 wins, the fix is to document and use the limits the compose service already
-applies — with the messenger memory limit set *below* PHP's, e.g.
-`--time-limit=3600 --memory-limit=100M`, so the worker stops gracefully between messages
-instead of dying inside one — and to decide whether the skill should simply tell you to
-restart it, since even a graceful exit leaves nothing consuming.
+- Verifying the middleware is wired by grepping the compiled container gives a
+  false negative against a stale `var/cache/dev`. It showed only in
+  `removed-ids.php` until the cache was rebuilt, which reads exactly like a
+  config that never took effect.
+- `just e2e-up` migrates `app_e2e` but never rolls it back, so a database
+  migrated by one branch is ahead of another branch's code and the suite fails
+  with SQL errors that look like application bugs. Drop the database and re-run
+  `just e2e-up` when switching between branches whose schemas differ.
 
 ## Fuller billing section in account settings (manage sub in-app)
 
@@ -1354,43 +1354,6 @@ a stray ROLE_ADMIN account.
 
 Related: 'Worktree e2e runs now require a worktree-scoped worker' — same
 setup surface, and both are things a person only learns by losing time to them.
-
-## Registration should not ask for full name or username
-
-
-**Author:** Geoffrey · **Type:** feature · **Priority:** medium · **Status:** pending
-
-Owner note (2026-07-28): the registration form collects Full name and Username
-on top of email and password. Neither is needed to sign up — drop them and cut
-the form to email + password (+ terms).
-
-**No schema change is required, because the "don't ask" path already exists.**
-`ResolveSocialLoginHandler` creates users without either field being supplied:
-it mints a username via `UsernameGenerator::fromPreferred()` and falls back to
-the email local-part for the display name. Self-service registration can use
-the same derivation, leaving `username` and `full_name` as populated NOT NULL
-columns and avoiding a migration. Removing the columns outright is a second,
-optional step.
-
-What each field is actually worth today:
-
-- **`username`** is close to vestigial. `User::getUserIdentifier()` returns the
-  **email**, so it is not the login handle; it survives as a unique column, a
-  `findOneByUsername` lookup and the `NotReservedUsername` validator. Check
-  whether anything user-facing still needs it before deciding to keep deriving
-  one at all.
-- **`fullName`** has real consumers, so it cannot simply vanish: the review
-  byline (`@Review/show_document.html.twig`) and comment author names and
-  avatar initials (`@Review/components/CommentThread.html.twig`) all render it.
-  Deriving it from the email local-part keeps those working; showing the raw
-  email there instead is a visible product decision, not a refactor.
-
-Also decide whether the install wizard's admin form (`InstallAdminFormType`)
-follows — it asks for the same two fields and has the same argument against
-them. When the fields go, delete their orphaned `account.form.*` /
-`account.registration.validator.username_*` translation keys in the same
-change, per the `project-translations` skill: nothing flags unused keys and
-they rot silently.
 
 ## Let the agent close the loop when a human approves the work
 
@@ -2866,6 +2829,106 @@ Related: "A document's incoming references are stale in memory after a write"
 names exactly this change as what turns its latent bug into a real one. The
 two have to land together.
 
+## An MCP tool and the query it delegates to declare the same array shape twice
+
+**Author:** Claude · **Type:** tooling · **Priority:** medium · **Status:** pending
+
+`DocumentGetTool` is a thin wrapper over `App\Module\Review\Query\GetDocument`,
+and both carry a full `@return array{...}` describing the same payload. Adding a
+key to the query alone leaves the two disagreeing, and nothing in the tool says
+the shape is written down twice.
+
+Found on 2026-08-04 while adding `tags` and `referencedBy`: the query was updated
+and phpstan then reported four `offsetAccess.notFound` errors against the *tests*
+rather than against the tool, which reads as a broken test rather than a stale
+annotation. It is caught today only because the tests index every key.
+
+Two ways out, and the second is the general one. The tool could declare
+`@return` by referring to the query's type rather than restating it (a
+`@phpstan-type` alias on the query, imported with `@phpstan-import-type`), which
+is a local fix. Or a gamache PHPStan rule could assert that a tool whose body is
+a single delegation declares the same shape as what it delegates to — the same
+family as the existing name-agreement rules, and it would cover every future
+tool/query pair rather than this one.
+
+## The system status page is one handler with a check method per concern
+
+**Author:** Geoffrey · **Type:** tooling · **Priority:** medium · **Status:** pending
+
+Owner note (2026-08-04): the status page needs to be modularized.
+
+`App\Module\Account\Command\CheckSystemStatusHandler` holds every check as a
+private method on one class, and the class takes a constructor argument per
+thing any of them needs — a connection, an HTTP client, the mailer transport
+factory, the feature flags, and six autowired environment values. Adding the
+agent-account check meant adding a method and a SQL constant to a class that
+already knows about SMTP, Mercure, Stripe and the messenger tables.
+
+The shape to move to is one class per check behind a common interface, tagged
+and collected, so a check declares its own dependencies and can be tested
+without constructing the others. `SystemCheck` and `SystemCheckState` are
+already the right value objects for it; what is missing is the seam.
+
+Two things to preserve, because they are the parts that took thought. The
+worker check deliberately never reports "ok" — an idle queue cannot prove a
+consumer is running — and a generic collector must not tempt anyone into
+reporting green for "no errors". And the Stripe check is skipped rather than
+failed when billing is switched off, so whatever replaces the current
+`if` needs a way for a check to declare itself not-applicable that is distinct
+from passing.
+
+Related: 'Decide whether health checks stay hand-rolled, move to a third-party
+package, or become our own' — that entry asks whether to adopt
+`liip/monitor-bundle`, whose check abstraction would be the seam this entry
+wants. Settle that one first, or this refactor is done twice.
+
+## MCP tool: hand the human a list of what needs their attention
+
+**Author:** Geoffrey · **Type:** feature · **Priority:** medium · **Status:** pending
+
+Owner note (2026-08-04): a tool that lets an agent push "todos for the human" —
+pull requests waiting to be reviewed, test scenarios to walk through by hand,
+decisions the agent could not make — so that someone returning after a long
+unattended session can see what to do next instead of reconstructing it from
+the transcript.
+
+The problem it solves is real and specific: an agent working for hours produces
+a queue of things only a person can finish, and today that queue exists only in
+the chat log. A human coming back has to read the whole session to find the
+three things that need them.
+
+Worth settling before designing it. Whether an item is its own entity or a typed
+variant of something that exists — this is close to 'Agent-authored test
+scenarios delivered through the site-review widget', which asks for the same
+push in the site-review direction, and the two should share a model rather than
+growing separately. Where it surfaces: a page of its own, the dashboard, or the
+existing site-review inbox. Whether items carry a state beyond done/not-done,
+since "reviewed and rejected" is a different outcome from "done". And how an
+item points at what it concerns, given that nothing in the model records a pull
+request today — the same missing link 'Let the agent close the loop when a human
+approves the work' ran into.
+
+The read side matters as much as the write: the agent should be able to see what
+it asked for and what came back, or the next session starts by re-asking.
+
+## `just phpunit` mangles a `--filter` containing an alternation
+
+**Author:** Claude · **Type:** tooling · **Priority:** low · **Status:** pending
+
+The recipe is `bin/worktrees/compose-exec.sh vendor/bin/phpunit {{args}}` with
+`{{args}}` unquoted, so a filter using PHPUnit's regex alternation is split by the
+shell: `just phpunit --filter A|B` pipes the phpunit run into a command named `B`
+and reports `sh: B: command not found`. Quoting at the call site does not help,
+because the recipe interpolates the value unquoted.
+
+The workaround is to bypass the recipe —
+`bin/worktrees/compose-exec.sh vendor/bin/phpunit '--filter=A|B'` — which is what
+every multi-class run in a session ends up doing once it hits this. Fixing it
+means quoting the interpolation in the recipe.
+
+Same shape as any other unquoted `{{args}}` in the justfile; worth checking the
+neighbours (`exec`, `composer`, `e2e`, `e2e-worker`) while in there.
+
 ## Rendered front matter and annotations have no accessible name
 
 
@@ -3029,25 +3092,6 @@ cross-origin API surface, replace these ad-hoc subscribers with a single shared
 mechanism — either `nelmio/cors-bundle` or one app-wide CORS subscriber driven by
 a path/origin allowlist — so CORS policy lives in one place.
 
-## Port Turbo prefetch convention to the skeleton
-
-
-
-
-**Author:** Claude · **Type:** tooling · **Priority:** low · **Status:** pending
-
-Turbo 8 prefetches links on hover, which silently fires the GET behind any
-side-effecting link — we hit this with the `logout` link logging users out on
-hover. Fixed here by adding `data-turbo-prefetch="false"` to the logout link and
-documenting the convention in `.claude/skills/project-frontend/SKILL.md`
-("Disable prefetch on side-effecting GET links").
-
-The skeleton has **no logout link**, so there's nothing to fix literally — port
-the *convention* instead: copy the SKILL.md note into the skeleton's
-project-frontend skill so future consumers know to opt side-effecting GET links
-out of prefetch. Open a PR against the skeleton (`main`), then update
-`.skeleton.json`.
-
 ## Revisit: migrate API auth to Symfony's `access_token` authenticator
 
 
@@ -3097,28 +3141,6 @@ TypeScript 5.x — a bare `npx tsc --noEmit` in `e2e/` fails with TS5107. Nothin
 in the gates runs bare tsc today (Playwright transpiles specs itself), so this is
 latent. Modernize the tsconfig (`module`/`moduleResolution` `nodenext`, or
 `bundler`) when convenient.
-
-## Regenerate token handlers are check-then-set without locking
-
-
-
-**Author:** Claude · **Type:** bug · **Priority:** low · **Status:** pending
-
-`RegenerateProjectWidgetTokenHandler` and `RegenerateProjectMcpTokenHandler`
-delete the previous token and persist a new one with no lock, so two concurrent
-regenerations can leave the loser's token valid but bound to no project.
-
-Both mint handlers are now guarded — `MintProjectWidgetTokenHandler` and, since
-PR #66, `MintProjectMcpTokenHandler` — each taking a `PESSIMISTIC_WRITE` on the
-project row and re-checking committed state through a repository query. Mirror
-that shape here.
-
-Note the mint fix deliberately avoids `EntityManager::refresh()`: it throws on
-`Project::$createdAt`, which is `readonly`, which is why the committed-state
-check is a repository query rather than a refresh.
-
-Impact stays low — regeneration is a single-owner action, and an unbound token
-resolves no project so project-scoped consumers reject it.
 
 ## Widget-token mint flow still uses site-era CSRF id and translation keys
 
@@ -3284,32 +3306,35 @@ it should instead be a time-based purge of long-revoked tokens. Related code:
 `src/Module/Account/Command/RevokeApiTokenHandler.php` and the token list on
 the project connect page.
 
-## Clear the Symfony 8.1 deprecation notices
-
-
+## Three container-build deprecations remain, all inside vendor bundles
 
 **Author:** Claude · **Type:** tooling · **Priority:** low · **Status:** pending
 
-Surfaced by a Codex review during the 2026-07-27 audit wave, while warming the
-prod cache. The Symfony 8.1 upgrade (PR #63) left three deprecations firing at
-container-build time. They do not fail any gate today, but they are removals
-scheduled for the next majors:
+`bin/console debug:container --deprecations` reported seven on 2026-08-04. Four
+were ours and are fixed: the `$exportStorage` named-autowiring alias now carries
+`#[Target('export.storage')]` at all five injection sites, and dropping the
+deprecated `framework.profiler.collect_serializer_data` option took the three
+`WebProfiler` Twig macro warnings with it.
 
-- `Symfony\Component\HttpKernel\DependencyInjection\Extension` is deprecated in
-  favour of `Symfony\Component\DependencyInjection\Extension\Extension`. Raised
-  through `symfony/mercure-bundle`'s `MercureExtension`, so this one clears when
-  that bundle updates — not ours to fix, worth re-checking on its next release.
+The three that remain are raised inside vendor code and there is nothing to
+migrate on our side:
+
+- `Symfony\Component\HttpKernel\DependencyInjection\Extension`, raised through
+  `symfony/mercure-bundle`'s `MercureExtension`. Clears when that bundle updates.
 - `Symfony\UX\Turbo\Bridge\Mercure\TurboStreamListenRenderer` and
-  `Symfony\UX\Turbo\Twig\TurboStreamListenRendererInterface` are deprecated
-  since Symfony UX 3.1 and removed in 4.0, in favour of
-  `MercureStreamSourceRenderer` with `turbo_stream_from()` or the
-  `<twig:Turbo:Stream:From>` component.
+  `Symfony\UX\Turbo\Twig\TurboStreamListenRendererInterface`, both raised by
+  `symfony/ux-turbo` registering its own classes.
 
-The ux-turbo pair is the one with a migration path we own. Note browser-side
-Mercure turbo streams are currently disabled in `assets/controllers.json` — the
-only subscriber is the Go bridge — so check whether anything actually renders a
-stream-listen tag before migrating, and whether the deprecation is reachable at
-all beyond container build.
+**The ux-turbo pair was expected to be the one with a migration path we own. It
+is not.** Nothing in `templates/`, `src/` or `assets/` renders a stream-listen
+tag — no `turbo_stream_listen`, no `turbo_stream_from`, no
+`<twig:Turbo:Stream:From>` — so there is no call site to move to
+`MercureStreamSourceRenderer`. The deprecation fires from the bundle's service
+registration at container build, whether or not the app uses it. Recorded so the
+next reader does not repeat the search.
+
+Re-check after any `symfony/mercure-bundle` or `symfony/ux-turbo` release; both
+are removals scheduled for the next majors, so they cannot be ignored forever.
 
 ## One user-facing list query is still unbounded
 
@@ -3565,29 +3590,6 @@ What removes that choice is the re-anchoring pass described in "A renderer chang
 that moves plainText needs a reanchor pass, not just a rerender": with it, an old
 version can be brought forward and its comments re-resolved in the same motion.
 
-## The data export initialises one Project proxy per distinct project
-
-
-**Author:** Claude · **Type:** bug · **Priority:** low · **Status:** pending
-
-`App\Module\Review\Service\DocumentExporter::export()` reads
-`$document->project->name` for every row. `Document::$project` is a `ManyToOne`,
-so the first read of each distinct project initialises its proxy with its own
-`SELECT`. The document collections beside it are batch-loaded
-(`DocumentRepository::preloadTags()` / `preloadVersions()`); this one is not.
-
-Lower severity than it looks, which is why it was left: the cost is bounded by
-the number of **distinct projects** the user owns, not by the number of
-documents, so an account with forty documents across two projects pays two
-queries rather than forty. It only becomes interesting for an account with many
-sparsely-populated projects.
-
-The fix is a fetch-join on `DocumentRepository::findByOwner()`, whose only
-production caller is that exporter. It was deliberately not done alongside the
-collection preloads, because changing a finder's own query is a wider change
-than adding a preload beside it, and `findByOwner` is also what
-`DocumentRepositoryTest` pins as the path the export reads.
-
 ## `list<T>` in an MCP tool docblock generates an untyped `items: {}`
 
 
@@ -3722,3 +3724,38 @@ Nothing in the repository greps for the path, so renaming the file is safe;
 the only known citation is inside a Loupe implementation plan, which would
 need updating in the same pass. Low priority — it misleads a reader searching
 for "nine features" and nothing more.
+
+## The display-name maximum length of 150 is written out in ten places
+
+**Author:** Geoffrey · **Type:** tooling · **Priority:** low · **Status:** pending
+
+The `users.full_name` limit is encoded independently as `MAX_LENGTH` in
+`src/Module/Account/Service/DisplayNameDeriver.php` and in
+`assets/controllers/display_name_suggestion_controller.js`, as
+`MAX_FULL_NAME_LENGTH` in `App\Module\Account\Command\CreateAdminUserHandler`
+and `App\Module\Account\Command\ResolveSocialLoginHandler`, as
+`#[Assert\Length(max: 150)]` on `RegistrationRequest`, `InstallAdminRequest`
+and `ProfileRequest`, as `#[ORM\Column(length: 150)]` on
+`App\Module\Account\Entity\User`, as `left(..., 150)` in
+`migrations/Version20260804225237.php`, and as `mb_substr(..., 0, 150)` in
+`src/Module/Account/Controller/Dev/RegisterAndVerifyController.php`. Raising or
+lowering the limit means finding all ten, and the JS copy cannot read a PHP
+constant at all, so the two derivers can silently disagree on truncation.
+
+Consolidating touches the entity mapping, three form DTOs and the built asset
+pipeline, so it is a refactor rather than a fix — worth doing on its own branch,
+not folded into a change that happens to touch one of the ten.
+
+## Bump `.skeleton.json` once the Turbo-prefetch PR merges
+
+**Author:** Claude · **Type:** tooling · **Priority:** low · **Status:** pending
+
+The convention itself is ported — `ubermuda/symfony-skeleton#98` adds the
+`data-turbo-prefetch="false"` note to that repo's `project-frontend` skill. What
+is left is the bookkeeping: `last_ported_commit` in `.skeleton.json` should move
+to the merge commit once it lands.
+
+Not done up front on purpose. That field records how far this project has
+absorbed the skeleton, so advancing it past an unmerged branch would claim a
+merge that has not happened and make the next `update-from-skeleton` run skip
+whatever else landed in between.
