@@ -30,6 +30,17 @@ parameters:
     app.mcp.server_name: 'loupe'
 
 services:
+    # Session storage, wired by framework.yaml's session.handler_id. Explicit
+    # because the class is a vendor one and cannot carry our attributes.
+    #
+    # It takes DATABASE_URL as a URL rather than a DBAL connection — the handler
+    # opens its own PDO connection on purpose, so writing a session never joins
+    # whatever transaction the request already has open. Query parameters on the
+    # URL (serverVersion, charset) are ignored by its parser.
+    Symfony\Component\HttpFoundation\Session\Storage\Handler\PdoSessionHandler:
+        arguments:
+            - '%env(DATABASE_URL)%'
+
     # default configuration for services in *this* file
     _defaults:
         autowire: true      # Automatically injects dependencies in your services.
