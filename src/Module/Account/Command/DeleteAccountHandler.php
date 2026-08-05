@@ -16,6 +16,7 @@ use League\Flysystem\FilesystemException;
 use League\Flysystem\FilesystemOperator;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\DependencyInjection\Attribute\AutowireIterator;
+use Symfony\Component\DependencyInjection\Attribute\Target;
 use Symfony\Component\Messenger\MessageBusInterface;
 
 /**
@@ -43,6 +44,8 @@ final readonly class DeleteAccountHandler
         private MessageBusInterface $bus,
         private EntityManagerInterface $em,
         private LoggerInterface $logger,
+
+        #[Target('export.storage')]
         private FilesystemOperator $exportStorage,
 
         #[AutowireIterator('app.account_data_purger')]

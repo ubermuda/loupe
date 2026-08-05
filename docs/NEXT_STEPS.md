@@ -3405,32 +3405,35 @@ it should instead be a time-based purge of long-revoked tokens. Related code:
 `src/Module/Account/Command/RevokeApiTokenHandler.php` and the token list on
 the project connect page.
 
-## Clear the Symfony 8.1 deprecation notices
-
-
+## Three container-build deprecations remain, all inside vendor bundles
 
 **Author:** Claude · **Type:** tooling · **Priority:** low · **Status:** pending
 
-Surfaced by a Codex review during the 2026-07-27 audit wave, while warming the
-prod cache. The Symfony 8.1 upgrade (PR #63) left three deprecations firing at
-container-build time. They do not fail any gate today, but they are removals
-scheduled for the next majors:
+`bin/console debug:container --deprecations` reported seven on 2026-08-04. Four
+were ours and are fixed: the `$exportStorage` named-autowiring alias now carries
+`#[Target('export.storage')]` at all five injection sites, and dropping the
+deprecated `framework.profiler.collect_serializer_data` option took the three
+`WebProfiler` Twig macro warnings with it.
 
-- `Symfony\Component\HttpKernel\DependencyInjection\Extension` is deprecated in
-  favour of `Symfony\Component\DependencyInjection\Extension\Extension`. Raised
-  through `symfony/mercure-bundle`'s `MercureExtension`, so this one clears when
-  that bundle updates — not ours to fix, worth re-checking on its next release.
+The three that remain are raised inside vendor code and there is nothing to
+migrate on our side:
+
+- `Symfony\Component\HttpKernel\DependencyInjection\Extension`, raised through
+  `symfony/mercure-bundle`'s `MercureExtension`. Clears when that bundle updates.
 - `Symfony\UX\Turbo\Bridge\Mercure\TurboStreamListenRenderer` and
-  `Symfony\UX\Turbo\Twig\TurboStreamListenRendererInterface` are deprecated
-  since Symfony UX 3.1 and removed in 4.0, in favour of
-  `MercureStreamSourceRenderer` with `turbo_stream_from()` or the
-  `<twig:Turbo:Stream:From>` component.
+  `Symfony\UX\Turbo\Twig\TurboStreamListenRendererInterface`, both raised by
+  `symfony/ux-turbo` registering its own classes.
 
-The ux-turbo pair is the one with a migration path we own. Note browser-side
-Mercure turbo streams are currently disabled in `assets/controllers.json` — the
-only subscriber is the Go bridge — so check whether anything actually renders a
-stream-listen tag before migrating, and whether the deprecation is reachable at
-all beyond container build.
+**The ux-turbo pair was expected to be the one with a migration path we own. It
+is not.** Nothing in `templates/`, `src/` or `assets/` renders a stream-listen
+tag — no `turbo_stream_listen`, no `turbo_stream_from`, no
+`<twig:Turbo:Stream:From>` — so there is no call site to move to
+`MercureStreamSourceRenderer`. The deprecation fires from the bundle's service
+registration at container build, whether or not the app uses it. Recorded so the
+next reader does not repeat the search.
+
+Re-check after any `symfony/mercure-bundle` or `symfony/ux-turbo` release; both
+are removals scheduled for the next majors, so they cannot be ignored forever.
 
 ## One user-facing list query is still unbounded
 

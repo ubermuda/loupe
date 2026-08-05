@@ -1414,12 +1414,12 @@
                 <target>I understand — delete this project</target>
             </trans-unit>
 
-            <trans-unit id="site_review.site.token.mint">
-                <source>site_review.site.token.mint</source>
+            <trans-unit id="project.token.mint">
+                <source>project.token.mint</source>
                 <target>Mint widget token</target>
             </trans-unit>
-            <trans-unit id="site_review.site.token.snippet_heading">
-                <source>site_review.site.token.snippet_heading</source>
+            <trans-unit id="project.token.snippet_heading">
+                <source>project.token.snippet_heading</source>
                 <target>Embed snippet</target>
             </trans-unit>
             <trans-unit id="project.error.widget_token_already_minted">

@@ -11,6 +11,7 @@ use App\Routing\PaywallExempt;
 use League\Flysystem\FilesystemException;
 use League\Flysystem\FilesystemOperator;
 use Psr\Log\LoggerInterface;
+use Symfony\Component\DependencyInjection\Attribute\Target;
 use Symfony\Component\HttpFoundation\HeaderUtils;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -26,6 +27,7 @@ use Symfony\Component\Routing\Attribute\Route;
 class DownloadDataExportController extends AppController
 {
     public function __construct(
+        #[Target('export.storage')]
         private readonly FilesystemOperator $exportStorage,
         private readonly LoggerInterface $logger,
     ) {
