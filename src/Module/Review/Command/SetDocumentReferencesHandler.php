@@ -36,9 +36,9 @@ final readonly class SetDocumentReferencesHandler
         // leaves the document pointing exactly where it did.
         $references = $this->referenceValidator->validated($document->project, $document, $command->references);
 
-        $document->references->clear();
+        $document->clearReferences();
         foreach ($references as $reference) {
-            $document->references->add($reference);
+            $document->addReference($reference);
         }
 
         $this->em->flush();

@@ -157,4 +157,33 @@ class Document
     {
         return $this->versions->last() ?: throw new \LogicException('Document has no versions.');
     }
+
+    /**
+     * Adds an outgoing reference and keeps the target's inverse side in step.
+     *
+     * Doctrine fills $referencedBy at load time and never at write time, so
+     * touching $references directly leaves the target stale for the rest of the
+     * request. That was invisible while nothing read the inverse side in a
+     * request that wrote the owning one — document_get returning incoming
+     * references is exactly what ends that.
+     */
+    public function addReference(self $target): void
+    {
+        if ($this->references->contains($target)) {
+            return;
+        }
+
+        $this->references->add($target);
+        $target->referencedBy->add($this);
+    }
+
+    /** Drops every outgoing reference, keeping each target's inverse side in step. */
+    public function clearReferences(): void
+    {
+        foreach ($this->references as $target) {
+            $target->referencedBy->removeElement($this);
+        }
+
+        $this->references->clear();
+    }
 }

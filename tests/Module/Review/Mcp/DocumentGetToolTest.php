@@ -7,6 +7,7 @@ namespace App\Tests\Module\Review\Mcp;
 use App\Module\Account\Entity\User;
 use App\Module\Project\Entity\Project;
 use App\Module\Review\Entity\Document;
+use App\Module\Review\Entity\Tag;
 use App\Module\Review\Mcp\DocumentGetTool;
 use App\Tests\Support\McpTokenScenario;
 use Doctrine\ORM\EntityManagerInterface;
@@ -74,6 +75,83 @@ final class DocumentGetToolTest extends KernelTestCase
         self::assertNull($result['archiveReason']);
         self::assertNull($result['versionDescription']);
         self::assertSame([], $result['references']);
+        self::assertSame([], $result['referencedBy']);
+        self::assertSame([], $result['tags']);
+    }
+
+    /**
+     * The motivating case: an audit answered by a plan written later cannot
+     * mention that plan, because the plan did not exist yet. The whole value of
+     * the link is that an agent opening the audit discovers it, which only works
+     * if the inverse direction is reported.
+     */
+    public function test_reports_the_documents_that_reference_it(): void
+    {
+        $owner = $this->user('gd-inc@e.com');
+        $audit = $this->documentInNewProject($owner, 'The audit');
+
+        $plan = new Document(owner: $owner, project: $audit->project, title: 'The plan answering it');
+        $plan->addVersion('# Plan', '<h1>Plan</h1>');
+        $this->em->persist($plan);
+        $plan->addReference($audit);
+        $this->em->flush();
+
+        $this->actAsMcpTokenBoundTo($audit->project);
+
+        $result = ($this->tool)((string) $audit->id);
+
+        // The edge was written from the plan's side only, so the audit reports
+        // it incoming and has nothing outgoing.
+        self::assertSame([], $result['references']);
+        self::assertSame([[
+            'documentId' => (string) $plan->id,
+            'title' => 'The plan answering it',
+            'archived' => false,
+        ]], $result['referencedBy']);
+    }
+
+    /**
+     * Doctrine fills the inverse side at load time and never at write time, so
+     * without addReference() maintaining both ends this reads stale until the
+     * next request.
+     */
+    public function test_an_incoming_reference_is_visible_in_the_request_that_wrote_it(): void
+    {
+        $owner = $this->user('gd-inc-now@e.com');
+        $audit = $this->documentInNewProject($owner, 'Audit read in the same request');
+
+        $plan = new Document(owner: $owner, project: $audit->project, title: 'Plan written now');
+        $plan->addVersion('# Plan', '<h1>Plan</h1>');
+        $this->em->persist($plan);
+        $plan->addReference($audit);
+        $this->em->flush();
+        // Deliberately no clear(): this is the same request that wrote the edge.
+
+        $this->actAsMcpTokenBoundTo($audit->project);
+
+        $result = ($this->tool)((string) $audit->id);
+
+        self::assertSame([(string) $plan->id], array_column($result['referencedBy'], 'documentId'));
+    }
+
+    public function test_reports_the_tags_the_document_carries(): void
+    {
+        $owner = $this->user('gd-tags@e.com');
+        $document = $this->documentInNewProject($owner, 'Tagged');
+
+        $tag = new Tag($document->project, 'architecture');
+        $this->em->persist($tag);
+        $document->tags->add($tag);
+        $this->em->flush();
+
+        $this->actAsMcpTokenBoundTo($document->project);
+
+        $result = ($this->tool)((string) $document->id);
+
+        // tag_list gives the project's vocabulary and document_set_tags echoes
+        // what it just wrote; without this an agent resuming work cannot tell
+        // which of those names apply to the document in front of it.
+        self::assertSame(['architecture'], $result['tags']);
     }
 
     /**

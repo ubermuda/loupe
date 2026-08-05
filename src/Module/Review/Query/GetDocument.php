@@ -17,7 +17,7 @@ final readonly class GetDocument
     /**
      * Returns the data of an already-authorized document.
      *
-     * @return array{documentId: string, title: string, status: string, archived: bool, archiveReason: ?string, version: int, versionDescription: ?string, markdown: string, references: list<array{documentId: string, title: string, archived: bool}>}
+     * @return array{documentId: string, title: string, status: string, archived: bool, archiveReason: ?string, version: int, versionDescription: ?string, markdown: string, tags: list<string>, references: list<array{documentId: string, title: string, archived: bool}>, referencedBy: list<array{documentId: string, title: string, archived: bool}>}
      */
     public function __invoke(Document $document): array
     {
@@ -34,6 +34,26 @@ final readonly class GetDocument
             ];
         }
 
+        // Kept as its own key rather than merged into `references`: the two
+        // directions mean different things to a reader, and only the outgoing
+        // set is writable. An audit answered by a plan written later cannot
+        // mention that plan, so discovering it is the whole point of the link.
+        $referencedBy = [];
+        foreach ($document->referencedBy as $referrer) {
+            $referencedBy[] = [
+                'documentId' => (string) $referrer->id,
+                'title' => $referrer->title,
+                'archived' => null !== $referrer->archivedAt,
+            ];
+        }
+
+        // document_set_tags replaces the whole set, so the same argument as
+        // references applies: preserving a tag while changing one needs a read.
+        $tags = [];
+        foreach ($document->tags as $tag) {
+            $tags[] = $tag->name;
+        }
+
         return [
             'documentId' => (string) $document->id,
             'title' => $document->title,
@@ -46,7 +66,9 @@ final readonly class GetDocument
             'version' => $currentVersion->versionNumber,
             'versionDescription' => $currentVersion->description,
             'markdown' => $currentVersion->markdownSource,
+            'tags' => $tags,
             'references' => $references,
+            'referencedBy' => $referencedBy,
         ];
     }
 }

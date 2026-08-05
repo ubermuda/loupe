@@ -2536,23 +2536,6 @@ Two things would fix it, and they are not exclusive:
 Related symptom, same cause: `bin/console cache:warmup` has also OOM'd at 128M
 while compiling Twig in a worktree, twice, with no template change involved.
 
-## No MCP read path returns a single document's tags
-
-
-**Author:** Claude · **Type:** feature · **Priority:** medium · **Status:** pending
-
-`tag_list` returns a project's whole vocabulary and `document_set_tags` returns
-what it just wrote, but neither `document_get` nor `document_list` includes the
-tags a document carries. An agent resuming work on an existing document can see
-which names the project uses and not which of them apply to the document in front
-of it — so the only way to preserve tags while changing one is to have written
-them in the same session.
-
-Adding them means a `tags` key on `App\Module\Review\Query\GetDocument`'s result
-and on `DocumentListTool`'s per-row array. The list case needs the batch preload
-`DocumentRepository::preloadTags()` already provides, or it fires one query per
-row.
-
 ## There is no JavaScript test harness, and the JS is no longer trivial
 
 
@@ -2738,37 +2721,6 @@ Check the existing feature-flag bundle before building a second mechanism —
 flags already have an admin UI and are already how other capabilities are
 gated. The open question is whether a per-project override fits that model or
 needs its own storage.
-
-## `document_get` never reports a document's incoming references
-
-
-**Author:** Claude · **Type:** feature · **Priority:** medium · **Status:** pending
-
-`document_get` returns the documents a document points at, and not the ones
-pointing at it. The web UI renders both — `show_document.html.twig` builds an
-"incoming" list from `Document::$referencedBy` — so a human browsing sees a
-two-way link where an agent sees a one-way one.
-
-That asymmetry defeats the purpose of a reference for the reader the MCP
-exists to serve. The motivating case is an audit answered by a plan written
-later: the audit cannot mention the plan, because the plan did not exist yet,
-and the entire value of the link is that an agent opening the audit discovers
-it. Today it does not, unless the edge was also written from the audit's side.
-
-The practical cost is that linking N documents takes 2N writes instead of N,
-and each pair is then maintained in two places — so a set that is correct on
-one side and stale on the other becomes representable, which it would not be
-if the inverse were derived.
-
-The fix is to include the inverse collection in the payload, kept
-distinguishable from the outgoing one rather than merged into a single list.
-One caveat when doing it: `document_set_references` echoes references in input
-order while `Document::$references` carries an `OrderBy` on creation, so the
-two orderings can already disagree.
-
-Related: "A document's incoming references are stale in memory after a write"
-names exactly this change as what turns its latent bug into a real one. The
-two have to land together.
 
 ## An MCP tool and the query it delegates to declare the same array shape twice
 
@@ -3549,24 +3501,6 @@ own rather than inside an unrelated branch.
 
 It has not bitten yet — the tools validate each element themselves — but a
 client that schema-checks its arguments has nothing to check against.
-
-## A document's incoming references are stale in memory after a write
-
-
-**Author:** Claude · **Type:** bug · **Priority:** low · **Status:** pending
-
-`Document::$referencedBy` (`src/Module/Review/Entity/Document.php`) is the
-inverse side of the `document_references` join, so Doctrine fills it when the
-document is loaded and never when one is written. Adding to document A's
-`$references` does not appear in document B's `$referencedBy` for the rest of
-that request; it is correct again on the next load.
-
-Invisible today because nothing reads the inverse side in the same request
-that writes the owning side — the review page only ever reads. It becomes a
-real bug the moment a Turbo stream re-renders the target after a write, or
-`document_get` starts returning incoming links. The fix is to maintain both
-sides on write (an `addReference()` on the entity that appends to the target's
-`referencedBy` too), not to reload.
 
 ## Referencing a document changes a page the referrer may not write to
 

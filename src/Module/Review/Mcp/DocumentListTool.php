@@ -60,11 +60,19 @@ final readonly class DocumentListTool
             /** @var list<Document> $documents */
             $documents = array_values(iterator_to_array($paginator));
             $latestVersions = $this->documentVersions->findLatestMetaByDocuments($documents);
+            // Tags are a lazy collection, so reading one per row would cost a
+            // query per row. Hydrates the whole page in one.
+            $this->documents->preloadTags($documents);
 
             return [
                 'documents' => array_map(
                     static function (Document $doc) use ($latestVersions) {
                         $meta = $latestVersions[(string) $doc->id] ?? throw new \LogicException('Document has no versions.');
+
+                        $tags = [];
+                        foreach ($doc->tags as $tag) {
+                            $tags[] = $tag->name;
+                        }
 
                         return [
                             'documentId' => (string) $doc->id,
@@ -72,6 +80,7 @@ final readonly class DocumentListTool
                             'status' => $doc->status->value,
                             'currentVersion' => $meta['versionNumber'],
                             'archived' => null !== $doc->archivedAt,
+                            'tags' => $tags,
                         ];
                     },
                     $documents,
