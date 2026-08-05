@@ -172,7 +172,8 @@ migrate-run: (exec "bin/console doctrine:migrations:migrate")
 # Off by default (a compose profile), because the development path is
 # EXPORT_STORAGE=local and nothing routine needs a bucket.
 #
-# To point the app at it, set these in .env.local and restart php-fpm:
+# To point the app at it, set these in .env.local, then restart BOTH php-fpm
+# and worker:
 #
 #     EXPORT_STORAGE=s3
 #     EXPORT_STORAGE_BUCKET=loupe-exports
@@ -182,6 +183,13 @@ migrate-run: (exec "bin/console doctrine:migrations:migrate")
 #     EXPORT_STORAGE_SECRET=loupe-secret
 #     EXPORT_STORAGE_USE_PATH_STYLE=true
 #
+#     docker compose restart php-fpm worker
+#
+# The worker is not optional here. It is the process that *builds* the archive,
+# so a worker left on the old adapter writes the export to local disk while the
+# restarted web container looks for it in the bucket — and the emailed link
+# 404s, which reads as a broken download rather than a stale process.
+#
 # Path-style is required: MinIO does not serve virtual-host-style buckets
 # without wildcard DNS, and the failure reads as a name-resolution error rather
 # than a configuration one.
@@ -190,22 +198,25 @@ minio-up bucket="loupe-exports":
     #!/usr/bin/env bash
     set -euo pipefail
     docker compose --profile minio up -d minio
-    user="${MINIO_ROOT_USER:-loupe}"
-    password="${MINIO_ROOT_PASSWORD:-loupe-secret}"
+    # The credentials are read inside the container, from the environment
+    # Compose actually resolved. Reading them out here instead would miss a
+    # MINIO_ROOT_USER set in .env — this shell does not load it — and every
+    # alias attempt would then fail authentication.
+    alias_cmd='mc alias set local http://127.0.0.1:9000 "$MINIO_ROOT_USER" "$MINIO_ROOT_PASSWORD"'
     # `up -d` returns as soon as the container is started, not when the server
-    # accepts connections, so the alias below would race it and fail with a
-    # bare "connection refused" that reads like a networking fault.
+    # accepts connections, so the alias would race it and fail with a bare
+    # "connection refused" that reads like a networking fault.
     for _ in $(seq 30); do
-        if docker compose exec -T minio mc alias set local http://127.0.0.1:9000 "$user" "$password" >/dev/null 2>&1; then
+        if docker compose exec -T minio sh -c "$alias_cmd" >/dev/null 2>&1; then
             break
         fi
         sleep 1
     done
     # Re-run unsilenced so a genuine credential or network failure is reported
     # rather than swallowed by the loop above.
-    docker compose exec -T minio mc alias set local http://127.0.0.1:9000 "$user" "$password" >/dev/null
+    docker compose exec -T minio sh -c "$alias_cmd" >/dev/null
     docker compose exec -T minio mc mb --ignore-existing "local/{{bucket}}" >/dev/null
-    echo "minio: bucket '{{bucket}}' ready — console http://localhost:9001 (user $user)"
+    echo "minio: bucket '{{bucket}}' ready — console http://localhost:9001"
 
 # `stop` + `rm`, never `down`. `docker compose down minio` was observed
 # attempting to remove the shared `loupe_default` network — it only failed
@@ -220,9 +231,22 @@ minio-down:
 minio-reset:
     #!/usr/bin/env bash
     set -euo pipefail
+    # Ask Compose which container it owns and read the volume off its mounts,
+    # before stopping it. Deriving `<project>_minio_data` from .env instead
+    # would miss a COMPOSE_PROJECT_NAME overridden in the environment and delete
+    # another project's objects.
+    cid=$(docker compose --profile minio ps -aq minio)
+    volume=""
+    if [ -n "$cid" ]; then
+        volume=$(docker inspect "$cid" --format '{{ "{{" }}range .Mounts{{ "}}" }}{{ "{{" }}if eq .Destination "/data"{{ "}}" }}{{ "{{" }}.Name{{ "}}" }}{{ "{{" }}end{{ "}}" }}{{ "{{" }}end{{ "}}" }}')
+    fi
     just minio-down
-    project=$(grep -E '^COMPOSE_PROJECT_NAME=' .env | head -1 | cut -d= -f2-)
-    docker volume rm -f "${project:-loupe}_minio_data"
+    if [ -n "$volume" ]; then
+        docker volume rm -f "$volume"
+        echo "minio: removed volume $volume"
+    else
+        echo "minio: no container found, so no volume to remove" >&2
+    fi
 
 # Provision the dedicated e2e target: a disposable database plus an nginx
 # sidecar serving THIS checkout at e2e.<project>.dev.localhost. Idempotent.
