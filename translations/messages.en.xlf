@@ -198,22 +198,6 @@
                 <source>account.registration.subheading</source>
                 <target>Get started for free. No credit card required.</target>
             </trans-unit>
-            <trans-unit id="account.form.registration_form.full_name.label">
-                <source>account.form.registration_form.full_name.label</source>
-                <target>Full name</target>
-            </trans-unit>
-            <trans-unit id="account.form.registration_form.full_name.placeholder">
-                <source>account.form.registration_form.full_name.placeholder</source>
-                <target>Your full name</target>
-            </trans-unit>
-            <trans-unit id="account.form.registration_form.username.label">
-                <source>account.form.registration_form.username.label</source>
-                <target>Username</target>
-            </trans-unit>
-            <trans-unit id="account.form.registration_form.username.placeholder">
-                <source>account.form.registration_form.username.placeholder</source>
-                <target>rileychen</target>
-            </trans-unit>
             <trans-unit id="account.form.registration_form.email.label">
                 <source>account.form.registration_form.email.label</source>
                 <target>Email</target>
@@ -221,6 +205,14 @@
             <trans-unit id="account.form.registration_form.email.placeholder">
                 <source>account.form.registration_form.email.placeholder</source>
                 <target>you@company.com</target>
+            </trans-unit>
+            <trans-unit id="account.form.registration_form.full_name.label">
+                <source>account.form.registration_form.full_name.label</source>
+                <target>Display name</target>
+            </trans-unit>
+            <trans-unit id="account.form.registration_form.full_name.placeholder">
+                <source>account.form.registration_form.full_name.placeholder</source>
+                <target>Riley Chen</target>
             </trans-unit>
             <trans-unit id="account.form.registration_form.password.label">
                 <source>account.form.registration_form.password.label</source>
@@ -311,10 +303,6 @@
             <trans-unit id="account.registration.error.email_duplicate">
                 <source>account.registration.error.email_duplicate</source>
                 <target>There is already an account with this email.</target>
-            </trans-unit>
-            <trans-unit id="account.registration.error.username_taken">
-                <source>account.registration.error.username_taken</source>
-                <target>This username is already taken.</target>
             </trans-unit>
             <trans-unit id="account.registration.error.throttled">
                 <source>account.registration.error.throttled</source>
@@ -700,6 +688,42 @@
             <trans-unit id="account.settings.page.title">
                 <source>account.settings.page.title</source>
                 <target>Account settings</target>
+            </trans-unit>
+            <trans-unit id="account.form.profile_form.full_name.label">
+                <source>account.form.profile_form.full_name.label</source>
+                <target>Display name</target>
+            </trans-unit>
+            <trans-unit id="account.form.profile_form.full_name.placeholder">
+                <source>account.form.profile_form.full_name.placeholder</source>
+                <target>How your name appears on reviews and comments</target>
+            </trans-unit>
+            <trans-unit id="account.profile.page.title">
+                <source>account.profile.page.title</source>
+                <target>Your profile</target>
+            </trans-unit>
+            <trans-unit id="account.profile.page.intro">
+                <source>account.profile.page.intro</source>
+                <target>This is the name shown beside your comments and on documents you review.</target>
+            </trans-unit>
+            <trans-unit id="account.profile.save_button">
+                <source>account.profile.save_button</source>
+                <target>Save</target>
+            </trans-unit>
+            <trans-unit id="account.profile.cancel_link">
+                <source>account.profile.cancel_link</source>
+                <target>Cancel</target>
+            </trans-unit>
+            <trans-unit id="account.profile.flash.updated">
+                <source>account.profile.flash.updated</source>
+                <target>Your profile has been updated.</target>
+            </trans-unit>
+            <trans-unit id="account.settings.profile.heading">
+                <source>account.settings.profile.heading</source>
+                <target>Profile</target>
+            </trans-unit>
+            <trans-unit id="account.settings.profile.edit_link">
+                <source>account.settings.profile.edit_link</source>
+                <target>Edit profile</target>
             </trans-unit>
             <trans-unit id="account.settings.export.heading">
                 <source>account.settings.export.heading</source>
@@ -1390,12 +1414,12 @@
                 <target>I understand — delete this project</target>
             </trans-unit>
 
-            <trans-unit id="site_review.site.token.mint">
-                <source>site_review.site.token.mint</source>
+            <trans-unit id="project.token.mint">
+                <source>project.token.mint</source>
                 <target>Mint widget token</target>
             </trans-unit>
-            <trans-unit id="site_review.site.token.snippet_heading">
-                <source>site_review.site.token.snippet_heading</source>
+            <trans-unit id="project.token.snippet_heading">
+                <source>project.token.snippet_heading</source>
                 <target>Embed snippet</target>
             </trans-unit>
             <trans-unit id="project.error.widget_token_already_minted">
@@ -1834,17 +1858,13 @@
                 <source>account.install.admin.submit</source>
                 <target>Create admin account</target>
             </trans-unit>
-            <trans-unit id="account.form.install_admin_form.full_name.label">
-                <source>account.form.install_admin_form.full_name.label</source>
-                <target>Full name</target>
-            </trans-unit>
-            <trans-unit id="account.form.install_admin_form.username.label">
-                <source>account.form.install_admin_form.username.label</source>
-                <target>Username</target>
-            </trans-unit>
             <trans-unit id="account.form.install_admin_form.email.label">
                 <source>account.form.install_admin_form.email.label</source>
                 <target>Email address</target>
+            </trans-unit>
+            <trans-unit id="account.form.install_admin_form.full_name.label">
+                <source>account.form.install_admin_form.full_name.label</source>
+                <target>Display name</target>
             </trans-unit>
             <trans-unit id="account.form.install_admin_form.password.label">
                 <source>account.form.install_admin_form.password.label</source>
@@ -1875,10 +1895,6 @@
             <trans-unit id="account.console.error.user_not_found">
                 <source>account.console.error.user_not_found</source>
                 <target>No account exists with that email address.</target>
-            </trans-unit>
-            <trans-unit id="account.console.error.username_taken">
-                <source>account.console.error.username_taken</source>
-                <target>That username is already taken.</target>
             </trans-unit>
 
             <!-- System status (install wizard step and admin page) -->
@@ -1989,6 +2005,22 @@
             <trans-unit id="account.system_status.failed_messages.unreadable">
                 <source>account.system_status.failed_messages.unreadable</source>
                 <target>The failed-message queue could not be read.</target>
+            </trans-unit>
+            <trans-unit id="account.system_status.agent_account.present">
+                <source>account.system_status.agent_account.present</source>
+                <target>The agent account exists. Every comment written through the MCP is authored by it.</target>
+            </trans-unit>
+            <trans-unit id="account.system_status.agent_account.missing">
+                <source>account.system_status.agent_account.missing</source>
+                <target>The agent account is missing, so any comment written through the MCP will fail. Run "bin/console app:admin:create" with your existing administrator's email to restore it — re-running the migrations will not, because the migration that creates the row is already recorded as applied.</target>
+            </trans-unit>
+            <trans-unit id="account.system_status.agent_account.unreadable">
+                <source>account.system_status.agent_account.unreadable</source>
+                <target>The agent account could not be read. The database rejected the query; the error has been logged.</target>
+            </trans-unit>
+            <trans-unit id="account.system_status.check.agent_account.label">
+                <source>account.system_status.check.agent_account.label</source>
+                <target>Agent account</target>
             </trans-unit>
             <trans-unit id="account.system_status.failed_messages.none">
                 <source>account.system_status.failed_messages.none</source>

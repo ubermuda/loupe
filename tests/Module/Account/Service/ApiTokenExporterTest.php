@@ -16,7 +16,7 @@ final class ApiTokenExporterTest extends TestCase
 {
     public function test_exports_metadata_and_never_the_token_hash(): void
     {
-        $user = new User('alice', 'Alice A', 'alice@example.com', 'x');
+        $user = new User('Alice A', 'alice@example.com', 'x');
         [$token] = ApiToken::issue($user, 'My agent', ApiTokenScope::Mcp);
 
         /** @var ApiTokenRepository&Stub $repo */

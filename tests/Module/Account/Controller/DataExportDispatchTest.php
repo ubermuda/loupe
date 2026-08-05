@@ -19,7 +19,6 @@ final class DataExportDispatchTest extends WebTestCase
         $em = static::getContainer()->get(EntityManagerInterface::class);
 
         $user = new User(
-            username: 'alice',
             fullName: 'Alice A',
             email: 'alice@example.com',
             password: 'hashed-password-placeholder',

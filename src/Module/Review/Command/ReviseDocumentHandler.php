@@ -88,9 +88,9 @@ final readonly class ReviseDocumentHandler
             // A list replaces the whole set, so leaving it out is the only way to
             // keep the current references — an empty list is how they are cleared.
             if (null !== $references) {
-                $document->references->clear();
+                $document->clearReferences();
                 foreach ($references as $reference) {
-                    $document->references->add($reference);
+                    $document->addReference($reference);
                 }
             }
 

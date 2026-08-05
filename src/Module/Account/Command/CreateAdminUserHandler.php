@@ -7,7 +7,8 @@ namespace App\Module\Account\Command;
 use App\Exception\DomainErrors;
 use App\Module\Account\Entity\User;
 use App\Module\Account\Repository\UserRepository;
-use App\Module\Account\Service\UsernameGenerator;
+use App\Module\Account\Service\AgentAccountInstaller;
+use App\Module\Account\Service\DisplayNameDeriver;
 use Doctrine\ORM\EntityManagerInterface;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
@@ -27,10 +28,10 @@ final readonly class CreateAdminUserHandler
         private UserRepository $users,
         private EntityManagerInterface $em,
         private UserPasswordHasherInterface $passwordHasher,
-        private UsernameGenerator $usernameGenerator,
         private PromoteUserToAdminHandler $promoteUserToAdmin,
         private MarkEmailVerifiedHandler $markEmailVerified,
         private LoggerInterface $logger,
+        private DisplayNameDeriver $displayNameDeriver,
     ) {
     }
 
@@ -38,6 +39,16 @@ final readonly class CreateAdminUserHandler
     public function __invoke(CreateAdminUserCommand $command): CreateAdminUserResult
     {
         $email = strtolower($command->email);
+
+        // Before the existing-user branch below, not after the create: this
+        // command is the documented repair for an instance whose /install is
+        // unreachable — which is every production one until INSTALL_TOKEN is
+        // set, since the guard fails closed. An operator re-running it to fix a
+        // missing agent row usually supplies an email that already exists, and
+        // that path returns early; installing only alongside a *new* admin would
+        // make the documented recovery unable to perform the repair it is for.
+        // Idempotent, so running it on every invocation costs nothing.
+        AgentAccountInstaller::install($this->em->getConnection());
 
         $existing = $this->users->findOneByEmail($email);
         if (null !== $existing) {
@@ -49,12 +60,14 @@ final readonly class CreateAdminUserHandler
             );
         }
 
-        $localPart = explode('@', $email)[0];
-        $username = $this->resolveUsername($command->username, $localPart);
+        // Every account has a display name and this entry point has no form to
+        // ask on, so an omitted --full-name is derived from the address.
+        $fullName = trim($command->fullName ?? '');
 
         $user = new User(
-            username: $username,
-            fullName: substr(trim($command->fullName ?? '') ?: $localPart, 0, self::MAX_FULL_NAME_LENGTH),
+            fullName: '' !== $fullName
+                ? mb_substr($fullName, 0, self::MAX_FULL_NAME_LENGTH)
+                : $this->displayNameDeriver->derive($email),
             email: $email,
         );
         $user->password = $this->passwordHasher->hashPassword($user, $command->plainPassword);
@@ -67,29 +80,5 @@ final readonly class CreateAdminUserHandler
         $this->logger->info('account.admin.created_from_console', ['userId' => (string) $user->id]);
 
         return new CreateAdminUserResult(user: $user, created: true, promoted: false, verified: false);
-    }
-
-    /**
-     * An explicit username is taken at face value or rejected — silently
-     * suffixing it would hand the operator a login they did not ask for. Only
-     * the derived fallback is allowed to pick its own free variant.
-     *
-     * @return non-empty-string
-     *
-     * @throws DomainErrors
-     */
-    private function resolveUsername(?string $username, string $localPart): string
-    {
-        $username = trim($username ?? '');
-
-        if ('' === $username) {
-            return $this->usernameGenerator->fromPreferred($localPart);
-        }
-
-        if (null !== $this->users->findOneByUsername($username)) {
-            throw new DomainErrors(['username' => 'account.console.error.username_taken']);
-        }
-
-        return $username;
     }
 }

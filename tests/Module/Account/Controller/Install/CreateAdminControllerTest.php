@@ -33,9 +33,8 @@ final class CreateAdminControllerTest extends WebTestCase
         $this->completeStepOne($client);
         $client->request(\Symfony\Component\HttpFoundation\Request::METHOD_GET, '/install/admin');
         $client->submitForm('Create admin account', [
-            'install_admin_form[fullName]' => 'The Admin',
-            'install_admin_form[username]' => 'admin',
             'install_admin_form[email]' => 'admin@example.com',
+            'install_admin_form[fullName]' => 'Ada Lovelace',
             'install_admin_form[plainPassword]' => 'a-strong-password',
         ]);
 
@@ -45,6 +44,7 @@ final class CreateAdminControllerTest extends WebTestCase
         $user = self::getContainer()->get(UserRepository::class)->findOneByEmail('admin@example.com');
         self::assertNotNull($user);
         self::assertSame(['ROLE_ADMIN'], $user->roles);
+        self::assertSame('Ada Lovelace', $user->fullName);
         self::assertNull($user->emailVerifiedAt);
 
         // Wizard is now closed…
@@ -67,10 +67,10 @@ final class CreateAdminControllerTest extends WebTestCase
         $this->completeStepOne($client);
         $client->request(\Symfony\Component\HttpFoundation\Request::METHOD_GET, '/install/admin');
         $client->submitForm('Create admin account', [
-            'install_admin_form[fullName]' => 'The Admin',
-            'install_admin_form[username]' => 'ab', // Length(min: 3) violation
             'install_admin_form[email]' => 'admin@example.com',
-            'install_admin_form[plainPassword]' => 'a-strong-password',
+            'install_admin_form[fullName]' => 'Ada Lovelace',
+            // Length(min: 8) violation.
+            'install_admin_form[plainPassword]' => 'short',
         ]);
 
         self::assertResponseStatusCodeSame(422);
@@ -83,11 +83,27 @@ final class CreateAdminControllerTest extends WebTestCase
     // covered by review; the handler's own sequential second-call test guards
     // the thrown-error contract.
 
+    public function test_a_blank_display_name_is_a_validation_error(): void
+    {
+        $client = static::createClient();
+        $this->completeStepOne($client);
+        $client->request(\Symfony\Component\HttpFoundation\Request::METHOD_GET, '/install/admin');
+
+        $client->submitForm('Create admin account', [
+            'install_admin_form[email]' => 'nameless@example.com',
+            'install_admin_form[fullName]' => '',
+            'install_admin_form[plainPassword]' => 'a-strong-password',
+        ]);
+
+        self::assertResponseStatusCodeSame(422);
+        self::assertNull(self::getContainer()->get(UserRepository::class)->findOneByEmail('nameless@example.com'));
+    }
+
     public function test_post_without_marker_redirects_and_creates_nothing(): void
     {
         $client = static::createClient();
         $client->request(\Symfony\Component\HttpFoundation\Request::METHOD_POST, '/install/admin', [
-            'install_admin_form' => ['fullName' => 'X', 'username' => 'xxx', 'email' => 'x@example.com', 'plainPassword' => 'a-strong-password'],
+            'install_admin_form' => ['email' => 'x@example.com', 'fullName' => 'Ada Lovelace', 'plainPassword' => 'a-strong-password'],
         ]);
 
         self::assertResponseRedirects('/install');
@@ -100,9 +116,8 @@ final class CreateAdminControllerTest extends WebTestCase
         $this->completeStepOne($client);
         $client->request(\Symfony\Component\HttpFoundation\Request::METHOD_GET, '/install/admin');
         $client->submitForm('Create admin account', [
-            'install_admin_form[fullName]' => 'The Admin',
-            'install_admin_form[username]' => 'admin',
             'install_admin_form[email]' => 'admin@example.com',
+            'install_admin_form[fullName]' => 'Ada Lovelace',
             'install_admin_form[plainPassword]' => 'a-strong-password',
         ]);
 

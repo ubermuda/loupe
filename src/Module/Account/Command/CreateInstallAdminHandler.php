@@ -7,6 +7,7 @@ namespace App\Module\Account\Command;
 use App\Exception\DomainErrors;
 use App\Module\Account\Entity\User;
 use App\Module\Account\Repository\UserRepository;
+use App\Module\Account\Service\AgentAccountInstaller;
 use App\Module\Account\Service\VerificationEmailSender;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
@@ -44,13 +45,19 @@ final readonly class CreateInstallAdminHandler
             }
 
             $user = new User(
-                username: $command->username,
                 fullName: $command->fullName,
                 email: $command->email,
             );
             $user->password = $this->passwordHasher->hashPassword($user, $command->plainPassword);
             $user->roles = ['ROLE_ADMIN'];
             $this->em->persist($user);
+
+            // Inside the transaction that claims the install: an instance that
+            // completed the wizard must have an agent row, or the first comment
+            // written over MCP fails deep in a write. Idempotent — the migration
+            // already inserts it, and repeating the id is a no-op — so this only
+            // matters on a database the migration's insert never reached.
+            AgentAccountInstaller::install($this->em->getConnection());
 
             return $user;
         });

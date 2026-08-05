@@ -96,7 +96,6 @@ final class StripeGatewayTest extends TestCase
         $gateway = $this->gateway(['id' => 'cus_42', 'object' => 'customer']);
 
         $customerId = $gateway->createCustomer(new User(
-            username: 'alice',
             fullName: 'Alice A',
             email: 'alice@example.com',
             password: 'irrelevant',

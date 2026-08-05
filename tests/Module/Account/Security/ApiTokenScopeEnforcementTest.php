@@ -52,7 +52,7 @@ final class ApiTokenScopeEnforcementTest extends WebTestCase
 
     private function issueToken(EntityManagerInterface $em, ApiTokenScope $scope): string
     {
-        $user = new User(username: 'u'.$scope->value, fullName: 'U', email: $scope->value.'@example.com', password: 'x');
+        $user = new User(fullName: 'U', email: $scope->value.'@example.com', password: 'x');
         $user->emailVerifiedAt = new \DateTimeImmutable();
         $em->persist($user);
         [$token, $raw] = ApiToken::issue($user, 'tok', $scope);

@@ -37,7 +37,7 @@ final readonly class CreateDocumentHandler
         // Also before persist(), for the same reason: this rejects a reference
         // the project may not point at.
         foreach ($this->referenceValidator->validated($command->project, null, $command->references) as $reference) {
-            $document->references->add($reference);
+            $document->addReference($reference);
         }
 
         // SetDocumentTagsHandler owns the only flush, so the document, its tags

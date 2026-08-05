@@ -33,7 +33,7 @@ final class DocumentVersionRepositoryTest extends KernelTestCase
 
     public function test_find_latest_returns_the_highest_version_number_not_the_last_inserted(): void
     {
-        $owner = new User(username: 'dv-owner', fullName: 'DV Owner', email: 'dv-owner@example.com', password: 'x');
+        $owner = new User(fullName: 'DV Owner', email: 'dv-owner@example.com', password: 'x');
         $this->em->persist($owner);
         $project = new Project($owner, 'p-'.uniqid());
         $this->em->persist($project);
@@ -57,7 +57,7 @@ final class DocumentVersionRepositoryTest extends KernelTestCase
 
     public function test_find_latest_meta_by_documents_omits_text_columns_and_batches_across_documents(): void
     {
-        $owner = new User(username: 'dv-owner2', fullName: 'DV Owner 2', email: 'dv-owner2@example.com', password: 'x');
+        $owner = new User(fullName: 'DV Owner 2', email: 'dv-owner2@example.com', password: 'x');
         $this->em->persist($owner);
         $project = new Project($owner, 'p-'.uniqid());
         $this->em->persist($project);
@@ -95,7 +95,7 @@ final class DocumentVersionRepositoryTest extends KernelTestCase
 
     public function test_find_all_meta_by_document_carries_each_versions_description(): void
     {
-        $owner = new User(username: 'dv-owner3', fullName: 'DV Owner 3', email: 'dv-owner3@example.com', password: 'x');
+        $owner = new User(fullName: 'DV Owner 3', email: 'dv-owner3@example.com', password: 'x');
         $this->em->persist($owner);
         $project = new Project($owner, 'p-'.uniqid());
         $this->em->persist($project);
@@ -124,7 +124,7 @@ final class DocumentVersionRepositoryTest extends KernelTestCase
      */
     public function test_streaming_anchored_comments_stays_lazy_and_grouped_by_version(): void
     {
-        $owner = new User(username: 'dv-stream', fullName: 'DV Stream', email: 'dv-stream@example.com', password: 'x');
+        $owner = new User(fullName: 'DV Stream', email: 'dv-stream@example.com', password: 'x');
         $this->em->persist($owner);
         $project = new Project($owner, 'p-'.uniqid());
         $this->em->persist($project);

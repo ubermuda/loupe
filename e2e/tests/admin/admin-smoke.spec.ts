@@ -7,7 +7,6 @@ import { createTest } from '../fixtures';
 const test = createTest({
     email: 'e2e-admin-smoke@example.com',
     password: 'e2e_password_123',
-    name: 'E2E Admin Smoke',
 });
 
 // A run that dies between "create" and "delete" would otherwise wedge every

@@ -99,9 +99,28 @@ class WaitlistEntry
         return null === $this->inviteExpiresAt || $this->inviteExpiresAt < new \DateTimeImmutable();
     }
 
+    /**
+     * Idempotent: several unrelated paths convert the same row (registering,
+     * social login, a Stripe subscription arriving), and re-converting would
+     * overwrite the date the entry actually stopped waiting.
+     */
     public function markConverted(): void
     {
-        $this->convertedAt = new \DateTimeImmutable();
+        $this->convertedAt ??= new \DateTimeImmutable();
+    }
+
+    /**
+     * Whether this entry's invite was issued to the given address. An invite is
+     * a capacity voucher issued to one address, so possession of the token alone
+     * — a forwarded or leaked link — must not let a different address claim it.
+     *
+     * Lives on the entity rather than in the repository deliberately: every
+     * caller's tests stub the repository, so a comparison made there would be
+     * skipped by the very tests that exist to pin this rule.
+     */
+    public function isInviteFor(string $email): bool
+    {
+        return strtolower($this->email) === strtolower($email);
     }
 
     /**

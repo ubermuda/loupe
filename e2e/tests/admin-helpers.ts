@@ -9,7 +9,6 @@ import { type Credentials, registerAndVerify } from './helpers';
 export const ADMIN: Credentials = {
     email: 'e2e-admin-smoke@example.com',
     password: 'e2e_password_123',
-    name: 'E2E Admin Smoke',
 };
 
 /**

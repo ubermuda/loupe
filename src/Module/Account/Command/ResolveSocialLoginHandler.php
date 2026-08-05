@@ -10,12 +10,12 @@ use App\Module\Account\Event\UserRegistered;
 use App\Module\Account\Repository\ConnectedAccountRepository;
 use App\Module\Account\Repository\UserRepository;
 use App\Module\Account\Repository\WaitlistEntryRepository;
+use App\Module\Account\Service\DisplayNameDeriver;
 use App\Module\Account\Service\RegistrationGate;
 use App\Module\Account\Service\SocialLoginOutcome;
 use App\Module\Account\Service\SocialLoginRace;
 use App\Module\Account\Service\SocialProfile;
 use App\Module\Account\Service\UnverifiedProviderEmail;
-use App\Module\Account\Service\UsernameGenerator;
 use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
 use Doctrine\ORM\EntityManagerInterface;
 use Psr\Log\LoggerInterface;
@@ -23,16 +23,19 @@ use Symfony\Contracts\EventDispatcher\EventDispatcherInterface;
 
 final readonly class ResolveSocialLoginHandler
 {
+    /** Matches the users.full_name column. */
+    private const int MAX_FULL_NAME_LENGTH = 150;
+
     public function __construct(
         private ConnectedAccountRepository $connectedAccounts,
         private UserRepository $users,
         private EntityManagerInterface $em,
-        private UsernameGenerator $usernameGenerator,
         private RegistrationGate $registrationGate,
         private JoinWaitlistHandler $joinWaitlist,
         private WaitlistEntryRepository $waitlistEntries,
         private LoggerInterface $logger,
         private EventDispatcherInterface $eventDispatcher,
+        private DisplayNameDeriver $displayNameDeriver,
     ) {
     }
 
@@ -67,8 +70,12 @@ final readonly class ResolveSocialLoginHandler
             }
 
             // The provider proved ownership of this verified email — a pending
-            // click-through verification is superseded.
+            // click-through verification is superseded. Revoking the token is
+            // what makes that true: VerifyEmailHandler never checks isVerified()
+            // and VerifyEmailController logs in whoever presents a valid token,
+            // so a link left outstanding here keeps working afterwards.
             $byEmail->emailVerifiedAt ??= new \DateTimeImmutable();
+            $byEmail->clearEmailVerificationToken();
             $this->em->persist($this->link($byEmail, $profile));
             $this->flushOrRace();
 
@@ -103,9 +110,14 @@ final readonly class ResolveSocialLoginHandler
                 return null;
             }
 
+            // The provider's name is real data and worth keeping; there is no
+            // form to ask on when it sends none, so the address is the only
+            // material left to build one from.
+            $providerName = trim($profile->fullName ?? '');
             $user = new User(
-                username: $this->usernameGenerator->fromPreferred($profile->fullName ?? explode('@', $matchEmail)[0]),
-                fullName: substr(trim($profile->fullName ?? '') ?: explode('@', $matchEmail)[0], 0, 150),
+                fullName: '' !== $providerName
+                    ? mb_substr($providerName, 0, self::MAX_FULL_NAME_LENGTH)
+                    : $this->displayNameDeriver->derive($matchEmail),
                 email: $matchEmail,
             );
             $user->emailVerifiedAt = new \DateTimeImmutable();
@@ -116,10 +128,7 @@ final readonly class ResolveSocialLoginHandler
             // (directly, or via a previous at-cap OAuth attempt) and is only
             // now creating an account because the cap reopened. That row must
             // not linger as "waiting" once the account exists.
-            $waitlistMatch = $this->waitlistEntries->findOneByEmail($matchEmail);
-            if (null !== $waitlistMatch && null === $waitlistMatch->convertedAt) {
-                $waitlistMatch->markConverted();
-            }
+            $this->waitlistEntries->findOneByEmail($matchEmail)?->markConverted();
 
             $this->flushOrRace();
 

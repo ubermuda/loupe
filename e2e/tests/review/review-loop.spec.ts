@@ -30,12 +30,10 @@ const REPLY_BODY = 'This is an e2e reply to the comment.';
 async function devRegisterAndVerify(
     page: Page,
     email: string,
-    username: string,
     password: string,
 ): Promise<void> {
     const response = await page.request.post('/dev/register-and-verify', {
         form: {
-            username,
             fullName: 'E2E Reviewer',
             email,
             password,
@@ -143,12 +141,11 @@ test('full review loop: comment, request changes, reload persistence', async ({
     await suppressWidget(page);
 
     const email = `e2e+review+${RUN}@example.com`;
-    const username = `e2erev${RUN}`;
     const password = 'E2eReviewLoop1!';
 
     // Step 1: Register and verify a fresh user for this test run via the dev endpoint
     // (bypasses email confirmation — mailpit is not accessible via traefik in this project).
-    await devRegisterAndVerify(page, email, username, password);
+    await devRegisterAndVerify(page, email, password);
 
     // Step 2: Log in.
     await login(page, email, password);
@@ -210,9 +207,37 @@ test('full review loop: comment, request changes, reload persistence', async ({
     expect(stateRes.status()).toBe(200);
     const state = (await stateRes.json()) as {
         comments: Array<{ quote: string; body: string }>;
+        storedAnchors: Array<{
+            quote: string;
+            prefix: string;
+            suffix: string;
+        }>;
     };
     expect(state.comments).toHaveLength(1);
     expect(state.comments[0].quote).toBe(KNOWN_PHRASE);
+
+    // Step 8a: Assert the stored prefix and suffix, not just the quote. This is
+    // the only assertion in the suite that can fail on anchor corruption
+    // occurring *before* AnchorService sees the data — every unit test builds an
+    // Anchor by hand, so all of them start from data that is already correct.
+    //
+    // Boundary whitespace is the specific thing at stake. The document reads
+    // "...contains a <quote> in this review.", so the captured prefix must end
+    // with a space and the suffix must begin with one. Symfony's form `trim`
+    // option defaults to true and HiddenType inherits it, which silently stripped
+    // exactly these characters until 2026-08-02; contextScore() compares the last
+    // 8 characters of the prefix against the document, so a trimmed fingerprint
+    // could never match and context disambiguation scored zero for every
+    // selection next to whitespace — which is nearly all of them.
+    //
+    // The widened quote above cannot catch this: it is identical either way.
+    expect(state.storedAnchors).toHaveLength(1);
+    const anchor = state.storedAnchors[0];
+    expect(anchor.quote).toBe(KNOWN_PHRASE);
+    expect(anchor.prefix).toMatch(/ $/);
+    expect(anchor.prefix).toContain('contains a');
+    expect(anchor.suffix).toMatch(/^ /);
+    expect(anchor.suffix).toContain('in this review');
 
     // Step 8b: Reply to the comment. Reply is a plain form submitted through Turbo;
     // the controller returns a Turbo Stream (HTTP 200, turbo-stream content type)
@@ -317,10 +342,9 @@ test('composer submits on Ctrl/Cmd+Enter', async ({ page }) => {
     await suppressWidget(page);
 
     const email = `e2e+reviewkbd+${RUN}@example.com`;
-    const username = `e2erevkbd${RUN}`;
     const password = 'E2eReviewKeys1!';
 
-    await devRegisterAndVerify(page, email, username, password);
+    await devRegisterAndVerify(page, email, password);
     await login(page, email, password);
 
     const { documentId, projectId } = await seedDocument(page);

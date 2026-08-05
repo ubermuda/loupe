@@ -28,7 +28,7 @@ final class AddCommentHandlerTest extends KernelTestCase
         self::bootKernel();
         $em = self::getContainer()->get(EntityManagerInterface::class);
 
-        $owner = new User(username: 'owner', fullName: 'Owner User', email: 'owner@example.com', password: 'hashed');
+        $owner = new User(fullName: 'Owner User', email: 'owner@example.com', password: 'hashed');
         $em->persist($owner);
         $project = new Project($owner, 'p-'.uniqid());
         $em->persist($project);
@@ -70,7 +70,7 @@ final class AddCommentHandlerTest extends KernelTestCase
         self::bootKernel();
         $em = self::getContainer()->get(EntityManagerInterface::class);
 
-        $owner = new User(username: 'owner3', fullName: 'Tag Owner', email: 'owner3@example.com', password: 'hashed');
+        $owner = new User(fullName: 'Tag Owner', email: 'owner3@example.com', password: 'hashed');
         $em->persist($owner);
         $project = new Project($owner, 'p-'.uniqid());
         $em->persist($project);
@@ -103,7 +103,7 @@ final class AddCommentHandlerTest extends KernelTestCase
         self::bootKernel();
         $em = self::getContainer()->get(EntityManagerInterface::class);
 
-        $owner = new User(username: 'owner4', fullName: 'Owner', email: 'owner4@example.com', password: 'hashed');
+        $owner = new User(fullName: 'Owner', email: 'owner4@example.com', password: 'hashed');
         $em->persist($owner);
         $project = new Project($owner, 'p-'.uniqid());
         $em->persist($project);
@@ -128,7 +128,7 @@ final class AddCommentHandlerTest extends KernelTestCase
         self::bootKernel();
         $em = self::getContainer()->get(EntityManagerInterface::class);
 
-        $owner = new User(username: 'owner5', fullName: 'Owner', email: 'owner5@example.com', password: 'hashed');
+        $owner = new User(fullName: 'Owner', email: 'owner5@example.com', password: 'hashed');
         $em->persist($owner);
         $project = new Project($owner, 'p-'.uniqid());
         $em->persist($project);
@@ -154,8 +154,8 @@ final class AddCommentHandlerTest extends KernelTestCase
         self::bootKernel();
         $em = self::getContainer()->get(EntityManagerInterface::class);
 
-        $owner = new User(username: 'owner2', fullName: 'Owner', email: 'owner2@example.com', password: 'hashed');
-        $nonOwner = new User(username: 'intruder', fullName: 'Intruder', email: 'intruder@example.com', password: 'hashed');
+        $owner = new User(fullName: 'Owner', email: 'owner2@example.com', password: 'hashed');
+        $nonOwner = new User(fullName: 'Intruder', email: 'intruder@example.com', password: 'hashed');
         $em->persist($owner);
         $project = new Project($owner, 'p-'.uniqid());
         $em->persist($project);
@@ -178,7 +178,7 @@ final class AddCommentHandlerTest extends KernelTestCase
         self::bootKernel();
         $em = self::getContainer()->get(EntityManagerInterface::class);
 
-        $owner = new User(username: 'owner6', fullName: 'Owner', email: 'owner6@example.com', password: 'hashed');
+        $owner = new User(fullName: 'Owner', email: 'owner6@example.com', password: 'hashed');
         $em->persist($owner);
         $project = new Project($owner, 'p-'.uniqid());
         $em->persist($project);
@@ -218,7 +218,7 @@ final class AddCommentHandlerTest extends KernelTestCase
         self::bootKernel();
         $em = self::getContainer()->get(EntityManagerInterface::class);
 
-        $owner = new User(username: 'owner7', fullName: 'Owner', email: 'owner7@example.com', password: 'hashed');
+        $owner = new User(fullName: 'Owner', email: 'owner7@example.com', password: 'hashed');
         $em->persist($owner);
         $project = new Project($owner, 'p-'.uniqid());
         $em->persist($project);
@@ -308,7 +308,7 @@ final class AddCommentHandlerTest extends KernelTestCase
         self::bootKernel();
         $em = self::getContainer()->get(EntityManagerInterface::class);
 
-        $owner = new User(username: $username, fullName: 'Owner', email: $username.'@example.com', password: 'hashed');
+        $owner = new User(fullName: 'Owner', email: $username.'@example.com', password: 'hashed');
         $em->persist($owner);
         $project = new Project($owner, 'p-'.uniqid());
         $em->persist($project);

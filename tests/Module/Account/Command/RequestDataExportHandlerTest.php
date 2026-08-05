@@ -26,7 +26,7 @@ final class RequestDataExportHandlerTest extends TestCase
 {
     public function test_requests_an_export_and_dispatches_the_generate_message(): void
     {
-        $user = new User('alice', 'Alice A', 'alice@example.com', 'x');
+        $user = new User('Alice A', 'alice@example.com', 'x');
 
         /** @var DataExportRepository&Stub $dataExports */
         $dataExports = $this->createStub(DataExportRepository::class);
@@ -66,7 +66,7 @@ final class RequestDataExportHandlerTest extends TestCase
 
     public function test_a_pending_export_is_rejected(): void
     {
-        $user = new User('alice', 'Alice A', 'alice@example.com', 'x');
+        $user = new User('Alice A', 'alice@example.com', 'x');
         $pending = new DataExport($user);
 
         /** @var DataExportRepository&Stub $dataExports */
@@ -97,7 +97,7 @@ final class RequestDataExportHandlerTest extends TestCase
         // Both requests pass the pre-check (no pending row exists yet); one of
         // them then loses the race at flush() against the partial unique
         // index on data_exports(user_id) WHERE status = 'pending'.
-        $user = new User('alice', 'Alice A', 'alice@example.com', 'x');
+        $user = new User('Alice A', 'alice@example.com', 'x');
 
         /** @var DataExportRepository&Stub $dataExports */
         $dataExports = $this->createStub(DataExportRepository::class);

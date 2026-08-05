@@ -24,7 +24,7 @@ final class ConnectedAccountRepositoryTest extends KernelTestCase
 
     public function test_find_one_by_provider_and_provider_user_id(): void
     {
-        $user = $this->persistUser('jane@example.com', 'jane');
+        $user = $this->persistUser('jane@example.com');
         $this->em->persist(new ConnectedAccount(
             user: $user,
             provider: SocialProvider::Google,
@@ -47,7 +47,7 @@ final class ConnectedAccountRepositoryTest extends KernelTestCase
 
     public function test_same_subject_id_on_another_provider_is_a_different_identity(): void
     {
-        $user = $this->persistUser('sam@example.com', 'sam');
+        $user = $this->persistUser('sam@example.com');
         $this->em->persist(new ConnectedAccount($user, SocialProvider::Google, 'shared-id'));
         $this->em->persist(new ConnectedAccount($user, SocialProvider::Github, 'shared-id'));
         $this->em->flush();
@@ -59,8 +59,8 @@ final class ConnectedAccountRepositoryTest extends KernelTestCase
 
     public function test_duplicate_provider_subject_violates_the_unique_constraint(): void
     {
-        $first = $this->persistUser('first@example.com', 'first');
-        $second = $this->persistUser('second@example.com', 'second');
+        $first = $this->persistUser('first@example.com');
+        $second = $this->persistUser('second@example.com');
         $this->em->persist(new ConnectedAccount($first, SocialProvider::Github, 'gh-1'));
         $this->em->flush();
 
@@ -71,9 +71,9 @@ final class ConnectedAccountRepositoryTest extends KernelTestCase
     }
 
     /** @param non-empty-string $email */
-    private function persistUser(string $email, string $username): User
+    private function persistUser(string $email): User
     {
-        $user = new User(username: $username, fullName: 'Test User', email: $email);
+        $user = new User(fullName: 'Test User', email: $email);
         $this->em->persist($user);
 
         return $user;
