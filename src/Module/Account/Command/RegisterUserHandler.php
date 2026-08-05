@@ -65,16 +65,11 @@ final readonly class RegisterUserHandler
                     $errors['email'] = 'account.registration.error.email_duplicate';
                 }
 
-                if ($this->users->findOneByUsername($command->username)) {
-                    $errors['username'] = 'account.registration.error.username_taken';
-                }
-
                 if ([] !== $errors) {
                     throw new DomainErrors($errors);
                 }
 
                 $user = new User(
-                    username: $command->username,
                     fullName: $command->fullName,
                     email: $command->email,
                 );

@@ -30,7 +30,7 @@ final class ShowSubscribeHandlerTest extends TestCase
 
     private function user(): User
     {
-        return new User(username: 'viewer', fullName: 'Viewing User', email: 'viewer@example.com', password: 'irrelevant');
+        return new User(fullName: 'Viewing User', email: 'viewer@example.com', password: 'irrelevant');
     }
 
     /** @param array<string, bool|int|string> $flags */

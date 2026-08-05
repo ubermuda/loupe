@@ -48,6 +48,25 @@ final class AdminRecoveryCommandsTest extends KernelTestCase
         self::assertTrue($user->hasUsablePassword());
     }
 
+    public function test_admin_create_derives_a_display_name_when_full_name_is_omitted(): void
+    {
+        $tester = $this->tester('app:admin:create');
+        $tester->execute(['email' => 'ada.lovelace@example.com'], ['interactive' => false]);
+
+        self::assertSame('Ada Lovelace', $this->find('ada.lovelace@example.com')->fullName);
+    }
+
+    public function test_admin_create_keeps_an_explicit_full_name(): void
+    {
+        $tester = $this->tester('app:admin:create');
+        $tester->execute(
+            ['email' => 'ada.lovelace@example.com', '--full-name' => 'Ada, Countess of Lovelace'],
+            ['interactive' => false],
+        );
+
+        self::assertSame('Ada, Countess of Lovelace', $this->find('ada.lovelace@example.com')->fullName);
+    }
+
     public function test_admin_create_is_idempotent(): void
     {
         $tester = $this->tester('app:admin:create');
@@ -61,30 +80,11 @@ final class AdminRecoveryCommandsTest extends KernelTestCase
         self::assertStringContainsString('already an administrator', $tester->getDisplay());
     }
 
-    public function test_admin_create_accepts_an_explicit_username_and_password(): void
-    {
-        $tester = $this->tester('app:admin:create');
-
-        self::assertSame(Command::SUCCESS, $tester->execute([
-            'email' => 'explicit@example.com',
-            '--username' => 'chosen',
-            '--full-name' => 'Chosen Name',
-            '--password' => 'SecurePassword1!',
-        ], ['interactive' => false]));
-
-        $user = $this->find('explicit@example.com');
-        self::assertSame('chosen', $user->username);
-        self::assertSame('Chosen Name', $user->fullName);
-        // A supplied password is never echoed back.
-        self::assertStringNotContainsString('SecurePassword1!', $tester->getDisplay());
-    }
-
     /** @return iterable<string, array{array<string, string>, string}> */
     public static function malformedInput(): iterable
     {
         yield 'email' => [['email' => 'not-an-email'], 'not a valid email address'];
         yield 'password' => [['email' => 'ok@example.com', '--password' => 'short'], 'too short'];
-        yield 'username' => [['email' => 'ok@example.com', '--username' => 'Bad Name'], 'must start with a letter'];
     }
 
     /**
@@ -108,22 +108,9 @@ final class AdminRecoveryCommandsTest extends KernelTestCase
         self::assertNull($users->findOneByEmail($input['email']));
     }
 
-    public function test_admin_create_fails_on_a_taken_username(): void
-    {
-        $this->persistUser('taken@example.com', 'taken');
-
-        $tester = $this->tester('app:admin:create');
-
-        self::assertSame(Command::FAILURE, $tester->execute([
-            'email' => 'other@example.com',
-            '--username' => 'taken',
-        ], ['interactive' => false]));
-        self::assertStringContainsString('already taken', $tester->getDisplay());
-    }
-
     public function test_user_promote_grants_the_role_then_reports_a_no_op(): void
     {
-        $this->persistUser('promote@example.com', 'promote');
+        $this->persistUser('promote@example.com');
 
         $tester = $this->tester('app:user:promote');
 
@@ -139,7 +126,7 @@ final class AdminRecoveryCommandsTest extends KernelTestCase
 
     public function test_user_verify_marks_the_email_then_reports_a_no_op(): void
     {
-        $this->persistUser('verify@example.com', 'verify');
+        $this->persistUser('verify@example.com');
 
         $tester = $this->tester('app:user:verify');
 
@@ -155,7 +142,7 @@ final class AdminRecoveryCommandsTest extends KernelTestCase
 
     public function test_user_verify_reports_revoking_a_stale_link_on_a_verified_account(): void
     {
-        $user = $this->persistUser('stale-link@example.com', 'stalelink');
+        $user = $this->persistUser('stale-link@example.com');
         $user->generateEmailVerificationToken();
         $user->emailVerifiedAt = new \DateTimeImmutable('-1 day');
         $this->em->flush();
@@ -194,9 +181,9 @@ final class AdminRecoveryCommandsTest extends KernelTestCase
     }
 
     /** @param non-empty-string $email */
-    private function persistUser(string $email, string $username): User
+    private function persistUser(string $email): User
     {
-        $user = new User(username: $username, fullName: 'Test User', email: $email);
+        $user = new User(fullName: 'Test User', email: $email);
         $user->password = 'not-a-real-hash';
         $this->em->persist($user);
         $this->em->flush();

@@ -15,7 +15,7 @@ final class ProjectExporterTest extends TestCase
 {
     public function test_exports_owned_projects(): void
     {
-        $user = new User('alice', 'Alice A', 'alice@example.com', 'x');
+        $user = new User('Alice A', 'alice@example.com', 'x');
         $project = new Project($user, 'My project', 'example.com');
 
         /** @var ProjectRepository&Stub $repo */

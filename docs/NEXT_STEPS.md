@@ -1066,50 +1066,50 @@ multi-round spec reviews much cheaper. Section identity comes from headings, so
 `App\Module\Review\Service\HeadingExtractor` is the existing source of it; also
 interacts with comment re-anchoring.
 
-## Decide fate of PlaywrightSyncEmailMiddleware — it would remove the worktree e2e worker entirely
+## Make messenger synchronous under Playwright so e2e needs no consumer
 
+**Author:** Geoffrey · **Type:** tooling · **Priority:** medium · **Status:** pending
 
-**Author:** Claude · **Type:** tooling · **Priority:** medium · **Status:** pending
+Owner decision (2026-08-04): e2e should not need a messenger consumer at all.
+This supersedes the earlier "wire it or delete it" question about
+`PlaywrightSyncEmailMiddleware` — the answer is wire it, and wider than mail.
 
-`src/Messenger/Middleware/PlaywrightSyncEmailMiddleware.php` is unregistered and its
-target `sync` transport is commented out in `config/packages/messenger.yaml` (line 13);
-`playwright.config.ts` still sends the `X-Playwright` header solely for it. Verified still
-dormant on 2026-08-04. **Decision needed:**
+Until it lands the consumer requirement is at least no longer silent: `just e2e`
+refuses to start unless a consumer is live, and `just e2e-worker` recycles below
+PHP's own memory limit and relaunches itself, so a worker cannot disappear
+mid-session. This entry would delete that machinery rather than merely stop it
+hurting.
 
-1. Wire it properly — register the middleware and uncomment the `sync` transport — so
-   Playwright-headed requests deliver mail synchronously (recommended: it removes the
-   worktree-consumer requirement for mail-asserting e2e specs, which is what the rest of
-   this entry is about).
-2. Delete the class and the header, and keep the consumer requirement.
+An attempt on 2026-08-04 got most of the way and is worth reading before the
+next one starts, because the remaining gap is specific rather than general.
 
-Deciding beats letting it rot, and the two problems below are the forcing function: both
-disappear under option 1.
+What worked: a bus middleware that stamps `TransportNamesStamp(['sync'])` on any
+envelope dispatched during a request carrying `X-Playwright`, with the `sync`
+transport uncommented in `config/packages/messenger.yaml`. Registered under
+`framework.messenger.buses.messenger.bus.default.middleware`. With no consumer
+running at all, the whole authentication-shaped block passes — signup, login,
+email verification, forgot-password, waitlist, the first-run wizard — which is
+the ~19-spec failure mode that made a forgotten worker so expensive.
 
-**A worktree e2e run needs its own consumer, and forgetting it fails ~19 specs at once.**
-The suite's authenticated fixture registers a user and verifies it through the emailed
-link, so with nothing consuming `async` the failures are not confined to obviously
-mail-shaped specs — login, signup, delete-account, forgot-password, the first-run wizard,
-admin smoke, paywall and delete-project all go down together, with the app returning 200
-and `just ci` green. The manual procedure is documented in the `project-worktrees` skill;
-what remains open is the automation — a `just e2e` pre-hook or `just e2e-worktree` recipe
-owning the worker lifecycle (see `docs/AUTOMATIONS.md`).
+What did not: the data-export chain. `GenerateDataExportMessage` is handled
+inline, but the email `ProcessDataExportHandler` sends from inside that handler
+still lands on `async` and sits there. One `SendEmailMessage` row remains queued
+after the spec runs. The likely cause is that the nested dispatch happens where
+`RequestStack::getCurrentRequest()` no longer returns the request, so the
+middleware's guard skips it — worth confirming before designing around it, since
+if that is right the fix is to capture the flag once per request rather than
+re-read the stack per dispatch.
 
-**That consumer then OOMs instead of recycling.** The documented command carries no
-limits, unlike the shared `worker` compose service which runs the same transports with
-`--time-limit=3600 --memory-limit=128M`. Running in the **dev** environment, Doctrine's
-`BacktraceDebugDataHolder` accumulates a backtrace per query for the lifetime of the
-process, so a long-lived consumer climbs until PHP's 128M limit and dies with a fatal
-`Allowed memory size of 134217728 bytes exhausted` (observed 2026-07-28 after roughly an
-hour and several full e2e runs). The failure is silent and its symptom misleading: nothing
-consuming `async` means no mail, and mail-asserting specs then fail on
-`getEmailWithSubject` timeouts that look like application or Mailpit problems. A full suite
-that started green can fail later in the same session for no reason visible in the diff.
+Two traps found while testing this, both of which cost a full suite run:
 
-If option 2 wins, the fix is to document and use the limits the compose service already
-applies — with the messenger memory limit set *below* PHP's, e.g.
-`--time-limit=3600 --memory-limit=100M`, so the worker stops gracefully between messages
-instead of dying inside one — and to decide whether the skill should simply tell you to
-restart it, since even a graceful exit leaves nothing consuming.
+- Verifying the middleware is wired by grepping the compiled container gives a
+  false negative against a stale `var/cache/dev`. It showed only in
+  `removed-ids.php` until the cache was rebuilt, which reads exactly like a
+  config that never took effect.
+- `just e2e-up` migrates `app_e2e` but never rolls it back, so a database
+  migrated by one branch is ahead of another branch's code and the suite fails
+  with SQL errors that look like application bugs. Drop the database and re-run
+  `just e2e-up` when switching between branches whose schemas differ.
 
 ## Fuller billing section in account settings (manage sub in-app)
 
@@ -1380,43 +1380,6 @@ a stray ROLE_ADMIN account.
 
 Related: 'Worktree e2e runs now require a worktree-scoped worker' — same
 setup surface, and both are things a person only learns by losing time to them.
-
-## Registration should not ask for full name or username
-
-
-**Author:** Geoffrey · **Type:** feature · **Priority:** medium · **Status:** pending
-
-Owner note (2026-07-28): the registration form collects Full name and Username
-on top of email and password. Neither is needed to sign up — drop them and cut
-the form to email + password (+ terms).
-
-**No schema change is required, because the "don't ask" path already exists.**
-`ResolveSocialLoginHandler` creates users without either field being supplied:
-it mints a username via `UsernameGenerator::fromPreferred()` and falls back to
-the email local-part for the display name. Self-service registration can use
-the same derivation, leaving `username` and `full_name` as populated NOT NULL
-columns and avoiding a migration. Removing the columns outright is a second,
-optional step.
-
-What each field is actually worth today:
-
-- **`username`** is close to vestigial. `User::getUserIdentifier()` returns the
-  **email**, so it is not the login handle; it survives as a unique column, a
-  `findOneByUsername` lookup and the `NotReservedUsername` validator. Check
-  whether anything user-facing still needs it before deciding to keep deriving
-  one at all.
-- **`fullName`** has real consumers, so it cannot simply vanish: the review
-  byline (`@Review/show_document.html.twig`) and comment author names and
-  avatar initials (`@Review/components/CommentThread.html.twig`) all render it.
-  Deriving it from the email local-part keeps those working; showing the raw
-  email there instead is a visible product decision, not a refactor.
-
-Also decide whether the install wizard's admin form (`InstallAdminFormType`)
-follows — it asks for the same two fields and has the same argument against
-them. When the fields go, delete their orphaned `account.form.*` /
-`account.registration.validator.username_*` translation keys in the same
-change, per the `project-translations` skill: nothing flags unused keys and
-they rot silently.
 
 ## Let the agent close the loop when a human approves the work
 
@@ -3182,25 +3145,6 @@ cross-origin API surface, replace these ad-hoc subscribers with a single shared
 mechanism — either `nelmio/cors-bundle` or one app-wide CORS subscriber driven by
 a path/origin allowlist — so CORS policy lives in one place.
 
-## Port Turbo prefetch convention to the skeleton
-
-
-
-
-**Author:** Claude · **Type:** tooling · **Priority:** low · **Status:** pending
-
-Turbo 8 prefetches links on hover, which silently fires the GET behind any
-side-effecting link — we hit this with the `logout` link logging users out on
-hover. Fixed here by adding `data-turbo-prefetch="false"` to the logout link and
-documenting the convention in `.claude/skills/project-frontend/SKILL.md`
-("Disable prefetch on side-effecting GET links").
-
-The skeleton has **no logout link**, so there's nothing to fix literally — port
-the *convention* instead: copy the SKILL.md note into the skeleton's
-project-frontend skill so future consumers know to opt side-effecting GET links
-out of prefetch. Open a PR against the skeleton (`main`), then update
-`.skeleton.json`.
-
 ## Revisit: migrate API auth to Symfony's `access_token` authenticator
 
 
@@ -3903,21 +3847,37 @@ the only known citation is inside a Loupe implementation plan, which would
 need updating in the same pass. Low priority — it misleads a reader searching
 for "nine features" and nothing more.
 
-## Test helpers build a User from an email, and `username` is 30 characters
+## The display-name maximum length of 150 is written out in ten places
+
+**Author:** Geoffrey · **Type:** tooling · **Priority:** low · **Status:** pending
+
+The `users.full_name` limit is encoded independently as `MAX_LENGTH` in
+`src/Module/Account/Service/DisplayNameDeriver.php` and in
+`assets/controllers/display_name_suggestion_controller.js`, as
+`MAX_FULL_NAME_LENGTH` in `App\Module\Account\Command\CreateAdminUserHandler`
+and `App\Module\Account\Command\ResolveSocialLoginHandler`, as
+`#[Assert\Length(max: 150)]` on `RegistrationRequest`, `InstallAdminRequest`
+and `ProfileRequest`, as `#[ORM\Column(length: 150)]` on
+`App\Module\Account\Entity\User`, as `left(..., 150)` in
+`migrations/Version20260804225237.php`, and as `mb_substr(..., 0, 150)` in
+`src/Module/Account/Controller/Dev/RegisterAndVerifyController.php`. Raising or
+lowering the limit means finding all ten, and the JS copy cannot read a PHP
+constant at all, so the two derivers can silently disagree on truncation.
+
+Consolidating touches the entity mapping, three form DTOs and the built asset
+pipeline, so it is a refactor rather than a fix — worth doing on its own branch,
+not folded into a change that happens to touch one of the ten.
+
+## Bump `.skeleton.json` once the Turbo-prefetch PR merges
 
 **Author:** Claude · **Type:** tooling · **Priority:** low · **Status:** pending
 
-Several test fixtures do `new User(username: $email, ...)`, while
-`User::$username` maps to `#[ORM\Column(length: 30)]`. An address longer than
-that fails at flush with `SQLSTATE[22001]: value too long for type character
-varying(30)` — a Postgres error pointing at the persist call, naming neither the
-column nor the helper that chose the value.
+The convention itself is ported — `ubermuda/symfony-skeleton#98` adds the
+`data-turbo-prefetch="false"` note to that repo's `project-frontend` skill. What
+is left is the bookkeeping: `last_ported_commit` in `.skeleton.json` should move
+to the merge commit once it lands.
 
-Hit on 2026-08-04 with `getdoc-incoming-samereq@example.com`, which is a perfectly
-ordinary descriptive test address. The failure reads as a schema problem in the
-code under test rather than as a fixture that outgrew a column.
-
-`DocumentGetToolTest` is one example and it is not the only one — the pattern is
-worth grepping for. The fix is for the helpers to derive a short unique username
-instead of reusing the email, so a descriptive address stays free to be
-descriptive.
+Not done up front on purpose. That field records how far this project has
+absorbed the skeleton, so advancing it past an unmerged branch would claim a
+merge that has not happened and make the next `update-from-skeleton` run skip
+whatever else landed in between.

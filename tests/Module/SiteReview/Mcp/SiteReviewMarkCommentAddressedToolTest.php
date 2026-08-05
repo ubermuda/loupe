@@ -42,7 +42,7 @@ final class SiteReviewMarkCommentAddressedToolTest extends KernelTestCase
      */
     private function projectWithPendingComments(string $email, string $name = 'tool-site'): array
     {
-        $user = new User(username: $email, fullName: 'U', email: $email, password: 'x');
+        $user = new User(fullName: 'U', email: $email, password: 'x');
         $this->em->persist($user);
         $project = new Project($user, $name);
         $this->em->persist($project);
@@ -97,7 +97,7 @@ final class SiteReviewMarkCommentAddressedToolTest extends KernelTestCase
     public function test_skips_non_pending_unknown_invalid_and_draft(): void
     {
         $email = 'addr-skip@example.com';
-        $user = new User(username: $email, fullName: 'U', email: $email, password: 'x');
+        $user = new User(fullName: 'U', email: $email, password: 'x');
         $this->em->persist($user);
         $project = new Project($user, 'addr-skip-site');
         $this->em->persist($project);
@@ -161,7 +161,7 @@ final class SiteReviewMarkCommentAddressedToolTest extends KernelTestCase
         self::assertNotNull($commentId);
 
         $otherEmail = 'addr-other@example.com';
-        $other = new User(username: $otherEmail, fullName: 'Other', email: $otherEmail, password: 'x');
+        $other = new User(fullName: 'Other', email: $otherEmail, password: 'x');
         $this->em->persist($other);
         $otherProject = new Project($other, 'addr-other-site');
         $this->em->persist($otherProject);
@@ -212,7 +212,7 @@ final class SiteReviewMarkCommentAddressedToolTest extends KernelTestCase
     public function test_unbound_mcp_token_is_rejected(): void
     {
         $email = 'addr-unbound@example.com';
-        $user = new User(username: $email, fullName: 'U', email: $email, password: 'x');
+        $user = new User(fullName: 'U', email: $email, password: 'x');
         $this->em->persist($user);
         $this->em->flush();
 

@@ -20,7 +20,7 @@ final class CreateDocumentHandlerTest extends KernelTestCase
     {
         self::bootKernel();
         $em = self::getContainer()->get(EntityManagerInterface::class);
-        $user = new User(username: 'agent', fullName: 'Agent', email: 'agent@example.com', password: 'hashed-placeholder');
+        $user = new User(fullName: 'Agent', email: 'agent@example.com', password: 'hashed-placeholder');
         $em->persist($user);
         $project = new Project($user, 'p-'.uniqid());
         $em->persist($project);
@@ -39,7 +39,7 @@ final class CreateDocumentHandlerTest extends KernelTestCase
         self::bootKernel();
         $em = self::getContainer()->get(EntityManagerInterface::class);
         self::assertInstanceOf(EntityManagerInterface::class, $em);
-        $user = new User(username: 'orphan', fullName: 'Agent', email: 'orphan@example.com', password: 'hashed-placeholder');
+        $user = new User(fullName: 'Agent', email: 'orphan@example.com', password: 'hashed-placeholder');
         $em->persist($user);
         $project = new Project($user, 'p-'.uniqid());
         $em->persist($project);
@@ -81,7 +81,7 @@ final class CreateDocumentHandlerTest extends KernelTestCase
         self::bootKernel();
         $em = self::getContainer()->get(EntityManagerInterface::class);
         self::assertInstanceOf(EntityManagerInterface::class, $em);
-        $user = new User(username: 'unflushed', fullName: 'Agent', email: 'unflushed@example.com', password: 'hashed-placeholder');
+        $user = new User(fullName: 'Agent', email: 'unflushed@example.com', password: 'hashed-placeholder');
         $em->persist($user);
         $project = new Project($user, 'p-'.uniqid());
         $em->persist($project);

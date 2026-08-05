@@ -34,7 +34,7 @@ final class DataExportArchiveIntegrationTest extends KernelTestCase
         $em = self::getContainer()->get(EntityManagerInterface::class);
         self::assertInstanceOf(EntityManagerInterface::class, $em);
 
-        $user = new User('alice', 'Alice A', 'alice@example.com', 'hashed');
+        $user = new User('Alice A', 'alice@example.com', 'hashed');
         $em->persist($user);
 
         $project = new Project($user, 'My project', 'example.com');

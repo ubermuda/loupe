@@ -32,7 +32,7 @@ final class RefreshDocumentVersionsHtmlHandlerTest extends KernelTestCase
         $connection = $container->get(Connection::class);
         $renderer = $container->get(MarkdownRenderer::class);
 
-        $user = new User(username: 'rerender-owner', fullName: 'Rerender Owner', email: 'rerender-owner@example.com', password: 'hashed-placeholder');
+        $user = new User(fullName: 'Rerender Owner', email: 'rerender-owner@example.com', password: 'hashed-placeholder');
         $em->persist($user);
         $project = new Project($user, 'p-'.uniqid());
         $em->persist($project);
@@ -74,7 +74,7 @@ final class RefreshDocumentVersionsHtmlHandlerTest extends KernelTestCase
         $container = self::getContainer();
         $em = $container->get(EntityManagerInterface::class);
 
-        $user = new User(username: 'rerender-owner2', fullName: 'Rerender Owner 2', email: 'rerender-owner2@example.com', password: 'hashed-placeholder');
+        $user = new User(fullName: 'Rerender Owner 2', email: 'rerender-owner2@example.com', password: 'hashed-placeholder');
         $em->persist($user);
         $project = new Project($user, 'p-'.uniqid());
         $em->persist($project);
@@ -248,7 +248,7 @@ final class RefreshDocumentVersionsHtmlHandlerTest extends KernelTestCase
         $em = $container->get(EntityManagerInterface::class);
         $connection = $container->get(Connection::class);
 
-        $user = new User(username: "rerender-{$slug}", fullName: 'Rerender Owner', email: "rerender-{$slug}@example.com", password: 'hashed-placeholder');
+        $user = new User(fullName: 'Rerender Owner', email: "rerender-{$slug}@example.com", password: 'hashed-placeholder');
         $em->persist($user);
         $project = new Project($user, 'p-'.uniqid());
         $em->persist($project);

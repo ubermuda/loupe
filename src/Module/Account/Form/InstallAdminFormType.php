@@ -18,17 +18,13 @@ final class InstallAdminFormType extends AbstractType
     public function buildForm(FormBuilderInterface $builder, array $options): void
     {
         $builder
-            ->add('fullName', TextType::class, [
-                'label' => 'account.form.install_admin_form.full_name.label',
-                'attr' => ['autocomplete' => 'name'],
-            ])
-            ->add('username', TextType::class, [
-                'label' => 'account.form.install_admin_form.username.label',
-                'attr' => ['autocomplete' => 'username'],
-            ])
             ->add('email', EmailType::class, [
                 'label' => 'account.form.install_admin_form.email.label',
                 'attr' => ['autocomplete' => 'email'],
+            ])
+            ->add('fullName', TextType::class, [
+                'label' => 'account.form.install_admin_form.full_name.label',
+                'attr' => ['autocomplete' => 'name'],
             ])
             ->add('plainPassword', PasswordType::class, [
                 'label' => 'account.form.install_admin_form.password.label',

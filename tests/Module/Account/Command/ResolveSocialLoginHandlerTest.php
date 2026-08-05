@@ -15,13 +15,13 @@ use App\Module\Account\Event\UserRegistered;
 use App\Module\Account\Repository\ConnectedAccountRepository;
 use App\Module\Account\Repository\UserRepository;
 use App\Module\Account\Repository\WaitlistEntryRepository;
+use App\Module\Account\Service\DisplayNameDeriver;
 use App\Module\Account\Service\InstallationState;
 use App\Module\Account\Service\RegistrationGate;
 use App\Module\Account\Service\SocialLoginOutcome;
 use App\Module\Account\Service\SocialLoginRace;
 use App\Module\Account\Service\SocialProfile;
 use App\Module\Account\Service\UnverifiedProviderEmail;
-use App\Module\Account\Service\UsernameGenerator;
 use App\Module\Billing\Repository\BillingProfileRepository;
 use App\Module\Billing\Service\TrialProvisioner;
 use App\Tests\Support\InstalledInstance;
@@ -73,12 +73,12 @@ final class ResolveSocialLoginHandlerTest extends KernelTestCase
             $this->connectedAccounts,
             $this->users,
             $this->em,
-            new UsernameGenerator($this->users),
             $gate,
             $joinWaitlist,
             $this->waitlistEntries,
             new NullLogger(),
             $dispatcher,
+            new DisplayNameDeriver(),
         );
     }
 
@@ -130,7 +130,7 @@ final class ResolveSocialLoginHandlerTest extends KernelTestCase
 
     public function test_existing_identity_logs_in_even_when_the_provider_email_changed(): void
     {
-        $owner = $this->persistUser('owner@example.com', 'owner');
+        $owner = $this->persistUser('owner@example.com');
         $this->em->persist(new ConnectedAccount($owner, SocialProvider::Google, 'g-1', 'owner@example.com'));
         $this->em->flush();
 
@@ -145,7 +145,7 @@ final class ResolveSocialLoginHandlerTest extends KernelTestCase
 
     public function test_existing_identity_logs_in_when_the_provider_reports_no_email(): void
     {
-        $owner = $this->persistUser('owner2@example.com', 'owner2');
+        $owner = $this->persistUser('owner2@example.com');
         $this->em->persist(new ConnectedAccount($owner, SocialProvider::Github, 'gh-1'));
         $this->em->flush();
 
@@ -173,7 +173,7 @@ final class ResolveSocialLoginHandlerTest extends KernelTestCase
 
     public function test_unverified_email_matching_a_password_account_is_rejected_without_linking(): void
     {
-        $victim = $this->persistUser('victim@example.com', 'victim', password: 'hashed');
+        $victim = $this->persistUser('victim@example.com', password: 'hashed');
         $this->em->flush();
 
         try {
@@ -192,7 +192,7 @@ final class ResolveSocialLoginHandlerTest extends KernelTestCase
 
     public function test_unverified_email_matching_a_password_less_account_is_rejected(): void
     {
-        $target = $this->persistUser('social-only@example.com', 'socialonly');
+        $target = $this->persistUser('social-only@example.com');
         $this->em->flush();
 
         $this->expectException(UnverifiedProviderEmail::class);
@@ -238,7 +238,7 @@ final class ResolveSocialLoginHandlerTest extends KernelTestCase
 
     public function test_verified_email_matching_a_password_account_requires_a_password_link(): void
     {
-        $existing = $this->persistUser('collide@example.com', 'collide', password: 'hashed');
+        $existing = $this->persistUser('collide@example.com', password: 'hashed');
         $this->em->flush();
 
         $outcome = ($this->handler)(new ResolveSocialLoginCommand(
@@ -258,7 +258,7 @@ final class ResolveSocialLoginHandlerTest extends KernelTestCase
 
     public function test_verified_email_matching_a_password_less_account_links_and_retro_verifies(): void
     {
-        $existing = $this->persistUser('linkme@example.com', 'linkme');
+        $existing = $this->persistUser('linkme@example.com');
         $this->em->flush();
         self::assertNull($existing->emailVerifiedAt);
 
@@ -279,7 +279,7 @@ final class ResolveSocialLoginHandlerTest extends KernelTestCase
     public function test_an_already_verified_account_keeps_its_original_verification_date(): void
     {
         $verifiedAt = new \DateTimeImmutable('2026-01-01 10:00:00');
-        $existing = $this->persistUser('early@example.com', 'early');
+        $existing = $this->persistUser('early@example.com');
         $existing->emailVerifiedAt = $verifiedAt;
         $this->em->flush();
 
@@ -379,10 +379,10 @@ final class ResolveSocialLoginHandlerTest extends KernelTestCase
         // colliding with a password-protected account) and branch C (auto-link
         // to a password-less account) all return before the dispatch point —
         // the event marks new registrations only.
-        $owner = $this->persistUser('no-event-owner@example.com', 'noeventowner');
+        $owner = $this->persistUser('no-event-owner@example.com');
         $this->em->persist(new ConnectedAccount($owner, SocialProvider::Google, 'g-no-event', 'no-event-owner@example.com'));
-        $this->persistUser('no-event-collide@example.com', 'noeventcollide', password: 'hashed');
-        $this->persistUser('no-event-linkme@example.com', 'noeventlinkme');
+        $this->persistUser('no-event-collide@example.com', password: 'hashed');
+        $this->persistUser('no-event-linkme@example.com');
         $this->em->flush();
 
         $handler = $this->buildHandler(new RegistrationGate($this->openFlags(), $this->users, new InstallationState($this->users)), $this->neverDispatches());
@@ -399,27 +399,24 @@ final class ResolveSocialLoginHandlerTest extends KernelTestCase
         ));
     }
 
-    public function test_generated_username_avoids_a_seeded_collision(): void
+    public function test_a_provider_that_sends_no_name_derives_one_from_the_email(): void
     {
-        $this->persistUser('taken@example.com', 'fresh-face');
-        $this->em->flush();
-
         $outcome = ($this->handler)(new ResolveSocialLoginCommand(
-            new SocialProfile(SocialProvider::Github, 'gh-fresh-2', 'other@example.com', 'Fresh Face', emailVerified: true),
+            new SocialProfile(SocialProvider::Google, 'g-noname', 'ada.lovelace@example.com', null, emailVerified: true),
         ));
 
-        self::assertNotSame('fresh-face', $this->resolvedUser($outcome)->username);
-        self::assertStringStartsWith('fresh-face-', $this->resolvedUser($outcome)->username);
+        // No form stands between the provider and the account, so the address
+        // is the only material left to build a display name from.
+        self::assertSame('Ada Lovelace', $this->resolvedUser($outcome)->fullName);
     }
 
-    public function test_falls_back_to_the_email_local_part_when_the_provider_sends_no_name(): void
+    public function test_a_provider_name_is_kept_over_a_derived_one(): void
     {
         $outcome = ($this->handler)(new ResolveSocialLoginCommand(
-            new SocialProfile(SocialProvider::Google, 'g-noname', 'nameless@example.com', null, emailVerified: true),
+            new SocialProfile(SocialProvider::Google, 'g-named', 'ada.lovelace2@example.com', 'Ada, Countess of Lovelace', emailVerified: true),
         ));
 
-        self::assertSame('nameless', $this->resolvedUser($outcome)->fullName);
-        self::assertSame('nameless', $this->resolvedUser($outcome)->username);
+        self::assertSame('Ada, Countess of Lovelace', $this->resolvedUser($outcome)->fullName);
     }
 
     // -------------------------------------------------------------------------
@@ -444,7 +441,6 @@ final class ResolveSocialLoginHandlerTest extends KernelTestCase
 
         $users = $this->createStub(UserRepository::class);
         $users->method('findOneByEmail')->willReturn(null);
-        $users->method('findOneByUsername')->willReturn(null);
         $users->method('countHumans')->willReturn(1); // installation complete
 
         $waitlistEntries = $this->createStub(WaitlistEntryRepository::class);
@@ -460,12 +456,12 @@ final class ResolveSocialLoginHandlerTest extends KernelTestCase
             $connectedAccounts,
             $users,
             $em,
-            new UsernameGenerator($users),
             new RegistrationGate($this->openFlags(), $users, new InstallationState($users)),
             $joinWaitlist,
             $waitlistEntries,
             new NullLogger(),
             $this->neverDispatches(),
+            new DisplayNameDeriver(),
         );
 
         $this->expectException(SocialLoginRace::class);
@@ -531,7 +527,7 @@ final class ResolveSocialLoginHandlerTest extends KernelTestCase
 
     public function test_at_cap_existing_identity_still_logs_in(): void
     {
-        $owner = $this->persistUser('cap-owner@example.com', 'capowner');
+        $owner = $this->persistUser('cap-owner@example.com');
         $this->em->persist(new ConnectedAccount($owner, SocialProvider::Google, 'g-cap-owner', 'cap-owner@example.com'));
         $this->em->flush();
         $this->closeRegistration();
@@ -546,7 +542,7 @@ final class ResolveSocialLoginHandlerTest extends KernelTestCase
 
     public function test_at_cap_password_collision_still_requires_a_password_link(): void
     {
-        $existing = $this->persistUser('cap-collide@example.com', 'capcollide', password: 'hashed');
+        $existing = $this->persistUser('cap-collide@example.com', password: 'hashed');
         $this->em->flush();
         $this->closeRegistration();
 
@@ -561,7 +557,7 @@ final class ResolveSocialLoginHandlerTest extends KernelTestCase
 
     public function test_at_cap_password_less_account_still_auto_links(): void
     {
-        $existing = $this->persistUser('cap-linkme@example.com', 'caplinkme');
+        $existing = $this->persistUser('cap-linkme@example.com');
         $this->em->flush();
         $this->closeRegistration();
 
@@ -576,7 +572,7 @@ final class ResolveSocialLoginHandlerTest extends KernelTestCase
 
     private function closeRegistration(): RegistrationGate
     {
-        $this->persistUser('gate-filler-'.bin2hex(random_bytes(4)).'@example.com', 'gate-filler-'.bin2hex(random_bytes(4)));
+        $this->persistUser('gate-filler-'.bin2hex(random_bytes(4)).'@example.com');
         $this->em->flush();
 
         $flag = new FeatureFlag(name: RegistrationGate::CAP_FLAG, type: FeatureFlagType::Int, value: $this->users->countActive());
@@ -594,9 +590,9 @@ final class ResolveSocialLoginHandlerTest extends KernelTestCase
     }
 
     /** @param non-empty-string $email */
-    private function persistUser(string $email, string $username, ?string $password = null): User
+    private function persistUser(string $email, ?string $password = null): User
     {
-        $user = new User(username: $username, fullName: 'Test User', email: $email, password: $password);
+        $user = new User(fullName: 'Test User', email: $email, password: $password);
         $this->em->persist($user);
 
         return $user;

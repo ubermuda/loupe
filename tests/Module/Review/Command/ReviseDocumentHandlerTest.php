@@ -33,7 +33,7 @@ final class ReviseDocumentHandlerTest extends KernelTestCase
         self::bootKernel();
         $em = self::getContainer()->get(EntityManagerInterface::class);
 
-        $user = new User(username: 'agent', fullName: 'Agent', email: 'agent@example.com', password: 'hashed');
+        $user = new User(fullName: 'Agent', email: 'agent@example.com', password: 'hashed');
         $em->persist($user);
         $project = new Project($user, 'p-'.uniqid());
         $em->persist($project);
@@ -118,7 +118,7 @@ final class ReviseDocumentHandlerTest extends KernelTestCase
         self::bootKernel();
         $em = self::getContainer()->get(EntityManagerInterface::class);
 
-        $user = new User(username: 'agent2', fullName: 'Agent', email: 'agent2@example.com', password: 'hashed');
+        $user = new User(fullName: 'Agent', email: 'agent2@example.com', password: 'hashed');
         $em->persist($user);
         $project = new Project($user, 'p-'.uniqid());
         $em->persist($project);
@@ -173,7 +173,7 @@ final class ReviseDocumentHandlerTest extends KernelTestCase
         self::bootKernel();
         $em = self::getContainer()->get(EntityManagerInterface::class);
 
-        $user = new User(username: 'agent4', fullName: 'Agent', email: 'agent4@example.com', password: 'hashed');
+        $user = new User(fullName: 'Agent', email: 'agent4@example.com', password: 'hashed');
         $em->persist($user);
         $project = new Project($user, 'p-'.uniqid());
         $em->persist($project);
@@ -238,7 +238,7 @@ final class ReviseDocumentHandlerTest extends KernelTestCase
         self::bootKernel();
         $em = self::getContainer()->get(EntityManagerInterface::class);
 
-        $user = new User(username: 'agent3', fullName: 'Agent', email: 'agent3@example.com', password: 'hashed');
+        $user = new User(fullName: 'Agent', email: 'agent3@example.com', password: 'hashed');
         $em->persist($user);
         $project = new Project($user, 'p-'.uniqid());
         $em->persist($project);
@@ -273,7 +273,7 @@ final class ReviseDocumentHandlerTest extends KernelTestCase
         self::bootKernel();
         $em = self::getContainer()->get(EntityManagerInterface::class);
 
-        $user = new User(username: 'agent4', fullName: 'Agent', email: 'agent4@example.com', password: 'hashed');
+        $user = new User(fullName: 'Agent', email: 'agent4@example.com', password: 'hashed');
         $em->persist($user);
         $project = new Project($user, 'p-'.uniqid());
         $em->persist($project);
@@ -310,7 +310,7 @@ final class ReviseDocumentHandlerTest extends KernelTestCase
         self::bootKernel();
         $em = self::getContainer()->get(EntityManagerInterface::class);
 
-        $user = new User(username: 'agent5', fullName: 'Agent', email: 'agent5@example.com', password: 'hashed');
+        $user = new User(fullName: 'Agent', email: 'agent5@example.com', password: 'hashed');
         $em->persist($user);
         $project = new Project($user, 'p-'.uniqid());
         $em->persist($project);
@@ -351,7 +351,7 @@ final class ReviseDocumentHandlerTest extends KernelTestCase
         self::bootKernel();
         $em = self::getContainer()->get(EntityManagerInterface::class);
 
-        $user = new User(username: 'agent6', fullName: 'Agent', email: 'agent6@example.com', password: 'hashed');
+        $user = new User(fullName: 'Agent', email: 'agent6@example.com', password: 'hashed');
         $em->persist($user);
         $project = new Project($user, 'p-'.uniqid());
         $em->persist($project);
@@ -391,7 +391,7 @@ final class ReviseDocumentHandlerTest extends KernelTestCase
         self::bootKernel();
         $em = self::getContainer()->get(EntityManagerInterface::class);
 
-        $user = new User(username: 'agent7', fullName: 'Agent', email: 'agent7@example.com', password: 'hashed');
+        $user = new User(fullName: 'Agent', email: 'agent7@example.com', password: 'hashed');
         $em->persist($user);
         $project = new Project($user, 'p-'.uniqid());
         $em->persist($project);
@@ -419,7 +419,7 @@ final class ReviseDocumentHandlerTest extends KernelTestCase
         self::bootKernel();
         $em = self::getContainer()->get(EntityManagerInterface::class);
 
-        $user = new User(username: 'agent8', fullName: 'Agent', email: 'agent8@example.com', password: 'hashed');
+        $user = new User(fullName: 'Agent', email: 'agent8@example.com', password: 'hashed');
         $em->persist($user);
         $project = new Project($user, 'p-'.uniqid());
         $em->persist($project);
@@ -453,7 +453,7 @@ final class ReviseDocumentHandlerTest extends KernelTestCase
         self::bootKernel();
         $em = self::getContainer()->get(EntityManagerInterface::class);
 
-        $user = new User(username: 'agent9', fullName: 'Agent', email: 'agent9@example.com', password: 'hashed');
+        $user = new User(fullName: 'Agent', email: 'agent9@example.com', password: 'hashed');
         $em->persist($user);
         $project = new Project($user, 'p-'.uniqid());
         $em->persist($project);

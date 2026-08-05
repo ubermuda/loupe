@@ -24,7 +24,7 @@ final class SyncStripeSubscriptionHandlerTest extends TestCase
 {
     private function profile(): BillingProfile
     {
-        $user = new User(username: 'synced', fullName: 'Synced User', email: 'synced@example.com', password: 'irrelevant');
+        $user = new User(fullName: 'Synced User', email: 'synced@example.com', password: 'irrelevant');
         $profile = new BillingProfile($user, trialEndsAt: new \DateTimeImmutable('-1 day'));
         $profile->stripeCustomerId = 'cus_123';
 

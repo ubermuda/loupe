@@ -149,7 +149,7 @@ final class DrainOutboxHandlerTest extends KernelTestCase
     /** @param non-empty-string $email */
     private function project(string $email): Project
     {
-        $user = new User(username: $email, fullName: 'U', email: $email, password: 'x');
+        $user = new User(fullName: 'U', email: $email, password: 'x');
         $this->em->persist($user);
         $project = new Project($user, 'drain-'.bin2hex(random_bytes(4)));
         $this->em->persist($project);

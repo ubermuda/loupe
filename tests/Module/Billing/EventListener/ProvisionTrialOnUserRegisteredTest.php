@@ -56,7 +56,7 @@ final class ProvisionTrialOnUserRegisteredTest extends TestCase
 
     private function user(): User
     {
-        return new User(username: 'fresh', fullName: 'Fresh User', email: 'fresh@example.com');
+        return new User(fullName: 'Fresh User', email: 'fresh@example.com');
     }
 
     /** @param array<string, bool|int|string> $flags */
