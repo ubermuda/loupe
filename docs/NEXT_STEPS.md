@@ -172,31 +172,6 @@ Doctrine-backed pool for the rate-limiter storage. Postgres is already a hard
 dependency, so this adds no new infrastructure. Until then, `DEPLOY.md` should
 say out loud that the app expects one web replica.
 
-## No backup and restore guidance for self-hosted installs
-
-
-**Author:** Claude · **Type:** docs · **Priority:** high · **Status:** pending
-
-Found by the self-hosting audit (2026-07-28); the owner decided backups are the
-operator's responsibility for now, so this entry is about saying so rather than
-about building anything.
-
-Nothing in any markdown file mentions backup, restore or `pg_dump`. An operator
-gets no statement of what constitutes the durable state of an instance, and two
-parts of that are genuinely non-obvious:
-
-1. Losing `APP_ENCRYPTION_KEY` makes every encrypted column permanently
-   unreadable. `DEPLOY.md` mentions this once, inside the secrets section,
-   where someone planning backups will not look for it.
-2. Data-export archives currently live on container-local disk, so they are not
-   covered by a database dump. This changes once exports move to object storage
-   — see the self-hosting audit's decision on export storage — at which point
-   the bucket becomes the second thing to back up.
-
-Close this by adding a short "Backing up" section to `DEPLOY.md`: what to dump,
-what else holds state, that restore has never been rehearsed, and that the
-operator owns the schedule.
-
 ## CSP is report-only until inline scripts carry nonces
 
 
@@ -232,7 +207,6 @@ attacks that stay inside the app's own CSS.
 
 ## The MCP connection drops repeatedly, and reconnecting does not restore the tools
 
-
 **Author:** Claude · **Type:** bug · **Priority:** high · **Status:** pending
 
 An agent session connected to this app over MCP lost the connection three
@@ -248,59 +222,38 @@ documents over MCP is how documents get into the app at all, so a dropped
 connection stops the primary workflow, and it did so mid-task here.
 
 **The server side is healthy — do not start by debugging it.** Verified while
-the client was in the broken state: `bin/console debug:mcp` lists all seven
-tools; `var/log/dev.log` shows every tool registering on each handshake
-(`document_create`, `document_get`, `document_get_review`, `document_list`,
-`document_revise`, `site_review_mark_comment_addressed`, `site_review_get`); `POST
-/mcp` answers 200; unauthenticated requests answer 401; and all app containers
-were up with the app serving normally.
+the client was in the broken state: `bin/console debug:mcp` lists every tool;
+`var/log/dev.log` shows them registering on each handshake; `POST /mcp` answers
+200; unauthenticated requests answer 401; and all containers were up.
 
-**Two dead ends, recorded so they are not chased again.** `GET /mcp` answering
-405 and `POST /mcp` answering 202 both look like smoking guns and are neither —
-405 on GET is a legal way to say the server offers no server-initiated stream,
-and 202 is the correct response to a notification, which has no reply by design.
-Both were mistaken for the cause before being ruled out.
+**Three dead ends, recorded so they are not chased again.** `GET /mcp`
+answering 405 and `POST /mcp` answering 202 both look like smoking guns and are
+neither — 405 on GET is a legal way to say the server offers no server-initiated
+stream, and 202 is the correct response to a notification, which has no reply by
+design.
 
-**The one real anomaly worth pulling on:** every tool registers **twice** per
-handshake, with two separate `Manual element registration complete` lines in the
-log. That is either benign client retry or the bundle mishandling session state.
-`symfony/mcp-bundle` is pinned `^0.12.0` and resolves `mcp/sdk v0.7.0` — both
-pre-1.0 — so checking whether a newer release mentions tool-list delivery or
-session handling is the cheapest next step.
+The third was, until 2026-08-05, this entry's one remaining lead: every tool
+registering **twice** per handshake, with two `Manual element registration
+complete` lines. **That is a dev-only web-profiler artifact and is not a bug.**
+`Symfony\Bundle\McpBundle\Profiler\DataCollector::lateCollect()` calls
+`$this->builder->build()` on every request, which re-runs the loaders against
+the shared registry — the bundle's own comment there says re-building on an MCP
+request is harmless. `WebProfilerBundle` is registered for `dev` and `test` only
+(`config/bundles.php`), so a production instance registers once. Nothing to fix.
 
-**Open question that sets the real severity:** every observation here was against
-the local dev host. Whether a deployed instance drops connections the same way is
-unknown, and it decides whether this is a local annoyance or a production defect
-affecting every agent that connects. Establishing that comes before any fix.
+**Also checked and dead for now: upgrading out of it.** `symfony/mcp-bundle`
+0.12.0 and `mcp/sdk` 0.7.0 are both installed, and both are the newest releases
+that exist — there is no newer version whose notes could mention tool-list
+delivery or session handling. Re-check when either publishes a release; both are
+pre-1.0 and moving.
 
-## Writing into a torn-down worktree path silently succeeds and loses the work
-
-
-**Author:** Claude · **Type:** tooling · **Priority:** high · **Status:** pending
-
-When a worktree is removed while an agent is still bound to it, a `Write` to
-the old path **reports success**. It recreates a bare directory that is not a
-git worktree, so nothing lands on the branch and nothing raises an error.
-`git status` from inside that directory falls through to the main checkout and
-reports `main`, which makes the situation look normal on inspection.
-
-That combination is the dangerous part: an agent that trusts the successful
-write will keep working, commit nothing to its branch, and report completion.
-The failure is indistinguishable from success until someone checks the branch.
-
-An agent that finds itself in this state must **stop**, not improvise. The
-plausible-looking recoveries are all worse than the problem: checking the
-branch out into the main checkout collides with `main` being checked out there,
-and `cp`/`rsync`/`git checkout` of another worktree's path all bypass the write
-binding rather than repair it. The fix is to provision a worktree with the
-branch checked out and rebind — which only the orchestrating session can do.
-
-Detection, before trusting any write: confirm the path appears in
-`git worktree list`, not merely that it exists on disk. Existence on disk is
-exactly what is misleading here.
-
-Related: 'Serena's edit tools do not work from a worktree' — the same class of
-silent misdirection, where the write succeeds against the wrong target.
+**What the entry now turns on, and why it is stuck.** Every observation here was
+against the local dev host. Whether a deployed instance drops connections the
+same way decides whether this is a local annoyance or a production defect
+affecting every agent that connects — and there is no deployed instance to test
+against yet. That makes this **blocked on having a deployment**, not on
+analysis. Until one exists there is no experiment left to run that has not been
+run.
 
 ## Give each agent its own container in the cloud instead of sharing one dev stack
 
