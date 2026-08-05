@@ -233,11 +233,24 @@ e2e-worker *args:
     host="e2e.${project}.dev.localhost"
     trap 'echo "e2e-worker: stopped." >&2; exit 0' INT TERM
     while true; do
-        docker compose exec -T \
+        if ! docker compose exec -T \
             -e WORKTREE_DB_SUFFIX=_e2e \
             -e DEFAULT_URI="https://${host}" \
             php-fpm bin/console messenger:consume scheduler_default async \
-            --time-limit=3600 --memory-limit=100M {{args}}
+            --time-limit=3600 --memory-limit=100M {{args}}; then
+            echo "e2e-worker: consumer exited non-zero — stopping rather than looping on a failure." >&2
+            exit 1
+        fi
+        # A clean exit is ambiguous: it is either a limit recycle, which should
+        # relaunch, or `e2e-down` stopping the worker before it drops the
+        # database, which must not. Messenger stops gracefully on SIGTERM when
+        # pcntl is loaded, so the exit code cannot tell them apart. The database
+        # can: if it has gone, this was a teardown.
+        if ! docker compose exec -T database psql -U app -d postgres -tAc \
+            "SELECT 1 FROM pg_database WHERE datname='app_e2e'" 2>/dev/null | grep -q 1; then
+            echo "e2e-worker: app_e2e is gone — teardown, not a recycle. Stopping." >&2
+            exit 0
+        fi
         echo "e2e-worker: consumer recycled on a limit, relaunching." >&2
     done
 
