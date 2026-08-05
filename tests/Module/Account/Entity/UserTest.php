@@ -9,7 +9,7 @@ final class UserTest extends TestCase
 {
     private function makeUser(): User
     {
-        return new User(username: 'testuser', fullName: 'Test User', email: 'test@example.com', password: 'hashed');
+        return new User(fullName: 'Test User', email: 'test@example.com', password: 'hashed');
     }
 
     public function test_new_user_is_unverified(): void
@@ -31,7 +31,7 @@ final class UserTest extends TestCase
 
     public function test_has_usable_password_is_false_for_oauth_only_user(): void
     {
-        $user = new User(username: 'octo', fullName: 'Octo Cat', email: 'octo@example.com');
+        $user = new User(fullName: 'Octo Cat', email: 'octo@example.com');
 
         $this->assertFalse($user->hasUsablePassword());
     }

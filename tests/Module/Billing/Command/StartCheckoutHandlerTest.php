@@ -35,7 +35,7 @@ final class StartCheckoutHandlerTest extends TestCase
 
     private function user(): User
     {
-        return new User(username: 'payer', fullName: 'Paying User', email: 'payer@example.com', password: 'irrelevant');
+        return new User(fullName: 'Paying User', email: 'payer@example.com', password: 'irrelevant');
     }
 
     private function command(User $user, ?string $inviteToken = null): StartCheckoutCommand

@@ -33,9 +33,14 @@ final readonly class LinkSocialAccountHandler
         }
 
         // Password confirmed and the provider asserted this email is verified, so
-        // any pending click-through verification is superseded.
+        // any pending click-through verification is superseded. Revoking the
+        // token is what makes that true: VerifyEmailHandler never checks
+        // isVerified() and VerifyEmailController logs in whoever presents a valid
+        // token, so a link left outstanding here keeps working after the account
+        // is already verified by another route.
         if ($command->profile->emailVerified) {
             $user->emailVerifiedAt ??= new \DateTimeImmutable();
+            $user->clearEmailVerificationToken();
         }
 
         $account = new ConnectedAccount(

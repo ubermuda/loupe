@@ -53,7 +53,7 @@ Some page controllers also **pre-authorize** topics directly by calling `$this->
 
 The auth flows deliberately differ on whether they reveal account existence:
 
-- **Registration** shows explicit duplicate errors ("email already registered", "username taken") — standard UX; the enumeration leak is accepted.
+- **Registration** shows an explicit duplicate error ("email already registered") — standard UX; the enumeration leak is accepted.
 - **Password-reset request** and **resend-verification** are silent: unknown account, already-active token, and mail-transport failure all produce the same redirect. Keep new code on the silent side of these flows silent — do not add flashes or errors that distinguish the branches.
 
 This split is intentional; do not "fix" one flow to match the other without a maintainer decision.

@@ -58,7 +58,6 @@ final class RegisterUserHandlerTest extends KernelTestCase
         // reproduce in a single dama-wrapped test transaction.
         $users = $this->createStub(UserRepository::class);
         $users->method('findOneByEmail')->willReturn(null);
-        $users->method('findOneByUsername')->willReturn(null);
         $users->method('countHumans')->willReturn(1); // installation complete
 
         $em = $this->createStub(EntityManagerInterface::class);
@@ -92,9 +91,8 @@ final class RegisterUserHandlerTest extends KernelTestCase
 
         try {
             $handler(new RegisterUserCommand(
-                username: 'raceuser',
-                fullName: 'Race User',
                 email: 'race@example.com',
+                fullName: 'Riley Chen',
                 plainPassword: 'SecurePassword1!',
             ));
             $this->fail('Expected DomainErrors to be thrown.');
@@ -361,7 +359,6 @@ final class RegisterUserHandlerTest extends KernelTestCase
         self::assertInstanceOf(UserRepository::class, $users);
 
         $this->em->persist(new \App\Module\Account\Entity\User(
-            username: 'gate-filler-'.bin2hex(random_bytes(4)),
             fullName: 'Gate Filler',
             email: 'gate-filler-'.bin2hex(random_bytes(4)).'@example.com',
             password: 'x',
@@ -377,9 +374,8 @@ final class RegisterUserHandlerTest extends KernelTestCase
     private function makeCommand(string $email, ?string $inviteToken = null): RegisterUserCommand
     {
         return new RegisterUserCommand(
-            username: 'user-'.bin2hex(random_bytes(4)),
-            fullName: 'Test User',
             email: $email,
+            fullName: 'Riley Chen',
             plainPassword: 'SecurePassword1!',
             inviteToken: $inviteToken,
         );

@@ -49,11 +49,10 @@ async function openReview(
     await suppressWidget(page);
 
     const email = `e2e+strike+${tag}+${RUN}@example.com`;
-    const username = `e2estrike${tag}${RUN}`;
     const password = 'E2eStrikeShortcut1!';
 
     const registered = await page.request.post('/dev/register-and-verify', {
-        form: { username, fullName: 'E2E Striker', email, password },
+        form: { fullName: 'E2E Striker', email, password },
     });
     expect(registered.status()).toBe(200);
 

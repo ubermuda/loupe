@@ -24,7 +24,6 @@ test('a user can delete their account end to end via the emailed confirmation li
     await registerAndVerify(page, request, {
         email,
         password,
-        name: 'Delete Me',
     });
 
     // Mailpit is shared by every worktree and never cleared, so this address

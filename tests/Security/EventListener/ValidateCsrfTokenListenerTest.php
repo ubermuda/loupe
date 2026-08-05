@@ -27,7 +27,7 @@ final class ValidateCsrfTokenListenerTest extends WebTestCase
         $em = static::getContainer()->get(EntityManagerInterface::class);
         $hasher = static::getContainer()->get(UserPasswordHasherInterface::class);
 
-        $user = new User('csrfguard', 'Csrf Guard', 'csrfguard@example.com');
+        $user = new User('Csrf Guard', 'csrfguard@example.com');
         $user->password = $hasher->hashPassword($user, 'password');
         $user->emailVerifiedAt = new \DateTimeImmutable();
 

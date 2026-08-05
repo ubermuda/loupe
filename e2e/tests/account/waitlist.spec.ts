@@ -207,13 +207,8 @@ test.describe.serial('registration cap and waitlist', () => {
         // register form (registration open for this guest via the invite),
         // not back on the waitlist.
         await expect(guest).toHaveURL(/\/register$/);
-        await expect(guest.getByLabel('Full name')).toBeVisible();
-
-        await guest.getByLabel('Full name').fill('E2E Waitlist Convert');
-        // Username is capped at 30 characters — keep the prefix short so
-        // the 13-digit timestamp still fits.
-        await guest.getByLabel('Username').fill(`e2ewlconv${RUN}`);
         await guest.getByLabel('Email').fill(perEntryEmail);
+        await guest.getByLabel('Display name').fill('Riley Chen');
         await guest.getByLabel('Password').fill('e2e_password_123');
         await guest.getByLabel('I agree to').check();
         await guest.getByRole('button', { name: 'Create account' }).click();

@@ -21,7 +21,7 @@ final class OpenPortalHandlerTest extends TestCase
 
     private function user(): User
     {
-        return new User(username: 'payer', fullName: 'Paying User', email: 'payer@example.com', password: 'irrelevant');
+        return new User(fullName: 'Paying User', email: 'payer@example.com', password: 'irrelevant');
     }
 
     /** @param array<string, bool|int|string> $flags */

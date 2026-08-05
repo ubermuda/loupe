@@ -89,11 +89,17 @@ class RegisterController extends AppController
             $data = $form->getData();
             assert($data instanceof RegistrationRequest);
 
+            // Not the `?:` idiom used for email: "0" is a legitimate display
+            // name that NotBlank accepts and a truthiness check would reject.
+            $fullName = $data->fullName;
+            if (null === $fullName || '' === $fullName) {
+                throw new \LogicException('Display name is required after form validation.');
+            }
+
             try {
                 $user = ($this->registerUser)(new RegisterUserCommand(
-                    username: (string) $data->username,
-                    fullName: (string) $data->fullName,
                     email: $data->email ?: throw new \LogicException('Email is required after form validation.'),
+                    fullName: $fullName,
                     plainPassword: (string) $data->plainPassword,
                     inviteToken: $inviteToken,
                 ));

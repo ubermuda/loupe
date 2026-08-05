@@ -16,7 +16,7 @@ final class CommentTest extends TestCase
 {
     public function test_comment_defaults_and_reply(): void
     {
-        $user = new User(username: 'rev', fullName: 'Rev', email: 'rev@example.com');
+        $user = new User(fullName: 'Rev', email: 'rev@example.com');
         $doc = new Document(owner: $user, project: new Project($user, 'p'), title: 'Doc');
         $version = $doc->addVersion('hello world', '<p>hello world</p>');
 
@@ -31,7 +31,7 @@ final class CommentTest extends TestCase
 
     public function test_a_reply_reads_the_status_of_its_thread_root(): void
     {
-        $user = new User(username: 'rev2', fullName: 'Rev', email: 'rev2@example.com');
+        $user = new User(fullName: 'Rev', email: 'rev2@example.com');
         $doc = new Document(owner: $user, project: new Project($user, 'p'), title: 'Doc');
         $version = $doc->addVersion('hello world', '<p>hello world</p>');
 

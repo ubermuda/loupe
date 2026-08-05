@@ -30,12 +30,10 @@ const REPLY_BODY = 'This is an e2e reply to the comment.';
 async function devRegisterAndVerify(
     page: Page,
     email: string,
-    username: string,
     password: string,
 ): Promise<void> {
     const response = await page.request.post('/dev/register-and-verify', {
         form: {
-            username,
             fullName: 'E2E Reviewer',
             email,
             password,
@@ -143,12 +141,11 @@ test('full review loop: comment, request changes, reload persistence', async ({
     await suppressWidget(page);
 
     const email = `e2e+review+${RUN}@example.com`;
-    const username = `e2erev${RUN}`;
     const password = 'E2eReviewLoop1!';
 
     // Step 1: Register and verify a fresh user for this test run via the dev endpoint
     // (bypasses email confirmation — mailpit is not accessible via traefik in this project).
-    await devRegisterAndVerify(page, email, username, password);
+    await devRegisterAndVerify(page, email, password);
 
     // Step 2: Log in.
     await login(page, email, password);
@@ -345,10 +342,9 @@ test('composer submits on Ctrl/Cmd+Enter', async ({ page }) => {
     await suppressWidget(page);
 
     const email = `e2e+reviewkbd+${RUN}@example.com`;
-    const username = `e2erevkbd${RUN}`;
     const password = 'E2eReviewKeys1!';
 
-    await devRegisterAndVerify(page, email, username, password);
+    await devRegisterAndVerify(page, email, password);
     await login(page, email, password);
 
     const { documentId, projectId } = await seedDocument(page);

@@ -7,6 +7,7 @@ namespace App\Tests\Module\Account\Command;
 use App\Module\Account\Command\CheckSystemStatusView;
 use App\Module\Account\Command\SystemCheck;
 use App\Module\Account\Command\SystemCheckState;
+use App\Module\Account\Entity\User;
 use App\Tests\Support\FeatureFlags;
 use App\Tests\Support\SystemStatus;
 use Doctrine\DBAL\Connection;
@@ -281,6 +282,29 @@ final class CheckSystemStatusHandlerTest extends KernelTestCase
             'available_at' => Types::DATETIME_IMMUTABLE,
             'delivered_at' => Types::DATETIME_IMMUTABLE,
         ]);
+    }
+
+    public function test_the_agent_account_is_reported_present_when_the_row_exists(): void
+    {
+        // The migrations insert it, so the bootstrapped test database has it.
+        $view = (SystemStatus::handler($this->connection))();
+
+        self::assertSame(SystemCheckState::Ok, self::check($view, 'agent_account')->state);
+    }
+
+    public function test_a_missing_agent_account_is_a_failure_not_a_warning(): void
+    {
+        // Deleting it is safe here: dama/doctrine-test-bundle rolls the whole
+        // test back, and nothing else in this test reads the row.
+        $this->connection->delete('users', ['id' => User::AGENT_ID]);
+
+        $view = (SystemStatus::handler($this->connection))();
+
+        // Failed rather than Warning: every comment written through the MCP is
+        // authored by this row, so without it that path does not degrade, it
+        // breaks.
+        self::assertSame(SystemCheckState::Failed, self::check($view, 'agent_account')->state);
+        self::assertSame(SystemCheckState::Failed, $view->overall);
     }
 
     private static function check(CheckSystemStatusView $view, string $key): SystemCheck

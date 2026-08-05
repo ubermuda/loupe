@@ -165,7 +165,7 @@ final class DataExportArchiveBuilderTest extends TestCase
 
     private function user(): User
     {
-        return new User('alice', 'Alice A', 'alice@example.com', 'x');
+        return new User('Alice A', 'alice@example.com', 'x');
     }
 
     private function localStorage(): Filesystem

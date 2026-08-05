@@ -16,7 +16,7 @@ final class VerifyEmailControllerTest extends WebTestCase
         $em = static::getContainer()->get(EntityManagerInterface::class);
         $hasher = static::getContainer()->get(UserPasswordHasherInterface::class);
 
-        $user = new User('verifyuser', 'Verify User', 'verify@example.com');
+        $user = new User('Verify User', 'verify@example.com');
         $user->password = $hasher->hashPassword($user, 'SecurePassword1!');
         $token = $user->generateEmailVerificationToken();
 

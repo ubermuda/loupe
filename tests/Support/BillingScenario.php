@@ -30,7 +30,7 @@ final readonly class BillingScenario
 
     public function verifiedUser(string $username): User
     {
-        $user = new User($username, ucfirst($username), $username.'@example.com', 'hashed-password-placeholder');
+        $user = new User(ucfirst($username), $username.'@example.com', 'hashed-password-placeholder');
         $user->emailVerifiedAt = new \DateTimeImmutable();
 
         $em = $this->em();

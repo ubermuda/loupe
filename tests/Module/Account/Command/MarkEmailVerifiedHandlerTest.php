@@ -104,7 +104,7 @@ final class MarkEmailVerifiedHandlerTest extends KernelTestCase
     /** @param non-empty-string $email */
     private function persistUser(string $email): User
     {
-        $user = new User(username: explode('@', $email)[0], fullName: 'Test User', email: $email);
+        $user = new User(fullName: 'Test User', email: $email);
         $user->password = 'not-a-real-hash';
         $this->em->persist($user);
         $this->em->flush();

@@ -18,7 +18,6 @@ final class RevokeApiTokenControllerTest extends WebTestCase
     private function createVerifiedUser(EntityManagerInterface $em, string $username, string $email): User
     {
         $user = new User(
-            username: $username,
             fullName: ucfirst($username),
             email: $email,
             password: 'hashed-password-placeholder',

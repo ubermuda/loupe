@@ -24,8 +24,8 @@ final class UserRepositoryTest extends KernelTestCase
     {
         $baseline = $this->repository->countActive();
 
-        $active = new User(username: 'active-user', fullName: 'Active User', email: 'active-user@example.com', password: 'x');
-        $disabled = new User(username: 'disabled-user', fullName: 'Disabled User', email: 'disabled-user@example.com', password: 'x');
+        $active = new User(fullName: 'Active User', email: 'active-user@example.com', password: 'x');
+        $disabled = new User(fullName: 'Disabled User', email: 'disabled-user@example.com', password: 'x');
         $disabled->disabledAt = new \DateTimeImmutable();
         $this->em->persist($active);
         $this->em->persist($disabled);
@@ -50,7 +50,7 @@ final class UserRepositoryTest extends KernelTestCase
     {
         // Guard: without a populated table both counts could be zero for
         // reasons unrelated to the exclusion.
-        $this->em->persist(new User(username: 'counted-human', fullName: 'Counted', email: 'counted-human@example.com', password: 'x'));
+        $this->em->persist(new User(fullName: 'Counted', email: 'counted-human@example.com', password: 'x'));
         $this->em->flush();
 
         $humans = $this->repository->countHumans();
