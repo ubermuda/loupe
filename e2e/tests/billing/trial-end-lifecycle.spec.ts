@@ -29,7 +29,6 @@ import { createTest } from '../fixtures';
 const test = createTest({
     email: 'e2e-billing-lifecycle@example.com',
     password: 'e2e_password_123',
-    name: 'E2E Billing Lifecycle',
 });
 
 // Any value >= 1 closes the gate: RegistrationGate.isOpen() compares the

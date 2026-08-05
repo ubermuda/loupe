@@ -132,8 +132,6 @@ test('a collision with a password account requires the password before linking',
     await registerAndVerify(page, request, {
         email,
         password,
-        username: `collide${RUN}`.slice(0, 30),
-        name: 'Collider',
     });
     await logout(page);
 

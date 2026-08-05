@@ -25,7 +25,6 @@ final class DocumentVoterTest extends TestCase
     private function makeUser(string $username): User
     {
         return new User(
-            username: $username,
             fullName: ucfirst($username),
             email: $username.'@example.com',
             password: 'hashed',

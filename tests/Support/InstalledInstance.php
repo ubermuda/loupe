@@ -21,7 +21,7 @@ final class InstalledInstance
 
     public static function ensure(EntityManagerInterface $em): User
     {
-        $admin = new User(username: 'installed-admin', fullName: 'Installed Admin', email: self::EMAIL);
+        $admin = new User(fullName: 'Installed Admin', email: self::EMAIL);
         $admin->password = 'not-a-real-hash';
         $admin->roles = ['ROLE_ADMIN'];
         $admin->emailVerifiedAt = new \DateTimeImmutable();

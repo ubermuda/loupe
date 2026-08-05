@@ -151,7 +151,7 @@ final class DocumentMarkCommentAddressedToolTest extends KernelTestCase
     /** @param non-empty-string $email */
     private function user(string $email): User
     {
-        $user = new User(username: substr(md5($email), 0, 12), fullName: 'U', email: $email, password: 'hashed');
+        $user = new User(fullName: 'U', email: $email, password: 'hashed');
         $this->em->persist($user);
 
         return $user;

@@ -70,7 +70,6 @@ final class GetReviewTest extends KernelTestCase
         $this->agent = $users->agent();
 
         $this->owner = new User(
-            username: 'owner',
             fullName: 'Owner User',
             email: 'owner@example.com',
             password: 'hashed',

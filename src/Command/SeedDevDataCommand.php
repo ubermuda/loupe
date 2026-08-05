@@ -81,7 +81,7 @@ final class SeedDevDataCommand extends Command
         // twice is rejected outright by the handler).
         $user = $this->users->findOneBy(['email' => self::EMAIL]);
         if (!$user instanceof User) {
-            $user = new User('dev', 'Dev User', self::EMAIL);
+            $user = new User(fullName: 'Dev User', email: self::EMAIL);
             $user->password = $this->passwordHasher->hashPassword($user, self::PASSWORD);
             // Verified up front — there is no inbox to click through, and an
             // unverified user cannot reach the pages worth looking at.

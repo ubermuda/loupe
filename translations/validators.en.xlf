@@ -4,14 +4,6 @@
         <body>
 
             <!-- Registration constraints -->
-            <trans-unit id="account.registration.validator.username_format">
-                <source>account.registration.validator.username_format</source>
-                <target>Username must start with a letter and contain only lowercase letters, numbers, hyphens, or underscores.</target>
-            </trans-unit>
-            <trans-unit id="account.registration.validator.username_reserved">
-                <source>account.registration.validator.username_reserved</source>
-                <target>This username is reserved and cannot be used.</target>
-            </trans-unit>
             <trans-unit id="account.registration.validator.agree_terms">
                 <source>account.registration.validator.agree_terms</source>
                 <target>You must agree to the terms.</target>

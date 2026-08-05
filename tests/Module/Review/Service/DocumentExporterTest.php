@@ -17,7 +17,7 @@ final class DocumentExporterTest extends TestCase
 {
     public function test_exports_documents_with_nested_versions_and_without_rendered_html(): void
     {
-        $user = new User('alice', 'Alice A', 'alice@example.com', 'x');
+        $user = new User('Alice A', 'alice@example.com', 'x');
         $project = new Project($user, 'My project');
         $document = new Document($user, $project, 'My doc');
         $document->addVersion('# v1', '<h1>v1</h1>');
@@ -41,7 +41,7 @@ final class DocumentExporterTest extends TestCase
 
     public function test_exports_the_tags_a_document_carries(): void
     {
-        $user = new User('alice', 'Alice A', 'alice@example.com', 'x');
+        $user = new User('Alice A', 'alice@example.com', 'x');
         $project = new Project($user, 'My project');
         $document = new Document($user, $project, 'My doc');
         $document->addVersion('# v1', '<h1>v1</h1>');
@@ -59,7 +59,7 @@ final class DocumentExporterTest extends TestCase
 
     public function test_an_untagged_document_exports_an_empty_tag_list(): void
     {
-        $user = new User('alice', 'Alice A', 'alice@example.com', 'x');
+        $user = new User('Alice A', 'alice@example.com', 'x');
         $document = new Document($user, new Project($user, 'My project'), 'My doc');
         $document->addVersion('# v1', '<h1>v1</h1>');
 
@@ -72,7 +72,7 @@ final class DocumentExporterTest extends TestCase
 
     public function test_exports_archive_state_and_version_descriptions(): void
     {
-        $user = new User('alice', 'Alice A', 'alice@example.com', 'x');
+        $user = new User('Alice A', 'alice@example.com', 'x');
         $project = new Project($user, 'My project');
         $document = new Document($user, $project, 'My doc');
         $document->addVersion('# v1', '<h1>v1</h1>', 'First draft of the auth design.');
@@ -92,7 +92,7 @@ final class DocumentExporterTest extends TestCase
 
     public function test_exports_the_documents_a_document_references_and_not_the_ones_referencing_it(): void
     {
-        $user = new User('alice', 'Alice A', 'alice@example.com', 'x');
+        $user = new User('Alice A', 'alice@example.com', 'x');
         $project = new Project($user, 'My project');
         $document = new Document($user, $project, 'My doc');
         $document->addVersion('# v1', '<h1>v1</h1>');
@@ -115,7 +115,7 @@ final class DocumentExporterTest extends TestCase
 
     public function test_a_document_that_was_never_archived_exports_a_null_timestamp(): void
     {
-        $user = new User('alice', 'Alice A', 'alice@example.com', 'x');
+        $user = new User('Alice A', 'alice@example.com', 'x');
         $document = new Document($user, new Project($user, 'My project'), 'My doc');
         $document->addVersion('# v1', '<h1>v1</h1>');
 

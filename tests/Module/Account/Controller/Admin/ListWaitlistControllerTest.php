@@ -166,7 +166,7 @@ final class ListWaitlistControllerTest extends WebTestCase
     {
         $hasher = static::getContainer()->get(UserPasswordHasherInterface::class);
 
-        $user = new User(username: 'u'.bin2hex(random_bytes(4)), fullName: 'Test User', email: $email);
+        $user = new User(fullName: 'Test User', email: $email);
         $user->password = $hasher->hashPassword($user, 'TestPass123!');
         $user->emailVerifiedAt = new \DateTimeImmutable();
         $user->roles = $roles;

@@ -67,9 +67,12 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface, AdminPr
     private ?\DateTimeImmutable $accountDeletionTokenExpiresAt = null;
 
     public function __construct(
-        #[ORM\Column(length: 30, unique: true)]
-        public string $username,
-
+        /**
+         * Every account has one, so it is always safe to render. The forms ask
+         * for it; the paths that cannot ask — social login with a nameless
+         * provider, the console admin command — derive it from the email with
+         * DisplayNameDeriver.
+         */
         #[ORM\Column(length: 150)]
         public string $fullName,
 

@@ -149,7 +149,7 @@ final class SelectDecisionOptionControllerTest extends WebTestCase
         $em = static::getContainer()->get(EntityManagerInterface::class);
         self::assertInstanceOf(EntityManagerInterface::class, $em);
 
-        $owner = new User(username: 'twin-'.uniqid(), fullName: 'Twin', email: 'twin-'.uniqid().'@example.com', password: 'hashed');
+        $owner = new User(fullName: 'Twin', email: 'twin-'.uniqid().'@example.com', password: 'hashed');
         $owner->emailVerifiedAt = new \DateTimeImmutable();
         $em->persist($owner);
         $project = new Project($owner, 'p-'.uniqid());
@@ -444,7 +444,7 @@ final class SelectDecisionOptionControllerTest extends WebTestCase
 
         $em = static::getContainer()->get(EntityManagerInterface::class);
         self::assertInstanceOf(EntityManagerInterface::class, $em);
-        $stranger = new User(username: 'stranger-'.uniqid(), fullName: 'Stranger', email: 'stranger-'.uniqid().'@example.com', password: 'hashed');
+        $stranger = new User(fullName: 'Stranger', email: 'stranger-'.uniqid().'@example.com', password: 'hashed');
         $stranger->emailVerifiedAt = new \DateTimeImmutable();
         $em->persist($stranger);
         $em->flush();
@@ -469,7 +469,7 @@ final class SelectDecisionOptionControllerTest extends WebTestCase
         $em = static::getContainer()->get(EntityManagerInterface::class);
         self::assertInstanceOf(EntityManagerInterface::class, $em);
 
-        $owner = new User(username: 'decider-'.uniqid(), fullName: 'Decider', email: 'decider-'.uniqid().'@example.com', password: 'hashed');
+        $owner = new User(fullName: 'Decider', email: 'decider-'.uniqid().'@example.com', password: 'hashed');
         $owner->emailVerifiedAt = new \DateTimeImmutable();
         $em->persist($owner);
         $project = new Project($owner, 'p-'.uniqid());

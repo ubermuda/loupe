@@ -16,7 +16,7 @@ final class SiteReviewExporterTest extends TestCase
 {
     public function test_exports_flat_comments(): void
     {
-        $owner = new User('alice', 'Alice A', 'alice@example.com', 'x');
+        $owner = new User('Alice A', 'alice@example.com', 'x');
         $project = new Project($owner, 'My project', 'example.com');
         $comment = new SiteReviewComment($project, 0, 'Fix this', '.hero h1', 'Hello world', 'https://example.com/');
 

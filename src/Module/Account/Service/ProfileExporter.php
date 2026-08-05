@@ -19,7 +19,6 @@ final readonly class ProfileExporter implements UserDataExporterInterface
     public function export(User $user): array
     {
         return [
-            'username' => $user->username,
             'fullName' => $user->fullName,
             'email' => $user->email,
             'createdAt' => $user->createdAt->format(\DateTimeInterface::ATOM),

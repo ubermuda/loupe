@@ -116,7 +116,7 @@ final class ListSiteReviewOutboxControllerTest extends WebTestCase
      */
     private function user(EntityManagerInterface $em, string $email, array $roles = []): User
     {
-        $user = new User(username: 'u'.bin2hex(random_bytes(4)), fullName: 'U', email: $email, password: 'x');
+        $user = new User(fullName: 'U', email: $email, password: 'x');
         $user->emailVerifiedAt = new \DateTimeImmutable();
         $user->roles = $roles;
         $em->persist($user);

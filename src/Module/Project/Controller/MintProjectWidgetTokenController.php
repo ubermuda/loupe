@@ -16,7 +16,7 @@ use Symfony\Component\Security\Http\Attribute\IsGranted;
 use Symfony\Contracts\Translation\TranslatorInterface;
 use Ubermuda\SymfonyExtra\Csrf\Attribute\CsrfToken;
 
-#[CsrfToken('mint-site-token')]
+#[CsrfToken('mint-project-widget-token')]
 #[IsGranted(ProjectVoter::MANAGE, subject: 'project')]
 #[Route(
     '/projects/{id:project}/widget-token',

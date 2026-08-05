@@ -25,7 +25,6 @@ final class SubmitReviewHandlerTest extends KernelTestCase
     private function createUserAndDocument(EntityManagerInterface $em, string $suffix): array
     {
         $user = new User(
-            username: 'reviewer'.$suffix,
             fullName: 'Reviewer',
             email: 'reviewer'.$suffix.'@example.com',
             password: 'hashed-placeholder',

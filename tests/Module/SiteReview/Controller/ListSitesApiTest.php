@@ -19,7 +19,7 @@ final class ListSitesApiTest extends WebTestCase
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
 
-        $owner = new User(username: 'list-sites@example.com', fullName: 'Owner', email: 'list-sites@example.com', password: 'x');
+        $owner = new User(fullName: 'Owner', email: 'list-sites@example.com', password: 'x');
         $owner->emailVerifiedAt = new \DateTimeImmutable();
         $em->persist($owner);
         [$token, $raw] = ApiToken::issue($owner, 'tok', ApiTokenScope::SiteReview);
@@ -29,7 +29,7 @@ final class ListSitesApiTest extends WebTestCase
         $em->persist($site1);
         $em->persist($site2);
 
-        $other = new User(username: 'list-sites-other@example.com', fullName: 'Other', email: 'list-sites-other@example.com', password: 'x');
+        $other = new User(fullName: 'Other', email: 'list-sites-other@example.com', password: 'x');
         $other->emailVerifiedAt = new \DateTimeImmutable();
         $em->persist($other);
         $otherSite = new Project($other, 'other-site');
@@ -64,7 +64,7 @@ final class ListSitesApiTest extends WebTestCase
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
 
-        $user = new User(username: 'list-sites-mcp@example.com', fullName: 'MCP', email: 'list-sites-mcp@example.com', password: 'x');
+        $user = new User(fullName: 'MCP', email: 'list-sites-mcp@example.com', password: 'x');
         $user->emailVerifiedAt = new \DateTimeImmutable();
         $em->persist($user);
         [$token, $raw] = ApiToken::issue($user, 'mcp-tok', ApiTokenScope::Mcp);
@@ -85,7 +85,7 @@ final class ListSitesApiTest extends WebTestCase
         // A widget token: SiteReview-scoped but BOUND to a site. It is embedded
         // in public page HTML, so it must never enumerate the owner's sites.
         $email = 'list-sites-widget@example.com';
-        $user = new User(username: $email, fullName: 'U', email: $email, password: 'x');
+        $user = new User(fullName: 'U', email: $email, password: 'x');
         $user->emailVerifiedAt = new \DateTimeImmutable();
         $em->persist($user);
         [$token, $raw] = ApiToken::issue($user, 'widget-tok', ApiTokenScope::SiteReview);

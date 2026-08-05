@@ -24,7 +24,7 @@ final class ProcessDataExportHandlerTest extends TestCase
 {
     private function persistedExport(): DataExport
     {
-        $user = new User('alice', 'Alice A', 'alice@example.com', 'x');
+        $user = new User('Alice A', 'alice@example.com', 'x');
         $export = new DataExport($user);
         $ref = new \ReflectionProperty(DataExport::class, 'id');
         $ref->setValue($export, Uuid::v7());

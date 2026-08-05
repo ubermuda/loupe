@@ -73,7 +73,7 @@ final class ToggleProjectWidgetForwardingHandlerTest extends KernelTestCase
     /** @param non-empty-string $email */
     private function project(string $email, bool $withToken = true): Project
     {
-        $owner = new User(username: $email, fullName: 'U', email: $email, password: 'x');
+        $owner = new User(fullName: 'U', email: $email, password: 'x');
         $this->em->persist($owner);
         $project = new Project($owner, 'forwarding-site');
 

@@ -14,7 +14,7 @@ final class BillingProfileTest extends TestCase
 {
     private function user(): User
     {
-        return new User(username: 'alice', fullName: 'Alice A', email: 'alice@example.com', password: 'irrelevant');
+        return new User(fullName: 'Alice A', email: 'alice@example.com', password: 'irrelevant');
     }
 
     public function test_trialing_profile_is_current_until_trial_ends(): void

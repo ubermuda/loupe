@@ -20,20 +20,21 @@ final class AgentAccountInstaller
 {
     public static function install(Connection $connection): void
     {
-        // No password and no roles: nothing can authenticate as it. The dot in
-        // the username puts it out of reach of registration, which accepts
-        // [a-z][a-z0-9_-]* only, and `.invalid` is reserved by IANA.
+        // No password and no roles: nothing can authenticate as it. What puts
+        // it out of reach of registration is the address: `.invalid` is
+        // reserved by IANA precisely so it can never resolve, so no verification
+        // mail could ever be received there.
         //
         // The conflict target is deliberate. A bare ON CONFLICT DO NOTHING also
-        // swallows the username and email unique violations, so an account
-        // already holding one of those identities would leave this a no-op and
-        // the app with no agent row — surfacing later as a failure deep inside
-        // a reply. Only a repeat of the id itself is the idempotency wanted
-        // here; anything else is a real conflict and must raise.
+        // swallows the email unique violation, so an account already holding
+        // that address would leave this a no-op and the app with no agent row —
+        // surfacing later as a failure deep inside a reply. Only a repeat of the
+        // id itself is the idempotency wanted here; anything else is a real
+        // conflict and must raise.
         $connection->executeStatement(
             <<<'SQL'
-                INSERT INTO users (id, roles, username, full_name, email, password, created_at)
-                VALUES (:id, '[]', 'loupe.agent', 'Agent', 'agent@loupe.invalid', NULL, now())
+                INSERT INTO users (id, roles, full_name, email, password, created_at)
+                VALUES (:id, '[]', 'Agent', 'agent@loupe.invalid', NULL, now())
                 ON CONFLICT (id) DO NOTHING
                 SQL,
             ['id' => User::AGENT_ID],

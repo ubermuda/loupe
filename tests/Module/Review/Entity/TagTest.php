@@ -13,7 +13,7 @@ final class TagTest extends TestCase
 {
     public function test_the_name_is_lowercased_and_trimmed_on_construction(): void
     {
-        $project = new Project(new User('alice', 'Alice A', 'alice@example.com', 'x'), 'My project');
+        $project = new Project(new User('Alice A', 'alice@example.com', 'x'), 'My project');
 
         self::assertSame('design', new Tag($project, '  Design  ')->name);
         self::assertSame('design spec', new Tag($project, 'DESIGN SPEC')->name);

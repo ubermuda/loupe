@@ -75,7 +75,7 @@ final class SocialLoginFlowTest extends WebTestCase
         $this->setProviderFlag($client, SocialProvider::Google, true);
 
         $em = $client->getContainer()->get(EntityManagerInterface::class);
-        $user = new User(username: 'returning', fullName: 'Returning User', email: 'returning@example.com');
+        $user = new User(fullName: 'Returning User', email: 'returning@example.com');
         $user->emailVerifiedAt = new \DateTimeImmutable();
         $em->persist($user);
         $em->persist(new ConnectedAccount($user, SocialProvider::Google, 'google-sub-2', 'returning@example.com'));
@@ -99,7 +99,7 @@ final class SocialLoginFlowTest extends WebTestCase
 
         $container = $client->getContainer();
         $em = $container->get(EntityManagerInterface::class);
-        $user = new User(username: 'collider', fullName: 'Collider', email: 'collider@example.com');
+        $user = new User(fullName: 'Collider', email: 'collider@example.com');
         $user->password = $container->get(UserPasswordHasherInterface::class)->hashPassword($user, 'SecurePassword1!');
         $user->emailVerifiedAt = new \DateTimeImmutable();
         $em->persist($user);
@@ -246,7 +246,7 @@ final class SocialLoginFlowTest extends WebTestCase
         $em = $container->get(EntityManagerInterface::class);
         $users = $container->get(UserRepository::class);
 
-        $em->persist(new User(username: 'gate-filler', fullName: 'Gate Filler', email: 'gate-filler@example.com', password: 'x'));
+        $em->persist(new User(fullName: 'Gate Filler', email: 'gate-filler@example.com', password: 'x'));
         $em->flush();
 
         $em->persist(new FeatureFlag(name: RegistrationGate::CAP_FLAG, type: FeatureFlagType::Int, value: $users->countActive()));
@@ -258,7 +258,7 @@ final class SocialLoginFlowTest extends WebTestCase
         $client = static::createClient();
 
         $em = $client->getContainer()->get(EntityManagerInterface::class);
-        $user = new User(username: 'socialonly', fullName: 'Social Only', email: 'socialonly@example.com');
+        $user = new User(fullName: 'Social Only', email: 'socialonly@example.com');
         $user->emailVerifiedAt = new \DateTimeImmutable();
         $em->persist($user);
         $em->flush();

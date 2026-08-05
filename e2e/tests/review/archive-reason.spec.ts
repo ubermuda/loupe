@@ -20,11 +20,10 @@ const REASON = 'superseded by the v2 plan';
 async function devRegisterAndVerify(
     page: Page,
     email: string,
-    username: string,
     password: string,
 ): Promise<void> {
     const response = await page.request.post('/dev/register-and-verify', {
-        form: { username, fullName: 'E2E Archivist', email, password },
+        form: { fullName: 'E2E Archivist', email, password },
     });
     expect(response.status()).toBe(200);
 }
@@ -69,12 +68,11 @@ test('an archived document shows its reason, and one archived from the app shows
     page,
 }) => {
     const email = `e2e-archive-reason-${RUN}@example.com`;
-    const username = `arch${RUN}`.slice(0, 30);
     const password = 'e2e_password_123';
 
     await suppressToolbar(page);
     await suppressWidget(page);
-    await devRegisterAndVerify(page, email, username, password);
+    await devRegisterAndVerify(page, email, password);
     await login(page, email, password);
 
     const explained = await seedDocument(page, 'Superseded Draft', REASON);
@@ -123,12 +121,11 @@ test('restoring a document clears the reason it was archived with', async ({
     page,
 }) => {
     const email = `e2e-archive-restore-${RUN}@example.com`;
-    const username = `rest${RUN}`.slice(0, 30);
     const password = 'e2e_password_123';
 
     await suppressToolbar(page);
     await suppressWidget(page);
-    await devRegisterAndVerify(page, email, username, password);
+    await devRegisterAndVerify(page, email, password);
     await login(page, email, password);
 
     const { documentId, projectId } = await seedDocument(

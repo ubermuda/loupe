@@ -30,7 +30,7 @@ final class RequireSubscriptionListenerTest extends TestCase
 
     private function user(bool $verified = true): User
     {
-        $user = new User(username: 'walled', fullName: 'Walled User', email: 'walled@example.com', password: 'irrelevant');
+        $user = new User(fullName: 'Walled User', email: 'walled@example.com', password: 'irrelevant');
         if ($verified) {
             $user->emailVerifiedAt = new \DateTimeImmutable();
         }

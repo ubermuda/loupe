@@ -216,7 +216,6 @@ final class StrikeAndSuggestControllerTest extends WebTestCase
         $em = static::getContainer()->get(EntityManagerInterface::class);
 
         $owner = new User(
-            username: $username,
             fullName: ucfirst($username),
             email: $username.'@example.com',
             password: 'hashed-password-placeholder',

@@ -43,7 +43,7 @@ final class SetDocumentTagsHandlerTest extends KernelTestCase
     /** @return array{Project, Document} */
     private function seed(string $slug): array
     {
-        $user = new User(username: $slug, fullName: 'U', email: $slug.'@example.com', password: 'hashed');
+        $user = new User(fullName: 'U', email: $slug.'@example.com', password: 'hashed');
         $this->em->persist($user);
         $project = new Project($user, 'p-'.$slug);
         $this->em->persist($project);
