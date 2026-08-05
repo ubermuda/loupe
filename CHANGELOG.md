@@ -14,221 +14,280 @@ SHAs are the source of truth: for an exhaustive diff, run
 `git log --oneline <older>..<newer>` and cross-check, rather than trusting this
 file alone. Each entry is tagged `Added` / `Changed` / `Removed` / `Fixed`.
 
+**Granularity: one entry per merged pull request, one line each.** A branch that
+shipped six features gets six entries, not one entry covering the branch — a
+reader looking for when tags arrived should find a line about tags, not a
+paragraph about the wave that contained them. Each entry is a single sentence
+stating what changed from the reader's side; the reasoning behind a change
+belongs in the PR body and the commit message, which the SHA and the PR number
+both point at. Anchor to the first-parent commit that landed the work on `main`
+(what `git log --first-parent` shows), so this list and the log walk the same
+history, and name the PR after it. Work that never surfaces in the product or
+the development workflow — tracker churn in `docs/NEXT_STEPS.md` — gets no
+entry.
+
 ## [Unreleased]
 
-- `b1aad74` — **Changed:** an archive reason that is present but blank is now
-  rejected, and the guard that makes re-archiving a no-op holds between
-  concurrent callers rather than only sequential ones. A required MCP parameter
-  only forces an agent to send the field, not to fill it in, so `reason: "   "`
-  previously archived the document with an explanation that explains nothing;
-  `ArchiveDocumentHandler` trims and throws `DomainErrors`, the same shape
-  `ReviseDocumentHandler` uses for a blank version description, and
-  `ToolCallErrorMessages` renders it as a sentence the agent can act on. `null`
-  and `''` stay deliberately different: `null` is the app's button, which is
-  never asked, while `''` is a caller that was asked and answered with nothing.
-  The concurrency change revisits a trade-off made when `archived_at` was the
-  only thing at stake — the guard was a read-check-write with nothing holding
-  the two together, on the grounds that a lost write cost "a stamp differing by
-  milliseconds". A lost *reason* is a sentence a reviewer reads, and picking it
-  by whichever request committed last is arbitrary, so the guard now runs under
-  a pessimistic row lock and re-reads the stored state before deciding. The
-  re-read is a two-column query, `DocumentRepository::archiveStateOf()`, rather
-  than `EntityManager::refresh()`: Doctrine refuses to rewrite `Document`'s
-  readonly `$createdAt`, so refreshing this entity throws. The loaded timestamp
-  is left untouched when it already agrees with the row — the column is
-  `TIMESTAMP(0)`, so re-reading would quietly drop the sub-second part the
-  process holds — and is replaced only when the loaded copy says live and the
-  row says otherwise, which is the race itself. That race is not expressible as
-  a test: `dama/doctrine-test-bundle` runs every test inside one connection's
-  transaction, so two overlapping database transactions cannot exist. The
-  sequential re-archive tests are the regression guard and the lock is verified
-  by review, as the concurrency convention prescribes.
+- `455648b` (#138) — **Fixed:** six small tracker items — phpstan's memory
+  limit, MCP array parameter schemas, a `DisplayLabel` rename, the tsconfig, and
+  the widget's send guard.
+- `c80aa85` (#141) — **Added:** `document_get` reports a document's tags and the
+  documents that reference it.
+- `599339e` (#145) — **Added:** browser coverage for the decision controls,
+  asserting the anchors that were actually stored.
+- `04bc2a6` (#149) — **Changed:** `just e2e` refuses to run without an explicit
+  target rather than defaulting to one.
+- `647c21d` (#144) — **Added:** the agent account is created during install and
+  shown on the system status page.
+- `cc0aff1` (#140) — **Fixed:** pending verification links are revoked when an
+  account is linked socially, waitlist idioms are deduplicated, and the Mercure
+  publish is bounded.
+- `f025820` (#139) — **Fixed:** the data export fetch-joins its projects instead
+  of issuing a query per row, and the regenerate-token handlers take a lock.
+- `3bb26d8` (#146) — **Removed:** the site-era widget-token names, and the
+  deprecations this codebase owns.
+- `31c2fc9` (#148) — **Changed:** a display name is mandatory, suggested from
+  the email address.
+- `758cde0` (#143) — **Added:** a user can edit their display name.
+- `f6ed975` (#142) — **Changed:** `just e2e` refuses to run without a consumer,
+  and keeps the worker alive for the duration of the suite.
+- `421c484` (#137) — **Added:** archiving a document takes a reason, required
+  through MCP and optional in the app; a blank reason is rejected and the
+  archive guard runs under a row lock.
+- `435f128` (#136) — **Added:** `document_set_references` replaces a document's
+  references without minting a version.
+- `bf34403` (#134) — **Added:** a manual test plan for the review wave.
+- `83a3e5e` (#133) — **Added:** reviewer-selectable decision controls — an
+  author fences a list in `<!-- decision: id -->` and the reviewer clicks an
+  option instead of describing it in a comment.
+- `f7e32df` (#129) — **Added:** YAML front matter renders as a table and
+  standalone HTML comments render as visible annotations instead of vanishing.
+- `39aa6a3` (#126) — **Added:** a word-level diff between two document versions.
+- `aa47989` (#132) — **Fixed:** the documents-search e2e spec waits for the
+  search visit to land instead of sleeping past the debounce.
+- `0d8e47e` (#131) — **Fixed:** `site_review_get` answers a missing site and an
+  inaccessible one identically, so it no longer reveals which sites exist.
+- `6b3f55f` (#124) — **Added:** full-text search and a filter bar on the
+  documents list.
+- `c68224e` (#123) — **Added:** project-scoped tags on documents, with
+  `document_set_tags` and `tag_list`.
+- `f7773ef` (#130) — **Fixed:** the dev php-fpm pool raised, so worktree and
+  Playwright traffic stops starving requests of a worker.
+- `36e3806` (#128) — **Added:** an agent can highlight passages of a document.
+- `c9ccac4` (#122) — **Added:** one document can reference another, shown on
+  both sides.
+- `c06226c` (#127) — **Added:** strike and suggest as first-class review
+  actions, distinct from leaving a comment.
+- `c5adc21` (#125) — **Changed:** the Markdown sanitizer rewritten to an
+  explicit per-element allowlist. **Added:** a table-of-contents panel driven by
+  heading ids.
+- `7ceb9ed` (#118) — **Added:** documents can be renamed and archived, and each
+  version records what changed in it.
+- `7ad8c57` (#120) — **Added:** an agent can reply to and address comments in a
+  document review.
+- `333d02f` (#119) — **Added:** a comment thread carries a status, held by its
+  root comment.
+- `0602470` (#117) — **Fixed:** comment anchoring uses character-unit windows,
+  word-edge quotes, and untrimmed captured context.
+- `dce09f9` (#116) — **Changed:** every MCP tool renamed with a feature prefix
+  (`create_document` → `document_create` and so on, with no aliases — a
+  breaking MCP change), tool access scoped to the token's bound project, and
+  unrecognised failures reported with a real message instead of a bare `-32603`.
+- `7ac6fc9` (#114) — **Changed:** dev logs buffered behind `fingers_crossed`.
+- `cbcc9b0` (#112) — **Changed:** the `DeleteAccountHandler` docblock corrected
+  on its coupling to Billing.
+- `a3c6b2a` (#111) — **Removed:** stale DaisyUI references from `CLAUDE.md` and
+  the `project-e2e` skill.
+- `d399c97` (#109) — **Fixed:** Turbo no longer prefetches the system status
+  page on hover.
+- `d50d850` (#108) — **Changed:** documentation-only branches skip e2e and the
+  Codex review in the pre-PR gate.
+- `83d0985` (#107) — **Changed:** `DEPLOY.md` is the single home for deployment
+  documentation.
+- `659576d` (#106) — **Added:** a reference production stack, with deploy
+  tooling unbound from the author's own accounts.
+- `7c9c1f8` (#101) — **Added:** the AGPL source is offered from the UI, as the
+  licence requires.
+- `546102c` (#103) — **Added:** the site-review outbox drains on a schedule and
+  surfaces what is stuck.
+- `efee5eb` (#100) — **Added:** recovery console commands and registration
+  gating for a self-hosted instance.
+- `3174b05` (#105) — **Added:** a health endpoint and a system status page.
+- `dcd660c` (#102) — **Changed:** data-export archives moved to object storage.
+- `9fbdaca` (#104) — **Changed:** the configuration surface reworked to be the
+  operator's rather than the author's.
+- `2a14104` (#99) — **Fixed:** a batch of one-line self-hosting corrections.
+- `6ca2a63` (#97) — **Added:** e2e runs against its own disposable target
+  instead of borrowing a worktree.
+- `eb0f7d7` (#96) — **Changed:** `just worktree-up` takes a NAME, so nothing has
+  to `cd` into a worktree to provision one.
+- `59c1834` (#95) — **Changed:** icon SVGs are committed and no longer fetched
+  from Iconify at runtime in production.
+- `ca06a80` (#94) — **Changed:** Loupe documents must use stable IDs for
+  cross-references.
+- `eaa0d1c` (#92) — **Changed:** the worktree cwd rule reconciled, and the
+  dnsmasq certificate failure recorded.
+- `1b31251` (#91) — **Added:** ⌘⏎ submits a document review comment.
+- `78c284e` (#89) — **Changed:** the main session must never move into a
+  worktree.
+- `cc6eac6` (#88) — **Changed:** the site-review feedback on the app shell, the
+  widget and the pages addressed.
+- `ac016f5` (#87) — **Changed:** `/api` is deny-by-default, widget agent
+  forwarding is opt-in, and review rendering is per-version.
+- `0bff96c` (#86) — **Changed:** `docs/NEXT_STEPS.md` is committed instead of
+  gitignored.
+- `34f10c0` (#85) — **Added:** the messenger worker enabled in infrastructure,
+  with the app's environment wired to it.
+- `0af639e` (#84) — **Removed:** the site-review `Review` entity; comments carry
+  their own draft state.
+- `04d9896` (#82) — **Added:** the wave-2 conventions in `CLAUDE.md` and the
+  skills.
+- `e8e0cf5` (#81) — **Changed:** every value in `app.css` put on the Tailwind
+  scale.
+- `865f5e3` (#80) — **Changed:** controllers renamed to the action verbs the
+  convention requires.
+- `3214b66` (#79) — **Added:** pagination on the projects and documents lists.
+- `db995b0` (#78) — **Changed:** the Review templates namespaced and the Twig
+  components relocated.
+- `c139963` (#76) — **Changed:** arbitrary CSS values converted, and the
+  site-review class names spelled out.
+- `a20f5e6` (#73) — **Changed:** current-user narrowing enforced explicitly,
+  since `assert()` drops it in production.
+- `4208782` (#75) — **Fixed:** emailed link hosts pinned, the install wizard
+  gated, and the revision race closed.
+- `cbec5e5` (#77) — **Added:** site-review events persisted in a transactional
+  outbox.
+- `0cab887` (#74) — **Changed:** `symfony/mcp-bundle` upgraded to 0.12 and the
+  custom endpoint controller retired.
+- `ec1d88f` (#72) — **Added:** the audit-remediation wave's conventions.
+- `d95854e` (#71) — **Changed:** the waitlist full-loop e2e spec split into
+  named behaviours.
+- `17363e6` (#69) — **Changed:** domain input bound through forms, and the
+  command and messenger handlers thinned out.
+- `2a846fd` (#66) — **Changed:** token revocation routed through a handler, with
+  the CSRF and redirect drift fixed.
+- `06bc59c` (#68) — **Changed:** per-module data purgers, and Stripe
+  cancellation made retryable.
+- `c5879eb` (#65) — **Fixed:** hot read paths no longer scale with history size
+  and row count.
+- `1242f50` (#67) — **Fixed:** a cancelled subscription keeps access through the
+  paid-through date, and the sweep is indexed.
+- `3e152b7` (#62) — **Fixed:** resolved threads no longer resurrect their
+  replies.
+- `6c3a8bf` (#64) — **Fixed:** the bridge CLI no longer injects
+  reviewer-controlled text into the agent prompt.
+- `32bbf62` (#70) — **Fixed:** the `cs` gate reports honestly inside worktrees,
+  and phpstan is warmed.
+- `72762b3` (#63) — **Changed:** Symfony upgraded to 8.1, clearing the
+  dependency advisories.
+- `0c9c210` (#61) — **Removed:** stale Codex model names from the pre-PR gate.
+- `6f9f243` (#60) — **Added:** the `loupe-documents` skill, covering the
+  formatting rules for the review UI.
+- `c766259` (#59) — **Added:** the post-trial lifecycle — ended trials are
+  disabled, their cap spots freed, and survey emails sent.
+- `f16f45e` (#49) — **Fixed:** `list_documents` wraps its result in a
+  `documents` object key.
+- `5e7d9aa` (#58) — **Changed:** tracker entries may not carry ephemeral
+  identifiers.
+- `5813dc1` (#57) — **Added:** a Status field on tracker entries.
+- `7c07e60` (#56) — **Added:** a priority ordering rule for the tracker.
+- `c4253bd` (#55) — **Added:** the `project-next-steps` skill, defining the
+  tracker entry format.
+- `dd134ba` (#54) — **Added:** opt-in ngrok tunnel ingress for the dev app.
+- `1c172ef` (#53) — **Added:** a first-install wizard.
+- `708e35a` (#52) — **Fixed:** the worktree tooling gaps found in the
+  nine-feature-wave retro.
+- `d3e9bd7` (#51) — **Added:** the nine-feature-wave retro learnings, spread
+  across the skills.
+- `3451da3` (#50) — **Fixed:** transactional email sends from `hello@loupe.ac`.
+- `2136340` (#47) — **Added:** self-service account deletion, confirmed by
+  email.
+- `7641503` (#45) — **Added:** a registration cap with a waitlist behind it.
+- `1528356` (#46) — **Added:** a project can be deleted.
+- `50db7d2` (#44) — **Added:** the paid plan — a Stripe trial, then a paywall.
+- `64dd9d8` (#43) — **Added:** a first-run wizard.
+- `395df8e` (#41) — **Added:** GitHub and Google social login, behind feature
+  flags.
+- `d6bf02d` (#42) — **Changed:** admin-bundle re-pinned to `main`, with
+  `#[\Override]` style fixes.
+- `3d8bb00` (#40) — **Added:** an asynchronous "download my data" export.
+- `25a03e8` (#39) — **Fixed:** dev tooling for multi-worktree development —
+  opcache and lint scope.
+- `18b2ea3` (#38) — **Added:** an admin area and feature flags.
+- `1e87f0a` (#37) — **Fixed:** rendered documents no longer truncate at the
+  sanitizer's 20 KB default.
+- `c183b8b` (#36) — **Fixed:** truncated `just` descriptions, and the e2e
+  `node_modules` symlink ignored.
+- `de09ec4` (#35) — **Added:** the `project-worktrees` skill.
+- `f8a980a` (#34) — **Added:** every worktree gets its own URL and database.
+- `36afb56` (#32) — **Added:** a project's name and domain can be edited.
+- `bc9fa70` (#33) — **Fixed:** login throttling relaxed in dev and test, to stop
+  the e2e auth flakes.
+- `7c9363d` (#31) — **Fixed:** the widget surfaces token errors instead of a
+  generic "try again".
+- `b7f8562` (#30) — **Added:** a `just secrets-scan` recipe.
+- `7921f67` (#29) — **Added:** a `just composer` recipe, used in the README.
+- `6c59e61` (#28) — **Changed:** dependencies updated, clearing eight security
+  advisories.
+- `38187be` (#26) — **Changed:** open-source readiness — licence, hardening and
+  repository hygiene.
+- `ecf3074` (#27) — **Changed:** updated from the skeleton at `9d91f89`.
+- `483a571` (#25) — **Added:** the `symfony/mercure-bundle` recipe artifacts
+  committed.
+- `9f54ddc` (#24) — **Changed:** Better Plans renamed to Loupe in the
+  `project-templates` skill.
+- `ab13ded` (#23) — **Changed:** the application renamed from Better Plans to
+  Loupe.
+- `bad9e9e` (#22) — **Added:** the API and page-title conventions from
+  `AUTOMATIONS.md` enforced.
+- `9752117` (#21) — **Fixed:** the Connect page's `claude mcp add` syntax, with
+  an embedded token, a regenerate action and a parameterised name.
+- `01d8012` (#20) — **Added:** the Connect agent page. **Removed:** the
+  API-tokens page it replaces.
+- `a14495b` (#19) — **Added:** the document review and site review screens.
+- `2562927` (#18) — **Added:** the app shell and the Projects and Documents
+  screens.
+- `24ac3bf` (#17) — **Changed:** Site renamed to Project, the MCP bound to a
+  project, and the URL space moved to `/projects`.
+- `9b1693e` (#16) — **Changed:** site review rebuilt from ephemeral batches to a
+  persistent per-site model — a `Site` entity, site-bound widget tokens, a
+  server-backed widget, per-site Mercure topics, and `get_site_review` /
+  `address_site_review_comments` replacing the batch fetch (a breaking MCP
+  change).
+- `4e7b5b0` (#15) — **Added:** the site-review bridge, piping a submitted review
+  into a local Claude Code session.
+- `a5581af` (#14) — **Changed:** the site-review widget redesigned, visually and
+  in its interaction.
+- `968a9e0` (#13) — **Changed:** site-review widget icons, pins, shortcuts and
+  feedback improved.
+- `b72adc8` (#12) — **Changed:** gamache bumped to the hardened deny-access
+  rule.
+- `7f6c1a8` (#11) — **Fixed:** a batch of site-review feedback across review,
+  site review and account.
+- `85366f9` (#10) — **Changed:** the SaaS visual redesign — a collapsible
+  sidebar and a coherent set of primitives.
+- `f9d417a` (#9) — **Added:** review comments can be replied to and resolved
+  through forms and Turbo Streams, with the anchor quote shown.
+- `47e72b3` (#8) — **Fixed:** Turbo prefetch disabled on the logout link.
+- `225f5b4` (#7) — **Added:** the annotation widget embedded on the app itself,
+  for dogfooding.
+- `c3bd63e` (#6) — **Added:** human-facing site-review batch list and detail
+  pages.
+- `5ad6f74` (#5) — **Added:** an embeddable annotation widget and scoped API
+  tokens.
+- `23bcb25` (#4) — **Fixed:** anchor context kept UTF-8-safe, which was crashing
+  revisions.
+- `b06b44d` (#3) — **Changed:** the skeleton sync point recorded for the gamache
+  bump.
+- `d1ffc2e` (#2) — **Changed:** `ubermuda/gamache` bumped for the
+  third-party-arguments exemption.
+- `a0d60dc` (#1) — **Added:** the agent document review MCP service — the first
+  feature of the app.
+- `2cc07e0` — **Added:** the application bootstrapped from `symfony-skeleton`,
+  with the MCP and Markdown dependencies. **Every entry below this line belongs
+  to the skeleton's own history**, not this app's, and predates the
+  one-entry-per-PR rule above.
 
-- `6c86e81` — **Added:** an archive reason on documents, mandatory through MCP
-  and optional everywhere else. `document_archive` now declares `reason`
-  alongside `documentId` and both are required; `ArchiveDocumentCommand` takes
-  `?string $reason = null`, so the app's archive button keeps passing nothing.
-  The asymmetry is the point: a person archiving from the list is standing in
-  front of the document they just read, while an agent leaves nothing behind
-  unless the schema makes it. There is deliberately **no UI for setting** one —
-  no form field, no admin screen — so every document archived from the app has a
-  null reason. Both read surfaces treat that as the ordinary case and render
-  nothing at all: no empty label, no placeholder, no dash, because absence must
-  not look like a defect. Re-archiving an already-archived document still
-  changes nothing, now including its reason, and unarchiving clears the reason
-  along with the timestamp so a live document never carries a stale "archived
-  because superseded" — which makes restore-then-archive the way to restate one.
-  `document_unarchive` takes no reason parameter for the same reason. On the read
-  side, `document_get` reports `archiveReason` as a top-level key that is always
-  present and null when unset (a key that comes and goes cannot be told from a
-  missing field), the documents list shows the reason under an archived row, and
-  the reference chips on the review page show it beside an archived target;
-  `document_list` is untouched. The column is `TEXT`, matching
-  `DocumentVersion::$description` — a reason arrives from an agent and is not
-  length-bounded, and both templates clamp it to two lines rather than trusting
-  it to be short. `/dev/seed/document` gains an optional `archiveReason` so the
-  Playwright suite can exercise the display at all: MCP is the only way to set
-  one and a browser cannot call it. That endpoint is `#[When('dev')]` and is a
-  test fixture, not a second way to state a reason.
-
-- `633a6d7` — **Added:** `document_set_references` MCP tool, which replaces the
-  set of documents a document points at without minting a version. References
-  are document-scoped — a ManyToMany over `document_references`, with no version
-  coupling — but the only way to write them was `document_create` and
-  `document_revise`, and revising mints a version, re-anchors open comments and
-  drops every highlight. That was a disproportionate price for linking two
-  documents that already exist, and it left references as the odd one out beside
-  `document_rename` and `document_set_tags`, which both mutate document-level
-  metadata without versioning. Semantics mirror `document_set_tags`: the whole
-  set is replaced and an empty list clears it. Authorization goes through
-  `ReviewSubjectResolver::requireReferences()` — `DOCUMENT_WRITE` on the source,
-  only `DOCUMENT_READ` on each target, because pointing at a document is not a
-  write to it, though the grant is still what keeps a reference inside the
-  token's project. Reference writing had no command+handler pair of its own (it
-  lived inline in `CreateDocumentHandler` and `ReviseDocumentHandler`), so
-  `SetDocumentReferencesHandler` reuses the shared `DocumentReferenceValidator`
-  and validates before clearing the collection, leaving a rejected set with the
-  document pointing where it did. The `references` parameter is declared
-  `array<string>` rather than `list<string>`, which the SDK publishes as an
-  untyped `items: {}`. The `docs/NEXT_STEPS.md` entry recording the gap is
-  deleted in the same commit; `a515c62` rewrites the cross-reference that
-  pointed at it.
-- `afebc8e` — **Added:** `document_archive` and `document_unarchive` MCP tools.
-  Archiving had been kept out of the MCP surface on purpose — it decides which
-  documents a reviewer sees by default, so an agent that can archive can take
-  its own work out of the list it is being reviewed in. That decision was
-  reversed, and the `docs/NEXT_STEPS.md` entry recording it is deleted in the
-  same commit. Both tools take a single `documentId`, return
-  `{documentId, archived}` read back off the entity, and guard with
-  `McpBoundProjectVoter::DOCUMENT_WRITE` through `ReviewSubjectResolver` exactly
-  as `document_rename` does. Neither mints a version: archive state is metadata,
-  like a title or a tag. Both are idempotent — re-archiving preserves the
-  original timestamp, unarchiving an unarchived document is a no-op. The
-  Connect page's tool list is a curated highlight reel, not a manifest, so it is
-  unchanged (it omits `document_rename` and `document_set_tags` too).
-- `83a3e5e` (the `feat/review-decision-controls` branch; exhaustive list via
-  `git log c00bba0..fbb670f`) — **Added:** reviewer-selectable decision controls.
-  An author wraps a flat list in an HTML-comment fence
-  (`<!-- decision: some-id -->` … `<!-- /decision -->`) and the reviewer gets
-  clickable options instead of having to write "option 2" in a comment; the
-  choice persists in `decision_selections`, survives revisions (keyed to the
-  document and decision id, never to a version or the quoted text) and is
-  reported through `document_get_review`. HTML comments were chosen as the fence
-  so a document read outside Loupe still shows the plain list it already is.
-  Three behaviours are deliberate: answering from a page revised underneath you
-  is **refused** rather than resolved against the newer version, because
-  resolving would record an answer the reviewer never gave; a failed save
-  restores the control from the database, which costs any live comment highlight
-  anchored inside that block until reload, rather than letting the browser be
-  the authority on what is stored; and selecting an option does **not** resolve
-  an attached comment thread, since choosing and acting are different events.
-  `loupe-documents` gains rule 11 for the syntax.
-- `f7e32df` (the `feat/review-front-matter-and-comments` branch; exhaustive list
-  via `git log 39aa6a3..83f5103`) — **Added:** YAML front matter renders as a
-  table (dates as dates, not Unix timestamps) and standalone HTML comments render
-  as visible annotations rather than vanishing. **Changed:**
-  `app:review:rerender-versions` now **refuses** to run when the re-render would
-  leave any comment unable to resolve, reporting the count and writing nothing,
-  unless `--accept-comment-orphaning` is passed — a re-render moves
-  `plainText()`, which is the basis comment anchors resolve against, and the
-  previous behaviour stranded comments while leaving them marked healthy. A
-  comment inside a block-level raw HTML region is still dropped; the obvious fix
-  is unsafe (markers would land inside attribute values) and is tracked instead.
-- `39aa6a3` (the `feat/review-version-diff` branch; exhaustive list via
-  `git log aa47989..9c8f2ca`) — **Added:** a word-level diff between two document
-  versions, on its own route and controller, bounded by both a line cap and a
-  word-work cap (either alone lets a pathological shape through) and refusing
-  oversized input rather than hanging. The contents panel and all comment
-  anchoring are suppressed in diff mode: the diff pane shows Markdown source, so
-  heading targets do not exist and anchoring cannot apply.
-- `aa47989` (the `fix/flaky-search-debounce-spec` branch; exhaustive list via
-  `git log 0d8e47e..8485000`) — **Fixed:** the documents-search e2e spec waited a
-  fixed 600 ms against a 300 ms debounce, leaving ~300 ms for a full dev-mode
-  round trip. Measured, the gap is 476–573 ms idle and over a second under load.
-  It now waits on the search visit having actually landed. The old form was worse
-  than flaky: when the sleep elapsed *before* the visit, the input was never
-  replaced and the assertion proved nothing.
-- `0d8e47e` (the `fix/site-review-get-existence-oracle` branch; exhaustive list
-  via `git log 4d6ce01..5be4b4a`) — **Fixed:** `site_review_get` answered a
-  missing site and an inaccessible one with different messages, telling a caller
-  which site names exist. Both now return one message, matching
-  `ReviewSubjectResolver`. An unbound token still reports distinctly, on purpose
-  — that is a fact about the caller's own credential, not an oracle.
-- `6b3f55f` (the `feat/document-search` branch; exhaustive list via
-  `git log 2d251f4..eabd5e9`) — **Added:** Postgres full-text search over
-  documents with a filter bar on the list; title outranks body, and results stay
-  linkable through the address bar. **Changed:** three hand-rolled Doctrine
-  classes replaced by `martin-georgiev/postgresql-for-doctrine`, which composes
-  where ours baked the `english` configuration into emitted SQL — accepted cost:
-  the package caps at `php: <8.6`, so a PHP 8.6 upgrade waits on it.
-  **Fixed:** a focus bug where the debounced search replaced the page body
-  mid-typing, dropping keystrokes; and an N+1 in data export.
-- `c68224e` (the `feat/document-tags` branch; exhaustive list via
-  `git log f7773ef..b3426b3`) — **Added:** project-scoped tags on documents, with
-  `document_set_tags` and `tag_list` MCP tools and a normalisation rule that
-  collapses interior whitespace so `design  spec` and `design spec` cannot become
-  two rows. **Fixed:** tag names are validated before the document is
-  constructed, so a rejected name cannot leave a document scheduled in the unit
-  of work for someone else's flush.
-- `f7773ef` (the `fix/php-fpm-pool-limits` branch; exhaustive list via
-  `git log 2128c28..41dd499`) — **Fixed:** the dev php-fpm pool served every git
-  worktree plus all Playwright traffic at `pm.max_children = 20` and sat *at* that
-  ceiling during e2e runs. A request that gets no worker returns nothing — no
-  body, no fatal, nothing logged — which is the same signature as a cold cache
-  and was misdiagnosed as one for a day. Now 32, with a higher spawn floor; the
-  full suite went from ~8.5 minutes to ~3.6.
-- `36e3806` (the `feat/review-agent-highlights` branch; exhaustive list via
-  `git log c9ccac4..22e5e2e`) — **Added:** an agent can mark passages of a
-  document, rendered as a distinct highlight rung to draw the reviewer's
-  attention. Highlights belong to the version they were written for and do not
-  carry forward. The wavy underline is load-bearing rather than decorative: the
-  background tint is near-indistinguishable from a pending comment's under
-  tritanopia.
-- `c9ccac4` (the `feat/document-references` branch; exhaustive list via
-  `git log c06226c..55fadd5`) — **Added:** one document can reference another,
-  shown on both sides. **Fixed:** `nullable: false` on many-to-many join columns
-  is a no-op that Doctrine logs on every mapping read — roughly a thousand
-  serialized exceptions per run, invisible to `just ci`, and a hard error in
-  Doctrine 4.
-- `c06226c` (the `feature/strike-and-suggest` branch; exhaustive list via
-  `git log c5adc21..70d68c2`) — **Added:** strike and suggest as first-class
-  review actions, distinct from leaving a comment rather than replacements for
-  it. A strike is one gesture (`s` on a selection, no composer); guards cover
-  keyboard auto-repeat, double-tap and a selection that has gone stale.
-- `c5adc21` (the `feat/review-sanitizer-and-toc` branch; exhaustive list via
-  `git log bdbc23d..6932d2f`) — **Changed:** the Markdown sanitizer rewritten to
-  an explicit per-element allowlist, with `class` on `<code>` restricted to
-  `language-*` — an unrestricted `class` let document content select the app's
-  own stylesheet rules and paint a full-screen phishing overlay, which no
-  Content-Security-Policy would have prevented. **Added:** a table-of-contents
-  panel driven by heading ids, deriving labels from image `alt` text so an
-  illustrated heading is still navigable. Documents stored before this shipped
-  have no heading ids and so no contents panel; that is deliberate and tracked.
-- `1b7758f` … (the `feat/mcp-scoped-authz` branch, branched from `a825b59`;
-  exhaustive list via `git log a825b59..feat/mcp-scoped-authz`) — **Changed:** every
-  MCP tool renamed with a feature prefix, with no aliases and no deprecation
-  window (breaking MCP change): `create_document` → `document_create`,
-  `get_document` → `document_get`, `list_documents` → `document_list`,
-  `revise_document` → `document_revise`, `get_review` → `document_get_review`,
-  `get_site_review` → `site_review_get`, `address_site_review_comments` →
-  `site_review_mark_comment_addressed`. A connected agent sees its tool names
-  change on the next handshake; update any prompt, skill, or script that names
-  them. Also **Changed:** tool access is now scoped by `McpBoundProjectVoter`
-  (the token's bound project, not the user's ownership) applied through
-  `ReviewSubjectResolver`, and unrecognised failures are reported with a real
-  message instead of a bare `-32603`.
-- `6eb95f6` … `690bc04` (the `site-review-per-site` branch; exhaustive list via
-  `git log 4e7b5b0..690bc04`) — **Changed:** site review rebuilt from ephemeral
-  batches to a persistent per-site model: a `Site` entity with site-bound widget
-  tokens; comments save immediately into an in-progress `SiteReview` and an
-  explicit "Send the review" submits it (comment ladder
-  `pending → addressed → resolved`; the agent can only address, humans
-  resolve/reopen on the site page); the widget is server-backed (no more
-  localStorage batch); Mercure publishes per-site topics with per-site
-  stream-credential and sites-list endpoints; MCP tools `get_site_review` /
-  `address_site_review_comments` replace the batch fetch (breaking MCP change);
-  the bridge CLI binds to one site (`bridge run --site`, interactive picker
-  when omitted). Batch-era entities, endpoints, and data are dropped.
 - `7618557` — **Removed:** generic slash commands (`port-to-skeleton`,
   `pr-feedback`, `retro`) promoted out of the template to user-level
   `~/.claude/commands`, shared across all skeleton-derived projects rather than
