@@ -121,9 +121,13 @@ rector:
 # phpstan-symfony resolves getContainer()->get(X::class) through the dumped dev
 # container XML, so a missing or stale var/cache/dev makes it abort outright
 # ("Container ... does not exist") or silently degrade service types to ?object.
+#
+# The memory limit is explicit because the container's 128M default is not
+# enough here: analysis dies with exit code 255 and a DebugClassLoader stack
+# trace that reads like a real analysis error rather than exhaustion.
 phpstan:
     bin/worktrees/compose-exec.sh bin/console cache:warmup
-    vendor/bin/phpstan analyse -a worktree-bootstrap.php
+    vendor/bin/phpstan analyse -a worktree-bootstrap.php --memory-limit=1G
 
 arkitect:
     vendor/bin/phparkitect check

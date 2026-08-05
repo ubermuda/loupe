@@ -30,8 +30,12 @@ final readonly class DocumentHighlightTool
     }
 
     /**
-     * @param string       $documentId the id of the document to highlight, from document_list or document_create
-     * @param list<string> $quotes     verbatim passages to highlight, as they read in rendered prose; an empty list clears every highlight
+     * `string[]` not `list<string>`: the SDK infers a parameter's JSON-schema
+     * `items` from the docblock type and parses only the `T[]` and `array<T>`
+     * spellings, so `list<string>` publishes an array of anything.
+     *
+     * @param string   $documentId the id of the document to highlight, from document_list or document_create
+     * @param string[] $quotes     verbatim passages to highlight, as they read in rendered prose; an empty list clears every highlight
      *
      * @return array{highlighted: list<string>, skipped: list<array{quote: string, reason: string}>}
      */

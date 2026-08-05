@@ -5,14 +5,16 @@ declare(strict_types=1);
 namespace App\Module\Review\Service;
 
 /**
- * Derives a heading's human label from its rendered HTML.
+ * Derives a human-readable label from sanitized HTML.
  *
- * Shared by MarkdownRenderer, which slugs the label into the heading's id, and
- * HeadingExtractor, which shows it in the table of contents. They must agree:
- * a label the two derived differently would put one section's text on another
- * section's link.
+ * Shared by three callers that must agree. MarkdownRenderer slugs the label
+ * into a heading's id and HeadingExtractor shows it in the table of contents —
+ * a label those two derived differently would put one section's text on another
+ * section's link. DecisionBlockService uses it for decision-block option
+ * labels, which is what reaches the agent through document_get_review and what
+ * a stored answer is matched against.
  */
-final readonly class HeadingLabel
+final readonly class DisplayLabel
 {
     /**
      * An image contributes its `alt`, so `## ![Diagram](d.png)` is navigable
