@@ -1,5 +1,22 @@
 import { defineConfig, devices } from '@playwright/test';
 
+// No default, deliberately. The `install-reset` project truncates every table,
+// so the target is a destructive choice and guessing it wrongly costs a
+// database. This used to fall back to the dev host, which meant running
+// Playwright directly — a single spec, an IDE extension, `npx playwright test`
+// — silently wiped the development data while `just e2e` looked fine, because
+// only the recipe supplied the variable. Both recipes still do; anything else
+// now has to say where it is aiming.
+const baseURL = process.env.E2E_BASE_URL;
+
+if (!baseURL) {
+    throw new Error(
+        'E2E_BASE_URL is not set, so there is no target to run against.\n' +
+            'The suite truncates every table, so it will not pick one for you.\n' +
+            'Use `just e2e` (the dedicated e2e target), or set E2E_BASE_URL explicitly.',
+    );
+}
+
 export default defineConfig({
     globalSetup: './global-setup.ts',
     testDir: './tests',
@@ -14,7 +31,7 @@ export default defineConfig({
     retries: 0,
     reporter: [['html', { open: 'never' }]],
     use: {
-        baseURL: process.env.E2E_BASE_URL ?? 'https://loupe.dev.localhost',
+        baseURL,
         ignoreHTTPSErrors: true,
         trace: 'retain-on-failure',
         extraHTTPHeaders: {
