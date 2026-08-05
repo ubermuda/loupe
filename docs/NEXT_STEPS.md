@@ -1514,6 +1514,36 @@ document, and an agent should plausibly be able to *make* suggestions on a human
 edit. Neither needs building first, but the comment model should not make them
 awkward later.
 
+## `just e2e-down` makes the worker report a failure it did not have
+
+**Author:** Claude · **Type:** tooling · **Priority:** medium · **Status:** pending
+
+`e2e-worker` loops a consumer and uses a stop marker to tell a limit recycle
+(relaunch) from `e2e-down` tearing the target down (stop). The marker is
+consulted **only on a clean exit** — the non-zero branch exits 1 immediately
+with "consumer exited non-zero — stopping rather than looping on a failure",
+without ever looking at it.
+
+Observed 2026-08-05: a normal `just e2e-down` after a fully green suite ended
+the worker with exit code 1 and that message. Nothing was actually wrong — no
+consumer was left in the container afterwards
+(`docker exec loupe-php-fpm-1 sh -c "ps aux | grep -c '[m]essenger:consume'"`
+returned 0) — but the recipe reported a failure for a routine teardown.
+
+The comment in the recipe states the assumption that made this invisible:
+"Messenger stops gracefully on SIGTERM when pcntl is loaded, so the exit code
+cannot separate them." That is a claim about a *clean* exit. When `e2e-down`
+removes the compose project first, the `docker compose exec` itself can fail,
+and the consumer's database can go out from under it — either way the exit is
+non-zero and the marker is never read.
+
+The fix is to check the marker before deciding the non-zero exit is real, in
+both branches rather than one. Worth doing because the cost is not the wrong
+exit code but the wrong signal: a teardown that always prints "consumer exited
+non-zero" teaches a reader to ignore the one time it means something, and
+`just e2e` already depends on people trusting worker diagnostics — a missing
+consumer is documented as the cause of a ~19-spec failure block.
+
 ## Gamache check: `SelfContainedCommentsCheck` is cited everywhere and exists nowhere
 
 **Author:** Claude · **Type:** tooling · **Priority:** medium · **Status:** pending
@@ -2274,36 +2304,33 @@ consent", which replaces the pasted token entirely — but that still authorizes
 per directory unless the resulting credential is stored user-wide, so the scope
 question outlives the token question and should be answered on its own.
 
-## "Unreachable from MCP by design" describes a guard that is not the one in force
-
+## Ownership voters grant everything to an MCP request, and nothing says so at the voter
 
 **Author:** Claude · **Type:** security · **Priority:** medium · **Status:** pending
 
-`SiteReviewMarkCommentAddressedTool`'s class docblock says "The agent's only write:
-Pending → Addressed. Resolved is reserved for the human in the web UI and is
-unreachable from MCP by design." The property holds today, but not for the
-reason a reader would infer, and the gap matters the next time someone adds a
-tool.
+An MCP request authenticates **as the project owner**: `ApiTokenAuthenticator`
+builds its passport with
+`new UserBadge($token->owner->getUserIdentifier(), fn () => $token->owner)`.
+Every ownership-based voter in the app compares the subject's owner against the
+authenticated user — `SiteReviewCommentVoter`'s entire rule is
+`$subject->project->owner === $token->getUser()` — so **every one of them
+returns true for a tool call by construction**.
 
-An MCP request is authenticated **as the project owner**:
-`ApiTokenAuthenticator` builds its passport with
-`new UserBadge($token->owner->getUserIdentifier(), fn () => $token->owner)` and
-grants `[...$user->getRoles(), $scopeRole]`. `SiteReviewCommentVoter`'s entire
-rule is `$subject->project->owner === $token->getUser()`. So the voter **would
-grant** `site_review_comment.resolve` to an MCP-token request. It is not what
-stops it.
+Nothing is exploitable today: no tool calls a write path that is meant to be
+human-only, and `ApiTokenAuthenticator` is registered only on the `mcp` and
+`api` firewalls, so a Bearer token cannot reach the `main` firewall's routes at
+all. The docblock on `SiteReviewMarkCommentAddressedTool` used to credit the
+voter for this and now names the real guards instead.
 
-What actually stops it is two things the docblock does not mention: no MCP tool
-calls the resolve path, and `ApiTokenAuthenticator` is registered only on the
-`mcp` and `api` firewalls, so a Bearer token cannot authenticate against
-`/site-review/comments/{id}/resolve` on the `main` firewall at all — a route
-that additionally carries a session-backed `#[CsrfToken]`.
-
-The risk is a future tool that calls a voter and reads the result as a
-meaningful check. Every ownership-based voter in the app returns true for an
-MCP request by construction. Fix the comment to name the real guard, and
-consider whether ownership voters should be unreachable from tool context
-rather than merely unused there.
+What is still open is whether that should be made structural rather than
+incidental. A future tool that calls a voter and reads the result as a
+meaningful check would be wrong, and nothing at the voter would tell its author
+so. Options worth weighing: give ownership voters an explicit
+"deny when the token is a machine credential" clause; introduce a distinct
+role or attribute namespace for tool context so a tool cannot accidentally ask
+an ownership question; or leave it and rely on the firewall boundary, with the
+convention written into `project-authz` instead of the code. The first two cost
+indirection at every voter; the third keeps a real invariant only in prose.
 
 ## The actor model is unsettled — no audit trail, and an agent's writes look like the owner's
 
@@ -2635,27 +2662,36 @@ flags already have an admin UI and are already how other capabilities are
 gated. The open question is whether a per-project override fits that model or
 needs its own storage.
 
-## An MCP tool and the query it delegates to declare the same array shape twice
+## Gamache rule: a delegating MCP tool should not restate its query's array shape
 
 **Author:** Claude · **Type:** tooling · **Priority:** medium · **Status:** pending
 
-`DocumentGetTool` is a thin wrapper over `App\Module\Review\Query\GetDocument`,
-and both carry a full `@return array{...}` describing the same payload. Adding a
-key to the query alone leaves the two disagreeing, and nothing in the tool says
-the shape is written down twice.
+`DocumentGetTool` and `GetDocument` each carried a full `@return array{...}`
+for the same payload, so adding a key to the query alone left the two
+disagreeing. That pair is fixed — the query declares a `@phpstan-type
+DocumentPayload` alias and the tool imports it with `@phpstan-import-type` —
+but only that pair, by hand, and nothing stops the next tool from restating a
+shape again.
 
-Found on 2026-08-04 while adding `tags` and `referencedBy`: the query was updated
-and phpstan then reported four `offsetAccess.notFound` errors against the *tests*
-rather than against the tool, which reads as a broken test rather than a stale
-annotation. It is caught today only because the tests index every key.
+The failure mode is worth restating because it does not look like what it is.
+Found on 2026-08-04 while adding `tags` and `referencedBy`: the query was
+updated, and phpstan reported four `offsetAccess.notFound` errors against the
+*tests* rather than against the stale annotation on the tool — which reads as a
+broken test. It is caught at all only because the tests happen to index every
+key.
 
-Two ways out, and the second is the general one. The tool could declare
-`@return` by referring to the query's type rather than restating it (a
-`@phpstan-type` alias on the query, imported with `@phpstan-import-type`), which
-is a local fix. Or a gamache PHPStan rule could assert that a tool whose body is
-a single delegation declares the same shape as what it delegates to — the same
-family as the existing name-agreement rules, and it would cover every future
-tool/query pair rather than this one.
+What is still open is the general rule: a gamache PHPStan rule asserting that a
+tool whose body is a single delegation declares the same shape as what it
+delegates to. Same family as the existing name-agreement rules
+(`ControllerTemplateNameRule`, `MessengerHandlerNamespaceRule`). Gamache is an
+external package, so this is a pull request on
+https://github.com/ubermuda/gamache, not a class under `src/`.
+
+Worth noting for whoever writes it: changing a tool's `@return` is safe with
+respect to the published MCP schema, which is not obvious. The SDK builds
+`inputSchema` from `@param` docblock tags only, and emits an `outputSchema`
+solely when one is passed explicitly to `#[McpTool]` — verified in
+`vendor/mcp/sdk/src/Capability/Discovery/SchemaGenerator.php`.
 
 ## The system status page is one handler with a check method per concern
 
@@ -2768,24 +2804,6 @@ existing per-process split in prod is deliberate (`docker/prod/supervisord.conf`
 is the web container's CMD only, never a place to add background programs), so
 whatever runs several processes in the trial image must be scoped to that image
 and not leak back into the prod one.
-
-## `just phpunit` mangles a `--filter` containing an alternation
-
-**Author:** Claude · **Type:** tooling · **Priority:** low · **Status:** pending
-
-The recipe is `bin/worktrees/compose-exec.sh vendor/bin/phpunit {{args}}` with
-`{{args}}` unquoted, so a filter using PHPUnit's regex alternation is split by the
-shell: `just phpunit --filter A|B` pipes the phpunit run into a command named `B`
-and reports `sh: B: command not found`. Quoting at the call site does not help,
-because the recipe interpolates the value unquoted.
-
-The workaround is to bypass the recipe —
-`bin/worktrees/compose-exec.sh vendor/bin/phpunit '--filter=A|B'` — which is what
-every multi-class run in a session ends up doing once it hits this. Fixing it
-means quoting the interpolation in the recipe.
-
-Same shape as any other unquoted `{{args}}` in the justfile; worth checking the
-neighbours (`exec`, `composer`, `e2e`, `e2e-worker`) while in there.
 
 ## Rendered front matter and annotations have no accessible name
 
@@ -3199,25 +3217,6 @@ Related, and already fixed: Tailwind v4's automatic source detection scans
 every committed file, so documentation that merely *names* a class was
 compiling it into production CSS. `app.css` now carries
 `@source not "../../.claude"` and `@source not "../../docs"`.
-
-## `tag_input_controller.js` is a dead Stimulus controller shipped eagerly
-
-
-**Author:** Claude · **Type:** tooling · **Priority:** low · **Status:** pending
-
-`assets/controllers/tag_input_controller.js` has no template consumer anywhere —
-it was built for an admin feature-flags form that no longer uses it — and it is
-marked `/* stimulusFetch: 'eager' */`, so it is in the main bundle for every
-page load regardless. Now that documents carry tags, a future session will find
-it and reasonably assume it is the live tag input.
-
-Either delete it or make it the input for a real tag-editing form. Adopting it
-needs three fixes: it renders pills as `admin-badge admin-badge-neutral` rather
-than `.lp-tag`, its dropdown and remove buttons use raw `slate-*` utility strings
-instead of semantic classes, and it reads its vocabulary from a hardcoded
-`tag-input-data` DOM id rather than a Stimulus value, so two tag inputs cannot
-share a page. Related: 'Dead semantic classes accumulate in app.css with nothing
-to catch them'.
 
 ## Product idea (long horizon): drag DOM elements in the widget to try layouts
 
