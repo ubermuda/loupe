@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Module\Account\Command;
 
+use App\Module\Account\Entity\User;
 use Doctrine\DBAL\Connection;
 use Doctrine\DBAL\Types\Types;
 use Psr\Log\LoggerInterface;
@@ -81,6 +82,8 @@ final readonly class CheckSystemStatusHandler
 
     private const string FAILED_COUNT_SQL = 'SELECT COUNT(*) FROM messenger_messages WHERE queue_name = :failed'; // @translation-check-ignore
 
+    private const string AGENT_ACCOUNT_SQL = 'SELECT COUNT(*) FROM users WHERE id = :id'; // @translation-check-ignore
+
     public function __construct(
         private Connection $connection,
         private HttpClientInterface $httpClient,
@@ -121,6 +124,7 @@ final readonly class CheckSystemStatusHandler
             $this->checkWorker(),
             $this->checkFailedMessages(),
             $this->checkMercure(),
+            $this->checkAgentAccount(),
         ];
 
         // Stripe is only a requirement of an instance that turned billing on;
@@ -277,6 +281,29 @@ final readonly class CheckSystemStatusHandler
      * that exhausted their retries sit there indefinitely and no part of the UI
      * mentions them.
      */
+    /**
+     * Every comment an agent writes over MCP is authored by one singleton user
+     * row, so without it the first agent reply fails inside a write — far from
+     * the cause, and only for the operator who happens to be using the MCP.
+     * Cheap to check and impossible to infer from anything else on this page.
+     */
+    private function checkAgentAccount(): SystemCheck
+    {
+        try {
+            $present = (int) $this->connection->fetchOne(self::AGENT_ACCOUNT_SQL, ['id' => User::AGENT_ID]);
+        } catch (\Throwable $e) {
+            $this->logger->warning('account.system_status.agent_account_unreadable', ['exception' => $e]);
+
+            return new SystemCheck('agent_account', SystemCheckState::Unknown, 'account.system_status.agent_account.unreadable');
+        }
+
+        if (0 === $present) {
+            return new SystemCheck('agent_account', SystemCheckState::Failed, 'account.system_status.agent_account.missing');
+        }
+
+        return new SystemCheck('agent_account', SystemCheckState::Ok, 'account.system_status.agent_account.present');
+    }
+
     private function checkFailedMessages(): SystemCheck
     {
         try {

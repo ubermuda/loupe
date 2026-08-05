@@ -7,6 +7,7 @@ namespace App\Module\Account\Command;
 use App\Exception\DomainErrors;
 use App\Module\Account\Entity\User;
 use App\Module\Account\Repository\UserRepository;
+use App\Module\Account\Service\AgentAccountInstaller;
 use App\Module\Account\Service\DisplayNameDeriver;
 use Doctrine\ORM\EntityManagerInterface;
 use Psr\Log\LoggerInterface;
@@ -38,6 +39,16 @@ final readonly class CreateAdminUserHandler
     public function __invoke(CreateAdminUserCommand $command): CreateAdminUserResult
     {
         $email = strtolower($command->email);
+
+        // Before the existing-user branch below, not after the create: this
+        // command is the documented repair for an instance whose /install is
+        // unreachable — which is every production one until INSTALL_TOKEN is
+        // set, since the guard fails closed. An operator re-running it to fix a
+        // missing agent row usually supplies an email that already exists, and
+        // that path returns early; installing only alongside a *new* admin would
+        // make the documented recovery unable to perform the repair it is for.
+        // Idempotent, so running it on every invocation costs nothing.
+        AgentAccountInstaller::install($this->em->getConnection());
 
         $existing = $this->users->findOneByEmail($email);
         if (null !== $existing) {

@@ -49,6 +49,49 @@ final class CreateAdminUserHandlerTest extends KernelTestCase
         self::assertQueuedEmailCount(0);
     }
 
+    private function countAgentRows(): int
+    {
+        return (int) $this->em->getConnection()->fetchOne(
+            'SELECT COUNT(*) FROM users WHERE id = :id',
+            ['id' => User::AGENT_ID],
+        );
+    }
+
+    public function test_it_restores_a_missing_agent_account(): void
+    {
+        $this->em->getConnection()->delete('users', ['id' => User::AGENT_ID]);
+
+        ($this->handler)(new CreateAdminUserCommand(
+            email: 'agentrepair@example.com',
+            plainPassword: 'SecurePassword1!',
+        ));
+
+        self::assertSame(1, $this->countAgentRows());
+    }
+
+    public function test_it_restores_a_missing_agent_account_for_an_existing_administrator(): void
+    {
+        // The repair case that matters: an operator re-running this command to
+        // fix a missing agent row supplies the email they already registered
+        // with, which takes the early existing-user return. Installing only
+        // alongside a new admin would make the documented recovery unable to
+        // perform the repair it exists for.
+        ($this->handler)(new CreateAdminUserCommand(
+            email: 'agentrepair2@example.com',
+            plainPassword: 'SecurePassword1!',
+        ));
+        $this->em->getConnection()->delete('users', ['id' => User::AGENT_ID]);
+        self::assertSame(0, $this->countAgentRows());
+
+        $result = ($this->handler)(new CreateAdminUserCommand(
+            email: 'agentrepair2@example.com',
+            plainPassword: 'SecurePassword1!',
+        ));
+
+        self::assertFalse($result->created);
+        self::assertSame(1, $this->countAgentRows());
+    }
+
     public function test_an_omitted_full_name_is_derived_from_the_email(): void
     {
         $result = ($this->handler)(new CreateAdminUserCommand(
