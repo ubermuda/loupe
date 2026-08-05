@@ -46,8 +46,9 @@ final class RegisterAndVerifyController extends AppController
         }
 
         // The browser fills this field on the real form; a caller that skips it
-        // gets the same value the registration page would have suggested.
-        $fullName = $request->request->getString('fullName');
+        // gets the same value the registration page would have suggested. The
+        // truncation matches users.full_name, which no form guards here.
+        $fullName = mb_substr($request->request->getString('fullName'), 0, 150);
         if ('' === $fullName) {
             $fullName = $this->displayNameDeriver->derive($email);
         }

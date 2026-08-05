@@ -53,8 +53,11 @@ function upperFirst(value) {
  *     <input data-display-name-suggestion-target="email"
  *            data-action="input->display-name-suggestion#suggest">
  *     <input data-display-name-suggestion-target="displayName"
- *            data-action="input->display-name-suggestion#recordEdit">
+ *            data-action="input->display-name-suggestion#recordEdit change->display-name-suggestion#recordEdit">
  *   </form>
+ *
+ * The `change` action is what catches a password manager that assigns .value
+ * and dispatches no input event.
  */
 export default class extends Controller {
     static targets = ['email', 'displayName'];
@@ -76,6 +79,12 @@ export default class extends Controller {
     }
 
     recordEdit() {
+        // Stimulus target getters throw when the element is absent, and connect()
+        // runs on any form that declares the controller.
+        if (!this.hasDisplayNameTarget) {
+            return;
+        }
+
         this.editedByHand = this.displayNameTarget.value !== '';
     }
 }

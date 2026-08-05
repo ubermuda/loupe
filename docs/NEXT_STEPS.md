@@ -3802,3 +3802,24 @@ Nothing in the repository greps for the path, so renaming the file is safe;
 the only known citation is inside a Loupe implementation plan, which would
 need updating in the same pass. Low priority — it misleads a reader searching
 for "nine features" and nothing more.
+
+## The display-name maximum length of 150 is written out in ten places
+
+**Author:** Geoffrey · **Type:** tooling · **Priority:** low · **Status:** pending
+
+The `users.full_name` limit is encoded independently as `MAX_LENGTH` in
+`src/Module/Account/Service/DisplayNameDeriver.php` and in
+`assets/controllers/display_name_suggestion_controller.js`, as
+`MAX_FULL_NAME_LENGTH` in `App\Module\Account\Command\CreateAdminUserHandler`
+and `App\Module\Account\Command\ResolveSocialLoginHandler`, as
+`#[Assert\Length(max: 150)]` on `RegistrationRequest`, `InstallAdminRequest`
+and `ProfileRequest`, as `#[ORM\Column(length: 150)]` on
+`App\Module\Account\Entity\User`, as `left(..., 150)` in
+`migrations/Version20260804225237.php`, and as `mb_substr(..., 0, 150)` in
+`src/Module/Account/Controller/Dev/RegisterAndVerifyController.php`. Raising or
+lowering the limit means finding all ten, and the JS copy cannot read a PHP
+constant at all, so the two derivers can silently disagree on truncation.
+
+Consolidating touches the entity mapping, three form DTOs and the built asset
+pipeline, so it is a refactor rather than a fix — worth doing on its own branch,
+not folded into a change that happens to touch one of the ten.

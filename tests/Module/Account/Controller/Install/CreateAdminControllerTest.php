@@ -83,6 +83,22 @@ final class CreateAdminControllerTest extends WebTestCase
     // covered by review; the handler's own sequential second-call test guards
     // the thrown-error contract.
 
+    public function test_a_blank_display_name_is_a_validation_error(): void
+    {
+        $client = static::createClient();
+        $this->completeStepOne($client);
+        $client->request(\Symfony\Component\HttpFoundation\Request::METHOD_GET, '/install/admin');
+
+        $client->submitForm('Create admin account', [
+            'install_admin_form[email]' => 'nameless@example.com',
+            'install_admin_form[fullName]' => '',
+            'install_admin_form[plainPassword]' => 'a-strong-password',
+        ]);
+
+        self::assertResponseStatusCodeSame(422);
+        self::assertNull(self::getContainer()->get(UserRepository::class)->findOneByEmail('nameless@example.com'));
+    }
+
     public function test_post_without_marker_redirects_and_creates_nothing(): void
     {
         $client = static::createClient();

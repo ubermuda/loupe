@@ -65,3 +65,24 @@ test('a display name typed before the email is never overwritten', async ({
 
     await expect(page.getByLabel('Display name')).toHaveValue('Riley Chen');
 });
+
+test('a display name that came back on a rejected submission survives further email edits', async ({
+    page,
+}) => {
+    await page.goto('/register');
+
+    // Password and terms are left empty, so the submission is rejected and
+    // re-rendered with the display name still filled — no account is created.
+    await page.getByLabel('Email').fill('dirty.rerender@example.com');
+    await expect(page.getByLabel('Display name')).toHaveValue('Dirty Rerender');
+    await page.getByRole('button', { name: 'Create account' }).click();
+
+    await expect(page.locator('form ul li').first()).toBeVisible();
+    await expect(page.getByLabel('Display name')).toHaveValue('Dirty Rerender');
+
+    // Deriving from this address would yield 'Someone Else', so the assertion
+    // fails if the re-rendered field is not treated as hand-entered.
+    await page.getByLabel('Email').fill('someone.else@example.com');
+
+    await expect(page.getByLabel('Display name')).toHaveValue('Dirty Rerender');
+});

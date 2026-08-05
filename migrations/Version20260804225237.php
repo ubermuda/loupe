@@ -17,12 +17,20 @@ final class Version20260804225237 extends AbstractMigration
     public function up(Schema $schema): void
     {
         // Backfill first, or the constraint below fails on any account created
-        // while the column was nullable. initcap() capitalizes after every
-        // non-alphanumeric, so hyphenated names come out the same way the
-        // application derives them; left() keeps the result inside the column.
+        // while the column was nullable. A local part can derive to nothing, so
+        // the coalesce chain degrades the way the application does — derived
+        // name, else raw local part, else the whole address; a row left holding
+        // an empty name is invisible to this statement's own predicate forever.
+        // initcap() capitalizes after every non-alphanumeric and does not collapse
+        // repeated separators, so punctuation other than hyphens comes out
+        // differently here than in the application's runtime derivation.
         $this->addSql(<<<'SQL'
             UPDATE users
-            SET full_name = left(initcap(replace(replace(split_part(split_part(email, '@', 1), '+', 1), '.', ' '), '_', ' ')), 150)
+            SET full_name = left(coalesce(
+                nullif(btrim(initcap(replace(replace(split_part(split_part(email, '@', 1), '+', 1), '.', ' '), '_', ' '))), ''),
+                nullif(split_part(email, '@', 1), ''),
+                email
+            ), 150)
             WHERE full_name IS NULL
             SQL);
 
