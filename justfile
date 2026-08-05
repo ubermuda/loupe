@@ -207,9 +207,22 @@ minio-up bucket="loupe-exports":
     docker compose exec -T minio mc mb --ignore-existing "local/{{bucket}}" >/dev/null
     echo "minio: bucket '{{bucket}}' ready — console http://localhost:9001 (user $user)"
 
-# Stop MinIO. Add --volumes to also discard the bucket contents.
-minio-down *args:
-    docker compose --profile minio down minio "$@"
+# `stop` + `rm`, never `down`. `docker compose down minio` was observed
+# attempting to remove the shared `loupe_default` network — it only failed
+# because another container still held it. Same family as the bare-compose rule
+# in the project-worktrees skill: a `down` does not stay in its lane.
+# Stop and remove the MinIO container, keeping its stored objects.
+minio-down:
+    docker compose --profile minio stop minio
+    docker compose --profile minio rm -f minio
+
+# Stop MinIO and discard the bucket contents with it.
+minio-reset:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    just minio-down
+    project=$(grep -E '^COMPOSE_PROJECT_NAME=' .env | head -1 | cut -d= -f2-)
+    docker volume rm -f "${project:-loupe}_minio_data"
 
 # Provision the dedicated e2e target: a disposable database plus an nginx
 # sidecar serving THIS checkout at e2e.<project>.dev.localhost. Idempotent.
