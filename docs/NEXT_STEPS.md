@@ -2778,6 +2778,58 @@ approves the work' ran into.
 The read side matters as much as the write: the agent should be able to see what
 it asked for and what came back, or the next session starts by re-asking.
 
+## Decide which models and harnesses get a first-party Loupe plugin
+
+**Author:** Geoffrey · **Type:** tooling · **Priority:** medium · **Status:** pending
+
+Owner note (2026-08-05): Loupe should ship plugins for all the relevant models
+and harnesses, not just Claude Code.
+
+This is a scope question sitting on top of 'Package Loupe as a Claude Code
+plugin and list it in the agent directories', which covers the packaging
+mechanics and the directory listings. That entry's 2026-08-03 survey explicitly
+ruled some targets out — Droid, Amp, Devin Desktop and Cline have no
+third-party publishing path, Zed has no agent lifecycle hooks, Roo Code is
+archived, Windsurf/Codeium is gone — so the open question is whether "all
+relevant" means revisiting those (shipping a plugin people install by hand,
+without a marketplace behind it) or whether it means the set that survey kept:
+Claude Code, Copilot CLI, Cursor, OpenCode, Gemini CLI, Pi, Kiro.
+
+Answer that before building anything, because it decides how many packaging
+artefacts exist. The survey's finding was that one Claude-Code-shaped bundle is
+read by most harnesses directly, so the cost of "all relevant" may be much lower
+than it sounds — or much higher, if the ruled-out ones each need their own
+format.
+
+## Single-container install so people can try Loupe quickly
+
+**Author:** Geoffrey · **Type:** feature · **Priority:** medium · **Status:** pending
+
+Owner note (2026-08-05): there should be a single-container install for people
+who just want a quick try.
+
+Today the shortest path to a running instance is `compose.prod.yaml` — web,
+worker, Postgres and a Mercure hub, driven by a `compose.prod.env` the user has
+to fill in from `compose.prod.env.example`. That is the right shape for someone
+who has decided to self-host, and the wrong shape for someone deciding whether
+to bother: four services and a config file before the first screen.
+
+What a one-container image has to fold in, each of which is a real decision
+rather than a packaging detail: Postgres (embedded, or SQLite, or a bundled
+server in the same image), the messenger consumer (which mail, exports and the
+verification link all depend on — see the worker notes in `CLAUDE.md` for what
+breaks without one), the Mercure hub, and asset build output. Storage has to
+survive a container restart or the trial is worse than none, so a single
+declared volume is part of it.
+
+Constraints worth stating up front. It must not become a second production
+topology anyone is tempted to run for real — `compose.prod.yaml` and
+`terraform/` stay the supported paths, and this one should say so. And the
+existing per-process split in prod is deliberate (`docker/prod/supervisord.conf`
+is the web container's CMD only, never a place to add background programs), so
+whatever runs several processes in the trial image must be scoped to that image
+and not leak back into the prod one.
+
 ## `just phpunit` mangles a `--filter` containing an alternation
 
 **Author:** Claude · **Type:** tooling · **Priority:** low · **Status:** pending
