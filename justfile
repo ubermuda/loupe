@@ -316,10 +316,22 @@ e2e *args:
     # while the app returns 200 and `just ci` is green. Refusing up front costs
     # a second; discovering it from the failures costs ten minutes and usually
     # an investigation into the branch, which is not where the fault is.
-    if ! docker compose exec -T php-fpm sh -c "ps ax | grep -q '[m]essenger:consume'"; then
-        echo "e2e: no messenger consumer is running — run 'just e2e-worker' in another shell." >&2
+    #
+    # Matching the command line alone is not enough. `just worker` runs a
+    # consumer inside this same container against the DEV database, and it
+    # would satisfy a bare `messenger:consume` match while the e2e queue keeps
+    # filling up — a green preflight followed by exactly the failures it exists
+    # to prevent. The environment is what distinguishes them, so read it.
+    if ! docker compose exec -T php-fpm sh -c '
+        for p in /proc/[0-9]*; do
+            grep -qa "messenger:consume" "$p/cmdline" 2>/dev/null || continue
+            tr "\0" "\n" < "$p/environ" 2>/dev/null | grep -qx "WORKTREE_DB_SUFFIX=_e2e" && exit 0
+        done
+        exit 1'; then
+        echo "e2e: no messenger consumer for the e2e database — run 'just e2e-worker' in another shell." >&2
         echo "     Without one the authenticated fixture cannot verify its user, and roughly" >&2
         echo "     a third of the suite fails in ways that look like application bugs." >&2
+        echo "     A consumer for the dev database does not count: it drains a different queue." >&2
         exit 1
     fi
     cd e2e && npx playwright test {{args}}
