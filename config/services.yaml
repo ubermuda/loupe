@@ -31,15 +31,11 @@ parameters:
 
 services:
     # Session storage, wired by framework.yaml's session.handler_id. Explicit
-    # because the class is a vendor one and cannot carry our attributes.
-    #
-    # It takes DATABASE_URL as a URL rather than a DBAL connection — the handler
-    # opens its own PDO connection on purpose, so writing a session never joins
-    # whatever transaction the request already has open. Query parameters on the
-    # URL (serverVersion, charset) are ignored by its parser.
+    # because the class is a vendor one and cannot carry our attributes; the
+    # factory exists because DATABASE_URL alone names the wrong database under a
+    # worktree or PHPUnit (see PdoSessionHandlerFactory).
     Symfony\Component\HttpFoundation\Session\Storage\Handler\PdoSessionHandler:
-        arguments:
-            - '%env(DATABASE_URL)%'
+        factory: ['@App\Session\PdoSessionHandlerFactory', '__invoke']
 
     # default configuration for services in *this* file
     _defaults:
