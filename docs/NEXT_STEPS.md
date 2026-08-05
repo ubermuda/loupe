@@ -813,35 +813,6 @@ vector in the same change — a vector stemmed as English and a query parsed as
 French do not meet. The migration that introduced the column
 (`Version20260803015620`) has the backfill statement to copy.
 
-## The documents filter bar reloads the page, which probably drops focus mid-typing
-
-
-**Author:** Claude · **Type:** bug · **Priority:** medium · **Status:** pending
-
-The search box in `templates/Module/Review/list_documents.html.twig` wires
-`input->autosearch#search` on a plain GET form with no `data-turbo-frame`, so the
-300ms debounce fires a Turbo Drive **page visit**. Turbo replaces `document.body`
-on render, so the focused input is destroyed and focus falls back to the body —
-Turbo only restores focus to an `[autofocus]` element. A reader still typing when
-the debounce fires should therefore lose the rest of their keystrokes.
-
-**Unverified in a browser.** The reasoning is from Turbo's render semantics and is
-high confidence, but an attempt to confirm it against a worktree failed for an
-unrelated reason: the stateless double-submit CSRF rejects a login driven through
-the Chrome extension. Confirm before fixing — with Playwright, which does log in
-successfully, asserting `document.activeElement` after the debounce.
-
-Two candidate fixes, both with a catch:
-
-- Conditional `autofocus` on the search input when a term is present. One line,
-  and Turbo re-focuses it after the visit. It also focuses the box on a cold load
-  of a shared search URL, which may or may not be wanted.
-- A `<turbo-frame>` around the results with the form **outside** it, which is why
-  `templates/Module/SiteReview/admin/list_site_review_outbox.html.twig` does not
-  have this problem. The catch here is layout: the page description and the
-  archived chip both change with the filters and are not contiguous with the
-  list, so a frame around the list alone leaves them stale.
-
 ## Site-review bridge CLI (`cli/`): polish before shipping
 
 
@@ -1418,98 +1389,33 @@ because **the app makes the call itself**, with a credential whose control the
 caller just proved, and fails closed on any ambiguity. "The agent was told in
 chat" has neither property.
 
-## Review renderer: front matter renders as prose, HTML comments render as nothing
+## Documents can be tagged and linked, but not grouped into a series
 
 
 **Author:** Geoffrey · **Type:** feature · **Priority:** medium · **Status:** pending
 
-A Markdown document that opens with a YAML front-matter block — the `---`
-fenced key/value header that Hugo, Jekyll, Astro and most static site
-generators put at the top of every source file — renders as garbage in the
-review UI. The opening `---` becomes a horizontal rule, the keys become a
-paragraph of `title: "…"` / `date: …` / `tags: […]` text, and the closing
-`---` becomes a second rule. The reviewer sees three lines of noise before the
-first real sentence, and can select and comment on them as if they were
-content.
+Two of the three organizing primitives now exist. Project-scoped tags ship with
+a `Tag` entity, a filter bar on the documents list, and `document_create` /
+`document_set_tags` over MCP; document-to-document references ship too, render
+on both sides, and are settable through `document_create`, `document_revise`
+and `document_set_references`.
 
-This surfaced on 2026-08-01 submitting blog drafts for review: the workaround
-was to strip the front matter by hand before calling `document_create`, which
-means the reviewed document no longer matches the file on disk. That is the
-actual cost — a revision cannot be pasted straight back, and anything the
-reviewer might want to say about the tags or the publish date has nowhere to
-land.
+What neither expresses is **membership of an ordered set**. Submitting a blog
+series on 2026-08-01 put seventeen related documents into one project — eleven
+posts, six companion threads — and the only way to say "thread 5 belongs to
+post 5, and both are the fifth item of one series" was to bake it into the
+titles by hand ("Post 5 — …", "Thread 5 — …"). That is a naming convention
+pretending to be a data model: nothing enforces it, nothing sorts on it, and it
+breaks the moment a title is wrong. A tag can say seventeen documents are
+related; it cannot say they are numbered one to eleven, nor that six of them
+are companions to the other eleven.
 
-**Decision needed** — what the renderer should do with a front-matter block:
-
-1. Parse it and render it as a small metadata panel above the document
-   (recommended: it is real content, and reviewers have opinions about titles
-   and tags).
-2. Parse it and hide it, keeping it in the stored source so a round-trip is
-   lossless.
-3. Detect it and strip it on ingest, which is the current manual workaround
-   moved server-side — simplest, but throws information away.
-
-Whichever is chosen, detection is the same: a leading `---` line, YAML up to
-the next `---`, and nothing before it. Note that a document may legitimately
-*begin* with a horizontal rule, so the parse must fail closed and treat an
-unterminated block as prose.
-
-HTML comments are the same bug with a worse failure mode, and belong in the
-same fix. `<!-- … -->` renders as *nothing* — the reviewer sees no gap, no
-placeholder, and cannot select or comment on it. Front matter at least looks
-wrong; a hidden comment looks like clean prose. This bit on the same day: two
-of the submitted blog drafts carry `<!-- TODO: link the skeleton repo here -->`
-markers, which are exactly the open questions their author most wants a
-decision on, and they are invisible in the review UI. Decide the same three
-ways — surface as a visible annotation, keep but hide, or strip on ingest —
-and prefer surfacing, since an author who wrote a comment into a document
-meant it for a reader.
-
-The two places this can live are `src/Module/Review/Mcp/DocumentCreateTool.php`
-(ingest — where stripping or extraction would happen once, at submission) and
-`src/Module/Review/Service/MarkdownRenderer.php` (render — where it would
-happen on every view, and where the anchor offsets that comments depend on are
-computed). Ingest is the better home for options 2 and 3; option 1 needs both,
-since the panel has to render somewhere. Whichever is picked, check the effect
-on comment anchor offsets before shipping — removing characters from the source
-after comments exist would shift every anchor in the document.
-
-## Documents have no organizing structure — tags, categories or something else
-
-
-**Author:** Geoffrey · **Type:** feature · **Priority:** medium · **Status:** pending
-
-A project's documents are a flat list ordered by creation. That is fine at five
-documents and stops working well before fifty. Submitting a blog series on
-2026-08-01 put seventeen related documents into one project — eleven posts, six
-companion threads — with nothing expressing that the threads belong to the
-posts, that both belong to one series, or that some are drafts and some are
-outlines. The only structure available was baking it into the titles by hand
-("Post 5 — …", "Thread 5 — …"), which is a naming convention pretending to be
-a data model: nothing enforces it, nothing can filter on it, and it breaks the
-moment a title is wrong.
-
-**Decision needed** — what the organizing primitive should be:
-
-1. Tags, many-to-many and free-form (recommended: cheapest to build, and
-   already partly built — a project-scoped `Tag` entity exists, the documents
-   list filters on it, and `document_create` accepts tag names — so this option
-   is mostly a question of whether tags alone are enough).
-2. Categories or folders, one-to-many and hierarchical — better for a series,
-   worse for documents that belong to several groupings at once.
-3. Both, as most document tools end up doing.
-
-Whichever is chosen, it needs to be settable from the MCP at `document_create`
-time, not only in the UI — the agent submitting the batch is the one that knows
-how the documents relate, and asking a human to tag seventeen documents
-afterwards means it does not happen.
-
-Document-to-document references cover the other half of the same problem and
-already exist: a document points at others through `document_references`, the
-links render on both documents, and `document_create`, `document_revise` and
-`document_set_references` all set them. What is still missing is grouping —
-references say two documents are related, not that seventeen of them are one
-series.
+Still open, then: whether grouping is a hierarchical primitive of its own
+(categories, folders, a `Series` entity with an ordinal), or whether ordering
+metadata on the existing reference edge is enough. Whichever it is, it must be
+settable from the MCP at `document_create` time — the agent submitting the
+batch is the one that knows how the documents relate, and asking a human to
+order seventeen documents afterwards means it does not happen.
 
 ## Edit a document in the app, not only through an agent
 
@@ -1607,6 +1513,39 @@ human's accepted rewording should be visible to the agent that wrote the
 document, and an agent should plausibly be able to *make* suggestions on a human
 edit. Neither needs building first, but the comment model should not make them
 awkward later.
+
+## Gamache check: `SelfContainedCommentsCheck` is cited everywhere and exists nowhere
+
+**Author:** Claude · **Type:** tooling · **Priority:** medium · **Status:** pending
+
+`CLAUDE.md` and the `project-comments` skill both stated that comments
+referencing ephemeral development artifacts — `Task 16`, `Phase 1`, `§3.5`,
+`handoff screen 8`, feature codenames like `F6` — are "enforced by
+`SelfContainedCommentsCheck` (runs in `just gamache`)". No such class exists.
+Checked all five gamache layers on 2026-08-05 (`src/Check/`, `src/PHPStan/`,
+`src/Rector/`, `src/PhpCsFixer/`, `src/TwigCsFixer/` in
+`vendor/ubermuda/gamache`): the string `SelfContained` appears nowhere in the
+package, and `gamache.php` wires eleven checks, none of them this one.
+
+The cost was measurable rather than theoretical: `ProjectDeleter`'s class
+docblock carried "Reused by delete-account (F6)" — exactly the shape the rule
+forbids — through every green `just ci` since it was written. It was found by
+grep, not by a gate, and fixed on the same branch as this entry. Both documents
+now say the rule is unenforced.
+
+Building it belongs in gamache's PHPStan layer, alongside the existing
+name-agreement rules, and gamache is an external package — so this is a pull
+request on https://github.com/ubermuda/gamache, not a class under `src/`. The
+matching is the hard part and is why it was not done inline: `Phase 1` and
+`Part 1` are common English, so a naive pattern would fire on prose like "part 1
+of the payload". Scope it to the shapes that are unambiguous — a bare `F<digits>`
+in parentheses, `§`, `Task <digits>`, `handoff`, and an ISO date paired with
+"decision" — and accept false negatives over false positives, since a check
+nobody trusts gets suppressed rather than fixed.
+
+Related: 'Gamache rule: catch skills that document tooling which no longer
+exists' — the same failure mode one level up, and this entry is a worked
+example of it.
 
 ## Gamache rule: an MCP tool class name must match its tool name
 
@@ -3036,19 +2975,6 @@ awkward there (you don't own `createToken()`), so weigh that when revisiting.
 All widget API failures render into the single `#lp-error` banner. Fine for a
 one-reviewer tool; if bulk operations ever appear, attach errors to the affected
 list row instead.
-
-## Widget-token mint flow still uses site-era CSRF id and translation keys
-
-
-
-
-**Author:** Claude · **Type:** tooling · **Priority:** low · **Status:** pending
-
-`MintProjectWidgetTokenController` keeps CSRF token id `mint-site-token` and
-the `site_review.site.token.*` translation-key family (template ↔ controller
-pairs are consistent). The Connect page now owns the token UI, so these can be
-renamed to `project.*` as a cosmetic follow-up (coordinated template + controller
-+ csrf.yaml + xlf change).
 
 ## Site-review widget overlaps the review console's pinned controls (dogfooding)
 
