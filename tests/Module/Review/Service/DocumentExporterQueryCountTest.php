@@ -74,7 +74,7 @@ final class DocumentExporterQueryCountTest extends KernelTestCase
      */
     private function ownerAcrossProjects(string $slug, int $projectCount): User
     {
-        $user = new User(username: $slug, fullName: 'U', email: $slug.'@example.com', password: 'hashed');
+        $user = new User(fullName: 'U', email: $slug.'@example.com', password: 'hashed');
         $this->em->persist($user);
 
         for ($i = 0; $i < $projectCount; ++$i) {
