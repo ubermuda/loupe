@@ -44,11 +44,10 @@ final class LinkSocialAccountHandlerTest extends KernelTestCase
 
     /**
      * @param non-empty-string $email
-     * @param non-empty-string $username
      */
-    private function persistPasswordUser(string $email, string $username, string $plainPassword): User
+    private function persistPasswordUser(string $email, string $plainPassword): User
     {
-        $user = new User(username: $username, fullName: 'U', email: $email, password: 'placeholder');
+        $user = new User(fullName: 'U', email: $email, password: 'placeholder');
         $user->password = $this->passwordHasher->hashPassword($user, $plainPassword);
         $this->em->persist($user);
 
@@ -57,7 +56,7 @@ final class LinkSocialAccountHandlerTest extends KernelTestCase
 
     public function test_linking_revokes_an_outstanding_verification_link(): void
     {
-        $user = $this->persistPasswordUser('link-pending@example.com', 'linkpending', 'correct horse');
+        $user = $this->persistPasswordUser('link-pending@example.com', 'correct horse');
         $user->generateEmailVerificationToken();
         $this->em->flush();
         // Guard: without this the assertion below passes on a user that never
@@ -82,7 +81,7 @@ final class LinkSocialAccountHandlerTest extends KernelTestCase
 
     public function test_an_unverified_provider_email_leaves_the_verification_link_alone(): void
     {
-        $user = $this->persistPasswordUser('link-unverified@example.com', 'linkunverified', 'correct horse');
+        $user = $this->persistPasswordUser('link-unverified@example.com', 'correct horse');
         $user->generateEmailVerificationToken();
         $this->em->flush();
 

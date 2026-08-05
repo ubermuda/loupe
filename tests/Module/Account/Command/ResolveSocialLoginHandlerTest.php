@@ -278,7 +278,7 @@ final class ResolveSocialLoginHandlerTest extends KernelTestCase
 
     public function test_linking_by_email_revokes_an_outstanding_verification_link(): void
     {
-        $existing = $this->persistUser('pending-link@example.com', 'pendinglink');
+        $existing = $this->persistUser('pending-link@example.com');
         $existing->generateEmailVerificationToken();
         $this->em->flush();
         // Guard: without this the assertion below passes on a user that never
