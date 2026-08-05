@@ -231,21 +231,22 @@ minio-down:
 minio-reset:
     #!/usr/bin/env bash
     set -euo pipefail
-    # Ask Compose which container it owns and read the volume off its mounts,
-    # before stopping it. Deriving `<project>_minio_data` from .env instead
-    # would miss a COMPOSE_PROJECT_NAME overridden in the environment and delete
-    # another project's objects.
-    cid=$(docker compose --profile minio ps -aq minio)
-    volume=""
-    if [ -n "$cid" ]; then
-        volume=$(docker inspect "$cid" --format '{{ "{{" }}range .Mounts{{ "}}" }}{{ "{{" }}if eq .Destination "/data"{{ "}}" }}{{ "{{" }}.Name{{ "}}" }}{{ "{{" }}end{{ "}}" }}{{ "{{" }}end{{ "}}" }}')
-    fi
+    # Find the volume by Compose's own labels, not by deriving
+    # `<project>_minio_data` from .env — that misses a COMPOSE_PROJECT_NAME
+    # overridden in the environment and would delete another project's objects.
+    # Labels rather than the container's mounts, because the container is gone
+    # once `minio-down` has run and the volume outlives it; reading mounts made
+    # `minio-reset` after `minio-down` a silent no-op.
+    project=$(docker compose config --format json | python3 -c 'import sys, json; print(json.load(sys.stdin)["name"])')
+    volume=$(docker volume ls -q \
+        --filter "label=com.docker.compose.project=$project" \
+        --filter 'label=com.docker.compose.volume=minio_data')
     just minio-down
     if [ -n "$volume" ]; then
         docker volume rm -f "$volume"
         echo "minio: removed volume $volume"
     else
-        echo "minio: no container found, so no volume to remove" >&2
+        echo "minio: no volume to remove" >&2
     fi
 
 # Provision the dedicated e2e target: a disposable database plus an nginx
