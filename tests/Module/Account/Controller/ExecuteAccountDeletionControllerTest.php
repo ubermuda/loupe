@@ -17,7 +17,7 @@ final class ExecuteAccountDeletionControllerTest extends WebTestCase
         $client = static::createClient();
         $client->disableReboot();
         $em = self::getContainer()->get(EntityManagerInterface::class);
-        $user = new User('del-exec', 'Del Exec', 'del-exec@example.com', 'hash');
+        $user = new User('Del Exec', 'del-exec@example.com', 'hash');
         $user->emailVerifiedAt = new \DateTimeImmutable();
         $em->persist($user);
         $token = $user->generateAccountDeletionToken();
@@ -50,7 +50,7 @@ final class ExecuteAccountDeletionControllerTest extends WebTestCase
         $hasher = self::getContainer()->get(UserPasswordHasherInterface::class);
         self::assertInstanceOf(UserPasswordHasherInterface::class, $hasher);
 
-        $user = new User('del-rm', 'Del RM', 'del-rm@example.com');
+        $user = new User('Del RM', 'del-rm@example.com');
         $user->password = $hasher->hashPassword($user, 'p4ssw0rd!');
         $user->emailVerifiedAt = new \DateTimeImmutable();
         $em->persist($user);

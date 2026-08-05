@@ -9,6 +9,7 @@ use App\Exception\DomainErrors;
 use App\Module\Account\Command\RegisterUserCommand;
 use App\Module\Account\Command\RegisterUserHandler;
 use App\Module\Account\Repository\UserRepository;
+use App\Module\Account\Service\DisplayNameDeriver;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\DependencyInjection\Attribute\When;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -31,25 +32,31 @@ final class RegisterAndVerifyController extends AppController
         private readonly RegisterUserHandler $registerUser,
         private readonly UserRepository $users,
         private readonly EntityManagerInterface $em,
+        private readonly DisplayNameDeriver $displayNameDeriver,
     ) {
     }
 
     public function __invoke(Request $request): JsonResponse
     {
-        $username = $request->request->getString('username');
-        $fullName = $request->request->getString('fullName', 'E2E Test User');
         $email = $request->request->getString('email');
         $password = $request->request->getString('password');
 
-        if ('' === $username || '' === $email || '' === $password) {
-            return $this->json(['error' => 'username, email, and password are required'], JsonResponse::HTTP_UNPROCESSABLE_ENTITY);
+        if ('' === $email || '' === $password) {
+            return $this->json(['error' => 'email and password are required'], JsonResponse::HTTP_UNPROCESSABLE_ENTITY);
+        }
+
+        // The browser fills this field on the real form; a caller that skips it
+        // gets the same value the registration page would have suggested. The
+        // truncation matches users.full_name, which no form guards here.
+        $fullName = mb_substr($request->request->getString('fullName'), 0, 150);
+        if ('' === $fullName) {
+            $fullName = $this->displayNameDeriver->derive($email);
         }
 
         try {
             $user = ($this->registerUser)(new RegisterUserCommand(
-                username: $username,
-                fullName: $fullName,
                 email: $email,
+                fullName: $fullName,
                 plainPassword: $password,
             ));
         } catch (DomainErrors $e) {

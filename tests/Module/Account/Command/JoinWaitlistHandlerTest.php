@@ -49,7 +49,7 @@ final class JoinWaitlistHandlerTest extends KernelTestCase
         $container = self::getContainer();
         $em = $container->get(EntityManagerInterface::class);
         self::assertInstanceOf(EntityManagerInterface::class, $em);
-        $user = new User(username: 'disabled-returning', fullName: 'Disabled Returning', email: 'disabled-returning@example.com', password: 'x');
+        $user = new User(fullName: 'Disabled Returning', email: 'disabled-returning@example.com', password: 'x');
         $user->disabledAt = new \DateTimeImmutable();
         $em->persist($user);
         $em->flush();
@@ -70,7 +70,7 @@ final class JoinWaitlistHandlerTest extends KernelTestCase
         $container = self::getContainer();
         $em = $container->get(EntityManagerInterface::class);
         self::assertInstanceOf(EntityManagerInterface::class, $em);
-        $em->persist(new User(username: 'already-registered', fullName: 'Already Registered', email: 'already-registered@example.com', password: 'x'));
+        $em->persist(new User(fullName: 'Already Registered', email: 'already-registered@example.com', password: 'x'));
         $em->flush();
 
         $handler = $container->get(JoinWaitlistHandler::class);
@@ -95,7 +95,7 @@ final class JoinWaitlistHandlerTest extends KernelTestCase
         $entry->markConverted();
         $em->persist($entry);
 
-        $user = new User(username: 'converted-disabled', fullName: 'Converted Disabled', email: 'converted-disabled@example.com', password: 'x');
+        $user = new User(fullName: 'Converted Disabled', email: 'converted-disabled@example.com', password: 'x');
         $user->disabledAt = new \DateTimeImmutable();
         $em->persist($user);
         $em->flush();
@@ -133,7 +133,7 @@ final class JoinWaitlistHandlerTest extends KernelTestCase
         $entry = new WaitlistEntry('converted-enabled@example.com');
         $entry->markConverted();
         $em->persist($entry);
-        $em->persist(new User(username: 'converted-enabled', fullName: 'Converted Enabled', email: 'converted-enabled@example.com', password: 'x'));
+        $em->persist(new User(fullName: 'Converted Enabled', email: 'converted-enabled@example.com', password: 'x'));
         $em->flush();
 
         $handler = $container->get(JoinWaitlistHandler::class);
@@ -158,7 +158,7 @@ final class JoinWaitlistHandlerTest extends KernelTestCase
 
         $originalCreatedAt = new \DateTimeImmutable('-30 days');
         $em->persist(new WaitlistEntry('pending-disabled@example.com', $originalCreatedAt));
-        $user = new User(username: 'pending-disabled', fullName: 'Pending Disabled', email: 'pending-disabled@example.com', password: 'x');
+        $user = new User(fullName: 'Pending Disabled', email: 'pending-disabled@example.com', password: 'x');
         $user->disabledAt = new \DateTimeImmutable();
         $em->persist($user);
         $em->flush();

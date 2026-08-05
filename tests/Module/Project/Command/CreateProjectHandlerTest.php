@@ -81,7 +81,7 @@ final class CreateProjectHandlerTest extends KernelTestCase
     /** @param non-empty-string $email */
     private function user(string $email): User
     {
-        $user = new User(username: $email, fullName: 'U', email: $email, password: 'x');
+        $user = new User(fullName: 'U', email: $email, password: 'x');
         $this->em->persist($user);
         $this->em->flush();
 

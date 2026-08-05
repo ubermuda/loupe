@@ -24,15 +24,9 @@ async function createVerifiedUser(
     page: Page,
     request: APIRequestContext,
     email: string,
-    username: string,
     password: string,
 ): Promise<void> {
-    await registerAndVerify(page, request, {
-        email,
-        username,
-        password,
-        name: 'Reset Test',
-    });
+    await registerAndVerify(page, request, { email, password });
 }
 
 test('requesting reset with unknown email succeeds silently', async ({
@@ -46,13 +40,7 @@ test('requesting reset with unknown email succeeds silently', async ({
 
 test('valid reset token allows password change', async ({ page, request }) => {
     const email = `test+reset+${RUN}@example.com`;
-    await createVerifiedUser(
-        page,
-        request,
-        email,
-        `resetuser${RUN}`,
-        'OldPassword1!',
-    );
+    await createVerifiedUser(page, request, email, 'OldPassword1!');
     await logout(page);
 
     // Request reset
@@ -104,13 +92,7 @@ test('used (already-consumed) token redirects to forgot-password with error', as
     request,
 }) => {
     const email = `test+usedtoken+${RUN}@example.com`;
-    await createVerifiedUser(
-        page,
-        request,
-        email,
-        `usedtoken${RUN}`,
-        'OldPassword1!',
-    );
+    await createVerifiedUser(page, request, email, 'OldPassword1!');
     await logout(page);
 
     // Request a reset link

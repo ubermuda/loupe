@@ -18,7 +18,7 @@ final class ReviewExporterTest extends TestCase
 {
     public function test_exports_flat_review_rows(): void
     {
-        $reviewer = new User('alice', 'Alice A', 'alice@example.com', 'x');
+        $reviewer = new User('Alice A', 'alice@example.com', 'x');
         $project = new Project($reviewer, 'My project');
         $document = new Document($reviewer, $project, 'My doc');
         $version = $document->addVersion('# v1', '<h1>v1</h1>');

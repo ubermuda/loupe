@@ -9,6 +9,7 @@ use App\Module\Account\Entity\User;
 use League\Flysystem\FilesystemException;
 use League\Flysystem\FilesystemOperator;
 use Symfony\Component\DependencyInjection\Attribute\AutowireIterator;
+use Symfony\Component\DependencyInjection\Attribute\Target;
 use Symfony\Component\Uid\Uuid;
 
 readonly class DataExportArchiveBuilder
@@ -17,6 +18,8 @@ readonly class DataExportArchiveBuilder
         /** @var iterable<UserDataExporterInterface> */
         #[AutowireIterator('app.user_data_exporter')]
         private iterable $exporters,
+
+        #[Target('export.storage')]
         private FilesystemOperator $exportStorage,
     ) {
     }

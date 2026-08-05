@@ -22,7 +22,7 @@ final class PaywallGateTest extends TestCase
 {
     private function user(): User
     {
-        return new User(username: 'gated', fullName: 'Gated User', email: 'gated@example.com', password: 'irrelevant');
+        return new User(fullName: 'Gated User', email: 'gated@example.com', password: 'irrelevant');
     }
 
     private function gate(bool $billingEnabled, BillingProfile $profile): PaywallGate

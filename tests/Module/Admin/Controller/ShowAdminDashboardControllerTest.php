@@ -94,7 +94,7 @@ final class ShowAdminDashboardControllerTest extends WebTestCase
     {
         $hasher = static::getContainer()->get(UserPasswordHasherInterface::class);
 
-        $user = new User(username: 'u'.bin2hex(random_bytes(4)), fullName: 'Test User', email: $email);
+        $user = new User(fullName: 'Test User', email: $email);
         $user->password = $hasher->hashPassword($user, 'TestPass123!');
         // Unverified users are bounced by RedirectUnverifiedUserListener, which
         // would turn the expected 200/403 into a redirect.

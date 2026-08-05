@@ -132,7 +132,7 @@
         <div class="lp-code-block mt-4" data-controller="clipboard" data-clipboard-text-value="{{ widgetSnippet }}"
              data-clipboard-copied-label-value="{{ 'project.connect.copied'|trans }}">
             <div class="lp-code-block__header">
-                <span class="lp-code-block__label">{{ 'site_review.site.token.snippet_heading'|trans }}</span>
+                <span class="lp-code-block__label">{{ 'project.token.snippet_heading'|trans }}</span>
                 <button type="button" class="lp-btn lp-btn--ghost lp-btn--sm" data-clipboard-target="button" data-action="clipboard#copy">{{ 'project.connect.copy'|trans }}</button>
             </div>
             <pre class="lp-pre"><code>{{ widgetSnippet }}</code></pre>
@@ -166,8 +166,8 @@
         {% else %}
         <p class="lp-connect-hint">{{ 'account.api_token.scope.site_review_warning'|trans }}</p>
         <form method="POST" action="{{ path('app_project_widget_token_mint', {id: project.id}) }}">
-            <input type="hidden" name="_csrf_token" value="{{ csrf_token('mint-site-token') }}">
-            <button type="submit" class="lp-btn lp-btn--primary">{{ 'site_review.site.token.mint'|trans }}</button>
+            <input type="hidden" name="_csrf_token" value="{{ csrf_token('mint-project-widget-token') }}">
+            <button type="submit" class="lp-btn lp-btn--primary">{{ 'project.token.mint'|trans }}</button>
         </form>
         {% endif %}
     </section>

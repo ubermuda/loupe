@@ -64,7 +64,7 @@ final class DeleteProjectHandlerTest extends KernelTestCase
         $handler = self::getContainer()->get(DeleteProjectHandler::class);
         self::assertInstanceOf(DeleteProjectHandler::class, $handler);
 
-        $owner = new User(username: 'delete-handler-owner', fullName: 'Owner', email: 'delete-handler-owner@example.test', password: 'irrelevant-hash');
+        $owner = new User(fullName: 'Owner', email: 'delete-handler-owner@example.test', password: 'irrelevant-hash');
         $em->persist($owner);
         $project = new Project(owner: $owner, name: $projectName);
         $em->persist($project);

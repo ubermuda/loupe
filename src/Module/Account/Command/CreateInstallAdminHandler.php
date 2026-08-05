@@ -45,7 +45,6 @@ final readonly class CreateInstallAdminHandler
             }
 
             $user = new User(
-                username: $command->username,
                 fullName: $command->fullName,
                 email: $command->email,
             );

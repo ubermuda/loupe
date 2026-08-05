@@ -28,7 +28,7 @@ final class CompleteWizardHandlerTest extends TestCase
 
     public function test_sets_timestamp_flushes_once_and_logs(): void
     {
-        $user = new User('wiz1', 'Wiz One', 'wiz1@example.com');
+        $user = new User('Wiz One', 'wiz1@example.com');
 
         $this->em->expects($this->once())->method('flush');
         $this->logger->expects($this->once())->method('info')
@@ -41,7 +41,7 @@ final class CompleteWizardHandlerTest extends TestCase
 
     public function test_second_call_is_a_no_op(): void
     {
-        $user = new User('wiz2', 'Wiz Two', 'wiz2@example.com');
+        $user = new User('Wiz Two', 'wiz2@example.com');
         $user->wizardCompletedAt = new \DateTimeImmutable('-1 hour');
         $first = $user->wizardCompletedAt;
 

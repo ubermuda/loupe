@@ -20,7 +20,7 @@ final class RequestAccountDeletionForgedHostTest extends WebTestCase
     {
         $client = static::createClient();
         $em = self::getContainer()->get(EntityManagerInterface::class);
-        $user = new User('del-forge', 'Del Forge', 'del-forge@example.com', 'hash');
+        $user = new User('Del Forge', 'del-forge@example.com', 'hash');
         $user->emailVerifiedAt = new \DateTimeImmutable();
         $em->persist($user);
         $em->flush();

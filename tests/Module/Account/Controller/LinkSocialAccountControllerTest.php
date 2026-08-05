@@ -181,7 +181,7 @@ final class LinkSocialAccountControllerTest extends WebTestCase
         $em = $container->get(EntityManagerInterface::class);
         $hasher = $container->get(UserPasswordHasherInterface::class);
 
-        $user = new User(username: 'linkuser', fullName: 'Link User', email: self::EMAIL);
+        $user = new User(fullName: 'Link User', email: self::EMAIL);
         $user->password = $hasher->hashPassword($user, self::PASSWORD);
         if ($verified) {
             $user->emailVerifiedAt = new \DateTimeImmutable();
