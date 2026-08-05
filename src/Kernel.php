@@ -2,6 +2,7 @@
 
 namespace App;
 
+use App\Mercure\MercureHubTimeoutPass;
 use App\Routing\PaywallExemptRouteLoaderPass;
 use Symfony\Bundle\FrameworkBundle\Kernel\MicroKernelTrait;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
@@ -15,5 +16,6 @@ class Kernel extends BaseKernel
     protected function build(ContainerBuilder $container): void
     {
         $container->addCompilerPass(new PaywallExemptRouteLoaderPass());
+        $container->addCompilerPass(new MercureHubTimeoutPass());
     }
 }
