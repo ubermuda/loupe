@@ -304,7 +304,8 @@ e2e *args:
     #!/usr/bin/env bash
     set -euo pipefail
     project=$(grep -E '^COMPOSE_PROJECT_NAME=' .env | head -1 | cut -d= -f2-)
-    export E2E_BASE_URL="${E2E_BASE_URL:-https://e2e.${project}.dev.localhost}"
+    dedicated_url="https://e2e.${project}.dev.localhost"
+    export E2E_BASE_URL="${E2E_BASE_URL:-$dedicated_url}"
     if ! curl -sf -o /dev/null "$E2E_BASE_URL/login"; then
         echo "e2e: $E2E_BASE_URL is not reachable — run 'just e2e-up' first." >&2
         exit 1
@@ -322,17 +323,27 @@ e2e *args:
     # would satisfy a bare `messenger:consume` match while the e2e queue keeps
     # filling up — a green preflight followed by exactly the failures it exists
     # to prevent. The environment is what distinguishes them, so read it.
-    if ! docker compose exec -T php-fpm sh -c '
-        for p in /proc/[0-9]*; do
-            grep -qa "messenger:consume" "$p/cmdline" 2>/dev/null || continue
-            tr "\0" "\n" < "$p/environ" 2>/dev/null | grep -qx "WORKTREE_DB_SUFFIX=_e2e" && exit 0
-        done
-        exit 1'; then
-        echo "e2e: no messenger consumer for the e2e database — run 'just e2e-worker' in another shell." >&2
-        echo "     Without one the authenticated fixture cannot verify its user, and roughly" >&2
-        echo "     a third of the suite fails in ways that look like application bugs." >&2
-        echo "     A consumer for the dev database does not count: it drains a different queue." >&2
-        exit 1
+    #
+    # Only the dedicated target can be checked from here. An E2E_BASE_URL
+    # pointing at a worktree is served by that worktree's own containers, whose
+    # consumer carries its own database suffix and is not visible in this
+    # container at all — so the check is skipped rather than failed, and the
+    # reminder is printed instead.
+    if [ "$E2E_BASE_URL" = "$dedicated_url" ]; then
+        if ! docker compose exec -T php-fpm sh -c '
+            for p in /proc/[0-9]*; do
+                grep -qa "messenger:consume" "$p/cmdline" 2>/dev/null || continue
+                tr "\0" "\n" < "$p/environ" 2>/dev/null | grep -qx "WORKTREE_DB_SUFFIX=_e2e" && exit 0
+            done
+            exit 1'; then
+            echo "e2e: no messenger consumer for the e2e database — run 'just e2e-worker' in another shell." >&2
+            echo "     Without one the authenticated fixture cannot verify its user, and roughly" >&2
+            echo "     a third of the suite fails in ways that look like application bugs." >&2
+            echo "     A consumer for the dev database does not count: it drains a different queue." >&2
+            exit 1
+        fi
+    else
+        echo "e2e: targeting $E2E_BASE_URL — make sure that worktree has a consumer running." >&2
     fi
     cd e2e && npx playwright test {{args}}
 
