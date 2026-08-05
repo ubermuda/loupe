@@ -84,7 +84,7 @@ final class MintProjectMcpTokenHandlerTest extends KernelTestCase
     /** @param non-empty-string $email */
     private function project(string $email, string $name): Project
     {
-        $owner = new User(username: $email, fullName: 'U', email: $email, password: 'x');
+        $owner = new User(fullName: 'U', email: $email, password: 'x');
         $project = new Project($owner, $name);
         $this->em->persist($owner);
         $this->em->persist($project);

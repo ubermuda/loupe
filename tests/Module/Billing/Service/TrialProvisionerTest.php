@@ -26,7 +26,7 @@ final class TrialProvisionerTest extends KernelTestCase
     {
         $em = static::getContainer()->get(EntityManagerInterface::class);
 
-        $user = new User($username, ucfirst($username), $username.'@example.com', 'hashed-password-placeholder');
+        $user = new User(ucfirst($username), $username.'@example.com', 'hashed-password-placeholder');
         $user->emailVerifiedAt = new \DateTimeImmutable();
         $em->persist($user);
         $em->flush();

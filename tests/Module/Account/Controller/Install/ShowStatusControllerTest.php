@@ -48,7 +48,7 @@ final class ShowStatusControllerTest extends WebTestCase
     {
         $client = static::createClient();
         $em = self::getContainer()->get(EntityManagerInterface::class);
-        $user = new User(username: 'existing', fullName: 'Existing User', email: 'existing@example.com');
+        $user = new User(fullName: 'Existing User', email: 'existing@example.com');
         $user->password = 'irrelevant-hash';
         $em->persist($user);
         $em->flush();

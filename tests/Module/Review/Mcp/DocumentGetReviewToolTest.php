@@ -36,7 +36,7 @@ final class DocumentGetReviewToolTest extends KernelTestCase
     /** @param non-empty-string $email */
     private function user(string $email): User
     {
-        $user = new User(username: $email, fullName: 'U', email: $email, password: 'hashed');
+        $user = new User(fullName: 'U', email: $email, password: 'hashed');
         $this->em->persist($user);
 
         return $user;

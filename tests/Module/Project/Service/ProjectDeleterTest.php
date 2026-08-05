@@ -147,7 +147,6 @@ final class ProjectDeleterTest extends KernelTestCase
     private function makeUser(EntityManagerInterface $em, string $slug): User
     {
         $user = new User(
-            username: $slug,
             fullName: 'Deleter Test',
             email: $slug.'@example.test',
             password: 'irrelevant-hash',

@@ -34,6 +34,8 @@ final readonly class StripeGateway implements StripeGatewayInterface
     #[\Override]
     public function createCustomer(User $user): string
     {
+        // Nothing calls customers->update, so the name written here is the
+        // customer's name on every future invoice.
         $customer = $this->stripe()->customers->create([
             'email' => $user->email,
             'name' => $user->fullName,

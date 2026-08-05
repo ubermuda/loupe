@@ -210,7 +210,7 @@ final class SubmitReviewHandlerTest extends KernelTestCase
      */
     private function project(string $email, string $name = 'handler-site', bool $forwardsToAgent = true): Project
     {
-        $user = new User(username: $email, fullName: 'U', email: $email, password: 'x');
+        $user = new User(fullName: 'U', email: $email, password: 'x');
         $this->em->persist($user);
         $project = new Project($user, $name);
         [$widgetToken] = ApiToken::issue($user, 'Widget: '.$name, ApiTokenScope::SiteReview);

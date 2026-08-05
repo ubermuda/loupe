@@ -18,7 +18,7 @@ final class DataExportEmailSenderTest extends TestCase
 {
     public function test_send_builds_and_dispatches_the_download_email(): void
     {
-        $user = new User('alice', 'Alice A', 'alice@example.com', 'hashed');
+        $user = new User('Alice A', 'alice@example.com', 'hashed');
         $export = new DataExport($user);
 
         /** @var MailerInterface&MockObject $mailer */

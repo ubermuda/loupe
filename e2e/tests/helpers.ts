@@ -219,17 +219,17 @@ export async function logout(page: Page): Promise<void> {
 export interface Credentials {
     email: string;
     password: string;
-    name?: string;
-    username?: string;
+    /** Defaults to DEFAULT_DISPLAY_NAME when a spec does not care. */
+    fullName?: string;
 }
 
-function usernameFromEmail(email: string): string {
-    return email
-        .split('@')[0]
-        .toLowerCase()
-        .replace(/[^a-z0-9]/g, '')
-        .slice(0, 30);
-}
+/**
+ * Registration fills the display name from the email client-side, but every
+ * helper here types it in explicitly: leaning on the Stimulus controller would
+ * turn any JS regression into a wall of unrelated timeouts, since the
+ * authenticated fixture registers through this same form.
+ */
+export const DEFAULT_DISPLAY_NAME = 'E2E User';
 
 /**
  * Fill the registration form, poll Mailpit for the verification link, and
@@ -254,11 +254,10 @@ export async function registerFreshUser(
     );
 
     await page.goto('/register');
-    await page.getByLabel('Full name').fill(credentials.name ?? 'E2E User');
-    await page
-        .getByLabel('Username')
-        .fill(credentials.username ?? usernameFromEmail(credentials.email));
     await page.getByLabel('Email').fill(credentials.email);
+    await page
+        .getByLabel('Display name')
+        .fill(credentials.fullName ?? DEFAULT_DISPLAY_NAME);
     await page.getByLabel('Password').fill(credentials.password);
     await page.getByLabel('I agree to').check();
     await page.getByRole('button', { name: 'Create account' }).click();

@@ -118,10 +118,7 @@ final readonly class SyncStripeSubscriptionHandler
             $profile->cancelSurveySentAt = null;
             $this->logger->info('billing.account.reenabled', ['userId' => (string) $user->id]);
 
-            $waitlistMatch = $this->waitlistEntries->findOneByEmail($user->email);
-            if (null !== $waitlistMatch && null === $waitlistMatch->convertedAt) {
-                $waitlistMatch->markConverted();
-            }
+            $this->waitlistEntries->findOneByEmail($user->email)?->markConverted();
         }
 
         if (BillingStatus::Canceled === $profile->status

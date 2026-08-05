@@ -13,7 +13,7 @@ final class DataExportTest extends TestCase
 {
     private function makeExport(): DataExport
     {
-        return new DataExport(new User('alice', 'Alice A', 'alice@example.com', 'irrelevant'));
+        return new DataExport(new User('Alice A', 'alice@example.com', 'irrelevant'));
     }
 
     public function test_complete_issues_a_valid_token_and_sets_expiry(): void

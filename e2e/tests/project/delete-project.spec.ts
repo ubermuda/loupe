@@ -4,7 +4,6 @@ import { createTest } from '../fixtures';
 const test = createTest({
     email: 'e2e-delete-project@example.com',
     password: 'e2e_password_123',
-    name: 'Delete Project Tester',
 });
 
 test('deleting a project requires typing its exact name', async ({ page }) => {

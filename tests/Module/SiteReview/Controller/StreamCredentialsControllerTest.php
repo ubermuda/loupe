@@ -146,7 +146,7 @@ final class StreamCredentialsControllerTest extends WebTestCase
         // in public page HTML, so it must never mint subscriber JWTs — not even
         // for its own site.
         $email = 'stream-widget@example.com';
-        $user = new User(username: $email, fullName: 'U', email: $email, password: 'x');
+        $user = new User(fullName: 'U', email: $email, password: 'x');
         $user->emailVerifiedAt = new \DateTimeImmutable();
         $em->persist($user);
         [$token, $raw] = ApiToken::issue($user, 'widget-tok', ApiTokenScope::SiteReview);
@@ -173,7 +173,7 @@ final class StreamCredentialsControllerTest extends WebTestCase
      */
     private function issue(EntityManagerInterface $em, ApiTokenScope $scope, string $email): array
     {
-        $user = new User(username: $email, fullName: 'U', email: $email, password: 'x');
+        $user = new User(fullName: 'U', email: $email, password: 'x');
         $user->emailVerifiedAt = new \DateTimeImmutable();
         $em->persist($user);
         [$token, $raw] = ApiToken::issue($user, 'tok', $scope);

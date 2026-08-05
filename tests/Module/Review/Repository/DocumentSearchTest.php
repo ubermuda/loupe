@@ -39,7 +39,6 @@ final class DocumentSearchTest extends KernelTestCase
     private function project(): Project
     {
         $owner = new User(
-            username: 'search-'.uniqid(),
             fullName: 'Search Owner',
             email: 'search-'.uniqid().'@example.com',
             password: 'hashed-password-placeholder',

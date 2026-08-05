@@ -16,7 +16,7 @@ final class RequestAccountDeletionControllerTest extends WebTestCase
         $client = static::createClient();
         $client->disableReboot();
         $em = self::getContainer()->get(EntityManagerInterface::class);
-        $user = new User('del-ctrl', 'Del Ctrl', 'del-ctrl@example.com', 'hash');
+        $user = new User('Del Ctrl', 'del-ctrl@example.com', 'hash');
         $user->emailVerifiedAt = new \DateTimeImmutable();
         $em->persist($user);
         $em->flush();

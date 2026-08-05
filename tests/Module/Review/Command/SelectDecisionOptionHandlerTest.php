@@ -53,7 +53,6 @@ final class SelectDecisionOptionHandlerTest extends KernelTestCase
         $this->selections = $selections;
 
         $owner = new User(
-            username: 'decider-'.uniqid(),
             fullName: 'Decider',
             email: 'decider-'.uniqid().'@example.com',
             password: 'hashed',

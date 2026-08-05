@@ -23,7 +23,7 @@ final class SiteReviewApiTest extends WebTestCase
      */
     private function projectWithToken(EntityManagerInterface $em, string $email, string $name = 'api-site'): array
     {
-        $user = new User(username: $email, fullName: 'U', email: $email, password: 'x');
+        $user = new User(fullName: 'U', email: $email, password: 'x');
         $user->emailVerifiedAt = new \DateTimeImmutable();
         $em->persist($user);
         [$token, $raw] = ApiToken::issue($user, 'widget', ApiTokenScope::SiteReview);
@@ -66,7 +66,7 @@ final class SiteReviewApiTest extends WebTestCase
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
-        $user = new User(username: 'api-b@example.com', fullName: 'U', email: 'api-b@example.com', password: 'x');
+        $user = new User(fullName: 'U', email: 'api-b@example.com', password: 'x');
         $user->emailVerifiedAt = new \DateTimeImmutable();
         $em->persist($user);
         [$token, $raw] = ApiToken::issue($user, 'unbound', ApiTokenScope::SiteReview);
@@ -160,7 +160,7 @@ final class SiteReviewApiTest extends WebTestCase
         self::assertResponseStatusCodeSame(401);
 
         // MCP-scoped token → 403 (firewall access_control, before the controller).
-        $user = new User(username: 'api-g@example.com', fullName: 'U', email: 'api-g@example.com', password: 'x');
+        $user = new User(fullName: 'U', email: 'api-g@example.com', password: 'x');
         $user->emailVerifiedAt = new \DateTimeImmutable();
         $em->persist($user);
         [$token, $mcpRaw] = ApiToken::issue($user, 'mcp', ApiTokenScope::Mcp);
