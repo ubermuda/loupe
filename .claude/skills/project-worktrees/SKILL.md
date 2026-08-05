@@ -8,8 +8,11 @@ description: Use when creating, entering, debugging or removing a git worktree u
 ## Overview
 
 Every worktree is a **full application of its own** — its own URL, database and
-compiled CSS — but only nginx is duplicated. php-fpm, Postgres, Mailpit and
-Mercure are shared with the main stack.
+compiled CSS — but only nginx is duplicated. php-fpm, Postgres and Mailpit are
+shared with the main stack, as is the Mercure hub when it is running — it sits
+behind a compose profile and is off unless someone ran `just mercure-up`, so a
+worktree working on site-review push has to start it and shares the one hub
+with every other worktree.
 
 That works because the whole main checkout is mounted at `/var/www/html` and
 worktrees live *inside* it, so a worktree's files sit at the **same path** in
