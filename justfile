@@ -252,8 +252,12 @@ e2e-worker *args:
         # The marker can, and unlike inspecting the database it does not race:
         # `e2e-down` writes it BEFORE signalling, so any iteration that observes
         # a clean exit caused by teardown necessarily observes the marker too.
+        # Deliberately not removed here. Several workers may be looping, and
+        # e2e-down signals all of them; if the first to notice cleared it, the
+        # rest would read a recycle and relaunch into the dropped database. The
+        # marker is cleared at `e2e-worker` startup instead, which is the point
+        # where exactly one reader wants it gone.
         if [ -f "$stop_marker" ]; then
-            rm -f "$stop_marker"
             echo "e2e-worker: teardown requested — stopping." >&2
             exit 0
         fi
