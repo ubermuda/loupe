@@ -73,34 +73,11 @@ export default class extends Controller {
     // from a data-anchor-status value.
     static AGENT_HIGHLIGHT = 'lp-agent-highlight';
 
-    // Resolution order for a span several rungs cover. Without explicit values it
-    // is whichever Highlight was registered last, which is incidental.
-    //
-    // How the API actually composes, verified in Chrome across every pairing:
-    // each inherited property is settled independently by the highest-priority
-    // highlight that DECLARES it, while text decorations are additive and every
-    // one of them draws. So priority never hides a rung — it only settles the
-    // properties two rungs both set, and today that is `background-color` and
-    // `color` alone. Three consequences worth knowing before changing a rung:
-    //   - Agent over pending/addressed/active gives the human tint, with the
-    //     agent's wavy underline still legible beside the human's straight one —
-    //     both marks readable, neither mistakable for the other, which is the
-    //     honest reading of a span that carries both.
-    //   - Agent over resolved gives grey text on the agent's OWN tint: resolved
-    //     wins `color` on priority but declares no background, so the
-    //     lower-priority background is what shows.
-    //   - Agent over struck keeps the agent tint for the same reason, and adds
-    //     the strike's line-through. A struck passage always carries its thread's
-    //     status rung too, so the densest real span is four marks at once —
-    //     status tint, status underline, agent wavy underline, strike
-    //     line-through — and it stays legible because each sits at its own
-    //     position relative to the text rather than competing for one.
-    //     Struck declares neither background nor colour, so its rank changes
-    //     nothing today; it is ordered anyway so that giving it one later is a
-    //     decision rather than a surprise.
-    //
-    // The ladder reads: agent advisory < the thread's own state < the edit the
-    // reviewer asked for on it < the selection being composed right now.
+    // Resolution order for a span several rungs cover; without explicit values
+    // it is whichever Highlight registered last. Priority never hides a rung —
+    // decorations are additive and all of them draw — it only settles what two
+    // rungs both declare, today `background-color` and `color`. The ladder is:
+    // agent advisory < thread state < requested edit < the live selection.
     static PRIORITY = { agent: 0, status: 1, struck: 2, active: 3 };
 
     static CONTEXT = 32;

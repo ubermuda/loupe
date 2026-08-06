@@ -44,7 +44,7 @@ function upperFirst(value) {
         : characters[0].toUpperCase() + characters.slice(1).join('');
 }
 
-/*
+/**
  * Fills the display-name field from the email as it is typed, until the person
  * types a name of their own. Clearing that name re-arms the suggestion.
  *

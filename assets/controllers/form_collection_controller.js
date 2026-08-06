@@ -1,6 +1,6 @@
 import { Controller } from '@hotwired/stimulus';
 
-/*
+/**
  * The controller root must contain a server-rendered template for the
  * remove-row button, so the icon stays on UX Icons and the label stays
  * translated (never build icon SVG or user-facing strings in JS):

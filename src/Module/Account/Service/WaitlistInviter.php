@@ -20,12 +20,10 @@ final readonly class WaitlistInviter
 
     public function invite(WaitlistEntry $entry): bool
     {
-        // Issue and commit the token in its own short DBAL-level transaction —
-        // not EntityManager::wrapInTransaction(), which closes the shared
-        // EntityManager on any failure and would break every remaining entry
-        // in a bulk invite. Lock + refresh + recheck: two concurrent invites
-        // (e.g. overlapping oldest-N requests) must not both email the same
-        // entry.
+        // Its own short DBAL transaction, not EntityManager::wrapInTransaction(),
+        // which closes the shared EntityManager on failure and would break every
+        // remaining entry in a bulk invite. Lock and recheck, so two overlapping
+        // invites cannot both email the same entry.
         $plainToken = $this->em->getConnection()->transactional(function () use ($entry): ?string {
             $this->em->lock($entry, LockMode::PESSIMISTIC_WRITE);
             $this->em->refresh($entry);

@@ -159,30 +159,11 @@
     --status-danger-bg: #fdf1f1;
     --status-danger-border: #f2d6d6;
 
-    /* Agent mark (fuchsia) — passages the agent flagged as worth reading first.
-       Deliberately outside the amber/green status ladder: a reviewer must be able
-       to tell at a glance that a mark came from the agent rather than from their
-       own earlier pass, so the two vocabularies never share a hue.
-
-       The claim holds for --agent-mark, the DECORATION colour: CIEDE2000 >= 22
-       from --status-pending, --status-ok and --border-strong in normal vision and
-       under simulated deutan, protan and tritan vision alike. Two neighbours come
-       closer, and both are separated by something other than hue:
-         - --color-danger, the strike line, at ΔE ~13 under tritanopia. A strike
-           is a line-through across the middle of the text and an agent mark is a
-           wavy underline below it, so the two never occupy the same position even
-           when they cover the same words.
-         - --accent at ΔE ~8 under protanopia, but that rung paints only the
-           selection being composed right now, and it is straight where the agent
-           mark is wavy.
-
-       It does NOT hold for --agent-mark-bg. Against --status-pending-bg the two
-       are ΔE ~1-2 under tritanopia depending on the simulation model — the pale
-       tints are simply too close to white to carry a hue signal. That is why the
-       wavy underline on the rung below is load-bearing rather than decorative:
-       the tint is the large-area percept, and for some readers it says nothing
-       at all. Do not drop the decoration in favour of a stronger tint; a tint
-       strong enough to separate would fight the prose. */
+    /* Agent mark (fuchsia), deliberately outside the amber/green status ladder
+       so a reviewer can tell an agent mark from their own earlier pass. The wavy
+       underline is load-bearing rather than decorative: --agent-mark-bg sits ΔE
+       ~1-2 from --status-pending-bg under tritanopia, so for some readers the
+       tint says nothing. Do not trade the decoration for a stronger tint. */
     --agent-mark: #b23aa0;
     --agent-mark-bg: #fbecf7;
 
@@ -472,11 +453,9 @@
     }
 
     /* ── System status checks ───────────────────────────────────────────
-       One row per infrastructure check on the install wizard's status step and
-       the admin system-status page: a state badge on the left, the label and
-       the explanatory sentence stacked on the right. Four badge states, one of
-       which — "unknown" — is deliberately neutral rather than green, because
-       some checks cannot be established from a web request. */
+       One row per infrastructure check. Four badge states, one of which —
+       "unknown" — is deliberately neutral rather than green, because some
+       checks cannot be established from a web request. */
     .status-check-list {
         @apply flex flex-col gap-3 list-none p-0 m-0;
     }
@@ -531,12 +510,8 @@
     }
 
     /* ── Step ribbon ────────────────────────────────────────────────────
-       Horizontal step progress indicator, used by the first-run project wizard.
-       Each step is a 22px numbered circle + label, joined by 2px connector bars.
-       The caller classifies each step as completed / current / upcoming; the
-       filled track (accent-border bars + accent-soft circles) runs up to and
-       including the current step. Sizes are expressed on the spacing scale
-       (w-5.5, h-0.5) via @apply. */
+       Horizontal step progress for the first-run wizard. The caller classifies
+       each step; the filled track runs up to and including the current one. */
     .lp-ribbon {
         @apply flex items-center gap-2.5;
     }
@@ -631,12 +606,9 @@
     .lp-workspace-title {
         @apply font-semibold text-ink m-0 mt-2 text-2xl tracking-normal;
     }
-    /* Documents/Connect page H1. Was a distinct 24px vs. the base class's 26px;
-       both now round to the same text-2xl/tracking-normal step on the Tailwind
-       scale, so this modifier no longer changes anything the base class doesn't
-       already set. Kept as a separate class rather than merged into the base,
-       since templates still apply it and it documents which screens use this
-       heading tier. */
+    /* Documents/Connect page H1. No longer differs from the base class on the
+       Tailwind scale; kept separate because templates still apply it and it
+       marks which screens use this heading tier. */
     .lp-workspace-title--doc {
         @apply text-2xl tracking-normal;
     }
@@ -972,13 +944,9 @@
     }
 
     /* ── Dialog / modal (`modal` Stimulus controller) ─────────────────
-       The dialog element itself is animated exclusively via WAAPI in
-       modal_controller.js; only the ::backdrop gets a CSS animation
-       (WAAPI cannot target ::backdrop). */
-
-    /* Shared modal placement: horizontally centred, top edge a third of the way
-       down the viewport. The height cap keeps a tall modal on screen at that
-       offset instead of running off the bottom. */
+       Animated via WAAPI in modal_controller.js; only ::backdrop gets a CSS
+       animation, because WAAPI cannot target it. The height cap keeps a tall
+       modal on screen at the 33vh offset instead of running off the bottom. */
     .lp-dialog,
     .admin-dialog-box {
         margin-inline: auto;
@@ -1017,11 +985,8 @@
     }
 
     /* ── Review screen shell ────────────────────────────────────────────
-       Full-height column: a fixed header band (breadcrumb + loop ribbon) above
-       a two-pane row that fills the remaining height. Each pane scrolls on its
-       own; the page itself never scrolls. Paddings/sizes are expressed on the
-       spacing scale via @apply; only grid-template-columns/rows (no utility
-       equivalent) stay as plain CSS, via calc(var(--spacing) * n). */
+       Full-height column: a fixed header band above a two-pane row. Each pane
+       scrolls on its own; the page itself never scrolls. */
     .lp-review {
         @apply flex flex-col min-w-0;
         height: 100%;
@@ -1095,12 +1060,9 @@
     }
 
     /* ── Version diff ───────────────────────────────────────────────────
-       Stands in for the rendered document while a diff is on screen, in the
-       same reading column and body type. It shows the Markdown SOURCE: a
-       reference link inlined or a paragraph reflowed changes nothing in the
-       rendered HTML, and diffing that output would hide the edit entirely.
-       Source line breaks are preserved with pre-wrap, so the template must
-       emit no indentation of its own inside a line. */
+       Shows the Markdown SOURCE: a reflowed paragraph changes nothing in the
+       rendered HTML, so diffing that output would hide the edit. pre-wrap keeps
+       source breaks, so the template must emit no indentation inside a line. */
     .lp-diff {
         @apply max-w-2xl text-fg;
     }
@@ -1267,11 +1229,9 @@
     }
 
     /* ── Front matter ───────────────────────────────────────────────────
-       The document's opening YAML block, rendered as a key/value table above
-       the body instead of the horizontal rule and stray prose it used to
-       produce. The renderer adds this class after sanitization, and a table
-       written by the document is allowed no attributes at all — so the muted
-       panel treatment here can only ever mean front matter, never content. */
+       The opening YAML block as a key/value table. The renderer adds this class
+       after sanitization and a document-written table may carry no attributes,
+       so this treatment can only ever mean front matter. */
     table.lp-front-matter {
         @apply w-full mt-0 mb-8 rounded-lg border border-line bg-surface-2 text-sm;
     }
@@ -1285,21 +1245,11 @@
         @apply py-1.5 px-3 text-left align-top text-fg;
     }
 
-    /* ── Rendered HTML comments ─────────────────────────────────────────
-       An `<!-- … -->` marker from the source, shown rather than swallowed: its
-       author wrote it for a reader, and a reviewer can only answer a question
-       they can select.
-
-       Neutral on purpose. The accent tint is an active comment highlight
-       (.lp-anchor) and the amber one is an orphaned comment
-       (.lp-anchor--orphan) — and this is the branch that orphans comments, so
-       all three land on the same page. A note is document content, not a status.
-
-       Qualified by element as a second line rather than the only one. `<code>`
-       is the one tag a document may put a class on, and CodeLanguageClassSanitizer
-       now reduces that value to `language-<name>`, so a forged annotation class
-       cannot survive sanitization in the first place. Naming the elements keeps
-       that true if the attribute constraint is ever loosened. */
+    /* Rendered HTML comments — shown rather than swallowed, and neutral on
+       purpose: the accent tint means an active comment and amber an orphaned
+       one, so a note must read as neither. Qualified by element because `<code>`
+       is the one tag a document may class; naming them keeps that true if the
+       attribute constraint is ever loosened. */
     aside.lp-doc-note,
     span.lp-doc-note {
         @apply block my-4 py-2 px-3 rounded-r border-l-2 border-line-strong bg-sunken text-fg-mute text-sm;
@@ -2009,13 +1959,9 @@
     }
 
     /* ── Admin primitives ───────────────────────────────────────────────
-       The admin bundle ships only its structural chrome and leaves these
-       primitive classes to the consuming app. Loupe's own equivalents are
-       aliased in place above (.lp-card, .lp-label, .lp-input, .lp-select);
-       the rest are defined here from Loupe tokens because no .lp-* class
-       carries the same meaning. Keep the whole set defined even where the
-       vendor templates do not currently use every modifier — it is a
-       contract shared with the bundle, not app-local styling. */
+       The admin bundle leaves these primitives to the consuming app. Keep the
+       whole set defined even where vendor templates use only some of it — this
+       is a contract with the bundle, not app-local styling. */
 
     /* Primary admin action button. */
     .admin-button {
@@ -2096,15 +2042,9 @@
 }
 
 /* ── In-document anchor highlights (CSS Custom Highlight API) ─────────────
-   Unlayered so they reliably paint over the rendered prose. The controller
-   registers `lp-anchor`/`lp-anchor-active` (never renamed) plus per-status
-   highlights (`lp-anchor-pending|addressed|resolved`) and routes each thread's
-   range to the one matching its data-anchor-status. Two rungs sit outside that
-   ladder and paint in addition to it: `lp-anchor-struck` for a passage the
-   reviewer asked to delete, and `lp-agent-highlight` for the agent's own marks,
-   which carry no comment status at all. ::highlight() only honours a small set of properties
-   (color, background-color, text-decoration) — the handoff's "2px underline" is
-   expressed with text-decoration, not box-shadow. */
+   Unlayered so they reliably paint over the rendered prose. ::highlight() only
+   honours color, background-color and text-decoration, so an underline here
+   must be text-decoration and never box-shadow. */
 
 ::highlight(lp-anchor) {
     background-color: var(--status-pending-bg);
@@ -2142,18 +2082,10 @@
     @apply decoration-2;
 }
 
-/* The agent's own marks. The wavy underline is what actually carries the rung —
-   see the ΔE numbers on --agent-mark-bg above: the tint is the large-area percept
-   but under tritanopia it is indistinguishable from the pending tint, so an agent
-   mark is instead the only one in the document whose underline is not straight.
-   ::highlight() grants no border, no icon and no gutter mark, so that decoration
-   axis is the whole of the non-colour signal. (Verified painting in Chrome —
-   text-decoration-style and text-underline-offset are honoured, unlike border or
-   box-shadow.)
-
-   No `color` here on purpose: body prose already inherits the right one, and
-   setting it would flatten a link inside a marked passage from --accent to body
-   ink. */
+/* The agent's own marks. The wavy underline carries the rung: under tritanopia
+   the tint is indistinguishable from pending, and ::highlight() grants no
+   border, icon or gutter mark, so decoration is the whole non-colour signal. No
+   `color` here — it would flatten a link inside a marked passage to body ink. */
 ::highlight(lp-agent-highlight) {
     background-color: var(--agent-mark-bg);
     text-decoration-line: underline;

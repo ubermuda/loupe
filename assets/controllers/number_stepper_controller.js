@@ -1,6 +1,6 @@
 import { Controller } from '@hotwired/stimulus';
 
-/*
+/**
  * A − / + stepper around a number input. The buttons clamp to the input's
  * `min`/`max`. The field is optional: stepping down from the minimum (or from
  * an empty field) clears it, and stepping up from empty jumps to the minimum,
