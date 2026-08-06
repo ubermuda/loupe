@@ -292,6 +292,22 @@ demand is 17–20 concurrent, so `pm.max_children = 40` with
 without waiting on the spawn rate. That addresses reliability but not
 parallelism.
 
+## Repoint the gamache pin off the CommentBudgetCheck branch
+
+**Author:** Claude · **Type:** tooling · **Priority:** high · **Status:** pending
+
+`composer.json` pins `ubermuda/gamache` to
+`dev-feat/comment-budget-check#75ebfa3864b1000edb8223e1ab336ccc913a6a1c as dev-main`
+so this checkout can use `CommentBudgetCheck` before its upstream PR
+(ubermuda/gamache#31) is merged. Once that PR merges, repoint to plain
+`dev-main#<merge-sha>` and drop the `as dev-main` alias, then
+`composer update ubermuda/gamache` and commit the lockfile.
+
+Until that happens the branch name is load-bearing: delete it upstream and any
+resolution that does not hit the committed lockfile — a fresh `composer update`,
+or a machine installing without `composer.lock` — can no longer satisfy the
+constraint. Codex flagged the same thing reviewing the branch that introduced it.
+
 ## Proper HTTP API + outbound webhooks
 
 
@@ -2819,6 +2835,24 @@ exit code but the wrong signal: a teardown that always prints "consumer exited
 non-zero" teaches a reader to ignore the one time it means something, and
 `just e2e` already depends on people trusting worker diagnostics — a missing
 consumer is documented as the cause of a ~19-spec failure block.
+
+## Cut the 144 over-budget comment blocks CommentBudgetCheck reports
+
+**Author:** Geoffrey · **Type:** docs · **Priority:** medium · **Status:** pending
+
+`vendor/bin/gamache` reports 144 comment runs of 6+ lines across `src/`,
+`templates/`, `assets/`, `config/`, `e2e/`, the `justfile` and `.env`. The check
+is advisory (exit 0), so nothing forces this; the sweep is deliberate work.
+
+Compress each to the constraint a reader needs at that line and move the
+reasoning to the commit or PR that introduced it — see the `project-comments`
+skill for the budget and the keep/cut test.
+
+Not everything long is wrong. A file header documenting a distributed artefact
+earns its length: `compose.prod.yaml`'s 33-line header is legitimate and was
+confirmed as such on 2026-08-06. Those get `@comment-budget-ignore` on one of
+their lines, not a rewrite, so they stop being re-reported. Decide per file
+rather than sweeping to zero.
 
 ## Rendered front matter and annotations have no accessible name
 
