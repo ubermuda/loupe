@@ -196,76 +196,87 @@ mercure-down:
 #
 #     EXPORT_STORAGE=s3
 #     EXPORT_STORAGE_BUCKET=loupe-exports
-#     EXPORT_STORAGE_ENDPOINT=http://minio:9000
-#     EXPORT_STORAGE_REGION=us-east-1
-#     EXPORT_STORAGE_KEY=loupe
-#     EXPORT_STORAGE_SECRET=loupe-secret
+#     EXPORT_STORAGE_ENDPOINT=http://garage:3900
+#     EXPORT_STORAGE_REGION=garage
+#     EXPORT_STORAGE_KEY=GK31c2f218a2e44f485b94239e
+#     EXPORT_STORAGE_SECRET=b8c2f4d1e6a390f75c8b1d24e73a5f9016cbe482d5a7139fc0e6b84a2d517f3b
 #     EXPORT_STORAGE_USE_PATH_STYLE=true
-#
-#     docker compose restart php-fpm worker
 #
 # The worker is not optional here. It is the process that *builds* the archive,
 # so a worker left on the old adapter writes the export to local disk while the
 # restarted web container looks for it in the bucket — and the emailed link
 # 404s, which reads as a broken download rather than a stale process.
 #
-# Path-style is required: MinIO does not serve virtual-host-style buckets
-# without wildcard DNS, and the failure reads as a name-resolution error rather
-# than a configuration one.
-# Start the opt-in MinIO container and create the export bucket.
-minio-up bucket="loupe-exports":
+# EXPORT_STORAGE_REGION must be `garage`, matching s3_region in garage.toml:
+# AsyncAws signs with the region it is given and Garage rejects a signature
+# computed for another one, with an error that names neither.
+#
+# Path-style is required. Virtual-host style would resolve
+# <bucket>.s3.garage.localhost, which nothing here serves.
+# Start the opt-in Garage node, and create its bucket and access key.
+garage-up bucket="loupe-exports":
     #!/usr/bin/env bash
     set -euo pipefail
-    docker compose --profile minio up -d minio
-    # The credentials are read inside the container, from the environment
-    # Compose actually resolved. Reading them out here instead would miss a
-    # MINIO_ROOT_USER set in .env — this shell does not load it — and every
-    # alias attempt would then fail authentication.
-    alias_cmd='mc alias set local http://127.0.0.1:9000 "$MINIO_ROOT_USER" "$MINIO_ROOT_PASSWORD"'
-    # `up -d` returns as soon as the container is started, not when the server
-    # accepts connections, so the alias would race it and fail with a bare
-    # "connection refused" that reads like a networking fault.
+    docker compose --profile garage up -d garage
+
+    g() { docker compose exec -T garage /garage "$@"; }
+
+    # `up -d` returns when the container starts, not when the node answers RPC.
     for _ in $(seq 30); do
-        if docker compose exec -T minio sh -c "$alias_cmd" >/dev/null 2>&1; then
-            break
-        fi
+        if g status >/dev/null 2>&1; then break; fi
         sleep 1
     done
-    # Re-run unsilenced so a genuine credential or network failure is reported
-    # rather than swallowed by the loop above.
-    docker compose exec -T minio sh -c "$alias_cmd" >/dev/null
-    docker compose exec -T minio mc mb --ignore-existing "local/{{bucket}}" >/dev/null
-    echo "minio: bucket '{{bucket}}' ready — console http://localhost:9001"
 
-# `stop` + `rm`, never `down`. `docker compose down minio` was observed
+    # A fresh node holds no layout and refuses every S3 call until one is
+    # applied — the failure is a 500 with no hint that layout is what is
+    # missing. Assigning is idempotent in effect: re-applying an unchanged
+    # layout is a no-op, so this stays safe to re-run.
+    if ! g layout show 2>/dev/null | grep -q "zone"; then
+        node=$(g node id -q | cut -d@ -f1)
+        g layout assign -z dev -c 1G "$node" >/dev/null
+        g layout apply --version 1 >/dev/null
+    fi
+
+    # Imported rather than created, so the credentials are the fixed ones above
+    # instead of a fresh pair to copy out of the logs on every reset.
+    if ! g key info loupe-exports >/dev/null 2>&1; then
+        g key import \
+            GK31c2f218a2e44f485b94239e \
+            b8c2f4d1e6a390f75c8b1d24e73a5f9016cbe482d5a7139fc0e6b84a2d517f3b \
+            -n loupe-exports --yes >/dev/null
+    fi
+
+    g bucket create "{{bucket}}" >/dev/null 2>&1 || true
+    g bucket allow --read --write --owner "{{bucket}}" --key loupe-exports >/dev/null
+
+    echo "garage: bucket '{{bucket}}' ready at http://garage:3900 (key GK31c2f218a2e44f485b94239e)"
+
+# `stop` + `rm`, never `down`. `docker compose down <service>` was observed
 # attempting to remove the shared `loupe_default` network — it only failed
 # because another container still held it. Same family as the bare-compose rule
 # in the project-worktrees skill: a `down` does not stay in its lane.
-# Stop and remove the MinIO container, keeping its stored objects.
-minio-down:
-    docker compose --profile minio stop minio
-    docker compose --profile minio rm -f minio
+# Stop and remove the Garage container, keeping its stored objects.
+garage-down:
+    docker compose --profile garage stop garage
+    docker compose --profile garage rm -f garage
 
-# Stop MinIO and discard the bucket contents with it.
-minio-reset:
+# Stop Garage and discard its objects and metadata with it.
+garage-reset:
     #!/usr/bin/env bash
     set -euo pipefail
-    # Find the volume by Compose's own labels, not by deriving
-    # `<project>_minio_data` from .env — that misses a COMPOSE_PROJECT_NAME
-    # overridden in the environment and would delete another project's objects.
-    # Labels rather than the container's mounts, because the container is gone
-    # once `minio-down` has run and the volume outlives it; reading mounts made
-    # `minio-reset` after `minio-down` a silent no-op.
+    # Found by Compose's own labels, not by deriving `<project>_garage_*` from
+    # .env — that misses a COMPOSE_PROJECT_NAME overridden in the environment
+    # and would delete another project's volumes. Labels rather than the
+    # container's mounts, because the container is gone once `garage-down` has
+    # run and the volumes outlive it.
     project=$(docker compose config --format json | python3 -c 'import sys, json; print(json.load(sys.stdin)["name"])')
-    volume=$(docker volume ls -q \
-        --filter "label=com.docker.compose.project=$project" \
-        --filter 'label=com.docker.compose.volume=minio_data')
-    just minio-down
-    if [ -n "$volume" ]; then
-        docker volume rm -f "$volume"
-        echo "minio: removed volume $volume"
+    volumes=$(docker volume ls -q --filter "label=com.docker.compose.project=$project" | grep -E '_garage_(meta|data)$' || true)
+    just garage-down
+    if [ -n "$volumes" ]; then
+        echo "$volumes" | xargs docker volume rm -f
+        echo "garage: removed $(echo "$volumes" | wc -l | tr -d ' ') volume(s)"
     else
-        echo "minio: no volume to remove" >&2
+        echo "garage: no volumes to remove" >&2
     fi
 
 # Provision the dedicated e2e target: a disposable database plus an nginx
