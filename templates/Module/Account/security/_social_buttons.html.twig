@@ -1,9 +1,6 @@
-{# Social sign-in buttons shared by the login and register pages. Only providers
-   whose feature flag is enabled render; when none are enabled the divider
-   disappears too and the page looks exactly as it did before social login.
-
-   data-turbo="false" is required: the start route answers with a cross-origin
-   redirect to the provider, which Turbo Drive cannot follow. #}
+{# Only providers whose feature flag is enabled render; with none, the divider
+   disappears too. data-turbo="false" is required: the start route answers with a
+   cross-origin redirect to the provider, which Turbo Drive cannot follow. #}
 {% set providers = ['google', 'github']|filter(provider => is_feature_enabled('auth.' ~ provider ~ '.enabled')) %}
 {% if providers|length > 0 %}
     <div class="flex flex-col gap-2.5">

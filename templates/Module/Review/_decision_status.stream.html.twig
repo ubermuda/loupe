@@ -1,11 +1,7 @@
-{# A refused submission leaves the clicked radio checked in the browser, so the
-   page would go on showing an unsaved choice as selected. Putting the block
-   back from what is stored keeps the control honest — including when nothing
-   is stored, which must leave every radio clear rather than restoring some
-   earlier answer.
-
-   Only the block is replaced, never the pane around it: comment anchors
-   resolve against the document text and have no reason to be disturbed. #}
+{# A refused submission leaves the clicked radio checked, so the page would go
+   on showing an unsaved choice. Restoring the block from what is stored keeps it
+   honest, including when nothing is stored — that must clear every radio. Only
+   the block is replaced, never the pane, so comment anchors stay undisturbed. #}
 {% if restoredBlockId %}
 <turbo-stream action="replace" target="{{ restoredBlockId }}">
     <template>{{ restoredBlockHtml|raw }}</template>

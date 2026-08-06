@@ -20,15 +20,11 @@
         {% endfor %}
     {% endfor %}
 
-    {# Outside the empty-list branch on purpose: a filter that disappears the
-       moment it matches nothing leaves the reader on a dead end with no way
-       back. Later filters join this bar rather than replacing it.
-
-       The archived state is labelled with what following the link does, rather
-       than one label plus aria-pressed: that attribute is defined for
-       role="button" and is dropped on an anchor, so both states would announce
-       identically while doing opposite things. The icon and the accent
-       background carry the same distinction visually. #}
+    {# Outside the empty-list branch on purpose: a filter that disappears when it
+       matches nothing leaves the reader on a dead end. The archived state is
+       labelled by what following the link does rather than aria-pressed, which is
+       defined for role="button" and dropped on an anchor — both states would
+       otherwise announce identically while doing opposite things. #}
     <div class="lp-list-filters">
         {# A GET form, so every control lands in the URL and the whole view stays
            shareable and back-button-able. `page` is deliberately not a field: a
@@ -44,14 +40,10 @@
             <div class="lp-filter-search">
                 <twig:ux:icon name="lucide:search" class="lp-filter-search__icon" />
                 <label class="sr-only" for="document-search">{{ 'review.dashboard.filter.search_label'|trans }}</label>
-                {# The field target is what lets the controller put focus and the
-                   caret back after a debounced submit: this is a full Turbo
-                   visit, so the body — and the field being typed into — is
-                   replaced mid-word.
-
-                   A full visit rather than a turbo-frame on purpose: the query
-                   belongs in the address bar so a search is linkable and
-                   survives a reload. #}
+                {# The field target lets the controller restore focus and caret
+                   after a debounced submit: this is a full Turbo visit, so the
+                   field being typed into is replaced mid-word. A full visit rather
+                   than a frame, so the query lands in the address bar. #}
                 <input type="search"
                        id="document-search"
                        name="search"
@@ -159,12 +151,9 @@
                    aria-label="{{ 'review.dashboard.rename'|trans({'%title%': document.title}) }}">
                     <twig:ux:icon name="lucide:pencil" class="w-4 h-4" />
                 </a>
-                {# The form is built by the extension (one per row, named after the
-                   document) and already points at archive or unarchive; only the
-                   icon and label differ here. Both states are written out rather
-                   than interpolated because the icon importer sees only icon names
-                   it can read as literals, and an icon it never imported renders as
-                   nothing in production. #}
+                {# Both states are written out rather than interpolated: the icon
+                   importer sees only names it can read as literals, and an icon it
+                   never imported renders as nothing in production. #}
                 {% set archiveForm = document_archive_form(document, listQuery.routeParams) %}
                 {{ form_start(archiveForm, {attr: {class: 'lp-document-row__action-form'}}) }}
                     <button type="submit"
