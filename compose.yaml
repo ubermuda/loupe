@@ -154,6 +154,24 @@ services:
       - traefik.tcp.services.pg-${COMPOSE_PROJECT_NAME}.loadbalancer.server.port=5432
 ###< doctrine/doctrine-bundle ###
 
+  # Opt-in S3-compatible storage for exercising EXPORT_STORAGE=s3 locally.
+  # Behind a compose profile, so `docker compose up -d` and `just up` do not
+  # start it: the default development path is EXPORT_STORAGE=local, and nothing
+  # in the normal workflow or the e2e suite needs a bucket. Start it with
+  # `just garage-up`, which also creates the bucket and its access key.
+  #
+  # Not reachable through Traefik — the app talks to it on the compose network
+  # at http://garage:3900, which is the only access anything here needs.
+  garage:
+    image: dxflrs/garage:v1.0.1
+    profiles: ["garage"]
+    volumes:
+      - ./docker/dev/garage/garage.toml:/etc/garage.toml:ro
+      - garage_meta:/var/lib/garage/meta:rw
+      - garage_data:/var/lib/garage/data:rw
+    networks:
+      - default
+
 networks:
   traefik:
     external: true
@@ -162,3 +180,5 @@ volumes:
 ###> doctrine/doctrine-bundle ###
   database_data:
 ###< doctrine/doctrine-bundle ###
+  garage_meta:
+  garage_data:
