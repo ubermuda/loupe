@@ -536,37 +536,43 @@ It is safe to run alongside the worker; the claim is atomic.
 **Backups are the operator's responsibility.** Loupe schedules nothing, ships no
 backup command, and will not warn you that none exist.
 
-An instance's durable state is in three places, and a database dump alone covers
-only the first:
+Two things make up an instance's durable state, and a database dump covers only
+the first:
 
 1. **Postgres.** Everything the application owns — accounts, projects,
    documents and their versions, comments, tags, the messenger queues and the
-   site-review outbox. `pg_dump` it.
+   site-review outbox.
 
    ```bash
    pg_dump "$DATABASE_URL" --format=custom --file=loupe-$(date +%F).dump
    ```
 
-2. **`APP_ENCRYPTION_KEY`.** This is not in the dump, and it is not
-   regenerable. **Restoring a database without the key that encrypted it leaves
-   every `encrypted_string` column permanently unreadable** — the rows restore
-   fine and simply cannot be decrypted. Keep the key wherever you keep the
-   dumps, and treat losing it as data loss rather than a configuration problem.
-   The other secrets in "Secrets" are replaceable: rotating `APP_SECRET`
+2. **`APP_ENCRYPTION_KEY`.** Not in the dump, and not regenerable. **Restoring a
+   database without the key that encrypted it leaves every `encrypted_string`
+   column permanently unreadable** — the rows restore fine and simply cannot be
+   decrypted, so losing the key is data loss rather than a configuration
+   problem.
+
+   **Store it somewhere other than the dumps.** A key sitting beside the data it
+   decrypts is not a second factor: whoever obtains that backup obtains both,
+   and the encryption stops buying you anything. A secrets manager, a password
+   vault, or an envelope in a different account — anywhere the dumps are not.
+
+   The other secrets in "Secrets" are replaceable. Rotating `APP_SECRET`
    invalidates sessions and signed URLs, which is an inconvenience, not a loss.
 
-3. **Data-export archives**, when `EXPORT_STORAGE=s3`. These live in the bucket,
-   not the database, so the bucket is a second thing to back up — or a second
-   thing to decide you do not care about. They are regenerable: a user can ask
-   for a new export. With `EXPORT_STORAGE=local` they sit on container-local
-   disk and are lost on the next deploy regardless, which is why App Platform
-   cannot use `local` at all (see "Known gaps").
+**Data-export archives need no backup.** They are derived data — a user can ask
+for a new export whenever they want one — so whether they survive is a question
+about convenience, not about durability. With `EXPORT_STORAGE=local` they are
+lost on the next deploy regardless, which is why App Platform cannot use `local`
+at all (see "Known gaps").
 
-**Restore has never been rehearsed.** Nothing in this repository has been
-tested against a restored dump, so treat your first restore as an experiment to
-run deliberately — on a scratch instance, before you need it — rather than as a
-procedure this document has validated for you. At minimum, confirm afterwards
-that you can log in and that a document with an encrypted column still renders.
+**Your restore is yours to prove.** Whatever this project tests, it tests its
+own code; it cannot tell you that *your* dump, in *your* storage, restores into
+*your* instance. Run one deliberately on a scratch instance before you need it,
+and confirm afterwards that you can log in and that a document with an
+encrypted column still renders — that pair exercises the database and the key
+together, which is the combination a backup most often gets half right.
 
 ## Known gaps
 
