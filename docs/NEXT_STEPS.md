@@ -172,31 +172,6 @@ Doctrine-backed pool for the rate-limiter storage. Postgres is already a hard
 dependency, so this adds no new infrastructure. Until then, `DEPLOY.md` should
 say out loud that the app expects one web replica.
 
-## No backup and restore guidance for self-hosted installs
-
-
-**Author:** Claude · **Type:** docs · **Priority:** high · **Status:** pending
-
-Found by the self-hosting audit (2026-07-28); the owner decided backups are the
-operator's responsibility for now, so this entry is about saying so rather than
-about building anything.
-
-Nothing in any markdown file mentions backup, restore or `pg_dump`. An operator
-gets no statement of what constitutes the durable state of an instance, and two
-parts of that are genuinely non-obvious:
-
-1. Losing `APP_ENCRYPTION_KEY` makes every encrypted column permanently
-   unreadable. `DEPLOY.md` mentions this once, inside the secrets section,
-   where someone planning backups will not look for it.
-2. Data-export archives currently live on container-local disk, so they are not
-   covered by a database dump. This changes once exports move to object storage
-   — see the self-hosting audit's decision on export storage — at which point
-   the bucket becomes the second thing to back up.
-
-Close this by adding a short "Backing up" section to `DEPLOY.md`: what to dump,
-what else holds state, that restore has never been rehearsed, and that the
-operator owns the schedule.
-
 ## Flip the CSP from report-only to enforcing
 
 **Author:** Claude · **Type:** security · **Priority:** high · **Status:** pending
@@ -244,7 +219,6 @@ attacks that stay inside the app's own CSS.
 
 ## The MCP connection drops repeatedly, and reconnecting does not restore the tools
 
-
 **Author:** Claude · **Type:** bug · **Priority:** high · **Status:** pending
 
 An agent session connected to this app over MCP lost the connection three
@@ -260,59 +234,38 @@ documents over MCP is how documents get into the app at all, so a dropped
 connection stops the primary workflow, and it did so mid-task here.
 
 **The server side is healthy — do not start by debugging it.** Verified while
-the client was in the broken state: `bin/console debug:mcp` lists all seven
-tools; `var/log/dev.log` shows every tool registering on each handshake
-(`document_create`, `document_get`, `document_get_review`, `document_list`,
-`document_revise`, `site_review_mark_comment_addressed`, `site_review_get`); `POST
-/mcp` answers 200; unauthenticated requests answer 401; and all app containers
-were up with the app serving normally.
+the client was in the broken state: `bin/console debug:mcp` lists every tool;
+`var/log/dev.log` shows them registering on each handshake; `POST /mcp` answers
+200; unauthenticated requests answer 401; and all containers were up.
 
-**Two dead ends, recorded so they are not chased again.** `GET /mcp` answering
-405 and `POST /mcp` answering 202 both look like smoking guns and are neither —
-405 on GET is a legal way to say the server offers no server-initiated stream,
-and 202 is the correct response to a notification, which has no reply by design.
-Both were mistaken for the cause before being ruled out.
+**Three dead ends, recorded so they are not chased again.** `GET /mcp`
+answering 405 and `POST /mcp` answering 202 both look like smoking guns and are
+neither — 405 on GET is a legal way to say the server offers no server-initiated
+stream, and 202 is the correct response to a notification, which has no reply by
+design.
 
-**The one real anomaly worth pulling on:** every tool registers **twice** per
-handshake, with two separate `Manual element registration complete` lines in the
-log. That is either benign client retry or the bundle mishandling session state.
-`symfony/mcp-bundle` is pinned `^0.12.0` and resolves `mcp/sdk v0.7.0` — both
-pre-1.0 — so checking whether a newer release mentions tool-list delivery or
-session handling is the cheapest next step.
+The third was, until 2026-08-05, this entry's one remaining lead: every tool
+registering **twice** per handshake, with two `Manual element registration
+complete` lines. **That is a dev-only web-profiler artifact and is not a bug.**
+`Symfony\Bundle\McpBundle\Profiler\DataCollector::lateCollect()` calls
+`$this->builder->build()` on every request, which re-runs the loaders against
+the shared registry — the bundle's own comment there says re-building on an MCP
+request is harmless. `WebProfilerBundle` is registered for `dev` and `test` only
+(`config/bundles.php`), so a production instance registers once. Nothing to fix.
 
-**Open question that sets the real severity:** every observation here was against
-the local dev host. Whether a deployed instance drops connections the same way is
-unknown, and it decides whether this is a local annoyance or a production defect
-affecting every agent that connects. Establishing that comes before any fix.
+**Also checked and dead for now: upgrading out of it.** `symfony/mcp-bundle`
+0.12.0 and `mcp/sdk` 0.7.0 are both installed, and both are the newest releases
+that exist — there is no newer version whose notes could mention tool-list
+delivery or session handling. Re-check when either publishes a release; both are
+pre-1.0 and moving.
 
-## Writing into a torn-down worktree path silently succeeds and loses the work
-
-
-**Author:** Claude · **Type:** tooling · **Priority:** high · **Status:** pending
-
-When a worktree is removed while an agent is still bound to it, a `Write` to
-the old path **reports success**. It recreates a bare directory that is not a
-git worktree, so nothing lands on the branch and nothing raises an error.
-`git status` from inside that directory falls through to the main checkout and
-reports `main`, which makes the situation look normal on inspection.
-
-That combination is the dangerous part: an agent that trusts the successful
-write will keep working, commit nothing to its branch, and report completion.
-The failure is indistinguishable from success until someone checks the branch.
-
-An agent that finds itself in this state must **stop**, not improvise. The
-plausible-looking recoveries are all worse than the problem: checking the
-branch out into the main checkout collides with `main` being checked out there,
-and `cp`/`rsync`/`git checkout` of another worktree's path all bypass the write
-binding rather than repair it. The fix is to provision a worktree with the
-branch checked out and rebind — which only the orchestrating session can do.
-
-Detection, before trusting any write: confirm the path appears in
-`git worktree list`, not merely that it exists on disk. Existence on disk is
-exactly what is misleading here.
-
-Related: 'Serena's edit tools do not work from a worktree' — the same class of
-silent misdirection, where the write succeeds against the wrong target.
+**What the entry now turns on, and why it is stuck.** Every observation here was
+against the local dev host. Whether a deployed instance drops connections the
+same way decides whether this is a local annoyance or a production defect
+affecting every agent that connects — and there is no deployed instance to test
+against yet. That makes this **blocked on having a deployment**, not on
+analysis. Until one exists there is no experiment left to run that has not been
+run.
 
 ## Give each agent its own container in the cloud instead of sharing one dev stack
 
@@ -824,35 +777,6 @@ Whichever is chosen, changing the configuration requires rebuilding every stored
 vector in the same change — a vector stemmed as English and a query parsed as
 French do not meet. The migration that introduced the column
 (`Version20260803015620`) has the backfill statement to copy.
-
-## The documents filter bar reloads the page, which probably drops focus mid-typing
-
-
-**Author:** Claude · **Type:** bug · **Priority:** medium · **Status:** pending
-
-The search box in `templates/Module/Review/list_documents.html.twig` wires
-`input->autosearch#search` on a plain GET form with no `data-turbo-frame`, so the
-300ms debounce fires a Turbo Drive **page visit**. Turbo replaces `document.body`
-on render, so the focused input is destroyed and focus falls back to the body —
-Turbo only restores focus to an `[autofocus]` element. A reader still typing when
-the debounce fires should therefore lose the rest of their keystrokes.
-
-**Unverified in a browser.** The reasoning is from Turbo's render semantics and is
-high confidence, but an attempt to confirm it against a worktree failed for an
-unrelated reason: the stateless double-submit CSRF rejects a login driven through
-the Chrome extension. Confirm before fixing — with Playwright, which does log in
-successfully, asserting `document.activeElement` after the debounce.
-
-Two candidate fixes, both with a catch:
-
-- Conditional `autofocus` on the search input when a term is present. One line,
-  and Turbo re-focuses it after the visit. It also focuses the box on a cold load
-  of a shared search URL, which may or may not be wanted.
-- A `<turbo-frame>` around the results with the form **outside** it, which is why
-  `templates/Module/SiteReview/admin/list_site_review_outbox.html.twig` does not
-  have this problem. The catch here is layout: the page description and the
-  archived chip both change with the filters and are not contiguous with the
-  list, so a frame around the list alone leaves them stale.
 
 ## Site-review bridge CLI (`cli/`): polish before shipping
 
@@ -1430,98 +1354,33 @@ because **the app makes the call itself**, with a credential whose control the
 caller just proved, and fails closed on any ambiguity. "The agent was told in
 chat" has neither property.
 
-## Review renderer: front matter renders as prose, HTML comments render as nothing
+## Documents can be tagged and linked, but not grouped into a series
 
 
 **Author:** Geoffrey · **Type:** feature · **Priority:** medium · **Status:** pending
 
-A Markdown document that opens with a YAML front-matter block — the `---`
-fenced key/value header that Hugo, Jekyll, Astro and most static site
-generators put at the top of every source file — renders as garbage in the
-review UI. The opening `---` becomes a horizontal rule, the keys become a
-paragraph of `title: "…"` / `date: …` / `tags: […]` text, and the closing
-`---` becomes a second rule. The reviewer sees three lines of noise before the
-first real sentence, and can select and comment on them as if they were
-content.
+Two of the three organizing primitives now exist. Project-scoped tags ship with
+a `Tag` entity, a filter bar on the documents list, and `document_create` /
+`document_set_tags` over MCP; document-to-document references ship too, render
+on both sides, and are settable through `document_create`, `document_revise`
+and `document_set_references`.
 
-This surfaced on 2026-08-01 submitting blog drafts for review: the workaround
-was to strip the front matter by hand before calling `document_create`, which
-means the reviewed document no longer matches the file on disk. That is the
-actual cost — a revision cannot be pasted straight back, and anything the
-reviewer might want to say about the tags or the publish date has nowhere to
-land.
+What neither expresses is **membership of an ordered set**. Submitting a blog
+series on 2026-08-01 put seventeen related documents into one project — eleven
+posts, six companion threads — and the only way to say "thread 5 belongs to
+post 5, and both are the fifth item of one series" was to bake it into the
+titles by hand ("Post 5 — …", "Thread 5 — …"). That is a naming convention
+pretending to be a data model: nothing enforces it, nothing sorts on it, and it
+breaks the moment a title is wrong. A tag can say seventeen documents are
+related; it cannot say they are numbered one to eleven, nor that six of them
+are companions to the other eleven.
 
-**Decision needed** — what the renderer should do with a front-matter block:
-
-1. Parse it and render it as a small metadata panel above the document
-   (recommended: it is real content, and reviewers have opinions about titles
-   and tags).
-2. Parse it and hide it, keeping it in the stored source so a round-trip is
-   lossless.
-3. Detect it and strip it on ingest, which is the current manual workaround
-   moved server-side — simplest, but throws information away.
-
-Whichever is chosen, detection is the same: a leading `---` line, YAML up to
-the next `---`, and nothing before it. Note that a document may legitimately
-*begin* with a horizontal rule, so the parse must fail closed and treat an
-unterminated block as prose.
-
-HTML comments are the same bug with a worse failure mode, and belong in the
-same fix. `<!-- … -->` renders as *nothing* — the reviewer sees no gap, no
-placeholder, and cannot select or comment on it. Front matter at least looks
-wrong; a hidden comment looks like clean prose. This bit on the same day: two
-of the submitted blog drafts carry `<!-- TODO: link the skeleton repo here -->`
-markers, which are exactly the open questions their author most wants a
-decision on, and they are invisible in the review UI. Decide the same three
-ways — surface as a visible annotation, keep but hide, or strip on ingest —
-and prefer surfacing, since an author who wrote a comment into a document
-meant it for a reader.
-
-The two places this can live are `src/Module/Review/Mcp/DocumentCreateTool.php`
-(ingest — where stripping or extraction would happen once, at submission) and
-`src/Module/Review/Service/MarkdownRenderer.php` (render — where it would
-happen on every view, and where the anchor offsets that comments depend on are
-computed). Ingest is the better home for options 2 and 3; option 1 needs both,
-since the panel has to render somewhere. Whichever is picked, check the effect
-on comment anchor offsets before shipping — removing characters from the source
-after comments exist would shift every anchor in the document.
-
-## Documents have no organizing structure — tags, categories or something else
-
-
-**Author:** Geoffrey · **Type:** feature · **Priority:** medium · **Status:** pending
-
-A project's documents are a flat list ordered by creation. That is fine at five
-documents and stops working well before fifty. Submitting a blog series on
-2026-08-01 put seventeen related documents into one project — eleven posts, six
-companion threads — with nothing expressing that the threads belong to the
-posts, that both belong to one series, or that some are drafts and some are
-outlines. The only structure available was baking it into the titles by hand
-("Post 5 — …", "Thread 5 — …"), which is a naming convention pretending to be
-a data model: nothing enforces it, nothing can filter on it, and it breaks the
-moment a title is wrong.
-
-**Decision needed** — what the organizing primitive should be:
-
-1. Tags, many-to-many and free-form (recommended: cheapest to build, and
-   already partly built — a project-scoped `Tag` entity exists, the documents
-   list filters on it, and `document_create` accepts tag names — so this option
-   is mostly a question of whether tags alone are enough).
-2. Categories or folders, one-to-many and hierarchical — better for a series,
-   worse for documents that belong to several groupings at once.
-3. Both, as most document tools end up doing.
-
-Whichever is chosen, it needs to be settable from the MCP at `document_create`
-time, not only in the UI — the agent submitting the batch is the one that knows
-how the documents relate, and asking a human to tag seventeen documents
-afterwards means it does not happen.
-
-Document-to-document references cover the other half of the same problem and
-already exist: a document points at others through `document_references`, the
-links render on both documents, and `document_create`, `document_revise` and
-`document_set_references` all set them. What is still missing is grouping —
-references say two documents are related, not that seventeen of them are one
-series.
+Still open, then: whether grouping is a hierarchical primitive of its own
+(categories, folders, a `Series` entity with an ordinal), or whether ordering
+metadata on the existing reference edge is enough. Whichever it is, it must be
+settable from the MCP at `document_create` time — the agent submitting the
+batch is the one that knows how the documents relate, and asking a human to
+order seventeen documents afterwards means it does not happen.
 
 ## Edit a document in the app, not only through an agent
 
@@ -2347,36 +2206,33 @@ consent", which replaces the pasted token entirely — but that still authorizes
 per directory unless the resulting credential is stored user-wide, so the scope
 question outlives the token question and should be answered on its own.
 
-## "Unreachable from MCP by design" describes a guard that is not the one in force
-
+## Ownership voters grant everything to an MCP request, and nothing says so at the voter
 
 **Author:** Claude · **Type:** security · **Priority:** medium · **Status:** pending
 
-`SiteReviewMarkCommentAddressedTool`'s class docblock says "The agent's only write:
-Pending → Addressed. Resolved is reserved for the human in the web UI and is
-unreachable from MCP by design." The property holds today, but not for the
-reason a reader would infer, and the gap matters the next time someone adds a
-tool.
+An MCP request authenticates **as the project owner**: `ApiTokenAuthenticator`
+builds its passport with
+`new UserBadge($token->owner->getUserIdentifier(), fn () => $token->owner)`.
+Every ownership-based voter in the app compares the subject's owner against the
+authenticated user — `SiteReviewCommentVoter`'s entire rule is
+`$subject->project->owner === $token->getUser()` — so **every one of them
+returns true for a tool call by construction**.
 
-An MCP request is authenticated **as the project owner**:
-`ApiTokenAuthenticator` builds its passport with
-`new UserBadge($token->owner->getUserIdentifier(), fn () => $token->owner)` and
-grants `[...$user->getRoles(), $scopeRole]`. `SiteReviewCommentVoter`'s entire
-rule is `$subject->project->owner === $token->getUser()`. So the voter **would
-grant** `site_review_comment.resolve` to an MCP-token request. It is not what
-stops it.
+Nothing is exploitable today: no tool calls a write path that is meant to be
+human-only, and `ApiTokenAuthenticator` is registered only on the `mcp` and
+`api` firewalls, so a Bearer token cannot reach the `main` firewall's routes at
+all. The docblock on `SiteReviewMarkCommentAddressedTool` used to credit the
+voter for this and now names the real guards instead.
 
-What actually stops it is two things the docblock does not mention: no MCP tool
-calls the resolve path, and `ApiTokenAuthenticator` is registered only on the
-`mcp` and `api` firewalls, so a Bearer token cannot authenticate against
-`/site-review/comments/{id}/resolve` on the `main` firewall at all — a route
-that additionally carries a session-backed `#[CsrfToken]`.
-
-The risk is a future tool that calls a voter and reads the result as a
-meaningful check. Every ownership-based voter in the app returns true for an
-MCP request by construction. Fix the comment to name the real guard, and
-consider whether ownership voters should be unreachable from tool context
-rather than merely unused there.
+What is still open is whether that should be made structural rather than
+incidental. A future tool that calls a voter and reads the result as a
+meaningful check would be wrong, and nothing at the voter would tell its author
+so. Options worth weighing: give ownership voters an explicit
+"deny when the token is a machine credential" clause; introduce a distinct
+role or attribute namespace for tool context so a tool cannot accidentally ask
+an ownership question; or leave it and rely on the firewall boundary, with the
+convention written into `project-authz` instead of the code. The first two cost
+indirection at every voter; the third keeps a real invariant only in prose.
 
 ## The actor model is unsettled — no audit trail, and an agent's writes look like the owner's
 
@@ -2708,27 +2564,36 @@ flags already have an admin UI and are already how other capabilities are
 gated. The open question is whether a per-project override fits that model or
 needs its own storage.
 
-## An MCP tool and the query it delegates to declare the same array shape twice
+## Gamache rule: a delegating MCP tool should not restate its query's array shape
 
 **Author:** Claude · **Type:** tooling · **Priority:** medium · **Status:** pending
 
-`DocumentGetTool` is a thin wrapper over `App\Module\Review\Query\GetDocument`,
-and both carry a full `@return array{...}` describing the same payload. Adding a
-key to the query alone leaves the two disagreeing, and nothing in the tool says
-the shape is written down twice.
+`DocumentGetTool` and `GetDocument` each carried a full `@return array{...}`
+for the same payload, so adding a key to the query alone left the two
+disagreeing. That pair is fixed — the query declares a `@phpstan-type
+DocumentPayload` alias and the tool imports it with `@phpstan-import-type` —
+but only that pair, by hand, and nothing stops the next tool from restating a
+shape again.
 
-Found on 2026-08-04 while adding `tags` and `referencedBy`: the query was updated
-and phpstan then reported four `offsetAccess.notFound` errors against the *tests*
-rather than against the tool, which reads as a broken test rather than a stale
-annotation. It is caught today only because the tests index every key.
+The failure mode is worth restating because it does not look like what it is.
+Found on 2026-08-04 while adding `tags` and `referencedBy`: the query was
+updated, and phpstan reported four `offsetAccess.notFound` errors against the
+*tests* rather than against the stale annotation on the tool — which reads as a
+broken test. It is caught at all only because the tests happen to index every
+key.
 
-Two ways out, and the second is the general one. The tool could declare
-`@return` by referring to the query's type rather than restating it (a
-`@phpstan-type` alias on the query, imported with `@phpstan-import-type`), which
-is a local fix. Or a gamache PHPStan rule could assert that a tool whose body is
-a single delegation declares the same shape as what it delegates to — the same
-family as the existing name-agreement rules, and it would cover every future
-tool/query pair rather than this one.
+What is still open is the general rule: a gamache PHPStan rule asserting that a
+tool whose body is a single delegation declares the same shape as what it
+delegates to. Same family as the existing name-agreement rules
+(`ControllerTemplateNameRule`, `MessengerHandlerNamespaceRule`). Gamache is an
+external package, so this is a pull request on
+https://github.com/ubermuda/gamache, not a class under `src/`.
+
+Worth noting for whoever writes it: changing a tool's `@return` is safe with
+respect to the published MCP schema, which is not obvious. The SDK builds
+`inputSchema` from `@param` docblock tags only, and emits an `outputSchema`
+solely when one is passed explicitly to `#[McpTool]` — verified in
+`vendor/mcp/sdk/src/Capability/Discovery/SchemaGenerator.php`.
 
 ## The system status page is one handler with a check method per concern
 
@@ -2856,33 +2721,83 @@ It passes at a higher limit — `docker exec loupe-php-fpm-1 php -d
 memory_limit=512M bin/console cache:clear` succeeds — so the fix is the CLI
 memory limit for this container, not the cache itself.
 
-Low urgency, because nothing in the normal workflow needs it: `CLAUDE.md` says
-`cache:clear` is not required in dev, and the recipe that *is* on the gate path,
-`just phpstan`, runs `cache:warmup`, which stays inside the limit. It bites a
-session that reaches for `cache:clear` while debugging and reads the fatal as a
-symptom of whatever it was working on.
+**It is on the gate path, which was not obvious at first.** `just phpstan` runs
+`bin/console cache:warmup` before analysing, and that inherits the same 128M —
+so against a *cold* cache phpstan dies with exit 255 having analysed nothing,
+and the output is a var-dumper stack trace that names neither memory nor
+warmup. A warm cache makes warmup nearly a no-op, which is why it normally
+passes; it bites exactly after something has invalidated the cache, such as a
+dependency change, which is when the gate is most worth trusting.
+
+Nothing sets `memory_limit` anywhere under `docker/dev/`, so this is PHP's
+built-in default rather than a considered choice. Note that `just phpstan`
+already passes `--memory-limit=1G` to phpstan itself — half of this was fixed
+once already, on the line below the one that fails.
 
 Related: 'phpstan runs out of memory in a worktree' — same 128M CLI limit,
 different command, and worth fixing in one place rather than per recipe.
 
+## The gamache pin is three commits stale, so two documented gates do not run here
 
-## `just phpunit` mangles a `--filter` containing an alternation
+**Author:** Claude · **Type:** tooling · **Priority:** medium · **Status:** pending
 
-**Author:** Claude · **Type:** tooling · **Priority:** low · **Status:** pending
+`composer.json` pins `ubermuda/gamache` to
+`dev-main#e7e9349727630b25ff4c550ac7e5f6519d47b9c1`. Upstream `main` is at
+`382155f` — three merged commits ahead, all of them rules:
 
-The recipe is `bin/worktrees/compose-exec.sh vendor/bin/phpunit {{args}}` with
-`{{args}}` unquoted, so a filter using PHPUnit's regex alternation is split by the
-shell: `just phpunit --filter A|B` pipes the phpunit run into a command named `B`
-and reports `sh: B: command not found`. Quoting at the call site does not help,
-because the recipe interpolates the value unquoted.
+- `8512c45` — `SelfContainedCommentsCheck` (`src/Check/`)
+- `e60c3ed` — `SelfAssigningTernaryRule` (`src/PHPStan/`)
+- `382155f` — `ControllerNoDirectStateAccessRule` (`src/PHPStan/`)
 
-The workaround is to bypass the recipe —
-`bin/worktrees/compose-exec.sh vendor/bin/phpunit '--filter=A|B'` — which is what
-every multi-class run in a session ends up doing once it hits this. Fixing it
-means quoting the interpolation in the recipe.
+The first two matter because **`CLAUDE.md` and `project-comments` both state
+that self-contained comments are "enforced by `SelfContainedCommentsCheck`
+(runs in `just gamache`)", and in this checkout they are not** — the class is
+not in `vendor/`, so the documented gate silently does nothing. That is not a
+documentation error: the rule exists, it is merely not installed here. The cost
+is already paid once — `ProjectDeleter`'s docblock carried a `(F6)` feature
+codename, exactly the shape the rule forbids, through every green `just ci`
+until it was found by grep on 2026-08-05.
 
-Same shape as any other unquoted `{{args}}` in the justfile; worth checking the
-neighbours (`exec`, `composer`, `e2e`, `e2e-worker`) while in there.
+Repointing the pin to `382155f` is the fix, and it is deliberately **not** a
+drive-by: three new rules arriving at once will flag existing code, and
+`SelfContainedCommentsCheck` is a `src/Check/` class, so it also has to be
+wired into `gamache.php` before it runs at all. Budget for the fallout rather
+than folding it into an unrelated branch. Note also that `just gamache` is
+advisory for some checks, so "green" after the bump does not by itself prove
+the new rules found nothing — read the output.
+
+Related: 'Gamache: ship the controller direct-state-access rule the skill
+cites', which this closes upstream but not here.
+
+## `just e2e-down` makes the worker report a failure it did not have
+
+**Author:** Claude · **Type:** tooling · **Priority:** medium · **Status:** pending
+
+`e2e-worker` loops a consumer and uses a stop marker to tell a limit recycle
+(relaunch) from `e2e-down` tearing the target down (stop). The marker is
+consulted **only on a clean exit** — the non-zero branch exits 1 immediately
+with "consumer exited non-zero — stopping rather than looping on a failure",
+without ever looking at it.
+
+Observed 2026-08-05: a normal `just e2e-down` after a fully green suite ended
+the worker with exit code 1 and that message. Nothing was actually wrong — no
+consumer was left in the container afterwards
+(`docker exec loupe-php-fpm-1 sh -c "ps aux | grep -c '[m]essenger:consume'"`
+returned 0) — but the recipe reported a failure for a routine teardown.
+
+The comment in the recipe states the assumption that made this invisible:
+"Messenger stops gracefully on SIGTERM when pcntl is loaded, so the exit code
+cannot separate them." That is a claim about a *clean* exit. When `e2e-down`
+removes the compose project first, the `docker compose exec` itself can fail,
+and the consumer's database can go out from under it — either way the exit is
+non-zero and the marker is never read.
+
+The fix is to check the marker before deciding the non-zero exit is real, in
+both branches rather than one. Worth doing because the cost is not the wrong
+exit code but the wrong signal: a teardown that always prints "consumer exited
+non-zero" teaches a reader to ignore the one time it means something, and
+`just e2e` already depends on people trusting worker diagnostics — a missing
+consumer is documented as the cause of a ~19-spec failure block.
 
 ## Rendered front matter and annotations have no accessible name
 
@@ -3072,19 +2987,6 @@ awkward there (you don't own `createToken()`), so weigh that when revisiting.
 All widget API failures render into the single `#lp-error` banner. Fine for a
 one-reviewer tool; if bulk operations ever appear, attach errors to the affected
 list row instead.
-
-## Widget-token mint flow still uses site-era CSRF id and translation keys
-
-
-
-
-**Author:** Claude · **Type:** tooling · **Priority:** low · **Status:** pending
-
-`MintProjectWidgetTokenController` keeps CSRF token id `mint-site-token` and
-the `site_review.site.token.*` translation-key family (template ↔ controller
-pairs are consistent). The Connect page now owns the token UI, so these can be
-renamed to `project.*` as a cosmetic follow-up (coordinated template + controller
-+ csrf.yaml + xlf change).
 
 ## Site-review widget overlaps the review console's pinned controls (dogfooding)
 
@@ -3309,25 +3211,6 @@ Related, and already fixed: Tailwind v4's automatic source detection scans
 every committed file, so documentation that merely *names* a class was
 compiling it into production CSS. `app.css` now carries
 `@source not "../../.claude"` and `@source not "../../docs"`.
-
-## `tag_input_controller.js` is a dead Stimulus controller shipped eagerly
-
-
-**Author:** Claude · **Type:** tooling · **Priority:** low · **Status:** pending
-
-`assets/controllers/tag_input_controller.js` has no template consumer anywhere —
-it was built for an admin feature-flags form that no longer uses it — and it is
-marked `/* stimulusFetch: 'eager' */`, so it is in the main bundle for every
-page load regardless. Now that documents carry tags, a future session will find
-it and reasonably assume it is the live tag input.
-
-Either delete it or make it the input for a real tag-editing form. Adopting it
-needs three fixes: it renders pills as `admin-badge admin-badge-neutral` rather
-than `.lp-tag`, its dropdown and remove buttons use raw `slate-*` utility strings
-instead of semantic classes, and it reads its vocabulary from a hardcoded
-`tag-input-data` DOM id rather than a Stimulus value, so two tag inputs cannot
-share a page. Related: 'Dead semantic classes accumulate in app.css with nothing
-to catch them'.
 
 ## Product idea (long horizon): drag DOM elements in the widget to try layouts
 

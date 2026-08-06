@@ -14,7 +14,7 @@ use Symfony\Contracts\EventDispatcher\EventDispatcherInterface;
  * Hard-deletes a project and everything under it in one transaction.
  * Cross-module subtrees (Review, SiteReview) are deleted by listeners on
  * ProjectDeleting; this service then removes the project row and its two
- * bound ApiTokens. Reused by delete-account (F6).
+ * bound ApiTokens. Reused by account deletion, through ProjectAccountPurger.
  */
 final readonly class ProjectDeleter
 {

@@ -15,7 +15,20 @@ use Symfony\Component\Uid\Uuid;
 
 /**
  * The agent's only write: Pending → Addressed. Resolved is reserved for the
- * human in the web UI and is unreachable from MCP by design.
+ * human in the web UI.
+ *
+ * What keeps it that way is routing and firewall configuration, not
+ * authorization. An MCP request authenticates *as the project owner*, and
+ * SiteReviewCommentVoter's entire rule is `$subject->project->owner ===
+ * $token->getUser()` — so the voter would grant the resolve attribute to a
+ * tool call. Two other things stop it: no tool calls the resolve path, and
+ * ApiTokenAuthenticator is registered only on the `mcp` and `api` firewalls,
+ * so a Bearer token cannot authenticate against the resolve route on `main`
+ * at all (that route additionally carries a session-backed CSRF token).
+ *
+ * The consequence for anyone adding a tool: every ownership-based voter in
+ * this app returns true for an MCP request by construction, so a voter result
+ * is not a meaningful check on what an agent may do.
  */
 #[McpTool(name: 'site_review_mark_comment_addressed', description: 'Mark site-review comments as addressed after fixing them. Accepts the comment ids returned by site_review_get. Comments that are unknown, already addressed, or resolved are skipped, not fatal.')]
 final readonly class SiteReviewMarkCommentAddressedTool
