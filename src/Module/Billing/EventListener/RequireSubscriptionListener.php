@@ -55,13 +55,10 @@ final readonly class RequireSubscriptionListener
 
         if (!$isMachineRequest) {
             $route = $request->attributes->get('_route');
-            // `_paywallExempt` is a route default set by PaywallExemptRouteLoader
-            // from the #[PaywallExempt] attribute on the matched controller — the
-            // paywall itself, leaving, verification plumbing, and the account
-            // pages through which a user exports their data or closes their
-            // account. Reading it here (instead of a route-name allowlist) means
-            // the exemption travels with the route: it cannot silently stop
-            // protecting a route that gets renamed.
+            // `_paywallExempt` is a route default set from the #[PaywallExempt]
+            // attribute. Read here rather than from a route-name allowlist, so
+            // the exemption travels with the route and cannot silently stop
+            // protecting one that gets renamed.
             if (!is_string($route)
                 || true === $request->attributes->get(PaywallExempt::ROUTE_DEFAULT)
                 || str_starts_with($route, self::ADMIN_ROUTE_PREFIX)

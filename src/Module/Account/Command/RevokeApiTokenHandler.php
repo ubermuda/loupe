@@ -29,13 +29,11 @@ final readonly class RevokeApiTokenHandler
 
         $token->revoke();
 
-        // The token row now survives revocation instead of being deleted, so the
-        // database's ON DELETE SET NULL cascade on Project.widgetToken/mcpToken never
-        // fires for a revoke. Clear the binding by hand so the connect page and the
-        // mint/regenerate handlers see "no token" again, exactly as before. Branch on
-        // which query matched rather than comparing object identity against $token —
-        // that stays correct even if the association and $token were ever loaded as
-        // distinct instances.
+        // Revocation keeps the row, so the ON DELETE SET NULL cascade on
+        // Project.widgetToken/mcpToken never fires; clear the binding by hand.
+        // Branch on which query matched rather than on object identity, which
+        // stays correct even if the association and $token load as distinct
+        // instances.
         $widgetProject = $this->projects->findOneByWidgetToken($token);
         if (null !== $widgetProject) {
             $widgetProject->widgetToken = null;

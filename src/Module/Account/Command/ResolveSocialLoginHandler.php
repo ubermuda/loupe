@@ -48,13 +48,10 @@ final readonly class ResolveSocialLoginHandler
             return SocialLoginOutcome::logIn($existing->user);
         }
 
-        // A provider email may be trusted for matching/linking ONLY when the
-        // provider asserted it is verified — trusting an unverified one lets an
-        // attacker claim someone else's address (nOAuth account takeover). Loupe
-        // additionally requires every account to have a verified email
-        // (User.email is non-nullable and is the login identity), so with no
-        // verified email the login is rejected outright rather than creating an
-        // email-less account.
+        // A provider email is trustworthy for matching only when the provider
+        // asserts it is verified — trusting an unverified one is the nOAuth
+        // account-takeover path. With none, the login is rejected outright,
+        // since User.email is the non-nullable login identity.
         if (!$profile->emailVerified || null === $profile->email || '' === $profile->email) {
             throw new UnverifiedProviderEmail();
         }

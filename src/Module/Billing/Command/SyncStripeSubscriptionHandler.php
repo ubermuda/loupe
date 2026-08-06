@@ -67,13 +67,11 @@ final readonly class SyncStripeSubscriptionHandler
             return;
         }
 
-        // Within one second `created` cannot order two events at all, so arrival
-        // order decides — except behind a deletion. A deletion is terminal until
-        // something strictly newer supersedes it, so an `updated` that shares its
-        // second never hands access back. Ordinary same-second events still both
-        // apply: a subscription is routinely created as `incomplete` and updated
-        // to `active` inside the same second, and dropping the second one would
-        // paywall a paying customer.
+        // Within one second `created` cannot order events, so arrival order
+        // decides — except behind a deletion, which is terminal until something
+        // strictly newer supersedes it. Ordinary same-second events still both
+        // apply: a subscription is routinely created `incomplete` and updated to
+        // `active` in one second, and dropping the second would paywall a payer.
         if (BillingProfile::SUBSCRIPTION_DELETED_EVENT_TYPE === $profile->lastStripeEventType
             && null !== $profile->lastStripeEventAt
             && $command->eventCreatedAt <= $profile->lastStripeEventAt) {
