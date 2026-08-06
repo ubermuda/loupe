@@ -12,9 +12,9 @@ use App\Module\Review\ValueObject\DocumentHeading;
 final readonly class ShowDocumentView
 {
     /**
-     * @param list<Comment>                                                             $comments
+     * @param list<Comment>                                                                        $comments
      * @param list<array{versionNumber: int, createdAt: \DateTimeImmutable, description: ?string}> $versions
-     * @param list<DocumentHeading>                                                     $headings
+     * @param list<DocumentHeading>                                                                $headings
      */
     public function __construct(
         public Document $document,

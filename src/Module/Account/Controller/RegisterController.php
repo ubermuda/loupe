@@ -6,12 +6,12 @@ namespace App\Module\Account\Controller;
 
 use App\Controller\AppController;
 use App\Exception\DomainErrors;
+use App\Module\Account\Command\CheckInviteTokenCommand;
+use App\Module\Account\Command\CheckInviteTokenHandler;
 use App\Module\Account\Command\RegisterUserCommand;
 use App\Module\Account\Command\RegisterUserHandler;
 use App\Module\Account\Form\RegistrationFormType;
 use App\Module\Account\Form\RegistrationRequest;
-use App\Module\Account\Command\CheckInviteTokenCommand;
-use App\Module\Account\Command\CheckInviteTokenHandler;
 use App\Module\Account\Service\RegistrationGate;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;

@@ -6,11 +6,11 @@ namespace App\Module\Review\Controller;
 
 use App\Controller\AppController;
 use App\Exception\DomainErrors;
+use App\Module\Review\Command\ListVersionCommentsCommand;
+use App\Module\Review\Command\ListVersionCommentsHandler;
 use App\Module\Review\Command\ResolveCommentCommand;
 use App\Module\Review\Command\ResolveCommentHandler;
 use App\Module\Review\Entity\Comment;
-use App\Module\Review\Command\ListVersionCommentsCommand;
-use App\Module\Review\Command\ListVersionCommentsHandler;
 use App\Module\Review\Security\CommentVoter;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;

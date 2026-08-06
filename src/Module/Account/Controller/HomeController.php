@@ -5,9 +5,9 @@ declare(strict_types=1);
 namespace App\Module\Account\Controller;
 
 use App\Controller\AppController;
-use App\Module\Account\Entity\User;
 use App\Module\Account\Command\ShowHomeCommand;
 use App\Module\Account\Command\ShowHomeHandler;
+use App\Module\Account\Entity\User;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
 
