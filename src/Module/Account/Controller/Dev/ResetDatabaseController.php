@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace App\Module\Account\Controller\Dev;
 
 use App\Controller\AppController;
-use App\Module\Account\Service\AgentAccountInstaller;
-use Doctrine\DBAL\Connection;
+use App\Module\Account\Command\ResetDatabaseCommand;
+use App\Module\Account\Command\ResetDatabaseHandler;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\DependencyInjection\Attribute\When;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -26,7 +26,7 @@ use Symfony\Component\Routing\Attribute\Route;
 final class ResetDatabaseController extends AppController
 {
     public function __construct(
-        private readonly Connection $conn,
+        private readonly ResetDatabaseHandler $resetDatabase,
 
         #[Autowire(param: 'kernel.environment')]
         private readonly string $environment,
@@ -45,26 +45,7 @@ final class ResetDatabaseController extends AppController
             throw $this->createNotFoundException();
         }
 
-        // Every application table is wiped; the list is derived from the live
-        // schema so newly added tables can never silently escape the reset.
-        /** @var list<string> $tables */
-        $tables = $this->conn->fetchFirstColumn(
-            "SELECT tablename FROM pg_tables WHERE schemaname = 'public' AND tablename <> 'doctrine_migration_versions'",
-        );
-
-        if ([] !== $tables) {
-            $quoted = array_map(
-                $this->conn->quoteIdentifier(...),
-                $tables,
-            );
-            $this->conn->executeStatement('TRUNCATE TABLE '.implode(', ', $quoted).' CASCADE');
-        }
-
-        // The agent account is schema, not data: a migration installs it and
-        // every agent-written comment points at it. The truncate above takes it
-        // with the rest of `users`, so it is put back. It does not reopen the
-        // install wizard — that asks for human accounts (UserRepository::countHumans).
-        AgentAccountInstaller::install($this->conn);
+        ($this->resetDatabase)(new ResetDatabaseCommand());
 
         return new JsonResponse(['ok' => true]);
     }

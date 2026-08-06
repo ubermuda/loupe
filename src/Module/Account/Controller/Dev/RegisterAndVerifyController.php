@@ -5,12 +5,9 @@ declare(strict_types=1);
 namespace App\Module\Account\Controller\Dev;
 
 use App\Controller\AppController;
-use App\Exception\DomainErrors;
-use App\Module\Account\Command\RegisterUserCommand;
-use App\Module\Account\Command\RegisterUserHandler;
-use App\Module\Account\Repository\UserRepository;
+use App\Module\Account\Command\RegisterAndVerifyCommand;
+use App\Module\Account\Command\RegisterAndVerifyHandler;
 use App\Module\Account\Service\DisplayNameDeriver;
-use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\DependencyInjection\Attribute\When;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -29,9 +26,7 @@ use Symfony\Component\Routing\Attribute\Route;
 final class RegisterAndVerifyController extends AppController
 {
     public function __construct(
-        private readonly RegisterUserHandler $registerUser,
-        private readonly UserRepository $users,
-        private readonly EntityManagerInterface $em,
+        private readonly RegisterAndVerifyHandler $registerAndVerify,
         private readonly DisplayNameDeriver $displayNameDeriver,
     ) {
     }
@@ -53,27 +48,19 @@ final class RegisterAndVerifyController extends AppController
             $fullName = $this->displayNameDeriver->derive($email);
         }
 
-        try {
-            $user = ($this->registerUser)(new RegisterUserCommand(
-                email: $email,
-                fullName: $fullName,
-                plainPassword: $password,
-            ));
-        } catch (DomainErrors $e) {
-            // User already exists — look them up so we can return their info.
-            $existing = $this->users->findOneByEmail($email);
-            if (null === $existing) {
-                return $this->json(['error' => 'Registration failed', 'errors' => $e->errors], JsonResponse::HTTP_UNPROCESSABLE_ENTITY);
-            }
-            $user = $existing;
+        $view = ($this->registerAndVerify)(new RegisterAndVerifyCommand(
+            email: $email,
+            fullName: $fullName,
+            plainPassword: $password,
+        ));
+
+        if (null === $view->user) {
+            return $this->json(
+                ['error' => 'Registration failed', 'errors' => $view->errors->errors ?? []],
+                JsonResponse::HTTP_UNPROCESSABLE_ENTITY,
+            );
         }
 
-        // Mark the email as verified without sending any email.
-        if (!$user->isVerified()) {
-            $user->emailVerifiedAt = new \DateTimeImmutable();
-            $this->em->flush();
-        }
-
-        return $this->json(['email' => $user->email], JsonResponse::HTTP_OK);
+        return $this->json(['email' => $view->user->email], JsonResponse::HTTP_OK);
     }
 }

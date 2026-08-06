@@ -9,7 +9,8 @@ use App\Module\Account\Command\ResetPasswordCommand;
 use App\Module\Account\Command\ResetPasswordHandler;
 use App\Module\Account\Entity\User;
 use App\Module\Account\Form\ChangePasswordFormType;
-use App\Module\Account\Repository\UserRepository;
+use App\Module\Account\Command\ValidatePasswordResetTokenCommand;
+use App\Module\Account\Command\ValidatePasswordResetTokenHandler;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
@@ -27,7 +28,7 @@ class ResetPasswordController extends AppController
     public function __construct(
         private readonly ResetPasswordHandler $resetPassword,
         private readonly TranslatorInterface $translator,
-        private readonly UserRepository $users,
+        private readonly ValidatePasswordResetTokenHandler $validatePasswordResetToken,
     ) {
     }
 
@@ -46,8 +47,8 @@ class ResetPasswordController extends AppController
 
         // Read-only pre-check so an invalid link redirects instead of rendering
         // a doomed form; the handler re-validates on submit.
-        $user = $this->users->findByPasswordResetToken($token);
-        if (!$user instanceof User || !$user->isPasswordResetTokenValid($token)) {
+        $user = ($this->validatePasswordResetToken)(new ValidatePasswordResetTokenCommand($token))->user;
+        if (null === $user) {
             $request->getSession()->remove(self::SESSION_TOKEN_KEY);
             $this->addFlash('error', $this->translator->trans('account.reset_password.flash.invalid_token'));
 

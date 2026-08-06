@@ -5,7 +5,8 @@ declare(strict_types=1);
 namespace App\Module\Account\Controller;
 
 use App\Controller\AppController;
-use App\Module\Account\Repository\UserRepository;
+use App\Module\Account\Command\ConfirmAccountDeletionCommand;
+use App\Module\Account\Command\ConfirmAccountDeletionHandler;
 use App\Routing\PaywallExempt;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -20,21 +21,23 @@ use Symfony\Component\Routing\Attribute\Route;
 class ConfirmAccountDeletionController extends AppController
 {
     public function __construct(
-        private readonly UserRepository $users,
+        private readonly ConfirmAccountDeletionHandler $confirmAccountDeletion,
     ) {
     }
 
     public function __invoke(Request $request): Response
     {
         $token = $request->query->get('token');
-        $user = is_string($token) ? $this->users->findByAccountDeletionToken($token) : null;
+        $view = ($this->confirmAccountDeletion)(new ConfirmAccountDeletionCommand(
+            is_string($token) ? $token : null,
+        ));
 
-        if (null === $user || null === $token || !$user->isAccountDeletionTokenValid($token)) {
+        if (null === $view->account) {
             return $this->render('@Account/account_deletion/invalid.html.twig');
         }
 
         return $this->render('@Account/account_deletion/confirm.html.twig', [
-            'account' => $user,
+            'account' => $view->account,
             'token' => $token,
         ]);
     }

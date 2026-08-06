@@ -5,55 +5,51 @@ declare(strict_types=1);
 namespace App\Module\Account\Controller\Admin;
 
 use App\Controller\AppController;
-use App\Module\Account\Repository\WaitlistEntryRepository;
+use App\Module\Account\Command\Admin\ListWaitlistCommand;
+use App\Module\Account\Command\Admin\ListWaitlistHandler;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
-use Ubermuda\AdminBundle\Listing\ListPagePagination;
 use Ubermuda\AdminBundle\Listing\ListPageRequest;
 
 #[IsGranted('ROLE_ADMIN')]
 #[Route('/admin/waitlist', name: 'app_admin_waitlist_list')]
 final class ListWaitlistController extends AppController
 {
-    private const int PER_PAGE = 20;
-    private const array ALLOWED_SORTS = ['email', 'createdAt', 'invitedAt'];
-
     public function __construct(
-        private readonly WaitlistEntryRepository $waitlistEntries,
-        private readonly ListPagePagination $pagination,
+        private readonly ListWaitlistHandler $listWaitlist,
     ) {
     }
 
     public function __invoke(Request $request): Response
     {
-        $listRequest = ListPageRequest::fromRequest($request, self::ALLOWED_SORTS, 'createdAt', 'asc');
+        $listRequest = ListPageRequest::fromRequest(
+            $request,
+            ListWaitlistHandler::ALLOWED_SORTS,
+            'createdAt',
+            'asc',
+        );
 
-        $paginator = $this->waitlistEntries->findPaginated(
+        $view = ($this->listWaitlist)(new ListWaitlistCommand(
             page: $listRequest->page,
-            perPage: self::PER_PAGE,
             sort: $listRequest->sort,
             dir: $listRequest->dir,
-        );
-        $total = count($paginator);
+        ));
 
-        $clampedPage = $this->pagination->clampPage('waitlist_entries', $listRequest->page, $total, self::PER_PAGE, []);
-        if (null !== $clampedPage) {
+        if (null !== $view->clampedPage) {
             return $this->redirectToRoute(
                 'app_admin_waitlist_list',
-                [...$request->query->all(), 'page' => $clampedPage],
+                [...$request->query->all(), 'page' => $view->clampedPage],
             );
         }
 
-        $totalPages = max(1, (int) ceil($total / self::PER_PAGE));
-
         return $this->render('@Account/admin/waitlist.html.twig', [
-            'entries' => $paginator,
-            'total' => $total,
+            'entries' => $view->entries,
+            'total' => $view->total,
             'page' => $listRequest->page,
-            'totalPages' => $totalPages,
-            'pageList' => $this->pagination->buildPageList($listRequest->page, $totalPages),
+            'totalPages' => $view->totalPages,
+            'pageList' => $view->pageList,
             'sort' => $listRequest->sort,
             'dir' => $listRequest->dir,
             'filters' => [],
