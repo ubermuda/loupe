@@ -12,27 +12,25 @@ use App\Module\SiteReview\SiteReviewPush;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use Symfony\Component\HttpFoundation\Request;
-use Ubermuda\FeatureFlagsBundle\Entity\FeatureFlag;
-use Ubermuda\FeatureFlagsBundle\Enum\FeatureFlagType;
 
 final class StreamCredentialsControllerTest extends WebTestCase
 {
     /**
-     * The endpoint is gated by site_review.push.enabled, so every case here has
-     * to switch it on — including the ones asserting a failure, which must fail
-     * for their own reason rather than because the feature is off.
+     * Written through the connection rather than the entity: the flag row comes
+     * from a migration, so it already exists and this only has to flip it.
      */
-    private function enablePush(EntityManagerInterface $em): void
+    private function disablePush(EntityManagerInterface $em): void
     {
-        $em->persist(new FeatureFlag(name: SiteReviewPush::FLAG, type: FeatureFlagType::Bool, value: true));
-        $em->flush();
+        $em->getConnection()->executeStatement(
+            "UPDATE feature_flag SET value = 'false' WHERE name = ?",
+            [SiteReviewPush::FLAG],
+        );
     }
 
     public function test_returns_per_site_topic_and_scoped_jwt(): void
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
-        $this->enablePush($em);
         [$raw, , $project] = $this->issue($em, ApiTokenScope::SiteReview, 'stream@example.com');
 
         $client->request(Request::METHOD_GET, '/api/site-review/stream',
@@ -63,8 +61,10 @@ final class StreamCredentialsControllerTest extends WebTestCase
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
         self::assertInstanceOf(EntityManagerInterface::class, $em);
-        // Deliberately no enablePush(): a valid credential for a real project,
-        // refused only because the instance does not do push.
+        // The flag ships on (a migration seeds it), so this case has to turn it
+        // off: a valid credential for a real project, refused only because the
+        // instance does not do push.
+        $this->disablePush($em);
         [$raw, , $project] = $this->issue($em, ApiTokenScope::SiteReview, 'stream-off@example.com');
 
         $client->request(Request::METHOD_GET, '/api/site-review/stream',
@@ -82,7 +82,6 @@ final class StreamCredentialsControllerTest extends WebTestCase
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
-        $this->enablePush($em);
         [$raw, , $project] = $this->issue($em, ApiTokenScope::SiteReview, 'stream-by-id@example.com');
 
         $client->request(Request::METHOD_GET, '/api/site-review/stream',
@@ -99,7 +98,6 @@ final class StreamCredentialsControllerTest extends WebTestCase
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
-        $this->enablePush($em);
         [$raw] = $this->issue($em, ApiTokenScope::SiteReview, 'stream-no-site@example.com');
 
         // Missing site parameter → 400.
@@ -126,7 +124,6 @@ final class StreamCredentialsControllerTest extends WebTestCase
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
-        $this->enablePush($em);
         [$raw] = $this->issue($em, ApiTokenScope::SiteReview, 'stream-unknown@example.com');
 
         $client->request(Request::METHOD_GET, '/api/site-review/stream',
@@ -143,7 +140,6 @@ final class StreamCredentialsControllerTest extends WebTestCase
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
-        $this->enablePush($em);
 
         [$raw] = $this->issue($em, ApiTokenScope::SiteReview, 'stream-owner1@example.com');
         [, , $otherSite] = $this->issue($em, ApiTokenScope::SiteReview, 'stream-owner2@example.com');
@@ -160,7 +156,6 @@ final class StreamCredentialsControllerTest extends WebTestCase
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
-        $this->enablePush($em);
         [$raw] = $this->issue($em, ApiTokenScope::Mcp, 'mcp-stream@example.com');
 
         $client->request(Request::METHOD_GET, '/api/site-review/stream',
@@ -181,7 +176,6 @@ final class StreamCredentialsControllerTest extends WebTestCase
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
-        $this->enablePush($em);
 
         // A widget token: SiteReview-scoped but BOUND to a site. It is embedded
         // in public page HTML, so it must never mint subscriber JWTs — not even

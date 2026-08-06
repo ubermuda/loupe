@@ -14,4 +14,7 @@ ubermuda_feature_flags:
         # MERCURE_JWT_SECRET ships with no default on purpose, so an instance
         # that never configured Mercure has site-review push off by default
         # rather than failing at the moment someone submits a review.
-        site_review.push.enabled: ['MERCURE_URL', 'MERCURE_JWT_SECRET']
+        # MERCURE_PUBLIC_URL belongs here too: the gated feature includes
+        # issuing subscriber credentials, and with it blank the endpoint hands
+        # back an empty hubUrl that no bridge client can subscribe to.
+        site_review.push.enabled: ['MERCURE_URL', 'MERCURE_PUBLIC_URL', 'MERCURE_JWT_SECRET']
