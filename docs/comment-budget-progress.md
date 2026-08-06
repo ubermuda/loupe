@@ -15,54 +15,32 @@ Scratch tracker for this branch only. **Delete before opening the PR.**
   comment-length bullet.
 - `project-comments` skill: documented the new check and its advisory nature.
 
-## In flight — 78 phpstan errors surfaced by the pin bump
+## Done — the 78 phpstan errors surfaced by the pin bump
 
-Owner chose to fix all of them in this branch (not baseline them).
+All cleared (owner chose to fix rather than baseline them). `just ci` is
+green: phpstan clean, gamache 11 passed / 0 failed / 2 advisory, 1273
+tests / 5042 assertions.
 
-`controller.directStateAccess` × 77 across 33 files, plus one
-`assignment.selfAssigningTernary`. Each controller needs a read handler +
-view object in the module's `Command/` dir per `project-command-handler`.
-
-### Remaining files
-
-- [ ] src/Controller/ShowHealthController.php (1)
-- [ ] src/Module/Account/Controller/Admin/ListWaitlistController.php (1)
-- [ ] src/Module/Account/Controller/ConfirmAccountDeletionController.php (1)
-- [ ] src/Module/Account/Controller/Dev/RegisterAndVerifyController.php (2)
-- [ ] src/Module/Account/Controller/Dev/ResetDatabaseController.php (3)
-- [ ] src/Module/Account/Controller/HomeController.php (1)
-- [ ] src/Module/Account/Controller/RegisterController.php (2)
-- [ ] src/Module/Account/Controller/ResetPasswordController.php (1)
-- [ ] src/Module/Account/Controller/RevokeApiTokenController.php (1)
-- [ ] src/Module/Account/Security/ApiTokenAuthenticator.php (1, selfAssigningTernary)
-- [ ] src/Module/Admin/Controller/Dev/E2eFeatureFlagController.php (3)
-- [ ] src/Module/Billing/Controller/Dev/SeedBillingStateController.php (5)
-- [x] src/Module/Project/Controller/CreateProjectController.php (4)
-- [x] src/Module/Project/Controller/ListProjectsController.php (4)
-- [x] src/Module/Review/Controller/AddCommentController.php (2)
-- [x] src/Module/Review/Controller/DeleteCommentController.php (1)
-- [ ] src/Module/Review/Controller/Dev/GetReviewStateController.php (2)
-- [ ] src/Module/Review/Controller/Dev/SeedDocumentController.php (3)
-- [ ] src/Module/Review/Controller/DiffDocumentVersionsController.php (3)
-- [ ] src/Module/Review/Controller/ListDocumentsController.php (6)
-- [x] src/Module/Review/Controller/ReplyToCommentController.php (1)
-- [x] src/Module/Review/Controller/ResolveCommentController.php (1)
-- [ ] src/Module/Review/Controller/SelectDecisionOptionController.php (2)
-- [x] src/Module/Review/Controller/ShowDocumentController.php (5)
-- [x] src/Module/Review/Controller/StrikePassageController.php (2)
-- [x] src/Module/Review/Controller/SuggestRewordingController.php (2)
-- [x] src/Module/SiteReview/Controller/Admin/ListSiteReviewOutboxController.php (3)
-- [x] src/Module/SiteReview/Controller/Api/ListSitesController.php (1)
-- [x] src/Module/SiteReview/Controller/Api/ShowDraftCommentsController.php (1)
-- [x] src/Module/SiteReview/Controller/Api/StreamCredentialsController.php (1)
-- [x] src/Module/SiteReview/Controller/Dev/SiteReviewHarnessController.php (8)
-- [x] src/Module/SiteReview/Controller/ListProjectOutboxController.php (1)
-- [x] src/Module/SiteReview/Controller/ShowSiteReviewController.php (3)
-
-## Still to do after that
+## Still to do
 
 - The comment cleanup itself: 144 over-budget blocks reported by
   `vendor/bin/gamache`. Legitimate long headers (`compose.prod.yaml`, `.env`,
   Twig file headers) get `@comment-budget-ignore`, not a rewrite.
 - Repoint the gamache pin to `dev-main#<merge-sha>` once PR #31 merges, and drop
   the `as dev-main` alias.
+
+## Gate status
+
+- [x] `just cs`
+- [x] `just ci` (exit 0)
+- [ ] `just e2e` — needs `just e2e-up` and a consumer; not run yet
+- [ ] Codex review against `origin/main`
+- [ ] Push + open PR
+
+## Worktree notes
+
+`just worktree-up comment-budget` OOM'd during Twig cache warmup, so the tree
+was finished by hand: `composer install`, `npm install` in `e2e/`,
+`cache:warmup` with a raised memory limit, and `bin/console tailwind:build`.
+Skipping that last one is what made ~69 controller tests fail with
+"Unable to find asset tailwindcss" — environmental, not a regression.
