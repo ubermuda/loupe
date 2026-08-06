@@ -30,6 +30,11 @@ parameters:
     app.mcp.server_name: 'loupe'
 
 services:
+    # A vendor class, so it cannot carry our attributes. Built by a factory
+    # because DATABASE_URL alone is wrong — see PdoSessionHandlerFactory.
+    Symfony\Component\HttpFoundation\Session\Storage\Handler\PdoSessionHandler:
+        factory: ['@App\Session\PdoSessionHandlerFactory', '__invoke']
+
     # default configuration for services in *this* file
     _defaults:
         autowire: true      # Automatically injects dependencies in your services.

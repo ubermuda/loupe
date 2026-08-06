@@ -153,32 +153,6 @@ Closing this means one export against a real Spaces bucket with the ACL
 Terraform sets.
 
 
-## Sessions, cache and rate-limiter storage are container-local
-
-
-**Author:** Claude · **Type:** bug · **Priority:** high · **Status:** pending
-
-Found by the self-hosting audit (2026-07-28); the owner accepted the current
-behaviour for now and asked for a note.
-
-`config/packages/framework.yaml` leaves `handler_id` unset, so sessions are
-native files in the cache directory; `config/packages/cache.yaml` keeps the
-filesystem app cache; and the rate limiters in the same `framework.yaml` are
-backed the same way. Two consequences, neither documented: **every deploy logs
-all users out**, because the cache directory does not survive a new container;
-and with more than one web replica, sessions and rate limits are per-replica,
-so the per-IP registration and password-reset limits are effectively multiplied
-by the replica count.
-
-The whole configuration therefore assumes a single web replica and tolerates
-session loss on deploy. That assumption is invisible to an operator reading
-`DEPLOY.md`.
-
-Fix when it becomes worth it: `PdoSessionHandler` for sessions and a
-Doctrine-backed pool for the rate-limiter storage. Postgres is already a hard
-dependency, so this adds no new infrastructure. Until then, `DEPLOY.md` should
-say out loud that the app expects one web replica.
-
 ## Flip the CSP from report-only to enforcing
 
 **Author:** Claude · **Type:** security · **Priority:** high · **Status:** pending
@@ -2713,6 +2687,46 @@ existing per-process split in prod is deliberate (`docker/prod/supervisord.conf`
 is the web container's CMD only, never a place to add background programs), so
 whatever runs several processes in the trial image must be scoped to that image
 and not leak back into the prod one.
+
+## A step-ca thread leak takes down `docker exec` for every other container
+
+**Author:** Claude · **Type:** tooling · **Priority:** medium · **Status:** pending
+
+Observed 2026-08-05. Every `docker exec` into `loupe-php-fpm-1` began failing
+with `OCI runtime exec failed: ... procReady not received`, and once with the
+more informative `error starting setns process: fork/exec /proc/self/fd/6:
+resource temporarily unavailable`. That second message is `EAGAIN` on `fork` —
+the VM had run out of process slots. `just exec`, and therefore `just ci`,
+`just cs`, `just phpunit` and the whole e2e path, were all dead.
+
+**The container at fault is not this project's.** `docker stats` showed
+`traefik-step-ca-1` holding **49,702 PIDs**, against 13 for php-fpm and under
+20 for everything else. step-ca lives in the separate `traefik` stack, so
+nothing in this repository's logs or containers points at it, and php-fpm looks
+blameless because it is.
+
+Recovery is a restart of the offending container, and it is immediate:
+
+```bash
+( cd ~/Code/traefik && docker compose restart step-ca )
+```
+
+Afterwards `docker exec` works again and TLS still verifies
+(`curl -o /dev/null -w '%{ssl_verify_result}'` returns 0), so no certificate
+re-issue is needed.
+
+Worth recording for the diagnosis, which is the expensive part: the symptom
+appears as a **Docker or php-fpm fault** and invites restarting this project's
+stack, which changes nothing. The tell is that exec fails for *every* container
+rather than one, and the fix is to find the PID hog with
+`docker stats --no-stream --format '{{.Name}} pids={{.PIDs}}'` before
+restarting anything. Whether step-ca leaks on a timer, on certificate issuance,
+or only after a long uptime is unknown — it had been up for days. If it recurs,
+that is worth pinning down, along with whether a `pids_limit` on that service
+would turn a whole-machine outage into one failing container.
+
+Same family as 'Host `pkill` does not kill a process inside the php-fpm
+container': the host-visible symptom names the wrong process.
 
 ## `bin/console cache:clear` runs out of memory in dev
 

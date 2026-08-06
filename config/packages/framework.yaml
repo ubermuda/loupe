@@ -6,6 +6,11 @@ framework:
 
     # Note that the session will be started ONLY if you read or write from it.
     session:
+        # Postgres rather than native files in the cache directory. The cache
+        # directory is container-local, so every deploy logged every user out,
+        # and with more than one web replica a session only existed on the
+        # replica that created it.
+        handler_id: Symfony\Component\HttpFoundation\Session\Storage\Handler\PdoSessionHandler
         cookie_secure: auto
         cookie_httponly: true
         cookie_samesite: lax
