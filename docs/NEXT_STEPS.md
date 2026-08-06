@@ -292,22 +292,6 @@ demand is 17–20 concurrent, so `pm.max_children = 40` with
 without waiting on the spawn rate. That addresses reliability but not
 parallelism.
 
-## Repoint the gamache pin off the CommentBudgetCheck branch
-
-**Author:** Claude · **Type:** tooling · **Priority:** high · **Status:** pending
-
-`composer.json` pins `ubermuda/gamache` to
-`dev-feat/comment-budget-check#75ebfa3864b1000edb8223e1ab336ccc913a6a1c as dev-main`
-so this checkout can use `CommentBudgetCheck` before its upstream PR
-(ubermuda/gamache#31) is merged. Once that PR merges, repoint to plain
-`dev-main#<merge-sha>` and drop the `as dev-main` alias, then
-`composer update ubermuda/gamache` and commit the lockfile.
-
-Until that happens the branch name is load-bearing: delete it upstream and any
-resolution that does not hit the committed lockfile — a fresh `composer update`,
-or a machine installing without `composer.lock` — can no longer satisfy the
-constraint. Codex flagged the same thing reviewing the branch that introduced it.
-
 ## Proper HTTP API + outbound webhooks
 
 
