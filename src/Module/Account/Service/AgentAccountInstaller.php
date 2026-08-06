@@ -20,12 +20,10 @@ final class AgentAccountInstaller
 {
     public static function install(Connection $connection): void
     {
-        // No password, no roles, and an IANA-reserved `.invalid` address that can
-        // never receive verification mail — nothing can authenticate as it.
-        //
-        // The conflict target is deliberate: a bare DO NOTHING would swallow the
-        // email unique violation too, leaving the app with no agent row. Only a
-        // repeat of the id is idempotent here; anything else must raise.
+        // No password, no roles, and an IANA-reserved `.invalid` address that
+        // can never receive mail — nothing can authenticate as it. The conflict
+        // target is deliberate: a bare DO NOTHING swallows the email unique
+        // violation too, leaving the app with no agent row.
         $connection->executeStatement(
             <<<'SQL'
                 INSERT INTO users (id, roles, full_name, email, password, created_at)

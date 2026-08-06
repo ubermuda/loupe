@@ -47,12 +47,10 @@ final readonly class JoinWaitlistHandler
             return;
         }
 
-        // An address with an ENABLED account needs no waitlist row — it would
-        // sit there as permanently un-invitable clutter. A DISABLED account is
-        // the opposite: the waitlist is exactly how it re-enters once the cap
-        // has room — its email joins like a newcomer's (or re-opens its old
-        // converted row, above). Both branches stay silent: the join response
-        // never reveals whether an address is registered.
+        // An ENABLED account needs no waitlist row; a DISABLED one is the
+        // opposite, since the waitlist is how it re-enters once the cap has room.
+        // Both branches stay silent, so the response never reveals whether an
+        // address is registered.
         $existingUser = $this->users->findOneByEmail($command->email);
         if (null !== $existingUser && !$existingUser->isDisabled()) {
             $this->logger->info('account.waitlist.join_skipped_existing_account', ['email' => $command->email]);

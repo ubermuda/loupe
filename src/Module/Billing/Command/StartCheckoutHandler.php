@@ -46,12 +46,10 @@ final readonly class StartCheckoutHandler
 
         $profile = $this->trialProvisioner->ensureProfile($command->user);
 
-        // A disabled account re-enters only if the cap has room — or with a
-        // waitlist invite, which is the cap's own overflow valve. A snapshot
-        // check, deliberately without the capacity advisory lock: the lock is
-        // transaction-scoped and could not span the Stripe call anyway, and a
-        // lost race merely means slight over-cap, which the unconditional
-        // webhook re-enable accepts.
+        // A snapshot check, deliberately without the capacity advisory lock: it
+        // is transaction-scoped and could not span the Stripe call anyway, and a
+        // lost race means slight over-cap, which the unconditional webhook
+        // re-enable accepts.
         if ($command->user->isDisabled()
             && !$this->registrationGate->isOpen()
             && !$this->hasValidInvite($command)) {
@@ -87,12 +85,10 @@ final readonly class StartCheckoutHandler
                 return $customerId;
             });
 
-            // Deliberately outside the transaction: a Checkout failure here must
-            // not roll back the customer id just committed, or the retry would
-            // mint a second Stripe customer for the same user. The lock is no
-            // longer needed — both racers now read the same committed customer,
-            // so both compute the same idempotency key and Stripe replays the
-            // one session.
+            // Outside the transaction deliberately: a Checkout failure must not
+            // roll back the customer id just committed, or the retry mints a
+            // second Stripe customer. Both racers now read the same committed
+            // customer, so both compute the same idempotency key.
             $url = $this->stripe->createCheckoutSession(
                 $customerId,
                 $priceId,

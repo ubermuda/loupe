@@ -35,12 +35,10 @@ final class ResetDatabaseController extends AppController
 
     public function __invoke(Request $request): JsonResponse
     {
-        // Defense-in-depth on top of #[When('dev')]: this truncates every table, so
-        // it additionally requires the header Playwright sends on every request
-        // (extraHTTPHeaders in playwright.config.ts) — a drive-by request against a
-        // reachable dev deployment cannot set a custom header cross-origin, so this
-        // rules out the accidental/CSRF-style trigger that #[When('dev')] alone does
-        // not.
+        // Defense-in-depth on top of #[When('dev')]: this truncates every table,
+        // so it also requires the header Playwright sends. A cross-origin
+        // drive-by cannot set a custom header, which the attribute alone does not
+        // rule out.
         if ('dev' !== $this->environment || !$request->headers->has('X-Playwright')) {
             throw $this->createNotFoundException();
         }

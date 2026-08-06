@@ -42,12 +42,10 @@ final readonly class MarkExportFailedOnFinalFailure
             return;
         }
 
-        // A Failed export has no expiresAt, so ExpiredExportPurger's
-        // findExpired() (expiresAt-based) would never reach it — a build
-        // that got as far as storing the ZIP before a later step (flush,
-        // email) exhausted its retries would otherwise orphan that archive
-        // forever. Delete it here, the one place that observes the terminal
-        // failure.
+        // A Failed export has no expiresAt, so the expiry purge never reaches it
+        // — a build that stored the ZIP before a later step exhausted its retries
+        // would orphan the archive forever. Deleted here, the one place that
+        // observes the terminal failure.
         $exportId = $export->id;
         if (null !== $exportId) {
             try {

@@ -24,13 +24,10 @@ final readonly class ArchiveDocumentHandler
     {
         $document = $command->document;
 
-        // No reason and a blank one are different things. Null is the app's
-        // archive button, which has no field to fill in; a string of spaces is
-        // a caller that was asked for a reason and answered with nothing, and
-        // is rejected rather than stored as an explanation that says nothing.
-        //
-        // Outside the transaction below because it writes nothing: rolling back
-        // for it would roll back an empty unit of work.
+        // No reason and a blank one differ: null is the app's archive button,
+        // which has no field, while spaces are a caller that was asked and
+        // answered with nothing. Outside the transaction because it writes
+        // nothing.
         $reason = null === $command->reason ? null : trim($command->reason);
         if ('' === $reason) {
             throw new DomainErrors(['reason' => 'review.archive.error.reason_blank']);

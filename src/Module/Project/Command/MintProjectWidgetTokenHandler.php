@@ -28,12 +28,10 @@ final readonly class MintProjectWidgetTokenHandler
     {
         $project = $command->project;
 
-        // Serialize concurrent mints for the same project with a row lock: two
-        // requests that both passed the check could otherwise each persist a
-        // token, leaving the losing one valid but bound to no project — which
-        // would slip past the account-vs-widget distinction on the site-review
-        // API. Re-check against committed state (not the possibly-stale in-memory
-        // association) once the lock is held.
+        // A row lock serialises concurrent mints: two requests past the check
+        // would each persist a token, leaving the loser valid but bound to no
+        // project. Re-check against committed state once held, not the
+        // possibly-stale in-memory association.
         return $this->em->wrapInTransaction(function () use ($project): string {
             $this->em->lock($project, LockMode::PESSIMISTIC_WRITE);
 

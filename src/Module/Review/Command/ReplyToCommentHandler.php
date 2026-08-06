@@ -37,12 +37,10 @@ final readonly class ReplyToCommentHandler
             throw new DomainErrors(['body' => 'comment.error.reply_too_long']);
         }
 
-        // Replies always attach to the thread root. Nothing else rejects a POST
-        // targeting a reply (the voter checks only document ownership), and a
-        // nested reply is invisible in thread rendering (CommentThread.html.twig
-        // only ever renders one level) plus breaks DeleteCommentHandler, which
-        // removes only one level of replies — a grandchild's non-nullable
-        // parent FK would abort that delete with a 500.
+        // Replies always attach to the thread root: nothing else rejects a POST
+        // targeting a reply, and a nested one renders invisibly and breaks
+        // DeleteCommentHandler, which removes one level only — a grandchild's
+        // non-nullable parent FK would abort that delete with a 500.
         if (null !== $parent->parent) {
             throw new DomainErrors(['body' => 'comment.error.reply_to_reply']);
         }
