@@ -7,6 +7,9 @@ namespace App\Module\Review\Query;
 use App\Module\Review\Entity\Document;
 use App\Module\Review\Repository\DocumentVersionRepository;
 
+/**
+ * @phpstan-type DocumentPayload array{documentId: string, title: string, status: string, archived: bool, archiveReason: ?string, version: int, versionDescription: ?string, markdown: string, tags: list<string>, references: list<array{documentId: string, title: string, archived: bool}>, referencedBy: list<array{documentId: string, title: string, archived: bool}>}
+ */
 final readonly class GetDocument
 {
     public function __construct(
@@ -17,7 +20,7 @@ final readonly class GetDocument
     /**
      * Returns the data of an already-authorized document.
      *
-     * @return array{documentId: string, title: string, status: string, archived: bool, archiveReason: ?string, version: int, versionDescription: ?string, markdown: string, tags: list<string>, references: list<array{documentId: string, title: string, archived: bool}>, referencedBy: list<array{documentId: string, title: string, archived: bool}>}
+     * @return DocumentPayload
      */
     public function __invoke(Document $document): array
     {

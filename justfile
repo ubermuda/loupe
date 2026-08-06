@@ -9,6 +9,13 @@
 # reference compose stack runs).
 prod_image := env("LOUPE_PROD_IMAGE", "ghcr.io/ubermuda/loupe:prod")
 
+# Recipes forwarding `*args` use "$@" rather than {{args}}, which needs this.
+# {{args}} interpolates one space-joined string that the shell then re-splits,
+# so `just phpunit --filter A|B` runs a pipeline into a command named B. Quoting
+# {{args}} is not the fix: it collapses every argument into one, which breaks
+# `just exec bin/console cache:clear`. Only "$@" keeps the boundaries intact.
+set positional-arguments
+
 default:
     @just --list
 
@@ -22,7 +29,7 @@ down:
     docker compose down
 
 exec *args:
-    bin/worktrees/compose-exec.sh {{args}}
+    bin/worktrees/compose-exec.sh "$@"
 
 shell: (exec "bash")
 
@@ -35,7 +42,7 @@ worker:
 # straight back into it.
 # Run composer inside the php-fpm container.
 composer *args:
-    bin/worktrees/compose-exec.sh composer {{args}}
+    bin/worktrees/compose-exec.sh composer "$@"
 
 # Provisions its own URL, dev DB (migrated + seeded), test DB, vendor and CSS.
 # No-op from the main checkout. Safe to re-run; also repairs a lost sidecar.
@@ -133,7 +140,7 @@ arkitect:
     vendor/bin/phparkitect check
 
 phpunit *args:
-    bin/worktrees/compose-exec.sh vendor/bin/phpunit {{args}}
+    bin/worktrees/compose-exec.sh vendor/bin/phpunit "$@"
 
 cs: prettier lint rector cs-fix twig-cs-fix
 
@@ -168,6 +175,116 @@ ci: lint cs-check phpstan arkitect gamache phpunit
 migrate-diff: (exec "bin/console doctrine:migrations:diff")
 
 migrate-run: (exec "bin/console doctrine:migrations:migrate")
+
+# Needed for site-review push: the widget's live review loop, the bridge CLI,
+# and dogfooding a review on this app's own pages. Nothing else uses it, and
+# the full e2e suite passes without it.
+#
+# Leaving it stopped does not lose events. A submission is written to the
+# outbox before the publish is attempted, both publish paths swallow and log a
+# hub failure, and the scheduled drain replays whatever never landed once a hub
+# is back — `just exec bin/console app:drain-site-review-outbox` forces a pass.
+# If you are unsure whether a hub is running, /admin/status probes it.
+# Start the opt-in Mercure hub.
+mercure-up:
+    docker compose --profile mercure up -d mercure
+
+# `stop` + `rm` rather than `down`, for the reason on garage-down below.
+# Stop and remove the Mercure hub.
+mercure-down:
+    docker compose --profile mercure stop mercure
+    docker compose --profile mercure rm -f mercure
+
+# Off by default (a compose profile), because the development path is
+# EXPORT_STORAGE=local and nothing routine needs a bucket.
+#
+# To point the app at it, set these in .env.local, then restart BOTH php-fpm
+# and worker:
+#
+#     EXPORT_STORAGE=s3
+#     EXPORT_STORAGE_BUCKET=loupe-exports
+#     EXPORT_STORAGE_ENDPOINT=http://garage:3900
+#     EXPORT_STORAGE_REGION=garage
+#     EXPORT_STORAGE_KEY=GK31c2f218a2e44f485b94239e
+#     EXPORT_STORAGE_SECRET=b8c2f4d1e6a390f75c8b1d24e73a5f9016cbe482d5a7139fc0e6b84a2d517f3b
+#     EXPORT_STORAGE_USE_PATH_STYLE=true
+#
+# The worker is not optional here. It is the process that *builds* the archive,
+# so a worker left on the old adapter writes the export to local disk while the
+# restarted web container looks for it in the bucket — and the emailed link
+# 404s, which reads as a broken download rather than a stale process.
+#
+# EXPORT_STORAGE_REGION must be `garage`, matching s3_region in garage.toml:
+# AsyncAws signs with the region it is given and Garage rejects a signature
+# computed for another one, with an error that names neither.
+#
+# Path-style is required. Virtual-host style would resolve
+# <bucket>.s3.garage.localhost, which nothing here serves.
+# Start the opt-in Garage node, and create its bucket and access key.
+garage-up bucket="loupe-exports":
+    #!/usr/bin/env bash
+    set -euo pipefail
+    docker compose --profile garage up -d garage
+
+    g() { docker compose exec -T garage /garage "$@"; }
+
+    # `up -d` returns when the container starts, not when the node answers RPC.
+    for _ in $(seq 30); do
+        if g status >/dev/null 2>&1; then break; fi
+        sleep 1
+    done
+
+    # A fresh node holds no layout and refuses every S3 call until one is
+    # applied — the failure is a 500 with no hint that layout is what is
+    # missing. Assigning is idempotent in effect: re-applying an unchanged
+    # layout is a no-op, so this stays safe to re-run.
+    if ! g layout show 2>/dev/null | grep -q "zone"; then
+        node=$(g node id -q | cut -d@ -f1)
+        g layout assign -z dev -c 1G "$node" >/dev/null
+        g layout apply --version 1 >/dev/null
+    fi
+
+    # Imported rather than created, so the credentials are the fixed ones above
+    # instead of a fresh pair to copy out of the logs on every reset.
+    if ! g key info loupe-exports >/dev/null 2>&1; then
+        g key import \
+            GK31c2f218a2e44f485b94239e \
+            b8c2f4d1e6a390f75c8b1d24e73a5f9016cbe482d5a7139fc0e6b84a2d517f3b \
+            -n loupe-exports --yes >/dev/null
+    fi
+
+    g bucket create "{{bucket}}" >/dev/null 2>&1 || true
+    g bucket allow --read --write --owner "{{bucket}}" --key loupe-exports >/dev/null
+
+    echo "garage: bucket '{{bucket}}' ready at http://garage:3900 (key GK31c2f218a2e44f485b94239e)"
+
+# `stop` + `rm`, never `down`. `docker compose down <service>` was observed
+# attempting to remove the shared `loupe_default` network — it only failed
+# because another container still held it. Same family as the bare-compose rule
+# in the project-worktrees skill: a `down` does not stay in its lane.
+# Stop and remove the Garage container, keeping its stored objects.
+garage-down:
+    docker compose --profile garage stop garage
+    docker compose --profile garage rm -f garage
+
+# Stop Garage and discard its objects and metadata with it.
+garage-reset:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    # Found by Compose's own labels, not by deriving `<project>_garage_*` from
+    # .env — that misses a COMPOSE_PROJECT_NAME overridden in the environment
+    # and would delete another project's volumes. Labels rather than the
+    # container's mounts, because the container is gone once `garage-down` has
+    # run and the volumes outlive it.
+    project=$(docker compose config --format json | python3 -c 'import sys, json; print(json.load(sys.stdin)["name"])')
+    volumes=$(docker volume ls -q --filter "label=com.docker.compose.project=$project" | grep -E '_garage_(meta|data)$' || true)
+    just garage-down
+    if [ -n "$volumes" ]; then
+        echo "$volumes" | xargs docker volume rm -f
+        echo "garage: removed $(echo "$volumes" | wc -l | tr -d ' ') volume(s)"
+    else
+        echo "garage: no volumes to remove" >&2
+    fi
 
 # Provision the dedicated e2e target: a disposable database plus an nginx
 # sidecar serving THIS checkout at e2e.<project>.dev.localhost. Idempotent.
@@ -244,7 +361,7 @@ e2e-worker *args:
             -e WORKTREE_DB_SUFFIX=_e2e \
             -e DEFAULT_URI="https://${host}" \
             php-fpm bin/console messenger:consume scheduler_default async \
-            --time-limit=3600 --memory-limit=100M {{args}}; then
+            --time-limit=3600 --memory-limit=100M "$@"; then
             echo "e2e-worker: consumer exited non-zero — stopping rather than looping on a failure." >&2
             exit 1
         fi
@@ -378,7 +495,7 @@ e2e *args:
     else
         echo "e2e: targeting $E2E_BASE_URL — make sure that worktree has a consumer running." >&2
     fi
-    cd e2e && npx playwright test {{args}}
+    cd e2e && npx playwright test "$@"
 
 # CoverageSubscriber writes .cov files to var/coverage, which are then merged
 # into an HTML report.
@@ -396,7 +513,7 @@ e2e-coverage *args:
         exit 1
     fi
     rm -rf var/coverage
-    cd e2e && COVERAGE=1 npx playwright test {{args}}
+    cd e2e && COVERAGE=1 npx playwright test "$@"
     cd .. && bin/worktrees/compose-exec.sh vendor/bin/phpcov merge var/coverage --html var/coverage/html
 
 open-coverage:
@@ -471,16 +588,16 @@ tf-validate:
 
 # Show the planned changes. Review before applying.
 tf-plan *args:
-    cd terraform && terraform plan {{args}}
+    cd terraform && terraform plan "$@"
 
 # Apply changes (prompts for confirmation). Backs up local state first if present.
 tf-apply *args:
     cd terraform && { [ -f terraform.tfstate ] && cp -f terraform.tfstate terraform.tfstate.bak || true; }
-    cd terraform && terraform apply {{args}}
+    cd terraform && terraform apply "$@"
 
 # Read outputs, e.g. `just tf-output` or `just tf-output -raw app_id`.
 tf-output *args:
-    cd terraform && terraform output {{args}}
+    cd terraform && terraform output "$@"
 
 # One-time DB bootstrap on the shared cluster for THIS app (run once, after the
 # first `just tf-apply`). Adds the app + your current public IP to the cluster's

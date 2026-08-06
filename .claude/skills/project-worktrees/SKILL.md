@@ -8,8 +8,11 @@ description: Use when creating, entering, debugging or removing a git worktree u
 ## Overview
 
 Every worktree is a **full application of its own** — its own URL, database and
-compiled CSS — but only nginx is duplicated. php-fpm, Postgres, Mailpit and
-Mercure are shared with the main stack.
+compiled CSS — but only nginx is duplicated. php-fpm, Postgres and Mailpit are
+shared with the main stack, as is the Mercure hub when it is running — it sits
+behind a compose profile and is off unless someone ran `just mercure-up`, so a
+worktree working on site-review push has to start it and shares the one hub
+with every other worktree.
 
 That works because the whole main checkout is mounted at `/var/www/html` and
 worktrees live *inside* it, so a worktree's files sit at the **same path** in
@@ -46,6 +49,28 @@ a `cd` persists across later tool calls, quietly moving the whole session
 removes the reason to move. It is also safer: the bare `docker compose` calls
 inside the bootstrap script resolve their compose file from the current
 directory, so running it from main is the correct-by-construction path.
+
+**Before trusting any write, confirm the path is in `git worktree list` — not
+merely that it exists on disk.** When a worktree is removed while an agent is
+still bound to it, a write to the old path **reports success**: it recreates a
+bare directory that is not a git worktree, so nothing lands on the branch and
+nothing raises. `git status` from inside that directory falls through to the
+main checkout and reports `main`, which makes the situation look normal on
+inspection. Existence on disk is exactly what misleads here, so check
+membership:
+
+```bash
+git worktree list --porcelain | grep -qx "worktree $(pwd)" || echo "NOT a worktree — stop"
+```
+
+An agent that finds itself in this state must **stop**, not improvise. Every
+plausible-looking recovery is worse than the problem: checking the branch out
+into the main checkout collides with `main` already being checked out there,
+and `cp`/`rsync`/`git checkout` from another worktree's path bypass the write
+binding rather than repair it. Only the orchestrating session can fix it, by
+provisioning a worktree with that branch and rebinding. Same class of silent
+misdirection as "Serena's edit tools do not work from a worktree" — the write
+succeeds against the wrong target.
 
 **Never run bare `docker compose up/down/restart` from a worktree.** `.env`
 sets `COMPOSE_PROJECT_NAME=loupe`, so compose targets the **shared** stack but

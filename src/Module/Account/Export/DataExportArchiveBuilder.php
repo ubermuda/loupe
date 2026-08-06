@@ -6,8 +6,10 @@ namespace App\Module\Account\Export;
 
 use App\Module\Account\Entity\DataExport;
 use App\Module\Account\Entity\User;
+use League\Flysystem\Config;
 use League\Flysystem\FilesystemException;
 use League\Flysystem\FilesystemOperator;
+use League\Flysystem\Visibility;
 use Symfony\Component\DependencyInjection\Attribute\AutowireIterator;
 use Symfony\Component\DependencyInjection\Attribute\Target;
 use Symfony\Component\Uid\Uuid;
@@ -98,7 +100,17 @@ readonly class DataExportArchiveBuilder
                 }
             }
 
-            $this->exportStorage->move($tmpKey, $key);
+            // Visibility stated rather than carried over. Flysystem otherwise
+            // reads the source object's ACL to reproduce it on the destination,
+            // and S3-compatible stores that implement no ACLs at all — Garage
+            // among them — answer GetObjectAcl with a 501, which surfaces here
+            // as an unexplained "unable to move file". The storage is already
+            // configured private, so the read only ever confirmed what we
+            // already knew, and skipping it saves a round trip everywhere else.
+            $this->exportStorage->move($tmpKey, $key, [
+                Config::OPTION_RETAIN_VISIBILITY => false,
+                Config::OPTION_VISIBILITY => Visibility::PRIVATE,
+            ]);
         } catch (\Throwable $e) {
             // Covers a half-written upload as well as a failed move: nothing
             // else ever looks at a `.tmp` key — every purger only knows
