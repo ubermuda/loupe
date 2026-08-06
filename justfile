@@ -182,7 +182,7 @@ migrate-run: (exec "bin/console doctrine:migrations:migrate")
 mercure-up:
     docker compose --profile mercure up -d mercure
 
-# `stop` + `rm` rather than `down`, for the reason on minio-down below.
+# `stop` + `rm` rather than `down`, for the reason on garage-down below.
 # Stop and remove the Mercure hub.
 mercure-down:
     docker compose --profile mercure stop mercure

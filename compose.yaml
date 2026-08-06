@@ -107,7 +107,7 @@ services:
   # Reached internally by php-fpm at http://mercure, publicly via Traefik at
   # mercure.${COMPOSE_PROJECT_NAME}.dev.localhost.
   #
-  # Opt-in, like minio below: `docker compose up -d` and `just up` do not start
+  # Opt-in, like garage below: `docker compose up -d` and `just up` do not start
   # it. Start it with `just mercure-up` when you are working on site-review
   # push — the widget's live loop, the bridge CLI, or dogfooding a review.
   #
