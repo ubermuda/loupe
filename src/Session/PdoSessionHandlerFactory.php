@@ -9,26 +9,19 @@ use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\HttpFoundation\Session\Storage\Handler\PdoSessionHandler;
 
 /**
- * Builds the session handler's own connection to the database Doctrine resolved.
+ * Builds the session handler's own connection, which differs from DATABASE_URL
+ * in three ways that each fail quietly if you undo them.
  *
- * Two things make this more than `new PdoSessionHandler('%env(DATABASE_URL)%')`.
+ * The database name comes from Doctrine, not the URL: `dbname_suffix` appends
+ * WORKTREE_DB_SUFFIX and _test<TEST_TOKEN>, so the raw URL names the main `app`
+ * database — where `sessions` also exists, so a worktree shares main's logins
+ * rather than erroring.
  *
- * The database name is not the one in the URL: `doctrine.yaml` appends a
- * `dbname_suffix` — `WORKTREE_DB_SUFFIX` per worktree, `_test<TEST_TOKEN>` under
- * PHPUnit — so the raw URL names the main `app` database while the `sessions`
- * table was migrated into the suffixed one. That failure is silent, because
- * `sessions` exists in the main database too: a worktree would share main's
- * logins rather than error.
+ * A DSN, not a URL: PdoSessionHandler's URL parser drops the query string for
+ * pgsql, so `sslmode` never reaches the connection.
  *
- * And a DSN is built rather than a URL passed, because PdoSessionHandler's own
- * URL parser discards the query string for pgsql — it emits only
- * `host`/`port`/`dbname`. A managed Postgres that requires `sslmode=require`
- * would therefore have working Doctrine and cache connections and a session
- * connection that is refused or silently weaker.
- *
- * The handler gets its own connection deliberately, rather than Doctrine's
- * native PDO: it takes a transactional lock while reading a session, which
- * would nest inside whatever transaction the request already has open.
+ * Its own connection, not Doctrine's PDO: it takes a transactional lock while
+ * reading a session, which would nest inside the request's transaction.
  */
 final readonly class PdoSessionHandlerFactory
 {

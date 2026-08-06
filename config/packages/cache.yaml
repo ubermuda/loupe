@@ -1,28 +1,13 @@
 framework:
     cache:
-        # Postgres rather than the filesystem, because the filesystem is
-        # container-local. Two things depend on this pool being shared across
-        # processes: `cache.rate_limiter` inherits from `cache.app`, so the
-        # per-IP registration, password-reset and login limiters would otherwise
-        # count per replica and be multiplied by the replica count; and a
-        # filesystem pool does not survive a new container, so every deploy
-        # discarded whatever was in it.
-        #
-        # Postgres is already a hard dependency, so this adds no infrastructure.
-        #
-        # `cache.system` is deliberately left on the filesystem: it holds
-        # compiled metadata that is rebuilt with the container anyway and is
-        # read on every request, where a database round trip is a poor trade.
+        # The rate limiters ride this pool — cache.rate_limiter inherits
+        # cache.app — so per-IP limits are per-replica unless it is shared.
         app: cache.adapter.doctrine_dbal
         default_doctrine_dbal_provider: 'doctrine.dbal.default_connection'
 
 when@test:
     framework:
         cache:
-            # Not Postgres under test. dama/doctrine-test-bundle runs every test
-            # inside one connection's transaction and rolls it back, so a
-            # database-backed pool would put cache writes inside the test's own
-            # transaction — silently changing pruning, expiry and anything that
-            # assumes the cache outlives a request. The filesystem pool keeps
-            # the cache independent of the rollback.
+            # Keep this on the filesystem: dama wraps each test in one
+            # transaction, so a database pool's writes would roll back with it.
             app: cache.adapter.filesystem

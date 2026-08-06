@@ -30,10 +30,8 @@ parameters:
     app.mcp.server_name: 'loupe'
 
 services:
-    # Session storage, wired by framework.yaml's session.handler_id. Explicit
-    # because the class is a vendor one and cannot carry our attributes; the
-    # factory exists because DATABASE_URL alone names the wrong database under a
-    # worktree or PHPUnit (see PdoSessionHandlerFactory).
+    # A vendor class, so it cannot carry our attributes. Built by a factory
+    # because DATABASE_URL alone is wrong — see PdoSessionHandlerFactory.
     Symfony\Component\HttpFoundation\Session\Storage\Handler\PdoSessionHandler:
         factory: ['@App\Session\PdoSessionHandlerFactory', '__invoke']
 
