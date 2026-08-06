@@ -327,26 +327,10 @@ e2e-up:
     echo "e2e target ready at https://${host} (database ${db})"
     echo "Run 'just e2e-worker' in another shell before specs that need mail or exports."
 
-# Messenger worker for the e2e target. Needed by any spec that asserts on mail
-# or on a generated download link. Runs until interrupted — Ctrl-C to stop.
-#
-# The environment here is not optional decoration. A worker is a CLI process,
-# so it never sees the fastcgi_params that redirect web requests at the e2e
-# database — it would consume the DEV queue and, worse, build absolute URLs
-# from the dev host, so an emailed export link would point at the wrong app and
-# serve HTML instead of a zip. Both variables have to be passed.
-#
-# Two things about the limits, both of which used to bite:
-#
-# --memory-limit must sit BELOW PHP's own (128M in this container) or it can
-# never fire: the process reaches PHP's fatal first and dies inside a message
-# rather than stopping cleanly between two. 256M here meant the recycle was
-# decorative.
-#
-# The recycle then has to be restarted, or the first one silently ends the
-# worker for the rest of the session. A consumer that exits cleanly on a limit
-# is relaunched by the loop below, so `just e2e`'s preflight keeps finding one.
-# A non-zero exit is a real failure and stops the loop.
+# A worker is a CLI process, so it never sees the fastcgi_params pointing web
+# requests at the e2e database — without both variables it consumes the DEV
+# queue. --memory-limit must sit BELOW PHP's own (128M here) or it never fires.
+# Messenger worker for the e2e target. Runs until interrupted.
 e2e-worker *args:
     #!/usr/bin/env bash
     set -euo pipefail
@@ -365,19 +349,11 @@ e2e-worker *args:
             echo "e2e-worker: consumer exited non-zero — stopping rather than looping on a failure." >&2
             exit 1
         fi
-        # A clean exit is ambiguous: it is either a limit recycle, which should
-        # relaunch, or `e2e-down` stopping the worker before it drops the
-        # database, which must not. Messenger stops gracefully on SIGTERM when
-        # pcntl is loaded, so the exit code cannot separate them.
-        #
-        # The marker can, and unlike inspecting the database it does not race:
-        # `e2e-down` writes it BEFORE signalling, so any iteration that observes
-        # a clean exit caused by teardown necessarily observes the marker too.
-        # Deliberately not removed here. Several workers may be looping, and
-        # e2e-down signals all of them; if the first to notice cleared it, the
-        # rest would read a recycle and relaunch into the dropped database. The
-        # marker is cleared at `e2e-worker` startup instead, which is the point
-        # where exactly one reader wants it gone.
+        # A clean exit is either a limit recycle (relaunch) or `e2e-down`
+        # stopping us before it drops the database (do not), and the exit code
+        # cannot separate them. The marker can: e2e-down writes it BEFORE
+        # signalling, so it cannot race. Not cleared here — several workers may
+        # be looping, and the first to clear it would strand the rest.
         if [ -f "$stop_marker" ]; then
             echo "e2e-worker: teardown requested — stopping." >&2
             exit 0
@@ -412,22 +388,11 @@ e2e-down:
     E2E_APP_NETWORK="${project}_default" \
         docker compose -f "$main/compose.e2e.yaml" -p "${project}-e2e" down >/dev/null
 
-    # Stop the e2e worker before dropping its database. Left running it keeps
-    # retrying against a database that has gone, and — because it survives for
-    # up to its --time-limit — it is still there when the next `e2e-up`
-    # recreates app_e2e, so two workers consume the same queue and the mail
-    # specs start failing on timing. This is the same trap as a worktree
-    # teardown blocked by its own consumer.
-    #
-    # Matched by environment, not command line: the main stack's worker runs a
-    # byte-identical `messenger:consume scheduler_default async`, so a pkill on
-    # the command would kill the dev worker too. WORKTREE_DB_SUFFIX=_e2e is
-    # what actually distinguishes them.
-    #
-    # The marker goes down BEFORE the signal, and the ordering is the point: a
-    # graceful stop looks exactly like a limit recycle to `e2e-worker`, so if it
-    # could observe the clean exit before the marker existed it would relaunch
-    # into a database this recipe is about to drop.
+    # Stop the worker first, or it survives to its --time-limit and the next
+    # `e2e-up` gets two consumers on one queue. Matched by environment, not
+    # command line — the main worker's command is byte-identical. The marker
+    # goes down BEFORE the signal, or e2e-worker reads the clean exit as a
+    # recycle and relaunches into a dropped database.
     : > "$main/var/e2e-worker.stop"
     docker compose exec -T php-fpm sh -c '
         for proc in /proc/[0-9]*; do
@@ -460,25 +425,11 @@ e2e *args:
         echo "e2e: $E2E_BASE_URL is not reachable — run 'just e2e-up' first." >&2
         exit 1
     fi
-    # The suite's authenticated fixture registers a user and verifies it through
-    # the emailed link, so with nothing consuming `async` the failures are not
-    # confined to mail-shaped specs: login, signup, delete-account,
-    # forgot-password, the wizard, admin smoke and paywall all go down together,
-    # while the app returns 200 and `just ci` is green. Refusing up front costs
-    # a second; discovering it from the failures costs ten minutes and usually
-    # an investigation into the branch, which is not where the fault is.
-    #
-    # Matching the command line alone is not enough. `just worker` runs a
-    # consumer inside this same container against the DEV database, and it
-    # would satisfy a bare `messenger:consume` match while the e2e queue keeps
-    # filling up — a green preflight followed by exactly the failures it exists
-    # to prevent. The environment is what distinguishes them, so read it.
-    #
-    # Only the dedicated target can be checked from here. An E2E_BASE_URL
-    # pointing at a worktree is served by that worktree's own containers, whose
-    # consumer carries its own database suffix and is not visible in this
-    # container at all — so the check is skipped rather than failed, and the
-    # reminder is printed instead.
+    # With nothing consuming `async`, login, signup, the wizard and paywall all
+    # fail while the app returns 200 and `just ci` is green. Matching the command
+    # line is not enough — `just worker` is byte-identical against the DEV
+    # database — so read the environment. A worktree's consumer is invisible
+    # from here, so that case is skipped rather than failed.
     if [ "$E2E_BASE_URL" = "$dedicated_url" ]; then
         if ! docker compose exec -T php-fpm sh -c '
             for p in /proc/[0-9]*; do
