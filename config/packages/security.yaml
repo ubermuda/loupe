@@ -48,14 +48,11 @@ security:
 
     access_control:
         - { path: ^/api/site-review, roles: ROLE_API_SITE_REVIEW }
-        # Deny-by-default for the rest of /api. The api firewall matches all of
-        # ^/api while only the line above names a scope, and every API-token user
-        # also carries ROLE_USER (User::getRoles()) — so without this rule a new
-        # /api/<endpoint> route would fall through to the ^/ catch-all below and
-        # authorize ANY scoped token, defeating scope enforcement. A new endpoint
-        # must add its own scope rule ABOVE this line; an expression that is
-        # always false is used rather than a sentinel role because no future role
-        # grant or role hierarchy entry can accidentally satisfy it.
+        # Deny-by-default for the rest of /api: every API-token user also carries
+        # ROLE_USER, so without this a new /api/<endpoint> falls through to the ^/
+        # catch-all and authorizes ANY scoped token. Add new scope rules ABOVE this
+        # line. An always-false expression rather than a sentinel role, so no
+        # future role-hierarchy entry can accidentally satisfy it.
         - { path: ^/api,             allow_if: 'false' }
         - { path: ^/mcp,             roles: ROLE_API_MCP }
         # Stripe authenticates with a request signature, not a session or a

@@ -103,20 +103,11 @@ services:
 ###< symfony/mailer ###
 
 ###> symfony/mercure-bundle ###
-  # In-memory Mercure hub (no history — best-effort delivery by design).
-  # Reached internally by php-fpm at http://mercure, publicly via Traefik at
-  # mercure.${COMPOSE_PROJECT_NAME}.dev.localhost.
-  #
-  # Opt-in, like garage below: `docker compose up -d` and `just up` do not start
-  # it. Start it with `just mercure-up` when you are working on site-review
-  # push — the widget's live loop, the bridge CLI, or dogfooding a review.
-  #
-  # Off by default because the app already treats the hub as optional and says
-  # so: both publish paths (SubmitReviewHandler and DrainOutboxHandler) catch
-  # every throwable and log it, submissions are recorded in the outbox first, and
-  # the scheduled drain replays whatever never landed once a hub is back. So a
-  # missing hub delays delivery rather than losing anything, and /admin/status
-  # probes the hub and reports it unreachable rather than leaving you guessing.
+  # In-memory Mercure hub (no history — best-effort by design), reached at
+  # http://mercure internally. Opt-in like garage below: start it with
+  # `just mercure-up` when working on site-review push. Off by default because a
+  # missing hub only delays delivery — submissions land in the outbox first, and
+  # the scheduled drain replays whatever never went out.
   # The full e2e suite passes with it stopped.
   mercure:
     image: dunglas/mercure:v0.24

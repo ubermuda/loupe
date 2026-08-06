@@ -10,11 +10,8 @@ ubermuda_feature_flags:
     # is unset or blank the flag reads as off whatever is stored, and the admin
     # shows it as unavailable instead of a switch that cannot work.
     prerequisites:
-        # No hub means nothing to publish to and no subscriber token to sign.
-        # MERCURE_JWT_SECRET ships with no default on purpose, so an instance
-        # that never configured Mercure has site-review push off by default
-        # rather than failing at the moment someone submits a review.
-        # MERCURE_PUBLIC_URL belongs here too: the gated feature includes
-        # issuing subscriber credentials, and with it blank the endpoint hands
-        # back an empty hubUrl that no bridge client can subscribe to.
+        # No hub means nothing to publish to and no token to sign.
+        # MERCURE_JWT_SECRET ships with no default on purpose, so an unconfigured
+        # instance has push off rather than failing when someone submits.
+        # MERCURE_PUBLIC_URL too: blank, the endpoint returns an unusable hubUrl.
         site_review.push.enabled: ['MERCURE_URL', 'MERCURE_PUBLIC_URL', 'MERCURE_JWT_SECRET']

@@ -1,10 +1,7 @@
-# One client per social provider. Each has its own callback route so the route
-# itself can carry a static #[RequireFeatureFlag]: when a provider's flag is off,
-# both its start and its callback URL 404 instead of existing as dead endpoints.
-#
-# The client ids/secrets come from the OAUTH_* env vars and default to empty
-# strings, so the kernel boots without provider credentials — a provider is only
-# usable once its app registration is created and its flag is switched on.
+# One client per social provider, each with its own callback route so the route
+# can carry a static #[RequireFeatureFlag] — with the flag off, both start and
+# callback 404 rather than lingering as dead endpoints. Credentials default to
+# empty strings, so the kernel boots without them.
 knpu_oauth2_client:
     clients:
         google_main:

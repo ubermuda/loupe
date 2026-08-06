@@ -21,7 +21,7 @@
 #   * An SMTP server. MAILER_DSN must point at one you operate or pay for.
 #     Email verification is mandatory, so nobody can register without it.
 #
-# Bring the stack up with:
+# Bring the stack up with:  @comment-budget-ignore
 #
 #     docker compose -f compose.prod.yaml --env-file compose.prod.env up -d
 #
@@ -124,16 +124,11 @@ services:
       database:
         condition: service_healthy
 
-  # Its own container from the same image, exactly as the App Platform
-  # deployment runs it — worker restarts and scaling then never recycle
-  # php-fpm and nginx. scheduler_default is listed before async deliberately:
-  # a deep async backlog must not delay schedule ticks.
-  #
-  # su-exec drops to www-data for the consumer only, after the image's
-  # entrypoint has done its root-only work. Both processes must write the shared
-  # export volume as the same user: the local storage adapter writes archives
-  # 0600, so an archive written by root is unreadable to the web container's
-  # www-data php-fpm workers and every download would 404.
+  # Its own container from the same image, so worker restarts never recycle
+  # php-fpm. scheduler_default before async deliberately: a deep async backlog
+  # must not delay schedule ticks. su-exec drops to www-data so both processes
+  # write the shared export volume as the same user — the local adapter writes
+  # archives 0600, so a root-written one 404s for every download.
   worker:
     image: ${LOUPE_PROD_IMAGE:-ghcr.io/ubermuda/loupe:prod}
     restart: unless-stopped

@@ -2,15 +2,10 @@ doctrine:
     dbal:
         url: '%env(resolve:DATABASE_URL)%'
 
-        # Per-worktree database isolation. Empty in the main checkout; a
-        # worktree's .env.local sets it to _wt_<slug> (written by
-        # worktree-bootstrap.sh), which is enough for BOTH the browser and the
-        # CLI: a worktree is served through its own public/index.php, so
-        # Symfony boots with the worktree as its project directory and loads
-        # that worktree's .env chain either way.
-        #
-        # when@test below overrides this with its own scalar value, so the test
-        # environment keeps using app_test_<token> and never the dev database.
+        # Per-worktree database isolation: empty in the main checkout, set to
+        # _wt_<slug> by a worktree's .env.local. A worktree is served through its
+        # own public/index.php, so browser and CLI load that worktree's .env chain
+        # alike. when@test below overrides it, so tests never touch the dev DB.
         dbname_suffix: '%env(default::WORKTREE_DB_SUFFIX)%'
 
         # IMPORTANT: You MUST configure your server version,
@@ -22,12 +17,10 @@ doctrine:
         types:
             tsvector: MartinGeorgiev\Doctrine\DBAL\Types\Tsvector
 
-        # Required, not redundant. The package's BaseType::getSQLDeclaration()
-        # builds the column definition by calling
-        # $platform->getDoctrineTypeMapping('tsvector'), which throws without an
-        # entry here. It also claims the introspected type, so migrate-diff stops
-        # proposing an ALTER that has already been applied. Removing this looks
-        # like tidying a duplicate registration and breaks both.
+        # Required, not redundant: BaseType::getSQLDeclaration() calls
+        # getDoctrineTypeMapping('tsvector'), which throws without an entry here.
+        # It also claims the introspected type, so migrate-diff stops proposing an
+        # ALTER already applied. Removing this looks like tidying, and breaks both.
         mapping_types:
             tsvector: tsvector
     orm:
