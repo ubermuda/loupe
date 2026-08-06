@@ -2820,23 +2820,24 @@ non-zero" teaches a reader to ignore the one time it means something, and
 `just e2e` already depends on people trusting worker diagnostics — a missing
 consumer is documented as the cause of a ~19-spec failure block.
 
-## Cut the 144 over-budget comment blocks CommentBudgetCheck reports
+## Decide how CommentBudgetCheck should treat `.env` and the justfile
 
-**Author:** Geoffrey · **Type:** docs · **Priority:** medium · **Status:** pending
+**Author:** Geoffrey · **Type:** docs · **Priority:** low · **Status:** pending
 
-`vendor/bin/gamache` reports 144 comment runs of 6+ lines across `src/`,
-`templates/`, `assets/`, `config/`, `e2e/`, the `justfile` and `.env`. The check
-is advisory (exit 0), so nothing forces this; the sweep is deliberate work.
+The repo-wide sweep took `CommentBudgetCheck` from 150 findings to 26, and every
+code area — `src/`, `templates/`, `assets/`, `config/`, `tests/`, `e2e/` — is at
+zero. What remains is 14 blocks in `.env`, 8 in the `justfile` and 4 in the
+compose files, and none of them is obviously wrong.
 
-Compress each to the constraint a reader needs at that line and move the
-reasoning to the commit or PR that introduced it — see the `project-comments`
-skill for the budget and the keep/cut test.
+`.env`'s first block is Symfony's own shipped header, which `composer
+recipes:update` would restore if rewritten. The rest document environment
+variables for whoever deploys the app, which is that file's whole purpose. The
+justfile blocks are all 6-9 lines and each sits above a recipe, where the last
+comment line is what `just --list` prints.
 
-Not everything long is wrong. A file header documenting a distributed artefact
-earns its length: `compose.prod.yaml`'s 33-line header is legitimate and was
-confirmed as such on 2026-08-06. Those get `@comment-budget-ignore` on one of
-their lines, not a rewrite, so they stop being re-reported. Decide per file
-rather than sweeping to zero.
+So the choice is between marking them with `@comment-budget-ignore` and dropping
+`.env` from the check's `patterns` in `gamache.php`. Trimming them further trades
+documentation for a number, which is the opposite of what the check is for.
 
 ## Rendered front matter and annotations have no accessible name
 
