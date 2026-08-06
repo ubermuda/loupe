@@ -10,6 +10,8 @@ use App\Module\SiteReview\Command\DrainOutboxCommand;
 use App\Module\SiteReview\Command\DrainOutboxHandler;
 use App\Module\SiteReview\Entity\SiteReviewEvent;
 use App\Module\SiteReview\Repository\SiteReviewEventRepository;
+use App\Module\SiteReview\SiteReviewPush;
+use App\Tests\Support\FeatureFlags;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\MockObject\MockObject;
 use Psr\Log\NullLogger;
@@ -35,7 +37,40 @@ final class DrainOutboxHandlerTest extends KernelTestCase
         self::assertInstanceOf(SiteReviewEventRepository::class, $siteReviewEvents);
         $this->siteReviewEvents = $siteReviewEvents;
         $this->hub = $this->createMock(HubInterface::class);
-        $this->handler = new DrainOutboxHandler($this->siteReviewEvents, $this->em, $this->hub, new NullLogger());
+        $this->handler = new DrainOutboxHandler($this->siteReviewEvents, $this->em, $this->hub, new NullLogger(), FeatureFlags::service([SiteReviewPush::FLAG => true]));
+    }
+
+    public function test_push_disabled_claims_nothing_at_all(): void
+    {
+        $project = $this->project('drain-push-off@example.com');
+        $event = new SiteReviewEvent($project, 'https://app/topic', '{}', true);
+        $this->em->persist($event);
+        $this->em->flush();
+
+        $this->hub->expects($this->never())->method('publish');
+
+        $handler = new DrainOutboxHandler(
+            $this->siteReviewEvents,
+            $this->em,
+            $this->hub,
+            new NullLogger(),
+            FeatureFlags::service([SiteReviewPush::FLAG => false]),
+        );
+
+        $result = ($handler)(new DrainOutboxCommand());
+
+        self::assertSame(0, $result->published);
+        self::assertSame(0, $result->failed);
+
+        // Left untouched, not merely undelivered. Claiming it would have leased
+        // the row and recorded a failed attempt, so turning push back on would
+        // find it backed off rather than ready to go.
+        $this->em->clear();
+        $reloaded = $this->siteReviewEvents->find($event->id);
+        self::assertNotNull($reloaded);
+        self::assertSame(0, $reloaded->publishAttempts);
+        self::assertNull($reloaded->publishedAt);
+        self::assertNull($reloaded->nextAttemptAt);
     }
 
     public function test_a_stranded_event_is_republished_and_settled(): void

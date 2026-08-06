@@ -49,7 +49,7 @@ final class SeedFlagsControllerTest extends WebTestCase
         // prefilled default, and that default has to be "on" or a freshly
         // installed instance cannot register anybody.
         self::assertTrue($flags[RegistrationGate::ENABLED_FLAG]->value);
-        self::assertCount(7, $flags);
+        self::assertCount(8, $flags);
     }
 
     public function test_invalid_submit_returns_422(): void

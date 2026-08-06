@@ -121,12 +121,18 @@ final class CreateAdminUserHandlerTest extends KernelTestCase
         $this->em->persist(new FeatureFlag(name: RegistrationGate::ENABLED_FLAG, type: FeatureFlagType::Bool, value: false));
         $this->em->flush();
 
+        // Captured rather than written out: migrations seed flags of their own,
+        // so an exact list here would break every time one is added — and the
+        // claim is that this handler changes nothing, not which flags exist.
+        $before = array_keys($flags->findAllIndexed());
+
         ($this->handler)(new CreateAdminUserCommand(email: 'flags@example.com', plainPassword: 'SecurePassword1!'));
 
         // Creating an administrator is not an install: an operator adding one
         // to a configured instance must not have its flags reset underneath it.
         $indexed = $flags->findAllIndexed();
-        self::assertSame([RegistrationGate::ENABLED_FLAG], array_keys($indexed));
+        self::assertSame($before, array_keys($indexed));
+        self::assertContains(RegistrationGate::ENABLED_FLAG, $before);
         self::assertFalse($indexed[RegistrationGate::ENABLED_FLAG]->value);
     }
 
