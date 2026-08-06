@@ -47,11 +47,9 @@ final readonly class HtmlCommentNodeRenderer implements NodeRendererInterface
         $literal = trim($node->getLiteral());
 
         // `<!-- a --><!-- b -->` is one HtmlBlock, so this reads a run of
-        // comments; `.*?` would swallow the markup between two of them.
-        //
-        // A PCRE error reading as "not a comment" is deliberate, unlike
-        // MarkdownRenderer's passes that throw: detection may fail safe,
-        // transformation may not.
+        // comments; `.*?` would swallow the markup between two of them. A PCRE
+        // error reading as "not a comment" is deliberate: detection may fail
+        // safe, transformation may not.
         if (1 !== preg_match(self::COMMENT_RUN, $literal)) {
             return null;
         }

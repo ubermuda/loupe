@@ -177,12 +177,10 @@ final readonly class DecisionBlockService
             $html,
         );
 
-        // Deliberately not the well-formed sentinel pattern. HtmlSanitizer cuts
-        // its input with a raw substr() at getMaxInputLength() before parsing it,
-        // so a large document can lose the second half of a sentinel — and the
-        // surviving fragment would then match no exact pattern and be stored as
-        // 40-odd characters of gibberish inside plainText(). Matching the nonce
-        // plus whatever follows catches every cut after the nonce.
+        // Deliberately not the well-formed sentinel pattern: HtmlSanitizer cuts
+        // its input with a raw substr() before parsing, so a large document can
+        // lose the second half of a sentinel. Matching the nonce plus whatever
+        // follows catches every cut after the nonce.
         $swept = preg_replace(
             '~'.$this->sentinelRoot().'[A-Za-z0-9_-]*~',
             '',

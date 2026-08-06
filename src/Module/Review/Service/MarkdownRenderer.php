@@ -114,12 +114,10 @@ final readonly class MarkdownRenderer
         // attribute set rather than merging into it, so a bare allowElement('h2')
         // after that call silently revoked everything it had just granted.
         $config = new HtmlSanitizerConfig()
-            // The sanitizer truncates silently past this length rather than
-            // refusing, so any finite value drops a long document's tail with no
-            // error. A finite value also cuts through the markers that carry an
-            // HTML comment's text across (see withDocumentNotes), printing one on
-            // the page and making the same source render differently each time.
-            // The source is already capped by DocumentCreateTool::MAX_MARKDOWN_BYTES.
+            // The sanitizer truncates silently past this length, so any finite
+            // value drops a long document's tail with no error — and can cut the
+            // markers carrying an HTML comment's text, making the same source
+            // render differently each time. The source is capped upstream.
             ->withMaxInputLength(-1)
             // Headings are attribute-free on purpose: their ids are computed from
             // their own text after sanitization, see withHeadingIds().

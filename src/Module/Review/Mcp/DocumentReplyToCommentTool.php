@@ -45,12 +45,10 @@ final readonly class DocumentReplyToCommentTool
         try {
             $comment = $this->subjects->requireComment($commentId, McpBoundProjectVoter::COMMENT_WRITE);
 
-            // Revising a document copies its open threads onto the new version
-            // and leaves the originals in place, so an id from before the
-            // revision still resolves — and a reply written onto it would land
-            // on a version nothing reads, appearing in no review payload and in
-            // no rendered thread. There is no id to forward it to either: the
-            // old-to-new mapping the copy builds is in-memory and never stored.
+            // Revising copies open threads onto the new version and leaves the
+            // originals, so a pre-revision id still resolves — and a reply on it
+            // lands on a version nothing reads. There is no id to forward to
+            // either: the old-to-new mapping is in-memory and never stored.
             $currentVersion = $this->documentVersions->findLatest($comment->version->document);
             if ($currentVersion->id !== $comment->version->id) {
                 throw new ToolCallException(\sprintf('Comment "%s" belongs to version %d, but the document is now on version %d. Call document_get_review again for the current version\'s comment ids.', $commentId, $comment->version->versionNumber, $currentVersion->versionNumber));
