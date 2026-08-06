@@ -6,21 +6,13 @@ namespace App\Module\Billing\Controller\Dev;
 
 use App\Controller\AppController;
 use App\Module\Account\Entity\User;
-use App\Module\Billing\Command\RunTrialSweepCommand;
-use App\Module\Billing\Command\RunTrialSweepHandler;
-use App\Module\Billing\Entity\BillingProfile;
-use App\Module\Billing\Entity\BillingStatus;
-use App\Module\Billing\Repository\BillingProfileRepository;
+use App\Module\Billing\Command\SeedBillingStateCommand;
+use App\Module\Billing\Command\SeedBillingStateHandler;
 use App\Routing\PaywallExempt;
-use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\DependencyInjection\Attribute\When;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
-use Symfony\Component\HttpKernel\Exception\BadRequestHttpException;
 use Symfony\Component\Routing\Attribute\Route;
-use Ubermuda\FeatureFlagsBundle\Entity\FeatureFlag;
-use Ubermuda\FeatureFlagsBundle\Enum\FeatureFlagType;
-use Ubermuda\FeatureFlagsBundle\Repository\FeatureFlagRepository;
 
 /**
  * Dev-only endpoint that puts billing into a chosen state: flips the
@@ -51,107 +43,34 @@ use Ubermuda\FeatureFlagsBundle\Repository\FeatureFlagRepository;
 final class SeedBillingStateController extends AppController
 {
     public function __construct(
-        private readonly FeatureFlagRepository $featureFlags,
-        private readonly BillingProfileRepository $billingProfiles,
-        private readonly RunTrialSweepHandler $runTrialSweep,
-        private readonly EntityManagerInterface $em,
+        private readonly SeedBillingStateHandler $seedBillingState,
     ) {
     }
 
     public function __invoke(Request $request): JsonResponse
     {
-        $enabled = $request->query->getBoolean('enabled');
+        $user = $this->getUser();
+        $view = ($this->seedBillingState)(new SeedBillingStateCommand(
+            billingEnabled: $request->query->getBoolean('enabled'),
+            state: $request->query->getString('state'),
+            user: $user instanceof User ? $user : null,
+            sweep: $request->query->getBoolean('sweep'),
+        ));
 
-        $flag = $this->featureFlags->findOneBy(['name' => 'billing.enabled']);
-        if (null === $flag) {
-            $flag = new FeatureFlag('billing.enabled', FeatureFlagType::Bool, $enabled);
-            $this->em->persist($flag);
-        } else {
-            $flag->type = FeatureFlagType::Bool;
-            $flag->value = $enabled;
+        $payload = ['billingEnabled' => $view->billingEnabled];
+        if (null !== $view->state) {
+            $payload['state'] = $view->state;
         }
-
-        $state = $request->query->getString('state');
-        if ('' !== $state) {
-            $user = $this->getUser();
-            if (!$user instanceof User) {
-                throw new BadRequestHttpException('Seeding a billing state requires an authenticated user.');
-            }
-            $this->seedState($user, $state);
-        }
-
-        $this->em->flush();
-
-        $payload = ['billingEnabled' => $enabled];
-        if ('' !== $state) {
-            $payload['state'] = $state;
-        }
-
-        // After the flush, so freshly seeded rows are visible to the sweep's
-        // candidate queries.
-        if ($request->query->getBoolean('sweep')) {
-            $result = ($this->runTrialSweep)(new RunTrialSweepCommand());
+        if (null !== $view->sweep) {
             $payload['sweep'] = [
-                'disabled' => $result->disabled,
-                'churnedSurveys' => $result->churnedSurveys,
-                'subscriberSurveys' => $result->subscriberSurveys,
-                'cancelSurveys' => $result->cancelSurveys,
-                'failed' => $result->failed,
+                'disabled' => $view->sweep->disabled,
+                'churnedSurveys' => $view->sweep->churnedSurveys,
+                'subscriberSurveys' => $view->sweep->subscriberSurveys,
+                'cancelSurveys' => $view->sweep->cancelSurveys,
+                'failed' => $view->sweep->failed,
             ];
         }
 
         return $this->json($payload);
-    }
-
-    private function seedState(User $user, string $state): void
-    {
-        $profile = $this->billingProfiles->findOneByUser($user);
-        if (null === $profile) {
-            $profile = new BillingProfile($user, trialEndsAt: new \DateTimeImmutable('+14 days'));
-            $this->em->persist($profile);
-        }
-
-        // Baseline: wipe everything a previous state (or a previous run's
-        // sweep) may have left behind, then let the named state set what it
-        // needs. This is what makes states order-independent.
-        $profile->stripeCustomerId = null;
-        $profile->stripeSubscriptionId = null;
-        $profile->currentPeriodEnd = null;
-        $profile->lastStripeEventAt = null;
-        $profile->lastStripeEventId = null;
-        $profile->lastStripeEventType = null;
-        $profile->surveySentAt = null;
-        $profile->cancelSurveySentAt = null;
-        $user->disabledAt = null;
-
-        $now = new \DateTimeImmutable();
-
-        switch ($state) {
-            case 'fresh-trial':
-                $profile->status = BillingStatus::Trialing;
-                $profile->trialEndsAt = $now->modify('+14 days');
-                break;
-            case 'expired-trial':
-                $profile->status = BillingStatus::Trialing;
-                $profile->trialEndsAt = $now->modify('-1 day');
-                break;
-            case 'canceled-past-period':
-                $profile->status = BillingStatus::Canceled;
-                $profile->trialEndsAt = $now->modify('-30 days');
-                $profile->currentPeriodEnd = $now->modify('-1 day');
-                // Matches what a real cancellation webhook leaves behind —
-                // BillingProfile::isCurrent() requires this event type before
-                // it will honor currentPeriodEnd for a Canceled profile.
-                $profile->lastStripeEventType = BillingProfile::SUBSCRIPTION_DELETED_EVENT_TYPE;
-                break;
-            case 'disabled':
-                $profile->status = BillingStatus::Trialing;
-                $profile->trialEndsAt = $now->modify('-1 day');
-                $profile->surveySentAt = $now;
-                $user->disabledAt = $now;
-                break;
-            default:
-                throw new BadRequestHttpException(sprintf('Unknown billing state "%s".', $state));
-        }
     }
 }

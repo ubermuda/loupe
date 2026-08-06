@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace App\Controller;
 
-use Doctrine\DBAL\Connection;
-use Psr\Log\LoggerInterface;
+use App\Command\CheckDatabaseHealthCommand;
+use App\Command\CheckDatabaseHealthHandler;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
@@ -29,20 +29,13 @@ use Symfony\Component\Routing\Attribute\Route;
 final class ShowHealthController extends AppController
 {
     public function __construct(
-        private readonly Connection $connection,
-        private readonly LoggerInterface $logger,
+        private readonly CheckDatabaseHealthHandler $checkDatabaseHealth,
     ) {
     }
 
     public function __invoke(): JsonResponse
     {
-        try {
-            $this->connection->executeQuery('SELECT 1'); // @translation-check-ignore
-            $healthy = true;
-        } catch (\Throwable $e) {
-            $this->logger->error('health.database_unreachable', ['exception' => $e]);
-            $healthy = false;
-        }
+        $healthy = ($this->checkDatabaseHealth)(new CheckDatabaseHealthCommand())->healthy;
 
         $response = new JsonResponse(
             ['status' => $healthy ? 'ok' : 'error'],
