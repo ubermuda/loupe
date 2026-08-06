@@ -9,6 +9,13 @@
 # reference compose stack runs).
 prod_image := env("LOUPE_PROD_IMAGE", "ghcr.io/ubermuda/loupe:prod")
 
+# Recipes forwarding `*args` use "$@" rather than {{args}}, which needs this.
+# {{args}} interpolates one space-joined string that the shell then re-splits,
+# so `just phpunit --filter A|B` runs a pipeline into a command named B. Quoting
+# {{args}} is not the fix: it collapses every argument into one, which breaks
+# `just exec bin/console cache:clear`. Only "$@" keeps the boundaries intact.
+set positional-arguments
+
 default:
     @just --list
 
@@ -22,7 +29,7 @@ down:
     docker compose down
 
 exec *args:
-    bin/worktrees/compose-exec.sh {{args}}
+    bin/worktrees/compose-exec.sh "$@"
 
 shell: (exec "bash")
 
@@ -35,7 +42,7 @@ worker:
 # straight back into it.
 # Run composer inside the php-fpm container.
 composer *args:
-    bin/worktrees/compose-exec.sh composer {{args}}
+    bin/worktrees/compose-exec.sh composer "$@"
 
 # Provisions its own URL, dev DB (migrated + seeded), test DB, vendor and CSS.
 # No-op from the main checkout. Safe to re-run; also repairs a lost sidecar.
@@ -133,7 +140,7 @@ arkitect:
     vendor/bin/phparkitect check
 
 phpunit *args:
-    bin/worktrees/compose-exec.sh vendor/bin/phpunit {{args}}
+    bin/worktrees/compose-exec.sh vendor/bin/phpunit "$@"
 
 cs: prettier lint rector cs-fix twig-cs-fix
 
@@ -335,7 +342,7 @@ e2e-worker *args:
             -e WORKTREE_DB_SUFFIX=_e2e \
             -e DEFAULT_URI="https://${host}" \
             php-fpm bin/console messenger:consume scheduler_default async \
-            --time-limit=3600 --memory-limit=100M {{args}}; then
+            --time-limit=3600 --memory-limit=100M "$@"; then
             echo "e2e-worker: consumer exited non-zero — stopping rather than looping on a failure." >&2
             exit 1
         fi
@@ -469,7 +476,7 @@ e2e *args:
     else
         echo "e2e: targeting $E2E_BASE_URL — make sure that worktree has a consumer running." >&2
     fi
-    cd e2e && npx playwright test {{args}}
+    cd e2e && npx playwright test "$@"
 
 # CoverageSubscriber writes .cov files to var/coverage, which are then merged
 # into an HTML report.
@@ -487,7 +494,7 @@ e2e-coverage *args:
         exit 1
     fi
     rm -rf var/coverage
-    cd e2e && COVERAGE=1 npx playwright test {{args}}
+    cd e2e && COVERAGE=1 npx playwright test "$@"
     cd .. && bin/worktrees/compose-exec.sh vendor/bin/phpcov merge var/coverage --html var/coverage/html
 
 open-coverage:
@@ -562,16 +569,16 @@ tf-validate:
 
 # Show the planned changes. Review before applying.
 tf-plan *args:
-    cd terraform && terraform plan {{args}}
+    cd terraform && terraform plan "$@"
 
 # Apply changes (prompts for confirmation). Backs up local state first if present.
 tf-apply *args:
     cd terraform && { [ -f terraform.tfstate ] && cp -f terraform.tfstate terraform.tfstate.bak || true; }
-    cd terraform && terraform apply {{args}}
+    cd terraform && terraform apply "$@"
 
 # Read outputs, e.g. `just tf-output` or `just tf-output -raw app_id`.
 tf-output *args:
-    cd terraform && terraform output {{args}}
+    cd terraform && terraform output "$@"
 
 # One-time DB bootstrap on the shared cluster for THIS app (run once, after the
 # first `just tf-apply`). Adds the app + your current public IP to the cluster's
