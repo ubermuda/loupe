@@ -16,6 +16,8 @@ use App\Module\SiteReview\Entity\SiteReviewCommentStatus;
 use App\Module\SiteReview\Repository\SiteReviewCommentRepository;
 use App\Module\SiteReview\Repository\SiteReviewEventRepository;
 use App\Module\SiteReview\Service\SiteReviewTopicBuilder;
+use App\Module\SiteReview\SiteReviewPush;
+use App\Tests\Support\FeatureFlags;
 use Doctrine\ORM\EntityManagerInterface;
 use Psr\Log\NullLogger;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
@@ -45,7 +47,7 @@ final class SubmitReviewHandlerTest extends KernelTestCase
         $this->hub = $this->createMock(HubInterface::class);
         $topicBuilder = self::getContainer()->get(SiteReviewTopicBuilder::class);
         self::assertInstanceOf(SiteReviewTopicBuilder::class, $topicBuilder);
-        $this->handler = new SubmitReviewHandler($this->comments, $this->em, $this->hub, $topicBuilder, new NullLogger());
+        $this->handler = new SubmitReviewHandler($this->comments, $this->em, $this->hub, $topicBuilder, new NullLogger(), FeatureFlags::service([SiteReviewPush::FLAG => true]));
     }
 
     public function test_submit_flips_drafts_to_pending_and_publishes_a_payload_free_nudge(): void
@@ -125,6 +127,41 @@ final class SubmitReviewHandlerTest extends KernelTestCase
         // The outbox row is still written — it is also the ledger the submitted
         // review counts read — but flagged so that anything draining unpublished
         // events later cannot deliver it after the fact.
+        $event = $this->events->findOneBy(['project' => $project]);
+        self::assertNotNull($event);
+        self::assertFalse($event->forwardable);
+        self::assertNull($event->publishedAt);
+    }
+
+    public function test_push_disabled_settles_the_event_instead_of_queueing_it(): void
+    {
+        // A forwarding token, so the only thing withholding delivery is the
+        // instance-wide switch.
+        $project = $this->project('submit-push-off@example.com', forwardsToAgent: true);
+        $this->em->persist(new SiteReviewComment($project, 0, 'one', '', '', 'https://app/x'));
+        $this->em->flush();
+
+        $handler = new SubmitReviewHandler(
+            $this->comments,
+            $this->em,
+            $this->hub,
+            self::getContainer()->get(SiteReviewTopicBuilder::class),
+            new NullLogger(),
+            FeatureFlags::service([SiteReviewPush::FLAG => false]),
+        );
+
+        $this->hub->expects($this->never())->method('publish');
+
+        $count = ($handler)(new SubmitReviewCommand($project));
+
+        self::assertSame(1, $count);
+        self::assertCount(1, $this->comments->findPendingForProject($project));
+
+        // Unforwardable rather than merely unpublished, which is the difference
+        // that matters: the outbox treats an unforwardable row as settled, so
+        // this does not sit in the undelivered list while push is off, and
+        // switching push on later does not deliver a review submitted while it
+        // was off.
         $event = $this->events->findOneBy(['project' => $project]);
         self::assertNotNull($event);
         self::assertFalse($event->forwardable);
