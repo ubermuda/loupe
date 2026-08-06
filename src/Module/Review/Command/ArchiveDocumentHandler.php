@@ -37,17 +37,11 @@ final readonly class ArchiveDocumentHandler
         }
 
         return $this->em->wrapInTransaction(function () use ($document, $reason): Document {
-            // The check and the write are serialized on the row. Two callers
-            // archiving the same live document at once would otherwise both find
-            // it live, and the second flush would replace the first caller's
-            // reason with its own — a stamp differing by milliseconds would not
-            // be worth this, but a reason is a sentence a reviewer reads, and
-            // whichever request committed last is an arbitrary way to pick it.
-            //
-            // The race itself is not expressible in a test: every test runs
-            // inside one connection's transaction, so two overlapping database
-            // transactions cannot exist. The sequential re-archive tests are the
-            // regression guard, and this is verified by review.
+            // Serializes the check and the write on the row: two callers
+            // archiving at once would both find it live, and the later flush
+            // would replace the first caller's reason with its own. A reason is
+            // a sentence a reviewer reads, so "whichever committed last" is an
+            // arbitrary way to pick it.
             $this->em->lock($document, LockMode::PESSIMISTIC_WRITE);
 
             // lock() takes the row but leaves the loaded entity as it was, so the

@@ -20,17 +20,12 @@ final class AgentAccountInstaller
 {
     public static function install(Connection $connection): void
     {
-        // No password and no roles: nothing can authenticate as it. What puts
-        // it out of reach of registration is the address: `.invalid` is
-        // reserved by IANA precisely so it can never resolve, so no verification
-        // mail could ever be received there.
+        // No password, no roles, and an IANA-reserved `.invalid` address that can
+        // never receive verification mail — nothing can authenticate as it.
         //
-        // The conflict target is deliberate. A bare ON CONFLICT DO NOTHING also
-        // swallows the email unique violation, so an account already holding
-        // that address would leave this a no-op and the app with no agent row —
-        // surfacing later as a failure deep inside a reply. Only a repeat of the
-        // id itself is the idempotency wanted here; anything else is a real
-        // conflict and must raise.
+        // The conflict target is deliberate: a bare DO NOTHING would swallow the
+        // email unique violation too, leaving the app with no agent row. Only a
+        // repeat of the id is idempotent here; anything else must raise.
         $connection->executeStatement(
             <<<'SQL'
                 INSERT INTO users (id, roles, full_name, email, password, created_at)

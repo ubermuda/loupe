@@ -23,17 +23,9 @@ use Symfony\Component\Scheduler\Attribute\AsCronTask;
     name: 'app:purge-expired-exports',
     description: 'Delete expired data-export archives and rows. Safe for cron.',
 )]
-// Purging is background work against the shared export storage, so it belongs
-// to the worker that already drains `scheduler_default`, not to the web
-// container. The attribute adds this task to the `default` schedule by
-// decorating whichever provider owns it, so no schedule class is needed here.
-//
-// A cron trigger, not `every('1 hour')`: the stateless periodic trigger counts
-// down from worker boot, so a worker recycled by --time-limit=3600 restarts the
-// countdown and the tick may never fire. The cron grid is wall-clock instead.
-// Half past the hour keeps it off the top-of-hour slot the trial sweep already
-// occupies, so the two never contend for the same worker turn. Purging is
-// idempotent — a duplicate tick re-selects nothing.
+// A cron trigger, not `every('1 hour')`: the periodic trigger counts down from
+// worker boot, so a worker recycled by --time-limit=3600 restarts the countdown
+// and the tick may never fire. Half past keeps it off the trial sweep's slot.
 #[AsCronTask('30 * * * *')]
 final class PurgeExpiredExportsCommand extends Command
 {
