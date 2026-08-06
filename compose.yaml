@@ -158,28 +158,17 @@ services:
   # Behind a compose profile, so `docker compose up -d` and `just up` do not
   # start it: the default development path is EXPORT_STORAGE=local, and nothing
   # in the normal workflow or the e2e suite needs a bucket. Start it with
-  # `just minio-up`, which also creates the bucket.
+  # `just garage-up`, which also creates the bucket and its access key.
   #
-  # Not reachable through Traefik. The app talks to it on the compose network at
-  # http://minio:9000, and the console is published on the host so a person can
-  # look inside it — one fewer TLS certificate for a container that only exists
-  # while someone is testing storage.
-  minio:
-    image: minio/minio:latest
-    profiles: ["minio"]
-    command: server /data --console-address ":9001"
-    environment:
-      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-loupe}
-      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-loupe-secret}
-    ports:
-      - "9001:9001"
-    healthcheck:
-      test: ["CMD", "mc", "ready", "local"]
-      timeout: 5s
-      retries: 10
-      start_period: 10s
+  # Not reachable through Traefik — the app talks to it on the compose network
+  # at http://garage:3900, which is the only access anything here needs.
+  garage:
+    image: dxflrs/garage:v1.0.1
+    profiles: ["garage"]
     volumes:
-      - minio_data:/data:rw
+      - ./docker/dev/garage/garage.toml:/etc/garage.toml:ro
+      - garage_meta:/var/lib/garage/meta:rw
+      - garage_data:/var/lib/garage/data:rw
     networks:
       - default
 
@@ -191,4 +180,5 @@ volumes:
 ###> doctrine/doctrine-bundle ###
   database_data:
 ###< doctrine/doctrine-bundle ###
-  minio_data:
+  garage_meta:
+  garage_data:

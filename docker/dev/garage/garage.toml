@@ -1,0 +1,25 @@
+# Single-node Garage for exercising EXPORT_STORAGE=s3 locally. Development only:
+# the secrets below are committed on purpose, exactly like the dev database
+# password, and nothing here is a template for a real deployment.
+metadata_dir = "/var/lib/garage/meta"
+data_dir = "/var/lib/garage/data"
+db_engine = "sqlite"
+
+# One node, so one copy. Garage refuses to serve with a replication factor it
+# cannot satisfy, and the default of 3 needs three nodes.
+replication_factor = 1
+
+rpc_bind_addr = "[::]:3901"
+rpc_public_addr = "127.0.0.1:3901"
+rpc_secret = "1799bccfd7411eddcf9ebd316bc1f5287ad12a68094e1c6ac6abde7e6feae1ec"
+
+[s3_api]
+# Mirrored by EXPORT_STORAGE_REGION — AsyncAws signs with the region it is
+# given, and Garage rejects a signature computed for a different one.
+s3_region = "garage"
+api_bind_addr = "[::]:3900"
+root_domain = ".s3.garage.localhost"
+
+[admin]
+api_bind_addr = "[::]:3903"
+admin_token = "dev-admin-token-not-a-secret"

@@ -114,46 +114,43 @@ be created from a shell instead (`bin/console app:admin:create`, see
 checklist item, not a live code vulnerability — hence the lower priority than
 when this was first filed.
 
-## Data-export object storage is proven on MinIO, not on a real provider
+## Data-export object storage is proven on Garage, not on a hosted provider
 
 **Author:** Claude · **Type:** tooling · **Priority:** medium · **Status:** pending
 
 `EXPORT_STORAGE=s3` used to be proven only to *wire up* — every automated test
-exercised the local adapter. It has now been run end to end against a real
-S3-compatible bucket: `just minio-up` starts an opt-in MinIO container and
-creates the bucket, and pointing `.env.local` at it makes
-`e2e/tests/account/data-export.spec.ts` pass unchanged, which covers the whole
-path from requesting an export to downloading the emailed link.
+exercises the local adapter. It has now been run end to end against a real
+S3-compatible store: `just garage-up` starts an opt-in single-node Garage and
+creates the bucket and key, and pointing `.env.local` at it makes
+`e2e/tests/account/data-export.spec.ts` pass unchanged.
 
-What that run settled, on 2026-08-05:
+**That run found a real bug, which is the argument for doing it at all.**
+Flysystem's `move()` reproduces the source object's ACL on the destination,
+which means reading it — and Garage implements no ACLs, answering
+`GetObjectAcl` with a 501. Every export failed with an unexplained "unable to
+move file". `DataExportArchiveBuilder` now states the visibility instead of
+carrying it over, which skips the read. A run against MinIO had passed happily,
+because MinIO implements ACLs; the bug was only visible against a store that
+does not.
 
-- `DataExportArchiveBuilder`'s write-to-`<key>.tmp`-then-`move()` completes and
-  leaves no `.tmp` object behind, and the move is a **server-side copy** —
-  `AsyncAwsS3Adapter::move()` issues `copyObject`, not a download and re-upload.
-- `DownloadDataExportController` streams the object: the spec asserts a 200 and
-  a `zip` content type on the emailed link.
-- Path-style addressing (`EXPORT_STORAGE_USE_PATH_STYLE=true`) works. It is also
-  **required** for MinIO, which does not serve virtual-host-style buckets without
-  wildcard DNS.
-- MinIO accepts the `private` canned ACL.
+Settled by that run: the write-to-`<key>.tmp`-then-`move()` completes and leaves
+no `.tmp` behind; the move is a server-side copy; the download streams a valid
+ZIP; and path-style addressing works, which Garage requires.
 
-What is still open, and why this is not simply closed:
+Still open:
 
-1. **MinIO is not the provider this deploys to.** The canned-ACL question is the
-   whole reason `EXPORT_STORAGE_ACL` exists — `private` and
-   `bucket-owner-full-control` are each rejected by *some* provider — and MinIO
-   accepting `private` says nothing about DigitalOcean Spaces, which
-   `terraform/spaces.tf` actually creates. That value is still unverified where
-   it matters. See `DEPLOY.md` → "Known gaps".
+1. **Neither Garage nor MinIO is the provider this deploys to.** `EXPORT_STORAGE_ACL`
+   exists because canned ACLs are rejected differently by different providers,
+   and the value that matters is the one DigitalOcean Spaces accepts —
+   `terraform/spaces.tf` creates that bucket. Garage says nothing about it,
+   having no ACLs at all. See `DEPLOY.md` → "Known gaps".
 2. **The missing-object path is code-verified, not run.** `AsyncAwsS3Adapter`
-   throws `UnableToReadFile` (a `FilesystemOperationFailed`) and
-   `DownloadDataExportController` catches `FilesystemException` and 404s, so the
-   path is sound by inspection — but no run has deleted an object and requested
-   its link.
+   throws `UnableToReadFile` and `DownloadDataExportController` catches
+   `FilesystemException` and 404s, so the path is sound by inspection — but no
+   run has deleted an object and requested its link.
 
 Closing this means one export against a real Spaces bucket with the ACL
-Terraform sets. Until then, treat MinIO as evidence the adapter and the
-application code are correct, and the provider-shaped knobs as untested.
+Terraform sets.
 
 
 ## Sessions, cache and rate-limiter storage are container-local
