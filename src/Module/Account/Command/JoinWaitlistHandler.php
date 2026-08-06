@@ -25,15 +25,11 @@ final readonly class JoinWaitlistHandler
     {
         $existingEntry = $this->waitlistEntries->findOneByEmail($command->email);
         if (null !== $existingEntry) {
-            // Every waitlist-originated account leaves a CONVERTED row behind,
-            // and needsInvite() is permanently false on converted rows — so a
-            // disabled account re-joining would otherwise dead-end here,
-            // un-invitable forever. Re-open the row (and queue it at the back)
-            // for exactly that case. Every other duplicate — a live pending
-            // row, a converted row whose account is still enabled, or a
-            // converted row whose account is gone — keeps the silent skip.
-            // Converted-check first: the frequent pending-row duplicate skips
-            // the user query entirely.
+            // needsInvite() is permanently false on a CONVERTED row, so a
+            // disabled account re-joining would dead-end un-invitable forever;
+            // reopen it and queue it at the back for that case alone. Converted
+            // is checked first so the frequent pending duplicate skips the user
+            // query.
             if (null !== $existingEntry->convertedAt) {
                 $existingUser = $this->users->findOneByEmail($command->email);
                 if (null !== $existingUser && $existingUser->isDisabled()) {

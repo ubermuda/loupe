@@ -55,13 +55,10 @@ final readonly class ArchiveDocumentHandler
             // reason therefore means restoring the document and archiving it
             // again.
             if (null !== $stored['archivedAt']) {
-                // Only when the loaded copy disagrees with the row, which means
-                // another transaction archived this document while this one
-                // waited for the lock: the caller is handed what is stored
-                // rather than the nulls it loaded before the winner committed.
-                // The loaded values are otherwise left exactly as they are — the
-                // column is TIMESTAMP(0), so re-reading them would quietly drop
-                // the sub-second part of a timestamp this process already holds.
+                // Only when the loaded copy disagrees with the row — another
+                // transaction archived this while we waited for the lock.
+                // Otherwise left alone: the column is TIMESTAMP(0), so
+                // re-reading drops the sub-second part this process holds.
                 if (null === $document->archivedAt) {
                     $document->archivedAt = $stored['archivedAt'];
                     $document->archiveReason = $stored['archiveReason'];

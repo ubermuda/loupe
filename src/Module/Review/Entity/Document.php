@@ -16,13 +16,10 @@ use Symfony\Bridge\Doctrine\Types\UuidType;
 use Symfony\Component\Uid\Uuid;
 
 #[ORM\Entity(repositoryClass: DocumentRepository::class)]
-// Declared without an access method because DBAL's Postgres platform ignores
-// index flags; the migration creates it USING gin, and this mapping exists so
-// the comparator sees an index it already knows about rather than dropping it.
-// Do not "fix" this by adding flags: ['gin'] — the comparator would then read a
-// flag the introspected index cannot report, and emit a DROP plus a plain
-// CREATE INDEX, silently downgrading the GIN index to a B-tree one that @@ never
-// uses.
+// No access method: DBAL's Postgres platform ignores index flags, and the
+// migration creates it USING gin. Do not "fix" this with flags: ['gin'] — the
+// comparator would emit a DROP plus a plain CREATE INDEX, silently downgrading
+// it to a B-tree index that @@ never uses.
 #[ORM\Index(name: 'idx_documents_search_vector', columns: ['search_vector'])]
 #[ORM\Table(name: 'documents')]
 class Document

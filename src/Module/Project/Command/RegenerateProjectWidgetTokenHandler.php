@@ -29,15 +29,10 @@ final readonly class RegenerateProjectWidgetTokenHandler
     {
         $project = $command->project;
 
-        // Same row lock the mint handler takes, for the same reason: two
-        // concurrent regenerations would each delete what they read and persist
-        // their own token, leaving the loser's valid but bound to no project.
-        //
-        // The lock alone is not enough. A request that loaded the project before
-        // taking it still holds the association as it was then, so after waiting
-        // it would delete a token the winner already deleted and leave the
-        // winner's token orphaned — the very outcome the lock exists to prevent.
-        // Read the committed id instead.
+        // Same row lock the mint handler takes: two concurrent regenerations
+        // would each delete what they read, orphaning the loser's token. The
+        // lock alone is not enough — a request that loaded the project before
+        // waiting still holds the stale association, so read the committed id.
         return $this->em->wrapInTransaction(function () use ($project): string {
             $this->em->lock($project, LockMode::PESSIMISTIC_WRITE);
 
