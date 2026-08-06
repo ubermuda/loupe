@@ -55,12 +55,9 @@ x-app-environment: &app-environment
   # address.
   TRUSTED_PROXIES: "${TRUSTED_PROXIES:-}"
 
-  # Where this instance's source can be obtained, linked in the footer — the
-  # AGPL offer. Passed through with no fallback on purpose: when it is unset the
-  # container never receives the key at all and the image's committed default
-  # applies, so a fork that edits `.env` and rebuilds keeps its own value.
-  # Spelling a default out here would silently overwrite that, and an empty
-  # string would remove the footer link rather than leaving it at the default.
+  # The AGPL source offer, linked in the footer. Passed through with no fallback
+  # on purpose: unset means the container never receives the key and the image's
+  # committed default applies, so a fork that edits `.env` keeps its own value.
   APP_SOURCE_URL:
 
   MAILER_DSN: "${MAILER_DSN:?set it in compose.prod.env — registration needs working mail}"
@@ -164,13 +161,9 @@ services:
     volumes:
       - database_data:/var/lib/postgresql/data:rw
 
-  # Site-review push. The publisher is the app; the only subscriber is the Go
-  # bridge CLI, which is not a browser, so no CORS configuration is needed.
-  #
-  # The hub keeps updates in memory, so a restart drops anything undelivered.
-  # That is by design: submissions are recorded in the site_review_events outbox
-  # and the bridge resumes from Last-Event-ID, making delivery best effort and
-  # replay authoritative.
+  # Site-review push. The only subscriber is the Go bridge CLI, not a browser, so
+  # no CORS config is needed. The hub keeps updates in memory, so a restart drops
+  # undelivered ones — the outbox plus Last-Event-ID make replay authoritative.
   mercure:
     image: dunglas/mercure:v0.24
     restart: unless-stopped

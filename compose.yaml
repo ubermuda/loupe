@@ -103,11 +103,9 @@ services:
 ###< symfony/mailer ###
 
 ###> symfony/mercure-bundle ###
-  # In-memory Mercure hub (no history — best-effort by design), reached at
-  # http://mercure internally. Opt-in like garage below: start it with
-  # `just mercure-up` when working on site-review push. Off by default because a
-  # missing hub only delays delivery — submissions land in the outbox first, and
-  # the scheduled drain replays whatever never went out.
+  # In-memory Mercure hub (no history — best-effort by design). Opt-in: start it
+  # with `just mercure-up`. A missing hub only delays delivery, since submissions
+  # reach the outbox first and the scheduled drain replays them.
   # The full e2e suite passes with it stopped.
   mercure:
     image: dunglas/mercure:v0.24
@@ -158,13 +156,9 @@ services:
       - traefik.tcp.services.pg-${COMPOSE_PROJECT_NAME}.loadbalancer.server.port=5432
 ###< doctrine/doctrine-bundle ###
 
-  # Opt-in S3-compatible storage for exercising EXPORT_STORAGE=s3 locally.
-  # Behind a compose profile, so `docker compose up -d` and `just up` do not
-  # start it: the default development path is EXPORT_STORAGE=local, and nothing
-  # in the normal workflow or the e2e suite needs a bucket. Start it with
-  # `just garage-up`, which also creates the bucket and its access key.
-  #
-  # Not reachable through Traefik — the app talks to it on the compose network
+  # Opt-in S3-compatible storage for exercising EXPORT_STORAGE=s3 locally, behind
+  # a compose profile. Start it with `just garage-up`, which also creates the
+  # bucket and its access key. Not reachable through Traefik
   # at http://garage:3900, which is the only access anything here needs.
   garage:
     image: dxflrs/garage:v1.0.1
