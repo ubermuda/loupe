@@ -8,12 +8,25 @@ use App\Module\Account\Entity\ApiToken;
 use App\Module\Account\Entity\ApiTokenScope;
 use App\Module\Account\Entity\User;
 use App\Module\Project\Entity\Project;
+use App\Module\SiteReview\SiteReviewPush;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use Symfony\Component\HttpFoundation\Request;
 
 final class StreamCredentialsControllerTest extends WebTestCase
 {
+    /**
+     * Written through the connection rather than the entity: the flag row comes
+     * from a migration, so it already exists and this only has to flip it.
+     */
+    private function disablePush(EntityManagerInterface $em): void
+    {
+        $em->getConnection()->executeStatement(
+            "UPDATE feature_flag SET value = 'false' WHERE name = ?",
+            [SiteReviewPush::FLAG],
+        );
+    }
+
     public function test_returns_per_site_topic_and_scoped_jwt(): void
     {
         $client = static::createClient();
@@ -41,6 +54,28 @@ final class StreamCredentialsControllerTest extends WebTestCase
         // The JWT must be a subscriber token scoped to exactly this site's topic.
         $claims = $this->decodeJwtClaims((string) $data['jwt']);
         self::assertSame([$expectedTopic], $claims['mercure']['subscribe'] ?? null);
+    }
+
+    public function test_push_disabled_hides_the_endpoint(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        self::assertInstanceOf(EntityManagerInterface::class, $em);
+        // The flag ships on (a migration seeds it), so this case has to turn it
+        // off: a valid credential for a real project, refused only because the
+        // instance does not do push.
+        $this->disablePush($em);
+        [$raw, , $project] = $this->issue($em, ApiTokenScope::SiteReview, 'stream-off@example.com');
+
+        $client->request(Request::METHOD_GET, '/api/site-review/stream',
+            ['site' => $project->name],
+            server: ['HTTP_AUTHORIZATION' => 'Bearer '.$raw]);
+
+        // 404 rather than 403: with push off there is no hub to subscribe to, so
+        // there is nothing here to be authorized for. A 403 would tell a caller
+        // the endpoint exists and its credential was rejected, which is a
+        // different and wrong story.
+        self::assertResponseStatusCodeSame(404);
     }
 
     public function test_site_resolves_by_id_too(): void

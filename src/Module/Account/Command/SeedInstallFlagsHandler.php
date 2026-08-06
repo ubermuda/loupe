@@ -32,6 +32,11 @@ final readonly class SeedInstallFlagsHandler
             ['billing.stripe_price_id', FeatureFlagType::Select, $command->billingStripePriceId, []],
             ['auth.github.enabled', FeatureFlagType::Bool, $command->authGithubEnabled, null],
             ['auth.google.enabled', FeatureFlagType::Bool, $command->authGoogleEnabled, null],
+            // Seeded on rather than off. Its environment prerequisite already
+            // holds it off on an instance with no hub configured, so seeding it
+            // off would mean an operator who *did* configure Mercure still had
+            // to find a switch to make it work.
+            ['site_review.push.enabled', FeatureFlagType::Bool, true, null],
         ];
 
         $created = 0;

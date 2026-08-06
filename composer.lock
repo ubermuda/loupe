@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "ddfac996d6a3158f5a8a0df8f3722cc5",
+    "content-hash": "369adff765a31fb6611b6be14d949aad",
     "packages": [
         {
             "name": "async-aws/core",
@@ -1617,16 +1617,16 @@
         },
         {
             "name": "guzzlehttp/guzzle",
-            "version": "7.15.1",
+            "version": "7.15.2",
             "source": {
                 "type": "git",
                 "url": "https://github.com/guzzle/guzzle.git",
-                "reference": "61443dfb33c62f308ee8add20f45b4d6e4bf8d2f"
+                "reference": "744101956d78b7c1384d0cbf379db13e859167bf"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/guzzle/guzzle/zipball/61443dfb33c62f308ee8add20f45b4d6e4bf8d2f",
-                "reference": "61443dfb33c62f308ee8add20f45b4d6e4bf8d2f",
+                "url": "https://api.github.com/repos/guzzle/guzzle/zipball/744101956d78b7c1384d0cbf379db13e859167bf",
+                "reference": "744101956d78b7c1384d0cbf379db13e859167bf",
                 "shasum": ""
             },
             "require": {
@@ -1725,7 +1725,7 @@
             ],
             "support": {
                 "issues": "https://github.com/guzzle/guzzle/issues",
-                "source": "https://github.com/guzzle/guzzle/tree/7.15.1"
+                "source": "https://github.com/guzzle/guzzle/tree/7.15.2"
             },
             "funding": [
                 {
@@ -1741,7 +1741,7 @@
                     "type": "tidelift"
                 }
             ],
-            "time": "2026-07-18T11:23:11+00:00"
+            "time": "2026-07-26T23:23:20+00:00"
         },
         {
             "name": "guzzlehttp/promises",
@@ -12141,12 +12141,12 @@
             "source": {
                 "type": "git",
                 "url": "https://github.com/ubermuda/feature-flags-bundle.git",
-                "reference": "69ae975d562f7f34c839534ada254f0b8e7494a9"
+                "reference": "607843ada7c8aad3bd04b2d58fb0b87b91b7d2d1"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/ubermuda/feature-flags-bundle/zipball/69ae975d562f7f34c839534ada254f0b8e7494a9",
-                "reference": "69ae975d562f7f34c839534ada254f0b8e7494a9",
+                "url": "https://api.github.com/repos/ubermuda/feature-flags-bundle/zipball/607843ada7c8aad3bd04b2d58fb0b87b91b7d2d1",
+                "reference": "607843ada7c8aad3bd04b2d58fb0b87b91b7d2d1",
                 "shasum": ""
             },
             "require": {
@@ -12189,7 +12189,7 @@
                 "source": "https://github.com/ubermuda/feature-flags-bundle/tree/main",
                 "issues": "https://github.com/ubermuda/feature-flags-bundle/issues"
             },
-            "time": "2026-07-26T02:13:00+00:00"
+            "time": "2026-08-06T21:18:17+00:00"
         },
         {
             "name": "ubermuda/symfony-extra",

@@ -9,11 +9,13 @@ use App\Module\Account\Entity\User;
 use App\Module\Project\Repository\ProjectRepository;
 use App\Module\Project\Security\AuthenticatedProjectResolver;
 use App\Module\SiteReview\Service\SiteReviewTopicBuilder;
+use App\Module\SiteReview\SiteReviewPush;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\Mercure\Jwt\TokenFactoryInterface;
 use Symfony\Component\Routing\Attribute\Route;
+use Ubermuda\FeatureFlagsBundle\Attribute\RequireFeatureFlag;
 
 /**
  * Hands an authenticated API client everything it needs to subscribe to ONE
@@ -32,6 +34,10 @@ use Symfony\Component\Routing\Attribute\Route;
  * repository lookup — the caller can only ever obtain creds for its own
  * projects.
  */
+// 404 rather than a disabled-looking 403: with push off there is no hub to
+// subscribe to, so there is nothing here to be authorized for. The bridge CLI
+// treats it as "this instance does not do push".
+#[RequireFeatureFlag(SiteReviewPush::FLAG)]
 #[Route(
     '/api/site-review/stream',
     name: 'api_site_review_stream',

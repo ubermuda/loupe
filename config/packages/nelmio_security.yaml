@@ -1,6 +1,16 @@
-# NelmioSecurityBundle is registered prod-only (config/bundles.php). All config
-# here is scoped under when@prod: an unscoped nelmio_security: root key would
-# error in dev/test where the bundle is not loaded.
+# NelmioSecurityBundle is registered in every environment (config/bundles.php),
+# but only prod configures anything that produces a header. Dev and test enable
+# the `csp` node and nothing else: that node is what registers the `csp_nonce()`
+# Twig function, and base.html.twig calls it on every page. With no directives
+# configured there is no policy to send, so dev and test still ship no security
+# headers at all — the bundle is present purely to make the function exist.
+when@dev: &nonce_only
+    nelmio_security:
+        csp:
+            enabled: true
+
+when@test: *nonce_only
+
 when@prod:
     nelmio_security:
         # X-Frame-Options: SAMEORIGIN — allow framing only by our own origin.

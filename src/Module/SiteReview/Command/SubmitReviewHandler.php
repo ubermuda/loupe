@@ -8,10 +8,12 @@ use App\Exception\DomainErrors;
 use App\Module\SiteReview\Entity\SiteReviewEvent;
 use App\Module\SiteReview\Repository\SiteReviewCommentRepository;
 use App\Module\SiteReview\Service\SiteReviewTopicBuilder;
+use App\Module\SiteReview\SiteReviewPush;
 use Doctrine\ORM\EntityManagerInterface;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\Mercure\HubInterface;
 use Symfony\Component\Mercure\Update;
+use Ubermuda\FeatureFlagsBundle\FeatureFlagService;
 
 final readonly class SubmitReviewHandler
 {
@@ -21,6 +23,7 @@ final readonly class SubmitReviewHandler
         private HubInterface $hub,
         private SiteReviewTopicBuilder $topicBuilder,
         private LoggerInterface $logger,
+        private FeatureFlagService $featureFlags,
     ) {
     }
 
@@ -37,7 +40,14 @@ final readonly class SubmitReviewHandler
         // project's own widget token is the submitting one. A project with no
         // widget token cannot reach this handler at all — treating that as "do
         // not forward" keeps the fallback on the safe side.
-        $forwardable = $command->project->widgetToken->forwardsToAgent ?? false;
+        // Two independent conditions, and both mean "this review must not reach an
+        // agent". The instance-wide switch is checked here rather than around the
+        // publish so the row is written unforwardable: the outbox treats an
+        // unforwardable row as settled, so nothing accumulates as undelivered
+        // while push is off, and turning push on later does not replay a backlog
+        // of reviews submitted while it was off.
+        $forwardable = ($command->project->widgetToken->forwardsToAgent ?? false)
+            && $this->featureFlags->isEnabled(SiteReviewPush::FLAG);
 
         [$flippedCount, $event] = $this->em->wrapInTransaction(function () use ($command, $forwardable): array {
             $flippedCount = $this->siteReviewComments->markDraftsPendingForProject($command->project);

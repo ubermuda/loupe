@@ -8,12 +8,14 @@ use App\Module\Account\Entity\DataExport;
 use App\Module\Account\Entity\User;
 use App\Module\Account\Export\DataExportArchiveBuilder;
 use App\Module\Account\Export\UserDataExporterInterface;
+use League\Flysystem\Config;
 use League\Flysystem\Filesystem;
 use League\Flysystem\FilesystemException;
 use League\Flysystem\FilesystemOperator;
 use League\Flysystem\Local\LocalFilesystemAdapter;
 use League\Flysystem\UnableToMoveFile;
 use League\Flysystem\UnableToWriteFile;
+use League\Flysystem\Visibility;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\Uid\Uuid;
@@ -99,6 +101,27 @@ final class DataExportArchiveBuilderTest extends TestCase
 
         self::assertSame('original bytes', $storage->read($key));
         self::assertFalse($storage->fileExists($key.'.tmp'));
+    }
+
+    public function test_the_move_states_visibility_instead_of_reading_the_source_acl(): void
+    {
+        // Without this, Flysystem reads the source object's ACL to reproduce it
+        // on the destination. S3-compatible stores that implement no ACLs —
+        // Garage answers GetObjectAcl with a 501 — then fail the whole export
+        // with an unexplained "unable to move file". Only reproducible against
+        // such a store, so this is the guard that keeps it fixed.
+        $id = Uuid::v7();
+        $key = DataExport::computeArchiveKey($id);
+
+        $storage = $this->createMock(FilesystemOperator::class);
+        $storage->expects(self::once())
+            ->method('move')
+            ->with($key.'.tmp', $key, [
+                Config::OPTION_RETAIN_VISIBILITY => false,
+                Config::OPTION_VISIBILITY => Visibility::PRIVATE,
+            ]);
+
+        new DataExportArchiveBuilder([$this->emptyExporter()], $storage)->build($this->user(), $id);
     }
 
     public function test_a_failing_upload_deletes_the_temporary_object(): void

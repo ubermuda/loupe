@@ -106,8 +106,21 @@ services:
   # In-memory Mercure hub (no history — best-effort delivery by design).
   # Reached internally by php-fpm at http://mercure, publicly via Traefik at
   # mercure.${COMPOSE_PROJECT_NAME}.dev.localhost.
+  #
+  # Opt-in, like garage below: `docker compose up -d` and `just up` do not start
+  # it. Start it with `just mercure-up` when you are working on site-review
+  # push — the widget's live loop, the bridge CLI, or dogfooding a review.
+  #
+  # Off by default because the app already treats the hub as optional and says
+  # so: both publish paths (SubmitReviewHandler and DrainOutboxHandler) catch
+  # every throwable and log it, submissions are recorded in the outbox first, and
+  # the scheduled drain replays whatever never landed once a hub is back. So a
+  # missing hub delays delivery rather than losing anything, and /admin/status
+  # probes the hub and reports it unreachable rather than leaving you guessing.
+  # The full e2e suite passes with it stopped.
   mercure:
     image: dunglas/mercure:v0.24
+    profiles: ["mercure"]
     restart: unless-stopped
     environment:
       SERVER_NAME: ':80'
@@ -154,6 +167,24 @@ services:
       - traefik.tcp.services.pg-${COMPOSE_PROJECT_NAME}.loadbalancer.server.port=5432
 ###< doctrine/doctrine-bundle ###
 
+  # Opt-in S3-compatible storage for exercising EXPORT_STORAGE=s3 locally.
+  # Behind a compose profile, so `docker compose up -d` and `just up` do not
+  # start it: the default development path is EXPORT_STORAGE=local, and nothing
+  # in the normal workflow or the e2e suite needs a bucket. Start it with
+  # `just garage-up`, which also creates the bucket and its access key.
+  #
+  # Not reachable through Traefik — the app talks to it on the compose network
+  # at http://garage:3900, which is the only access anything here needs.
+  garage:
+    image: dxflrs/garage:v1.0.1
+    profiles: ["garage"]
+    volumes:
+      - ./docker/dev/garage/garage.toml:/etc/garage.toml:ro
+      - garage_meta:/var/lib/garage/meta:rw
+      - garage_data:/var/lib/garage/data:rw
+    networks:
+      - default
+
 networks:
   traefik:
     external: true
@@ -162,3 +193,5 @@ volumes:
 ###> doctrine/doctrine-bundle ###
   database_data:
 ###< doctrine/doctrine-bundle ###
+  garage_meta:
+  garage_data:
