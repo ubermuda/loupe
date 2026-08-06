@@ -82,8 +82,21 @@ introduced it.
   references to tasks, phases, spec sections, handoff docs or dated decisions.
   State the underlying fact instead.
 
-Both are hard failures, not advisory. This skill is the judgment layer above
-them: passing both checks does not make a 17-line comment worth keeping.
+Both are hard failures. The budget above has a third check behind it,
+`CommentBudgetCheck`, which reports any run of **6 or more** consecutive comment
+lines — in PHP, Twig, JS, CSS, YAML, the justfile and `.env` alike.
+
+**It is advisory: it warns and `just gamache` still exits 0.** A line count
+cannot tell a good six-line comment from a bad one, so it does not get to fail
+your build. Read its output anyway — it is the only thing measuring the drift
+this skill exists to prevent, and a comment it flags is over budget until you
+have decided otherwise. When a long block genuinely earns its length (a file
+header documenting a distributed artefact, say), suppress it deliberately with
+`@comment-budget-ignore` on one of its lines rather than leaving it to be
+re-flagged forever.
+
+This skill remains the judgment layer above all three: passing every check does
+not make a 17-line comment worth keeping.
 
 ## Red flags
 

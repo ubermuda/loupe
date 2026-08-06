@@ -1,4 +1,8 @@
-# Branch progress: chore/comment-budget-check
+# Branch progress: chore/comment-budget-check-v2
+
+Works in `.claude/worktrees/comment-budget`, branched from `origin/main`.
+The first attempt ran in the main checkout while another agent had it, and
+its commits landed on that agent's branch; this tree is the clean redo.
 
 Scratch tracker for this branch only. **Delete before opening the PR.**
 
@@ -33,27 +37,27 @@ view object in the module's `Command/` dir per `project-command-handler`.
 - [ ] src/Module/Account/Security/ApiTokenAuthenticator.php (1, selfAssigningTernary)
 - [ ] src/Module/Admin/Controller/Dev/E2eFeatureFlagController.php (3)
 - [ ] src/Module/Billing/Controller/Dev/SeedBillingStateController.php (5)
-- [ ] src/Module/Project/Controller/CreateProjectController.php (4)
-- [ ] src/Module/Project/Controller/ListProjectsController.php (4)
-- [ ] src/Module/Review/Controller/AddCommentController.php (2)
-- [ ] src/Module/Review/Controller/DeleteCommentController.php (1)
+- [x] src/Module/Project/Controller/CreateProjectController.php (4)
+- [x] src/Module/Project/Controller/ListProjectsController.php (4)
+- [x] src/Module/Review/Controller/AddCommentController.php (2)
+- [x] src/Module/Review/Controller/DeleteCommentController.php (1)
 - [ ] src/Module/Review/Controller/Dev/GetReviewStateController.php (2)
 - [ ] src/Module/Review/Controller/Dev/SeedDocumentController.php (3)
 - [ ] src/Module/Review/Controller/DiffDocumentVersionsController.php (3)
 - [ ] src/Module/Review/Controller/ListDocumentsController.php (6)
-- [ ] src/Module/Review/Controller/ReplyToCommentController.php (1)
-- [ ] src/Module/Review/Controller/ResolveCommentController.php (1)
+- [x] src/Module/Review/Controller/ReplyToCommentController.php (1)
+- [x] src/Module/Review/Controller/ResolveCommentController.php (1)
 - [ ] src/Module/Review/Controller/SelectDecisionOptionController.php (2)
-- [ ] src/Module/Review/Controller/ShowDocumentController.php (5)
-- [ ] src/Module/Review/Controller/StrikePassageController.php (2)
-- [ ] src/Module/Review/Controller/SuggestRewordingController.php (2)
-- [ ] src/Module/SiteReview/Controller/Admin/ListSiteReviewOutboxController.php (3)
-- [ ] src/Module/SiteReview/Controller/Api/ListSitesController.php (1)
-- [ ] src/Module/SiteReview/Controller/Api/ShowDraftCommentsController.php (1)
-- [ ] src/Module/SiteReview/Controller/Api/StreamCredentialsController.php (1)
-- [ ] src/Module/SiteReview/Controller/Dev/SiteReviewHarnessController.php (8)
-- [ ] src/Module/SiteReview/Controller/ListProjectOutboxController.php (1)
-- [ ] src/Module/SiteReview/Controller/ShowSiteReviewController.php (3)
+- [x] src/Module/Review/Controller/ShowDocumentController.php (5)
+- [x] src/Module/Review/Controller/StrikePassageController.php (2)
+- [x] src/Module/Review/Controller/SuggestRewordingController.php (2)
+- [x] src/Module/SiteReview/Controller/Admin/ListSiteReviewOutboxController.php (3)
+- [x] src/Module/SiteReview/Controller/Api/ListSitesController.php (1)
+- [x] src/Module/SiteReview/Controller/Api/ShowDraftCommentsController.php (1)
+- [x] src/Module/SiteReview/Controller/Api/StreamCredentialsController.php (1)
+- [x] src/Module/SiteReview/Controller/Dev/SiteReviewHarnessController.php (8)
+- [x] src/Module/SiteReview/Controller/ListProjectOutboxController.php (1)
+- [x] src/Module/SiteReview/Controller/ShowSiteReviewController.php (3)
 
 ## Still to do after that
 
