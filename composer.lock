@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "9abb2411b9d4fd271407c13fe94847e5",
+    "content-hash": "7d2c6220bdcd1cc766ba4299f8c27bc2",
     "packages": [
         {
             "name": "async-aws/core",
@@ -12141,12 +12141,12 @@
             "source": {
                 "type": "git",
                 "url": "https://github.com/ubermuda/feature-flags-bundle.git",
-                "reference": "1717f9fc98e408b41f98ac6712a16f0b3ea9fe6f"
+                "reference": "e2196b71d6d8819c49fb0164ed750dcd93cbfa3e"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/ubermuda/feature-flags-bundle/zipball/1717f9fc98e408b41f98ac6712a16f0b3ea9fe6f",
-                "reference": "1717f9fc98e408b41f98ac6712a16f0b3ea9fe6f",
+                "url": "https://api.github.com/repos/ubermuda/feature-flags-bundle/zipball/e2196b71d6d8819c49fb0164ed750dcd93cbfa3e",
+                "reference": "e2196b71d6d8819c49fb0164ed750dcd93cbfa3e",
                 "shasum": ""
             },
             "require": {
@@ -12188,7 +12188,7 @@
                 "source": "https://github.com/ubermuda/feature-flags-bundle/tree/feat/flag-prerequisites",
                 "issues": "https://github.com/ubermuda/feature-flags-bundle/issues"
             },
-            "time": "2026-08-05T23:43:19+00:00"
+            "time": "2026-08-06T00:31:34+00:00"
         },
         {
             "name": "ubermuda/symfony-extra",
