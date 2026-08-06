@@ -271,12 +271,10 @@ final class MarkdownRendererTest extends TestCase
 
     public function test_the_comment_markers_never_reach_the_output(): void
     {
-        // The markers carry a comment's text across the sanitizer and must all be
-        // consumed again. A marker that survives prints a raw nonce on the page,
-        // and — because it is random per instance — makes the same source render
-        // differently every time, so the re-render command rewrites every
-        // version forever. The long document is the case that used to do it: the
-        // sanitizer truncated at 1 000 000 bytes, and the cut landed mid-marker.
+        // Every marker must be consumed again: a survivor prints a raw nonce and,
+        // being random per instance, makes the same source render differently
+        // every time. The long document is the case that did it — the sanitizer's
+        // cut landed mid-marker.
         $long = str_repeat("Paragraph text that pads the document out.\n\n", 20_000)
             ."<!-- a marker past the old truncation point -->\n\nTail.\n";
         self::assertGreaterThan(500_000, \strlen($long));
@@ -292,15 +290,11 @@ final class MarkdownRendererTest extends TestCase
 
     public function test_a_failed_annotation_pass_throws_instead_of_shipping_markers(): void
     {
-        // preg_replace_callback returns null only on a PCRE error, which no
-        // document can provoke — but returning the subject unchanged would leave
-        // the markers in it, printing a raw nonce on the page and making the same
-        // source render differently each time.
-        //
-        // Reached through the private method because driving it from render()
-        // cannot work: starving the backtrack limit breaks the comment renderer's
-        // own patterns first, so no marker is ever emitted and the pass has
-        // nothing to fail on.
+        // Returning the subject unchanged would leave the markers in it,
+        // printing a raw nonce and making the same source render differently each
+        // time. Driven through the private method because starving the backtrack
+        // limit breaks the comment renderer's own patterns first, so no marker is
+        // ever emitted.
         $renderer = new MarkdownRenderer(new NullLogger());
         $reflection = new \ReflectionClass($renderer);
         $open = $reflection->getProperty('noteBlockOpen')->getValue($renderer);
@@ -398,12 +392,11 @@ final class MarkdownRendererTest extends TestCase
 
     public function test_ordinary_yaml_reuse_still_renders(): void
     {
-        // Rejecting `&`, `*` and `<<:` before parsing looks like obvious
-        // hardening, was tried, and was removed: Yaml::parse() shares aliased
-        // nodes copy-on-write rather than expanding them, so it prevented
-        // nothing that BoundedHtmlBuilder does not already bound — while
-        // refusing prose like `- *starred phrase*`. This pins that a document
-        // using aliases legitimately still gets its table.
+        // Rejecting `&`, `*` and `<<:` before parsing was tried and removed:
+        // Yaml::parse() shares aliased nodes copy-on-write, so it prevented
+        // nothing BoundedHtmlBuilder does not already bound, while refusing prose
+        // like `- *starred phrase*`. This pins that legitimate aliases still
+        // produce a table.
         $html = new MarkdownRenderer(new NullLogger())->render(
             "---\ndefaults: &defaults\n  team: platform\nowner:\n  <<: *defaults\ntags: [a, b]\n---\n\nBody.\n",
         );

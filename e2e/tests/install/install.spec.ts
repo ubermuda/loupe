@@ -19,13 +19,10 @@ test('first-install wizard creates an unverified admin who is gated until they f
     const reset = await request.post('/dev/e2e/reset');
     expect(reset.status(), 'DB reset failed').toBe(200);
 
-    // Flags page: defaults are prefilled. Leave registrationCap at its default
-    // (0 = unlimited) rather than setting a real limit — this spec runs in the
-    // `install-reset` project, which always runs last, so any nonzero cap it
-    // leaves behind becomes the *next* full-suite run's starting state and
-    // silently closes registration for every other spec once enough users
-    // exist. Int-value propagation through the form is already covered by
-    // SeedInstallFlagsHandlerTest at the PHP level.
+    // Leave registrationCap at its default (0 = unlimited): this spec runs in
+    // the `install-reset` project, which always runs last, so any nonzero cap
+    // becomes the next full-suite run's starting state and silently closes
+    // registration.
     await page.goto('/install');
     await expect(page.getByLabel('Trial length (days)')).toHaveValue('14');
     await expect(
