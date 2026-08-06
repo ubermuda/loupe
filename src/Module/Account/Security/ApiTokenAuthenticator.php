@@ -72,7 +72,9 @@ final class ApiTokenAuthenticator extends AbstractAuthenticator implements Authe
     {
         $user = $passport->getUser();
         $scopeRole = $passport->getAttribute(self::SCOPE_ROLE_ATTR);
-        $scopeRole = is_string($scopeRole) ? $scopeRole : throw new \LogicException('scopeRole missing on passport after authentication.');
+        if (!is_string($scopeRole)) {
+            throw new \LogicException('scopeRole missing on passport after authentication.');
+        }
 
         $authenticatedToken = new PostAuthenticationToken($user, $firewallName, [...$user->getRoles(), $scopeRole]);
         $apiTokenId = $passport->getAttribute(self::API_TOKEN_ID_ATTR);

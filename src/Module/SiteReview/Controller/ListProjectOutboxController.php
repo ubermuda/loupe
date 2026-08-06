@@ -7,7 +7,8 @@ namespace App\Module\SiteReview\Controller;
 use App\Controller\AppController;
 use App\Module\Project\Entity\Project;
 use App\Module\Project\Security\ProjectVoter;
-use App\Module\SiteReview\Repository\SiteReviewEventRepository;
+use App\Module\SiteReview\Command\ListProjectOutboxCommand;
+use App\Module\SiteReview\Command\ListProjectOutboxHandler;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
@@ -21,15 +22,17 @@ use Symfony\Component\Security\Http\Attribute\IsGranted;
 class ListProjectOutboxController extends AppController
 {
     public function __construct(
-        private readonly SiteReviewEventRepository $siteReviewEvents,
+        private readonly ListProjectOutboxHandler $listProjectOutbox,
     ) {
     }
 
     public function __invoke(Project $project): Response
     {
+        $view = ($this->listProjectOutbox)(new ListProjectOutboxCommand($project));
+
         return $this->render('@SiteReview/list_project_outbox.html.twig', [
-            'project' => $project,
-            'events' => $this->siteReviewEvents->findUnsentForProject($project),
+            'project' => $view->project,
+            'events' => $view->events,
         ]);
     }
 }

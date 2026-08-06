@@ -7,9 +7,9 @@ namespace App\Module\Account\Controller;
 use App\Controller\AppController;
 use App\Module\Account\Command\RevokeApiTokenCommand;
 use App\Module\Account\Command\RevokeApiTokenHandler;
-use App\Module\Account\Entity\ApiToken;
+use App\Module\Account\Command\ShowOwnedApiTokenCommand;
+use App\Module\Account\Command\ShowOwnedApiTokenHandler;
 use App\Module\Account\Entity\User;
-use App\Module\Account\Repository\ApiTokenRepository;
 use App\Utils\SafeRedirect;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\HttpFoundation\Request;
@@ -27,7 +27,7 @@ use Ubermuda\SymfonyExtra\Csrf\Attribute\CsrfToken;
 class RevokeApiTokenController extends AppController
 {
     public function __construct(
-        private readonly ApiTokenRepository $apiTokens,
+        private readonly ShowOwnedApiTokenHandler $showOwnedApiToken,
         private readonly RevokeApiTokenHandler $revokeApiTokenHandler,
         private readonly LoggerInterface $logger,
     ) {
@@ -40,9 +40,9 @@ class RevokeApiTokenController extends AppController
             throw new \LogicException(\sprintf('%s reached without an authenticated User (got %s); this route must stay behind the ROLE_USER catch-all.', self::class, get_debug_type($user)));
         }
 
-        $token = $this->apiTokens->find($tokenId);
+        $token = ($this->showOwnedApiToken)(new ShowOwnedApiTokenCommand($tokenId, $user))->token;
 
-        if (!$token instanceof ApiToken || null === $token->owner->id || !$token->owner->id->equals($user->id)) {
+        if (null === $token) {
             throw $this->createNotFoundException('Token not found.');
         }
 

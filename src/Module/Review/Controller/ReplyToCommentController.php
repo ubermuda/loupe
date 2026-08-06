@@ -7,12 +7,13 @@ namespace App\Module\Review\Controller;
 use App\Controller\AppController;
 use App\Exception\DomainErrors;
 use App\Module\Account\Entity\User;
+use App\Module\Review\Command\ListCommentRepliesCommand;
+use App\Module\Review\Command\ListCommentRepliesHandler;
 use App\Module\Review\Command\ReplyToCommentCommand;
 use App\Module\Review\Command\ReplyToCommentHandler;
 use App\Module\Review\Entity\Comment;
 use App\Module\Review\Form\ReplyFormType;
 use App\Module\Review\Form\ReplyRequest;
-use App\Module\Review\Repository\CommentRepository;
 use App\Module\Review\Security\CommentVoter;
 use App\Module\Review\Twig\ReviewExtension;
 use Symfony\Component\Form\FormError;
@@ -34,7 +35,7 @@ final class ReplyToCommentController extends AppController
 {
     public function __construct(
         private readonly ReplyToCommentHandler $replyToCommentHandler,
-        private readonly CommentRepository $comments,
+        private readonly ListCommentRepliesHandler $listCommentReplies,
         private readonly FormFactoryInterface $formFactory,
         private readonly TranslatorInterface $translator,
     ) {
@@ -82,7 +83,7 @@ final class ReplyToCommentController extends AppController
 
         $html = $this->renderView('@Review/_comment_thread.stream.html.twig', [
             'comment' => $comment,
-            'replies' => $this->comments->findReplies($comment),
+            'replies' => ($this->listCommentReplies)(new ListCommentRepliesCommand($comment))->replies,
             'replyForm' => $replyForm,
         ]);
 

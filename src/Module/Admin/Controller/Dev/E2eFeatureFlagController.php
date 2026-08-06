@@ -5,15 +5,13 @@ declare(strict_types=1);
 namespace App\Module\Admin\Controller\Dev;
 
 use App\Controller\AppController;
-use Doctrine\ORM\EntityManagerInterface;
+use App\Module\Admin\Command\SetFeatureFlagCommand;
+use App\Module\Admin\Command\SetFeatureFlagHandler;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\DependencyInjection\Attribute\When;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\Routing\Attribute\Route;
-use Ubermuda\FeatureFlagsBundle\Entity\FeatureFlag;
-use Ubermuda\FeatureFlagsBundle\Enum\FeatureFlagType;
-use Ubermuda\FeatureFlagsBundle\Repository\FeatureFlagRepository;
 
 /**
  * Dev-only endpoint that upserts a boolean feature flag, so Playwright specs can
@@ -33,8 +31,7 @@ use Ubermuda\FeatureFlagsBundle\Repository\FeatureFlagRepository;
 final class E2eFeatureFlagController extends AppController
 {
     public function __construct(
-        private readonly FeatureFlagRepository $featureFlags,
-        private readonly EntityManagerInterface $em,
+        private readonly SetFeatureFlagHandler $setFeatureFlag,
 
         #[Autowire('%kernel.environment%')]
         private readonly string $environment,
@@ -54,15 +51,7 @@ final class E2eFeatureFlagController extends AppController
 
         $enabled = $request->request->getBoolean('enabled');
 
-        $flag = $this->featureFlags->findOneBy(['name' => $name]);
-        if (null === $flag) {
-            $flag = new FeatureFlag($name, FeatureFlagType::Bool, $enabled);
-            $this->em->persist($flag);
-        } else {
-            $flag->type = FeatureFlagType::Bool;
-            $flag->value = $enabled;
-        }
-        $this->em->flush();
+        ($this->setFeatureFlag)(new SetFeatureFlagCommand($name, $enabled));
 
         return $this->json(['name' => $name, 'enabled' => $enabled]);
     }

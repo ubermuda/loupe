@@ -6,9 +6,9 @@ namespace App\Module\Review\Controller;
 
 use App\Controller\AppController;
 use App\Module\Project\Entity\Project;
-use App\Module\Review\Entity\Comment;
+use App\Module\Review\Command\ShowDocumentCommand;
+use App\Module\Review\Command\ShowDocumentHandler;
 use App\Module\Review\Entity\Document;
-use App\Module\Review\Entity\DocumentVersion;
 use App\Module\Review\Form\AddCommentFormType;
 use App\Module\Review\Form\AddCommentRequest;
 use App\Module\Review\Form\SelectDecisionOptionFormType;
@@ -17,12 +17,7 @@ use App\Module\Review\Form\StrikePassageFormType;
 use App\Module\Review\Form\StrikePassageRequest;
 use App\Module\Review\Form\SuggestRewordingFormType;
 use App\Module\Review\Form\SuggestRewordingRequest;
-use App\Module\Review\Repository\CommentRepository;
-use App\Module\Review\Repository\DecisionSelectionRepository;
-use App\Module\Review\Repository\DocumentVersionRepository;
 use App\Module\Review\Security\DocumentVoter;
-use App\Module\Review\Service\DecisionBlockService;
-use App\Module\Review\Service\HeadingExtractor;
 use Symfony\Bridge\Doctrine\Attribute\MapEntity;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
@@ -48,11 +43,7 @@ use Symfony\Component\Security\Http\Attribute\IsGranted;
 final class ShowDocumentController extends AppController
 {
     public function __construct(
-        private readonly DocumentVersionRepository $documentVersions,
-        private readonly CommentRepository $comments,
-        private readonly DecisionSelectionRepository $decisionSelections,
-        private readonly HeadingExtractor $headings,
-        private readonly DecisionBlockService $decisionBlocks,
+        private readonly ShowDocumentHandler $showDocument,
     ) {
     }
 
@@ -61,28 +52,17 @@ final class ShowDocumentController extends AppController
         #[MapEntity(expr: 'repository.findOneByIdAndProjectId(documentId, projectId)')] Document $document,
         ?int $versionNumber = null,
     ): Response {
-        $latest = $this->documentVersions->findLatest($document);
-        $version = null === $versionNumber ? $latest : $this->version($document, $versionNumber);
-
-        // Every write on this page targets the current version: the composer posts
-        // a comment onto whatever is latest, and the verdict applies to the document
-        // as it stands. An older version is therefore rendered as a read-only record
-        // of what was discussed then.
-        $isLatest = $version->versionNumber === $latest->versionNumber;
-        $comments = $this->comments->findByVersion($version);
-
-        $addCommentForm = $this->createForm(AddCommentFormType::class, new AddCommentRequest(), [
-            'action' => $this->generateUrl('app_comment_add', [
-                'projectId' => (string) $project->id,
-                'documentId' => (string) $document->id,
-            ]),
-            'method' => 'POST',
-        ]);
+        $view = ($this->showDocument)(new ShowDocumentCommand($document, $versionNumber));
 
         $routeParameters = [
             'projectId' => (string) $project->id,
             'documentId' => (string) $document->id,
         ];
+
+        $addCommentForm = $this->createForm(AddCommentFormType::class, new AddCommentRequest(), [
+            'action' => $this->generateUrl('app_comment_add', $routeParameters),
+            'method' => 'POST',
+        ]);
 
         $suggestRewordingForm = $this->createForm(SuggestRewordingFormType::class, new SuggestRewordingRequest(), [
             'action' => $this->generateUrl('app_comment_suggest', $routeParameters),
@@ -97,57 +77,29 @@ final class ShowDocumentController extends AppController
         // Stamped with the version whose options are being rendered, so a
         // submission that arrives after a revision can be told apart from one
         // that describes the current list.
-        $selectDecisionForm = $this->createForm(SelectDecisionOptionFormType::class, new SelectDecisionOptionRequest(versionNumber: $version->versionNumber), [
+        $selectDecisionForm = $this->createForm(SelectDecisionOptionFormType::class, new SelectDecisionOptionRequest(versionNumber: $view->version->versionNumber), [
             'action' => $this->generateUrl('app_document_decision_select', $routeParameters),
             'method' => 'POST',
         ]);
 
-        // Answers are keyed to the document, so an earlier version shows the same
-        // ones the latest does — read-only, but shown: a decision rendered blank
-        // reads as unanswered, which is a different claim from "answered before
-        // this version".
-        //
-        // Resolved through Decision::resolveIndex, exactly as GetReview does, so
-        // the radio the reviewer sees ticked is the option the agent is told.
-        $decisions = $this->decisionBlocks->extract($version->renderedHtml);
-        $selections = $this->decisionSelections->findByDocumentIndexedByDecisionId($document);
-        $selectedIndexByDecisionId = [];
-        foreach ($decisions as $decision) {
-            $selection = $selections[$decision->id] ?? null;
-            $index = null === $selection ? null : $decision->resolveIndex($selection->optionLabel, $selection->optionIndex);
-            if (null !== $index) {
-                $selectedIndexByDecisionId[$decision->id] = $index;
-            }
-        }
-
         return $this->render('@Review/show_document.html.twig', [
-            'document' => $document,
-            'version' => $version,
-            'versions' => $this->documentVersions->findAllMetaByDocument($document),
+            'document' => $view->document,
+            'version' => $view->version,
+            'versions' => $view->versions,
             // The shared page shell reads these to decide whether it is showing a
             // document or a comparison of two; here it is always the document.
             'diffMode' => false,
             'diffFromVersion' => null,
-            'readOnly' => !$isLatest,
-            'comments' => $comments,
-            'headings' => $this->headings->extract($version->renderedHtml),
-            'orphanedCount' => count(array_filter($comments, static fn (Comment $c) => $c->orphaned)),
+            'readOnly' => $view->readOnly,
+            'comments' => $view->comments,
+            'headings' => $view->headings,
+            'orphanedCount' => $view->orphanedCount,
             'addCommentForm' => $addCommentForm,
             'suggestRewordingForm' => $suggestRewordingForm,
             'strikePassageForm' => $strikePassageForm,
             'selectDecisionForm' => $selectDecisionForm,
-            'hasDecisions' => [] !== $decisions,
-            'decisionMarkedHtml' => $this->decisionBlocks->withSelections(
-                $version->renderedHtml,
-                $selectedIndexByDecisionId,
-                readOnly: !$isLatest,
-            ),
+            'hasDecisions' => $view->hasDecisions,
+            'decisionMarkedHtml' => $view->decisionMarkedHtml,
         ]);
-    }
-
-    private function version(Document $document, int $versionNumber): DocumentVersion
-    {
-        return $this->documentVersions->findByNumber($document, $versionNumber)
-            ?? throw $this->createNotFoundException(sprintf('Document has no version %d.', $versionNumber));
     }
 }

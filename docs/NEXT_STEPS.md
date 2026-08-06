@@ -2820,6 +2820,24 @@ non-zero" teaches a reader to ignore the one time it means something, and
 `just e2e` already depends on people trusting worker diagnostics — a missing
 consumer is documented as the cause of a ~19-spec failure block.
 
+## Cut the 144 over-budget comment blocks CommentBudgetCheck reports
+
+**Author:** Geoffrey · **Type:** docs · **Priority:** medium · **Status:** pending
+
+`vendor/bin/gamache` reports 144 comment runs of 6+ lines across `src/`,
+`templates/`, `assets/`, `config/`, `e2e/`, the `justfile` and `.env`. The check
+is advisory (exit 0), so nothing forces this; the sweep is deliberate work.
+
+Compress each to the constraint a reader needs at that line and move the
+reasoning to the commit or PR that introduced it — see the `project-comments`
+skill for the budget and the keep/cut test.
+
+Not everything long is wrong. A file header documenting a distributed artefact
+earns its length: `compose.prod.yaml`'s 33-line header is legitimate and was
+confirmed as such on 2026-08-06. Those get `@comment-budget-ignore` on one of
+their lines, not a rewrite, so they stop being re-reported. Decide per file
+rather than sweeping to zero.
+
 ## Rendered front matter and annotations have no accessible name
 
 

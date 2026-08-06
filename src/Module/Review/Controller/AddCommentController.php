@@ -10,11 +10,11 @@ use App\Module\Account\Entity\User;
 use App\Module\Project\Entity\Project;
 use App\Module\Review\Command\AddCommentCommand;
 use App\Module\Review\Command\AddCommentHandler;
+use App\Module\Review\Command\ListLatestCommentsCommand;
+use App\Module\Review\Command\ListLatestCommentsHandler;
 use App\Module\Review\Entity\Document;
 use App\Module\Review\Form\AddCommentFormType;
 use App\Module\Review\Form\AddCommentRequest;
-use App\Module\Review\Repository\CommentRepository;
-use App\Module\Review\Repository\DocumentVersionRepository;
 use App\Module\Review\Security\DocumentVoter;
 use Symfony\Bridge\Doctrine\Attribute\MapEntity;
 use Symfony\Component\Form\FormInterface;
@@ -35,8 +35,7 @@ final class AddCommentController extends AppController
 {
     public function __construct(
         private readonly AddCommentHandler $addCommentHandler,
-        private readonly DocumentVersionRepository $documentVersions,
-        private readonly CommentRepository $comments,
+        private readonly ListLatestCommentsHandler $listLatestComments,
         private readonly TranslatorInterface $translator,
     ) {
     }
@@ -96,7 +95,7 @@ final class AddCommentController extends AppController
 
         return new Response(
             $this->renderView('@Review/_comment_added.stream.html.twig', [
-                'comments' => $this->comments->findByVersion($this->documentVersions->findLatest($document)),
+                'comments' => ($this->listLatestComments)(new ListLatestCommentsCommand($document))->comments,
             ]),
             Response::HTTP_OK,
             ['Content-Type' => TurboBundle::STREAM_MEDIA_TYPE],

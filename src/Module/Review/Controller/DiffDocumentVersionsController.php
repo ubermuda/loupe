@@ -6,15 +6,10 @@ namespace App\Module\Review\Controller;
 
 use App\Controller\AppController;
 use App\Module\Project\Entity\Project;
-use App\Module\Review\Entity\Comment;
+use App\Module\Review\Command\DiffDocumentVersionsCommand;
+use App\Module\Review\Command\DiffDocumentVersionsHandler;
 use App\Module\Review\Entity\Document;
-use App\Module\Review\Entity\DocumentVersion;
-use App\Module\Review\Repository\CommentRepository;
-use App\Module\Review\Repository\DocumentVersionRepository;
 use App\Module\Review\Security\DocumentVoter;
-use App\Module\Review\Service\MarkdownDiffer;
-use App\Module\Review\ValueObject\DiffRefusal;
-use Psr\Log\LoggerInterface;
 use Symfony\Bridge\Doctrine\Attribute\MapEntity;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
@@ -33,10 +28,7 @@ use Symfony\Component\Security\Http\Attribute\IsGranted;
 final class DiffDocumentVersionsController extends AppController
 {
     public function __construct(
-        private readonly DocumentVersionRepository $documentVersions,
-        private readonly CommentRepository $comments,
-        private readonly MarkdownDiffer $markdownDiffer,
-        private readonly LoggerInterface $logger,
+        private readonly DiffDocumentVersionsHandler $diffDocumentVersions,
     ) {
     }
 
@@ -50,49 +42,23 @@ final class DiffDocumentVersionsController extends AppController
             throw $this->createNotFoundException('A diff runs from an earlier version to a later one.');
         }
 
-        $version = $this->version($document, $toVersionNumber);
-        $result = $this->markdownDiffer->diff(
-            $this->version($document, $fromVersionNumber)->markdownSource,
-            $version->markdownSource,
-        );
-
-        $diff = null;
-        $diffRefusal = null;
-        if ($result instanceof DiffRefusal) {
-            $diffRefusal = $result;
-            $this->logger->info('review.document.diff_refused', [
-                'documentId' => (string) $document->id,
-                'from' => $fromVersionNumber,
-                'to' => $toVersionNumber,
-                'reason' => $result->value,
-            ]);
-        } else {
-            $diff = $result;
-        }
-
-        // A diff never accepts a comment or a verdict: the pane holds diff markup
-        // rather than the document, so anchoring has no text basis to resolve
-        // against. That is the same `readOnly` the review page uses for an earlier
-        // version, and it is why no comment form is built here.
-        $comments = $this->comments->findByVersion($version);
+        $view = ($this->diffDocumentVersions)(new DiffDocumentVersionsCommand(
+            document: $document,
+            fromVersionNumber: $fromVersionNumber,
+            toVersionNumber: $toVersionNumber,
+        ));
 
         return $this->render('@Review/diff_document_versions.html.twig', [
             'document' => $document,
-            'version' => $version,
-            'versions' => $this->documentVersions->findAllMetaByDocument($document),
+            'version' => $view->version,
+            'versions' => $view->versions,
             'diffMode' => true,
-            'diff' => $diff,
-            'diffRefusal' => $diffRefusal,
+            'diff' => $view->diff,
+            'diffRefusal' => $view->diffRefusal,
             'diffFromVersion' => $fromVersionNumber,
             'readOnly' => true,
-            'comments' => $comments,
-            'orphanedCount' => count(array_filter($comments, static fn (Comment $c) => $c->orphaned)),
+            'comments' => $view->comments,
+            'orphanedCount' => $view->orphanedCount,
         ]);
-    }
-
-    private function version(Document $document, int $versionNumber): DocumentVersion
-    {
-        return $this->documentVersions->findByNumber($document, $versionNumber)
-            ?? throw $this->createNotFoundException(sprintf('Document has no version %d.', $versionNumber));
     }
 }

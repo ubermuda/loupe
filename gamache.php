@@ -2,11 +2,13 @@
 
 declare(strict_types=1);
 
+use Gamache\Check\CommentBudgetCheck;
 use Gamache\Check\FormTypeTranslationKeysCheck;
 use Gamache\Check\MessengerRoutingCheck;
 use Gamache\Check\NoArbitraryValuesCheck;
 use Gamache\Check\NoTodosCheck;
 use Gamache\Check\PageTitleBrandNameCheck;
+use Gamache\Check\SelfContainedCommentsCheck;
 use Gamache\Check\ServicesYamlCheck;
 use Gamache\Check\ServiceTagNamesCheck;
 use Gamache\Check\TranslationCheck;
@@ -25,6 +27,28 @@ return (new GamacheConfig())->registerChecks([
     new MessengerRoutingCheck(),
     new NoArbitraryValuesCheck(),
     new NoTodosCheck(),
+    new SelfContainedCommentsCheck(),
+    new CommentBudgetCheck(
+        /*
+         * Beyond the default Symfony layout, the files where comment essays
+         * actually accumulate here: the justfile, the compose topologies and
+         * the dotenv template, which together hold more over-budget blocks
+         * than src/ does.
+         */
+        patterns: [
+            'src/**/*.php',
+            'tests/**/*.php',
+            'config/**/*.yaml',
+            'templates/**/*.twig',
+            'assets/**/*.js',
+            'assets/**/*.css',
+            'e2e/**/*.ts',
+            'justfile',
+            'compose.yaml',
+            'compose.prod.yaml',
+            '.env',
+        ],
+    ),
     new FormTypeTranslationKeysCheck(),
     new TurboStreamTargetsCheck(),
     new XlfPluralizationCheck(),

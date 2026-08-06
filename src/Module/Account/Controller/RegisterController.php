@@ -6,11 +6,12 @@ namespace App\Module\Account\Controller;
 
 use App\Controller\AppController;
 use App\Exception\DomainErrors;
+use App\Module\Account\Command\CheckInviteTokenCommand;
+use App\Module\Account\Command\CheckInviteTokenHandler;
 use App\Module\Account\Command\RegisterUserCommand;
 use App\Module\Account\Command\RegisterUserHandler;
 use App\Module\Account\Form\RegistrationFormType;
 use App\Module\Account\Form\RegistrationRequest;
-use App\Module\Account\Repository\WaitlistEntryRepository;
 use App\Module\Account\Service\RegistrationGate;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
@@ -30,7 +31,7 @@ class RegisterController extends AppController
         private readonly RegisterUserHandler $registerUser,
         private readonly TranslatorInterface $translator,
         private readonly RegistrationGate $registrationGate,
-        private readonly WaitlistEntryRepository $waitlistEntries,
+        private readonly CheckInviteTokenHandler $checkInviteToken,
         private readonly LoggerInterface $logger,
 
         #[Autowire(service: 'limiter.registration')]
@@ -59,7 +60,7 @@ class RegisterController extends AppController
         // not linger in the address bar, browser history, or the form action.
         $queryToken = $request->query->get('invite');
         if (null !== $queryToken) {
-            if (is_string($queryToken) && null !== $this->waitlistEntries->findOneByValidInviteToken($queryToken)) {
+            if (is_string($queryToken) && ($this->checkInviteToken)(new CheckInviteTokenCommand($queryToken))->valid) {
                 $request->getSession()->set(self::INVITE_SESSION_KEY, $queryToken);
             }
 
@@ -69,7 +70,7 @@ class RegisterController extends AppController
         $sessionToken = $request->getSession()->get(self::INVITE_SESSION_KEY);
         $inviteToken = is_string($sessionToken) ? $sessionToken : null;
         $hasValidInvite = null !== $inviteToken
-            && null !== $this->waitlistEntries->findOneByValidInviteToken($inviteToken);
+            && ($this->checkInviteToken)(new CheckInviteTokenCommand($inviteToken))->valid;
 
         if (!$this->registrationGate->isOpen() && !$hasValidInvite) {
             return $this->redirectToRoute('app_waitlist_join');

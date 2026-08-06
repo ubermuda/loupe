@@ -149,6 +149,7 @@ When several feature branches are in flight (worktrees, parallel agents), merges
 - Always fix failing and flaky tests in any test run you observe — including ones that pass on retry, ones that pre-date your change, and ones unrelated to the current task. A "flaky" test that passes on retry is a real failure that will eventually break CI; do not declare a green run while flakes are tolerated. The only acceptable response to a flake is a fix; "it'll probably be fine" is not.
 - **For PHP-specific gotchas (Serena rename workaround, FormType rename side-effects, constructor change checklist), see `project-backend`.**
 - **Never write `TODO`, `FIXME`, or `XXX` comments in code.** If follow-up work is needed, capture it in a project tracking file (e.g. `docs/NEXT_STEPS.md`) or an issue. In-code TODO comments are invisible to future sessions and rot silently. Enforced by `NoTodosCheck` (runs in `just gamache`).
+- **Keep comments short — the default is no comment at all.** A comment earns its place only by recording something a reader cannot recover from the code, the tests or `git log`; the reasoning behind it belongs in the commit message or PR body. `CommentBudgetCheck` reports any run of 6+ consecutive comment lines, in PHP, Twig, JS, CSS, YAML, the justfile and `.env` alike. It is **advisory** — `just gamache` still exits 0 — so it is on you to read it. **Invoke the `project-comments` skill** before writing a comment longer than two lines.
 - **Code comments must be self-contained.** Never reference internal or ephemeral development artifacts a future reader can't access — numbered tasks (`Task 16`), a handoff/design document (`handoff screen 8`), spec sections (`§3.5`, `spec §3.9`), dev phases (`Part 1`, `Phase 1`), or dated decisions (`owner decision 2026-07-13`). State the underlying fact directly. A comment that only makes sense with a document open in another tab is worse than no comment. Enforced by `SelfContainedCommentsCheck` (runs in `just gamache`).
 - **Doctrine migrations: use a real current-datetime timestamp** in the `VersionYYYYMMDDHHMMSS` class name — never a round placeholder like `…000000`. Parallel branches that both use a round number collide on the version prefix (harmless because the class names still differ, but confusing, and it breaks `migrate-diff` ordering assumptions).
 - **Pinning ubermuda/\* VCS bundles:** to consume an unmerged bundle branch, pin `"dev-<branch>#<full-40-char-sha> as dev-main"` — the `as dev-main` alias is load-bearing (sibling ubermuda packages require `dev-main@dev`). After the bundle PR merges, repoint to plain `"dev-main#<merge-sha>"` and drop the alias in the same wave. If the bundle ships copied assets (e.g. `feature_flag_form_controller.js`), re-copy them at every pin change.
@@ -300,23 +301,11 @@ interactivity. Conventions live in `project-frontend`.
 | PHP-CS-Fixer rules | `src/PhpCsFixer/` | `Gamache\PhpCsFixer\Fixers` in `.php-cs-fixer.dist.php` | `just cs-fix` |
 | Twig-CS-Fixer rules | `src/TwigCsFixer/` | `GamacheStandard` in `.twig-cs-fixer.php` | twig-cs-fixer |
 
-`ubermuda/gamache` enforces project conventions through **five** layers, each wired into a different tool. Before concluding "gamache has no rule for X," check **all five** — and note that most of them run under `just ci`, **not** `just gamache`:
-
-| Layer | Package dir | Wired via | Run by |
-|---|---|---|---|
-| Convention checks | `src/Check/` | `gamache.php` | `just gamache` (`vendor/bin/gamache`) |
-| PHPStan rules | `src/PHPStan/` | `extension.neon` + `parameters.gamache:` in `phpstan.dist.neon` | `just phpstan` / `just ci` |
-| Rector rules | `src/Rector/` | `GamacheSetList::CONVENTIONS` in `rector.php` | `just rector` |
-| PHP-CS-Fixer rules | `src/PhpCsFixer/` | `Gamache\PhpCsFixer\Fixers` in `.php-cs-fixer.dist.php` | `just cs-fix` |
-| Twig-CS-Fixer rules | `src/TwigCsFixer/` | `GamacheStandard` in `.twig-cs-fixer.php` | twig-cs-fixer |
-
 `just gamache` runs **only** the `src/Check/` layer (advisory/structural convention checks). The other four are part of the normal static-analysis pipeline. So "is gamache working / does a check exist?" is answered by grepping the package's `src/Check/`, `src/PHPStan/`, `src/Rector/`, `src/PhpCsFixer/`, and `src/TwigCsFixer/` — not just `src/Check/`.
 
 **PHPStan-rule layer only sees files in PHPStan's `paths:`** (`phpstan.dist.neon`). `migrations/` **must** stay in that list or migration-targeting rules (e.g. `MigrationDescriptionRule`) silently never run. When adding a new top-level source dir a rule should police, add it to `paths:`.
 
 **Adding or modifying any gamache rule:** gamache is an external package. To add or change a rule in **any** of the five layers, open a PR on https://github.com/ubermuda/gamache. Do not add rule/check/fixer classes directly to this project — `src/Utils/Gamache/` no longer exists.
-
-**Configuring checks:** each `src/Check/` class accepts constructor parameters (see `gamache.php`). To pass custom options (e.g. `ignoredCallSites` on `TranslationCheck`), edit the constructor call in `gamache.php`. The PHPStan layer is configured under `parameters.gamache:` in `phpstan.dist.neon`.
 
 **Configuring checks:** each `src/Check/` class accepts constructor parameters (see `gamache.php`). To pass custom options (e.g. `ignoredCallSites` on `TranslationCheck`), edit the constructor call in `gamache.php`. The PHPStan layer is configured under `parameters.gamache:` in `phpstan.dist.neon`.
 

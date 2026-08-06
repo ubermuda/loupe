@@ -6,13 +6,12 @@ namespace App\Module\Review\Controller\Dev;
 
 use App\Controller\AppController;
 use App\Module\Account\Entity\User;
-use App\Module\Project\Entity\Project;
-use App\Module\Project\Repository\ProjectRepository;
+use App\Module\Project\Command\EnsureHarnessProjectCommand;
+use App\Module\Project\Command\EnsureHarnessProjectHandler;
 use App\Module\Review\Command\ArchiveDocumentCommand;
 use App\Module\Review\Command\ArchiveDocumentHandler;
 use App\Module\Review\Command\CreateDocumentCommand;
 use App\Module\Review\Command\CreateDocumentHandler;
-use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\DependencyInjection\Attribute\When;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -33,8 +32,7 @@ final class SeedDocumentController extends AppController
     public function __construct(
         private readonly CreateDocumentHandler $createDocument,
         private readonly ArchiveDocumentHandler $archiveDocument,
-        private readonly ProjectRepository $projects,
-        private readonly EntityManagerInterface $em,
+        private readonly EnsureHarnessProjectHandler $ensureHarnessProject,
     ) {
     }
 
@@ -48,12 +46,7 @@ final class SeedDocumentController extends AppController
         $title = $request->request->getString('title', 'E2E Test Document');
         $markdown = $request->request->getString('markdown', '# Hello World');
 
-        $project = $this->projects->findOneByOwnerAndName($user, 'e2e-harness');
-        if (null === $project) {
-            $project = new Project($user, 'e2e-harness');
-            $this->em->persist($project);
-            $this->em->flush();
-        }
+        $project = ($this->ensureHarnessProject)(new EnsureHarnessProjectCommand($user, 'e2e-harness'));
 
         $document = ($this->createDocument)(new CreateDocumentCommand(project: $project, title: $title, markdown: $markdown));
 

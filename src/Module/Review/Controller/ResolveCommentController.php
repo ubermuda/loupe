@@ -6,10 +6,11 @@ namespace App\Module\Review\Controller;
 
 use App\Controller\AppController;
 use App\Exception\DomainErrors;
+use App\Module\Review\Command\ListVersionCommentsCommand;
+use App\Module\Review\Command\ListVersionCommentsHandler;
 use App\Module\Review\Command\ResolveCommentCommand;
 use App\Module\Review\Command\ResolveCommentHandler;
 use App\Module\Review\Entity\Comment;
-use App\Module\Review\Repository\CommentRepository;
 use App\Module\Review\Security\CommentVoter;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -34,7 +35,7 @@ final class ResolveCommentController extends AppController
 {
     public function __construct(
         private readonly ResolveCommentHandler $resolveCommentHandler,
-        private readonly CommentRepository $comments,
+        private readonly ListVersionCommentsHandler $listVersionComments,
         private readonly TranslatorInterface $translator,
     ) {
     }
@@ -71,7 +72,7 @@ final class ResolveCommentController extends AppController
         // PENDING group to RESOLVED and shifts the resolved count + progress bar,
         // none of which a single-thread replace would refresh.
         $html = $this->renderView('@Review/_comment_added.stream.html.twig', [
-            'comments' => $this->comments->findByVersion($version),
+            'comments' => ($this->listVersionComments)(new ListVersionCommentsCommand($version))->comments,
         ]);
 
         return new Response($html, Response::HTTP_OK, ['Content-Type' => TurboBundle::STREAM_MEDIA_TYPE]);

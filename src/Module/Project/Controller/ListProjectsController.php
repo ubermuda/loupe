@@ -6,14 +6,10 @@ namespace App\Module\Project\Controller;
 
 use App\Controller\AppController;
 use App\Module\Account\Entity\User;
+use App\Module\Project\Command\ListProjectsCommand;
+use App\Module\Project\Command\ListProjectsHandler;
 use App\Module\Project\Form\CreateProjectFormType;
 use App\Module\Project\Form\CreateProjectRequest;
-use App\Module\Project\Repository\ProjectRepository;
-use App\Module\Project\View\ProjectListItem;
-use App\Module\Review\Repository\DocumentRepository;
-use App\Module\SiteReview\Repository\SiteReviewCommentRepository;
-use App\Module\SiteReview\Repository\SiteReviewEventRepository;
-use App\Utils\PageList;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -26,13 +22,8 @@ use Symfony\Component\Routing\Attribute\Route;
 )]
 class ListProjectsController extends AppController
 {
-    private const int PER_PAGE = 20;
-
     public function __construct(
-        private readonly ProjectRepository $projects,
-        private readonly DocumentRepository $documents,
-        private readonly SiteReviewEventRepository $siteReviewEvents,
-        private readonly SiteReviewCommentRepository $siteReviewComments,
+        private readonly ListProjectsHandler $listProjects,
         private readonly LoggerInterface $logger,
     ) {
     }
@@ -45,41 +36,26 @@ class ListProjectsController extends AppController
         }
 
         $page = max(1, $request->query->getInt('page', 1));
+        $view = ($this->listProjects)(new ListProjectsCommand($user, $page));
 
-        $paginator = $this->projects->findPaginatedByOwner($user, $page, self::PER_PAGE);
-        $total = count($paginator);
-
-        $clampedPage = PageList::clampedPage($page, $total, self::PER_PAGE);
-        if (null !== $clampedPage) {
+        if (null !== $view->clampedPage) {
             $this->logger->info('project.list.page_clamped', [
                 'user' => (string) $user->id,
                 'requestedPage' => $page,
-                'clampedPage' => $clampedPage,
+                'clampedPage' => $view->clampedPage,
             ]);
 
-            return $this->redirectToRoute('app_projects', ['page' => $clampedPage]);
+            return $this->redirectToRoute('app_projects', ['page' => $view->clampedPage]);
         }
-
-        $totalPages = max(1, (int) ceil($total / self::PER_PAGE));
 
         $form = $this->createForm(CreateProjectFormType::class, new CreateProjectRequest());
 
-        $items = array_map(
-            fn ($project) => new ProjectListItem(
-                project: $project,
-                documentCount: $this->documents->countActiveByProject($project),
-                reviewCount: $this->siteReviewEvents->countForProject($project),
-                openCount: $this->siteReviewComments->countOpenForProject($project),
-            ),
-            iterator_to_array($paginator, false),
-        );
-
         return $this->render('@Project/list_projects.html.twig', [
-            'items' => $items,
+            'items' => $view->items,
             'form' => $form->createView(),
             'page' => $page,
-            'totalPages' => $totalPages,
-            'pageList' => PageList::build($page, $totalPages),
+            'totalPages' => $view->totalPages,
+            'pageList' => $view->pageList,
         ]);
     }
 }

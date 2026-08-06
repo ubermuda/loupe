@@ -7,8 +7,8 @@ namespace App\Module\SiteReview\Controller;
 use App\Controller\AppController;
 use App\Module\Project\Entity\Project;
 use App\Module\Project\Security\ProjectVoter;
-use App\Module\SiteReview\Repository\SiteReviewCommentRepository;
-use App\Module\SiteReview\Repository\SiteReviewEventRepository;
+use App\Module\SiteReview\Command\ShowSiteReviewCommand;
+use App\Module\SiteReview\Command\ShowSiteReviewHandler;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
@@ -22,18 +22,19 @@ use Symfony\Component\Security\Http\Attribute\IsGranted;
 class ShowSiteReviewController extends AppController
 {
     public function __construct(
-        private readonly SiteReviewCommentRepository $siteReviewComments,
-        private readonly SiteReviewEventRepository $siteReviewEvents,
+        private readonly ShowSiteReviewHandler $showSiteReview,
     ) {
     }
 
     public function __invoke(Project $project): Response
     {
+        $view = ($this->showSiteReview)(new ShowSiteReviewCommand($project));
+
         return $this->render('@SiteReview/show_site_review.html.twig', [
-            'project' => $project,
-            'comments' => $this->siteReviewComments->findForProject($project),
-            'submittedCount' => $this->siteReviewEvents->countForProject($project),
-            'unsentCount' => $this->siteReviewEvents->countUnsent($project),
+            'project' => $view->project,
+            'comments' => $view->comments,
+            'submittedCount' => $view->submittedCount,
+            'unsentCount' => $view->unsentCount,
         ]);
     }
 }
