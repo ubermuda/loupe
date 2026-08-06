@@ -6,7 +6,12 @@
         <title>{% block title %}{{ 'app.name'|trans }}{% endblock %}</title>
         {% block stylesheets %}{% endblock %}
         {% block javascripts %}
-            {% block importmap %}{{ importmap('app') }}{% endblock %}
+            {# The importmap renders two inline <script> tags, which are the only
+               inline scripts this app emits. Nonces are what will let script-src
+               drop 'unsafe-inline' when the CSP moves from report to enforce;
+               they are inert until then. csp_nonce() exists in every
+               environment — see config/bundles.php. #}
+            {% block importmap %}{{ importmap('app', {nonce: csp_nonce('script')}) }}{% endblock %}
         {% endblock %}
         {% set frankenphpHotReload = app.request.server.get('FRANKENPHP_HOT_RELOAD') %}
         {% if frankenphpHotReload %}
