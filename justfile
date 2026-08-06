@@ -176,6 +176,25 @@ migrate-diff: (exec "bin/console doctrine:migrations:diff")
 
 migrate-run: (exec "bin/console doctrine:migrations:migrate")
 
+# Needed for site-review push: the widget's live review loop, the bridge CLI,
+# and dogfooding a review on this app's own pages. Nothing else uses it, and
+# the full e2e suite passes without it.
+#
+# Leaving it stopped does not lose events. A submission is written to the
+# outbox before the publish is attempted, both publish paths swallow and log a
+# hub failure, and the scheduled drain replays whatever never landed once a hub
+# is back — `just exec bin/console app:drain-site-review-outbox` forces a pass.
+# If you are unsure whether a hub is running, /admin/status probes it.
+# Start the opt-in Mercure hub.
+mercure-up:
+    docker compose --profile mercure up -d mercure
+
+# `stop` + `rm` rather than `down`, for the reason on garage-down below.
+# Stop and remove the Mercure hub.
+mercure-down:
+    docker compose --profile mercure stop mercure
+    docker compose --profile mercure rm -f mercure
+
 # Off by default (a compose profile), because the development path is
 # EXPORT_STORAGE=local and nothing routine needs a bucket.
 #
