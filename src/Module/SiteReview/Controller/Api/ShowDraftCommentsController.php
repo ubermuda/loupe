@@ -6,8 +6,9 @@ namespace App\Module\SiteReview\Controller\Api;
 
 use App\Controller\AppController;
 use App\Module\Project\Security\AuthenticatedProjectResolver;
+use App\Module\SiteReview\Command\ShowDraftCommentsCommand;
+use App\Module\SiteReview\Command\ShowDraftCommentsHandler;
 use App\Module\SiteReview\Entity\SiteReviewComment;
-use App\Module\SiteReview\Repository\SiteReviewCommentRepository;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\Routing\Attribute\Route;
 
@@ -23,7 +24,7 @@ use Symfony\Component\Routing\Attribute\Route;
 final class ShowDraftCommentsController extends AppController
 {
     public function __construct(
-        private readonly SiteReviewCommentRepository $siteReviewComments,
+        private readonly ShowDraftCommentsHandler $showDraftComments,
         private readonly AuthenticatedProjectResolver $projectResolver,
     ) {
     }
@@ -35,6 +36,8 @@ final class ShowDraftCommentsController extends AppController
             return $this->json(['error' => 'token_not_bound_to_site'], JsonResponse::HTTP_FORBIDDEN);
         }
 
+        $view = ($this->showDraftComments)(new ShowDraftCommentsCommand($project));
+
         return $this->json(['comments' => array_values(array_map(
             static fn (SiteReviewComment $c): array => [
                 'id' => (string) $c->id,
@@ -43,7 +46,7 @@ final class ShowDraftCommentsController extends AppController
                 'text' => $c->text,
                 'url' => $c->url,
             ],
-            $this->siteReviewComments->findDraftForProject($project),
+            $view->comments,
         ))]);
     }
 }

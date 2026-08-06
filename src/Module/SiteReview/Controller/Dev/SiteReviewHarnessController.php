@@ -5,13 +5,8 @@ declare(strict_types=1);
 namespace App\Module\SiteReview\Controller\Dev;
 
 use App\Controller\AppController;
-use App\Module\Account\Entity\ApiToken;
-use App\Module\Account\Entity\ApiTokenScope;
-use App\Module\Account\Repository\UserRepository;
-use App\Module\Project\Entity\Project;
-use App\Module\Project\Repository\ProjectRepository;
-use App\Module\SiteReview\Repository\SiteReviewCommentRepository;
-use Doctrine\ORM\EntityManagerInterface;
+use App\Module\SiteReview\Command\PrepareHarnessCommand;
+use App\Module\SiteReview\Command\PrepareHarnessHandler;
 use Symfony\Component\DependencyInjection\Attribute\When;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -37,43 +32,17 @@ use Symfony\Component\Routing\Attribute\Route;
 final class SiteReviewHarnessController extends AppController
 {
     public function __construct(
-        private readonly EntityManagerInterface $em,
-        private readonly UserRepository $users,
-        private readonly ProjectRepository $projects,
-        private readonly SiteReviewCommentRepository $siteReviewComments,
+        private readonly PrepareHarnessHandler $prepareHarness,
     ) {
     }
 
     public function __invoke(Request $request): Response
     {
-        $email = $request->query->getString('email');
-        $user = $this->users->findOneByEmail($email)
-            ?? throw new \LogicException('Seed the e2e user via /dev/register-and-verify before loading the harness.');
+        $view = ($this->prepareHarness)(new PrepareHarnessCommand(
+            email: $request->query->getString('email'),
+            keepDraft: $request->query->getBoolean('keep'),
+        ));
 
-        $project = $this->projects->findOneByOwnerAndName($user, 'e2e-harness');
-        if (null === $project) {
-            $project = new Project($user, 'e2e-harness');
-            $this->em->persist($project);
-        }
-
-        // Deterministic starting state for every e2e run: no draft comments (unless
-        // the test explicitly keeps them to exercise the widget's rehydrate path)…
-        if (!$request->query->getBoolean('keep')) {
-            foreach ($this->siteReviewComments->findDraftForProject($project) as $draft) {
-                $this->em->remove($draft);
-            }
-        }
-
-        // …and a fresh bound token (the old one, if any, is discarded).
-        $previous = $project->widgetToken;
-        [$token, $raw] = ApiToken::issue($user, 'e2e site-review', ApiTokenScope::SiteReview);
-        $project->widgetToken = $token;
-        $this->em->persist($token);
-        if (null !== $previous) {
-            $this->em->remove($previous);
-        }
-        $this->em->flush();
-
-        return $this->render('@SiteReview/dev/harness.html.twig', ['token' => $raw]);
+        return $this->render('@SiteReview/dev/harness.html.twig', ['token' => $view->rawToken]);
     }
 }

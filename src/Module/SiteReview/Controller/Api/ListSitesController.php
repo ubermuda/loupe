@@ -7,8 +7,9 @@ namespace App\Module\SiteReview\Controller\Api;
 use App\Controller\AppController;
 use App\Module\Account\Entity\User;
 use App\Module\Project\Entity\Project;
-use App\Module\Project\Repository\ProjectRepository;
 use App\Module\Project\Security\AuthenticatedProjectResolver;
+use App\Module\SiteReview\Command\ListSitesCommand;
+use App\Module\SiteReview\Command\ListSitesHandler;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\Routing\Attribute\Route;
 
@@ -29,7 +30,7 @@ final class ListSitesController extends AppController
 {
     public function __construct(
         private readonly AuthenticatedProjectResolver $projectResolver,
-        private readonly ProjectRepository $projects,
+        private readonly ListSitesHandler $listSites,
     ) {
     }
 
@@ -44,9 +45,11 @@ final class ListSitesController extends AppController
             throw new \LogicException('Sites endpoint reached without an authenticated User.');
         }
 
+        $view = ($this->listSites)(new ListSitesCommand($user));
+
         return $this->json(['sites' => array_values(array_map(
             static fn (Project $project): array => ['id' => (string) $project->id, 'name' => $project->name],
-            $this->projects->findByOwner($user),
+            $view->sites,
         ))]);
     }
 }
