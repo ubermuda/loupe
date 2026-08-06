@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Tests\Controller;
 
+use App\Command\CheckDatabaseHealthHandler;
 use App\Controller\ShowHealthController;
 use Doctrine\DBAL\Connection;
 use PHPUnit\Framework\MockObject\Stub;
@@ -31,7 +32,11 @@ final class ShowHealthControllerTest extends WebTestCase
             new \RuntimeException('SQLSTATE[08006] could not connect to server: host=db.internal user=app password=hunter2'),
         );
 
-        $response = (new ShowHealthController($connection, new NullLogger()))();
+        // The real handler, so the assertions below still cover the whole path
+        // from the driver exception to the rendered body.
+        $handler = new CheckDatabaseHealthHandler($connection, new NullLogger());
+
+        $response = (new ShowHealthController($handler))();
 
         self::assertSame(503, $response->getStatusCode());
         $body = (string) $response->getContent();

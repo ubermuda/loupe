@@ -7,15 +7,10 @@ namespace App\Module\Review\Controller;
 use App\Controller\AppController;
 use App\Module\Project\Entity\Project;
 use App\Module\Project\Security\ProjectVoter;
-use App\Module\Review\Entity\Document;
+use App\Module\Review\Command\ListDocumentsCommand;
+use App\Module\Review\Command\ListDocumentsHandler;
 use App\Module\Review\Entity\DocumentStatus;
-use App\Module\Review\Repository\CommentRepository;
-use App\Module\Review\Repository\DocumentRepository;
-use App\Module\Review\Repository\DocumentVersionRepository;
-use App\Module\Review\Repository\TagRepository;
-use App\Module\Review\View\DocumentListItem;
 use App\Module\Review\View\DocumentListQuery;
-use App\Utils\PageList;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -30,13 +25,8 @@ use Symfony\Component\Security\Http\Attribute\IsGranted;
 )]
 class ListDocumentsController extends AppController
 {
-    private const int PER_PAGE = 20;
-
     public function __construct(
-        private readonly DocumentRepository $documents,
-        private readonly DocumentVersionRepository $documentVersions,
-        private readonly CommentRepository $comments,
-        private readonly TagRepository $tags,
+        private readonly ListDocumentsHandler $listDocuments,
         private readonly LoggerInterface $logger,
     ) {
     }
@@ -44,64 +34,30 @@ class ListDocumentsController extends AppController
     public function __invoke(Project $project, Request $request): Response
     {
         $listQuery = DocumentListQuery::fromQuery($request->query);
-        $page = $listQuery->page;
+        $view = ($this->listDocuments)(new ListDocumentsCommand($project, $listQuery));
 
-        $paginator = $this->documents->findPaginatedByProject(
-            $project,
-            $page,
-            self::PER_PAGE,
-            $listQuery->includeArchived,
-            $listQuery->search,
-            $listQuery->status,
-            $listQuery->tagName,
-        );
-        $total = count($paginator);
-
-        $clampedPage = PageList::clampedPage($page, $total, self::PER_PAGE);
-        if (null !== $clampedPage) {
+        if (null !== $view->clampedPage) {
             $this->logger->info('review.document_list.page_clamped', [
                 'project' => (string) $project->id,
-                'requestedPage' => $page,
-                'clampedPage' => $clampedPage,
+                'requestedPage' => $listQuery->page,
+                'clampedPage' => $view->clampedPage,
             ]);
 
             return $this->redirectToRoute('app_project_documents', [
                 'id' => (string) $project->id,
-                ...$listQuery->withPage($clampedPage)->routeParams(),
+                ...$listQuery->withPage($view->clampedPage)->routeParams(),
             ]);
         }
 
-        $totalPages = max(1, (int) ceil($total / self::PER_PAGE));
-
-        $documents = iterator_to_array($paginator, false);
-        $this->documents->preloadTags($documents);
-        $latestVersions = $this->documentVersions->findLatestMetaByDocuments($documents);
-
-        $items = array_map(
-            function (Document $document) use ($latestVersions): DocumentListItem {
-                $meta = $latestVersions[(string) $document->id] ?? throw new \LogicException('Document has no versions.');
-
-                return new DocumentListItem(
-                    document: $document,
-                    versionNumber: $meta['versionNumber'],
-                    updatedAt: $meta['createdAt'],
-                    openThreadCount: $this->comments->countOpenByVersion(
-                        $this->documentVersions->getReferenceTo($meta['versionId']),
-                    ),
-                );
-            },
-            $documents,
-        );
-
         return $this->render('@Review/list_documents.html.twig', [
             'project' => $project,
-            'items' => $items,
-            'page' => $page,
-            'totalPages' => $totalPages,
-            'pageList' => PageList::build($page, $totalPages),
+            'items' => $view->items,
+            'page' => $listQuery->page,
+            'totalPages' => $view->totalPages,
+            'pageList' => $view->pageList,
             'listQuery' => $listQuery,
             'statuses' => DocumentStatus::cases(),
-            'projectTags' => $this->tags->findByProject($project),
+            'projectTags' => $view->projectTags,
         ]);
     }
 }
