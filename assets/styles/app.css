@@ -2225,6 +2225,36 @@
         @apply inline-flex items-center rounded-full font-semibold bg-status-ok-bg text-status-ok-deep shrink-0 text-xs py-0.5 px-2;
     }
 
+    /* A person or a record, on the paper: an icon or initial, a name, a quiet
+       second line, and one action. Distinct from .lp-connect-field, which is a
+       token row inside a step card and therefore leads with mono. */
+    .lp-identity-row {
+        @apply flex items-center gap-3 rounded-xl bg-surface-2 py-3.5 px-4;
+    }
+    .lp-identity-row__avatar {
+        @apply w-7 h-7 shrink-0 inline-flex items-center justify-center rounded-full bg-ink text-accent text-xs font-bold;
+    }
+    .lp-identity-row__glyph {
+        @apply shrink-0 text-fg-mute;
+    }
+    .lp-identity-row__text {
+        @apply flex flex-col gap-0.5 mr-auto min-w-0;
+    }
+    .lp-identity-row__name {
+        @apply text-sm font-semibold text-ink truncate;
+    }
+    .lp-identity-row__meta {
+        @apply font-mono text-xs text-fg-mute truncate;
+    }
+    /* An export is identified by when it was asked for, so the timestamp leads
+       in mono and the state sits under it in prose. */
+    .lp-identity-row__name--mono {
+        @apply font-mono font-normal;
+    }
+    .lp-identity-row__meta--plain {
+        @apply font-sans;
+    }
+
     /* Amber callout. Used for the two things on this page that are warnings
        rather than body copy: the once-only token, and the fact that the widget
        token is public. */

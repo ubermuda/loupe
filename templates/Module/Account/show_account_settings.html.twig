@@ -16,11 +16,11 @@
 
     <section class="lp-connect-block" data-testid="profile-section">
         <p class="lp-eyebrow">{{ 'account.settings.profile.heading'|trans }}</p>
-        <div class="lp-card flex items-center gap-3">
-            <span class="avatar lg">{{ view.user.fullName|slice(0, 1)|upper }}</span>
-            <span class="lp-connect-field__value">
-                {{ view.user.fullName }}
-                <span class="lp-connect-field__meta">{{ view.user.email }}</span>
+        <div class="lp-identity-row">
+            <span class="lp-identity-row__avatar">{{ view.user.fullName|slice(0, 1)|upper }}</span>
+            <span class="lp-identity-row__text">
+                <span class="lp-identity-row__name">{{ view.user.fullName }}</span>
+                <span class="lp-identity-row__meta">{{ view.user.email }}</span>
             </span>
             <a href="{{ path('app_account_profile') }}" class="lp-btn lp-btn--ghost">{{ 'account.settings.profile.edit_link'|trans }}</a>
         </div>
@@ -31,11 +31,11 @@
         <p class="lp-connect-hint">{{ 'account.settings.export.intro'|trans }}</p>
 
         {% for export in view.exports %}
-        <div class="lp-card flex items-center gap-3">
-            <twig:ux:icon name="lucide:package" class="lp-connect-field__glyph w-4 h-4" />
-            <span class="lp-connect-field__value">
-                {{ export.requestedAt|date('Y-m-d H:i') }}
-                <span class="lp-connect-field__meta">
+        <div class="lp-identity-row">
+            <twig:ux:icon name="lucide:package" class="lp-identity-row__glyph w-4 h-4" />
+            <span class="lp-identity-row__text">
+                <span class="lp-identity-row__name lp-identity-row__name--mono">{{ export.requestedAt|date('Y-m-d H:i') }}</span>
+                <span class="lp-identity-row__meta lp-identity-row__meta--plain">
                     {% if export.isExpired %}
                         {{ 'account.settings.export.status.expired'|trans }}
                     {% else %}
