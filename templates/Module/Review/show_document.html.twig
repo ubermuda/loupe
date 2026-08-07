@@ -264,14 +264,16 @@
                     {{ 'review.document.comment.untargeted'|trans }}
                 </button>
                 <span class="lp-review-actions__hint">{{ 'review.document.comment.select_hint'|trans }}</span>
-                {# Only worth showing once there is something to hide. #}
-                {% if comments|filter(c => c.parent is null and c.threadStatus.value == 'resolved')|length > 0 %}
+                {# Always rendered, shown by the controller only once a resolved
+                   thread exists. Resolving replaces #comment-threads alone, and
+                   this row sits outside it — gating it in Twig would leave the
+                   control missing until the next full page load. #}
                 <button type="button" class="lp-review-actions__resolved"
                         data-resolved-toggle
                         data-label-hide="{{ 'review.document.threads.hide_resolved'|trans }}"
                         data-label-show="{{ 'review.document.threads.show_resolved'|trans }}"
-                        data-action="comment-anchor#toggleResolved">{{ 'review.document.threads.hide_resolved'|trans }}</button>
-                {% endif %}
+                        data-action="comment-anchor#toggleResolved"
+                        hidden>{{ 'review.document.threads.hide_resolved'|trans }}</button>
             </div>
             {% endif %}
 

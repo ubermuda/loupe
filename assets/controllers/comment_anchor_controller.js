@@ -776,6 +776,10 @@ export default class extends Controller {
         } catch {
             this.#releaseThreads();
         }
+        // Here as well as in #applyHideResolved, because a Turbo stream that
+        // resolves or deletes a thread reaches the controller only through this
+        // path.
+        this.#syncResolvedToggle();
     }
 
     /**
@@ -805,6 +809,11 @@ export default class extends Controller {
                 thread.offsetParent !== null,
         );
         if (anchored.length === 0) {
+            // Deleting the last thread, or hiding every resolved one, would
+            // otherwise leave the reading column holding the min-height the
+            // previous layout reserved for a column of cards that is now empty.
+            this.blockTarget.style.minHeight = '';
+
             return;
         }
 
@@ -873,15 +882,30 @@ export default class extends Controller {
             'lp-review-block--hide-resolved',
             this.hideResolvedValue,
         );
+        this.#syncResolvedToggle();
+        this.#scheduleLayout();
+    }
+
+    /**
+     * Shows the toggle only once there is a resolved thread to hide, and keeps
+     * its label in step.
+     *
+     * Driven from the DOM rather than rendered conditionally in Twig: resolving
+     * a thread replaces #comment-threads alone, and this control sits outside
+     * that fragment, so a page that started with none would never grow one.
+     */
+    #syncResolvedToggle() {
+        const hasResolved =
+            this.element.querySelector('.lp-comment-thread--resolved') !== null;
         for (const toggle of this.element.querySelectorAll(
             '[data-resolved-toggle]',
         )) {
+            toggle.hidden = !hasResolved;
             toggle.textContent =
                 toggle.dataset[
                     this.hideResolvedValue ? 'labelShow' : 'labelHide'
                 ];
         }
-        this.#scheduleLayout();
     }
 
     /**
