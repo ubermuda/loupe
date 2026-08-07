@@ -2043,8 +2043,11 @@
     .lp-sidebar__link-label {
         @apply truncate;
     }
-    /* Secondary nav sits a rung quieter than the primary one. */
-    .lp-sidebar__nav--secondary .lp-sidebar__link {
+    /* Secondary nav sits a rung quieter than the primary one — but not when it is
+       the current page. Without the :not() this rule wins on source order and
+       paints the selected item's label grey on the accent fill. */
+    .lp-sidebar__nav--secondary
+        .lp-sidebar__link:not(.lp-sidebar__link--active) {
         @apply text-chrome-dim;
     }
     .lp-sidebar__nav--secondary .lp-sidebar__link svg {
