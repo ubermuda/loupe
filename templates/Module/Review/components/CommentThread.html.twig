@@ -11,32 +11,40 @@
   Resolve button via form=. Both post through Turbo; the controllers return a
   Turbo Stream that replaces this thread (targeted by the id below).
 
-  A reply avatar is green for a human and accent-soft for the singleton agent
-  account, which authors every reply written through the MCP.
+  A card with an anchor is positioned by comment_anchor_controller so it sits
+  level with the passage it points at; a general comment carries
+  data-comment-general and stays in normal flow at the head of the column.
 #}
 {% set status = comment.threadStatus.value %}
 {% set kind = comment.isStrike ? 'strike' : (comment.isSuggestion ? 'suggestion' : 'comment') %}
+{% set isGeneral = comment.anchor.quote is empty %}
+{% set statusLabel = comment.orphaned
+    ? 'open'
+    : (isGeneral and status == 'pending' ? 'general' : (kind == 'strike' and status == 'pending' ? 'strike' : status)) %}
 <div
     id="comment-thread-{{ comment.id }}"
-    class="lp-comment-thread{% if status == 'resolved' %} lp-comment-thread--resolved{% endif %}{% if comment.orphaned %} lp-comment-thread--orphaned{% endif %}"
+    class="lp-comment-thread{% if status == 'resolved' %} lp-comment-thread--resolved{% endif %}{% if comment.orphaned %} lp-comment-thread--orphaned{% endif %}{% if isGeneral %} lp-comment-thread--general{% endif %}"
     data-comment-anchor-target="thread"
     data-anchor-quote="{{ comment.anchor.quote }}"
     data-anchor-prefix="{{ comment.anchor.prefix }}"
     data-anchor-suffix="{{ comment.anchor.suffix }}"
     data-anchor-status="{{ status }}"
     data-anchor-kind="{{ kind }}"
+    {% if isGeneral %}data-comment-general="true"{% endif %}
+    data-action="mouseenter->comment-anchor#focusThread mouseleave->comment-anchor#blurThread"
 >
     <div class="lp-comment-thread__header">
-        <span class="avatar">{{ comment.author.fullName|slice(0, 1)|upper }}</span>
+        {# The design puts the comment's age beside the author. Comment carries no
+           timestamp column, so there is nothing to render — see docs/NEXT_STEPS.md. #}
         <span class="lp-comment-author lp-comment-thread__author">{{ comment.author.fullName }}</span>
-        {% if kind != 'comment' %}
-        <span class="lp-kind-chip lp-kind-chip--{{ kind }}">{{ ('review.document.kind.' ~ kind)|trans }}</span>
-        {% endif %}
-        <span class="lp-status-chip lp-status-chip--{{ status }}">
-            <span class="lp-status-chip__dot"></span>
-            {{ ('review.document.group.' ~ status)|trans }}
-        </span>
+        <span class="lp-comment-status lp-comment-status--{{ statusLabel }}">{{ ('review.document.status.' ~ statusLabel)|trans }}</span>
     </div>
+
+    {# The quoted passage is gone from this version, so there is no highlight in
+       the document to look for and the card has to say so itself. #}
+    {% if comment.orphaned %}
+    <span class="lp-comment-orphan-pill">{{ 'review.document.comment.orphaned'|trans }}</span>
+    {% endif %}
 
     {# A strike shows the doomed passage struck through; a rewording shows it
        above what should replace it. Neither is markup from the document — these
@@ -61,7 +69,6 @@
         {% for reply in replies %}
         <div class="lp-comment--reply">
             <div class="lp-comment-reply__head">
-                <span class="avatar{% if not reply.author.isAgent %} ok{% endif %}">{{ reply.author.fullName|slice(0, 1)|upper }}</span>
                 <span class="lp-comment-author">{{ reply.author.fullName }}</span>
             </div>
             <div class="lp-comment-body">{{ reply.body }}</div>
@@ -98,15 +105,15 @@
             {{ form_widget(replyForm.body) }}
             <div class="lp-comment-error">{{ form_errors(replyForm.body) }}</div>
             <div class="lp-comment-actions">
-                <button type="submit" class="lp-btn lp-btn--ghost lp-btn--sm">{{ 'review.document.comment.reply'|trans }}</button>
-                <button type="submit" form="resolve-form-{{ comment.id }}" class="lp-btn lp-btn--success lp-btn--sm">{{ 'review.document.comment.resolve'|trans }}</button>
-                <button type="submit" form="delete-form-{{ comment.id }}" class="lp-btn lp-btn--danger-ghost lp-btn--sm">{{ 'review.document.comment.delete'|trans }}</button>
+                <button type="submit" class="lp-btn lp-btn--on-card lp-btn--sm">{{ 'review.document.comment.reply'|trans }}</button>
+                <button type="submit" form="resolve-form-{{ comment.id }}" class="lp-btn lp-btn--inverse lp-btn--sm">{{ 'review.document.comment.resolve'|trans }}</button>
+                <button type="submit" form="delete-form-{{ comment.id }}" class="lp-btn lp-btn--danger-ghost lp-btn--sm lp-comment-actions__delete">{{ 'review.document.comment.delete'|trans }}</button>
             </div>
         {{ form_end(replyForm) }}
     </div>
     {% else %}
     <div class="lp-comment-actions">
-        <button type="submit" form="delete-form-{{ comment.id }}" class="lp-btn lp-btn--danger-ghost lp-btn--sm">{{ 'review.document.comment.delete'|trans }}</button>
+        <button type="submit" form="delete-form-{{ comment.id }}" class="lp-btn lp-btn--danger-ghost lp-btn--sm lp-comment-actions__delete">{{ 'review.document.comment.delete'|trans }}</button>
     </div>
     {% endif %}
     {% endif %}

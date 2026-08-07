@@ -1053,7 +1053,55 @@
             </trans-unit>
             <trans-unit id="review.document.verdict.approved_detail">
                 <source>review.document.verdict.approved_detail</source>
-                <target>Threads locked</target>
+                <target>The agent can pick the work up from here.</target>
+            </trans-unit>
+            <trans-unit id="review.document.verdict.changes-requested">
+                <source>review.document.verdict.changes-requested</source>
+                <target>Changes requested</target>
+            </trans-unit>
+            <trans-unit id="review.document.verdict.changes-requested_detail">
+                <source>review.document.verdict.changes-requested_detail</source>
+                <target>The agent will revise the document and submit a new version.</target>
+            </trans-unit>
+            <trans-unit id="review.document.threads.summary">
+                <source>review.document.threads.summary</source>
+                <target>%open% open · %resolved% resolved</target>
+            </trans-unit>
+            <trans-unit id="review.document.group.general">
+                <source>review.document.group.general</source>
+                <target>On the document</target>
+            </trans-unit>
+            <trans-unit id="review.document.meta.versions">
+                <source>review.document.meta.versions</source>
+                <target>Versions</target>
+            </trans-unit>
+            <trans-unit id="review.document.meta.references">
+                <source>review.document.meta.references</source>
+                <target>References</target>
+            </trans-unit>
+            <trans-unit id="review.document.status.open">
+                <source>review.document.status.open</source>
+                <target>Open</target>
+            </trans-unit>
+            <trans-unit id="review.document.status.pending">
+                <source>review.document.status.pending</source>
+                <target>Open</target>
+            </trans-unit>
+            <trans-unit id="review.document.status.general">
+                <source>review.document.status.general</source>
+                <target>General</target>
+            </trans-unit>
+            <trans-unit id="review.document.status.strike">
+                <source>review.document.status.strike</source>
+                <target>Strike</target>
+            </trans-unit>
+            <trans-unit id="review.document.status.addressed">
+                <source>review.document.status.addressed</source>
+                <target>Answered</target>
+            </trans-unit>
+            <trans-unit id="review.document.status.resolved">
+                <source>review.document.status.resolved</source>
+                <target>Resolved</target>
             </trans-unit>
             <trans-unit id="review.document.orphan_banner">
                 <source>review.document.orphan_banner</source>
@@ -1157,7 +1205,15 @@
             </trans-unit>
             <trans-unit id="review.document.comment.untargeted">
                 <source>review.document.comment.untargeted</source>
-                <target>Add comment</target>
+                <target>Add general comment</target>
+            </trans-unit>
+            <trans-unit id="review.document.comment.select_hint">
+                <source>review.document.comment.select_hint</source>
+                <target>or select any passage to comment, suggest a rewording, or strike it</target>
+            </trans-unit>
+            <trans-unit id="review.document.comment.orphaned">
+                <source>review.document.comment.orphaned</source>
+                <target>Orphaned — quoted text is gone</target>
             </trans-unit>
             <trans-unit id="review.document.comment.reply_placeholder">
                 <source>review.document.comment.reply_placeholder</source>

@@ -29,6 +29,8 @@ import { Controller } from '@hotwired/stimulus';
 export default class extends Controller {
     static targets = [
         'doc',
+        'block',
+        'margin',
         'composer',
         'composerBody',
         'composerError',
@@ -67,11 +69,21 @@ export default class extends Controller {
     // struck passage keeps its status tint and gains the line-through.
     static STRUCK_HIGHLIGHT = 'lp-anchor-struck';
 
+    // A rewording is a different KIND of mark, not a different state of one, so
+    // it declares its own tint and outranks the status rung — an open comment
+    // and an open suggestion must not look identical.
+    static SUGGESTION_HIGHLIGHT = 'lp-anchor-suggestion';
+
     // Passages the agent flagged as worth reading first. Kept out of
     // STATUS_HIGHLIGHTS on purpose: that map is keyed by a comment thread's
     // status, and listing the agent rung there would make its colour reachable
     // from a data-anchor-status value.
     static AGENT_HIGHLIGHT = 'lp-agent-highlight';
+
+    // Painted while the pointer is over a card or over the passage it points
+    // at, so the pair can be told apart from the other five in a crowded
+    // margin. Hovering either end rings both.
+    static HOVER_HIGHLIGHT = 'lp-anchor-hover';
 
     // Resolution order for a span several rungs cover. Without explicit values it
     // is whichever Highlight was registered last, which is incidental.
@@ -101,9 +113,20 @@ export default class extends Controller {
     //
     // The ladder reads: agent advisory < the thread's own state < the edit the
     // reviewer asked for on it < the selection being composed right now.
-    static PRIORITY = { agent: 0, status: 1, struck: 2, active: 3 };
+    static PRIORITY = {
+        agent: 0,
+        status: 1,
+        suggestion: 2,
+        struck: 3,
+        hover: 4,
+        active: 5,
+    };
 
     static CONTEXT = 32;
+
+    // Clearance between one comment card and the next when a passage carries
+    // more comments than the space beside it can hold.
+    static CARD_GAP = 12;
 
     // Strike is the only action that completes without a form, so it is the only
     // one worth a keystroke — one for Comment or Suggest would still leave a
@@ -113,6 +136,8 @@ export default class extends Controller {
     connect() {
         this.pendingSelection = null;
         this.strikeInFlight = false;
+        this.hoveredThread = null;
+        this.hoverProbeScheduled = false;
         this.#hideToolbar();
         this.#hideComposer();
         this.#registerHighlights();
@@ -120,6 +145,13 @@ export default class extends Controller {
         this.scheduledLayout = null;
         this.onResize = () => this.#scheduleLayout();
         window.addEventListener('resize', this.onResize);
+
+        // Web fonts land after first layout and change every line box, so a
+        // measurement taken before they arrive places every card a few pixels
+        // out. Guarded: document.fonts is absent in some embedded webviews.
+        document.fonts?.ready
+            .then(() => this.#scheduleLayout())
+            .catch(() => {});
 
         // Bound on the document, not on the pane: a mouse selection inside a plain
         // div leaves activeElement on <body>, so keydown never reaches an element
@@ -157,6 +189,7 @@ export default class extends Controller {
         this.activeHighlight?.clear();
         this.struckHighlight?.clear();
         this.agentHighlight?.clear();
+        this.hoverHighlight?.clear();
         for (const highlight of Object.values(this.statusHighlights ?? {})) {
             highlight.clear();
         }
@@ -294,6 +327,18 @@ export default class extends Controller {
      * live selection, since a strike with no target means nothing.
      */
     #onKeydown(event) {
+        // Escape backs out of whatever is open, in the order a reader would
+        // expect to undo it: the composer they are filling in first, then the
+        // toolbar that opened it.
+        if (event.key === 'Escape') {
+            if (this.#anyComposerOpen()) {
+                this.hideComposer(event);
+            } else {
+                this.#clearPendingSelection();
+            }
+            return;
+        }
+
         if (event.key !== this.constructor.STRIKE_KEY) {
             return;
         }
@@ -548,12 +593,123 @@ export default class extends Controller {
             this.struckHighlight,
         );
 
+        this.suggestionHighlight = new window.Highlight();
+        this.suggestionHighlight.priority = priority.suggestion;
+        window.CSS.highlights.set(
+            this.constructor.SUGGESTION_HIGHLIGHT,
+            this.suggestionHighlight,
+        );
+
         this.agentHighlight = new window.Highlight();
         this.agentHighlight.priority = priority.agent;
         window.CSS.highlights.set(
             this.constructor.AGENT_HIGHLIGHT,
             this.agentHighlight,
         );
+
+        this.hoverHighlight = new window.Highlight();
+        this.hoverHighlight.priority = priority.hover;
+        window.CSS.highlights.set(
+            this.constructor.HOVER_HIGHLIGHT,
+            this.hoverHighlight,
+        );
+    }
+
+    /**
+     * Card action: ring this card and tint the passage it points at.
+     *
+     * The tint is a Highlight rather than an outline because ::highlight()
+     * supports neither outline nor box-shadow — a ring around the anchor text is
+     * simply not expressible through that API, so the pairing is carried by a
+     * stronger fill on one end and the ring on the other.
+     */
+    focusThread(event) {
+        const thread = event.currentTarget;
+        thread.classList.add('lp-comment-thread--active');
+        if (!this.hoverHighlight) {
+            return;
+        }
+        this.hoverHighlight.clear();
+        const range = this.#findRange(
+            thread.dataset.anchorQuote ?? '',
+            thread.dataset.anchorPrefix ?? '',
+            thread.dataset.anchorSuffix ?? '',
+        );
+        if (range !== null) {
+            this.hoverHighlight.add(range);
+        }
+    }
+
+    /** Card action: the pointer left, so drop both ends of the pairing. */
+    blurThread(event) {
+        event.currentTarget.classList.remove('lp-comment-thread--active');
+        this.hoverHighlight?.clear();
+    }
+
+    /**
+     * The same pairing driven from the other end: the pointer is over the prose,
+     * so find which anchor (if any) is under it and ring that card.
+     *
+     * Hit-tested against each anchor's line boxes rather than by walking up from
+     * event.target, because the anchors are painted with the Highlight API and
+     * so have no element of their own to have been the target.
+     */
+    onDocMousemove(event) {
+        if (this.hoverProbeScheduled) {
+            return;
+        }
+        this.hoverProbeScheduled = true;
+        const { clientX, clientY } = event;
+        requestAnimationFrame(() => {
+            this.hoverProbeScheduled = false;
+            try {
+                this.#probeAnchorAt(clientX, clientY);
+            } catch {
+                this.#clearAnchorHover();
+            }
+        });
+    }
+
+    #probeAnchorAt(clientX, clientY) {
+        for (const thread of this.threadTargets) {
+            if (thread.dataset.commentGeneral === 'true') {
+                continue;
+            }
+            const range = this.#findRange(
+                thread.dataset.anchorQuote ?? '',
+                thread.dataset.anchorPrefix ?? '',
+                thread.dataset.anchorSuffix ?? '',
+            );
+            if (range === null) {
+                continue;
+            }
+            for (const rect of range.getClientRects()) {
+                if (
+                    clientX >= rect.left &&
+                    clientX <= rect.right &&
+                    clientY >= rect.top &&
+                    clientY <= rect.bottom
+                ) {
+                    if (this.hoveredThread !== thread) {
+                        this.#clearAnchorHover();
+                        this.hoveredThread = thread;
+                        thread.classList.add('lp-comment-thread--active');
+                        this.hoverHighlight?.clear();
+                        this.hoverHighlight?.add(range);
+                    }
+                    return;
+                }
+            }
+        }
+        this.#clearAnchorHover();
+    }
+
+    #clearAnchorHover() {
+        if (this.hoveredThread) {
+            this.hoveredThread.classList.remove('lp-comment-thread--active');
+            this.hoveredThread = null;
+            this.hoverHighlight?.clear();
+        }
     }
 
     #setActiveHighlight(range) {
@@ -580,9 +736,9 @@ export default class extends Controller {
         });
     }
 
-    // The two passes are independently guarded: they read different anchors from
-    // different elements, so one unlocatable comment quote must not take every
-    // agent mark on the page down with it.
+    // The three passes are independently guarded: they read different anchors
+    // from different elements, so one unlocatable comment quote must not take
+    // every agent mark on the page down with it, nor leave every card unplaced.
     #layout() {
         try {
             this.#highlightAnchors();
@@ -593,6 +749,79 @@ export default class extends Controller {
             this.#highlightAgentMarks();
         } catch {
             this.agentHighlight?.clear();
+        }
+        try {
+            this.#positionThreads();
+        } catch {
+            this.#releaseThreads();
+        }
+    }
+
+    /**
+     * Places each comment card level with the first line of the passage it is
+     * anchored to.
+     *
+     * Alignment is best effort by design. A running floor keeps each card at
+     * least CARD_GAP below the previous one, so in a crowded section a card sits
+     * below its passage rather than on top of its neighbour — nothing is ever
+     * hidden and nothing overlaps. A card whose quote no longer appears in this
+     * version (orphaned) has no line to measure, so it takes the floor.
+     *
+     * Offsets are measured, never hard-coded: they would be wrong the moment the
+     * body font, the measure, or the reader's zoom changes.
+     */
+    #positionThreads() {
+        if (!this.hasMarginTarget || !this.hasBlockTarget) {
+            return;
+        }
+
+        const anchored = this.threadTargets.filter(
+            (thread) => thread.dataset.commentGeneral !== 'true',
+        );
+        if (anchored.length === 0) {
+            return;
+        }
+
+        const marginTop = this.marginTarget.getBoundingClientRect().top;
+        let floor = 0;
+
+        for (const thread of anchored) {
+            const range = this.#findRange(
+                thread.dataset.anchorQuote ?? '',
+                thread.dataset.anchorPrefix ?? '',
+                thread.dataset.anchorSuffix ?? '',
+            );
+            // getClientRects()[0] is the anchor's FIRST line box. The bounding
+            // rect would be the union of every line, whose top is the same but
+            // whose height is not — and a card level with a three-line anchor
+            // has to align to the line the passage starts on.
+            const rects = range === null ? [] : range.getClientRects();
+            const anchorTop =
+                rects.length > 0 ? rects[0].top - marginTop : floor;
+
+            const top = Math.max(anchorTop, floor);
+            thread.style.top = `${Math.round(top)}px`;
+            floor = top + thread.offsetHeight + this.constructor.CARD_GAP;
+        }
+
+        // The cards are out of flow, so a stack running past the end of the
+        // prose would otherwise be unreachable — the paper would simply stop
+        // scrolling above it.
+        const block = this.blockTarget;
+        const offsetWithinBlock = this.marginTarget.offsetTop;
+        const paddingBottom = parseFloat(
+            getComputedStyle(block).paddingBottom,
+        );
+        block.style.minHeight = `${Math.ceil(offsetWithinBlock + floor + paddingBottom)}px`;
+    }
+
+    /** Returns every card to normal flow — the degraded state on any failure. */
+    #releaseThreads() {
+        for (const thread of this.threadTargets) {
+            thread.style.top = '';
+        }
+        if (this.hasBlockTarget) {
+            this.blockTarget.style.minHeight = '';
         }
     }
 
@@ -610,6 +839,7 @@ export default class extends Controller {
             highlight.clear();
         }
         this.struckHighlight?.clear();
+        this.suggestionHighlight?.clear();
         for (const thread of this.threadTargets) {
             const status = thread.dataset.anchorStatus ?? 'pending';
             const highlight =
@@ -625,6 +855,9 @@ export default class extends Controller {
             highlight.add(range);
             if (thread.dataset.anchorKind === 'strike') {
                 this.struckHighlight?.add(range);
+            }
+            if (thread.dataset.anchorKind === 'suggestion') {
+                this.suggestionHighlight?.add(range);
             }
         }
     }

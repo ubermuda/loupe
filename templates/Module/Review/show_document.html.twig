@@ -2,14 +2,37 @@
 
 {% block title %}{{ 'review.document.page.title'|trans({'%title%': document.title}) }} — {{ 'app.name'|trans }}{% endblock %}
 
+{% block topbar_crumbs %}
+    <a class="lp-topbar__crumb" href="{{ path('app_project_documents', {id: document.project.id}) }}">{{ 'nav.link.documents'|trans }}</a>
+    <span class="lp-topbar__sep">/</span>
+    <span class="lp-topbar__here">{{ document.title }}</span>
+    <span class="lp-version-pill">{{ 'v' ~ version.versionNumber }}</span>
+{% endblock %}
+
+{% block topbar_meta %}
+    {% set openThreadCount = comments|filter(c => c.parent is null and c.threadStatus.value != 'resolved')|length %}
+    {% set resolvedThreadCount = comments|filter(c => c.parent is null and c.threadStatus.value == 'resolved')|length %}
+    <span class="lp-topbar__meta">{{ 'review.document.threads.summary'|trans({'%open%': openThreadCount, '%resolved%': resolvedThreadCount}) }}</span>
+{% endblock %}
+
+{% block topbar_actions %}
+    {# The verdict actions leave the bar once a verdict exists — the bar at the
+       bottom of the paper is what reports it from then on. #}
+    {% if not readOnly and not diffMode and document.status.value == 'in-review' %}
+    <form class="lp-topbar__actions" method="POST" action="{{ path('app_document_review_submit', {projectId: document.project.id, documentId: document.id}) }}">
+        <input type="hidden" name="_csrf_token" value="{{ csrf_token('submit-review') }}">
+        <button type="submit" name="submit_review_form[verdict]" value="changes-requested" class="lp-btn lp-btn--outline">
+            {{ 'review.document.verdict.request_changes'|trans }}
+        </button>
+        <button type="submit" name="submit_review_form[verdict]" value="approved" class="lp-btn lp-btn--primary">
+            {{ 'review.document.verdict.approve'|trans }}
+        </button>
+    </form>
+    {% endif %}
+{% endblock %}
+
 {% block body %}
 <div class="lp-review">
-    {% for label, messages in app.flashes %}
-        {% for message in messages %}
-            <div class="lp-flash lp-flash--{{ label }}">{{ message }}</div>
-        {% endfor %}
-    {% endfor %}
-
     {% if orphanedCount > 0 %}
     <div class="lp-orphan-banner">
         {{ 'review.document.orphan_banner'|trans({'%count%': orphanedCount}) }}
@@ -46,35 +69,23 @@
     </div>
     {% endif %}
 
-    <header class="lp-review-header">
-        <nav class="lp-review-breadcrumb">
-            <a href="{{ path('app_project_documents', {id: document.project.id}) }}">{{ document.project.name }}</a>
-            <span class="lp-review-breadcrumb__sep">/</span>
-            <a href="{{ path('app_project_documents', {id: document.project.id}) }}">{{ 'nav.link.documents'|trans }}</a>
-            <span class="lp-review-breadcrumb__sep">/</span>
-            <span class="lp-review-breadcrumb__current">{{ document.title }}</span>
-        </nav>
-    </header>
-
     {# In diff mode the comment-anchor controller is not attached at all rather
        than told to stay quiet: its highlight painting runs on every layout
        regardless of readOnly, and the pane it walks no longer holds
        DocumentVersion::plainText(). #}
-    <div class="lp-review-layout"{% if not diffMode %} data-controller="comment-anchor"{% endif %}>
+    <div class="lp-review-block"{% if not diffMode %} data-controller="comment-anchor"{% endif %}>
         {#
-            The outer .lp-review-doc provides position:relative + the internal
-            scroll for the floating composer/toolbar. The inner
+            The outer .lp-review-doc is the reading column: position:relative, so
+            it is both the offset parent the floating composer/toolbar are placed
+            against and the one the comment margin is measured within. The inner
             [data-comment-anchor-target="doc"] is the TreeWalker root — it must
             contain ONLY the rendered HTML with no surrounding template whitespace,
             so that its textContent === DocumentVersion::plainText() and JS
             text-node offsets agree with the PHP anchor basis.
         #}
-        <div class="lp-review-doc" data-controller="decision"{% if not readOnly %} data-action="mouseup->comment-anchor#onDocMouseup change->decision#select"{% endif %}>
+        <div class="lp-review-doc" data-comment-anchor-target="block" data-controller="decision"{% if not readOnly %} data-action="mouseup->comment-anchor#onDocMouseup mousemove->comment-anchor#onDocMousemove change->decision#select"{% endif %}>
             <div class="lp-review-doc__head">
-                <h1 class="lp-review-doc__title">
-                    {{ document.title }}
-                    <span class="lp-version-pill">{{ 'v' ~ version.versionNumber }}</span>
-                </h1>
+                <h1 class="lp-review-doc__title">{{ document.title }}</h1>
                 <p class="lp-review-doc__byline">{{ 'review.document.byline'|trans({'%reviewer%': app.user.fullName}) }}</p>
 
                 {# The way back to a discussion that a revision left behind: comments
@@ -87,8 +98,60 @@
                    with none has nothing to show and nowhere to switch to, so the list
                    is omitted rather than rendered as a lone pill. #}
                 {% set hasVersionDescription = versions|filter(meta => meta.description is not empty)|length > 0 %}
-                {% if versions|length > 1 or hasVersionDescription %}
-                <nav class="lp-version-switcher" aria-label="{{ 'review.document.version.switcher_label'|trans }}">
+                {% set showVersions = versions|length > 1 or hasVersionDescription %}
+                {% set contentsHeadings = diffMode ? [] : headings|filter(heading => heading.text is not empty) %}
+                {% set showContents = contentsHeadings|length > 1 %}
+                {% set referenceCount = document.references|length + document.referencedBy|length %}
+
+                {# Three mutually-exclusive panels rather than three stacked
+                   blocks: each is a detail a reviewer occasionally wants, and
+                   together they used to push the first paragraph of the document
+                   below the fold. #}
+                {% if showVersions or showContents or referenceCount > 0 or document.tags|length > 0 %}
+                <div data-controller="metadata-tabs">
+                    <div class="lp-doc-meta">
+                        {% if showVersions %}
+                        <button type="button" class="lp-doc-meta__tab" aria-expanded="false"
+                                data-metadata-tabs-target="tab"
+                                data-metadata-tabs-panel-param="versions"
+                                data-action="click->metadata-tabs#toggle">
+                            {{ 'review.document.meta.versions'|trans }}
+                            <span class="lp-doc-meta__count">{{ versions|length }}</span>
+                            <twig:ux:icon name="lucide:chevron-right" class="lp-doc-meta__caret" />
+                        </button>
+                        {% endif %}
+                        {% if showContents %}
+                        <button type="button" class="lp-doc-meta__tab" aria-expanded="false"
+                                data-metadata-tabs-target="tab"
+                                data-metadata-tabs-panel-param="contents"
+                                data-action="click->metadata-tabs#toggle">
+                            {{ 'review.document.contents.label'|trans }}
+                            <span class="lp-doc-meta__count">{{ contentsHeadings|length }}</span>
+                            <twig:ux:icon name="lucide:chevron-right" class="lp-doc-meta__caret" />
+                        </button>
+                        {% endif %}
+                        {% if referenceCount > 0 %}
+                        <button type="button" class="lp-doc-meta__tab" aria-expanded="false"
+                                data-metadata-tabs-target="tab"
+                                data-metadata-tabs-panel-param="references"
+                                data-action="click->metadata-tabs#toggle">
+                            {{ 'review.document.meta.references'|trans }}
+                            <span class="lp-doc-meta__count">{{ referenceCount }}</span>
+                            <twig:ux:icon name="lucide:chevron-right" class="lp-doc-meta__caret" />
+                        </button>
+                        {% endif %}
+                        {% if document.tags|length > 0 %}
+                        <div class="lp-doc-meta__tags">
+                            {% for tag in document.tags %}
+                            <span class="lp-tag">{{ tag }}</span>
+                            {% endfor %}
+                        </div>
+                        {% endif %}
+                    </div>
+
+                {% if showVersions %}
+                <nav class="lp-doc-meta__panel lp-version-switcher" data-metadata-tabs-target="panel" data-panel="versions" hidden
+                     aria-label="{{ 'review.document.version.switcher_label'|trans }}">
                     {% for meta in versions %}
                     <div class="lp-version-entry">
                         {# A diff is not one of the versions it compares, so in diff
@@ -132,26 +195,18 @@
                    element". The heading ids it links to live in the rendered HTML
                    that diff mode replaces, so in that mode every entry would be a
                    dead link — and `headings` is not passed there at all. #}
-                {% if not diffMode %}
-                {% set contentsHeadings = headings|filter(heading => heading.text is not empty) %}
-                {% if contentsHeadings|length > 1 %}
-                <details class="lp-review-contents">
-                    <summary class="lp-review-contents__summary">
-                        <twig:ux:icon name="lucide:chevron-right" class="lp-review-contents__chevron w-3.5 h-3.5 shrink-0" />
-                        {{ 'review.document.contents.label'|trans }}
-                    </summary>
-                    <nav aria-label="{{ 'review.document.contents.nav_label'|trans }}">
-                        <ul class="lp-review-contents__list">
-                            {% for heading in contentsHeadings %}
-                            <li>
-                                {# title= so a heading truncated by the panel width is still readable on hover. #}
-                                <a class="lp-review-contents__link" data-level="{{ heading.level }}" href="#{{ heading.id }}" title="{{ heading.text }}">{{ heading.text }}</a>
-                            </li>
-                            {% endfor %}
-                        </ul>
-                    </nav>
-                </details>
-                {% endif %}
+                {% if showContents %}
+                <nav class="lp-doc-meta__panel lp-review-contents" data-metadata-tabs-target="panel" data-panel="contents" hidden
+                     aria-label="{{ 'review.document.contents.nav_label'|trans }}">
+                    <ul class="lp-review-contents__list">
+                        {% for heading in contentsHeadings %}
+                        <li>
+                            {# title= so a heading truncated by the panel width is still readable on hover. #}
+                            <a class="lp-review-contents__link" data-level="{{ heading.level }}" href="#{{ heading.id }}" title="{{ heading.text }}">{{ heading.text }}</a>
+                        </li>
+                        {% endfor %}
+                    </ul>
+                </nav>
                 {% endif %}
 
                 {# Not gated on diffMode, unlike the contents panel above: a
@@ -160,8 +215,8 @@
                    diff replaces. `document` is passed in both modes, so these
                    render and resolve beside a diff exactly as they do beside the
                    document. #}
-                {% if document.references|length > 0 or document.referencedBy|length > 0 %}
-                <div class="lp-doc-references">
+                {% if referenceCount > 0 %}
+                <div class="lp-doc-meta__panel lp-doc-references" data-metadata-tabs-target="panel" data-panel="references" hidden>
                     {% for group in [
                         {label: 'review.document.references.outgoing', documents: document.references},
                         {label: 'review.document.references.incoming', documents: document.referencedBy},
@@ -195,13 +250,28 @@
                     {% endfor %}
                 </div>
                 {% endif %}
+                </div>
+                {% endif %}
             </div>
+
+            {% if not readOnly and not diffMode %}
+            <div class="lp-review-actions">
+                <button type="button" class="lp-btn lp-btn--sm" data-action="comment-anchor#startUntargeted">
+                    {{ 'review.document.comment.untargeted'|trans }}
+                </button>
+                <span class="lp-review-actions__hint">{{ 'review.document.comment.select_hint'|trans }}</span>
+            </div>
+            {% endif %}
+
+            {% if not diffMode %}
+            {% include '@Review/_comment_threads.html.twig' with {comments: comments, readOnly: readOnly} only %}
+            {% endif %}
 
             {# The one part the diff view replaces — see diff_document_versions.html.twig.
                Everything else on this page is the same in both modes, which is why
                the diff is a block override rather than a page of its own. #}
             {% block documentPane %}
-            <div class="prose max-w-2xl lp-prose lp-review-doc__prose" data-comment-anchor-target="doc">{{ decisionMarkedHtml|raw }}</div>
+            <div class="prose lp-prose lp-review-doc__prose" data-comment-anchor-target="doc">{{ decisionMarkedHtml|raw }}</div>
             {% endblock %}
 
             {# Outside the prose on purpose: that element's textContent must stay
@@ -371,36 +441,20 @@
             {% endif %}
         </div>
 
-        <div class="lp-review-sidebar">
-            {% include '@Review/_comment_threads.html.twig' with {comments: comments, readOnly: readOnly} only %}
-
-            {% if not readOnly %}
-            <div class="lp-verdict-bar">
-                {% if document.status.value == 'approved' %}
-                    <div class="lp-verdict-approved">
-                        <span class="lp-verdict-approved__icon"><twig:ux:icon name="lucide:circle-check" class="w-5 h-5" /></span>
-                        <span class="lp-verdict-approved__text">
-                            <span class="lp-verdict-approved__title">{{ 'review.document.verdict.approved'|trans }}</span>
-                            <span class="lp-verdict-approved__detail">{{ 'review.document.verdict.approved_detail'|trans }}</span>
-                        </span>
-                    </div>
-                {% else %}
-                    <form method="POST" action="{{ path('app_document_review_submit', {projectId: document.project.id, documentId: document.id}) }}">
-                        <input type="hidden" name="_csrf_token" value="{{ csrf_token('submit-review') }}">
-                        <div class="lp-verdict-bar__actions">
-                            <button type="submit" name="submit_review_form[verdict]" value="approved" class="lp-btn lp-btn--primary">
-                                <twig:ux:icon name="lucide:check" class="w-4 h-4 shrink-0" />
-                                {{ 'review.document.verdict.approve'|trans }}
-                            </button>
-                            <button type="submit" name="submit_review_form[verdict]" value="changes-requested" class="lp-btn lp-btn--outline-amber">
-                                {{ 'review.document.verdict.request_changes'|trans }}
-                            </button>
-                        </div>
-                    </form>
-                {% endif %}
-            </div>
-            {% endif %}
-        </div>
     </div>
+
+    {# The verdict, once there is one. The buttons that produce it live in the
+       top bar and disappear when it does — this is what reports the outcome
+       from then on. #}
+    {% if not readOnly and not diffMode and document.status.value != 'in-review' %}
+    {% set verdict = document.status.value %}
+    <div class="lp-verdict-bar lp-verdict-bar--{{ verdict }}">
+        <span class="lp-verdict-bar__dot"></span>
+        <span class="lp-verdict-bar__text">
+            <span class="lp-verdict-bar__title">{{ ('review.document.verdict.' ~ verdict)|trans }}</span>
+            <span class="lp-verdict-bar__detail">{{ ('review.document.verdict.' ~ verdict ~ '_detail')|trans }}</span>
+        </span>
+    </div>
+    {% endif %}
 </div>
 {% endblock %}

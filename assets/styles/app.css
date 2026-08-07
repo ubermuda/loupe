@@ -178,9 +178,10 @@
 
     /* Shadows — the only three the design allows: selection toolbar (dark
        floating pill), floating composer, and the active-card focus ring. */
-    --shadow-toolbar: 0 4px 14px rgba(23, 23, 42, 0.22);
-    --shadow-composer: 0 8px 28px rgba(23, 23, 42, 0.14);
-    --shadow-focus: 0 0 0 3px #f0effc;
+    --shadow-toolbar: 0 6px 20px rgba(15, 15, 13, 0.25);
+    --shadow-composer: 0 10px 34px rgba(15, 15, 13, 0.22);
+    --shadow-card: 0 8px 26px rgba(15, 15, 13, 0.18);
+    --shadow-focus: 0 0 0 3px var(--accent-faint);
 
     /* Animations */
     --animate-spin-fast: spin 0.7s linear infinite;
@@ -1186,57 +1187,124 @@
        spacing scale via @apply; only grid-template-columns/rows (no utility
        equivalent) stay as plain CSS, via calc(var(--spacing) * n). */
     .lp-review {
-        @apply flex flex-col min-w-0;
-        height: 100%;
+        @apply min-w-0;
     }
 
-    .lp-review-header {
-        @apply flex flex-col gap-3.5 shrink-0 pt-5.5 px-8 pb-0;
-    }
-    .lp-review-breadcrumb {
-        @apply flex items-center gap-1.5 font-mono text-fg-dim text-xs;
-    }
-    .lp-review-breadcrumb a {
-        @apply text-fg-dim no-underline transition-colors hover:text-fg;
-    }
-    .lp-review-breadcrumb__sep {
-        @apply text-fg-faint;
-    }
-    .lp-review-breadcrumb__current {
-        @apply text-fg-mute;
-    }
-
-    /* Two-pane row: document pane (flex) + fixed 388px comment margin, no
-       divider. Left-aligned within a 1160px max width. */
-    .lp-review-layout {
-        @apply grid flex-1 min-h-0 w-full max-w-290;
-        grid-template-columns: minmax(0, 1fr) calc(var(--spacing) * 97);
-        /* Cap the single implicit row at the definite flex height so both panes
-           fill it and their internal overflow-y engages (the verdict bar pins).
-           An `auto` track would grow to the document's content height instead,
-           spilling the whole page into .lp-main's scroll. */
-        grid-template-rows: minmax(0, 1fr);
+    /* The 972px review block: a 640px reading column, a 36px gutter, and a
+       296px comment column. Centred, and the offset parent the comment stack
+       and the floating panels are positioned against. */
+    .lp-review-block {
+        @apply relative w-243 mx-auto pt-13 pb-30;
     }
 
     /* ── Document pane ──────────────────────────────────────────────────
-       Its own scroll container and the position:relative offset parent for the
-       floating composer/toolbar. Plain prose — no card, no line numbers. */
+       The reading column. position:relative so the composer and toolbar
+       position against it. Plain prose — no card, no line numbers. */
     .lp-review-doc {
-        @apply relative min-h-0 overflow-y-auto pt-2 px-10 pb-20;
+        @apply relative w-160;
     }
     .lp-review-doc__head {
-        @apply max-w-2xl mb-6;
+        @apply flex flex-col gap-2.5 mb-9;
     }
     .lp-review-doc__title {
-        @apply flex items-center gap-2.5 flex-wrap text-ink font-semibold m-0 text-3xl tracking-tight;
+        @apply font-display font-extrabold text-ink m-0 text-4xl tracking-tight leading-tight;
     }
+
+    /* The comment column. Absolutely positioned, and every card inside it is
+       too: a paragraph carrying five comments has to be exactly as tall as one
+       carrying none, which it cannot be if the cards are in flow. */
+    .lp-review-margin {
+        @apply absolute left-169 top-0 w-74;
+    }
+
     .lp-version-pill {
-        @apply inline-flex items-center rounded-full font-mono bg-accent-soft text-accent-hover text-xs py-0.5 px-2;
+        @apply inline-flex items-center rounded-full font-bold bg-accent text-ink text-xs py-0.5 px-2.5;
     }
     /* One entry in the version switcher pointing at a version other than the one
        on screen. Muted so the accent-coloured pill still reads as "you are here". */
     .lp-version-pill--link {
-        @apply bg-surface-2 text-fg-mute no-underline transition-colors hover:bg-tint hover:text-fg;
+        @apply bg-surface-3 text-fg-mute font-mono font-normal no-underline transition-colors hover:bg-tint-strong hover:text-ink;
+    }
+
+    /* ── Metadata toolbar ───────────────────────────────────────────────
+       Versions / Contents / References as three mutually-exclusive tabs, so the
+       three panels that used to sit open one under the other cost one row of
+       height between them. The document's tags ride at the right end. */
+    .lp-doc-meta {
+        @apply flex items-center gap-1 py-1.5 border-y border-line;
+    }
+    .lp-doc-meta__tab {
+        @apply inline-flex items-center gap-2 h-8.5 px-3.5 rounded-lg bg-transparent border-0 cursor-pointer text-sm font-semibold text-ink transition-colors;
+    }
+    .lp-doc-meta__tab:hover {
+        @apply bg-tint;
+    }
+    .lp-doc-meta__tab[aria-expanded='true'] {
+        @apply bg-surface-3;
+    }
+    .lp-doc-meta__count {
+        @apply font-mono text-fg-dim text-xs;
+    }
+    .lp-doc-meta__caret {
+        @apply w-3.5 h-3.5 shrink-0 text-fg-dim transition-transform duration-100;
+    }
+    .lp-doc-meta__tab[aria-expanded='true'] .lp-doc-meta__caret {
+        @apply rotate-90;
+    }
+    .lp-doc-meta__tags {
+        @apply flex items-center gap-1.5 ml-auto;
+    }
+    .lp-doc-meta__panel {
+        @apply rounded-xl bg-surface-2 p-3.5 mt-2.5;
+        animation: lp-appear 120ms ease-out both;
+    }
+    .lp-doc-meta__panel[hidden] {
+        @apply hidden;
+    }
+
+    /* ── Review action row ──────────────────────────────────────────────
+       "Add general comment" plus the hint that select-to-comment exists, with
+       the resolved toggle pushed out over the comment column. */
+    .lp-review-actions {
+        @apply flex items-center gap-3 mb-5.5;
+    }
+    .lp-review-actions__hint {
+        @apply text-sm text-fg-mute;
+    }
+    /* Sits above the comment column rather than the reading column, so it reads
+       as a control on the comments and not on the prose. */
+    .lp-review-actions__resolved {
+        @apply absolute left-169 bg-transparent border-0 p-0 cursor-pointer text-sm text-fg-mute transition-colors;
+    }
+    .lp-review-actions__resolved:hover {
+        @apply text-ink;
+    }
+
+    /* ── General comments group ─────────────────────────────────────────
+       Comments on the document rather than on a passage. They have no anchor to
+       sit level with, so they lead the reading column instead. */
+    .lp-general-comments {
+        @apply flex flex-col gap-3 mb-9;
+    }
+    .lp-general-comments__toggle {
+        @apply inline-flex items-center gap-2 self-start bg-transparent border-0 p-0 cursor-pointer uppercase text-xs font-bold tracking-widest text-fg-dim transition-colors;
+    }
+    .lp-general-comments__toggle:hover {
+        @apply text-ink;
+    }
+    .lp-general-comments__caret {
+        @apply w-3.5 h-3.5 shrink-0 transition-transform duration-100;
+    }
+    /* Keyed off the class the disclosure controller manages, not aria-expanded,
+       which it does not touch. */
+    .lp-general-comments.disclosure-open .lp-general-comments__caret {
+        @apply rotate-90;
+    }
+    .lp-general-comments__list {
+        @apply hidden flex-col gap-3;
+    }
+    .lp-general-comments__list.open {
+        @apply flex;
     }
     /* One row per version so each entry can carry its description beneath the
        pill, rather than a single wrapping line of pills. */
@@ -1351,15 +1419,29 @@
         @apply flex flex-wrap items-center gap-2.5 px-4 py-3 mb-4 rounded-lg border text-sm bg-surface-2 border-line text-fg-mute;
     }
     .lp-review-doc__byline {
-        @apply font-mono text-fg-dim m-0 text-xs mt-2;
+        @apply text-fg-dim m-0 text-sm;
     }
+    /* Long-form reading type: 18px on a 32px line, in the faintly cool prose ink
+       rather than the warm UI ink. The measure is fixed by .lp-review-doc. */
     .lp-review-doc__prose {
-        @apply mt-0;
+        @apply mt-0 max-w-none text-lg leading-8 text-prose;
     }
-    /* Headings sit under the document pane's own scroll, so a table-of-contents
-       jump would otherwise land them flush against the top edge. */
+    /* The paper scrolls, not this pane, so a table-of-contents jump would land a
+       heading flush against the top of the window without this. */
     .lp-review-doc__prose :is(h1, h2, h3, h4, h5, h6) {
-        @apply scroll-mt-4;
+        @apply scroll-mt-6;
+    }
+    .lp-review-doc__prose :is(h2, h3, h4) {
+        @apply font-display font-extrabold text-ink text-2xl tracking-tight;
+    }
+    /* A short all-caps label rather than another size of heading: the document's
+       own H2s are already the sub-heading tier. */
+    .lp-review-doc__prose h1 {
+        @apply uppercase text-ink text-xs font-bold tracking-widest;
+    }
+    .lp-review-doc__prose code {
+        @apply font-mono bg-surface-3 rounded-md text-ink py-0.5 px-1.5;
+        font-size: 0.82em;
     }
 
     /* ── Table of contents ──────────────────────────────────────────────
@@ -1486,20 +1568,22 @@
        Shown on text selection: a dark pill floating above the selection with
        the selection-toolbar shadow. */
     .lp-anchor-toolbar {
-        @apply absolute z-20 shadow-toolbar;
+        @apply absolute z-20 flex items-center gap-1 p-1.5 rounded-xl bg-chrome shadow-toolbar;
+        animation: lp-appear 120ms ease-out both;
     }
     .lp-anchor-toolbar__btn {
-        @apply inline-flex items-center gap-1.5 rounded-lg bg-ink text-white font-medium cursor-pointer border-0 transition py-1.5 px-2.5 text-sm;
+        @apply inline-flex items-center gap-1.5 h-8 px-3 rounded-lg bg-transparent text-white text-sm font-semibold cursor-pointer border-0 transition-colors;
     }
     .lp-anchor-toolbar__btn:hover {
-        @apply opacity-90;
+        @apply bg-chrome-control;
     }
-    /* Three actions now share the pill, so it is a row rather than a lone button. */
-    .lp-anchor-toolbar {
-        @apply flex items-center gap-1;
+    /* Striking is destructive, and the only one of the three that completes
+       without a composer, so it says so before it is clicked. */
+    .lp-anchor-toolbar__btn--strike {
+        @apply text-strike-on-chrome;
     }
     .lp-anchor-toolbar__key {
-        @apply rounded border border-white/30 font-mono leading-none py-0.5 px-1 text-xs;
+        @apply rounded border border-chrome-line text-chrome-mute font-mono leading-none py-0.5 px-1 text-xs;
     }
 
     /* Standing error region for a strike, which posts with no composer open.
@@ -1518,7 +1602,8 @@
        A 340px white card anchored at the selection. Shows the quoted selection
        (targeted) or a "General comment" label (untargeted). */
     .lp-comment-composer {
-        @apply absolute z-20 bg-elev border border-line-strong rounded-xl shadow-composer p-3 flex flex-col gap-2 w-85;
+        @apply absolute z-20 bg-app border-0 rounded-xl shadow-composer p-4 flex flex-col gap-3 w-90;
+        animation: lp-appear 120ms ease-out both;
     }
     /* The `flex`/`display` in the rules above outranks the UA `[hidden]` rule
        (equal specificity, later source order), so a `hidden` composer/toolbar
@@ -1529,17 +1614,19 @@
         display: none;
     }
     .lp-comment-composer textarea {
-        @apply w-full text-sm bg-surface-2 border border-line rounded-lg px-3 py-2 text-fg placeholder:text-fg-dim resize-none outline-hidden focus:border-accent focus:shadow-focus transition-colors min-h-18;
+        @apply w-full text-sm bg-surface-3 border-0 rounded-lg px-3 py-2 text-ink placeholder:text-fg-dim resize-none outline-hidden transition-colors min-h-21;
     }
     .lp-composer-quote {
-        @apply bg-accent-faint-2 border-l-2 border-accent-border text-fg-mute rounded-r line-clamp-3 m-0 py-1.5 px-2.5 text-xs;
+        @apply bg-surface-3 text-fg-mute rounded-lg line-clamp-3 m-0 py-2 px-3 text-xs leading-normal;
     }
+    /* Names which of the three the composer is — the quote alone cannot say
+       whether this will become a comment or a rewording. */
     .lp-composer-general {
-        @apply font-mono text-fg-dim text-xs;
+        @apply uppercase text-xs font-bold tracking-widest text-fg-mute;
     }
     /* The passage a rewording replaces, shown struck above the replacement field. */
     .lp-composer-quote--struck {
-        @apply line-through decoration-danger;
+        @apply line-through decoration-strike;
     }
     .lp-comment-composer__actions {
         @apply flex items-center justify-end gap-2;
@@ -1629,18 +1716,43 @@
         @apply bg-fg-faint;
     }
 
-    /* ── Comment thread card ─────────────────────────────────────────── */
+    /* ── Comment thread card ───────────────────────────────────────────
+       Absolutely positioned inside .lp-review-margin; comment_anchor_controller
+       sets each card's `top` so it sits level with the passage it is anchored
+       to. Cards never move on hover — only the ring and shadow appear. */
     .lp-comment-thread {
-        @apply flex flex-col gap-2.5 rounded-lg border border-line bg-surface-1 py-3 px-3.5;
+        @apply absolute left-0 right-0 flex flex-col gap-3 rounded-xl bg-surface-3 py-3.5 px-4 transition-shadow;
+    }
+    .lp-comment-thread:hover,
+    .lp-comment-thread--active {
+        @apply outline-2 -outline-offset-1 outline-accent shadow-card z-3;
     }
     .lp-comment-thread--resolved {
-        @apply opacity-70;
+        @apply bg-surface-2 py-3;
     }
-    .lp-comment-thread--orphaned {
-        @apply border-status-pending;
+    /* A general comment has no passage to sit beside, so it leads the reading
+       column in normal flow instead of the margin. */
+    .lp-comment-thread--general {
+        @apply static;
     }
     .lp-comment-thread__header {
-        @apply flex items-center gap-2;
+        @apply flex items-baseline gap-2;
+    }
+    /* Status as a plain label rather than a chip: on a card this small, six
+       pills stacked down the margin read as the loudest thing on the page. */
+    .lp-comment-status {
+        @apply ml-auto uppercase text-xs font-bold tracking-wide text-fg-mute;
+    }
+    .lp-comment-status--strike {
+        @apply text-danger;
+    }
+    .lp-comment-status--answered {
+        @apply text-status-ok-deep;
+    }
+    /* The quoted text is gone from the current version, so there is no anchor to
+       ring and the card has to say so itself. */
+    .lp-comment-orphan-pill {
+        @apply inline-flex self-start items-center rounded-full bg-status-pending-bg text-status-pending-deep uppercase text-xs font-bold py-1 px-2.5;
     }
 
     /* Status chip (thread header + ladder), pill with a colored dot. */
@@ -1682,19 +1794,16 @@
        highlight is gone. Clamped to a few lines so a paragraph-length quote can't
        blow out the margin. */
     .lp-comment-quote {
-        @apply bg-accent-faint-2 border-l-2 border-accent-border text-fg-mute rounded-r line-clamp-3 m-0 py-1.5 px-2.5 text-xs;
+        @apply bg-app text-fg-mute rounded-lg line-clamp-3 m-0 py-2 px-3 text-xs leading-normal;
     }
-    /* Before/after for an edit: the doomed passage muted under a red strike line,
-       what replaces it in the green "ok" trio. The <del>/<ins> tags carry the
+    /* Before/after for an edit: the doomed passage under a red strike line, what
+       replaces it on the suggestion tint. The <del>/<ins> tags carry the
        meaning; these only colour them. */
-    .lp-comment-quote--struck {
-        @apply bg-tint border-line text-fg-dim;
-    }
     .lp-comment-quote--struck del {
-        @apply line-through decoration-danger decoration-2;
+        @apply line-through decoration-strike decoration-2;
     }
     .lp-comment-quote--inserted {
-        @apply bg-status-ok-bg border-status-ok text-status-ok-deep;
+        @apply bg-status-ok-bg text-ink text-sm;
     }
     .lp-comment-quote--inserted ins {
         @apply no-underline;
@@ -1703,42 +1812,50 @@
     /* Names the action a thread proposes — only on a strike or a rewording, since
        a prose comment proposes nothing and needs no label. */
     .lp-kind-chip {
-        @apply inline-flex items-center rounded-full font-medium border text-xs py-0.5 px-2;
+        @apply inline-flex items-center rounded-full text-xs font-bold py-0.5 px-2;
     }
     .lp-kind-chip--strike {
-        @apply bg-tint text-danger border-line;
+        @apply bg-status-danger-bg text-danger;
     }
     .lp-kind-chip--suggestion {
-        @apply bg-status-ok-bg text-status-ok-deep border-status-ok-border;
+        @apply bg-status-ok-bg text-status-ok-deep;
     }
 
     .lp-comment-author {
-        @apply text-fg-mute font-semibold text-xs;
+        @apply text-ink font-bold text-sm;
+    }
+    .lp-comment-age {
+        @apply text-fg-mute text-xs;
     }
     .lp-comment-body {
-        @apply text-fg text-sm;
-        line-height: 1.55;
+        @apply text-fg text-sm leading-relaxed;
     }
+    /* Replies are flush with the card — no indent, no avatar, no surface of
+       their own — so a thread reads as a conversation rather than as a comment
+       with quotes stacked under it. */
     .lp-comment-replies {
-        @apply flex flex-col gap-2.5 border-t border-line-faint pt-2.5;
+        @apply flex flex-col gap-3;
     }
     .lp-comment--reply {
-        @apply flex flex-col gap-1;
+        @apply flex flex-col gap-3;
     }
     .lp-comment-reply__head {
-        @apply flex items-center gap-1.5;
+        @apply flex items-baseline gap-2;
     }
     .lp-comment-actions {
         @apply flex items-center gap-2;
+    }
+    .lp-comment-actions__delete {
+        @apply ml-auto;
     }
     .lp-comment-reply-form {
         @apply flex flex-col gap-2;
     }
     .lp-comment-reply-form textarea {
-        @apply w-full text-sm bg-surface-2 border border-line rounded-lg px-3 py-2 text-fg placeholder:text-fg-dim resize-none outline-hidden focus:border-accent focus:shadow-focus transition-colors min-h-12;
+        @apply w-full text-sm bg-app border-0 rounded-lg px-3 py-2 text-ink placeholder:text-fg-dim resize-none outline-hidden transition-colors min-h-16;
     }
     .lp-comment-error {
-        @apply text-xs text-danger;
+        @apply text-xs font-semibold text-danger;
     }
 
     /* ── Site-review page (comment-list only; the customer site is never rendered)
@@ -1842,29 +1959,28 @@
     }
     /* ── Verdict bar (pinned bottom of the comment margin) ──────────────── */
 
+    /* Sticks to the bottom of the paper panel once a verdict has been given.
+       The verdict's own colour is the fill, so it reads from across the room. */
     .lp-verdict-bar {
-        @apply shrink-0 border-t border-line bg-surface-1 py-3.5 px-5;
+        @apply sticky bottom-0 z-10 flex items-center gap-3 mx-6 mb-6 py-3.5 px-4.5 rounded-xl;
     }
-    .lp-verdict-bar__actions {
-        @apply flex items-center gap-2;
+    .lp-verdict-bar--approved {
+        @apply bg-status-ok-border;
     }
-    .lp-verdict-bar__actions .lp-btn {
-        @apply flex-1 justify-center;
+    .lp-verdict-bar--changes-requested {
+        @apply bg-status-danger-chip;
     }
-    .lp-verdict-approved {
-        @apply flex items-center gap-3;
+    .lp-verdict-bar__dot {
+        @apply w-2.5 h-2.5 shrink-0 rounded-full bg-ink;
     }
-    .lp-verdict-approved__icon {
-        @apply inline-flex items-center justify-center shrink-0 text-status-ok;
+    .lp-verdict-bar__text {
+        @apply flex items-baseline gap-2.5 min-w-0;
     }
-    .lp-verdict-approved__text {
-        @apply flex flex-col;
+    .lp-verdict-bar__title {
+        @apply text-ink font-bold text-sm;
     }
-    .lp-verdict-approved__title {
-        @apply text-ink font-semibold text-sm;
-    }
-    .lp-verdict-approved__detail {
-        @apply font-mono text-fg-dim text-xs;
+    .lp-verdict-bar__detail {
+        @apply text-ink text-sm;
     }
 
     /* ── App shell (sidebar + content) ──────────────────────────────── */
@@ -2328,6 +2444,14 @@
     }
 }
 
+/* The typography plugin wraps inline code in literal backticks. Unlayered, not
+   in @layer components: the plugin's own rule is layered, and an unlayered
+   declaration outranks it without a specificity fight. */
+.lp-review-doc__prose code::before,
+.lp-review-doc__prose code::after {
+    content: none;
+}
+
 /* ── In-document anchor highlights (CSS Custom Highlight API) ─────────────
    Unlayered so they reliably paint over the rendered prose. The controller
    registers `lp-anchor`/`lp-anchor-active` (never renamed) plus per-status
@@ -2348,11 +2472,10 @@
     text-decoration-color: var(--accent);
     @apply decoration-2;
 }
+/* An open comment is the loud one — it is the only anchor state that is asking
+   the reader for something. */
 ::highlight(lp-anchor-pending) {
-    background-color: var(--status-pending-bg);
-    text-decoration-line: underline;
-    text-decoration-color: var(--status-pending);
-    @apply decoration-2;
+    background-color: var(--accent-soft);
 }
 ::highlight(lp-anchor-addressed) {
     background-color: var(--status-ok-bg);
@@ -2360,19 +2483,32 @@
     text-decoration-color: var(--status-ok);
     @apply decoration-2;
 }
+/* A resolved thread gets no treatment at all: the conversation is over, and
+   leaving a mark on the passage would keep drawing the eye back to it. The rung
+   stays registered so resolving is a change of state rather than a change of
+   code path. */
 ::highlight(lp-anchor-resolved) {
-    color: var(--text-dim);
-    text-decoration-line: underline;
-    text-decoration-color: var(--border-strong);
-    @apply decoration-1;
+    background-color: transparent;
+}
+/* A rewording. Declares only its own tint, so a struck or hovered passage still
+   layers its decoration on top. */
+::highlight(lp-anchor-suggestion) {
+    background-color: var(--status-ok-bg);
 }
 /* Struck passages, painted on top of whichever status highlight already covers
    them: highlights overlay rather than replace each other, so the status tint
    survives and this adds only the line-through. */
 ::highlight(lp-anchor-struck) {
+    color: var(--text-mute);
     text-decoration-line: line-through;
-    text-decoration-color: var(--color-danger);
-    @apply decoration-2;
+    text-decoration-color: var(--strike);
+    text-decoration-thickness: 3px;
+}
+/* The passage whose card the pointer is on (or the reverse). Deliberately a
+   stronger fill rather than a ring: ::highlight() honours neither outline nor
+   box-shadow, so the card carries the ring and the passage carries this. */
+::highlight(lp-anchor-hover) {
+    background-color: var(--accent);
 }
 
 /* The agent's own marks. The wavy underline is what actually carries the rung —
