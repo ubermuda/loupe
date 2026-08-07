@@ -65,8 +65,9 @@ export default class extends Controller {
         resolved: 'lp-anchor-resolved',
     };
 
-    // Painted in addition to the status highlight rather than instead of it, so a
-    // struck passage keeps its status tint and gains the line-through.
+    // Painted INSTEAD of the status highlight, not in addition to it — see
+    // #highlightAnchors. A passage marked for deletion is not also an open
+    // question.
     static STRUCK_HIGHLIGHT = 'lp-anchor-struck';
 
     // A rewording is a different KIND of mark, not a different state of one, so
@@ -88,28 +89,11 @@ export default class extends Controller {
     // Resolution order for a span several rungs cover. Without explicit values it
     // is whichever Highlight was registered last, which is incidental.
     //
-    // How the API actually composes, verified in Chrome across every pairing:
-    // each inherited property is settled independently by the highest-priority
-    // highlight that DECLARES it, while text decorations are additive and every
-    // one of them draws. So priority never hides a rung — it only settles the
-    // properties two rungs both set, and today that is `background-color` and
-    // `color` alone. Three consequences worth knowing before changing a rung:
-    //   - Agent over pending/addressed/active gives the human tint, with the
-    //     agent's wavy underline still legible beside the human's straight one —
-    //     both marks readable, neither mistakable for the other, which is the
-    //     honest reading of a span that carries both.
-    //   - Agent over resolved gives grey text on the agent's OWN tint: resolved
-    //     wins `color` on priority but declares no background, so the
-    //     lower-priority background is what shows.
-    //   - Agent over struck keeps the agent tint for the same reason, and adds
-    //     the strike's line-through. A struck passage always carries its thread's
-    //     status rung too, so the densest real span is four marks at once —
-    //     status tint, status underline, agent wavy underline, strike
-    //     line-through — and it stays legible because each sits at its own
-    //     position relative to the text rather than competing for one.
-    //     Struck declares neither background nor colour, so its rank changes
-    //     nothing today; it is ordered anyway so that giving it one later is a
-    //     decision rather than a surprise.
+    // Verified in Chrome: `color` goes to the highest-priority rung declaring
+    // it, decorations are additive, but backgrounds STACK in priority order and
+    // only replace by being opaque. A higher-priority `transparent` therefore
+    // paints nothing and leaves the tint below showing — which is why
+    // #highlightAnchors routes a strike away from its status rung instead.
     //
     // The ladder reads: agent advisory < the thread's own state < the edit the
     // reviewer asked for on it < the selection being composed right now.
@@ -847,9 +831,7 @@ export default class extends Controller {
         // scrolling above it.
         const block = this.blockTarget;
         const offsetWithinBlock = this.marginTarget.offsetTop;
-        const paddingBottom = parseFloat(
-            getComputedStyle(block).paddingBottom,
-        );
+        const paddingBottom = parseFloat(getComputedStyle(block).paddingBottom);
         block.style.minHeight = `${Math.ceil(offsetWithinBlock + floor + paddingBottom)}px`;
     }
 
@@ -894,9 +876,10 @@ export default class extends Controller {
         for (const toggle of this.element.querySelectorAll(
             '[data-resolved-toggle]',
         )) {
-            toggle.textContent = toggle.dataset[
-                this.hideResolvedValue ? 'labelShow' : 'labelHide'
-            ];
+            toggle.textContent =
+                toggle.dataset[
+                    this.hideResolvedValue ? 'labelShow' : 'labelHide'
+                ];
         }
         this.#scheduleLayout();
     }
@@ -943,12 +926,9 @@ export default class extends Controller {
                 continue;
             }
 
-            // A strike takes the struck rung INSTEAD of its status rung, not in
-            // addition to it. Highlight backgrounds stack in priority order
-            // rather than replacing one another, so a higher-priority
-            // `background-color: transparent` paints nothing and leaves the tint
-            // below it showing — the status tint has to not be added at all.
-            // A passage marked for deletion is not also an open question.
+            // A strike takes the struck rung INSTEAD of its status rung: a
+            // passage marked for deletion is not also an open question, and
+            // backgrounds stack rather than replace (see PRIORITY above).
             const kind = thread.dataset.anchorKind;
             if (kind === 'strike') {
                 this.struckHighlight?.add(range);

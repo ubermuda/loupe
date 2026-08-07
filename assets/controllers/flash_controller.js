@@ -1,10 +1,8 @@
 import { Controller } from '@hotwired/stimulus';
 
 /*
- * Dismisses a flash message. There is no timer: the flash sits at the top of
- * the paper panel and scrolls away with the content, so it never covers
- * anything and does not need to time itself out. It goes when the reader says
- * so.
+ * Dismisses a flash message. No timer on purpose: the flash scrolls away with
+ * the content rather than floating over it, so it never needs to time out.
  */
 /* stimulusFetch: 'lazy' */
 export default class extends Controller {

@@ -22,14 +22,9 @@
     <p class="lp-workspace-desc">{{ (listQuery.search ? 'review.dashboard.description_ranked' : 'review.dashboard.description')|trans }}</p>
 
     {# Six controls in front of a project that has nothing to filter are six dead
-       controls, so the bar waits for a first document. It stays once a filter or
-       the archived view is on, whatever the counts say: a filter that disappears
-       the moment it matches nothing leaves the reader on a dead end.
-
-       The archived state is labelled with what following the link does, rather
-       than one label plus aria-pressed: that attribute is defined for
-       role="button" and is dropped on an anchor, so both states would announce
-       identically while doing opposite things. #}
+       controls, so the bar waits for a first document — but it stays once a
+       filter or the archived view is on, whatever the counts say: a filter that
+       disappears the moment it matches nothing is a dead end. #}
     {% if totalDocuments > 0 or listQuery.isNarrowed or listQuery.includeArchived %}
     <div class="lp-list-filters">
         {# A GET form, so every control lands in the URL and the whole view stays
@@ -93,6 +88,10 @@
                class="lp-filter-clear">{{ 'review.dashboard.filter.clear'|trans }}</a>
         </form>
 
+        {# Labelled with what following the link does, rather than one label plus
+           aria-pressed: that attribute is defined for role="button" and is
+           dropped on an anchor, so both states would announce identically while
+           doing opposite things. #}
         {% if listQuery.includeArchived %}
             <a class="lp-filter-chip lp-filter-chip--on"
                href="{{ path('app_project_documents', {id: project.id}|merge(listQuery.withIncludeArchived(false).routeParams)) }}">

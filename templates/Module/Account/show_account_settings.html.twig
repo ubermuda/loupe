@@ -2,36 +2,36 @@
 
 {% block title %}{{ 'account.settings.page.title'|trans }} — {{ 'app.name'|trans }}{% endblock %}
 
+{% block topbar_crumbs %}
+    <span class="lp-topbar__crumb">{{ 'nav.link.account'|trans }}</span>
+    <span class="lp-topbar__sep">/</span>
+    <span class="lp-topbar__here">{{ 'account.settings.page.title'|trans }}</span>
+{% endblock %}
+
 {% block body %}
 <div class="lp-connect">
     <h1 class="lp-workspace-title lp-workspace-title--doc">{{ 'account.settings.page.title'|trans }}</h1>
-
-    {% for label, messages in app.flashes %}
-        {% for message in messages %}
-            <div class="lp-flash lp-flash--{{ label }}">{{ message }}</div>
-        {% endfor %}
-    {% endfor %}
 
     <twig:BillingSummary />
 
     <section class="lp-connect-block" data-testid="profile-section">
         <p class="lp-eyebrow">{{ 'account.settings.profile.heading'|trans }}</p>
-        <div class="lp-connect-field">
-            <twig:ux:icon name="lucide:user" class="lp-connect-field__glyph w-4 h-4" />
+        <div class="lp-card flex items-center gap-3">
+            <span class="avatar lg">{{ view.user.fullName|slice(0, 1)|upper }}</span>
             <span class="lp-connect-field__value">
                 {{ view.user.fullName }}
                 <span class="lp-connect-field__meta">{{ view.user.email }}</span>
             </span>
+            <a href="{{ path('app_account_profile') }}" class="lp-btn lp-btn--ghost">{{ 'account.settings.profile.edit_link'|trans }}</a>
         </div>
-        <a href="{{ path('app_account_profile') }}" class="lp-btn lp-btn--ghost">{{ 'account.settings.profile.edit_link'|trans }}</a>
     </section>
 
     <section class="lp-connect-block" data-testid="export-section">
         <p class="lp-eyebrow">{{ 'account.settings.export.heading'|trans }}</p>
-        <p class="lp-workspace-desc">{{ 'account.settings.export.intro'|trans }}</p>
+        <p class="lp-connect-hint">{{ 'account.settings.export.intro'|trans }}</p>
 
         {% for export in view.exports %}
-        <div class="lp-connect-field">
+        <div class="lp-card flex items-center gap-3">
             <twig:ux:icon name="lucide:package" class="lp-connect-field__glyph w-4 h-4" />
             <span class="lp-connect-field__value">
                 {{ export.requestedAt|date('Y-m-d H:i') }}

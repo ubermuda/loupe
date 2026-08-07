@@ -1,12 +1,8 @@
-{#
-    What changed between two versions, as a page of its own rather than the
-    review page with its pane swapped: the diff reads at a wider measure than
-    the document, and none of the review page's apparatus — comment margin,
-    composer, verdict — applies to it.
+{# A page of its own rather than the review page with its pane swapped: the diff
+   reads at a wider measure than the document, and none of the review page's
+   apparatus — comment margin, composer, verdict — applies to it.
 
-    Params: document, version, versions, diff (?DocumentDiff), diffRefusal
-    (?DiffRefusal) and diffFromVersion (int).
-#}
+   Params: document, version, versions, diff, diffRefusal, diffFromVersion. #}
 {% extends 'base.html.twig' %}
 
 {% set documentPath = path('app_document_review', {projectId: document.project.id, documentId: document.id}) %}
