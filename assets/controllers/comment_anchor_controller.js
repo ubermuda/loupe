@@ -632,26 +632,36 @@ export default class extends Controller {
      * stronger fill on one end and the ring on the other.
      */
     focusThread(event) {
-        const thread = event.currentTarget;
-        thread.classList.add('lp-comment-thread--active');
-        if (!this.hoverHighlight) {
-            return;
-        }
-        this.hoverHighlight.clear();
-        const range = this.#findRange(
-            thread.dataset.anchorQuote ?? '',
-            thread.dataset.anchorPrefix ?? '',
-            thread.dataset.anchorSuffix ?? '',
-        );
-        if (range !== null) {
-            this.hoverHighlight.add(range);
-        }
+        this.#setHoveredThread(event.currentTarget);
     }
 
     /** Card action: the pointer left, so drop both ends of the pairing. */
     blurThread(event) {
-        event.currentTarget.classList.remove('lp-comment-thread--active');
+        // Guarded on identity rather than clearing unconditionally: moving from
+        // a card straight onto a different passage fires this leave AFTER the
+        // probe has already set the new pair, and an unguarded clear would undo
+        // it.
+        if (this.hoveredThread === event.currentTarget) {
+            this.#setHoveredThread(null);
+        }
+    }
+
+    /** The single owner of which card/passage pair is currently lit. */
+    #setHoveredThread(thread) {
+        if (this.hoveredThread === thread) {
+            return;
+        }
+        this.hoveredThread?.classList.remove('lp-comment-thread--active');
+        this.hoveredThread = thread;
         this.hoverHighlight?.clear();
+        if (thread === null) {
+            return;
+        }
+        thread.classList.add('lp-comment-thread--active');
+        const range = this.anchorRanges?.get(thread);
+        if (range !== undefined) {
+            this.hoverHighlight?.add(range);
+        }
     }
 
     /**
@@ -748,6 +758,25 @@ export default class extends Controller {
     // from different elements, so one unlocatable comment quote must not take
     // every agent mark on the page down with it, nor leave every card unplaced.
     #layout() {
+        // Locating a quote means an indexOf sweep of the whole document plus a
+        // TreeWalker, so every pass below shares one map rather than each
+        // re-locating the same anchors. The pointer probe reads it too, which is
+        // what keeps mousemove off that path entirely.
+        this.anchorRanges = new Map();
+        for (const thread of this.threadTargets) {
+            if (thread.dataset.commentGeneral === 'true') {
+                continue;
+            }
+            const range = this.#findRange(
+                thread.dataset.anchorQuote ?? '',
+                thread.dataset.anchorPrefix ?? '',
+                thread.dataset.anchorSuffix ?? '',
+            );
+            if (range !== null) {
+                this.anchorRanges.set(thread, range);
+            }
+        }
+
         try {
             this.#highlightAnchors();
         } catch {
@@ -799,16 +828,12 @@ export default class extends Controller {
         let floor = 0;
 
         for (const thread of anchored) {
-            const range = this.#findRange(
-                thread.dataset.anchorQuote ?? '',
-                thread.dataset.anchorPrefix ?? '',
-                thread.dataset.anchorSuffix ?? '',
-            );
+            const range = this.anchorRanges.get(thread);
             // getClientRects()[0] is the anchor's FIRST line box. The bounding
             // rect would be the union of every line, whose top is the same but
             // whose height is not — and a card level with a three-line anchor
             // has to align to the line the passage starts on.
-            const rects = range === null ? [] : range.getClientRects();
+            const rects = range === undefined ? [] : range.getClientRects();
             const anchorTop =
                 rects.length > 0 ? rects[0].top - marginTop : floor;
 
@@ -876,10 +901,18 @@ export default class extends Controller {
         this.#scheduleLayout();
     }
 
-    /** Returns every card to normal flow — the degraded state on any failure. */
+    /**
+     * Returns every card to normal flow — the degraded state on any failure.
+     *
+     * Clearing `top` alone is not enough: the cards are absolutely positioned by
+     * their class, so `top: auto` resolves every one of them to the same static
+     * position and they land in a single stack. The position has to be overridden
+     * as well for them to fall back into a readable column.
+     */
     #releaseThreads() {
         for (const thread of this.threadTargets) {
             thread.style.top = '';
+            thread.style.position = 'static';
         }
         if (this.hasBlockTarget) {
             this.blockTarget.style.minHeight = '';
@@ -905,12 +938,8 @@ export default class extends Controller {
             const status = thread.dataset.anchorStatus ?? 'pending';
             const highlight =
                 this.statusHighlights[status] ?? this.statusHighlights.pending;
-            const range = this.#findRange(
-                thread.dataset.anchorQuote ?? '',
-                thread.dataset.anchorPrefix ?? '',
-                thread.dataset.anchorSuffix ?? '',
-            );
-            if (range === null) {
+            const range = this.anchorRanges.get(thread);
+            if (range === undefined) {
                 continue;
             }
 

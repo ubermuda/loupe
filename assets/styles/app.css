@@ -1947,8 +1947,11 @@
     .lp-shell {
         @apply flex flex-1 flex-col min-w-0 pr-2.5 pb-2.5;
     }
+    /* overflow-x is auto, not hidden: the review block is a fixed 972px and a
+       narrow window must be able to scroll to the comment column rather than
+       have it clipped away where nothing can reach it. */
     .lp-main {
-        @apply flex-1 min-h-0 bg-app rounded-lg overflow-x-hidden overflow-y-auto;
+        @apply flex-1 min-h-0 bg-app rounded-lg overflow-x-auto overflow-y-auto;
     }
 
     .lp-sidebar {

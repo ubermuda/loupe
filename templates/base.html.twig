@@ -146,8 +146,15 @@
                 <main class="lp-main">
                     {# Rendered once, here, rather than per page: reading app.flashes
                        consumes them, so a page-level loop below this point would
-                       always find the bag empty. #}
-                    {% for label, messages in app.flashes %}
+                       always find the bag empty.
+
+                       Whitelisted, and failing closed on anything else, because
+                       the flash bag is not only used for messages: the Connect
+                       page passes a freshly created token through it, and that
+                       value must never be printed as a notification. A new flash
+                       type has to be added here to appear, which is the safe way
+                       round. #}
+                    {% for label, messages in app.flashes(['success', 'error', 'warning', 'info']) %}
                         {% for message in messages %}
                         <div class="lp-flash lp-flash--{{ label }}" data-controller="flash">
                             <span class="lp-flash__dot"></span>
