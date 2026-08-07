@@ -1022,24 +1022,6 @@ confirm modal) vs keeping the portal as the single management surface, and
 whether the section should show renewal date/price (data already synced on
 BillingProfile).
 
-## Gamache: ship the controller direct-state-access rule the skill cites
-
-
-
-
-**Author:** Geoffrey · **Type:** tooling · **Priority:** medium · **Status:** pending
-
-The `project-command-handler` skill cites a `controller.directStateAccess`
-gamache rule ("controllers may not touch repositories directly") that does
-not exist anywhere in ubermuda/gamache (all five layers checked 2026-07-26),
-while ~25 rendering controllers inject repositories and assemble view data
-inline. Owner decision (2026-07-26): upgrade gamache — add the rule via a PR
-on https://github.com/ubermuda/gamache (per CLAUDE.md, gamache rules never
-land in this repo). Decide the rule's scope while writing it: forbid all
-repository injection in controllers (forcing query handlers for reads,
-matching the skill) or only mutation paths; then fix or baseline the ~25
-existing controllers when the rule lands.
-
 ## Agent-authored test scenarios delivered through the site-review widget
 
 
@@ -2758,38 +2740,6 @@ once already, on the line below the one that fails.
 Related: 'phpstan runs out of memory in a worktree' — same 128M CLI limit,
 different command, and worth fixing in one place rather than per recipe.
 
-## The gamache pin is three commits stale, so two documented gates do not run here
-
-**Author:** Claude · **Type:** tooling · **Priority:** medium · **Status:** pending
-
-`composer.json` pins `ubermuda/gamache` to
-`dev-main#e7e9349727630b25ff4c550ac7e5f6519d47b9c1`. Upstream `main` is at
-`382155f` — three merged commits ahead, all of them rules:
-
-- `8512c45` — `SelfContainedCommentsCheck` (`src/Check/`)
-- `e60c3ed` — `SelfAssigningTernaryRule` (`src/PHPStan/`)
-- `382155f` — `ControllerNoDirectStateAccessRule` (`src/PHPStan/`)
-
-The first two matter because **`CLAUDE.md` and `project-comments` both state
-that self-contained comments are "enforced by `SelfContainedCommentsCheck`
-(runs in `just gamache`)", and in this checkout they are not** — the class is
-not in `vendor/`, so the documented gate silently does nothing. That is not a
-documentation error: the rule exists, it is merely not installed here. The cost
-is already paid once — `ProjectDeleter`'s docblock carried a `(F6)` feature
-codename, exactly the shape the rule forbids, through every green `just ci`
-until it was found by grep on 2026-08-05.
-
-Repointing the pin to `382155f` is the fix, and it is deliberately **not** a
-drive-by: three new rules arriving at once will flag existing code, and
-`SelfContainedCommentsCheck` is a `src/Check/` class, so it also has to be
-wired into `gamache.php` before it runs at all. Budget for the fallout rather
-than folding it into an unrelated branch. Note also that `just gamache` is
-advisory for some checks, so "green" after the bump does not by itself prove
-the new rules found nothing — read the output.
-
-Related: 'Gamache: ship the controller direct-state-access rule the skill
-cites', which this closes upstream but not here.
-
 ## `just e2e-down` makes the worker report a failure it did not have
 
 **Author:** Claude · **Type:** tooling · **Priority:** medium · **Status:** pending
@@ -2820,13 +2770,21 @@ non-zero" teaches a reader to ignore the one time it means something, and
 `just e2e` already depends on people trusting worker diagnostics — a missing
 consumer is documented as the cause of a ~19-spec failure block.
 
-## Cut the 144 over-budget comment blocks CommentBudgetCheck reports
+## Cut the over-budget comment blocks CommentBudgetCheck reports
 
 **Author:** Geoffrey · **Type:** docs · **Priority:** medium · **Status:** pending
 
-`vendor/bin/gamache` reports 144 comment runs of 6+ lines across `src/`,
-`templates/`, `assets/`, `config/`, `e2e/`, the `justfile` and `.env`. The check
-is advisory (exit 0), so nothing forces this; the sweep is deliberate work.
+`vendor/bin/gamache` reports 147 comment runs of 6+ lines across `src/`,
+`templates/`, `assets/`, `config/`, `e2e/`, the `justfile` and `.env` (measured
+2026-08-06). The check is advisory (exit 0), so nothing forces this; the sweep
+is deliberate work.
+
+The `.env` and `compose.yaml` reports are **not** artefacts of Symfony Flex
+section markers fusing neighbouring comments — that was a real gamache bug, and
+it was fixed upstream in ubermuda/gamache#32 and pinned here. Fixing it cleared
+three findings and moved the rest off the `###>` line onto the first line of
+their prose. The ten that remain are genuinely 6–8 line blocks and need the same
+keep-or-compress judgement as everything else here.
 
 Compress each to the constraint a reader needs at that line and move the
 reasoning to the commit or PR that introduced it — see the `project-comments`
