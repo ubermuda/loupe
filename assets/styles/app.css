@@ -641,7 +641,7 @@
     /* ── Tag chip ───────────────────────────────────────────────────── */
 
     .lp-tag {
-        @apply inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-tint text-fg-mute border border-line;
+        @apply inline-flex items-center py-1 px-2.5 rounded-full text-xs font-semibold bg-surface-3 text-fg-mute;
     }
 
     /* ── Step ribbon ────────────────────────────────────────────────────
@@ -1029,7 +1029,21 @@
     /* ── Empty state ────────────────────────────────────────────────── */
 
     .lp-empty {
-        @apply text-fg-dim text-sm italic py-4;
+        @apply text-fg-mute text-sm py-4;
+    }
+    /* Full-panel empty state: an icon, a heading, a sentence explaining how the
+       thing gets created, and at most one action. */
+    .lp-empty-state {
+        @apply flex flex-col items-center text-center gap-3 rounded-xl bg-surface-2 py-16 px-8;
+    }
+    .lp-empty-state__icon {
+        @apply text-line-strong;
+    }
+    .lp-empty-state__title {
+        @apply font-display font-extrabold text-2xl tracking-tight text-ink m-0;
+    }
+    .lp-empty-state__body {
+        @apply max-w-md text-sm text-fg-mute m-0 leading-relaxed;
     }
 
     /* ── Buttons (lp- namespace) ────────────────────────────────────── */
@@ -1120,16 +1134,16 @@
     /* ── Pagination (shared `<twig:Pagination>` component) ─────────────── */
 
     .lp-pagination {
-        @apply flex items-center justify-between gap-3 py-4;
+        @apply flex items-center justify-between gap-3 pt-8;
     }
     .lp-pagination__status {
-        @apply text-fg-dim m-0 text-xs;
+        @apply font-mono text-fg-dim m-0 text-xs;
     }
     .lp-pagination__controls {
-        @apply flex items-center gap-1;
+        @apply flex items-center gap-1.5;
     }
     .lp-pagination__ellipsis {
-        @apply inline-flex items-center justify-center px-2 text-fg-dim text-xs;
+        @apply inline-flex items-center justify-center w-9 h-9 text-fg-dim text-sm;
     }
     .lp-pagination__disabled {
         @apply opacity-40 pointer-events-none;
@@ -1152,17 +1166,17 @@
     }
 
     .lp-dialog {
-        @apply w-full max-w-sm rounded-xl border border-line bg-surface-1 p-6 shadow-composer;
+        @apply w-full max-w-md rounded-2xl border-0 bg-surface-1 p-6 shadow-composer;
     }
     .lp-dialog::backdrop {
-        @apply bg-ink/40;
+        @apply bg-ink/55;
         animation: lp-dialog-backdrop-in 220ms ease-out;
     }
     .lp-dialog-title {
-        @apply text-base font-semibold text-ink m-0;
+        @apply font-display font-extrabold text-2xl tracking-tight text-ink m-0;
     }
     .lp-dialog-desc {
-        @apply text-sm text-fg-mute mt-1.5 mb-4;
+        @apply text-sm text-fg-mute mt-2 mb-4 leading-relaxed;
     }
 
     /* ── Danger zone — irreversible destructive actions (project/account
@@ -1170,14 +1184,17 @@
        rest of the settings form, so the action reads as irreversible at
        a glance. */
 
+    /* A rule and a red heading rather than a red card: the destructive action
+       is one button, and boxing the whole section in red made every settings
+       page look like a warning. */
     .lp-danger-zone {
-        @apply mt-12 flex flex-col items-start gap-2 rounded-xl border-2 border-red-300 bg-red-50 p-6;
+        @apply mt-12 pt-8 flex flex-col items-start gap-2 border-t border-line-strong;
     }
     .lp-danger-zone-title {
-        @apply text-base font-semibold text-red-800 m-0;
+        @apply font-display font-extrabold text-2xl tracking-tight text-danger m-0;
     }
     .lp-danger-zone-desc {
-        @apply text-sm text-red-700 m-0;
+        @apply text-sm text-fg-mute m-0 mb-2 leading-relaxed;
     }
 
     /* ── Review screen shell ────────────────────────────────────────────
@@ -1333,12 +1350,12 @@
        Source line breaks are preserved with pre-wrap, so the template must
        emit no indentation of its own inside a line. */
     .lp-diff {
-        @apply max-w-2xl text-fg;
+        @apply max-w-215 text-fg;
     }
     /* Added and removed lines are <ins>/<del>, whose default underline and
        strike would otherwise run across the whole line. */
     .lp-diff__line {
-        @apply block no-underline whitespace-pre-wrap break-words border-l-2 border-transparent pl-2 text-base leading-relaxed;
+        @apply block no-underline whitespace-pre-wrap break-words rounded-lg py-1 px-3 text-base leading-relaxed;
     }
     /* Gutter marker: the cue that survives colour blindness, on the view where
        added-versus-removed IS the content. Generated content, so it never
@@ -1346,7 +1363,7 @@
        gives a blank line its height, which an empty box would collapse away —
        and a blank line is a paragraph break in Markdown. */
     .lp-diff__line::before {
-        @apply inline-block w-5 select-none text-fg-faint;
+        @apply inline-block w-5 select-none text-fg-dim;
         content: '\00a0';
     }
     .lp-diff__line--deleted::before {
@@ -1356,19 +1373,19 @@
         content: '+';
     }
     .lp-diff__line--deleted {
-        @apply bg-status-danger-bg border-status-danger text-fg-mute;
+        @apply bg-status-danger-bg text-fg-mute;
     }
     .lp-diff__line--inserted {
-        @apply bg-status-ok-bg border-status-ok;
+        @apply bg-status-ok-bg;
     }
     .lp-diff__mark {
         @apply rounded-sm;
     }
     .lp-diff__mark--deleted {
-        @apply bg-status-danger-border text-status-danger-deep line-through;
+        @apply bg-status-danger-border text-status-danger-deep no-underline;
     }
     .lp-diff__mark--inserted {
-        @apply bg-status-ok-border text-status-ok-deep underline;
+        @apply bg-status-ok-border text-status-ok-ink no-underline;
     }
 
     /* What the author said a revision changed, sitting directly above what it
@@ -1865,7 +1882,7 @@
        on the Tailwind scale via @apply, matching the ribbon/review conventions. */
 
     .lp-site-review-page {
-        @apply max-w-205 flex flex-col gap-3.5 pt-5.5 px-8 pb-15;
+        @apply max-w-225 flex flex-col gap-2.5 pt-10 px-12 pb-14;
     }
     .lp-site-review-breadcrumb {
         @apply flex items-center gap-1.5 font-mono text-fg-dim text-xs;
@@ -1880,10 +1897,10 @@
         @apply text-fg-mute;
     }
     .lp-site-review-header {
-        @apply flex flex-col gap-1.5;
+        @apply flex flex-col gap-2 mb-4;
     }
     .lp-site-review-title {
-        @apply font-semibold text-ink m-0 text-2xl;
+        @apply font-display font-extrabold text-ink m-0 text-5xl tracking-tight leading-none;
     }
     .lp-site-review-meta-line {
         @apply font-mono text-fg-dim m-0 text-xs;
@@ -1892,26 +1909,28 @@
         @apply inline-flex items-center gap-1.5 text-fg-mute no-underline transition-colors hover:text-accent;
     }
     .lp-site-review-description {
-        @apply text-fg-mute m-0 text-sm;
-        line-height: 1.55;
+        @apply text-fg-mute m-0 text-base leading-relaxed;
     }
 
-    /* Flush hairline divider list — top hairline, each item a bottom hairline. */
+    /* One sunken card per comment. These arrive from a browser widget minutes
+       apart and are acted on individually, so they are objects rather than rows
+       of a table. */
     .lp-site-review-list {
-        @apply flex flex-col border-t border-line mt-1;
+        @apply flex flex-col gap-2.5;
     }
     .lp-site-review-item {
-        @apply flex gap-4 border-b border-line py-5 px-0.5;
+        @apply flex gap-4 rounded-xl bg-surface-2 py-4 px-4.5;
     }
-    /* Status-colored mono index — the primary left differentiator. */
+    /* Mono index — accent while the comment is still waiting on someone, quiet
+       once it has been dealt with. */
     .lp-site-review-index {
-        @apply font-mono font-medium shrink-0 text-sm leading-none pt-0.5;
+        @apply font-mono font-bold shrink-0 text-sm leading-none pt-1;
     }
     .lp-site-review-index--pending {
-        @apply text-status-pending-deep;
+        @apply text-accent-ink;
     }
     .lp-site-review-index--ok {
-        @apply text-status-ok-deep;
+        @apply text-fg-dim;
     }
     .lp-site-review-main {
         @apply min-w-0 flex-1 flex flex-col gap-2;
@@ -1920,15 +1939,13 @@
         @apply flex items-start justify-between gap-3;
     }
     .lp-site-review-quote {
-        @apply font-semibold text-ink m-0 text-base;
-        line-height: 1.4;
+        @apply font-semibold text-ink m-0 text-base leading-snug;
     }
     .lp-site-review-widget-meta {
         @apply font-mono text-fg-dim m-0 text-xs -mt-1;
     }
     .lp-site-review-body {
-        @apply text-fg m-0 text-sm;
-        line-height: 1.55;
+        @apply text-fg m-0 text-sm leading-relaxed;
     }
     /* Captured context — one wrapping mono row: external-link + URL, code + selector. */
     .lp-site-review-context {
@@ -1949,13 +1966,13 @@
         display: none;
     }
     .lp-site-review-selector__content {
-        @apply overflow-hidden text-fg-dim break-all pt-1;
+        @apply overflow-hidden rounded-md bg-surface-3 text-fg-mute break-all mt-1.5 py-1.5 px-2.5;
     }
     .lp-site-review-actions {
         @apply flex items-center gap-2 mt-1;
     }
     .lp-site-review-empty {
-        @apply flex flex-col items-center text-center gap-3 border-t border-line text-fg-dim mt-1 py-12;
+        @apply flex flex-col items-center text-center gap-3 rounded-xl bg-surface-2 text-fg-mute py-12;
     }
     /* ── Verdict bar (pinned bottom of the comment margin) ──────────────── */
 
@@ -2177,10 +2194,10 @@
     /* ── Code / pre blocks ──────────────────────────────────────────────── */
 
     .lp-code {
-        @apply font-mono text-sm bg-sunken rounded px-1.5 py-0.5 text-fg;
+        @apply font-mono text-sm bg-surface-3 rounded-md px-1.5 py-0.5 text-ink;
     }
     .lp-pre {
-        @apply font-mono text-sm bg-sunken rounded-lg p-4 overflow-x-auto text-fg leading-relaxed;
+        @apply font-mono text-sm bg-surface-3 rounded-xl p-4 overflow-x-auto text-ink leading-relaxed;
         white-space: pre;
     }
 
@@ -2225,74 +2242,139 @@
        uppercase eyebrow (.lp-eyebrow) over a bordered field / code block. */
 
     .lp-connect {
-        @apply max-w-190 flex flex-col gap-6 pt-10 px-11 pb-15;
+        @apply max-w-215 flex flex-col gap-5 pt-10 px-12 pb-14;
+    }
+
+    /* The page has exactly two jobs, so it is two numbered steps: connect the
+       agent, and install the widget. Anything that is not one of those two
+       competes with them. */
+    .lp-connect-step {
+        @apply flex flex-col gap-5 rounded-xl bg-surface-2 pt-6 px-6.5 pb-6.5;
+    }
+    .lp-connect-step__header {
+        @apply flex items-baseline gap-3;
+    }
+    .lp-connect-step__badge {
+        @apply inline-flex items-center justify-center shrink-0 w-7 h-7 rounded-full bg-ink text-accent text-sm font-bold;
+        align-self: flex-start;
+    }
+    .lp-connect-step__heading {
+        @apply font-display font-extrabold text-2xl tracking-tight text-ink m-0;
+    }
+    /* Says what the step is FOR, not what it is. */
+    .lp-connect-step__purpose {
+        @apply text-base text-fg-mute m-0 leading-relaxed;
     }
     .lp-connect-block {
         @apply flex flex-col gap-2.5;
     }
     .lp-connect-hint {
-        @apply text-fg-mute m-0 text-sm;
-        line-height: 1.5;
+        @apply text-fg-mute m-0 text-sm leading-normal;
     }
-    /* Bordered field row: subtle fill, glyph + value + trailing control. */
+    /* Token row: white on the step's sunken fill, glyph + value + controls. */
     .lp-connect-field {
-        @apply flex items-center gap-2.5 bg-sidebar border border-line-strong rounded-lg py-2.5 px-3;
+        @apply flex items-center gap-3 bg-app rounded-xl py-3.5 px-4;
     }
     .lp-connect-field__glyph {
-        @apply text-fg-dim shrink-0;
+        @apply text-fg-mute shrink-0;
     }
     .lp-connect-field__value {
-        @apply font-mono text-fg min-w-0 truncate flex-1 m-0 flex items-baseline gap-2 text-sm;
+        @apply font-mono text-ink min-w-0 truncate flex-1 m-0 flex flex-col gap-0.5 text-sm;
     }
     .lp-connect-field__meta {
-        @apply font-mono text-fg-dim shrink-0 text-xs;
+        @apply font-sans text-fg-mute shrink-0 text-xs;
     }
-    /* Green "project-scoped" tag on the access-token field. */
     .lp-connect-tag {
-        @apply inline-flex items-center rounded-full font-medium bg-status-ok-bg text-status-ok-deep shrink-0 text-xs py-0.5 px-2;
+        @apply inline-flex items-center rounded-full font-semibold bg-status-ok-bg text-status-ok-deep shrink-0 text-xs py-0.5 px-2;
     }
 
-    /* One-time raw-secret reveal shown once after minting: warning + copyable field. */
+    /* Amber callout. Used for the two things on this page that are warnings
+       rather than body copy: the once-only token, and the fact that the widget
+       token is public. */
+    .lp-connect-alert {
+        @apply flex items-start gap-3 rounded-xl bg-status-pending-bg py-3.5 px-4;
+    }
+    .lp-connect-alert__icon {
+        @apply shrink-0 text-status-pending mt-0.5;
+    }
+    .lp-connect-alert__text {
+        @apply text-sm font-semibold text-status-pending-deep m-0 leading-normal;
+    }
     .lp-connect-secret {
-        @apply flex flex-col gap-2;
+        @apply flex flex-col gap-2.5;
     }
     .lp-connect-secret__warn {
-        @apply text-status-pending-deep font-medium m-0 text-sm;
-        line-height: 1.5;
+        @apply text-status-pending-deep font-semibold m-0 text-sm leading-normal;
+    }
+
+    /* Forwarding switch — off by default, because the widget token is public. */
+    .lp-connect-toggle {
+        @apply flex items-center gap-3 rounded-xl bg-app py-3.5 px-4;
+    }
+    .lp-connect-toggle__icon {
+        @apply shrink-0 text-fg-mute;
+    }
+    .lp-connect-toggle__text {
+        @apply flex flex-col gap-0.5 mr-auto min-w-0;
+    }
+    .lp-connect-toggle__title {
+        @apply text-sm font-semibold text-ink;
+    }
+    .lp-connect-toggle__state {
+        @apply text-xs text-fg-mute;
     }
 
     /* Dark .mcp.json block — header bar + syntax-neutral body. */
+    /* The .mcp.json and widget-snippet panels are identical by design — the two
+       steps are the same shape of task, and styling them differently would
+       suggest otherwise. */
     .lp-code-dark {
-        @apply rounded-lg overflow-hidden border border-line-strong;
+        @apply rounded-xl overflow-hidden border-0 bg-code-dark-bg;
     }
     .lp-code-dark__header {
-        @apply flex items-center justify-between gap-2 bg-code-dark-header py-2 px-3;
+        @apply flex items-center justify-between gap-2 bg-code-dark-header py-2.5 px-3.5;
     }
     .lp-code-dark__label {
-        @apply font-mono uppercase text-fg-faint m-0 text-xs tracking-widest;
+        @apply font-mono text-chrome-mute m-0 text-xs;
     }
     .lp-code-dark__copy {
-        @apply font-mono text-fg-faint bg-transparent border-none cursor-pointer transition-colors hover:text-white text-xs;
+        @apply inline-flex items-center h-7 px-3 rounded-full font-semibold bg-chrome-control text-accent border-none cursor-pointer transition-colors hover:bg-chrome-line text-xs;
     }
     .lp-code-dark__body {
-        @apply bg-code-dark-bg text-code-dark-text font-mono overflow-x-auto m-0 p-4 text-sm;
-        line-height: 1.6;
+        @apply bg-code-dark-bg text-code-dark-text font-mono overflow-x-auto m-0 pt-0 px-4 pb-4 text-xs leading-relaxed;
         white-space: pre;
     }
 
     /* Agent tools — hairline divider list: mono accent-soft pill + description. */
+    /* Behind a disclosure: an agent's capabilities are worth being able to read,
+       and are not what anyone came to this page to do. */
+    .lp-tools-disclosure {
+        @apply flex flex-col;
+    }
+    .lp-tools-disclosure__summary {
+        @apply inline-flex items-center gap-2 self-start cursor-pointer text-sm font-semibold text-accent-ink;
+        list-style: none;
+    }
+    .lp-tools-disclosure__summary::-webkit-details-marker {
+        display: none;
+    }
+    .lp-tools-disclosure__caret {
+        @apply w-3.5 h-3.5 shrink-0 transition-transform duration-100;
+    }
+    .lp-tools-disclosure[open] .lp-tools-disclosure__caret {
+        @apply rotate-90;
+    }
     .lp-tools {
-        @apply flex flex-col border-t border-line;
+        @apply flex flex-col mt-2;
     }
     .lp-tools__row {
-        @apply flex items-start gap-3 border-b border-line py-3.5 px-0.5;
+        @apply flex items-start gap-4 border-t border-line py-3 px-0.5;
     }
     .lp-tools__name {
-        @apply inline-flex items-center rounded-md font-mono bg-accent-soft text-accent shrink-0 text-xs py-1 px-2;
+        @apply font-mono font-semibold text-ink shrink-0 w-65 text-xs;
     }
     .lp-tools__desc {
-        @apply text-fg-mute m-0 text-sm;
-        line-height: 1.5;
+        @apply text-fg-mute m-0 text-sm leading-normal;
     }
 
     /* ── Billing (subscribe / checkout confirmation) ────────────────────
@@ -2300,28 +2382,33 @@
        subscription, the price, and the action that leaves for Stripe. */
 
     .lp-billing {
-        @apply max-w-190 flex flex-col gap-6 p-10;
+        @apply max-w-215 flex flex-col gap-5 pt-10 px-12 pb-14;
     }
     .lp-billing-block {
-        @apply flex flex-col items-start gap-2.5;
+        @apply flex flex-col items-start gap-3 rounded-xl bg-surface-2 py-4 px-4.5;
     }
     .lp-billing-status {
-        @apply flex items-center gap-2.5 px-4 py-3 rounded-lg border border-line-strong bg-sidebar text-fg text-sm;
+        @apply inline-flex items-center py-1 px-3 rounded-full bg-surface-3 text-ink-soft text-sm font-bold whitespace-nowrap;
     }
     .lp-billing-status--ok {
-        @apply bg-status-ok-bg border-status-ok-border text-status-ok-deep;
+        @apply bg-status-ok-border text-status-ok-ink;
     }
     .lp-billing-status--expired {
-        @apply bg-status-pending-bg border-status-pending-border text-status-pending-deep;
+        @apply bg-status-danger-chip text-status-danger-deep;
+    }
+    /* Trial is the accent chip rather than a status colour: it is a state of
+       the account, not a problem with it. */
+    .lp-billing-status--trial {
+        @apply bg-accent-soft text-ink;
     }
     .lp-billing-price {
-        @apply flex items-baseline gap-2 m-0;
+        @apply flex items-baseline gap-2.5 m-0;
     }
     .lp-billing-price__amount {
-        @apply text-3xl font-semibold text-fg;
+        @apply font-display font-extrabold text-5xl tracking-tight text-ink;
     }
     .lp-billing-price__interval {
-        @apply text-sm text-fg-mute;
+        @apply text-base text-fg-mute;
     }
 
     /* ── Orphan banner ──────────────────────────────────────────────── */
