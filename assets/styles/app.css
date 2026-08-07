@@ -1763,18 +1763,6 @@
         @apply no-underline;
     }
 
-    /* Names the action a thread proposes — only on a strike or a rewording, since
-       a prose comment proposes nothing and needs no label. */
-    .lp-kind-chip {
-        @apply inline-flex items-center rounded-full text-xs font-bold py-0.5 px-2;
-    }
-    .lp-kind-chip--strike {
-        @apply bg-status-danger-bg text-danger;
-    }
-    .lp-kind-chip--suggestion {
-        @apply bg-status-ok-bg text-status-ok-deep;
-    }
-
     .lp-comment-author {
         @apply text-ink font-bold text-sm;
     }
