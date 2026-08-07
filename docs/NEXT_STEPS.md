@@ -3574,8 +3574,16 @@ sha256, and `ShowAccountSettingsView` exposes neither it nor anything the
 template could derive it from — so a link built from `export.id` alone 404s by
 design, which is the correct fail-closed behaviour.
 
-Closing it needs a session-authenticated download action that authorises on the
-signed-in user owning the export, rather than on a token the page cannot see.
-That is the better shape anyway: the token exists so a link in an email works
-without a session, and a logged-in owner on their own settings page has already
-proved more than the token does.
+The token is not what authorises the download, so closing this is not simply a
+matter of dropping it. `DownloadDataExportController` already sits behind the
+`ROLE_USER` catch-all and separately checks that the export belongs to the
+signed-in user, so a forwarded link is refused on ownership alone. What the
+token actually carries is the **48-hour expiry**: `isDownloadTokenValid()`
+bundles the hash comparison, the Ready-status check and `isExpired()` into one
+call, and the expiry reaches the request through no other path.
+
+So closing it means splitting `isExpired()` out as a gate of its own and
+letting an authenticated owner download without a token. Doing only the first
+half — authorising on the session and skipping `isDownloadTokenValid()`
+entirely — would hand out expired archives indefinitely, which is the whole
+reason the window exists.
