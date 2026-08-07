@@ -68,10 +68,13 @@ final class ShowDocumentControllerTest extends WebTestCase
 
         self::assertResponseIsSuccessful();
         self::assertSelectorTextContains('body', 'My Review Doc');
-        self::assertSelectorExists('.lp-review-sidebar');
+        // The two columns the page is built from: the document being read, and the
+        // margin the comment cards are positioned in beside it.
+        self::assertSelectorExists('.lp-review-doc');
+        self::assertSelectorExists('.lp-review-margin');
     }
 
-    public function test_review_page_renders_byline_and_verdict_bar(): void
+    public function test_review_page_renders_byline_and_verdict_actions(): void
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
@@ -94,10 +97,11 @@ final class ShowDocumentControllerTest extends WebTestCase
         self::assertResponseIsSuccessful();
         // Byline names the reviewer (the author side is the literal "Claude").
         self::assertSelectorTextContains('.lp-review-doc__byline', 'reviewed by');
-        // Verdict bar shows both verdict buttons and NOT the approved confirmation.
+        // While the document is still in review both verdict buttons are offered;
+        // the bar that reports a verdict only replaces them once there is one.
         self::assertSelectorExists('button[name="submit_review_form[verdict]"][value="approved"]');
         self::assertSelectorExists('button[name="submit_review_form[verdict]"][value="changes-requested"]');
-        self::assertSelectorNotExists('.lp-verdict-approved');
+        self::assertSelectorNotExists('.lp-verdict-bar');
     }
 
     public function test_agent_highlights_are_carried_outside_the_document_pane(): void
@@ -137,7 +141,12 @@ final class ShowDocumentControllerTest extends WebTestCase
         self::assertCount(0, $pane->filter('[data-comment-anchor-target="agentHighlight"]'));
     }
 
-    public function test_review_page_groups_threads_into_status_ladder(): void
+    /**
+     * A card's position in the margin is what says which passage it belongs to, so
+     * the column is not grouped or sorted by status. Each card states its own
+     * status instead.
+     */
+    public function test_every_thread_states_its_own_status_in_one_ungrouped_column(): void
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
@@ -161,19 +170,20 @@ final class ShowDocumentControllerTest extends WebTestCase
         $em->clear();
 
         $client->loginUser($owner);
-        $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/documents/'.$id.'/review');
+        $crawler = $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/documents/'.$id.'/review');
 
         self::assertResponseIsSuccessful();
-        // Both ladder eyebrows render (grouping done in Twig).
-        self::assertSelectorTextContains('.lp-ladder-group__eyebrow--pending', 'Pending');
-        self::assertSelectorTextContains('.lp-ladder-group__eyebrow--resolved', 'Resolved');
-        // Each thread carries its derived anchor status + a status chip.
+        // Both anchored threads sit in the same margin column, in no status order.
+        self::assertCount(2, $crawler->filter('.lp-review-margin .lp-comment-thread'));
+        // Each thread carries its derived anchor status and says it in words.
         self::assertSelectorExists('[data-anchor-status="pending"]');
         self::assertSelectorExists('[data-anchor-status="resolved"]');
+        self::assertSelectorTextContains('.lp-comment-status--pending', 'Open');
+        self::assertSelectorTextContains('.lp-comment-status--resolved', 'Resolved');
         self::assertSelectorExists('.lp-comment-thread--resolved');
     }
 
-    public function test_resolving_a_comment_returns_the_whole_list_stream_regrouped(): void
+    public function test_resolving_a_comment_returns_the_whole_list_as_one_stream(): void
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
@@ -213,12 +223,11 @@ final class ShowDocumentControllerTest extends WebTestCase
         self::assertStringContainsString('target="comment-threads"', $content);
         self::assertStringNotContainsString('target="comment-thread-'.$commentId.'"', $content);
 
-        // The re-rendered list places the card under RESOLVED with a refreshed
-        // count (1/1) and a full progress bar.
-        self::assertStringContainsString('lp-ladder-group__eyebrow--resolved', $content);
+        // The re-rendered card reports the new status, and the region it sits in
+        // carries the refreshed resolved tally.
         self::assertStringContainsString('lp-comment-thread--resolved', $content);
-        self::assertStringContainsString('1/1 resolved', $content);
-        self::assertStringContainsString('width: 100%', $content);
+        self::assertStringContainsString('lp-comment-status--resolved', $content);
+        self::assertStringContainsString('data-resolved-count="1"', $content);
 
         // The comment is actually persisted as resolved.
         $fetched = $em->find(Comment::class, $comment->id);
@@ -248,8 +257,9 @@ final class ShowDocumentControllerTest extends WebTestCase
         $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/documents/'.$id.'/review');
 
         self::assertResponseIsSuccessful();
-        // Approved state replaces the verdict buttons with a locked confirmation.
-        self::assertSelectorExists('.lp-verdict-approved');
+        // Once a verdict exists it replaces the buttons that produced it.
+        self::assertSelectorExists('.lp-verdict-bar--approved');
+        self::assertSelectorTextContains('.lp-verdict-bar__title', 'Approved');
         self::assertSelectorNotExists('button[name="submit_review_form[verdict]"]');
     }
 
@@ -374,7 +384,7 @@ final class ShowDocumentControllerTest extends WebTestCase
         self::assertCount(0, $earlier->filter('.lp-comment-composer'), 'the composer posts onto the current version');
         self::assertCount(0, $earlier->filter('.lp-anchor-toolbar'));
         self::assertCount(0, $earlier->filter('form[name="strike_passage_form"]'), 'a strike would land on the wrong version');
-        self::assertCount(0, $earlier->filter('.lp-verdict-bar'), 'the verdict applies to the document as it stands');
+        self::assertCount(0, $earlier->filter('button[name="submit_review_form[verdict]"]'), 'the verdict applies to the document as it stands');
         self::assertCount(0, $earlier->filter('.lp-comment-thread form'), 'reply, resolve and delete all act on the live discussion');
 
         // Same page on the current version, to prove the assertions above are not
@@ -383,7 +393,7 @@ final class ShowDocumentControllerTest extends WebTestCase
         // Two composers: one for a comment, one for a rewording.
         self::assertCount(2, $latest->filter('.lp-comment-composer'));
         self::assertCount(1, $latest->filter('form[name="strike_passage_form"]'));
-        self::assertCount(1, $latest->filter('.lp-verdict-bar'));
+        self::assertCount(2, $latest->filter('button[name="submit_review_form[verdict]"]'));
         self::assertGreaterThan(0, $latest->filter('.lp-comment-thread form')->count());
     }
 

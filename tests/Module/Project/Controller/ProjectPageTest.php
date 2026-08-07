@@ -13,7 +13,7 @@ use Symfony\Component\HttpFoundation\Request;
 
 final class ProjectPageTest extends WebTestCase
 {
-    public function test_owner_sees_project_page_with_mint_button(): void
+    public function test_owner_sees_project_page_with_widget_token_creation_button(): void
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
@@ -27,7 +27,11 @@ final class ProjectPageTest extends WebTestCase
 
         self::assertResponseIsSuccessful();
         self::assertStringContainsString('my-app', (string) $client->getResponse()->getContent());
-        self::assertCount(1, $crawler->selectButton('Mint widget token'));
+        // Both token steps offer the same button label, so the button is identified
+        // by the form it submits rather than by its text.
+        $button = $crawler->filter('form[action$="/widget-token"] button');
+        self::assertCount(1, $button);
+        self::assertSame('Create a token', trim($button->text()));
     }
 
     public function test_non_owner_is_forbidden(): void
@@ -58,8 +62,8 @@ final class ProjectPageTest extends WebTestCase
         $em->clear();
 
         $client->loginUser($owner);
-        $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/connect');
-        $client->submitForm('Mint widget token');
+        $crawler = $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/connect');
+        $client->submit($crawler->filter('form[action$="/widget-token"]')->form());
 
         self::assertResponseRedirects('/projects/'.$projectId.'/connect');
         $em->clear();
@@ -86,8 +90,8 @@ final class ProjectPageTest extends WebTestCase
         $projectId = $project->id;
 
         $client->loginUser($owner);
-        $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/connect');
-        $client->submitForm('Mint widget token');
+        $crawler = $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/connect');
+        $client->submit($crawler->filter('form[action$="/widget-token"]')->form());
         $em->clear();
         $freshAfterFirstMint = $em->find(Project::class, $projectId);
         self::assertInstanceOf(Project::class, $freshAfterFirstMint);

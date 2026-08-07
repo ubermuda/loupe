@@ -150,7 +150,7 @@ final class ListDocumentsControllerTest extends WebTestCase
         self::assertStringNotContainsString('Bob Private', (string) $content);
     }
 
-    public function test_row_shows_breadcrumb_version_pill_status_chip_and_open_threads(): void
+    public function test_row_shows_version_pill_status_chip_and_open_thread_count(): void
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
@@ -164,9 +164,9 @@ final class ListDocumentsControllerTest extends WebTestCase
         $em->persist($document);
 
         // One open top-level thread + one resolved top-level thread + one
-        // unresolved reply (parent set) on the current version. The meta counts
+        // unresolved reply (parent set) on the current version. The chip counts
         // only unresolved *top-level* threads, so the reply must NOT bump the
-        // count → the meta line should read "1 open thread".
+        // count → the chip should read "1 open".
         $open = new Comment($current, $alice, 'Please rethink the window.', Anchor::unanchored());
         $resolved = new Comment($current, $alice, 'Fixed, thanks.', Anchor::unanchored());
         $resolved->status = CommentStatus::Resolved;
@@ -185,9 +185,9 @@ final class ListDocumentsControllerTest extends WebTestCase
 
         self::assertResponseIsSuccessful();
 
-        // Breadcrumb: {project} / Documents.
-        self::assertSelectorTextContains('.lp-crumbs', 'Documents');
-        self::assertSelectorTextContains('.lp-crumbs', $project->name);
+        // The trail lives in the shell's top bar: {project} / Documents.
+        self::assertSelectorTextContains('.lp-topbar__crumb', $project->name);
+        self::assertSelectorTextContains('.lp-topbar__here', 'Documents');
 
         $rowSelector = '[data-document-id="'.$documentId.'"]';
 
@@ -197,8 +197,8 @@ final class ListDocumentsControllerTest extends WebTestCase
         // Status chip keeps the lp-badge hook and the translated status text.
         self::assertSelectorTextContains($rowSelector.' .lp-badge', 'In review');
 
-        // Open-thread meta counts only the unresolved top-level thread.
-        self::assertSelectorTextContains($rowSelector.' .lp-document-row__open', '1 open thread');
+        // Open-thread chip counts only the unresolved top-level thread.
+        self::assertSelectorTextContains($rowSelector.' .lp-document-row__threads', '1 open');
     }
 
     public function test_paginates_at_twenty_per_page(): void
@@ -421,11 +421,11 @@ final class ListDocumentsControllerTest extends WebTestCase
 
         self::assertResponseIsSuccessful();
         self::assertCount(0, $crawler->filter('[data-document-id]'));
-        // Not the "No documents yet." copy — the project does have one.
-        self::assertSelectorTextContains('.lp-empty', 'No documents match these filters.');
+        // Not the "No documents yet" copy — the project does have one.
+        self::assertSelectorTextContains('.lp-empty-state__title', 'No documents match these filters');
         self::assertCount(
             1,
-            $crawler->filter('.lp-card a[href="/projects/'.$projectId.'/documents"]'),
+            $crawler->filter('.lp-empty-state a[href="/projects/'.$projectId.'/documents"]'),
         );
         // The search box is outside the empty branch, so it is still reachable.
         self::assertCount(1, $crawler->filter('.lp-list-filters input[name="search"]'));
