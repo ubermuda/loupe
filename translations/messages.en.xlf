@@ -1293,7 +1293,31 @@
             </trans-unit>
             <trans-unit id="nav.link.connect">
                 <source>nav.link.connect</source>
-                <target>Connect agent</target>
+                <target>Connect</target>
+            </trans-unit>
+            <trans-unit id="nav.link.project_settings">
+                <source>nav.link.project_settings</source>
+                <target>Project settings</target>
+            </trans-unit>
+            <trans-unit id="nav.link.account">
+                <source>nav.link.account</source>
+                <target>Account</target>
+            </trans-unit>
+            <trans-unit id="nav.switcher.label">
+                <source>nav.switcher.label</source>
+                <target>Switch project</target>
+            </trans-unit>
+            <trans-unit id="nav.switcher.all_projects">
+                <source>nav.switcher.all_projects</source>
+                <target>All projects</target>
+            </trans-unit>
+            <trans-unit id="nav.switcher.document_count">
+                <source>nav.switcher.document_count</source>
+                <target>{0}no documents|{1}1 document|]1,Inf[%count% documents</target>
+            </trans-unit>
+            <trans-unit id="flash.dismiss">
+                <source>flash.dismiss</source>
+                <target>Dismiss</target>
             </trans-unit>
 
             <!-- Projects -->

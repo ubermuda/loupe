@@ -191,6 +191,39 @@ class DocumentRepository extends ServiceEntityRepository
     }
 
     /**
+     * Same count as countActiveByProject, for several projects in one query —
+     * the shell's project switcher lists every project on every page, so the
+     * per-project form would be an N+1 on all of them.
+     *
+     * @param list<Project> $projects
+     *
+     * @return array<string, int> project id => count, projects with none omitted
+     */
+    public function countActiveByProjects(array $projects): array
+    {
+        if ([] === $projects) {
+            return [];
+        }
+
+        /** @var list<array{id: mixed, total: mixed}> $rows */
+        $rows = $this->createQueryBuilder('d')
+            ->select('IDENTITY(d.project) AS id, COUNT(d.id) AS total')
+            ->andWhere('d.project IN (:projects)')
+            ->andWhere('d.archivedAt IS NULL')
+            ->setParameter('projects', $projects)
+            ->groupBy('d.project')
+            ->getQuery()
+            ->getArrayResult();
+
+        $counts = [];
+        foreach ($rows as $row) {
+            $counts[(string) $row['id']] = (int) $row['total'];
+        }
+
+        return $counts;
+    }
+
+    /**
      * Reads the stored archive state back, past the loaded entity.
      *
      * A caller holding a row lock needs to see what a racing transaction

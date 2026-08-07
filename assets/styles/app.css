@@ -44,13 +44,67 @@
     font-display: swap;
 }
 
+/* Two subsets per family rather than one file: these are Google's own
+   latin / latin-ext splits, self-hosted so a private instance makes no
+   request to fonts.gstatic.com. */
+@font-face {
+    font-family: 'DM Sans';
+    src: url('../fonts/DMSans-latin.woff2') format('woff2');
+    font-weight: 100 1000;
+    font-style: normal;
+    font-display: swap;
+    unicode-range:
+        U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC,
+        U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193,
+        U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+    font-family: 'DM Sans';
+    src: url('../fonts/DMSans-latin-ext.woff2') format('woff2');
+    font-weight: 100 1000;
+    font-style: normal;
+    font-display: swap;
+    unicode-range:
+        U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF,
+        U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020,
+        U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+
+@font-face {
+    font-family: 'Bricolage Grotesque';
+    src: url('../fonts/BricolageGrotesque-latin.woff2') format('woff2');
+    font-weight: 200 800;
+    font-stretch: 100%;
+    font-style: normal;
+    font-display: swap;
+    unicode-range:
+        U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC,
+        U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193,
+        U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+    font-family: 'Bricolage Grotesque';
+    src: url('../fonts/BricolageGrotesque-latin-ext.woff2') format('woff2');
+    font-weight: 200 800;
+    font-stretch: 100%;
+    font-style: normal;
+    font-display: swap;
+    unicode-range:
+        U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF,
+        U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020,
+        U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+
 /* ── Design token → Tailwind utility mapping ──────────────────────── */
 
 @theme inline {
     /* Fonts */
     --font-sans:
-        Geist, ui-sans-serif, -apple-system, BlinkMacSystemFont, system-ui,
+        'DM Sans', ui-sans-serif, -apple-system, BlinkMacSystemFont, system-ui,
         sans-serif;
+    --font-display: 'Bricolage Grotesque', ui-sans-serif, system-ui, sans-serif;
     --font-mono: 'Geist Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
 
     /* Colors — semantic palette */
@@ -67,6 +121,7 @@
     --color-line-strong: var(--border-strong);
     --color-line-faint: var(--border-faint);
     --color-ink: var(--ink);
+    --color-ink-soft: var(--ink-soft);
     --color-fg: var(--text);
     --color-fg-mute: var(--text-mute);
     --color-fg-dim: var(--text-dim);
@@ -77,6 +132,24 @@
     --color-accent-faint: var(--accent-faint);
     --color-accent-faint-2: var(--accent-faint-2);
     --color-accent-border: var(--accent-border);
+    --color-accent-ink: var(--accent-ink);
+
+    /* Chrome — the dark shell (sidebar, top bar). A second ladder rather than
+       an inversion of the light one: only these six values are legible on the
+       near-black, and reusing --text-* there lands unreadable. */
+    --color-chrome: var(--chrome);
+    --color-chrome-raised: var(--chrome-raised);
+    --color-chrome-control: var(--chrome-control);
+    --color-chrome-line: var(--chrome-line);
+    --color-chrome-fg: var(--chrome-fg);
+    --color-chrome-mute: var(--chrome-mute);
+    --color-chrome-dim: var(--chrome-dim);
+    --color-switcher-hover: var(--switcher-hover-border);
+
+    /* Long-form document prose — faintly cool where the rest of the ink is
+       warm, which is what keeps a 640px column of body text from reading as
+       brown. */
+    --color-prose: var(--prose);
 
     /* Status ladder — pending (amber) / ok (green) trios */
     --color-status-pending: var(--status-pending);
@@ -91,13 +164,17 @@
     --color-status-danger-deep: var(--status-danger-deep);
     --color-status-danger-bg: var(--status-danger-bg);
     --color-status-danger-border: var(--status-danger-border);
+    --color-status-ok-ink: var(--status-ok-ink);
+    --color-status-danger-chip: var(--status-danger-chip);
+    --color-strike: var(--strike);
+    --color-strike-on-chrome: var(--strike-on-chrome);
 
     /* Dark .mcp.json code block (Connect page) */
     --color-code-dark-header: var(--code-dark-header);
     --color-code-dark-bg: var(--code-dark-bg);
     --color-code-dark-text: var(--code-dark-text);
 
-    --color-danger: #c83a3a;
+    --color-danger: var(--status-danger);
 
     /* Shadows — the only three the design allows: selection toolbar (dark
        floating pill), floating composer, and the active-card focus ring. */
@@ -112,52 +189,82 @@
 /* ── Design tokens ──────────────────────────────────────────────────── */
 
 :root {
-    /* Accent (indigo) */
-    --accent: #5b5bd6;
-    --accent-hover: #4a4ac0;
-    --accent-soft: #ecebfb;
-    --accent-faint: #f4f3ff;
-    --accent-faint-2: #faf9ff;
-    --accent-border: #d9d8f5;
-    /* Switcher hover border — handoff §2 pins this specific hairline. */
-    --switcher-hover-border: #c7c6f0;
+    /* Accent (chartreuse). Deliberately not lime-400: the handoff maps it there
+       only to honour its own named-Tailwind-token rule, and says the prototype
+       wins wherever the two disagree. lime-400 is visibly greener. */
+    --accent: #c4d600;
+    --accent-hover: #b0c000;
+    /* Highlight — the open-comment anchor, open-thread chip, trial chip. */
+    --accent-soft: #e8f24d;
+    --accent-faint: #f3f7c4;
+    --accent-faint-2: #f9fbe6;
+    --accent-border: #dfe97a;
+    /* Accent dark enough to read as text on paper — links, active counts. */
+    --accent-ink: #5c6600;
+    --switcher-hover-border: #3a3a34;
 
     /* Text ladder */
-    --ink: #17172a;
-    --text: #363650;
-    --text-mute: #6b6b84;
-    --text-dim: #9a9ab0;
-    --faint: #b4b4c6;
+    --ink: #0f0f0d;
+    --text: #14140f;
+    --text-mute: #6f6f66;
+    --text-dim: #8f8f84;
+    --faint: #c9c9c0;
+    --prose: #22262b;
 
     /* Borders / hairlines */
-    --border: #ececf4;
-    --border-strong: #e4e4ee;
-    --border-faint: #f4f4f8;
+    --border: #f0f0ec;
+    --border-strong: #e2e2dc;
+    --border-faint: #f6f6f2;
 
-    /* Surfaces */
+    /* Surfaces — "paper": the white panel the content sits on. */
     --bg: #ffffff;
-    --sidebar: #fbfbfe;
+    --sidebar: #0f0f0d;
     --surface-1: #ffffff;
-    --surface-2: #fbfbfe;
-    --surface-3: #f4f4f8;
+    --surface-2: #f9f9f6;
+    --surface-3: #f4f4f0;
     --bg-elev: #ffffff;
-    --bg-sunken: #f4f4f8;
-    --bg-hover: #fbfbfe;
-    --bg-active: #ececf4;
+    --bg-sunken: #f4f4f0;
+    --bg-hover: #f9f9f6;
+    --bg-active: #f0f0ec;
+
+    /* Chrome — the dark shell the paper is inset into. */
+    --chrome: #0f0f0d;
+    --chrome-raised: #1c1c18;
+    --chrome-control: #26261f;
+    --chrome-line: #3a3a34;
+    --chrome-fg: #e8e8e2;
+    --chrome-mute: #a8a89e;
+    --chrome-dim: #8f8f84;
 
     /* Status ladder — pending (amber) / addressed·resolved (green) / removed (red) */
-    --status-pending: #e09a3e;
-    --status-pending-deep: #c17a2f;
-    --status-pending-bg: #fdf3e6;
-    --status-pending-border: #f3e2c8;
-    --status-ok: #47a06b;
-    --status-ok-deep: #3d8a5c;
-    --status-ok-bg: #f0f9f3;
-    --status-ok-border: #d4ecdd;
-    --status-danger: #c83a3a;
-    --status-danger-deep: #a92f2f;
-    --status-danger-bg: #fdf1f1;
-    --status-danger-border: #f2d6d6;
+    --status-pending: #9a6a1c;
+    --status-pending-deep: #7a5514;
+    --status-pending-bg: #fdf4e3;
+    --status-pending-border: #f0e2c0;
+    --status-ok: #2f9e5c;
+    --status-ok-deep: #25794a;
+    --status-ok-bg: #eaf7ee;
+    --status-ok-border: #b8f2c8;
+    --status-danger: #c2372b;
+    --status-danger-deep: #8c1e14;
+    --status-danger-bg: #fbe9e7;
+    --status-danger-border: #f8d7d2;
+
+    /* Ink dark enough to sit on the -border rung, which the design uses as a
+       solid chip fill (Approved, Changes requested) as well as a hairline. The
+       -deep rung is tuned for the pale -bg and is too light there. */
+    --status-ok-ink: #0f3d20;
+    --status-danger-chip: #ffd9d5;
+
+    /* Ink for a badge on the neutral raised fill. Lighter than --ink so a
+       resting "In review" does not shout as loudly as a heading. */
+    --ink-soft: #3d3d36;
+
+    /* The strike rule is its own red: brighter than --status-danger because it
+       has to stay visible as a 3px line over body text, and it never carries
+       text of its own. */
+    --strike: #ff4a3d;
+    --strike-on-chrome: #ff8f85;
 
     /* Agent mark (fuchsia) — passages the agent flagged as worth reading first.
        Deliberately outside the amber/green status ladder: a reviewer must be able
@@ -188,9 +295,9 @@
 
     /* Dark code block (Connect page .mcp.json) — handoff §5. Intentionally a
        dark component on the otherwise light Connect screen, not a theme. */
-    --code-dark-header: #17172a;
-    --code-dark-bg: #1c1c30;
-    --code-dark-text: #c7c6f0;
+    --code-dark-header: #0f0f0d;
+    --code-dark-bg: #0f0f0d;
+    --code-dark-text: #e8e8e2;
 }
 
 /* ── Global resets ──────────────────────────────────────────────────── */
@@ -397,9 +504,11 @@
 
     /* ── Card ───────────────────────────────────────────────────────── */
 
+    /* Resting surfaces are told apart by fill, never by shadow — elevation is
+       reserved for things floating above the page. */
     .lp-card,
     .admin-card {
-        @apply bg-surface-1 border border-line rounded-xl p-5;
+        @apply bg-surface-2 rounded-xl py-4 px-4.5;
     }
 
     /* ── Form controls (lp- namespace) ──────────────────────────────── */
@@ -412,19 +521,21 @@
     }
     .lp-label,
     .admin-field-label {
-        @apply text-sm font-medium text-fg;
+        @apply text-xs font-bold text-fg-mute;
     }
+    /* Borderless: the fill is the field. A border plus a fill reads as two
+       edges on a screen that otherwise has almost none. */
     .lp-input,
     .admin-field-input {
-        @apply w-full font-sans text-sm text-fg bg-surface-2 border border-line rounded-md px-3 py-2 outline-hidden transition-colors placeholder:text-fg-dim focus:bg-surface-1 focus:border-accent focus:shadow-focus;
+        @apply w-full font-sans text-base text-ink bg-surface-3 border-0 rounded-xl px-4 py-3 outline-hidden transition-colors placeholder:text-fg-dim focus:bg-tint-strong;
     }
     /* Native <select>: hide the OS arrow and draw a design-system chevron.
        Defined after .lp-input so it can layer the chevron on top. */
     .lp-select,
     .admin-field-select {
         @apply appearance-none bg-no-repeat pr-9 cursor-pointer;
-        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
-        background-position: right calc(var(--spacing) * 2.5) center;
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%236f6f66' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+        background-position: right calc(var(--spacing) * 3.5) center;
         background-size: calc(var(--spacing) * 4);
     }
     .lp-field-errors {
@@ -434,7 +545,7 @@
         @apply list-none p-0 m-0;
     }
     .lp-field-errors li {
-        @apply text-xs mt-1 text-danger;
+        @apply text-xs font-semibold mt-1 text-danger;
     }
     .lp-form-hint {
         @apply text-xs text-fg-dim;
@@ -457,18 +568,20 @@
 
     /* ── Badge ──────────────────────────────────────────────────────── */
 
+    /* Solid fills, no border. "In review" is deliberately the neutral one: it is
+       the resting state of every document, so colouring it would leave a list of
+       untouched documents looking like a list of alerts. */
     .lp-badge {
-        @apply inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border;
+        @apply inline-flex items-center py-1 px-3 rounded-full text-sm font-bold whitespace-nowrap;
     }
-    /* In review = indigo accent (also the sidebar-active / loop-current tone) */
     .lp-badge--in-review {
-        @apply bg-accent-soft text-accent-hover border-accent-border;
+        @apply bg-surface-3 text-ink-soft;
     }
     .lp-badge--approved {
-        @apply bg-status-ok-bg text-status-ok-deep border-status-ok-border;
+        @apply bg-status-ok-border text-status-ok-ink;
     }
     .lp-badge--changes-requested {
-        @apply bg-status-pending-bg text-status-pending-deep border-status-pending-border;
+        @apply bg-status-danger-chip text-status-danger-deep;
     }
 
     /* ── System status checks ───────────────────────────────────────────
@@ -623,38 +736,37 @@
        and site-review screens so the breadcrumb sits at the same height on
        every screen of the app. */
     .lp-workspace {
-        @apply max-w-225 pt-5.5 px-8 pb-15;
+        @apply max-w-225 pt-10 px-12 pb-14;
     }
     .lp-eyebrow {
-        @apply font-mono uppercase text-fg-dim m-0 text-xs tracking-widest;
+        @apply uppercase text-fg-dim m-0 text-xs font-bold tracking-widest;
     }
     .lp-workspace-title {
-        @apply font-semibold text-ink m-0 mt-2 text-2xl tracking-normal;
+        @apply font-display font-extrabold text-ink m-0 text-5xl tracking-tight leading-none;
     }
-    /* Documents/Connect page H1. Was a distinct 24px vs. the base class's 26px;
-       both now round to the same text-2xl/tracking-normal step on the Tailwind
-       scale, so this modifier no longer changes anything the base class doesn't
-       already set. Kept as a separate class rather than merged into the base,
-       since templates still apply it and it documents which screens use this
-       heading tier. */
+    /* Documents/Connect page H1 — same tier as the base class. Kept separate
+       because templates apply it and it records which screens use this tier. */
     .lp-workspace-title--doc {
-        @apply text-2xl tracking-normal;
+        @apply text-5xl tracking-tight;
     }
     .lp-workspace-desc {
-        @apply text-fg-mute m-0 mt-2 mb-6 text-sm;
-        line-height: 1.55;
+        @apply text-fg-mute m-0 mt-2 mb-8 text-base leading-relaxed;
+    }
+    /* Wide column for the two screens that need one — Connect and the diff. */
+    .lp-workspace--wide {
+        @apply max-w-215;
     }
 
-    /* Flush hairline divider list of project rows (top hairline, per-row bottom
-       hairline #ececf4, hover bg #fbfbfe). */
+    /* One sunken card per project rather than a hairline list — a project is a
+       destination, and the rows are far enough apart to read as separate. */
     .lp-project-list {
-        @apply flex flex-col border-t border-line;
+        @apply flex flex-col gap-2.5;
     }
     .lp-project-row {
-        @apply relative flex items-center gap-3.5 border-b border-line transition-colors py-4.5 px-1.5;
+        @apply relative flex items-center gap-3.5 rounded-xl bg-surface-2 transition-colors py-4 px-4.5;
     }
     .lp-project-row:hover {
-        @apply bg-tint;
+        @apply bg-sunken;
     }
     /* Stretch the documents link across the whole row; the chevron and meta are
        non-interactive so they sit beneath it. */
@@ -662,7 +774,7 @@
         @apply absolute inset-0;
     }
     .lp-project-row__avatar {
-        @apply shrink-0 w-9.5 h-9.5 text-base;
+        @apply shrink-0 w-9.5 h-9.5 rounded-lg bg-ink text-accent inline-flex items-center justify-center font-bold text-base;
     }
     .lp-project-row__main {
         @apply min-w-0 flex-1 flex flex-col gap-1;
@@ -672,32 +784,28 @@
         @apply flex items-baseline gap-2 min-w-0;
     }
     .lp-project-row__name {
-        @apply font-semibold text-ink shrink-0 text-base;
+        @apply font-display font-semibold text-ink shrink-0 text-2xl tracking-tight;
     }
     .lp-project-row__domain {
         @apply font-mono text-fg-dim truncate text-xs;
     }
-    /* Line 2: the mono rollup, beneath the name. */
+    /* Line 2: the derived rollup, beneath the name. */
     .lp-project-row__meta {
-        @apply flex items-center gap-1.5 font-mono text-fg-dim text-xs;
+        @apply flex items-center gap-1.5 text-fg-dim text-sm;
     }
     .lp-project-row__sep {
         @apply text-fg-dim;
     }
     .lp-project-row__open {
-        color: var(--status-pending-deep);
+        @apply text-accent-ink font-bold;
     }
     /* Edit affordance: sits above the full-row overlay link (z-10) so it stays
        clickable rather than the row's documents link swallowing the click. */
     .lp-project-row__edit {
-        @apply relative z-10 shrink-0 flex items-center justify-center w-8 h-8 rounded-lg text-fg-dim transition-colors;
+        @apply relative z-10 shrink-0 flex items-center justify-center w-8.5 h-8.5 rounded-full text-fg-mute transition-colors;
     }
     .lp-project-row__edit:hover {
-        @apply bg-line text-ink;
-    }
-    .lp-project-row__chevron {
-        @apply w-4 h-4 shrink-0;
-        color: var(--switcher-hover-border);
+        @apply bg-tint-strong text-ink;
     }
 
     /* New-project affordance: a dashed 38px square + label that reveals the
@@ -759,10 +867,12 @@
        .lp-doc-row (token/site-review rows) so its 16px 6px rhythm and version
        pill stay local to this screen. */
     .lp-document-list {
-        @apply flex flex-col border-t border-line mt-1;
+        @apply flex flex-col mt-2;
     }
+    /* Divider on top rather than bottom, so the last row does not end on a rule
+       the eye reads as "more below". */
     .lp-document-row {
-        @apply relative flex items-center gap-4 border-b border-line transition-colors py-4 px-1.5;
+        @apply relative flex items-center gap-4 border-t border-line-strong transition-colors py-5 px-1;
     }
     .lp-document-row:hover {
         @apply bg-tint;
@@ -780,19 +890,24 @@
         @apply flex items-baseline gap-2 min-w-0;
     }
     .lp-document-row__title {
-        @apply font-medium text-ink truncate text-base;
+        @apply font-display font-semibold text-ink truncate text-2xl tracking-tight;
     }
-    /* Mono version pill — bg #f4f4f8, e.g. "v3". */
+    /* Bare mono version marker, e.g. "v3" — a pill here would compete with the
+       status badge at the other end of the same row. */
     .lp-document-row__version {
-        @apply inline-flex items-center shrink-0 font-mono rounded-full text-fg-dim text-xs py-px px-2;
-        background: var(--border-faint);
+        @apply inline-flex items-center shrink-0 font-mono text-fg-dim text-xs;
     }
-    /* Line 2: the mono meta beneath the title. */
+    /* Line 2: the meta beneath the title. */
     .lp-document-row__meta {
-        @apply flex items-center gap-1.5 font-mono text-fg-dim text-xs;
+        @apply flex items-center gap-1.5 text-fg-dim text-sm;
     }
     .lp-document-row__sep {
         @apply text-fg-dim;
+    }
+    /* Open-thread count — the one thing on the row that asks for action, so it
+       is the only element carrying the highlight fill. */
+    .lp-document-row__threads {
+        @apply inline-flex items-center shrink-0 rounded-full bg-accent-soft text-ink font-bold text-sm py-1 px-3;
     }
     /* Line 3: the document's tag chips. Wraps, because a document may carry more
        names than fit the row and .lp-document-row__main is min-w-0. No margin —
@@ -801,25 +916,21 @@
         @apply flex flex-wrap items-center gap-1.5;
     }
     .lp-document-row__open {
-        color: var(--status-pending-deep);
-    }
-    .lp-document-row__chevron {
-        @apply w-4 h-4 shrink-0;
-        color: var(--switcher-hover-border);
+        @apply text-accent-ink font-bold;
     }
     /* An archived document still opens at its URL, so the row stays a link and
        is dimmed rather than removed. */
     .lp-document-row--archived {
-        @apply opacity-60;
+        @apply opacity-50;
     }
     .lp-document-row__archived {
-        @apply inline-flex items-center shrink-0 font-mono rounded-full text-fg-dim text-xs py-px px-2 border border-line;
+        @apply inline-flex items-center shrink-0 uppercase text-fg-dim text-xs font-bold tracking-wide;
     }
     /* Free text an agent wrote, so it is clamped rather than trusted to be
        short: two lines keep a long reason from stretching the row past its
        neighbours. Only archived rows can carry one. */
     .lp-document-row__archive-reason {
-        @apply m-0 text-xs text-fg-dim line-clamp-2;
+        @apply m-0 text-sm italic text-fg-dim line-clamp-2;
     }
     /* Rename and archive sit above the full-row overlay link (z-10) so they stay
        clickable rather than the row's review link swallowing the click. */
@@ -832,61 +943,86 @@
         @apply contents;
     }
     .lp-document-row__action {
-        @apply flex items-center justify-center w-8 h-8 rounded-lg bg-transparent border-0 cursor-pointer text-fg-dim transition-colors;
+        @apply flex items-center justify-center w-8.5 h-8.5 rounded-full bg-transparent border-0 cursor-pointer text-fg-mute transition-colors;
     }
     .lp-document-row__action:hover {
-        @apply bg-line text-ink;
+        @apply bg-tint-strong text-ink;
     }
 
     /* Filter bar above a list. Lives outside the list's empty-state branch so a
        filter that matches nothing can still be turned off. */
     .lp-list-filters {
-        @apply flex flex-wrap items-center gap-2 mt-4;
+        @apply flex flex-wrap items-center gap-2.5 mt-6;
     }
     .lp-filter-chip {
-        @apply inline-flex items-center gap-1.5 rounded-full border border-line bg-surface-2 text-fg-mute no-underline transition-colors text-xs py-1 px-3;
+        @apply inline-flex items-center gap-1.5 h-8.5 rounded-full bg-surface-3 text-fg-mute no-underline transition-colors text-sm font-semibold px-3.5;
     }
     .lp-filter-chip:hover {
-        @apply bg-tint text-fg;
+        @apply bg-tint-strong text-ink;
     }
     .lp-filter-chip--on {
-        @apply bg-accent-soft text-accent-hover border-transparent;
+        @apply bg-ink text-accent;
+    }
+    /* Borderless "Clear" — an escape hatch, not a filter of its own. */
+    .lp-filter-clear {
+        @apply inline-flex items-center gap-1.5 h-8.5 rounded-full bg-transparent text-fg-mute no-underline transition-colors text-sm px-2;
+    }
+    .lp-filter-clear:hover {
+        @apply text-ink;
+    }
+    /* Right-aligned "5 of 7 documents". */
+    .lp-filter-count {
+        @apply ml-auto font-mono text-fg-dim text-xs;
     }
 
     /* The bar's GET form. Its controls sit on .lp-input / .lp-select and are
-       sized down here, so they must be declared after those base classes. */
+       resized here, so they must be declared after those base classes. */
     .lp-filter-form {
-        @apply flex flex-wrap items-center gap-2;
+        @apply flex flex-wrap items-center gap-2.5;
     }
     .lp-filter-search {
         @apply relative flex items-center;
     }
     .lp-filter-search__icon {
-        @apply absolute left-3 w-4 h-4 text-fg-dim pointer-events-none;
+        @apply absolute left-4 w-4 h-4 text-fg-dim pointer-events-none;
     }
     .lp-filter-input {
-        @apply w-64 py-1.5 pl-9;
+        @apply w-67.5 h-10 rounded-full py-0 pl-10 text-sm;
     }
     .lp-filter-select {
-        @apply w-auto py-1.5;
+        @apply w-auto h-10 rounded-full py-0 text-sm;
     }
 
     /* ── Flash messages ─────────────────────────────────────────────── */
 
+    /* Sits at the top of the paper panel and scrolls away with the content —
+       deliberately not sticky, so it never covers the document. */
     .lp-flash {
-        @apply flex items-start gap-2.5 px-4 py-3 rounded-lg border text-sm mb-4;
+        @apply flex items-center gap-2.5 mt-3.5 mx-6 px-3.5 py-2.5 rounded-lg bg-sunken text-sm font-medium text-ink;
+        animation: lp-appear 120ms ease-out both;
     }
-    .lp-flash--success {
-        @apply bg-status-ok-bg border-status-ok-border text-status-ok-deep;
+    .lp-flash__dot {
+        @apply w-2 h-2 shrink-0 rounded-full bg-accent;
     }
-    .lp-flash--error {
-        @apply bg-red-50 border-red-200 text-red-800;
+    .lp-flash__message {
+        @apply mr-auto;
     }
-    .lp-flash--warning {
-        @apply bg-status-pending-bg border-status-pending-border text-status-pending-deep;
+    .lp-flash__dismiss {
+        @apply shrink-0 text-xs text-fg-mute cursor-pointer transition-colors;
     }
-    .lp-flash--info {
-        @apply bg-accent-faint border-accent-border text-accent-hover;
+    .lp-flash__dismiss:hover {
+        @apply text-ink;
+    }
+    /* Severity is carried by the dot alone: the row itself stays the neutral
+       raised fill so a success and an error read as the same kind of object. */
+    .lp-flash--error .lp-flash__dot {
+        @apply bg-status-danger;
+    }
+    .lp-flash--warning .lp-flash__dot {
+        @apply bg-status-pending;
+    }
+    .lp-flash--info .lp-flash__dot {
+        @apply bg-status-ok;
     }
 
     /* ── Empty state ────────────────────────────────────────────────── */
@@ -897,60 +1033,87 @@
 
     /* ── Buttons (lp- namespace) ────────────────────────────────────── */
 
+    /* Every button in this design is fully rounded. There are no square buttons
+       anywhere — a rectangular one will look like it belongs to another app. */
     .lp-btn {
-        @apply inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-line bg-surface-1 text-fg text-sm font-medium cursor-pointer whitespace-nowrap transition;
+        @apply inline-flex items-center justify-center gap-1.5 h-9 px-4 rounded-full border-0 bg-surface-3 text-ink text-sm font-semibold cursor-pointer whitespace-nowrap transition;
     }
     .lp-btn:hover {
-        @apply bg-tint border-line-strong;
+        @apply bg-tint-strong;
     }
     .lp-btn:active {
         @apply translate-y-px scale-97;
     }
     .lp-btn--primary {
-        @apply bg-accent border-accent text-white;
+        @apply bg-accent px-5 text-ink font-bold;
     }
     .lp-btn--primary:hover {
-        @apply bg-accent-hover border-accent-hover;
+        @apply bg-accent-hover;
+    }
+    /* Inverse — Resolve, Send reply, Approve. Accent on near-black rather than
+       the other way round, so it reads as the decisive action on a light card
+       without a second accent fill competing with the primary button. */
+    .lp-btn--inverse {
+        @apply bg-ink text-accent font-bold;
+    }
+    .lp-btn--inverse:hover {
+        @apply bg-chrome-raised;
+    }
+    /* On a card, whose own fill is already the raised grey. */
+    .lp-btn--on-card {
+        @apply bg-app;
+    }
+    .lp-btn--on-card:hover {
+        @apply bg-tint-strong;
+    }
+    /* Outline, for use on the dark chrome (the top bar's Request changes). */
+    .lp-btn--outline {
+        @apply bg-transparent border border-chrome-line text-chrome-fg font-normal;
+    }
+    .lp-btn--outline:hover {
+        @apply bg-chrome-raised;
     }
     .lp-btn--success {
-        @apply bg-green-600 border-green-700 text-white;
+        @apply bg-status-ok-border text-status-ok-ink font-bold;
     }
     .lp-btn--success:hover {
-        @apply bg-green-700 border-green-800;
+        @apply bg-status-ok-bg;
     }
     .lp-btn--warning {
-        @apply bg-amber-500 border-amber-600 text-white;
+        @apply bg-status-pending-bg text-status-pending-deep font-bold;
     }
     .lp-btn--warning:hover {
-        @apply bg-amber-600 border-amber-700;
+        @apply bg-status-pending-border;
     }
+    /* Filled destructive — irreversible, and the only red fill on the screen. */
     .lp-btn--danger {
-        @apply bg-red-600 border-red-700 text-white;
+        @apply h-10.5 bg-status-danger-bg px-4.5 text-danger font-bold;
     }
     .lp-btn--danger:hover {
-        @apply bg-red-700 border-red-800;
+        @apply bg-status-danger-border;
     }
     .lp-btn--ghost {
-        @apply bg-transparent border-transparent text-fg-mute shadow-none;
+        @apply bg-transparent text-fg-mute shadow-none;
     }
     .lp-btn--ghost:hover {
-        @apply bg-tint text-fg;
+        @apply bg-tint-strong text-ink;
     }
+    /* Text-only destructive — recoverable (Delete a comment, Revoke a token). */
     .lp-btn--danger-ghost {
-        @apply bg-transparent border-transparent text-danger shadow-none;
+        @apply h-8.5 bg-transparent px-3 text-danger shadow-none;
     }
     .lp-btn--danger-ghost:hover {
-        @apply bg-red-50 text-danger;
+        @apply bg-status-danger-bg;
     }
     .lp-btn--sm {
-        @apply px-2 py-1 text-xs;
+        @apply h-8.5 px-3.5 text-sm;
     }
-    /* Amber-outline "Request changes" verdict button. */
-    .lp-btn--outline-amber {
-        @apply bg-status-pending-bg border-status-pending-border text-status-pending-deep;
+    /* Square-footprint icon button — still a circle, just without a label. */
+    .lp-btn--icon {
+        @apply w-8.5 h-8.5 p-0 bg-transparent text-fg-mute;
     }
-    .lp-btn--outline-amber:hover {
-        @apply bg-status-pending-border border-status-pending;
+    .lp-btn--icon:hover {
+        @apply bg-tint-strong text-ink;
     }
 
     /* ── Pagination (shared `<twig:Pagination>` component) ─────────────── */
@@ -1706,86 +1869,127 @@
 
     /* ── App shell (sidebar + content) ──────────────────────────────── */
 
+    /* The shell is dark chrome all the way out to the window edge; the content
+       sits on a white "paper" panel inset from it on the right and bottom. The
+       paper is the app's only scroll container, so the window itself never
+       scrolls. */
     .lp-app {
-        @apply grid;
-        grid-template-columns: calc(var(--spacing) * 63) 1fr;
-        /* Lock the shell to the viewport so the sidebar stays put and the main
-           column scrolls on its own (see .lp-main overflow-y-auto below). */
+        @apply flex bg-sidebar;
         height: 100dvh;
     }
+    .lp-shell {
+        @apply flex flex-1 flex-col min-w-0 pr-2.5 pb-2.5;
+    }
     .lp-main {
-        @apply min-w-0 overflow-x-hidden overflow-y-auto;
+        @apply flex-1 min-h-0 bg-app rounded-lg overflow-x-hidden overflow-y-auto;
     }
 
-    /* Full-height sidebar pinned to the viewport (bg #fbfbfe, right hairline).
-       The account row is pushed to the bottom by .lp-sidebar__spacer (mt-auto). */
     .lp-sidebar {
-        @apply flex flex-col gap-1 bg-sidebar border-r border-line px-3 py-4;
+        @apply flex flex-col gap-1 w-59 shrink-0 pt-5 px-3.5 pb-3.5;
     }
 
-    /* Brand: 26px accent mark + name. */
+    /* Wordmark. There is no logo mark by design — do not add one back. */
     .lp-sidebar__brand {
-        @apply flex items-center gap-2.5 px-2 mb-3 text-fg no-underline;
+        @apply block px-2 pb-3.5 font-display font-extrabold text-2xl tracking-tight lowercase text-accent no-underline;
     }
-    .lp-sidebar__brand-mark {
-        @apply rounded-lg bg-accent shrink-0 inline-flex items-center justify-center text-white w-6.5 h-6.5;
-    }
-    .lp-sidebar__brand-mark svg {
-        @apply w-4 h-4;
-    }
-    .lp-sidebar__brand-text {
-        @apply flex flex-col leading-tight min-w-0;
-    }
-    .lp-sidebar__brand-name {
-        @apply text-sm font-semibold tracking-tight whitespace-nowrap;
-    }
-    /* Current-project identity block. Deliberately flat and non-interactive:
-       the bordered, chevroned version read as a project picker, which the app
-       does not have. */
+
+    /* Current-project switcher: a button that opens the project list beneath it. */
     .lp-sidebar__switcher {
-        @apply flex items-center gap-2.5 w-full px-2.5 py-2 mb-1;
+        @apply flex items-center gap-2.5 w-full px-2.5 py-2 mb-1 rounded-xl bg-chrome-raised border border-transparent cursor-pointer text-left transition-colors;
+    }
+    .lp-sidebar__switcher:hover {
+        @apply border-switcher-hover;
     }
     .lp-sidebar__switcher-avatar {
-        @apply w-6 h-6 bg-ink shrink-0 inline-flex items-center justify-center text-white text-xs font-semibold rounded-md;
+        @apply w-6.5 h-6.5 bg-chrome shrink-0 inline-flex items-center justify-center text-accent text-xs font-bold rounded-lg;
     }
     .lp-sidebar__switcher-text {
         @apply flex flex-col leading-tight min-w-0 mr-auto;
     }
     .lp-sidebar__switcher-name {
-        @apply font-semibold text-fg truncate text-sm;
+        @apply font-bold text-white truncate text-sm;
     }
     .lp-sidebar__switcher-domain {
-        @apply font-mono text-fg-dim truncate text-xs;
+        @apply font-mono text-chrome-mute truncate text-xs;
+    }
+    .lp-sidebar__switcher-caret {
+        @apply w-3.5 h-3.5 shrink-0 text-fg-mute;
+    }
+
+    /* Panel that drops directly under the switcher. */
+    .lp-switcher {
+        @apply relative;
+    }
+    .lp-switcher__panel {
+        @apply absolute left-0 right-0 z-30 flex flex-col p-1.5 rounded-xl bg-chrome-raised;
+        animation: lp-appear 120ms ease-out both;
+    }
+    .lp-switcher__panel[hidden] {
+        @apply hidden;
+    }
+    .lp-switcher__item {
+        @apply flex items-center gap-2.5 px-2 py-1.5 rounded-lg no-underline transition-colors;
+    }
+    .lp-switcher__item:hover {
+        @apply bg-chrome-control;
+    }
+    .lp-switcher__item-avatar {
+        @apply w-6 h-6 bg-chrome shrink-0 inline-flex items-center justify-center text-accent text-xs font-bold rounded-lg;
+    }
+    .lp-switcher__item-text {
+        @apply flex flex-col leading-tight min-w-0;
+    }
+    .lp-switcher__item-name {
+        @apply font-bold text-chrome-fg truncate text-xs;
+    }
+    .lp-switcher__item-count {
+        @apply font-mono text-chrome-mute truncate text-xs;
+    }
+    .lp-switcher__all {
+        @apply flex items-center gap-2.5 px-2 py-1.5 rounded-lg text-accent text-xs font-bold no-underline transition-colors;
+    }
+    .lp-switcher__all:hover {
+        @apply bg-chrome-control;
+    }
+    .lp-switcher__all svg {
+        @apply w-4 h-4 shrink-0;
     }
 
     .lp-sidebar__nav {
         @apply flex flex-col gap-0.5;
     }
     .lp-sidebar__link {
-        @apply flex items-center gap-2.5 px-2.5 py-2 rounded-lg font-medium text-fg-mute no-underline transition-colors text-sm;
+        @apply flex items-center gap-3 px-3 py-2.5 rounded-lg font-medium text-chrome-mute no-underline transition-colors text-sm;
     }
     .lp-sidebar__link:hover {
-        @apply bg-accent-faint text-fg;
+        @apply bg-chrome-raised text-chrome-fg;
     }
     .lp-sidebar__link--active {
-        @apply bg-accent-soft text-accent-hover font-semibold;
+        @apply bg-accent text-ink font-bold;
     }
     .lp-sidebar__link svg {
-        @apply w-4 h-4 shrink-0;
+        @apply w-4.5 h-4.5 shrink-0;
     }
     .lp-sidebar__link-label {
         @apply truncate;
     }
+    /* Secondary nav sits a rung quieter than the primary one. */
+    .lp-sidebar__nav--secondary .lp-sidebar__link {
+        @apply text-chrome-dim;
+    }
+    .lp-sidebar__nav--secondary .lp-sidebar__link svg {
+        @apply w-4 h-4;
+    }
 
-    /* Site-review open-count pill: neutral by default, amber when open > 0. */
+    /* Nav counts are plain numerals, not pills. */
     .lp-sidebar__pill {
-        @apply ml-auto inline-flex items-center justify-center min-w-5 px-1.5 py-0.5 rounded-full font-mono text-xs leading-none;
-        background: #f0f4f0;
-        color: var(--text-dim);
+        @apply ml-auto text-xs font-bold leading-none;
     }
     .lp-sidebar__pill--amber {
-        @apply bg-status-pending-bg;
-        color: var(--status-pending-deep);
+        @apply text-accent;
+    }
+    .lp-sidebar__link--active .lp-sidebar__pill {
+        @apply text-ink;
     }
 
     .lp-sidebar__spacer {
@@ -1794,35 +1998,64 @@
     /* AGPL source-code offer, sitting just above the account row. Quiet by
        design — it has to be present on every page, not compete with the nav. */
     .lp-sidebar__source {
-        @apply flex items-center gap-2.5 px-2 py-1.5 text-xs text-fg-dim no-underline transition-colors;
+        @apply flex items-center gap-2.5 px-2 py-1.5 text-xs text-chrome-dim no-underline transition-colors;
     }
     .lp-sidebar__source:hover {
-        @apply text-fg;
+        @apply text-chrome-fg;
     }
     .lp-sidebar__account {
-        @apply flex items-center gap-2.5 px-2 py-2 border-t border-line;
+        @apply flex items-center gap-2.5 px-2 mt-2.5 pt-3 border-t border-chrome-control;
     }
-    .lp-sidebar__account-icon {
-        @apply w-4 h-4 shrink-0 text-fg-dim;
+    .lp-sidebar__account-avatar {
+        @apply w-6.5 h-6.5 shrink-0 inline-flex items-center justify-center rounded-full bg-chrome-control text-accent text-xs font-bold;
     }
     .lp-sidebar__account-text {
         @apply flex flex-col leading-tight min-w-0 mr-auto;
     }
     .lp-sidebar__account-name {
-        @apply font-medium text-fg truncate text-xs;
+        @apply text-chrome-mute truncate text-xs;
     }
     /* Keeps the button as the flex child of .lp-sidebar__account. */
     .lp-sidebar__account-logout-form {
         display: contents;
     }
     .lp-sidebar__account-logout {
-        @apply inline-flex items-center justify-center w-7 h-7 rounded-md text-fg-dim no-underline transition-colors cursor-pointer;
+        @apply inline-flex items-center justify-center w-7 h-7 rounded-full text-chrome-mute no-underline transition-colors cursor-pointer;
     }
     .lp-sidebar__account-logout:hover {
-        @apply bg-tint text-fg;
+        @apply bg-chrome-control text-chrome-fg;
     }
     .lp-sidebar__account-logout svg {
         @apply w-4 h-4 shrink-0;
+    }
+
+    /* ── Top bar ────────────────────────────────────────────────────────── */
+
+    /* Transparent over the chrome, above the paper. Carries the breadcrumb
+       trail, a per-screen metadata line, and (on review) the verdict actions. */
+    .lp-topbar {
+        @apply flex items-center gap-3.5 h-16 px-3.5 shrink-0;
+    }
+    .lp-topbar__trail {
+        @apply flex items-center gap-2 min-w-0;
+    }
+    .lp-topbar__crumb {
+        @apply text-sm text-chrome-mute no-underline transition-colors;
+    }
+    .lp-topbar__crumb:hover {
+        @apply text-chrome-fg;
+    }
+    .lp-topbar__sep {
+        @apply text-sm text-chrome-dim;
+    }
+    .lp-topbar__here {
+        @apply text-base font-medium text-white truncate;
+    }
+    .lp-topbar__meta {
+        @apply text-sm text-chrome-dim whitespace-nowrap;
+    }
+    .lp-topbar__actions {
+        @apply flex items-center gap-2.5 ml-auto;
     }
 
     /* ── Code / pre blocks ──────────────────────────────────────────────── */
@@ -2188,5 +2421,29 @@
     }
     to {
         opacity: 1;
+    }
+}
+
+/* The only entry motion in the app: flash, toolbar, composer, switcher panel,
+   metadata panels, modal. Nothing else animates, and nothing ever slides. */
+@keyframes lp-appear {
+    from {
+        opacity: 0;
+        transform: translateY(4px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    @keyframes lp-appear {
+        from {
+            opacity: 0;
+        }
+        to {
+            opacity: 1;
+        }
     }
 }
