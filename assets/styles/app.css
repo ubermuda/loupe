@@ -1291,10 +1291,15 @@
     /* Sits above the comment column rather than the reading column, so it reads
        as a control on the comments and not on the prose. */
     .lp-review-actions__resolved {
-        @apply absolute left-169 bg-transparent border-0 p-0 cursor-pointer text-sm text-fg-mute transition-colors;
+        @apply absolute left-169 whitespace-nowrap bg-transparent border-0 p-0 cursor-pointer text-sm text-fg-mute transition-colors;
     }
     .lp-review-actions__resolved:hover {
         @apply text-ink;
+    }
+    /* Resolved threads are hidden rather than removed, so the toggle is instant
+       and costs no round trip. */
+    .lp-review-block--hide-resolved .lp-comment-thread--resolved {
+        @apply hidden;
     }
 
     /* ── General comments group ─────────────────────────────────────────
@@ -1465,25 +1470,8 @@
        A collapsible panel in the document head that scrolls with the document.
        It must stay out of the rendered-HTML container: that element's
        textContent is the basis every comment anchor is measured against. */
-    .lp-review-contents {
-        @apply rounded-lg border border-line bg-surface-2 mt-4;
-    }
-    .lp-review-contents__summary {
-        @apply flex items-center gap-2 list-none cursor-pointer select-none font-medium text-fg-mute px-3 py-2 text-xs transition-colors hover:text-fg;
-    }
-    .lp-review-contents__summary::-webkit-details-marker {
-        @apply hidden;
-    }
-    .lp-review-contents__chevron {
-        @apply transition-transform;
-    }
-    .lp-review-contents[open]
-        > .lp-review-contents__summary
-        .lp-review-contents__chevron {
-        @apply rotate-90;
-    }
     .lp-review-contents__list {
-        @apply flex flex-col list-none m-0 px-3 pb-2.5 pt-0;
+        @apply flex flex-col list-none m-0 p-0;
     }
     .lp-review-contents__link {
         @apply block truncate rounded no-underline text-fg-mute text-sm py-1 px-1.5 transition-colors hover:bg-tint hover:text-fg;
@@ -1673,30 +1661,6 @@
     /* ── Comment margin (right pane, 388px) ─────────────────────────────
        A white column: threads header + progress bar (both fixed), a scrolling
        grouped ladder, and a pinned verdict bar at the bottom. */
-    .lp-review-sidebar {
-        @apply flex flex-col min-h-0 bg-surface-1;
-    }
-    .lp-review-sidebar__header {
-        @apply flex items-start justify-between gap-2 shrink-0 pt-5.5 px-5 pb-2.5;
-    }
-    .lp-review-sidebar__heading {
-        @apply flex items-center gap-2;
-    }
-    .lp-review-sidebar__title {
-        @apply text-ink font-semibold m-0 text-sm;
-    }
-    .lp-review-sidebar__count {
-        @apply font-mono text-fg-dim text-xs;
-    }
-    .lp-progress {
-        @apply shrink-0 mx-5 rounded-full overflow-hidden bg-line h-1;
-    }
-    .lp-progress__fill {
-        @apply h-full bg-status-ok rounded-full transition-[width] duration-300;
-    }
-    .lp-review-sidebar__scroll {
-        @apply flex flex-col flex-1 min-h-0 gap-5 overflow-y-auto px-5 py-4;
-    }
 
     /* ── Ladder groups (PENDING / ADDRESSED BY AGENT / RESOLVED) ───────────
        #comment-threads is the whole-list region the Turbo Stream replaces on
@@ -1704,33 +1668,6 @@
        ladder — so all three refresh together. */
     .lp-comment-threads {
         @apply flex flex-col flex-1 min-h-0;
-    }
-    .lp-ladder-group {
-        @apply flex flex-col gap-2.5;
-    }
-    .lp-ladder-group__eyebrow {
-        @apply flex items-center gap-1.5 font-mono uppercase text-xs tracking-widest;
-    }
-    .lp-ladder-dot {
-        @apply inline-block rounded-full shrink-0 w-1.5 h-1.5;
-    }
-    .lp-ladder-group__eyebrow--pending {
-        @apply text-status-pending-deep;
-    }
-    .lp-ladder-group__eyebrow--pending .lp-ladder-dot {
-        @apply bg-status-pending;
-    }
-    .lp-ladder-group__eyebrow--addressed {
-        @apply text-status-ok-deep;
-    }
-    .lp-ladder-group__eyebrow--addressed .lp-ladder-dot {
-        @apply bg-status-ok;
-    }
-    .lp-ladder-group__eyebrow--resolved {
-        @apply text-fg-dim;
-    }
-    .lp-ladder-group__eyebrow--resolved .lp-ladder-dot {
-        @apply bg-fg-faint;
     }
 
     /* ── Comment thread card ───────────────────────────────────────────
@@ -1840,9 +1777,6 @@
 
     .lp-comment-author {
         @apply text-ink font-bold text-sm;
-    }
-    .lp-comment-age {
-        @apply text-fg-mute text-xs;
     }
     .lp-comment-body {
         @apply text-fg text-sm leading-relaxed;
@@ -2585,6 +2519,8 @@
 /* Struck passages, painted on top of whichever status highlight already covers
    them: highlights overlay rather than replace each other, so the status tint
    survives and this adds only the line-through. */
+/* A struck passage carries this rung INSTEAD of its status rung — see
+   #highlightAnchors, which routes it here and skips the status highlight. */
 ::highlight(lp-anchor-struck) {
     color: var(--text-mute);
     text-decoration-line: line-through;

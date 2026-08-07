@@ -133,11 +133,19 @@ export default class extends Controller {
     // composer to fill in.
     static STRIKE_KEY = 's';
 
+    static values = { hideResolved: Boolean };
+
+    // Where the resolved-comments preference is remembered. It is a view
+    // preference rather than document state, so it belongs to the reader and
+    // follows them across documents.
+    static HIDE_RESOLVED_KEY = 'loupe:review:hide-resolved';
+
     connect() {
         this.pendingSelection = null;
         this.strikeInFlight = false;
         this.hoveredThread = null;
         this.hoverProbeScheduled = false;
+        this.#restoreHideResolved();
         this.#hideToolbar();
         this.#hideComposer();
         this.#registerHighlights();
@@ -776,7 +784,12 @@ export default class extends Controller {
         }
 
         const anchored = this.threadTargets.filter(
-            (thread) => thread.dataset.commentGeneral !== 'true',
+            (thread) =>
+                thread.dataset.commentGeneral !== 'true' &&
+                // offsetParent is null for a display:none card, which is what
+                // hiding resolved threads does. Placing one would advance the
+                // floor by a card that is not on screen.
+                thread.offsetParent !== null,
         );
         if (anchored.length === 0) {
             return;
@@ -813,6 +826,54 @@ export default class extends Controller {
             getComputedStyle(block).paddingBottom,
         );
         block.style.minHeight = `${Math.ceil(offsetWithinBlock + floor + paddingBottom)}px`;
+    }
+
+    /**
+     * Toggles resolved threads out of the margin. Hiding them re-runs the
+     * layout, so the remaining cards close up rather than leaving the gaps the
+     * hidden ones occupied.
+     */
+    toggleResolved(event) {
+        event?.preventDefault();
+        this.hideResolvedValue = !this.hideResolvedValue;
+        this.#applyHideResolved();
+        try {
+            window.localStorage.setItem(
+                this.constructor.HIDE_RESOLVED_KEY,
+                this.hideResolvedValue ? '1' : '0',
+            );
+        } catch {
+            // Private browsing and storage-blocked contexts both throw here.
+            // The toggle still works for this page; it just will not be
+            // remembered, which is a better outcome than a broken control.
+        }
+    }
+
+    #restoreHideResolved() {
+        try {
+            this.hideResolvedValue =
+                window.localStorage.getItem(
+                    this.constructor.HIDE_RESOLVED_KEY,
+                ) === '1';
+        } catch {
+            this.hideResolvedValue = false;
+        }
+        this.#applyHideResolved();
+    }
+
+    #applyHideResolved() {
+        this.element.classList.toggle(
+            'lp-review-block--hide-resolved',
+            this.hideResolvedValue,
+        );
+        for (const toggle of this.element.querySelectorAll(
+            '[data-resolved-toggle]',
+        )) {
+            toggle.textContent = toggle.dataset[
+                this.hideResolvedValue ? 'labelShow' : 'labelHide'
+            ];
+        }
+        this.#scheduleLayout();
     }
 
     /** Returns every card to normal flow — the degraded state on any failure. */
@@ -852,11 +913,21 @@ export default class extends Controller {
             if (range === null) {
                 continue;
             }
-            highlight.add(range);
-            if (thread.dataset.anchorKind === 'strike') {
+
+            // A strike takes the struck rung INSTEAD of its status rung, not in
+            // addition to it. Highlight backgrounds stack in priority order
+            // rather than replacing one another, so a higher-priority
+            // `background-color: transparent` paints nothing and leaves the tint
+            // below it showing — the status tint has to not be added at all.
+            // A passage marked for deletion is not also an open question.
+            const kind = thread.dataset.anchorKind;
+            if (kind === 'strike') {
                 this.struckHighlight?.add(range);
+                continue;
             }
-            if (thread.dataset.anchorKind === 'suggestion') {
+
+            highlight.add(range);
+            if (kind === 'suggestion') {
                 this.suggestionHighlight?.add(range);
             }
         }

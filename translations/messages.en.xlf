@@ -1021,7 +1021,7 @@
             </trans-unit>
             <trans-unit id="review.document.byline">
                 <source>review.document.byline</source>
-                <target>Authored by Claude · reviewed by %reviewer%</target>
+                <target>Version %version% · reviewed by %reviewer% · updated %updated%</target>
             </trans-unit>
             <trans-unit id="review.document.threads.resolved_count">
                 <source>review.document.threads.resolved_count</source>
@@ -1062,6 +1062,14 @@
             <trans-unit id="review.document.verdict.changes-requested_detail">
                 <source>review.document.verdict.changes-requested_detail</source>
                 <target>The agent will revise the document and submit a new version.</target>
+            </trans-unit>
+            <trans-unit id="review.document.threads.hide_resolved">
+                <source>review.document.threads.hide_resolved</source>
+                <target>Hide resolved</target>
+            </trans-unit>
+            <trans-unit id="review.document.threads.show_resolved">
+                <source>review.document.threads.show_resolved</source>
+                <target>Show resolved</target>
             </trans-unit>
             <trans-unit id="review.document.threads.summary">
                 <source>review.document.threads.summary</source>

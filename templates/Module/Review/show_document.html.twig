@@ -86,7 +86,11 @@
         <div class="lp-review-doc" data-comment-anchor-target="block" data-controller="decision"{% if not readOnly %} data-action="mouseup->comment-anchor#onDocMouseup mousemove->comment-anchor#onDocMousemove change->decision#select"{% endif %}>
             <div class="lp-review-doc__head">
                 <h1 class="lp-review-doc__title">{{ document.title }}</h1>
-                <p class="lp-review-doc__byline">{{ 'review.document.byline'|trans({'%reviewer%': app.user.fullName}) }}</p>
+                <p class="lp-review-doc__byline">{{ 'review.document.byline'|trans({
+                    '%version%': version.versionNumber,
+                    '%reviewer%': app.user.fullName,
+                    '%updated%': version.createdAt|relative_time,
+                }) }}</p>
 
                 {# The way back to a discussion that a revision left behind: comments
                    resolved on an earlier version stay on that version, so without this
@@ -260,6 +264,14 @@
                     {{ 'review.document.comment.untargeted'|trans }}
                 </button>
                 <span class="lp-review-actions__hint">{{ 'review.document.comment.select_hint'|trans }}</span>
+                {# Only worth showing once there is something to hide. #}
+                {% if comments|filter(c => c.parent is null and c.threadStatus.value == 'resolved')|length > 0 %}
+                <button type="button" class="lp-review-actions__resolved"
+                        data-resolved-toggle
+                        data-label-hide="{{ 'review.document.threads.hide_resolved'|trans }}"
+                        data-label-show="{{ 'review.document.threads.show_resolved'|trans }}"
+                        data-action="comment-anchor#toggleResolved">{{ 'review.document.threads.hide_resolved'|trans }}</button>
+                {% endif %}
             </div>
             {% endif %}
 
