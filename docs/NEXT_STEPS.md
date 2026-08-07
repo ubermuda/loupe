@@ -3477,3 +3477,26 @@ Not done up front on purpose. That field records how far this project has
 absorbed the skeleton, so advancing it past an unmerged branch would claim a
 merge that has not happened and make the next `update-from-skeleton` run skip
 whatever else landed in between.
+
+## A review comment has no timestamp, so its card cannot show an age
+
+**Author:** Claude · **Type:** feature · **Priority:** low · **Status:** pending
+
+`App\Module\Review\Entity\Comment` carries no created-at column — the
+constructor takes version, author, body, anchor, parent and replacement, and
+nothing else. Every other entity on the review path has one
+(`Document::$createdAt`, `DocumentVersion::$createdAt`), so this is an omission
+rather than a decision.
+
+The visible cost is on the review screen: a comment card shows its author and
+its status but cannot show when it was written, and a thread with several
+replies gives no sense of how the conversation unfolded.
+`templates/Module/Review/components/CommentThread.html.twig` has a comment
+marking where the age would go.
+
+Closing it is a nullable `#[ORM\Column]` on `Comment`, a migration with a real
+current-datetime version name, and `|relative_time` in the two places the
+template marks — plus a decision about what to show for the rows that already
+exist, since backfilling them with the migration timestamp would claim every
+old comment was written the day the column shipped. Leaving those blank is
+probably the honest answer.
