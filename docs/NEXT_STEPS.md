@@ -1022,24 +1022,6 @@ confirm modal) vs keeping the portal as the single management surface, and
 whether the section should show renewal date/price (data already synced on
 BillingProfile).
 
-## Gamache: ship the controller direct-state-access rule the skill cites
-
-
-
-
-**Author:** Geoffrey · **Type:** tooling · **Priority:** medium · **Status:** pending
-
-The `project-command-handler` skill cites a `controller.directStateAccess`
-gamache rule ("controllers may not touch repositories directly") that does
-not exist anywhere in ubermuda/gamache (all five layers checked 2026-07-26),
-while ~25 rendering controllers inject repositories and assemble view data
-inline. Owner decision (2026-07-26): upgrade gamache — add the rule via a PR
-on https://github.com/ubermuda/gamache (per CLAUDE.md, gamache rules never
-land in this repo). Decide the rule's scope while writing it: forbid all
-repository injection in controllers (forcing query handlers for reads,
-matching the skill) or only mutation paths; then fix or baseline the ~25
-existing controllers when the rule lands.
-
 ## Agent-authored test scenarios delivered through the site-review widget
 
 
