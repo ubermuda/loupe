@@ -3500,3 +3500,82 @@ template marks — plus a decision about what to show for the rows that already
 exist, since backfilling them with the migration timestamp would claim every
 old comment was written the day the column shipped. Leaving those blank is
 probably the honest answer.
+
+## Connect cannot mask a token, because no part of the raw value is stored
+
+**Author:** Claude · **Type:** feature · **Priority:** medium · **Status:** pending
+
+The Connect screen is meant to show a masked token — `loupe_••••••••••••8f2a`,
+where the last four characters are the real tail — so an operator can tell which
+token a project is using without the value being readable over a shoulder.
+
+It cannot today. `App\Module\Account\Entity\ApiToken` persists only a sha256
+`tokenHash`; the raw value is `bin2hex(random_bytes(32))` and is handed to the
+caller once at creation and never stored. There is nothing to mask, and showing
+four characters of the hash would display a string that is not part of the
+token. The screen renders the token's label and its creation date instead.
+
+The same gap is why both code panels on that screen still emit the literal
+`YOUR_TOKEN` on an ordinary page load rather than the configured value: the
+snippet needs the token, and only the request that created it ever had one.
+
+Closing it means storing a non-secret tail at issue time — a `tokenTail` column
+written alongside `tokenHash` — and a migration. Four characters of a 64-hex
+token leaves 60 unknown, so the tail is not usefully brute-forceable, but that
+is a decision to take deliberately rather than assume.
+
+## The documents list reports rows on the page as if it were the filtered total
+
+**Author:** Claude · **Type:** bug · **Priority:** medium · **Status:** pending
+
+The filter row on `templates/Module/Review/list_documents.html.twig` renders
+"N of M documents". M is the project's unfiltered total and is right. N is
+`items|length` — the number of rows on the current page — because
+`ListDocumentsView` exposes `totalPages` but no filtered count.
+
+On a single-page list the two coincide and the line is correct. On a paginated
+one it under-reports: a search matching 30 documents on a 20-per-page list reads
+"20 of 47 documents", which a reader will take to mean the search matched 20.
+
+The fix is to thread the filtered total through `ListDocumentsHandler` into
+`ListDocumentsView` and render that. Until then the number is wrong whenever
+pagination engages, so this is worth doing before the list grows.
+
+## A verdict cannot be undone, and a resolved comment cannot be reopened
+
+**Author:** Claude · **Type:** feature · **Priority:** medium · **Status:** pending
+
+Both controls are specified in the Chartreuse design and neither has a route.
+
+`src/Module/Review/Controller/` has `SubmitReviewController` but no undo, so
+approving a document or requesting changes is final from the UI — the verdict
+bar at the foot of the review page reports the outcome with no way back. The
+design puts an **Undo** on that bar.
+
+Separately there is `app_comment_resolve` but no reopen, so a thread resolved by
+mistake can only be deleted. The comment card shows **Resolve** on an open
+thread and, per the design, should show **Reopen** on a resolved one.
+
+Each is a command + handler pair and a route, following the shape of the
+existing resolve action. The templates already have the places they go.
+
+## A ready data export offers no way to download it
+
+**Author:** Claude · **Type:** bug · **Priority:** medium · **Status:** pending
+
+`templates/Module/Account/show_account_settings.html.twig` lists past exports
+with their timestamp and state, including `Ready` — but renders no download
+control, so the only route to a finished export is the emailed link.
+
+The route exists (`app_account_export_download`, `GET
+/account/exports/{id}/download`) and takes a `?token=` query parameter.
+`DataExport::complete()` returns the raw token once and persists only its
+sha256, and `ShowAccountSettingsView` exposes neither it nor anything the
+template could derive it from — so a link built from `export.id` alone 404s by
+design, which is the correct fail-closed behaviour.
+
+Closing it needs a session-authenticated download action that authorises on the
+signed-in user owning the export, rather than on a token the page cannot see.
+That is the better shape anyway: the token exists so a link in an email works
+without a session, and a logged-in owner on their own settings page has already
+proved more than the token does.
