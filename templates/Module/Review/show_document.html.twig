@@ -147,7 +147,7 @@
                         {% if document.tags|length > 0 %}
                         <div class="lp-doc-meta__tags">
                             {% for tag in document.tags %}
-                            <span class="lp-tag">{{ tag }}</span>
+                            <span class="lp-tag">{{ tag.name }}</span>
                             {% endfor %}
                         </div>
                         {% endif %}

@@ -14,6 +14,7 @@ use App\Module\Review\Entity\Comment;
 use App\Module\Review\Entity\CommentStatus;
 use App\Module\Review\Entity\Document;
 use App\Module\Review\Entity\DocumentStatus;
+use App\Module\Review\Entity\Tag;
 use App\Module\Review\Service\MarkdownRenderer;
 use App\Module\Review\ValueObject\Anchor;
 use Doctrine\ORM\EntityManagerInterface;
@@ -72,6 +73,33 @@ final class ShowDocumentControllerTest extends WebTestCase
         // margin the comment cards are positioned in beside it.
         self::assertSelectorExists('.lp-review-doc');
         self::assertSelectorExists('.lp-review-margin');
+    }
+
+    public function test_review_page_renders_the_document_tags(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+
+        $owner = $this->createUser($em, 'tagowner', 'tagowner@example.com');
+        $project = $this->project($em, $owner);
+
+        $doc = new Document(owner: $owner, project: $project, title: 'Tagged Doc');
+        $doc->addVersion('# Hello', '<h1>Hello</h1>');
+        $tag = new Tag($project, 'architecture');
+        $em->persist($tag);
+        $doc->tags->add($tag);
+        $em->persist($doc);
+        $em->flush();
+
+        $projectId = (string) $project->id;
+        $id = (string) $doc->id;
+        $em->clear();
+
+        $client->loginUser($owner);
+        $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/documents/'.$id.'/review');
+
+        self::assertResponseIsSuccessful();
+        self::assertSelectorTextContains('.lp-tag', 'architecture');
     }
 
     public function test_review_page_renders_byline_and_verdict_actions(): void
