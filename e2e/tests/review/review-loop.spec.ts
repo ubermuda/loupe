@@ -381,3 +381,74 @@ test('composer submits on Ctrl/Cmd+Enter', async ({ page }) => {
     };
     expect(state.comments).toHaveLength(1);
 });
+
+/**
+ * Hovering a passage rings the card that points at it. The probe runs on every
+ * mousemove frame, so it reads the range map #layout() built rather than
+ * locating each quote again — this pins the pairing that rewiring must keep.
+ */
+test('hovering an anchored passage activates its comment card', async ({
+    page,
+}) => {
+    await suppressToolbar(page);
+    await suppressWidget(page);
+
+    const email = `e2e+hover+${RUN}@example.com`;
+    const password = 'E2eReviewHover1!';
+
+    await devRegisterAndVerify(page, email, password);
+    await login(page, email, password);
+
+    const { documentId, projectId } = await seedDocument(page);
+    const reviewUrl = `/projects/${projectId}/documents/${documentId}/review`;
+
+    await page.goto(reviewUrl);
+    await selectKnownPhrase(page, KNOWN_PHRASE);
+    await page.getByRole('button', { name: 'Comment', exact: true }).click();
+    await page
+        .locator('[data-comment-anchor-target="composerBody"]')
+        .fill(COMMENT_BODY);
+    await page.getByRole('button', { name: 'Post' }).click();
+
+    const thread = page
+        .locator('[data-comment-anchor-target="thread"]')
+        .first();
+    await expect(thread).toBeVisible({ timeout: 10000 });
+    await expect(thread).not.toHaveClass(/lp-comment-thread--active/);
+
+    // Aim at the middle of the anchored phrase and move the real pointer there,
+    // so the controller's own mousemove handler does the hit-testing.
+    const box = await page.evaluate((phrase: string) => {
+        const docEl = document.querySelector(
+            '[data-comment-anchor-target="doc"]',
+        )!;
+        const walker = document.createTreeWalker(docEl, NodeFilter.SHOW_TEXT);
+        let node = walker.nextNode() as Text | null;
+        while (node !== null) {
+            const idx = node.textContent?.indexOf(phrase) ?? -1;
+            if (idx !== -1) {
+                const range = document.createRange();
+                range.setStart(node, idx);
+                range.setEnd(node, idx + phrase.length);
+                const rect = range.getBoundingClientRect();
+                return {
+                    x: rect.x + rect.width / 2,
+                    y: rect.y + rect.height / 2,
+                };
+            }
+            node = walker.nextNode() as Text | null;
+        }
+        throw new Error('phrase not found');
+    }, KNOWN_PHRASE);
+
+    await page.mouse.move(box.x, box.y);
+    await expect(thread).toHaveClass(/lp-comment-thread--active/, {
+        timeout: 5000,
+    });
+
+    // Moving off it releases the pairing again.
+    await page.mouse.move(box.x, box.y - 200);
+    await expect(thread).not.toHaveClass(/lp-comment-thread--active/, {
+        timeout: 5000,
+    });
+});

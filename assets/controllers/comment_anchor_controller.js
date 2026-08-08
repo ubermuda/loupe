@@ -677,18 +677,13 @@ export default class extends Controller {
     }
 
     #probeAnchorAt(clientX, clientY) {
-        for (const thread of this.threadTargets) {
-            if (thread.dataset.commentGeneral === 'true') {
-                continue;
-            }
-            const range = this.#findRange(
-                thread.dataset.anchorQuote ?? '',
-                thread.dataset.anchorPrefix ?? '',
-                thread.dataset.anchorSuffix ?? '',
-            );
-            if (range === null) {
-                continue;
-            }
+        // Reads the map #layout() built rather than locating each quote again.
+        // This runs once per mousemove frame and #findRange() is an indexOf
+        // sweep of the whole document plus a TreeWalker, so re-locating here
+        // put that cost on every frame on the longest documents — the ones with
+        // the most anchors to walk. General comments never enter the map, which
+        // is the same set the old loop skipped by hand.
+        for (const [thread, range] of this.anchorRanges ?? []) {
             for (const rect of range.getClientRects()) {
                 if (
                     clientX >= rect.left &&
