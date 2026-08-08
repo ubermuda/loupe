@@ -3693,3 +3693,28 @@ than theoretical.
 Whichever way the scan is rewritten, both readers must raise on a PCRE failure
 rather than return an empty result — reporting "no decisions" for a document
 full of them is what makes this invisible.
+
+## `just phpstan` dies on a cold cache, and the trace does not say why
+
+**Author:** Claude · **Type:** tooling · **Priority:** medium · **Status:** pending
+
+The `phpstan` recipe warms `var/cache/dev` first, because phpstan-symfony resolves
+service types through the dumped container. That warmup runs at the container's
+default 128M, and on a genuinely cold cache — after a branch switch that
+invalidates every compiled Twig template — it exhausts it. Observed on 2026-08-08
+switching to `main` straight after a large template-heavy merge.
+
+What makes it cost time is the shape of the failure. The recipe reports
+`Recipe 'phpstan' failed on line 136 with exit code 255` and prints a
+`DebugClassLoader` stack trace through `VarCloner`, so it reads as an analysis
+error in phpstan itself; the actual message,
+`Allowed memory size of 134217728 bytes exhausted`, is buried in a dumped
+`OutOfMemoryError` several frames up. Re-running passes, because the first run
+left the cache warm — which is exactly the shape that gets waved through as a
+flake.
+
+The `analyse` call already carries `--memory-limit=1G` for the same reason, and
+the comment above it in the `justfile` explains that exhaustion there reads like
+a real error. The warmup on the line above has no such limit. Giving it one, or
+having the recipe say what actually happened when the warmup exits non-zero,
+would remove the whole class.
