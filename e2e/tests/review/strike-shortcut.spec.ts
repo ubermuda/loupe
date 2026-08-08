@@ -73,6 +73,7 @@ async function openReview(
     expect(seeded.status()).toBe(201);
     const body = await seeded.json();
     const documentId = body.documentId as string;
+
     const reviewUrl = `/projects/${body.projectId}/documents/${documentId}/review`;
 
     await page.goto(reviewUrl);
@@ -260,4 +261,56 @@ test('two fast keypresses post one strike, not two', async ({ page }) => {
 
     expect(posts).toHaveLength(1);
     expect((await strikes(page, documentId)).comments).toHaveLength(1);
+});
+
+/**
+ * The site-review widget composes in a shadow root, and `document.activeElement`
+ * stops at the shadow host — so the "caret is in a field" guard saw a DIV, let
+ * the shortcut through, and strike() swallowed the keystroke with its
+ * preventDefault() before ever checking for a selection. A reviewer writing a
+ * comment lost every `s` they typed.
+ *
+ * The field here is mounted directly rather than driven through the widget: the
+ * widget's panel does not open under Playwright on this page, and what the fix
+ * changed is the guard, whose contract is that a keydown originating inside a
+ * shadow-root field is left alone. That contract is what this pins. The
+ * integration itself is covered only by the widget's own harness spec.
+ */
+test('a keystroke typed inside a shadow-root field is not swallowed', async ({
+    page,
+}) => {
+    const { documentId } = await openReview(page, 'shadow');
+
+    await selectKnownPhrase(page);
+
+    await page.evaluate(() => {
+        const host = document.createElement('div');
+        host.id = 'shadow-probe-host';
+        document.body.appendChild(host);
+        const textarea = document.createElement('textarea');
+        textarea.id = 'shadow-probe';
+        host.attachShadow({ mode: 'open' }).appendChild(textarea);
+        textarea.focus();
+    });
+
+    // Typed key by key: fill() sets the value without a keydown, so it would
+    // pass whether the guard works or not.
+    await page.keyboard.type('has s in it');
+
+    // Piercing the shadow root to read the value back the same way the guard has
+    // to see into it.
+    const typed = await page.evaluate(
+        () =>
+            (
+                document
+                    .getElementById('shadow-probe-host')
+                    ?.shadowRoot?.querySelector(
+                        '#shadow-probe',
+                    ) as HTMLTextAreaElement | null
+            )?.value ?? null,
+    );
+    expect(typed).toBe('has s in it');
+
+    // And with a live selection sitting there, nothing was struck either.
+    expect((await strikes(page, documentId)).comments).toHaveLength(0);
 });

@@ -342,7 +342,11 @@ export default class extends Controller {
         if (event.metaKey || event.ctrlKey || event.altKey) {
             return;
         }
-        const active = document.activeElement;
+        // composedPath()[0], not document.activeElement: the site-review widget
+        // composes in a shadow root, and activeElement stops at its host — so the
+        // field test passed and this shortcut ate every `s` the reviewer typed.
+        // The widget loads on every authenticated page, so both are always live.
+        const active = event.composedPath()[0] ?? document.activeElement;
         if (
             active &&
             (active.tagName === 'INPUT' ||
