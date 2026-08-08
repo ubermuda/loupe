@@ -116,9 +116,9 @@ final readonly class DecisionBlockService
      * controls. Every other malformed shape degrades where it stands, and this
      * was the one that reached downstream.
      *
-     * It also leaves toControls() a guarantee it cannot establish itself: the
-     * sentinels it sees are flat and non-overlapping, so its `.*?` can never
-     * cross another fence.
+     * An opener and its closer are always written together, so the sentinels
+     * strictly alternate. toControls() depends on that: it splits the HTML on
+     * the close sentinel, which leaves at most one opener per segment.
      *
      * @param list<array{HtmlBlock, string|null}> $markers in document order, id null for a closer
      */
@@ -164,23 +164,61 @@ final readonly class DecisionBlockService
      * The trailing sweep is not tidiness: the result is persisted as a version's
      * renderedHtml, and a sentinel left in it would sit in plainText() forever —
      * shifting every comment anchor below it on that version.
+     *
+     * A single paragraph may precede the list and becomes the card's question.
+     * It must not cross its own `</p>` — a plain `(.*?)</p>` may, by backtracking
+     * to a later one — or a block holding two paragraphs folds both into one
+     * legend that closes tags it never opened.
      */
     public function toControls(string $html): string
     {
-        // A single paragraph may precede the list, and becomes the card's
-        // question. Anything else the block holds — a second paragraph, no list
-        // at all — keeps whatever it had; only the markers go.
-        $withControls = preg_replace_callback(
-            // The prompt cannot cross a `</p>`: left as `.*?` it backtracks past
-            // one to reach a later list, swallowing the paragraphs between into
-            // a legend that then closes tags it never opened — unbalanced markup
-            // in stored HTML, which strip_tags() and the browser read
-            // differently and every anchor below pays for.
-            '~'.$this->sentinelPrefix().'OPEN_('.self::ID_PATTERN.')_END\s*(?:<p>((?:(?!</p>).)*)</p>\s*)?(<(ul|ol)(?:\s[^>]*)?>)(.*?)(</\4>)\s*'.$this->sentinelPrefix().'CLOSE~s',
-            fn (array $matches): string => $this->fieldset($matches[1], $matches[5], $matches[2])
-                ?? self::promptParagraph($matches[2]).$matches[3].$matches[5].$matches[6],
-            $html,
-        );
+        // Splitting on the close sentinel is what holds a match inside its own
+        // block. Bounding the body in the pattern instead — a tempered token, or
+        // `(</\4>)\s*\z` in place of `(.*)\z` and the check below — selects the
+        // same text but spends a backtracking frame per character, and stops
+        // matching a few tens of KB in: past that no block in the document
+        // converts, not only the large one.
+        //
+        // The prompt is still bounded in the pattern, because it has to stop at
+        // its own `</p>`. Possessive: the alternatives are disjoint, so the group
+        // already matches maximally and uniquely and has nothing to give back —
+        // without that it spends a frame per `<` and reaches the same cliff on a
+        // tag-dense question.
+        $block = '~'.$this->sentinelPrefix().'OPEN_('.self::ID_PATTERN.')_END\s*'
+            .'(?:<p>([^<]*+(?:<(?!/p>)[^<]*+)*+)</p>\s*)?'
+            .'(<(ul|ol)(?:\s[^>]*)?>)(.*)\z~s';
+
+        $segments = explode($this->closeSentinel(), $html);
+        // Whatever follows the last closer opened no block that ever closed.
+        $tail = array_key_last($segments);
+
+        foreach ($segments as $index => $segment) {
+            if ($index === $tail) {
+                break;
+            }
+
+            // Thrown per segment rather than collected: a later successful match
+            // resets preg_last_error_msg(), so a deferred check reports nothing.
+            $segments[$index] = preg_replace_callback(
+                $block,
+                function (array $matches): string {
+                    $closeTag = '</'.$matches[4].'>';
+                    // Exactly the `\s` the pattern used to consume here.
+                    $rest = rtrim($matches[5], " \t\n\r\v\f");
+
+                    // A block whose list is not the last thing in it stays prose.
+                    if (!str_ends_with($rest, $closeTag)) {
+                        return $matches[0];
+                    }
+
+                    $listHtml = substr($rest, 0, -\strlen($closeTag));
+
+                    return $this->fieldset($matches[1], $listHtml, $matches[2])
+                        ?? self::promptParagraph($matches[2]).$matches[3].$listHtml.$closeTag;
+                },
+                $segment,
+            ) ?? throw new \RuntimeException('Decision control conversion failed: '.preg_last_error_msg().'.');
+        }
 
         // Deliberately not the well-formed sentinel pattern. HtmlSanitizer cuts
         // its input with a raw substr() at getMaxInputLength() before parsing it,
@@ -191,7 +229,7 @@ final readonly class DecisionBlockService
         $swept = preg_replace(
             '~'.$this->sentinelRoot().'[A-Za-z0-9_-]*~',
             '',
-            $withControls ?? $html,
+            implode($this->closeSentinel(), $segments),
         );
 
         return self::withoutTrailingPrefixOf(
@@ -401,6 +439,7 @@ final readonly class DecisionBlockService
         return $this->sentinelPrefix().'OPEN_'.$id.'_END';
     }
 
+    /** @return non-empty-string */
     private function closeSentinel(): string
     {
         return $this->sentinelPrefix().'CLOSE';

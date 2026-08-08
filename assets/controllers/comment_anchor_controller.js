@@ -182,6 +182,7 @@ export default class extends Controller {
         this.struckHighlight?.clear();
         this.agentHighlight?.clear();
         this.hoverHighlight?.clear();
+        this.suggestionHighlight?.clear();
         for (const highlight of Object.values(this.statusHighlights ?? {})) {
             highlight.clear();
         }
@@ -820,6 +821,10 @@ export default class extends Controller {
         let floor = 0;
 
         for (const thread of anchored) {
+            // #releaseThreads() pins every card static, and `top` alone means
+            // nothing to a static element — so a single failed layout would
+            // otherwise flatten the column for the rest of the page's life.
+            thread.style.position = '';
             const range = this.anchorRanges.get(thread);
             // getClientRects()[0] is the anchor's FIRST line box. The bounding
             // rect would be the union of every line, whose top is the same but
@@ -928,8 +933,9 @@ export default class extends Controller {
     /**
      * Repaints the per-status anchor highlights. Each thread's resolved range is
      * added to the Highlight matching its data-anchor-status (pending / addressed
-     * / resolved); the threads themselves flow normally in the grouped ladder —
-     * cards are no longer absolutely positioned against their anchors.
+     * / resolved). The highlight is what ties a card to its passage: the cards
+     * are absolutely positioned beside the anchor they resolved to, so the tint
+     * in the prose is the only thing naming which passage that is.
      */
     #highlightAnchors() {
         if (!this.statusHighlights) {

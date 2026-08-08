@@ -1666,14 +1666,12 @@
         display: block;
     }
 
-    /* ── Comment margin (right pane, 388px) ─────────────────────────────
-       A white column: threads header + progress bar (both fixed), a scrolling
-       grouped ladder, and a pinned verdict bar at the bottom. */
+    /* ── Comment threads (right pane) ──────────────────────────────────
+       A column of cards beside the paper, each one level with the passage it
+       is anchored to. .lp-review-margin sets the column's geometry. */
 
-    /* ── Ladder groups (PENDING / ADDRESSED BY AGENT / RESOLVED) ───────────
-       #comment-threads is the whole-list region the Turbo Stream replaces on
-       add / delete / resolve: header (count), progress bar, then the scrolling
-       ladder — so all three refresh together. */
+    /* The whole-list region the Turbo Stream replaces on add / delete /
+       resolve, so general comments and the margin refresh together. */
     .lp-comment-threads {
         @apply flex flex-col flex-1 min-h-0;
     }

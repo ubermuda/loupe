@@ -3636,13 +3636,31 @@ from `SelectDecisionOptionController` with one generic saved/failed message. A
 page with five cards has one status line between them all, and it never names
 the option or the version.
 
-The obvious fix is blocked by anchoring. The card renders inside
-`[data-comment-anchor-target="doc"]`, whose text is the basis every comment
-offset is measured against — `DocumentVersion::plainText()` is `strip_tags()` of
-the stored HTML, and `ShowDocumentControllerTest` asserts the rendered pane's
-text still equals it exactly. Injecting a per-card sentence at display time
-would add text to the pane that is not in the stored version, so every anchor
-below the first card would resolve to the wrong passage.
+What blocks the obvious fix is *when* the text would be added, not that it is
+text. The card renders inside `[data-comment-anchor-target="doc"]`, whose text is
+the basis every comment offset is measured against — `DocumentVersion::plainText()`
+is `strip_tags()` of the stored HTML, and `ShowDocumentControllerTest` asserts the
+rendered pane's text still equals it exactly.
+
+At **display** time that rules text out: `DecisionBlockService::withSelections()`
+post-processes stored HTML on the way to the page, so a sentence it injected would
+be in the pane and not in the stored version, and every anchor below the first card
+would resolve to the wrong passage. At **store** time it does not:
+`DecisionBlockService::toControls()` runs inside `MarkdownRenderer::render()`, which
+`CreateDocumentHandler` and `ReviseDocumentHandler` call to produce `renderedHtml`,
+and `plainText()` derives from that same HTML — so text minted there is in both
+sides of the invariant, and versions already stored are untouched. A card's eyebrow
+or a static label can therefore be real text, with one caveat: a fresh render of an
+already-stored version now produces text that version does not have, so
+`RefreshDocumentVersionsHtmlHandler` may refuse without `acceptCommentOrphaning` —
+it asks each anchor individually (`countCommentsThatWouldStopResolving()`) and stops
+only if some comment's anchor resolves against the stored text and no longer resolves
+against the re-rendered one. Adding store-time text is a change new versions get for
+free and old ones only through a reanchor pass.
+
+The recorded answer is not one of those. It is per-reviewer state chosen after the
+version was stored, so it cannot be derived from the markdown at render time, and
+the store-time path is closed to it.
 
 The way through is to keep the text out of the DOM's text content:
 `DecisionBlockService::withSelections()` already post-processes the stored HTML
@@ -3654,3 +3672,24 @@ caller — `withSelections()` takes no translator and no version number today �
 and that generated content is read inconsistently by screen readers, which
 matters more here than for the card's eyebrow because this text is an announced
 live region rather than decoration.
+
+## A very large decision block is minted but never read back
+
+**Author:** Claude · **Type:** bug · **Priority:** medium · **Status:** pending
+
+`DecisionBlockService::extract()` matches a block with
+`~<fieldset[^>]*\sdata-decision-id="…"[^>]*>(.*?)</fieldset>~s`. The lazy `(.*?)`
+costs one backtracking step per character, so the ceiling is exactly
+`pcre.backtrack_limit`: a fieldset body of 999,000 characters matches, and
+1,000,100 makes `preg_match_all()` return `false` with `preg_last_error_msg() ===
+'Backtrack limit exhausted'`. The return value is not checked, so `extract()`
+reports `[]` — the document has decisions on screen that the agent is told do
+not exist. `blockHtml()` has the same shape and would fail the same way, which
+is what a failed submission streams back. A list of 5,000 options — about 104 KB
+of Markdown, well inside `DocumentCreateTool::MAX_MARKDOWN_BYTES` of 1 MiB —
+renders 5,000 radios and extracts as zero blocks, so this is reachable rather
+than theoretical.
+
+Whichever way the scan is rewritten, both readers must raise on a PCRE failure
+rather than return an empty result — reporting "no decisions" for a document
+full of them is what makes this invisible.

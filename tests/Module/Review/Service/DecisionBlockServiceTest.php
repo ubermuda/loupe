@@ -220,6 +220,56 @@ final class DecisionBlockServiceTest extends TestCase
     }
 
     /**
+     * A block holding more than a question and a list keeps its markup, like
+     * every other shape a card cannot show. What it must not do is reach past
+     * its own closer for a later block's list: the next fence is well-formed
+     * and would lose its controls, with both blocks read as one.
+     */
+    public function test_a_block_with_prose_after_its_list_leaves_the_next_block_alone(): void
+    {
+        $html = $this->renderer->render(
+            "<!-- decision: alpha -->\n\nQuestion A?\n\n1. x\n\nTrailing note.\n\n<!-- /decision -->\n\n"
+            ."<!-- decision: beta -->\n\nQuestion B?\n\n1. y\n\n<!-- /decision -->\n",
+        );
+
+        $decisions = $this->decisions->extract($html);
+        self::assertSame(['beta'], array_map(static fn (object $d): string => $d->id, $decisions));
+        self::assertSame(['y'], $decisions[0]->options);
+        // Alpha degrades where it stands, keeping every sentence its author wrote.
+        self::assertStringContainsString('<p>Question A?</p>', $html);
+        self::assertStringContainsString('<li>x</li>', $html);
+        self::assertStringContainsString('<p>Trailing note.</p>', $html);
+        self::assertStringNotContainsString('LPDECISION', $html);
+    }
+
+    /**
+     * The same shape at scale, because the two are not the same problem.
+     *
+     * Keeping a match inside its own block by tempering the pattern works and
+     * then stops: the temper costs a backtracking frame per character, so a few
+     * tens of KB of prose makes the whole pass fail and NO block in the document
+     * converts — including well-formed ones whose stored text then changes, and
+     * with it every comment anchor measured against it.
+     */
+    public function test_a_large_block_still_leaves_the_next_block_alone(): void
+    {
+        $prose = wordwrap(str_repeat('lorem ipsum dolor sit amet ', 3_500), 80, "\n", true);
+
+        $html = $this->renderer->render(
+            "<!-- decision: alpha -->\n\nQuestion A?\n\n1. x\n\n".$prose."\n\n<!-- /decision -->\n\n"
+            ."<!-- decision: beta -->\n\nQuestion B?\n\n1. y\n\n<!-- /decision -->\n",
+        );
+
+        self::assertGreaterThan(90_000, \strlen($html), 'the prose must be well past the ceiling a tempered pattern has');
+
+        $decisions = $this->decisions->extract($html);
+        self::assertSame(['beta'], array_map(static fn (object $d): string => $d->id, $decisions));
+        self::assertSame(['y'], $decisions[0]->options);
+        self::assertStringContainsString('<p>Question A?</p>', $html);
+        self::assertStringNotContainsString('LPDECISION', $html);
+    }
+
+    /**
      * Three post-sanitize passes now run over the same string — annotations,
      * decision controls, heading ids — and a fence marker is itself an HTML
      * comment, which is what the annotation pass exists to make visible.
@@ -495,5 +545,33 @@ final class DecisionBlockServiceTest extends TestCase
 
         self::assertSame(strip_tags($html), strip_tags($marked));
         self::assertNotSame($html, $marked);
+    }
+
+    /**
+     * A tag-dense question, above the ceiling a non-possessive prompt group has.
+     *
+     * The prompt is the one part of a block still bounded in the pattern, so it
+     * is the only part whose cost scales with what the author wrote. Left
+     * non-possessive it spends a matching frame per `<` and the whole pass fails
+     * a few tens of KB in — taking every well-formed block in the document with
+     * it, this one's neighbour included.
+     */
+    public function test_a_tag_dense_question_still_converts(): void
+    {
+        $prompt = str_repeat('*a* ', 8_000);
+
+        $html = $this->renderer->render(
+            "<!-- decision: alpha -->\n\n".$prompt."\n\n- one\n- two\n\n<!-- /decision -->\n\n"
+            ."<!-- decision: beta -->\n\nB?\n\n- y\n\n<!-- /decision -->\n",
+        );
+
+        // The tag count is what costs a frame each, not the Markdown length, and
+        // a non-possessive group gives out at 8,190 of them.
+        self::assertGreaterThan(8_190, substr_count($html, '<'), 'the question must be denser than a non-possessive group survives');
+
+        $decisions = $this->decisions->extract($html);
+        self::assertSame(['alpha', 'beta'], array_map(static fn (object $d): string => $d->id, $decisions));
+        self::assertSame(['one', 'two'], $decisions[0]->options);
+        self::assertStringNotContainsString('LPDECISION', $html);
     }
 }
