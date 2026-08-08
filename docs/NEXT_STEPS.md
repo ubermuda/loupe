@@ -3587,3 +3587,70 @@ letting an authenticated owner download without a token. Doing only the first
 half — authorising on the session and skipping `isDownloadTokenValid()`
 entirely — would hand out expired archives indefinitely, which is the whole
 reason the window exists.
+
+## `document_highlight` matches against source-wrapped text, not rendered prose
+
+**Author:** Claude · **Type:** bug · **Priority:** medium · **Status:** pending
+
+A quote handed to `document_highlight` fails with `not_found` whenever the
+passage it names was wrapped across two lines in the submitted Markdown, even
+though it reads as one continuous sentence on the rendered page. Observed
+2026-08-07 submitting an 80-column-wrapped document: two quotes that happened to
+sit within a single source line anchored fine, and two that spanned a soft wrap
+were both rejected.
+
+The cause is that soft wraps survive rendering. CommonMark emits the source's
+newlines inside the `<p>`, and `DocumentVersion::plainTextOf()` is
+`html_entity_decode(strip_tags(...))`, which preserves them — so the text
+`AnchorService::fromQuote()` searches contains `Until the server says which of\nthree
+things went wrong`, while any caller quoting what it read on the page sends a
+single space. `SetDocumentHighlightsHandler` already trims the quote's outer
+whitespace for exactly this class of reason; interior whitespace gets no such
+treatment.
+
+This is worth separating from the constraint the `loupe-documents` skill already
+states — that a quote must stay inside one paragraph or list item, because block
+boundaries are real line breaks. That one is inherent. This one is an artefact of
+how the author happened to wrap their source, which is invisible to a reader and
+which nothing warns about. Wrapping prose at 80 columns is the normal shape for
+every Markdown file in this repository, so the tool is hardest to use on
+precisely the documents it is meant for.
+
+The fix is to collapse whitespace runs on both sides of the comparison rather
+than only trimming the ends — but the anchor stored has to keep pointing at the
+right offsets in the unnormalised text, so this is a change to how
+`AnchorService` locates a quote, not a change to `plainText()`. Altering
+`plainTextOf()` would move every stored anchor in every existing version, which
+is the failure mode already recorded in 'A renderer change that moves plainText
+needs a reanchor pass, not just a rerender'.
+
+## A decision card cannot show its own recorded answer
+
+**Author:** Claude · **Type:** feature · **Priority:** medium · **Status:** pending
+
+The Chartreuse design puts a line inside each decision card reporting what was
+chosen — "Chosen: option 1, recorded against v3." What the app has instead is a
+single `#decision-status` region for the whole page
+(`templates/Module/Review/show_document.html.twig`), replaced by a Turbo stream
+from `SelectDecisionOptionController` with one generic saved/failed message. A
+page with five cards has one status line between them all, and it never names
+the option or the version.
+
+The obvious fix is blocked by anchoring. The card renders inside
+`[data-comment-anchor-target="doc"]`, whose text is the basis every comment
+offset is measured against — `DocumentVersion::plainText()` is `strip_tags()` of
+the stored HTML, and `ShowDocumentControllerTest` asserts the rendered pane's
+text still equals it exactly. Injecting a per-card sentence at display time
+would add text to the pane that is not in the stored version, so every anchor
+below the first card would resolve to the wrong passage.
+
+The way through is to keep the text out of the DOM's text content:
+`DecisionBlockService::withSelections()` already post-processes the stored HTML
+at display time and deliberately adds **attributes only**, so it could write a
+`data-decision-chosen="…"` attribute the CSS renders with `content: attr(...)`.
+Generated content is not part of `textContent` and `strip_tags()` never sees it,
+so the invariant holds. The cost is that the sentence has to be composed by the
+caller — `withSelections()` takes no translator and no version number today —
+and that generated content is read inconsistently by screen readers, which
+matters more here than for the card's eyebrow because this text is an announced
+live region rather than decoration.
