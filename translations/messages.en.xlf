@@ -777,7 +777,7 @@
             </trans-unit>
             <trans-unit id="account.delete.danger.cta">
                 <source>account.delete.danger.cta</source>
-                <target>Delete my account…</target>
+                <target>Request account deletion</target>
             </trans-unit>
             <trans-unit id="account.delete.flash.requested">
                 <source>account.delete.flash.requested</source>
@@ -855,10 +855,6 @@
                 <source>review.dashboard.page.title</source>
                 <target>Documents</target>
             </trans-unit>
-            <trans-unit id="review.dashboard.empty">
-                <source>review.dashboard.empty</source>
-                <target>No documents yet.</target>
-            </trans-unit>
             <trans-unit id="review.dashboard.description">
                 <source>review.dashboard.description</source>
                 <target>Documents the agent submitted for review, newest first.</target>
@@ -866,10 +862,6 @@
             <trans-unit id="review.dashboard.description_ranked">
                 <source>review.dashboard.description_ranked</source>
                 <target>Documents the agent submitted for review, best matches first.</target>
-            </trans-unit>
-            <trans-unit id="review.dashboard.empty_filtered">
-                <source>review.dashboard.empty_filtered</source>
-                <target>No documents match these filters.</target>
             </trans-unit>
             <trans-unit id="review.dashboard.meta.updated">
                 <source>review.dashboard.meta.updated</source>
@@ -1021,7 +1013,7 @@
             </trans-unit>
             <trans-unit id="review.document.byline">
                 <source>review.document.byline</source>
-                <target>Authored by Claude · reviewed by %reviewer%</target>
+                <target>Version %version% · reviewed by %reviewer% · updated %updated%</target>
             </trans-unit>
             <trans-unit id="review.document.threads.resolved_count">
                 <source>review.document.threads.resolved_count</source>
@@ -1053,7 +1045,63 @@
             </trans-unit>
             <trans-unit id="review.document.verdict.approved_detail">
                 <source>review.document.verdict.approved_detail</source>
-                <target>Threads locked</target>
+                <target>The agent can pick the work up from here.</target>
+            </trans-unit>
+            <trans-unit id="review.document.verdict.changes-requested">
+                <source>review.document.verdict.changes-requested</source>
+                <target>Changes requested</target>
+            </trans-unit>
+            <trans-unit id="review.document.verdict.changes-requested_detail">
+                <source>review.document.verdict.changes-requested_detail</source>
+                <target>The agent will revise the document and submit a new version.</target>
+            </trans-unit>
+            <trans-unit id="review.document.threads.hide_resolved">
+                <source>review.document.threads.hide_resolved</source>
+                <target>Hide resolved</target>
+            </trans-unit>
+            <trans-unit id="review.document.threads.show_resolved">
+                <source>review.document.threads.show_resolved</source>
+                <target>Show resolved</target>
+            </trans-unit>
+            <trans-unit id="review.document.threads.summary">
+                <source>review.document.threads.summary</source>
+                <target>%open% open · %resolved% resolved</target>
+            </trans-unit>
+            <trans-unit id="review.document.group.general">
+                <source>review.document.group.general</source>
+                <target>On the document</target>
+            </trans-unit>
+            <trans-unit id="review.document.meta.versions">
+                <source>review.document.meta.versions</source>
+                <target>Versions</target>
+            </trans-unit>
+            <trans-unit id="review.document.meta.references">
+                <source>review.document.meta.references</source>
+                <target>References</target>
+            </trans-unit>
+            <trans-unit id="review.document.status.open">
+                <source>review.document.status.open</source>
+                <target>Open</target>
+            </trans-unit>
+            <trans-unit id="review.document.status.pending">
+                <source>review.document.status.pending</source>
+                <target>Open</target>
+            </trans-unit>
+            <trans-unit id="review.document.status.general">
+                <source>review.document.status.general</source>
+                <target>General</target>
+            </trans-unit>
+            <trans-unit id="review.document.status.strike">
+                <source>review.document.status.strike</source>
+                <target>Strike</target>
+            </trans-unit>
+            <trans-unit id="review.document.status.addressed">
+                <source>review.document.status.addressed</source>
+                <target>Answered</target>
+            </trans-unit>
+            <trans-unit id="review.document.status.resolved">
+                <source>review.document.status.resolved</source>
+                <target>Resolved</target>
             </trans-unit>
             <trans-unit id="review.document.orphan_banner">
                 <source>review.document.orphan_banner</source>
@@ -1157,7 +1205,15 @@
             </trans-unit>
             <trans-unit id="review.document.comment.untargeted">
                 <source>review.document.comment.untargeted</source>
-                <target>Add comment</target>
+                <target>Add general comment</target>
+            </trans-unit>
+            <trans-unit id="review.document.comment.select_hint">
+                <source>review.document.comment.select_hint</source>
+                <target>or select any passage to comment, suggest a rewording, or strike it</target>
+            </trans-unit>
+            <trans-unit id="review.document.comment.orphaned">
+                <source>review.document.comment.orphaned</source>
+                <target>Orphaned — quoted text is gone</target>
             </trans-unit>
             <trans-unit id="review.document.comment.reply_placeholder">
                 <source>review.document.comment.reply_placeholder</source>
@@ -1293,7 +1349,31 @@
             </trans-unit>
             <trans-unit id="nav.link.connect">
                 <source>nav.link.connect</source>
-                <target>Connect agent</target>
+                <target>Connect</target>
+            </trans-unit>
+            <trans-unit id="nav.link.project_settings">
+                <source>nav.link.project_settings</source>
+                <target>Project settings</target>
+            </trans-unit>
+            <trans-unit id="nav.link.account">
+                <source>nav.link.account</source>
+                <target>Account</target>
+            </trans-unit>
+            <trans-unit id="nav.switcher.label">
+                <source>nav.switcher.label</source>
+                <target>Switch project</target>
+            </trans-unit>
+            <trans-unit id="nav.switcher.all_projects">
+                <source>nav.switcher.all_projects</source>
+                <target>All projects</target>
+            </trans-unit>
+            <trans-unit id="nav.switcher.document_count">
+                <source>nav.switcher.document_count</source>
+                <target>{0}no documents|{1}1 document|]1,Inf[%count% documents</target>
+            </trans-unit>
+            <trans-unit id="flash.dismiss">
+                <source>flash.dismiss</source>
+                <target>Dismiss</target>
             </trans-unit>
 
             <!-- Projects -->
@@ -1304,10 +1384,6 @@
             <trans-unit id="project.list.eyebrow">
                 <source>project.list.eyebrow</source>
                 <target>Workspace</target>
-            </trans-unit>
-            <trans-unit id="project.list.description">
-                <source>project.list.description</source>
-                <target>Every project holds its documents and its site review. Pick a project to see what the agent is waiting on.</target>
             </trans-unit>
             <trans-unit id="project.list.new">
                 <source>project.list.new</source>
@@ -1353,17 +1429,9 @@
                 <source>project.list.edit</source>
                 <target>Edit %name%</target>
             </trans-unit>
-            <trans-unit id="project.edit.eyebrow">
-                <source>project.edit.eyebrow</source>
-                <target>Project settings</target>
-            </trans-unit>
             <trans-unit id="project.edit.page.title">
                 <source>project.edit.page.title</source>
                 <target>Edit project</target>
-            </trans-unit>
-            <trans-unit id="project.edit.description">
-                <source>project.edit.description</source>
-                <target>Update the name and domain for %name%.</target>
             </trans-unit>
             <trans-unit id="project.edit.form.cancel">
                 <source>project.edit.form.cancel</source>
@@ -1416,11 +1484,11 @@
 
             <trans-unit id="project.token.mint">
                 <source>project.token.mint</source>
-                <target>Mint widget token</target>
+                <target>Create a token</target>
             </trans-unit>
             <trans-unit id="project.token.snippet_heading">
                 <source>project.token.snippet_heading</source>
-                <target>Embed snippet</target>
+                <target>index.html</target>
             </trans-unit>
             <trans-unit id="project.error.widget_token_already_minted">
                 <source>project.error.widget_token_already_minted</source>
@@ -1432,19 +1500,19 @@
             </trans-unit>
             <trans-unit id="project.connect.forwarding.label">
                 <source>project.connect.forwarding.label</source>
-                <target>Send submitted reviews to your agent</target>
+                <target>Forward reviews to the agent</target>
             </trans-unit>
             <trans-unit id="project.connect.forwarding.warning">
                 <source>project.connect.forwarding.warning</source>
-                <target>This token is visible in the page source of any site you install it on, so anyone who can open that page can send you a review. Turn forwarding on only for sites that are behind a login or otherwise not public — with it on, a review reaches your agent the moment it is sent. With it off, reviews are still collected, and your agent reads them when you ask it to.</target>
+                <target>Anyone who can view the page can submit a review, so forwarding straight to your agent is off unless you turn it on. Install the widget on staging and preview environments only, not production.</target>
             </trans-unit>
             <trans-unit id="project.connect.forwarding.state.on">
                 <source>project.connect.forwarding.state.on</source>
-                <target>on</target>
+                <target>On — submitted reviews go straight to the agent</target>
             </trans-unit>
             <trans-unit id="project.connect.forwarding.state.off">
                 <source>project.connect.forwarding.state.off</source>
-                <target>off · reviews are collected only</target>
+                <target>Off — reviews wait here until you act on them</target>
             </trans-unit>
             <trans-unit id="project.connect.forwarding.enable">
                 <source>project.connect.forwarding.enable</source>
@@ -1464,11 +1532,11 @@
             </trans-unit>
             <trans-unit id="project.mcp_token.hint">
                 <source>project.mcp_token.hint</source>
-                <target>Lets MCP clients act on this project. Keep it secret.</target>
+                <target>This project has no token yet. Creating one lets an agent read and revise its documents.</target>
             </trans-unit>
             <trans-unit id="project.mcp_token.mint">
                 <source>project.mcp_token.mint</source>
-                <target>Mint MCP token</target>
+                <target>Create a token</target>
             </trans-unit>
             <trans-unit id="project.error.mcp_token_already_minted">
                 <source>project.error.mcp_token_already_minted</source>
@@ -1482,11 +1550,11 @@
             <!-- Connect agent (handoff §5) -->
             <trans-unit id="project.connect.page.title">
                 <source>project.connect.page.title</source>
-                <target>Connect agent</target>
+                <target>Connect</target>
             </trans-unit>
             <trans-unit id="project.connect.description">
                 <source>project.connect.description</source>
-                <target>Point your coding agent at this project over MCP so it can submit documents for review and read the comments you leave.</target>
+                <target>Two things to connect: the agent that writes documents, and the website you review in the browser.</target>
             </trans-unit>
             <trans-unit id="project.connect.endpoint.eyebrow">
                 <source>project.connect.endpoint.eyebrow</source>
@@ -1494,7 +1562,7 @@
             </trans-unit>
             <trans-unit id="project.connect.token.eyebrow">
                 <source>project.connect.token.eyebrow</source>
-                <target>Access token</target>
+                <target>Your token</target>
             </trans-unit>
             <trans-unit id="project.connect.token.one_time_warning">
                 <source>project.connect.token.one_time_warning</source>
@@ -1506,11 +1574,11 @@
             </trans-unit>
             <trans-unit id="project.connect.mcp_json.eyebrow">
                 <source>project.connect.mcp_json.eyebrow</source>
-                <target>.mcp.json</target>
+                <target>Then add this to .mcp.json</target>
             </trans-unit>
             <trans-unit id="project.connect.mcp_json.label">
                 <source>project.connect.mcp_json.label</source>
-                <target>claude · project config</target>
+                <target>.mcp.json</target>
             </trans-unit>
             <trans-unit id="project.connect.cli.eyebrow">
                 <source>project.connect.cli.eyebrow</source>
@@ -1522,7 +1590,7 @@
             </trans-unit>
             <trans-unit id="project.connect.widget.eyebrow">
                 <source>project.connect.widget.eyebrow</source>
-                <target>Review widget</target>
+                <target>Then add this before &lt;/body&gt;</target>
             </trans-unit>
             <trans-unit id="project.connect.tools.eyebrow">
                 <source>project.connect.tools.eyebrow</source>
@@ -1559,6 +1627,42 @@
             <trans-unit id="project.connect.tool.document_revise">
                 <source>project.connect.tool.document_revise</source>
                 <target>Submit a new Markdown version of a document. Open comments are re-anchored onto the new version; those whose quoted text no longer appears are flagged orphaned.</target>
+            </trans-unit>
+            <trans-unit id="project.connect.tool.document_rename">
+                <source>project.connect.tool.document_rename</source>
+                <target>Change a document's title without creating a new version.</target>
+            </trans-unit>
+            <trans-unit id="project.connect.tool.document_archive">
+                <source>project.connect.tool.document_archive</source>
+                <target>Archive a document, stating why. It leaves the reviewer's default list but is not deleted.</target>
+            </trans-unit>
+            <trans-unit id="project.connect.tool.document_unarchive">
+                <source>project.connect.tool.document_unarchive</source>
+                <target>Restore an archived document so it appears in the reviewer's list again.</target>
+            </trans-unit>
+            <trans-unit id="project.connect.tool.document_set_tags">
+                <source>project.connect.tool.document_set_tags</source>
+                <target>Replace a document's tags with the given set. An empty list clears them.</target>
+            </trans-unit>
+            <trans-unit id="project.connect.tool.document_set_references">
+                <source>project.connect.tool.document_set_references</source>
+                <target>Replace the set of documents a document points at, without creating a new version.</target>
+            </trans-unit>
+            <trans-unit id="project.connect.tool.document_highlight">
+                <source>project.connect.tool.document_highlight</source>
+                <target>Tint the passages a reviewer should read first, so a long document says where to start.</target>
+            </trans-unit>
+            <trans-unit id="project.connect.tool.document_reply_to_comment">
+                <source>project.connect.tool.document_reply_to_comment</source>
+                <target>Reply to a document-review comment, using a comment id from document_get_review.</target>
+            </trans-unit>
+            <trans-unit id="project.connect.tool.document_mark_comment_addressed">
+                <source>project.connect.tool.document_mark_comment_addressed</source>
+                <target>Mark document-review comment threads as addressed after acting on them.</target>
+            </trans-unit>
+            <trans-unit id="project.connect.tool.tag_list">
+                <source>project.connect.tool.tag_list</source>
+                <target>List every tag in the project with how many documents carry it.</target>
             </trans-unit>
             <trans-unit id="project.connect.tool.site_review_get">
                 <source>project.connect.tool.site_review_get</source>
@@ -1716,7 +1820,7 @@
             </trans-unit>
             <trans-unit id="site_review.comment.status.addressed">
                 <source>site_review.comment.status.addressed</source>
-                <target>Addressed</target>
+                <target>Addressed by agent</target>
             </trans-unit>
             <trans-unit id="site_review.comment.status.resolved">
                 <source>site_review.comment.status.resolved</source>
@@ -1726,9 +1830,9 @@
                 <source>site_review.comment.general_page</source>
                 <target>General page comment</target>
             </trans-unit>
-            <trans-unit id="site_review.comment.via_widget">
-                <source>site_review.comment.via_widget</source>
-                <target>via review widget</target>
+            <trans-unit id="site_review.comment.url">
+                <source>site_review.comment.url</source>
+                <target>Page</target>
             </trans-unit>
             <trans-unit id="site_review.comment.selector">
                 <source>site_review.comment.selector</source>
@@ -2216,7 +2320,7 @@
             </trans-unit>
             <trans-unit id="billing.subscribe.portal.button">
                 <source>billing.subscribe.portal.button</source>
-                <target>Manage subscription</target>
+                <target>Manage payment details</target>
             </trans-unit>
             <trans-unit id="billing.subscribe.secure_note">
                 <source>billing.subscribe.secure_note</source>
@@ -2369,6 +2473,128 @@
             <trans-unit id="billing.subscribe.closed.body">
                 <source>billing.subscribe.closed.body</source>
                 <target>Every spot is taken right now, and both registration and the waitlist are closed, so there is no way to subscribe at the moment. Contact the administrator of this instance if you need access.</target>
+            </trans-unit>
+
+            <trans-unit id="site_review.page.pending_count">
+                <source>site_review.page.pending_count</source>
+                <target>{0}nothing pending|{1}1 pending|]1,Inf[%count% pending</target>
+            </trans-unit>
+            <trans-unit id="site_review.site.reviews.empty_title">
+                <source>site_review.site.reviews.empty_title</source>
+                <target>No reviews yet</target>
+            </trans-unit>
+            <trans-unit id="site_review.site.reviews.empty_body">
+                <source>site_review.site.reviews.empty_body</source>
+                <target>Install the review widget on your site, and the comments you capture in the browser will appear here.</target>
+            </trans-unit>
+            <trans-unit id="project.connect.step.agent.heading">
+                <source>project.connect.step.agent.heading</source>
+                <target>Connect your agent</target>
+            </trans-unit>
+            <trans-unit id="project.connect.step.agent.purpose">
+                <source>project.connect.step.agent.purpose</source>
+                <target>So it can write and revise documents in this project.</target>
+            </trans-unit>
+            <trans-unit id="project.connect.step.widget.heading">
+                <source>project.connect.step.widget.heading</source>
+                <target>Install the review widget</target>
+            </trans-unit>
+            <trans-unit id="project.connect.step.widget.purpose">
+                <source>project.connect.step.widget.purpose</source>
+                <target>So you can comment on live pages of %domain%, anchored to what you clicked.</target>
+            </trans-unit>
+            <trans-unit id="project.connect.step.widget.purpose_no_domain">
+                <source>project.connect.step.widget.purpose_no_domain</source>
+                <target>So you can comment on live pages of your site, anchored to what you clicked.</target>
+            </trans-unit>
+            <trans-unit id="project.connect.token.meta">
+                <source>project.connect.token.meta</source>
+                <target>Created %date% · project scoped</target>
+            </trans-unit>
+            <trans-unit id="project.connect.widget_token.meta">
+                <source>project.connect.widget_token.meta</source>
+                <target>Created %date% · public, ships in your page source</target>
+            </trans-unit>
+            <trans-unit id="project.connect.tools.summary">
+                <source>project.connect.tools.summary</source>
+                <target>What the agent can do once connected — %count% tools</target>
+            </trans-unit>
+            <trans-unit id="project.edit.form.domain.hint">
+                <source>project.edit.form.domain.hint</source>
+                <target>Used to label site-review comments and to scope the review widget.</target>
+            </trans-unit>
+            <trans-unit id="billing.subscribe.status.chip.subscribed">
+                <source>billing.subscribe.status.chip.subscribed</source>
+                <target>Subscribed</target>
+            </trans-unit>
+            <trans-unit id="billing.subscribe.status.chip.payment_problem">
+                <source>billing.subscribe.status.chip.payment_problem</source>
+                <target>Payment failed</target>
+            </trans-unit>
+            <trans-unit id="billing.subscribe.status.chip.trial">
+                <source>billing.subscribe.status.chip.trial</source>
+                <target>Trial</target>
+            </trans-unit>
+            <trans-unit id="billing.subscribe.status.chip.expired">
+                <source>billing.subscribe.status.chip.expired</source>
+                <target>Expired</target>
+            </trans-unit>
+            <trans-unit id="billing.subscribe.status.chip.free">
+                <source>billing.subscribe.status.chip.free</source>
+                <target>Free</target>
+            </trans-unit>
+
+            <trans-unit id="review.dashboard.meta.shown">
+                <source>review.dashboard.meta.shown</source>
+                <target>%count% shown</target>
+            </trans-unit>
+            <trans-unit id="review.dashboard.filter.count">
+                <source>review.dashboard.filter.count</source>
+                <target>%shown% of %total% documents</target>
+            </trans-unit>
+            <trans-unit id="review.dashboard.meta.open_count">
+                <source>review.dashboard.meta.open_count</source>
+                <target>{0}no open threads|{1}1 open|]1,Inf[%count% open</target>
+            </trans-unit>
+            <trans-unit id="review.dashboard.empty.title">
+                <source>review.dashboard.empty.title</source>
+                <target>No documents yet</target>
+            </trans-unit>
+            <trans-unit id="review.dashboard.empty.body">
+                <source>review.dashboard.empty.body</source>
+                <target>An agent connected to this project writes them with the document_create tool. Connect one and its first document lands here.</target>
+            </trans-unit>
+            <trans-unit id="review.dashboard.empty.connected_body">
+                <source>review.dashboard.empty.connected_body</source>
+                <target>This project's agent is connected but has not written a document yet. Ask it to create one with the document_create tool.</target>
+            </trans-unit>
+            <trans-unit id="review.dashboard.empty.tools">
+                <source>review.dashboard.empty.tools</source>
+                <target>See the agent tools</target>
+            </trans-unit>
+            <trans-unit id="review.dashboard.empty.connect">
+                <source>review.dashboard.empty.connect</source>
+                <target>Connect an agent</target>
+            </trans-unit>
+            <trans-unit id="review.dashboard.empty_filtered.title">
+                <source>review.dashboard.empty_filtered.title</source>
+                <target>No documents match these filters</target>
+            </trans-unit>
+            <trans-unit id="review.dashboard.filter.clear_filters">
+                <source>review.dashboard.filter.clear_filters</source>
+                <target>Clear filters</target>
+            </trans-unit>
+            <trans-unit id="review.document.diff.page.title">
+                <source>review.document.diff.page.title</source>
+                <target>Changes since v%from%</target>
+            </trans-unit>
+            <trans-unit id="review.document.diff.crumb">
+                <source>review.document.diff.crumb</source>
+                <target>Changes</target>
+            </trans-unit>
+            <trans-unit id="review.document.diff.back">
+                <source>review.document.diff.back</source>
+                <target>Back to document</target>
             </trans-unit>
 
         </body>

@@ -2,20 +2,20 @@
 
 {% block title %}{{ 'site_review.outbox.page.title'|trans }} — {{ 'app.name'|trans }}{% endblock %}
 
+{% block topbar_crumbs %}
+    <a class="lp-topbar__crumb" href="{{ path('app_project_documents', {id: project.id}) }}">{{ project.name }}</a>
+    <span class="lp-topbar__sep">/</span>
+    <a class="lp-topbar__crumb" href="{{ path('app_project_site_review', {id: project.id}) }}">{{ 'site_review.page.title'|trans }}</a>
+    <span class="lp-topbar__sep">/</span>
+    <span class="lp-topbar__here">{{ 'site_review.outbox.page.title'|trans }}</span>
+{% endblock %}
+
 {% block body %}
 <div class="lp-site-review-page">
-    <nav class="lp-site-review-breadcrumb">
-        <a href="{{ path('app_project_documents', {id: project.id}) }}">{{ project.name }}</a>
-        <span class="lp-site-review-breadcrumb__separator">/</span>
-        <a href="{{ path('app_project_site_review', {id: project.id}) }}">{{ 'site_review.page.title'|trans }}</a>
-        <span class="lp-site-review-breadcrumb__separator">/</span>
-        <span class="lp-site-review-breadcrumb__current">{{ 'site_review.outbox.page.title'|trans }}</span>
-    </nav>
-
     <header class="lp-site-review-header">
         <h1 class="lp-site-review-title">{{ 'site_review.outbox.page.title'|trans }}</h1>
-        <p class="lp-site-review-meta-line">{{ 'site_review.outbox.count'|trans({'%count%': events|length}) }}</p>
         <p class="lp-site-review-description">{{ 'site_review.outbox.page.description'|trans }}</p>
+        <p class="lp-site-review-meta-line">{{ 'site_review.outbox.count'|trans({'%count%': events|length}) }}</p>
     </header>
 
     {% if events|length > 0 %}
@@ -44,19 +44,18 @@
                     </div>
 
                     {% if event.lastPublishError %}
-                    <p class="lp-site-review-body">
-                        <twig:ux:icon name="lucide:triangle-alert" class="w-3.5 h-3.5 shrink-0 inline-block text-status-pending-deep" />
-                        {{ event.lastPublishError }}
-                    </p>
+                    <div class="lp-connect-alert">
+                        <p class="lp-connect-alert__text">{{ event.lastPublishError }}</p>
+                    </div>
                     {% endif %}
                 </div>
             </article>
         {% endfor %}
     </div>
     {% else %}
-    <div class="lp-site-review-empty">
-        <twig:ux:icon name="lucide:circle-check" class="w-8 h-8 text-fg-dim" />
-        <p>{{ 'site_review.outbox.empty'|trans }}</p>
+    <div class="lp-empty-state">
+        <twig:ux:icon name="lucide:circle-check" class="lp-empty-state__icon text-accent w-12 h-12" />
+        <h2 class="lp-empty-state__title">{{ 'site_review.outbox.empty'|trans }}</h2>
     </div>
     {% endif %}
 </div>

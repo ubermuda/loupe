@@ -2,40 +2,43 @@
 
 {% block title %}{{ 'account.settings.page.title'|trans }} — {{ 'app.name'|trans }}{% endblock %}
 
+{% block topbar_crumbs %}
+    <span class="lp-topbar__crumb">{{ 'nav.link.account'|trans }}</span>
+    <span class="lp-topbar__sep">/</span>
+    <span class="lp-topbar__here">{{ 'account.settings.page.title'|trans }}</span>
+{% endblock %}
+
 {% block body %}
 <div class="lp-connect">
     <h1 class="lp-workspace-title lp-workspace-title--doc">{{ 'account.settings.page.title'|trans }}</h1>
-
-    {% for label, messages in app.flashes %}
-        {% for message in messages %}
-            <div class="lp-flash lp-flash--{{ label }}">{{ message }}</div>
-        {% endfor %}
-    {% endfor %}
 
     <twig:BillingSummary />
 
     <section class="lp-connect-block" data-testid="profile-section">
         <p class="lp-eyebrow">{{ 'account.settings.profile.heading'|trans }}</p>
-        <div class="lp-connect-field">
-            <twig:ux:icon name="lucide:user" class="lp-connect-field__glyph w-4 h-4" />
-            <span class="lp-connect-field__value">
-                {{ view.user.fullName }}
-                <span class="lp-connect-field__meta">{{ view.user.email }}</span>
+        <div class="lp-identity-row">
+            <span class="lp-identity-row__avatar">{{ view.user.fullName|slice(0, 1)|upper }}</span>
+            <span class="lp-identity-row__text">
+                <span class="lp-identity-row__name">{{ view.user.fullName }}</span>
+                <span class="lp-identity-row__meta">{{ view.user.email }}</span>
             </span>
+            <a href="{{ path('app_account_profile') }}" class="lp-btn lp-btn--ghost">{{ 'account.settings.profile.edit_link'|trans }}</a>
         </div>
-        <a href="{{ path('app_account_profile') }}" class="lp-btn lp-btn--ghost">{{ 'account.settings.profile.edit_link'|trans }}</a>
     </section>
 
     <section class="lp-connect-block" data-testid="export-section">
         <p class="lp-eyebrow">{{ 'account.settings.export.heading'|trans }}</p>
-        <p class="lp-workspace-desc">{{ 'account.settings.export.intro'|trans }}</p>
+        {# Panelled like the profile block above it: loose on the page the export
+           controls read as a leftover rather than a section of the settings. #}
+        <div class="lp-settings-panel">
+        <p class="lp-connect-hint">{{ 'account.settings.export.intro'|trans }}</p>
 
         {% for export in view.exports %}
-        <div class="lp-connect-field">
-            <twig:ux:icon name="lucide:package" class="lp-connect-field__glyph w-4 h-4" />
-            <span class="lp-connect-field__value">
-                {{ export.requestedAt|date('Y-m-d H:i') }}
-                <span class="lp-connect-field__meta">
+        <div class="lp-identity-row">
+            <twig:ux:icon name="lucide:package" class="lp-identity-row__glyph w-4 h-4" />
+            <span class="lp-identity-row__text">
+                <span class="lp-identity-row__name lp-identity-row__name--mono">{{ export.requestedAt|date('Y-m-d H:i') }}</span>
+                <span class="lp-identity-row__meta lp-identity-row__meta--plain">
                     {% if export.isExpired %}
                         {{ 'account.settings.export.status.expired'|trans }}
                     {% else %}
@@ -51,6 +54,7 @@
             <button type="submit" class="lp-btn lp-btn--primary">{{ 'account.settings.export.request_button'|trans }}</button>
         </form>
         <p class="lp-connect-hint">{{ 'account.settings.export.link_hint'|trans }}</p>
+        </div>
     </section>
 
     <section class="lp-danger-zone" data-testid="delete-account-section">

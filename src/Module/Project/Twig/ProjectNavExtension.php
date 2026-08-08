@@ -4,8 +4,11 @@ declare(strict_types=1);
 
 namespace App\Module\Project\Twig;
 
+use App\Module\Account\Entity\User;
 use App\Module\Project\Entity\Project;
+use App\Module\Project\Repository\ProjectRepository;
 use App\Module\Project\Service\CurrentProjectProvider;
+use Symfony\Bundle\SecurityBundle\Security;
 use Twig\Extension\AbstractExtension;
 use Twig\TwigFunction;
 
@@ -17,6 +20,8 @@ final class ProjectNavExtension extends AbstractExtension
 {
     public function __construct(
         private readonly CurrentProjectProvider $currentProjectProvider,
+        private readonly ProjectRepository $projects,
+        private readonly Security $security,
     ) {
     }
 
@@ -25,11 +30,24 @@ final class ProjectNavExtension extends AbstractExtension
     {
         return [
             new TwigFunction('current_project', $this->currentProject(...)),
+            new TwigFunction('switchable_projects', $this->switchableProjects(...)),
         ];
     }
 
     public function currentProject(): ?Project
     {
         return $this->currentProjectProvider->current();
+    }
+
+    /**
+     * Every project the signed-in user owns, for the shell's switcher panel.
+     *
+     * @return list<Project>
+     */
+    public function switchableProjects(): array
+    {
+        $user = $this->security->getUser();
+
+        return $user instanceof User ? $this->projects->findByOwner($user) : [];
     }
 }

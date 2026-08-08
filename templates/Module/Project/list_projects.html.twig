@@ -2,17 +2,15 @@
 
 {% block title %}{{ 'project.list.page.title'|trans }} — {{ 'app.name'|trans }}{% endblock %}
 
+{% block topbar_crumbs %}
+    <span class="lp-topbar__crumb">{{ 'project.list.eyebrow'|trans }}</span>
+    <span class="lp-topbar__sep">/</span>
+    <span class="lp-topbar__here">{{ 'project.list.page.title'|trans }}</span>
+{% endblock %}
+
 {% block body %}
 <div class="lp-workspace">
-    <p class="lp-eyebrow">{{ 'project.list.eyebrow'|trans }}</p>
     <h1 class="lp-workspace-title">{{ 'project.list.page.title'|trans }}</h1>
-    <p class="lp-workspace-desc">{{ 'project.list.description'|trans }}</p>
-
-    {% for label, messages in app.flashes %}
-        {% for message in messages %}
-            <div class="lp-flash lp-flash--{{ label }}">{{ message }}</div>
-        {% endfor %}
-    {% endfor %}
 
     <div class="lp-project-list">
         {% for item in items %}
@@ -39,7 +37,6 @@
                aria-label="{{ 'project.list.edit'|trans({'%name%': project.name}) }}">
                 <twig:ux:icon name="lucide:pencil" class="w-4 h-4" />
             </a>
-            <twig:ux:icon name="lucide:chevron-right" class="lp-project-row__chevron" />
         </div>
         {% endfor %}
 
@@ -54,7 +51,7 @@
                 {{ form_start(form, {'action': path('app_project_create', {page: page}), 'method': 'POST', 'attr': {'class': 'lp-form'}}) }}
                     <div class="lp-form-field">
                         {{ form_label(form.name, null, {'label_attr': {'class': 'lp-label'}}) }}
-                        {{ form_widget(form.name, {'attr': {'class': 'lp-input'}}) }}
+                        {{ form_widget(form.name, {'attr': {'class': 'lp-input', 'data-disclosure-target': 'autofocus'}}) }}
                         <div class="lp-field-errors">{{ form_errors(form.name) }}</div>
                     </div>
                     <div class="lp-form-field">

@@ -50,10 +50,7 @@
     </div>
 
     <div class="form-field">
-        <div class="flex items-baseline justify-between">
-            <label class="form-label" for="password">{{ 'account.login.form.password.label'|trans }}</label>
-            <a href="{{ path('app_forgot_password_request') }}" class="text-xs text-accent hover:underline">{{ 'account.login.form.forgot_password'|trans }}</a>
-        </div>
+        <label class="form-label" for="password">{{ 'account.login.form.password.label'|trans }}</label>
         <input id="password" type="password" name="password"
                autocomplete="current-password" placeholder="{{ 'account.login.form.password.placeholder'|trans }}" class="auth-input">
     </div>
@@ -64,6 +61,10 @@
     </label>
 
     <button type="submit" class="auth-submit mt-1.5">{{ 'account.login.form.submit'|trans }}</button>
+
+    {# Last in the form, so the four controls tab in the order they are read:
+       email, password, stay signed in, sign in. #}
+    <a href="{{ path('app_forgot_password_request') }}" class="auth-forgot">{{ 'account.login.form.forgot_password'|trans }}</a>
 </form>
 
 {% if registration_open %}

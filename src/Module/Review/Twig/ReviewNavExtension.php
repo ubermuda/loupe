@@ -29,11 +29,22 @@ final class ReviewNavExtension extends AbstractExtension
     {
         return [
             new TwigFunction('project_document_count', $this->documentCount(...)),
+            new TwigFunction('project_document_counts', $this->documentCounts(...)),
         ];
     }
 
     public function documentCount(Project $project): int
     {
         return $this->documents->countActiveByProject($project);
+    }
+
+    /**
+     * @param list<Project> $projects
+     *
+     * @return array<string, int> project id => count
+     */
+    public function documentCounts(array $projects): array
+    {
+        return $this->documents->countActiveByProjects($projects);
     }
 }
