@@ -167,13 +167,18 @@ final readonly class DecisionBlockService
      */
     public function toControls(string $html): string
     {
-        // The list must follow the opening sentinel immediately. A block holding
-        // anything else — prose, no list at all — keeps whatever it had; only
-        // the markers go.
+        // A single paragraph may precede the list, and becomes the card's
+        // question. Anything else the block holds — a second paragraph, no list
+        // at all — keeps whatever it had; only the markers go.
         $withControls = preg_replace_callback(
-            '~'.$this->sentinelPrefix().'OPEN_('.self::ID_PATTERN.')_END\s*(<(ul|ol)(?:\s[^>]*)?>)(.*?)(</\3>)\s*'.$this->sentinelPrefix().'CLOSE~s',
-            fn (array $matches): string => $this->fieldset($matches[1], $matches[4])
-                ?? $matches[2].$matches[4].$matches[5],
+            // The prompt cannot cross a `</p>`: left as `.*?` it backtracks past
+            // one to reach a later list, swallowing the paragraphs between into
+            // a legend that then closes tags it never opened — unbalanced markup
+            // in stored HTML, which strip_tags() and the browser read
+            // differently and every anchor below pays for.
+            '~'.$this->sentinelPrefix().'OPEN_('.self::ID_PATTERN.')_END\s*(?:<p>((?:(?!</p>).)*)</p>\s*)?(<(ul|ol)(?:\s[^>]*)?>)(.*?)(</\4>)\s*'.$this->sentinelPrefix().'CLOSE~s',
+            fn (array $matches): string => $this->fieldset($matches[1], $matches[5], $matches[2])
+                ?? self::promptParagraph($matches[2]).$matches[3].$matches[5].$matches[6],
             $html,
         );
 
@@ -318,7 +323,7 @@ final readonly class DecisionBlockService
      * which is stored, so the browser and strip_tags() would then disagree about
      * the document's text and every anchor below it would be wrong.
      */
-    private function fieldset(string $id, string $listHtml): ?string
+    private function fieldset(string $id, string $listHtml, string $promptHtml): ?string
     {
         if (1 === preg_match('~<(?:ul|ol)[\s>]~', $listHtml)) {
             return null;
@@ -344,13 +349,26 @@ final readonly class DecisionBlockService
         }
 
         return sprintf(
-            '<fieldset class="lp-decision" id="%s%s" %s="%s">%s</fieldset>',
+            '<fieldset class="lp-decision" id="%s%s" %s="%s"><legend class="lp-decision__prompt">%s</legend><div class="lp-decision__options">%s</div></fieldset>',
             self::BLOCK_ID_PREFIX,
             $id,
             self::BLOCK_MARKER,
             $id,
+            trim($promptHtml),
             $options,
         );
+    }
+
+    /**
+     * The prompt as the document itself wrote it, for a block that stays prose.
+     *
+     * A refused block keeps its markup unchanged, and the paragraph is part of
+     * that markup — dropping it here would delete a sentence the author wrote
+     * from the rendered document.
+     */
+    private static function promptParagraph(string $promptHtml): string
+    {
+        return '' === trim($promptHtml) ? '' : '<p>'.$promptHtml.'</p>';
     }
 
     /**

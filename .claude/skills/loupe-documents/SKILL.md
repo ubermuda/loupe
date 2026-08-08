@@ -173,11 +173,24 @@ for that reading context, not for a terminal or a README.
     ```markdown
     <!-- decision: reset-link-host -->
 
+    Which host should an emailed reset link be built from?
+
     1. Drop `x-forwarded-host` from `trusted_headers`
     2. Generate emailed links from a pinned `default_uri`
 
     <!-- /decision -->
     ```
+
+    **A single paragraph before the options becomes the card's question**, and
+    is the only prose the fence accepts. Write it as one short question — it is
+    the line a reviewer reads to know what they are being asked, so it must
+    stand on its own without the paragraph above the fence. It is optional; a
+    fence that is only options still converts, and the card simply carries no
+    question. Two paragraphs are one too many: the block degrades to the plain
+    list it already was, keeping all of its prose but minting no controls.
+
+    Do not repeat your recommendation inside the fence. The card is what the
+    reviewer answers; the reasoning belongs above it, where rule 5 puts it.
 
     Numbered and bulleted lists both convert, and rule 2 applies here as
     everywhere — prefer numbers, so a reviewer can still write "option 2" in a

@@ -2378,13 +2378,46 @@
     /* ── Decision blocks ────────────────────────────────────────────────
        A group of reviewer-selectable options rendered from a decision fence
        in the document's Markdown. It sits inside the prose, so it is styled
-       as a called-out card rather than as a form. */
+       as a called-out card rather than as a form.
+
+       The eyebrow is generated content rather than markup, which is not a
+       styling preference: the card renders inside the pane whose text is the
+       basis every comment anchor is measured against, so chrome that is not
+       the author's own words must not reach it. Only the prompt does, because
+       the author wrote it. */
 
     .lp-decision {
-        @apply flex flex-col gap-1 my-4 p-4 rounded-lg border bg-tint border-line;
+        @apply my-4 rounded-xl border-0 px-5 py-4.5 bg-tint;
     }
+    /* Floated rather than blocked: a legend renders in the fieldset's border
+       notch, so `display: block` alone leaves the eyebrow and the question
+       sitting above the card instead of inside it. Floating puts the legend
+       back in normal flow, and the options below it clear the float. */
+    .lp-decision__prompt {
+        @apply float-left w-full p-0 mb-3 text-base leading-relaxed text-prose;
+    }
+    .lp-decision__prompt::before {
+        content: 'Decision — pick one';
+        @apply block mb-3 uppercase text-fg-mute text-xs font-bold tracking-widest;
+    }
+    .lp-decision__options {
+        @apply clear-both flex flex-col gap-2;
+    }
+    /* No border: a row is told apart from the card by its own fill, and the
+       chosen one by the highlight rather than by an outline. */
     .lp-decision__option {
-        @apply flex items-start gap-2.5 text-sm text-fg;
+        @apply flex items-center gap-3 py-3 px-3.5 rounded-lg text-base font-semibold bg-elev text-ink transition;
+    }
+    .lp-decision__option:has(input:checked) {
+        @apply bg-accent-soft;
+    }
+    /* The dot is drawn rather than left native: the chosen option fills the
+       whole circle, which a platform radio has no way to express. */
+    .lp-decision__option input {
+        @apply size-4 m-0 shrink-0 appearance-none rounded-full border-2 border-fg-faint;
+    }
+    .lp-decision__option input:checked {
+        @apply border-ink bg-ink;
     }
     .lp-decision__option label {
         @apply cursor-pointer;
@@ -2392,11 +2425,21 @@
     .lp-decision__option input[disabled] + label {
         @apply cursor-default text-fg-mute;
     }
-    .lp-decision__option:has(input:focus-visible) {
-        @apply outline-2 outline-offset-2 outline-accent rounded-sm;
+    /* The chosen option on a locked version is checked AND disabled, and a
+       colour set on the label beats the one the row hands down — without this
+       the answer reads as muted grey text on the filled row. */
+    .lp-decision__option:has(input:checked) input[disabled] + label {
+        @apply text-ink;
     }
+    .lp-decision__option:has(input:focus-visible) {
+        @apply outline-2 outline-offset-2 outline-accent;
+    }
+    /* The design puts this line inside the card it reports on. It stays outside
+       for now because there is one shared region for the whole page, not one per
+       block — see 'A decision card cannot show its own recorded answer' in
+       docs/NEXT_STEPS.md. */
     .lp-decision-status {
-        @apply mt-2 text-sm text-fg-mute;
+        @apply mt-2 text-xs text-fg-mute;
     }
     .lp-decision-status--failed {
         @apply text-danger;
