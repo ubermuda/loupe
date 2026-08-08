@@ -10,8 +10,6 @@
   const script = document.currentScript;
   const BACKEND = new URL(script.src).origin;
   const TOKEN = script.getAttribute('data-token') || '';
-  // Optional brand accent override; the design ships violet as the default.
-  const ACCENT = script.getAttribute('data-accent') || '#6E56CF';
   // Comments now live server-side as the project's Draft comments; `pending`
   // mirrors them. Each item: { id, body, selector, text, url }.
   let pending = [];
@@ -131,72 +129,77 @@
     return line.length > 44 ? line.slice(0, 43).trim() + '…' : line;
   };
 
-  // --- Design tokens: two complete light/dark maps; the accent variants are derived. ---
+  // --- Design tokens: the app's Chartreuse palette, restated as literals. ---
+  // The widget is embedded on other people's sites, so it may load nothing from
+  // Loupe but itself: no @font-face, and no app font names either, since a
+  // visitor's browser has none of them installed. The host's system UI font is
+  // the whole type stack.
+  //
+  // The launcher, the pick-mode toast and the tooltips are the app's near-black
+  // chrome in *both* themes. They float over a background the widget does not
+  // control, and near-black carries its own contrast where paper does not.
+  const CHROME = {
+    '--font':
+      "ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif",
+    '--mono': 'ui-monospace,SFMono-Regular,Menlo,Consolas,monospace',
+    '--bar-bg': '#0f0f0d',
+    '--bar-raised': '#1c1c18',
+    '--bar-line': '#3a3a34',
+    '--bar-fg': '#e8e8e2',
+    '--bar-mute': '#a8a89e',
+    '--bar-shadow': '0 6px 20px rgba(15,15,13,.35)',
+    '--accent': '#c4d600',
+    '--accent-hover': '#b0c000',
+    // Chartreuse is a light colour, so its foreground stays ink in both themes.
+    '--on-accent': '#0f0f0d',
+    // The dark edge that keeps a pin and the picker outline legible over a host
+    // page whose background may be any colour, chartreuse-adjacent included.
+    '--pin-ring': '#0f0f0d',
+  };
   const LIGHT = {
-    '--page-bg': '#f5f5f8',
-    '--card-bg': '#ffffff',
-    '--card-border': '#eaeaf0',
-    '--card-soft': '#f6f6f9',
-    '--text': '#1b1b22',
-    '--muted': '#6b6b77',
-    '--faint': '#9a9aa6',
     '--panel-bg': '#ffffff',
-    '--panel-border': '#e7e7ee',
-    '--panel-elev': '#f9f9fc',
-    '--hairline': '#eeeef3',
-    '--chip-bg': '#f1f1f6',
-    '--chip-text': '#5a5a66',
-    '--field-bg': '#ffffff',
-    '--field-border': '#dcdce4',
-    '--shadow': '0 14px 34px -12px rgba(24,24,40,.24),0 3px 8px rgba(24,24,40,.06)',
-    '--launch-shadow': '0 8px 24px -6px rgba(24,24,40,.22),0 2px 5px rgba(24,24,40,.08)',
-    '--scrim': 'rgba(20,20,28,.30)',
-    '--tooltip-bg': '#1c1c24',
-    '--tooltip-text': '#ffffff',
-    '--success': '#1f9d57',
-    '--danger': '#e5484d',
+    '--panel-border': '#f0f0ec',
+    '--panel-elev': '#f9f9f6',
+    '--hairline': '#f0f0ec',
+    '--text': '#14140f',
+    '--muted': '#6f6f66',
+    '--faint': '#8f8f84',
+    '--chip-bg': '#f4f4f0',
+    '--chip-text': '#6f6f66',
+    '--field-bg': '#f4f4f0',
+    '--field-focus': '#f0f0ec',
+    // Accent dark enough to read as text on paper.
+    '--accent-ink': '#5c6600',
+    '--accent-tint': '#f3f7c4',
+    '--accent-border': '#dfe97a',
+    '--accent-fill': 'rgba(196,214,0,.22)',
+    '--shadow': '0 10px 34px rgba(15,15,13,.22)',
+    '--scrim': 'rgba(15,15,13,.28)',
+    '--success': '#2f9e5c',
+    '--danger': '#c2372b',
   };
+  // The app itself is light-only. This map is built from its dark shell rungs
+  // rather than invented, so a widget on a dark host page still reads as Loupe.
   const DARK = {
-    '--page-bg': '#0e0e11',
-    '--card-bg': '#161619',
-    '--card-border': '#26262d',
-    '--card-soft': '#1c1c21',
-    '--text': '#f1f1f4',
-    '--muted': '#9b9ba6',
-    '--faint': '#67676f',
-    '--panel-bg': '#161619',
-    '--panel-border': '#2a2a32',
-    '--panel-elev': '#1d1d22',
-    '--hairline': '#26262d',
-    '--chip-bg': '#222229',
-    '--chip-text': '#b6b6c0',
-    '--field-bg': '#1a1a1f',
-    '--field-border': '#33333c',
-    '--shadow': '0 20px 48px -14px rgba(0,0,0,.7),0 0 0 1px rgba(255,255,255,.04)',
-    '--launch-shadow': '0 10px 28px -8px rgba(0,0,0,.65),0 0 0 1px rgba(255,255,255,.05)',
-    '--scrim': 'rgba(0,0,0,.5)',
-    '--tooltip-bg': '#2a2a33',
-    '--tooltip-text': '#f2f2f4',
-    '--success': '#34c77b',
-    '--danger': '#ec5d62',
-  };
-  const hexRgb = (hex) => {
-    let h = hex.replace('#', '');
-    if (h.length === 3)
-      h = h
-        .split('')
-        .map((c) => c + c)
-        .join('');
-    return [parseInt(h.slice(0, 2), 16), parseInt(h.slice(2, 4), 16), parseInt(h.slice(4, 6), 16)];
-  };
-  const rgba = (hex, alpha) => {
-    const [r, g, b] = hexRgb(hex);
-    return `rgba(${r},${g},${b},${alpha})`;
-  };
-  const darken = (hex, amount) => {
-    const [r, g, b] = hexRgb(hex);
-    const f = (value) => Math.max(0, Math.round(value * (1 - amount)));
-    return `#${[f(r), f(g), f(b)].map((value) => value.toString(16).padStart(2, '0')).join('')}`;
+    '--panel-bg': '#1c1c18',
+    '--panel-border': '#3a3a34',
+    '--panel-elev': '#26261f',
+    '--hairline': '#26261f',
+    '--text': '#e8e8e2',
+    '--muted': '#a8a89e',
+    '--faint': '#8f8f84',
+    '--chip-bg': '#26261f',
+    '--chip-text': '#a8a89e',
+    '--field-bg': '#26261f',
+    '--field-focus': '#33332b',
+    '--accent-ink': '#c4d600',
+    '--accent-tint': '#2c3010',
+    '--accent-border': '#59631a',
+    '--accent-fill': 'rgba(196,214,0,.26)',
+    '--shadow': '0 12px 36px rgba(0,0,0,.55)',
+    '--scrim': 'rgba(0,0,0,.45)',
+    '--success': '#4ab97a',
+    '--danger': '#e4685c',
   };
 
   // Inline SVG icons — this widget is embedded on third-party sites with no access
@@ -306,33 +309,33 @@
       .lp-scroll::-webkit-scrollbar-thumb{background:var(--faint);border-radius:9px;border:3px solid transparent;background-clip:content-box}
       .lp-scroll::-webkit-scrollbar-track{background:transparent}
 
-      .lp-launcher{position:fixed;right:20px;bottom:20px;height:46px;padding:0 7px;display:flex;align-items:center;gap:0;background:var(--panel-bg);border:1px solid var(--panel-border);border-radius:23px;box-shadow:var(--launch-shadow);font-family:'Geist',system-ui,-apple-system,sans-serif;pointer-events:auto;transition:box-shadow .14s ease,background .25s ease}
+      .lp-launcher{position:fixed;right:20px;bottom:20px;height:46px;padding:0 7px;display:flex;align-items:center;gap:0;background:var(--bar-bg);border:1px solid var(--bar-line);border-radius:999px;box-shadow:var(--bar-shadow);font-family:var(--font);pointer-events:auto;transition:box-shadow .14s ease,background .25s ease}
       /* The quick actions collapse as one unit when the panel opens. max-width + opacity
          animate the slide-away; visibility flips to hidden only after the collapse (the
          .24s delay) so the buttons are genuinely non-interactive once gone, and back
          immediately on expand. */
       .lp-launch-quick{display:flex;align-items:center;gap:3px;overflow:hidden;max-width:120px;opacity:1;visibility:visible;transition:max-width .24s cubic-bezier(.4,0,.2,1),opacity .18s ease,visibility 0s 0s}
       .lp-launcher.open .lp-launch-quick{max-width:0;opacity:0;visibility:hidden;transition:max-width .24s cubic-bezier(.4,0,.2,1),opacity .18s ease,visibility 0s .24s}
-      .lp-launch-action{flex:0 0 auto;width:34px;height:34px;border:0;background:transparent;color:var(--muted);border-radius:50%;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:background .14s ease,color .14s ease}
-      .lp-launch-action:hover{background:var(--panel-elev);color:var(--accent)}
-      .lp-launch-div{flex:0 0 auto;width:1px;height:22px;background:var(--panel-border);margin:0 3px}
-      .lp-launch-main{display:flex;align-items:center;gap:9px;height:38px;padding:0 10px 0 9px;background:transparent;border:0;color:var(--text);font-family:inherit;font-size:13.5px;font-weight:550;cursor:pointer;border-radius:19px;transition:background .14s ease}
-      .lp-launch-main:hover{background:var(--panel-elev)}
+      .lp-launch-action{flex:0 0 auto;width:34px;height:34px;border:0;background:transparent;color:var(--bar-mute);border-radius:999px;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:background .14s ease,color .14s ease}
+      .lp-launch-action:hover{background:var(--bar-raised);color:var(--accent)}
+      .lp-launch-div{flex:0 0 auto;width:1px;height:22px;background:var(--bar-line);margin:0 3px}
+      .lp-launch-main{display:flex;align-items:center;gap:9px;height:38px;padding:0 10px 0 9px;background:transparent;border:0;color:var(--bar-fg);font-family:inherit;font-size:13.5px;font-weight:600;cursor:pointer;border-radius:999px;transition:background .14s ease}
+      .lp-launch-main:hover{background:var(--bar-raised)}
       /* Styled tooltips for the launcher buttons, above each on hover. */
       [data-tip]{position:relative}
-      [data-tip]::after{content:attr(data-tip);position:absolute;bottom:calc(100% + 8px);left:50%;transform:translateX(-50%) translateY(3px);padding:5px 8px;background:var(--tooltip-bg);color:var(--tooltip-text);font-size:11.5px;font-weight:500;line-height:1;white-space:nowrap;border-radius:6px;box-shadow:0 6px 18px rgba(0,0,0,.28);opacity:0;pointer-events:none;transition:opacity .12s ease,transform .12s ease}
+      [data-tip]::after{content:attr(data-tip);position:absolute;bottom:calc(100% + 8px);left:50%;transform:translateX(-50%) translateY(3px);padding:5px 10px;background:var(--bar-raised);border:1px solid var(--bar-line);color:var(--bar-fg);font-size:11.5px;font-weight:500;line-height:1.4;white-space:nowrap;border-radius:999px;box-shadow:var(--bar-shadow);opacity:0;pointer-events:none;transition:opacity .12s ease,transform .12s ease}
       [data-tip]:hover::after{opacity:1;transform:translateX(-50%) translateY(0)}
-      .lp-count{display:inline-flex;align-items:center;justify-content:center;min-width:20px;height:20px;padding:0 6px;border-radius:10px;font-size:11.5px;font-weight:600}
+      .lp-count{display:inline-flex;align-items:center;justify-content:center;min-width:20px;height:20px;padding:0 7px;border-radius:999px;font-size:11.5px;font-weight:700}
       .lp-count.solid{background:var(--accent);color:var(--on-accent)}
-      .lp-count.soft{background:var(--accent-soft);color:var(--accent)}
+      .lp-count.soft{background:var(--accent-tint);color:var(--accent-ink)}
       .lp-count.danger{background:var(--danger);color:#fff}
 
-      .lp-panel{position:fixed;right:20px;bottom:78px;width:348px;max-height:calc(100vh - 160px);display:flex;flex-direction:column;background:var(--panel-bg);border:1px solid var(--panel-border);border-radius:17px;box-shadow:var(--shadow);pointer-events:auto;overflow:hidden;font-family:'Geist',system-ui,-apple-system,sans-serif;color:var(--text);animation:lp-pop .2s cubic-bezier(.2,.9,.3,1);transition:background .25s ease,border-color .25s ease}
+      .lp-panel{position:fixed;right:20px;bottom:78px;width:348px;max-height:calc(100vh - 160px);display:flex;flex-direction:column;background:var(--panel-bg);border:1px solid var(--panel-border);border-radius:16px;box-shadow:var(--shadow);pointer-events:auto;overflow:hidden;font-family:var(--font);color:var(--text);animation:lp-pop .2s cubic-bezier(.2,.9,.3,1);transition:background .25s ease,border-color .25s ease}
       .lp-main{display:flex;flex-direction:column;min-height:0;flex:1 1 auto}
       .lp-header{flex:0 0 auto;display:flex;align-items:center;gap:9px;padding:14px 14px 12px 17px}
-      .lp-title{font-size:15px;font-weight:600;letter-spacing:-.01em}
+      .lp-title{font-size:15px;font-weight:700;letter-spacing:-.01em}
       .lp-spacer{flex:1}
-      .lp-iconbtn{width:28px;height:28px;border:0;background:transparent;color:var(--muted);border-radius:7px;display:flex;align-items:center;justify-content:center;cursor:pointer}
+      .lp-iconbtn{width:28px;height:28px;border:0;background:transparent;color:var(--muted);border-radius:999px;display:flex;align-items:center;justify-content:center;cursor:pointer}
       .lp-iconbtn:hover{background:var(--panel-elev);color:var(--text)}
 
       .lp-composer{flex:0 0 auto;overflow:hidden;transition:max-height .27s cubic-bezier(.4,0,.2,1),opacity .2s ease}
@@ -340,34 +343,38 @@
       .lp-compose-head{display:flex;align-items:center;gap:7px;margin-bottom:9px;min-height:21px}
       .lp-compose-general{display:inline-flex;align-items:center;gap:6px;font-size:11.5px;color:var(--muted)}
       .lp-dot{width:7px;height:7px;border-radius:50%;border:1.5px dashed var(--faint)}
-      .lp-compose-chip{flex:0 1 auto;min-width:0;display:inline-flex;align-items:center;gap:5px;height:21px;padding:0 8px;background:var(--accent-soft);color:var(--accent);border-radius:6px;font-size:11px;font-weight:500;overflow:hidden}
+      .lp-compose-chip{flex:0 1 auto;min-width:0;display:inline-flex;align-items:center;gap:5px;height:21px;padding:0 9px;background:var(--accent-tint);color:var(--accent-ink);border-radius:999px;font-size:11px;font-weight:600;overflow:hidden}
       .lp-compose-chip span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-      .lp-textarea{width:100%;min-height:74px;resize:none;border:1px solid var(--field-border);background:var(--field-bg);color:var(--text);border-radius:9px;padding:9px 10px;font-family:inherit;font-size:13px;line-height:1.5;outline:none}
-      .lp-textarea:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+      /* Borderless: the fill is the field, as everywhere else in the app. */
+      .lp-textarea{width:100%;min-height:74px;resize:none;border:0;background:var(--field-bg);color:var(--text);border-radius:12px;padding:10px 12px;font-family:inherit;font-size:13px;line-height:1.5;outline:none;transition:background .14s ease}
+      .lp-textarea:focus{background:var(--field-focus)}
       .lp-textarea::placeholder{color:var(--faint)}
       .lp-compose-foot{display:flex;align-items:center;margin-top:9px}
       .lp-hint{font-size:11px;color:var(--faint)}
-      .lp-mono{font-family:'Geist Mono',ui-monospace,monospace}
-      .lp-ghost{height:30px;padding:0 11px;background:transparent;border:0;color:var(--muted);font-family:inherit;font-size:12.5px;font-weight:500;border-radius:8px;cursor:pointer}
+      .lp-mono{font-family:var(--mono)}
+      .lp-ghost{height:30px;padding:0 13px;background:transparent;border:0;color:var(--muted);font-family:inherit;font-size:12.5px;font-weight:600;border-radius:999px;cursor:pointer}
       .lp-ghost:hover{background:var(--chip-bg);color:var(--text)}
-      .lp-primary{height:30px;padding:0 13px;margin-left:4px;display:inline-flex;align-items:center;gap:6px;background:var(--accent);color:var(--on-accent);border:0;border-radius:8px;font-family:inherit;font-size:12.5px;font-weight:500;cursor:pointer}
+      .lp-primary{height:30px;padding:0 15px;margin-left:4px;display:inline-flex;align-items:center;gap:6px;background:var(--accent);color:var(--on-accent);border:0;border-radius:999px;font-family:inherit;font-size:12.5px;font-weight:700;cursor:pointer;transition:background .14s ease}
+      .lp-primary:hover{background:var(--accent-hover)}
       .lp-primary[disabled]{opacity:.55;cursor:default}
 
       .lp-actions{flex:0 0 auto;display:flex;gap:8px;padding:0 14px 12px}
-      .lp-action{flex:1;height:38px;display:flex;align-items:center;justify-content:center;gap:7px;border-radius:10px;font-family:inherit;font-size:13px;font-weight:500;cursor:pointer;border:1px solid var(--field-border);background:var(--panel-elev);color:var(--text);transition:background .15s ease,border-color .15s ease,color .15s ease}
-      .lp-action:hover{border-color:var(--faint)}
-      .lp-action.active{background:var(--accent-soft);color:var(--accent);border-color:var(--accent)}
-      .lp-kbd{font-family:'Geist Mono',ui-monospace,monospace;font-size:10px;line-height:1;padding:2px 4px;border-radius:4px;background:var(--chip-bg);color:var(--chip-text)}
+      .lp-action{flex:1;height:38px;display:flex;align-items:center;justify-content:center;gap:7px;border-radius:999px;font-family:inherit;font-size:13px;font-weight:600;cursor:pointer;border:0;background:var(--chip-bg);color:var(--text);transition:background .15s ease,color .15s ease}
+      .lp-action:hover{background:var(--field-focus)}
+      /* Pressed, not primary: a solid accent fill here would compete with the
+         Save/Send button for the eye, so the toggle takes the pale tint. */
+      .lp-action.active{background:var(--accent-tint);color:var(--accent-ink);box-shadow:inset 0 0 0 1px var(--accent-border)}
+      .lp-kbd{font-family:var(--mono);font-size:10px;line-height:1;padding:2px 4px;border-radius:4px;background:var(--panel-elev);border:1px solid var(--panel-border);border-bottom-width:2px;color:var(--chip-text)}
 
-      .lp-error{margin:0 14px 10px;padding:9px 11px;display:flex;align-items:flex-start;gap:8px;background:color-mix(in srgb,var(--danger) 12%,transparent);border:1px solid color-mix(in srgb,var(--danger) 34%,transparent);border-radius:9px;font-size:12px;line-height:1.45;color:var(--danger)}
+      .lp-error{margin:0 14px 10px;padding:9px 11px;display:flex;align-items:flex-start;gap:8px;background:color-mix(in srgb,var(--danger) 10%,transparent);border:1px solid color-mix(in srgb,var(--danger) 28%,transparent);border-radius:12px;font-size:12px;line-height:1.45;color:var(--danger)}
       .lp-error span{flex:1;padding-top:2px}
-      .lp-error button{flex:0 0 auto;background:transparent;border:0;color:var(--danger);font-family:inherit;font-size:12px;font-weight:600;cursor:pointer;border-radius:6px;padding:3px 6px}
+      .lp-error button{flex:0 0 auto;background:transparent;border:0;color:var(--danger);font-family:inherit;font-size:12px;font-weight:700;cursor:pointer;border-radius:999px;padding:3px 9px}
       .lp-error button:hover{background:color-mix(in srgb,var(--danger) 14%,transparent)}
 
       .lp-empty-anim{flex:0 0 auto;overflow:hidden;transition:max-height .27s cubic-bezier(.4,0,.2,1),opacity .2s ease}
       .lp-empty{display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:22px 26px 28px;gap:4px}
-      .lp-empty-icon{width:42px;height:42px;border-radius:12px;background:var(--panel-elev);border:1px solid var(--hairline);display:flex;align-items:center;justify-content:center;color:var(--faint);margin-bottom:8px}
-      .lp-empty-title{font-size:13.5px;font-weight:550;color:var(--text)}
+      .lp-empty-icon{width:42px;height:42px;border-radius:999px;background:var(--chip-bg);display:flex;align-items:center;justify-content:center;color:var(--faint);margin-bottom:8px}
+      .lp-empty-title{font-size:13.5px;font-weight:700;color:var(--text)}
       .lp-empty-sub{font-size:12.5px;color:var(--muted);line-height:1.5;max-width:210px}
 
       .lp-list-wrap{flex:0 1 auto;display:flex;flex-direction:column;min-height:0}
@@ -377,46 +384,49 @@
       .lp-item:hover{background:var(--panel-elev)}
       .lp-item-confirm{position:absolute;inset:0;display:flex;align-items:center;gap:8px;padding:0 15px;background:var(--panel-bg);animation:lp-slide-left .18s cubic-bezier(.4,0,.2,1)}
       .lp-item-confirm-text{flex:1;font-size:12px;color:var(--text);font-weight:500}
-      .lp-badge{flex:0 0 auto;width:22px;height:22px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:600}
+      /* The teardrop is the pin's silhouette, so an anchored comment's badge
+         carries the same shape as the marker it points at. */
+      .lp-badge{flex:0 0 auto;width:22px;height:22px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700}
       .lp-badge.element{border-radius:50% 50% 50% 2px;background:var(--accent);color:var(--on-accent)}
       .lp-badge.general{border-radius:50%;border:1.5px dashed var(--faint);color:var(--faint)}
       .lp-item-body{flex:1;min-width:0}
       .lp-item-text{font-size:13px;line-height:1.5;color:var(--text);word-break:break-word}
-      .lp-chip{display:inline-flex;align-items:center;gap:4px;margin-top:6px;height:19px;padding:0 7px;background:var(--chip-bg);color:var(--chip-text);border-radius:5px;font-size:10.5px;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-      .lp-edit{flex:0 0 auto;width:24px;height:24px;border:0;background:transparent;color:var(--faint);border-radius:6px;display:flex;align-items:center;justify-content:center;cursor:pointer;opacity:.55;transition:opacity .12s ease}
-      .lp-edit:hover{opacity:1;background:var(--chip-bg);color:var(--accent)}
-      .lp-del{flex:0 0 auto;width:24px;height:24px;border:0;background:transparent;color:var(--faint);border-radius:6px;display:flex;align-items:center;justify-content:center;cursor:pointer;opacity:.55;transition:opacity .12s ease}
+      .lp-chip{display:inline-flex;align-items:center;gap:4px;margin-top:6px;height:19px;padding:0 9px;background:var(--chip-bg);color:var(--chip-text);border-radius:999px;font-size:10.5px;font-weight:600;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+      .lp-edit{flex:0 0 auto;width:24px;height:24px;border:0;background:transparent;color:var(--faint);border-radius:999px;display:flex;align-items:center;justify-content:center;cursor:pointer;opacity:.55;transition:opacity .12s ease}
+      .lp-edit:hover{opacity:1;background:var(--chip-bg);color:var(--accent-ink)}
+      .lp-del{flex:0 0 auto;width:24px;height:24px;border:0;background:transparent;color:var(--faint);border-radius:999px;display:flex;align-items:center;justify-content:center;cursor:pointer;opacity:.55;transition:opacity .12s ease}
       .lp-del:hover{opacity:1;background:var(--chip-bg);color:var(--danger)}
-      .lp-danger-sm{flex:0 0 auto;height:25px;padding:0 9px;background:var(--danger);color:#fff;border:0;border-radius:6px;font-family:inherit;font-size:11.5px;font-weight:600;cursor:pointer}
-      .lp-ghost-sm{height:25px;padding:0 7px;background:transparent;border:0;color:var(--muted);font-family:inherit;font-size:11.5px;font-weight:500;border-radius:6px;cursor:pointer}
+      .lp-danger-sm{flex:0 0 auto;height:25px;padding:0 11px;background:var(--danger);color:#fff;border:0;border-radius:999px;font-family:inherit;font-size:11.5px;font-weight:700;cursor:pointer}
+      .lp-ghost-sm{height:25px;padding:0 9px;background:transparent;border:0;color:var(--muted);font-family:inherit;font-size:11.5px;font-weight:600;border-radius:999px;cursor:pointer}
       .lp-ghost-sm:hover{background:var(--chip-bg);color:var(--text)}
 
       .lp-footer{flex:0 0 auto;align-items:center;gap:8px;padding:11px 14px;border-top:1px solid var(--hairline);background:var(--panel-bg)}
       .lp-footer-row{display:flex;align-items:center;gap:8px;width:100%}
-      .lp-list-toggle{display:flex;align-items:center;gap:6px;height:32px;padding:0 9px 0 8px;background:transparent;border:0;cursor:pointer;color:var(--muted);font-family:inherit;font-size:12px;font-weight:550;border-radius:8px}
+      .lp-list-toggle{display:flex;align-items:center;gap:6px;height:32px;padding:0 11px 0 9px;background:transparent;border:0;cursor:pointer;color:var(--muted);font-family:inherit;font-size:12px;font-weight:600;border-radius:999px}
       .lp-list-toggle:hover{background:var(--chip-bg);color:var(--text)}
       .lp-chev{transition:transform .25s ease}
-      .lp-clear{height:32px;padding:0 11px;background:transparent;border:0;color:var(--muted);font-family:inherit;font-size:12.5px;font-weight:500;border-radius:8px;cursor:pointer}
+      .lp-clear{height:32px;padding:0 13px;background:transparent;border:0;color:var(--muted);font-family:inherit;font-size:12.5px;font-weight:600;border-radius:999px;cursor:pointer}
       .lp-clear:hover{background:var(--chip-bg);color:var(--danger)}
-      .lp-send{height:32px;padding:0 15px;display:flex;align-items:center;gap:7px;background:var(--accent);color:var(--on-accent);border:0;border-radius:8px;font-family:inherit;font-size:12.5px;font-weight:600;cursor:pointer}
+      .lp-send{height:32px;padding:0 17px;display:flex;align-items:center;gap:7px;background:var(--accent);color:var(--on-accent);border:0;border-radius:999px;font-family:inherit;font-size:12.5px;font-weight:700;cursor:pointer;transition:background .14s ease}
+      .lp-send:hover{background:var(--accent-hover)}
       .lp-send[disabled]{opacity:.55;cursor:default}
-      .lp-confirm-text{font-size:12px;color:var(--text);font-weight:500}
-      .lp-clear-cancel{height:32px;padding:0 11px;background:transparent;border:0;color:var(--muted);font-family:inherit;font-size:12.5px;font-weight:500;border-radius:8px;cursor:pointer}
+      .lp-confirm-text{font-size:12px;color:var(--text);font-weight:600}
+      .lp-clear-cancel{height:32px;padding:0 13px;background:transparent;border:0;color:var(--muted);font-family:inherit;font-size:12.5px;font-weight:600;border-radius:999px;cursor:pointer}
       .lp-clear-cancel:hover{background:var(--chip-bg);color:var(--text)}
-      .lp-clear-yes{height:32px;padding:0 13px;background:var(--danger);color:#fff;border:0;border-radius:8px;font-family:inherit;font-size:12.5px;font-weight:600;cursor:pointer}
+      .lp-clear-yes{height:32px;padding:0 15px;background:var(--danger);color:#fff;border:0;border-radius:999px;font-family:inherit;font-size:12.5px;font-weight:700;cursor:pointer}
       .lp-spin{width:13px;height:13px;border:2px solid currentColor;border-right-color:transparent;border-radius:50%;display:inline-block;animation:lp-spin .6s linear infinite}
 
       .lp-sent{padding:6px 18px 20px;text-align:center;animation:lp-pop .2s ease}
-      .lp-sent-disc{width:46px;height:46px;margin:8px auto 12px;border-radius:50%;background:color-mix(in srgb,var(--success) 16%,transparent);display:flex;align-items:center;justify-content:center;color:var(--success)}
-      .lp-sent-title{font-size:14.5px;font-weight:600}
+      .lp-sent-disc{width:46px;height:46px;margin:8px auto 12px;border-radius:50%;background:color-mix(in srgb,var(--success) 14%,transparent);display:flex;align-items:center;justify-content:center;color:var(--success)}
+      .lp-sent-title{font-size:14.5px;font-weight:700}
       .lp-sent-sub{font-size:12.5px;color:var(--muted);margin-top:3px}
 
       .lp-fatal{padding:10px 24px 26px;text-align:center;animation:lp-pop .2s ease}
-      .lp-fatal-disc{width:46px;height:46px;margin:6px auto 13px;border-radius:50%;background:color-mix(in srgb,var(--danger) 15%,transparent);display:flex;align-items:center;justify-content:center;color:var(--danger)}
-      .lp-fatal-title{font-size:14.5px;font-weight:600;color:var(--text)}
+      .lp-fatal-disc{width:46px;height:46px;margin:6px auto 13px;border-radius:50%;background:color-mix(in srgb,var(--danger) 13%,transparent);display:flex;align-items:center;justify-content:center;color:var(--danger)}
+      .lp-fatal-title{font-size:14.5px;font-weight:700;color:var(--text)}
       .lp-fatal-sub{max-width:252px;margin:6px auto 0;font-size:12.5px;color:var(--muted);line-height:1.55}
-      .lp-new{margin-top:10px;height:34px;width:100%;background:var(--panel-elev);border:1px solid var(--field-border);border-radius:9px;color:var(--text);font-family:inherit;font-size:13px;font-weight:500;cursor:pointer}
-      .lp-new:hover{border-color:var(--accent)}
+      .lp-new{margin-top:10px;height:34px;width:100%;background:var(--chip-bg);border:0;border-radius:999px;color:var(--text);font-family:inherit;font-size:13px;font-weight:600;cursor:pointer;transition:background .14s ease}
+      .lp-new:hover{background:var(--field-focus)}
     </style>
     <div class="lp-launcher" id="lp-launcher">
       <div class="lp-launch-quick" id="lp-launch-quick">
@@ -507,33 +517,37 @@
       @keyframes lp-pin{from{transform:scale(.4)}to{transform:scale(1)}}
       @keyframes lp-pop{from{transform:translateY(8px) scale(.985)}to{transform:none}}
       @keyframes lp-spin{to{transform:rotate(360deg)}}
-      .lp-ov{font-family:'Geist',system-ui,-apple-system,sans-serif}
+      .lp-ov{font-family:var(--font)}
       .lp-scrim{position:fixed;inset:0;background:var(--scrim);animation:lp-fade .18s ease;pointer-events:none}
-      .highlight{position:fixed;border:2px solid var(--accent);background:var(--accent-fill);border-radius:9px;pointer-events:none;box-shadow:0 0 0 4px var(--accent-soft);transition:left .07s ease,top .07s ease,width .07s ease,height .07s ease;z-index:2}
-      .lp-hl-label{position:absolute;left:-2px;top:-25px;display:inline-flex;align-items:center;max-width:240px;height:21px;padding:0 8px;background:var(--accent);color:var(--on-accent);font-size:11px;font-weight:500;border-radius:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+      /* Chartreuse alone can vanish against a pale or yellowish host page, so
+         every marker the widget paints onto the page carries a near-black edge
+         of its own: the accent reads as the brand, the ring keeps it visible. */
+      .highlight{position:fixed;border:2px solid var(--accent);background:var(--accent-fill);border-radius:10px;pointer-events:none;box-shadow:0 0 0 1px var(--pin-ring),0 0 0 5px var(--accent-fill);transition:left .07s ease,top .07s ease,width .07s ease,height .07s ease;z-index:2}
+      .lp-hl-label{position:absolute;left:-2px;top:-27px;display:inline-flex;align-items:center;max-width:240px;height:21px;padding:0 9px;background:var(--accent);color:var(--on-accent);font-size:11px;font-weight:600;border-radius:999px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;box-shadow:0 0 0 1px var(--pin-ring)}
       .lp-pin-wrap{position:fixed;z-index:4;pointer-events:auto}
       .lp-ov.targeting .lp-pin-wrap{pointer-events:none}
-      .pin{width:24px;height:24px;border-radius:50% 50% 50% 2px;border:2px solid var(--page-bg);background:var(--accent);color:var(--on-accent);font-family:inherit;font-size:12px;font-weight:600;display:flex;align-items:center;justify-content:center;cursor:pointer;box-shadow:0 2px 8px rgba(24,24,40,.3);animation:lp-pin .22s cubic-bezier(.2,1.3,.5,1)}
+      .pin{width:24px;height:24px;border-radius:50% 50% 50% 2px;border:2px solid var(--pin-ring);background:var(--accent);color:var(--on-accent);font-family:inherit;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;cursor:pointer;box-shadow:0 2px 8px rgba(15,15,13,.35);animation:lp-pin .22s cubic-bezier(.2,1.3,.5,1)}
       .pin:hover{transform:scale(1.12)}
       .lp-pop{position:absolute;top:16px;right:0;width:240px;padding-top:14px;cursor:default}
       .lp-pop-card{position:relative;overflow:hidden;min-height:96px;padding:12px;background:var(--panel-bg);border:1px solid var(--panel-border);border-radius:12px;box-shadow:var(--shadow);animation:lp-fade .12s ease;display:flex;flex-direction:column}
       .lp-pop-body{font-size:12.5px;line-height:1.5;color:var(--text);word-break:break-word}
       .lp-pop-row{display:flex;align-items:center;gap:8px;margin-top:auto;padding-top:10px}
-      .lp-pop-chip{display:inline-flex;align-items:center;height:19px;padding:0 7px;background:var(--chip-bg);color:var(--chip-text);border-radius:5px;font-size:10.5px;max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-      .lp-pop-edit{flex:0 0 auto;width:24px;height:24px;border:0;background:transparent;color:var(--faint);border-radius:6px;display:flex;align-items:center;justify-content:center;cursor:pointer;opacity:.6;transition:opacity .12s ease}
-      .lp-pop-edit:hover{opacity:1;background:var(--chip-bg);color:var(--accent)}
-      .lp-pop-del{flex:0 0 auto;width:24px;height:24px;border:0;background:transparent;color:var(--faint);border-radius:6px;display:flex;align-items:center;justify-content:center;cursor:pointer;opacity:.6;transition:opacity .12s ease}
+      .lp-pop-chip{display:inline-flex;align-items:center;height:19px;padding:0 9px;background:var(--chip-bg);color:var(--chip-text);border-radius:999px;font-size:10.5px;font-weight:600;max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+      .lp-pop-edit{flex:0 0 auto;width:24px;height:24px;border:0;background:transparent;color:var(--faint);border-radius:999px;display:flex;align-items:center;justify-content:center;cursor:pointer;opacity:.6;transition:opacity .12s ease}
+      .lp-pop-edit:hover{opacity:1;background:var(--chip-bg);color:var(--accent-ink)}
+      .lp-pop-del{flex:0 0 auto;width:24px;height:24px;border:0;background:transparent;color:var(--faint);border-radius:999px;display:flex;align-items:center;justify-content:center;cursor:pointer;opacity:.6;transition:opacity .12s ease}
       .lp-pop-del:hover{opacity:1;background:var(--chip-bg);color:var(--danger)}
       .lp-pop-confirm{position:absolute;inset:0;background:var(--panel-bg);border-radius:12px;padding:12px;display:flex;flex-direction:column;justify-content:center;animation:lp-slide-left .18s cubic-bezier(.4,0,.2,1)}
-      .lp-pop-confirm-title{font-size:12.5px;font-weight:600;color:var(--text)}
+      .lp-pop-confirm-title{font-size:12.5px;font-weight:700;color:var(--text)}
       .lp-pop-confirm-sub{font-size:11.5px;color:var(--muted);margin-top:3px;line-height:1.45}
       .lp-pop-confirm-row{display:flex;gap:7px;margin-top:11px}
-      .lp-pop-yes{flex:1;height:30px;background:var(--danger);color:#fff;border:0;border-radius:8px;font-family:inherit;font-size:12px;font-weight:600;cursor:pointer}
-      .lp-pop-no{flex:1;height:30px;background:var(--panel-elev);border:1px solid var(--field-border);color:var(--text);border-radius:8px;font-family:inherit;font-size:12px;font-weight:500;cursor:pointer}
-      .lp-toast{position:fixed;top:18px;left:50%;transform:translate(-50%,0);z-index:6;display:flex;align-items:center;gap:10px;padding:9px 12px 9px 14px;background:var(--tooltip-bg);color:var(--tooltip-text);border-radius:11px;font-size:13px;font-weight:500;box-shadow:0 8px 26px rgba(0,0,0,.34);animation:lp-fade .18s ease;transition:transform .22s cubic-bezier(.4,0,.2,1);pointer-events:auto}
-      .lp-toast-sep{opacity:.5}
-      .lp-toast-dim{opacity:.65;font-size:12px}
-      .lp-toast-key{margin-left:2px;padding:3px 7px;background:rgba(255,255,255,.16);border-radius:6px;font-size:11px;font-weight:500;cursor:pointer}
+      .lp-pop-yes{flex:1;height:30px;background:var(--danger);color:#fff;border:0;border-radius:999px;font-family:inherit;font-size:12px;font-weight:700;cursor:pointer}
+      .lp-pop-no{flex:1;height:30px;background:var(--chip-bg);border:0;color:var(--text);border-radius:999px;font-family:inherit;font-size:12px;font-weight:600;cursor:pointer}
+      .lp-toast{position:fixed;top:18px;left:50%;transform:translate(-50%,0);z-index:6;display:flex;align-items:center;gap:10px;padding:9px 13px 9px 15px;background:var(--bar-bg);border:1px solid var(--bar-line);color:var(--bar-fg);border-radius:999px;font-size:13px;font-weight:600;box-shadow:var(--bar-shadow);animation:lp-fade .18s ease;transition:transform .22s cubic-bezier(.4,0,.2,1);pointer-events:auto}
+      .lp-toast-sep{color:var(--bar-line)}
+      .lp-toast-dim{color:var(--bar-mute);font-size:12px;font-weight:500}
+      .lp-toast-key{margin-left:2px;padding:3px 9px;background:var(--bar-raised);border:1px solid var(--bar-line);border-radius:999px;font-size:11px;font-weight:600;cursor:pointer;transition:background .12s ease}
+      .lp-toast-key:hover{background:var(--bar-line)}
     </style>
     <div class="lp-ov" id="lp-ov">
       <div class="lp-scrim" id="lp-scrim" style="display:none"></div>
@@ -580,14 +594,9 @@
 
   // --- theming: follow the host's color scheme and live-update on change. ---
   const applyTheme = (dark) => {
-    const base = dark ? DARK : LIGHT;
+    const tokens = { ...CHROME, ...(dark ? DARK : LIGHT) };
     [host, overlayHost].forEach((node) => {
-      Object.entries(base).forEach(([key, value]) => node.style.setProperty(key, value));
-      node.style.setProperty('--accent', ACCENT);
-      node.style.setProperty('--accent-press', darken(ACCENT, 0.12));
-      node.style.setProperty('--accent-fill', rgba(ACCENT, dark ? 0.18 : 0.12));
-      node.style.setProperty('--accent-soft', rgba(ACCENT, dark ? 0.2 : 0.11));
-      node.style.setProperty('--on-accent', '#ffffff');
+      Object.entries(tokens).forEach(([key, value]) => node.style.setProperty(key, value));
     });
   };
   const colorScheme = window.matchMedia('(prefers-color-scheme: dark)');

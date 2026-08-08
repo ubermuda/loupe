@@ -1,54 +1,96 @@
 /* Dedicated stylesheet for HTML email templates.
- * Uses plain CSS with hardcoded values — no CSS variables, no cascade layers —
- * so that twig/cssinliner-extra can inline everything correctly for email clients.
+ * Plain CSS with hardcoded values — no CSS variables, no cascade layers — so
+ * twig/cssinliner-extra can inline everything for email clients. The hexes are
+ * the app's Chartreuse tokens copied for that reason; keep them in step with
+ * the :root block in app.css.
  */
 
 body {
     margin: 0;
     padding: 40px;
-    background-color: #f1f5f9;
-    font-family: ui-sans-serif, system-ui, sans-serif;
+    background-color: #f4f4f0;
+    font-family:
+        ui-sans-serif,
+        system-ui,
+        -apple-system,
+        BlinkMacSystemFont,
+        sans-serif;
     font-size: 14px;
-    color: #0f172a;
+    color: #14140f;
     -webkit-font-smoothing: antialiased;
+}
+
+/* Brand lockup above the card, as on the app's signed-out pages. The mark is
+   drawn in CSS because an <img> needs a hosted asset and most clients block
+   remote images by default. Outlook's Word engine drops the sized empty span
+   and shows the wordmark alone, which is the intended degradation.
+ */
+.brand {
+    max-width: 448px;
+    margin: 0 auto 20px auto;
+    font-size: 18px;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    color: #14140f;
+}
+
+.brand-mark {
+    display: inline-block;
+    width: 22px;
+    height: 22px;
+    border-radius: 7px;
+    background-color: #c4d600;
+    vertical-align: middle;
+    margin-right: 9px;
+}
+
+.brand-name {
+    vertical-align: middle;
 }
 
 .card {
     background-color: #ffffff;
-    border-radius: 12px;
+    border-radius: 16px;
     padding: 40px;
     max-width: 448px;
     margin: 0 auto;
-    border: 1px solid #e2e8f0;
+    border: 1px solid #f0f0ec;
 }
 
 h1 {
     font-size: 20px;
-    font-weight: 600;
+    font-weight: 700;
+    letter-spacing: -0.02em;
     margin: 0 0 12px 0;
-    color: #0f172a;
+    color: #0f0f0d;
 }
 
 .body-text {
     font-size: 14px;
     line-height: 1.625;
-    color: #475569;
-    margin: 0 0 16px 0;
+    color: #6f6f66;
+    margin: 0 0 20px 0;
 }
 
+/* Ink on chartreuse, fully rounded: the app has no square buttons, and white
+   on this accent is unreadable. */
 .btn {
     display: inline-block;
     padding: 12px 24px;
-    background-color: #2563eb;
-    color: #ffffff;
+    background-color: #c4d600;
+    color: #0f0f0d;
     text-decoration: none;
-    border-radius: 8px;
+    border-radius: 999px;
     font-size: 14px;
-    font-weight: 500;
+    font-weight: 700;
 }
 
+/* The footer carries a raw fallback URL, which is one long unbreakable token
+   and runs past the card edge without this. */
 .footer {
     font-size: 12px;
-    color: #94a3b8;
+    line-height: 1.6;
+    color: #8f8f84;
     margin-top: 24px;
+    word-break: break-word;
 }
