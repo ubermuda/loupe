@@ -480,16 +480,11 @@
     .form-field {
         @apply flex flex-col gap-1.5;
     }
-    /* Carries a secondary link on the label's line while leaving it last in the
-       DOM, so the field order a keyboard walks is the field order a reader sees. */
-    .form-field--with-action {
-        @apply relative;
+    .auth-forgot {
+        @apply self-center text-xs text-fg-mute;
     }
-    .form-field__action {
-        @apply absolute top-0 right-0 text-xs text-accent;
-    }
-    .form-field__action:hover {
-        @apply underline;
+    .auth-forgot:hover {
+        @apply text-fg underline;
     }
     .form-stack {
         @apply flex flex-col gap-3.5;
