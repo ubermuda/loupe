@@ -347,7 +347,7 @@
       .lp-compose-chip span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
       /* Borderless: the fill is the field, as everywhere else in the app. */
       .lp-textarea{width:100%;min-height:74px;resize:none;border:0;background:var(--field-bg);color:var(--text);border-radius:12px;padding:10px 12px;font-family:inherit;font-size:13px;line-height:1.5;outline:none;transition:background .14s ease}
-      .lp-textarea:focus{background:var(--field-focus)}
+      .lp-textarea:focus{background:var(--field-focus);box-shadow:inset 0 0 0 1px var(--accent-ink),0 0 0 3px var(--accent-tint)}
       .lp-textarea::placeholder{color:var(--faint)}
       .lp-compose-foot{display:flex;align-items:center;margin-top:9px}
       .lp-hint{font-size:11px;color:var(--faint)}
