@@ -49,13 +49,17 @@
                autocomplete="email" autofocus placeholder="{{ 'account.login.form.email.placeholder'|trans }}" class="auth-input">
     </div>
 
-    <div class="form-field">
-        <div class="flex items-baseline justify-between">
-            <label class="form-label" for="password">{{ 'account.login.form.password.label'|trans }}</label>
-            <a href="{{ path('app_forgot_password_request') }}" class="text-xs text-accent hover:underline">{{ 'account.login.form.forgot_password'|trans }}</a>
-        </div>
+    {#
+      The forgot-password link follows the input in the DOM and is placed back
+      beside the label with CSS. Written in reading order it sits between the two
+      fields, so tabbing out of the email box lands on the link rather than on
+      the password box.
+    #}
+    <div class="form-field form-field--with-action">
+        <label class="form-label" for="password">{{ 'account.login.form.password.label'|trans }}</label>
         <input id="password" type="password" name="password"
                autocomplete="current-password" placeholder="{{ 'account.login.form.password.placeholder'|trans }}" class="auth-input">
+        <a href="{{ path('app_forgot_password_request') }}" class="form-field__action">{{ 'account.login.form.forgot_password'|trans }}</a>
     </div>
 
     <label class="flex items-center gap-2 text-sm text-fg-mute cursor-pointer select-none mt-0.5">

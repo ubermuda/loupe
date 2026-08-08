@@ -28,6 +28,9 @@
 
     <section class="lp-connect-block" data-testid="export-section">
         <p class="lp-eyebrow">{{ 'account.settings.export.heading'|trans }}</p>
+        {# Panelled like the profile block above it: loose on the page the export
+           controls read as a leftover rather than a section of the settings. #}
+        <div class="lp-settings-panel">
         <p class="lp-connect-hint">{{ 'account.settings.export.intro'|trans }}</p>
 
         {% for export in view.exports %}
@@ -51,6 +54,7 @@
             <button type="submit" class="lp-btn lp-btn--primary">{{ 'account.settings.export.request_button'|trans }}</button>
         </form>
         <p class="lp-connect-hint">{{ 'account.settings.export.link_hint'|trans }}</p>
+        </div>
     </section>
 
     <section class="lp-danger-zone" data-testid="delete-account-section">

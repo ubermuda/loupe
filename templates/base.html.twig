@@ -138,8 +138,13 @@
             <div class="lp-shell">
                 <header class="lp-topbar">
                     {% block topbar %}
-                        <nav class="lp-topbar__trail">{% block topbar_crumbs %}{% endblock %}</nav>
-                        {% block topbar_meta %}{% endblock %}
+                        {# Crumbs and meta share one baseline row: they are set at
+                           different sizes, so centring each against the bar
+                           independently leaves their text sitting off each other. #}
+                        <div class="lp-topbar__lead">
+                            <nav class="lp-topbar__trail">{% block topbar_crumbs %}{% endblock %}</nav>
+                            {% block topbar_meta %}{% endblock %}
+                        </div>
                         {% block topbar_actions %}{% endblock %}
                     {% endblock %}
                 </header>

@@ -10,9 +10,7 @@
 
 {% block body %}
 <div class="lp-workspace">
-    <p class="lp-eyebrow">{{ 'project.edit.eyebrow'|trans }}</p>
     <h1 class="lp-workspace-title">{{ 'project.edit.page.title'|trans }}</h1>
-    <p class="lp-workspace-desc">{{ 'project.edit.description'|trans({'%name%': project.name}) }}</p>
 
     <div class="max-w-170">
         {{ form_start(form, {'attr': {'class': 'lp-form'}}) }}

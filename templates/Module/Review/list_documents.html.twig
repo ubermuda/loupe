@@ -199,11 +199,20 @@
         <a class="lp-btn" href="{{ path('app_project_documents', {id: project.id}) }}">{{ 'review.dashboard.filter.clear_filters'|trans }}</a>
     </div>
     {% else %}
+    {# Telling someone to connect an agent when one is already connected reads as
+       the page not knowing its own state; with a token bound the only thing left
+       to say is that the agent has not written anything yet. Revoking clears the
+       binding, so the relation answers the question on its own. #}
     <div class="lp-empty-state">
         <twig:ux:icon name="lucide:file-text" class="lp-empty-state__icon w-12 h-12" />
         <h2 class="lp-empty-state__title">{{ 'review.dashboard.empty.title'|trans }}</h2>
+        {% if project.mcpToken %}
+        <p class="lp-empty-state__body">{{ 'review.dashboard.empty.connected_body'|trans }}</p>
+        <a class="lp-btn" href="{{ path('app_project_connect', {id: project.id}) }}">{{ 'review.dashboard.empty.tools'|trans }}</a>
+        {% else %}
         <p class="lp-empty-state__body">{{ 'review.dashboard.empty.body'|trans }}</p>
         <a class="lp-btn" href="{{ path('app_project_connect', {id: project.id}) }}">{{ 'review.dashboard.empty.connect'|trans }}</a>
+        {% endif %}
     </div>
     {% endif %}
 </div>

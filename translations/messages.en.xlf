@@ -1385,10 +1385,6 @@
                 <source>project.list.eyebrow</source>
                 <target>Workspace</target>
             </trans-unit>
-            <trans-unit id="project.list.description">
-                <source>project.list.description</source>
-                <target>Every project holds its documents and its site review. Pick a project to see what the agent is waiting on.</target>
-            </trans-unit>
             <trans-unit id="project.list.new">
                 <source>project.list.new</source>
                 <target>New project</target>
@@ -1433,17 +1429,9 @@
                 <source>project.list.edit</source>
                 <target>Edit %name%</target>
             </trans-unit>
-            <trans-unit id="project.edit.eyebrow">
-                <source>project.edit.eyebrow</source>
-                <target>Project settings</target>
-            </trans-unit>
             <trans-unit id="project.edit.page.title">
                 <source>project.edit.page.title</source>
                 <target>Edit project</target>
-            </trans-unit>
-            <trans-unit id="project.edit.description">
-                <source>project.edit.description</source>
-                <target>Update the name and domain for %name%.</target>
             </trans-unit>
             <trans-unit id="project.edit.form.cancel">
                 <source>project.edit.form.cancel</source>
@@ -1640,6 +1628,42 @@
                 <source>project.connect.tool.document_revise</source>
                 <target>Submit a new Markdown version of a document. Open comments are re-anchored onto the new version; those whose quoted text no longer appears are flagged orphaned.</target>
             </trans-unit>
+            <trans-unit id="project.connect.tool.document_rename">
+                <source>project.connect.tool.document_rename</source>
+                <target>Change a document's title without creating a new version.</target>
+            </trans-unit>
+            <trans-unit id="project.connect.tool.document_archive">
+                <source>project.connect.tool.document_archive</source>
+                <target>Archive a document, stating why. It leaves the reviewer's default list but is not deleted.</target>
+            </trans-unit>
+            <trans-unit id="project.connect.tool.document_unarchive">
+                <source>project.connect.tool.document_unarchive</source>
+                <target>Restore an archived document so it appears in the reviewer's list again.</target>
+            </trans-unit>
+            <trans-unit id="project.connect.tool.document_set_tags">
+                <source>project.connect.tool.document_set_tags</source>
+                <target>Replace a document's tags with the given set. An empty list clears them.</target>
+            </trans-unit>
+            <trans-unit id="project.connect.tool.document_set_references">
+                <source>project.connect.tool.document_set_references</source>
+                <target>Replace the set of documents a document points at, without creating a new version.</target>
+            </trans-unit>
+            <trans-unit id="project.connect.tool.document_highlight">
+                <source>project.connect.tool.document_highlight</source>
+                <target>Tint the passages a reviewer should read first, so a long document says where to start.</target>
+            </trans-unit>
+            <trans-unit id="project.connect.tool.document_reply_to_comment">
+                <source>project.connect.tool.document_reply_to_comment</source>
+                <target>Reply to a document-review comment, using a comment id from document_get_review.</target>
+            </trans-unit>
+            <trans-unit id="project.connect.tool.document_mark_comment_addressed">
+                <source>project.connect.tool.document_mark_comment_addressed</source>
+                <target>Mark document-review comment threads as addressed after acting on them.</target>
+            </trans-unit>
+            <trans-unit id="project.connect.tool.tag_list">
+                <source>project.connect.tool.tag_list</source>
+                <target>List every tag in the project with how many documents carry it.</target>
+            </trans-unit>
             <trans-unit id="project.connect.tool.site_review_get">
                 <source>project.connect.tool.site_review_get</source>
                 <target>Fetch all unaddressed site-review comments (DOM-anchored feedback captured in the browser) for the project bound to your MCP token. Address each comment, then mark it with site_review_mark_comment_addressed.</target>
@@ -1806,9 +1830,9 @@
                 <source>site_review.comment.general_page</source>
                 <target>General page comment</target>
             </trans-unit>
-            <trans-unit id="site_review.comment.via_widget">
-                <source>site_review.comment.via_widget</source>
-                <target>via review widget</target>
+            <trans-unit id="site_review.comment.url">
+                <source>site_review.comment.url</source>
+                <target>Page</target>
             </trans-unit>
             <trans-unit id="site_review.comment.selector">
                 <source>site_review.comment.selector</source>
@@ -2539,6 +2563,14 @@
             <trans-unit id="review.dashboard.empty.body">
                 <source>review.dashboard.empty.body</source>
                 <target>An agent connected to this project writes them with the document_create tool. Connect one and its first document lands here.</target>
+            </trans-unit>
+            <trans-unit id="review.dashboard.empty.connected_body">
+                <source>review.dashboard.empty.connected_body</source>
+                <target>This project's agent is connected but has not written a document yet. Ask it to create one with the document_create tool.</target>
+            </trans-unit>
+            <trans-unit id="review.dashboard.empty.tools">
+                <source>review.dashboard.empty.tools</source>
+                <target>See the agent tools</target>
             </trans-unit>
             <trans-unit id="review.dashboard.empty.connect">
                 <source>review.dashboard.empty.connect</source>

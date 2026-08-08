@@ -480,6 +480,17 @@
     .form-field {
         @apply flex flex-col gap-1.5;
     }
+    /* Carries a secondary link on the label's line while leaving it last in the
+       DOM, so the field order a keyboard walks is the field order a reader sees. */
+    .form-field--with-action {
+        @apply relative;
+    }
+    .form-field__action {
+        @apply absolute top-0 right-0 text-xs text-accent;
+    }
+    .form-field__action:hover {
+        @apply underline;
+    }
     .form-stack {
         @apply flex flex-col gap-3.5;
     }
@@ -815,8 +826,10 @@
     .lp-project-new {
         @apply flex flex-col pt-4.5;
     }
+    /* Padded like .lp-project-row so the plus square sits on the same left edge
+       as the avatars in the rows above it. */
     .lp-project-new__toggle {
-        @apply inline-flex items-center gap-3.5 bg-transparent border-0 p-0 cursor-pointer text-fg-dim transition-colors;
+        @apply inline-flex items-center gap-3.5 bg-transparent border-0 py-0 px-4.5 cursor-pointer text-fg-dim transition-colors;
     }
     .lp-project-new__toggle:hover {
         @apply text-fg;
@@ -1863,9 +1876,6 @@
     .lp-site-review-quote {
         @apply font-semibold text-ink m-0 text-base leading-snug;
     }
-    .lp-site-review-widget-meta {
-        @apply font-mono text-fg-dim m-0 text-xs -mt-1;
-    }
     .lp-site-review-body {
         @apply text-fg m-0 text-sm leading-relaxed;
     }
@@ -1891,7 +1901,7 @@
         @apply overflow-hidden rounded-md bg-surface-3 text-fg-mute break-all mt-1.5 py-1.5 px-2.5;
     }
     .lp-site-review-actions {
-        @apply flex items-center gap-2 mt-1;
+        @apply flex items-center justify-end gap-2 mt-1;
     }
     .lp-site-review-empty {
         @apply flex flex-col items-center text-center gap-3 rounded-xl bg-surface-2 text-fg-mute py-12;
@@ -2025,6 +2035,12 @@
     .lp-sidebar__link--active {
         @apply bg-accent text-ink font-bold;
     }
+    /* Needed because `.lp-sidebar__link:hover` outranks `--active` on
+       specificity: without it, hovering the selected item drops it to the dark
+       raised fill, which reads as deselecting it. */
+    .lp-sidebar__link--active:hover {
+        @apply bg-accent-soft text-ink;
+    }
     .lp-sidebar__link svg {
         @apply w-4.5 h-4.5 shrink-0;
     }
@@ -2097,8 +2113,11 @@
     .lp-topbar {
         @apply flex items-center gap-3.5 h-16 px-3.5 shrink-0;
     }
+    .lp-topbar__lead {
+        @apply flex items-baseline gap-3.5 min-w-0;
+    }
     .lp-topbar__trail {
-        @apply flex items-center gap-2 min-w-0;
+        @apply flex items-baseline gap-2 min-w-0;
     }
     .lp-topbar__crumb {
         @apply text-sm text-chrome-mute no-underline transition-colors;
@@ -2195,6 +2214,9 @@
     }
     .lp-connect-block {
         @apply flex flex-col gap-2.5;
+    }
+    .lp-settings-panel {
+        @apply flex flex-col gap-3 rounded-xl bg-surface-3 py-4 px-4.5;
     }
     .lp-connect-hint {
         @apply text-fg-mute m-0 text-sm leading-normal;

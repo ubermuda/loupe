@@ -51,22 +51,28 @@
                         </span>
                     </div>
 
-                    <p class="lp-site-review-widget-meta">{{ 'site_review.comment.via_widget'|trans }}</p>
 
                     <p class="lp-site-review-body">{{ comment.body }}</p>
 
                     <div class="lp-site-review-context">
-                        {% if comment.url starts with 'http://' or comment.url starts with 'https://' %}
-                        <a class="lp-site-review-context__url" href="{{ comment.url }}" target="_blank" rel="noopener noreferrer">
-                            <twig:ux:icon name="lucide:external-link" class="w-3.5 h-3.5 shrink-0" />
-                            <span>{{ comment.url }}</span>
-                        </a>
-                        {% else %}
-                        <span class="lp-site-review-context__url">
-                            <twig:ux:icon name="lucide:external-link" class="w-3.5 h-3.5 shrink-0" />
-                            <span>{{ comment.url }}</span>
-                        </span>
-                        {% endif %}
+                        {#
+                          The URL is as long as the selector and wanted just as
+                          rarely, so it collapses the same way rather than setting
+                          the width of every row.
+                        #}
+                        <details class="lp-site-review-selector" data-controller="disclosure">
+                            <summary class="lp-site-review-selector__summary" data-action="click->disclosure#toggle">
+                                <twig:ux:icon name="lucide:external-link" class="w-3.5 h-3.5 shrink-0" />
+                                <span>{{ 'site_review.comment.url'|trans }}</span>
+                            </summary>
+                            <div class="lp-site-review-selector__content" data-disclosure-target="content">
+                                {% if comment.url starts with 'http://' or comment.url starts with 'https://' %}
+                                <a class="lp-site-review-context__url" href="{{ comment.url }}" target="_blank" rel="noopener noreferrer">{{ comment.url }}</a>
+                                {% else %}
+                                <code>{{ comment.url }}</code>
+                                {% endif %}
+                            </div>
+                        </details>
                         {#
                           A CSS selector is long enough to dominate the row and is
                           only of interest when someone goes looking for it, so it
