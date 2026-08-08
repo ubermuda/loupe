@@ -129,11 +129,14 @@ rector:
 # container XML, so a missing or stale var/cache/dev makes it abort outright
 # ("Container ... does not exist") or silently degrade service types to ?object.
 #
-# The memory limit is explicit because the container's 128M default is not
-# enough here: analysis dies with exit code 255 and a DebugClassLoader stack
-# trace that reads like a real analysis error rather than exhaustion.
+# Both memory limits are explicit, and they are two different processes. The
+# analyse run needs more than the host default. The warmup needs more than the
+# container's 128M on a genuinely cold cache — compiling every Twig template
+# after a branch switch exhausts it, and it surfaces as exit code 255 plus a
+# DebugClassLoader trace that reads like an analysis error rather than the
+# warmup running out of room.
 phpstan:
-    bin/worktrees/compose-exec.sh bin/console cache:warmup
+    bin/worktrees/compose-exec.sh php -d memory_limit=512M bin/console cache:warmup
     vendor/bin/phpstan analyse -a worktree-bootstrap.php --memory-limit=1G
 
 arkitect:

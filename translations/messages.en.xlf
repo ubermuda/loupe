@@ -867,10 +867,6 @@
                 <source>review.dashboard.meta.updated</source>
                 <target>Updated %time%</target>
             </trans-unit>
-            <trans-unit id="review.dashboard.meta.open_threads">
-                <source>review.dashboard.meta.open_threads</source>
-                <target>{0}0 open threads|{1}1 open thread|]1,Inf[%count% open threads</target>
-            </trans-unit>
             <trans-unit id="review.dashboard.filter.show_archived">
                 <source>review.dashboard.filter.show_archived</source>
                 <target>Show archived</target>
@@ -1003,33 +999,9 @@
                 <source>review.document.page.title</source>
                 <target>%title%</target>
             </trans-unit>
-            <trans-unit id="review.document.sidebar.title">
-                <source>review.document.sidebar.title</source>
-                <target>Threads</target>
-            </trans-unit>
-            <trans-unit id="review.document.sidebar.empty">
-                <source>review.document.sidebar.empty</source>
-                <target>No comments yet.</target>
-            </trans-unit>
             <trans-unit id="review.document.byline">
                 <source>review.document.byline</source>
                 <target>Version %version% · reviewed by %reviewer% · updated %updated%</target>
-            </trans-unit>
-            <trans-unit id="review.document.threads.resolved_count">
-                <source>review.document.threads.resolved_count</source>
-                <target>%resolved%/%total% resolved</target>
-            </trans-unit>
-            <trans-unit id="review.document.group.pending">
-                <source>review.document.group.pending</source>
-                <target>Pending</target>
-            </trans-unit>
-            <trans-unit id="review.document.group.addressed">
-                <source>review.document.group.addressed</source>
-                <target>Addressed by agent</target>
-            </trans-unit>
-            <trans-unit id="review.document.group.resolved">
-                <source>review.document.group.resolved</source>
-                <target>Resolved</target>
             </trans-unit>
             <trans-unit id="review.document.verdict.approve">
                 <source>review.document.verdict.approve</source>
@@ -1592,10 +1564,6 @@
                 <source>project.connect.widget.eyebrow</source>
                 <target>Then add this before &lt;/body&gt;</target>
             </trans-unit>
-            <trans-unit id="project.connect.tools.eyebrow">
-                <source>project.connect.tools.eyebrow</source>
-                <target>Agent tools</target>
-            </trans-unit>
             <trans-unit id="project.connect.copy">
                 <source>project.connect.copy</source>
                 <target>Copy</target>
@@ -1603,10 +1571,6 @@
             <trans-unit id="project.connect.copied">
                 <source>project.connect.copied</source>
                 <target>Copied ✓</target>
-            </trans-unit>
-            <trans-unit id="project.connect.tag.project_scoped">
-                <source>project.connect.tag.project_scoped</source>
-                <target>project-scoped</target>
             </trans-unit>
             <trans-unit id="project.connect.tool.document_create">
                 <source>project.connect.tool.document_create</source>
@@ -1758,10 +1722,6 @@
             <trans-unit id="nav.link.admin">
                 <source>nav.link.admin</source>
                 <target>Admin</target>
-            </trans-unit>
-            <trans-unit id="nav.link.settings">
-                <source>nav.link.settings</source>
-                <target>Account settings</target>
             </trans-unit>
 
             <!-- Document status labels -->
@@ -2293,10 +2253,6 @@
             <trans-unit id="billing.subscribe.status.free">
                 <source>billing.subscribe.status.free</source>
                 <target>The app is free to use right now — no subscription needed.</target>
-            </trans-unit>
-            <trans-unit id="billing.subscribe.price.eyebrow">
-                <source>billing.subscribe.price.eyebrow</source>
-                <target>Price</target>
             </trans-unit>
             <trans-unit id="billing.subscribe.price.interval.day">
                 <source>billing.subscribe.price.interval.day</source>

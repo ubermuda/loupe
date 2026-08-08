@@ -18,6 +18,9 @@ use Twig\TwigFunction;
  */
 final class ProjectNavExtension extends AbstractExtension
 {
+    /** How many the panel shows before deferring to its own see-all link. */
+    private const int SWITCHER_LIMIT = 8;
+
     public function __construct(
         private readonly CurrentProjectProvider $currentProjectProvider,
         private readonly ProjectRepository $projects,
@@ -40,7 +43,11 @@ final class ProjectNavExtension extends AbstractExtension
     }
 
     /**
-     * Every project the signed-in user owns, for the shell's switcher panel.
+     * The projects the shell's switcher panel offers.
+     *
+     * Capped rather than complete: the panel is rendered into every
+     * project-scoped page, opened or not, and it already ends in a link to the
+     * full list for whatever does not fit.
      *
      * @return list<Project>
      */
@@ -48,6 +55,6 @@ final class ProjectNavExtension extends AbstractExtension
     {
         $user = $this->security->getUser();
 
-        return $user instanceof User ? $this->projects->findByOwner($user) : [];
+        return $user instanceof User ? $this->projects->findNewestByOwner($user, self::SWITCHER_LIMIT) : [];
     }
 }

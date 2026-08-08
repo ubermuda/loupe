@@ -28,6 +28,32 @@ class ProjectRepository extends ServiceEntityRepository
         return $this->findBy(['owner' => $owner], ['createdAt' => 'DESC']);
     }
 
+    /**
+     * The owner's newest projects, for a picker that offers a way to see them all.
+     *
+     * Bounded because it is built into every project-scoped page whether or not
+     * the panel is ever opened.
+     *
+     * `created_at` is TIMESTAMP(0), so same-second rows tie and the cut would
+     * otherwise fall in a different place run to run. The id breaks it
+     * chronologically rather than arbitrarily: these are UUIDv7, whose leading
+     * bits are a millisecond timestamp, and Symfony's generator keeps a counter
+     * so two minted in the same millisecond still ascend.
+     *
+     * @return list<Project>
+     */
+    public function findNewestByOwner(User $owner, int $limit): array
+    {
+        $qb = $this->createQueryBuilder('p')
+            ->andWhere('p.owner = :owner')
+            ->setParameter('owner', $owner)
+            ->orderBy('p.createdAt', 'DESC')
+            ->addOrderBy('p.id', 'DESC')
+            ->setMaxResults($limit);
+
+        return array_values($qb->getQuery()->getResult());
+    }
+
     /** @return Paginator<Project> */
     public function findPaginatedByOwner(User $owner, int $page, int $perPage): Paginator
     {

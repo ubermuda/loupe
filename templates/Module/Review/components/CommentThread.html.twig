@@ -17,7 +17,8 @@
 #}
 {% set status = comment.threadStatus.value %}
 {% set kind = comment.isStrike ? 'strike' : (comment.isSuggestion ? 'suggestion' : 'comment') %}
-{% set isGeneral = comment.anchor.quote is empty %}
+{# `is empty` would call a comment anchored to the literal text 0 general. #}
+{% set isGeneral = comment.anchor.quote == '' %}
 {% set statusLabel = comment.orphaned
     ? 'open'
     : (isGeneral and status == 'pending' ? 'general' : (kind == 'strike' and status == 'pending' ? 'strike' : status)) %}
@@ -36,7 +37,7 @@
     <div class="lp-comment-thread__header">
         {# The design puts the comment's age beside the author. Comment carries no
            timestamp column, so there is nothing to render — see docs/NEXT_STEPS.md. #}
-        <span class="lp-comment-author lp-comment-thread__author">{{ comment.author.fullName }}</span>
+        <span class="lp-comment-author">{{ comment.author.fullName }}</span>
         <span class="lp-comment-status lp-comment-status--{{ statusLabel }}">{{ ('review.document.status.' ~ statusLabel)|trans }}</span>
     </div>
 
@@ -54,7 +55,7 @@
         {% if not comment.isStrike %}
         <blockquote class="lp-comment-quote lp-comment-quote--inserted"><ins>{{ comment.replacement }}</ins></blockquote>
         {% endif %}
-    {% elseif comment.anchor.quote %}
+    {% elseif comment.anchor.quote != '' %}
     <blockquote class="lp-comment-quote">{{ comment.anchor.quote }}</blockquote>
     {% endif %}
 
