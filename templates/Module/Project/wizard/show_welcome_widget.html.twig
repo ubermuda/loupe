@@ -1,0 +1,73 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}{{ 'project.wizard.widget.page.title'|trans }} — {{ 'app.name'|trans }}{% endblock %}
+
+{% block body %}
+{%- set mintedWidgetToken = app.flashes('minted_widget_token')|first -%}
+<div class="lp-workspace">
+    {% include '@Project/wizard/_wizard_progress.html.twig' with {step: 3} only %}
+
+    <h1 class="lp-workspace-title">{{ 'project.wizard.widget.heading'|trans }}</h1>
+    <p class="lp-workspace-desc">{{ 'project.wizard.widget.lead'|trans }}</p>
+
+    <div class="flex flex-col gap-5">
+        <section class="lp-connect-step">
+            <div class="lp-connect-step__header">
+                <span class="lp-connect-step__badge">1</span>
+                <div>
+                    <h2 class="lp-connect-step__heading">{{ 'project.wizard.widget.step.token.heading'|trans }}</h2>
+                    <p class="lp-connect-step__purpose">{{ 'project.wizard.widget.step.token.purpose'|trans }}</p>
+                </div>
+            </div>
+
+            {% if mintedWidgetToken %}
+            <div class="lp-connect-secret">
+                <div class="lp-connect-alert">
+                    <twig:ux:icon name="lucide:triangle-alert" class="lp-connect-alert__icon w-4 h-4" />
+                    <p class="lp-connect-alert__text">{{ 'project.wizard.connect.token_shown_once'|trans }}</p>
+                </div>
+                <div class="lp-connect-field" data-controller="clipboard" data-clipboard-text-value="{{ mintedWidgetToken }}"
+                     data-clipboard-copied-label-value="{{ 'project.connect.copied'|trans }}" data-testid="minted-widget-token">
+                    <twig:ux:icon name="lucide:key-round" class="lp-connect-field__glyph w-4 h-4" />
+                    <code class="lp-connect-field__value">{{ mintedWidgetToken }}</code>
+                    <button type="button" class="lp-btn lp-btn--ghost lp-btn--sm" data-clipboard-target="button" data-action="clipboard#copy">{{ 'project.connect.copy'|trans }}</button>
+                </div>
+            </div>
+            {% elseif wizardProject.widgetToken %}
+            <p class="lp-connect-hint">{{ 'project.wizard.widget.token_exists'|trans }}</p>
+            {% else %}
+            <form method="POST" action="{{ path('app_welcome_mint_widget') }}">
+                <input type="hidden" name="_csrf_token" value="{{ csrf_token('wizard-mint-widget') }}">
+                <button type="submit" class="lp-btn lp-btn--primary">{{ 'project.wizard.widget.mint'|trans }}</button>
+            </form>
+            {% endif %}
+        </section>
+
+        <section class="lp-connect-step">
+            <div class="lp-connect-step__header">
+                <span class="lp-connect-step__badge">2</span>
+                <div>
+                    <h2 class="lp-connect-step__heading">{{ 'project.wizard.widget.step.embed.heading'|trans }}</h2>
+                    <p class="lp-connect-step__purpose">
+                        {%- if wizardProject.domain -%}
+                            {{ 'project.connect.step.widget.purpose'|trans({'%domain%': wizardProject.domain}) }}
+                        {%- else -%}
+                            {{ 'project.connect.step.widget.purpose_no_domain'|trans }}
+                        {%- endif -%}
+                    </p>
+                </div>
+            </div>
+
+            {% include '@Project/_widget_snippet.html.twig' with {mintedWidgetToken: mintedWidgetToken} only %}
+        </section>
+    </div>
+
+    <div class="flex items-center justify-end gap-3 pt-2">
+        <form method="POST" action="{{ path('app_welcome_skip') }}" class="mr-auto">
+            <input type="hidden" name="_csrf_token" value="{{ csrf_token('wizard-skip') }}">
+            <button type="submit" class="lp-btn lp-btn--ghost">{{ 'project.wizard.skip'|trans }}</button>
+        </form>
+        <a class="lp-btn lp-btn--primary" href="{{ path('app_welcome_done') }}">{{ 'project.wizard.connect.continue'|trans }}</a>
+    </div>
+</div>
+{% endblock %}

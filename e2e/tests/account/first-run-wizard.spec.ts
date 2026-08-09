@@ -38,8 +38,18 @@ test.describe('first-run wizard', () => {
         ).toBeVisible();
 
         await page.getByRole('link', { name: 'Continue' }).click();
-        await expect(page).toHaveURL(/\/welcome\/done$/);
+        await expect(page).toHaveURL(/\/welcome\/widget$/);
         await expect(page.locator('ol[data-wizard-step="3"]')).toBeVisible();
+
+        await page.getByRole('button', { name: 'Generate token' }).click();
+        await expect(
+            page.locator('[data-testid="minted-widget-token"]'),
+        ).toBeVisible();
+        await expect(page.getByText('site-review/widget.js')).toBeVisible();
+
+        await page.getByRole('link', { name: 'Continue' }).click();
+        await expect(page).toHaveURL(/\/welcome\/done$/);
+        await expect(page.locator('ol[data-wizard-step="4"]')).toBeVisible();
         await expect(
             page.getByRole('button', { name: 'Skip setup' }),
         ).toBeVisible();

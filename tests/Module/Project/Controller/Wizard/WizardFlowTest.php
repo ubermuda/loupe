@@ -87,7 +87,47 @@ final class WizardFlowTest extends WebTestCase
         self::assertStringContainsString('This project already has an MCP token.', $crawler->text());
     }
 
-    public function test_done_renders_step_three_with_skip_and_finish(): void
+    public function test_widget_step_without_project_bounces_to_step_one(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $user = $this->createUser($em, 'flowwidgetnop', 'flow-widget-nop@example.com');
+        $em->flush();
+
+        $client->loginUser($user);
+        $client->request(Request::METHOD_GET, '/welcome/widget');
+
+        self::assertResponseRedirects('/welcome');
+    }
+
+    public function test_widget_step_mints_its_own_token_once(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $user = $this->createUser($em, 'flowwidget', 'flow-widget@example.com');
+        $em->persist(new Project($user, 'flow-widget-project'));
+        $em->flush();
+
+        $client->loginUser($user);
+        $crawler = $client->request(Request::METHOD_GET, '/welcome/widget');
+
+        self::assertResponseIsSuccessful();
+        self::assertSelectorExists('ol[data-wizard-step="3"]');
+        // The placeholder stands in until a token exists, so the snippet is
+        // copyable-shaped from the first render.
+        self::assertStringContainsString('site-review/widget.js', $crawler->text());
+
+        $client->submitForm('Generate token');
+        self::assertResponseRedirects('/welcome/widget');
+        $client->followRedirect();
+        self::assertSelectorExists('[data-testid="minted-widget-token"]');
+
+        $crawler = $client->request(Request::METHOD_GET, '/welcome/widget');
+        self::assertSelectorNotExists('[data-testid="minted-widget-token"]');
+        self::assertStringContainsString('This project already has a site-review token.', $crawler->text());
+    }
+
+    public function test_done_renders_the_final_step_with_skip_and_finish(): void
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
@@ -99,7 +139,7 @@ final class WizardFlowTest extends WebTestCase
         $client->request(Request::METHOD_GET, '/welcome/done');
 
         self::assertResponseIsSuccessful();
-        self::assertSelectorExists('ol[data-wizard-step="3"]');
+        self::assertSelectorExists('ol[data-wizard-step="4"]');
         self::assertSelectorExists('form[action$="/welcome/skip"]');
         self::assertSelectorExists('form[action$="/welcome/done/finish"]');
     }

@@ -1648,7 +1648,7 @@
             </trans-unit>
             <trans-unit id="project.wizard.progress.step_3">
                 <source>project.wizard.progress.step_3</source>
-                <target>Done</target>
+                <target>Add the widget</target>
             </trans-unit>
             <trans-unit id="project.wizard.skip">
                 <source>project.wizard.skip</source>
@@ -1693,6 +1693,58 @@
             <trans-unit id="project.wizard.connect.token_exists">
                 <source>project.wizard.connect.token_exists</source>
                 <target>This project already has an MCP token.</target>
+            </trans-unit>
+            <trans-unit id="project.wizard.connect.step.token.heading">
+                <source>project.wizard.connect.step.token.heading</source>
+                <target>Get your token</target>
+            </trans-unit>
+            <trans-unit id="project.wizard.connect.step.token.purpose">
+                <source>project.wizard.connect.step.token.purpose</source>
+                <target>A scoped credential your agent sends with every request. It identifies this project, so no project id goes in the config.</target>
+            </trans-unit>
+            <trans-unit id="project.wizard.connect.step.point.heading">
+                <source>project.wizard.connect.step.point.heading</source>
+                <target>Point your agent at it</target>
+            </trans-unit>
+            <trans-unit id="project.wizard.connect.step.point.purpose">
+                <source>project.wizard.connect.step.point.purpose</source>
+                <target>Add the endpoint to your agent&apos;s MCP configuration, or run the one-liner if you use Claude Code.</target>
+            </trans-unit>
+            <trans-unit id="project.wizard.widget.page.title">
+                <source>project.wizard.widget.page.title</source>
+                <target>Add the review widget</target>
+            </trans-unit>
+            <trans-unit id="project.wizard.widget.heading">
+                <source>project.wizard.widget.heading</source>
+                <target>Add the review widget</target>
+            </trans-unit>
+            <trans-unit id="project.wizard.widget.lead">
+                <source>project.wizard.widget.lead</source>
+                <target>Drop one script tag into your site to comment on live pages the way you comment on documents. You can skip this and add it later.</target>
+            </trans-unit>
+            <trans-unit id="project.wizard.widget.mint">
+                <source>project.wizard.widget.mint</source>
+                <target>Generate token</target>
+            </trans-unit>
+            <trans-unit id="project.wizard.widget.token_exists">
+                <source>project.wizard.widget.token_exists</source>
+                <target>This project already has a site-review token.</target>
+            </trans-unit>
+            <trans-unit id="project.wizard.widget.step.token.heading">
+                <source>project.wizard.widget.step.token.heading</source>
+                <target>Get your widget token</target>
+            </trans-unit>
+            <trans-unit id="project.wizard.widget.step.token.purpose">
+                <source>project.wizard.widget.step.token.purpose</source>
+                <target>A separate credential from the agent&apos;s: it only accepts review comments, and it is visible in your page source.</target>
+            </trans-unit>
+            <trans-unit id="project.wizard.widget.step.embed.heading">
+                <source>project.wizard.widget.step.embed.heading</source>
+                <target>Embed it in your site</target>
+            </trans-unit>
+            <trans-unit id="project.wizard.progress.step_4">
+                <source>project.wizard.progress.step_4</source>
+                <target>Done</target>
             </trans-unit>
             <trans-unit id="project.wizard.connect.continue">
                 <source>project.wizard.connect.continue</source>
