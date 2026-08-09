@@ -11,6 +11,7 @@ use Gamache\Check\PageTitleBrandNameCheck;
 use Gamache\Check\SelfContainedCommentsCheck;
 use Gamache\Check\ServicesYamlCheck;
 use Gamache\Check\ServiceTagNamesCheck;
+use Gamache\Check\Severity;
 use Gamache\Check\TranslationCheck;
 use Gamache\Check\TranslationParityCheck;
 use Gamache\Check\TurboStreamTargetsCheck;
@@ -48,6 +49,11 @@ return (new GamacheConfig())->registerChecks([
             'compose.prod.yaml',
             '.env',
         ],
+        // Binding rather than advisory: an advisory check's green result says
+        // nothing, and three over-budget blocks once shipped through three
+        // consecutive green gates here. `@comment-budget-ignore` marks the
+        // blocks that have earned their length.
+        severity: Severity::Error,
     ),
     new FormTypeTranslationKeysCheck(),
     new TurboStreamTargetsCheck(),
