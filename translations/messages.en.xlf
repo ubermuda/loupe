@@ -68,6 +68,18 @@
                 <source>about.version.hint</source>
                 <target>The build this instance is running. Quote it if you report a problem.</target>
             </trans-unit>
+            <trans-unit id="about.version.source">
+                <source>about.version.source</source>
+                <target>Built from source</target>
+            </trans-unit>
+            <trans-unit id="about.version.current">
+                <source>about.version.current</source>
+                <target>Up to date</target>
+            </trans-unit>
+            <trans-unit id="about.version.outdated">
+                <source>about.version.outdated</source>
+                <target>%version% is available</target>
+            </trans-unit>
             <trans-unit id="about.licence.heading">
                 <source>about.licence.heading</source>
                 <target>Licence and source</target>

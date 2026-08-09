@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Module\Account\Command;
 
 use App\Module\Account\Service\RegistrationGate;
+use App\Service\UpdateCheck;
 use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
 use Doctrine\ORM\EntityManagerInterface;
 use Ubermuda\FeatureFlagsBundle\Entity\FeatureFlag;
@@ -37,6 +38,9 @@ final readonly class SeedInstallFlagsHandler
             // off would mean an operator who *did* configure Mercure still had
             // to find a switch to make it work.
             ['site_review.push.enabled', FeatureFlagType::Bool, true, null],
+            // Off: it is the only outbound request the app makes on its own,
+            // and an operator has to choose to tell GitHub this instance exists.
+            [UpdateCheck::FLAG, FeatureFlagType::Bool, false, null],
         ];
 
         $created = 0;

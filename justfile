@@ -456,10 +456,10 @@ cli-build goos="darwin" goarch="arm64":
 # Infra lives in terraform/; App Platform pulls {{prod_image}}.
 
 # Build the prod image. Defaults to linux/amd64 because App Platform runs amd64;
-# pass a platform to build for the host instead, which is what a self-hoster on
-# arm64 running compose.prod.yaml wants: `just build-prod linux/arm64`.
+# pass a platform to build for the host instead: `just build-prod linux/arm64`.
+# APP_VERSION is what /about reports; an image built without it says so instead.
 build-prod platform="linux/amd64":
-    docker buildx build --platform {{platform}} -t {{prod_image}} -f docker/prod/Dockerfile .
+    docker buildx build --platform {{platform}} --build-arg APP_VERSION="$(git describe --tags --always --dirty)" -t {{prod_image}} -f docker/prod/Dockerfile .
 
 # Build and push the image without deploying — the first deploy needs this,
 # because the App Platform app does not exist yet to deploy to.

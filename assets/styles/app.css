@@ -1049,6 +1049,12 @@
     .lp-about-card__value {
         @apply font-mono text-base text-ink m-0;
     }
+    .lp-about-card__note {
+        @apply inline-flex items-center rounded-full bg-tint-strong px-2.5 py-1 text-xs font-bold text-fg-mute m-0;
+    }
+    .lp-about-card__note--outdated {
+        @apply bg-accent-soft text-accent-hover;
+    }
 
     /* Error pages. Centred in the viewport because they render without the
        app shell — there is no sidebar to sit beside. */

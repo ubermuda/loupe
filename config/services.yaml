@@ -25,10 +25,6 @@ parameters:
     # per instance so a fork links to its own modified source, as the AGPL
     # requires.
     app.source_url: '%env(APP_SOURCE_URL)%'
-    # Build identifier shown on /about to signed-in viewers. Nothing derives it
-    # — an operator who wants a real build name sets APP_VERSION in the
-    # container environment, and it reads 'dev' until they do.
-    app.version: '%env(APP_VERSION)%'
     # Name of the MCP server as it appears in the connect-agent install snippet
     # and the `claude mcp add` command.
     app.mcp.server_name: 'loupe'

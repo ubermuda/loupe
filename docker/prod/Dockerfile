@@ -57,6 +57,13 @@ RUN bin/console tailwind:build
 RUN bin/console asset-map:compile
 RUN bin/console cache:warmup --env=prod
 
+# Build identity for the About page, written as a file rather than an env var so
+# that its ABSENCE is meaningful: an image this build did not produce has no
+# file, and the app says so instead of printing a version nobody set. Last of
+# the build steps, so bumping it does not invalidate composer or the assets.
+ARG APP_VERSION=""
+RUN if [ -n "$APP_VERSION" ]; then printf '%s' "$APP_VERSION" > var/build-version; fi
+
 # var/ is created and warmed above as root, but php-fpm workers run as www-data.
 # Cache pools and prod logs are written lazily at runtime; without this, www-data
 # cannot create those dirs and the writes (incl. any cache-backed rate limiter)

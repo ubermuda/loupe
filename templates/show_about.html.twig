@@ -26,7 +26,16 @@
             <span class="lp-about-card__glyph"><twig:ux:icon name="lucide:tag" class="w-4.5 h-4.5" /></span>
             <div class="lp-about-card__main">
                 <h2 class="lp-about-card__title">{{ 'about.version.heading'|trans }}</h2>
-                <p class="lp-about-card__value" data-testid="app-version">{{ version }}</p>
+                <p class="lp-about-card__value" data-testid="app-version">{{ version ?? 'about.version.source'|trans }}</p>
+                {% if update %}
+                <p class="lp-about-card__note{% if update.isOutdated %} lp-about-card__note--outdated{% endif %}" data-testid="update-status">
+                    {%- if update.isOutdated -%}
+                        {{ 'about.version.outdated'|trans({'%version%': update.latestVersion}) }}
+                    {%- else -%}
+                        {{ 'about.version.current'|trans }}
+                    {%- endif -%}
+                </p>
+                {% endif %}
                 <p class="lp-about-card__text">{{ 'about.version.hint'|trans }}</p>
             </div>
         </section>

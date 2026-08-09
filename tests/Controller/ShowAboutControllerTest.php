@@ -35,6 +35,9 @@ final class ShowAboutControllerTest extends WebTestCase
         $client->request(Request::METHOD_GET, '/about');
 
         self::assertResponseIsSuccessful();
-        self::assertSelectorTextSame('[data-testid="app-version"]', 'dev');
+        // No release build produced this checkout, so the card says so rather
+        // than inventing a version — see BuildIdentity.
+        self::assertSelectorTextSame('[data-testid="app-version"]', 'Built from source');
+        self::assertSelectorNotExists('[data-testid="update-status"]');
     }
 }
