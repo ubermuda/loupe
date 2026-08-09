@@ -2053,16 +2053,6 @@
     .lp-sidebar__spacer {
         @apply mt-auto;
     }
-    /* Link to the About page, which carries the AGPL source offer. Sits just
-       above the account row and stays quiet — it is on every page and must not
-       compete with the nav. */
-    .lp-sidebar__source {
-        @apply flex items-center gap-2.5 px-2 py-1.5 text-xs text-chrome-dim no-underline transition-colors;
-    }
-    .lp-sidebar__source:hover,
-    .lp-sidebar__source--active {
-        @apply text-chrome-fg;
-    }
     .lp-sidebar__account {
         @apply flex items-center gap-2.5 px-2 mt-2.5 pt-3 border-t border-chrome-control;
     }
