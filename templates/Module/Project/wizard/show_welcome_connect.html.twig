@@ -35,11 +35,11 @@
     {% include '@Project/_connect_instructions.html.twig' with {mcpServerName: mcpServerName, mintedMcpToken: mintedMcpToken} only %}
 
     <div class="flex items-center justify-end gap-3 pt-2">
+        <form method="POST" action="{{ path('app_welcome_skip') }}" class="mr-auto">
+            <input type="hidden" name="_csrf_token" value="{{ csrf_token('wizard-skip') }}">
+            <button type="submit" class="lp-btn lp-btn--ghost">{{ 'project.wizard.skip'|trans }}</button>
+        </form>
         <a class="lp-btn lp-btn--primary" href="{{ path('app_welcome_done') }}">{{ 'project.wizard.connect.continue'|trans }}</a>
     </div>
-    <form method="POST" action="{{ path('app_welcome_skip') }}" class="mt-4">
-        <input type="hidden" name="_csrf_token" value="{{ csrf_token('wizard-skip') }}">
-        <button type="submit" class="lp-btn lp-btn--ghost">{{ 'project.wizard.skip'|trans }}</button>
-    </form>
 </div>
 {% endblock %}

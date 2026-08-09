@@ -632,8 +632,10 @@
     /* ── Step ribbon ────────────────────────────────────────────────────
        Horizontal step progress for the first-run wizard. The caller classifies
        each step; the filled track runs up to and including the current one. */
+    /* mb-8 matches the rhythm .lp-workspace-desc sets below the lead paragraph;
+       the title's own m-0 means the ribbon has to carry this gap itself. */
     .lp-ribbon {
-        @apply flex items-center gap-2.5;
+        @apply flex items-center gap-2.5 mb-8;
     }
     .lp-ribbon__step {
         @apply inline-flex items-center gap-2;

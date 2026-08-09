@@ -13,14 +13,14 @@
     </p>
 
     <div class="flex items-center justify-end gap-3 pt-2">
+        <form method="POST" action="{{ path('app_welcome_skip') }}" class="mr-auto">
+            <input type="hidden" name="_csrf_token" value="{{ csrf_token('wizard-skip') }}">
+            <button type="submit" class="lp-btn lp-btn--ghost">{{ 'project.wizard.skip'|trans }}</button>
+        </form>
         <form method="POST" action="{{ path('app_welcome_finish') }}">
             <input type="hidden" name="_csrf_token" value="{{ csrf_token('wizard-finish') }}">
             <button type="submit" class="lp-btn lp-btn--primary">{{ 'project.wizard.done.finish'|trans }}</button>
         </form>
     </div>
-    <form method="POST" action="{{ path('app_welcome_skip') }}" class="mt-4">
-        <input type="hidden" name="_csrf_token" value="{{ csrf_token('wizard-skip') }}">
-        <button type="submit" class="lp-btn lp-btn--ghost">{{ 'project.wizard.skip'|trans }}</button>
-    </form>
 </div>
 {% endblock %}

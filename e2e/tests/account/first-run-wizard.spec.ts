@@ -51,6 +51,24 @@ test.describe('first-run wizard', () => {
         await expect(page).not.toHaveURL(/\/welcome/);
     });
 
+    test('skip from the first step', async ({ page, request }) => {
+        const email = `e2e-wizard-skip-first-${Date.now()}@example.com`;
+        await registerFreshUser(page, request, {
+            email,
+            password: 'e2e_password_123',
+        });
+
+        await expect(page).toHaveURL(/\/welcome$/);
+        // This button sits inside the project form's action row and submits a
+        // separate form through `form=`, because a nested <form> is invalid
+        // HTML. Nothing else proves that wiring still submits.
+        await page.getByRole('button', { name: 'Skip setup' }).click();
+        await expect(page).toHaveURL(/\/projects$/);
+
+        await page.goto('/welcome');
+        await expect(page).not.toHaveURL(/\/welcome/);
+    });
+
     test('skip from the connect step', async ({ page, request }) => {
         const email = `e2e-wizard-skip-${Date.now()}@example.com`;
         await registerFreshUser(page, request, {
