@@ -2774,7 +2774,7 @@ consumer is documented as the cause of a ~19-spec failure block.
 
 **Author:** Geoffrey · **Type:** docs · **Priority:** low · **Status:** pending
 
-The repo-wide sweep took `CommentBudgetCheck` from 150 findings to 10, and every
+The repo-wide sweep took `CommentBudgetCheck` from 151 findings to 10, and every
 other file — `src/`, `templates/`, `assets/`, `config/`, `tests/`, `e2e/`, the
 `justfile`, the compose topologies — is at zero. The 10 that remain are all in
 `.env`, and none of them is obviously wrong.

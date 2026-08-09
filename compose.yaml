@@ -103,9 +103,9 @@ services:
 ###< symfony/mailer ###
 
 ###> symfony/mercure-bundle ###
-  # In-memory Mercure hub (no history — best-effort by design). Opt-in: start it
-  # with `just mercure-up`. A missing hub only delays delivery, since submissions
-  # reach the outbox first and the scheduled drain replays them.
+  # In-memory Mercure hub (no history — best-effort by design), opt-in via
+  # `just mercure-up`. A missing hub only delays delivery — submissions reach the
+  # outbox first and the scheduled drain replays them — so e2e passes without it.
   mercure:
     image: dunglas/mercure:v0.24
     profiles: ["mercure"]
