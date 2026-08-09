@@ -30,6 +30,30 @@ final class MarkdownRendererTest extends TestCase
         self::assertStringNotContainsString('onclick', $html);
     }
 
+    /**
+     * CommonMark's own `allow_unsafe_links` filter missed schemes obfuscated with
+     * embedded tabs or newlines before 2.9.0. The sanitizer's scheme allow-list
+     * runs after it and caught them anyway, which is the property under test:
+     * document markup is agent-supplied, so neither layer may be the only one.
+     */
+    #[DataProvider('obfuscatedJavascriptUrls')]
+    public function test_an_obfuscated_javascript_url_never_survives_as_an_attribute(string $markdown): void
+    {
+        $html = new MarkdownRenderer(new NullLogger())->render($markdown);
+
+        self::assertDoesNotMatchRegularExpression('~(href|src)\s*=~i', $html);
+    }
+
+    /** @return iterable<string, array{string}> */
+    public static function obfuscatedJavascriptUrls(): iterable
+    {
+        yield 'plain scheme in markdown' => ['[click](javascript:alert(1))'];
+        yield 'tab inside the scheme' => ["<a href=\"java\tscript:alert(1)\">click</a>"];
+        yield 'newline inside the scheme' => ["<a href=\"java\nscript:alert(1)\">click</a>"];
+        yield 'leading control character' => ["<a href=\"\x01javascript:alert(1)\">click</a>"];
+        yield 'obfuscated image source' => ["<img src=\"java\tscript:alert(1)\">"];
+    }
+
     public function test_renders_documents_larger_than_the_sanitizer_default_limit(): void
     {
         // The sanitizer's default 20 000-byte input cap silently truncated long
