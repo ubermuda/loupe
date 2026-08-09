@@ -55,15 +55,10 @@ class DownloadDataExportController extends AppController
         $exportId = $export->id ?? throw new \LogicException('resolved export always has an id');
         $key = DataExport::computeArchiveKey($exportId);
 
-        // The archive is streamed rather than redirected to: the bucket is
-        // never assumed to be reachable from the browser, which is what lets a
-        // self-hosted install keep it entirely private.
-        //
-        // No Content-Length: it would have to come from a separate size lookup,
-        // and the expiry purge runs concurrently with downloads — an object
-        // deleted between the two calls would send a body shorter than the
-        // advertised length, which reaches the user as a corrupt ZIP instead of
-        // an error. A chunked response is always self-consistent.
+        // Streamed rather than redirected, so the bucket need never be reachable
+        // from the browser. No Content-Length: the expiry purge runs concurrently,
+        // and an object deleted between the size lookup and the read would send a
+        // short body — a corrupt ZIP rather than an error.
         try {
             $stream = $this->exportStorage->readStream($key);
         } catch (FilesystemException) {

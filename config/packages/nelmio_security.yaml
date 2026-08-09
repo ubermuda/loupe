@@ -1,9 +1,7 @@
-# NelmioSecurityBundle is registered in every environment (config/bundles.php),
-# but only prod configures anything that produces a header. Dev and test enable
-# the `csp` node and nothing else: that node is what registers the `csp_nonce()`
-# Twig function, and base.html.twig calls it on every page. With no directives
-# configured there is no policy to send, so dev and test still ship no security
-# headers at all — the bundle is present purely to make the function exist.
+# Registered in every environment, but only prod configures a header. Dev and
+# test enable the `csp` node alone, because that is what registers the
+# `csp_nonce()` Twig function base.html.twig calls on every page; with no
+# directives there is still no policy to send.
 when@dev: &nonce_only
     nelmio_security:
         csp:

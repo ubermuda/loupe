@@ -103,12 +103,10 @@ final readonly class RegisterUserHandler
             // Email failed to enqueue; account is created — user can resend from check-email page.
         }
 
-        // The registration transaction has committed: listeners (e.g. Billing's
-        // trial provisioning) run outside it, so their failures cannot roll the
-        // account back — and must not surface either: a 500 here would tell the
-        // user their (already created) registration failed, and a retry would
-        // dead-end on "email already taken". Trial provisioning self-heals via
-        // PaywallGate::allows()'s own ensureProfile() call, so log and move on.
+        // Listeners run outside the committed registration transaction, so their
+        // failures must not surface: a 500 would tell the user their created
+        // account failed, and the retry dead-ends on "email already taken". Trial
+        // provisioning self-heals via PaywallGate, so log and move on.
         try {
             $this->eventDispatcher->dispatch(new UserRegistered($user));
         } catch (\Throwable $e) {

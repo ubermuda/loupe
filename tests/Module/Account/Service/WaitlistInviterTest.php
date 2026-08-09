@@ -26,13 +26,10 @@ final class WaitlistInviterTest extends TestCase
         $this->sender = $this->createMock(WaitlistInviteEmailSender::class);
         $this->em = $this->createStub(EntityManagerInterface::class);
 
-        // The token-issuance step runs inside Connection::transactional(), not
-        // EntityManager::wrapInTransaction() — the latter closes the shared
-        // EntityManager on any failure, which would break every remaining
-        // entry in a bulk invite (see WaitlistInviter).
-        // lock()/refresh()/flush() are stubbed no-ops except for actually
-        // invoking the closure — this exercises the inviter's own logic
-        // without a real database.
+        // Connection::transactional(), not EntityManager::wrapInTransaction(),
+        // which closes the shared EntityManager on failure (see WaitlistInviter).
+        // The stubs are no-ops except for invoking the closure, so this exercises
+        // the inviter's logic without a database.
         $connection = $this->createStub(Connection::class);
         $connection->method('transactional')->willReturnCallback(
             fn (callable $func) => $func(),

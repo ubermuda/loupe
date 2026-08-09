@@ -212,12 +212,9 @@ final class AnchorServiceTest extends TestCase
 
     public function test_locate_ranks_repeated_multibyte_quote_like_the_browser(): void
     {
-        // "設計" appears twice. Each occurrence is preceded by the same three
-        // characters ("ののの") and followed by the same three ("ををを"), so a
-        // fingerprint measured in BYTES (8 bytes ≈ 2⅔ of these 3-byte characters)
-        // matches BOTH occurrences and the tie falls to the earlier one. Measured
-        // in CHARACTERS the fingerprint reaches five characters further out, where
-        // the two contexts differ, and only the intended occurrence matches.
+        // "設計" appears twice with identical 3-character context on either side,
+        // so a fingerprint measured in BYTES matches both and ties to the earlier.
+        // Measured in CHARACTERS it reaches far enough out for them to differ.
         $text = '甲乙丙丁戊ののの設計ををを己庚辛壬癸。子丑寅卯辰ののの設計ををを午未申酉戌';
         $secondStart = mb_strrpos($text, '設計');
         self::assertSame(27, $secondStart);

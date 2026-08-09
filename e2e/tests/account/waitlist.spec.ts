@@ -128,15 +128,11 @@ test.describe.serial('registration cap and waitlist', () => {
     });
 
     test('an unknown invite token falls back to the closed-cap waitlist page', async () => {
-        // An invalid/unknown invite token must fall back to the same
-        // closed-cap behaviour as no token at all — never quietly reopen
-        // registration, and never show the waitlist "joined" confirmation
-        // for someone who never actually joined. findOneByValidInviteToken()
-        // returns null the same way for an invalid token as it would for an
-        // expired one, so this exercises that fallback path; an actually
-        // expired (but well-formed) token is covered at the PHPUnit level
-        // instead, since manufacturing a real 7-day-old row is out of reach
-        // for e2e without direct database manipulation.
+        // An invalid token must fall back to the same closed-cap behaviour as no
+        // token — never reopen registration, never show the joined confirmation
+        // to someone who did not join. An actually expired token is covered at
+        // the PHPUnit level, since manufacturing a 7-day-old row is out of reach
+        // here.
         await guest.goto('/register?invite=not-a-real-invite-token');
         await expect(guest).toHaveURL(/\/waitlist$/);
         await expect(guest.getByText('Registration is full')).toBeVisible();

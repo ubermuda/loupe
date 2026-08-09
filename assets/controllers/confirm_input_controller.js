@@ -1,6 +1,6 @@
 import { Controller } from '@hotwired/stimulus';
 
-/*
+/**
  * Enables the submit target only while the input target's value exactly
  * matches the expected value (e.g. type-the-project-name confirmation).
  *

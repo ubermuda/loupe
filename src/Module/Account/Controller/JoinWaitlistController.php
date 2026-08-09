@@ -80,12 +80,10 @@ final class JoinWaitlistController extends AppController
                 $data->email ?: throw new \LogicException('Email is required after form validation.'),
             ));
 
-            // Redirect (Post/Redirect/Get) rather than rendering directly: Turbo
-            // Drive requires a redirect on a successful non-frame form submission
-            // and throws "Form responses must redirect to another location" for a
-            // direct 200 response — reuse the same joined-confirmation branch the
-            // OAuth-at-cap redirect above already renders. Always the same
-            // response, joined-or-already-listed — no enumeration.
+            // Post/Redirect/Get: Turbo Drive throws "Form responses must redirect
+            // to another location" for a direct 200 on a non-frame submission.
+            // Always the same response, joined or already-listed, so the endpoint
+            // enumerates nothing.
             return $this->redirectToRoute('app_waitlist_join', ['joined' => 1]);
         }
 

@@ -46,13 +46,10 @@ class ExecuteAccountDeletionController extends AppController
 
         $response = $this->redirectToRoute('app_account_deleted');
 
-        // Tear down the authenticated context through the firewall's own
-        // logout machinery — invalidates the session and clears the
-        // remember-me cookie under the CONFIGURED name/path/domain, and
-        // dispatches LogoutEvent so every registered logout handler runs.
-        // The confirm link can also be opened logged-out (the user followed it
-        // from a fresh browser); logout() throws without an authenticated
-        // token, so it only runs when there is one to tear down.
+        // The firewall's own logout, so the session dies and remember-me is
+        // cleared under the configured name/path/domain. Guarded because the
+        // confirm link can be opened logged-out, and logout() throws when there
+        // is no authenticated token.
         if (null !== $this->security->getToken()?->getUser()) {
             $logoutResponse = $this->security->logout(validateCsrfToken: false);
             // logout() returns the firewall's own response (its target URL is

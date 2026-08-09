@@ -1,6 +1,6 @@
 import { Controller } from '@hotwired/stimulus';
 
-/*
+/**
  * The document's metadata toolbar: Versions, Contents and References as three
  * mutually-exclusive panels. Opening one closes the others, so the three
  * together never cost more than one panel of height above the prose.

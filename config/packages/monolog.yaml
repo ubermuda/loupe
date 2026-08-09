@@ -69,13 +69,10 @@ when@prod:
                 path: php://stderr
                 level: debug
                 formatter: monolog.formatter.json
-                # Include stack traces in the JSON output for Throwables
-                # passed under the native 'exception' context key. Deliberate
-                # side effect: the bundle implements this by mutating the
-                # handler's formatter, and 'monolog.formatter.json' is a
-                # shared service also used by the 'deprecation' handler below
-                # — so deprecation entries carry traces too, which is wanted
-                # (a deprecation without its call site is not actionable).
+                # Stack traces for Throwables under the native 'exception' key.
+                # The bundle mutates a shared formatter to do it, so deprecation
+                # entries carry traces too — which is wanted: a deprecation
+                # without its call site is not actionable.
                 include_stacktraces: true
             console:
                 type: console
@@ -86,12 +83,10 @@ when@prod:
                 channels: [deprecation]
                 path: php://stderr
                 formatter: monolog.formatter.json
-            # Always-on (NOT behind fingers_crossed). Symfony's cache adapters log
-            # write failures at WARNING on the 'cache' channel; the main handler
-            # buffers warnings and only flushes on an error, so a lone cache-pool
-            # write failure (which silently disables anything relying on the pool,
-            # e.g. a rate limiter) would otherwise never reach stderr. This surfaces
-            # it immediately.
+            # Always-on, NOT behind fingers_crossed: cache adapters log write
+            # failures at WARNING, which the main handler buffers and flushes only
+            # on an error — so a lone cache-pool failure, silently disabling
+            # anything using the pool, would never reach stderr.
             cache_warnings:
                 type: stream
                 channels: [cache]

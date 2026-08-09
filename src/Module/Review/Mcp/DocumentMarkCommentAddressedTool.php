@@ -71,12 +71,10 @@ final readonly class DocumentMarkCommentAddressedTool
                     continue;
                 }
 
-                // Checked before everything below, because a superseded id is
-                // wrong in a way the other reasons would mask: revising a
-                // document copies its open threads onto the new version and
-                // leaves the originals behind, so an id from before the revision
-                // still resolves and still looks pending, but flipping it moves
-                // a row nobody reads while the live thread stays open.
+                // Checked first, because a superseded id is wrong in a way the
+                // other reasons mask: a pre-revision id still resolves and still
+                // looks pending, but flipping it moves a row nobody reads while
+                // the live thread stays open.
                 $documentId = (string) $comment->version->document->id;
                 $currentVersionIds[$documentId] ??= (string) $this->documentVersions->findLatest($comment->version->document)->id;
                 if ($currentVersionIds[$documentId] !== (string) $comment->version->id) {

@@ -29,26 +29,16 @@ final readonly class SubmitReviewHandler
 
     public function __invoke(SubmitReviewCommand $command): int
     {
-        // The flip and the outbox row commit together or not at all. The flip is
-        // a bulk DQL update, which executes immediately rather than at flush —
-        // so without a transaction a later failure would leave the comments
-        // Pending with no event to replay, which is precisely what the outbox
-        // exists to prevent.
-        // Whether this review reaches the owner's agent is a property of the
-        // credential that submitted it, and the widget token is bound one-to-one
-        // to the project (the resolver matched the project BY that token), so the
-        // project's own widget token is the submitting one. A project with no
-        // widget token cannot reach this handler at all — treating that as "do
-        // not forward" keeps the fallback on the safe side.
-        // Two independent conditions, and both mean "this review must not reach an
-        // agent". The instance-wide switch is checked here rather than around the
-        // publish so the row is written unforwardable: the outbox treats an
-        // unforwardable row as settled, so nothing accumulates as undelivered
-        // while push is off, and turning push on later does not replay a backlog
-        // of reviews submitted while it was off.
+        // Decided here rather than around the publish, so the row is written
+        // unforwardable: the outbox treats that as settled, and enabling push
+        // later replays no backlog. A missing widget token falls back to not
+        // forwarding, which is the safe side.
         $forwardable = ($command->project->widgetToken->forwardsToAgent ?? false)
             && $this->featureFlags->isEnabled(SiteReviewPush::FLAG);
 
+        // The flip is a bulk DQL update — immediate, not deferred to flush — so
+        // without this transaction a later failure leaves comments Pending with
+        // no event to replay.
         [$flippedCount, $event] = $this->em->wrapInTransaction(function () use ($command, $forwardable): array {
             $flippedCount = $this->siteReviewComments->markDraftsPendingForProject($command->project);
             if (0 === $flippedCount) {
@@ -89,12 +79,10 @@ final readonly class SubmitReviewHandler
 
     private function publish(SiteReviewEvent $event): void
     {
-        // Not retried inline: the hub may accept an update and still throw, and a
-        // duplicate nudge is harmless (the Draft→Pending transition is itself
-        // the dedup — a redundant pull just finds nothing new), but a second
-        // publish would delay the visitor's response for no gain. Recording the
-        // failure on the row hands it to the outbox drain, and is what makes the
-        // undelivered-events pages show a reason rather than an untouched row.
+        // Not retried inline: a duplicate nudge is harmless, but a second publish
+        // would delay the visitor's response for no gain. Recording the failure
+        // hands it to the outbox drain, which is what makes the undelivered-events
+        // pages show a reason rather than an untouched row.
         try {
             $this->hub->publish(new Update($event->topic, $event->payload, true, id: $event->sequence));
         } catch (\Throwable $e) {

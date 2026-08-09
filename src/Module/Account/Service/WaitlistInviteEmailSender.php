@@ -31,14 +31,9 @@ class WaitlistInviteEmailSender
 
     public function send(WaitlistEntry $entry, string $plainToken): void
     {
-        // A returning account (it exists — only disabled accounts can hold an
-        // invitable row) cannot re-register: its invite leads to the subscribe
-        // page, where the token doubles as the registration-cap bypass at
-        // checkout. A fresh address gets the registration link as before. The
-        // variant is decided here at send time, not persisted at join time,
-        // because account state can change in between — e.g. the account gets
-        // deleted, so the address must fall back to the registration variant;
-        // a join-time flag would have gone stale.
+        // Decided at send time rather than persisted at join time: account state
+        // changes in between — a deleted account must fall back to the
+        // registration variant, and a join-time flag would have gone stale.
         $returning = null !== $this->users->findOneByEmail($entry->email);
 
         $inviteUrl = $this->urlGenerator->generate(

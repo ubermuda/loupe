@@ -25,15 +25,11 @@ final readonly class JoinWaitlistHandler
     {
         $existingEntry = $this->waitlistEntries->findOneByEmail($command->email);
         if (null !== $existingEntry) {
-            // Every waitlist-originated account leaves a CONVERTED row behind,
-            // and needsInvite() is permanently false on converted rows — so a
-            // disabled account re-joining would otherwise dead-end here,
-            // un-invitable forever. Re-open the row (and queue it at the back)
-            // for exactly that case. Every other duplicate — a live pending
-            // row, a converted row whose account is still enabled, or a
-            // converted row whose account is gone — keeps the silent skip.
-            // Converted-check first: the frequent pending-row duplicate skips
-            // the user query entirely.
+            // needsInvite() is permanently false on a CONVERTED row, so a
+            // disabled account re-joining would dead-end un-invitable forever;
+            // reopen it and queue it at the back for that case alone. Converted
+            // is checked first so the frequent pending duplicate skips the user
+            // query.
             if (null !== $existingEntry->convertedAt) {
                 $existingUser = $this->users->findOneByEmail($command->email);
                 if (null !== $existingUser && $existingUser->isDisabled()) {
@@ -51,12 +47,10 @@ final readonly class JoinWaitlistHandler
             return;
         }
 
-        // An address with an ENABLED account needs no waitlist row — it would
-        // sit there as permanently un-invitable clutter. A DISABLED account is
-        // the opposite: the waitlist is exactly how it re-enters once the cap
-        // has room — its email joins like a newcomer's (or re-opens its old
-        // converted row, above). Both branches stay silent: the join response
-        // never reveals whether an address is registered.
+        // An ENABLED account needs no waitlist row; a DISABLED one is the
+        // opposite, since the waitlist is how it re-enters once the cap has room.
+        // Both branches stay silent, so the response never reveals whether an
+        // address is registered.
         $existingUser = $this->users->findOneByEmail($command->email);
         if (null !== $existingUser && !$existingUser->isDisabled()) {
             $this->logger->info('account.waitlist.join_skipped_existing_account', ['email' => $command->email]);

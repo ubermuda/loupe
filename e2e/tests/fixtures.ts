@@ -84,13 +84,10 @@ export function createTest(credentials: Credentials) {
                     await registerAndVerify(page, requestContext, credentials);
                     await requestContext.dispose();
                 } else if (page.url().includes('/register/check-email')) {
-                    // The account exists but was never verified — a previous
-                    // run crashed between registering and following the
-                    // verification link (email is delivered asynchronously,
-                    // so an interrupted run wedges the user in this state
-                    // forever). Self-heal: resend the verification email,
-                    // follow the FRESH link (the inbox may hold stale ones
-                    // from other runs/worktrees), and finish the wizard.
+                    // The account exists but was never verified — an earlier run
+                    // crashed between registering and following the link.
+                    // Self-heal: resend, follow the FRESH link (the inbox may
+                    // hold stale ones), and finish the wizard.
                     const requestContext = await playwrightRequest.newContext();
                     const previous = await latestEmailIdWithSubject(
                         requestContext,

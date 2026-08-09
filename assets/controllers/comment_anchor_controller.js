@@ -82,21 +82,14 @@ export default class extends Controller {
     static AGENT_HIGHLIGHT = 'lp-agent-highlight';
 
     // Painted while the pointer is over a card or over the passage it points
-    // at, so the pair can be told apart from the other five in a crowded
-    // margin. Hovering either end rings both.
+    // at, so the pair can be told apart in a crowded margin.
     static HOVER_HIGHLIGHT = 'lp-anchor-hover';
 
-    // Resolution order for a span several rungs cover. Without explicit values it
-    // is whichever Highlight was registered last, which is incidental.
-    //
-    // Verified in Chrome: `color` goes to the highest-priority rung declaring
-    // it, decorations are additive, but backgrounds STACK in priority order and
-    // only replace by being opaque. A higher-priority `transparent` therefore
-    // paints nothing and leaves the tint below showing — which is why
+    // Resolution order for a span several rungs cover; without explicit values
+    // it is whichever Highlight registered last. Backgrounds stack in priority
+    // order and only replace by being opaque, so a higher-priority
+    // `transparent` leaves the tint below showing — which is why
     // #highlightAnchors routes a strike away from its status rung instead.
-    //
-    // The ladder reads: agent advisory < the thread's own state < the edit the
-    // reviewer asked for on it < the selection being composed right now.
     static PRIORITY = {
         agent: 0,
         status: 1,
@@ -678,12 +671,11 @@ export default class extends Controller {
     }
 
     #probeAnchorAt(clientX, clientY) {
-        // Reads the map #layout() built rather than locating each quote again.
-        // This runs once per mousemove frame and #findRange() is an indexOf
-        // sweep of the whole document plus a TreeWalker, so re-locating here
-        // put that cost on every frame on the longest documents — the ones with
-        // the most anchors to walk. General comments never enter the map, which
-        // is the same set the old loop skipped by hand.
+        // Reads the map #layout() built rather than locating each quote again:
+        // this runs once per mousemove frame, and #findRange() is an indexOf
+        // sweep of the whole document plus a TreeWalker — re-locating here put
+        // that cost on every frame on the longest documents. General comments
+        // never enter the map, which is the set the old loop skipped by hand.
         for (const [thread, range] of this.anchorRanges ?? []) {
             for (const rect of range.getClientRects()) {
                 if (

@@ -2770,31 +2770,22 @@ non-zero" teaches a reader to ignore the one time it means something, and
 `just e2e` already depends on people trusting worker diagnostics — a missing
 consumer is documented as the cause of a ~19-spec failure block.
 
-## Cut the over-budget comment blocks CommentBudgetCheck reports
+## Decide how CommentBudgetCheck should treat `.env`
 
-**Author:** Geoffrey · **Type:** docs · **Priority:** medium · **Status:** pending
+**Author:** Geoffrey · **Type:** docs · **Priority:** low · **Status:** pending
 
-`vendor/bin/gamache` reports 147 comment runs of 6+ lines across `src/`,
-`templates/`, `assets/`, `config/`, `e2e/`, the `justfile` and `.env` (measured
-2026-08-06). The check is advisory (exit 0), so nothing forces this; the sweep
-is deliberate work.
+The repo-wide sweep took `CommentBudgetCheck` from 151 findings to 10, and every
+other file — `src/`, `templates/`, `assets/`, `config/`, `tests/`, `e2e/`, the
+`justfile`, the compose topologies — is at zero. The 10 that remain are all in
+`.env`, and none of them is obviously wrong.
 
-The `.env` and `compose.yaml` reports are **not** artefacts of Symfony Flex
-section markers fusing neighbouring comments — that was a real gamache bug, and
-it was fixed upstream in ubermuda/gamache#32 and pinned here. Fixing it cleared
-three findings and moved the rest off the `###>` line onto the first line of
-their prose. The ten that remain are genuinely 6–8 line blocks and need the same
-keep-or-compress judgement as everything else here.
+Its first block is Symfony's own shipped header, which `composer
+recipes:update` would restore if rewritten. The rest document environment
+variables for whoever deploys the app, which is that file's whole purpose.
 
-Compress each to the constraint a reader needs at that line and move the
-reasoning to the commit or PR that introduced it — see the `project-comments`
-skill for the budget and the keep/cut test.
-
-Not everything long is wrong. A file header documenting a distributed artefact
-earns its length: `compose.prod.yaml`'s 33-line header is legitimate and was
-confirmed as such on 2026-08-06. Those get `@comment-budget-ignore` on one of
-their lines, not a rewrite, so they stop being re-reported. Decide per file
-rather than sweeping to zero.
+So the choice is between marking them with `@comment-budget-ignore` and dropping
+`.env` from the check's `patterns` in `gamache.php`. Trimming them further trades
+documentation for a number, which is the opposite of what the check is for.
 
 ## Rendered front matter and annotations have no accessible name
 
@@ -3672,3 +3663,26 @@ caller — `withSelections()` takes no translator and no version number today �
 and that generated content is read inconsistently by screen readers, which
 matters more here than for the card's eyebrow because this text is an announced
 live region rather than decoration.
+
+## A worktree's compiled CSS freezes at provision time
+
+**Author:** Claude · **Type:** tooling · **Priority:** medium · **Status:** pending
+
+`just worktree-up` builds `var/tailwind/app.built.css` once and nothing rebuilds
+it afterwards unless someone leaves `just worktree-tailwind` running. A worktree
+that has been alive for a few days and then merges `main` therefore serves the
+CSS its branch had at provision time, while its PHP, Twig and JS are current.
+
+On 2026-08-08 the comment-budget-sweep worktree gated against a build predating
+the Chartreuse redesign. The compiled sheet had neither `lp-anchor-hover` nor
+`.lp-review-block`, so `review-loop.spec.ts`'s hover spec failed: it moves a real
+pointer at a rect measured inside the document pane, and that pane's layout class
+had no rules. One failure, eleven specs skipped behind it, nothing in the app
+logs — indistinguishable from a regression on the branch until you diff the
+compiled CSS. `bin/console tailwind:build` in the worktree fixed it in under a
+second.
+
+The worktree e2e checklist in `CLAUDE.md` already names warming the cache and
+starting a consumer as prerequisites; a CSS rebuild belongs beside them. The
+symptom table in `project-worktrees` covers only the single-unstyled-new-class
+case, which points at the `var/tailwind` symlink rather than at staleness.

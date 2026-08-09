@@ -2,7 +2,7 @@
   Turbo Stream returned after a comment is added: re-render the whole thread
   list in place (preserving offset order and clearing the empty state).
 
-  Vars:
+  Vars:  @comment-budget-ignore
     comments  list<Comment>   All comments for the version.
 #}
 <turbo-stream action="replace" target="comment-threads">

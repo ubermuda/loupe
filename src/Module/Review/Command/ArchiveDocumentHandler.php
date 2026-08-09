@@ -24,30 +24,21 @@ final readonly class ArchiveDocumentHandler
     {
         $document = $command->document;
 
-        // No reason and a blank one are different things. Null is the app's
-        // archive button, which has no field to fill in; a string of spaces is
-        // a caller that was asked for a reason and answered with nothing, and
-        // is rejected rather than stored as an explanation that says nothing.
-        //
-        // Outside the transaction below because it writes nothing: rolling back
-        // for it would roll back an empty unit of work.
+        // No reason and a blank one differ: null is the app's archive button,
+        // which has no field, while spaces are a caller that was asked and
+        // answered with nothing. Outside the transaction because it writes
+        // nothing.
         $reason = null === $command->reason ? null : trim($command->reason);
         if ('' === $reason) {
             throw new DomainErrors(['reason' => 'review.archive.error.reason_blank']);
         }
 
         return $this->em->wrapInTransaction(function () use ($document, $reason): Document {
-            // The check and the write are serialized on the row. Two callers
-            // archiving the same live document at once would otherwise both find
-            // it live, and the second flush would replace the first caller's
-            // reason with its own — a stamp differing by milliseconds would not
-            // be worth this, but a reason is a sentence a reviewer reads, and
-            // whichever request committed last is an arbitrary way to pick it.
-            //
-            // The race itself is not expressible in a test: every test runs
-            // inside one connection's transaction, so two overlapping database
-            // transactions cannot exist. The sequential re-archive tests are the
-            // regression guard, and this is verified by review.
+            // Serializes the check and the write on the row: two callers
+            // archiving at once would both find it live, and the later flush
+            // would replace the first caller's reason with its own. A reason is
+            // a sentence a reviewer reads, so "whichever committed last" is an
+            // arbitrary way to pick it.
             $this->em->lock($document, LockMode::PESSIMISTIC_WRITE);
 
             // lock() takes the row but leaves the loaded entity as it was, so the
@@ -61,13 +52,10 @@ final readonly class ArchiveDocumentHandler
             // reason therefore means restoring the document and archiving it
             // again.
             if (null !== $stored['archivedAt']) {
-                // Only when the loaded copy disagrees with the row, which means
-                // another transaction archived this document while this one
-                // waited for the lock: the caller is handed what is stored
-                // rather than the nulls it loaded before the winner committed.
-                // The loaded values are otherwise left exactly as they are — the
-                // column is TIMESTAMP(0), so re-reading them would quietly drop
-                // the sub-second part of a timestamp this process already holds.
+                // Only when the loaded copy disagrees with the row — another
+                // transaction archived this while we waited for the lock.
+                // Otherwise left alone: the column is TIMESTAMP(0), so
+                // re-reading drops the sub-second part this process holds.
                 if (null === $document->archivedAt) {
                     $document->archivedAt = $stored['archivedAt'];
                     $document->archiveReason = $stored['archiveReason'];

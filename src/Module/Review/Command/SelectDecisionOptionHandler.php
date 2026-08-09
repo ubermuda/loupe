@@ -27,28 +27,19 @@ final readonly class SelectDecisionOptionHandler
     public function __invoke(SelectDecisionOptionCommand $command): DecisionSelection
     {
         return $this->em->wrapInTransaction(function () use ($command): DecisionSelection {
-            // Answering is a click, so a reviewer changing their mind fires two
-            // overlapping requests routinely. Both would find no row and both
-            // would insert, tripping the (document, decision) unique index. The
-            // document is the only row that exists before the first answer, so
-            // it is what serialises them.
-            //
-            // The version is read inside the lock too: a revision landing between
-            // the read and the write would otherwise be validated against the old
-            // version and stamped with its number.
+            // Two overlapping answers would both find no row and both insert,
+            // tripping the (document, decision) unique index. The document is
+            // the only row existing before the first answer, so it serialises
+            // them. The version is read inside the lock too, or a revision
+            // landing mid-write is stamped with the old number.
             $this->em->lock($command->document, LockMode::PESSIMISTIC_WRITE);
 
             $version = $this->documentVersions->findLatest($command->document);
 
             // An option index only means anything against the list it was
-            // rendered from. A revision landing while the reviewer had the page
-            // open leaves them submitting position 1 of a list that no longer
-            // exists, and resolving it against the current one would record a
-            // label they never clicked — the same lie Decision::resolveIndex
-            // prevents within a version, arriving across versions instead.
-            //
-            // Refused rather than resolved against the version they saw: that
-            // would answer with options the document has already dropped.
+            // rendered from. Refused rather than resolved against either
+            // version: the current one records a label they never clicked, and
+            // the one they saw answers with options the document has dropped.
             if ($version->versionNumber !== $command->displayedVersionNumber) {
                 throw new DomainErrors(['versionNumber' => 'review.decision.error.stale_version']);
             }
