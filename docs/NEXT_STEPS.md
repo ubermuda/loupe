@@ -3690,3 +3690,22 @@ The worktree e2e checklist in `CLAUDE.md` already names warming the cache and
 starting a consumer as prerequisites; a CSS rebuild belongs beside them. The
 symptom table in `project-worktrees` covers only the single-unstyled-new-class
 case, which points at the `var/tailwind` symlink rather than at staleness.
+
+## Derive `APP_VERSION` from the release build instead of defaulting to `dev`
+
+**Author:** Claude · **Type:** feature · **Priority:** low · **Status:** pending
+
+`/about` shows the running build to signed-in viewers, reading the `app.version`
+parameter (`config/services.yaml`) from the `APP_VERSION` environment variable.
+Nothing derives that value: `docker/prod/Dockerfile` sets no build argument for
+it, `compose.prod.yaml` and `terraform/main.tf` pass nothing, and no workflow
+builds the image with a tag baked in. So every instance whose operator has not
+set `APP_VERSION` by hand reports the `.env` fallback, `dev`.
+
+`docker/prod/entrypoint.sh` runs `composer dump-env prod` at container start
+rather than at build time, so a runtime environment variable already wins — the
+gap is only that nothing supplies one. A build argument in the Dockerfile that
+lands as an `ENV`, fed the git tag or short SHA by whatever builds the image,
+would make the default useful without taking the runtime override away.
+
+Cosmetic until someone has to ask a bug reporter which build they are on.
