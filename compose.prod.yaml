@@ -1,8 +1,9 @@
 # Reference production topology: a single-host Docker Compose deployment of
-# Loupe. It is a complete, runnable stack — web, messenger worker, Postgres and
-# the Mercure hub — not an illustration. `compose.yaml` next to it is the
-# development stack and shares nothing with this file: it bind-mounts the source
-# tree, builds a development PHP image and expects an external Traefik network.
+# Loupe. It is a complete, runnable stack — web, messenger worker and Postgres,
+# plus an opt-in Mercure hub behind `--profile mercure` — not an illustration.
+# `compose.yaml` next to it is the development stack and shares nothing with this
+# file: it bind-mounts the source tree, builds a development PHP image and
+# expects an external Traefik network.
 #
 # What this file deliberately does NOT include:
 #
