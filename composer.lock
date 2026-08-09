@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "f58e0c1bc09ab55b04dead59980c4528",
+    "content-hash": "5d36a3039fcf6361efd3a0120dbeba15",
     "packages": [
         {
             "name": "async-aws/core",
@@ -16131,16 +16131,16 @@
         },
         {
             "name": "ubermuda/gamache",
-            "version": "dev-main",
+            "version": "dev-feat/comment-budget-severity",
             "source": {
                 "type": "git",
                 "url": "https://github.com/ubermuda/gamache.git",
-                "reference": "e6361997b860b7dba7bf9360b6f5ce0bad15287a"
+                "reference": "91646de81f6f72f5e8c0512b7678270600a63bd3"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/ubermuda/gamache/zipball/e6361997b860b7dba7bf9360b6f5ce0bad15287a",
-                "reference": "e6361997b860b7dba7bf9360b6f5ce0bad15287a",
+                "url": "https://api.github.com/repos/ubermuda/gamache/zipball/91646de81f6f72f5e8c0512b7678270600a63bd3",
+                "reference": "91646de81f6f72f5e8c0512b7678270600a63bd3",
                 "shasum": ""
             },
             "require": {
@@ -16166,7 +16166,6 @@
                 "symfony/validator": "^6.4|^7.0|^8.0",
                 "vincentlanglet/twig-cs-fixer": "^4.0"
             },
-            "default-branch": true,
             "bin": [
                 "bin/gamache"
             ],
@@ -16186,10 +16185,10 @@
             ],
             "description": "Chief Inspector — convention checker for Symfony projects",
             "support": {
-                "source": "https://github.com/ubermuda/gamache/tree/main",
+                "source": "https://github.com/ubermuda/gamache/tree/feat/comment-budget-severity",
                 "issues": "https://github.com/ubermuda/gamache/issues"
             },
-            "time": "2026-08-07T01:49:01+00:00"
+            "time": "2026-08-09T02:06:56+00:00"
         },
         {
             "name": "vincentlanglet/twig-cs-fixer",
@@ -16269,7 +16268,14 @@
             "time": "2026-06-29T15:22:14+00:00"
         }
     ],
-    "aliases": [],
+    "aliases": [
+        {
+            "package": "ubermuda/gamache",
+            "version": "dev-feat/comment-budget-severity",
+            "alias": "dev-main",
+            "alias_normalized": "dev-main"
+        }
+    ],
     "minimum-stability": "dev",
     "stability-flags": {
         "ubermuda/admin-bundle": 20,
