@@ -144,13 +144,12 @@ cs-check:
 gamache:
     vendor/bin/gamache
 
-# Security advisories against the locked dependency set. In `ci` because two
-# published advisories have gone unnoticed here, each found only by someone
-# running this by hand days later. Reaches packagist's advisory API and works
-# unauthenticated, unlike `composer update`, which needs a GitHub token for the
-# VCS repositories and is what the anonymous rate limit actually bites.
+# `--locked` audits composer.lock, not whatever is installed: a stale vendor/
+# must not turn a vulnerable lockfile green, and in a worktree the two drift
+# routinely. Reaches packagist's advisory API, which works unauthenticated —
+# the anonymous rate limit bites `composer update`, not this.
 audit:
-    bin/worktrees/compose-exec.sh composer audit
+    bin/worktrees/compose-exec.sh composer audit --locked
 
 # Not part of `ci`, unlike `audit` above: needs host tooling as well as outbound
 # network, and scans all of history rather than the current tree. gitleaks matches
