@@ -1,0 +1,22 @@
+{# Standalone rather than extending base.html.twig: the app shell queries the
+   database for the switcher and its counts, and a page that needs a working
+   database cannot report a broken one. Nothing here touches the database or
+   the session. #}
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        {%- set key = status_code in [403, 404, 500] ? status_code : 'default' -%}
+        <title>{{ ('error.' ~ key ~ '.title')|trans }} — {{ 'app.name'|trans }}</title>
+        {{ importmap('app', {nonce: csp_nonce('script')}) }}
+    </head>
+    <body>
+        <div class="lp-error">
+            <p class="lp-error__code">{{ status_code }}</p>
+            <h1 class="lp-error__title">{{ ('error.' ~ key ~ '.title')|trans }}</h1>
+            <p class="lp-error__body">{{ ('error.' ~ key ~ '.body')|trans }}</p>
+            <a href="{{ path('app_home') }}" class="lp-btn lp-btn--primary">{{ 'error.home'|trans }}</a>
+        </div>
+    </body>
+</html>

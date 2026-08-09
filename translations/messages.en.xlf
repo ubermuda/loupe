@@ -13,6 +13,44 @@
                 <target>Source code</target>
             </trans-unit>
 
+            <!-- Error pages -->
+            <trans-unit id="error.home">
+                <source>error.home</source>
+                <target>Back to Loupe</target>
+            </trans-unit>
+            <trans-unit id="error.403.title">
+                <source>error.403.title</source>
+                <target>Not yours to open</target>
+            </trans-unit>
+            <trans-unit id="error.403.body">
+                <source>error.403.body</source>
+                <target>You are signed in, but this account cannot reach this page. If you expected to, ask whoever owns it to share it with you.</target>
+            </trans-unit>
+            <trans-unit id="error.404.title">
+                <source>error.404.title</source>
+                <target>Nothing here</target>
+            </trans-unit>
+            <trans-unit id="error.404.body">
+                <source>error.404.body</source>
+                <target>This page does not exist. It may have been deleted, or the link that brought you here may be out of date.</target>
+            </trans-unit>
+            <trans-unit id="error.500.title">
+                <source>error.500.title</source>
+                <target>Something broke</target>
+            </trans-unit>
+            <trans-unit id="error.500.body">
+                <source>error.500.body</source>
+                <target>That one is on us, not on you. The failure has been logged; try again in a moment.</target>
+            </trans-unit>
+            <trans-unit id="error.default.title">
+                <source>error.default.title</source>
+                <target>Something went wrong</target>
+            </trans-unit>
+            <trans-unit id="error.default.body">
+                <source>error.default.body</source>
+                <target>This request could not be completed. Trying again often clears it.</target>
+            </trans-unit>
+
             <!-- About page -->
             <trans-unit id="about.page.title">
                 <source>about.page.title</source>

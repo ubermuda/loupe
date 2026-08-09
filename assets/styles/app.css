@@ -1026,6 +1026,22 @@
         @apply bg-status-ok;
     }
 
+    /* Error pages. Centred in the viewport because they render without the
+       app shell — there is no sidebar to sit beside. */
+    .lp-error {
+        @apply flex flex-col items-center justify-center text-center gap-3 px-8;
+        min-height: 100dvh;
+    }
+    .lp-error__code {
+        @apply font-mono text-sm font-bold text-accent m-0 tracking-widest;
+    }
+    .lp-error__title {
+        @apply font-display font-extrabold text-ink m-0 text-5xl tracking-tight leading-none;
+    }
+    .lp-error__body {
+        @apply max-w-md text-base text-fg-mute m-0 mb-3 leading-relaxed;
+    }
+
     /* ── Empty state ────────────────────────────────────────────────── */
 
     .lp-empty {
