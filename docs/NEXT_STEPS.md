@@ -35,31 +35,6 @@ and either target that worktree or refuse. Until then the only reliable check is
 to prove the target after every run — the worktree database must show the
 `install-reset` truncation while the main `app` database is untouched.
 
-## `guzzlehttp/guzzle` 7.15.1 carries two published security advisories
-
-
-**Author:** Claude · **Type:** security · **Priority:** high · **Status:** pending
-
-`composer audit` reports two advisories against the installed `guzzlehttp/guzzle`
-7.15.1, both published 2026-08-03 and both fixed in **7.15.2**:
-
-1. **CVE-2026-69246 (high)** — a noncanonical host can bypass host-based checks
-   (`GHSA-v5mv-p594-2x33`).
-2. **CVE-2026-69245 (medium)** — a noncanonical cookie domain keeps subdomain scope
-   (`GHSA-f7vp-7xgx-4w4r`).
-
-Guzzle is transitive: `league/oauth2-client` 2.9.0 requires `^6.5.8 || ^7.4.5`, so it sits
-on the Google and GitHub social-login path. `league/flysystem` only declares a conflict
-below 7.0. The existing constraint already permits the fix, so the whole change is
-`composer update guzzlehttp/guzzle` with no `composer.json` edit — but it moves
-`composer.lock`, so it wants a branch and the full pre-PR gate rather than a commit to
-`main`.
-
-This was invisible until 2026-08-04, because `composer` could not reach the GitHub API at
-all while the container was rate-limited anonymously. Worth remembering as the argument for
-running `composer audit` on a schedule: the advisories had been public for a day and
-nothing in the project would have surfaced them.
-
 ## Unset optional config should disable a feature, not break it
 
 
