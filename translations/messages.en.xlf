@@ -56,21 +56,21 @@
                 <source>about.page.title</source>
                 <target>About</target>
             </trans-unit>
-            <trans-unit id="about.identity.heading">
-                <source>about.identity.heading</source>
-                <target>This instance</target>
-            </trans-unit>
-            <trans-unit id="about.identity.body">
-                <source>about.identity.body</source>
+            <trans-unit id="about.lead">
+                <source>about.lead</source>
                 <target>Loupe collects review comments on documents and live pages, and hands them to the coding agent that acts on them.</target>
             </trans-unit>
-            <trans-unit id="about.identity.version">
-                <source>about.identity.version</source>
-                <target>Running version %version%.</target>
+            <trans-unit id="about.version.heading">
+                <source>about.version.heading</source>
+                <target>Version</target>
+            </trans-unit>
+            <trans-unit id="about.version.hint">
+                <source>about.version.hint</source>
+                <target>The build this instance is running. Quote it if you report a problem.</target>
             </trans-unit>
             <trans-unit id="about.licence.heading">
                 <source>about.licence.heading</source>
-                <target>Licence</target>
+                <target>Licence and source</target>
             </trans-unit>
             <trans-unit id="about.licence.body">
                 <source>about.licence.body</source>

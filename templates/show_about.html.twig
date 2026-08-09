@@ -8,22 +8,29 @@
 
 {% block body %}
 <div class="lp-workspace">
-    <h1 class="lp-workspace-title mb-5">{{ 'about.page.title'|trans }}</h1>
+    <h1 class="lp-workspace-title">{{ 'about.page.title'|trans }}</h1>
+    <p class="lp-workspace-desc">{{ 'about.lead'|trans }}</p>
 
-    <div class="max-w-170 flex flex-col gap-5">
-        <section class="lp-connect-block">
-            <p class="lp-eyebrow">{{ 'about.identity.heading'|trans }}</p>
-            <p class="lp-connect-hint">{{ 'about.identity.body'|trans }}</p>
-            {% if app.user %}
-            <p class="lp-connect-hint">{{ 'about.identity.version'|trans({'%version%': version}) }}</p>
-            {% endif %}
+    <div class="lp-about-cards">
+        <section class="lp-about-card">
+            <span class="lp-about-card__glyph"><twig:ux:icon name="lucide:scale" class="w-4.5 h-4.5" /></span>
+            <div class="lp-about-card__main">
+                <h2 class="lp-about-card__title">{{ 'about.licence.heading'|trans }}</h2>
+                <p class="lp-about-card__text">{{ 'about.licence.body'|trans }}</p>
+                {% include '_source_link.html.twig' with {class: 'lp-btn lp-btn--primary'} only %}
+            </div>
         </section>
 
-        <section class="lp-connect-block">
-            <p class="lp-eyebrow">{{ 'about.licence.heading'|trans }}</p>
-            <p class="lp-connect-hint">{{ 'about.licence.body'|trans }}</p>
-            {% include '_source_link.html.twig' with {class: 'lp-btn lp-btn--ghost self-start'} only %}
+        {% if app.user %}
+        <section class="lp-about-card">
+            <span class="lp-about-card__glyph"><twig:ux:icon name="lucide:tag" class="w-4.5 h-4.5" /></span>
+            <div class="lp-about-card__main">
+                <h2 class="lp-about-card__title">{{ 'about.version.heading'|trans }}</h2>
+                <p class="lp-about-card__value" data-testid="app-version">{{ version }}</p>
+                <p class="lp-about-card__text">{{ 'about.version.hint'|trans }}</p>
+            </div>
         </section>
+        {% endif %}
     </div>
 </div>
 {% endblock %}

@@ -1026,6 +1026,30 @@
         @apply bg-status-ok;
     }
 
+    /* About page. One card per fact, so the AGPL offer reads as a statement
+       with its own edge rather than a paragraph among others. */
+    .lp-about-cards {
+        @apply flex flex-col gap-4 max-w-170;
+    }
+    .lp-about-card {
+        @apply flex items-start gap-4 rounded-xl bg-surface-2 py-5 px-5.5;
+    }
+    .lp-about-card__glyph {
+        @apply inline-flex items-center justify-center shrink-0 w-9.5 h-9.5 rounded-lg bg-accent-soft text-accent-hover;
+    }
+    .lp-about-card__main {
+        @apply flex flex-col items-start gap-2 min-w-0;
+    }
+    .lp-about-card__title {
+        @apply font-display font-extrabold text-lg text-ink m-0 tracking-tight;
+    }
+    .lp-about-card__text {
+        @apply text-fg-mute m-0 text-sm leading-relaxed;
+    }
+    .lp-about-card__value {
+        @apply font-mono text-base text-ink m-0;
+    }
+
     /* Error pages. Centred in the viewport because they render without the
        app shell — there is no sidebar to sit beside. */
     .lp-error {

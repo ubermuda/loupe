@@ -14,11 +14,11 @@ final class ShowAboutControllerTest extends WebTestCase
     public function test_anonymous_visitor_reaches_the_source_offer(): void
     {
         $client = static::createClient();
-        $crawler = $client->request(Request::METHOD_GET, '/about');
+        $client->request(Request::METHOD_GET, '/about');
 
         self::assertResponseIsSuccessful();
         self::assertSelectorExists('a[href="https://github.com/ubermuda/loupe"]');
-        self::assertStringNotContainsString('Running version', $crawler->text());
+        self::assertSelectorNotExists('[data-testid="app-version"]');
     }
 
     public function test_signed_in_visitor_also_sees_the_build_version(): void
@@ -32,9 +32,9 @@ final class ShowAboutControllerTest extends WebTestCase
         $em->flush();
 
         $client->loginUser($user);
-        $crawler = $client->request(Request::METHOD_GET, '/about');
+        $client->request(Request::METHOD_GET, '/about');
 
         self::assertResponseIsSuccessful();
-        self::assertStringContainsString('Running version', $crawler->text());
+        self::assertSelectorTextSame('[data-testid="app-version"]', 'dev');
     }
 }
