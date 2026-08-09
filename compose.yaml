@@ -106,7 +106,6 @@ services:
   # In-memory Mercure hub (no history — best-effort by design). Opt-in: start it
   # with `just mercure-up`. A missing hub only delays delivery, since submissions
   # reach the outbox first and the scheduled drain replays them.
-  # The full e2e suite passes with it stopped.
   mercure:
     image: dunglas/mercure:v0.24
     profiles: ["mercure"]

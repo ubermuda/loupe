@@ -2770,20 +2770,18 @@ non-zero" teaches a reader to ignore the one time it means something, and
 `just e2e` already depends on people trusting worker diagnostics — a missing
 consumer is documented as the cause of a ~19-spec failure block.
 
-## Decide how CommentBudgetCheck should treat `.env` and the justfile
+## Decide how CommentBudgetCheck should treat `.env`
 
 **Author:** Geoffrey · **Type:** docs · **Priority:** low · **Status:** pending
 
-The repo-wide sweep took `CommentBudgetCheck` from 150 findings to 26, and every
-code area — `src/`, `templates/`, `assets/`, `config/`, `tests/`, `e2e/` — is at
-zero. What remains is 14 blocks in `.env`, 8 in the `justfile` and 4 in the
-compose files, and none of them is obviously wrong.
+The repo-wide sweep took `CommentBudgetCheck` from 150 findings to 10, and every
+other file — `src/`, `templates/`, `assets/`, `config/`, `tests/`, `e2e/`, the
+`justfile`, the compose topologies — is at zero. The 10 that remain are all in
+`.env`, and none of them is obviously wrong.
 
-`.env`'s first block is Symfony's own shipped header, which `composer
+Its first block is Symfony's own shipped header, which `composer
 recipes:update` would restore if rewritten. The rest document environment
-variables for whoever deploys the app, which is that file's whole purpose. The
-justfile blocks are all 6-9 lines and each sits above a recipe, where the last
-comment line is what `just --list` prints.
+variables for whoever deploys the app, which is that file's whole purpose.
 
 So the choice is between marking them with `@comment-budget-ignore` and dropping
 `.env` from the check's `patterns` in `gamache.php`. Trimming them further trades

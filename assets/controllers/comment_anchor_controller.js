@@ -671,12 +671,11 @@ export default class extends Controller {
     }
 
     #probeAnchorAt(clientX, clientY) {
-        // Reads the map #layout() built rather than locating each quote again.
-        // This runs once per mousemove frame and #findRange() is an indexOf
-        // sweep of the whole document plus a TreeWalker, so re-locating here
-        // put that cost on every frame on the longest documents — the ones with
-        // the most anchors to walk. General comments never enter the map, which
-        // is the same set the old loop skipped by hand.
+        // Reads the map #layout() built rather than locating each quote again:
+        // this runs once per mousemove frame, and #findRange() is an indexOf
+        // sweep of the whole document plus a TreeWalker — re-locating here put
+        // that cost on every frame on the longest documents. General comments
+        // never enter the map, which is the set the old loop skipped by hand.
         for (const [thread, range] of this.anchorRanges ?? []) {
             for (const rect of range.getClientRects()) {
                 if (

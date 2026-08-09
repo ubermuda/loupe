@@ -1158,10 +1158,7 @@
         @apply text-sm text-fg-mute mt-2 mb-4 leading-relaxed;
     }
 
-    /* ── Danger zone — irreversible destructive actions (project/account
-       deletion). Heavily-bordered red card, visually distinct from the
-       rest of the settings form, so the action reads as irreversible at
-       a glance. */
+    /* ── Danger zone ──────────────────────────────────────────────────── */
 
     /* A rule and a red heading rather than a red card: the destructive action
        is one button, and boxing the whole section in red made every settings
@@ -2344,15 +2341,10 @@
     }
 
     /* ── Decision blocks ────────────────────────────────────────────────
-       A group of reviewer-selectable options rendered from a decision fence
-       in the document's Markdown. It sits inside the prose, so it is styled
-       as a called-out card rather than as a form.
-
-       The eyebrow is generated content rather than markup, which is not a
-       styling preference: the card renders inside the pane whose text is the
-       basis every comment anchor is measured against, so chrome that is not
-       the author's own words must not reach it. Only the prompt does, because
-       the author wrote it. */
+       The eyebrow is generated content rather than markup: the card renders
+       inside the pane whose text is the basis every comment anchor is measured
+       against, so chrome that is not the author's own words must not reach it.
+       Only the prompt does, because the author wrote it. */
 
     .lp-decision {
         @apply my-4 rounded-xl border-0 px-5 py-4.5 bg-tint;
