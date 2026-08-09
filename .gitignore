@@ -61,6 +61,7 @@ phpstan.neon
 .phpactor.json
 /.serena/
 /.claude/worktrees/
+/.claude/scratch/
 /node_modules
 /.eslintcache
 /docs/superpowers/

@@ -268,19 +268,12 @@ final readonly class DecisionBlockService
      */
     public function extract(string $html): array
     {
-        preg_match_all(
-            '~<fieldset[^>]*\s'.self::BLOCK_MARKER.'="('.self::ID_PATTERN.')"[^>]*>(.*?)</fieldset>~s',
-            $html,
-            $blocks,
-            PREG_SET_ORDER,
-        );
-
         $decisions = [];
-        foreach ($blocks as $block) {
-            preg_match_all('~<label[^>]*>(.*?)</label>~s', $block[2], $labels);
+        foreach ($this->fieldsets($html) as $block) {
+            preg_match_all('~<label[^>]*>(.*?)</label>~s', $block['inner'], $labels);
 
             $decisions[] = new Decision(
-                $block[1],
+                $block['id'],
                 // Shared with headings rather than stripping tags here: an option
                 // written as an image alone reduced to '' under strip_tags(), so it
                 // reached the agent as an empty string and two such options stored
@@ -290,6 +283,49 @@ final readonly class DecisionBlockService
         }
 
         return $decisions;
+    }
+
+    /**
+     * Every decision fieldset in the rendered HTML, as id, inner markup and whole.
+     *
+     * Split on the closing tag rather than matched across it. A body written as
+     * `(.*?)` costs a backtracking step per character, so one block long enough
+     * to pass `pcre.backtrack_limit` made the match fail — and both readers took
+     * the failure as "this document has no decisions", telling the agent nothing
+     * was there while the page showed a full list. Splitting is safe because the
+     * fieldsets emitted here are flat: fieldset() writes one per block and never
+     * nests them.
+     *
+     * @return list<array{id: string, inner: string, html: string}>
+     */
+    private function fieldsets(string $html): array
+    {
+        $found = [];
+
+        foreach (explode('</fieldset>', $html) as $segment) {
+            $start = strrpos($segment, '<fieldset');
+            if (false === $start) {
+                continue;
+            }
+
+            $element = substr($segment, $start);
+            $matched = preg_match(
+                '~^<fieldset[^>]*\s'.self::BLOCK_MARKER.'="('.self::ID_PATTERN.')"[^>]*>~',
+                $element,
+                $openTag,
+            );
+            if (1 !== $matched) {
+                continue;
+            }
+
+            $found[] = [
+                'id' => $openTag[1],
+                'inner' => substr($element, \strlen($openTag[0])),
+                'html' => $element.'</fieldset>',
+            ];
+        }
+
+        return $found;
     }
 
     /**
@@ -306,13 +342,13 @@ final readonly class DecisionBlockService
             return null;
         }
 
-        $found = preg_match(
-            '~<fieldset[^>]*\s'.self::BLOCK_MARKER.'="'.preg_quote($decisionId, '~').'"[^>]*>.*?</fieldset>~s',
-            $html,
-            $matches,
-        );
+        foreach ($this->fieldsets($html) as $block) {
+            if ($block['id'] === $decisionId) {
+                return $block['html'];
+            }
+        }
 
-        return 1 === $found ? $matches[0] : null;
+        return null;
     }
 
     /** The DOM id blockHtml()'s markup carries, for a Turbo stream to target. */

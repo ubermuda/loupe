@@ -22,8 +22,9 @@
 #}
 {% set readOnly = readOnly ?? false %}
 {% set rootComments = comments|filter(c => c.parent is null)|map(c => c) %}
-{% set generalComments = rootComments|filter(c => c.anchor.quote is empty)|map(c => c) %}
-{% set anchoredComments = rootComments|filter(c => c.anchor.quote is not empty)|map(c => c) %}
+{# `is empty` would call a comment anchored to the literal text 0 general. #}
+{% set generalComments = rootComments|filter(c => c.anchor.quote == '')|map(c => c) %}
+{% set anchoredComments = rootComments|filter(c => c.anchor.quote != '')|map(c => c) %}
 {% set resolvedCount = rootComments|filter(c => c.threadStatus.value == 'resolved')|length %}
 <div id="comment-threads" class="lp-comment-threads" data-resolved-count="{{ resolvedCount }}">
     {% if generalComments|length > 0 %}

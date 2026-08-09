@@ -129,9 +129,9 @@ rector:
 # container XML, so a missing or stale var/cache/dev makes it abort outright
 # ("Container ... does not exist") or silently degrade service types to ?object.
 #
-# The memory limit is explicit because the container's 128M default is not
-# enough here: analysis dies with exit code 255 and a DebugClassLoader stack
-# trace that reads like a real analysis error rather than exhaustion.
+# The limit here is the host's, and covers the analyse run only — the warmup
+# above it is a separate process inside the container, which gets its headroom
+# from docker/dev/php-fpm/memory.ini.
 phpstan:
     bin/worktrees/compose-exec.sh bin/console cache:warmup
     vendor/bin/phpstan analyse -a worktree-bootstrap.php --memory-limit=1G

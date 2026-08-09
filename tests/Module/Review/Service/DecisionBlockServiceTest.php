@@ -574,4 +574,66 @@ final class DecisionBlockServiceTest extends TestCase
         self::assertSame(['one', 'two'], $decisions[0]->options);
         self::assertStringNotContainsString('LPDECISION', $html);
     }
+
+    /**
+     * A block past the backtracking budget a spanning read would have spent.
+     *
+     * Read with a body that spans the closing tag, a list this long made
+     * preg_match_all() fail and both readers reported no decisions at all — the
+     * page showing five thousand options while the agent was told there were
+     * none, and a refused submission finding nothing to put back.
+     */
+    public function test_a_block_larger_than_the_backtracking_budget_is_still_read_back(): void
+    {
+        $options = [];
+        for ($i = 0; $i < 5_000; ++$i) {
+            $options[] = '- option '.$i;
+        }
+
+        $html = $this->renderer->render(
+            "<!-- decision: huge -->\n\n".implode("\n", $options)."\n\n<!-- /decision -->\n",
+        );
+
+        self::assertGreaterThan(1_000_000, \strlen($html), 'the block must be past pcre.backtrack_limit');
+
+        $decisions = $this->decisions->extract($html);
+        self::assertSame(['huge'], array_map(static fn (object $d): string => $d->id, $decisions));
+        self::assertCount(5_000, $decisions[0]->options);
+        self::assertSame('option 0', $decisions[0]->options[0]);
+
+        // The same scan backs the markup a refused submission streams back.
+        self::assertStringContainsString('data-decision-id="huge"', (string) $this->decisions->blockHtml($html, 'huge'));
+    }
+
+    /**
+     * The anchor basis for a block that carries a question.
+     *
+     * Every comment's offsets are measured against `strip_tags()` of the stored
+     * HTML, so what the conversion leaves in the text is what every anchor below
+     * the block is counted from. The question is the author's own words and
+     * belongs there; the eyebrow above it is drawn by CSS precisely so it does
+     * not.
+     */
+    public function test_a_question_reaches_the_anchor_basis_and_the_machinery_does_not(): void
+    {
+        $html = $this->renderer->render(
+            "Before.\n\n<!-- decision: deploy-target -->\n\nWhere should the first release go?\n\n"
+            ."1. Ship to staging first\n2. Ship straight to production\n\n<!-- /decision -->\n\nAfter.\n",
+        );
+
+        $text = html_entity_decode(strip_tags($html), \ENT_QUOTES | \ENT_HTML5, 'UTF-8');
+
+        self::assertStringContainsString('Where should the first release go?', $text);
+        self::assertStringContainsString('Ship to staging first', $text);
+        self::assertSame(1, substr_count($text, 'Where should the first release go?'), 'the question is not duplicated by the legend');
+
+        // None of the conversion's own vocabulary reaches the basis.
+        self::assertStringNotContainsString('LPDECISION', $text);
+        self::assertStringNotContainsString('lp-decision', $text);
+        self::assertStringNotContainsString('Decision — pick one', $text);
+
+        // And the prose either side still bounds it, so nothing was consumed.
+        self::assertStringContainsString('Before.', $text);
+        self::assertStringContainsString('After.', $text);
+    }
 }
