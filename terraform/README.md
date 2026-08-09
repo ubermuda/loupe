@@ -47,7 +47,7 @@ db_cluster_name = "loupe-db"
 ```
 
 ```bash
-doctl databases create loupe-db --engine pg --region tor   # if you have none
+doctl databases create loupe-db --engine pg --region tor1  # if you have none
 doctl databases list      # the Name column is db_cluster_name
 ```
 

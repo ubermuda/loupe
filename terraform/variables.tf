@@ -89,8 +89,7 @@ variable "registry_type" {
 
 variable "registry" {
   type        = string
-  default     = "ubermuda"
-  description = "Registry namespace — your GitHub org or user for GHCR, your Docker Hub user for DOCKER_HUB, empty for DOCR. The default is this project's own namespace, which nobody else can push to; set it to yours."
+  description = "Registry namespace — your GitHub org or user for GHCR, your Docker Hub user for DOCKER_HUB, empty for DOCR. Required rather than defaulted: this project's own namespace is not one anybody else can push to, and inheriting it turns into an image-pull failure inside App Platform at apply time rather than a refusal at plan time."
 }
 
 variable "image_repository" {
@@ -127,8 +126,7 @@ variable "app_encryption_key" {
 variable "mailer_dsn" {
   type        = string
   sensitive   = true
-  default     = "null://null"
-  description = "Production MAILER_DSN. Defaults to a no-op transport."
+  description = "Production MAILER_DSN, pointing at an SMTP server you operate or pay for. Required: email verification is mandatory, and a no-op transport cannot fail, so an unset value strands every registration unverified with nothing raised anywhere."
 }
 
 # --- Application configuration the module does not set itself ---
@@ -251,8 +249,7 @@ variable "export_storage_use_path_style" {
 
 variable "mailer_from_address" {
   type        = string
-  default     = ""
-  description = "MAILER_FROM_ADDRESS: sender of every transactional email. Must be on a domain you control and have published SPF/DKIM/DMARC for. Empty falls back to the committed noreply@localhost, which real mail servers reject — and since email verification is mandatory, that breaks registration."
+  description = "MAILER_FROM_ADDRESS: sender of every transactional email. Must be on a domain you control and have published SPF/DKIM/DMARC for. Required, because the fallback is the committed noreply@localhost, which real mail servers reject — and since email verification is mandatory, that breaks registration."
 }
 
 variable "mailer_from_name" {

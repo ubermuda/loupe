@@ -23,6 +23,15 @@ compose.prod.env
 .gitleaksignore
 # Local-only skeleton sync state; records an absolute path on the dev's machine.
 .skeleton.json
+# Terraform state and tfvars hold APP_SECRET, database credentials and the
+# registry token in plaintext. They are gitignored, but gitignore does not
+# filter the Docker build context, so without this a local-state apply followed
+# by a push would bake those secrets into published image layers.
+terraform/
+# Developer-local code index and the Go bridge CLI. Neither is used by the PHP
+# runtime, and graft/ alone is ~14 MB of build context.
+graft/
+cli/
 .vite/
 docs/
 test-results/

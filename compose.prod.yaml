@@ -37,6 +37,16 @@ name: ${COMPOSE_PROJECT_NAME:-loupe}
 # The web container and the worker container run the same image with the same
 # configuration and differ only in what they execute, so their environment is
 # defined once here.
+# So the stack is runnable from a clone with no registry access at all:
+# `docker compose -f compose.prod.yaml --env-file compose.prod.env build`.
+# Without it a third party is stuck whenever the published image is not one they
+# can pull — GHCR package visibility is set separately from repository
+# visibility, so a public repo does not imply a pullable package. Both services
+# run the same image, so both carry the same build and Compose builds it once.
+x-app-build: &app-build
+  context: .
+  dockerfile: docker/prod/Dockerfile
+
 x-app-environment: &app-environment
   APP_ENV: prod
   APP_SECRET: "${APP_SECRET:?set it in compose.prod.env — generate with openssl rand -hex 16}"
@@ -79,9 +89,13 @@ x-app-environment: &app-environment
   # The hub is a service in this stack, so the app reaches it over the compose
   # network. Its public URL is a separate hostname your reverse proxy routes to
   # the mercure service — the bridge CLI subscribes there, not through the app.
+  # Both empty by default, which is what keeps push optional: the feature flag
+  # keys off MERCURE_JWT_SECRET being set, so an empty value leaves site-review
+  # push off rather than half-configured. Set both and add `--profile mercure`
+  # to turn it on.
   MERCURE_URL: http://mercure/.well-known/mercure
-  MERCURE_PUBLIC_URL: "${MERCURE_PUBLIC_URL:?set it in compose.prod.env to the hub's public URL}"
-  MERCURE_JWT_SECRET: "${MERCURE_JWT_SECRET:?set it in compose.prod.env — at least 32 characters}"
+  MERCURE_PUBLIC_URL: "${MERCURE_PUBLIC_URL:-}"
+  MERCURE_JWT_SECRET: "${MERCURE_JWT_SECRET:-}"
 
   # `local` is correct here, unlike on the App Platform deployment: web and
   # worker mount the same `exports` volume below, so the archive the worker
@@ -112,6 +126,7 @@ services:
   # here any more: it rides the worker's schedule below.
   web:
     image: ${LOUPE_PROD_IMAGE:-ghcr.io/ubermuda/loupe:prod}
+    build: *app-build
     restart: unless-stopped
     ports:
       # Loopback-only: a reverse proxy terminates TLS and forwards here. Set
@@ -136,6 +151,7 @@ services:
   # www-data php-fpm workers and every download would 404.
   worker:
     image: ${LOUPE_PROD_IMAGE:-ghcr.io/ubermuda/loupe:prod}
+    build: *app-build
     restart: unless-stopped
     command:
       - su-exec
@@ -179,6 +195,11 @@ services:
   mercure:
     image: dunglas/mercure:v0.24
     restart: unless-stopped
+    # Opt-in, so the default stack is three services. Start it with
+    # `--profile mercure`, having set MERCURE_JWT_SECRET and MERCURE_PUBLIC_URL;
+    # the hub refuses to boot on an empty key, which is the loud failure you
+    # want if the profile is enabled without them.
+    profiles: ["mercure"]
     ports:
       # Route MERCURE_PUBLIC_URL's hostname here from your reverse proxy.
       - "${LOUPE_MERCURE_BIND:-127.0.0.1:8081}:80"
@@ -188,8 +209,8 @@ services:
       SERVER_NAME: ":80"
       # Both keys are the app's MERCURE_JWT_SECRET: it signs the publisher token
       # it sends and the subscriber tokens it mints for the bridge.
-      MERCURE_PUBLISHER_JWT_KEY: "${MERCURE_JWT_SECRET:?set it in compose.prod.env — at least 32 characters}"
-      MERCURE_SUBSCRIBER_JWT_KEY: "${MERCURE_JWT_SECRET:?set it in compose.prod.env — at least 32 characters}"
+      MERCURE_PUBLISHER_JWT_KEY: "${MERCURE_JWT_SECRET:-}"
+      MERCURE_SUBSCRIBER_JWT_KEY: "${MERCURE_JWT_SECRET:-}"
 
 volumes:
   database_data:
