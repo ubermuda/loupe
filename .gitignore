@@ -70,13 +70,13 @@ e2e/.step-ca-root.crt
 .superpowers/
 .agents/
 
-# Internal working notes. NEXT_STEPS is committed (see CLAUDE.md) — this repo is
-# private, and a tracker only one checkout can see is a tracker the next session
-# cannot read. AUTOMATIONS stays local: it is a scratchpad of enforcement ideas,
-# not shared open work.
+# Internal working notes. NEXT_STEPS is committed (see CLAUDE.md), because a
+# tracker only one checkout can see is a tracker the next session cannot read.
+# AUTOMATIONS stays local: it is a scratchpad of enforcement ideas, not shared
+# open work.
 #
-# Before making this repo public, both files must be dealt with — NEXT_STEPS is
-# in git history by then, so removing it from HEAD is not enough.
+# Both must be dealt with before this repository is published — NEXT_STEPS is in
+# git history by then, so removing it from HEAD is not enough.
 /docs/AUTOMATIONS.md
 
 # Skeleton sync state. Local to whoever bootstrapped this checkout (it records

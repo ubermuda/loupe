@@ -51,8 +51,10 @@ No e2e spec asserts the panel works; the suite only proves it breaks nothing.
 2. An HTML comment on its own line (`<!-- TODO: link the repo -->`) should
    render as a visible annotation rather than vanishing.
 3. **A comment inside a `<div>` is still invisible.** This is known and
-   deliberate — the fix is unsafe for reasons recorded in the tracker. Confirm
-   it degrades quietly rather than breaking the page.
+   deliberate: rendering comment text nested inside a raw HTML block would mean
+   parsing and re-emitting document-supplied markup, which widens what the
+   sanitizer has to defend. Confirm it degrades quietly rather than breaking the
+   page.
 
 ### References and tags
 

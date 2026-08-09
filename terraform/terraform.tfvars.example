@@ -8,7 +8,7 @@
 # --- Required: where this deploys, in YOUR account ---
 # Terraform creates a database and user on an existing Postgres cluster; it does
 # not create the cluster. If you have none:
-#   doctl databases create loupe-db --engine pg --region tor
+#   doctl databases create loupe-db --engine pg --region tor1
 #   doctl databases list        # copy the Name column into db_cluster_name
 # region must match that cluster's region.
 
@@ -33,15 +33,22 @@ do_token             = "dop_v1_..."            # or export DIGITALOCEAN_TOKEN an
 registry_credentials = "ubermuda:ghp_xxxxxxxx" # GHCR "username:PAT" (read:packages); empty for DOCR
 app_secret           = "GENERATED_HEX_32"
 app_encryption_key   = "GENERATED_BASE64_32_BYTE_KEY"
-# mailer_dsn         = "smtp://USER:PASS@HOST:PORT"
 
-# --- The container image ---
-# Defaults point at this project's own package, which you cannot push to. Set
-# these to your registry and export the matching LOUPE_PROD_IMAGE so
-# `just build-prod` and `just deploy` push what App Platform pulls:
+# --- Required: outbound mail ---
+# Email verification is mandatory, so an instance without working mail creates
+# accounts nobody can ever verify. A no-op transport cannot fail, so nothing is
+# raised when this is wrong — hence both are required rather than defaulted.
+mailer_dsn          = "smtp://USER:PASS@HOST:PORT"
+mailer_from_address = "noreply@loupe.example.com" # a domain you control, with SPF/DKIM/DMARC
+
+# --- Required: the container image ---
+# `registry` has no default: this project's own package is not one you can push
+# to, and inheriting it fails at image-pull inside App Platform rather than at
+# plan time. Export the matching LOUPE_PROD_IMAGE so `just build-prod` and
+# `just deploy` push what App Platform pulls:
 #   export LOUPE_PROD_IMAGE=ghcr.io/you/loupe:prod
+registry = "you"
 # registry_type    = "GHCR"
-# registry         = "you"
 # image_repository = "loupe"
 # image_tag        = "prod"
 
@@ -62,11 +69,7 @@ app_encryption_key   = "GENERATED_BASE64_32_BYTE_KEY"
 # hands them code they are not running.
 # app_source_url = "https://github.com/you/loupe"
 
-# REQUIRED in production: the sender of every transactional email. It must be on
-# a domain you control and have published SPF/DKIM/DMARC for — the committed
-# fallback (noreply@localhost) is rejected by real mail servers, and email
-# verification is mandatory, so registration breaks without this.
-# mailer_from_address = "noreply@loupe.example.com"
+# mailer_from_address is required and set in the outbound-mail section above.
 # mailer_from_name    = "Loupe"
 
 # Site-review push. Setting this runs a Mercure hub as a second service in the

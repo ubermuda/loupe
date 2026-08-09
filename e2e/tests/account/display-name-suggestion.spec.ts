@@ -10,11 +10,11 @@ test.use({ storageState: { cookies: [], origins: [] } });
  * there too.
  */
 const DERIVATIONS: Array<[string, string]> = [
-    ['geoffrey.bachelet@gmail.com', 'Geoffrey Bachelet'],
+    ['jane.doe@example.com', 'Jane Doe'],
     ['jean-luc_picard@x.com', 'Jean-Luc Picard'],
-    ['geoffrey+loupe@gmail.com', 'Geoffrey'],
-    ['GEOFFREY.BACHELET@x.com', 'Geoffrey Bachelet'],
-    ['geoffrey@x.com', 'Geoffrey'],
+    ['jane+loupe@example.com', 'Jane'],
+    ['JANE.DOE@EXAMPLE.COM', 'Jane Doe'],
+    ['jane@example.com', 'Jane'],
     ['jsmith2@x.com', 'Jsmith2'],
     ['a.b@x.com', 'A B'],
     ['mary-jane.watson@x.com', 'Mary-Jane Watson'],
@@ -43,8 +43,8 @@ test('a hand-typed display name survives further email edits, and clearing it re
     const email = page.getByLabel('Email');
     const displayName = page.getByLabel('Display name');
 
-    await email.fill('geoffrey.bachelet@x.com');
-    await expect(displayName).toHaveValue('Geoffrey Bachelet');
+    await email.fill('jane.doe@example.com');
+    await expect(displayName).toHaveValue('Jane Doe');
 
     await displayName.fill('Geoff');
     await email.fill('someone.else@x.com');

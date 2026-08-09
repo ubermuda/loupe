@@ -253,12 +253,22 @@ The two topologies below each have their own way of invoking it.
 ## Single-host Docker Compose
 
 `compose.prod.yaml` runs the whole application on one host with no cloud account
-of any kind. It is the same production image, run as four services: `web`
+of any kind. It is the same production image, run as three services: `web`
 (nginx + php-fpm), `worker` (the messenger consumer, which also runs everything
-on the schedule), `database` (Postgres) and `mercure` (the hub).
+on the schedule) and `database` (Postgres).
+
+A fourth, `mercure` (the hub), sits behind a compose profile and stays off
+unless you ask for it — site-review push is the only thing that needs it. To
+enable it, set `MERCURE_JWT_SECRET` and `MERCURE_PUBLIC_URL` in
+`compose.prod.env`, give the hub's hostname a route in your reverse proxy, and
+add `--profile mercure` to every `docker compose` command for this stack.
 
 ```bash
 cp compose.prod.env.example compose.prod.env      # then fill it in
+
+# Only if you cannot pull the published image — see below.
+docker compose -f compose.prod.yaml --env-file compose.prod.env build
+
 docker compose -f compose.prod.yaml --env-file compose.prod.env up -d
 
 # Once per deploy, never from a container's entrypoint:
@@ -270,6 +280,14 @@ docker compose -f compose.prod.yaml --env-file compose.prod.env \
 `.env`, which is the development configuration. Every setting with no safe
 default is guarded, so a forgotten flag aborts the command instead of starting a
 misconfigured instance.
+
+**On the `build` step.** `LOUPE_PROD_IMAGE` defaults to this project's own
+package, and a published GHCR package is not necessarily one you can pull:
+package visibility is configured separately from repository visibility, so a
+public repository does not imply a pullable image. Both `web` and `worker` carry
+a build definition for exactly that case — run `build` once and the stack is
+self-sufficient, with no registry access needed at all. If you are pushing your
+own image instead, set `LOUPE_PROD_IMAGE` and skip the step.
 
 What you still have to provide:
 
@@ -327,7 +345,7 @@ instance").
    default either and `terraform apply` fails until you supply it.
 
    ```bash
-   doctl databases create loupe-db --engine pg --region tor
+   doctl databases create loupe-db --engine pg --region tor1
    doctl databases list      # the Name column is db_cluster_name
    ```
 

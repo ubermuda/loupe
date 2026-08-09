@@ -16,3 +16,20 @@
 # entries cover the string still present in prior history.
 f90c39d1968439cb97292c60586924f28ce9068a:docs/design/loop-handoff/Loop.dc.html:generic-api-key:957
 f6948f64347f2eeaf8d8e1c6769079c0e5fb8128:docs/design/loop-handoff/Loop.dc.html:generic-api-key:957
+
+# Example EXPORT_STORAGE credentials in a justfile comment showing what the
+# local Garage bootstrap prints. Invented values for documentation, never
+# issued by any store. Historical: the comment has since been reworded.
+a1123f971180448439fb81287ff60d22d8f7a343:justfile:generic-api-key:182
+a1123f971180448439fb81287ff60d22d8f7a343:justfile:generic-api-key:183
+
+# Garage's inter-node RPC secret for the opt-in single-node dev store. Committed
+# on purpose, as the file's own header states, exactly like the dev database
+# password; the store is development-only and never reachable from production.
+a1123f971180448439fb81287ff60d22d8f7a343:docker/dev/garage/garage.toml:generic-api-key:14
+
+# Literal 'a-secret-that-is-long-enough-for-hs256' in a system-status unit test
+# — a fixture chosen to satisfy the HS256 minimum length, not a key. Two
+# occurrences in the same historical revision of the file.
+a7361903d7263c100824738f867c841b26b918b6:tests/Module/Account/Command/CheckSystemStatusHandlerTest.php:generic-api-key:152
+a7361903d7263c100824738f867c841b26b918b6:tests/Module/Account/Command/CheckSystemStatusHandlerTest.php:generic-api-key:168

@@ -35,7 +35,7 @@ This applies **only** to documents meant for considered review. Do **not** route
 
 When you identify something worth remembering for a future session — a TODO, a follow-up, a known issue, a design decision to revisit — append it to `docs/NEXT_STEPS.md` **following the entry format in the `project-next-steps` skill** (author / type / priority metadata line — invoke the skill before appending). Do not leave such notes in code comments — `docs/NEXT_STEPS.md` is the tracker for open work. No `TODO`/`FIXME`/`XXX` in code (gamache-enforced).
 
-`docs/NEXT_STEPS.md` is **committed**, like `.skeleton.json` — this repo is private, and a tracker only one checkout can see is a tracker the next session cannot read. Being tracked also means it is branch content: parallel branches that both append will conflict, and the resolution is always to keep both entries (see `project-next-steps`).
+`docs/NEXT_STEPS.md` is **committed**, because a tracker only one checkout can see is a tracker the next session cannot read. Being tracked also means it is branch content: parallel branches that both append will conflict, and the resolution is always to keep both entries (see `project-next-steps`).
 
 **Before making this repo public**, open work must move to GitHub issues and the tracker must come out — and by then it is in git history, so deleting it from `HEAD` is not enough. Treat the visibility flip as the trigger, not "at some point".
 
@@ -104,7 +104,7 @@ Before opening a pull request, you must:
 3. Run `just e2e` and fix every failure — including ones that pre-date your change.
 4. Run a Codex review of the branch: `mcp__codex-cli__review` with `model: "gpt-5.6-sol"` — always pass the model explicitly, because whatever the tool picks by default is rejected by this Codex account ("not supported when using Codex with a ChatGPT account").
 
-   **If `mcp__codex-cli__review` is not available in the session, STOP and tell the owner.** Do not silently fall back to the CLI and carry on — a missing MCP server is a configuration fault worth investigating, not an inconvenience to route around. Known cause: `codex-cli` is registered in `~/.claude.json` under the project key `/Users/geoffrey/Code/loupe`, and sessions running from a worktree path may not pick it up; there is no committed `.mcp.json`.
+   **If `mcp__codex-cli__review` is not available in the session, STOP and tell the owner.** Do not silently fall back to the CLI and carry on — a missing MCP server is a configuration fault worth investigating, not an inconvenience to route around. Known cause: `codex-cli` is registered per-project in the user's own Claude configuration rather than in a committed `.mcp.json`, so a session running from a worktree path may not pick it up.
 
    Once running, review against `origin/main`, not `main` — a worktree's local `main` is often stale, and reviewing against it reports findings for code that is already merged. Address the findings before opening the PR. If `codex review` produces no output for ~5 minutes with near-zero CPU, it is hung (typically at MCP startup) — kill it and fall back to `codex exec -c model="gpt-5.6-sol" "Review the diff of this branch against origin/main (git diff origin/main...HEAD) for correctness bugs and convention violations. Actionable findings only."`
 
