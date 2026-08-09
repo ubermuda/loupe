@@ -26,16 +26,11 @@ when@prod:
             policies:
                 - 'strict-origin-when-cross-origin'
 
-        # Content-Security-Policy is sent in REPORT-ONLY mode for now (the `report`
-        # key, not `enforce`), so it blocks nothing.
-        #
-        # Nothing collects the violations either: no `report-uri`/`report-to` is set
-        # and the bundle ships no route for its reporting controller, so reports
-        # reach only the visitor's browser console. Collecting them would mean a
-        # public unauthenticated POST endpoint — firewall access, paywall exemption,
-        # CSRF exemption and a rate limit — which is a deliberate decision, not a
-        # config line. Until it is taken, do not read this policy as validated
-        # against real traffic: it has never been measured against any.
+        # REPORT-ONLY (the `report` key, not `enforce`), so it blocks nothing. No
+        # report-uri is set and the bundle ships no route for its reporting
+        # controller, so nothing collects violations either — this allow-list has
+        # never been checked against real traffic. Collecting them needs a public
+        # unauthenticated endpoint, which is a decision rather than a config line.
         csp:
             # CSP only makes sense on HTML documents; skip assets, JSON, downloads.
             content_types: ['text/html']
