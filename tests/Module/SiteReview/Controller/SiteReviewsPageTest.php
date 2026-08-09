@@ -153,7 +153,7 @@ final class SiteReviewsPageTest extends WebTestCase
         self::assertSame(SiteReviewCommentStatus::Pending, $fresh->status);
     }
 
-    public function test_draft_comment_shows_no_action_buttons(): void
+    public function test_draft_comment_is_not_listed(): void
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
@@ -161,23 +161,27 @@ final class SiteReviewsPageTest extends WebTestCase
         $owner = $this->user($em, 'reviews-page-e@example.com');
         $project = new Project($owner, 'reviews-site-e');
         $em->persist($project);
-        $comment = new SiteReviewComment($project, 0, 'Draft comment', '.a', 'text', 'https://example.com');
-        $em->persist($comment);
+        $draft = new SiteReviewComment($project, 0, 'Draft comment', '.a', 'text', 'https://example.com');
+        $em->persist($draft);
+        $submitted = new SiteReviewComment($project, 1, 'Submitted comment', '.b', 'text', 'https://example.com');
+        $submitted->status = SiteReviewCommentStatus::Pending;
+        $em->persist($submitted);
         $em->flush();
-        $commentId = $comment->id;
+        $draftId = $draft->id;
+        $submittedId = $submitted->id;
         $em->clear();
 
         $client->loginUser($owner);
         $crawler = $client->request(Request::METHOD_GET, '/projects/'.$project->id.'/site-review');
 
         self::assertResponseIsSuccessful();
-        // The draft comment still renders in the flat list...
-        $commentBlock = $crawler->filter('[data-comment-id="'.$commentId.'"]');
-        self::assertCount(1, $commentBlock);
+        // Guard: without this the draft assertion below would also pass on a
+        // page that listed nothing at all.
+        self::assertCount(1, $crawler->filter('[data-comment-id="'.$submittedId.'"]'));
 
-        // ...but a Draft comment must not render resolve/reopen forms.
-        self::assertCount(0, $commentBlock->filter('button:contains("Resolve")'));
-        self::assertCount(0, $commentBlock->filter('button:contains("Reopen")'));
+        // A draft has not been sent from the widget yet, so it is not a review
+        // anyone can act on and it does not belong on this page.
+        self::assertCount(0, $crawler->filter('[data-comment-id="'.$draftId.'"]'));
     }
 
     public function test_javascript_url_renders_without_anchor(): void

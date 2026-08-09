@@ -1,13 +1,16 @@
 {#
-  The review margin's grouped ladder of comment threads, plus the live-updating
-  threads header (resolved count) and progress bar. Rendered both on initial page
-  load and by the whole-list Turbo Stream (add / delete / resolve all replace
-  #comment-threads), so everything that must refresh on a mutation — the count,
-  the progress bar, and the status grouping — lives inside this element.
+  Every comment thread on the version, split by whether it has a passage to sit
+  beside. Rendered both on initial page load and by the whole-list Turbo Stream
+  (add / delete / resolve all replace #comment-threads), so everything that must
+  refresh on a mutation lives inside this element.
 
-  Threads are grouped into a status ladder — PENDING, ADDRESSED BY AGENT,
-  RESOLVED — reading each root comment's status. A group renders only when
-  populated.
+  General comments — no anchor — lead the reading column, because there is no
+  passage for them to be level with. Anchored comments go in the margin, where
+  comment_anchor_controller measures each one's passage and sets its `top`.
+
+  There is deliberately no status grouping any more: a card's position now says
+  which passage it belongs to, and sorting the column by status would break that
+  the moment a thread was resolved.
 
   Vars:  @comment-budget-ignore
     comments  list<Comment>   All comments for the version (roots and replies).
@@ -19,50 +22,34 @@
 #}
 {% set readOnly = readOnly ?? false %}
 {% set rootComments = comments|filter(c => c.parent is null)|map(c => c) %}
-{% set totalCount = rootComments|length %}
+{# `is empty` would call a comment anchored to the literal text 0 general. #}
+{% set generalComments = rootComments|filter(c => c.anchor.quote == '')|map(c => c) %}
+{% set anchoredComments = rootComments|filter(c => c.anchor.quote != '')|map(c => c) %}
 {% set resolvedCount = rootComments|filter(c => c.threadStatus.value == 'resolved')|length %}
-{% set progressPct = totalCount > 0 ? (resolvedCount / totalCount * 100)|round : 0 %}
-<div id="comment-threads" class="lp-comment-threads">
-    <div class="lp-review-sidebar__header">
-        <div class="lp-review-sidebar__heading">
-            <h2 class="lp-review-sidebar__title">{{ 'review.document.sidebar.title'|trans }}</h2>
-            <span class="lp-review-sidebar__count">{{ 'review.document.threads.resolved_count'|trans({'%resolved%': resolvedCount, '%total%': totalCount}) }}</span>
-        </div>
-        {% if not readOnly %}
-        <button type="button" class="lp-btn lp-btn--sm" data-action="comment-anchor#startUntargeted">
-            <twig:ux:icon name="lucide:plus" class="w-3.5 h-3.5 shrink-0" />
-            {{ 'review.document.comment.untargeted'|trans }}
+<div id="comment-threads" class="lp-comment-threads" data-resolved-count="{{ resolvedCount }}">
+    {% if generalComments|length > 0 %}
+    {# Open by default: the disclosure controller reads that starting state off
+       the .disclosure-open class, because a <section> has no native `open`. #}
+    <section class="lp-general-comments disclosure-open" data-controller="disclosure">
+        <button type="button" class="lp-general-comments__toggle"
+                aria-controls="general-comments-list"
+                data-action="click->disclosure#toggle">
+            <twig:ux:icon name="lucide:chevron-right" class="lp-general-comments__caret" />
+            {{ 'review.document.group.general'|trans }} · {{ generalComments|length }}
         </button>
-        {% endif %}
-    </div>
-
-    <div class="lp-progress" role="presentation">
-        <div class="lp-progress__fill" style="width: {{ progressPct }}%"></div>
-    </div>
-
-    <div class="lp-review-sidebar__scroll">
-        {% if rootComments|length > 0 %}
-            {% set groups = [
-                {key: 'pending', items: rootComments|filter(c => c.threadStatus.value == 'pending')|map(c => c)},
-                {key: 'addressed', items: rootComments|filter(c => c.threadStatus.value == 'addressed')|map(c => c)},
-                {key: 'resolved', items: rootComments|filter(c => c.threadStatus.value == 'resolved')|map(c => c)},
-            ] %}
-            {% for group in groups %}
-                {% if group.items|length > 0 %}
-                <section class="lp-ladder-group">
-                    <div class="lp-ladder-group__eyebrow lp-ladder-group__eyebrow--{{ group.key }}">
-                        <span class="lp-ladder-dot"></span>
-                        <span>{{ ('review.document.group.' ~ group.key)|trans }} · {{ group.items|length }}</span>
-                    </div>
-                    {% for comment in group.items %}
-                        {% set replies = comments|filter(c => c.parent is not null and c.parent.id == comment.id) %}
-                        <twig:CommentThread :comment="comment" :replies="replies|map(c => c)" :readOnly="readOnly" />
-                    {% endfor %}
-                </section>
-                {% endif %}
+        <div id="general-comments-list" class="lp-general-comments__list open" data-disclosure-target="content">
+            {% for comment in generalComments %}
+                {% set replies = comments|filter(c => c.parent is not null and c.parent.id == comment.id) %}
+                <twig:CommentThread :comment="comment" :replies="replies|map(c => c)" :readOnly="readOnly" />
             {% endfor %}
-        {% else %}
-            <p class="lp-empty">{{ 'review.document.sidebar.empty'|trans }}</p>
-        {% endif %}
+        </div>
+    </section>
+    {% endif %}
+
+    <div class="lp-review-margin" data-comment-anchor-target="margin">
+        {% for comment in anchoredComments %}
+            {% set replies = comments|filter(c => c.parent is not null and c.parent.id == comment.id) %}
+            <twig:CommentThread :comment="comment" :replies="replies|map(c => c)" :readOnly="readOnly" />
+        {% endfor %}
     </div>
 </div>

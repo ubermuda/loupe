@@ -13,7 +13,9 @@ import { Controller } from '@hotwired/stimulus';
  *   </details>
  */
 export default class extends Controller {
-    static targets = ['content'];
+    // `autofocus` is opt-in: the same controller collapses read-only context
+    // rows, and stealing the caret when one of those opens would be wrong.
+    static targets = ['content', 'autofocus'];
 
     connect() {
         this.animation = null;
@@ -57,6 +59,9 @@ export default class extends Controller {
             content.style.height = 'auto';
             this.animation = null;
         };
+        if (this.hasAutofocusTarget) {
+            this.autofocusTarget.focus();
+        }
     }
 
     collapse() {

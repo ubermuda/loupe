@@ -120,8 +120,9 @@ rector:
 
 # phpstan-symfony resolves getContainer()->get() through the dumped dev
 # container, so a stale var/cache/dev aborts or degrades types to ?object. The
-# memory limit is explicit: on 128M it dies with a stack trace that reads like a
-# real analysis error rather than exhaustion.
+# limit below is the host's and covers the analyse run only — the warmup is a
+# separate process in the container, which gets its headroom from
+# docker/dev/php-fpm/memory.ini.
 phpstan:
     bin/worktrees/compose-exec.sh bin/console cache:warmup
     vendor/bin/phpstan analyse -a worktree-bootstrap.php --memory-limit=1G

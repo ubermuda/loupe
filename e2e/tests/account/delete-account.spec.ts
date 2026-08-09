@@ -39,7 +39,7 @@ test('a user can delete their account end to end via the emailed confirmation li
     await page.goto('/account');
     await page
         .locator('[data-testid="delete-account-section"]')
-        .getByRole('button', { name: 'Delete my account…' })
+        .getByRole('button', { name: 'Request account deletion' })
         .click();
     await expect(page).toHaveURL('/account');
     await expect(page.locator('.lp-flash--success')).toBeVisible();

@@ -32,9 +32,12 @@ final class StrikeShortcutGuardsTest extends TestCase
             $source,
             'onDocMouseup must clear the captured anchor, not just hide the toolbar',
         );
+        // Counted inside onDocMouseup rather than across the file: the method has
+        // exactly three ways to reject a selection, and a whole-file count also
+        // breaks when some unrelated caller legitimately discards the anchor.
         self::assertSame(
             3,
-            substr_count($source, 'this.#clearPendingSelection();'),
+            substr_count($this->methodSource($source, 'onDocMouseup'), 'this.#clearPendingSelection();'),
             'every invalid-selection branch in onDocMouseup must discard the anchor',
         );
     }
@@ -64,5 +67,21 @@ final class StrikeShortcutGuardsTest extends TestCase
         self::assertFileExists($path);
 
         return (string) file_get_contents($path);
+    }
+
+    /**
+     * The body of one method, from its signature to the next one at the same
+     * indentation. Crude, and good enough for a source tripwire: it only has to
+     * stop a count leaking into neighbouring methods.
+     */
+    private function methodSource(string $source, string $name): string
+    {
+        $start = strpos($source, "\n    {$name}(");
+        self::assertNotFalse($start, "method {$name} not found in the controller");
+
+        $end = strpos($source, "\n    }\n", $start);
+        self::assertNotFalse($end, "method {$name} is not closed as expected");
+
+        return substr($source, $start, $end - $start);
     }
 }

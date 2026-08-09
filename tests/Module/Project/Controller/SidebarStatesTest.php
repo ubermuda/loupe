@@ -6,6 +6,7 @@ namespace App\Tests\Module\Project\Controller;
 
 use App\Module\Account\Entity\User;
 use App\Module\Project\Entity\Project;
+use App\Module\Review\Entity\Document;
 use App\Module\SiteReview\Entity\SiteReviewComment;
 use App\Module\SiteReview\Entity\SiteReviewCommentStatus;
 use Doctrine\ORM\EntityManagerInterface;
@@ -124,5 +125,46 @@ final class SidebarStatesTest extends WebTestCase
         $em->persist($user);
 
         return $user;
+    }
+
+    /**
+     * The panel is built into every project-scoped page whether or not it opens,
+     * so it shows a bounded set and defers the rest to its own see-all link. The
+     * counts beside each name come from one batched query, keyed by the project
+     * id — a key-format change would render every count as zero rather than fail.
+     */
+    public function test_the_switcher_caps_its_list_and_counts_each_project(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $owner = $this->user($em, 'sidebar-switcher@example.com');
+
+        $projects = [];
+        for ($i = 0; $i < 10; ++$i) {
+            $project = new Project($owner, 'switch-'.$i);
+            $em->persist($project);
+            $projects[] = $project;
+        }
+        // One document on the newest project, so a count has something to report.
+        $document = new Document(owner: $owner, project: $projects[9], title: 'Counted');
+        $document->addVersion('# Hi', '<h1>Hi</h1>');
+        $em->persist($document);
+        $em->flush();
+
+        $id = (string) $projects[9]->id;
+        $em->clear();
+
+        $client->loginUser($owner);
+        $crawler = $client->request(Request::METHOD_GET, '/projects/'.$id.'/documents');
+
+        self::assertResponseIsSuccessful();
+        $items = $crawler->filter('.lp-switcher__item');
+        self::assertCount(8, $items, 'the panel shows a bounded set, not every project');
+        self::assertCount(1, $crawler->filter('.lp-switcher__all'), 'and offers the rest');
+
+        // Newest first, so the project holding the document leads and its count
+        // is the batched one rather than the |default(0) fallback.
+        self::assertStringContainsString('switch-9', $items->first()->text());
+        self::assertStringContainsString('1', $items->first()->filter('.lp-switcher__item-count')->text());
     }
 }

@@ -2,59 +2,66 @@
 
 {% block title %}{{ 'project.edit.page.title'|trans }} — {{ 'app.name'|trans }}{% endblock %}
 
+{% block topbar_crumbs %}
+    <a class="lp-topbar__crumb" href="{{ path('app_project_documents', {id: project.id}) }}">{{ project.name }}</a>
+    <span class="lp-topbar__sep">/</span>
+    <span class="lp-topbar__here">{{ 'nav.link.project_settings'|trans }}</span>
+{% endblock %}
+
 {% block body %}
 <div class="lp-workspace">
-    <p class="lp-eyebrow">{{ 'project.edit.eyebrow'|trans }}</p>
     <h1 class="lp-workspace-title">{{ 'project.edit.page.title'|trans }}</h1>
-    <p class="lp-workspace-desc">{{ 'project.edit.description'|trans({'%name%': project.name}) }}</p>
 
-    {{ form_start(form, {'attr': {'class': 'lp-form'}}) }}
-        <div class="lp-form-field">
-            {{ form_label(form.name, null, {'label_attr': {'class': 'lp-label'}}) }}
-            {{ form_widget(form.name, {'attr': {'class': 'lp-input'}}) }}
-            <div class="lp-field-errors">{{ form_errors(form.name) }}</div>
-        </div>
-        <div class="lp-form-field">
-            {{ form_label(form.domain, null, {'label_attr': {'class': 'lp-label'}}) }}
-            {{ form_widget(form.domain, {'attr': {'class': 'lp-input'}}) }}
-            <div class="lp-field-errors">{{ form_errors(form.domain) }}</div>
-        </div>
-        <div class="flex items-center justify-end gap-3 pt-2">
-            <a href="{{ path('app_projects') }}" class="lp-btn">{{ 'project.edit.form.cancel'|trans }}</a>
-            <button type="submit" class="lp-btn lp-btn--primary">{{ 'project.edit.form.submit'|trans }}</button>
-        </div>
-    {{ form_end(form) }}
-
-    <section class="lp-danger-zone" data-controller="modal"{% if deleteForm.vars.submitted %} data-modal-reopen-value="true"{% endif %}>
-        <h2 class="lp-danger-zone-title">{{ 'project.delete.title'|trans }}</h2>
-        <p class="lp-danger-zone-desc">{{ 'project.delete.warning'|trans }}</p>
-        <button type="button" class="lp-btn lp-btn--danger" data-action="click->modal#open">
-            {{ 'project.delete.button'|trans }}
-        </button>
-
-        <dialog data-modal-target="dialog" class="lp-dialog">
-            <div data-controller="confirm-input" data-confirm-input-expected-value="{{ project.name }}">
-                {{ form_start(deleteForm, {'action': path('app_project_delete', {id: project.id}), 'attr': {'class': 'lp-form'}}) }}
-                    <h3 class="lp-dialog-title">{{ 'project.delete.modal.title'|trans({'%name%': project.name}) }}</h3>
-                    <p class="lp-dialog-desc">{{ 'project.delete.modal.warning'|trans }}</p>
-                    <div class="lp-form-field">
-                        {{ form_label(deleteForm.confirmName, null, {'label_attr': {'class': 'lp-label'}}) }}
-                        {{ form_widget(deleteForm.confirmName, {'attr': {
-                            'class': 'lp-input',
-                            'data-confirm-input-target': 'input',
-                            'data-action': 'input->confirm-input#check',
-                        }}) }}
-                        <div class="lp-field-errors">{{ form_errors(deleteForm.confirmName) }}</div>
-                    </div>
-                    <div class="flex items-center justify-end gap-3 pt-2">
-                        <button type="button" class="lp-btn" data-action="click->modal#close">{{ 'project.delete.modal.cancel'|trans }}</button>
-                        <button type="submit" class="lp-btn lp-btn--danger" data-confirm-input-target="submit" disabled>
-                            {{ 'project.delete.modal.confirm'|trans }}
-                        </button>
-                    </div>
-                {{ form_end(deleteForm) }}
+    <div class="max-w-170">
+        {{ form_start(form, {'attr': {'class': 'lp-form'}}) }}
+            <div class="lp-form-field">
+                {{ form_label(form.name, null, {'label_attr': {'class': 'lp-label'}}) }}
+                {{ form_widget(form.name, {'attr': {'class': 'lp-input'}}) }}
+                <div class="lp-field-errors">{{ form_errors(form.name) }}</div>
             </div>
-        </dialog>
-    </section>
+            <div class="lp-form-field">
+                {{ form_label(form.domain, null, {'label_attr': {'class': 'lp-label'}}) }}
+                {{ form_widget(form.domain, {'attr': {'class': 'lp-input'}}) }}
+                <div class="lp-field-errors">{{ form_errors(form.domain) }}</div>
+                <p class="lp-form-hint">{{ 'project.edit.form.domain.hint'|trans }}</p>
+            </div>
+            <div class="flex items-center justify-end gap-3 pt-2">
+                <a href="{{ path('app_projects') }}" class="lp-btn">{{ 'project.edit.form.cancel'|trans }}</a>
+                <button type="submit" class="lp-btn lp-btn--primary">{{ 'project.edit.form.submit'|trans }}</button>
+            </div>
+        {{ form_end(form) }}
+
+        <section class="lp-danger-zone" data-controller="modal"{% if deleteForm.vars.submitted %} data-modal-reopen-value="true"{% endif %}>
+            <h2 class="lp-danger-zone-title">{{ 'project.delete.title'|trans }}</h2>
+            <p class="lp-danger-zone-desc">{{ 'project.delete.warning'|trans }}</p>
+            <button type="button" class="lp-btn lp-btn--danger" data-action="click->modal#open">
+                {{ 'project.delete.button'|trans }}
+            </button>
+
+            <dialog data-modal-target="dialog" class="lp-dialog">
+                <div data-controller="confirm-input" data-confirm-input-expected-value="{{ project.name }}">
+                    {{ form_start(deleteForm, {'action': path('app_project_delete', {id: project.id}), 'attr': {'class': 'lp-form'}}) }}
+                        <h3 class="lp-dialog-title">{{ 'project.delete.modal.title'|trans({'%name%': project.name}) }}</h3>
+                        <p class="lp-dialog-desc">{{ 'project.delete.modal.warning'|trans }}</p>
+                        <div class="lp-form-field">
+                            {{ form_label(deleteForm.confirmName, null, {'label_attr': {'class': 'lp-label'}}) }}
+                            {{ form_widget(deleteForm.confirmName, {'attr': {
+                                'class': 'lp-input',
+                                'data-confirm-input-target': 'input',
+                                'data-action': 'input->confirm-input#check',
+                            }}) }}
+                            <div class="lp-field-errors">{{ form_errors(deleteForm.confirmName) }}</div>
+                        </div>
+                        <div class="flex items-center justify-end gap-3 pt-2">
+                            <button type="button" class="lp-btn" data-action="click->modal#close">{{ 'project.delete.modal.cancel'|trans }}</button>
+                            <button type="submit" class="lp-btn lp-btn--danger" data-confirm-input-target="submit" disabled>
+                                {{ 'project.delete.modal.confirm'|trans }}
+                            </button>
+                        </div>
+                    {{ form_end(deleteForm) }}
+                </div>
+            </dialog>
+        </section>
+    </div>
 </div>
 {% endblock %}

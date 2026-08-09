@@ -2,29 +2,30 @@
 
 {% block title %}{{ 'review.dashboard.page.title'|trans }} — {{ 'app.name'|trans }}{% endblock %}
 
-{% block body %}
-<div class="lp-workspace">
-    <nav class="lp-crumbs">
-        <a href="{{ path('app_project_documents', {id: project.id}) }}" class="lp-crumbs__link">{{ project.name }}</a>
-        <span class="lp-crumbs__sep">/</span>
-        <span class="lp-crumbs__here">{{ 'nav.link.documents'|trans }}</span>
-    </nav>
+{% block topbar_crumbs %}
+    <a class="lp-topbar__crumb" href="{{ path('app_project_documents', {id: project.id}) }}">{{ project.name }}</a>
+    <span class="lp-topbar__sep">/</span>
+    <span class="lp-topbar__here">{{ 'nav.link.documents'|trans }}</span>
+{% endblock %}
 
+{% block topbar_meta %}
+    <span class="lp-topbar__meta">{{ 'review.dashboard.meta.shown'|trans({'%count%': items|length}) }}</span>
+{% endblock %}
+
+{% block body %}
+{# Unfiltered and archive-free, so it can tell "this project has nothing" from
+   "the filters matched nothing". Same number the shell's nav pill shows. #}
+{% set totalDocuments = project_document_count(project) %}
+<div class="lp-workspace">
     <h1 class="lp-workspace-title lp-workspace-title--doc">{{ 'review.dashboard.page.title'|trans }}</h1>
     {# The default line promises newest-first, which a ranked search makes untrue. #}
     <p class="lp-workspace-desc">{{ (listQuery.search ? 'review.dashboard.description_ranked' : 'review.dashboard.description')|trans }}</p>
 
-    {% for label, messages in app.flashes %}
-        {% for message in messages %}
-            <div class="lp-flash lp-flash--{{ label }}">{{ message }}</div>
-        {% endfor %}
-    {% endfor %}
-
-    {# Outside the empty-list branch on purpose: a filter that disappears when it
-       matches nothing leaves the reader on a dead end. The archived state is
-       labelled by what following the link does rather than aria-pressed, which is
-       defined for role="button" and dropped on an anchor — both states would
-       otherwise announce identically while doing opposite things. #}
+    {# Six controls in front of a project that has nothing to filter are six dead
+       controls, so the bar waits for a first document — but it stays once a
+       filter or the archived view is on, whatever the counts say: a filter that
+       disappears the moment it matches nothing is a dead end. #}
+    {% if totalDocuments > 0 or listQuery.isNarrowed or listQuery.includeArchived %}
     <div class="lp-list-filters">
         {# A GET form, so every control lands in the URL and the whole view stays
            shareable and back-button-able. `page` is deliberately not a field: a
@@ -80,12 +81,13 @@
 
             <a href="{{ path('app_project_documents', {id: project.id}) }}"
                data-autosearch-target="clearButton"
-               class="lp-filter-chip">
-                <twig:ux:icon name="lucide:x" class="w-3.5 h-3.5 shrink-0" />
-                {{ 'review.dashboard.filter.clear'|trans }}
-            </a>
+               class="lp-filter-clear">{{ 'review.dashboard.filter.clear'|trans }}</a>
         </form>
 
+        {# Labelled with what following the link does, rather than one label plus
+           aria-pressed: that attribute is defined for role="button" and is
+           dropped on an anchor, so both states would announce identically while
+           doing opposite things. #}
         {% if listQuery.includeArchived %}
             <a class="lp-filter-chip lp-filter-chip--on"
                href="{{ path('app_project_documents', {id: project.id}|merge(listQuery.withIncludeArchived(false).routeParams)) }}">
@@ -99,7 +101,14 @@
                 {{ 'review.dashboard.filter.show_archived'|trans }}
             </a>
         {% endif %}
+
+        {# The total counts live documents only, so it is omitted while archived
+           ones are on screen rather than reporting more rows than documents. #}
+        {% if totalDocuments > 0 and not listQuery.includeArchived %}
+        <span class="lp-filter-count">{{ 'review.dashboard.filter.count'|trans({'%shown%': items|length, '%total%': totalDocuments}) }}</span>
+        {% endif %}
     </div>
+    {% endif %}
 
     {% if items|length > 0 %}
     <div class="lp-document-list">
@@ -119,10 +128,6 @@
                 </div>
                 <div class="lp-document-row__meta">
                     <span>{{ 'review.dashboard.meta.updated'|trans({'%time%': item.updatedAt|relative_time}) }}</span>
-                    {% if item.openThreadCount > 0 %}
-                    <span class="lp-document-row__sep">·</span>
-                    <span class="lp-document-row__open">{{ 'review.dashboard.meta.open_threads'|trans({'%count%': item.openThreadCount}) }}</span>
-                    {% endif %}
                 </div>
                 {# Only the MCP tool requires a reason, so most archived rows have
                    none — which is the ordinary case, not a gap. Nothing is
@@ -142,6 +147,12 @@
                 </ul>
                 {% endif %}
             </div>
+            {# The one thing on the row that asks for action, so it carries the
+               highlight fill and sits next to the status rather than in the
+               muted meta line. #}
+            {% if item.openThreadCount > 0 %}
+            <span class="lp-document-row__threads">{{ 'review.dashboard.meta.open_count'|trans({'%count%': item.openThreadCount}) }}</span>
+            {% endif %}
             <span class="lp-badge lp-badge--{{ document.status.value }}">
                 {{ document.status.translationKey()|trans }}
             </span>
@@ -167,26 +178,33 @@
                     </button>
                 {{ form_end(archiveForm) }}
             </div>
-            <twig:ux:icon name="lucide:chevron-right" class="lp-document-row__chevron" />
         </div>
         {% endfor %}
     </div>
 
     <twig:Pagination route="app_project_documents" :page="page" :totalPages="totalPages" :pageList="pageList" :routeParams="{id: project.id}|merge(listQuery.routeParams)" />
+    {% elseif listQuery.isNarrowed %}
+    {# "No documents yet" is wrong once a filter is on — the project may be full
+       of documents that simply did not match. #}
+    <div class="lp-empty-state">
+        <twig:ux:icon name="lucide:search-x" class="lp-empty-state__icon w-8 h-8" />
+        <h2 class="lp-empty-state__title">{{ 'review.dashboard.empty_filtered.title'|trans }}</h2>
+        <a class="lp-btn" href="{{ path('app_project_documents', {id: project.id}) }}">{{ 'review.dashboard.filter.clear_filters'|trans }}</a>
+    </div>
     {% else %}
-    <div class="lp-card flex flex-col items-center text-center gap-3 py-12">
-        {# "No documents yet" is wrong once a filter is on — the project may be
-           full of documents that simply did not match. #}
-        {% if listQuery.isNarrowed %}
-        <twig:ux:icon name="lucide:search-x" class="w-8 h-8 text-fg-dim" />
-        <p class="lp-empty not-italic">{{ 'review.dashboard.empty_filtered'|trans }}</p>
-        <a class="lp-filter-chip" href="{{ path('app_project_documents', {id: project.id}) }}">
-            <twig:ux:icon name="lucide:x" class="w-3.5 h-3.5 shrink-0" />
-            {{ 'review.dashboard.filter.clear'|trans }}
-        </a>
+    {# Telling someone to connect an agent when one is already connected reads as
+       the page not knowing its own state; with a token bound the only thing left
+       to say is that the agent has not written anything yet. Revoking clears the
+       binding, so the relation answers the question on its own. #}
+    <div class="lp-empty-state">
+        <twig:ux:icon name="lucide:file-text" class="lp-empty-state__icon w-12 h-12" />
+        <h2 class="lp-empty-state__title">{{ 'review.dashboard.empty.title'|trans }}</h2>
+        {% if project.mcpToken %}
+        <p class="lp-empty-state__body">{{ 'review.dashboard.empty.connected_body'|trans }}</p>
+        <a class="lp-btn" href="{{ path('app_project_connect', {id: project.id}) }}">{{ 'review.dashboard.empty.tools'|trans }}</a>
         {% else %}
-        <twig:ux:icon name="lucide:file-text" class="w-8 h-8 text-fg-dim" />
-        <p class="lp-empty not-italic">{{ 'review.dashboard.empty'|trans }}</p>
+        <p class="lp-empty-state__body">{{ 'review.dashboard.empty.body'|trans }}</p>
+        <a class="lp-btn" href="{{ path('app_project_connect', {id: project.id}) }}">{{ 'review.dashboard.empty.connect'|trans }}</a>
         {% endif %}
     </div>
     {% endif %}

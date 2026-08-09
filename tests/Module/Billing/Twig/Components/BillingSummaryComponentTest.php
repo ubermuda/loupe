@@ -63,6 +63,6 @@ final class BillingSummaryComponentTest extends WebTestCase
         self::assertResponseIsSuccessful();
         $section = $crawler->filter('[data-testid="billing-section"]');
         self::assertCount(1, $section);
-        self::assertSame('Manage subscription', trim($section->filter('a[href="/billing/subscribe"]')->text()));
+        self::assertSame('Manage payment details', trim($section->filter('a[href="/billing/subscribe"]')->text()));
     }
 }

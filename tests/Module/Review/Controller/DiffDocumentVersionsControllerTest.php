@@ -155,24 +155,26 @@ final class DiffDocumentVersionsControllerTest extends WebTestCase
         $diff = $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/documents/'.$id.'/review/diff/1/2');
 
         self::assertResponseIsSuccessful();
-        // The pane's text is diff markup, not DocumentVersion::plainText(), so the
-        // controller that walks it must not be attached at all — a flag telling it
-        // to stay quiet would not stop its highlight painting.
+        // A diff is a page of its own, and none of the review page's apparatus
+        // applies to it: what it shows is diff markup rather than
+        // DocumentVersion::plainText(), so every anchor carrier would be holding a
+        // quote to be re-located against text that is not there, and every write
+        // control would act on a version the reader is not looking at.
         self::assertCount(0, $diff->filter('[data-controller="comment-anchor"]'));
         self::assertCount(0, $diff->filter('[data-comment-anchor-target="doc"]'));
-        // Anchor carriers of every kind, not just the pane: each holds a quote to be
-        // re-located against text that diff mode does not render.
         self::assertCount(0, $diff->filter('[data-comment-anchor-target="agentHighlight"]'));
+        self::assertCount(0, $diff->filter('#comment-threads'));
         self::assertCount(0, $diff->filter('.lp-comment-composer'));
         self::assertCount(0, $diff->filter('.lp-anchor-toolbar'));
-        self::assertCount(0, $diff->filter('.lp-verdict-bar'));
+        self::assertCount(0, $diff->filter('button[name="submit_review_form[verdict]"]'));
 
         // The review page on the current version, so the assertions above cannot
         // pass merely because the selectors never match anything.
         $latest = $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/documents/'.$id.'/review');
         self::assertCount(1, $latest->filter('[data-controller="comment-anchor"]'));
         self::assertCount(1, $latest->filter('[data-comment-anchor-target="doc"]'));
-        self::assertCount(1, $latest->filter('.lp-verdict-bar'));
+        self::assertCount(1, $latest->filter('#comment-threads'));
+        self::assertCount(2, $latest->filter('button[name="submit_review_form[verdict]"]'));
         // Not an exact count: how many composers the review page offers is the
         // business of whatever review actions exist, and it has already grown from
         // one to two. What this control has to establish is that the selector

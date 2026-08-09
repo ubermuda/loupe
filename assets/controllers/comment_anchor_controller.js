@@ -29,6 +29,8 @@ import { Controller } from '@hotwired/stimulus';
 export default class extends Controller {
     static targets = [
         'doc',
+        'block',
+        'margin',
         'composer',
         'composerBody',
         'composerError',
@@ -63,9 +65,15 @@ export default class extends Controller {
         resolved: 'lp-anchor-resolved',
     };
 
-    // Painted in addition to the status highlight rather than instead of it, so a
-    // struck passage keeps its status tint and gains the line-through.
+    // Painted INSTEAD of the status highlight, not in addition to it — see
+    // #highlightAnchors. A passage marked for deletion is not also an open
+    // question.
     static STRUCK_HIGHLIGHT = 'lp-anchor-struck';
+
+    // A rewording is a different KIND of mark, not a different state of one, so
+    // it declares its own tint and outranks the status rung — an open comment
+    // and an open suggestion must not look identical.
+    static SUGGESTION_HIGHLIGHT = 'lp-anchor-suggestion';
 
     // Passages the agent flagged as worth reading first. Kept out of
     // STATUS_HIGHLIGHTS on purpose: that map is keyed by a comment thread's
@@ -73,23 +81,48 @@ export default class extends Controller {
     // from a data-anchor-status value.
     static AGENT_HIGHLIGHT = 'lp-agent-highlight';
 
+    // Painted while the pointer is over a card or over the passage it points
+    // at, so the pair can be told apart in a crowded margin.
+    static HOVER_HIGHLIGHT = 'lp-anchor-hover';
+
     // Resolution order for a span several rungs cover; without explicit values
-    // it is whichever Highlight registered last. Priority never hides a rung —
-    // decorations are additive and all of them draw — it only settles what two
-    // rungs both declare, today `background-color` and `color`. The ladder is:
-    // agent advisory < thread state < requested edit < the live selection.
-    static PRIORITY = { agent: 0, status: 1, struck: 2, active: 3 };
+    // it is whichever Highlight registered last. Backgrounds stack in priority
+    // order and only replace by being opaque, so a higher-priority
+    // `transparent` leaves the tint below showing — which is why
+    // #highlightAnchors routes a strike away from its status rung instead.
+    static PRIORITY = {
+        agent: 0,
+        status: 1,
+        suggestion: 2,
+        struck: 3,
+        hover: 4,
+        active: 5,
+    };
 
     static CONTEXT = 32;
+
+    // Clearance between one comment card and the next when a passage carries
+    // more comments than the space beside it can hold.
+    static CARD_GAP = 12;
 
     // Strike is the only action that completes without a form, so it is the only
     // one worth a keystroke — one for Comment or Suggest would still leave a
     // composer to fill in.
     static STRIKE_KEY = 's';
 
+    static values = { hideResolved: Boolean };
+
+    // Where the resolved-comments preference is remembered. It is a view
+    // preference rather than document state, so it belongs to the reader and
+    // follows them across documents.
+    static HIDE_RESOLVED_KEY = 'loupe:review:hide-resolved';
+
     connect() {
         this.pendingSelection = null;
         this.strikeInFlight = false;
+        this.hoveredThread = null;
+        this.hoverProbeScheduled = false;
+        this.#restoreHideResolved();
         this.#hideToolbar();
         this.#hideComposer();
         this.#registerHighlights();
@@ -97,6 +130,13 @@ export default class extends Controller {
         this.scheduledLayout = null;
         this.onResize = () => this.#scheduleLayout();
         window.addEventListener('resize', this.onResize);
+
+        // Web fonts land after first layout and change every line box, so a
+        // measurement taken before they arrive places every card a few pixels
+        // out. Guarded: document.fonts is absent in some embedded webviews.
+        document.fonts?.ready
+            .then(() => this.#scheduleLayout())
+            .catch(() => {});
 
         // Bound on the document, not on the pane: a mouse selection inside a plain
         // div leaves activeElement on <body>, so keydown never reaches an element
@@ -134,6 +174,8 @@ export default class extends Controller {
         this.activeHighlight?.clear();
         this.struckHighlight?.clear();
         this.agentHighlight?.clear();
+        this.hoverHighlight?.clear();
+        this.suggestionHighlight?.clear();
         for (const highlight of Object.values(this.statusHighlights ?? {})) {
             highlight.clear();
         }
@@ -271,6 +313,18 @@ export default class extends Controller {
      * live selection, since a strike with no target means nothing.
      */
     #onKeydown(event) {
+        // Escape backs out of whatever is open, in the order a reader would
+        // expect to undo it: the composer they are filling in first, then the
+        // toolbar that opened it.
+        if (event.key === 'Escape') {
+            if (this.#anyComposerOpen()) {
+                this.hideComposer(event);
+            } else {
+                this.#clearPendingSelection();
+            }
+            return;
+        }
+
         if (event.key !== this.constructor.STRIKE_KEY) {
             return;
         }
@@ -282,7 +336,11 @@ export default class extends Controller {
         if (event.metaKey || event.ctrlKey || event.altKey) {
             return;
         }
-        const active = document.activeElement;
+        // composedPath()[0], not document.activeElement: the site-review widget
+        // composes in a shadow root, and activeElement stops at its host — so the
+        // field test passed and this shortcut ate every `s` the reviewer typed.
+        // The widget loads on every authenticated page, so both are always live.
+        const active = event.composedPath()[0] ?? document.activeElement;
         if (
             active &&
             (active.tagName === 'INPUT' ||
@@ -525,12 +583,128 @@ export default class extends Controller {
             this.struckHighlight,
         );
 
+        this.suggestionHighlight = new window.Highlight();
+        this.suggestionHighlight.priority = priority.suggestion;
+        window.CSS.highlights.set(
+            this.constructor.SUGGESTION_HIGHLIGHT,
+            this.suggestionHighlight,
+        );
+
         this.agentHighlight = new window.Highlight();
         this.agentHighlight.priority = priority.agent;
         window.CSS.highlights.set(
             this.constructor.AGENT_HIGHLIGHT,
             this.agentHighlight,
         );
+
+        this.hoverHighlight = new window.Highlight();
+        this.hoverHighlight.priority = priority.hover;
+        window.CSS.highlights.set(
+            this.constructor.HOVER_HIGHLIGHT,
+            this.hoverHighlight,
+        );
+    }
+
+    /**
+     * Card action: ring this card and tint the passage it points at.
+     *
+     * The tint is a Highlight rather than an outline because ::highlight()
+     * supports neither outline nor box-shadow — a ring around the anchor text is
+     * simply not expressible through that API, so the pairing is carried by a
+     * stronger fill on one end and the ring on the other.
+     */
+    focusThread(event) {
+        this.#setHoveredThread(event.currentTarget);
+    }
+
+    /** Card action: the pointer left, so drop both ends of the pairing. */
+    blurThread(event) {
+        // Guarded on identity rather than clearing unconditionally: moving from
+        // a card straight onto a different passage fires this leave AFTER the
+        // probe has already set the new pair, and an unguarded clear would undo
+        // it.
+        if (this.hoveredThread === event.currentTarget) {
+            this.#setHoveredThread(null);
+        }
+    }
+
+    /** The single owner of which card/passage pair is currently lit. */
+    #setHoveredThread(thread) {
+        if (this.hoveredThread === thread) {
+            return;
+        }
+        this.hoveredThread?.classList.remove('lp-comment-thread--active');
+        this.hoveredThread = thread;
+        this.hoverHighlight?.clear();
+        if (thread === null) {
+            return;
+        }
+        thread.classList.add('lp-comment-thread--active');
+        const range = this.anchorRanges?.get(thread);
+        if (range !== undefined) {
+            this.hoverHighlight?.add(range);
+        }
+    }
+
+    /**
+     * The same pairing driven from the other end: the pointer is over the prose,
+     * so find which anchor (if any) is under it and ring that card.
+     *
+     * Hit-tested against each anchor's line boxes rather than by walking up from
+     * event.target, because the anchors are painted with the Highlight API and
+     * so have no element of their own to have been the target.
+     */
+    onDocMousemove(event) {
+        if (this.hoverProbeScheduled) {
+            return;
+        }
+        this.hoverProbeScheduled = true;
+        const { clientX, clientY } = event;
+        requestAnimationFrame(() => {
+            this.hoverProbeScheduled = false;
+            try {
+                this.#probeAnchorAt(clientX, clientY);
+            } catch {
+                this.#clearAnchorHover();
+            }
+        });
+    }
+
+    #probeAnchorAt(clientX, clientY) {
+        // Reads the map #layout() built rather than locating each quote again.
+        // This runs once per mousemove frame and #findRange() is an indexOf
+        // sweep of the whole document plus a TreeWalker, so re-locating here
+        // put that cost on every frame on the longest documents — the ones with
+        // the most anchors to walk. General comments never enter the map, which
+        // is the same set the old loop skipped by hand.
+        for (const [thread, range] of this.anchorRanges ?? []) {
+            for (const rect of range.getClientRects()) {
+                if (
+                    clientX >= rect.left &&
+                    clientX <= rect.right &&
+                    clientY >= rect.top &&
+                    clientY <= rect.bottom
+                ) {
+                    if (this.hoveredThread !== thread) {
+                        this.#clearAnchorHover();
+                        this.hoveredThread = thread;
+                        thread.classList.add('lp-comment-thread--active');
+                        this.hoverHighlight?.clear();
+                        this.hoverHighlight?.add(range);
+                    }
+                    return;
+                }
+            }
+        }
+        this.#clearAnchorHover();
+    }
+
+    #clearAnchorHover() {
+        if (this.hoveredThread) {
+            this.hoveredThread.classList.remove('lp-comment-thread--active');
+            this.hoveredThread = null;
+            this.hoverHighlight?.clear();
+        }
     }
 
     #setActiveHighlight(range) {
@@ -557,10 +731,29 @@ export default class extends Controller {
         });
     }
 
-    // The two passes are independently guarded: they read different anchors from
-    // different elements, so one unlocatable comment quote must not take every
-    // agent mark on the page down with it.
+    // The three passes are independently guarded: they read different anchors
+    // from different elements, so one unlocatable comment quote must not take
+    // every agent mark on the page down with it, nor leave every card unplaced.
     #layout() {
+        // Locating a quote means an indexOf sweep of the whole document plus a
+        // TreeWalker, so every pass below shares one map rather than each
+        // re-locating the same anchors. The pointer probe reads it too, which is
+        // what keeps mousemove off that path entirely.
+        this.anchorRanges = new Map();
+        for (const thread of this.threadTargets) {
+            if (thread.dataset.commentGeneral === 'true') {
+                continue;
+            }
+            const range = this.#findRange(
+                thread.dataset.anchorQuote ?? '',
+                thread.dataset.anchorPrefix ?? '',
+                thread.dataset.anchorSuffix ?? '',
+            );
+            if (range !== null) {
+                this.anchorRanges.set(thread, range);
+            }
+        }
+
         try {
             this.#highlightAnchors();
         } catch {
@@ -571,13 +764,171 @@ export default class extends Controller {
         } catch {
             this.agentHighlight?.clear();
         }
+        try {
+            this.#positionThreads();
+        } catch {
+            this.#releaseThreads();
+        }
+        // Here as well as in #applyHideResolved, because a Turbo stream that
+        // resolves or deletes a thread reaches the controller only through this
+        // path.
+        this.#syncResolvedToggle();
+    }
+
+    /**
+     * Places each comment card level with the first line of the passage it is
+     * anchored to.
+     *
+     * Alignment is best effort by design. A running floor keeps each card at
+     * least CARD_GAP below the previous one, so in a crowded section a card sits
+     * below its passage rather than on top of its neighbour — nothing is ever
+     * hidden and nothing overlaps. A card whose quote no longer appears in this
+     * version (orphaned) has no line to measure, so it takes the floor.
+     *
+     * Offsets are measured, never hard-coded: they would be wrong the moment the
+     * body font, the measure, or the reader's zoom changes.
+     */
+    #positionThreads() {
+        if (!this.hasMarginTarget || !this.hasBlockTarget) {
+            return;
+        }
+
+        const anchored = this.threadTargets.filter(
+            (thread) =>
+                thread.dataset.commentGeneral !== 'true' &&
+                // offsetParent is null for a display:none card, which is what
+                // hiding resolved threads does. Placing one would advance the
+                // floor by a card that is not on screen.
+                thread.offsetParent !== null,
+        );
+        if (anchored.length === 0) {
+            // Deleting the last thread, or hiding every resolved one, would
+            // otherwise leave the reading column holding the min-height the
+            // previous layout reserved for a column of cards that is now empty.
+            this.blockTarget.style.minHeight = '';
+
+            return;
+        }
+
+        const marginTop = this.marginTarget.getBoundingClientRect().top;
+        let floor = 0;
+
+        for (const thread of anchored) {
+            // #releaseThreads() pins every card static, and `top` alone means
+            // nothing to a static element — so a single failed layout would
+            // otherwise flatten the column for the rest of the page's life.
+            thread.style.position = '';
+            const range = this.anchorRanges.get(thread);
+            // getClientRects()[0] is the anchor's FIRST line box. The bounding
+            // rect would be the union of every line, whose top is the same but
+            // whose height is not — and a card level with a three-line anchor
+            // has to align to the line the passage starts on.
+            const rects = range === undefined ? [] : range.getClientRects();
+            const anchorTop =
+                rects.length > 0 ? rects[0].top - marginTop : floor;
+
+            const top = Math.max(anchorTop, floor);
+            thread.style.top = `${Math.round(top)}px`;
+            floor = top + thread.offsetHeight + this.constructor.CARD_GAP;
+        }
+
+        // The cards are out of flow, so a stack running past the end of the
+        // prose would otherwise be unreachable — the paper would simply stop
+        // scrolling above it.
+        const block = this.blockTarget;
+        const offsetWithinBlock = this.marginTarget.offsetTop;
+        const paddingBottom = parseFloat(getComputedStyle(block).paddingBottom);
+        block.style.minHeight = `${Math.ceil(offsetWithinBlock + floor + paddingBottom)}px`;
+    }
+
+    /**
+     * Toggles resolved threads out of the margin. Hiding them re-runs the
+     * layout, so the remaining cards close up rather than leaving the gaps the
+     * hidden ones occupied.
+     */
+    toggleResolved(event) {
+        event?.preventDefault();
+        this.hideResolvedValue = !this.hideResolvedValue;
+        this.#applyHideResolved();
+        try {
+            window.localStorage.setItem(
+                this.constructor.HIDE_RESOLVED_KEY,
+                this.hideResolvedValue ? '1' : '0',
+            );
+        } catch {
+            // Private browsing and storage-blocked contexts both throw here.
+            // The toggle still works for this page; it just will not be
+            // remembered, which is a better outcome than a broken control.
+        }
+    }
+
+    #restoreHideResolved() {
+        try {
+            this.hideResolvedValue =
+                window.localStorage.getItem(
+                    this.constructor.HIDE_RESOLVED_KEY,
+                ) === '1';
+        } catch {
+            this.hideResolvedValue = false;
+        }
+        this.#applyHideResolved();
+    }
+
+    #applyHideResolved() {
+        this.element.classList.toggle(
+            'lp-review-block--hide-resolved',
+            this.hideResolvedValue,
+        );
+        this.#syncResolvedToggle();
+        this.#scheduleLayout();
+    }
+
+    /**
+     * Shows the toggle only once there is a resolved thread to hide, and keeps
+     * its label in step.
+     *
+     * Driven from the DOM rather than rendered conditionally in Twig: resolving
+     * a thread replaces #comment-threads alone, and this control sits outside
+     * that fragment, so a page that started with none would never grow one.
+     */
+    #syncResolvedToggle() {
+        const hasResolved =
+            this.element.querySelector('.lp-comment-thread--resolved') !== null;
+        for (const toggle of this.element.querySelectorAll(
+            '[data-resolved-toggle]',
+        )) {
+            toggle.hidden = !hasResolved;
+            toggle.textContent =
+                toggle.dataset[
+                    this.hideResolvedValue ? 'labelShow' : 'labelHide'
+                ];
+        }
+    }
+
+    /**
+     * Returns every card to normal flow — the degraded state on any failure.
+     *
+     * Clearing `top` alone is not enough: the cards are absolutely positioned by
+     * their class, so `top: auto` resolves every one of them to the same static
+     * position and they land in a single stack. The position has to be overridden
+     * as well for them to fall back into a readable column.
+     */
+    #releaseThreads() {
+        for (const thread of this.threadTargets) {
+            thread.style.top = '';
+            thread.style.position = 'static';
+        }
+        if (this.hasBlockTarget) {
+            this.blockTarget.style.minHeight = '';
+        }
     }
 
     /**
      * Repaints the per-status anchor highlights. Each thread's resolved range is
      * added to the Highlight matching its data-anchor-status (pending / addressed
-     * / resolved); the threads themselves flow normally in the grouped ladder —
-     * cards are no longer absolutely positioned against their anchors.
+     * / resolved). The highlight is what ties a card to its passage: the cards
+     * are absolutely positioned beside the anchor they resolved to, so the tint
+     * in the prose is the only thing naming which passage that is.
      */
     #highlightAnchors() {
         if (!this.statusHighlights) {
@@ -587,21 +938,28 @@ export default class extends Controller {
             highlight.clear();
         }
         this.struckHighlight?.clear();
+        this.suggestionHighlight?.clear();
         for (const thread of this.threadTargets) {
             const status = thread.dataset.anchorStatus ?? 'pending';
             const highlight =
                 this.statusHighlights[status] ?? this.statusHighlights.pending;
-            const range = this.#findRange(
-                thread.dataset.anchorQuote ?? '',
-                thread.dataset.anchorPrefix ?? '',
-                thread.dataset.anchorSuffix ?? '',
-            );
-            if (range === null) {
+            const range = this.anchorRanges.get(thread);
+            if (range === undefined) {
                 continue;
             }
-            highlight.add(range);
-            if (thread.dataset.anchorKind === 'strike') {
+
+            // A strike takes the struck rung INSTEAD of its status rung: a
+            // passage marked for deletion is not also an open question, and
+            // backgrounds stack rather than replace (see PRIORITY above).
+            const kind = thread.dataset.anchorKind;
+            if (kind === 'strike') {
                 this.struckHighlight?.add(range);
+                continue;
+            }
+
+            highlight.add(range);
+            if (kind === 'suggestion') {
+                this.suggestionHighlight?.add(range);
             }
         }
     }

@@ -29,8 +29,10 @@ final class MintProjectMcpTokenControllerTest extends WebTestCase
         $em->clear();
 
         $client->loginUser($owner);
-        $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/connect');
-        $client->submitForm('Mint MCP token');
+        // The MCP and widget steps offer identically labelled buttons, so the form
+        // is picked by the route it posts to rather than by its button text.
+        $crawler = $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/connect');
+        $client->submit($crawler->filter('form[action$="/mcp-token"]')->form());
 
         self::assertResponseRedirects('/projects/'.$projectId.'/connect');
         $em->clear();
@@ -88,8 +90,8 @@ final class MintProjectMcpTokenControllerTest extends WebTestCase
         $projectId = $project->id;
 
         $client->loginUser($owner);
-        $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/connect');
-        $client->submitForm('Mint MCP token');
+        $crawler = $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/connect');
+        $client->submit($crawler->filter('form[action$="/mcp-token"]')->form());
         $em->clear();
         $freshAfterFirstMint = $em->find(Project::class, $projectId);
         self::assertInstanceOf(Project::class, $freshAfterFirstMint);
@@ -125,8 +127,8 @@ final class MintProjectMcpTokenControllerTest extends WebTestCase
         $projectId = $project->id;
 
         $client->loginUser($owner);
-        $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/connect');
-        $client->submitForm('Mint MCP token');
+        $crawler = $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/connect');
+        $client->submit($crawler->filter('form[action$="/mcp-token"]')->form());
         $em->clear();
         $fresh = $em->find(Project::class, $projectId);
         self::assertInstanceOf(Project::class, $fresh);

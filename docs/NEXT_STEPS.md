@@ -1022,24 +1022,6 @@ confirm modal) vs keeping the portal as the single management surface, and
 whether the section should show renewal date/price (data already synced on
 BillingProfile).
 
-## Gamache: ship the controller direct-state-access rule the skill cites
-
-
-
-
-**Author:** Geoffrey · **Type:** tooling · **Priority:** medium · **Status:** pending
-
-The `project-command-handler` skill cites a `controller.directStateAccess`
-gamache rule ("controllers may not touch repositories directly") that does
-not exist anywhere in ubermuda/gamache (all five layers checked 2026-07-26),
-while ~25 rendering controllers inject repositories and assemble view data
-inline. Owner decision (2026-07-26): upgrade gamache — add the rule via a PR
-on https://github.com/ubermuda/gamache (per CLAUDE.md, gamache rules never
-land in this repo). Decide the rule's scope while writing it: forbid all
-repository injection in controllers (forcing query handlers for reads,
-matching the skill) or only mutation paths; then fix or baseline the ~25
-existing controllers when the rule lands.
-
 ## Agent-authored test scenarios delivered through the site-review widget
 
 
@@ -2758,38 +2740,6 @@ once already, on the line below the one that fails.
 Related: 'phpstan runs out of memory in a worktree' — same 128M CLI limit,
 different command, and worth fixing in one place rather than per recipe.
 
-## The gamache pin is three commits stale, so two documented gates do not run here
-
-**Author:** Claude · **Type:** tooling · **Priority:** medium · **Status:** pending
-
-`composer.json` pins `ubermuda/gamache` to
-`dev-main#e7e9349727630b25ff4c550ac7e5f6519d47b9c1`. Upstream `main` is at
-`382155f` — three merged commits ahead, all of them rules:
-
-- `8512c45` — `SelfContainedCommentsCheck` (`src/Check/`)
-- `e60c3ed` — `SelfAssigningTernaryRule` (`src/PHPStan/`)
-- `382155f` — `ControllerNoDirectStateAccessRule` (`src/PHPStan/`)
-
-The first two matter because **`CLAUDE.md` and `project-comments` both state
-that self-contained comments are "enforced by `SelfContainedCommentsCheck`
-(runs in `just gamache`)", and in this checkout they are not** — the class is
-not in `vendor/`, so the documented gate silently does nothing. That is not a
-documentation error: the rule exists, it is merely not installed here. The cost
-is already paid once — `ProjectDeleter`'s docblock carried a `(F6)` feature
-codename, exactly the shape the rule forbids, through every green `just ci`
-until it was found by grep on 2026-08-05.
-
-Repointing the pin to `382155f` is the fix, and it is deliberately **not** a
-drive-by: three new rules arriving at once will flag existing code, and
-`SelfContainedCommentsCheck` is a `src/Check/` class, so it also has to be
-wired into `gamache.php` before it runs at all. Budget for the fallout rather
-than folding it into an unrelated branch. Note also that `just gamache` is
-advisory for some checks, so "green" after the bump does not by itself prove
-the new rules found nothing — read the output.
-
-Related: 'Gamache: ship the controller direct-state-access rule the skill
-cites', which this closes upstream but not here.
-
 ## `just e2e-down` makes the worker report a failure it did not have
 
 **Author:** Claude · **Type:** tooling · **Priority:** medium · **Status:** pending
@@ -3520,3 +3470,198 @@ Not done up front on purpose. That field records how far this project has
 absorbed the skeleton, so advancing it past an unmerged branch would claim a
 merge that has not happened and make the next `update-from-skeleton` run skip
 whatever else landed in between.
+
+## A review comment has no timestamp, so its card cannot show an age
+
+**Author:** Claude · **Type:** feature · **Priority:** low · **Status:** pending
+
+`App\Module\Review\Entity\Comment` carries no created-at column — the
+constructor takes version, author, body, anchor, parent and replacement, and
+nothing else. Every other entity on the review path has one
+(`Document::$createdAt`, `DocumentVersion::$createdAt`), so this is an omission
+rather than a decision.
+
+The visible cost is on the review screen: a comment card shows its author and
+its status but cannot show when it was written, and a thread with several
+replies gives no sense of how the conversation unfolded.
+`templates/Module/Review/components/CommentThread.html.twig` has a comment
+marking where the age would go.
+
+Closing it is a nullable `#[ORM\Column]` on `Comment`, a migration with a real
+current-datetime version name, and `|relative_time` in the two places the
+template marks — plus a decision about what to show for the rows that already
+exist, since backfilling them with the migration timestamp would claim every
+old comment was written the day the column shipped. Leaving those blank is
+probably the honest answer.
+
+## Connect cannot mask a token, because no part of the raw value is stored
+
+**Author:** Claude · **Type:** feature · **Priority:** medium · **Status:** pending
+
+The Connect screen is meant to show a masked token — `loupe_••••••••••••8f2a`,
+where the last four characters are the real tail — so an operator can tell which
+token a project is using without the value being readable over a shoulder.
+
+It cannot today. `App\Module\Account\Entity\ApiToken` persists only a sha256
+`tokenHash`; the raw value is `bin2hex(random_bytes(32))` and is handed to the
+caller once at creation and never stored. There is nothing to mask, and showing
+four characters of the hash would display a string that is not part of the
+token. The screen renders the token's label and its creation date instead.
+
+The same gap is why both code panels on that screen still emit the literal
+`YOUR_TOKEN` on an ordinary page load rather than the configured value: the
+snippet needs the token, and only the request that created it ever had one.
+
+Closing it means storing a non-secret tail at issue time — a `tokenTail` column
+written alongside `tokenHash` — and a migration. Four characters of a 64-hex
+token leaves 60 unknown, so the tail is not usefully brute-forceable, but that
+is a decision to take deliberately rather than assume.
+
+## The documents list reports rows on the page as if it were the filtered total
+
+**Author:** Claude · **Type:** bug · **Priority:** medium · **Status:** pending
+
+The filter row on `templates/Module/Review/list_documents.html.twig` renders
+"N of M documents". M is the project's unfiltered total and is right. N is
+`items|length` — the number of rows on the current page — because
+`ListDocumentsView` exposes `totalPages` but no filtered count.
+
+On a single-page list the two coincide and the line is correct. On a paginated
+one it under-reports: a search matching 30 documents on a 20-per-page list reads
+"20 of 47 documents", which a reader will take to mean the search matched 20.
+
+The fix is to thread the filtered total through `ListDocumentsHandler` into
+`ListDocumentsView` and render that. Until then the number is wrong whenever
+pagination engages, so this is worth doing before the list grows.
+
+## A verdict cannot be undone, and a resolved comment cannot be reopened
+
+**Author:** Claude · **Type:** feature · **Priority:** medium · **Status:** pending
+
+Both controls are specified in the Chartreuse design and neither has a route.
+
+`src/Module/Review/Controller/` has `SubmitReviewController` but no undo, so
+approving a document or requesting changes is final from the UI — the verdict
+bar at the foot of the review page reports the outcome with no way back. The
+design puts an **Undo** on that bar.
+
+Separately there is `app_comment_resolve` but no reopen, so a thread resolved by
+mistake can only be deleted. The comment card shows **Resolve** on an open
+thread and, per the design, should show **Reopen** on a resolved one.
+
+Each is a command + handler pair and a route, following the shape of the
+existing resolve action. The templates already have the places they go.
+
+## A ready data export offers no way to download it
+
+**Author:** Claude · **Type:** bug · **Priority:** medium · **Status:** pending
+
+`templates/Module/Account/show_account_settings.html.twig` lists past exports
+with their timestamp and state, including `Ready` — but renders no download
+control, so the only route to a finished export is the emailed link.
+
+The route exists (`app_account_export_download`, `GET
+/account/exports/{id}/download`) and takes a `?token=` query parameter.
+`DataExport::complete()` returns the raw token once and persists only its
+sha256, and `ShowAccountSettingsView` exposes neither it nor anything the
+template could derive it from — so a link built from `export.id` alone 404s by
+design, which is the correct fail-closed behaviour.
+
+The token is not what authorises the download, so closing this is not simply a
+matter of dropping it. `DownloadDataExportController` already sits behind the
+`ROLE_USER` catch-all and separately checks that the export belongs to the
+signed-in user, so a forwarded link is refused on ownership alone. What the
+token actually carries is the **48-hour expiry**: `isDownloadTokenValid()`
+bundles the hash comparison, the Ready-status check and `isExpired()` into one
+call, and the expiry reaches the request through no other path.
+
+So closing it means splitting `isExpired()` out as a gate of its own and
+letting an authenticated owner download without a token. Doing only the first
+half — authorising on the session and skipping `isDownloadTokenValid()`
+entirely — would hand out expired archives indefinitely, which is the whole
+reason the window exists.
+
+## `document_highlight` matches against source-wrapped text, not rendered prose
+
+**Author:** Claude · **Type:** bug · **Priority:** medium · **Status:** pending
+
+A quote handed to `document_highlight` fails with `not_found` whenever the
+passage it names was wrapped across two lines in the submitted Markdown, even
+though it reads as one continuous sentence on the rendered page. Observed
+2026-08-07 submitting an 80-column-wrapped document: two quotes that happened to
+sit within a single source line anchored fine, and two that spanned a soft wrap
+were both rejected.
+
+The cause is that soft wraps survive rendering. CommonMark emits the source's
+newlines inside the `<p>`, and `DocumentVersion::plainTextOf()` is
+`html_entity_decode(strip_tags(...))`, which preserves them — so the text
+`AnchorService::fromQuote()` searches contains `Until the server says which of\nthree
+things went wrong`, while any caller quoting what it read on the page sends a
+single space. `SetDocumentHighlightsHandler` already trims the quote's outer
+whitespace for exactly this class of reason; interior whitespace gets no such
+treatment.
+
+This is worth separating from the constraint the `loupe-documents` skill already
+states — that a quote must stay inside one paragraph or list item, because block
+boundaries are real line breaks. That one is inherent. This one is an artefact of
+how the author happened to wrap their source, which is invisible to a reader and
+which nothing warns about. Wrapping prose at 80 columns is the normal shape for
+every Markdown file in this repository, so the tool is hardest to use on
+precisely the documents it is meant for.
+
+The fix is to collapse whitespace runs on both sides of the comparison rather
+than only trimming the ends — but the anchor stored has to keep pointing at the
+right offsets in the unnormalised text, so this is a change to how
+`AnchorService` locates a quote, not a change to `plainText()`. Altering
+`plainTextOf()` would move every stored anchor in every existing version, which
+is the failure mode already recorded in 'A renderer change that moves plainText
+needs a reanchor pass, not just a rerender'.
+
+## A decision card cannot show its own recorded answer
+
+**Author:** Claude · **Type:** feature · **Priority:** medium · **Status:** pending
+
+The Chartreuse design puts a line inside each decision card reporting what was
+chosen — "Chosen: option 1, recorded against v3." What the app has instead is a
+single `#decision-status` region for the whole page
+(`templates/Module/Review/show_document.html.twig`), replaced by a Turbo stream
+from `SelectDecisionOptionController` with one generic saved/failed message. A
+page with five cards has one status line between them all, and it never names
+the option or the version.
+
+What blocks the obvious fix is *when* the text would be added, not that it is
+text. The card renders inside `[data-comment-anchor-target="doc"]`, whose text is
+the basis every comment offset is measured against — `DocumentVersion::plainText()`
+is `strip_tags()` of the stored HTML, and `ShowDocumentControllerTest` asserts the
+rendered pane's text still equals it exactly.
+
+At **display** time that rules text out: `DecisionBlockService::withSelections()`
+post-processes stored HTML on the way to the page, so a sentence it injected would
+be in the pane and not in the stored version, and every anchor below the first card
+would resolve to the wrong passage. At **store** time it does not:
+`DecisionBlockService::toControls()` runs inside `MarkdownRenderer::render()`, which
+`CreateDocumentHandler` and `ReviseDocumentHandler` call to produce `renderedHtml`,
+and `plainText()` derives from that same HTML — so text minted there is in both
+sides of the invariant, and versions already stored are untouched. A card's eyebrow
+or a static label can therefore be real text, with one caveat: a fresh render of an
+already-stored version now produces text that version does not have, so
+`RefreshDocumentVersionsHtmlHandler` may refuse without `acceptCommentOrphaning` —
+it asks each anchor individually (`countCommentsThatWouldStopResolving()`) and stops
+only if some comment's anchor resolves against the stored text and no longer resolves
+against the re-rendered one. Adding store-time text is a change new versions get for
+free and old ones only through a reanchor pass.
+
+The recorded answer is not one of those. It is per-reviewer state chosen after the
+version was stored, so it cannot be derived from the markdown at render time, and
+the store-time path is closed to it.
+
+The way through is to keep the text out of the DOM's text content:
+`DecisionBlockService::withSelections()` already post-processes the stored HTML
+at display time and deliberately adds **attributes only**, so it could write a
+`data-decision-chosen="…"` attribute the CSS renders with `content: attr(...)`.
+Generated content is not part of `textContent` and `strip_tags()` never sees it,
+so the invariant holds. The cost is that the sentence has to be composed by the
+caller — `withSelections()` takes no translator and no version number today —
+and that generated content is read inconsistently by screen readers, which
+matters more here than for the card's eyebrow because this text is an announced
+live region rather than decoration.

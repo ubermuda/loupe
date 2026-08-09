@@ -1,15 +1,23 @@
 {% extends 'base.html.twig' %}
 
+{#- A freshly created/regenerated raw secret is flashed under a dedicated key so it
+    renders once in a copyable field, and is embedded into the config snippet and CLI
+    command below (falling back to a placeholder on ordinary loads). These reads sit
+    outside every block on purpose: the layout renders the generic flash strip before
+    the body block, so reading them any later would print the raw secret as a flash. -#}
+{%- set mintedMcpToken = app.flashes('minted_mcp_token')|first -%}
+{%- set mintedWidgetToken = app.flashes('minted_widget_token')|first -%}
+
 {% block title %}{{ 'project.connect.page.title'|trans }} — {{ 'app.name'|trans }}{% endblock %}
+
+{% block topbar_crumbs %}
+    <a class="lp-topbar__crumb" href="{{ path('app_project_documents', {id: project.id}) }}">{{ project.name }}</a>
+    <span class="lp-topbar__sep">/</span>
+    <span class="lp-topbar__here">{{ 'project.connect.page.title'|trans }}</span>
+{% endblock %}
 
 {% block body %}
 {%- set mcpUrl = url('_mcp_endpoint') -%}
-{#- A freshly minted/regenerated raw secret is flashed under a dedicated key so it
-    renders once in a copyable field, and is embedded into the config snippet and CLI
-    command below (falling back to a placeholder on ordinary loads). Reading the flash
-    here also clears it before the generic flash loop. -#}
-{%- set mintedMcpToken = app.flashes('minted_mcp_token')|first -%}
-{%- set mintedWidgetToken = app.flashes('minted_widget_token')|first -%}
 {%- set mcpTokenValue = mintedMcpToken ?: 'YOUR_TOKEN' -%}
 {%- set widgetTokenValue = mintedWidgetToken ?: 'YOUR_TOKEN' -%}
 {%- set mcpJson = [
@@ -27,128 +35,166 @@
 ]|join("\n") -%}
 {%- set widgetSnippet = '<script src="' ~ absolute_url('/site-review/widget.js') ~ '" data-token="' ~ widgetTokenValue ~ '"></script>' -%}
 <div class="lp-connect">
-    <nav class="lp-crumbs">
-        <a href="{{ path('app_project_documents', {id: project.id}) }}" class="lp-crumbs__link">{{ project.name }}</a>
-        <span class="lp-crumbs__sep">/</span>
-        <span class="lp-crumbs__here">{{ 'project.connect.page.title'|trans }}</span>
-    </nav>
-
     <h1 class="lp-workspace-title lp-workspace-title--doc">{{ 'project.connect.page.title'|trans }}</h1>
     <p class="lp-workspace-desc">{{ 'project.connect.description'|trans }}</p>
 
-    {% for label, messages in app.flashes %}
-        {% for message in messages %}
-            <div class="lp-flash lp-flash--{{ label }}">{{ message }}</div>
-        {% endfor %}
-    {% endfor %}
+    {# ── Step 1 — connect the agent ── #}
+    <section class="lp-connect-step">
+        <div class="lp-connect-step__header">
+            <span class="lp-connect-step__badge">1</span>
+            <div>
+                <h2 class="lp-connect-step__heading">{{ 'project.connect.step.agent.heading'|trans }}</h2>
+                <p class="lp-connect-step__purpose">{{ 'project.connect.step.agent.purpose'|trans }}</p>
+            </div>
+        </div>
 
-    {% include '@Project/_connect_instructions.html.twig' with {mcpServerName: mcpServerName, mintedMcpToken: mintedMcpToken} only %}
-
-    {# ── Access token — the project MCP token ── #}
-    <section class="lp-connect-block">
-        <p class="lp-eyebrow">{{ 'project.connect.token.eyebrow'|trans }}</p>
         {% if project.mcpToken %}
-        {% if mintedMcpToken %}
-        <div class="lp-connect-secret">
-            <p class="lp-connect-secret__warn">{{ 'project.connect.token.one_time_warning'|trans }}</p>
-            <div class="lp-connect-field" data-controller="clipboard" data-clipboard-text-value="{{ mintedMcpToken }}"
-                 data-clipboard-copied-label-value="{{ 'project.connect.copied'|trans }}">
-                <twig:ux:icon name="lucide:key" class="lp-connect-field__glyph w-4 h-4" />
-                <code class="lp-connect-field__value">{{ mintedMcpToken }}</code>
-                <button type="button" class="lp-btn lp-btn--ghost lp-btn--sm" data-clipboard-target="button" data-action="clipboard#copy">{{ 'project.connect.copy'|trans }}</button>
+        <div class="lp-connect-block">
+            <p class="lp-eyebrow">{{ 'project.connect.token.eyebrow'|trans }}</p>
+            {% if mintedMcpToken %}
+            <div class="lp-connect-secret">
+                <div class="lp-connect-alert">
+                    <twig:ux:icon name="lucide:triangle-alert" class="lp-connect-alert__icon w-4 h-4" />
+                    <p class="lp-connect-alert__text">{{ 'project.connect.token.one_time_warning'|trans }}</p>
+                </div>
+                <div class="lp-connect-field" data-controller="clipboard" data-clipboard-text-value="{{ mintedMcpToken }}"
+                     data-clipboard-copied-label-value="{{ 'project.connect.copied'|trans }}">
+                    <twig:ux:icon name="lucide:key-round" class="lp-connect-field__glyph w-4 h-4" />
+                    <code class="lp-connect-field__value">{{ mintedMcpToken }}</code>
+                    <button type="button" class="lp-btn lp-btn--ghost lp-btn--sm" data-clipboard-target="button" data-action="clipboard#copy">{{ 'project.connect.copy'|trans }}</button>
+                </div>
+            </div>
+            {% endif %}
+            <div class="lp-connect-field">
+                <twig:ux:icon name="lucide:key-round" class="lp-connect-field__glyph w-4 h-4" />
+                <span class="lp-connect-field__value">
+                    {{ project.mcpToken.label }}
+                    <span class="lp-connect-field__meta">{{ 'project.connect.token.meta'|trans({'%date%': project.mcpToken.createdAt|date('M j, Y')}) }}</span>
+                </span>
+                <form method="POST" action="{{ path('app_project_mcp_token_regenerate', {id: project.id}) }}">
+                    <input type="hidden" name="_csrf_token" value="{{ csrf_token('regenerate-project-mcp-token') }}">
+                    <button type="submit" class="lp-btn lp-btn--sm">{{ 'project.connect.token.regenerate'|trans }}</button>
+                </form>
+                <form method="POST" action="{{ path('app_api_token_revoke', {tokenId: project.mcpToken.id}) }}">
+                    <input type="hidden" name="_csrf_token" value="{{ csrf_token('revoke-api-token') }}">
+                    <input type="hidden" name="returnTo" value="{{ path('app_project_connect', {id: project.id}) }}">
+                    <button type="submit" class="lp-btn lp-btn--danger-ghost lp-btn--sm">{{ 'account.api_token.action.revoke'|trans }}</button>
+                </form>
             </div>
         </div>
-        {% endif %}
-        <div class="lp-connect-field">
-            <twig:ux:icon name="lucide:key" class="lp-connect-field__glyph w-4 h-4" />
-            <span class="lp-connect-field__value">
-                {{ project.mcpToken.label }}
-                <span class="lp-connect-field__meta">{{ project.mcpToken.createdAt|date('M j, Y') }}</span>
-            </span>
-            <span class="lp-connect-tag">{{ 'project.connect.tag.project_scoped'|trans }}</span>
-            <form method="POST" action="{{ path('app_project_mcp_token_regenerate', {id: project.id}) }}">
-                <input type="hidden" name="_csrf_token" value="{{ csrf_token('regenerate-project-mcp-token') }}">
-                <button type="submit" class="lp-btn lp-btn--ghost lp-btn--sm">{{ 'project.connect.token.regenerate'|trans }}</button>
-            </form>
-            <form method="POST" action="{{ path('app_api_token_revoke', {tokenId: project.mcpToken.id}) }}">
-                <input type="hidden" name="_csrf_token" value="{{ csrf_token('revoke-api-token') }}">
-                <input type="hidden" name="returnTo" value="{{ path('app_project_connect', {id: project.id}) }}">
-                <button type="submit" class="lp-btn lp-btn--danger lp-btn--sm">{{ 'account.api_token.action.revoke'|trans }}</button>
-            </form>
+
+        <div class="lp-connect-block">
+            <p class="lp-eyebrow">{{ 'project.connect.mcp_json.eyebrow'|trans }}</p>
+            <div class="lp-code-dark" data-controller="clipboard" data-clipboard-text-value="{{ mcpJson }}"
+                 data-clipboard-copied-label-value="{{ 'project.connect.copied'|trans }}">
+                <div class="lp-code-dark__header">
+                    <span class="lp-code-dark__label">{{ 'project.connect.mcp_json.label'|trans }}</span>
+                    <button type="button" class="lp-code-dark__copy" data-clipboard-target="button" data-action="clipboard#copy">{{ 'project.connect.copy'|trans }}</button>
+                </div>
+                <pre class="lp-code-dark__body"><code>{{ mcpJson }}</code></pre>
+            </div>
         </div>
+
+        {% include '@Project/_connect_instructions.html.twig' with {mcpServerName: mcpServerName, mintedMcpToken: mintedMcpToken} only %}
+
+        <details class="lp-tools-disclosure">
+            <summary class="lp-tools-disclosure__summary">
+                <twig:ux:icon name="lucide:chevron-right" class="lp-tools-disclosure__caret" />
+                {{ 'project.connect.tools.summary'|trans({'%count%': tools|length}) }}
+            </summary>
+            <div class="lp-tools">
+                {% for tool in tools %}
+                <div class="lp-tools__row">
+                    <code class="lp-tools__name">{{ tool.name }}</code>
+                    <p class="lp-tools__desc">{{ tool.descriptionKey|trans }}</p>
+                </div>
+                {% endfor %}
+            </div>
+        </details>
         {% else %}
-        <p class="lp-connect-hint">{{ 'project.mcp_token.hint'|trans }}</p>
-        <form method="POST" action="{{ path('app_project_mcp_token_mint', {id: project.id}) }}">
-            <input type="hidden" name="_csrf_token" value="{{ csrf_token('mint-project-mcp-token') }}">
-            <button type="submit" class="lp-btn lp-btn--primary">{{ 'project.mcp_token.mint'|trans }}</button>
-        </form>
+        <div class="lp-connect-block">
+            <p class="lp-connect-hint">{{ 'project.mcp_token.hint'|trans }}</p>
+            <form method="POST" action="{{ path('app_project_mcp_token_mint', {id: project.id}) }}">
+                <input type="hidden" name="_csrf_token" value="{{ csrf_token('mint-project-mcp-token') }}">
+                <button type="submit" class="lp-btn lp-btn--primary">{{ 'project.mcp_token.mint'|trans }}</button>
+            </form>
+        </div>
         {% endif %}
     </section>
 
-    {# ── .mcp.json — dark project-config block ── #}
-    <section class="lp-connect-block">
-        <p class="lp-eyebrow">{{ 'project.connect.mcp_json.eyebrow'|trans }}</p>
-        <div class="lp-code-dark" data-controller="clipboard" data-clipboard-text-value="{{ mcpJson }}"
-             data-clipboard-copied-label-value="{{ 'project.connect.copied'|trans }}">
-            <div class="lp-code-dark__header">
-                <span class="lp-code-dark__label">{{ 'project.connect.mcp_json.label'|trans }}</span>
-                <button type="button" class="lp-code-dark__copy" data-clipboard-target="button" data-action="clipboard#copy">{{ 'project.connect.copy'|trans }}</button>
+    {# ── Step 2 — install the review widget ── #}
+    <section class="lp-connect-step">
+        <div class="lp-connect-step__header">
+            <span class="lp-connect-step__badge">2</span>
+            <div>
+                <h2 class="lp-connect-step__heading">{{ 'project.connect.step.widget.heading'|trans }}</h2>
+                <p class="lp-connect-step__purpose">
+                    {%- if project.domain -%}
+                        {{ 'project.connect.step.widget.purpose'|trans({'%domain%': project.domain}) }}
+                    {%- else -%}
+                        {{ 'project.connect.step.widget.purpose_no_domain'|trans }}
+                    {%- endif -%}
+                </p>
             </div>
-            <pre class="lp-code-dark__body"><code>{{ mcpJson }}</code></pre>
         </div>
-    </section>
 
-    {# ── Review widget — moved from the site-review page ── #}
-    <section class="lp-connect-block">
-        <p class="lp-eyebrow">{{ 'project.connect.widget.eyebrow'|trans }}</p>
         {% if project.widgetToken %}
-        {% if mintedWidgetToken %}
-        <div class="lp-connect-secret">
-            <p class="lp-connect-secret__warn">{{ 'project.connect.token.one_time_warning'|trans }}</p>
-            <div class="lp-connect-field" data-controller="clipboard" data-clipboard-text-value="{{ mintedWidgetToken }}"
-                 data-clipboard-copied-label-value="{{ 'project.connect.copied'|trans }}">
-                <twig:ux:icon name="lucide:key" class="lp-connect-field__glyph w-4 h-4" />
-                <code class="lp-connect-field__value">{{ mintedWidgetToken }}</code>
-                <button type="button" class="lp-btn lp-btn--ghost lp-btn--sm" data-clipboard-target="button" data-action="clipboard#copy">{{ 'project.connect.copy'|trans }}</button>
+        <div class="lp-connect-block">
+            <p class="lp-eyebrow">{{ 'project.connect.token.eyebrow'|trans }}</p>
+            {% if mintedWidgetToken %}
+            <div class="lp-connect-secret">
+                <div class="lp-connect-alert">
+                    <twig:ux:icon name="lucide:triangle-alert" class="lp-connect-alert__icon w-4 h-4" />
+                    <p class="lp-connect-alert__text">{{ 'project.connect.token.one_time_warning'|trans }}</p>
+                </div>
+                <div class="lp-connect-field" data-controller="clipboard" data-clipboard-text-value="{{ mintedWidgetToken }}"
+                     data-clipboard-copied-label-value="{{ 'project.connect.copied'|trans }}">
+                    <twig:ux:icon name="lucide:key-round" class="lp-connect-field__glyph w-4 h-4" />
+                    <code class="lp-connect-field__value">{{ mintedWidgetToken }}</code>
+                    <button type="button" class="lp-btn lp-btn--ghost lp-btn--sm" data-clipboard-target="button" data-action="clipboard#copy">{{ 'project.connect.copy'|trans }}</button>
+                </div>
             </div>
-        </div>
-        {% endif %}
-        <div class="lp-connect-field">
-            <twig:ux:icon name="lucide:key" class="lp-connect-field__glyph w-4 h-4" />
-            <span class="lp-connect-field__value">
-                {{ project.widgetToken.label }}
-                <span class="lp-connect-field__meta">{{ project.widgetToken.createdAt|date('M j, Y') }}</span>
-            </span>
-            <form method="POST" action="{{ path('app_project_widget_token_regenerate', {id: project.id}) }}">
-                <input type="hidden" name="_csrf_token" value="{{ csrf_token('regenerate-project-widget-token') }}">
-                <button type="submit" class="lp-btn lp-btn--ghost lp-btn--sm">{{ 'project.connect.token.regenerate'|trans }}</button>
-            </form>
-            <form method="POST" action="{{ path('app_api_token_revoke', {tokenId: project.widgetToken.id}) }}">
-                <input type="hidden" name="_csrf_token" value="{{ csrf_token('revoke-api-token') }}">
-                <input type="hidden" name="returnTo" value="{{ path('app_project_connect', {id: project.id}) }}">
-                <button type="submit" class="lp-btn lp-btn--danger lp-btn--sm">{{ 'account.api_token.action.revoke'|trans }}</button>
-            </form>
-        </div>
-        <div class="lp-code-block mt-4" data-controller="clipboard" data-clipboard-text-value="{{ widgetSnippet }}"
-             data-clipboard-copied-label-value="{{ 'project.connect.copied'|trans }}">
-            <div class="lp-code-block__header">
-                <span class="lp-code-block__label">{{ 'project.token.snippet_heading'|trans }}</span>
-                <button type="button" class="lp-btn lp-btn--ghost lp-btn--sm" data-clipboard-target="button" data-action="clipboard#copy">{{ 'project.connect.copy'|trans }}</button>
+            {% endif %}
+            <div class="lp-connect-field">
+                <twig:ux:icon name="lucide:key-round" class="lp-connect-field__glyph w-4 h-4" />
+                <span class="lp-connect-field__value">
+                    {{ project.widgetToken.label }}
+                    <span class="lp-connect-field__meta">{{ 'project.connect.widget_token.meta'|trans({'%date%': project.widgetToken.createdAt|date('M j, Y')}) }}</span>
+                </span>
+                <form method="POST" action="{{ path('app_project_widget_token_regenerate', {id: project.id}) }}">
+                    <input type="hidden" name="_csrf_token" value="{{ csrf_token('regenerate-project-widget-token') }}">
+                    <button type="submit" class="lp-btn lp-btn--sm">{{ 'project.connect.token.regenerate'|trans }}</button>
+                </form>
+                <form method="POST" action="{{ path('app_api_token_revoke', {tokenId: project.widgetToken.id}) }}">
+                    <input type="hidden" name="_csrf_token" value="{{ csrf_token('revoke-api-token') }}">
+                    <input type="hidden" name="returnTo" value="{{ path('app_project_connect', {id: project.id}) }}">
+                    <button type="submit" class="lp-btn lp-btn--danger-ghost lp-btn--sm">{{ 'account.api_token.action.revoke'|trans }}</button>
+                </form>
             </div>
-            <pre class="lp-pre"><code>{{ widgetSnippet }}</code></pre>
         </div>
 
-        {# Agent forwarding is opt-in per widget token (ApiToken::$forwardsToAgent).
-           The token above sits in the page source of the site it is installed on,
-           so whoever can view that page can submit a review — and a forwarded
-           review reaches the owner's agent unprompted. Off is the safe default;
-           turning it on is a deliberate choice for an access-controlled site. #}
-        <p class="lp-connect-hint mt-4">{{ 'project.connect.forwarding.warning'|trans }}</p>
-        <div class="lp-connect-field">
-            <twig:ux:icon name="lucide:zap" class="lp-connect-field__glyph w-4 h-4" />
-            <span class="lp-connect-field__value">
-                {{ 'project.connect.forwarding.label'|trans }}
-                <span class="lp-connect-field__meta">
+        <div class="lp-connect-block">
+            <p class="lp-eyebrow">{{ 'project.connect.widget.eyebrow'|trans }}</p>
+            <div class="lp-code-dark" data-controller="clipboard" data-clipboard-text-value="{{ widgetSnippet }}"
+                 data-clipboard-copied-label-value="{{ 'project.connect.copied'|trans }}">
+                <div class="lp-code-dark__header">
+                    <span class="lp-code-dark__label">{{ 'project.token.snippet_heading'|trans }}</span>
+                    <button type="button" class="lp-code-dark__copy" data-clipboard-target="button" data-action="clipboard#copy">{{ 'project.connect.copy'|trans }}</button>
+                </div>
+                <pre class="lp-code-dark__body"><code>{{ widgetSnippet }}</code></pre>
+            </div>
+        </div>
+
+        <div class="lp-connect-alert">
+            <twig:ux:icon name="lucide:triangle-alert" class="lp-connect-alert__icon w-4 h-4" />
+            <p class="lp-connect-alert__text">{{ 'project.connect.forwarding.warning'|trans }}</p>
+        </div>
+
+        <div class="lp-connect-toggle">
+            <twig:ux:icon name="lucide:zap" class="lp-connect-toggle__icon w-4 h-4" />
+            <span class="lp-connect-toggle__text">
+                <span class="lp-connect-toggle__title">{{ 'project.connect.forwarding.label'|trans }}</span>
+                <span class="lp-connect-toggle__state">
                     {{ (project.widgetToken.forwardsToAgent
                         ? 'project.connect.forwarding.state.on'
                         : 'project.connect.forwarding.state.off')|trans }}
@@ -156,7 +202,7 @@
             </span>
             <form method="POST" action="{{ path('app_project_widget_forwarding_toggle', {id: project.id}) }}">
                 <input type="hidden" name="_csrf_token" value="{{ csrf_token('toggle-project-widget-forwarding') }}">
-                <button type="submit" class="lp-btn lp-btn--ghost lp-btn--sm">
+                <button type="submit" class="lp-btn lp-btn--sm">
                     {{ (project.widgetToken.forwardsToAgent
                         ? 'project.connect.forwarding.disable'
                         : 'project.connect.forwarding.enable')|trans }}
@@ -164,25 +210,14 @@
             </form>
         </div>
         {% else %}
-        <p class="lp-connect-hint">{{ 'account.api_token.scope.site_review_warning'|trans }}</p>
-        <form method="POST" action="{{ path('app_project_widget_token_mint', {id: project.id}) }}">
-            <input type="hidden" name="_csrf_token" value="{{ csrf_token('mint-project-widget-token') }}">
-            <button type="submit" class="lp-btn lp-btn--primary">{{ 'project.token.mint'|trans }}</button>
-        </form>
-        {% endif %}
-    </section>
-
-    {# ── Agent tools ── #}
-    <section class="lp-connect-block">
-        <p class="lp-eyebrow">{{ 'project.connect.tools.eyebrow'|trans }}</p>
-        <div class="lp-tools">
-            {% for tool in tools %}
-            <div class="lp-tools__row">
-                <code class="lp-tools__name">{{ tool.name }}</code>
-                <p class="lp-tools__desc">{{ tool.descriptionKey|trans }}</p>
-            </div>
-            {% endfor %}
+        <div class="lp-connect-block">
+            <p class="lp-connect-hint">{{ 'account.api_token.scope.site_review_warning'|trans }}</p>
+            <form method="POST" action="{{ path('app_project_widget_token_mint', {id: project.id}) }}">
+                <input type="hidden" name="_csrf_token" value="{{ csrf_token('mint-project-widget-token') }}">
+                <button type="submit" class="lp-btn lp-btn--primary">{{ 'project.token.mint'|trans }}</button>
+            </form>
         </div>
+        {% endif %}
     </section>
 </div>
 {% endblock %}
