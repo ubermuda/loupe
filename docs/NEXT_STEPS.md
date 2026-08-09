@@ -3663,3 +3663,26 @@ caller — `withSelections()` takes no translator and no version number today �
 and that generated content is read inconsistently by screen readers, which
 matters more here than for the card's eyebrow because this text is an announced
 live region rather than decoration.
+
+## A worktree's compiled CSS freezes at provision time
+
+**Author:** Claude · **Type:** tooling · **Priority:** medium · **Status:** pending
+
+`just worktree-up` builds `var/tailwind/app.built.css` once and nothing rebuilds
+it afterwards unless someone leaves `just worktree-tailwind` running. A worktree
+that has been alive for a few days and then merges `main` therefore serves the
+CSS its branch had at provision time, while its PHP, Twig and JS are current.
+
+On 2026-08-08 the comment-budget-sweep worktree gated against a build predating
+the Chartreuse redesign. The compiled sheet had neither `lp-anchor-hover` nor
+`.lp-review-block`, so `review-loop.spec.ts`'s hover spec failed: it moves a real
+pointer at a rect measured inside the document pane, and that pane's layout class
+had no rules. One failure, eleven specs skipped behind it, nothing in the app
+logs — indistinguishable from a regression on the branch until you diff the
+compiled CSS. `bin/console tailwind:build` in the worktree fixed it in under a
+second.
+
+The worktree e2e checklist in `CLAUDE.md` already names warming the cache and
+starting a consumer as prerequisites; a CSS rebuild belongs beside them. The
+symptom table in `project-worktrees` covers only the single-unstyled-new-class
+case, which points at the `var/tailwind` symlink rather than at staleness.
