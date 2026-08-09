@@ -41,18 +41,41 @@ final readonly class UpdateCheck
 
     public function status(): ?UpdateStatus
     {
-        $version = $this->build->version;
+        $current = self::releaseNumber($this->build->version);
         $repository = $this->repository();
 
-        // An unreleased build has nothing to compare, and source hosted
-        // somewhere this cannot query has nothing to answer.
-        if (null === $version || null === $repository || !$this->featureFlags->isEnabled(self::FLAG)) {
+        // A build between releases has nothing a release can be compared
+        // against, and source this cannot query has nothing to answer.
+        if (null === $current || null === $repository || !$this->featureFlags->isEnabled(self::FLAG)) {
             return null;
         }
 
         $latest = $this->latestRelease($repository);
+        $latestNumber = self::releaseNumber($latest);
 
-        return null === $latest ? null : new UpdateStatus($latest, $latest !== $version);
+        if (null === $latest || null === $latestNumber) {
+            return null;
+        }
+
+        // Ordered, not merely different: a build ahead of the latest release —
+        // or a rollback that leaves the API reporting an older tag — is not out
+        // of date, and saying it is would send someone downgrading.
+        return new UpdateStatus($latest, version_compare($current, $latestNumber, '<'));
+    }
+
+    /**
+     * The comparable number in a release tag, or null for anything that is not
+     * one. `git describe` appends -<commits>-g<sha> once a build moves past its
+     * tag and -dirty when the tree was not clean, and a tag like `nightly` has
+     * no ordering at all — none of those can be ranked against a release.
+     */
+    private static function releaseNumber(?string $tag): ?string
+    {
+        if (null === $tag || 1 !== preg_match('/^v?(\d+(?:\.\d+)*)$/', $tag, $matches)) {
+            return null;
+        }
+
+        return $matches[1];
     }
 
     private function latestRelease(string $repository): ?string

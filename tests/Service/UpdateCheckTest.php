@@ -84,6 +84,39 @@ final class UpdateCheckTest extends TestCase
         self::assertFalse($status->isOutdated);
     }
 
+    public function test_a_build_ahead_of_the_latest_release_is_not_called_outdated(): void
+    {
+        // A rollback leaves the API reporting an older tag than the running
+        // build; calling that outdated would send someone downgrading.
+        $status = $this->build(self::client('v1.4.0'), version: 'v1.6.0')->status();
+
+        self::assertNotNull($status);
+        self::assertFalse($status->isOutdated);
+    }
+
+    public function test_releases_are_ordered_numerically_not_lexically(): void
+    {
+        $status = $this->build(self::client('v1.10.0'), version: 'v1.9.0')->status();
+
+        self::assertNotNull($status);
+        self::assertTrue($status->isOutdated);
+    }
+
+    public function test_a_build_between_releases_asks_github_nothing(): void
+    {
+        $client = self::client();
+
+        // What `git describe` emits past a tag. There is no ordering between
+        // it and a release, so the honest answer is no badge at all.
+        self::assertNull($this->build($client, version: 'v1.4.0-12-gdeadbee')->status());
+        self::assertSame(0, $client->getRequestsCount());
+    }
+
+    public function test_a_release_tag_with_no_ordering_is_ignored(): void
+    {
+        self::assertNull($this->build(self::client('nightly'))->status());
+    }
+
     public function test_the_flag_being_off_asks_github_nothing(): void
     {
         $client = self::client();
