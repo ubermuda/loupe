@@ -100,13 +100,10 @@ readonly class DataExportArchiveBuilder
                 }
             }
 
-            // Visibility stated rather than carried over. Flysystem otherwise
-            // reads the source object's ACL to reproduce it on the destination,
-            // and S3-compatible stores that implement no ACLs at all — Garage
-            // among them — answer GetObjectAcl with a 501, which surfaces here
-            // as an unexplained "unable to move file". The storage is already
-            // configured private, so the read only ever confirmed what we
-            // already knew, and skipping it saves a round trip everywhere else.
+            // Stated rather than carried over: Flysystem otherwise reads the
+            // source object's ACL, and stores implementing none — Garage among
+            // them — answer GetObjectAcl with a 501 that surfaces here as an
+            // unexplained "unable to move file".
             $this->exportStorage->move($tmpKey, $key, [
                 Config::OPTION_RETAIN_VISIBILITY => false,
                 Config::OPTION_VISIBILITY => Visibility::PRIVATE,

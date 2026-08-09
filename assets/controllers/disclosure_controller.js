@@ -1,6 +1,6 @@
 import { Controller } from '@hotwired/stimulus';
 
-/*
+/**
  * Animates a native <details> open/close with WAAPI. CSS transitions on a
  * <details> stop firing after the first cycle, so the height/opacity tween is
  * driven here instead. The controller intercepts the <summary> click, animates
@@ -19,13 +19,10 @@ export default class extends Controller {
 
     connect() {
         this.animation = null;
-        // For a real <details>, `.open` already reflects the native attribute
-        // at connect time (a real boolean). A plain wrapper div has no such
-        // reflection — `.open` starts undefined even when the server rendered
-        // it already open (e.g. list_projects.html.twig re-renders the create
-        // form open after a failed submission). Derive the initial state from
-        // that server-rendered class so the first click toggles correctly
-        // instead of re-expanding an already-open panel.
+        // A real <details> reflects `.open` at connect time; a plain wrapper div
+        // does not — `.open` is undefined even when the server rendered it open.
+        // Derive the initial state from the server-rendered class, or the first
+        // click re-expands an already-open panel.
         if (undefined === this.element.open) {
             this.element.open =
                 this.element.classList.contains('disclosure-open');

@@ -79,19 +79,11 @@ final readonly class DeleteAccountHandler
                 $purger->purge($user, $cleanup);
             }
 
-            // Recorded transactionally, not called: MESSENGER_TRANSPORT_DSN
-            // is doctrine://default — the SAME DBAL connection as this
-            // transaction — and DoctrineTransport::send() is a plain INSERT
-            // with no transaction of its own, so this row is written by the
-            // same commit as everything else here. A rolled-back deletion
-            // rolls this row back too, and the worker consuming the async
-            // transport can only ever see it once the whole transaction has
-            // durably committed. The actual Stripe API call happens later,
-            // outside this transaction, in CancelSubscriptionHandler — an
-            // external call must never hold a DB transaction open — and is
-            // retried by the `async` transport's retry_strategy
-            // (messenger.yaml); LogSubscriptionCancelFinalFailure logs a
-            // permanent failure once retries are exhausted.
+            // Recorded, not called: the async transport is doctrine://default —
+            // the same connection as this transaction — so the row commits or
+            // rolls back with the deletion. The Stripe call happens later, in
+            // CancelSubscriptionHandler, because an external call must never
+            // hold a DB transaction open.
             if (null !== $subscriptionId) {
                 $this->bus->dispatch(new CancelSubscriptionMessage($subscriptionId, $customerId, (string) $userId));
             }

@@ -33,12 +33,10 @@ final readonly class TrialProvisioner
             return $profile;
         }
 
-        // Read-check-write on a row that does not exist yet, so there is no row
-        // to lock. A transaction-scoped advisory lock keyed on the user serves
-        // instead: concurrent first requests queue here, and the loser sees the
-        // winner's row on its re-read rather than colliding on the unique index.
-        // Recovering from that collision is not an option — a failed flush()
-        // closes the entity manager, leaving nothing able to re-read the row.
+        // No row exists yet to lock, so a transaction-scoped advisory lock on the
+        // user serves instead and the loser re-reads the winner's row. Recovering
+        // from the unique-index collision is not an option: a failed flush()
+        // closes the entity manager, leaving nothing able to re-read.
         return $this->em->wrapInTransaction(function () use ($user): BillingProfile {
             $this->em->getConnection()->executeStatement(
                 'SELECT pg_advisory_xact_lock(hashtext(?))',

@@ -11,16 +11,8 @@ use Symfony\Bridge\Doctrine\Types\UuidType;
 use Symfony\Component\Uid\Uuid;
 
 #[ORM\Entity(repositoryClass: BillingProfileRepository::class)]
-// The hourly sweep runs three candidate queries (BillingProfileRepository),
-// none of which shared indexed columns before this: findExpiredTrials() and
-// findTrialEndedSubscribers() both filter on (status, trial_ends_at);
-// findCanceledPastPeriod() filters on (status, current_period_end) instead —
-// a distinct pair, so it gets its own composite index. Partial indexes
-// (`WHERE survey_sent_at IS NULL` / `WHERE status = 'canceled'`) would be
-// tighter, but Postgres rewrites the predicate on storage (adding casts and
-// parens) and DBAL's schema comparator does not normalize that back to the
-// declared form, so `migrate-diff` never reaches "no changes" — a plain
-// composite index is the one that round-trips cleanly.
+// Partial indexes don't round-trip through DBAL's comparator (Postgres
+// rewrites the predicate), so migrate-diff never settles. Keep these plain.
 #[ORM\Index(name: 'idx_billing_profiles_status_trial_ends_at', columns: ['status', 'trial_ends_at'])]
 #[ORM\Index(name: 'idx_billing_profiles_status_current_period_end', columns: ['status', 'current_period_end'])]
 #[ORM\Table(name: 'billing_profiles')]

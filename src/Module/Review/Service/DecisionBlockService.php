@@ -173,17 +173,10 @@ final readonly class DecisionBlockService
     public function toControls(string $html): string
     {
         // Splitting on the close sentinel is what holds a match inside its own
-        // block. Bounding the body in the pattern instead — a tempered token, or
-        // `(</\4>)\s*\z` in place of `(.*)\z` and the check below — selects the
-        // same text but spends a backtracking frame per character, and stops
-        // matching a few tens of KB in: past that no block in the document
-        // converts, not only the large one.
-        //
-        // The prompt is still bounded in the pattern, because it has to stop at
-        // its own `</p>`. Possessive: the alternatives are disjoint, so the group
-        // already matches maximally and uniquely and has nothing to give back —
-        // without that it spends a frame per `<` and reaches the same cliff on a
-        // tag-dense question.
+        // block: bounding the body in the pattern spends a backtracking frame
+        // per character and stops matching a few tens of KB in, past which no
+        // block converts at all. The prompt has to stop at its own `</p>`, so it
+        // stays in the pattern — possessive, or it reaches the same cliff.
         $block = '~'.$this->sentinelPrefix().'OPEN_('.self::ID_PATTERN.')_END\s*'
             .'(?:<p>([^<]*+(?:<(?!/p>)[^<]*+)*+)</p>\s*)?'
             .'(<(ul|ol)(?:\s[^>]*)?>)(.*)\z~s';
@@ -220,12 +213,10 @@ final readonly class DecisionBlockService
             ) ?? throw new \RuntimeException('Decision control conversion failed: '.preg_last_error_msg().'.');
         }
 
-        // Deliberately not the well-formed sentinel pattern. HtmlSanitizer cuts
-        // its input with a raw substr() at getMaxInputLength() before parsing it,
-        // so a large document can lose the second half of a sentinel — and the
-        // surviving fragment would then match no exact pattern and be stored as
-        // 40-odd characters of gibberish inside plainText(). Matching the nonce
-        // plus whatever follows catches every cut after the nonce.
+        // Deliberately not the well-formed sentinel pattern: HtmlSanitizer cuts
+        // its input with a raw substr() before parsing, so a large document can
+        // lose the second half of a sentinel. Matching the nonce plus whatever
+        // follows catches every cut after the nonce.
         $swept = preg_replace(
             '~'.$this->sentinelRoot().'[A-Za-z0-9_-]*~',
             '',

@@ -44,15 +44,10 @@ final readonly class AddCommentHandler
         } else {
             $anchor = $this->anchorService->fromSelection($text, $quote, $prefix, $suffix);
             if (null === $anchor) {
-                // The quote wasn't found in the current text at all (e.g. the document
-                // was revised in another tab between selection and submit). Keep the
-                // captured quote/context as-is but mark the comment orphaned — the same
-                // representation ReanchoringService already uses for a comment whose
-                // anchor no longer resolves — rather than claim a location that isn't
-                // real. offsetHint stays 0: there is no meaningful position to record,
-                // so the orphaned flag (not the offset) is the signal a consumer must
-                // check; this can still sort the thread first in the sidebar, same as
-                // any other 0-offset entry.
+                // Quote not found in the current text — revised in another tab,
+                // say. Keep it and mark the comment orphaned rather than claim a
+                // location that isn't real. offsetHint stays 0, so the flag and
+                // not the offset is what a consumer must check.
                 $anchor = new Anchor($quote, $prefix, $suffix, 0);
                 $orphaned = true;
             }

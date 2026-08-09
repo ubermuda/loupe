@@ -48,13 +48,10 @@ final readonly class ResolveSocialLoginHandler
             return SocialLoginOutcome::logIn($existing->user);
         }
 
-        // A provider email may be trusted for matching/linking ONLY when the
-        // provider asserted it is verified — trusting an unverified one lets an
-        // attacker claim someone else's address (nOAuth account takeover). Loupe
-        // additionally requires every account to have a verified email
-        // (User.email is non-nullable and is the login identity), so with no
-        // verified email the login is rejected outright rather than creating an
-        // email-less account.
+        // A provider email is trustworthy for matching only when the provider
+        // asserts it is verified — trusting an unverified one is the nOAuth
+        // account-takeover path. With none, the login is rejected outright,
+        // since User.email is the non-nullable login identity.
         if (!$profile->emailVerified || null === $profile->email || '' === $profile->email) {
             throw new UnverifiedProviderEmail();
         }
@@ -92,14 +89,10 @@ final readonly class ResolveSocialLoginHandler
             return SocialLoginOutcome::registrationClosed();
         }
 
-        // Branch D: no existing identity or account matches — either create a
-        // new verified account or, if the registration cap is closed, divert
-        // the verified provider email to the waitlist instead. The capacity
-        // decision (lock + isOpen + user creation) is one atomic transaction;
-        // the waitlist join itself runs afterwards (see below) so a duplicate
-        // -join race there is handled by JoinWaitlistHandler's own catch
-        // instead of poisoning this transaction (a caught DBAL uniqueness
-        // exception still aborts the surrounding Postgres transaction).
+        // The capacity decision (lock + isOpen + creation) is one transaction;
+        // the waitlist join runs after it rather than inside, because a caught
+        // DBAL uniqueness exception still aborts the surrounding Postgres
+        // transaction.
         $user = $this->em->wrapInTransaction(function () use ($profile, $matchEmail): ?User {
             // Serialize this capacity decision against the form registration
             // handler's — the same advisory lock, so the two paths can never
@@ -142,15 +135,11 @@ final readonly class ResolveSocialLoginHandler
             return SocialLoginOutcome::waitlisted();
         }
 
-        // The creation transaction has committed: listeners (e.g. Billing's
-        // trial provisioning) run outside it, so their failures cannot roll the
-        // account back — and must not surface either: an error page here would
-        // fail an OAuth login whose account was in fact created, and the retry
-        // takes the existing-identity branch, hiding what went wrong. Trial
-        // provisioning self-heals via PaywallGate::allows()'s own
-        // ensureProfile() call, so log and complete the login. Earlier branches
-        // (existing identity or account) return above and never dispatch — this
-        // event marks new registrations only.
+        // Listeners run outside the committed creation transaction, so their
+        // failures cannot roll the account back — and must not surface: an error
+        // here fails an OAuth login whose account exists, and the retry takes the
+        // existing-identity branch. Trial provisioning self-heals via
+        // PaywallGate, so log and complete the login.
         try {
             $this->eventDispatcher->dispatch(new UserRegistered($user));
         } catch (\Throwable $e) {

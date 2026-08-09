@@ -114,12 +114,10 @@ final readonly class MarkdownRenderer
         // attribute set rather than merging into it, so a bare allowElement('h2')
         // after that call silently revoked everything it had just granted.
         $config = new HtmlSanitizerConfig()
-            // The sanitizer truncates silently past this length rather than
-            // refusing, so any finite value drops a long document's tail with no
-            // error. A finite value also cuts through the markers that carry an
-            // HTML comment's text across (see withDocumentNotes), printing one on
-            // the page and making the same source render differently each time.
-            // The source is already capped by DocumentCreateTool::MAX_MARKDOWN_BYTES.
+            // The sanitizer truncates silently past this length, so any finite
+            // value drops a long document's tail with no error — and can cut the
+            // markers carrying an HTML comment's text, making the same source
+            // render differently each time. The source is capped upstream.
             ->withMaxInputLength(-1)
             // Headings are attribute-free on purpose: their ids are computed from
             // their own text after sanitization, see withHeadingIds().
@@ -184,19 +182,11 @@ final readonly class MarkdownRenderer
             ->allowElement('q', ['cite'])
             ->allowElement('cite');
 
-        // Every remaining W3C-safe element is blocked rather than dropped: the tag
-        // and its attributes go, its text stays. Text is the basis
-        // DocumentVersion::plainText() measures every comment anchor against, so an
-        // element this list did not anticipate must not take a paragraph with it.
-        //
-        // This covers only names W3CReference knows. A tag outside it — `<foobar>`,
-        // or an element a future Symfony release reclassifies as unsafe — is still
-        // dropped with its text; MarkdownRendererTextBasisTest is what notices.
-        //
-        // `details`/`summary` are deliberately among the blocked, so a collapsible
-        // section renders permanently open. A reviewer can anchor a comment to any
-        // text in the document, and text that is collapsed by default would carry
-        // comments nobody can see without knowing to expand it.
+        // Blocked, not dropped: the tag goes, its text stays. That text is the
+        // basis plainText() measures every comment anchor against, so an element
+        // this list did not anticipate must not take a paragraph with it.
+        // `details`/`summary` are blocked deliberately, so a collapsed section
+        // cannot hide comments anchored inside it.
         $rendered = $config->getAllowedElements();
         foreach (array_keys(array_filter(W3CReference::BODY_ELEMENTS)) as $element) {
             if (!isset($rendered[$element])) {
@@ -270,15 +260,11 @@ final readonly class MarkdownRenderer
             $environment->addExtension(new FrontMatterExtension(new FrontMatterYamlParser()));
         }
 
-        // On both environments, not just the front-matter one: the plain
-        // converter is the fallback for a document whose front matter failed to
-        // tabulate, and such a document keeps whatever decision fences it has.
-        //
-        // Parsing precedes rendering, so a paired fence's markers are already
-        // sentinels — plain text — by the time the comment renderer below looks
-        // at them, and it hands them straight back. An UNpaired marker keeps its
-        // comment literal and becomes an annotation like any other comment,
-        // which is the right outcome: the author sees the marker they mistyped.
+        // On both environments: the plain converter is the fallback for a
+        // document whose front matter failed to tabulate. Parsing precedes
+        // rendering, so a paired fence's markers are already sentinels by the
+        // time the comment renderer sees them; an unpaired one surfaces as an
+        // annotation, showing the author the marker they mistyped.
         $environment->addEventListener(DocumentParsedEvent::class, $this->decisions->markParsedDocument(...));
 
         // Outranks CommonMark's own HTML renderers, which stay registered

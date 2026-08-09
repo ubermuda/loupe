@@ -69,12 +69,10 @@ class Comment
         #[ORM\ManyToOne(targetEntity: self::class)]
         public readonly ?Comment $parent = null,
 
-        // What the anchored passage should become. Three states, and the empty
-        // string is NOT the same as null: null is an ordinary prose comment
-        // proposing no edit, '' is a strike (replace the passage with nothing),
-        // and a non-empty value is a suggested rewording. Read it through
+        // Three states, and '' is not null: null is prose proposing no edit, ''
+        // is a strike, non-empty is a rewording. Read through
         // $isSuggestion/$isStrike rather than truthiness — '' and null are both
-        // falsy in Twig and PHP, which would collapse two of the three states.
+        // falsy, which collapses two of the three.
         #[ORM\Column(type: Types::TEXT, nullable: true)]
         public readonly ?string $replacement = null,
     ) {

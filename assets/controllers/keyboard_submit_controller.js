@@ -1,19 +1,12 @@
 import { Controller } from '@hotwired/stimulus';
 
-/*
- * Submits the form on ⌘⏎ / Ctrl+⏎.
+/**
+ * Submits the form on ⌘⏎ / Ctrl+⏎, bound on the <form> so keydown bubbles up
+ * from the form_widget()-rendered textarea.
  *
- * Bind the action on the <form> itself and let keydown bubble up from the
- * textarea: the fields are rendered by form_widget(), so there is nowhere to
- * hang a per-field attribute without reshaping the FormType.
- *
- * requestSubmit() rather than submit() — it fires the submit event, which both
- * Turbo and the eager CSRF controller depend on.
- *
- * Eager, not lazy: a lazy controller is fetched asynchronously, so a reviewer
- * who types their comment and hits ⌘⏎ straight away can land in the gap before
- * connect() runs, and the keystroke does nothing. A shortcut that works only
- * after an invisible delay is worse than none.
+ * requestSubmit() rather than submit(), so the submit event fires for Turbo and
+ * the eager CSRF controller. Eager, not lazy: a lazily fetched controller leaves
+ * a gap in which the shortcut silently does nothing.
  */
 /* stimulusFetch: 'eager' */
 export default class extends Controller {

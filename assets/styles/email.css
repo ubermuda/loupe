@@ -1,5 +1,4 @@
-/* Dedicated stylesheet for HTML email templates.
- * Plain CSS with hardcoded values — no CSS variables, no cascade layers — so
+/* Plain CSS with hardcoded values — no CSS variables, no cascade layers — so
  * twig/cssinliner-extra can inline everything for email clients. The hexes are
  * the app's Chartreuse tokens copied for that reason; keep them in step with
  * the :root block in app.css.

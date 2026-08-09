@@ -33,12 +33,10 @@ final class RequestPasswordResetControllerTest extends WebTestCase
             'Send reset link',
             ['reset_password_request_form[email]' => 'reset-forge@example.com'],
             'POST',
-            // Origin is forged to match X-Forwarded-Host: a real attacker
-            // controls both when calling the app directly (no browser same-
-            // origin policy in play), and the SameOriginCsrfTokenManager
-            // compares the request's (forged) Host against Origin/Referer —
-            // leaving Origin as the real host would fail CSRF instead of
-            // exercising the reset-link host pinning this test targets.
+            // Origin is forged to match X-Forwarded-Host, as an attacker calling
+            // the app directly would: SameOriginCsrfTokenManager compares the
+            // forged Host against Origin, so leaving the real host would fail
+            // CSRF instead of exercising the host pinning this test targets.
             ['HTTP_X_FORWARDED_HOST' => 'evil.example.com', 'HTTP_ORIGIN' => 'http://evil.example.com'],
         );
 

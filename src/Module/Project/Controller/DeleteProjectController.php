@@ -54,16 +54,11 @@ final class DeleteProjectController extends AppController
             }
         }
 
-        // Re-render the edit page with the bound delete form injected — 422 so
-        // Turbo renders it (form validation errors and the mismatch error both
-        // land as field errors on confirmName, never as a lossy flash).
-        //
-        // 'id' (the raw route param string) is forwarded alongside the resolved
-        // entity because base.html.twig's `current_project()` nav helper reads
-        // it from the request attributes — CurrentProjectProvider only accepts a
-        // string there, so passing the object alone under 'project' would make
-        // it silently resolve to null and shadow the template's own `project`
-        // variable (Twig blocks share the parent template's local scope).
+        // 422 so Turbo renders the re-bound form; errors land on confirmName
+        // rather than a lossy flash. 'id' is forwarded alongside the resolved
+        // entity because CurrentProjectProvider only accepts a string there —
+        // the object alone resolves to null and shadows the template's own
+        // `project`.
         return $this->forward(EditProjectController::class, [
             'id' => (string) $project->id,
             'project' => $project,

@@ -74,16 +74,13 @@
        regardless of readOnly, and the pane it walks no longer holds
        DocumentVersion::plainText(). #}
     <div class="lp-review-block"{% if not diffMode %} data-controller="comment-anchor"{% endif %}>
-        {#
-            The outer .lp-review-doc is the reading column: position:relative, so
-            it is both the offset parent the floating composer/toolbar are placed
-            against and the one the comment margin is measured within. The inner
-            [data-comment-anchor-target="doc"] is the TreeWalker root — it must
-            contain ONLY the rendered HTML with no surrounding template whitespace,
-            so that its textContent === DocumentVersion::plainText() and JS
-            text-node offsets agree with the PHP anchor basis.
-        #}
+        {# .lp-review-doc is position:relative: the offset parent the floating
+           composer and toolbar are placed against, and the frame the comment
+           margin is measured within. The inner [data-comment-anchor-target="doc"]
+           is the TreeWalker root and must hold ONLY the rendered HTML — no
+           template whitespace — so its textContent === plainText(). #}
         <div class="lp-review-doc" data-comment-anchor-target="block" data-controller="decision"{% if not readOnly %} data-action="mouseup->comment-anchor#onDocMouseup mousemove->comment-anchor#onDocMousemove change->decision#select"{% endif %}>
+
             <div class="lp-review-doc__head">
                 <h1 class="lp-review-doc__title">{{ document.title }}</h1>
                 <p class="lp-review-doc__byline">{{ 'review.document.byline'|trans({
@@ -92,17 +89,16 @@
                     '%updated%': version.createdAt|relative_time,
                 }) }}</p>
 
-                {# The way back to a discussion that a revision left behind: comments
-                   resolved on an earlier version stay on that version, so without this
-                   the whole thread is unreachable once the document is revised. The
-                   newest version links to the canonical unnumbered URL.
-
-                   A single version with a description still earns the list, because
-                   the description appears nowhere else on the page. A single version
-                   with none has nothing to show and nowhere to switch to, so the list
-                   is omitted rather than rendered as a lone pill. #}
+                {# The way back to a discussion a revision left behind: comments
+                   resolved on an earlier version stay there, so the thread is
+                   otherwise unreachable once revised. A single version with a
+                   description still earns the list, because the description
+                   appears nowhere else. #}
                 {% set hasVersionDescription = versions|filter(meta => meta.description is not empty)|length > 0 %}
                 {% set showVersions = versions|length > 1 or hasVersionDescription %}
+                {# An untexted heading would render as a blank link, but it keeps its
+                   id so anything linking to it still works. Diff mode replaces the
+                   HTML those ids live in, and is passed no `headings` at all. #}
                 {% set contentsHeadings = diffMode ? [] : headings|filter(heading => heading.text is not empty) %}
                 {% set showContents = contentsHeadings|length > 1 %}
                 {% set referenceCount = document.references|length + document.referencedBy|length %}
@@ -185,20 +181,9 @@
                 </nav>
                 {% endif %}
 
-                {# Deliberately inside .lp-review-doc__head and never inside
-                   [data-comment-anchor-target="doc"]: that element's textContent must
-                   stay identical to DocumentVersion::plainText(), which every comment
-                   anchor offset is measured against. A single heading needs no list. #}
-                {# A heading with nothing to label it — an image with no alt text — would
-                   render as a blank link: unreachable by a screen reader and invisible
-                   to a mouse. It keeps its id, so anything linking to it still works. #}
-                {# Gated here rather than moved into the documentPane block, which the
-                   diff view overrides wholesale: the panel belongs to the document
-                   head, alongside the title and version switcher the diff keeps, and
-                   moving it would make the block mean "the pane plus one head
-                   element". The heading ids it links to live in the rendered HTML
-                   that diff mode replaces, so in that mode every entry would be a
-                   dead link — and `headings` is not passed there at all. #}
+                {# Never inside [data-comment-anchor-target="doc"]: that element's
+                   textContent must stay identical to DocumentVersion::plainText(),
+                   which every comment anchor offset is measured against. #}
                 {% if showContents %}
                 <nav class="lp-doc-meta__panel lp-review-contents" data-metadata-tabs-target="panel" data-panel="contents" hidden
                      aria-label="{{ 'review.document.contents.nav_label'|trans }}">
@@ -214,11 +199,9 @@
                 {% endif %}
 
                 {# Not gated on diffMode, unlike the contents panel above: a
-                   reference is document-level rather than version-level, and its
-                   links point at other documents rather than into the markup the
-                   diff replaces. `document` is passed in both modes, so these
-                   render and resolve beside a diff exactly as they do beside the
-                   document. #}
+                   reference is document-level, and its links point at other
+                   documents rather than into the markup the diff replaces.
+                   `document` is passed in both modes. #}
                 {% if referenceCount > 0 %}
                 <div class="lp-doc-meta__panel lp-doc-references" data-metadata-tabs-target="panel" data-panel="references" hidden>
                     {% for group in [
@@ -288,17 +271,11 @@
             <div class="prose lp-prose lp-review-doc__prose" data-comment-anchor-target="doc">{{ decisionMarkedHtml|raw }}</div>
             {% endblock %}
 
-            {# Outside the prose on purpose: that element's textContent must stay
-               identical to DocumentVersion::plainText(). The radios inside the
-               prose are grouping-only inputs that post nothing themselves — the
-               controller copies the clicked one into this form's hidden fields.
-
-               Gated on diffMode as well, because the radios they serve live in
-               the block above, which the diff replaces wholesale: a status line
-               with nothing to report and a form with no control to fill it would
-               be all that survived. `hasDecisions` and `selectDecisionForm` are
-               not passed in diff mode either, so the guard is what keeps this a
-               structural omission rather than an undefined-variable 500. #}
+            {# Outside the prose on purpose: that textContent must stay identical
+               to DocumentVersion::plainText(). Gated on diffMode too — the radios
+               it serves live in the block the diff replaces, and `hasDecisions`
+               and `selectDecisionForm` are not passed there, so the guard is what
+               prevents an undefined-variable 500. #}
             {% if not diffMode and hasDecisions %}
             <p id="decision-status" class="lp-decision-status" aria-live="polite"></p>
             {% endif %}
@@ -312,17 +289,10 @@
             {{ form_end(selectDecisionForm) }}
             {% endif %}
 
-            {# The agent's marks — the passages it flagged as worth reading first.
-               Each is an empty carrier for its anchor, deliberately OUTSIDE the doc
-               element above: that element's textContent must stay byte-identical to
-               DocumentVersion::plainText(), so nothing may be inserted into it. The
-               Stimulus controller re-locates each quote and tints it through the CSS
-               Custom Highlight API, which paints without touching the DOM. #}
-            {# Omitted in diff mode for the same reason the controller is not attached
-               there: every one of these carries a quote to be re-located against the
-               pane's textContent, and in diff mode that text is the Markdown source
-               rather than plainText(). They are inert today only because nothing is
-               listening — this makes it structural instead. #}
+            {# The agent's marks: empty anchor carriers, outside the doc element
+               whose textContent must stay identical to plainText(). The controller
+               re-locates each quote and tints it via the Custom Highlight API.
+               Omitted in diff mode, where the pane's text is Markdown source. #}
             {% if not diffMode %}
             {% for highlight in version.highlights %}
             <span
@@ -367,12 +337,10 @@
                 data-comment-anchor-target="actionError"
             ></p>
 
-            {# The strike form is never shown — the Stimulus controller fills its
-               anchor fields from the selection and submits it. It stays a Symfony
-               form so CSRF and validation work exactly as they do elsewhere. #}
-            {# No display class: a `display` declaration in a layered component class
-               outranks the UA [hidden] rule, so adding one here would un-hide the
-               form the moment it gained a visible child. #}
+            {# Never shown: the controller fills the anchor fields from the
+               selection and submits it, and it stays a Symfony form so CSRF and
+               validation work as elsewhere. No display class — one in a layered
+               component class outranks the UA [hidden] rule and would un-hide it. #}
             {{ form_start(strikePassageForm, {attr: {
                 'data-comment-anchor-target': 'strikeForm',
                 'data-action': 'turbo:submit-end->comment-anchor#onSubmitEnd',

@@ -30,13 +30,10 @@ final class MercureHubTimeoutPass implements CompilerPassInterface
     #[\Override]
     public function process(ContainerBuilder $container): void
     {
-        // Both are absent on an instance with Mercure switched off, and the hub
-        // is also a FrankenPhpHub (no HTTP client at all) when the built-in hub
-        // is configured. Nothing to bound in either case.
-        //
-        // has() rather than hasDefinition() for the client: Symfony registers a
-        // scoped client's plain name as an alias onto its UriTemplate decorator,
-        // and hasDefinition() is false for an alias.
+        // Both are absent when Mercure is off, and the hub is a FrankenPhpHub
+        // with no HTTP client when the built-in hub is configured. has() rather
+        // than hasDefinition() for the client: a scoped client's plain name is an
+        // alias onto its UriTemplate decorator, and hasDefinition() misses it.
         if (!$container->hasDefinition(self::HUB_ID) || !$container->has(self::CLIENT_ID)) {
             return;
         }

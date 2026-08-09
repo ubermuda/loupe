@@ -32,12 +32,10 @@ final readonly class LinkSocialAccountHandler
             throw new DomainErrors(['password' => 'account.social.link.error.invalid_password']);
         }
 
-        // Password confirmed and the provider asserted this email is verified, so
-        // any pending click-through verification is superseded. Revoking the
-        // token is what makes that true: VerifyEmailHandler never checks
-        // isVerified() and VerifyEmailController logs in whoever presents a valid
-        // token, so a link left outstanding here keeps working after the account
-        // is already verified by another route.
+        // Revoking is what makes the superseded verification actually superseded:
+        // VerifyEmailHandler never checks isVerified() and its controller logs in
+        // whoever presents a valid token, so an outstanding link would keep
+        // working after the account is verified another way.
         if ($command->profile->emailVerified) {
             $user->emailVerifiedAt ??= new \DateTimeImmutable();
             $user->clearEmailVerificationToken();

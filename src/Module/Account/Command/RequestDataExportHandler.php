@@ -30,14 +30,11 @@ final readonly class RequestDataExportHandler
         }
 
         try {
-            // The messenger `async` transport is the doctrine one, on the same
-            // connection as $em — wrapping persist+flush and dispatch() in one
-            // transaction makes them atomic. Without this, a dispatch failure
-            // after a committed flush would leave a Pending row with no
-            // message ever created; the partial unique index would then make
-            // every retry by this user report "already pending" forever, with
-            // nothing able to clear it (it never expires, since only Ready
-            // exports get an expiresAt).
+            // The async transport shares $em's connection, so persist+flush and
+            // dispatch commit atomically. Without it a dispatch failure leaves a
+            // Pending row with no message, and the partial unique index makes
+            // every retry report "already pending" forever — nothing clears it,
+            // since only Ready exports expire.
             $export = $this->em->wrapInTransaction(function () use ($command): DataExport {
                 $export = new DataExport($command->user);
                 $this->em->persist($export);

@@ -76,12 +76,10 @@ final class CreateAdminControllerTest extends WebTestCase
         self::assertResponseStatusCodeSame(422);
     }
 
-    // The controller's DomainErrors catch is reachable only when two concurrent
-    // requests both pass the InstallationState guard and one loses the handler's
-    // advisory lock — not expressible under dama's single-transaction wrapper.
-    // The catch block mirrors the project-wide DomainErrors pattern and is
-    // covered by review; the handler's own sequential second-call test guards
-    // the thrown-error contract.
+    // The controller's DomainErrors catch needs two concurrent requests racing
+    // the handler's advisory lock, which dama's single-transaction wrapper cannot
+    // express. The handler's own sequential second-call test guards the
+    // thrown-error contract.
 
     public function test_a_blank_display_name_is_a_validation_error(): void
     {

@@ -1,6 +1,6 @@
 import { Controller } from '@hotwired/stimulus';
 
-/*
+/**
  * Toggles a panel anchored to a trigger — the shell's project switcher today.
  * Closes on Escape and on any click outside the controller's own element, so a
  * panel can never be left open behind the thing the reviewer clicked next.

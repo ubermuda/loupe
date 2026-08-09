@@ -216,21 +216,11 @@ test('full review loop: comment, request changes, reload persistence', async ({
     expect(state.comments).toHaveLength(1);
     expect(state.comments[0].quote).toBe(KNOWN_PHRASE);
 
-    // Step 8a: Assert the stored prefix and suffix, not just the quote. This is
-    // the only assertion in the suite that can fail on anchor corruption
-    // occurring *before* AnchorService sees the data — every unit test builds an
-    // Anchor by hand, so all of them start from data that is already correct.
-    //
-    // Boundary whitespace is the specific thing at stake. The document reads
-    // "...contains a <quote> in this review.", so the captured prefix must end
-    // with a space and the suffix must begin with one. Symfony's form `trim`
-    // option defaults to true and HiddenType inherits it, which silently stripped
-    // exactly these characters until 2026-08-02; contextScore() compares the last
-    // 8 characters of the prefix against the document, so a trimmed fingerprint
-    // could never match and context disambiguation scored zero for every
-    // selection next to whitespace — which is nearly all of them.
-    //
-    // The widened quote above cannot catch this: it is identical either way.
+    // The only assertion that can fail on anchor corruption occurring before
+    // AnchorService sees the data — every unit test builds an Anchor by hand.
+    // Boundary whitespace is what is at stake: the form `trim` option defaults
+    // to true, and contextScore() compares the prefix's last 8 characters, so a
+    // trimmed fingerprint can never match.
     expect(state.storedAnchors).toHaveLength(1);
     const anchor = state.storedAnchors[0];
     expect(anchor.quote).toBe(KNOWN_PHRASE);
@@ -239,12 +229,9 @@ test('full review loop: comment, request changes, reload persistence', async ({
     expect(anchor.suffix).toMatch(/^ /);
     expect(anchor.suffix).toContain('in this review');
 
-    // Step 8b: Reply to the comment. Reply is a plain form submitted through Turbo;
-    // the controller returns a Turbo Stream (HTTP 200, turbo-stream content type)
-    // that replaces the thread in place — no page reload. Asserting both status and
-    // content type guards the whole path: CSRF (the eager submit listener runs the
-    // double-submit dance), the {id:comment} entity mapping, and the stream wiring
-    // (a wrong content type makes Turbo silently no-op).
+    // Asserting both status and content type guards the whole path: CSRF, the
+    // {id:comment} entity mapping, and the stream wiring — a wrong content type
+    // makes Turbo silently no-op.
     const replyResponsePromise = page.waitForResponse(
         (r) => r.url().includes('/reply') && r.request().method() === 'POST',
     );

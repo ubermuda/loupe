@@ -1,12 +1,7 @@
-# Production image coordinates. The default is this project's own package, which
-# nobody else can push to, so it is overridable from the environment:
-#
-#     export LOUPE_PROD_IMAGE=ghcr.io/you/loupe:prod
-#
-# Set the same value in three places or they drift apart: this variable (build
-# and push), the terraform registry / image_repository / image_tag variables
-# (what App Platform pulls), and LOUPE_PROD_IMAGE in compose.prod.env (what the
-# reference compose stack runs).
+# Production image coordinates; override with LOUPE_PROD_IMAGE=ghcr.io/you/loupe:prod.
+# Set the same value in three places or they drift: here (build and push),
+# terraform's registry/image_repository/image_tag, and LOUPE_PROD_IMAGE in
+# compose.prod.env.
 prod_image := env("LOUPE_PROD_IMAGE", "ghcr.io/ubermuda/loupe:prod")
 
 # Recipes forwarding `*args` use "$@" rather than {{args}}, which needs this.
@@ -45,11 +40,9 @@ composer *args:
     bin/worktrees/compose-exec.sh composer "$@"
 
 # Provisions its own URL, dev DB (migrated + seeded), test DB, vendor and CSS.
-# No-op from the main checkout. Safe to re-run; also repairs a lost sidecar.
-# Prepare the current worktree and print its URL.
-# Provision (or repair) a worktree. Usage: just worktree-up NAME — or with no
-# NAME from inside the worktree itself. Prefer the NAME form: it works from the
-# main checkout, so no session has to cd into a worktree to run it.
+# Safe to re-run; also repairs a lost sidecar. Prefer the NAME form, which works
+# from the main checkout, so no session has to cd into a worktree.
+# Provision (or repair) a worktree. Usage: just worktree-up NAME
 worktree-up name="":
     bin/worktrees/worktree-bootstrap.sh {{name}}
 
@@ -125,13 +118,11 @@ prettier:
 rector:
     vendor/bin/rector
 
-# phpstan-symfony resolves getContainer()->get(X::class) through the dumped dev
-# container XML, so a missing or stale var/cache/dev makes it abort outright
-# ("Container ... does not exist") or silently degrade service types to ?object.
-#
-# The limit here is the host's, and covers the analyse run only — the warmup
-# above it is a separate process inside the container, which gets its headroom
-# from docker/dev/php-fpm/memory.ini.
+# phpstan-symfony resolves getContainer()->get() through the dumped dev
+# container, so a stale var/cache/dev aborts or degrades types to ?object. The
+# limit below is the host's and covers the analyse run only — the warmup is a
+# separate process in the container, which gets its headroom from
+# docker/dev/php-fpm/memory.ini.
 phpstan:
     bin/worktrees/compose-exec.sh bin/console cache:warmup
     vendor/bin/phpstan analyse -a worktree-bootstrap.php --memory-limit=1G
@@ -153,14 +144,9 @@ cs-check:
 gamache:
     vendor/bin/gamache
 
-# Scan the whole git history for committed secrets with two independent tools.
-# Deliberately not part of `ci`: it needs host tooling and outbound network
-# access. Run it before publishing, and after any history rewrite.
-#
-# gitleaks matches patterns and honours .gitleaksignore, which documents the
-# dev/test values that are committed on purpose. trufflehog goes further and
-# *verifies* candidates against the relevant provider APIs, failing only on
-# credentials that actually authenticate — so it does make outbound calls.
+# Not part of `ci`: needs host tooling and outbound network. gitleaks matches
+# patterns and honours .gitleaksignore; trufflehog verifies candidates against
+# provider APIs, so it really does call out. Run before publishing.
 # Scan the whole git history for committed secrets (gitleaks + trufflehog).
 secrets-scan:
     @command -v gitleaks >/dev/null 2>&1 || { echo "gitleaks not installed — run: brew install gitleaks"; exit 1; }
@@ -176,15 +162,9 @@ migrate-diff: (exec "bin/console doctrine:migrations:diff")
 
 migrate-run: (exec "bin/console doctrine:migrations:migrate")
 
-# Needed for site-review push: the widget's live review loop, the bridge CLI,
-# and dogfooding a review on this app's own pages. Nothing else uses it, and
-# the full e2e suite passes without it.
-#
-# Leaving it stopped does not lose events. A submission is written to the
-# outbox before the publish is attempted, both publish paths swallow and log a
-# hub failure, and the scheduled drain replays whatever never landed once a hub
-# is back — `just exec bin/console app:drain-site-review-outbox` forces a pass.
-# If you are unsure whether a hub is running, /admin/status probes it.
+# Needed only for site-review push; the e2e suite passes without it. Leaving it
+# stopped loses nothing: submissions reach the outbox first and the scheduled
+# drain replays them once a hub is back.
 # Start the opt-in Mercure hub.
 mercure-up:
     docker compose --profile mercure up -d mercure
@@ -195,31 +175,9 @@ mercure-down:
     docker compose --profile mercure stop mercure
     docker compose --profile mercure rm -f mercure
 
-# Off by default (a compose profile), because the development path is
-# EXPORT_STORAGE=local and nothing routine needs a bucket.
-#
-# To point the app at it, set these in .env.local, then restart BOTH php-fpm
-# and worker:
-#
-#     EXPORT_STORAGE=s3
-#     EXPORT_STORAGE_BUCKET=loupe-exports
-#     EXPORT_STORAGE_ENDPOINT=http://garage:3900
-#     EXPORT_STORAGE_REGION=garage
-#     EXPORT_STORAGE_KEY=GK31c2f218a2e44f485b94239e
-#     EXPORT_STORAGE_SECRET=b8c2f4d1e6a390f75c8b1d24e73a5f9016cbe482d5a7139fc0e6b84a2d517f3b
-#     EXPORT_STORAGE_USE_PATH_STYLE=true
-#
-# The worker is not optional here. It is the process that *builds* the archive,
-# so a worker left on the old adapter writes the export to local disk while the
-# restarted web container looks for it in the bucket — and the emailed link
-# 404s, which reads as a broken download rather than a stale process.
-#
-# EXPORT_STORAGE_REGION must be `garage`, matching s3_region in garage.toml:
-# AsyncAws signs with the region it is given and Garage rejects a signature
-# computed for another one, with an error that names neither.
-#
-# Path-style is required. Virtual-host style would resolve
-# <bucket>.s3.garage.localhost, which nothing here serves.
+# Off by default; development runs EXPORT_STORAGE=local. Set the
+# EXPORT_STORAGE_* vars in .env.local and restart BOTH php-fpm and worker — the
+# worker builds the archive. REGION must be `garage` and path-style is required.
 # Start the opt-in Garage node, and create its bucket and access key.
 garage-up bucket="loupe-exports":
     #!/usr/bin/env bash
@@ -286,12 +244,9 @@ garage-reset:
         echo "garage: no volumes to remove" >&2
     fi
 
-# Provision the dedicated e2e target: a disposable database plus an nginx
-# sidecar serving THIS checkout at e2e.<project>.dev.localhost. Idempotent.
-#
-# The suite is destructive by design (install-reset truncates every table), so
-# it must never point at the dev database. This gives it one it may destroy,
-# without needing a git worktree per branch.
+# Provision the dedicated e2e target: a disposable database plus an nginx sidecar
+# serving THIS checkout. Idempotent. The suite truncates every table, so it must
+# never point at the dev database.
 e2e-up:
     #!/usr/bin/env bash
     set -euo pipefail
@@ -327,26 +282,10 @@ e2e-up:
     echo "e2e target ready at https://${host} (database ${db})"
     echo "Run 'just e2e-worker' in another shell before specs that need mail or exports."
 
-# Messenger worker for the e2e target. Needed by any spec that asserts on mail
-# or on a generated download link. Runs until interrupted — Ctrl-C to stop.
-#
-# The environment here is not optional decoration. A worker is a CLI process,
-# so it never sees the fastcgi_params that redirect web requests at the e2e
-# database — it would consume the DEV queue and, worse, build absolute URLs
-# from the dev host, so an emailed export link would point at the wrong app and
-# serve HTML instead of a zip. Both variables have to be passed.
-#
-# Two things about the limits, both of which used to bite:
-#
-# --memory-limit must sit BELOW PHP's own (128M in this container) or it can
-# never fire: the process reaches PHP's fatal first and dies inside a message
-# rather than stopping cleanly between two. 256M here meant the recycle was
-# decorative.
-#
-# The recycle then has to be restarted, or the first one silently ends the
-# worker for the rest of the session. A consumer that exits cleanly on a limit
-# is relaunched by the loop below, so `just e2e`'s preflight keeps finding one.
-# A non-zero exit is a real failure and stops the loop.
+# A worker is a CLI process, so it never sees the fastcgi_params pointing web
+# requests at the e2e database — without both variables it consumes the DEV
+# queue. --memory-limit must sit BELOW PHP's own (128M here) or it never fires.
+# Messenger worker for the e2e target. Runs until interrupted.
 e2e-worker *args:
     #!/usr/bin/env bash
     set -euo pipefail
@@ -365,19 +304,11 @@ e2e-worker *args:
             echo "e2e-worker: consumer exited non-zero — stopping rather than looping on a failure." >&2
             exit 1
         fi
-        # A clean exit is ambiguous: it is either a limit recycle, which should
-        # relaunch, or `e2e-down` stopping the worker before it drops the
-        # database, which must not. Messenger stops gracefully on SIGTERM when
-        # pcntl is loaded, so the exit code cannot separate them.
-        #
-        # The marker can, and unlike inspecting the database it does not race:
-        # `e2e-down` writes it BEFORE signalling, so any iteration that observes
-        # a clean exit caused by teardown necessarily observes the marker too.
-        # Deliberately not removed here. Several workers may be looping, and
-        # e2e-down signals all of them; if the first to notice cleared it, the
-        # rest would read a recycle and relaunch into the dropped database. The
-        # marker is cleared at `e2e-worker` startup instead, which is the point
-        # where exactly one reader wants it gone.
+        # A clean exit is either a limit recycle (relaunch) or `e2e-down`
+        # stopping us before it drops the database (do not), and the exit code
+        # cannot separate them. The marker can: e2e-down writes it BEFORE
+        # signalling, so it cannot race. Not cleared here — several workers may
+        # be looping, and the first to clear it would strand the rest.
         if [ -f "$stop_marker" ]; then
             echo "e2e-worker: teardown requested — stopping." >&2
             exit 0
@@ -391,15 +322,10 @@ e2e-down:
     set -euo pipefail
     main=$(git worktree list --porcelain | awk '/^worktree /{print $2; exit}')
     project=$(grep -E '^COMPOSE_PROJECT_NAME=' "$main/.env" | head -1 | cut -d= -f2-)
-    # These are not optional, and getting it wrong is not a no-op. `down`
-    # interpolates compose.e2e.yaml exactly as `up` does; with the variables
-    # unset, compose does NOT fail safely — observed behaviour is that it
-    # removes the MAIN stack's containers (loupe-database-1, loupe-mailer-1, …)
-    # and tries to delete the loupe_default network, despite the -p flag naming
-    # a different project. Same family as "never run bare docker compose from a
-    # worktree": a compose invocation whose file cannot be resolved does not
-    # stay in its lane. Assert before invoking, so a future edit that drops one
-    # of them stops here instead of taking the dev stack down.
+    # Not optional: with these unset, `down` does NOT fail safely — it was
+    # observed removing the MAIN stack's containers and deleting loupe_default,
+    # despite -p naming another project. Assert before invoking, so a future
+    # edit that drops one stops here instead of taking the dev stack down.
     for required in main project; do
         if [ -z "${!required:-}" ]; then
             echo "e2e-down: refusing to run — \$$required is empty." >&2
@@ -412,22 +338,11 @@ e2e-down:
     E2E_APP_NETWORK="${project}_default" \
         docker compose -f "$main/compose.e2e.yaml" -p "${project}-e2e" down >/dev/null
 
-    # Stop the e2e worker before dropping its database. Left running it keeps
-    # retrying against a database that has gone, and — because it survives for
-    # up to its --time-limit — it is still there when the next `e2e-up`
-    # recreates app_e2e, so two workers consume the same queue and the mail
-    # specs start failing on timing. This is the same trap as a worktree
-    # teardown blocked by its own consumer.
-    #
-    # Matched by environment, not command line: the main stack's worker runs a
-    # byte-identical `messenger:consume scheduler_default async`, so a pkill on
-    # the command would kill the dev worker too. WORKTREE_DB_SUFFIX=_e2e is
-    # what actually distinguishes them.
-    #
-    # The marker goes down BEFORE the signal, and the ordering is the point: a
-    # graceful stop looks exactly like a limit recycle to `e2e-worker`, so if it
-    # could observe the clean exit before the marker existed it would relaunch
-    # into a database this recipe is about to drop.
+    # Stop the worker first, or it survives to its --time-limit and the next
+    # `e2e-up` gets two consumers on one queue. Matched by environment, not
+    # command line — the main worker's command is byte-identical. The marker
+    # goes down BEFORE the signal, or e2e-worker reads the clean exit as a
+    # recycle and relaunches into a dropped database.
     : > "$main/var/e2e-worker.stop"
     docker compose exec -T php-fpm sh -c '
         for proc in /proc/[0-9]*; do
@@ -460,25 +375,11 @@ e2e *args:
         echo "e2e: $E2E_BASE_URL is not reachable — run 'just e2e-up' first." >&2
         exit 1
     fi
-    # The suite's authenticated fixture registers a user and verifies it through
-    # the emailed link, so with nothing consuming `async` the failures are not
-    # confined to mail-shaped specs: login, signup, delete-account,
-    # forgot-password, the wizard, admin smoke and paywall all go down together,
-    # while the app returns 200 and `just ci` is green. Refusing up front costs
-    # a second; discovering it from the failures costs ten minutes and usually
-    # an investigation into the branch, which is not where the fault is.
-    #
-    # Matching the command line alone is not enough. `just worker` runs a
-    # consumer inside this same container against the DEV database, and it
-    # would satisfy a bare `messenger:consume` match while the e2e queue keeps
-    # filling up — a green preflight followed by exactly the failures it exists
-    # to prevent. The environment is what distinguishes them, so read it.
-    #
-    # Only the dedicated target can be checked from here. An E2E_BASE_URL
-    # pointing at a worktree is served by that worktree's own containers, whose
-    # consumer carries its own database suffix and is not visible in this
-    # container at all — so the check is skipped rather than failed, and the
-    # reminder is printed instead.
+    # With nothing consuming `async`, login, signup, the wizard and paywall all
+    # fail while the app returns 200 and `just ci` is green. Matching the command
+    # line is not enough — `just worker` is byte-identical against the DEV
+    # database — so read the environment. A worktree's consumer is invisible
+    # from here, so that case is skipped rather than failed.
     if [ "$E2E_BASE_URL" = "$dedicated_url" ]; then
         if ! docker compose exec -T php-fpm sh -c '
             for p in /proc/[0-9]*; do
