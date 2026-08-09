@@ -144,7 +144,16 @@ cs-check:
 gamache:
     vendor/bin/gamache
 
-# Not part of `ci`: needs host tooling and outbound network. gitleaks matches
+# Security advisories against the locked dependency set. In `ci` because two
+# published advisories have gone unnoticed here, each found only by someone
+# running this by hand days later. Reaches packagist's advisory API and works
+# unauthenticated, unlike `composer update`, which needs a GitHub token for the
+# VCS repositories and is what the anonymous rate limit actually bites.
+audit:
+    bin/worktrees/compose-exec.sh composer audit
+
+# Not part of `ci`, unlike `audit` above: needs host tooling as well as outbound
+# network, and scans all of history rather than the current tree. gitleaks matches
 # patterns and honours .gitleaksignore; trufflehog verifies candidates against
 # provider APIs, so it really does call out. Run before publishing.
 # Scan the whole git history for committed secrets (gitleaks + trufflehog).
@@ -158,8 +167,8 @@ secrets-scan:
     trufflehog git file://. --results=verified --fail --exclude-detectors=lob
 
 # lint already covers parallel-lint, prettier --check and eslint (incl. e2e).
-# Check-only gate: lint, style dry-run, phpstan, arkitect, gamache, PHPUnit.
-ci: lint cs-check phpstan arkitect gamache phpunit
+# Check-only gate: lint, style dry-run, phpstan, arkitect, gamache, advisories, PHPUnit.
+ci: lint cs-check phpstan arkitect gamache audit phpunit
 
 migrate-diff: (exec "bin/console doctrine:migrations:diff")
 
