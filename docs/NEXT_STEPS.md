@@ -2745,6 +2745,35 @@ non-zero" teaches a reader to ignore the one time it means something, and
 `just e2e` already depends on people trusting worker diagnostics — a missing
 consumer is documented as the cause of a ~19-spec failure block.
 
+## No CI pipeline runs the gate — deferred to the open-source flip
+
+**Author:** Geoffrey · **Type:** tooling · **Priority:** medium · **Status:** pending
+
+Owner decision (2026-08-09): a CI pipeline is added when the repository is made
+public, not before. Recorded so the gap is a choice rather than an oversight.
+
+There is no `.github/workflows` — `DEPLOY.md` states it outright — so every gate
+runs only when a human runs it locally: `just ci`, `just e2e`, `just secrets-scan`
+and `just audit`. Nothing observes a branch, and nothing observes the calendar.
+
+What that leaves open, specifically. `composer audit` joined `just ci` (PR #168),
+which closes "nobody ever ran it" but not "an advisory was published while nobody
+opened a pull request". Both advisories this project has been bitten by went
+unnoticed for days and were found by hand for unrelated reasons: `guzzlehttp/guzzle`
+7.15.1 and `league/commonmark` 2.8.3, the latter carrying an XSS bypass. A
+scheduled advisory run is the one gate that genuinely cannot be replaced by a
+local pre-PR step, because its trigger is time rather than a change.
+
+Worth settling when this is picked up: whether the pipeline mirrors the pre-PR
+gate or only a subset, since `just e2e` is a serial ~5 minutes that cannot be
+parallelised (Mailpit is shared, so `playwright.config.ts` pins `workers: 1`);
+whether the Codex review leg has any hosted equivalent; and what a runner needs
+that a workstation has today (Docker, Postgres, a GitHub token for the `ubermuda/*`
+VCS repositories — `composer update` is rate-limited anonymously, though
+`composer audit` is not).
+
+Same trigger as the tracker removal: the visibility flip, not "at some point".
+
 ## Decide how CommentBudgetCheck should treat `.env`
 
 **Author:** Geoffrey · **Type:** docs · **Priority:** low · **Status:** pending
