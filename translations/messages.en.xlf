@@ -24,7 +24,7 @@
             </trans-unit>
             <trans-unit id="error.403.body">
                 <source>error.403.body</source>
-                <target>You are signed in, but this account cannot reach this page. If you expected to, ask whoever owns it to share it with you.</target>
+                <target>This belongs to another account. Everything in Loupe has exactly one owner and cannot be shared, so check which account you are signed in as.</target>
             </trans-unit>
             <trans-unit id="error.404.title">
                 <source>error.404.title</source>
