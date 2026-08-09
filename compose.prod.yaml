@@ -1,8 +1,9 @@
 # Reference production topology: a single-host Docker Compose deployment of
-# Loupe. It is a complete, runnable stack — web, messenger worker, Postgres and
-# the Mercure hub — not an illustration. `compose.yaml` next to it is the
-# development stack and shares nothing with this file: it bind-mounts the source
-# tree, builds a development PHP image and expects an external Traefik network.
+# Loupe. It is a complete, runnable stack — web, messenger worker and Postgres,
+# plus an opt-in Mercure hub behind `--profile mercure` — not an illustration.
+# `compose.yaml` next to it is the development stack and shares nothing with this
+# file: it bind-mounts the source tree, builds a development PHP image and
+# expects an external Traefik network.
 #
 # What this file deliberately does NOT include:
 #
@@ -33,6 +34,13 @@
 # forget, rather than silently starting a misconfigured instance.
 
 name: ${COMPOSE_PROJECT_NAME:-loupe}
+
+# Carried by both services so the stack builds from a clone with no registry
+# access: GHCR package visibility is set separately from repository visibility,
+# so a public repo does not imply a pullable image.
+x-app-build: &app-build
+  context: .
+  dockerfile: docker/prod/Dockerfile
 
 # The web container and the worker container run the same image with the same
 # configuration and differ only in what they execute, so their environment is
@@ -73,12 +81,13 @@ x-app-environment: &app-environment
   INSTALL_TOKEN: "${INSTALL_TOKEN:?set it in compose.prod.env — without it you cannot install}"
   ADMIN_EMAIL: "${ADMIN_EMAIL:-}"
 
-  # The hub is a service in this stack, so the app reaches it over the compose
-  # network. Its public URL is a separate hostname your reverse proxy routes to
-  # the mercure service — the bridge CLI subscribes there, not through the app.
+  # Empty keeps push off: the feature flag keys off MERCURE_JWT_SECRET being set.
+  # Fill both in and add `--profile mercure` to turn it on. The public URL is a
+  # separate hostname your proxy routes to the hub — the bridge CLI subscribes
+  # there directly, not through the app.
   MERCURE_URL: http://mercure/.well-known/mercure
-  MERCURE_PUBLIC_URL: "${MERCURE_PUBLIC_URL:?set it in compose.prod.env to the hub's public URL}"
-  MERCURE_JWT_SECRET: "${MERCURE_JWT_SECRET:?set it in compose.prod.env — at least 32 characters}"
+  MERCURE_PUBLIC_URL: "${MERCURE_PUBLIC_URL:-}"
+  MERCURE_JWT_SECRET: "${MERCURE_JWT_SECRET:-}"
 
   # `local` is correct here, unlike on the App Platform deployment: web and
   # worker mount the same `exports` volume below, so the archive the worker
@@ -109,6 +118,7 @@ services:
   # here any more: it rides the worker's schedule below.
   web:
     image: ${LOUPE_PROD_IMAGE:-ghcr.io/ubermuda/loupe:prod}
+    build: *app-build
     restart: unless-stopped
     ports:
       # Loopback-only: a reverse proxy terminates TLS and forwards here. Set
@@ -128,6 +138,7 @@ services:
   # archives 0600, so a root-written one 404s for every download.
   worker:
     image: ${LOUPE_PROD_IMAGE:-ghcr.io/ubermuda/loupe:prod}
+    build: *app-build
     restart: unless-stopped
     command:
       - su-exec
@@ -167,6 +178,11 @@ services:
   mercure:
     image: dunglas/mercure:v0.24
     restart: unless-stopped
+    # Opt-in, so the default stack is three services. Start it with
+    # `--profile mercure`, having set MERCURE_JWT_SECRET and MERCURE_PUBLIC_URL;
+    # the hub refuses to boot on an empty key, which is the loud failure you
+    # want if the profile is enabled without them.
+    profiles: ["mercure"]
     ports:
       # Route MERCURE_PUBLIC_URL's hostname here from your reverse proxy.
       - "${LOUPE_MERCURE_BIND:-127.0.0.1:8081}:80"
@@ -176,8 +192,8 @@ services:
       SERVER_NAME: ":80"
       # Both keys are the app's MERCURE_JWT_SECRET: it signs the publisher token
       # it sends and the subscriber tokens it mints for the bridge.
-      MERCURE_PUBLISHER_JWT_KEY: "${MERCURE_JWT_SECRET:?set it in compose.prod.env — at least 32 characters}"
-      MERCURE_SUBSCRIBER_JWT_KEY: "${MERCURE_JWT_SECRET:?set it in compose.prod.env — at least 32 characters}"
+      MERCURE_PUBLISHER_JWT_KEY: "${MERCURE_JWT_SECRET:-}"
+      MERCURE_SUBSCRIBER_JWT_KEY: "${MERCURE_JWT_SECRET:-}"
 
 volumes:
   database_data:

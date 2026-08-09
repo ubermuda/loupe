@@ -3,8 +3,7 @@
 All notable changes to this project are documented in this file.
 
 The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
-The skeleton is an unversioned template, so there are no release tags — all
-entries live under **Unreleased**.
+Loupe carries no release tags yet, so all entries live under **Unreleased**.
 
 Entries are listed **newest first** and each is anchored to the commit SHA(s)
 that introduced it, so the list mirrors `git log` order. To see what changed

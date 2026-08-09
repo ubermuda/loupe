@@ -33,7 +33,11 @@ RUN apk add --no-cache postgresql-libs libzip libxslt icu-libs icu-data-full bas
  && docker-php-ext-install bcmath pdo_pgsql zip intl xsl \
  && apk del .build-deps
 
-RUN curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/local/bin --filename=composer
+# Pinned and copied rather than curl-piped from getcomposer.org: the installer
+# was unversioned and its checksum unverified, so two builds a week apart shipped
+# different Composer versions under a Dockerfile that advertises reproducibility.
+# Composer stays in the final image because entrypoint.sh runs `dump-env prod`.
+COPY --from=composer:2.8 /usr/bin/composer /usr/local/bin/composer
 
 ENV APP_ENV=prod
 
