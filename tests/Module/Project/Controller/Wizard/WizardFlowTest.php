@@ -127,7 +127,7 @@ final class WizardFlowTest extends WebTestCase
         self::assertStringContainsString('This project already has a site-review token.', $crawler->text());
     }
 
-    public function test_done_renders_the_final_step_with_skip_and_finish(): void
+    public function test_done_renders_the_final_step_with_finish_only(): void
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
@@ -140,7 +140,7 @@ final class WizardFlowTest extends WebTestCase
 
         self::assertResponseIsSuccessful();
         self::assertSelectorExists('ol[data-wizard-step="4"]');
-        self::assertSelectorExists('form[action$="/welcome/skip"]');
+        self::assertSelectorNotExists('form[action$="/welcome/skip"]');
         self::assertSelectorExists('form[action$="/welcome/done/finish"]');
     }
 

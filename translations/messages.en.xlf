@@ -13,6 +13,32 @@
                 <target>Source code</target>
             </trans-unit>
 
+            <!-- About page -->
+            <trans-unit id="about.page.title">
+                <source>about.page.title</source>
+                <target>About</target>
+            </trans-unit>
+            <trans-unit id="about.identity.heading">
+                <source>about.identity.heading</source>
+                <target>This instance</target>
+            </trans-unit>
+            <trans-unit id="about.identity.body">
+                <source>about.identity.body</source>
+                <target>Loupe collects review comments on documents and live pages, and hands them to the coding agent that acts on them.</target>
+            </trans-unit>
+            <trans-unit id="about.identity.version">
+                <source>about.identity.version</source>
+                <target>Running version %version%.</target>
+            </trans-unit>
+            <trans-unit id="about.licence.heading">
+                <source>about.licence.heading</source>
+                <target>Licence</target>
+            </trans-unit>
+            <trans-unit id="about.licence.body">
+                <source>about.licence.body</source>
+                <target>Loupe is free software under the GNU Affero General Public License, version 3 or later. Because you are using it over a network, you are entitled to the source code this instance actually runs.</target>
+            </trans-unit>
+
             <!-- Home page -->
             <trans-unit id="account.home.page.title">
                 <source>account.home.page.title</source>

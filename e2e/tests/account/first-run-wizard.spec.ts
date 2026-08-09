@@ -52,7 +52,7 @@ test.describe('first-run wizard', () => {
         await expect(page.locator('ol[data-wizard-step="4"]')).toBeVisible();
         await expect(
             page.getByRole('button', { name: 'Skip setup' }),
-        ).toBeVisible();
+        ).toHaveCount(0);
         await page.getByRole('button', { name: 'Go to dashboard' }).click();
 
         await expect(page).toHaveURL(/\/projects\/[0-9a-f-]+\/documents$/);

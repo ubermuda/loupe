@@ -678,6 +678,21 @@
         @apply bg-line;
     }
 
+    /* Final wizard screen. Setup is over, so it reads as an outcome rather
+       than a fifth form: centred under a finished ribbon, one way onward. */
+    .lp-wizard-done {
+        @apply flex flex-col items-center text-center gap-3 rounded-xl bg-surface-2 py-16 px-8;
+    }
+    .lp-wizard-done__check {
+        @apply inline-flex items-center justify-center shrink-0 w-12 h-12 rounded-full bg-accent-soft text-accent-hover;
+    }
+    .lp-wizard-done__title {
+        @apply font-display font-extrabold text-3xl tracking-tight text-ink m-0;
+    }
+    .lp-wizard-done__body {
+        @apply max-w-md text-base text-fg-mute m-0 leading-relaxed;
+    }
+
     /* ── Document list ──────────────────────────────────────────────── */
 
     /* Flush hairline divider list — no card wrapper: a top hairline, and each
@@ -1964,6 +1979,11 @@
     .lp-switcher__all:hover {
         @apply bg-chrome-control;
     }
+    /* Boxed to the same 6×6 as .lp-switcher__item-avatar so the label column
+       lines up with the project rows above it. */
+    .lp-switcher__all-glyph {
+        @apply inline-flex items-center justify-center shrink-0 w-6 h-6 rounded-lg border border-dashed border-chrome-control;
+    }
     .lp-switcher__all svg {
         @apply w-4 h-4 shrink-0;
     }
@@ -2017,12 +2037,14 @@
     .lp-sidebar__spacer {
         @apply mt-auto;
     }
-    /* AGPL source-code offer, sitting just above the account row. Quiet by
-       design — it has to be present on every page, not compete with the nav. */
+    /* Link to the About page, which carries the AGPL source offer. Sits just
+       above the account row and stays quiet — it is on every page and must not
+       compete with the nav. */
     .lp-sidebar__source {
         @apply flex items-center gap-2.5 px-2 py-1.5 text-xs text-chrome-dim no-underline transition-colors;
     }
-    .lp-sidebar__source:hover {
+    .lp-sidebar__source:hover,
+    .lp-sidebar__source--active {
         @apply text-chrome-fg;
     }
     .lp-sidebar__account {

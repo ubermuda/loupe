@@ -54,7 +54,7 @@
                         </a>
                         {% endfor %}
                         <a href="{{ path('app_projects') }}" class="lp-switcher__all">
-                            <twig:ux:icon name="lucide:plus" />
+                            <span class="lp-switcher__all-glyph"><twig:ux:icon name="lucide:plus" /></span>
                             {{ 'nav.switcher.all_projects'|trans }}
                         </a>
                     </div>
@@ -120,7 +120,10 @@
                     </a>
                     {% endif %}
                 </nav>
-                {% include '_source_link.html.twig' with {class: 'lp-sidebar__source'} only %}
+                <a href="{{ path('app_about') }}" class="lp-sidebar__source{% if route == 'app_about' %} lp-sidebar__source--active{% endif %}">
+                    <twig:ux:icon name="lucide:info" class="w-3.5 h-3.5 shrink-0" />
+                    <span>{{ 'about.page.title'|trans }}</span>
+                </a>
                 <div class="lp-sidebar__account">
                     <span class="lp-sidebar__account-avatar">{{ app.user.userIdentifier|slice(0, 1)|upper }}</span>
                     <span class="lp-sidebar__account-text">

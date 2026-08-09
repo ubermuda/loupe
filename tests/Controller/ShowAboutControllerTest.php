@@ -1,0 +1,40 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Tests\Controller;
+
+use App\Module\Account\Entity\User;
+use Doctrine\ORM\EntityManagerInterface;
+use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
+use Symfony\Component\HttpFoundation\Request;
+
+final class ShowAboutControllerTest extends WebTestCase
+{
+    public function test_anonymous_visitor_reaches_the_source_offer(): void
+    {
+        $client = static::createClient();
+        $crawler = $client->request(Request::METHOD_GET, '/about');
+
+        self::assertResponseIsSuccessful();
+        self::assertSelectorExists('a[href="https://github.com/ubermuda/loupe"]');
+        self::assertStringNotContainsString('Running version', $crawler->text());
+    }
+
+    public function test_signed_in_visitor_also_sees_the_build_version(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $user = new User('Aboutviewer', 'about-viewer@example.com');
+        $user->password = 'hashed-password-placeholder';
+        $user->emailVerifiedAt = new \DateTimeImmutable();
+        $em->persist($user);
+        $em->flush();
+
+        $client->loginUser($user);
+        $crawler = $client->request(Request::METHOD_GET, '/about');
+
+        self::assertResponseIsSuccessful();
+        self::assertStringContainsString('Running version', $crawler->text());
+    }
+}

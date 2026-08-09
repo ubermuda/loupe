@@ -1,0 +1,29 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}{{ 'about.page.title'|trans }} — {{ 'app.name'|trans }}{% endblock %}
+
+{% block topbar_crumbs %}
+    <span class="lp-topbar__here">{{ 'about.page.title'|trans }}</span>
+{% endblock %}
+
+{% block body %}
+<div class="lp-workspace">
+    <h1 class="lp-workspace-title mb-5">{{ 'about.page.title'|trans }}</h1>
+
+    <div class="max-w-170 flex flex-col gap-5">
+        <section class="lp-connect-block">
+            <p class="lp-eyebrow">{{ 'about.identity.heading'|trans }}</p>
+            <p class="lp-connect-hint">{{ 'about.identity.body'|trans }}</p>
+            {% if app.user %}
+            <p class="lp-connect-hint">{{ 'about.identity.version'|trans({'%version%': version}) }}</p>
+            {% endif %}
+        </section>
+
+        <section class="lp-connect-block">
+            <p class="lp-eyebrow">{{ 'about.licence.heading'|trans }}</p>
+            <p class="lp-connect-hint">{{ 'about.licence.body'|trans }}</p>
+            {% include '_source_link.html.twig' with {class: 'lp-btn lp-btn--ghost self-start'} only %}
+        </section>
+    </div>
+</div>
+{% endblock %}

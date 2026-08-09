@@ -70,6 +70,9 @@ security:
         # Liveness probe for load balancers, which cannot authenticate. It
         # returns a fixed ok/error body and nothing else — see ShowHealthController.
         - { path: ^/healthz$,        roles: PUBLIC_ACCESS }
+        # Carries the AGPL source offer, which a network user must be able to
+        # reach without an account.
+        - { path: ^/about$,          roles: PUBLIC_ACCESS }
         - { path: ^/oauth,           roles: PUBLIC_ACCESS }
         - { path: ^/login,           roles: PUBLIC_ACCESS }
         - { path: ^/register,        roles: PUBLIC_ACCESS }

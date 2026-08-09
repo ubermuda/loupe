@@ -4,19 +4,15 @@
 
 {% block body %}
 <div class="lp-workspace">
-    {% include '@Project/wizard/_wizard_progress.html.twig' with {step: 4} only %}
+    {% include '@Project/wizard/_wizard_progress.html.twig' with {step: 4, complete: true} only %}
 
-    <h1 class="lp-workspace-title">{{ 'project.wizard.done.heading'|trans }}</h1>
-    <p class="lp-workspace-desc">
-        {{ 'project.wizard.done.widget_hint'|trans }}
-        <a href="{{ path('app_project_connect', {id: wizardProject.id}) }}" class="text-accent hover:underline">{{ wizardProject.name }}</a>
-    </p>
-
-    <div class="flex items-center justify-end gap-3 pt-2">
-        <form method="POST" action="{{ path('app_welcome_skip') }}" class="mr-auto">
-            <input type="hidden" name="_csrf_token" value="{{ csrf_token('wizard-skip') }}">
-            <button type="submit" class="lp-btn lp-btn--ghost">{{ 'project.wizard.skip'|trans }}</button>
-        </form>
+    <div class="lp-wizard-done">
+        <span class="lp-wizard-done__check"><twig:ux:icon name="lucide:check" class="w-6 h-6" /></span>
+        <h1 class="lp-wizard-done__title">{{ 'project.wizard.done.heading'|trans }}</h1>
+        <p class="lp-wizard-done__body">
+            {{ 'project.wizard.done.widget_hint'|trans }}
+            <a href="{{ path('app_project_connect', {id: wizardProject.id}) }}" class="text-accent hover:underline">{{ wizardProject.name }}</a>
+        </p>
         <form method="POST" action="{{ path('app_welcome_finish') }}">
             <input type="hidden" name="_csrf_token" value="{{ csrf_token('wizard-finish') }}">
             <button type="submit" class="lp-btn lp-btn--primary">{{ 'project.wizard.done.finish'|trans }}</button>
