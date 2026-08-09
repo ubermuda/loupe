@@ -166,7 +166,10 @@ secrets-scan:
     @command -v gitleaks >/dev/null 2>&1 || { echo "gitleaks not installed — run: brew install gitleaks"; exit 1; }
     @command -v trufflehog >/dev/null 2>&1 || { echo "trufflehog not installed — run: brew install trufflehog"; exit 1; }
     gitleaks detect --source . --log-opts="--all" --no-banner
-    trufflehog git file://. --results=verified --fail
+    # Lob is excluded because its key format is a `test_`-prefixed string, which
+    # every PHP test method name in this project matches — 43 "verified" hits,
+    # all of them method names. Nothing here talks to Lob.
+    trufflehog git file://. --results=verified --fail --exclude-detectors=lob
 
 # lint already covers parallel-lint, prettier --check and eslint (incl. e2e).
 # Check-only gate: lint, style dry-run, phpstan, arkitect, gamache, PHPUnit.
@@ -551,9 +554,11 @@ cli-build goos="darwin" goarch="arm64":
 # --- Production deploy (DigitalOcean App Platform) ---
 # Infra lives in terraform/; App Platform pulls {{prod_image}}.
 
-# Build the linux/amd64 prod image (App Platform runs amd64).
-build-prod:
-    docker buildx build --platform linux/amd64 -t {{prod_image}} -f docker/prod/Dockerfile .
+# Build the prod image. Defaults to linux/amd64 because App Platform runs amd64;
+# pass a platform to build for the host instead, which is what a self-hoster on
+# arm64 running compose.prod.yaml wants: `just build-prod linux/arm64`.
+build-prod platform="linux/amd64":
+    docker buildx build --platform {{platform}} -t {{prod_image}} -f docker/prod/Dockerfile .
 
 # Build and push the image without deploying — the first deploy needs this,
 # because the App Platform app does not exist yet to deploy to.
