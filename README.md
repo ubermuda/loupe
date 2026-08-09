@@ -9,7 +9,9 @@ and hand back a review URL, so a long-form plan or spec gets considered human
 feedback instead of scrolling past in a terminal. A companion **site-review**
 widget brings the same select-and-comment flow to live web pages.
 
-Built with Symfony, Tailwind CSS + DaisyUI, and Symfony UX (Stimulus + Turbo).
+Built with Symfony, Tailwind CSS and Symfony UX (Stimulus + Turbo). There is no
+component library: the visual system is hand-rolled from design tokens and
+semantic component classes in `assets/styles/app.css`.
 
 ## Features
 
@@ -33,15 +35,22 @@ Built with Symfony, Tailwind CSS + DaisyUI, and Symfony UX (Stimulus + Turbo).
 ## Quickstart (local development)
 
 ```bash
-just up                # start nginx, php-fpm, postgres, mercure
+just up                # start nginx, php-fpm, postgres
 just composer install  # runs inside the php-fpm container
 just migrate-run       # set up the database
+just exec bin/console app:dev:seed   # log in as dev@loupe.test / password
 ```
 
-`just --list` shows every recipe.
+`just --list` shows every recipe. `just mercure-up` additionally starts the
+Mercure hub, which only site-review push needs.
 
 The app runs at `https://loupe.dev.localhost` — but only once a reverse proxy is
 in place; see below.
+
+Registration refuses the first account until the instance is installed, so the
+seed command above is what gives you something to log in with. To go through the
+real first-run instead, visit `/install`: the wizard is open outside production
+while `INSTALL_TOKEN` is empty, and it creates the first administrator.
 
 ### Reverse proxy (Traefik)
 
@@ -155,6 +164,8 @@ See [CONTRIBUTING.md](CONTRIBUTING.md). Please report security issues privately 
 see [SECURITY.md](SECURITY.md).
 
 ## License
+
+Copyright (C) 2026 Geoffrey Bachelet.
 
 Licensed under the [GNU Affero General Public License v3.0 or later](LICENSE)
 (AGPL-3.0-or-later). If you run a modified version of Loupe as a network service,

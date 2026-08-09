@@ -29,10 +29,15 @@ when@prod:
                 - 'strict-origin-when-cross-origin'
 
         # Content-Security-Policy is sent in REPORT-ONLY mode for now (the `report`
-        # key, not `enforce`): it blocks nothing, it only surfaces violations so the
-        # allow-list can be validated against real traffic. Switching to enforcing
-        # requires per-request nonces on the inline scripts (importmap, theme styles)
-        # first — use Nelmio's `csp_nonce()` Twig helper when making that move.
+        # key, not `enforce`), so it blocks nothing.
+        #
+        # Nothing collects the violations either: no `report-uri`/`report-to` is set
+        # and the bundle ships no route for its reporting controller, so reports
+        # reach only the visitor's browser console. Collecting them would mean a
+        # public unauthenticated POST endpoint — firewall access, paywall exemption,
+        # CSRF exemption and a rate limit — which is a deliberate decision, not a
+        # config line. Until it is taken, do not read this policy as validated
+        # against real traffic: it has never been measured against any.
         csp:
             # CSP only makes sense on HTML documents; skip assets, JSON, downloads.
             content_types: ['text/html']
@@ -44,10 +49,10 @@ when@prod:
                 base-uri: ["'self'"]
                 object-src: ["'none'"]
                 frame-ancestors: ["'self'"]
-                script-src: ["'self'", "'unsafe-inline'", 'https://cloud.umami.is']
+                script-src: ["'self'", "'unsafe-inline'"]
                 # Fonts are self-hosted (assets/fonts, SIL OFL) — no external
                 # font or stylesheet origins are needed.
                 style-src: ["'self'", "'unsafe-inline'"]
                 font-src: ["'self'"]
                 img-src: ["'self'", 'data:', 'https:']
-                connect-src: ["'self'", 'https://cloud.umami.is']
+                connect-src: ["'self'"]

@@ -19,11 +19,11 @@ final class DisplayNameDeriverTest extends TestCase
      */
     public static function derivations(): iterable
     {
-        yield 'a dotted local part becomes two words' => ['geoffrey.bachelet@gmail.com', 'Geoffrey Bachelet'];
+        yield 'a dotted local part becomes two words' => ['jane.doe@example.com', 'Jane Doe'];
         yield 'hyphens are kept and capitalized on both sides' => ['jean-luc_picard@x.com', 'Jean-Luc Picard'];
-        yield 'a plus tag is dropped' => ['geoffrey+loupe@gmail.com', 'Geoffrey'];
-        yield 'shouting is normalized' => ['GEOFFREY.BACHELET@x.com', 'Geoffrey Bachelet'];
-        yield 'a single word is capitalized' => ['geoffrey@x.com', 'Geoffrey'];
+        yield 'a plus tag is dropped' => ['jane+loupe@example.com', 'Jane'];
+        yield 'shouting is normalized' => ['JANE.DOE@EXAMPLE.COM', 'Jane Doe'];
+        yield 'a single word is capitalized' => ['jane@example.com', 'Jane'];
         yield 'digits are kept' => ['jsmith2@x.com', 'Jsmith2'];
         yield 'single letters are words too' => ['a.b@x.com', 'A B'];
         yield 'a hyphenated first name survives a dot' => ['mary-jane.watson@x.com', 'Mary-Jane Watson'];
