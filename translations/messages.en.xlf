@@ -13,6 +13,82 @@
                 <target>Source code</target>
             </trans-unit>
 
+            <!-- Error pages -->
+            <trans-unit id="error.home">
+                <source>error.home</source>
+                <target>Back to Loupe</target>
+            </trans-unit>
+            <trans-unit id="error.403.title">
+                <source>error.403.title</source>
+                <target>Not yours to open</target>
+            </trans-unit>
+            <trans-unit id="error.403.body">
+                <source>error.403.body</source>
+                <target>This account does not have access to this page. If you expected it to, check which account you are signed in as.</target>
+            </trans-unit>
+            <trans-unit id="error.404.title">
+                <source>error.404.title</source>
+                <target>Nothing here</target>
+            </trans-unit>
+            <trans-unit id="error.404.body">
+                <source>error.404.body</source>
+                <target>This page does not exist. It may have been deleted, or the link that brought you here may be out of date.</target>
+            </trans-unit>
+            <trans-unit id="error.500.title">
+                <source>error.500.title</source>
+                <target>Something broke</target>
+            </trans-unit>
+            <trans-unit id="error.500.body">
+                <source>error.500.body</source>
+                <target>That one is on us, not on you. The failure has been logged; try again in a moment.</target>
+            </trans-unit>
+            <trans-unit id="error.default.title">
+                <source>error.default.title</source>
+                <target>Something went wrong</target>
+            </trans-unit>
+            <trans-unit id="error.default.body">
+                <source>error.default.body</source>
+                <target>This request could not be completed. Trying again often clears it.</target>
+            </trans-unit>
+
+            <!-- About page -->
+            <trans-unit id="about.page.title">
+                <source>about.page.title</source>
+                <target>About</target>
+            </trans-unit>
+            <trans-unit id="about.lead">
+                <source>about.lead</source>
+                <target>Loupe collects review comments on documents and live pages, and hands them to the coding agent that acts on them.</target>
+            </trans-unit>
+            <trans-unit id="about.version.heading">
+                <source>about.version.heading</source>
+                <target>Version</target>
+            </trans-unit>
+            <trans-unit id="about.version.hint">
+                <source>about.version.hint</source>
+                <target>The build this instance is running. Quote it if you report a problem.</target>
+            </trans-unit>
+            <trans-unit id="about.version.source">
+                <source>about.version.source</source>
+                <target>Built from source</target>
+            </trans-unit>
+            <trans-unit id="about.version.current">
+                <source>about.version.current</source>
+                <target>Up to date</target>
+            </trans-unit>
+            <trans-unit id="about.version.outdated">
+                <source>about.version.outdated</source>
+                <target>%version% is available</target>
+            </trans-unit>
+            <trans-unit id="about.licence.heading">
+                <source>about.licence.heading</source>
+                <target>Licence and source</target>
+            </trans-unit>
+            <trans-unit id="about.licence.body">
+                <source>about.licence.body</source>
+                <target>Loupe is free software under the GNU Affero General Public License, version 3 or later. Because you are using it over a network, you are entitled to the source code this instance actually runs.</target>
+            </trans-unit>
+
             <!-- Home page -->
             <trans-unit id="account.home.page.title">
                 <source>account.home.page.title</source>
@@ -1648,7 +1724,7 @@
             </trans-unit>
             <trans-unit id="project.wizard.progress.step_3">
                 <source>project.wizard.progress.step_3</source>
-                <target>Done</target>
+                <target>Add the widget</target>
             </trans-unit>
             <trans-unit id="project.wizard.skip">
                 <source>project.wizard.skip</source>
@@ -1693,6 +1769,58 @@
             <trans-unit id="project.wizard.connect.token_exists">
                 <source>project.wizard.connect.token_exists</source>
                 <target>This project already has an MCP token.</target>
+            </trans-unit>
+            <trans-unit id="project.wizard.connect.step.token.heading">
+                <source>project.wizard.connect.step.token.heading</source>
+                <target>Get your token</target>
+            </trans-unit>
+            <trans-unit id="project.wizard.connect.step.token.purpose">
+                <source>project.wizard.connect.step.token.purpose</source>
+                <target>A scoped credential your agent sends with every request. It identifies this project, so no project id goes in the config.</target>
+            </trans-unit>
+            <trans-unit id="project.wizard.connect.step.point.heading">
+                <source>project.wizard.connect.step.point.heading</source>
+                <target>Point your agent at it</target>
+            </trans-unit>
+            <trans-unit id="project.wizard.connect.step.point.purpose">
+                <source>project.wizard.connect.step.point.purpose</source>
+                <target>Add the endpoint to your agent&apos;s MCP configuration, or run the one-liner if you use Claude Code.</target>
+            </trans-unit>
+            <trans-unit id="project.wizard.widget.page.title">
+                <source>project.wizard.widget.page.title</source>
+                <target>Add the review widget</target>
+            </trans-unit>
+            <trans-unit id="project.wizard.widget.heading">
+                <source>project.wizard.widget.heading</source>
+                <target>Add the review widget</target>
+            </trans-unit>
+            <trans-unit id="project.wizard.widget.lead">
+                <source>project.wizard.widget.lead</source>
+                <target>Drop one script tag into your site to comment on live pages the way you comment on documents. You can skip this and add it later.</target>
+            </trans-unit>
+            <trans-unit id="project.wizard.widget.mint">
+                <source>project.wizard.widget.mint</source>
+                <target>Generate token</target>
+            </trans-unit>
+            <trans-unit id="project.wizard.widget.token_exists">
+                <source>project.wizard.widget.token_exists</source>
+                <target>This project already has a site-review token.</target>
+            </trans-unit>
+            <trans-unit id="project.wizard.widget.step.token.heading">
+                <source>project.wizard.widget.step.token.heading</source>
+                <target>Get your widget token</target>
+            </trans-unit>
+            <trans-unit id="project.wizard.widget.step.token.purpose">
+                <source>project.wizard.widget.step.token.purpose</source>
+                <target>A separate credential from the agent&apos;s: it only accepts review comments, and it is visible in your page source.</target>
+            </trans-unit>
+            <trans-unit id="project.wizard.widget.step.embed.heading">
+                <source>project.wizard.widget.step.embed.heading</source>
+                <target>Embed it in your site</target>
+            </trans-unit>
+            <trans-unit id="project.wizard.progress.step_4">
+                <source>project.wizard.progress.step_4</source>
+                <target>Done</target>
             </trans-unit>
             <trans-unit id="project.wizard.connect.continue">
                 <source>project.wizard.connect.continue</source>

@@ -632,8 +632,10 @@
     /* ── Step ribbon ────────────────────────────────────────────────────
        Horizontal step progress for the first-run wizard. The caller classifies
        each step; the filled track runs up to and including the current one. */
+    /* mb-8 matches the rhythm .lp-workspace-desc sets below the lead paragraph;
+       the title's own m-0 means the ribbon has to carry this gap itself. */
     .lp-ribbon {
-        @apply flex items-center gap-2.5;
+        @apply flex items-center gap-2.5 mb-8;
     }
     .lp-ribbon__step {
         @apply inline-flex items-center gap-2;
@@ -674,6 +676,21 @@
     }
     .lp-ribbon__bar--upcoming {
         @apply bg-line;
+    }
+
+    /* Final wizard screen. Setup is over, so it reads as an outcome rather
+       than a fifth form: centred under a finished ribbon, one way onward. */
+    .lp-wizard-done {
+        @apply flex flex-col items-center text-center gap-3 rounded-xl bg-surface-2 py-16 px-8;
+    }
+    .lp-wizard-done__check {
+        @apply inline-flex items-center justify-center shrink-0 w-12 h-12 rounded-full bg-accent-soft text-accent-hover;
+    }
+    .lp-wizard-done__title {
+        @apply font-display font-extrabold text-3xl tracking-tight text-ink m-0;
+    }
+    .lp-wizard-done__body {
+        @apply max-w-md text-base text-fg-mute m-0 leading-relaxed;
     }
 
     /* ── Document list ──────────────────────────────────────────────── */
@@ -1007,6 +1024,52 @@
     }
     .lp-flash--info .lp-flash__dot {
         @apply bg-status-ok;
+    }
+
+    /* About page. One card per fact, so the AGPL offer reads as a statement
+       with its own edge rather than a paragraph among others. */
+    .lp-about-cards {
+        @apply flex flex-col gap-4 max-w-170;
+    }
+    .lp-about-card {
+        @apply flex items-start gap-4 rounded-xl bg-surface-2 py-5 px-5.5;
+    }
+    .lp-about-card__glyph {
+        @apply inline-flex items-center justify-center shrink-0 w-9.5 h-9.5 rounded-lg bg-accent-soft text-accent-hover;
+    }
+    .lp-about-card__main {
+        @apply flex flex-col items-start gap-2 min-w-0;
+    }
+    .lp-about-card__title {
+        @apply font-display font-extrabold text-lg text-ink m-0 tracking-tight;
+    }
+    .lp-about-card__text {
+        @apply text-fg-mute m-0 text-sm leading-relaxed;
+    }
+    .lp-about-card__value {
+        @apply font-mono text-base text-ink m-0;
+    }
+    .lp-about-card__note {
+        @apply inline-flex items-center rounded-full bg-tint-strong px-2.5 py-1 text-xs font-bold text-fg-mute m-0;
+    }
+    .lp-about-card__note--outdated {
+        @apply bg-accent-soft text-accent-hover;
+    }
+
+    /* Error pages. Centred in the viewport because they render without the
+       app shell — there is no sidebar to sit beside. */
+    .lp-error {
+        @apply flex flex-col items-center justify-center text-center gap-3 px-8;
+        min-height: 100dvh;
+    }
+    .lp-error__code {
+        @apply font-mono text-sm font-bold text-accent m-0 tracking-widest;
+    }
+    .lp-error__title {
+        @apply font-display font-extrabold text-ink m-0 text-5xl tracking-tight leading-none;
+    }
+    .lp-error__body {
+        @apply max-w-md text-base text-fg-mute m-0 mb-3 leading-relaxed;
     }
 
     /* ── Empty state ────────────────────────────────────────────────── */
@@ -1486,6 +1549,14 @@
         --tw-prose-td-borders: var(--border);
     }
 
+    /* Typography ships `pre` as white-space: pre plus overflow-x: auto, so a
+       long line hides in a sideways scroll. A reviewer cannot comment on text
+       they cannot see, and a scrollbar inside the document pane is easy to
+       miss, so document code blocks wrap instead. */
+    .lp-prose pre {
+        @apply whitespace-pre-wrap break-words;
+    }
+
     /* ── Front matter ───────────────────────────────────────────────────
        The opening YAML block as a key/value table. The renderer adds this class
        after sanitization and a document-written table may carry no attributes,
@@ -1962,6 +2033,11 @@
     .lp-switcher__all:hover {
         @apply bg-chrome-control;
     }
+    /* Boxed to the same 6×6 as .lp-switcher__item-avatar so the label column
+       lines up with the project rows above it. */
+    .lp-switcher__all-glyph {
+        @apply inline-flex items-center justify-center shrink-0 w-6 h-6 rounded-lg border border-dashed border-chrome-control;
+    }
     .lp-switcher__all svg {
         @apply w-4 h-4 shrink-0;
     }
@@ -2014,14 +2090,6 @@
 
     .lp-sidebar__spacer {
         @apply mt-auto;
-    }
-    /* AGPL source-code offer, sitting just above the account row. Quiet by
-       design — it has to be present on every page, not compete with the nav. */
-    .lp-sidebar__source {
-        @apply flex items-center gap-2.5 px-2 py-1.5 text-xs text-chrome-dim no-underline transition-colors;
-    }
-    .lp-sidebar__source:hover {
-        @apply text-chrome-fg;
     }
     .lp-sidebar__account {
         @apply flex items-center gap-2.5 px-2 mt-2.5 pt-3 border-t border-chrome-control;

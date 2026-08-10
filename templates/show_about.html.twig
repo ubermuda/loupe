@@ -1,0 +1,45 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}{{ 'about.page.title'|trans }} — {{ 'app.name'|trans }}{% endblock %}
+
+{% block topbar_crumbs %}
+    <span class="lp-topbar__here">{{ 'about.page.title'|trans }}</span>
+{% endblock %}
+
+{% block body %}
+<div class="lp-workspace">
+    <h1 class="lp-workspace-title">{{ 'about.page.title'|trans }}</h1>
+    <p class="lp-workspace-desc">{{ 'about.lead'|trans }}</p>
+
+    <div class="lp-about-cards">
+        <section class="lp-about-card">
+            <span class="lp-about-card__glyph"><twig:ux:icon name="lucide:scale" class="w-4.5 h-4.5" /></span>
+            <div class="lp-about-card__main">
+                <h2 class="lp-about-card__title">{{ 'about.licence.heading'|trans }}</h2>
+                <p class="lp-about-card__text">{{ 'about.licence.body'|trans }}</p>
+                {% include '_source_link.html.twig' with {class: 'lp-btn lp-btn--primary'} only %}
+            </div>
+        </section>
+
+        {% if app.user %}
+        <section class="lp-about-card">
+            <span class="lp-about-card__glyph"><twig:ux:icon name="lucide:tag" class="w-4.5 h-4.5" /></span>
+            <div class="lp-about-card__main">
+                <h2 class="lp-about-card__title">{{ 'about.version.heading'|trans }}</h2>
+                <p class="lp-about-card__value" data-testid="app-version">{{ version ?? 'about.version.source'|trans }}</p>
+                {% if update %}
+                <p class="lp-about-card__note{% if update.isOutdated %} lp-about-card__note--outdated{% endif %}" data-testid="update-status">
+                    {%- if update.isOutdated -%}
+                        {{ 'about.version.outdated'|trans({'%version%': update.latestVersion}) }}
+                    {%- else -%}
+                        {{ 'about.version.current'|trans }}
+                    {%- endif -%}
+                </p>
+                {% endif %}
+                <p class="lp-about-card__text">{{ 'about.version.hint'|trans }}</p>
+            </div>
+        </section>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

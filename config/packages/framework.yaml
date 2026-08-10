@@ -30,6 +30,16 @@ framework:
                 timeout: 2
                 max_duration: 5
 
+            # The About page's opt-in update check, which runs inline while the
+            # page renders. Bounded hard for the same reason as the hub above: a
+            # slow GitHub must not become a slow Loupe.
+            github.api_client:
+                base_uri: 'https://api.github.com'
+                timeout: 2
+                max_duration: 5
+                headers:
+                    Accept: 'application/vnd.github+json'
+
     rate_limiter:
         resend_verification_email:
             policy: fixed_window

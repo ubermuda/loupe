@@ -161,9 +161,11 @@ secrets-scan:
 # Check-only gate: lint, style dry-run, phpstan, arkitect, gamache, PHPUnit.
 ci: lint cs-check phpstan arkitect gamache phpunit
 
-migrate-diff: (exec "bin/console doctrine:migrations:diff")
+# One argument per word: `set positional-arguments` forwards a quoted string to
+# compose-exec.sh whole, so Docker looks for a binary with a space in its name.
+migrate-diff: (exec "bin/console" "doctrine:migrations:diff")
 
-migrate-run: (exec "bin/console doctrine:migrations:migrate")
+migrate-run: (exec "bin/console" "doctrine:migrations:migrate")
 
 # Needed only for site-review push; the e2e suite passes without it. Leaving it
 # stopped loses nothing: submissions reach the outbox first and the scheduled
@@ -456,10 +458,10 @@ cli-build goos="darwin" goarch="arm64":
 # Infra lives in terraform/; App Platform pulls {{prod_image}}.
 
 # Build the prod image. Defaults to linux/amd64 because App Platform runs amd64;
-# pass a platform to build for the host instead, which is what a self-hoster on
-# arm64 running compose.prod.yaml wants: `just build-prod linux/arm64`.
+# pass a platform to build for the host instead: `just build-prod linux/arm64`.
+# APP_VERSION is what /about reports; an image built without it says so instead.
 build-prod platform="linux/amd64":
-    docker buildx build --platform {{platform}} -t {{prod_image}} -f docker/prod/Dockerfile .
+    docker buildx build --platform {{platform}} --build-arg APP_VERSION="$(git describe --tags --always --dirty)" -t {{prod_image}} -f docker/prod/Dockerfile .
 
 # Build and push the image without deploying — the first deploy needs this,
 # because the App Platform app does not exist yet to deploy to.

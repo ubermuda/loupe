@@ -1,10 +1,12 @@
-{#- Wizard progress indicator. Props: step (int, 1-3). Carries the canonical
+{#- Wizard progress indicator. Props: step (int, 1-4); complete (bool, default
+    false) marks every step done on the final screen. Carries the canonical
     data-wizard-step marker read by tests and e2e specs — do not duplicate it
     elsewhere. Uses the shared lp-ribbon step/circle/bar classes. -#}
-{%- set steps = ['project.wizard.progress.step_1', 'project.wizard.progress.step_2', 'project.wizard.progress.step_3'] -%}
+{%- set complete = complete|default(false) -%}
+{%- set steps = ['project.wizard.progress.step_1', 'project.wizard.progress.step_2', 'project.wizard.progress.step_3', 'project.wizard.progress.step_4'] -%}
 <ol class="lp-ribbon" data-wizard-step="{{ step }}">
     {% for key in steps %}
-        {%- set state = loop.index < step ? 'completed' : (loop.index == step ? 'current' : 'upcoming') -%}
+        {%- set state = (complete or loop.index < step) ? 'completed' : (loop.index == step ? 'current' : 'upcoming') -%}
         {% if not loop.first %}
             <li class="lp-ribbon__bar lp-ribbon__bar--{{ state }}" role="presentation" aria-hidden="true"></li>
         {% endif %}

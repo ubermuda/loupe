@@ -21,13 +21,15 @@
             <div class="lp-field-errors">{{ form_errors(form.domain) }}</div>
         </div>
         <div class="flex items-center justify-end gap-3 pt-2">
+            {# Submits the skip form below via `form=`: the action row sits inside
+               the project form, and a nested <form> is invalid HTML. #}
+            <button type="submit" form="wizard-skip-form" class="lp-btn lp-btn--ghost">{{ 'project.wizard.skip'|trans }}</button>
             <button type="submit" class="lp-btn lp-btn--primary">{{ 'project.wizard.welcome.submit'|trans }}</button>
         </div>
     {{ form_end(form) }}
 
-    <form method="POST" action="{{ path('app_welcome_skip') }}" class="mt-4">
+    <form id="wizard-skip-form" method="POST" action="{{ path('app_welcome_skip') }}" hidden>
         <input type="hidden" name="_csrf_token" value="{{ csrf_token('wizard-skip') }}">
-        <button type="submit" class="lp-btn lp-btn--ghost">{{ 'project.wizard.skip'|trans }}</button>
     </form>
 </div>
 {% endblock %}

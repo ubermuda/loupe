@@ -2649,7 +2649,7 @@ and not leak back into the prod one.
 
 **Author:** Claude · **Type:** tooling · **Priority:** medium · **Status:** pending
 
-Observed 2026-08-05. Every `docker exec` into `loupe-php-fpm-1` began failing
+Observed 2026-08-05, and again 2026-08-09. Every `docker exec` into `loupe-php-fpm-1` began failing
 with `OCI runtime exec failed: ... procReady not received`, and once with the
 more informative `error starting setns process: fork/exec /proc/self/fd/6:
 resource temporarily unavailable`. That second message is `EAGAIN` on `fork` —
@@ -2677,10 +2677,33 @@ appears as a **Docker or php-fpm fault** and invites restarting this project's
 stack, which changes nothing. The tell is that exec fails for *every* container
 rather than one, and the fix is to find the PID hog with
 `docker stats --no-stream --format '{{.Name}} pids={{.PIDs}}'` before
-restarting anything. Whether step-ca leaks on a timer, on certificate issuance,
-or only after a long uptime is unknown — it had been up for days. If it recurs,
-that is worth pinning down, along with whether a `pids_limit` on that service
-would turn a whole-machine outage into one failing container.
+restarting anything.
+
+**A second tell, cheaper to spot: several unrelated containers report
+`(unhealthy)` at once.** On 2026-08-09 `database`, `mailer` and `mercure` were
+all unhealthy while the app served 200s against that same database — because a
+healthcheck has to fork a process too, and there were none left. All three
+returned to healthy on the step-ca restart with nothing else touched. The dev
+`worker` had also died and stayed dead despite `restart: unless-stopped`, for
+the same reason: the daemon could not fork it back up. So a spread of unhealthy
+containers plus a missing worker is this bug, not several bugs — do not go
+restarting them one by one.
+
+**The second occurrence points at a timer rather than at load.** Both times
+step-ca had been up for days (8 on 2026-08-05, 4 on 2026-08-09) and both times
+it landed within three PIDs of the same number — 49,702 then 49,699. A leak
+driven by certificate issuance or by request volume would not converge on the
+same figure from two different uptimes and two very different weeks of use; a
+thread spawned per tick, against a ceiling the VM imposes, would. The remaining
+unknown is what the ceiling actually is, since ~49.7k is suspiciously close to
+a `threads-max`-style limit rather than to anything step-ca configures.
+
+**Worth doing regardless of the root cause: put a `pids_limit` on that service.**
+Both outages took down `docker exec` for every container on the machine —
+`just ci`, `just cs`, the whole e2e path — when the fault was one container in
+an unrelated stack. A limit turns that into one failing container that names
+itself, which is the difference between a five-minute fix and the hour the
+diagnosis cost the first time.
 
 Same family as 'Host `pkill` does not kill a process inside the php-fpm
 container': the host-visible symptom names the wrong process.

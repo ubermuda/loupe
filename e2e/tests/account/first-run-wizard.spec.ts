@@ -38,14 +38,42 @@ test.describe('first-run wizard', () => {
         ).toBeVisible();
 
         await page.getByRole('link', { name: 'Continue' }).click();
-        await expect(page).toHaveURL(/\/welcome\/done$/);
+        await expect(page).toHaveURL(/\/welcome\/widget$/);
         await expect(page.locator('ol[data-wizard-step="3"]')).toBeVisible();
+
+        await page.getByRole('button', { name: 'Generate token' }).click();
+        await expect(
+            page.locator('[data-testid="minted-widget-token"]'),
+        ).toBeVisible();
+        await expect(page.getByText('site-review/widget.js')).toBeVisible();
+
+        await page.getByRole('link', { name: 'Continue' }).click();
+        await expect(page).toHaveURL(/\/welcome\/done$/);
+        await expect(page.locator('ol[data-wizard-step="4"]')).toBeVisible();
         await expect(
             page.getByRole('button', { name: 'Skip setup' }),
-        ).toBeVisible();
+        ).toHaveCount(0);
         await page.getByRole('button', { name: 'Go to dashboard' }).click();
 
         await expect(page).toHaveURL(/\/projects\/[0-9a-f-]+\/documents$/);
+
+        await page.goto('/welcome');
+        await expect(page).not.toHaveURL(/\/welcome/);
+    });
+
+    test('skip from the first step', async ({ page, request }) => {
+        const email = `e2e-wizard-skip-first-${Date.now()}@example.com`;
+        await registerFreshUser(page, request, {
+            email,
+            password: 'e2e_password_123',
+        });
+
+        await expect(page).toHaveURL(/\/welcome$/);
+        // This button sits inside the project form's action row and submits a
+        // separate form through `form=`, because a nested <form> is invalid
+        // HTML. Nothing else proves that wiring still submits.
+        await page.getByRole('button', { name: 'Skip setup' }).click();
+        await expect(page).toHaveURL(/\/projects$/);
 
         await page.goto('/welcome');
         await expect(page).not.toHaveURL(/\/welcome/);

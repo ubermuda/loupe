@@ -1,0 +1,17 @@
+{#- The site-review widget's <script> tag. Shared by the full connect page and
+    the first-run wizard's widget step. Props: mintedWidgetToken (string|null —
+    raw token to embed once, placeholder otherwise). -#}
+{%- set widgetTokenValue = mintedWidgetToken ?: 'YOUR_TOKEN' -%}
+{%- set widgetSnippet = '<script src="' ~ absolute_url('/site-review/widget.js') ~ '" data-token="' ~ widgetTokenValue ~ '"></script>' -%}
+
+<div class="lp-connect-block">
+    <p class="lp-eyebrow">{{ 'project.connect.widget.eyebrow'|trans }}</p>
+    <div class="lp-code-dark" data-controller="clipboard" data-clipboard-text-value="{{ widgetSnippet }}"
+         data-clipboard-copied-label-value="{{ 'project.connect.copied'|trans }}">
+        <div class="lp-code-dark__header">
+            <span class="lp-code-dark__label">{{ 'project.token.snippet_heading'|trans }}</span>
+            <button type="button" class="lp-code-dark__copy" data-clipboard-target="button" data-action="clipboard#copy">{{ 'project.connect.copy'|trans }}</button>
+        </div>
+        <pre class="lp-code-dark__body"><code>{{ widgetSnippet }}</code></pre>
+    </div>
+</div>
