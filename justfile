@@ -161,9 +161,11 @@ secrets-scan:
 # Check-only gate: lint, style dry-run, phpstan, arkitect, gamache, PHPUnit.
 ci: lint cs-check phpstan arkitect gamache phpunit
 
-migrate-diff: (exec "bin/console doctrine:migrations:diff")
+# One argument per word: `set positional-arguments` forwards a quoted string to
+# compose-exec.sh whole, so Docker looks for a binary with a space in its name.
+migrate-diff: (exec "bin/console" "doctrine:migrations:diff")
 
-migrate-run: (exec "bin/console doctrine:migrations:migrate")
+migrate-run: (exec "bin/console" "doctrine:migrations:migrate")
 
 # Needed only for site-review push; the e2e suite passes without it. Leaving it
 # stopped loses nothing: submissions reach the outbox first and the scheduled

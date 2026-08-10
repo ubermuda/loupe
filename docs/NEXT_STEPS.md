@@ -3713,38 +3713,3 @@ The worktree e2e checklist in `CLAUDE.md` already names warming the cache and
 starting a consumer as prerequisites; a CSS rebuild belongs beside them. The
 symptom table in `project-worktrees` covers only the single-unstyled-new-class
 case, which points at the `var/tailwind` symlink rather than at staleness.
-
-## `just migrate-diff` and `just migrate-run` cannot run at all
-
-**Author:** Claude · **Type:** tooling · **Priority:** medium · **Status:** pending
-
-Both fail immediately, and have presumably been failing since `set
-positional-arguments` was added:
-
-```
-OCI runtime exec failed: exec: "bin/console doctrine:migrations:migrate":
-stat bin/console doctrine:migrations:migrate: no such file or directory
-```
-
-`justfile` line 164 and 166 delegate through the `exec` recipe with the whole
-command as one quoted string — `migrate-run: (exec "bin/console
-doctrine:migrations:migrate")`. just passes that string as a **single**
-positional argument, and `exec`'s body forwards `"$@"`, so `compose-exec.sh`
-asks Docker to run a binary whose name literally contains a space.
-
-`shell: (exec "bash")` is the same shape and works, which is why this went
-unnoticed: it is one word, so there is nothing to split. Passing arguments
-separately is fine too — `just exec bin/console --version` prints the version —
-so the fault is only in the quoted-string delegation.
-
-The likely fix is one line each, giving just separate arguments rather than a
-string to split: `migrate-run: (exec "bin/console"
-"doctrine:migrations:migrate")`. Verify both recipes actually run afterwards
-rather than assuming, since a wrong guess here still exits 127 and looks the
-same as a Docker problem.
-
-This matters more than a broken alias usually would: `CLAUDE.md` instructs
-never to write migrations by hand and to generate them with `just
-migrate-diff`, so the documented path is the broken one. The workaround is
-`docker exec <project>-php-fpm-1 bin/console doctrine:migrations:diff`, which
-is what produced the migrations on this branch.
