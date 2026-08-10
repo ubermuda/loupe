@@ -1549,6 +1549,14 @@
         --tw-prose-td-borders: var(--border);
     }
 
+    /* Typography ships `pre` as white-space: pre plus overflow-x: auto, so a
+       long line hides in a sideways scroll. A reviewer cannot comment on text
+       they cannot see, and a scrollbar inside the document pane is easy to
+       miss, so document code blocks wrap instead. */
+    .lp-prose pre {
+        @apply whitespace-pre-wrap break-words;
+    }
+
     /* ── Front matter ───────────────────────────────────────────────────
        The opening YAML block as a key/value table. The renderer adds this class
        after sanitization and a document-written table may carry no attributes,
