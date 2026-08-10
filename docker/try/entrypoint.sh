@@ -16,7 +16,9 @@ install -d -o postgres -g postgres -m 0775 "$SOCKET_DIR"
 # over PGDATA arrives root-owned, and initdb refuses to run on that.
 install -d -o postgres -g postgres -m 0700 "$PGDATA"
 
+fresh_database=false
 if [ ! -s "$PGDATA/PG_VERSION" ]; then
+	fresh_database=true
 	echo "Initialising the database…"
 	su-exec postgres initdb --username=loupe --auth=trust --encoding=UTF8 -D "$PGDATA" >/dev/null
 	# Loopback only. Nothing outside the container can reach it, which is why
@@ -46,10 +48,19 @@ php bin/console app:admin:create "$TRY_ADMIN_EMAIL" \
 
 su-exec postgres pg_ctl -D "$PGDATA" -w -m fast stop >/dev/null
 
+# Only a database this boot created is known to hold the password configured
+# now: app:admin:create leaves an existing account's password alone, so on a
+# persisted volume a changed TRY_ADMIN_PASSWORD would be advertised and rejected.
+if [ "$fresh_database" = true ]; then
+	credentials="${TRY_ADMIN_EMAIL} / ${TRY_ADMIN_PASSWORD}"
+else
+	credentials="${TRY_ADMIN_EMAIL} and the password it was created with"
+fi
+
 cat <<BANNER
 
   Loupe is starting at ${DEFAULT_URI}
-  Log in with ${TRY_ADMIN_EMAIL} / ${TRY_ADMIN_PASSWORD}
+  Log in with ${credentials}
 
   Evaluation image: mail is discarded, so registration and password reset do
   not work, and the database is lost with the container unless you mounted a
