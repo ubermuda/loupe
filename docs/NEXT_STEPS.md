@@ -2679,6 +2679,16 @@ rather than one, and the fix is to find the PID hog with
 `docker stats --no-stream --format '{{.Name}} pids={{.PIDs}}'` before
 restarting anything.
 
+**A second tell, cheaper to spot: several unrelated containers report
+`(unhealthy)` at once.** On 2026-08-09 `database`, `mailer` and `mercure` were
+all unhealthy while the app served 200s against that same database — because a
+healthcheck has to fork a process too, and there were none left. All three
+returned to healthy on the step-ca restart with nothing else touched. The dev
+`worker` had also died and stayed dead despite `restart: unless-stopped`, for
+the same reason: the daemon could not fork it back up. So a spread of unhealthy
+containers plus a missing worker is this bug, not several bugs — do not go
+restarting them one by one.
+
 **The second occurrence points at a timer rather than at load.** Both times
 step-ca had been up for days (8 on 2026-08-05, 4 on 2026-08-09) and both times
 it landed within three PIDs of the same number — 49,702 then 49,699. A leak
