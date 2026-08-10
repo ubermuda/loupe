@@ -4,6 +4,11 @@
 # compose.prod.env.
 prod_image := env("LOUPE_PROD_IMAGE", "ghcr.io/ubermuda/loupe:prod")
 
+# The single-container evaluation image, and the host's own architecture, which
+# is what it must be built for: an emulated Postgres is not a quick try.
+try_image := env("LOUPE_TRY_IMAGE", "loupe:try")
+host_platform := "linux/" + if arch() == "x86_64" { "amd64" } else { "arm64" }
+
 # Recipes forwarding `*args` use "$@" rather than {{args}}, which needs this.
 # {{args}} interpolates one space-joined string that the shell then re-splits,
 # so `just phpunit --filter A|B` runs a pipeline into a command named B. Quoting
@@ -479,6 +484,16 @@ logs-prod:
 # Open a shell in the prod image locally (debugging the build).
 shell-prod:
     docker run -it --entrypoint /bin/bash {{prod_image}}
+
+# --- Evaluation image (one container: app, worker, Postgres) ---
+
+# Layered on the prod image, which is built first because GHCR may not serve it.
+build-try platform=host_platform: (build-prod platform)
+    docker buildx build --platform {{platform}} --load --build-arg LOUPE_BASE={{prod_image}} -t {{try_image}} -f docker/try/Dockerfile .
+
+# Run it. Ephemeral: add -v loupe-try:/var/lib/postgresql/data to keep the data.
+try port="8080": build-try
+    docker run --rm -it -p {{port}}:80 -e DEFAULT_URI=http://localhost:{{port}} {{try_image}}
 
 # --- Terraform (infra lives in terraform/) ---
 

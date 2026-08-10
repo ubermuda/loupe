@@ -32,6 +32,29 @@ semantic component classes in `assets/styles/app.css`.
 - [`just`](https://github.com/casey/just) command runner
 - PHP 8.5+ and Composer (for running tooling outside the container)
 
+## Try it (one container)
+
+```bash
+just try            # builds the image, then runs it on http://localhost:8080
+```
+
+That is the whole setup: app, background worker and Postgres in a single
+container, with an administrator already created. Log in with
+`admin@example.com` / `loupe-admin`.
+
+The image is for evaluating Loupe, **not for running it**. Its `APP_SECRET` is a
+committed constant, nothing terminates TLS in front of it, and mail is
+discarded — so registration and password reset do not work, and the seeded
+administrator is the only way in. The database goes with the container unless
+you keep it:
+
+```bash
+docker run --rm -p 8080:80 -v loupe-try:/var/lib/postgresql/data loupe:try
+```
+
+To run Loupe for real, see [`DEPLOY.md`](DEPLOY.md) — `compose.prod.yaml` is a
+complete single-host stack.
+
 ## Quickstart (local development)
 
 ```bash
