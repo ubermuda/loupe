@@ -1,0 +1,12 @@
+# Opt-in, applied only by `just up-noproxy`: publishes nginx on the host rather
+# than routing through Traefik, and makes the `traefik` network project-local so
+# none has to exist. Set DEFAULT_URI to match, or generated links point at :80.
+
+services:
+  nginx:
+    ports:
+      - '${NOPROXY_PORT:-8080}:80'
+
+networks:
+  traefik:
+    external: false

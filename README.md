@@ -7,7 +7,8 @@ selecting text, leaving comments, and either approving it or requesting changes.
 A **Model Context Protocol (MCP)** endpoint lets AI coding agents create documents
 and hand back a review URL, so a long-form plan or spec gets considered human
 feedback instead of scrolling past in a terminal. A companion **site-review**
-widget brings the same select-and-comment flow to live web pages.
+widget — a preview, not yet release-ready — brings the same select-and-comment
+flow to live web pages.
 
 Built with Symfony, Tailwind CSS and Symfony UX (Stimulus + Turbo). There is no
 component library: the visual system is hand-rolled from design tokens and
@@ -19,14 +20,40 @@ semantic component classes in `assets/styles/app.css`.
   passages, approve or request changes, and revise across versions.
 - **MCP endpoint** — agents authenticate with a scoped API token and call
   `document_create` / `document_revise`, receiving a shareable review URL.
-- **Site review** — an embeddable widget for leaving review comments on any web
-  page, streamed back to the reviewer in real time over Mercure.
-- **Command-line bridge** — a Go binary ([`cli/`](cli/README.md)) that streams
-  each submitted site review straight into a Claude Code session running in
-  tmux, so your feedback becomes the agent's next instruction.
+- **Site review** *(preview, not release-ready)* — an embeddable widget for
+  leaving review comments on any web page, streamed back to the reviewer in real
+  time over Mercure. Optional: it stays off until you run a Mercure hub.
+- **Command-line bridge** *(preview, unreleased)* — a Go binary
+  ([`cli/`](cli/README.md)) that streams each submitted site review straight
+  into a Claude Code session running in tmux, so your feedback becomes the
+  agent's next instruction. Build it from a clone; no binary is published.
 - **Scoped API tokens** — separate MCP and site-review scopes, stored hashed.
 
+Document review and the MCP endpoint are what this repo is for. The two marked
+*preview* work, are used daily here, and are not covered by any release
+promise — treat them as things to try, not to depend on.
+
+## Ways to run it
+
+Five paths, and what separates them is who your first account is. Loupe never
+leaves a fresh instance open to whoever finds it: registration refuses to create
+the **first** account, so every path below has to say where that one comes from.
+
+| I want to… | Run | First account |
+|---|---|---|
+| Look at it, without cloning | `docker run … loupe:demo` — [Demo](#demo-one-container) | `admin@example.com` / `loupe-admin`, baked into the image |
+| Develop on it | `just up` (or `just up-noproxy`), then `just exec bin/console app:dev:seed` — [Quickstart](#quickstart-local-development) | `dev@loupe.test` / `password`, plus sample data |
+| Develop, but see the real first run | the same, then visit `/install` instead of seeding | whoever the wizard creates. Open in dev while `INSTALL_TOKEN` is empty |
+| Run it for real | `compose.prod.yaml`, or DigitalOcean — [`DEPLOY.md`](DEPLOY.md) | the wizard at `/install`, which **404s in production until you set `INSTALL_TOKEN`** |
+| Get back in when locked out | `bin/console app:admin:create <email>` | the address you name; creates or promotes it |
+
+`app:admin:create` is the escape hatch for every row, not just the last: it works
+on any instance you have a shell on, and needs no mail, no token and no wizard.
+[`DEPLOY.md`](DEPLOY.md#recovering-an-instance) covers it and its two siblings.
+
 ## Requirements
+
+The demo needs only Docker. Everything else on this page assumes a clone:
 
 - Docker + Docker Compose
 - [`just`](https://github.com/casey/just) command runner
@@ -73,7 +100,7 @@ is a complete single-host stack.
 ## Quickstart (local development)
 
 ```bash
-just up                # start nginx, php-fpm, postgres
+just up                # start nginx, php-fpm, postgres — see the note below
 just composer install  # runs inside the php-fpm container
 just migrate-run       # set up the database
 just exec bin/console app:dev:seed   # log in as dev@loupe.test / password
@@ -82,30 +109,59 @@ just exec bin/console app:dev:seed   # log in as dev@loupe.test / password
 `just --list` shows every recipe. `just mercure-up` additionally starts the
 Mercure hub, which only site-review push needs.
 
-The app runs at `https://loupe.dev.localhost` — but only once a reverse proxy is
-in place; see below.
+**Decide how you will reach the app before running that first line.** `just up`
+assumes a Traefik instance and an external Docker network named `traefik`, and
+it *fails* rather than degrades if the network is absent — nothing is published
+on a host port for it to fall back to. The two sections below are the whole
+choice: `just up-noproxy` needs neither, and `just up` needs both.
 
-Registration refuses the first account until the instance is installed, so the
-seed command above is what gives you something to log in with. To go through the
-real first-run instead, visit `/install`: the wizard is open outside production
-while `INSTALL_TOKEN` is empty, and it creates the first administrator.
+Once you are in, the seed command above is what gives you an account —
+registration will not create the first one. "Ways to run it" lists the
+alternatives.
 
-### Reverse proxy (Traefik)
+### Serving it without a reverse proxy
 
-The containers publish no host ports. The stack joins an **external** Docker
-network named `traefik` and expects a Traefik instance with a `websecure`
-entrypoint and a `stepca` certificate resolver, which serves
-`https://<COMPOSE_PROJECT_NAME>.dev.localhost` (plus `mercure.…` and
-`mailpit.…`, which the e2e suite uses).
+Nothing to install, no certificate, no external network:
 
-If you don't already run one:
+```bash
+just up-noproxy          # http://localhost:8080
+just up-noproxy 9000     # or any other port
+just down-noproxy
+```
+
+Point `DEFAULT_URI` at the same host and port in `.env.local`, or the links the
+app generates will name port 80:
+
+```dotenv
+DEFAULT_URI=http://localhost:8080
+```
+
+`MERCURE_PUBLIC_URL` needs the same treatment if you run the hub. The mechanism
+is `compose.noproxy.yaml`, which those two recipes apply and a bare
+`docker compose` never does, so the default stack is untouched.
+
+### Serving it behind Traefik
+
+What this repo assumes, and what serves `https://loupe.dev.localhost`. The stack
+joins an **external** Docker network named `traefik` and expects a Traefik
+instance with a `websecure` entrypoint, a `postgres` TCP entrypoint (the
+database is routed too, so `psql` works from the host) and a certificate
+resolver named `stepca`. It then serves
+`https://<COMPOSE_PROJECT_NAME>.dev.localhost`, plus `mercure.…`, `mailpit.…`
+and `db.…`.
 
 ```bash
 docker network create traefik
 ```
 
+**What follows is a reference, not a file you can run as-is.** `stepca` is an
+ACME resolver, so it wants a certificate authority you host yourself — a
+[step-ca](https://smallstep.com/docs/step-ca/) instance or equivalent. There is
+nothing at `ca.internal`; substitute your own, and trust its root on the
+machine you browse from. With no local CA, use the previous section instead.
+
 ```yaml
-# traefik/compose.yaml — run once, separately from the app
+# traefik/compose.yaml — your own file, kept outside this repo, run once
 services:
   traefik:
     image: traefik:v3
@@ -114,13 +170,15 @@ services:
       - --providers.docker=true
       - --providers.docker.exposedbydefault=false
       - --entrypoints.websecure.address=:443
-      # Local TLS. Point this at your own ACME CA (e.g. a step-ca instance).
+      - --entrypoints.postgres.address=:5432
+      # Substitute your own ACME CA — this address is a placeholder.
       - --certificatesresolvers.stepca.acme.caserver=https://ca.internal/acme/acme/directory
       - --certificatesresolvers.stepca.acme.email=you@example.com
       - --certificatesresolvers.stepca.acme.storage=/acme/acme.json
       - --certificatesresolvers.stepca.acme.tlschallenge=true
     ports:
       - '443:443'
+      - '5432:5432'
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - ./acme:/acme
@@ -130,20 +188,6 @@ networks:
   traefik:
     external: true
 ```
-
-**Would rather not run Traefik?** Publish nginx directly and browse
-`http://localhost:8080` instead:
-
-```yaml
-# compose.override.yaml
-services:
-  nginx:
-    ports:
-      - '8080:80'
-```
-
-With that override you also need to point `DEFAULT_URI` and `MERCURE_PUBLIC_URL`
-at the plain-HTTP host in `.env.local`.
 
 Copy the environment overrides you need into `.env.local` (never commit it):
 
@@ -189,12 +233,15 @@ environment variable, the release step, first-run setup, and how to recover an
 instance you are locked out of. It is the single home for that; this file
 deliberately keeps no copy to drift out of date.
 
-## Command-line bridge
+## Command-line bridge (preview)
 
 `cli/` holds a small Go binary that closes the loop: it subscribes to your
 site-review stream and types each submitted review straight into a Claude Code
 session running in tmux. Build it with `just cli-build` — see
 [`cli/README.md`](cli/README.md) for the commands and flags.
+
+Unreleased, like the site-review widget it listens to: there is no published
+binary, and it needs a Mercure hub to have anything to subscribe to.
 
 ## Contributing
 
