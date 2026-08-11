@@ -136,9 +136,14 @@ app generates will name port 80:
 DEFAULT_URI=http://localhost:8080
 ```
 
-`MERCURE_PUBLIC_URL` needs the same treatment if you run the hub. The mechanism
-is `compose.noproxy.yaml`, which those two recipes apply and a bare
-`docker compose` never does, so the default stack is untouched.
+Site-review push, if you want it, has its own pair: `just mercure-up-noproxy`
+publishes the hub on `http://localhost:8081` — name that in
+`MERCURE_PUBLIC_URL` — and `just mercure-down-noproxy` stops it. Plain
+`just mercure-up` goes through Traefik and fails here.
+
+The mechanism behind all four is `compose.noproxy.yaml`, which only the
+`-noproxy` recipes apply and a bare `docker compose` never does, so the default
+stack is untouched.
 
 ### Serving it behind Traefik
 
