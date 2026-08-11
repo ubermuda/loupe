@@ -6,7 +6,7 @@ set -euo pipefail
 # started here, used, and stopped again before it hands over the long-lived one.
 #
 # Running migrations at start-up is what docker/prod/entrypoint.sh refuses to
-# do, because concurrent replicas race each other against one database. A try
+# do, because concurrent replicas race each other against one database. This
 # image is one container that is its own database, so there is nothing to race.
 
 SOCKET_DIR=/run/postgresql
@@ -43,18 +43,18 @@ php bin/console doctrine:migrations:migrate --no-interaction --allow-no-migratio
 # because MAILER_DSN is null here. Creating it also closes the install wizard,
 # so an unattended instance is never left minting admins for whoever finds it.
 # Idempotent, so a restart over a persisted volume changes nothing.
-php bin/console app:admin:create "$TRY_ADMIN_EMAIL" \
-	--password="$TRY_ADMIN_PASSWORD" --full-name="Loupe Admin" --no-interaction
+php bin/console app:admin:create "$DEMO_ADMIN_EMAIL" \
+	--password="$DEMO_ADMIN_PASSWORD" --full-name="Loupe Admin" --no-interaction
 
 su-exec postgres pg_ctl -D "$PGDATA" -w -m fast stop >/dev/null
 
 # Only a database this boot created is known to hold the password configured
 # now: app:admin:create leaves an existing account's password alone, so on a
-# persisted volume a changed TRY_ADMIN_PASSWORD would be advertised and rejected.
+# persisted volume a changed DEMO_ADMIN_PASSWORD would be advertised and rejected.
 if [ "$fresh_database" = true ]; then
-	credentials="${TRY_ADMIN_EMAIL} / ${TRY_ADMIN_PASSWORD}"
+	credentials="${DEMO_ADMIN_EMAIL} / ${DEMO_ADMIN_PASSWORD}"
 else
-	credentials="${TRY_ADMIN_EMAIL} and the password it was created with"
+	credentials="${DEMO_ADMIN_EMAIL} and the password it was created with"
 fi
 
 cat <<BANNER
@@ -62,7 +62,7 @@ cat <<BANNER
   Loupe is starting at ${DEFAULT_URI}
   Log in with ${credentials}
 
-  Evaluation image: mail is discarded, so registration and password reset do
+  Demo image: mail is discarded, so registration and password reset do
   not work, and the database is lost with the container unless you mounted a
   volume at ${PGDATA}. See DEPLOY.md before running this for real.
 

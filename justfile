@@ -4,9 +4,9 @@
 # compose.prod.env.
 prod_image := env("LOUPE_PROD_IMAGE", "ghcr.io/ubermuda/loupe:prod")
 
-# The single-container evaluation image, and the host's own architecture, which
-# is what it must be built for: an emulated Postgres is not a quick try.
-try_image := env("LOUPE_TRY_IMAGE", "loupe:try")
+# The single-container demo image, and the host's own architecture, which is
+# what it must be built for: an emulated Postgres makes for a poor demo.
+demo_image := env("LOUPE_DEMO_IMAGE", "ghcr.io/ubermuda/loupe:demo")
 host_platform := "linux/" + if arch() == "x86_64" { "amd64" } else { "arm64" }
 
 # Recipes forwarding `*args` use "$@" rather than {{args}}, which needs this.
@@ -485,15 +485,22 @@ logs-prod:
 shell-prod:
     docker run -it --entrypoint /bin/bash {{prod_image}}
 
-# --- Evaluation image (one container: app, worker, Postgres) ---
+# --- Demo image (one container: app, worker, Postgres) ---
 
-# Layered on the prod image, which is built first because GHCR may not serve it.
-build-try platform=host_platform: (build-prod platform)
-    docker buildx build --platform {{platform}} --load --build-arg LOUPE_BASE={{prod_image}} -t {{try_image}} -f docker/try/Dockerfile .
+# Host architecture only, because --load cannot take a manifest list.
+build-demo platform=host_platform:
+    PLATFORMS={{platform}} DEMO_IMAGE={{demo_image}} APP_VERSION="$(git describe --tags --always --dirty)" docker buildx bake demo --load
 
-# Run it. Ephemeral: add -v loupe-try:/var/lib/postgresql/data to keep the data.
-try port="8080": build-try
-    docker run --rm -it -p {{port}}:80 -e DEFAULT_URI=http://localhost:{{port}} {{try_image}}
+# Publish for both architectures — most people running it are on one or the
+# other, and the wrong one fails only after the whole image has been pulled.
+# The GHCR package must be public separately from the repository.
+push-demo:
+    DEMO_IMAGE={{demo_image}} APP_VERSION="$(git describe --tags --always --dirty)" docker buildx bake demo --push
+
+# Loopback-bound: the demo's admin password is published, so a demo on a laptop
+# must not be reachable from the rest of the network.
+demo port="8080": build-demo
+    docker run --rm -it -p 127.0.0.1:{{port}}:80 -e DEFAULT_URI=http://localhost:{{port}} {{demo_image}}
 
 # --- Terraform (infra lives in terraform/) ---
 
