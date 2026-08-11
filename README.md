@@ -137,9 +137,17 @@ DEFAULT_URI=http://localhost:8080
 ```
 
 Site-review push, if you want it, has its own pair: `just mercure-up-noproxy`
-publishes the hub on `http://localhost:8081` — name that in
-`MERCURE_PUBLIC_URL` — and `just mercure-down-noproxy` stops it. Plain
-`just mercure-up` goes through Traefik and fails here.
+publishes the hub on `http://localhost:8081`, and `just mercure-down-noproxy`
+stops it. Plain `just mercure-up` goes through Traefik and fails here.
+
+Point `MERCURE_PUBLIC_URL` at that hub in **`.env.dev.local`**, not `.env.local`:
+`.env.dev` pins the variable to the Traefik host and outranks `.env.local`, so
+the value would be read and then quietly discarded.
+(`bin/console debug:dotenv` prints the precedence if you doubt it.)
+
+```dotenv
+MERCURE_PUBLIC_URL=http://localhost:8081/.well-known/mercure
+```
 
 Both ports bind to `127.0.0.1`, because `app:dev:seed` creates an account whose
 password is printed on this page. `NOPROXY_BIND=0.0.0.0` publishes them to the
