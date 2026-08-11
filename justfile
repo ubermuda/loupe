@@ -4,6 +4,11 @@
 # compose.prod.env.
 prod_image := env("LOUPE_PROD_IMAGE", "ghcr.io/ubermuda/loupe:prod")
 
+# The single-container demo image, and the host's own architecture, which is
+# what it must be built for: an emulated Postgres makes for a poor demo.
+demo_image := env("LOUPE_DEMO_IMAGE", "ghcr.io/ubermuda/loupe:demo")
+host_platform := "linux/" + if arch() == "x86_64" { "amd64" } else { "arm64" }
+
 # Recipes forwarding `*args` use "$@" rather than {{args}}, which needs this.
 # {{args}} interpolates one space-joined string that the shell then re-splits,
 # so `just phpunit --filter A|B` runs a pipeline into a command named B. Quoting
@@ -461,7 +466,7 @@ cli-build goos="darwin" goarch="arm64":
 # pass a platform to build for the host instead: `just build-prod linux/arm64`.
 # APP_VERSION is what /about reports; an image built without it says so instead.
 build-prod platform="linux/amd64":
-    docker buildx build --platform {{platform}} --build-arg APP_VERSION="$(git describe --tags --always --dirty)" -t {{prod_image}} -f docker/prod/Dockerfile .
+    docker buildx build --platform {{platform}} --load --build-arg APP_VERSION="$(git describe --tags --always --dirty)" -t {{prod_image}} -f docker/prod/Dockerfile .
 
 # Build and push the image without deploying — the first deploy needs this,
 # because the App Platform app does not exist yet to deploy to.
@@ -479,6 +484,23 @@ logs-prod:
 # Open a shell in the prod image locally (debugging the build).
 shell-prod:
     docker run -it --entrypoint /bin/bash {{prod_image}}
+
+# --- Demo image (one container: app, worker, Postgres) ---
+
+# Host architecture only, because --load cannot take a manifest list.
+build-demo platform=host_platform:
+    PLATFORMS={{platform}} DEMO_IMAGE={{demo_image}} APP_VERSION="$(git describe --tags --always --dirty)" docker buildx bake demo --load
+
+# Publish for both architectures — most people running it are on one or the
+# other, and the wrong one fails only after the whole image has been pulled.
+# The GHCR package must be public separately from the repository.
+push-demo:
+    DEMO_IMAGE={{demo_image}} APP_VERSION="$(git describe --tags --always --dirty)" docker buildx bake demo --push
+
+# Loopback-bound: the demo's admin password is published, so a demo on a laptop
+# must not be reachable from the rest of the network.
+demo port="8080": build-demo
+    docker run --rm -it -p 127.0.0.1:{{port}}:80 -e DEFAULT_URI=http://localhost:{{port}} {{demo_image}}
 
 # --- Terraform (infra lives in terraform/) ---
 
