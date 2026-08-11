@@ -141,6 +141,10 @@ publishes the hub on `http://localhost:8081` — name that in
 `MERCURE_PUBLIC_URL` — and `just mercure-down-noproxy` stops it. Plain
 `just mercure-up` goes through Traefik and fails here.
 
+Both ports bind to `127.0.0.1`, because `app:dev:seed` creates an account whose
+password is printed on this page. `NOPROXY_BIND=0.0.0.0` publishes them to the
+network if you mean to.
+
 The mechanism behind all four is `compose.noproxy.yaml`, which only the
 `-noproxy` recipes apply and a bare `docker compose` never does, so the default
 stack is untouched.
