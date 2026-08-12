@@ -112,8 +112,9 @@ Mercure hub, which only site-review push needs.
 **Decide how you will reach the app before running that first line.** `just up`
 assumes a Traefik instance and an external Docker network named `traefik`, and
 it *fails* rather than degrades if the network is absent — nothing is published
-on a host port for it to fall back to. The two sections below are the whole
-choice: `just up-noproxy` needs neither, and `just up` needs both.
+on a host port for it to fall back to. Two ways round that, both below: run the
+proxy ([`examples/traefik/`](examples/traefik/) is a working one, and gives you
+real certificates), or skip it entirely with `just up-noproxy` and plain HTTP.
 
 Once you are in, the seed command above is what gives you an account —
 registration will not create the first one. "Ways to run it" lists the
@@ -159,52 +160,33 @@ stack is untouched.
 
 ### Serving it behind Traefik
 
-What this repo assumes, and what serves `https://loupe.dev.localhost`. The stack
-joins an **external** Docker network named `traefik` and expects a Traefik
-instance with a `websecure` entrypoint, a `postgres` TCP entrypoint (the
+What this repo is developed against, and what serves
+`https://loupe.dev.localhost` with a certificate your browser actually trusts.
+The stack joins an **external** Docker network named `traefik` and expects a
+Traefik instance with a `websecure` entrypoint, a `postgres` TCP entrypoint (the
 database is routed too, so `psql` works from the host) and a certificate
 resolver named `stepca`. It then serves
 `https://<COMPOSE_PROJECT_NAME>.dev.localhost`, plus `mercure.…`, `mailpit.…`
 and `db.…`.
 
-```bash
-docker network create traefik
+[`examples/traefik/`](examples/traefik/) is that proxy, as a runnable stack you
+can copy: Traefik, a [step-ca](https://smallstep.com/docs/step-ca/) certificate
+authority, and the dnsmasq that lets step-ca resolve those hostnames to validate
+them. One instance serves every project on the machine.
+
+```sh
+cd examples/traefik
+just up      # creates the network, starts all three
+just trust   # installs the root CA — needs sudo, restart Chrome after
 ```
 
-**What follows is a reference, not a file you can run as-is.** `stepca` is an
-ACME resolver, so it wants a certificate authority you host yourself — a
-[step-ca](https://smallstep.com/docs/step-ca/) instance or equivalent. There is
-nothing at `ca.internal`; substitute your own, and trust its root on the
-machine you browse from. With no local CA, use the previous section instead.
+`just trust` is the one manual step and it cannot be automated away: a local
+CA's root is generated on your machine, so no browser trusts it until you say
+so. [`examples/traefik/README.md`](examples/traefik/README.md) covers the Linux
+equivalent, and why you must **not** run it if you already have a Traefik on
+that network.
 
-```yaml
-# traefik/compose.yaml — your own file, kept outside this repo, run once
-services:
-  traefik:
-    image: traefik:v3
-    restart: unless-stopped
-    command:
-      - --providers.docker=true
-      - --providers.docker.exposedbydefault=false
-      - --entrypoints.websecure.address=:443
-      - --entrypoints.postgres.address=:5432
-      # Substitute your own ACME CA — this address is a placeholder.
-      - --certificatesresolvers.stepca.acme.caserver=https://ca.internal/acme/acme/directory
-      - --certificatesresolvers.stepca.acme.email=you@example.com
-      - --certificatesresolvers.stepca.acme.storage=/acme/acme.json
-      - --certificatesresolvers.stepca.acme.tlschallenge=true
-    ports:
-      - '443:443'
-      - '5432:5432'
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock:ro
-      - ./acme:/acme
-    networks: [traefik]
-
-networks:
-  traefik:
-    external: true
-```
+Then `just up` from this repo.
 
 Copy the environment overrides you need into `.env.local` (never commit it):
 
