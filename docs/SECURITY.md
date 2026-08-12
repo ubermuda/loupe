@@ -1,4 +1,7 @@
-# Security Policy
+---
+title: Security policy
+description: How to report a vulnerability privately, and what to expect.
+---
 
 ## Reporting a vulnerability
 

@@ -1,10 +1,14 @@
-# Contributing to Loupe
+---
+title: Contributing
+description: How to propose a change, and what the gate expects before you do.
+---
+
 
 Thanks for your interest in improving Loupe! This guide covers the essentials.
 
 ## Getting set up
 
-Follow the [Quickstart in the README](../README.md#quickstart-local-development) to
+Follow [From source](../getting-started/from-source.md) to
 get a local environment running.
 
 ## Before you open a pull request
@@ -43,9 +47,9 @@ working in an area. In short:
 
 - Regular bugs: open an issue using the templates.
 - Security vulnerabilities: **do not** open a public issue — see
-  [SECURITY.md](SECURITY.md).
+  [SECURITY.md](../SECURITY.md).
 
 ## License
 
 By contributing, you agree that your contributions are licensed under the
-project's [AGPL-3.0-or-later](../LICENSE) license.
+project's [AGPL-3.0-or-later](../../LICENSE) license.

@@ -49,7 +49,7 @@ The Terraform side already behaves this way — every entry in `extra_env`
 and `enable_mercure` keys off whether `mercure_jwt_secret` is set. The gap is
 in the application: with those variables absent the env vars simply do not
 exist, and the affected code paths error rather than being switched off.
-`DEPLOY.md`'s "If unset" column records the current behaviour honestly —
+`docs/reference/environment.md`'s "If unset" column records the current behaviour honestly —
 "Billing paths fail", "Those buttons fail" — and that is what should change.
 
 Affected surfaces, each needing its own decision about what "disabled" means:
@@ -85,7 +85,7 @@ empty), but that only means the plumbing exists — someone still has to supply
 the actual secret value when running `terraform apply` against production.
 Until that happens, `/install` 404s in prod, so the first administrator has to
 be created from a shell instead (`bin/console app:admin:create`, see
-`DEPLOY.md` → "Recovering an instance"). Track this as a pre-launch deploy
+`docs/operating/recovering.md`). Track this as a pre-launch deploy
 checklist item, not a live code vulnerability — hence the lower priority than
 when this was first filed.
 
@@ -118,7 +118,7 @@ Still open:
    exists because canned ACLs are rejected differently by different providers,
    and the value that matters is the one DigitalOcean Spaces accepts —
    `terraform/spaces.tf` creates that bucket. Garage says nothing about it,
-   having no ACLs at all. See `DEPLOY.md` → "Known gaps".
+   having no ACLs at all. See `docs/known-gaps.md`.
 2. **The missing-object path is code-verified, not run.** `AsyncAwsS3Adapter`
    throws `UnableToReadFile` and `DownloadDataExportController` catches
    `FilesystemException` and 404s, so the path is sound by inspection — but no
@@ -1864,7 +1864,7 @@ not left to notice.
 Prerequisite the codebase does not have yet: **the running build has no version
 identity.** `prod_image` in the `justfile` is a fixed `:prod` tag, so there is
 no release number or commit SHA to compare against, and no rollback handle
-either (noted in `DEPLOY.md`). Tagging images by version or commit SHA and
+either (noted in `docs/known-gaps.md`). Tagging images by version or commit SHA and
 baking that value into the image is step one; the checker is step two.
 
 Things to settle: where the check runs — a scheduled task on the existing
@@ -2775,7 +2775,7 @@ consumer is documented as the cause of a ~19-spec failure block.
 Owner decision (2026-08-09): a CI pipeline is added when the repository is made
 public, not before. Recorded so the gap is a choice rather than an oversight.
 
-There is no `.github/workflows` — `DEPLOY.md` states it outright — so every gate
+There is no `.github/workflows` — `docs/getting-started/digitalocean.md` states it outright — so every gate
 runs only when a human runs it locally: `just ci`, `just e2e`, `just secrets-scan`
 and `just audit`. Nothing observes a branch, and nothing observes the calendar.
 

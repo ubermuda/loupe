@@ -64,7 +64,7 @@ cat <<BANNER
 
   Demo image: mail is discarded, so registration and password reset do
   not work, and the database is lost with the container unless you mounted a
-  volume at ${PGDATA}. See docs/DEPLOY.md before running this for real.
+  volume at ${PGDATA}. See docs/getting-started/docker-compose.md before running this for real.
 
 BANNER
 
