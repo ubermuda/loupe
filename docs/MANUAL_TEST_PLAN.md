@@ -1,7 +1,4 @@
----
-title: Manual test plan
-description: Cases a human walks through that the automated suite does not cover.
----
+# Manual test plan — document review
 
 What to click through by hand, and why each item is here.
 
