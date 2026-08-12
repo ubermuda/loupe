@@ -1,3 +1,4 @@
+import fs from 'node:fs';
 import path from 'node:path';
 import { visit } from 'unist-util-visit';
 
@@ -8,7 +9,7 @@ import { visit } from 'unist-util-visit';
 // Each link is therefore resolved against the file that wrote it and re-emitted
 // as a root-relative route. Targets outside docs/ cannot be routes at all and
 // become links to the repository instead.
-const REPO_BLOB = 'https://github.com/ubermuda/loupe/blob/main/';
+const REPO = 'https://github.com/ubermuda/loupe';
 
 const routeFor = (relativePath) => {
   const withoutExtension = relativePath.replace(/\.md$/, '');
@@ -31,13 +32,25 @@ export function remarkDocsLinks({ docsDir }) {
       const relative = path.relative(docsDir, absolute);
 
       if (relative.startsWith('..')) {
-        node.url = REPO_BLOB + path.relative(path.resolve(docsDir, '..'), absolute) + hash;
+        // blob/ is a file view and 404s on a directory, so ask the filesystem
+        // which this is rather than trusting a GitHub redirect.
+        const kind = isDirectory(absolute) ? 'tree' : 'blob';
+        const fromRoot = path.relative(path.resolve(docsDir, '..'), absolute);
+        node.url = `${REPO}/${kind}/main/${fromRoot}${hash}`;
         return;
       }
       if (target.endsWith('.md')) node.url = routeFor(relative) + hash;
     });
   };
 }
+
+const isDirectory = (target) => {
+  try {
+    return fs.statSync(target).isDirectory();
+  } catch {
+    return false;
+  }
+};
 
 const splitHash = (url) => {
   const index = url.indexOf('#');

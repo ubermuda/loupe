@@ -48,7 +48,18 @@ file, so a relative link from it resolves one segment too far.
 re-emits it as a root-relative route, lowercased to match Astro's own slugs
 (`SECURITY.md` → `/security/`). Links pointing outside `docs/` — to
 `examples/`, `cli/`, `LICENSE` — cannot be routes at all, so they become links
-into the repository on GitHub.
+into the repository on GitHub, `tree/` for a directory and `blob/` for a file,
+decided by asking the filesystem rather than trusting a redirect.
+
+**Editing that plugin needs the content cache cleared**, or you will debug a
+build that is quietly serving yesterday's HTML:
+
+```sh
+rm -rf website/node_modules/.astro website/.astro
+```
+
+Astro caches rendered Markdown, and a remark plugin changing is not something
+it invalidates on.
 
 ## Not wired up yet
 
