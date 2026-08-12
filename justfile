@@ -149,7 +149,15 @@ cs-check:
 gamache:
     vendor/bin/gamache
 
-# Not part of `ci`: needs host tooling and outbound network. gitleaks matches
+# `--locked` audits composer.lock, not whatever is installed: a stale vendor/
+# must not turn a vulnerable lockfile green, and in a worktree the two drift
+# routinely. Reaches packagist's advisory API, which works unauthenticated —
+# the anonymous rate limit bites `composer update`, not this.
+audit:
+    bin/worktrees/compose-exec.sh composer audit --locked
+
+# Not part of `ci`, unlike `audit` above: needs host tooling as well as outbound
+# network, and scans all of history rather than the current tree. gitleaks matches
 # patterns and honours .gitleaksignore; trufflehog verifies candidates against
 # provider APIs, so it really does call out. Run before publishing.
 # Scan the whole git history for committed secrets (gitleaks + trufflehog).
@@ -163,8 +171,8 @@ secrets-scan:
     trufflehog git file://. --results=verified --fail --exclude-detectors=lob
 
 # lint already covers parallel-lint, prettier --check and eslint (incl. e2e).
-# Check-only gate: lint, style dry-run, phpstan, arkitect, gamache, PHPUnit.
-ci: lint cs-check phpstan arkitect gamache phpunit
+# Check-only gate: lint, style dry-run, phpstan, arkitect, gamache, advisories, PHPUnit.
+ci: lint cs-check phpstan arkitect gamache audit phpunit
 
 # One argument per word: `set positional-arguments` forwards a quoted string to
 # compose-exec.sh whole, so Docker looks for a binary with a space in its name.
