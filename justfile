@@ -28,23 +28,6 @@ up:
 down:
     docker compose down
 
-# For hosts with no Traefik: serves the app at http://localhost:PORT and needs
-# no external `traefik` network. Set DEFAULT_URI to the same port in .env.local.
-up-noproxy port="8080":
-    NOPROXY_PORT={{port}} docker compose -f compose.yaml -f compose.override.yaml -f compose.noproxy.yaml up -d
-
-down-noproxy:
-    docker compose -f compose.yaml -f compose.override.yaml -f compose.noproxy.yaml down
-
-# The Mercure hub for a no-proxy host. Published on a fixed port, because
-# MERCURE_PUBLIC_URL has to name it.
-mercure-up-noproxy port="8081":
-    NOPROXY_MERCURE_PORT={{port}} docker compose -f compose.yaml -f compose.override.yaml -f compose.noproxy.yaml --profile mercure up -d mercure
-
-mercure-down-noproxy:
-    docker compose -f compose.yaml -f compose.override.yaml -f compose.noproxy.yaml --profile mercure stop mercure
-    docker compose -f compose.yaml -f compose.override.yaml -f compose.noproxy.yaml --profile mercure rm -f mercure
-
 exec *args:
     bin/worktrees/compose-exec.sh "$@"
 

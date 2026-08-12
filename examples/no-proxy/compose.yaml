@@ -1,7 +1,7 @@
-# Opt-in, applied only by the `*-noproxy` recipes: publishes nginx on the host
-# rather than routing through Traefik, and makes the `traefik` network
-# project-local so none has to exist. Set DEFAULT_URI to match, or generated
-# links point at port 80.
+# An override, not a stack: publishes nginx on the host rather than routing
+# through Traefik, and makes the `traefik` network project-local so none has to
+# exist. Pass it after the root compose.yaml and compose.override.yaml; see the
+# README beside it. Set DEFAULT_URI to match, or generated links name port 80.
 
 services:
   # Loopback-bound: dev seeds a known password, so a LAN-reachable dev stack

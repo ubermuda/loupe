@@ -42,14 +42,14 @@ the **first** account, so every path below has to say where that one comes from.
 | I want to… | Run | First account |
 |---|---|---|
 | Look at it, without cloning | `docker run … loupe:demo` — [Demo](#demo-one-container) | `admin@example.com` / `loupe-admin`, baked into the image |
-| Develop on it | `just up` (or `just up-noproxy`), then `just exec bin/console app:dev:seed` — [Quickstart](#quickstart-local-development) | `dev@loupe.test` / `password`, plus sample data |
+| Develop on it | `just up`, then `just exec bin/console app:dev:seed` — [Quickstart](#quickstart-local-development) | `dev@loupe.test` / `password`, plus sample data |
 | Develop, but see the real first run | the same, then visit `/install` instead of seeding | whoever the wizard creates. Open in dev while `INSTALL_TOKEN` is empty |
-| Run it for real | `compose.prod.yaml`, or DigitalOcean — [`DEPLOY.md`](DEPLOY.md) | the wizard at `/install`, which **404s in production until you set `INSTALL_TOKEN`** |
+| Run it for real | `compose.prod.yaml`, or DigitalOcean — [`DEPLOY.md`](docs/DEPLOY.md) | the wizard at `/install`, which **404s in production until you set `INSTALL_TOKEN`** |
 | Get back in when locked out | `bin/console app:admin:create <email>` | the address you name; creates or promotes it |
 
 `app:admin:create` is the escape hatch for every row, not just the last: it works
 on any instance you have a shell on, and needs no mail, no token and no wizard.
-[`DEPLOY.md`](DEPLOY.md#recovering-an-instance) covers it and its two siblings.
+[`DEPLOY.md`](docs/DEPLOY.md#recovering-an-instance) covers it and its two siblings.
 
 ## Requirements
 
@@ -94,7 +94,7 @@ docker run --rm -p 127.0.0.1:9000:80 \
 ```
 
 From a clone, `just demo` builds the image and runs it with all of that already
-set. To run Loupe for real, see [`DEPLOY.md`](DEPLOY.md) — `compose.prod.yaml`
+set. To run Loupe for real, see [`DEPLOY.md`](docs/DEPLOY.md) — `compose.prod.yaml`
 is a complete single-host stack.
 
 ## Quickstart (local development)
@@ -109,84 +109,34 @@ just exec bin/console app:dev:seed   # log in as dev@loupe.test / password
 `just --list` shows every recipe. `just mercure-up` additionally starts the
 Mercure hub, which only site-review push needs.
 
-**Decide how you will reach the app before running that first line.** `just up`
-assumes a Traefik instance and an external Docker network named `traefik`, and
-it *fails* rather than degrades if the network is absent — nothing is published
-on a host port for it to fall back to. Two ways round that, both below: run the
-proxy ([`examples/traefik/`](examples/traefik/) is a working one, and gives you
-real certificates), or skip it entirely with `just up-noproxy` and plain HTTP.
+### Serving it
+
+**Decide this before running that first line.** `just up` publishes no host
+port: it joins an **external** Docker network named `traefik` and expects a
+proxy with a `websecure` entrypoint, a `postgres` TCP entrypoint (the database
+is routed too, so `psql` works from the host) and a certificate resolver named
+`stepca`. Absent the network it *fails* rather than degrades. Served, it answers
+at `https://<COMPOSE_PROJECT_NAME>.dev.localhost`, plus `mercure.…`, `mailpit.…`
+and `db.…`.
+
+[`examples/`](examples/) holds both ways to satisfy that:
+
+- **[`traefik-stepca/`](examples/traefik-stepca/)** — the proxy this repo is
+  developed against: Traefik, a [step-ca](https://smallstep.com/docs/step-ca/)
+  certificate authority, and the dnsmasq that lets step-ca resolve those
+  hostnames to validate them. `just up` then `just trust` in that directory, and
+  one instance serves every `*.dev.localhost` project on the machine. Trusting
+  the generated root is the one manual step, and cannot be automated away.
+- **[`no-proxy/`](examples/no-proxy/)** — a compose override that publishes
+  nginx on `http://localhost:8080` instead. No proxy, no certificate, nothing to
+  trust; set `DEFAULT_URI` to match. Fine for the app, awkward for the
+  site-review widget — that README explains why.
+
+Then `just up` from this repo.
 
 Once you are in, the seed command above is what gives you an account —
 registration will not create the first one. "Ways to run it" lists the
 alternatives.
-
-### Serving it without a reverse proxy
-
-Nothing to install, no certificate, no external network:
-
-```bash
-just up-noproxy          # http://localhost:8080
-just up-noproxy 9000     # or any other port
-just down-noproxy
-```
-
-Point `DEFAULT_URI` at the same host and port in `.env.local`, or the links the
-app generates will name port 80:
-
-```dotenv
-DEFAULT_URI=http://localhost:8080
-```
-
-Site-review push, if you want it, has its own pair: `just mercure-up-noproxy`
-publishes the hub on `http://localhost:8081`, and `just mercure-down-noproxy`
-stops it. Plain `just mercure-up` goes through Traefik and fails here.
-
-Point `MERCURE_PUBLIC_URL` at that hub in **`.env.dev.local`**, not `.env.local`:
-`.env.dev` pins the variable to the Traefik host and outranks `.env.local`, so
-the value would be read and then quietly discarded.
-(`bin/console debug:dotenv` prints the precedence if you doubt it.)
-
-```dotenv
-MERCURE_PUBLIC_URL=http://localhost:8081/.well-known/mercure
-```
-
-Both ports bind to `127.0.0.1`, because `app:dev:seed` creates an account whose
-password is printed on this page. `NOPROXY_BIND=0.0.0.0` publishes them to the
-network if you mean to.
-
-The mechanism behind all four is `compose.noproxy.yaml`, which only the
-`-noproxy` recipes apply and a bare `docker compose` never does, so the default
-stack is untouched.
-
-### Serving it behind Traefik
-
-What this repo is developed against, and what serves
-`https://loupe.dev.localhost` with a certificate your browser actually trusts.
-The stack joins an **external** Docker network named `traefik` and expects a
-Traefik instance with a `websecure` entrypoint, a `postgres` TCP entrypoint (the
-database is routed too, so `psql` works from the host) and a certificate
-resolver named `stepca`. It then serves
-`https://<COMPOSE_PROJECT_NAME>.dev.localhost`, plus `mercure.…`, `mailpit.…`
-and `db.…`.
-
-[`examples/traefik/`](examples/traefik/) is that proxy, as a runnable stack you
-can copy: Traefik, a [step-ca](https://smallstep.com/docs/step-ca/) certificate
-authority, and the dnsmasq that lets step-ca resolve those hostnames to validate
-them. One instance serves every project on the machine.
-
-```sh
-cd examples/traefik
-just up      # creates the network, starts all three
-just trust   # installs the root CA — needs sudo, restart Chrome after
-```
-
-`just trust` is the one manual step and it cannot be automated away: a local
-CA's root is generated on your machine, so no browser trusts it until you say
-so. [`examples/traefik/README.md`](examples/traefik/README.md) covers the Linux
-equivalent, and why you must **not** run it if you already have a Traefik on
-that network.
-
-Then `just up` from this repo.
 
 Copy the environment overrides you need into `.env.local` (never commit it):
 
@@ -196,7 +146,7 @@ DATABASE_URL="postgresql://app:!ChangeMe!@db.loupe.dev.localhost:5432/app?server
 
 Set a real `MERCURE_JWT_SECRET`, `APP_SECRET`, and (if you use encrypted columns)
 `APP_ENCRYPTION_KEY` per environment. `.env` documents every variable inline;
-[`DEPLOY.md`](DEPLOY.md#secrets) has the commands that generate these three.
+[`DEPLOY.md`](docs/DEPLOY.md#secrets) has the commands that generate these three.
 **Never commit real secrets.**
 
 ## Common commands
@@ -227,7 +177,7 @@ Two topologies ship with the project: `compose.prod.yaml`, a complete single-hos
 stack needing no cloud account, and DigitalOcean App Platform with the
 infrastructure in [`terraform/`](terraform/README.md).
 
-**[`DEPLOY.md`](DEPLOY.md) is the deployment guide** — both topologies, every
+**[`DEPLOY.md`](docs/DEPLOY.md) is the deployment guide** — both topologies, every
 environment variable, the release step, first-run setup, and how to recover an
 instance you are locked out of. It is the single home for that; this file
 deliberately keeps no copy to drift out of date.
@@ -244,8 +194,8 @@ binary, and it needs a Mercure hub to have anything to subscribe to.
 
 ## Contributing
 
-See [CONTRIBUTING.md](CONTRIBUTING.md). Please report security issues privately —
-see [SECURITY.md](SECURITY.md).
+See [CONTRIBUTING.md](docs/CONTRIBUTING.md). Please report security issues privately —
+see [SECURITY.md](docs/SECURITY.md).
 
 ## License
 

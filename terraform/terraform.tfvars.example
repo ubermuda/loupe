@@ -102,7 +102,7 @@ export_bucket_region = "tor1"
 # export_storage_key            = "..."
 # export_storage_secret         = "..."
 # export_storage_use_path_style = "true"   # MinIO and most non-AWS providers
-# export_storage_acl            = "bucket-owner-full-control"  # AWS S3 only, see DEPLOY.md
+# export_storage_acl            = "bucket-owner-full-control"  # AWS S3 only, see docs/DEPLOY.md
 
 # stripe_secret_key     = "sk_live_..."
 # stripe_webhook_secret = "whsec_..."
