@@ -1,5 +1,5 @@
 ---
-title: "Loupe"
+title: "Introduction"
 description: "A document- and site-review tool for humans working with AI agents."
 ---
 
