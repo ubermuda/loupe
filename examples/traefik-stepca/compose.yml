@@ -1,0 +1,88 @@
+services:
+  dnsmasq:
+    image: jpillora/dnsmasq:1.1.0
+    restart: unless-stopped
+    cap_add:
+      - NET_ADMIN
+    volumes:
+      - ./config/dnsmasq.conf:/etc/dnsmasq.conf:ro
+    networks:
+      traefik:
+        ipv4_address: 172.20.0.3
+
+  # Answers *.dev.localhost at any depth for step-ca, which has to reach each
+  # hostname to validate its ACME challenge. Docker's own DNS has no wildcards.
+  step-ca:
+    image: smallstep/step-ca:0.30.2
+    restart: unless-stopped
+    dns:
+      - 172.20.0.3
+    environment:
+      DOCKER_STEPCA_INIT_NAME: "Local Dev CA"
+      DOCKER_STEPCA_INIT_DNS_NAMES: "step-ca,localhost"
+      DOCKER_STEPCA_INIT_ACME: "true"
+      DOCKER_STEPCA_INIT_PASSWORD_FILE: "/home/step/secrets/password"
+      PWDPATH: "/home/step/secrets/password"
+    volumes:
+      - ./step-ca:/home/step
+      - ./step-ca/secrets/password:/home/step/secrets/password:ro
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "--no-check-certificate", "https://localhost:9000/health"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 15s
+    networks:
+      traefik:
+        ipv4_address: 172.20.0.4
+
+  traefik:
+    image: traefik:v3
+    restart: unless-stopped
+    depends_on:
+      step-ca:
+        condition: service_healthy
+    # Pins `step-ca` to this stack's CA. The traefik network is shared with
+    # every project on the machine, so another project running its own service
+    # named step-ca also answers here; Docker DNS then round-robins and ACME
+    # intermittently trusts the wrong root, failing issuance for every site
+    # with `x509: certificate signed by unknown authority`. /etc/hosts wins.
+    extra_hosts:
+      - "step-ca:172.20.0.4"
+    ports:
+      - "80:80"
+      - "443:443"
+      - "5432:5432"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./certs:/certs
+      - ./step-ca/certs/root_ca.crt:/root_ca.crt:ro
+      - ./config:/config:ro
+    command:
+      - --providers.docker=true
+      - --providers.docker.exposedbydefault=false
+      - --providers.docker.network=traefik
+      - --providers.file.directory=/config
+      - --entrypoints.web.address=:80
+      - --entrypoints.web.http.redirections.entrypoint.to=websecure
+      - --entrypoints.web.http.redirections.entrypoint.scheme=https
+      - --entrypoints.web.http.redirections.entrypoint.permanent=true
+      - --entrypoints.websecure.address=:443
+      # Loupe routes Postgres over TCP so psql works from the host.
+      - --entrypoints.postgres.address=:5432
+      - --api.dashboard=true
+      - --certificatesresolvers.stepca.acme.caServer=https://step-ca:9000/acme/acme/directory
+      - --certificatesresolvers.stepca.acme.storage=/certs/acme.json
+      - --certificatesresolvers.stepca.acme.email=local@dev.localhost
+      - --certificatesresolvers.stepca.acme.tlsChallenge=true
+      - --serversTransport.rootCAs=/root_ca.crt
+      - --certificatesresolvers.stepca.acme.cacertificates=/root_ca.crt
+    networks:
+      traefik:
+        ipv4_address: 172.20.0.2
+
+networks:
+  # External so this stack does not own it — Loupe and any other project join
+  # the same one. Create it with `just network`.
+  traefik:
+    external: true

@@ -27,7 +27,7 @@ WORKDIR /var/www/html
 # worker is unreadable to the web container's www-data php-fpm workers. su-exec
 # replaces itself with the command rather than forking, so the consumer keeps
 # PID 1 and still receives SIGTERM for a graceful shutdown — busybox `su` does
-# not. See compose.prod.yaml.
+# not. See docker/compose/prod.yaml.
 RUN apk add --no-cache postgresql-libs libzip libxslt icu-libs icu-data-full bash nginx supervisor su-exec \
  && apk add --no-cache --virtual .build-deps $PHPIZE_DEPS postgresql-dev libzip-dev libxslt-dev icu-dev \
  && docker-php-ext-install bcmath pdo_pgsql zip intl xsl \

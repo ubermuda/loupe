@@ -80,7 +80,7 @@ worktree bind-mounted as their document root. Use the `just` recipes, or
 the current worktree's files.
 
 **A `docker compose -f <file>` call whose variables are unset does not fail
-safely.** `compose.e2e.yaml` and `compose.worktree.yaml` both declare their
+safely.** `docker/compose/e2e.yaml` and `docker/compose/worktree.yaml` both declare their
 inputs with `${VAR:?}`. Running `down` on one of them without supplying those
 variables was observed to remove the **main stack's** containers and attempt to
 delete the `loupe_default` network — even though `-p` named a different

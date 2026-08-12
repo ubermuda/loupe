@@ -1,0 +1,21 @@
+# An override, not a stack: publishes nginx on the host rather than routing
+# through Traefik, and makes the `traefik` network project-local so none has to
+# exist. Pass it after the root compose.yaml and compose.override.yaml; see the
+# README beside it. Set DEFAULT_URI to match, or generated links name port 80.
+
+services:
+  # Loopback-bound: dev seeds a known password, so a LAN-reachable dev stack
+  # hands out an account. Set NOPROXY_BIND=0.0.0.0 to publish deliberately.
+  nginx:
+    ports:
+      - '${NOPROXY_BIND:-127.0.0.1}:${NOPROXY_PORT:-8080}:80'
+
+  # !override replaces compose.override.yaml's ephemeral mapping: an
+  # unpredictable host port cannot be written into MERCURE_PUBLIC_URL.
+  mercure:
+    ports: !override
+      - '${NOPROXY_BIND:-127.0.0.1}:${NOPROXY_MERCURE_PORT:-8081}:80'
+
+networks:
+  traefik:
+    external: false

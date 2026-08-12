@@ -16,7 +16,7 @@
 #     step — concurrent replicas would race each other against one database.
 #     Run, once per deploy:
 #
-#         docker compose -f compose.prod.yaml --env-file compose.prod.env \
+#         docker compose -f docker/compose/prod.yaml --env-file docker/compose/prod.env \
 #             run --rm web docker/prod/release.sh
 #
 #   * An SMTP server. MAILER_DSN must point at one you operate or pay for.
@@ -24,12 +24,12 @@
 #
 # Bring the stack up with:  @comment-budget-ignore
 #
-#     docker compose -f compose.prod.yaml --env-file compose.prod.env up -d
+#     docker compose -f docker/compose/prod.yaml --env-file docker/compose/prod.env up -d
 #
 # `--env-file` is NOT optional. Without it Docker Compose falls back to the
 # repository's `.env`, which is the *development* configuration — it would
 # supply http://localhost as DEFAULT_URI and null://null as MAILER_DSN to
-# production containers. Copy `compose.prod.env.example` to `compose.prod.env`
+# production containers. Copy `docker/compose/prod.env.example` to `docker/compose/prod.env`
 # and fill it in; the required-variable guards below abort the run if you
 # forget, rather than silently starting a misconfigured instance.
 
@@ -39,7 +39,9 @@ name: ${COMPOSE_PROJECT_NAME:-loupe}
 # access: GHCR package visibility is set separately from repository visibility,
 # so a public repo does not imply a pullable image.
 x-app-build: &app-build
-  context: .
+  # Relative to THIS file, not to your shell — Compose resolves build paths
+  # against the compose file's directory, so the repository root is `..`.
+  context: ../..
   dockerfile: docker/prod/Dockerfile
 
 # The web container and the worker container run the same image with the same
@@ -47,16 +49,16 @@ x-app-build: &app-build
 # defined once here.
 x-app-environment: &app-environment
   APP_ENV: prod
-  APP_SECRET: "${APP_SECRET:?set it in compose.prod.env — generate with openssl rand -hex 16}"
+  APP_SECRET: "${APP_SECRET:?set it in docker/compose/prod.env — generate with openssl rand -hex 16}"
   # Only needed once an encrypted column is in use; empty is a valid answer.
   APP_ENCRYPTION_KEY: "${APP_ENCRYPTION_KEY:-}"
 
-  DATABASE_URL: "postgresql://${POSTGRES_USER:-loupe}:${POSTGRES_PASSWORD:?set it in compose.prod.env}@database:5432/${POSTGRES_DB:-loupe}?serverVersion=${POSTGRES_VERSION:-16}&charset=utf8"
+  DATABASE_URL: "postgresql://${POSTGRES_USER:-loupe}:${POSTGRES_PASSWORD:?set it in docker/compose/prod.env}@database:5432/${POSTGRES_DB:-loupe}?serverVersion=${POSTGRES_VERSION:-16}&charset=utf8"
 
   # The URL your users actually type. It is what the worker and CLI use to build
   # absolute links (password reset, export downloads), so a wrong value produces
   # mail nobody can act on.
-  DEFAULT_URI: "${DEFAULT_URI:?set it in compose.prod.env to the instance's public URL}"
+  DEFAULT_URI: "${DEFAULT_URI:?set it in docker/compose/prod.env to the instance's public URL}"
   # The reverse proxy in front of this stack, as an IP or CIDR. Empty falls back
   # to the private ranges, which is correct when the proxy is a container or is
   # on the same private network, and wrong when it reaches the app from a public
@@ -68,17 +70,17 @@ x-app-environment: &app-environment
   # committed default applies, so a fork that edits `.env` keeps its own value.
   APP_SOURCE_URL:
 
-  MAILER_DSN: "${MAILER_DSN:?set it in compose.prod.env — registration needs working mail}"
-  MAILER_FROM_ADDRESS: "${MAILER_FROM_ADDRESS:?set it in compose.prod.env to an address on a domain you control}"
+  MAILER_DSN: "${MAILER_DSN:?set it in docker/compose/prod.env — registration needs working mail}"
+  MAILER_FROM_ADDRESS: "${MAILER_FROM_ADDRESS:?set it in docker/compose/prod.env to an address on a domain you control}"
   MAILER_FROM_NAME: "${MAILER_FROM_NAME:-Loupe}"
 
   # Must list the instance's real hostname or every MCP call is rejected by the
   # DNS-rebinding guard.
-  MCP_ALLOWED_HOSTS: "${MCP_ALLOWED_HOSTS:?set it in compose.prod.env to the instance's hostname}"
+  MCP_ALLOWED_HOSTS: "${MCP_ALLOWED_HOSTS:?set it in docker/compose/prod.env to the instance's hostname}"
   # Gates the first-run install wizard, which fails closed in production: with no
   # token /install returns 404 and there is no way to create the first
   # administrator.
-  INSTALL_TOKEN: "${INSTALL_TOKEN:?set it in compose.prod.env — without it you cannot install}"
+  INSTALL_TOKEN: "${INSTALL_TOKEN:?set it in docker/compose/prod.env — without it you cannot install}"
   ADMIN_EMAIL: "${ADMIN_EMAIL:-}"
 
   # Empty keeps push off: the feature flag keys off MERCURE_JWT_SECRET being set.
@@ -163,7 +165,7 @@ services:
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-loupe}
       POSTGRES_USER: ${POSTGRES_USER:-loupe}
-      POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:?set it in compose.prod.env}"
+      POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:?set it in docker/compose/prod.env}"
     healthcheck:
       test: ["CMD", "pg_isready", "-d", "${POSTGRES_DB:-loupe}", "-U", "${POSTGRES_USER:-loupe}"]
       timeout: 5s

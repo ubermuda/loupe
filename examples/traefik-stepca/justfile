@@ -1,0 +1,43 @@
+default:
+    @just --list
+
+up: network
+    mkdir -p step-ca/secrets
+    [ -f step-ca/secrets/password ] || openssl rand -base64 32 > step-ca/secrets/password
+    chmod 600 step-ca/secrets/password
+    docker compose up -d
+
+down:
+    docker compose down
+
+logs:
+    docker compose logs -f
+
+# Trust the CA (macOS, once, needs sudo). Restart Chrome afterwards. On Linux,
+# copy step-ca/certs/root_ca.crt into your trust store instead.
+trust:
+    #!/usr/bin/env bash
+    max=45
+    count=0
+    until [ -f step-ca/certs/root_ca.crt ]; do
+        if [ "$count" -ge "$max" ]; then
+            echo "Timed out waiting for step-ca — check: docker compose logs step-ca"
+            exit 1
+        fi
+        echo "Waiting for step-ca to initialize... ($count/$max)"; sleep 2
+        count=$((count + 1))
+    done
+    sudo security add-trusted-cert -d -r trustRoot \
+        -k /Library/Keychains/System.keychain \
+        step-ca/certs/root_ca.crt
+    echo "Root CA trusted. Restart Chrome for it to take effect."
+
+# --ip-range confines the dynamic pool to .128+, so the static addresses above
+# can never be handed to another project's container while the proxy is down.
+network:
+    docker network inspect traefik >/dev/null 2>&1 \
+        || docker network create \
+            --subnet=172.20.0.0/24 \
+            --gateway=172.20.0.1 \
+            --ip-range=172.20.0.128/25 \
+            traefik

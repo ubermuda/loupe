@@ -29,4 +29,4 @@ What you expected to happen instead.
 
 Logs, screenshots, or anything else that helps.
 
-<!-- Do NOT report security vulnerabilities here — see SECURITY.md. -->
+<!-- Do NOT report security vulnerabilities here — see docs/SECURITY.md. -->

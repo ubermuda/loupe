@@ -1,0 +1,9 @@
+http:
+  routers:
+    dashboard:
+      rule: Host(`traefik.dev.localhost`)
+      entrypoints:
+        - websecure
+      tls:
+        certResolver: stepca
+      service: api@internal
