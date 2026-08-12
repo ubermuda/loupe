@@ -1,7 +1,7 @@
 
 # Filled-in configuration for the reference production stack; holds real
-# secrets. compose.prod.env.example is the committed template.
-/compose.prod.env
+# secrets. deploy/compose.prod.env.example is the committed template.
+/deploy/compose.prod.env
 
 ###> symfony/framework-bundle ###
 /.env.local

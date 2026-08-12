@@ -89,7 +89,7 @@ module "app" {
   #
   # The hub image is pinned to a minor version — the module would otherwise
   # track `latest`, so two applies weeks apart would silently run different hub
-  # builds. It is the same version compose.prod.yaml runs.
+  # builds. It is the same version deploy/compose.prod.yaml runs.
   enable_mercure     = var.mercure_jwt_secret != ""
   mercure_jwt_secret = var.mercure_jwt_secret
   mercure_image_tag  = "v0.24"

@@ -46,7 +46,7 @@ return (new GamacheConfig())->registerChecks([
             'e2e/**/*.ts',
             'justfile',
             'compose.yaml',
-            'compose.prod.yaml',
+            'deploy/compose.prod.yaml',
             '.env',
         ],
         // Binding rather than advisory: an advisory check's green result says

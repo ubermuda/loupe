@@ -1,7 +1,7 @@
 # Production image coordinates; override with LOUPE_PROD_IMAGE=ghcr.io/you/loupe:prod.
 # Set the same value in three places or they drift: here (build and push),
 # terraform's registry/image_repository/image_tag, and LOUPE_PROD_IMAGE in
-# compose.prod.env.
+# deploy/compose.prod.env.
 prod_image := env("LOUPE_PROD_IMAGE", "ghcr.io/ubermuda/loupe:prod")
 
 # The single-container demo image, and the host's own architecture, which is
@@ -489,13 +489,13 @@ shell-prod:
 
 # Host architecture only, because --load cannot take a manifest list.
 build-demo platform=host_platform:
-    PLATFORMS={{platform}} DEMO_IMAGE={{demo_image}} APP_VERSION="$(git describe --tags --always --dirty)" docker buildx bake demo --load
+    PLATFORMS={{platform}} DEMO_IMAGE={{demo_image}} APP_VERSION="$(git describe --tags --always --dirty)" docker buildx bake -f docker/bake.hcl demo --load
 
 # Publish for both architectures — most people running it are on one or the
 # other, and the wrong one fails only after the whole image has been pulled.
 # The GHCR package must be public separately from the repository.
 push-demo:
-    DEMO_IMAGE={{demo_image}} APP_VERSION="$(git describe --tags --always --dirty)" docker buildx bake demo --push
+    DEMO_IMAGE={{demo_image}} APP_VERSION="$(git describe --tags --always --dirty)" docker buildx bake -f docker/bake.hcl demo --push
 
 # Loopback-bound: the demo's admin password is published, so a demo on a laptop
 # must not be reachable from the rest of the network.

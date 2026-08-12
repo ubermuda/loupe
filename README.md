@@ -44,7 +44,7 @@ the **first** account, so every path below has to say where that one comes from.
 | Look at it, without cloning | `docker run … loupe:demo` — [Demo](#demo-one-container) | `admin@example.com` / `loupe-admin`, baked into the image |
 | Develop on it | `just up`, then `just exec bin/console app:dev:seed` — [Quickstart](#quickstart-local-development) | `dev@loupe.test` / `password`, plus sample data |
 | Develop, but see the real first run | the same, then visit `/install` instead of seeding | whoever the wizard creates. Open in dev while `INSTALL_TOKEN` is empty |
-| Run it for real | `compose.prod.yaml`, or DigitalOcean — [`DEPLOY.md`](docs/DEPLOY.md) | the wizard at `/install`, which **404s in production until you set `INSTALL_TOKEN`** |
+| Run it for real | `deploy/compose.prod.yaml`, or DigitalOcean — [`DEPLOY.md`](docs/DEPLOY.md) | the wizard at `/install`, which **404s in production until you set `INSTALL_TOKEN`** |
 | Get back in when locked out | `bin/console app:admin:create <email>` | the address you name; creates or promotes it |
 
 `app:admin:create` is the escape hatch for every row, not just the last: it works
@@ -94,7 +94,7 @@ docker run --rm -p 127.0.0.1:9000:80 \
 ```
 
 From a clone, `just demo` builds the image and runs it with all of that already
-set. To run Loupe for real, see [`DEPLOY.md`](docs/DEPLOY.md) — `compose.prod.yaml`
+set. To run Loupe for real, see [`DEPLOY.md`](docs/DEPLOY.md) — `deploy/compose.prod.yaml`
 is a complete single-host stack.
 
 ## Quickstart (local development)
@@ -173,7 +173,7 @@ cache warmed. A **second container from that same image runs the messenger
 worker** — without it, queued mail is never delivered, data exports never build,
 the trial-end sweep never runs and the site-review outbox never drains.
 
-Two topologies ship with the project: `compose.prod.yaml`, a complete single-host
+Two topologies ship with the project: `deploy/compose.prod.yaml`, a complete single-host
 stack needing no cloud account, and DigitalOcean App Platform with the
 infrastructure in [`terraform/`](terraform/README.md).
 

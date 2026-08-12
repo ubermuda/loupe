@@ -14,7 +14,7 @@ e2e/
 .env.*.local
 # Same reasoning: the filled-in configuration for the reference production stack
 # holds real secrets and must never be baked into the image it configures.
-compose.prod.env
+deploy/compose.prod.env
 .env.dev*
 .env.test*
 # Never ship the repository history (and its size) inside the runtime image.
