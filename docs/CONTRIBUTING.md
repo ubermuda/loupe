@@ -4,7 +4,7 @@ Thanks for your interest in improving Loupe! This guide covers the essentials.
 
 ## Getting set up
 
-Follow the [Quickstart in the README](README.md#quickstart-local-development) to
+Follow the [Quickstart in the README](../README.md#quickstart-local-development) to
 get a local environment running.
 
 ## Before you open a pull request
@@ -48,4 +48,4 @@ working in an area. In short:
 ## License
 
 By contributing, you agree that your contributions are licensed under the
-project's [AGPL-3.0-or-later](LICENSE) license.
+project's [AGPL-3.0-or-later](../LICENSE) license.
