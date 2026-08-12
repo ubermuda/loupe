@@ -2,9 +2,24 @@
 import { defineConfig } from 'astro/config';
 import starlight from '@astrojs/starlight';
 import { fileURLToPath } from 'node:url';
+import { loadEnv } from 'vite';
 import { remarkDocsLinks } from './remark-docs-links.mjs';
 
 const docsDir = fileURLToPath(new URL('../docs', import.meta.url));
+
+// astro.config runs in Node, where .env is not loaded for us. Absent a token the
+// widget is simply not injected — see .env.example.
+const env = loadEnv(process.env.NODE_ENV ?? 'development', process.cwd(), '');
+const widgetHost = env.PUBLIC_SITE_REVIEW_HOST ?? 'https://loupe.dev.localhost';
+const siteReviewWidget = env.PUBLIC_SITE_REVIEW_TOKEN
+  ? [{
+      tag: 'script',
+      attrs: {
+        src: `${widgetHost}/site-review/widget.js`,
+        'data-token': env.PUBLIC_SITE_REVIEW_TOKEN,
+      },
+    }]
+  : [];
 
 export default defineConfig({
   markdown: {
@@ -13,6 +28,7 @@ export default defineConfig({
   integrations: [
     starlight({
       title: 'Loupe',
+      head: siteReviewWidget,
       description: 'A document- and site-review tool for humans working with AI agents.',
       social: [
         { icon: 'github', label: 'GitHub', href: 'https://github.com/ubermuda/loupe' },
@@ -22,12 +38,61 @@ export default defineConfig({
       },
       sidebar: [
         { label: 'Introduction', slug: 'index' },
-        { label: 'Getting started', autogenerate: { directory: 'getting-started' } },
-        { label: 'Using Loupe', autogenerate: { directory: 'using' } },
-        { label: 'Extending Loupe', autogenerate: { directory: 'extending' } },
-        { label: 'Operating', autogenerate: { directory: 'operating' } },
-        { label: 'Reference', autogenerate: { directory: 'reference' } },
-        { label: 'Contributing', autogenerate: { directory: 'contributing' } },
+        {
+          label: 'Getting started',
+          items: [
+            { label: 'Choosing a path', slug: 'getting-started' },
+            { slug: 'getting-started/demo' },
+            { slug: 'getting-started/from-source' },
+            { slug: 'getting-started/docker-compose' },
+            { slug: 'getting-started/digitalocean' },
+            { slug: 'getting-started/architecture' },
+          ],
+        },
+        {
+          label: 'Using Loupe',
+          items: [
+            { slug: 'using/documents' },
+            { slug: 'using/mcp' },
+            { slug: 'using/site-review' },
+            { slug: 'using/admin' },
+            { slug: 'using/data-exports' },
+          ],
+        },
+        {
+          label: 'Extending Loupe',
+          items: [
+            { slug: 'extending/reverse-proxy' },
+            { slug: 'extending/mercure' },
+            { slug: 'extending/object-storage' },
+            { slug: 'extending/oauth' },
+            { slug: 'extending/billing' },
+            { slug: 'extending/cli-bridge' },
+          ],
+        },
+        {
+          label: 'Operating',
+          items: [
+            { slug: 'operating/first-run' },
+            { slug: 'operating/migrations' },
+            { slug: 'operating/post-deploy-checks' },
+            { slug: 'operating/failed-messages' },
+            { slug: 'operating/recovering' },
+            { slug: 'operating/backups' },
+          ],
+        },
+        {
+          label: 'Reference',
+          items: [{ slug: 'reference/environment' }, { slug: 'reference/commands' }],
+        },
+        {
+          label: 'Contributing',
+          items: [
+            { label: 'Overview', slug: 'contributing' },
+            { slug: 'contributing/development' },
+            { slug: 'contributing/worktrees' },
+          ],
+        },
         { label: 'Troubleshooting', slug: 'troubleshooting' },
         { label: 'Known gaps', slug: 'known-gaps' },
         { label: 'Changelog', slug: 'changelog' },
