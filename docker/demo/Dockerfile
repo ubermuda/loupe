@@ -5,7 +5,7 @@
 #
 # NOT a deployment target. APP_SECRET is a committed constant, the database
 # lives in the container's writable layer, and no TLS terminates in front. Use
-# `deploy/compose.prod.yaml` to actually run this software.
+# `docker/compose/prod.yaml` to actually run this software.
 #
 # Built FROM the production image rather than repeating its build steps, so the
 # application layer here is byte-identical to the one that ships. The reference
@@ -16,7 +16,7 @@
 ARG LOUPE_BASE=ghcr.io/ubermuda/loupe:prod
 FROM ${LOUPE_BASE}
 
-# 16 to match deploy/compose.prod.yaml, and therefore the serverVersion below.
+# 16 to match docker/compose/prod.yaml, and therefore the serverVersion below.
 RUN apk add --no-cache postgresql16 postgresql16-client
 
 COPY docker/demo/supervisord.conf /etc/supervisord-demo.conf

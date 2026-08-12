@@ -28,8 +28,8 @@ project=${project:-loupe}
 
 # Prefer the worktree's own definition; fall back to main's when the worktree
 # directory is already gone (the usual case when pruning).
-compose_file="$root/compose.worktree.yaml"
-[ -f "$compose_file" ] || compose_file="$main/compose.worktree.yaml"
+compose_file="$root/docker/compose/worktree.yaml"
+[ -f "$compose_file" ] || compose_file="$main/docker/compose/worktree.yaml"
 
 # Stop the sidecar first so its Traefik route disappears before the code does —
 # otherwise the route lingers and serves 502s. The compose file interpolates

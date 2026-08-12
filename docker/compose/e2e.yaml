@@ -18,7 +18,7 @@
 # Brought up by `just e2e-up`, which generates that file and creates the
 # database. Not usable standalone:
 #
-#   docker compose -f compose.e2e.yaml -p <project>-e2e up -d
+#   docker compose -f docker/compose/e2e.yaml -p <project>-e2e up -d
 #
 # The explicit -p matters — .env sets COMPOSE_PROJECT_NAME, and that
 # environment variable would override a `name:` key declared here.

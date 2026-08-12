@@ -3,7 +3,7 @@
 # Brought up by bin/worktrees/worktree-bootstrap.sh, which passes every
 # variable below and generates the docroot file. Not usable standalone:
 #
-#   docker compose -f compose.worktree.yaml -p <project>-wt-<slug> up -d
+#   docker compose -f docker/compose/worktree.yaml -p <project>-wt-<slug> up -d
 #
 # The explicit -p matters — .env sets COMPOSE_PROJECT_NAME, and that
 # environment variable would override a `name:` key declared in this file.

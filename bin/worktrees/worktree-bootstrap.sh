@@ -273,7 +273,7 @@ WT_ROOT="$root" \
 WT_SLUG="$slug" \
 WT_BASE_HOST="$base_host" \
 WT_APP_NETWORK="${project}_default" \
-    docker compose -f "$root/compose.worktree.yaml" -p "${project}-wt-$slug" up -d >/dev/null
+    docker compose -f "$root/docker/compose/worktree.yaml" -p "${project}-wt-$slug" up -d >/dev/null
 
 # 7. Warm the dev cache so phpstan finds var/cache/dev/App_KernelDevDebugContainer.xml.
 in_worktree bin/console cache:warmup --no-interaction >/dev/null

@@ -37,5 +37,5 @@ docker run --rm -p 127.0.0.1:9000:80 \
 ```
 
 From a clone, `just demo` builds the image and runs it with all of that already
-set. To run Loupe for real, see [Single-host Docker Compose](docker-compose.md) — `deploy/compose.prod.yaml`
+set. To run Loupe for real, see [Single-host Docker Compose](docker-compose.md) — `docker/compose/prod.yaml`
 is a complete single-host stack.

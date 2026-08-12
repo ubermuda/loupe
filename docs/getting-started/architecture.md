@@ -32,6 +32,6 @@ backlog must not delay schedule ticks. `--time-limit` recycles the process
 hourly and `--memory-limit` guards against a leak in a long-lived consumer.
 
 Both shipped topologies run exactly that command — `worker_command` in
-`terraform/main.tf`, the `worker` service in `deploy/compose.prod.yaml`. If you deploy
+`terraform/main.tf`, the `worker` service in `docker/compose/prod.yaml`. If you deploy
 some other way, this is the piece it is easiest to forget.
 

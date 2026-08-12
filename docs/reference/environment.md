@@ -9,7 +9,7 @@ committed defaults live. Below is what a production instance must decide for
 itself. **Anything you leave unset falls back to the committed default in
 `.env`** — which is usually a development value.
 
-Where a variable is set differs by topology: in `deploy/compose.prod.env` for the
+Where a variable is set differs by topology: in `docker/compose/prod.env` for the
 single-host stack, in Terraform variables for App Platform. The last column
 answers one question — **must you add this yourself, because no template has a
 slot for it?** "No" means both templates cover it.
@@ -23,7 +23,7 @@ slot for it?** "No" means both templates cover it.
 | `DATABASE_URL` | Postgres DSN. `serverVersion` must match the real cluster: understating it is safe, overstating it can break queries. | No |
 | `DEFAULT_URI` | **The instance's public URL, scheme included.** The single host-shaped setting the app has. It builds absolute links in non-HTTP contexts (console commands, the worker), pins the host of links in security-sensitive email so a forged `Host` header cannot redirect them, and is the base of the Mercure topics the bridge CLI subscribes to. Get it wrong and password-reset and export-download emails point somewhere nobody can act on. | No |
 | `MCP_ALLOWED_HOSTS` | Comma-separated DNS-rebinding allowlist for `/mcp`, **hostnames only, no port**. It must contain the hostname agents actually use, or every MCP call is rejected with a 403 — one that names this variable and echoes the host it rejected, so the failure is self-explaining. | No |
-| `TRUSTED_PROXIES` | The reverse proxy in front of the app, as IPs or CIDR ranges. **Empty falls back to `PRIVATE_SUBNETS`**, which covers Docker and any balancer on a private network. Set it when your balancer reaches the app from a public address: until you do, `X-Forwarded-Proto` and `X-Forwarded-Host` are ignored (generated URLs get the wrong scheme and host) and every visitor shares the balancer's IP, so the per-IP registration and password-reset limiters throttle all your users collectively. | **Yes on App Platform** — `deploy/compose.prod.env.example` has a slot, Terraform has none |
+| `TRUSTED_PROXIES` | The reverse proxy in front of the app, as IPs or CIDR ranges. **Empty falls back to `PRIVATE_SUBNETS`**, which covers Docker and any balancer on a private network. Set it when your balancer reaches the app from a public address: until you do, `X-Forwarded-Proto` and `X-Forwarded-Host` are ignored (generated URLs get the wrong scheme and host) and every visitor shares the balancer's IP, so the per-IP registration and password-reset limiters throttle all your users collectively. | **Yes on App Platform** — `docker/compose/prod.env.example` has a slot, Terraform has none |
 | `APP_SOURCE_URL` | Where *this instance's* source can be obtained, rendered as a footer link on every page. A default ships in `.env` pointing at upstream, which is correct for an unmodified instance and wrong for a modified one. **If you change the code, the AGPL requires you to point this at your repository.** | No |
 
 ## Mail
@@ -75,7 +75,7 @@ you want it — there is no variable to fill in.
 
 `APP_SOURCE_URL` **is** wired on both topologies — `app_source_url` in
 `terraform/variables.tf` feeds an `extra_env` entry, and
-`deploy/compose.prod.env.example` carries a commented slot. Both deliberately omit the
+`docker/compose/prod.env.example` carries a commented slot. Both deliberately omit the
 key entirely when it is empty, rather than passing an empty string: an absent
 key leaves the image's committed default in place, while an emitted empty one
 would remove the footer link altogether.

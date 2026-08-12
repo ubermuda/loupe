@@ -1,7 +1,7 @@
 # Production image coordinates; override with LOUPE_PROD_IMAGE=ghcr.io/you/loupe:prod.
 # Set the same value in three places or they drift: here (build and push),
 # terraform's registry/image_repository/image_tag, and LOUPE_PROD_IMAGE in
-# deploy/compose.prod.env.
+# docker/compose/prod.env.
 prod_image := env("LOUPE_PROD_IMAGE", "ghcr.io/ubermuda/loupe:prod")
 
 # The single-container demo image, and the host's own architecture, which is
@@ -295,7 +295,7 @@ e2e-up:
 
     E2E_MAIN="$main" E2E_PROJECT="$project" E2E_HOST="$host" \
     E2E_APP_NETWORK="${project}_default" \
-        docker compose -f "$main/compose.e2e.yaml" -p "${project}-e2e" up -d >/dev/null
+        docker compose -f "$main/docker/compose/e2e.yaml" -p "${project}-e2e" up -d >/dev/null
 
     echo "e2e target ready at https://${host} (database ${db})"
     echo "Run 'just e2e-worker' in another shell before specs that need mail or exports."
@@ -354,7 +354,7 @@ e2e-down:
     E2E_MAIN="$main" E2E_PROJECT="$project" \
     E2E_HOST="e2e.${project}.dev.localhost" \
     E2E_APP_NETWORK="${project}_default" \
-        docker compose -f "$main/compose.e2e.yaml" -p "${project}-e2e" down >/dev/null
+        docker compose -f "$main/docker/compose/e2e.yaml" -p "${project}-e2e" down >/dev/null
 
     # Stop the worker first, or it survives to its --time-limit and the next
     # `e2e-up` gets two consumers on one queue. Matched by environment, not

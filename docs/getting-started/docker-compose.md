@@ -4,7 +4,7 @@ description: The whole application on one machine, with no cloud account of any 
 ---
 
 
-`deploy/compose.prod.yaml` runs the whole application on one host with no cloud account
+`docker/compose/prod.yaml` runs the whole application on one host with no cloud account
 of any kind. It is the same production image, run as three services: `web`
 (nginx + php-fpm), `worker` (the messenger consumer, which also runs everything
 on the schedule) and `database` (Postgres).
@@ -12,19 +12,19 @@ on the schedule) and `database` (Postgres).
 A fourth, `mercure` (the hub), sits behind a compose profile and stays off
 unless you ask for it — site-review push is the only thing that needs it. To
 enable it, set `MERCURE_JWT_SECRET` and `MERCURE_PUBLIC_URL` in
-`deploy/compose.prod.env`, give the hub's hostname a route in your reverse proxy, and
+`docker/compose/prod.env`, give the hub's hostname a route in your reverse proxy, and
 add `--profile mercure` to every `docker compose` command for this stack.
 
 ```bash
-cp deploy/compose.prod.env.example deploy/compose.prod.env      # then fill it in
+cp docker/compose/prod.env.example docker/compose/prod.env      # then fill it in
 
 # Only if you cannot pull the published image — see below.
-docker compose -f deploy/compose.prod.yaml --env-file deploy/compose.prod.env build
+docker compose -f docker/compose/prod.yaml --env-file docker/compose/prod.env build
 
-docker compose -f deploy/compose.prod.yaml --env-file deploy/compose.prod.env up -d
+docker compose -f docker/compose/prod.yaml --env-file docker/compose/prod.env up -d
 
 # Once per deploy, never from a container's entrypoint:
-docker compose -f deploy/compose.prod.yaml --env-file deploy/compose.prod.env \
+docker compose -f docker/compose/prod.yaml --env-file docker/compose/prod.env \
     run --rm web docker/prod/release.sh
 ```
 
