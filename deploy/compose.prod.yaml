@@ -39,7 +39,9 @@ name: ${COMPOSE_PROJECT_NAME:-loupe}
 # access: GHCR package visibility is set separately from repository visibility,
 # so a public repo does not imply a pullable image.
 x-app-build: &app-build
-  context: .
+  # Relative to THIS file, not to your shell — Compose resolves build paths
+  # against the compose file's directory, so the repository root is `..`.
+  context: ..
   dockerfile: docker/prod/Dockerfile
 
 # The web container and the worker container run the same image with the same
