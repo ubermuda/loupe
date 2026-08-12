@@ -1,6 +1,6 @@
 ---
-title: Known gaps
-description: Things the application needs that are not configured on your behalf. Read before a first real deploy.
+title: "Known gaps"
+description: "Things the application needs that are not configured on your behalf. Read before a first real deploy."
 ---
 
 

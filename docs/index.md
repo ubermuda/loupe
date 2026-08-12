@@ -1,6 +1,6 @@
 ---
-title: Loupe
-description: A document- and site-review tool for humans working with AI agents.
+title: "Loupe"
+description: "A document- and site-review tool for humans working with AI agents."
 ---
 
 Loupe is a document- and site-review tool for humans working with AI agents.

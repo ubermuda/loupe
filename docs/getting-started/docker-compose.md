@@ -1,6 +1,6 @@
 ---
-title: Single-host Docker Compose
-description: The whole application on one machine, with no cloud account of any kind.
+title: "Single-host Docker Compose"
+description: "The whole application on one machine, with no cloud account of any kind."
 ---
 
 

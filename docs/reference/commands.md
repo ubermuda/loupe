@@ -1,6 +1,6 @@
 ---
-title: Console commands
-description: Every app: command, what it does, and which are safe for cron.
+title: "Console commands"
+description: "Every app: command, what it does, and which are safe for cron."
 ---
 
 Run these in the web container — `docker exec`, `just exec` in development, or

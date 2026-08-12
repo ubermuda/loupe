@@ -1,6 +1,6 @@
 ---
-title: Failed messages and the outbox
-description: Where queued work goes when it fails, and how to replay it.
+title: "Failed messages and the outbox"
+description: "Where queued work goes when it fails, and how to replay it."
 ---
 
 A message that exhausts its three retries is moved to the `failed` transport

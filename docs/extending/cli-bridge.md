@@ -1,6 +1,6 @@
 ---
-title: Command-line bridge
-description: A Go binary that types submitted site reviews into a Claude Code session. Preview, unreleased.
+title: "Command-line bridge"
+description: "A Go binary that types submitted site reviews into a Claude Code session. Preview, unreleased."
 ---
 
 `cli/` holds a small Go binary that closes the loop: it subscribes to your

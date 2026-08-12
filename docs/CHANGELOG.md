@@ -1,6 +1,6 @@
 ---
-title: Changelog
-description: Notable changes, newest first.
+title: "Changelog"
+description: "Notable changes, newest first."
 ---
 
 All notable changes to this project are documented in this file.

@@ -1,6 +1,6 @@
 ---
-title: Billing
-description: Optional, off by default. Stripe subscriptions behind the billing.enabled flag.
+title: "Billing"
+description: "Optional, off by default. Stripe subscriptions behind the billing.enabled flag."
 ---
 
 Nothing instantiates the Stripe client until `billing.enabled` is on, so an

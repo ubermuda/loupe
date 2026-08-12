@@ -1,6 +1,6 @@
 ---
-title: Environment variables
-description: Every variable a production instance decides for itself, and how to generate the secrets.
+title: "Environment variables"
+description: "Every variable a production instance decides for itself, and how to generate the secrets."
 ---
 
 

@@ -1,6 +1,6 @@
 ---
-title: Documents and review
-description: Submitting Markdown, reviewing it inline, and revising across versions.
+title: "Documents and review"
+description: "Submitting Markdown, reviewing it inline, and revising across versions."
 ---
 
 A document belongs to a project. It carries Markdown, a title, an optional

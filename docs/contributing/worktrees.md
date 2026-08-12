@@ -1,6 +1,6 @@
 ---
-title: Git worktrees
-description: Each worktree is a full application — its own URL, database and CSS.
+title: "Git worktrees"
+description: "Each worktree is a full application — its own URL, database and CSS."
 ---
 
 Worktrees live in `.claude/worktrees/` and are provisioned by name from the main

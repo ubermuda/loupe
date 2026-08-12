@@ -1,6 +1,6 @@
 ---
-title: Troubleshooting
-description: Symptoms, and what actually causes them. Grouped by what you observe, not by subsystem.
+title: "Troubleshooting"
+description: "Symptoms, and what actually causes them. Grouped by what you observe, not by subsystem."
 ---
 
 ## Nothing queued ever happens

@@ -1,6 +1,6 @@
 ---
-title: Recovering an instance
-description: Getting back in when no administrator is reachable. Needs a shell on the instance.
+title: "Recovering an instance"
+description: "Getting back in when no administrator is reachable. Needs a shell on the instance."
 ---
 
 

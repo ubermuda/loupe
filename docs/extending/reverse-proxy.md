@@ -1,6 +1,6 @@
 ---
-title: Reverse proxy
-description: How to reach a development instance — with trusted certificates, or over plain HTTP.
+title: "Reverse proxy"
+description: "How to reach a development instance — with trusted certificates, or over plain HTTP."
 ---
 
 

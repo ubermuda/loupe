@@ -1,6 +1,6 @@
 ---
-title: Post-deploy checks
-description: What to verify after a deploy, and what each check can and cannot prove.
+title: "Post-deploy checks"
+description: "What to verify after a deploy, and what each check can and cannot prove."
 ---
 
 1. `GET /healthz` returns 200 and `{"status":"ok"}`. It is unauthenticated,

@@ -1,6 +1,6 @@
 ---
-title: Social login
-description: Optional. Google and GitHub sign-in, each gated by both credentials and a flag.
+title: "Social login"
+description: "Optional. Google and GitHub sign-in, each gated by both credentials and a flag."
 ---
 
 A provider becomes reachable only when its credentials **and** its feature flag
