@@ -3010,7 +3010,7 @@ list row instead.
 
 **Author:** Claude · **Type:** bug · **Priority:** low · **Status:** pending
 
-The site-review widget (loaded on Loupe's own authenticated pages when
+The site-review widget (loaded on Loupe's own pages when
 `SITE_REVIEW_WIDGET_TOKEN` is set — dev/dogfooding) mounts a `position:fixed`
 bottom-right launcher (z-index max). PR 3 pinned the document-review verdict bar
 to the bottom of the 388px margin, so the launcher can overlap the "Request
