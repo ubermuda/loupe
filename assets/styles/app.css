@@ -1280,9 +1280,13 @@
     }
 
     /* ── Metadata toolbar ───────────────────────────────────────────────
-       Versions / Contents / References as three mutually-exclusive tabs, so the
-       three panels that used to sit open one under the other cost one row of
-       height between them. The document's tags ride at the right end. */
+       Mutually-exclusive tabs, so the panels that used to sit open one under the
+       other cost one row of height between them. Tags ride at the right end.
+       Sticky on the wrapper, not on .lp-doc-meta: a sticky element cannot
+       outlive its containing block, and .lp-doc-meta is also the landing mock. */
+    .lp-doc-meta-bar {
+        @apply sticky top-0 z-20 bg-app;
+    }
     .lp-doc-meta {
         @apply flex items-center gap-1 py-1.5 border-y border-line;
     }
@@ -1481,10 +1485,10 @@
     .lp-review-doc__prose {
         @apply mt-0 max-w-none text-lg leading-8 text-prose;
     }
-    /* The paper scrolls, not this pane, so a table-of-contents jump would land a
-       heading flush against the top of the window without this. */
+    /* The paper scrolls, not this pane, so a jump from the contents or decisions
+       panel would otherwise land its target under the sticky metadata bar. */
     .lp-review-doc__prose :is(h1, h2, h3, h4, h5, h6) {
-        @apply scroll-mt-6;
+        @apply scroll-mt-16;
     }
     .lp-review-doc__prose :is(h2, h3, h4) {
         @apply font-display font-extrabold text-ink text-2xl tracking-tight;
@@ -2415,7 +2419,7 @@
        Only the prompt does, because the author wrote it. */
 
     .lp-decision {
-        @apply my-4 rounded-xl border-0 px-5 py-4.5 bg-tint;
+        @apply my-4 rounded-xl border-0 px-5 py-4.5 bg-tint scroll-mt-16;
     }
     /* Floated rather than blocked: a legend renders in the fieldset's border
        notch, so `display: block` alone leaves the eyebrow and the question
@@ -2466,11 +2470,31 @@
        for now because there is one shared region for the whole page, not one per
        block — see 'A decision card cannot show its own recorded answer' in
        docs/NEXT_STEPS.md. */
+    /* Empty until an answer is streamed in, so it must take no room while it is. */
     .lp-decision-status {
-        @apply mt-2 text-xs text-fg-mute;
+        @apply m-0 ml-2 text-xs text-fg-mute empty:hidden;
     }
-    .lp-decision-status--failed {
+    .lp-decision-status__message--failed {
         @apply text-danger;
+    }
+
+    .lp-decision-summary__list {
+        @apply flex flex-col gap-1 m-0 p-0 list-none;
+    }
+    .lp-decision-summary__item {
+        @apply flex items-baseline gap-3 py-1;
+    }
+    .lp-decision-summary__link {
+        @apply text-sm font-semibold text-ink no-underline hover:underline;
+    }
+    .lp-decision-summary__answer {
+        @apply inline-flex items-baseline gap-1 ml-auto text-xs text-fg-mute;
+    }
+    .lp-decision-summary__check {
+        @apply w-3.5 h-3.5 shrink-0 self-center text-accent-ink;
+    }
+    .lp-decision-summary__pending {
+        @apply ml-auto text-xs text-fg-dim;
     }
 
     /* ── Admin primitives ───────────────────────────────────────────────

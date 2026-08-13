@@ -7,6 +7,7 @@ namespace App\Module\Review\Command;
 use App\Module\Review\Entity\Comment;
 use App\Module\Review\Entity\Document;
 use App\Module\Review\Entity\DocumentVersion;
+use App\Module\Review\ValueObject\DecisionSummary;
 use App\Module\Review\ValueObject\DocumentHeading;
 
 final readonly class ShowDocumentView
@@ -24,7 +25,7 @@ final readonly class ShowDocumentView
         public array $versions,
         public array $headings,
         public int $orphanedCount,
-        public bool $hasDecisions,
+        public DecisionSummary $decisions,
         public string $decisionMarkedHtml,
     ) {
     }

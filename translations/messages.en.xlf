@@ -1127,6 +1127,18 @@
                 <source>review.document.meta.references</source>
                 <target>References</target>
             </trans-unit>
+            <trans-unit id="review.document.meta.decisions">
+                <source>review.document.meta.decisions</source>
+                <target>Decisions</target>
+            </trans-unit>
+            <trans-unit id="review.document.decisions.count">
+                <source>review.document.decisions.count</source>
+                <target>%answered%/%total%</target>
+            </trans-unit>
+            <trans-unit id="review.document.decisions.pending">
+                <source>review.document.decisions.pending</source>
+                <target>Not chosen yet</target>
+            </trans-unit>
             <trans-unit id="review.document.status.open">
                 <source>review.document.status.open</source>
                 <target>Open</target>

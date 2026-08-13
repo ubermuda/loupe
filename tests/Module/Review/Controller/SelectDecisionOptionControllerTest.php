@@ -117,11 +117,15 @@ final class SelectDecisionOptionControllerTest extends WebTestCase
     }
 
     /**
-     * The stream replaces only the status line: the radio is already in the
-     * state the reviewer left it, and replacing the prose would tear out the
-     * comment highlights anchored into it.
+     * The stream touches only the toolbar: the radio is already in the state the
+     * reviewer left it, and replacing the prose would tear out the comment
+     * highlights anchored into it.
+     *
+     * `update` rather than `replace` throughout, because the status is an
+     * aria-live region and the running total sits in a tab whose open state
+     * belongs to the reviewer — swapping either element out loses that.
      */
-    public function test_a_turbo_answer_streams_back_only_the_status_line(): void
+    public function test_a_turbo_answer_streams_back_only_the_toolbar(): void
     {
         $client = static::createClient();
         [$owner, $document] = $this->seed($client);
@@ -131,8 +135,26 @@ final class SelectDecisionOptionControllerTest extends WebTestCase
 
         self::assertResponseIsSuccessful();
         $body = (string) $client->getResponse()->getContent();
-        self::assertStringContainsString('<turbo-stream action="replace" target="decision-status">', $body);
+        self::assertStringContainsString('<turbo-stream action="update" target="decision-status">', $body);
+        self::assertStringContainsString('<turbo-stream action="update" target="decision-summary-count">', $body);
+        self::assertStringContainsString('<turbo-stream action="update" target="decision-summary-list">', $body);
         self::assertStringNotContainsString('lp-review-doc__prose', $body);
+    }
+
+    /** The count is what tells the reviewer how much is left, so it must follow the write. */
+    public function test_an_answer_streams_back_the_running_total(): void
+    {
+        $client = static::createClient();
+        [$owner, $document] = $this->seed($client);
+
+        $client->loginUser($owner);
+        $this->answer($client, $document, 'deploy-target', '0', ['HTTP_ACCEPT' => 'text/vnd.turbo-stream.html']);
+
+        $body = (string) $client->getResponse()->getContent();
+        self::assertMatchesRegularExpression(
+            '~target="decision-summary-count">\s*<template>1/1</template>~',
+            $body,
+        );
     }
 
     /**
@@ -350,7 +372,11 @@ final class SelectDecisionOptionControllerTest extends WebTestCase
         $body = (string) $client->getResponse()->getContent();
         self::assertStringNotContainsString('lp-review-doc__prose', $body);
         self::assertStringNotContainsString('data-comment-anchor-target', $body);
-        self::assertSame(2, substr_count($body, '<turbo-stream'), 'exactly the block and the status line');
+        self::assertSame(
+            4,
+            substr_count($body, '<turbo-stream'),
+            'exactly the block, the status line, the running total and the panel list',
+        );
     }
 
     /**
@@ -359,7 +385,7 @@ final class SelectDecisionOptionControllerTest extends WebTestCase
      * with nothing to report and a form with no control to fill it.
      *
      * Omitted structurally rather than left to render harmlessly: the diff
-     * controller passes neither `hasDecisions` nor `selectDecisionForm`, and
+     * controller passes neither `decisions` nor `selectDecisionForm`, and
      * `strict_variables` is on, so without the guard this is a 500 rather than a
      * cosmetic gap.
      */
