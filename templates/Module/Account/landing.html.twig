@@ -40,8 +40,7 @@
 
     <section id="how" class="lp-landing-section">
         <div class="lp-landing-inner">
-            <h2 class="lp-landing-title">{{ 'landing.how.title'|trans }}</h2>
-            <p class="lp-landing-lead">{{ 'landing.how.lead'|trans }}</p>
+            <h2 class="lp-landing-title lp-landing-title--spaced">{{ 'landing.how.title'|trans }}</h2>
 
             <div class="lp-landing-steps">
                 {% for step in 1..3 %}
@@ -74,6 +73,7 @@
             <p class="lp-landing-lead lp-landing-lead--on-chrome">
                 {{ 'landing.tech.lead'|trans }}
                 <a href="{{ app_docs_url }}/using/mcp/" class="lp-landing-link--on-chrome">{{ 'landing.tech.docs_link'|trans }}</a>
+                <a href="{{ app_docs_url }}/using/site-review/" class="lp-landing-link--on-chrome">{{ 'landing.tech.widget_docs_link'|trans }}</a>
             </p>
 
             <div class="lp-landing-columns">
@@ -91,8 +91,8 @@
                     <p class="lp-landing-column__text">{{ 'landing.tech.markdown.text'|trans }}</p>
                 </div>
                 <div class="lp-landing-column">
-                    <h3 class="lp-landing-column__title">{{ 'landing.tech.tokens.title'|trans }}</h3>
-                    <p class="lp-landing-column__text">{{ 'landing.tech.tokens.text'|trans }}</p>
+                    <h3 class="lp-landing-column__title">{{ 'landing.tech.widget.title'|trans }}</h3>
+                    <p class="lp-landing-column__text">{{ 'landing.tech.widget.text'|trans }}</p>
                 </div>
             </div>
         </div>
@@ -123,7 +123,7 @@
 
     <section id="pricing" class="lp-landing-section lp-landing-section--sunken">
         <div class="lp-landing-inner">
-            <h2 class="lp-landing-title">{{ 'landing.pricing.title'|trans }}</h2>
+            <h2 class="lp-landing-title lp-landing-title--spaced">{{ 'landing.pricing.title'|trans }}</h2>
 
             <div class="lp-landing-plans">
                 <div class="lp-landing-plan">
