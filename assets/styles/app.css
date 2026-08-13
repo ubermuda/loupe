@@ -2554,6 +2554,335 @@
     .admin-form-actions {
         @apply flex items-center justify-end gap-3 pt-2;
     }
+
+    /* ── Landing page ───────────────────────────────────────────────────
+       The only marketing surface in the app, and the only place that stacks
+       full-bleed bands. It borrows the app's palette, type ladder and buttons
+       wholesale — the one thing it adds is the band rhythm. */
+    .lp-landing {
+        @apply flex flex-col bg-app text-fg;
+    }
+
+    /* Sticky, translucent, and the only blurred surface in the app. */
+    .lp-landing-nav {
+        @apply sticky top-0 z-40 flex items-center gap-2.5 px-7 py-4 border-b border-line bg-app/90 backdrop-blur-md;
+    }
+    .lp-landing-nav__brand {
+        @apply inline-flex items-center gap-2.5 mr-auto font-display font-extrabold text-2xl tracking-tight lowercase text-ink no-underline;
+    }
+    .lp-landing-nav__mark {
+        @apply w-7 h-7 rounded-lg bg-accent shrink-0;
+    }
+    .lp-landing-nav__links {
+        @apply flex items-center gap-4 text-sm;
+    }
+    .lp-landing-nav__link {
+        @apply hidden text-fg-mute no-underline transition-colors sm:inline hover:text-ink;
+    }
+    /* The sign-in link survives the mobile cull; the section anchors do not. */
+    .lp-landing-nav__link--wide {
+        @apply inline;
+    }
+
+    .lp-landing-hero {
+        @apply relative overflow-hidden bg-chrome px-7 pt-16 md:pt-24;
+    }
+    .lp-landing-hero__inner {
+        @apply max-w-5xl mx-auto flex flex-col items-center text-center gap-5;
+    }
+    .lp-landing-hero__title {
+        @apply font-display font-extrabold tracking-tighter text-white m-0 max-w-3xl text-balance text-4xl leading-none sm:text-6xl lg:text-7xl;
+    }
+    .lp-landing-hero__accent {
+        @apply text-accent;
+    }
+    .lp-landing-hero__lead {
+        @apply m-0 max-w-2xl text-lg leading-relaxed text-chrome-mute;
+    }
+    .lp-landing-hero__actions {
+        @apply flex flex-wrap items-center justify-center gap-3 mt-2;
+    }
+    .lp-landing-hero__note {
+        @apply m-0 text-xs text-chrome-dim;
+    }
+
+    /* ── Hero app still ─────────────────────────────────────────────────
+       Laid out at the app's real dimensions and scaled to fit by
+       landing_mock_controller, which also sets this element's height — the
+       frame is out of flow, so nothing else can. Faded out at the bottom so it
+       reads as continuing past the fold rather than being cut off. */
+    .lp-landing-mock {
+        @apply relative max-w-6xl mx-auto mt-16 overflow-hidden;
+    }
+    .lp-landing-mock__frame {
+        @apply absolute left-1/2 top-0 w-315 origin-top overflow-hidden rounded-t-xl border border-b-0 border-chrome-raised bg-chrome;
+        -webkit-mask-image: linear-gradient(
+            to bottom,
+            #000 55%,
+            rgb(0 0 0 / 0.5) 80%,
+            transparent 100%
+        );
+        mask-image: linear-gradient(
+            to bottom,
+            #000 55%,
+            rgb(0 0 0 / 0.5) 80%,
+            transparent 100%
+        );
+    }
+    /* .lp-app without its 100dvh: the still is 640px tall by construction. */
+    .lp-landing-mock__app {
+        @apply flex h-160 bg-sidebar;
+    }
+    /* Opens a gap the comment card can sit level with, the way a real thread
+       pushes its paragraph clear of the one above. */
+    .lp-landing-mock__gap {
+        @apply mt-15;
+    }
+    /* Sits in the gap .lp-landing-mock__gap opens, and level with the ringed
+       passage — the two offsets are measured against the still's fixed layout,
+       which is why the copy inside it must not be re-flowed casually. */
+    .lp-landing-mock__toolbar {
+        @apply left-0 top-76;
+    }
+    .lp-landing-mock__margin {
+        @apply top-72;
+    }
+    .lp-landing-mock__reply {
+        @apply mt-7;
+    }
+
+    /* ── Bands ──────────────────────────────────────────────────────────
+       A section is a full-bleed colour band with a centred column inside it. */
+    .lp-landing-section {
+        @apply px-7 py-24;
+    }
+    .lp-landing-section--tight {
+        @apply pt-0;
+    }
+    .lp-landing-section--sunken {
+        @apply bg-surface-2;
+    }
+    .lp-landing-section--dark {
+        @apply bg-chrome;
+    }
+    .lp-landing-inner {
+        @apply max-w-5xl mx-auto;
+    }
+    .lp-landing-centered {
+        @apply flex flex-col items-center text-center max-w-2xl gap-4;
+    }
+    .lp-landing-centered__actions {
+        @apply flex flex-wrap items-center justify-center gap-3 mt-2;
+    }
+
+    .lp-landing-title {
+        @apply font-display font-extrabold tracking-tighter text-ink m-0 text-3xl leading-tight sm:text-5xl;
+    }
+    .lp-landing-title--sm {
+        @apply text-3xl sm:text-4xl;
+    }
+    .lp-landing-title--on-chrome {
+        @apply text-white;
+    }
+    .lp-landing-lead {
+        @apply text-fg-mute mt-3 mb-14 text-lg leading-relaxed max-w-xl;
+    }
+    .lp-landing-lead--flush {
+        @apply mb-0;
+    }
+    .lp-landing-lead--on-chrome {
+        @apply text-chrome-mute;
+    }
+    .lp-landing-note {
+        @apply m-0 text-sm text-fg-dim leading-relaxed;
+    }
+    .lp-landing-link {
+        @apply text-accent-ink underline underline-offset-2 hover:text-ink;
+    }
+    .lp-landing-link--on-chrome {
+        @apply text-accent underline underline-offset-2 hover:text-white;
+    }
+
+    /* ── How it works ───────────────────────────────────────────────────
+       Three sunken cards. Numbered, because the order is the point. */
+    .lp-landing-steps {
+        @apply grid gap-5 md:grid-cols-3;
+    }
+    .lp-landing-step {
+        @apply flex flex-col gap-3.5 rounded-xl bg-surface-2 px-6 py-7;
+    }
+    .lp-landing-step__number {
+        @apply inline-flex items-center justify-center w-7 h-7 rounded-full bg-accent text-ink font-mono font-bold text-xs;
+    }
+    .lp-landing-step__title {
+        @apply font-display font-extrabold text-ink m-0 text-2xl tracking-tight;
+    }
+    .lp-landing-step__text {
+        @apply text-fg-mute m-0 text-base leading-relaxed;
+    }
+
+    /* ── Feature grid ───────────────────────────────────────────────────
+       Hairline-separated cells rather than cards: six cards in a block reads as
+       a wall, and none of these six is more important than another. The gap is
+       the rule — the grid's own background shows through it. */
+    .lp-landing-features {
+        @apply grid gap-px bg-line border-y border-line sm:grid-cols-2 md:grid-cols-3;
+    }
+    .lp-landing-feature {
+        @apply flex flex-col gap-2.5 bg-app px-7 py-8;
+    }
+    .lp-landing-feature__title {
+        @apply font-display font-extrabold text-ink m-0 text-xl tracking-tight;
+    }
+    .lp-landing-feature__text {
+        @apply text-fg-mute m-0 text-sm leading-relaxed;
+    }
+
+    .lp-landing-columns {
+        @apply grid gap-7 md:grid-cols-3;
+    }
+    .lp-landing-column {
+        @apply flex flex-col gap-2;
+    }
+    .lp-landing-column__title {
+        @apply text-white m-0 text-base font-bold;
+    }
+    .lp-landing-column__text {
+        @apply text-chrome-mute m-0 text-sm leading-relaxed;
+    }
+    .lp-landing-column__text code {
+        @apply font-mono rounded-md bg-chrome-raised text-accent py-0.5 px-1.5;
+    }
+
+    .lp-landing-split {
+        @apply grid gap-14 items-center md:grid-cols-2;
+    }
+    .lp-landing-split__text {
+        @apply flex flex-col gap-4;
+    }
+
+    /* ── Pricing ────────────────────────────────────────────────────────
+       Two plans, the hosted one on the dark chrome so the pair reads as
+       "yours" and "ours" rather than "worse" and "better". */
+    .lp-landing-plans {
+        @apply grid gap-5 items-stretch md:grid-cols-2;
+    }
+    .lp-landing-plan {
+        @apply flex flex-col gap-5 rounded-2xl bg-app border border-line px-8 py-8;
+    }
+    .lp-landing-plan--hosted {
+        @apply bg-chrome border-transparent min-w-0;
+    }
+    .lp-landing-plan__head {
+        @apply flex flex-col gap-1.5;
+    }
+    .lp-landing-plan__title-row {
+        @apply flex items-center gap-3;
+    }
+    .lp-landing-plan__name {
+        @apply font-display font-extrabold text-ink m-0 text-2xl tracking-tight;
+    }
+    .lp-landing-plan__name--on-chrome {
+        @apply text-white;
+    }
+    .lp-landing-plan__badge {
+        @apply ml-auto inline-flex items-center shrink-0 rounded-full bg-accent-soft text-ink text-xs font-bold py-1 px-3;
+    }
+    .lp-landing-plan__desc {
+        @apply text-fg-mute m-0 text-sm;
+    }
+    .lp-landing-plan__desc--on-chrome {
+        @apply text-chrome-mute;
+    }
+    .lp-landing-plan__price {
+        @apply flex items-baseline gap-2 font-display font-extrabold text-ink m-0 text-5xl tracking-tighter leading-none;
+    }
+    .lp-landing-plan__price--accent {
+        @apply text-accent;
+    }
+    .lp-landing-plan__period {
+        @apply text-fg-dim text-sm font-sans font-normal tracking-normal;
+    }
+    .lp-landing-plan__period--on-chrome {
+        @apply text-chrome-mute;
+    }
+    .lp-landing-plan__list {
+        @apply flex flex-col gap-2.5 list-none m-0 p-0;
+    }
+    .lp-landing-plan__item {
+        @apply flex items-start gap-2.5 text-prose text-sm leading-normal;
+    }
+    .lp-landing-plan__item--on-chrome {
+        @apply text-chrome-fg;
+    }
+    .lp-landing-plan__check {
+        @apply w-4 h-4 shrink-0 mt-0.5 text-status-ok;
+    }
+    .lp-landing-plan__check--accent {
+        @apply text-accent;
+    }
+    /* Pins the button to the bottom so both plans' actions line up whatever the
+       feature lists do. */
+    .lp-landing-plan__action {
+        @apply mt-auto self-stretch;
+    }
+
+    /* ── FAQ ────────────────────────────────────────────────────────────
+       Hairline-divided rows rather than a disclosure: four answers this short
+       are cheaper to read than to click. */
+    .lp-landing-faq {
+        @apply grid gap-14 md:grid-cols-3;
+    }
+    .lp-landing-faq__list {
+        @apply flex flex-col md:col-span-2;
+    }
+    .lp-landing-faq__item {
+        @apply flex flex-col gap-2 py-6 border-t border-line-strong last:border-b;
+    }
+    .lp-landing-faq__question {
+        @apply text-ink m-0 text-base font-bold;
+    }
+    .lp-landing-faq__answer {
+        @apply text-fg-mute m-0 text-base leading-relaxed;
+    }
+    .lp-landing-faq__answer code {
+        @apply font-mono rounded-md bg-tint-strong text-ink py-0.5 px-1.5 text-sm;
+    }
+
+    .lp-landing-cta__inner {
+        @apply max-w-2xl mx-auto flex flex-col items-center text-center gap-5;
+    }
+    .lp-landing-cta__title {
+        @apply font-display font-extrabold tracking-tighter text-white m-0 text-4xl leading-none sm:text-6xl;
+    }
+
+    .lp-landing-footer {
+        @apply bg-chrome border-t border-chrome-raised px-7 py-10;
+    }
+    .lp-landing-footer__row {
+        @apply flex flex-wrap items-center gap-5 text-xs text-chrome-dim;
+    }
+    .lp-landing-nav__brand--sm {
+        @apply text-base mr-0 text-chrome-fg;
+    }
+    .lp-landing-nav__mark--sm {
+        @apply w-5 h-5 rounded-md;
+    }
+    .lp-landing-footer__copyright {
+        @apply mr-auto;
+    }
+    .lp-landing-footer__nav {
+        @apply flex flex-wrap items-center gap-5;
+    }
+    .lp-landing-footer__link {
+        @apply inline-flex items-center gap-1.5 text-chrome-mute no-underline transition-colors hover:text-chrome-fg;
+    }
+
+    /* Buttons are pills everywhere else at 36px; the hero's pair carry the page
+       and need the extra weight. */
+    .lp-btn--lg {
+        @apply h-11 px-6 text-base;
+    }
 }
 
 /* The typography plugin wraps inline code in literal backticks. Unlayered, not

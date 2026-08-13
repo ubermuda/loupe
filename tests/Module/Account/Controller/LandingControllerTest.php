@@ -7,11 +7,22 @@ namespace App\Tests\Module\Account\Controller;
 use App\Module\Account\Entity\User;
 use App\Module\Project\Entity\Project;
 use Doctrine\ORM\EntityManagerInterface;
+use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use Symfony\Component\HttpFoundation\Request;
+use Ubermuda\FeatureFlagsBundle\Entity\FeatureFlag;
+use Ubermuda\FeatureFlagsBundle\Enum\FeatureFlagType;
 
-final class HomeControllerTest extends WebTestCase
+final class LandingControllerTest extends WebTestCase
 {
+    private function setBillingEnabled(KernelBrowser $client, bool $enabled): void
+    {
+        $em = $client->getContainer()->get(EntityManagerInterface::class);
+        self::assertInstanceOf(EntityManagerInterface::class, $em);
+        $em->persist(new FeatureFlag(name: 'billing.enabled', type: FeatureFlagType::Bool, value: $enabled));
+        $em->flush();
+    }
+
     /** @param non-empty-string $email */
     private function createUser(EntityManagerInterface $em, string $username, string $email): User
     {
@@ -24,6 +35,49 @@ final class HomeControllerTest extends WebTestCase
         $em->persist($user);
 
         return $user;
+    }
+
+    public function test_anonymous_visitor_sees_the_landing_page_where_billing_is_on(): void
+    {
+        $client = static::createClient();
+        $this->setBillingEnabled($client, true);
+
+        $client->request(Request::METHOD_GET, '/');
+
+        self::assertResponseIsSuccessful();
+        self::assertSelectorExists('.lp-landing');
+        self::assertSelectorExists('a[href="/register"]');
+    }
+
+    /**
+     * The landing page sells a hosted plan, so an instance someone runs
+     * themselves must not serve it — billing being off is the app's closest
+     * proxy for that, and the same redirect anonymous visitors got before this
+     * page existed is what they keep getting.
+     */
+    public function test_anonymous_visitor_is_sent_to_login_where_billing_is_off(): void
+    {
+        $client = static::createClient();
+        $this->setBillingEnabled($client, false);
+
+        $client->request(Request::METHOD_GET, '/');
+
+        self::assertResponseRedirects('/login');
+    }
+
+    public function test_authenticated_user_never_sees_the_landing_page(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $user = $this->createUser($em, 'home-billing', 'home-billing@example.com');
+        $user->wizardCompletedAt = new \DateTimeImmutable();
+        $em->flush();
+        $this->setBillingEnabled($client, true);
+
+        $client->loginUser($user);
+        $client->request(Request::METHOD_GET, '/');
+
+        self::assertResponseRedirects('/projects');
     }
 
     public function test_fresh_user_is_sent_to_the_wizard(): void

@@ -73,6 +73,10 @@ security:
         # Carries the AGPL source offer, which a network user must be able to
         # reach without an account.
         - { path: ^/about$,          roles: PUBLIC_ACCESS }
+        # The marketing landing page. LandingController serves it to anonymous
+        # visitors only where billing is on, and redirects to /login otherwise;
+        # authenticated users get the same home redirect as before.
+        - { path: ^/$,               roles: PUBLIC_ACCESS }
         - { path: ^/oauth,           roles: PUBLIC_ACCESS }
         - { path: ^/login,           roles: PUBLIC_ACCESS }
         - { path: ^/register,        roles: PUBLIC_ACCESS }

@@ -2681,6 +2681,450 @@
                 <target>Back to document</target>
             </trans-unit>
 
+            <trans-unit id="landing.meta.title">
+                <source>landing.meta.title</source>
+                <target>Loupe · The human review layer for your agent loop</target>
+            </trans-unit>
+            <trans-unit id="landing.nav.how">
+                <source>landing.nav.how</source>
+                <target>How it works</target>
+            </trans-unit>
+            <trans-unit id="landing.nav.features">
+                <source>landing.nav.features</source>
+                <target>Features</target>
+            </trans-unit>
+            <trans-unit id="landing.nav.try">
+                <source>landing.nav.try</source>
+                <target>Try it</target>
+            </trans-unit>
+            <trans-unit id="landing.nav.pricing">
+                <source>landing.nav.pricing</source>
+                <target>Pricing</target>
+            </trans-unit>
+            <trans-unit id="landing.nav.faq">
+                <source>landing.nav.faq</source>
+                <target>FAQ</target>
+            </trans-unit>
+            <trans-unit id="landing.nav.login">
+                <source>landing.nav.login</source>
+                <target>Sign in</target>
+            </trans-unit>
+            <trans-unit id="landing.cta.signup">
+                <source>landing.cta.signup</source>
+                <target>Sign up free</target>
+            </trans-unit>
+            <trans-unit id="landing.cta.demo">
+                <source>landing.cta.demo</source>
+                <target>Run the demo</target>
+            </trans-unit>
+            <trans-unit id="landing.hero.title_before">
+                <source>landing.hero.title_before</source>
+                <target>The human review layer for your</target>
+            </trans-unit>
+            <trans-unit id="landing.hero.title_accent">
+                <source>landing.hero.title_accent</source>
+                <target>agent loop</target>
+            </trans-unit>
+            <trans-unit id="landing.hero.title_after">
+                <source>landing.hero.title_after</source>
+                <target>.</target>
+            </trans-unit>
+            <trans-unit id="landing.hero.lead">
+                <source>landing.hero.lead</source>
+                <target>Your agent writes the plan. Loupe renders it as a page a human can read, select and comment on, then hands the verdict back to the agent.</target>
+            </trans-unit>
+            <trans-unit id="landing.hero.note">
+                <source>landing.hero.note</source>
+                <target>14-day trial. No card. Or run it yourself under AGPL, forever free.</target>
+            </trans-unit>
+            <trans-unit id="landing.how.title">
+                <source>landing.how.title</source>
+                <target>From raw to reviewed.</target>
+            </trans-unit>
+            <trans-unit id="landing.how.lead">
+                <source>landing.how.lead</source>
+                <target>Three steps, and your agent handles two of them.</target>
+            </trans-unit>
+            <trans-unit id="landing.how.step1.title">
+                <source>landing.how.step1.title</source>
+                <target>The agent submits</target>
+            </trans-unit>
+            <trans-unit id="landing.how.step1.text">
+                <source>landing.how.step1.text</source>
+                <target>Your agent posts the plan to Loupe instead of your terminal, and you get a link.</target>
+            </trans-unit>
+            <trans-unit id="landing.how.step2.title">
+                <source>landing.how.step2.title</source>
+                <target>A human reviews</target>
+            </trans-unit>
+            <trans-unit id="landing.how.step2.text">
+                <source>landing.how.step2.text</source>
+                <target>Highlight anything and comment on it. Then approve, or ask for changes.</target>
+            </trans-unit>
+            <trans-unit id="landing.how.step3.title">
+                <source>landing.how.step3.title</source>
+                <target>The agent revises</target>
+            </trans-unit>
+            <trans-unit id="landing.how.step3.text">
+                <source>landing.how.step3.text</source>
+                <target>Your agent picks up the comments and posts a new version, with your notes still on the passages they were about.</target>
+            </trans-unit>
+            <trans-unit id="landing.feature.anchors.title">
+                <source>landing.feature.anchors.title</source>
+                <target>Anchored comments</target>
+            </trans-unit>
+            <trans-unit id="landing.feature.anchors.text">
+                <source>landing.feature.anchors.text</source>
+                <target>Comments attach to the passage itself, so a revision carries each one along with the text it belongs to.</target>
+            </trans-unit>
+            <trans-unit id="landing.feature.suggest.title">
+                <source>landing.feature.suggest.title</source>
+                <target>Suggest and strike</target>
+            </trans-unit>
+            <trans-unit id="landing.feature.suggest.text">
+                <source>landing.feature.suggest.text</source>
+                <target>Reword a sentence with before/after, or strike a passage in one keystroke. Faster than writing a paragraph explaining what to delete.</target>
+            </trans-unit>
+            <trans-unit id="landing.feature.versions.title">
+                <source>landing.feature.versions.title</source>
+                <target>Versions and diffs</target>
+            </trans-unit>
+            <trans-unit id="landing.feature.versions.text">
+                <source>landing.feature.versions.text</source>
+                <target>Every revision is a version. Compare any two, and reach the discussion an earlier draft left behind.</target>
+            </trans-unit>
+            <trans-unit id="landing.feature.tokens.title">
+                <source>landing.feature.tokens.title</source>
+                <target>Scoped API tokens</target>
+            </trans-unit>
+            <trans-unit id="landing.feature.tokens.text">
+                <source>landing.feature.tokens.text</source>
+                <target>Separate MCP and site-review scopes, stored hashed. Give an agent exactly the reach it needs and no more.</target>
+            </trans-unit>
+            <trans-unit id="landing.feature.decisions.title">
+                <source>landing.feature.decisions.title</source>
+                <target>Structured decisions</target>
+            </trans-unit>
+            <trans-unit id="landing.feature.decisions.text">
+                <source>landing.feature.decisions.text</source>
+                <target>An agent can mark a passage as a decision with options. The reviewer picks one, and the choice comes back structured.</target>
+            </trans-unit>
+            <trans-unit id="landing.feature.site_review.title">
+                <source>landing.feature.site_review.title</source>
+                <target>Site review</target>
+            </trans-unit>
+            <trans-unit id="landing.feature.site_review.text">
+                <source>landing.feature.site_review.text</source>
+                <target>An embeddable widget that brings the same select-and-comment flow to a live page, streamed back to the reviewer as it happens.</target>
+            </trans-unit>
+            <trans-unit id="landing.tech.title">
+                <source>landing.tech.title</source>
+                <target>How it plugs in.</target>
+            </trans-unit>
+            <trans-unit id="landing.tech.lead">
+                <source>landing.tech.lead</source>
+                <target>Loupe has an MCP server. Point your agent at it and it can do the rest itself.</target>
+            </trans-unit>
+            <trans-unit id="landing.tech.docs_link">
+                <source>landing.tech.docs_link</source>
+                <target>Read the MCP docs.</target>
+            </trans-unit>
+            <trans-unit id="landing.tech.tools.title">
+                <source>landing.tech.tools.title</source>
+                <target>Sixteen tools</target>
+            </trans-unit>
+            <trans-unit id="landing.tech.tools.submit">
+                <source>landing.tech.tools.submit</source>
+                <target>Submit with</target>
+            </trans-unit>
+            <trans-unit id="landing.tech.tools.read">
+                <source>landing.tech.tools.read</source>
+                <target>, read the verdict with</target>
+            </trans-unit>
+            <trans-unit id="landing.tech.tools.revise">
+                <source>landing.tech.tools.revise</source>
+                <target>, revise with</target>
+            </trans-unit>
+            <trans-unit id="landing.tech.markdown.title">
+                <source>landing.tech.markdown.title</source>
+                <target>Markdown in, prose out</target>
+            </trans-unit>
+            <trans-unit id="landing.tech.markdown.text">
+                <source>landing.tech.markdown.text</source>
+                <target>Comments anchor to quoted text, so a revision re-anchors the open threads and flags the ones whose passage is gone.</target>
+            </trans-unit>
+            <trans-unit id="landing.tech.tokens.title">
+                <source>landing.tech.tokens.title</source>
+                <target>Scoped tokens</target>
+            </trans-unit>
+            <trans-unit id="landing.tech.tokens.text">
+                <source>landing.tech.tokens.text</source>
+                <target>Minted per project on the Connect page and stored hashed. An MCP token cannot be used as a site-review token.</target>
+            </trans-unit>
+            <trans-unit id="landing.try.title">
+                <source>landing.try.title</source>
+                <target>Try it in one command.</target>
+            </trans-unit>
+            <trans-unit id="landing.try.lead">
+                <source>landing.try.lead</source>
+                <target>Point an agent at it and run a real review before you decide anything. Everything is in one container, already set up and signed in, so there is nothing to clone, provision or configure.</target>
+            </trans-unit>
+            <trans-unit id="landing.try.note">
+                <source>landing.try.note</source>
+                <target>Made for trying Loupe out rather than running it, so keep it on localhost.</target>
+            </trans-unit>
+            <trans-unit id="landing.try.docs_link">
+                <source>landing.try.docs_link</source>
+                <target>Demo docs.</target>
+            </trans-unit>
+            <trans-unit id="landing.try.shell">
+                <source>landing.try.shell</source>
+                <target>bash</target>
+            </trans-unit>
+            <trans-unit id="landing.try.copy">
+                <source>landing.try.copy</source>
+                <target>Copy</target>
+            </trans-unit>
+            <trans-unit id="landing.try.copied">
+                <source>landing.try.copied</source>
+                <target>Copied</target>
+            </trans-unit>
+            <trans-unit id="landing.pricing.title">
+                <source>landing.pricing.title</source>
+                <target>Run it yourself, or let us run it.</target>
+            </trans-unit>
+            <trans-unit id="landing.pricing.self_host.name">
+                <source>landing.pricing.self_host.name</source>
+                <target>Self-host</target>
+            </trans-unit>
+            <trans-unit id="landing.pricing.self_host.desc">
+                <source>landing.pricing.self_host.desc</source>
+                <target>One container, a Postgres database, anywhere you like.</target>
+            </trans-unit>
+            <trans-unit id="landing.pricing.self_host.price">
+                <source>landing.pricing.self_host.price</source>
+                <target>Free</target>
+            </trans-unit>
+            <trans-unit id="landing.pricing.self_host.period">
+                <source>landing.pricing.self_host.period</source>
+                <target>forever, AGPL-3.0</target>
+            </trans-unit>
+            <trans-unit id="landing.pricing.self_host.item1">
+                <source>landing.pricing.self_host.item1</source>
+                <target>Every feature, no seat limit</target>
+            </trans-unit>
+            <trans-unit id="landing.pricing.self_host.item2">
+                <source>landing.pricing.self_host.item2</source>
+                <target>Your data on your infrastructure</target>
+            </trans-unit>
+            <trans-unit id="landing.pricing.self_host.item3">
+                <source>landing.pricing.self_host.item3</source>
+                <target>Community support on GitHub</target>
+            </trans-unit>
+            <trans-unit id="landing.pricing.self_host.action">
+                <source>landing.pricing.self_host.action</source>
+                <target>Read the install docs</target>
+            </trans-unit>
+            <trans-unit id="landing.pricing.hosted.name">
+                <source>landing.pricing.hosted.name</source>
+                <target>Hosted</target>
+            </trans-unit>
+            <trans-unit id="landing.pricing.hosted.badge">
+                <source>landing.pricing.hosted.badge</source>
+                <target>Beta pricing</target>
+            </trans-unit>
+            <trans-unit id="landing.pricing.hosted.desc">
+                <source>landing.pricing.hosted.desc</source>
+                <target>We run it, patch it and back it up, so you only have to review.</target>
+            </trans-unit>
+            <trans-unit id="landing.pricing.hosted.price">
+                <source>landing.pricing.hosted.price</source>
+                <target>$%price%</target>
+            </trans-unit>
+            <trans-unit id="landing.pricing.hosted.period">
+                <source>landing.pricing.hosted.period</source>
+                <target>per month during beta</target>
+            </trans-unit>
+            <trans-unit id="landing.pricing.hosted.item1">
+                <source>landing.pricing.hosted.item1</source>
+                <target>14-day trial, no card up front</target>
+            </trans-unit>
+            <trans-unit id="landing.pricing.hosted.item2">
+                <source>landing.pricing.hosted.item2</source>
+                <target>Managed MCP endpoint and Mercure streaming</target>
+            </trans-unit>
+            <trans-unit id="landing.pricing.hosted.item3">
+                <source>landing.pricing.hosted.item3</source>
+                <target>Beta price locked for as long as you stay</target>
+            </trans-unit>
+            <trans-unit id="landing.opensource.title">
+                <source>landing.opensource.title</source>
+                <target>Built for the human, wired for the agent.</target>
+            </trans-unit>
+            <trans-unit id="landing.opensource.lead">
+                <source>landing.opensource.lead</source>
+                <target>Loupe is AGPL-3.0-or-later. Every page carries a source link, including ours. Nothing in the application assumes a particular provider. It runs anywhere that can host a container and a Postgres database.</target>
+            </trans-unit>
+            <trans-unit id="landing.opensource.docs">
+                <source>landing.opensource.docs</source>
+                <target>Documentation</target>
+            </trans-unit>
+            <trans-unit id="landing.faq.title">
+                <source>landing.faq.title</source>
+                <target>Before you sign up.</target>
+            </trans-unit>
+            <trans-unit id="landing.faq.agents.question">
+                <source>landing.faq.agents.question</source>
+                <target>Which agents does it work with?</target>
+            </trans-unit>
+            <trans-unit id="landing.faq.agents.answer_before">
+                <source>landing.faq.agents.answer_before</source>
+                <target>Any agent that speaks Model Context Protocol. It authenticates with a scoped API token and calls</target>
+            </trans-unit>
+            <trans-unit id="landing.faq.agents.answer_or">
+                <source>landing.faq.agents.answer_or</source>
+                <target>or</target>
+            </trans-unit>
+            <trans-unit id="landing.faq.agents.answer_after">
+                <source>landing.faq.agents.answer_after</source>
+                <target>, and gets a shareable review URL back.</target>
+            </trans-unit>
+            <trans-unit id="landing.faq.technical.question">
+                <source>landing.faq.technical.question</source>
+                <target>Do reviewers need to be technical?</target>
+            </trans-unit>
+            <trans-unit id="landing.faq.technical.answer">
+                <source>landing.faq.technical.answer</source>
+                <target>No. They open a URL and read rendered Markdown. Selecting text and leaving a comment is the whole interaction. No repository access, no terminal, no diff to parse.</target>
+            </trans-unit>
+            <trans-unit id="landing.faq.anchors.question">
+                <source>landing.faq.anchors.question</source>
+                <target>What happens to a comment when the document changes?</target>
+            </trans-unit>
+            <trans-unit id="landing.faq.anchors.answer">
+                <source>landing.faq.anchors.answer</source>
+                <target>Anchors are re-located against the new text. When the quoted passage is genuinely gone, the thread stays and says so rather than silently attaching itself to the wrong paragraph.</target>
+            </trans-unit>
+            <trans-unit id="landing.faq.migrate.question">
+                <source>landing.faq.migrate.question</source>
+                <target>Can I move from hosted to self-hosted later?</target>
+            </trans-unit>
+            <trans-unit id="landing.faq.migrate.answer">
+                <source>landing.faq.migrate.answer</source>
+                <target>Yes, it is the same application. Export your data and run the container. The AGPL licence guarantees you the source either way.</target>
+            </trans-unit>
+            <trans-unit id="landing.closing.title">
+                <source>landing.closing.title</source>
+                <target>Review the plan before it becomes code.</target>
+            </trans-unit>
+            <trans-unit id="landing.closing.lead">
+                <source>landing.closing.lead</source>
+                <target>Point your agent at Loupe and send the first document for review in about five minutes.</target>
+            </trans-unit>
+            <trans-unit id="landing.closing.note">
+                <source>landing.closing.note</source>
+                <target>14 days free. Then $%price% a month, or host it yourself for nothing.</target>
+            </trans-unit>
+            <trans-unit id="landing.mock.project.name">
+                <source>landing.mock.project.name</source>
+                <target>Atlas</target>
+            </trans-unit>
+            <trans-unit id="landing.mock.project.domain">
+                <source>landing.mock.project.domain</source>
+                <target>atlas.internal</target>
+            </trans-unit>
+            <trans-unit id="landing.mock.reviewer">
+                <source>landing.mock.reviewer</source>
+                <target>Geoffrey</target>
+            </trans-unit>
+            <trans-unit id="landing.mock.agent">
+                <source>landing.mock.agent</source>
+                <target>Agent</target>
+            </trans-unit>
+            <trans-unit id="landing.mock.email">
+                <source>landing.mock.email</source>
+                <target>geoffrey@atlas.dev</target>
+            </trans-unit>
+            <trans-unit id="landing.mock.document.title">
+                <source>landing.mock.document.title</source>
+                <target>Checkout rewrite — technical plan</target>
+            </trans-unit>
+            <trans-unit id="landing.mock.document.version">
+                <source>landing.mock.document.version</source>
+                <target>v3</target>
+            </trans-unit>
+            <trans-unit id="landing.mock.document.threads">
+                <source>landing.mock.document.threads</source>
+                <target>2 open · 5 resolved</target>
+            </trans-unit>
+            <trans-unit id="landing.mock.document.byline">
+                <source>landing.mock.document.byline</source>
+                <target>Version 3 · reviewing as Geoffrey · updated 4 minutes ago</target>
+            </trans-unit>
+            <trans-unit id="landing.mock.document.tag">
+                <source>landing.mock.document.tag</source>
+                <target>payments</target>
+            </trans-unit>
+            <trans-unit id="landing.mock.body.heading">
+                <source>landing.mock.body.heading</source>
+                <target>Migration strategy</target>
+            </trans-unit>
+            <trans-unit id="landing.mock.body.paragraph1_before">
+                <source>landing.mock.body.paragraph1_before</source>
+                <target>We move the checkout off the legacy session store in three passes. The first introduces the new</target>
+            </trans-unit>
+            <trans-unit id="landing.mock.body.paragraph1_middle">
+                <source>landing.mock.body.paragraph1_middle</source>
+                <target>aggregate behind a feature flag,</target>
+            </trans-unit>
+            <trans-unit id="landing.mock.body.paragraph2">
+                <source>landing.mock.body.paragraph2</source>
+                <target>The second pass flips reads to the new aggregate for internal accounts only. We accept a two-week window where both stores are authoritative and reconcile nightly. The third pass removes the legacy writer and drops the old table.</target>
+            </trans-unit>
+            <trans-unit id="landing.mock.body.paragraph3">
+                <source>landing.mock.body.paragraph3</source>
+                <target>Rollback at any point is a flag flip. Nothing in the first two passes is destructive, and the nightly reconciliation job reports drift to the payments channel before it reaches a customer.</target>
+            </trans-unit>
+            <trans-unit id="landing.mock.body.heading2">
+                <source>landing.mock.body.heading2</source>
+                <target>Open questions</target>
+            </trans-unit>
+            <trans-unit id="landing.mock.body.paragraph4">
+                <source>landing.mock.body.paragraph4</source>
+                <target>Idempotency keys are currently derived from the session id, which does not survive the migration.</target>
+            </trans-unit>
+            <trans-unit id="landing.mock.comment.quote">
+                <source>landing.mock.comment.quote</source>
+                <target>writing to both stores so nothing user-facing changes</target>
+            </trans-unit>
+            <trans-unit id="landing.mock.comment.body">
+                <source>landing.mock.comment.body</source>
+                <target>What happens when the second write fails? A silent divergence here is worse than a checkout that errors.</target>
+            </trans-unit>
+            <trans-unit id="landing.mock.reply.body">
+                <source>landing.mock.reply.body</source>
+                <target>Rewritten in v3. Rollback is now a flag flip in every pass.</target>
+            </trans-unit>
+            <trans-unit id="landing.tech.tools.tool_create">
+                <source>landing.tech.tools.tool_create</source>
+                <target>document_create</target>
+            </trans-unit>
+            <trans-unit id="landing.tech.tools.tool_review">
+                <source>landing.tech.tools.tool_review</source>
+                <target>document_get_review</target>
+            </trans-unit>
+            <trans-unit id="landing.tech.tools.tool_revise">
+                <source>landing.tech.tools.tool_revise</source>
+                <target>document_revise</target>
+            </trans-unit>
+            <trans-unit id="landing.tech.tools.end">
+                <source>landing.tech.tools.end</source>
+                <target>.</target>
+            </trans-unit>
+            <trans-unit id="landing.mock.body.aggregate">
+                <source>landing.mock.body.aggregate</source>
+                <target>Cart</target>
+            </trans-unit>
         </body>
     </file>
 </xliff>
