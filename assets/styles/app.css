@@ -3044,12 +3044,12 @@
     .auth-forgot,
     .auth-footer__link,
     .lp-landing-footer__link {
-        @apply inline-flex items-center justify-center min-h-11;
+        @apply inline-flex items-center justify-center min-h-11 min-w-11;
     }
 
-    /* Padding, not display: this link is `hidden sm:inline`, and setting a
-       display here would reveal it on touch devices below that breakpoint. */
+    /* Padding, not display or min-width: this link is `hidden sm:inline`, so a
+       display would reveal it below sm: and min-width never applies to inline. */
     .lp-landing-nav__link {
-        @apply py-3;
+        @apply px-2 py-3;
     }
 }
