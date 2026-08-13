@@ -8,12 +8,14 @@ use App\Module\Account\Entity\ApiToken;
 use App\Module\Account\Entity\ApiTokenScope;
 use App\Module\Account\Entity\User;
 use App\Module\Project\Entity\Project;
+use App\Module\Review\Mcp\DocumentHighlightTool;
 use Doctrine\ORM\EntityManagerInterface;
 use Mcp\Capability\RegistryInterface;
 use Mcp\Schema\Tool;
 use Mcp\Server\Builder;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use Symfony\Component\HttpFoundation\Request;
+use Ubermuda\FeatureFlagsBundle\Repository\FeatureFlagRepository;
 
 final class ConnectAgentControllerTest extends WebTestCase
 {
@@ -42,6 +44,10 @@ final class ConnectAgentControllerTest extends WebTestCase
         $owner = $this->user($em, 'connect-tools@example.com');
         $project = new Project($owner, 'connect-site-tools');
         $em->persist($project);
+        // Parity is between the page and the registry, so the flag-gated tools
+        // have to be on for both sides to be comparable at all.
+        static::getContainer()->get(FeatureFlagRepository::class)
+            ->findAllIndexed()[DocumentHighlightTool::FLAG]->value = true;
         // The tool list only renders once a token exists; without one the page
         // shows the mint step instead and this would compare against nothing.
         [$token] = ApiToken::issue($owner, 'MCP: connect-site-tools', ApiTokenScope::Mcp);
@@ -78,6 +84,33 @@ final class ConnectAgentControllerTest extends WebTestCase
         sort($registered);
         sort($listed);
         self::assertSame($registered, $listed);
+    }
+
+    public function test_a_tool_whose_flag_is_off_is_not_listed(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+
+        $owner = $this->user($em, 'connect-gated@example.com');
+        $project = new Project($owner, 'connect-site-gated');
+        $em->persist($project);
+        [$token] = ApiToken::issue($owner, 'MCP: connect-site-gated', ApiTokenScope::Mcp);
+        $project->mcpToken = $token;
+        $em->persist($token);
+        $em->flush();
+        $em->clear();
+
+        $client->loginUser($owner);
+        $crawler = $client->request(Request::METHOD_GET, '/projects/'.$project->id.'/connect');
+
+        self::assertResponseIsSuccessful();
+        $listed = $crawler->filter('.lp-tools__name')->each(
+            static fn ($node): string => trim($node->text()),
+        );
+        // Guard: an empty list would satisfy the assertion below without proving
+        // anything about the gate.
+        self::assertNotEmpty($listed);
+        self::assertNotContains(DocumentHighlightTool::NAME, $listed);
     }
 
     public function test_without_a_token_the_step_offers_only_a_way_to_create_one(): void
