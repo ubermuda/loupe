@@ -41,6 +41,9 @@ final readonly class SeedInstallFlagsHandler
             // Off: it is the only outbound request the app makes on its own,
             // and an operator has to choose to tell GitHub this instance exists.
             [UpdateCheck::FLAG, FeatureFlagType::Bool, false, null],
+            // Off: agent-placed highlights steer where a reviewer looks first,
+            // which is a nudge an operator opts into rather than inherits.
+            ['review.highlights.enabled', FeatureFlagType::Bool, false, null],
         ];
 
         $created = 0;

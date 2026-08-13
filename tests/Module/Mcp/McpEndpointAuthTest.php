@@ -7,8 +7,12 @@ namespace App\Tests\Module\Mcp;
 use App\Module\Account\Entity\ApiToken;
 use App\Module\Account\Entity\ApiTokenScope;
 use App\Module\Account\Entity\User;
+use App\Module\Review\Mcp\DocumentHighlightTool;
 use Doctrine\ORM\EntityManagerInterface;
+use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
+use Ubermuda\FeatureFlagsBundle\Entity\FeatureFlag;
+use Ubermuda\FeatureFlagsBundle\Enum\FeatureFlagType;
 
 final class McpEndpointAuthTest extends WebTestCase
 {
@@ -84,31 +88,11 @@ final class McpEndpointAuthTest extends WebTestCase
         $client = static::createClient();
         $raw = $this->persistValidToken();
 
-        $client->request(\Symfony\Component\HttpFoundation\Request::METHOD_POST, '/mcp', server: [
-            'CONTENT_TYPE' => 'application/json',
-            'HTTP_AUTHORIZATION' => 'Bearer '.$raw,
-        ], content: self::INIT);
-        self::assertSame(200, $client->getResponse()->getStatusCode());
-        $sessionId = $client->getResponse()->headers->get('Mcp-Session-Id');
-
-        $client->request(\Symfony\Component\HttpFoundation\Request::METHOD_POST, '/mcp', server: [
-            'CONTENT_TYPE' => 'application/json',
-            'HTTP_AUTHORIZATION' => 'Bearer '.$raw,
-            'HTTP_MCP_SESSION_ID' => $sessionId,
-        ], content: '{"jsonrpc":"2.0","id":2,"method":"tools/list","params":{}}');
-        $response = $client->getResponse();
-        self::assertSame(200, $response->getStatusCode(), (string) $response->getContent());
-
-        $body = json_decode((string) $response->getContent(), true);
-        $names = array_column($body['result']['tools'], 'name');
-        sort($names);
-
         self::assertSame([
             'document_archive',
             'document_create',
             'document_get',
             'document_get_review',
-            'document_highlight',
             'document_list',
             'document_mark_comment_addressed',
             'document_rename',
@@ -120,7 +104,45 @@ final class McpEndpointAuthTest extends WebTestCase
             'site_review_get',
             'site_review_mark_comment_addressed',
             'tag_list',
-        ], $names);
+        ], $this->listToolNames($client, $raw));
+    }
+
+    public function test_tools_list_advertises_document_highlight_once_the_flag_is_on(): void
+    {
+        $client = static::createClient();
+        $raw = $this->persistValidToken();
+
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $em->persist(new FeatureFlag(name: DocumentHighlightTool::FLAG, type: FeatureFlagType::Bool, value: true));
+        $em->flush();
+
+        self::assertContains('document_highlight', $this->listToolNames($client, $raw));
+    }
+
+    /** @return list<string> */
+    private function listToolNames(KernelBrowser $client, string $rawToken): array
+    {
+        $client->request(\Symfony\Component\HttpFoundation\Request::METHOD_POST, '/mcp', server: [
+            'CONTENT_TYPE' => 'application/json',
+            'HTTP_AUTHORIZATION' => 'Bearer '.$rawToken,
+        ], content: self::INIT);
+        self::assertSame(200, $client->getResponse()->getStatusCode());
+        $sessionId = $client->getResponse()->headers->get('Mcp-Session-Id');
+
+        $client->request(\Symfony\Component\HttpFoundation\Request::METHOD_POST, '/mcp', server: [
+            'CONTENT_TYPE' => 'application/json',
+            'HTTP_AUTHORIZATION' => 'Bearer '.$rawToken,
+            'HTTP_MCP_SESSION_ID' => $sessionId,
+        ], content: '{"jsonrpc":"2.0","id":2,"method":"tools/list","params":{}}');
+        $response = $client->getResponse();
+        self::assertSame(200, $response->getStatusCode(), (string) $response->getContent());
+
+        $body = json_decode((string) $response->getContent(), true);
+        self::assertIsArray($body['result']['tools']);
+        $names = array_column($body['result']['tools'], 'name');
+        sort($names);
+
+        return $names;
     }
 
     public function test_request_on_an_unlisted_host_is_rejected_with_a_self_diagnosing_body(): void

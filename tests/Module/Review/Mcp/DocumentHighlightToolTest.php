@@ -12,6 +12,8 @@ use App\Tests\Support\McpTokenScenario;
 use Doctrine\ORM\EntityManagerInterface;
 use Mcp\Exception\ToolCallException;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
+use Ubermuda\FeatureFlagsBundle\Entity\FeatureFlag;
+use Ubermuda\FeatureFlagsBundle\Enum\FeatureFlagType;
 
 final class DocumentHighlightToolTest extends KernelTestCase
 {
@@ -35,8 +37,19 @@ final class DocumentHighlightToolTest extends KernelTestCase
         $this->tool = $tool;
     }
 
+    public function test_the_tool_refuses_while_the_flag_is_off(): void
+    {
+        $document = $this->document('highlight-tool-flag-off@example.com');
+        $this->actAsMcpTokenBoundTo($document->project);
+
+        $this->expectException(ToolCallException::class);
+        $this->expectExceptionMessage('Highlighting is switched off on this instance.');
+        ($this->tool)((string) $document->id, ['short-lived JWTs']);
+    }
+
     public function test_a_quoted_passage_is_highlighted_on_the_current_version(): void
     {
+        $this->enableHighlights();
         $document = $this->document('highlight-tool@example.com');
         $this->actAsMcpTokenBoundTo($document->project);
 
@@ -49,6 +62,7 @@ final class DocumentHighlightToolTest extends KernelTestCase
 
     public function test_an_empty_list_clears_the_set(): void
     {
+        $this->enableHighlights();
         $document = $this->document('highlight-tool-clear@example.com');
         $this->actAsMcpTokenBoundTo($document->project);
         ($this->tool)((string) $document->id, ['short-lived JWTs']);
@@ -64,6 +78,7 @@ final class DocumentHighlightToolTest extends KernelTestCase
 
     public function test_a_passage_quoted_as_markdown_is_reported_rather_than_fatal(): void
     {
+        $this->enableHighlights();
         $document = $this->document('highlight-tool-markdown@example.com');
         $this->actAsMcpTokenBoundTo($document->project);
 
@@ -75,6 +90,7 @@ final class DocumentHighlightToolTest extends KernelTestCase
 
     public function test_a_document_in_another_project_is_not_reachable(): void
     {
+        $this->enableHighlights();
         $mine = $this->document('highlight-tool-mine@example.com');
         $theirs = $this->document('highlight-tool-theirs@example.com');
         $this->actAsMcpTokenBoundTo($mine->project);
@@ -86,12 +102,19 @@ final class DocumentHighlightToolTest extends KernelTestCase
 
     public function test_unbound_mcp_token_is_rejected(): void
     {
+        $this->enableHighlights();
         $document = $this->document('highlight-tool-unbound@example.com');
         $this->actAsUnboundMcpToken($document->owner);
 
         $this->expectException(ToolCallException::class);
         $this->expectExceptionMessage('MCP token is not bound to a project. Mint a project token from the Connect page.');
         ($this->tool)((string) $document->id, ['short-lived JWTs']);
+    }
+
+    private function enableHighlights(): void
+    {
+        $this->em->persist(new FeatureFlag(name: DocumentHighlightTool::FLAG, type: FeatureFlagType::Bool, value: true));
+        $this->em->flush();
     }
 
     /** @param non-empty-string $email */

@@ -29,7 +29,7 @@ Roughly in the order an agent uses them:
 | `document_get_review` | Verdict, threaded comments, and answered decision blocks |
 | `document_reply_to_comment` | Reply to a reviewer's thread |
 | `document_mark_comment_addressed` | Mark a thread acted on |
-| `document_highlight` | Tint the passages to read first |
+| `document_highlight` | Tint the passages to read first (off by default — see below) |
 | `document_rename` | Change the title without minting a version |
 | `document_archive` / `document_unarchive` | Take it out of the listing, or put it back |
 | `document_set_tags` / `document_set_references` | Group it, or link it to sibling documents |
@@ -47,6 +47,14 @@ re-read the review for fresh ids. See [Documents and review](documents.md).
 its id silently discards the reviewer's answer.
 
 ## Configuration
+
+`document_highlight` is behind the `review.highlights.enabled` feature flag,
+seeded **off**. An agent tinting the passages a human should read first steers
+the review, which is a nudge an operator opts into rather than inherits. While
+it is off the tool is absent from `tools/list` and from the Connect page, so an
+agent never learns of a tool this instance would refuse — switch it on in
+**Admin → Feature flags**. A client holding a tool list from before the flag
+changed and calling it anyway gets a plain refusal, not a broken call.
 
 `MCP_ALLOWED_HOSTS` is a DNS-rebinding allowlist — hostnames only, no port. It
 must contain the hostname agents actually use, or every call is rejected with a

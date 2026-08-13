@@ -9,6 +9,7 @@ use App\Module\Review\Command\SetDocumentHighlightsHandler;
 use App\Module\Review\Security\McpBoundProjectVoter;
 use Mcp\Capability\Attribute\McpTool;
 use Mcp\Exception\ToolCallException;
+use Ubermuda\FeatureFlagsBundle\FeatureFlagService;
 
 /**
  * Lets the agent point at passages of a document instead of describing where
@@ -20,12 +21,21 @@ use Mcp\Exception\ToolCallException;
  * this first", and anything the agent wants to say about the passage belongs in a
  * reply on the reviewer's own thread.
  */
-#[McpTool(name: 'document_highlight', description: 'Highlight the passages of a document a reviewer should read first, so a long document is entered where it matters rather than at the top. Replaces the document\'s whole highlight set on every call; pass an empty list to clear it. Quote each passage exactly as it reads in rendered prose, NOT as Markdown source — "**must**" will not match, "must" will — and keep each quote inside a single paragraph or list item, because block boundaries are line breaks in the text quotes are matched against. A quote that appears more than once in the document lands on the FIRST occurrence and reports success either way, and repeating it in the list is skipped as a duplicate rather than reaching the second one, so extend the quote until it is unique when you mean a later one. Highlights belong to the version current at the time of the call and are dropped by document_revise, so restate them after revising. Quotes that cannot be located are reported back and skipped, not fatal.')]
+#[McpTool(name: self::NAME, description: 'Highlight the passages of a document a reviewer should read first, so a long document is entered where it matters rather than at the top. Replaces the document\'s whole highlight set on every call; pass an empty list to clear it. Quote each passage exactly as it reads in rendered prose, NOT as Markdown source — "**must**" will not match, "must" will — and keep each quote inside a single paragraph or list item, because block boundaries are line breaks in the text quotes are matched against. A quote that appears more than once in the document lands on the FIRST occurrence and reports success either way, and repeating it in the list is skipped as a duplicate rather than reaching the second one, so extend the quote until it is unique when you mean a later one. Highlights belong to the version current at the time of the call and are dropped by document_revise, so restate them after revising. Quotes that cannot be located are reported back and skipped, not fatal.')]
 final readonly class DocumentHighlightTool
 {
+    public const string NAME = 'document_highlight';
+
+    /**
+     * Off unless an operator turns it on: an agent tinting the passages a human
+     * should read first is a nudge some reviewers want and others resent.
+     */
+    public const string FLAG = 'review.highlights.enabled';
+
     public function __construct(
         private ReviewSubjectResolver $subjects,
         private SetDocumentHighlightsHandler $setHighlights,
+        private FeatureFlagService $featureFlags,
     ) {
     }
 
@@ -41,6 +51,12 @@ final readonly class DocumentHighlightTool
      */
     public function __invoke(string $documentId, array $quotes): array
     {
+        // Reachable only by a client replaying a tool list from before the flag
+        // went off, since tools/list stops advertising this one.
+        if (!$this->featureFlags->isEnabled(self::FLAG)) {
+            throw new ToolCallException('Highlighting is switched off on this instance.');
+        }
+
         try {
             $document = $this->subjects->requireDocument($documentId, McpBoundProjectVoter::DOCUMENT_WRITE);
 
