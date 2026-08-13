@@ -267,29 +267,28 @@ demand is 17–20 concurrent, so `pm.max_children = 40` with
 without waiting on the spawn rate. That addresses reliability but not
 parallelism.
 
-## The authenticated app has no mobile layout, and the landing footer ships placeholder copyright
+## The authenticated app has no mobile layout — deferred by decision, not overlooked
 
-**Author:** Claude · **Type:** bug · **Priority:** high · **Status:** pending
+**Author:** Geoffrey · **Type:** bug · **Priority:** high · **Status:** pending
 
 A mobile usability audit on 2026-08-13 measured every surface at a 375px
-viewport against the running dev app. Full report, with screenshots and three
-decision blocks awaiting an answer, is in Loupe:
+viewport against the running dev app. Full report is in Loupe:
 https://loupe.dev.localhost/projects/019fde6f-6b71-781e-a358-bf44c8cf3c2f/documents/019ffbf4-9009-7e55-92e8-45dbcb0c9ec9/review
-The Loupe document is the durable artifact and every finding in it is stated
-numerically, so nothing here depends on the screenshots: those were verification
-aids written to the gitignored `var/mobile-audit/` and are not retained. Re-run
-the measurements against a 375px viewport rather than hunting for the captures.
+Every finding is stated numerically there, so nothing depends on the
+screenshots: those were verification aids written to the gitignored
+`var/mobile-audit/` and are not retained. Re-measure at 375px rather than
+hunting for the captures.
 
-Fix independently of the rest, because it is one line and unrelated to layout:
-`translations/messages.en.xlf:113` sets `account.auth.footer.copyright` to
-"© Your Company, Inc.", which renders on the landing page footer
-(`templates/Module/Account/landing.html.twig:221`) and on every auth page
-(`templates/Module/Account/auth_base.html.twig:29`).
+Read this as a standing choice. Asked how far mobile support for the
+authenticated app should go, the owner chose to defer rather than to build it or
+to declare the app desktop-only. So the items below are open *by decision*, and
+a future session should not treat them as a backlog miss and quietly start on
+them. The auth flow and landing page were fixed separately (PR #179).
 
-The structural finding: `assets/styles/app.css` contains 13 responsive variants
-in 3,027 lines and all 13 sit inside the `.lp-landing-*` block (lines
-2562–2886). Nothing else in the stylesheet, and no template, has any responsive
-treatment. Consequences measured at 375px:
+The structural fact behind all of it: before PR #179, `assets/styles/app.css`
+contained 13 responsive variants in 3,027 lines and all 13 sat inside the
+`.lp-landing-*` block (lines 2562–2886). Nothing else in the stylesheet, and no
+template, had any responsive treatment. Measured consequences at 375px:
 
 - `.lp-sidebar` is a fixed 236px that never collapses, leaving `.lp-main` 129px
   wide on every authenticated screen (`templates/base.html.twig:27-28`,
@@ -302,20 +301,17 @@ treatment. Consequences measured at 375px:
   `touchend`, `pointerup` or `selectionchange` handler in
   `assets/controllers/comment_anchor_controller.js`, so text selection likely
   cannot trigger the comment toolbar on touch. Needs confirming on real hardware.
-- Every auth page is 393px wide against a 375px viewport. The footer row at
-  `templates/Module/Account/auth_base.html.twig:28` is a `flex` row with no
-  `flex-wrap` whose 393px min-content width sizes the `.auth-page` grid column.
-  Fix: `flex-wrap` on the footer plus `minmax(0, 1fr)` on the grid column.
+- The review topbar sits outside the `.lp-main` scroll container, so it widens
+  the whole page to 517px and the verdict buttons overprint the breadcrumb
+  (`templates/Module/Review/show_document.html.twig:22-30`).
 - Four controls are 14px and will trigger iOS Safari's zoom-on-focus:
   `.lp-comment-composer textarea`, `.lp-comment-reply-form textarea`,
   `.lp-filter-input`, `.lp-filter-select` (`app.css:1650, 1820, 990, 993`).
   `.lp-input` and `.auth-input` are already correct at 16px.
 
-Do not start the layout work before the first decision block in the report is
-answered — whether the authenticated app is meant to work on a phone at all
-changes whether this is a design project or a decision to document the app as
-desktop-only. The landing page itself passes: zero horizontal overflow at 375px
-and 320px.
+One cost of deferring rather than declaring the app desktop-only: a phone
+currently gets a broken layout instead of an honest "not supported here" notice.
+If this stays deferred for long, that notice is the cheap interim step.
 
 ## Proper HTTP API + outbound webhooks
 
@@ -3814,3 +3810,44 @@ never health — a running consumer leaves no lasting trace, so an empty queue i
 genuinely unknown rather than good. Report unknown as unknown; a green check
 that cannot distinguish "working" from "nothing running" is worse than no check,
 because it is the exact failure this project has hit before.
+
+## Crop the landing hero's app mock so it is legible on a phone
+
+**Author:** Geoffrey · **Type:** bug · **Priority:** medium · **Status:** pending
+
+At a 375px viewport the hero's product mock is scaled to 0.253, so its 14px body
+text renders at roughly 3.5 CSS pixels — illegible. It reads as grey texture
+with two lime flecks, which loses the hero's main visual argument on the surface
+held to the highest mobile bar. The page itself is fine: zero horizontal
+overflow at 375px and 320px.
+
+The approach is decided: crop to one legible detail — the comment card plus the
+"Request changes / Approve" row at real size — rather than shrinking the whole
+frame, on the grounds that the one thing worth proving in the hero is that a
+human comments and a verdict goes back. Alternatives considered and not chosen
+were a purpose-made mobile image, and dropping the mock below `sm:`.
+
+Not a CSS-only change. `assets/controllers/landing_mock_controller.js` fits a
+1260×640 still by writing `transform` on `.lp-landing-mock__frame` and setting
+the wrapper height from the resulting scale, capped at 0.72. A mobile crop needs
+a second layout mode below `sm:`, a translate offset expressed in the mock's own
+coordinates (the comment card sits around x 676–972, y 288–420), a different
+wrapper height, and the `mask-image` gradient re-tuned because its 55%/80% stops
+are calibrated to the full frame. Note the warning at `app.css:2624`: the
+controller's transform must replace the utilities rather than compose with them,
+so a second transform is easy to get silently wrong. Verify with a screenshot at
+375px — this is the one item from the mobile audit that `just ci` cannot check.
+
+## Three footer links point at `href="#"`
+
+**Author:** Claude · **Type:** bug · **Priority:** medium · **Status:** pending
+
+Status, Privacy and Terms are dead links in both footers — the landing page
+(`templates/Module/Account/landing.html.twig:223-226`) and the auth shell
+(`templates/Module/Account/auth_base.html.twig:37-40`, which renders on every
+auth page). Docs and Source code are real; these three are not.
+
+Found during the mobile audit on 2026-08-13 but unrelated to mobile, and left
+out of PR #179 because it needs destinations rather than a CSS change. Decide
+per link whether it gets a real page, an external URL, or is removed — shipping
+a footer nav where half the entries do nothing is worse than a shorter nav.
