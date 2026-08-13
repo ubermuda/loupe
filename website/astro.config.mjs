@@ -32,7 +32,18 @@ export default defineConfig({
   integrations: [
     starlight({
       title: 'Loupe',
-      head: siteReviewWidget,
+      // Starlight restores each group's collapsed state from sessionStorage and
+      // applies it blindly, so a group you once collapsed stays shut even when
+      // the page you are on lives inside it. Re-open the ancestors of the
+      // current page after that restore has run.
+      head: [
+        {
+          tag: 'script',
+          content:
+            "addEventListener('DOMContentLoaded',()=>{let e=document.querySelector('#starlight__sidebar [aria-current=\"page\"]');while(e=e?.closest('details'))e.open=!0,e=e.parentElement})",
+        },
+        ...siteReviewWidget,
+      ],
       description: 'A document- and site-review tool for humans working with AI agents.',
       social: [
         { icon: 'github', label: 'GitHub', href: 'https://github.com/ubermuda/loupe' },
