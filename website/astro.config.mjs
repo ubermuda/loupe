@@ -11,7 +11,11 @@ const docsDir = fileURLToPath(new URL('../docs', import.meta.url));
 // widget is simply not injected — see .env.example.
 const env = loadEnv(process.env.NODE_ENV ?? 'development', process.cwd(), '');
 const widgetHost = env.PUBLIC_SITE_REVIEW_HOST ?? 'https://loupe.dev.localhost';
-const siteReviewWidget = env.PUBLIC_SITE_REVIEW_TOKEN
+// Dev server only. The token lives in a gitignored .env so a deploy would not
+// have one anyway, but this makes it impossible rather than merely unlikely:
+// no build output can carry the widget, whatever the environment holds.
+const isDevServer = process.argv.includes('dev');
+const siteReviewWidget = isDevServer && env.PUBLIC_SITE_REVIEW_TOKEN
   ? [{
       tag: 'script',
       attrs: {
@@ -40,6 +44,7 @@ export default defineConfig({
         { label: 'Introduction', slug: 'index' },
         {
           label: 'Getting started',
+          collapsed: true,
           items: [
             { label: 'Choosing a path', slug: 'getting-started' },
             { slug: 'getting-started/demo' },
@@ -51,6 +56,7 @@ export default defineConfig({
         },
         {
           label: 'Using Loupe',
+          collapsed: true,
           items: [
             { slug: 'using/documents' },
             { slug: 'using/mcp' },
@@ -61,6 +67,7 @@ export default defineConfig({
         },
         {
           label: 'Extending Loupe',
+          collapsed: true,
           items: [
             { slug: 'extending/reverse-proxy' },
             { slug: 'extending/mercure' },
@@ -72,6 +79,7 @@ export default defineConfig({
         },
         {
           label: 'Operating',
+          collapsed: true,
           items: [
             { slug: 'operating/first-run' },
             { slug: 'operating/migrations' },
@@ -83,10 +91,12 @@ export default defineConfig({
         },
         {
           label: 'Reference',
+          collapsed: true,
           items: [{ slug: 'reference/environment' }, { slug: 'reference/commands' }],
         },
         {
           label: 'Contributing',
+          collapsed: true,
           items: [
             { label: 'Overview', slug: 'contributing' },
             { slug: 'contributing/development' },

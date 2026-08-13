@@ -61,6 +61,19 @@ rm -rf website/node_modules/.astro website/.astro
 Astro caches rendered Markdown, and a remark plugin changing is not something
 it invalidates on.
 
+## Site-review widget
+
+Off unless `website/.env` carries a `PUBLIC_SITE_REVIEW_TOKEN`; see
+`.env.example`. Two guards, deliberately belt and braces: the token file is
+gitignored, so a deploy would not have one — and the injection is restricted to
+the dev server, so no build output can carry the widget whatever the
+environment holds. `just docs-preview` therefore shows the site without it.
+
+Use a token from a project of its own. The token is what decides where comments
+land, so sharing Loupe's own would merge docs feedback into feedback on the app.
+The config reads the environment at startup, so restart `just docs` after
+changing it.
+
 ## Not wired up yet
 
 There is no deployment. GitHub Pages needs the repository to be public, and
