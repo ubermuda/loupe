@@ -2562,6 +2562,11 @@
     .lp-landing {
         @apply flex flex-col bg-app text-fg;
     }
+    /* The nav's section links animate instead of jumping, and the scroll
+       padding keeps the target clear of the sticky nav sitting over it. */
+    html:has(.lp-landing) {
+        @apply scroll-smooth scroll-pt-20;
+    }
 
     /* Sticky, translucent, and the only blurred surface in the app. */
     .lp-landing-nav {
@@ -3007,6 +3012,10 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
+    html:has(.lp-landing) {
+        scroll-behavior: auto;
+    }
+
     @keyframes lp-appear {
         from {
             opacity: 0;
