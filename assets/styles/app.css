@@ -387,8 +387,11 @@
     }
 
     /* Auth page shell — three-row layout: topbar / content / footer */
+    /* The explicit column stops a wide child's min-content width sizing the
+       grid, which is how the footer once pushed every auth page off-screen. */
     .auth-page {
-        @apply grid grid-rows-[auto_1fr_auto] min-h-screen;
+        @apply grid grid-cols-[minmax(0,1fr)] grid-rows-[auto_1fr_auto] min-h-screen;
+        min-height: 100dvh;
     }
 
     /* Auth page background — radial accent glow */
@@ -423,6 +426,10 @@
             transparent 80%
         );
         opacity: 0.6;
+    }
+
+    .auth-footer__link {
+        @apply inline-flex items-center text-fg-mute no-underline transition-colors hover:text-fg;
     }
 
     /* Auth form text input */
@@ -3023,5 +3030,24 @@
         to {
             opacity: 1;
         }
+    }
+}
+
+/* Touch pointers cannot hit a 34px control accurately. Desktop density is
+   deliberately unchanged, so this is scoped to coarse pointers only. */
+@media (pointer: coarse) {
+    .lp-btn,
+    .lp-code-dark__copy,
+    .lp-flash__dismiss,
+    .auth-forgot,
+    .auth-footer__link,
+    .lp-landing-footer__link {
+        @apply inline-flex items-center justify-center min-h-11;
+    }
+
+    /* Padding, not display: this link is `hidden sm:inline`, and setting a
+       display here would reveal it on touch devices below that breakpoint. */
+    .lp-landing-nav__link {
+        @apply py-3;
     }
 }

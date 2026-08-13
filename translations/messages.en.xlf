@@ -110,7 +110,7 @@
             <!-- Auth layout -->
             <trans-unit id="account.auth.footer.copyright">
                 <source>account.auth.footer.copyright</source>
-                <target>© Your Company, Inc.</target>
+                <target>© 2026 Geoffrey Bachelet</target>
             </trans-unit>
             <trans-unit id="account.auth.footer.status">
                 <source>account.auth.footer.status</source>

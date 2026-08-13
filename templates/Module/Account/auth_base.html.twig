@@ -25,19 +25,19 @@
     </div>
 
     {# Footer #}
-    <div class="relative z-10 flex items-center gap-3.5 px-7 py-5 text-xs text-fg-dim">
+    <div class="relative z-10 flex flex-wrap items-center gap-x-3.5 gap-y-2 px-7 py-5 text-xs text-fg-dim">
         <span>{{ 'account.auth.footer.copyright'|trans }}</span>
         <span class="flex-1"></span>
         {# Only when signed out: the app shell's sidebar already carries this
            link, and these pages (account deletion, social account linking) are
            reachable from inside it. #}
         {% if not app.user %}
-            {% include '_source_link.html.twig' with {class: 'inline-flex items-center gap-1.5 text-fg-mute hover:text-fg'} only %}
+            {% include '_source_link.html.twig' with {class: 'auth-footer__link gap-1.5'} only %}
         {% endif %}
-        <a href="#" class="text-fg-mute hover:text-fg">{{ 'account.auth.footer.status'|trans }}</a>
-        <a href="#" class="text-fg-mute hover:text-fg">{{ 'account.auth.footer.docs'|trans }}</a>
-        <a href="#" class="text-fg-mute hover:text-fg">{{ 'account.auth.footer.privacy'|trans }}</a>
-        <a href="#" class="text-fg-mute hover:text-fg">{{ 'account.auth.footer.terms'|trans }}</a>
+        <a href="#" class="auth-footer__link">{{ 'account.auth.footer.status'|trans }}</a>
+        <a href="#" class="auth-footer__link">{{ 'account.auth.footer.docs'|trans }}</a>
+        <a href="#" class="auth-footer__link">{{ 'account.auth.footer.privacy'|trans }}</a>
+        <a href="#" class="auth-footer__link">{{ 'account.auth.footer.terms'|trans }}</a>
     </div>
 
 </div>
