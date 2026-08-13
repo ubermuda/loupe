@@ -3811,33 +3811,6 @@ genuinely unknown rather than good. Report unknown as unknown; a green check
 that cannot distinguish "working" from "nothing running" is worse than no check,
 because it is the exact failure this project has hit before.
 
-## Crop the landing hero's app mock so it is legible on a phone
-
-**Author:** Geoffrey · **Type:** bug · **Priority:** medium · **Status:** pending
-
-At a 375px viewport the hero's product mock is scaled to 0.253, so its 14px body
-text renders at roughly 3.5 CSS pixels — illegible. It reads as grey texture
-with two lime flecks, which loses the hero's main visual argument on the surface
-held to the highest mobile bar. The page itself is fine: zero horizontal
-overflow at 375px and 320px.
-
-The approach is decided: crop to one legible detail — the comment card plus the
-"Request changes / Approve" row at real size — rather than shrinking the whole
-frame, on the grounds that the one thing worth proving in the hero is that a
-human comments and a verdict goes back. Alternatives considered and not chosen
-were a purpose-made mobile image, and dropping the mock below `sm:`.
-
-Not a CSS-only change. `assets/controllers/landing_mock_controller.js` fits a
-1260×640 still by writing `transform` on `.lp-landing-mock__frame` and setting
-the wrapper height from the resulting scale, capped at 0.72. A mobile crop needs
-a second layout mode below `sm:`, a translate offset expressed in the mock's own
-coordinates (the comment card sits around x 676–972, y 288–420), a different
-wrapper height, and the `mask-image` gradient re-tuned because its 55%/80% stops
-are calibrated to the full frame. Note the warning at `app.css:2624`: the
-controller's transform must replace the utilities rather than compose with them,
-so a second transform is easy to get silently wrong. Verify with a screenshot at
-375px — this is the one item from the mobile audit that `just ci` cannot check.
-
 ## Three footer links point at `href="#"`
 
 **Author:** Claude · **Type:** bug · **Priority:** medium · **Status:** pending
