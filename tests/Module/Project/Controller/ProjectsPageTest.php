@@ -10,7 +10,6 @@ use App\Module\Project\Repository\ProjectRepository;
 use App\Module\Review\Entity\Document;
 use App\Module\SiteReview\Entity\SiteReviewComment;
 use App\Module\SiteReview\Entity\SiteReviewCommentStatus;
-use App\Module\SiteReview\Entity\SiteReviewEvent;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use Symfony\Component\HttpFoundation\Request;
@@ -81,10 +80,10 @@ final class ProjectsPageTest extends WebTestCase
         $em->persist($project);
         $em->persist(new Document($owner, $project, 'Doc one'));
         $em->persist(new Document($owner, $project, 'Doc two'));
-        $em->persist(new SiteReviewEvent($project, 'topic', '{}'));
-        for ($i = 0; $i < 3; ++$i) {
+        for ($i = 0; $i < 4; ++$i) {
             $comment = new SiteReviewComment($project, $i, 'body', 'a.cta', 'Start', 'https://acme.test/');
-            $comment->status = SiteReviewCommentStatus::Pending;
+            // Three of the four still await the agent; the fourth is done.
+            $comment->status = 3 === $i ? SiteReviewCommentStatus::Resolved : SiteReviewCommentStatus::Pending;
             $em->persist($comment);
         }
         $em->flush();
@@ -95,7 +94,7 @@ final class ProjectsPageTest extends WebTestCase
         self::assertResponseIsSuccessful();
         $meta = $crawler->filter('[data-project-id] .lp-project-row__meta')->text();
         self::assertStringContainsString('2 documents', $meta);
-        self::assertStringContainsString('1 review', $meta);
+        self::assertStringContainsString('4 comments', $meta);
         self::assertStringContainsString('3 open', $meta);
         // The open figure is the amber-tinted span.
         self::assertSame('3 open', trim($crawler->filter('[data-project-id] .lp-project-row__open')->text()));

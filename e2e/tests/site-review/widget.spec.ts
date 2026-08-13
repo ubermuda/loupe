@@ -350,7 +350,8 @@ test('a comment the agent already addressed can no longer be edited', async ({
 
     // The server freezes a comment once it leaves Pending, which the API reports
     // as a 404 on PATCH. The widget must say so plainly rather than offering a
-    // retry that would fail the same way.
+    // retry that would fail the same way. The 404 also makes it reconcile, so
+    // the frozen row drops out of the list.
     await page.route('**/api/site-review/comments/*', (route) => {
         void route.fulfill({
             status: 404,
@@ -358,15 +359,36 @@ test('a comment the agent already addressed can no longer be edited', async ({
             body: JSON.stringify({ error: 'not_found' }),
         });
     });
+    await page.route('**/api/site-review/review', (route) => {
+        void route.fulfill({
+            status: 200,
+            contentType: 'application/json',
+            body: JSON.stringify({ comments: [] }),
+        });
+    });
 
     await page.getByRole('button', { name: /Show .* comment/ }).click();
     await page.locator('#lp-list .lp-item').first().locator('.lp-edit').click();
     await page.getByPlaceholder(/Describe the issue/).fill('Too late');
+    const panel = page.locator('#lp-panel');
     await page.getByRole('button', { name: 'Save' }).click();
 
     await expect(
-        page.locator('#lp-panel').getByText(/already picked that comment up/i),
+        panel.getByText(/already picked that comment up/i),
     ).toBeVisible();
+    await expect(page.locator('#lp-head-count')).toBeHidden();
+
+    // Pressing Save again must repeat the refusal. The reconcile already dropped
+    // the row, so this is the path where nothing is sent at all — and it is
+    // exactly where a blanket "saved" toast would lie.
+    await page.getByRole('button', { name: 'Save' }).click();
+    await expect(
+        panel.getByText(/already picked that comment up/i),
+    ).toBeVisible();
+    await expect(page.locator('#lp-saved')).toBeHidden();
+    await expect(page.getByPlaceholder(/Describe the issue/)).toHaveValue(
+        'Too late',
+    );
 });
 
 test('a 403 on the boot load drops the widget into a critical, dead-end state', async ({

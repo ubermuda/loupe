@@ -1193,13 +1193,13 @@
     try {
       await ready; // don't let the boot refresh clobber an early save
       if (editing) {
-        // Resolve by server id — a concurrent delete may have shifted indices. If the
-        // comment is gone, skip the PATCH and just close the composer gracefully.
+        // Resolve by server id — a concurrent delete, or the reconcile after a 404,
+        // may have dropped the row. Nothing was written then, so say so rather than
+        // closing the composer under a "saved" toast the reviewer would believe.
         const target = comments.find((c) => c.id === state.editId);
-        if (target) {
-          await api('PATCH', `/api/site-review/comments/${target.id}`, { body });
-          target.body = body;
-        }
+        if (!target) throw Object.assign(new Error('HTTP 404'), { status: 404 });
+        await api('PATCH', `/api/site-review/comments/${target.id}`, { body });
+        target.body = body;
       } else {
         const ct = state.composeTarget || { type: 'general' };
         const comment =

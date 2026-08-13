@@ -1441,9 +1441,9 @@
                 <source>project.list.meta.documents</source>
                 <target>{0}0 documents|{1}1 document|]1,Inf[%count% documents</target>
             </trans-unit>
-            <trans-unit id="project.list.meta.reviews">
-                <source>project.list.meta.reviews</source>
-                <target>{0}0 reviews|{1}1 review|]1,Inf[%count% reviews</target>
+            <trans-unit id="project.list.meta.comments">
+                <source>project.list.meta.comments</source>
+                <target>{0}0 comments|{1}1 comment|]1,Inf[%count% comments</target>
             </trans-unit>
             <trans-unit id="project.list.meta.open">
                 <source>project.list.meta.open</source>

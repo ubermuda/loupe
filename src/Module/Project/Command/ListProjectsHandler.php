@@ -9,7 +9,6 @@ use App\Module\Project\Repository\ProjectRepository;
 use App\Module\Project\View\ProjectListItem;
 use App\Module\Review\Repository\DocumentRepository;
 use App\Module\SiteReview\Repository\SiteReviewCommentRepository;
-use App\Module\SiteReview\Repository\SiteReviewEventRepository;
 use App\Utils\PageList;
 
 final readonly class ListProjectsHandler
@@ -19,7 +18,6 @@ final readonly class ListProjectsHandler
     public function __construct(
         private ProjectRepository $projects,
         private DocumentRepository $documents,
-        private SiteReviewEventRepository $siteReviewEvents,
         private SiteReviewCommentRepository $siteReviewComments,
     ) {
     }
@@ -32,12 +30,17 @@ final readonly class ListProjectsHandler
 
         return new ListProjectsView(
             items: array_map(
-                fn (Project $project): ProjectListItem => new ProjectListItem(
-                    project: $project,
-                    documentCount: $this->documents->countActiveByProject($project),
-                    reviewCount: $this->siteReviewEvents->countForProject($project),
-                    openCount: $this->siteReviewComments->countOpenForProject($project),
-                ),
+                function (Project $project): ProjectListItem {
+                    // One grouped query for both figures, as the nav pill does.
+                    $siteReviewCounts = $this->siteReviewComments->statusCountsForProject($project);
+
+                    return new ProjectListItem(
+                        project: $project,
+                        documentCount: $this->documents->countActiveByProject($project),
+                        commentCount: array_sum($siteReviewCounts),
+                        openCount: $siteReviewCounts['pending'],
+                    );
+                },
                 iterator_to_array($paginator, false),
             ),
             totalPages: $totalPages,

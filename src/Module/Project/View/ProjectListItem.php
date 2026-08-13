@@ -17,7 +17,7 @@ final readonly class ProjectListItem
     public function __construct(
         public Project $project,
         public int $documentCount,
-        public int $reviewCount,
+        public int $commentCount,
         public int $openCount,
     ) {
     }
