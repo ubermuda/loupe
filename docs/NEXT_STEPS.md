@@ -3824,3 +3824,27 @@ Found during the mobile audit on 2026-08-13 but unrelated to mobile, and left
 out of PR #179 because it needs destinations rather than a CSS change. Decide
 per link whether it gets a real page, an external URL, or is removed — shipping
 a footer nav where half the entries do nothing is worse than a shorter nav.
+
+## The site-review push subsystem has no producer left
+
+**Author:** Geoffrey · **Type:** feature · **Priority:** medium · **Status:** pending
+
+Dropping the widget's send step (2026-08-13) removed the only code that ever
+created a `SiteReviewEvent`. Everything downstream of it is still in place and
+still tested — the outbox table, `DrainOutboxHandler`, the drain scheduler, the
+per-project and admin outbox pages, `StreamCredentialsController`,
+`SiteReviewTopicBuilder`, and the `site_review.push.enabled` feature flag — but
+nothing writes a row, so the outbox is permanently empty, the "N reviews have
+not reached your agent yet" notice on `/projects/{id}/site-review` never shows,
+and a connected bridge CLI receives nothing.
+
+This is deliberate, not an oversight: the push feature is still under
+development and the owner accepted a temporarily producer-less state rather
+than deleting it. Open work is deciding what re-triggers a push now that there
+is no batch boundary to hang it on — per comment on save (which makes any
+visitor of a public page able to nudge the owner's agent, the exact risk the
+`widgetToken.forwardsToAgent` check was added for), debounced per project, or
+something else. Whatever it becomes, it belongs in
+`src/Module/SiteReview/Command/AddCommentHandler.php` or a listener beside it,
+and the forwardable decision from the deleted `SubmitReviewHandler` is worth
+re-reading in git history before rebuilding it.
