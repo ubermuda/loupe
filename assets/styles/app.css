@@ -2707,6 +2707,11 @@
     .lp-landing-lead--on-chrome {
         @apply text-chrome-mute;
     }
+    /* Two underlined links in a row of prose read as one link; a row of their
+       own with a real gap keeps them separable. */
+    .lp-landing-doc-links {
+        @apply flex flex-wrap items-baseline gap-x-6 gap-y-1 m-0 mb-14 text-lg;
+    }
     .lp-landing-note {
         @apply m-0 text-sm text-fg-dim leading-relaxed;
     }
@@ -2748,7 +2753,7 @@
         display: none;
     }
     .lp-landing-feature {
-        @apply flex flex-col gap-2.5 bg-app px-7 py-8 w-10/12 shrink-0 snap-start sm:w-auto;
+        @apply flex flex-col gap-2.5 bg-app px-7 py-8 w-10/12 shrink-0 snap-start last:snap-end sm:w-auto;
     }
     .lp-landing-feature__title {
         @apply font-display font-extrabold text-ink m-0 text-xl tracking-tight;
