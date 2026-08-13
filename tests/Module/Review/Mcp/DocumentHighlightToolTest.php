@@ -12,8 +12,7 @@ use App\Tests\Support\McpTokenScenario;
 use Doctrine\ORM\EntityManagerInterface;
 use Mcp\Exception\ToolCallException;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
-use Ubermuda\FeatureFlagsBundle\Entity\FeatureFlag;
-use Ubermuda\FeatureFlagsBundle\Enum\FeatureFlagType;
+use Ubermuda\FeatureFlagsBundle\Repository\FeatureFlagRepository;
 
 final class DocumentHighlightToolTest extends KernelTestCase
 {
@@ -113,7 +112,9 @@ final class DocumentHighlightToolTest extends KernelTestCase
 
     private function enableHighlights(): void
     {
-        $this->em->persist(new FeatureFlag(name: DocumentHighlightTool::FLAG, type: FeatureFlagType::Bool, value: true));
+        $flags = self::getContainer()->get(FeatureFlagRepository::class);
+        self::assertInstanceOf(FeatureFlagRepository::class, $flags);
+        $flags->findAllIndexed()[DocumentHighlightTool::FLAG]->value = true;
         $this->em->flush();
     }
 

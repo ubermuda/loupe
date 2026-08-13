@@ -15,8 +15,7 @@ use Mcp\Schema\Tool;
 use Mcp\Server\Builder;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use Symfony\Component\HttpFoundation\Request;
-use Ubermuda\FeatureFlagsBundle\Entity\FeatureFlag;
-use Ubermuda\FeatureFlagsBundle\Enum\FeatureFlagType;
+use Ubermuda\FeatureFlagsBundle\Repository\FeatureFlagRepository;
 
 final class ConnectAgentControllerTest extends WebTestCase
 {
@@ -47,7 +46,8 @@ final class ConnectAgentControllerTest extends WebTestCase
         $em->persist($project);
         // Parity is between the page and the registry, so the flag-gated tools
         // have to be on for both sides to be comparable at all.
-        $em->persist(new FeatureFlag(name: DocumentHighlightTool::FLAG, type: FeatureFlagType::Bool, value: true));
+        static::getContainer()->get(FeatureFlagRepository::class)
+            ->findAllIndexed()[DocumentHighlightTool::FLAG]->value = true;
         // The tool list only renders once a token exists; without one the page
         // shows the mint step instead and this would compare against nothing.
         [$token] = ApiToken::issue($owner, 'MCP: connect-site-tools', ApiTokenScope::Mcp);

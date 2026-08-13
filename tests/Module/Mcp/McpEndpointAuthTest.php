@@ -11,8 +11,7 @@ use App\Module\Review\Mcp\DocumentHighlightTool;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
-use Ubermuda\FeatureFlagsBundle\Entity\FeatureFlag;
-use Ubermuda\FeatureFlagsBundle\Enum\FeatureFlagType;
+use Ubermuda\FeatureFlagsBundle\Repository\FeatureFlagRepository;
 
 final class McpEndpointAuthTest extends WebTestCase
 {
@@ -113,7 +112,8 @@ final class McpEndpointAuthTest extends WebTestCase
         $raw = $this->persistValidToken();
 
         $em = static::getContainer()->get(EntityManagerInterface::class);
-        $em->persist(new FeatureFlag(name: DocumentHighlightTool::FLAG, type: FeatureFlagType::Bool, value: true));
+        static::getContainer()->get(FeatureFlagRepository::class)
+            ->findAllIndexed()[DocumentHighlightTool::FLAG]->value = true;
         $em->flush();
 
         self::assertContains('document_highlight', $this->listToolNames($client, $raw));
