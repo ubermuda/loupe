@@ -16,6 +16,8 @@ use Ubermuda\FeatureFlagsBundle\FeatureFlagService;
 #[Route('/', name: 'app_home')]
 class LandingController extends AppController
 {
+    public const string ENABLED_FLAG = 'landing.enabled';
+
     public function __construct(
         private readonly ShowHomeHandler $showHome,
         private readonly FeatureFlagService $featureFlags,
@@ -33,10 +35,10 @@ class LandingController extends AppController
         $user = $this->getUser();
 
         if (!$user instanceof User) {
-            // The marketing page sells a hosted plan, so it is wrong on an
-            // instance someone runs themselves. `billing.enabled` is the closest
-            // thing to "this is the hosted instance" the app knows about.
-            if (!$this->featureFlags->isEnabled('billing.enabled')) {
+            // Seeded off, so an instance nobody has told otherwise keeps
+            // sending anonymous visitors to the login form, as it did before
+            // this page existed.
+            if (!$this->featureFlags->isEnabled(self::ENABLED_FLAG)) {
                 return $this->redirectToRoute('app_login');
             }
 

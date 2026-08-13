@@ -4,22 +4,25 @@ declare(strict_types=1);
 
 namespace App\Tests\Module\Account\Controller;
 
+use App\Module\Account\Controller\LandingController;
 use App\Module\Account\Entity\User;
 use App\Module\Project\Entity\Project;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use Symfony\Component\HttpFoundation\Request;
-use Ubermuda\FeatureFlagsBundle\Entity\FeatureFlag;
-use Ubermuda\FeatureFlagsBundle\Enum\FeatureFlagType;
+use Ubermuda\FeatureFlagsBundle\Repository\FeatureFlagRepository;
 
 final class LandingControllerTest extends WebTestCase
 {
-    private function setBillingEnabled(KernelBrowser $client, bool $enabled): void
+    /** The migration seeds the row, so this moves it rather than creating it. */
+    private function setLandingEnabled(KernelBrowser $client, bool $enabled): void
     {
+        $flags = $client->getContainer()->get(FeatureFlagRepository::class);
+        self::assertInstanceOf(FeatureFlagRepository::class, $flags);
         $em = $client->getContainer()->get(EntityManagerInterface::class);
         self::assertInstanceOf(EntityManagerInterface::class, $em);
-        $em->persist(new FeatureFlag(name: 'billing.enabled', type: FeatureFlagType::Bool, value: $enabled));
+        $flags->findAllIndexed()[LandingController::ENABLED_FLAG]->value = $enabled;
         $em->flush();
     }
 
@@ -37,10 +40,10 @@ final class LandingControllerTest extends WebTestCase
         return $user;
     }
 
-    public function test_anonymous_visitor_sees_the_landing_page_where_billing_is_on(): void
+    public function test_anonymous_visitor_sees_the_landing_page_where_the_flag_is_on(): void
     {
         $client = static::createClient();
-        $this->setBillingEnabled($client, true);
+        $this->setLandingEnabled($client, true);
 
         $client->request(Request::METHOD_GET, '/');
 
@@ -50,15 +53,14 @@ final class LandingControllerTest extends WebTestCase
     }
 
     /**
-     * The landing page sells a hosted plan, so an instance someone runs
-     * themselves must not serve it — billing being off is the app's closest
-     * proxy for that, and the same redirect anonymous visitors got before this
-     * page existed is what they keep getting.
+     * The flag is seeded off, so this is what a fresh or upgraded instance
+     * does: exactly the redirect anonymous visitors got before the page
+     * existed.
      */
-    public function test_anonymous_visitor_is_sent_to_login_where_billing_is_off(): void
+    public function test_anonymous_visitor_is_sent_to_login_where_the_flag_is_off(): void
     {
         $client = static::createClient();
-        $this->setBillingEnabled($client, false);
+        $this->setLandingEnabled($client, false);
 
         $client->request(Request::METHOD_GET, '/');
 
@@ -69,10 +71,10 @@ final class LandingControllerTest extends WebTestCase
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
-        $user = $this->createUser($em, 'home-billing', 'home-billing@example.com');
+        $user = $this->createUser($em, 'home-landing', 'home-landing@example.com');
         $user->wizardCompletedAt = new \DateTimeImmutable();
         $em->flush();
-        $this->setBillingEnabled($client, true);
+        $this->setLandingEnabled($client, true);
 
         $client->loginUser($user);
         $client->request(Request::METHOD_GET, '/');

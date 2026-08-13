@@ -161,10 +161,10 @@ Every branch this wave touched the deletion chains, and a mistake there is a
 
 ## 7. Landing page — **UNCOVERED (visual)**
 
-Only reachable signed out, and only where `billing.enabled` is on — with the
-flag off, `/` still bounces to `/login`, which is what a self-hosted instance
-must keep seeing. Flip it in `/admin/feature-flags` and open `/` in a private
-window.
+Only reachable signed out, and only where `landing.enabled` is on — the flag
+is seeded off, and while it is off `/` still bounces to `/login`, which is
+what a self-hosted instance must keep seeing. Flip it in
+`/admin/feature-flags` and open `/` in a private window.
 
 1. **The app still in the hero must be there at first paint**, at full size,
    before any JavaScript runs — throttle the network and reload. It is built
