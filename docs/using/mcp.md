@@ -1,6 +1,6 @@
 ---
-title: The MCP endpoint
-description: How an AI agent creates and revises documents, and how its token is scoped.
+title: "The MCP endpoint"
+description: "How an AI agent creates and revises documents, and how its token is scoped."
 ---
 
 `POST /mcp` is a Model Context Protocol endpoint. An agent authenticates with a

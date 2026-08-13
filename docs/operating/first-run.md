@@ -1,6 +1,6 @@
 ---
-title: First run
-description: Creating the first administrator, and why sign-up is closed until you do.
+title: "First run"
+description: "Creating the first administrator, and why sign-up is closed until you do."
 ---
 
 

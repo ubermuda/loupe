@@ -1,6 +1,6 @@
 ---
-title: Data exports
-description: How a user requests their data, and what the download link guarantees.
+title: "Data exports"
+description: "How a user requests their data, and what the download link guarantees."
 ---
 
 A user requests an export from `/account/exports`. The worker builds an archive

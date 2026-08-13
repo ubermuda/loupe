@@ -1,6 +1,6 @@
 ---
-title: From source
-description: A development clone. Assumes Docker, just, and a way to reach the app — see Reverse proxy.
+title: "From source"
+description: "A development clone. Assumes Docker, just, and a way to reach the app — see Reverse proxy."
 ---
 
 

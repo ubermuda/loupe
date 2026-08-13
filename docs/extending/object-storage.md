@@ -1,6 +1,6 @@
 ---
-title: Object storage for data exports
-description: EXPORT_STORAGE and its settings, for any S3-compatible bucket. Applies wherever web and worker do not share a filesystem.
+title: "Object storage for data exports"
+description: "EXPORT_STORAGE and its settings, for any S3-compatible bucket. Applies wherever web and worker do not share a filesystem."
 ---
 
 

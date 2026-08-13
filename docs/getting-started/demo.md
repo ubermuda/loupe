@@ -1,6 +1,6 @@
 ---
-title: Demo
-description: One container holding the app, worker and Postgres. For evaluating Loupe, not for running it.
+title: "Demo"
+description: "One container holding the app, worker and Postgres. For evaluating Loupe, not for running it."
 ---
 
 

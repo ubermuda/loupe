@@ -1,6 +1,6 @@
 ---
-title: Getting started
-description: Five ways to run Loupe, and what separates them — who your first account is.
+title: "Getting started"
+description: "Five ways to run Loupe, and what separates them — who your first account is."
 ---
 
 Loupe never leaves a fresh instance open to whoever finds it: registration

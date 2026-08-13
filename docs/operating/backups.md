@@ -1,6 +1,6 @@
 ---
-title: Backing up
-description: What makes up an instance durable state, and why a database dump alone is not enough.
+title: "Backing up"
+description: "What makes up an instance durable state, and why a database dump alone is not enough."
 ---
 
 **Backups are the operator's responsibility.** Loupe schedules nothing, ships no

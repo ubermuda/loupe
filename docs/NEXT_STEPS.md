@@ -3713,3 +3713,54 @@ The worktree e2e checklist in `CLAUDE.md` already names warming the cache and
 starting a consumer as prerequisites; a CSS rebuild belongs beside them. The
 symptom table in `project-worktrees` covers only the single-unstyled-new-class
 case, which points at the `var/tailwind` symlink rather than at staleness.
+
+## Text-selection mode for the site-review widget
+
+**Author:** Geoffrey · **Type:** feature · **Priority:** medium · **Status:** pending
+
+The site-review widget anchors a comment to a page element: the reviewer picks
+something, and the stored comment carries a CSS selector plus some text
+(`public/site-review/widget.js` — its pending items are
+`{ id, body, selector, text, url }`). Document review works differently. There
+the reviewer selects a *range of text* and the comment quotes exactly that
+range, which is what makes "this sentence is wrong" expressible rather than
+"something in this block is wrong". The widget should offer the same: select
+text on the live page, comment on the selection, carry the quoted range
+through. As of 2026-08-12 the widget calls no `getSelection` at all, so this is
+new behaviour rather than an extension of existing selection handling.
+
+Two things to settle before building it. What a text anchor means on a page
+that has no versions: document review re-anchors comments by matching quoted
+text into the next version and reports the rest as orphaned, and a live page
+has no equivalent of a version boundary — so decide whether a stale anchor
+degrades to the selector, or is shown as orphaned, or is simply left broken.
+And whether the range travels as quoted text (robust to markup changes, may
+match twice) or as offsets into the selector's subtree (exact, breaks on any
+edit); the document-review side chose quoted text and hit the
+matches-twice case, which is worth reading before repeating the choice.
+
+Server side lives in `src/Module/SiteReview/`.
+
+## A runnable post-deploy check command
+
+**Author:** Geoffrey · **Type:** feature · **Priority:** medium · **Status:** pending
+
+`docs/operating/post-deploy-checks.md` lists five things to verify after a
+deploy: `/healthz` returns 200, an unauthenticated `POST /mcp` returns 401 (not
+404, which would mean the route never registered), `doctrine:migrations:status`
+reports nothing pending, `/admin/status` is clean, and something that queues
+async work actually completes. Every one is manual, and the last two need a
+browser and an email client — so in practice they are skipped.
+
+A console command should run everything automatable and exit non-zero on
+failure, so a deploy can end with a check rather than with a checklist somebody
+remembers. Most of the work exists already:
+`CheckSystemStatusHandler` in `src/Module/Account/Command/` computes what
+`/admin/status` renders, so the command is largely a CLI presenter over it plus
+the HTTP and migration checks.
+
+One thing it must not do is overclaim. The worker check can only prove failure,
+never health — a running consumer leaves no lasting trace, so an empty queue is
+genuinely unknown rather than good. Report unknown as unknown; a green check
+that cannot distinguish "working" from "nothing running" is worse than no check,
+because it is the exact failure this project has hit before.

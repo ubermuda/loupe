@@ -1,6 +1,6 @@
 ---
-title: Contributing
-description: How to propose a change, and what the gate expects before you do.
+title: "Contributing"
+description: "How to propose a change, and what the gate expects before you do."
 ---
 
 

@@ -1,6 +1,6 @@
 ---
-title: Mercure hub
-description: Optional. Needed only for site-review push; without it, submissions still save.
+title: "Mercure hub"
+description: "Optional. Needed only for site-review push; without it, submissions still save."
 ---
 
 Site-review push is the only thing that needs a Mercure hub. Leaving it off is a

@@ -1,6 +1,6 @@
 ---
-title: Development
-description: The commands you will actually use, and the gate a change has to pass.
+title: "Development"
+description: "The commands you will actually use, and the gate a change has to pass."
 ---
 
 Everything runs in Docker; `just --list` shows every recipe.

@@ -1,6 +1,6 @@
 ---
-title: DigitalOcean App Platform
-description: The deployment this project ships by default. DigitalOcean-specific throughout.
+title: "DigitalOcean App Platform"
+description: "The deployment this project ships by default. DigitalOcean-specific throughout."
 ---
 
 

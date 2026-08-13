@@ -1,6 +1,6 @@
 ---
-title: What runs in production
-description: The processes a production instance needs, and why the worker is not optional. Applies to every topology.
+title: "What runs in production"
+description: "The processes a production instance needs, and why the worker is not optional. Applies to every topology."
 ---
 
 

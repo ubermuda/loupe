@@ -85,3 +85,10 @@ e2e/.step-ca-root.crt
 
 # Go CLI build output
 /cli/dist/
+
+# Docs site build artefacts. website/ itself is committed; its dependencies
+# and output are not.
+/website/node_modules
+/website/dist
+/website/.astro
+/website/.env

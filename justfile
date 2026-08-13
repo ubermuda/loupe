@@ -444,6 +444,25 @@ browser-sync:
 tailwind:
     bin/console tailwind:build --watch
 
+# --- Docs site (Starlight, reads docs/ — see website/README.md) ---
+
+# Runs on the host, not in a container: the site is a static build with no
+# dependency on the app. First run installs into website/node_modules.
+docs-install:
+    cd website && npm install
+
+# Live-reloading preview of docs/ at http://localhost:4321 (Ctrl-C to stop).
+docs *args: docs-install
+    cd website && npx astro dev "$@"
+
+# Static build into website/dist, including the Pagefind search index.
+docs-build: docs-install
+    cd website && npx astro build
+
+# Serve the built site, to check the real output rather than the dev server.
+docs-preview: docs-build
+    cd website && npx astro preview
+
 # Expose the dev app on the reserved ngrok domain (OAuth callbacks, Stripe
 # dashboard webhooks, phone testing). Requires an authenticated ngrok agent
 # and the domain reserved in the ngrok dashboard. Set TUNNEL_HOST in .env — it

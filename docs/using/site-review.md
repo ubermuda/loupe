@@ -1,6 +1,6 @@
 ---
-title: Site review
-description: An embeddable widget for commenting on live web pages. Preview — optional, and not release-ready.
+title: "Site review"
+description: "An embeddable widget for commenting on live web pages. Preview — optional, and not release-ready."
 ---
 
 The site-review widget brings the select-and-comment flow to any web page. A
