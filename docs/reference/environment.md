@@ -61,7 +61,7 @@ agent, and the publish failure is only logged — it degrades silently.
 | `APP_ENCRYPTION_KEY` | Only once an `encrypted_string` column is in use. **Losing it makes existing encrypted columns unreadable.** | No |
 | `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET` | Billing. Nothing instantiates the Stripe client until the `billing.enabled` feature flag is on. | No |
 | `OAUTH_GOOGLE_ID` / `_SECRET`, `OAUTH_GITHUB_ID` / `_SECRET` | Social login. A provider becomes reachable only when its credentials **and** its feature flag (`auth.google.enabled` / `auth.github.enabled`) are both set. | No |
-| `SITE_REVIEW_WIDGET_TOKEN` | Only for dogfooding the review widget on Loupe's own pages. It appears in page source, so use a dedicated SiteReview-scoped token, never an MCP or production credential. | **Yes, both topologies** |
+| `SITE_REVIEW_WIDGET_TOKEN` | Only for dogfooding the review widget on Loupe's own pages, public ones included. It appears in the page source anyone can view without an account, so use a dedicated SiteReview-scoped token, never an MCP or production credential. | **Yes, both topologies** |
 
 ## What the Terraform root does not set
 
