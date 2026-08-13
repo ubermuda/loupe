@@ -275,8 +275,10 @@ A mobile usability audit on 2026-08-13 measured every surface at a 375px
 viewport against the running dev app. Full report, with screenshots and three
 decision blocks awaiting an answer, is in Loupe:
 https://loupe.dev.localhost/projects/019fde6f-6b71-781e-a358-bf44c8cf3c2f/documents/019ffbf4-9009-7e55-92e8-45dbcb0c9ec9/review
-Local copy of the report and the captures: `var/mobile-audit/` (gitignored, so
-the Loupe document is the durable one).
+The Loupe document is the durable artifact and every finding in it is stated
+numerically, so nothing here depends on the screenshots: those were verification
+aids written to the gitignored `var/mobile-audit/` and are not retained. Re-run
+the measurements against a 375px viewport rather than hunting for the captures.
 
 Fix independently of the rest, because it is one line and unrelated to layout:
 `translations/messages.en.xlf:113` sets `account.auth.footer.copyright` to
