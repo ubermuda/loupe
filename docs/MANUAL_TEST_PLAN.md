@@ -91,6 +91,9 @@ renderer change.
 
 PHPUnit cannot see rendering, and no e2e spec asserts appearance.
 
+Switch `review.highlights.enabled` on first — it is seeded off, and while it is
+off the agent has no `document_highlight` tool to call.
+
 1. Have an agent mark a passage via MCP. It should render distinctly from a
    human comment — a **wavy** underline in a distinct colour.
 2. **Overlap an agent mark with a human comment on the same text.** Both should
@@ -146,6 +149,8 @@ Integration-tested, but never driven by a real agent end to end.
 
 1. Connect an agent and run through: create a document, get its review, reply to
    a comment, mark one addressed, set tags, highlight a passage, read decisions.
+   Highlighting needs `review.highlights.enabled` on; with it off, confirm
+   instead that the agent is not offered the tool at all.
 2. Confirm an agent's reply is visibly attributed to the agent, not to you.
 3. Confirm **marking addressed does not mark resolved** — the agent claiming it
    acted is not you agreeing it is finished.
