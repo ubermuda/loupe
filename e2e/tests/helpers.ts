@@ -235,7 +235,7 @@ export const DEFAULT_DISPLAY_NAME = 'E2E User';
  * Fill the registration form, poll Mailpit for the verification link, and
  * navigate to it. Returns with the browser on the first-run wizard's welcome
  * step — a brand-new account owns no project and hasn't completed (or
- * skipped) the wizard yet, so HomeController lands it there.
+ * skipped) the wizard yet, so LandingController lands it there.
  */
 export async function registerFreshUser(
     page: Page,

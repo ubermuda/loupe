@@ -56,7 +56,7 @@ test('a sent review is resolvable on the site page', async ({ page }) => {
     await page.getByLabel('Password').fill(E2E_PASSWORD);
     await page.getByRole('button', { name: 'Sign in' }).click();
     // The harness created the `e2e-harness` project above, so this owner has
-    // exactly one project and HomeController lands them on its documents
+    // exactly one project and LandingController lands them on its documents
     // dashboard. Capture the project id from that URL to reach the site-review
     // page (which has no nav link yet — that arrives in a later Loop PR).
     await expect(page).toHaveURL(/\/projects\/[0-9a-f-]+\/documents$/);

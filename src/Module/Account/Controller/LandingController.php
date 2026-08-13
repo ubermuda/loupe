@@ -8,23 +8,44 @@ use App\Controller\AppController;
 use App\Module\Account\Command\ShowHomeCommand;
 use App\Module\Account\Command\ShowHomeHandler;
 use App\Module\Account\Entity\User;
+use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
+use Ubermuda\FeatureFlagsBundle\FeatureFlagService;
 
 #[Route('/', name: 'app_home')]
-class HomeController extends AppController
+class LandingController extends AppController
 {
+    public const string ENABLED_FLAG = 'landing.enabled';
+
     public function __construct(
         private readonly ShowHomeHandler $showHome,
+        private readonly FeatureFlagService $featureFlags,
+
+        #[Autowire(param: 'app.demo_command')]
+        private readonly string $demoCommand,
+
+        #[Autowire(param: 'app.hosted_price')]
+        private readonly string $hostedPrice,
     ) {
     }
 
     public function __invoke(): Response
     {
-        // The ^/ firewall guarantees authentication before this runs.
         $user = $this->getUser();
+
         if (!$user instanceof User) {
-            throw new \LogicException(\sprintf('%s reached without an authenticated User (got %s); this route must stay behind the ROLE_USER catch-all.', self::class, get_debug_type($user)));
+            // Seeded off, so an instance nobody has told otherwise keeps
+            // sending anonymous visitors to the login form, as it did before
+            // this page existed.
+            if (!$this->featureFlags->isEnabled(self::ENABLED_FLAG)) {
+                return $this->redirectToRoute('app_login');
+            }
+
+            return $this->render('@Account/landing.html.twig', [
+                'demoCommand' => $this->demoCommand,
+                'hostedPrice' => $this->hostedPrice,
+            ]);
         }
 
         $projects = ($this->showHome)(new ShowHomeCommand($user))->projects;

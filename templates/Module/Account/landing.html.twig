@@ -1,0 +1,233 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}{{ 'landing.meta.title'|trans }}{% endblock %}
+
+{% block body_unauthenticated %}
+<div class="lp-landing">
+
+    <header class="lp-landing-nav">
+        <a href="#top" class="lp-landing-nav__brand">
+            <span class="lp-landing-nav__mark"></span>
+            {{ 'nav.brand'|trans }}
+        </a>
+        <nav class="lp-landing-nav__links">
+            <a href="#how" class="lp-landing-nav__link">{{ 'landing.nav.how'|trans }}</a>
+            <a href="#features" class="lp-landing-nav__link">{{ 'landing.nav.features'|trans }}</a>
+            <a href="#try" class="lp-landing-nav__link">{{ 'landing.nav.try'|trans }}</a>
+            <a href="#pricing" class="lp-landing-nav__link">{{ 'landing.nav.pricing'|trans }}</a>
+            <a href="#faq" class="lp-landing-nav__link">{{ 'landing.nav.faq'|trans }}</a>
+            <a href="{{ path('app_login') }}" class="lp-landing-nav__link lp-landing-nav__link--wide">{{ 'landing.nav.login'|trans }}</a>
+            <a href="{{ path('app_register') }}" class="lp-btn lp-btn--primary lp-btn--sm">{{ 'landing.cta.signup'|trans }}</a>
+        </nav>
+    </header>
+
+    <section id="top" class="lp-landing-hero">
+        <div class="lp-landing-hero__inner">
+            <h1 class="lp-landing-hero__title">
+                {{ 'landing.hero.title_before'|trans }}
+                <span class="lp-landing-hero__accent">{{ 'landing.hero.title_accent'|trans }}</span>{{ 'landing.hero.title_after'|trans }}
+            </h1>
+            <p class="lp-landing-hero__lead">{{ 'landing.hero.lead'|trans }}</p>
+            <div class="lp-landing-hero__actions">
+                <a href="{{ path('app_register') }}" class="lp-btn lp-btn--primary lp-btn--lg">{{ 'landing.cta.signup'|trans }}</a>
+                <a href="#try" class="lp-btn lp-btn--outline lp-btn--lg">{{ 'landing.cta.demo'|trans }}</a>
+            </div>
+            <p class="lp-landing-hero__note">{{ 'landing.hero.note'|trans }}</p>
+        </div>
+
+        {% include '@Account/landing/_mock.html.twig' only %}
+    </section>
+
+    <section id="how" class="lp-landing-section">
+        <div class="lp-landing-inner">
+            <h2 class="lp-landing-title">{{ 'landing.how.title'|trans }}</h2>
+            <p class="lp-landing-lead">{{ 'landing.how.lead'|trans }}</p>
+
+            <div class="lp-landing-steps">
+                {% for step in 1..3 %}
+                <div class="lp-landing-step">
+                    <span class="lp-landing-step__number">{{ step }}</span>
+                    <h3 class="lp-landing-step__title">{{ ('landing.how.step' ~ step ~ '.title')|trans }}</h3>
+                    <p class="lp-landing-step__text">{{ ('landing.how.step' ~ step ~ '.text')|trans }}</p>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </section>
+
+    <section id="features" class="lp-landing-section lp-landing-section--tight">
+        <div class="lp-landing-inner">
+            <div class="lp-landing-features">
+                {% for feature in ['anchors', 'suggest', 'versions', 'tokens', 'decisions', 'site_review'] %}
+                <div class="lp-landing-feature">
+                    <h3 class="lp-landing-feature__title">{{ ('landing.feature.' ~ feature ~ '.title')|trans }}</h3>
+                    <p class="lp-landing-feature__text">{{ ('landing.feature.' ~ feature ~ '.text')|trans }}</p>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </section>
+
+    <section id="tech" class="lp-landing-section lp-landing-section--dark">
+        <div class="lp-landing-inner">
+            <h2 class="lp-landing-title lp-landing-title--on-chrome">{{ 'landing.tech.title'|trans }}</h2>
+            <p class="lp-landing-lead lp-landing-lead--on-chrome">
+                {{ 'landing.tech.lead'|trans }}
+                <a href="{{ app_docs_url }}/using/mcp/" class="lp-landing-link--on-chrome">{{ 'landing.tech.docs_link'|trans }}</a>
+            </p>
+
+            <div class="lp-landing-columns">
+                <div class="lp-landing-column">
+                    <h3 class="lp-landing-column__title">{{ 'landing.tech.tools.title'|trans }}</h3>
+                    {# Tool names are API identifiers, so they are translation units of
+                       their own and the punctuation between them rides on the phrases —
+                       nothing here may become bare text in the template. #}
+                    <p class="lp-landing-column__text">
+                        {{ 'landing.tech.tools.submit'|trans }} <code>{{ 'landing.tech.tools.tool_create'|trans }}</code>{{ 'landing.tech.tools.read'|trans }} <code>{{ 'landing.tech.tools.tool_review'|trans }}</code>{{ 'landing.tech.tools.revise'|trans }} <code>{{ 'landing.tech.tools.tool_revise'|trans }}</code>{{ 'landing.tech.tools.end'|trans }}
+                    </p>
+                </div>
+                <div class="lp-landing-column">
+                    <h3 class="lp-landing-column__title">{{ 'landing.tech.markdown.title'|trans }}</h3>
+                    <p class="lp-landing-column__text">{{ 'landing.tech.markdown.text'|trans }}</p>
+                </div>
+                <div class="lp-landing-column">
+                    <h3 class="lp-landing-column__title">{{ 'landing.tech.tokens.title'|trans }}</h3>
+                    <p class="lp-landing-column__text">{{ 'landing.tech.tokens.text'|trans }}</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section id="try" class="lp-landing-section">
+        <div class="lp-landing-inner lp-landing-split">
+            <div class="lp-landing-split__text">
+                <h2 class="lp-landing-title lp-landing-title--sm">{{ 'landing.try.title'|trans }}</h2>
+                <p class="lp-landing-lead lp-landing-lead--flush">{{ 'landing.try.lead'|trans }}</p>
+                <p class="lp-landing-note">
+                    {{ 'landing.try.note'|trans }}
+                    <a href="{{ app_docs_url }}/getting-started/demo/" class="lp-landing-link">{{ 'landing.try.docs_link'|trans }}</a>
+                </p>
+            </div>
+            <div class="lp-code-dark" data-controller="clipboard"
+                 data-clipboard-text-value="{{ demoCommand }}"
+                 data-clipboard-copied-label-value="{{ 'landing.try.copied'|trans }}">
+                <div class="lp-code-dark__header">
+                    <span class="lp-code-dark__label">{{ 'landing.try.shell'|trans }}</span>
+                    <button type="button" class="lp-code-dark__copy" data-clipboard-target="button"
+                            data-action="clipboard#copy">{{ 'landing.try.copy'|trans }}</button>
+                </div>
+                <pre class="lp-code-dark__body"><code>{{ demoCommand }}</code></pre>
+            </div>
+        </div>
+    </section>
+
+    <section id="pricing" class="lp-landing-section lp-landing-section--sunken">
+        <div class="lp-landing-inner">
+            <h2 class="lp-landing-title">{{ 'landing.pricing.title'|trans }}</h2>
+
+            <div class="lp-landing-plans">
+                <div class="lp-landing-plan">
+                    <div class="lp-landing-plan__head">
+                        <h3 class="lp-landing-plan__name">{{ 'landing.pricing.self_host.name'|trans }}</h3>
+                        <p class="lp-landing-plan__desc">{{ 'landing.pricing.self_host.desc'|trans }}</p>
+                    </div>
+                    <p class="lp-landing-plan__price">
+                        {{ 'landing.pricing.self_host.price'|trans }}
+                        <span class="lp-landing-plan__period">{{ 'landing.pricing.self_host.period'|trans }}</span>
+                    </p>
+                    <ul class="lp-landing-plan__list">
+                        {% for item in 1..3 %}
+                        <li class="lp-landing-plan__item">
+                            <twig:ux:icon name="lucide:check" class="lp-landing-plan__check" />
+                            {{ ('landing.pricing.self_host.item' ~ item)|trans }}
+                        </li>
+                        {% endfor %}
+                    </ul>
+                    <a href="{{ app_docs_url }}/getting-started/" class="lp-btn lp-landing-plan__action">{{ 'landing.pricing.self_host.action'|trans }}</a>
+                </div>
+
+                <div class="lp-landing-plan lp-landing-plan--hosted">
+                    <div class="lp-landing-plan__head">
+                        <div class="lp-landing-plan__title-row">
+                            <h3 class="lp-landing-plan__name lp-landing-plan__name--on-chrome">{{ 'landing.pricing.hosted.name'|trans }}</h3>
+                            <span class="lp-landing-plan__badge">{{ 'landing.pricing.hosted.badge'|trans }}</span>
+                        </div>
+                        <p class="lp-landing-plan__desc lp-landing-plan__desc--on-chrome">{{ 'landing.pricing.hosted.desc'|trans }}</p>
+                    </div>
+                    <p class="lp-landing-plan__price lp-landing-plan__price--accent">
+                        {{ 'landing.pricing.hosted.price'|trans({'%price%': hostedPrice}) }}
+                        <span class="lp-landing-plan__period lp-landing-plan__period--on-chrome">{{ 'landing.pricing.hosted.period'|trans }}</span>
+                    </p>
+                    <ul class="lp-landing-plan__list">
+                        {% for item in 1..3 %}
+                        <li class="lp-landing-plan__item lp-landing-plan__item--on-chrome">
+                            <twig:ux:icon name="lucide:check" class="lp-landing-plan__check lp-landing-plan__check--accent" />
+                            {{ ('landing.pricing.hosted.item' ~ item)|trans }}
+                        </li>
+                        {% endfor %}
+                    </ul>
+                    <a href="{{ path('app_register') }}" class="lp-btn lp-btn--primary lp-landing-plan__action">{{ 'landing.cta.signup'|trans }}</a>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section id="opensource" class="lp-landing-section">
+        <div class="lp-landing-inner lp-landing-centered">
+            <h2 class="lp-landing-title lp-landing-title--sm">{{ 'landing.opensource.title'|trans }}</h2>
+            <p class="lp-landing-lead lp-landing-lead--flush">{{ 'landing.opensource.lead'|trans }}</p>
+            <div class="lp-landing-centered__actions">
+                {% include '_source_link.html.twig' with {class: 'lp-btn'} only %}
+                <a href="{{ app_docs_url }}/" class="lp-btn lp-btn--ghost">{{ 'landing.opensource.docs'|trans }}</a>
+            </div>
+        </div>
+    </section>
+
+    <section id="faq" class="lp-landing-section lp-landing-section--sunken">
+        <div class="lp-landing-inner lp-landing-faq">
+            <h2 class="lp-landing-title lp-landing-title--sm">{{ 'landing.faq.title'|trans }}</h2>
+            <div class="lp-landing-faq__list">
+                <div class="lp-landing-faq__item">
+                    <h3 class="lp-landing-faq__question">{{ 'landing.faq.agents.question'|trans }}</h3>
+                    <p class="lp-landing-faq__answer">
+                        {{ 'landing.faq.agents.answer_before'|trans }} <code>{{ 'landing.tech.tools.tool_create'|trans }}</code> {{ 'landing.faq.agents.answer_or'|trans }} <code>{{ 'landing.tech.tools.tool_revise'|trans }}</code>{{ 'landing.faq.agents.answer_after'|trans }}
+                    </p>
+                </div>
+                {% for question in ['technical', 'anchors', 'migrate'] %}
+                <div class="lp-landing-faq__item">
+                    <h3 class="lp-landing-faq__question">{{ ('landing.faq.' ~ question ~ '.question')|trans }}</h3>
+                    <p class="lp-landing-faq__answer">{{ ('landing.faq.' ~ question ~ '.answer')|trans }}</p>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </section>
+
+    <section class="lp-landing-section lp-landing-section--dark lp-landing-cta">
+        <div class="lp-landing-cta__inner">
+            <h2 class="lp-landing-cta__title">{{ 'landing.closing.title'|trans }}</h2>
+            <p class="lp-landing-lead lp-landing-lead--on-chrome lp-landing-lead--flush">{{ 'landing.closing.lead'|trans }}</p>
+            <a href="{{ path('app_register') }}" class="lp-btn lp-btn--primary lp-btn--lg">{{ 'landing.cta.signup'|trans }}</a>
+            <p class="lp-landing-hero__note">{{ 'landing.closing.note'|trans({'%price%': hostedPrice}) }}</p>
+        </div>
+    </section>
+
+    <footer class="lp-landing-footer">
+        <div class="lp-landing-inner lp-landing-footer__row">
+            <a href="#top" class="lp-landing-nav__brand lp-landing-nav__brand--sm">
+                <span class="lp-landing-nav__mark lp-landing-nav__mark--sm"></span>
+                {{ 'nav.brand'|trans }}
+            </a>
+            <span class="lp-landing-footer__copyright">{{ 'account.auth.footer.copyright'|trans }}</span>
+            <nav class="lp-landing-footer__nav">
+                {% include '_source_link.html.twig' with {class: 'lp-landing-footer__link'} only %}
+                <a href="{{ app_docs_url }}/" class="lp-landing-footer__link">{{ 'account.auth.footer.docs'|trans }}</a>
+                <a href="#" class="lp-landing-footer__link">{{ 'account.auth.footer.status'|trans }}</a>
+                <a href="#" class="lp-landing-footer__link">{{ 'account.auth.footer.privacy'|trans }}</a>
+                <a href="#" class="lp-landing-footer__link">{{ 'account.auth.footer.terms'|trans }}</a>
+            </nav>
+        </div>
+    </footer>
+
+</div>
+{% endblock %}

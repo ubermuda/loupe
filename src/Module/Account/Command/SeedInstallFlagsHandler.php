@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Module\Account\Command;
 
+use App\Module\Account\Controller\LandingController;
 use App\Module\Account\Service\RegistrationGate;
 use App\Service\UpdateCheck;
 use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
@@ -44,6 +45,9 @@ final readonly class SeedInstallFlagsHandler
             // Off: agent-placed highlights steer where a reviewer looks first,
             // which is a nudge an operator opts into rather than inherits.
             ['review.highlights.enabled', FeatureFlagType::Bool, false, null],
+            // Off: the marketing page advertises a hosted plan with a price on
+            // it, which only the instance selling that plan should serve.
+            [LandingController::ENABLED_FLAG, FeatureFlagType::Bool, false, null],
         ];
 
         $created = 0;
