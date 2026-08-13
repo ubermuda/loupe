@@ -9,16 +9,13 @@
 {% endblock %}
 
 {% block body %}
-{# Drafts live in the widget, not here: they have not been submitted, so they are
-   neither listed nor counted. #}
-{% set submittedComments = comments|filter(comment => comment.status.value != 'draft') %}
-{% set pendingCount = submittedComments|filter(comment => comment.status.value == 'pending')|length %}
+{% set pendingCount = comments|filter(comment => comment.status.value == 'pending')|length %}
 <div class="lp-site-review-page">
     <header class="lp-site-review-header">
         <h1 class="lp-site-review-title">{{ 'site_review.page.title'|trans }}</h1>
         <p class="lp-site-review-description">{{ 'site_review.page.description'|trans }}</p>
         <p class="lp-site-review-meta-line">
-            {% if project.domain %}{{ project.domain }} · {% endif %}{{ 'site_review.page.submitted_count'|trans({'%count%': submittedCount}) }} · {{ 'site_review.page.pending_count'|trans({'%count%': pendingCount}) }}
+            {% if project.domain %}{{ project.domain }} · {% endif %}{{ 'site_review.page.comment_count'|trans({'%count%': comments|length}) }} · {{ 'site_review.page.pending_count'|trans({'%count%': pendingCount}) }}
         </p>
         {% if unsentCount > 0 %}
         <p class="lp-site-review-meta-line">
@@ -30,9 +27,9 @@
         {% endif %}
     </header>
 
-    {% if submittedComments|length > 0 %}
+    {% if comments|length > 0 %}
     <div class="lp-site-review-list">
-        {% for comment in submittedComments %}
+        {% for comment in comments %}
             {% set isPending = comment.status.value == 'pending' %}
             <article class="lp-site-review-item" data-comment-id="{{ comment.id }}" data-comment-status="{{ comment.status.value }}">
                 <span class="lp-site-review-index lp-site-review-index--{{ isPending ? 'pending' : 'ok' }}">{{ '%02d'|format(loop.index) }}</span>

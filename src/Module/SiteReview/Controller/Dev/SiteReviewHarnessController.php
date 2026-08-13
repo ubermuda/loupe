@@ -15,13 +15,13 @@ use Symfony\Component\Routing\Attribute\Route;
 /**
  * Dev-only page that loads the site-review widget against a freshly issued site-bound
  * SiteReview API token. Used exclusively by Playwright e2e tests — not available in
- * production (When('dev')). Issues a bound token for the `e2e-harness` project and resets
- * the draft on every load so each e2e run starts from a clean state.
+ * production (When('dev')). Issues a bound token for the `e2e-harness` project and
+ * deletes its comments on every load so each e2e run starts from a clean state.
  *
- * Pass `?keep=1` to skip the draft purge, so a test can reload the harness and assert
- * the widget rehydrates an existing server-side draft. A fresh token is still minted on
+ * Pass `?keep=1` to skip the purge, so a test can reload the harness and assert the
+ * widget rehydrates the project's existing comments. A fresh token is still minted on
  * every load (the raw value of the previous one is unrecoverable from its hash); that is
- * fine because the draft belongs to the project, not the token.
+ * fine because the comments belong to the project, not the token.
  */
 #[Route(
     '/dev/site-review-harness',
@@ -40,7 +40,7 @@ final class SiteReviewHarnessController extends AppController
     {
         $view = ($this->prepareHarness)(new PrepareHarnessCommand(
             email: $request->query->getString('email'),
-            keepDraft: $request->query->getBoolean('keep'),
+            keepComments: $request->query->getBoolean('keep'),
         ));
 
         return $this->render('@SiteReview/dev/harness.html.twig', ['token' => $view->rawToken]);

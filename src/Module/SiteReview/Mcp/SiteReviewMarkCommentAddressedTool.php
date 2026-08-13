@@ -74,7 +74,6 @@ final readonly class SiteReviewMarkCommentAddressedTool
                 }
                 if (SiteReviewCommentStatus::Pending !== $comment->status) {
                     $skipped[] = ['id' => $id, 'reason' => match ($comment->status) {
-                        SiteReviewCommentStatus::Draft => 'not_submitted',
                         SiteReviewCommentStatus::Addressed => 'already_addressed',
                         default => 'resolved',
                     }];

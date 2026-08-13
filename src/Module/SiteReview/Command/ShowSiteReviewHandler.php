@@ -20,7 +20,6 @@ final readonly class ShowSiteReviewHandler
         return new ShowSiteReviewView(
             project: $command->project,
             comments: $this->siteReviewComments->findForProject($command->project),
-            submittedCount: $this->siteReviewEvents->countForProject($command->project),
             unsentCount: $this->siteReviewEvents->countUnsent($command->project),
         );
     }

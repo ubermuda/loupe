@@ -28,13 +28,13 @@ final class AddCommentHandlerTest extends KernelTestCase
         $this->handler = $handler;
     }
 
-    public function test_first_comment_is_a_draft_at_position_zero(): void
+    public function test_first_comment_is_pending_at_position_zero(): void
     {
         $project = $this->project('add-a@example.com');
         $comment = ($this->handler)(new AddCommentCommand($project, 'hello', '.a', 'A', 'https://app/x'));
 
         self::assertNotNull($comment->id);
-        self::assertSame(SiteReviewCommentStatus::Draft, $comment->status);
+        self::assertSame(SiteReviewCommentStatus::Pending, $comment->status);
         self::assertSame(0, $comment->position);
     }
 

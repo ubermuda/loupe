@@ -6,25 +6,26 @@ namespace App\Module\SiteReview\Controller\Api;
 
 use App\Controller\AppController;
 use App\Module\Project\Security\AuthenticatedProjectResolver;
-use App\Module\SiteReview\Command\ShowDraftCommentsCommand;
-use App\Module\SiteReview\Command\ShowDraftCommentsHandler;
+use App\Module\SiteReview\Command\ShowPendingCommentsCommand;
+use App\Module\SiteReview\Command\ShowPendingCommentsHandler;
 use App\Module\SiteReview\Entity\SiteReviewComment;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\Routing\Attribute\Route;
 
 /**
- * The route path is a public contract the widget depends on — kept stable
- * across the drop of the SiteReview entity.
+ * `/review` rather than `/comments`: the path is a public contract embedded in
+ * every deployed widget, so it stays put even though it no longer serves a
+ * review batch.
  */
 #[Route(
     '/api/site-review/review',
-    name: 'api_site_review_draft_comments',
+    name: 'api_site_review_pending_comments',
     methods: ['GET'],
 )]
-final class ShowDraftCommentsController extends AppController
+final class ShowPendingCommentsController extends AppController
 {
     public function __construct(
-        private readonly ShowDraftCommentsHandler $showDraftComments,
+        private readonly ShowPendingCommentsHandler $showPendingComments,
         private readonly AuthenticatedProjectResolver $projectResolver,
     ) {
     }
@@ -36,7 +37,7 @@ final class ShowDraftCommentsController extends AppController
             return $this->json(['error' => 'token_not_bound_to_site'], JsonResponse::HTTP_FORBIDDEN);
         }
 
-        $view = ($this->showDraftComments)(new ShowDraftCommentsCommand($project));
+        $view = ($this->showPendingComments)(new ShowPendingCommentsCommand($project));
 
         return $this->json(['comments' => array_values(array_map(
             static fn (SiteReviewComment $c): array => [

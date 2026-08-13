@@ -16,7 +16,7 @@ use Symfony\Component\Security\Core\Authentication\Token\Storage\TokenStorageInt
 
 /**
  * Throttles write traffic on the site-review API so a leaked or scraped widget
- * token can't be used to flood comments or repeatedly (re)submit reviews. Keyed
+ * token can't be used to flood or churn comments. Keyed
  * on the authenticated user (falling back to client IP); safe methods and CORS
  * preflight are never limited. Runs after the firewall so the token is resolved.
  */

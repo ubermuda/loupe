@@ -2,15 +2,15 @@
  * End-to-end tests for the server-backed site-review annotation widget.
  *
  * The dev-only harness page (/dev/site-review-harness) finds-or-creates the
- * `e2e-harness` site for the user, deletes any Draft comments and mints a
- * fresh site-bound token on every load — so each test starts from a clean
- * draft simply by loading the harness (no localStorage involved).
+ * `e2e-harness` site for the user, deletes its comments and mints a fresh
+ * site-bound token on every load — so each test starts from a clean site
+ * simply by loading the harness (no localStorage involved).
  *
- * The widget is server-backed: every saved comment POSTs immediately to
- * /api/site-review/comments as a Draft, the list rehydrates from GET
- * /api/site-review/review on load, edits PATCH, deletes DELETE, and "Send"
- * flips the project's Draft comments to Pending via POST
- * /api/site-review/review/submit.
+ * There is no send step. Every saved comment POSTs to
+ * /api/site-review/comments and is Pending — live for the agent — from that
+ * moment; the list rehydrates from GET /api/site-review/review on load, edits
+ * PATCH and deletes DELETE. Only a Pending comment is still editable, so once
+ * the agent addresses one the widget's PATCH/DELETE 404s by design.
  *
  * User creation uses the dev-only /dev/register-and-verify endpoint (registers and
  * immediately marks the email as verified). No login is needed: the harness is
@@ -49,7 +49,7 @@ const registerUser = async (page: Page): Promise<void> => {
 };
 
 /**
- * Seed the user and load the harness. Every load resets the draft server-side.
+ * Seed the user and load the harness. Every load clears the site's comments.
  */
 const openHarness = async (page: Page): Promise<void> => {
     await registerUser(page);
@@ -76,10 +76,10 @@ const addGeneralNote = async (
 };
 
 /**
- * Read the Draft comments straight from the API using the widget's own
+ * Read the site's live comments straight from the API using the widget's own
  * token (from the script tag). This proves server persistence without
- * reloading — a harness reload deliberately purges the draft, so "survives
- * reload" cannot be asserted against the harness.
+ * reloading — a harness reload deliberately purges them, so "survives reload"
+ * cannot be asserted against the harness.
  */
 const fetchReviewComments = (
     page: Page,
@@ -98,11 +98,13 @@ const fetchReviewComments = (
         return comments;
     });
 
-test('annotate and send a site review', async ({ page }) => {
+test('annotate a page and have every comment go live as it is saved', async ({
+    page,
+}) => {
     await openHarness(page);
 
     // The collapsed launcher carries no count badge when empty (the harness
-    // reset the draft, so the boot rehydrate finds nothing).
+    // cleared the site, so the boot rehydrate finds nothing).
     const launcher = page.getByRole('button', { name: 'Review' });
     await expect(launcher).toBeVisible();
     await expect(page.locator('#lp-launch-count')).toBeHidden();
@@ -199,31 +201,49 @@ test('annotate and send a site review', async ({ page }) => {
     // reaching 2 proves the backend accepted a comment with no selector.
     await addGeneralNote(page, 'A general note about the page', '2');
 
-    // Both comments were persisted server-side as they were saved — the core new
-    // behaviour. Read the in-progress review back through the widget's token.
+    // Both comments are live on the server the moment they were saved, with no
+    // send step in between. Read them back through the widget's own token.
     const persisted = await fetchReviewComments(page);
     expect(persisted.map((comment) => comment.body).sort()).toEqual([
         'A general note about the page',
         'Make this bigger',
     ]);
 
-    // Send the review. The sent panel confirms and hands off to the agent — it
-    // exposes no batch id and no Copy button (both are gone in the server-backed
-    // flow), only a way to start over.
-    await page.getByRole('button', { name: 'Send' }).click();
-    await expect(page.getByText('Review sent')).toBeVisible();
-    await expect(page.getByText('Your agent has been notified')).toBeVisible();
-    await expect(page.locator('#lp-panel code')).toHaveCount(0); // no id to copy
-    await expect(page.getByRole('button', { name: 'Copy' })).toHaveCount(0);
-    await expect(
-        page.getByRole('button', { name: 'Start a new review' }),
-    ).toBeVisible();
+    // Nothing is left to submit, so there is no Send button to press.
+    await expect(page.getByRole('button', { name: 'Send' })).toHaveCount(0);
 });
 
-test('a keep=1 reload rehydrates the server draft into pins and list', async ({
+test('saving a comment confirms it is live', async ({ page }) => {
+    await openHarness(page);
+
+    await page.getByRole('button', { name: 'Review' }).click();
+    await page
+        .locator('#lp-panel')
+        .getByRole('button', { name: 'Add note' })
+        .click();
+    await page.getByPlaceholder(/Describe the issue/).fill('Straight through');
+
+    // Dropping the "review sent" screen would leave the reviewer with nothing
+    // telling them the comment persisted, so the save raises a brief toast.
+    const saved = page.locator('#lp-saved');
+    await page.getByRole('button', { name: 'Save' }).click();
+    await expect(saved).toBeVisible();
+    await expect(saved).toContainText('your agent can see it now');
+
+    const persisted = await fetchReviewComments(page);
+    expect(persisted.map((comment) => comment.body)).toEqual([
+        'Straight through',
+    ]);
+
+    // It is a toast, not a screen: it clears itself and the panel stays usable.
+    await expect(saved).toBeHidden({ timeout: 10000 });
+    await expect(page.locator('#lp-main')).toBeVisible();
+});
+
+test('a keep=1 reload rehydrates the live comments into pins and list', async ({
     page,
 }) => {
-    // First load purges any leftover draft; then move to the keep=1 URL and do
+    // First load purges any leftover comments; then move to the keep=1 URL and do
     // all the annotating THERE — pins only render when the comment's stored url
     // matches location.href, so the save and the reload must share the URL.
     await openHarness(page);
@@ -242,8 +262,8 @@ test('a keep=1 reload rehydrates the server draft into pins and list', async ({
     await expect(page.locator('#lp-head-count')).toHaveText('1');
     await addGeneralNote(page, 'A general note about the page', '2');
 
-    // Reload the harness with keep=1: the draft survives (only the token is
-    // re-minted; the draft belongs to the site, not the token) and the widget
+    // Reload the harness with keep=1: the comments survive (only the token is
+    // re-minted; they belong to the site, not the token) and the widget
     // boots by rehydrating from GET /api/site-review/review.
     await page.goto(keepUrl);
 
@@ -274,16 +294,18 @@ test('a keep=1 reload rehydrates the server draft into pins and list', async ({
     expect(Math.abs(pinBox!.y - (targetBox!.y - 12))).toBeLessThan(4);
 });
 
-test('a failed send keeps the review and offers retry', async ({ page }) => {
+test('a failed save keeps the text in the composer so it can be retried', async ({
+    page,
+}) => {
     await openHarness(page);
 
     // Seed one comment through the UI (it POSTs to the server immediately).
     await page.getByRole('button', { name: 'Review' }).click();
     await addGeneralNote(page, 'A general note about the page', '1');
 
-    // Make the backend reject the submit.
+    // Make the backend reject the next save.
     let calls = 0;
-    await page.route('**/api/site-review/review/submit', (route) => {
+    await page.route('**/api/site-review/comments', (route) => {
         calls += 1;
         void route.fulfill({
             status: 500,
@@ -292,20 +314,59 @@ test('a failed send keeps the review and offers retry', async ({ page }) => {
         });
     });
 
-    await page.getByRole('button', { name: 'Send' }).click();
+    await page
+        .locator('#lp-panel')
+        .getByRole('button', { name: 'Add note' })
+        .click();
+    const textarea = page.getByPlaceholder(/Describe the issue/);
+    await textarea.fill('This one will not land');
+    await page.getByRole('button', { name: 'Save' }).click();
 
-    // The error banner appears, and — critically — the draft is NOT cleared,
-    // so the reviewer can retry rather than losing their feedback.
+    // The banner appears, and — critically — the composer stays open with the
+    // text intact, so pressing Save again *is* the retry.
     const panel = page.locator('#lp-panel');
-    await expect(panel.getByText(/send your review/i)).toBeVisible();
+    await expect(panel.getByText(/apply that change/i)).toBeVisible();
+    await expect(textarea).toHaveValue('This one will not land');
     await expect(page.locator('#lp-head-count')).toHaveText('1');
-    expect(calls).toBe(1);
+    await expect.poll(() => calls).toBe(1);
 
-    // "Try again" re-fires the send.
-    await page.getByRole('button', { name: 'Try again' }).click();
-    await expect(panel.getByText(/send your review/i)).toBeVisible();
+    // Save again re-fires the same POST; the earlier comment is untouched.
+    await page.getByRole('button', { name: 'Save' }).click();
     await expect.poll(() => calls).toBe(2);
     await expect(page.locator('#lp-head-count')).toHaveText('1');
+
+    // Dismiss clears the banner without touching anything else.
+    await panel.getByRole('button', { name: 'Dismiss' }).click();
+    await expect(panel.getByText(/apply that change/i)).toHaveCount(0);
+});
+
+test('a comment the agent already addressed can no longer be edited', async ({
+    page,
+}) => {
+    await openHarness(page);
+
+    await page.getByRole('button', { name: 'Review' }).click();
+    await addGeneralNote(page, 'Agent will take this', '1');
+
+    // The server freezes a comment once it leaves Pending, which the API reports
+    // as a 404 on PATCH. The widget must say so plainly rather than offering a
+    // retry that would fail the same way.
+    await page.route('**/api/site-review/comments/*', (route) => {
+        void route.fulfill({
+            status: 404,
+            contentType: 'application/json',
+            body: JSON.stringify({ error: 'not_found' }),
+        });
+    });
+
+    await page.getByRole('button', { name: /Show .* comment/ }).click();
+    await page.locator('#lp-list .lp-item').first().locator('.lp-edit').click();
+    await page.getByPlaceholder(/Describe the issue/).fill('Too late');
+    await page.getByRole('button', { name: 'Save' }).click();
+
+    await expect(
+        page.locator('#lp-panel').getByText(/already picked that comment up/i),
+    ).toBeVisible();
 });
 
 test('a 403 on the boot load drops the widget into a critical, dead-end state', async ({
@@ -405,15 +466,20 @@ test('a token revoked mid-session goes fatal and clears the on-page pins', async
     await page.getByRole('button', { name: 'Save' }).click();
     await expect(page.locator('.pin')).toHaveText('1');
 
-    // The token is revoked between load and submit: the submit 401s.
-    await page.route('**/api/site-review/review/submit', (route) => {
+    // The token is revoked between load and the next save: that POST 401s.
+    await page.route('**/api/site-review/comments', (route) => {
         void route.fulfill({
             status: 401,
             contentType: 'application/json',
             body: JSON.stringify({ error: 'unauthorized' }),
         });
     });
-    await page.getByRole('button', { name: 'Send' }).click();
+    await page
+        .locator('#lp-panel')
+        .getByRole('button', { name: 'Add note' })
+        .click();
+    await page.getByPlaceholder(/Describe the issue/).fill('Second note');
+    await page.getByRole('button', { name: 'Save' }).click();
 
     // The widget flips to the critical state AND the stale pin is gone — no interactive
     // dead-end left on the page.
@@ -596,8 +662,8 @@ test('editing an anchored comment updates its body in place', async ({
     await expect(page.locator('#lp-head-count')).toHaveText('1');
     await expect(page.locator('.pin')).toHaveText('1');
 
-    // The PATCH landed server-side: the in-progress review holds the edited body.
-    // (Asserted via the API — a harness reload would purge the draft.)
+    // The PATCH landed server-side: the site holds the edited body.
+    // (Asserted via the API — a harness reload would purge the comments.)
     const persisted = await fetchReviewComments(page);
     expect(persisted.map((comment) => comment.body)).toEqual(['Edited note']);
 });

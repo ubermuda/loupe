@@ -12,11 +12,11 @@ use Symfony\Bridge\Doctrine\Types\UuidType;
 use Symfony\Component\Uid\Uuid;
 
 /**
- * Outbox row for the Mercure update a submit publishes. Persisted in the same
- * flush as the Draft→Pending transition, so the event survives even if the
- * publish attempt that follows never runs (process crash) or fails (hub
- * unreachable) — it is never only in-memory. `publishedAt` marks a confirmed
- * publish; a null value is a durable record of a not-yet-confirmed one.
+ * Outbox row for a Mercure update pushed to a project's agent. Persisted in the
+ * same flush as whatever triggered it, so the event survives even if the publish
+ * attempt that follows never runs (process crash) or fails (hub unreachable) —
+ * it is never only in-memory. `publishedAt` marks a confirmed publish; a null
+ * value is a durable record of a not-yet-confirmed one.
  * `sequence` is DB-generated (identity column) and doubles as the Mercure SSE
  * event id, giving subscribers a monotonic `Last-Event-ID` to resume from.
  */

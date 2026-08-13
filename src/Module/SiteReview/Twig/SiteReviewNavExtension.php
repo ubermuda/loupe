@@ -35,12 +35,12 @@ final class SiteReviewNavExtension extends AbstractExtension
     }
 
     /**
-     * @return array{total: int, pending: int} submitted total, and how many of
+     * @return array{total: int, pending: int} comment total, and how many of
      *                                         those are still awaiting the agent
      */
     public function siteReviewCounts(Project $project): array
     {
-        $counts = $this->siteReviewComments->submittedStatusCountsForProject($project);
+        $counts = $this->siteReviewComments->statusCountsForProject($project);
 
         return [
             'total' => array_sum($counts),

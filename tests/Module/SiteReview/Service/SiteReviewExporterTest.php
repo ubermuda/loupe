@@ -32,7 +32,7 @@ final class SiteReviewExporterTest extends TestCase
         self::assertSame('.hero h1', $rows[0]['selector']);
         self::assertSame('Hello world', $rows[0]['text']);
         self::assertSame('https://example.com/', $rows[0]['url']);
-        self::assertSame('draft', $rows[0]['status']);
+        self::assertSame('pending', $rows[0]['status']);
         self::assertArrayHasKey('createdAt', $rows[0]);
         self::assertSame('site_reviews.json', new SiteReviewExporter($repo)->filename());
     }

@@ -153,7 +153,7 @@ final class SiteReviewsPageTest extends WebTestCase
         self::assertSame(SiteReviewCommentStatus::Pending, $fresh->status);
     }
 
-    public function test_draft_comment_is_not_listed(): void
+    public function test_a_comment_is_listed_as_soon_as_it_is_saved(): void
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
@@ -161,27 +161,20 @@ final class SiteReviewsPageTest extends WebTestCase
         $owner = $this->user($em, 'reviews-page-e@example.com');
         $project = new Project($owner, 'reviews-site-e');
         $em->persist($project);
-        $draft = new SiteReviewComment($project, 0, 'Draft comment', '.a', 'text', 'https://example.com');
-        $em->persist($draft);
-        $submitted = new SiteReviewComment($project, 1, 'Submitted comment', '.b', 'text', 'https://example.com');
-        $submitted->status = SiteReviewCommentStatus::Pending;
-        $em->persist($submitted);
+        // Default status, exactly as the widget's save leaves it — no send step.
+        $comment = new SiteReviewComment($project, 0, 'Straight from the widget', '.a', 'text', 'https://example.com');
+        $em->persist($comment);
         $em->flush();
-        $draftId = $draft->id;
-        $submittedId = $submitted->id;
+        $commentId = $comment->id;
         $em->clear();
 
         $client->loginUser($owner);
         $crawler = $client->request(Request::METHOD_GET, '/projects/'.$project->id.'/site-review');
 
         self::assertResponseIsSuccessful();
-        // Guard: without this the draft assertion below would also pass on a
-        // page that listed nothing at all.
-        self::assertCount(1, $crawler->filter('[data-comment-id="'.$submittedId.'"]'));
-
-        // A draft has not been sent from the widget yet, so it is not a review
-        // anyone can act on and it does not belong on this page.
-        self::assertCount(0, $crawler->filter('[data-comment-id="'.$draftId.'"]'));
+        $block = $crawler->filter('[data-comment-id="'.$commentId.'"]');
+        self::assertCount(1, $block);
+        self::assertSame('pending', $block->attr('data-comment-status'));
     }
 
     public function test_javascript_url_renders_without_anchor(): void
@@ -209,39 +202,5 @@ final class SiteReviewsPageTest extends WebTestCase
         // The url must render as plain text, never as a clickable anchor.
         self::assertCount(0, $commentBlock->filter('a.lp-site-review-context__url'));
         self::assertStringContainsString('javascript:alert(1)', $commentBlock->text());
-    }
-
-    public function test_resolve_on_draft_comment_is_rejected(): void
-    {
-        $client = static::createClient();
-        $em = static::getContainer()->get(EntityManagerInterface::class);
-
-        $owner = $this->user($em, 'reviews-page-g@example.com');
-        $project = new Project($owner, 'reviews-site-g');
-        $em->persist($project);
-        $comment = new SiteReviewComment($project, 0, 'Draft comment', '.a', 'text', 'https://example.com');
-        $em->persist($comment);
-        $em->flush();
-        $commentId = $comment->id;
-        $em->clear();
-
-        $client->loginUser($owner);
-        $client->request(Request::METHOD_GET, '/projects/'.$project->id.'/site-review');
-        self::assertResponseIsSuccessful();
-
-        // The UI hides the buttons on drafts -- POST the route directly. The handler
-        // precondition must reject the transition and redirect back with a flash.
-        $client->request(
-            Request::METHOD_POST,
-            '/site-review/comments/'.(string) $commentId.'/resolve',
-            ['_csrf_token' => 'csrf-token'],
-        );
-
-        self::assertResponseRedirects('/projects/'.$project->id.'/site-review');
-
-        $em->clear();
-        $fresh = $em->find(SiteReviewComment::class, $commentId);
-        self::assertNotNull($fresh);
-        self::assertSame(SiteReviewCommentStatus::Draft, $fresh->status);
     }
 }

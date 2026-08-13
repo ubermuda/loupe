@@ -6,17 +6,17 @@ namespace App\Module\SiteReview\Command;
 
 use App\Module\SiteReview\Repository\SiteReviewCommentRepository;
 
-final readonly class ShowDraftCommentsHandler
+final readonly class ShowPendingCommentsHandler
 {
     public function __construct(
         private SiteReviewCommentRepository $siteReviewComments,
     ) {
     }
 
-    public function __invoke(ShowDraftCommentsCommand $command): ShowDraftCommentsView
+    public function __invoke(ShowPendingCommentsCommand $command): ShowPendingCommentsView
     {
-        return new ShowDraftCommentsView(
-            comments: $this->siteReviewComments->findDraftForProject($command->project),
+        return new ShowPendingCommentsView(
+            comments: $this->siteReviewComments->findPendingForProject($command->project),
         );
     }
 }

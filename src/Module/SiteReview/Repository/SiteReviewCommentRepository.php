@@ -23,7 +23,9 @@ class SiteReviewCommentRepository extends ServiceEntityRepository
     }
 
     /**
-     * The agent queue: Pending comments for the project, oldest first.
+     * Pending comments for the project, oldest first. One list serves two
+     * readers: the agent's queue, and the widget's own list of the comments its
+     * reviewer may still edit or delete.
      *
      * @return list<SiteReviewComment>
      */
@@ -57,26 +59,22 @@ class SiteReviewCommentRepository extends ServiceEntityRepository
     }
 
     /**
-     * Status tally of everything the reviewer has actually submitted. Drafts are
-     * excluded because they only exist inside the reviewer's widget and are not
-     * part of the project's shared record yet.
+     * Status tally of the project's comments.
      *
      * One grouped query rather than a count per status: the app-shell nav pill
-     * needs both the submitted total (its number) and the pending count (its
-     * tint) on every authenticated page render, and asking separately made that
-     * two queries for one badge.
+     * needs both the total (its number) and the pending count (its tint) on
+     * every authenticated page render, and asking separately made that two
+     * queries for one badge.
      *
      * @return array{pending: int, addressed: int, resolved: int}
      */
-    public function submittedStatusCountsForProject(Project $project): array
+    public function statusCountsForProject(Project $project): array
     {
         /** @var list<array{status: SiteReviewCommentStatus, count: int|string}> $rows */
         $rows = $this->createQueryBuilder('c')
             ->select('c.status AS status', 'COUNT(c.id) AS count')
             ->andWhere('c.project = :project')
-            ->andWhere('c.status != :draft')
             ->setParameter('project', $project)
-            ->setParameter('draft', SiteReviewCommentStatus::Draft)
             ->groupBy('c.status')
             ->getQuery()
             ->getResult();
@@ -90,27 +88,10 @@ class SiteReviewCommentRepository extends ServiceEntityRepository
     }
 
     /**
-     * The widget's current draft list, position-ordered.
-     *
-     * @return list<SiteReviewComment>
+     * A Pending comment of the project — the only comments the widget may edit
+     * or delete. Once the agent has addressed or resolved one, it is frozen.
      */
-    public function findDraftForProject(Project $project): array
-    {
-        return $this->createQueryBuilder('c')
-            ->andWhere('c.project = :project')
-            ->andWhere('c.status = :status')
-            ->setParameter('project', $project)
-            ->setParameter('status', SiteReviewCommentStatus::Draft)
-            ->orderBy('c.position', 'ASC')
-            ->getQuery()
-            ->getResult();
-    }
-
-    /**
-     * A Draft comment of the project — the only comments the widget may edit
-     * or delete.
-     */
-    public function findOneDraft(Uuid $id, Project $project): ?SiteReviewComment
+    public function findOnePending(Uuid $id, Project $project): ?SiteReviewComment
     {
         return $this->createQueryBuilder('c')
             ->andWhere('c.id = :id')
@@ -118,7 +99,7 @@ class SiteReviewCommentRepository extends ServiceEntityRepository
             ->andWhere('c.status = :status')
             ->setParameter('id', $id)
             ->setParameter('project', $project)
-            ->setParameter('status', SiteReviewCommentStatus::Draft)
+            ->setParameter('status', SiteReviewCommentStatus::Pending)
             ->getQuery()
             ->getOneOrNullResult();
     }
@@ -137,7 +118,7 @@ class SiteReviewCommentRepository extends ServiceEntityRepository
 
     /**
      * The project's whole comment list for the site-review page — a flat,
-     * position-ordered feed across every status including Draft.
+     * position-ordered feed across every status.
      *
      * @return list<SiteReviewComment>
      */
@@ -166,36 +147,6 @@ class SiteReviewCommentRepository extends ServiceEntityRepository
             ->getSingleScalarResult();
 
         return null === $max ? 0 : ((int) $max) + 1;
-    }
-
-    public function countDraftForProject(Project $project): int
-    {
-        return (int) $this->createQueryBuilder('c')
-            ->select('COUNT(c.id)')
-            ->andWhere('c.project = :project')
-            ->andWhere('c.status = :status')
-            ->setParameter('project', $project)
-            ->setParameter('status', SiteReviewCommentStatus::Draft)
-            ->getQuery()
-            ->getSingleScalarResult();
-    }
-
-    /**
-     * "Send": flips every Draft comment of the project to Pending in one bulk
-     * UPDATE — the batch boundary, expressed as a status transition rather
-     * than a submitted entity. Returns the affected row count.
-     */
-    public function markDraftsPendingForProject(Project $project): int
-    {
-        return $this->getEntityManager()->createQuery(
-            'UPDATE App\Module\SiteReview\Entity\SiteReviewComment c
-             SET c.status = :pending
-             WHERE c.project = :project AND c.status = :draft',
-        )
-            ->setParameter('pending', SiteReviewCommentStatus::Pending)
-            ->setParameter('project', $project)
-            ->setParameter('draft', SiteReviewCommentStatus::Draft)
-            ->execute();
     }
 
     /**

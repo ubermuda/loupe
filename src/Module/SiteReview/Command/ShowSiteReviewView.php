@@ -13,7 +13,6 @@ final readonly class ShowSiteReviewView
     public function __construct(
         public Project $project,
         public array $comments,
-        public int $submittedCount,
         public int $unsentCount,
     ) {
     }

@@ -8,7 +8,7 @@ final readonly class PrepareHarnessCommand
 {
     public function __construct(
         public string $email,
-        public bool $keepDraft,
+        public bool $keepComments,
     ) {
     }
 }

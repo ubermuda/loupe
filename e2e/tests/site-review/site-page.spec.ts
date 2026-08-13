@@ -1,10 +1,9 @@
 /**
- * Full-loop e2e: comments sent from the widget land on the site page with
- * Pending badges; the human resolves and reopens them there.
+ * Full-loop e2e: a comment saved in the widget is live on the site page straight
+ * away, with a Pending badge; the human resolves and reopens it there.
  *
- * The harness site (`e2e-harness`) persists across runs and accumulates one
- * submitted review per run, so the comment body carries a per-run marker to
- * keep the locator unambiguous.
+ * The harness site (`e2e-harness`) persists across runs, so the comment body
+ * carries a per-run marker to keep the locator unambiguous.
  */
 
 import { test, expect } from '@playwright/test';
@@ -17,7 +16,9 @@ const E2E_EMAIL = 'e2e-site-page@example.com';
 const E2E_PASSWORD = 'E2eSitePage1!';
 const COMMENT_BODY = `Please fix the header (run ${Date.now()})`;
 
-test('a sent review is resolvable on the site page', async ({ page }) => {
+test('a saved comment is live and resolvable on the site page', async ({
+    page,
+}) => {
     await suppressToolbar(page);
 
     // Seed the user (idempotent — re-registering is handled by the dev endpoint).
@@ -33,8 +34,8 @@ test('a sent review is resolvable on the site page', async ({ page }) => {
     );
     expect(registerResponse.status()).toBe(200);
 
-    // Annotate + send via the widget on the harness page. The harness resets
-    // the draft on load, so the review contains exactly this one comment.
+    // Annotate via the widget on the harness page. The harness clears the site's
+    // comments on load, so it holds exactly this one afterwards.
     await page.goto(
         `/dev/site-review-harness?email=${encodeURIComponent(E2E_EMAIL)}`,
     );
@@ -45,10 +46,8 @@ test('a sent review is resolvable on the site page', async ({ page }) => {
         .click();
     await page.getByPlaceholder(/Describe the issue/).fill(COMMENT_BODY);
     await page.getByRole('button', { name: 'Save' }).click();
-    // Wait for the save POST to land before sending.
+    // The save is the whole transaction — nothing else is clicked from here on.
     await expect(page.locator('#lp-head-count')).toHaveText('1');
-    await page.getByRole('button', { name: 'Send' }).click();
-    await expect(page.getByText('Review sent')).toBeVisible();
 
     // Log in and open the harness site's page.
     await page.goto('/login');
@@ -66,7 +65,7 @@ test('a sent review is resolvable on the site page', async ({ page }) => {
     expect(projectId).toBeTruthy();
     await page.goto(`/projects/${projectId}/site-review`);
 
-    // The submitted review shows the comment as Pending.
+    // The comment is already on the page, Pending, with no send step in between.
     const comment = page.locator('[data-comment-id]', {
         hasText: COMMENT_BODY,
     });

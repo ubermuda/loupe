@@ -33,11 +33,12 @@ final readonly class PrepareHarnessHandler
             $this->em->persist($project);
         }
 
-        // Deterministic starting state for every e2e run: no draft comments (unless
-        // the test explicitly keeps them to exercise the widget's rehydrate path)…
-        if (!$command->keepDraft) {
-            foreach ($this->siteReviewComments->findDraftForProject($project) as $draft) {
-                $this->em->remove($draft);
+        // Deterministic starting state for every e2e run: no comments at all,
+        // whatever status a previous run left them in (unless the test explicitly
+        // keeps them to exercise the widget's rehydrate path)…
+        if (!$command->keepComments) {
+            foreach ($this->siteReviewComments->findForProject($project) as $comment) {
+                $this->em->remove($comment);
             }
         }
 
