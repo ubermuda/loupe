@@ -337,7 +337,7 @@ test('a failed save keeps the text in the composer so it can be retried', async 
 
     // Dismiss clears the banner without touching anything else.
     await panel.getByRole('button', { name: 'Dismiss' }).click();
-    await expect(panel.getByText(/apply that change/i)).toHaveCount(0);
+    await expect(panel.getByText(/apply that change/i)).toBeHidden();
 });
 
 test('a comment the agent already addressed can no longer be edited', async ({
