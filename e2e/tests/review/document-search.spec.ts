@@ -70,7 +70,7 @@ async function openDocumentList(page: Page, tag: string): Promise<string> {
     await page.getByLabel('Email').fill(email);
     await page.getByLabel('Password').fill(password);
     await page.getByRole('button', { name: 'Sign in' }).click();
-    // A fresh user owns no project yet, so HomeController lands on the wizard;
+    // A fresh user owns no project yet, so LandingController lands on the wizard;
     // seeding the document below creates the project the wizard would have.
     await expect(page).toHaveURL('/welcome');
 

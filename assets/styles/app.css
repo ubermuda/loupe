@@ -2607,15 +2607,19 @@
     }
 
     /* ── Hero app still ─────────────────────────────────────────────────
-       Laid out at the app's real dimensions and scaled to fit by
-       landing_mock_controller, which also sets this element's height — the
-       frame is out of flow, so nothing else can. Faded out at the bottom so it
-       reads as continuing past the fold rather than being cut off. */
+       At the app's real dimensions, so it fits only by transform. The resting
+       0.72 is what any container over 907px resolves to; landing_mock_controller
+       corrects narrower ones and owns the wrapper height, which nothing else
+       can set while the frame is out of flow. */
     .lp-landing-mock {
-        @apply relative max-w-6xl mx-auto mt-16 overflow-hidden;
+        @apply relative max-w-6xl mx-auto mt-16 h-115 overflow-hidden;
     }
     .lp-landing-mock__frame {
         @apply absolute left-1/2 top-0 w-315 origin-top overflow-hidden rounded-t-xl border border-b-0 border-chrome-raised bg-chrome;
+        /* One `transform` rather than the scale and translate utilities, which
+           v4 emits as separate properties that would compose with — rather than
+           be replaced by — the one the controller writes. */
+        transform: translateX(-50%) scale(0.72);
         -webkit-mask-image: linear-gradient(
             to bottom,
             #000 55%,

@@ -82,7 +82,7 @@ test('a first social sign-in creates a verified account, and a repeat sign-in re
         fullName: 'Social One',
     });
     // A brand-new account owns no project and hasn't completed the first-run
-    // wizard yet, so HomeController lands it on /welcome rather than /projects.
+    // wizard yet, so LandingController lands it on /welcome rather than /projects.
     await expect(page).toHaveURL('/welcome');
     await expect(page.getByRole('button', { name: 'Log out' })).toBeVisible();
 

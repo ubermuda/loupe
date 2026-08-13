@@ -159,7 +159,25 @@ Every branch this wave touched the deletion chains, and a mistake there is a
    highlights and at least one answered decision. It must succeed.
 2. **Delete an account** that owns such a project. It must succeed.
 
-## 7. The re-render command — **UNCOVERED (console only)**
+## 7. Landing page — **UNCOVERED (visual)**
+
+Only reachable signed out, and only where `billing.enabled` is on — with the
+flag off, `/` still bounces to `/login`, which is what a self-hosted instance
+must keep seeing. Flip it in `/admin/feature-flags` and open `/` in a private
+window.
+
+1. **The app still in the hero must be there at first paint**, at full size,
+   before any JavaScript runs — throttle the network and reload. It is built
+   from the real shell and review classes, so a change to the sidebar or the
+   comment card shows up here too.
+2. **Narrow the window slowly.** The still scales down rather than clipping, and
+   the page never scrolls sideways.
+3. **The floating toolbar sits in the gap between the two paragraphs** and the
+   comment card is level with the highlighted passage. Both offsets are fixed,
+   so re-flowing the sample copy moves them off.
+4. Copy the demo command and check the button says "Copied".
+
+## 8. The re-render command — **UNCOVERED (console only)**
 
 `app:review:rerender-versions` has integration tests and no e2e.
 

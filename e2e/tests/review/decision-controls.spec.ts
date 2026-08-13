@@ -40,7 +40,7 @@ async function signedInReviewer(page: Page, slug: string): Promise<void> {
     await page.getByLabel('Email').fill(email);
     await page.getByLabel('Password').fill(PASSWORD);
     await page.getByRole('button', { name: 'Sign in' }).click();
-    // No project yet, so HomeController lands on the first-run wizard;
+    // No project yet, so LandingController lands on the first-run wizard;
     // seedDocument below creates the project the wizard would have.
     await expect(page).toHaveURL('/welcome');
     await suppressToolbar(page);

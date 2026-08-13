@@ -30,6 +30,13 @@ export default class extends Controller {
         }
 
         const scale = Math.min(MAX_SCALE, available / MOCK_WIDTH);
+        // This observer watches the element whose height the write below sets,
+        // so re-writing an unchanged value is what starts an observer loop.
+        if (scale === this.lastScale) {
+            return;
+        }
+
+        this.lastScale = scale;
         this.frameTarget.style.transform = `translateX(-50%) scale(${scale})`;
         this.element.style.height = `${Math.round(MOCK_HEIGHT * scale)}px`;
     }
