@@ -2596,8 +2596,10 @@
         @apply inline;
     }
 
+    /* The still supplies the band's bottom space at sm: and up; below that it is
+       hidden, so the padding has to come from here or the note butts the edge. */
     .lp-landing-hero {
-        @apply relative overflow-hidden bg-chrome px-7 pt-16 md:pt-24;
+        @apply relative overflow-hidden bg-chrome px-7 pt-16 pb-20 sm:pb-0 md:pt-24;
     }
     .lp-landing-hero__inner {
         @apply max-w-5xl mx-auto flex flex-col items-center text-center gap-5;
@@ -2619,12 +2621,12 @@
     }
 
     /* ── Hero app still ─────────────────────────────────────────────────
-       At the app's real dimensions, so it fits only by transform. The resting
-       0.72 is what any container over 907px resolves to; landing_mock_controller
-       corrects narrower ones and owns the wrapper height, which nothing else
-       can set while the frame is out of flow. */
+       At real app dimensions, so it fits only by transform. The resting 0.72 is
+       what containers over 907px resolve to; landing_mock_controller corrects
+       narrower ones and owns the wrapper height, which nothing else can set
+       while the frame is out of flow. Hidden below sm:, where fit nears 0.25. */
     .lp-landing-mock {
-        @apply relative max-w-6xl mx-auto mt-16 h-115 overflow-hidden;
+        @apply relative hidden sm:block max-w-6xl mx-auto mt-16 h-115 overflow-hidden;
     }
     .lp-landing-mock__frame {
         @apply absolute left-1/2 top-0 w-315 origin-top overflow-hidden rounded-t-xl border border-b-0 border-chrome-raised bg-chrome;
