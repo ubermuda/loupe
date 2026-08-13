@@ -42,6 +42,9 @@ final readonly class SeedInstallFlagsHandler
             // Off: it is the only outbound request the app makes on its own,
             // and an operator has to choose to tell GitHub this instance exists.
             [UpdateCheck::FLAG, FeatureFlagType::Bool, false, null],
+            // Off: agent-placed highlights steer where a reviewer looks first,
+            // which is a nudge an operator opts into rather than inherits.
+            ['review.highlights.enabled', FeatureFlagType::Bool, false, null],
             // Off: the marketing page advertises a hosted plan with a price on
             // it, which only the instance selling that plan should serve.
             [LandingController::ENABLED_FLAG, FeatureFlagType::Bool, false, null],

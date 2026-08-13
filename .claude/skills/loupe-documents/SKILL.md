@@ -145,13 +145,20 @@ for that reading context, not for a terminal or a README.
    takes a `title` only for the case where the content and the title change
    together.
 
-10. **Point at the passages that matter with `document_highlight`.** On a long
-    document, where the reviewer starts reading is most of what you control.
-    The tool tints the passages you name so they are read first — the sections
-    you most want a decision on, the paragraph you are least sure of, the
-    change this version turns on. It is not a comment: there is no body and
-    nothing to reply to, so anything you want to *say* about a passage still
-    goes in a reply on the reviewer's own thread.
+10. **Point at the passages that matter with `document_highlight` — where the
+    instance offers it.** Highlighting is off by default, and an instance with
+    it off does not advertise the tool at all: **if `document_highlight` is not
+    among your tools, skip this rule.** Nothing else in it applies, and there is
+    no fallback to reach for — say what you would have marked in prose, or say
+    nothing.
+
+    Where it is on, it is worth using. On a long document, where the reviewer
+    starts reading is most of what you control. The tool tints the passages you
+    name so they are read first — the sections you most want a decision on, the
+    paragraph you are least sure of, the change this version turns on. It is
+    not a comment: there is no body and nothing to reply to, so anything you
+    want to *say* about a passage still goes in a reply on the reviewer's own
+    thread.
 
     Three things it will not forgive. Quote the passage **as it reads in
     rendered prose**, not as your Markdown source — `**must**` matches nothing,

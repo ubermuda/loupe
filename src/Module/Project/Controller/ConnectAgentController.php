@@ -11,6 +11,7 @@ use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
+use Ubermuda\FeatureFlagsBundle\FeatureFlagService;
 
 #[IsGranted(ProjectVoter::VIEW, subject: 'project')]
 #[Route(
@@ -46,7 +47,12 @@ class ConnectAgentController extends AppController
         ['name' => 'site_review_mark_comment_addressed', 'descriptionKey' => 'project.connect.tool.site_review_mark_comment_addressed'],
     ];
 
+    /** @var array<string, string> tool name => the flag that must be on to advertise it */
+    private const array GATED_TOOLS = ['document_highlight' => 'review.highlights.enabled'];
+
     public function __construct(
+        private readonly FeatureFlagService $featureFlags,
+
         #[Autowire(param: 'app.mcp.server_name')]
         private readonly string $mcpServerName,
     ) {
@@ -54,9 +60,15 @@ class ConnectAgentController extends AppController
 
     public function __invoke(Project $project): Response
     {
+        $tools = array_values(array_filter(
+            self::TOOLS,
+            fn (array $tool): bool => !isset(self::GATED_TOOLS[$tool['name']])
+                || $this->featureFlags->isEnabled(self::GATED_TOOLS[$tool['name']]),
+        ));
+
         return $this->render('@Project/connect_agent.html.twig', [
             'project' => $project,
-            'tools' => self::TOOLS,
+            'tools' => $tools,
             'mcpServerName' => $this->mcpServerName,
         ]);
     }
