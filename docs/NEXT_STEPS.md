@@ -267,6 +267,54 @@ demand is 17–20 concurrent, so `pm.max_children = 40` with
 without waiting on the spawn rate. That addresses reliability but not
 parallelism.
 
+## The authenticated app has no mobile layout, and the landing footer ships placeholder copyright
+
+**Author:** Claude · **Type:** bug · **Priority:** high · **Status:** pending
+
+A mobile usability audit on 2026-08-13 measured every surface at a 375px
+viewport against the running dev app. Full report, with screenshots and three
+decision blocks awaiting an answer, is in Loupe:
+https://loupe.dev.localhost/projects/019fde6f-6b71-781e-a358-bf44c8cf3c2f/documents/019ffbf4-9009-7e55-92e8-45dbcb0c9ec9/review
+Local copy of the report and the captures: `var/mobile-audit/` (gitignored, so
+the Loupe document is the durable one).
+
+Fix independently of the rest, because it is one line and unrelated to layout:
+`translations/messages.en.xlf:113` sets `account.auth.footer.copyright` to
+"© Your Company, Inc.", which renders on the landing page footer
+(`templates/Module/Account/landing.html.twig:221`) and on every auth page
+(`templates/Module/Account/auth_base.html.twig:29`).
+
+The structural finding: `assets/styles/app.css` contains 13 responsive variants
+in 3,027 lines and all 13 sit inside the `.lp-landing-*` block (lines
+2562–2886). Nothing else in the stylesheet, and no template, has any responsive
+treatment. Consequences measured at 375px:
+
+- `.lp-sidebar` is a fixed 236px that never collapses, leaving `.lp-main` 129px
+  wide on every authenticated screen (`templates/base.html.twig:27-28`,
+  `app.css:1955-1971`).
+- `.lp-review-block` is a fixed 972px (`w-243`, not a max-width) with the
+  comment margin absolutely positioned at `left-169`, so on the review screen
+  139px of the 640px prose column is visible and comments start 537px off-screen
+  (`app.css:1249-1271`, `templates/Module/Review/show_document.html.twig:76`).
+- The comment flow binds only `mouseup`/`mousemove`/`mouseenter`; there is no
+  `touchend`, `pointerup` or `selectionchange` handler in
+  `assets/controllers/comment_anchor_controller.js`, so text selection likely
+  cannot trigger the comment toolbar on touch. Needs confirming on real hardware.
+- Every auth page is 393px wide against a 375px viewport. The footer row at
+  `templates/Module/Account/auth_base.html.twig:28` is a `flex` row with no
+  `flex-wrap` whose 393px min-content width sizes the `.auth-page` grid column.
+  Fix: `flex-wrap` on the footer plus `minmax(0, 1fr)` on the grid column.
+- Four controls are 14px and will trigger iOS Safari's zoom-on-focus:
+  `.lp-comment-composer textarea`, `.lp-comment-reply-form textarea`,
+  `.lp-filter-input`, `.lp-filter-select` (`app.css:1650, 1820, 990, 993`).
+  `.lp-input` and `.auth-input` are already correct at 16px.
+
+Do not start the layout work before the first decision block in the report is
+answered — whether the authenticated app is meant to work on a phone at all
+changes whether this is a design project or a decision to document the app as
+desktop-only. The landing page itself passes: zero horizontal overflow at 375px
+and 320px.
+
 ## Proper HTTP API + outbound webhooks
 
 
