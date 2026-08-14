@@ -107,7 +107,11 @@ final class SelectDecisionOptionController extends AppController
         // Read back after the write, so the panel and its running total report
         // what is stored rather than what was asked for — on the refused path
         // they must show the answer that survived, not the one that did not.
-        $summary = ($this->showDecisionSummary)(new ShowDecisionSummaryCommand($document));
+        // Against the version the page was rendered from, which is what the
+        // reviewer is still looking at when a stale answer is refused.
+        $summary = ($this->showDecisionSummary)(
+            new ShowDecisionSummaryCommand($document, $data->versionNumber),
+        );
 
         return new Response(
             $this->renderView('@Review/_decision_status.stream.html.twig', [

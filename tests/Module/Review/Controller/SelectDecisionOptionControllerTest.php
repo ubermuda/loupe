@@ -288,6 +288,48 @@ final class SelectDecisionOptionControllerTest extends WebTestCase
     }
 
     /**
+     * A refusal leaves the older prose on screen, so the panel that goes back
+     * with it has to describe that version. Summarising the newer one would
+     * count blocks the page does not show and link to ids it does not carry.
+     */
+    public function test_a_superseded_answer_summarises_the_version_still_on_screen(): void
+    {
+        $client = static::createClient();
+        [$owner, $document] = $this->seed($client);
+
+        $client->loginUser($owner);
+        [$token, $versionNumber] = $this->renderForm($client, $document);
+
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        self::assertInstanceOf(EntityManagerInterface::class, $em);
+        $managed = $em->find(Document::class, $document->id);
+        self::assertInstanceOf(Document::class, $managed);
+
+        $revise = static::getContainer()->get(ReviseDocumentHandler::class);
+        self::assertInstanceOf(ReviseDocumentHandler::class, $revise);
+        // The new version drops the decision block entirely.
+        $revise(new ReviseDocumentCommand($managed, "# Deploy\n\nNo decisions left.\n", 'Dropped it.'));
+
+        $this->submitAnswer(
+            $client,
+            $document,
+            'deploy-target',
+            '1',
+            $token,
+            $versionNumber,
+            ['HTTP_ACCEPT' => 'text/vnd.turbo-stream.html'],
+        );
+
+        $body = (string) $client->getResponse()->getContent();
+        self::assertStringContainsString('decision_block_deploy-target', $body);
+        self::assertMatchesRegularExpression(
+            '~target="decision-summary-count">\s*<template>0/1</template>~',
+            $body,
+            'the panel must count the block the reviewer can still see',
+        );
+    }
+
+    /**
      * The case a "re-render the block" fix gets wrong: with nothing stored, the
      * restored block must clear the radio rather than fall back to some earlier
      * answer. This reviewer has never answered, so nothing may come back checked.
