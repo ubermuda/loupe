@@ -158,11 +158,6 @@
                             }) }}</span>
                             <twig:ux:icon name="lucide:chevron-right" class="lp-doc-meta__caret" />
                         </button>
-                        {# In the bar rather than under the prose: an answer is
-                           given in the document and reported where its running
-                           total already is. Contents are streamed in, so the
-                           element itself must survive the update. #}
-                        <p id="decision-status" class="lp-decision-status" aria-live="polite"></p>
                         {% endif %}
                         {% if document.tags|length > 0 %}
                         <div class="lp-doc-meta__tags">
@@ -172,6 +167,14 @@
                         </div>
                         {% endif %}
                     </div>
+
+                {% if decisionRows|length > 0 %}
+                {# A row of its own in the bar: the longest refusal is a sentence
+                   and would squeeze the tabs out of the row above. Rendered
+                   empty rather than omitted — a live region must be in the
+                   accessibility tree before its text arrives. #}
+                <p id="decision-status" class="lp-decision-status" aria-live="polite"></p>
+                {% endif %}
 
                 {% if showVersions %}
                 <nav class="lp-doc-meta__panel lp-version-switcher" data-metadata-tabs-target="panel" data-panel="versions" hidden

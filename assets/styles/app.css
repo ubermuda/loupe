@@ -1280,12 +1280,12 @@
     }
 
     /* ── Metadata toolbar ───────────────────────────────────────────────
-       Mutually-exclusive tabs, so the panels that used to sit open one under the
-       other cost one row of height between them. Tags ride at the right end.
-       Sticky on the wrapper, not on .lp-doc-meta: a sticky element cannot
-       outlive its containing block, and .lp-doc-meta is also the landing mock. */
+       Mutually-exclusive tabs; tags ride at the right end. Sticky on the
+       wrapper, not on .lp-doc-meta: a sticky element cannot outlive its
+       containing block, and .lp-doc-meta is also the landing mock. z-10 keeps
+       it under the z-20 composer and selection toolbar. */
     .lp-doc-meta-bar {
-        @apply sticky top-0 z-20 bg-app;
+        @apply sticky top-0 z-10 bg-app;
     }
     .lp-doc-meta {
         @apply flex items-center gap-1 py-1.5 border-y border-line;
@@ -2470,9 +2470,9 @@
        for now because there is one shared region for the whole page, not one per
        block — see 'A decision card cannot show its own recorded answer' in
        docs/NEXT_STEPS.md. */
-    /* Empty until an answer is streamed in, so it must take no room while it is. */
+    /* Collapsed, not hidden: `display: none` drops a live region from the a11y tree. */
     .lp-decision-status {
-        @apply m-0 ml-2 text-xs text-fg-mute empty:hidden;
+        @apply m-0 pt-1.5 text-xs text-fg-mute empty:h-0 empty:overflow-hidden empty:pt-0;
     }
     .lp-decision-status__message--failed {
         @apply text-danger;
