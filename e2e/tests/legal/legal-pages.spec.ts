@@ -67,3 +67,21 @@ test('the policies cross-link to each other in the prose', async ({ page }) => {
         .click();
     await expect(page).toHaveURL('/ai-policy');
 });
+
+/**
+ * The point of consent is the one place these links have to work: a visitor is
+ * being asked to accept two documents. Both were `href="#"` until the pages
+ * existed, and a dead link here is the failure that matters most.
+ */
+test('the signup agreement links to the policies it asks you to accept', async ({
+    page,
+}) => {
+    await page.goto('/register');
+    const agreement = page.locator('form');
+    await expect(
+        agreement.getByRole('link', { name: 'Terms', exact: true }),
+    ).toHaveAttribute('href', '/terms');
+    await expect(
+        agreement.getByRole('link', { name: 'Privacy Policy', exact: true }),
+    ).toHaveAttribute('href', '/privacy');
+});
