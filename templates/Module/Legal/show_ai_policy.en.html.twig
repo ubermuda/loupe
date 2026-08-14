@@ -1,0 +1,56 @@
+{# twig-cs-fixer-disable TranslationKey #}
+{# Legal pages are full per-locale documents: the prose lives in the template,
+   not in translation keys. Each locale gets its own show_ai_policy.<locale>.html.twig. #}
+{% extends '@Legal/_layout.html.twig' %}
+
+{% block title %}{{ 'legal.ai_policy.title'|trans }} — {{ 'app.name'|trans }}{% endblock %}
+
+{% block legal_title %}{{ 'legal.ai_policy.title'|trans }}{% endblock %}
+
+{% block legal_body %}
+    <p class="lp-legal__updated">Last updated: August 13, 2026</p>
+
+    <p>Loupe exists because AI agents write faster than people can read. That makes it fair to ask exactly where AI sits in this product — so here it is, including the parts that are not ours to control.</p>
+
+    <section>
+        <h2>Loupe runs no AI models</h2>
+        <p>There is no model inside Loupe. It renders Markdown, anchors comments to passages, and hands structured feedback back over MCP. Every one of those is ordinary software. We do not call a model provider, and we have no API key to one.</p>
+        <p>The intelligence in the loop is your agent's, running wherever you run it.</p>
+    </section>
+
+    <section>
+        <h2>We do not train on your content</h2>
+        <p>Your documents, comments, suggestions and decisions are never used to train a machine-learning model — ours or anyone else's — and are never sent to a model provider by us. They are stored to be shown back to you and to the people you share a project with, and for nothing else.</p>
+    </section>
+
+    <section>
+        <h2>What your own agent does is yours</h2>
+        <p>This is the part worth being plain about. When you point an agent at Loupe, that agent reads your documents and your reviewers' comments, and it runs on whatever model provider you have chosen. Whatever that provider does with the text — including whether it trains on it — is governed by your agreement with them, not by anything we can promise.</p>
+        <p>Loupe holds your review data. It cannot hold your agent's. If that matters for a particular document, the answer is to check your agent's provider, or to run Loupe and your model somewhere you control.</p>
+    </section>
+
+    <section>
+        <h2>AI helped write Loupe itself</h2>
+        <p>Some of the code that runs this service was written with AI coding tools. All of it is reviewed by a human before it ships, and all of it is public — Loupe is AGPL-3.0-or-later, so you can read every line rather than take our word for any of this.</p>
+    </section>
+
+    <section>
+        <h2>We do not use AI to talk to you</h2>
+        <p>Every email, notification and support reply you get from us is written by a human. Nothing you receive from Loupe is model-generated.</p>
+    </section>
+
+    <section>
+        <h2>Self-hosted instances</h2>
+        <p>This policy describes the hosted service at <a href="https://loupe.ac">loupe.ac</a>. A self-hosted instance runs the same code, with the same absence of any model inside it — but it is operated by whoever runs it, and their practices are theirs to state.</p>
+    </section>
+
+    <section>
+        <h2>If this ever changes</h2>
+        <p>If we ever add a feature that sends your content to a model, we will say so plainly, make it opt-in, and update this page before it takes effect. We will not turn one on quietly.</p>
+    </section>
+
+    <section>
+        <h2>Questions</h2>
+        <p>Ask us at <a href="mailto:hello@loupe.ac">hello@loupe.ac</a>.</p>
+    </section>
+{% endblock %}

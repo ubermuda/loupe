@@ -112,10 +112,6 @@
                 <source>account.auth.footer.copyright</source>
                 <target>© Your Company, Inc.</target>
             </trans-unit>
-            <trans-unit id="account.auth.footer.status">
-                <source>account.auth.footer.status</source>
-                <target>Status</target>
-            </trans-unit>
             <trans-unit id="account.auth.footer.docs">
                 <source>account.auth.footer.docs</source>
                 <target>Docs</target>
@@ -127,6 +123,28 @@
             <trans-unit id="account.auth.footer.terms">
                 <source>account.auth.footer.terms</source>
                 <target>Terms</target>
+            </trans-unit>
+            <trans-unit id="account.auth.footer.ai_policy">
+                <source>account.auth.footer.ai_policy</source>
+                <target>AI Policy</target>
+            </trans-unit>
+
+            <!-- Legal pages -->
+            <trans-unit id="legal.nav.back_home">
+                <source>legal.nav.back_home</source>
+                <target>Back to home</target>
+            </trans-unit>
+            <trans-unit id="legal.privacy.title">
+                <source>legal.privacy.title</source>
+                <target>Privacy Policy</target>
+            </trans-unit>
+            <trans-unit id="legal.terms.title">
+                <source>legal.terms.title</source>
+                <target>Terms of Use</target>
+            </trans-unit>
+            <trans-unit id="legal.ai_policy.title">
+                <source>legal.ai_policy.title</source>
+                <target>AI Policy</target>
             </trans-unit>
 
             <!-- Login page -->

@@ -2906,6 +2906,22 @@
         @apply font-display font-extrabold tracking-tighter text-white m-0 text-4xl leading-none sm:text-6xl;
     }
 
+    /* ── Legal pages ────────────────────────────────────────────────────
+       One reading column of prose. Narrower than the landing bands: these are
+       read start to finish rather than scanned. */
+    .lp-legal {
+        @apply max-w-3xl mx-auto px-7 pt-12 pb-20;
+    }
+    .lp-legal__title {
+        @apply font-display font-extrabold tracking-tighter text-ink m-0 mb-8 text-4xl leading-tight;
+    }
+    .lp-legal__body section {
+        @apply mt-10;
+    }
+    .lp-legal__updated {
+        @apply text-sm text-fg-dim;
+    }
+
     .lp-landing-footer {
         @apply bg-chrome border-t border-chrome-raised px-7 py-10;
     }

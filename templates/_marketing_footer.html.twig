@@ -1,0 +1,18 @@
+{# The public-facing footer, shared by the landing page and the legal pages so
+   the policy links live in one place. #}
+<footer class="lp-landing-footer">
+    <div class="lp-landing-inner lp-landing-footer__row">
+        <a href="{{ path('app_home') }}" class="lp-landing-nav__brand lp-landing-nav__brand--sm">
+            <span class="lp-landing-nav__mark lp-landing-nav__mark--sm"></span>
+            {{ 'nav.brand'|trans }}
+        </a>
+        <span class="lp-landing-footer__copyright">{{ 'account.auth.footer.copyright'|trans }}</span>
+        <nav class="lp-landing-footer__nav">
+            {% include '_source_link.html.twig' with {class: 'lp-landing-footer__link'} only %}
+            <a href="{{ app_docs_url }}/" class="lp-landing-footer__link">{{ 'account.auth.footer.docs'|trans }}</a>
+            <a href="{{ path('app_privacy') }}" class="lp-landing-footer__link">{{ 'account.auth.footer.privacy'|trans }}</a>
+            <a href="{{ path('app_terms') }}" class="lp-landing-footer__link">{{ 'account.auth.footer.terms'|trans }}</a>
+            <a href="{{ path('app_ai_policy') }}" class="lp-landing-footer__link">{{ 'account.auth.footer.ai_policy'|trans }}</a>
+        </nav>
+    </div>
+</footer>

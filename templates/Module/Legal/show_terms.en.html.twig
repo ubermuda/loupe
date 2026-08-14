@@ -1,0 +1,94 @@
+{# twig-cs-fixer-disable TranslationKey #}
+{# Legal pages are full per-locale documents: the prose lives in the template,
+   not in translation keys. Each locale gets its own show_terms.<locale>.html.twig. #}
+{% extends '@Legal/_layout.html.twig' %}
+
+{% block title %}{{ 'legal.terms.title'|trans }} — {{ 'app.name'|trans }}{% endblock %}
+
+{% block legal_title %}{{ 'legal.terms.title'|trans }}{% endblock %}
+
+{% block legal_body %}
+    <p class="lp-legal__updated">Last updated: August 13, 2026</p>
+
+    <section>
+        <h2>1. About Loupe, and what these terms cover</h2>
+        <p>Loupe ("we", "us", "our") is a document and page review service operated at <a href="https://loupe.ac">loupe.ac</a>. By creating an account or using the hosted service you agree to these Terms of Use ("Terms").</p>
+        <p>Loupe is also free software under the AGPL-3.0-or-later. <strong>These Terms govern the hosted service at loupe.ac only.</strong> Your use of the software itself — running your own instance, modifying it, redistributing it — is governed by the AGPL and by nothing here. If you use an instance someone else hosts, your agreement is with them.</p>
+    </section>
+
+    <section>
+        <h2>2. Eligibility</h2>
+        <p>You must be at least 16 years old to create and hold an account. By using the service you confirm that you meet this requirement.</p>
+    </section>
+
+    <section>
+        <h2>3. Your account and your tokens</h2>
+        <p>You are responsible for keeping your credentials secure and for everything done under your account — including everything done by an AI agent you have given a token to. An MCP or site-review token acts with your authority; treat it as you would a password.</p>
+        <p>A token is shown once and stored only as a hash, so we cannot recover it for you. Revoke any token you believe is compromised from your project's Connect page, and tell us at <a href="mailto:hello@loupe.ac">hello@loupe.ac</a> if you suspect unauthorized access to your account.</p>
+    </section>
+
+    <section>
+        <h2>4. Acceptable use</h2>
+        <p>You agree not to use Loupe to:</p>
+        <ul>
+            <li>Submit or publish unlawful, harmful or deceptive content</li>
+            <li>Harass, threaten or impersonate anyone</li>
+            <li>Attempt to reach another user's account, project or documents</li>
+            <li>Place an unreasonable load on the service, including through automated submission over the MCP endpoint</li>
+            <li>Embed the site review widget on a site you do not control or have permission to instrument</li>
+            <li>Break any applicable law or regulation</li>
+        </ul>
+        <p>We may suspend or terminate accounts that break these rules.</p>
+    </section>
+
+    <section>
+        <h2>5. Your content</h2>
+        <p>You keep ownership of everything you and your agents put into Loupe — documents, versions, comments, suggestions and decisions. You grant us a limited, non-exclusive licence to store, render and display that content for the sole purpose of operating the service for you and the people you share a project with.</p>
+        <p>You are responsible for making sure your content does not infringe anyone else's rights, and for having the right to submit it — including when an agent submits it on your behalf.</p>
+    </section>
+
+    <section>
+        <h2>6. AI agents</h2>
+        <p>Loupe is built to be driven by AI agents, and we run no AI models ourselves. When you point an agent at Loupe, that agent is yours: what it submits, what it does with what it reads back, and which model provider it uses are your responsibility and outside our control. See our <a href="{{ path('app_ai_policy') }}">AI Policy</a>.</p>
+    </section>
+
+    <section>
+        <h2>7. Privacy and data protection</h2>
+        <p>We process personal data in line with applicable data protection law, including Québec's <em>Law 25</em> and, where it applies, the EU General Data Protection Regulation. See our <a href="{{ path('app_privacy') }}">Privacy Policy</a> for what we collect and what rights you have.</p>
+    </section>
+
+    <section>
+        <h2>8. Trials, billing and cancellation</h2>
+        <p>New accounts start with a 14-day trial, with no card required. After that, continued use of the hosted service requires a paid subscription at the price shown on our pricing page. Subscriptions renew automatically for the period you chose until you cancel.</p>
+        <p>You can cancel at any time from your billing settings; your subscription then runs to the end of the period you have already paid for. We do not refund part-used periods except where the law requires it. We may change prices with at least 30 days' notice to existing subscribers.</p>
+        <p>If your trial or subscription ends, your account is disabled rather than deleted, and your data stays available to export for a reasonable period before removal.</p>
+    </section>
+
+    <section>
+        <h2>9. Availability</h2>
+        <p>We aim to keep the service available but do not guarantee uninterrupted access. We may suspend, modify or discontinue features, giving reasonable notice where we can. If we discontinue the hosted service entirely, we will give you notice and time to export your data — and because Loupe is AGPL software, you can continue by running your own instance.</p>
+    </section>
+
+    <section>
+        <h2>10. Limitation of liability</h2>
+        <p>To the fullest extent permitted by law, the hosted service is provided "as is", without warranties of any kind. We are not liable for indirect, incidental or consequential damages arising from your use of it — including decisions taken on the basis of a document reviewed through Loupe, or work done by an agent acting on a review.</p>
+    </section>
+
+    <section>
+        <h2>11. Changes to these Terms</h2>
+        <p>We may update these Terms. We will tell you about material changes by email or a notice in the service at least 30 days before they take effect. Continuing to use the service after that date means you accept the new Terms.</p>
+    </section>
+
+    <section>
+        <h2>12. Governing law</h2>
+        <p>These Terms are governed by the laws of the Province of Québec, Canada, and any dispute is to be resolved in the courts of Québec.</p>
+    </section>
+
+    <section>
+        <h2>13. Contact</h2>
+        <p>
+            <strong>Loupe</strong><br>
+            <a href="mailto:hello@loupe.ac">hello@loupe.ac</a>
+        </p>
+    </section>
+{% endblock %}
