@@ -2666,6 +2666,12 @@
     .lp-landing-mock__app {
         @apply flex h-160 bg-sidebar;
     }
+    /* .lp-main is a real scroll container, and here it holds a 972px block in a
+       566px box — so the still scrolled. `clip`, not `hidden`: hidden still
+       scrolls under focus and script. */
+    .lp-landing-mock__main {
+        @apply overflow-clip;
+    }
     /* Opens a gap the comment card can sit level with, the way a real thread
        pushes its paragraph clear of the one above. */
     .lp-landing-mock__gap {
