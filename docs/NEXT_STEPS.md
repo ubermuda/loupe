@@ -3565,6 +3565,27 @@ exist, since backfilling them with the migration timestamp would claim every
 old comment was written the day the column shipped. Leaving those blank is
 probably the honest answer.
 
+## Running prettier on the site-review widget reformats all 1600 lines
+
+**Author:** Claude · **Type:** tooling · **Priority:** low · **Status:** pending
+
+`just prettier` and `just lint`'s prettier leg both scope to `assets/` and
+`e2e/` only, so `public/site-review/widget.js` has never been formatted by it.
+Running `npx prettier --write` on that file rewrites essentially every line —
+1382 insertions, 1315 deletions on a file of 1633 — because the whole file is
+being formatted for the first time.
+
+Nothing is broken today; the trap is that a small widget change plus a reflexive
+prettier run produces a phantom 1600-line diff, and the real change is
+unreviewable inside it. Hit on 2026-08-13 while dropping the widget's send step;
+the fix was to revert and re-apply the edit by hand.
+
+Two ways to close it, and either is fine as long as it is a decision: leave the
+file out of prettier's scope deliberately (it is hand-formatted, dense, and
+`npx eslint public/site-review/widget.js` already gates it), or reformat it once
+in a commit that changes nothing else, then add `public/` to the prettier
+recipes in the `justfile` so it stays formatted.
+
 ## Connect cannot mask a token, because no part of the raw value is stored
 
 **Author:** Claude · **Type:** feature · **Priority:** medium · **Status:** pending
