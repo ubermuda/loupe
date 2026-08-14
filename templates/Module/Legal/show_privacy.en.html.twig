@@ -1,0 +1,148 @@
+{# twig-cs-fixer-disable TranslationKey #}
+{# Legal pages are full per-locale documents: the prose lives in the template,
+   not in translation keys. Each locale gets its own show_privacy.<locale>.html.twig. #}
+{% extends '@Legal/_layout.html.twig' %}
+
+{% block title %}{{ 'legal.privacy.title'|trans }} — {{ 'app.name'|trans }}{% endblock %}
+
+{% block legal_title %}{{ 'legal.privacy.title'|trans }}{% endblock %}
+
+{% block legal_body %}
+    <p class="lp-legal__updated">Last updated: August 13, 2026</p>
+
+    <section>
+        <h2>1. Who this covers</h2>
+        <p>Loupe is a document and page review service for people working with AI agents, operated at <a href="https://loupe.ac">loupe.ac</a>. This policy covers <strong>the hosted service at loupe.ac only</strong>.</p>
+        <p>Loupe is free software under the AGPL-3.0-or-later, and anyone may run their own instance. If you are using a Loupe instance that someone else hosts, <strong>this policy does not apply to it</strong> — whoever operates that instance is the data controller for it, and you should ask them for their policy. We have no access to self-hosted instances and receive no data from them.</p>
+        <p>For any privacy-related question or request, contact us at <a href="mailto:hello@loupe.ac">hello@loupe.ac</a>.</p>
+    </section>
+
+    <section>
+        <h2>2. What we collect and why</h2>
+
+        <h3>Account data</h3>
+        <p>When you create an account we collect your <strong>name</strong>, <strong>email address</strong> and a <strong>hashed password</strong>. This is necessary to give you a secure, personal account (legal basis: performance of a contract).</p>
+
+        <h3>Connected accounts</h3>
+        <p>If you sign in with Google or GitHub, we store the <strong>provider name and the account identifier that provider gives us</strong>, along with the email address on it. We do not receive or store your password for those services, and we do not read anything else in those accounts.</p>
+
+        <h3>Documents, comments and review data</h3>
+        <p>We store the documents your agent submits, every version of them, and the comments, suggestions, decisions and tags created against them — including the quoted passage each comment is anchored to. We store the comments left through the site review widget together with the page URL and the element selector they were placed on. This is the service (legal basis: performance of a contract).</p>
+
+        <h3>API tokens</h3>
+        <p>MCP and site-review tokens are stored as a <strong>one-way hash</strong>, never in a form we can read back. A newly minted token is shown <strong>once</strong>, when you create it; if it is lost, you mint a new one and revoke the old.</p>
+
+        <h3>Billing data</h3>
+        <p>Payments are handled by Stripe. <strong>We never see or store your card details.</strong> We keep the Stripe customer and subscription identifiers, your plan, and your trial and renewal dates, so we know what you are entitled to (legal basis: performance of a contract).</p>
+
+        <h3>Server logs</h3>
+        <p>Our hosting provider automatically records <strong>IP addresses, browser type and the paths requested</strong> as part of normal server operation. These are kept for a limited period for security and diagnostics (legal basis: legitimate interests).</p>
+
+        <h3>Cookies</h3>
+        <p>We use only cookies that are strictly necessary for the service to work:</p>
+        <table>
+            <thead>
+                <tr>
+                    <th>Cookie</th>
+                    <th>Purpose</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>Session cookie</td>
+                    <td>Keeps you signed in during your visit</td>
+                </tr>
+                <tr>
+                    <td>CSRF token</td>
+                    <td>Protects against cross-site request forgery</td>
+                </tr>
+                <tr>
+                    <td>Remember-me cookie</td>
+                    <td>Keeps you signed in for up to 30 days — only if you tick the box on the sign-in page</td>
+                </tr>
+            </tbody>
+        </table>
+        <p>We use no analytics cookies, no advertising cookies and no third-party tracking.</p>
+    </section>
+
+    <section>
+        <h2>3. What we do not do</h2>
+        <p>We do not sell or rent your personal data. <strong>We do not use your documents or comments to train any machine-learning model</strong>, our own or anyone else's, and we do not send them to a model provider. See our <a href="{{ path('app_ai_policy') }}">AI Policy</a> for the full picture, including what happens to a document once your own agent handles it.</p>
+    </section>
+
+    <section>
+        <h2>4. Who we share data with</h2>
+        <p>We rely on a small number of providers to run the service:</p>
+        <table>
+            <thead>
+                <tr>
+                    <th>Service</th>
+                    <th>Purpose</th>
+                    <th>Location</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><a href="https://www.digitalocean.com" target="_blank" rel="noopener">DigitalOcean</a></td>
+                    <td>Hosting, database and export storage</td>
+                    <td>Toronto, Canada region (DigitalOcean is a US company)</td>
+                </tr>
+                <tr>
+                    <td><a href="https://www.fastmail.com" target="_blank" rel="noopener">Fastmail</a></td>
+                    <td>Transactional email (verification, password reset, notifications)</td>
+                    <td>Australia (servers in the United States)</td>
+                </tr>
+                <tr>
+                    <td><a href="https://stripe.com" target="_blank" rel="noopener">Stripe</a></td>
+                    <td>Payments and subscription billing</td>
+                    <td>United States and Ireland</td>
+                </tr>
+            </tbody>
+        </table>
+        <p>Each is bound by its own privacy policy and by applicable data protection law, and processes data only as needed to deliver its service to us.</p>
+    </section>
+
+    <section>
+        <h2>5. International data transfers</h2>
+        <p>Where a provider processes data outside Canada or the European Economic Area, we rely on appropriate safeguards — including standard contractual clauses where they apply — to protect your information.</p>
+    </section>
+
+    <section>
+        <h2>6. How long we keep your data</h2>
+        <p>We keep your personal data for as long as your account is active. If you delete your account, your personal data — documents, versions, comments, tokens, connected accounts and billing profile — is deleted within 30 days, except where retention is required by law or for legitimate security purposes such as server logs.</p>
+        <p>You can export your data at any time from your account settings, without deleting anything.</p>
+    </section>
+
+    <section>
+        <h2>7. Your rights</h2>
+        <p>Whoever and wherever you are, you have the following rights over your personal data:</p>
+        <ul>
+            <li><strong>Access</strong> — request a copy of what we hold about you</li>
+            <li><strong>Rectification</strong> — ask us to correct anything inaccurate</li>
+            <li><strong>Erasure</strong> — ask us to delete your data</li>
+            <li><strong>Portability</strong> — request your data in a machine-readable format</li>
+            <li><strong>Objection</strong> — object to certain kinds of processing</li>
+            <li><strong>Withdrawal of consent</strong> — where processing rests on consent, withdraw it at any time</li>
+        </ul>
+        <p>Write to <a href="mailto:hello@loupe.ac">hello@loupe.ac</a> to exercise any of these. We will respond within 30 days.</p>
+        <p>If you are in Québec you may also complain to the <a href="https://www.cai.gouv.qc.ca" target="_blank" rel="noopener">Commission d'accès à l'information du Québec</a> under <em>Law 25</em>. If you are in the European Economic Area you may complain to your local data protection authority under the GDPR.</p>
+    </section>
+
+    <section>
+        <h2>8. Children</h2>
+        <p>Loupe is a tool for professional and technical work and is not directed at children. You must be at least 16 to hold an account, as set out in our <a href="{{ path('app_terms') }}">Terms of Use</a>.</p>
+    </section>
+
+    <section>
+        <h2>9. Changes to this policy</h2>
+        <p>We may update this policy. We will tell you about material changes by email or a notice in the service at least 30 days before they take effect.</p>
+    </section>
+
+    <section>
+        <h2>10. Contact</h2>
+        <p>
+            <strong>Loupe</strong><br>
+            <a href="mailto:hello@loupe.ac">hello@loupe.ac</a>
+        </p>
+    </section>
+{% endblock %}

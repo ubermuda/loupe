@@ -73,6 +73,11 @@ security:
         # Carries the AGPL source offer, which a network user must be able to
         # reach without an account.
         - { path: ^/about$,          roles: PUBLIC_ACCESS }
+        # The policies have to be readable before signing up, since they are what
+        # a visitor is agreeing to by signing up.
+        - { path: ^/privacy$,        roles: PUBLIC_ACCESS }
+        - { path: ^/terms$,          roles: PUBLIC_ACCESS }
+        - { path: ^/ai-policy$,      roles: PUBLIC_ACCESS }
         # The marketing landing page. LandingController serves it to anonymous
         # visitors only where billing is on, and redirects to /login otherwise;
         # authenticated users get the same home redirect as before.

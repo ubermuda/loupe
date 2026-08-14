@@ -65,7 +65,7 @@
 
     <label class="flex items-start gap-2 text-sm text-fg-mute cursor-pointer select-none mt-0.5">
         {{ form_widget(form.agreeTerms, {'attr': {'class': 'w-3.5 h-3.5 cursor-pointer accent-accent mt-0.5'}}) }}
-        <span class="leading-normal">{{ 'account.form.registration_form.agree_terms.prefix'|trans }} <a href="#" class="text-fg underline">{{ 'account.form.registration_form.agree_terms.terms'|trans }}</a> {{ 'account.form.registration_form.agree_terms.conjunction'|trans }} <a href="#" class="text-fg underline">{{ 'account.form.registration_form.agree_terms.privacy'|trans }}</a>.</span>
+        <span class="leading-normal">{{ 'account.form.registration_form.agree_terms.prefix'|trans }} <a href="{{ path('app_terms') }}" class="text-fg underline">{{ 'account.form.registration_form.agree_terms.terms'|trans }}</a> {{ 'account.form.registration_form.agree_terms.conjunction'|trans }} <a href="{{ path('app_privacy') }}" class="text-fg underline">{{ 'account.form.registration_form.agree_terms.privacy'|trans }}</a>.</span>
     </label>
     <div class="field-errors">{{ form_errors(form.agreeTerms) }}</div>
 
