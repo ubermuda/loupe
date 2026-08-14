@@ -34,10 +34,10 @@
         {% if not app.user %}
             {% include '_source_link.html.twig' with {class: 'auth-footer__link gap-1.5'} only %}
         {% endif %}
-        <a href="#" class="auth-footer__link">{{ 'account.auth.footer.status'|trans }}</a>
-        <a href="#" class="auth-footer__link">{{ 'account.auth.footer.docs'|trans }}</a>
-        <a href="#" class="auth-footer__link">{{ 'account.auth.footer.privacy'|trans }}</a>
-        <a href="#" class="auth-footer__link">{{ 'account.auth.footer.terms'|trans }}</a>
+        <a href="{{ app_docs_url }}/" class="auth-footer__link">{{ 'account.auth.footer.docs'|trans }}</a>
+        <a href="{{ path('app_privacy') }}" class="auth-footer__link">{{ 'account.auth.footer.privacy'|trans }}</a>
+        <a href="{{ path('app_terms') }}" class="auth-footer__link">{{ 'account.auth.footer.terms'|trans }}</a>
+        <a href="{{ path('app_ai_policy') }}" class="auth-footer__link">{{ 'account.auth.footer.ai_policy'|trans }}</a>
     </div>
 
 </div>

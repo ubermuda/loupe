@@ -9,6 +9,8 @@ use App\Exception\DomainErrors;
 use App\Module\Project\Entity\Project;
 use App\Module\Review\Command\SelectDecisionOptionCommand;
 use App\Module\Review\Command\SelectDecisionOptionHandler;
+use App\Module\Review\Command\ShowDecisionSummaryCommand;
+use App\Module\Review\Command\ShowDecisionSummaryHandler;
 use App\Module\Review\Command\ShowPersistedDecisionBlockCommand;
 use App\Module\Review\Command\ShowPersistedDecisionBlockHandler;
 use App\Module\Review\Entity\Document;
@@ -35,6 +37,7 @@ final class SelectDecisionOptionController extends AppController
     public function __construct(
         private readonly SelectDecisionOptionHandler $selectDecisionOption,
         private readonly ShowPersistedDecisionBlockHandler $showPersistedDecisionBlock,
+        private readonly ShowDecisionSummaryHandler $showDecisionSummary,
         private readonly TranslatorInterface $translator,
     ) {
     }
@@ -101,10 +104,21 @@ final class SelectDecisionOptionController extends AppController
             ))->blockHtml
             : null;
 
+        // Read back after the write, so the panel and its running total report
+        // what is stored rather than what was asked for — on the refused path
+        // they must show the answer that survived, not the one that did not.
+        // Against the version the page was rendered from, which is what the
+        // reviewer is still looking at when a stale answer is refused.
+        $summary = ($this->showDecisionSummary)(
+            new ShowDecisionSummaryCommand($document, $data->versionNumber),
+        );
+
         return new Response(
             $this->renderView('@Review/_decision_status.stream.html.twig', [
                 'message' => $message,
                 'failed' => $failed,
+                'rows' => $summary->rows,
+                'answeredCount' => $summary->answeredCount,
                 'restoredBlockId' => null === $restoredBlockHtml
                     ? null
                     : DecisionBlockService::blockElementId($data->decisionId ?? ''),

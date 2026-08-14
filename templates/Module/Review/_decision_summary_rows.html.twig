@@ -1,0 +1,16 @@
+{# Rows of the decisions panel. Rendered by the page and again by the stream that
+   follows an answer, so both must be given `rows` in the same shape. #}
+{% for row in rows %}
+<li class="lp-decision-summary__item">
+    <a class="lp-decision-summary__link" href="#{{ row.elementId }}"
+       data-action="click->metadata-tabs#jump">{{ row.label }}</a>
+    {% if row.selected is null %}
+    <span class="lp-decision-summary__pending">{{ 'review.document.decisions.pending'|trans }}</span>
+    {% else %}
+    <span class="lp-decision-summary__answer">
+        <twig:ux:icon name="lucide:check" class="lp-decision-summary__check" />
+        {{ row.selected }}
+    </span>
+    {% endif %}
+</li>
+{% endfor %}

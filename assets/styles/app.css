@@ -1287,9 +1287,13 @@
     }
 
     /* ── Metadata toolbar ───────────────────────────────────────────────
-       Versions / Contents / References as three mutually-exclusive tabs, so the
-       three panels that used to sit open one under the other cost one row of
-       height between them. The document's tags ride at the right end. */
+       Mutually-exclusive tabs; tags ride at the right end. Sticky on the
+       wrapper, not on .lp-doc-meta: a sticky element cannot outlive its
+       containing block, and .lp-doc-meta is also the landing mock. z-10 keeps
+       it under the z-20 composer and selection toolbar. */
+    .lp-doc-meta-bar {
+        @apply sticky top-0 z-10 bg-app;
+    }
     .lp-doc-meta {
         @apply flex items-center gap-1 py-1.5 border-y border-line;
     }
@@ -1488,10 +1492,10 @@
     .lp-review-doc__prose {
         @apply mt-0 max-w-none text-lg leading-8 text-prose;
     }
-    /* The paper scrolls, not this pane, so a table-of-contents jump would land a
-       heading flush against the top of the window without this. */
+    /* The paper scrolls, not this pane, so a jump from the contents or decisions
+       panel would otherwise land its target under the sticky metadata bar. */
     .lp-review-doc__prose :is(h1, h2, h3, h4, h5, h6) {
-        @apply scroll-mt-6;
+        @apply scroll-mt-16;
     }
     .lp-review-doc__prose :is(h2, h3, h4) {
         @apply font-display font-extrabold text-ink text-2xl tracking-tight;
@@ -2422,7 +2426,7 @@
        Only the prompt does, because the author wrote it. */
 
     .lp-decision {
-        @apply my-4 rounded-xl border-0 px-5 py-4.5 bg-tint;
+        @apply my-4 rounded-xl border-0 px-5 py-4.5 bg-tint scroll-mt-16;
     }
     /* Floated rather than blocked: a legend renders in the fieldset's border
        notch, so `display: block` alone leaves the eyebrow and the question
@@ -2473,11 +2477,31 @@
        for now because there is one shared region for the whole page, not one per
        block — see 'A decision card cannot show its own recorded answer' in
        docs/NEXT_STEPS.md. */
+    /* Collapsed, not hidden: `display: none` drops a live region from the a11y tree. */
     .lp-decision-status {
-        @apply mt-2 text-xs text-fg-mute;
+        @apply m-0 pt-1.5 text-xs text-fg-mute empty:h-0 empty:overflow-hidden empty:pt-0;
     }
-    .lp-decision-status--failed {
+    .lp-decision-status__message--failed {
         @apply text-danger;
+    }
+
+    .lp-decision-summary__list {
+        @apply flex flex-col gap-1 m-0 p-0 list-none;
+    }
+    .lp-decision-summary__item {
+        @apply flex items-baseline gap-3 py-1;
+    }
+    .lp-decision-summary__link {
+        @apply text-sm font-semibold text-ink no-underline hover:underline;
+    }
+    .lp-decision-summary__answer {
+        @apply inline-flex items-baseline gap-1 ml-auto text-xs text-fg-mute;
+    }
+    .lp-decision-summary__check {
+        @apply w-3.5 h-3.5 shrink-0 self-center text-accent-ink;
+    }
+    .lp-decision-summary__pending {
+        @apply ml-auto text-xs text-fg-dim;
     }
 
     /* ── Admin primitives ───────────────────────────────────────────────
@@ -2651,6 +2675,12 @@
     .lp-landing-mock__app {
         @apply flex h-160 bg-sidebar;
     }
+    /* .lp-main is a real scroll container, and here it holds a 972px block in a
+       566px box — so the still scrolled. `clip`, not `hidden`: hidden still
+       scrolls under focus and script. */
+    .lp-landing-mock__main {
+        @apply overflow-clip;
+    }
     /* Opens a gap the comment card can sit level with, the way a real thread
        pushes its paragraph clear of the one above. */
     .lp-landing-mock__gap {
@@ -2702,6 +2732,11 @@
     .lp-landing-title--on-chrome {
         @apply text-white;
     }
+    /* For a section whose title carries no lead beneath it: the same bottom
+       margin the lead would have contributed. */
+    .lp-landing-title--spaced {
+        @apply mb-14;
+    }
     .lp-landing-lead {
         @apply text-fg-mute mt-3 mb-14 text-lg leading-relaxed max-w-xl;
     }
@@ -2710,6 +2745,11 @@
     }
     .lp-landing-lead--on-chrome {
         @apply text-chrome-mute;
+    }
+    /* Two underlined links in a row of prose read as one link; a row of their
+       own with a real gap keeps them separable. */
+    .lp-landing-doc-links {
+        @apply flex flex-wrap items-baseline gap-x-6 gap-y-1 m-0 mb-14 text-lg;
     }
     .lp-landing-note {
         @apply m-0 text-sm text-fg-dim leading-relaxed;
@@ -2742,12 +2782,17 @@
     /* ── Feature grid ───────────────────────────────────────────────────
        Hairline-separated cells rather than cards: six cards in a block reads as
        a wall, and none of these six is more important than another. The gap is
-       the rule — the grid's own background shows through it. */
+       the rule — the grid's own background shows through it. Below sm it is a
+       swipe carousel; the cell's partial width is what makes that legible. */
     .lp-landing-features {
-        @apply grid gap-px bg-line border-y border-line sm:grid-cols-2 md:grid-cols-3;
+        @apply flex snap-x snap-mandatory overflow-x-auto gap-px bg-line sm:grid sm:overflow-x-visible sm:grid-cols-2 md:grid-cols-3;
+        scrollbar-width: none;
+    }
+    .lp-landing-features::-webkit-scrollbar {
+        display: none;
     }
     .lp-landing-feature {
-        @apply flex flex-col gap-2.5 bg-app px-7 py-8;
+        @apply flex flex-col gap-2.5 bg-app px-7 py-8 w-10/12 shrink-0 snap-start last:snap-end sm:w-auto;
     }
     .lp-landing-feature__title {
         @apply font-display font-extrabold text-ink m-0 text-xl tracking-tight;
@@ -2854,8 +2899,10 @@
     .lp-landing-faq__list {
         @apply flex flex-col md:col-span-2;
     }
+    /* Rules between the rows only — a rule above the first and below the last
+       would box the list, and it is a list, not a card. */
     .lp-landing-faq__item {
-        @apply flex flex-col gap-2 py-6 border-t border-line-strong last:border-b;
+        @apply flex flex-col gap-2 py-6 border-t border-line-strong first:border-t-0 first:pt-0;
     }
     .lp-landing-faq__question {
         @apply text-ink m-0 text-base font-bold;
@@ -2872,6 +2919,22 @@
     }
     .lp-landing-cta__title {
         @apply font-display font-extrabold tracking-tighter text-white m-0 text-4xl leading-none sm:text-6xl;
+    }
+
+    /* ── Legal pages ────────────────────────────────────────────────────
+       One reading column of prose. Narrower than the landing bands: these are
+       read start to finish rather than scanned. */
+    .lp-legal {
+        @apply max-w-3xl mx-auto px-7 pt-12 pb-20;
+    }
+    .lp-legal__title {
+        @apply font-display font-extrabold tracking-tighter text-ink m-0 mb-8 text-4xl leading-tight;
+    }
+    .lp-legal__body section {
+        @apply mt-10;
+    }
+    .lp-legal__updated {
+        @apply text-sm text-fg-dim;
     }
 
     .lp-landing-footer {

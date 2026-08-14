@@ -216,3 +216,108 @@ test('selecting text below the block still anchors where the reviewer put it', a
     expect(state.storedAnchors).toHaveLength(1);
     expect(state.storedAnchors[0].quote).toBe(BELOW_BLOCK_PHRASE);
 });
+
+const PROMPT = 'Which half ships first?';
+
+const PROMPTED_MARKDOWN = `# Rollout
+
+Some prose before the decision.
+
+<!-- decision: ${DECISION_ID} -->
+
+${PROMPT}
+
+1. ${OPTION_ONE}
+2. ${OPTION_TWO}
+
+<!-- /decision -->
+
+${'Filler paragraph.\n\n'.repeat(40)}
+This is ${BELOW_BLOCK_PHRASE} in the document.`;
+
+/**
+ * The toolbar's running total is the only place a reviewer sees how much is
+ * left to answer, and it is refreshed by a Turbo stream rather than a reload —
+ * so a broken target id leaves a stale count with everything else still green.
+ */
+test('the toolbar reports the decisions and tracks the answer', async ({
+    page,
+}) => {
+    await signedInReviewer(page, 'summary');
+    const response = await page.request.post('/dev/seed/document', {
+        form: { title: 'Decision — summary', markdown: PROMPTED_MARKDOWN },
+    });
+    expect(response.status()).toBe(201);
+    const body = (await response.json()) as {
+        documentId: string;
+        projectId: string;
+    };
+    await page.goto(
+        `/projects/${body.projectId}/documents/${body.documentId}/review`,
+    );
+
+    const tab = page.getByRole('button', { name: /Decisions/ });
+    await expect(page.locator('#decision-summary-count')).toHaveText('0/1');
+
+    await tab.click();
+    const row = page.locator('#decision-summary-list li');
+    await expect(row).toHaveCount(1);
+    // The block declared a question, so the row is titled with it rather than
+    // falling back to the raw decision id.
+    await expect(row.locator('.lp-decision-summary__link')).toHaveText(PROMPT);
+    await expect(row).toContainText('Not chosen yet');
+
+    await page
+        .locator(`[data-decision-id="${DECISION_ID}"]`)
+        .locator('input[type="radio"][data-decision-option]')
+        .nth(1)
+        .check();
+
+    await expect(page.locator('#decision-status')).toHaveText(/saved/i, {
+        timeout: 15000,
+    });
+    // Streamed with `update`, so the panel the reviewer opened is still open.
+    await expect(page.locator('#decision-summary-count')).toHaveText('1/1');
+    await expect(row).toContainText(OPTION_TWO);
+    await expect(page.locator('#decision-summary-list')).toBeVisible();
+});
+
+/**
+ * The bar is sticky so the panels stay reachable from anywhere in a long
+ * document. It only works while its containing block spans the document — it
+ * used to sit inside the head, which unpins it a few dozen pixels down.
+ */
+test('the metadata bar stays pinned while the document scrolls', async ({
+    page,
+}) => {
+    await signedInReviewer(page, 'sticky');
+    const response = await page.request.post('/dev/seed/document', {
+        form: { title: 'Decision — sticky', markdown: PROMPTED_MARKDOWN },
+    });
+    expect(response.status()).toBe(201);
+    const body = (await response.json()) as {
+        documentId: string;
+        projectId: string;
+    };
+    await page.goto(
+        `/projects/${body.projectId}/documents/${body.documentId}/review`,
+    );
+
+    const bar = page.locator('.lp-doc-meta-bar');
+    await expect(bar).toBeInViewport();
+
+    await page.getByText(BELOW_BLOCK_PHRASE).scrollIntoViewIfNeeded();
+    await expect(page.getByText(BELOW_BLOCK_PHRASE)).toBeInViewport();
+    await expect(bar).toBeInViewport();
+
+    // And the jump target clears the bar rather than hiding under it.
+    await bar.getByRole('button', { name: /Decisions/ }).click();
+    await page.locator('#decision-summary-list a').click();
+    const blockBox = await page
+        .locator(`[data-decision-id="${DECISION_ID}"]`)
+        .boundingBox();
+    const barBox = await bar.boundingBox();
+    expect(blockBox).not.toBeNull();
+    expect(barBox).not.toBeNull();
+    expect(blockBox!.y).toBeGreaterThanOrEqual(barBox!.y + barBox!.height);
+});
