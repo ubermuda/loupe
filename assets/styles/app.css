@@ -2717,6 +2717,11 @@
     .lp-landing-title--on-chrome {
         @apply text-white;
     }
+    /* For a section whose title carries no lead beneath it: the same bottom
+       margin the lead would have contributed. */
+    .lp-landing-title--spaced {
+        @apply mb-14;
+    }
     .lp-landing-lead {
         @apply text-fg-mute mt-3 mb-14 text-lg leading-relaxed max-w-xl;
     }
@@ -2725,6 +2730,11 @@
     }
     .lp-landing-lead--on-chrome {
         @apply text-chrome-mute;
+    }
+    /* Two underlined links in a row of prose read as one link; a row of their
+       own with a real gap keeps them separable. */
+    .lp-landing-doc-links {
+        @apply flex flex-wrap items-baseline gap-x-6 gap-y-1 m-0 mb-14 text-lg;
     }
     .lp-landing-note {
         @apply m-0 text-sm text-fg-dim leading-relaxed;
@@ -2757,12 +2767,17 @@
     /* ── Feature grid ───────────────────────────────────────────────────
        Hairline-separated cells rather than cards: six cards in a block reads as
        a wall, and none of these six is more important than another. The gap is
-       the rule — the grid's own background shows through it. */
+       the rule — the grid's own background shows through it. Below sm it is a
+       swipe carousel; the cell's partial width is what makes that legible. */
     .lp-landing-features {
-        @apply grid gap-px bg-line border-y border-line sm:grid-cols-2 md:grid-cols-3;
+        @apply flex snap-x snap-mandatory overflow-x-auto gap-px bg-line sm:grid sm:overflow-x-visible sm:grid-cols-2 md:grid-cols-3;
+        scrollbar-width: none;
+    }
+    .lp-landing-features::-webkit-scrollbar {
+        display: none;
     }
     .lp-landing-feature {
-        @apply flex flex-col gap-2.5 bg-app px-7 py-8;
+        @apply flex flex-col gap-2.5 bg-app px-7 py-8 w-10/12 shrink-0 snap-start last:snap-end sm:w-auto;
     }
     .lp-landing-feature__title {
         @apply font-display font-extrabold text-ink m-0 text-xl tracking-tight;
@@ -2869,8 +2884,10 @@
     .lp-landing-faq__list {
         @apply flex flex-col md:col-span-2;
     }
+    /* Rules between the rows only — a rule above the first and below the last
+       would box the list, and it is a list, not a card. */
     .lp-landing-faq__item {
-        @apply flex flex-col gap-2 py-6 border-t border-line-strong last:border-b;
+        @apply flex flex-col gap-2 py-6 border-t border-line-strong first:border-t-0 first:pt-0;
     }
     .lp-landing-faq__question {
         @apply text-ink m-0 text-base font-bold;

@@ -2743,7 +2743,7 @@
             </trans-unit>
             <trans-unit id="landing.hero.lead">
                 <source>landing.hero.lead</source>
-                <target>Your agent writes the plan. Loupe renders it as a page a human can read, select and comment on, then hands the verdict back to the agent.</target>
+                <target>Your AI agent produces docs and whole web pages faster than you can skim them. Loupe makes reviewing them effortless — read it rendered, select any line, leave a comment where it matters, and send structured feedback straight back over MCP.</target>
             </trans-unit>
             <trans-unit id="landing.hero.note">
                 <source>landing.hero.note</source>
@@ -2752,10 +2752,6 @@
             <trans-unit id="landing.how.title">
                 <source>landing.how.title</source>
                 <target>From raw to reviewed.</target>
-            </trans-unit>
-            <trans-unit id="landing.how.lead">
-                <source>landing.how.lead</source>
-                <target>Three steps, and your agent handles two of them.</target>
             </trans-unit>
             <trans-unit id="landing.how.step1.title">
                 <source>landing.how.step1.title</source>
@@ -2835,11 +2831,15 @@
             </trans-unit>
             <trans-unit id="landing.tech.lead">
                 <source>landing.tech.lead</source>
-                <target>Loupe has an MCP server. Point your agent at it and it can do the rest itself.</target>
+                <target>Two ways in: an MCP server your agent drives itself, and a drop-in widget that makes any page you ship reviewable.</target>
             </trans-unit>
             <trans-unit id="landing.tech.docs_link">
                 <source>landing.tech.docs_link</source>
                 <target>Read the MCP docs.</target>
+            </trans-unit>
+            <trans-unit id="landing.tech.widget_docs_link">
+                <source>landing.tech.widget_docs_link</source>
+                <target>Read the site review docs.</target>
             </trans-unit>
             <trans-unit id="landing.tech.tools.title">
                 <source>landing.tech.tools.title</source>
@@ -2865,13 +2865,13 @@
                 <source>landing.tech.markdown.text</source>
                 <target>Comments anchor to quoted text, so a revision re-anchors the open threads and flags the ones whose passage is gone.</target>
             </trans-unit>
-            <trans-unit id="landing.tech.tokens.title">
-                <source>landing.tech.tokens.title</source>
-                <target>Scoped tokens</target>
+            <trans-unit id="landing.tech.widget.title">
+                <source>landing.tech.widget.title</source>
+                <target>Review any page</target>
             </trans-unit>
-            <trans-unit id="landing.tech.tokens.text">
-                <source>landing.tech.tokens.text</source>
-                <target>Minted per project on the Connect page and stored hashed. An MCP token cannot be used as a site-review token.</target>
+            <trans-unit id="landing.tech.widget.text">
+                <source>landing.tech.widget.text</source>
+                <target>Drop the site review widget into your app and the same select-and-comment flow works on a live page. Your agent reads those comments back over MCP.</target>
             </trans-unit>
             <trans-unit id="landing.try.title">
                 <source>landing.try.title</source>
@@ -2971,11 +2971,11 @@
             </trans-unit>
             <trans-unit id="landing.opensource.title">
                 <source>landing.opensource.title</source>
-                <target>Built for the human, wired for the agent.</target>
+                <target>Built for humans, wired for agents.</target>
             </trans-unit>
             <trans-unit id="landing.opensource.lead">
                 <source>landing.opensource.lead</source>
-                <target>Loupe is AGPL-3.0-or-later. Every page carries a source link, including ours. Nothing in the application assumes a particular provider. It runs anywhere that can host a container and a Postgres database.</target>
+                <target>Loupe is free and open source under AGPL-3.0-or-later. Self-host it and it costs nothing, forever. Your documents, your comments and your database stay yours — there is no lock-in to walk away from.</target>
             </trans-unit>
             <trans-unit id="landing.opensource.docs">
                 <source>landing.opensource.docs</source>
@@ -3027,11 +3027,11 @@
             </trans-unit>
             <trans-unit id="landing.closing.title">
                 <source>landing.closing.title</source>
-                <target>Review the plan before it becomes code.</target>
+                <target>Review it before it ships.</target>
             </trans-unit>
             <trans-unit id="landing.closing.lead">
                 <source>landing.closing.lead</source>
-                <target>Point your agent at Loupe and send the first document for review in about five minutes.</target>
+                <target>Point your agent at Loupe, drop the widget into your app, and review your first document or page in about five minutes.</target>
             </trans-unit>
             <trans-unit id="landing.closing.note">
                 <source>landing.closing.note</source>
