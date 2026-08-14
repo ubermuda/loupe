@@ -7,8 +7,15 @@
     <template>{{ restoredBlockHtml|raw }}</template>
 </turbo-stream>
 {% endif %}
-<turbo-stream action="replace" target="decision-status">
-    <template>
-        <p id="decision-status" class="lp-decision-status{{ failed ? ' lp-decision-status--failed' }}" aria-live="polite">{{ message }}</p>
-    </template>
+{# `update`, not `replace`: the status is an aria-live region and the running
+   total sits in a tab whose open state the reviewer owns. Swapping either
+   element out re-announces unpredictably and would close an open panel. #}
+<turbo-stream action="update" target="decision-status">
+    <template><span class="lp-decision-status__message{{ failed ? ' lp-decision-status__message--failed' }}">{{ message }}</span></template>
+</turbo-stream>
+<turbo-stream action="update" target="decision-summary-count">
+    <template>{{ 'review.document.decisions.count'|trans({'%answered%': answeredCount, '%total%': rows|length}) }}</template>
+</turbo-stream>
+<turbo-stream action="update" target="decision-summary-list">
+    <template>{% include '@Review/_decision_summary_rows.html.twig' with {rows: rows} only %}</template>
 </turbo-stream>

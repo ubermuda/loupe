@@ -26,6 +26,26 @@ export default class extends Controller {
         }
     }
 
+    /**
+     * Jumps to a block a panel links to, and closes the panel behind it.
+     *
+     * Not left to the browser's own `#hash` handling: the paper scrolls inside
+     * .lp-main rather than the window, so the jump has to name an element and
+     * let scrollIntoView find the scroller. scroll-margin-top on the target is
+     * what keeps it clear of this bar.
+     */
+    jump(event) {
+        const id = event.currentTarget.getAttribute('href')?.slice(1);
+        const target = id === undefined ? null : document.getElementById(id);
+        if (target === null) {
+            return;
+        }
+
+        event.preventDefault();
+        this.closeAll();
+        target.scrollIntoView({ block: 'start' });
+    }
+
     /** Called by the page on navigation away, and by Escape. */
     closeAll() {
         for (const panel of this.panelTargets) {

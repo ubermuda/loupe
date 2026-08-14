@@ -270,10 +270,21 @@ final readonly class DecisionBlockService
                 // reached the agent as an empty string and two such options stored
                 // the same label. DisplayLabel reads the `alt` instead.
                 array_map(DisplayLabel::fromHtml(...), $labels[1]),
+                self::promptOf($block['inner']),
             );
         }
 
         return $decisions;
+    }
+
+    /** The block's question, read from the legend fieldset() writes; '' when it declared none. */
+    private static function promptOf(string $inner): string
+    {
+        if (1 !== preg_match('~<legend[^>]*>(.*?)</legend>~s', $inner, $matches)) {
+            return '';
+        }
+
+        return DisplayLabel::fromHtml($matches[1]);
     }
 
     /**

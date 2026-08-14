@@ -98,7 +98,7 @@ final class ShowDocumentController extends AppController
             'suggestRewordingForm' => $suggestRewordingForm,
             'strikePassageForm' => $strikePassageForm,
             'selectDecisionForm' => $selectDecisionForm,
-            'hasDecisions' => $view->hasDecisions,
+            'decisions' => $view->decisions,
             'decisionMarkedHtml' => $view->decisionMarkedHtml,
         ]);
     }
