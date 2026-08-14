@@ -3810,4 +3810,3 @@ never health — a running consumer leaves no lasting trace, so an empty queue i
 genuinely unknown rather than good. Report unknown as unknown; a green check
 that cannot distinguish "working" from "nothing running" is worse than no check,
 because it is the exact failure this project has hit before.
-
