@@ -6,7 +6,8 @@ namespace App\Module\Review\ValueObject;
 
 /**
  * One decision block as it stands in a rendered version: the identifier the
- * document declared, and the option labels in the order they are shown.
+ * document declared, the option labels in the order they are shown, and the
+ * question the block asks.
  *
  * The identifier — not the option text and not the position — is what a
  * selection is keyed by, so a revision that rewords the block keeps its answer.
@@ -15,11 +16,19 @@ final readonly class Decision
 {
     /**
      * @param list<string> $options
+     * @param string       $prompt  empty when the block declared no question
      */
     public function __construct(
         public string $id,
         public array $options,
+        public string $prompt = '',
     ) {
+    }
+
+    /** What to call this block in a list of them; the id is all a promptless block has. */
+    public function label(): string
+    {
+        return '' === $this->prompt ? $this->id : $this->prompt;
     }
 
     public function optionAt(int $index): ?string

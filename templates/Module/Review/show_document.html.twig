@@ -88,27 +88,33 @@
                     '%reviewer%': app.user.fullName,
                     '%updated%': version.createdAt|relative_time,
                 }) }}</p>
+            </div>
 
-                {# The way back to a discussion a revision left behind: comments
-                   resolved on an earlier version stay there, so the thread is
-                   otherwise unreachable once revised. A single version with a
-                   description still earns the list, because the description
-                   appears nowhere else. #}
-                {% set hasVersionDescription = versions|filter(meta => meta.description is not empty)|length > 0 %}
-                {% set showVersions = versions|length > 1 or hasVersionDescription %}
-                {# An untexted heading would render as a blank link, but it keeps its
-                   id so anything linking to it still works. Diff mode replaces the
-                   HTML those ids live in, and is passed no `headings` at all. #}
-                {% set contentsHeadings = diffMode ? [] : headings|filter(heading => heading.text is not empty) %}
-                {% set showContents = contentsHeadings|length > 1 %}
-                {% set referenceCount = document.references|length + document.referencedBy|length %}
+            {# The way back to a discussion a revision left behind: comments
+               resolved on an earlier version stay there, so the thread is
+               otherwise unreachable once revised. A single version with a
+               description still earns the list, because the description
+               appears nowhere else. #}
+            {% set hasVersionDescription = versions|filter(meta => meta.description is not empty)|length > 0 %}
+            {% set showVersions = versions|length > 1 or hasVersionDescription %}
+            {# An untexted heading would render as a blank link, but it keeps its
+               id so anything linking to it still works. Diff mode replaces the
+               HTML those ids live in, and is passed no `headings` at all. #}
+            {% set contentsHeadings = diffMode ? [] : headings|filter(heading => heading.text is not empty) %}
+            {% set showContents = contentsHeadings|length > 1 %}
+            {% set referenceCount = document.references|length + document.referencedBy|length %}
+            {# Same lazy-ternary guard as the headings above: the diff controller
+               passes no `decisions` at all, and naming it outside this branch is
+               an undefined-variable 500 on the diff page. #}
+            {% set decisionRows = diffMode ? [] : decisions.rows %}
+            {% set answeredDecisions = diffMode ? 0 : decisions.answeredCount %}
 
-                {# Three mutually-exclusive panels rather than three stacked
-                   blocks: each is a detail a reviewer occasionally wants, and
-                   together they used to push the first paragraph of the document
-                   below the fold. #}
-                {% if showVersions or showContents or referenceCount > 0 or document.tags|length > 0 %}
-                <div data-controller="metadata-tabs">
+            {# Mutually-exclusive panels rather than stacked blocks: together they
+               used to push the first paragraph below the fold.
+               A sibling of the head, not a child: the bar is sticky, and a
+               sticky element cannot outlive its containing block. #}
+            {% if showVersions or showContents or referenceCount > 0 or decisionRows|length > 0 or document.tags|length > 0 %}
+            <div class="lp-doc-meta-bar" data-controller="metadata-tabs">
                     <div class="lp-doc-meta">
                         {% if showVersions %}
                         <button type="button" class="lp-doc-meta__tab" aria-expanded="false"
@@ -140,6 +146,19 @@
                             <twig:ux:icon name="lucide:chevron-right" class="lp-doc-meta__caret" />
                         </button>
                         {% endif %}
+                        {% if decisionRows|length > 0 %}
+                        <button type="button" class="lp-doc-meta__tab" aria-expanded="false"
+                                data-metadata-tabs-target="tab"
+                                data-metadata-tabs-panel-param="decisions"
+                                data-action="click->metadata-tabs#toggle">
+                            {{ 'review.document.meta.decisions'|trans }}
+                            <span class="lp-doc-meta__count" id="decision-summary-count">{{ 'review.document.decisions.count'|trans({
+                                '%answered%': answeredDecisions,
+                                '%total%': decisionRows|length,
+                            }) }}</span>
+                            <twig:ux:icon name="lucide:chevron-right" class="lp-doc-meta__caret" />
+                        </button>
+                        {% endif %}
                         {% if document.tags|length > 0 %}
                         <div class="lp-doc-meta__tags">
                             {% for tag in document.tags %}
@@ -148,6 +167,14 @@
                         </div>
                         {% endif %}
                     </div>
+
+                {% if decisionRows|length > 0 %}
+                {# A row of its own in the bar: the longest refusal is a sentence
+                   and would squeeze the tabs out of the row above. Rendered
+                   empty rather than omitted — a live region must be in the
+                   accessibility tree before its text arrives. #}
+                <p id="decision-status" class="lp-decision-status" aria-live="polite"></p>
+                {% endif %}
 
                 {% if showVersions %}
                 <nav class="lp-doc-meta__panel lp-version-switcher" data-metadata-tabs-target="panel" data-panel="versions" hidden
@@ -191,7 +218,8 @@
                         {% for heading in contentsHeadings %}
                         <li>
                             {# title= so a heading truncated by the panel width is still readable on hover. #}
-                            <a class="lp-review-contents__link" data-level="{{ heading.level }}" href="#{{ heading.id }}" title="{{ heading.text }}">{{ heading.text }}</a>
+                            <a class="lp-review-contents__link" data-level="{{ heading.level }}" href="#{{ heading.id }}"
+                               data-action="click->metadata-tabs#jump" title="{{ heading.text }}">{{ heading.text }}</a>
                         </li>
                         {% endfor %}
                     </ul>
@@ -237,9 +265,18 @@
                     {% endfor %}
                 </div>
                 {% endif %}
+
+                {# The list is streamed back after every answer, so the <ul> is the
+                   stream's target and must keep its id here. #}
+                {% if decisionRows|length > 0 %}
+                <div class="lp-doc-meta__panel lp-decision-summary" data-metadata-tabs-target="panel" data-panel="decisions" hidden>
+                    <ul class="lp-decision-summary__list" id="decision-summary-list">
+                        {% include '@Review/_decision_summary_rows.html.twig' with {rows: decisionRows} only %}
+                    </ul>
                 </div>
                 {% endif %}
             </div>
+            {% endif %}
 
             {% if not readOnly and not diffMode %}
             <div class="lp-review-actions">
@@ -273,13 +310,10 @@
 
             {# Outside the prose on purpose: that textContent must stay identical
                to DocumentVersion::plainText(). Gated on diffMode too — the radios
-               it serves live in the block the diff replaces, and `hasDecisions`
-               and `selectDecisionForm` are not passed there, so the guard is what
+               it serves live in the block the diff replaces, and `decisions` and
+               `selectDecisionForm` are not passed there, so the guard is what
                prevents an undefined-variable 500. #}
-            {% if not diffMode and hasDecisions %}
-            <p id="decision-status" class="lp-decision-status" aria-live="polite"></p>
-            {% endif %}
-            {% if not diffMode and hasDecisions and not readOnly %}
+            {% if not diffMode and decisionRows|length > 0 and not readOnly %}
             {{ form_start(selectDecisionForm, {attr: {
                 'data-decision-target': 'form',
                 hidden: true,

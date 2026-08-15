@@ -3832,20 +3832,6 @@ genuinely unknown rather than good. Report unknown as unknown; a green check
 that cannot distinguish "working" from "nothing running" is worse than no check,
 because it is the exact failure this project has hit before.
 
-## Three footer links point at `href="#"`
-
-**Author:** Claude · **Type:** bug · **Priority:** medium · **Status:** pending
-
-Status, Privacy and Terms are dead links in both footers — the landing page
-(`templates/Module/Account/landing.html.twig:223-226`) and the auth shell
-(`templates/Module/Account/auth_base.html.twig:37-40`, which renders on every
-auth page). Docs and Source code are real; these three are not.
-
-Found during the mobile audit on 2026-08-13 but unrelated to mobile, and left
-out of PR #179 because it needs destinations rather than a CSS change. Decide
-per link whether it gets a real page, an external URL, or is removed — shipping
-a footer nav where half the entries do nothing is worse than a shorter nav.
-
 ## The site-review push subsystem has no producer left
 
 **Author:** Geoffrey · **Type:** feature · **Priority:** medium · **Status:** pending

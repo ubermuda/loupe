@@ -1,0 +1,33 @@
+{% extends 'base.html.twig' %}
+
+{% block body %}
+<article class="lp-legal">
+    <h1 class="lp-legal__title">{% block legal_title %}{% endblock %}</h1>
+    <div class="prose lp-prose lp-legal__body">
+        {% block legal_body %}{% endblock %}
+    </div>
+</article>
+{% endblock %}
+
+{# A signed-in visitor gets the app shell around block body, as every other page
+   does. A guest arriving from the footer would otherwise land on bare prose with
+   no way back, so they get the marketing chrome instead. #}
+{% block body_unauthenticated %}
+<div class="lp-landing">
+    <header class="lp-landing-nav">
+        <a href="{{ path('app_home') }}" class="lp-landing-nav__brand">
+            <span class="lp-landing-nav__mark"></span>
+            {{ 'nav.brand'|trans }}
+        </a>
+        <nav class="lp-landing-nav__links">
+            <a href="{{ path('app_home') }}" class="lp-landing-nav__link">{{ 'legal.nav.back_home'|trans }}</a>
+            <a href="{{ path('app_login') }}" class="lp-landing-nav__link lp-landing-nav__link--wide">{{ 'landing.nav.login'|trans }}</a>
+            <a href="{{ path('app_register') }}" class="lp-btn lp-btn--primary lp-btn--sm">{{ 'landing.cta.signup'|trans }}</a>
+        </nav>
+    </header>
+
+    {{ block('body') }}
+
+    {% include '_marketing_footer.html.twig' only %}
+</div>
+{% endblock %}
