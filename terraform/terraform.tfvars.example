@@ -33,6 +33,19 @@ db_server_version = "18" # the cluster's actual PG major version
 # then empty it again.
 # db_cluster_trusted_ips = ["203.0.113.7"]
 
+# --- Optional: custom domain ---
+# Omit both and the app serves only on its assigned *.ondigitalocean.app
+# hostname. domain_zone must be a zone THIS account's DNS serves
+# (`doctl compute domain list`), and App Platform then writes the record itself.
+# custom_domain = "app.example.com"
+# domain_zone   = "example.com"
+
+# Absolute base for URLs built outside a request — password-reset mails, export
+# download links. Derives from custom_domain, so set it ONLY when you have no
+# custom domain, using the hostname the first apply printed. Wrong here means
+# links that point at the wrong host and nothing that says so.
+# default_uri = "https://loupe-xxxxx.ondigitalocean.app"
+
 # --- Optional: DigitalOcean project ---
 # Files the app, cluster and export bucket under one project. Omit and they land
 # in the account's DEFAULT project, which on a multi-app account belongs to

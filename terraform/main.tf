@@ -64,14 +64,20 @@ module "app" {
   # db_name          = "loupe"   # defaults to app_name (- -> _)
   # db_user          = "loupe"   # defaults to db_name
 
-  # Served from the zone apex. domain_zone is the DigitalOcean DNS zone the
-  # module writes the record into, so it must be a zone this account serves.
-  # default_uri is what CLI- and worker-generated absolute URLs are built from —
-  # password resets, export download links — none of which go through a request
-  # that could infer the host.
-  custom_domain = "loupe.ac"
-  domain_zone   = "loupe.ac"
-  default_uri   = "https://loupe.ac"
+  # Optional custom domain, supplied per-account like the placement above rather
+  # than hardcoded: domain_zone must name a DNS zone the deploying account's own
+  # DigitalOcean DNS serves, so a literal here would fail at apply for everyone
+  # but us.
+  #
+  # default_uri is what absolute URLs generated outside a request are built from
+  # — password-reset mails, export download links — so leaving it wrong points
+  # them at the wrong host with nothing to signal it. It derives from
+  # custom_domain when that is set; set it explicitly only when serving on the
+  # assigned *.ondigitalocean.app hostname, which is not known until after the
+  # first apply.
+  custom_domain = var.custom_domain
+  domain_zone   = var.domain_zone
+  default_uri   = var.default_uri
 
   # First deploy: keep off, run `just tf-db-bootstrap`, then flip on for
   # automated migrations.

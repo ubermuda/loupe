@@ -29,6 +29,24 @@ variable "spaces_secret_key" {
 # party's deployment at infrastructure they cannot reach — so this root demands
 # both explicitly.
 
+variable "custom_domain" {
+  type        = string
+  default     = ""
+  description = "Custom domain to serve the app on (e.g. loupe.ac, or app.example.com). Empty serves only on the assigned *.ondigitalocean.app hostname."
+}
+
+variable "domain_zone" {
+  type        = string
+  default     = ""
+  description = "DigitalOcean DNS zone holding custom_domain — usually the apex, and it must be a zone THIS account serves (`doctl compute domain list`). Set it and App Platform writes the record itself; leave it empty to point DNS yourself."
+}
+
+variable "default_uri" {
+  type        = string
+  default     = ""
+  description = "Absolute base URL for URLs generated outside a request — password-reset mails, export download links — which have no host to infer one from. Derives from custom_domain when that is set, so it is only needed when serving on the assigned *.ondigitalocean.app hostname, which is not known until after the first apply."
+}
+
 variable "project_id" {
   type        = string
   default     = ""
