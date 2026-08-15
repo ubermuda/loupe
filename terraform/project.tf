@@ -18,12 +18,17 @@ resource "digitalocean_project_resources" "app" {
   project = var.project_id
 
   # URNs, not IDs, and the prefix differs per resource type: App Platform apps
-  # are `do:app:`, managed databases `do:dbaas:`. The bucket exports a ready-made
-  # `urn` attribute, and is absent entirely when the operator brought their own
-  # storage — hence compact() over a possibly-empty string.
+  # are `do:app:`, managed databases `do:dbaas:`. compact() drops the entries
+  # that do not apply.
+  #
+  # The cluster is listed only when this root created it. A resource belongs to
+  # exactly one DigitalOcean project, so assigning is really moving: in attach
+  # mode the cluster is one the operator already runs and may share with other
+  # apps, and claiming it would drag it out of its own project — and, when this
+  # resource is later destroyed, into the account's default one.
   resources = compact([
     "do:app:${module.app.app_id}",
-    "do:dbaas:${module.app.db_cluster_id}",
+    var.create_db_cluster ? "do:dbaas:${module.app.db_cluster_id}" : "",
     var.create_export_bucket ? digitalocean_spaces_bucket.exports[0].urn : "",
   ])
 }
