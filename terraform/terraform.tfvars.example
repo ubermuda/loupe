@@ -33,6 +33,13 @@ db_server_version = "18" # the cluster's actual PG major version
 # then empty it again.
 # db_cluster_trusted_ips = ["203.0.113.7"]
 
+# --- Migrations ---
+# Leave off for the FIRST apply. PostgreSQL 15+ denies CREATE on the public
+# schema to a non-owner, so until the one-time GRANT has been issued as the
+# cluster admin the PRE_DEPLOY job fails — and it fails the whole deployment
+# with it, on every retry. Turn on once migrations have been run by hand.
+# enable_predeploy_migrations = true
+
 # --- Health check ---
 # Leave unset for the FIRST apply. The module attaches the cluster's trusted
 # sources after the app, so the app boots with no database access — and /healthz

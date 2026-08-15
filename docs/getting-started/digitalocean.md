@@ -89,7 +89,7 @@ docker run --rm --env-file <prod env file> \
     "${LOUPE_PROD_IMAGE:-ghcr.io/ubermuda/loupe:prod}" docker/prod/release.sh
 
 # 5. Turn on automated migrations for every deploy afterwards:
-#    uncomment `enable_predeploy_migrations = true` in terraform/main.tf, then
+#    set `enable_predeploy_migrations = true` in terraform.tfvars, then
 just tf-apply
 ```
 

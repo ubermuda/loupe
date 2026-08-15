@@ -83,9 +83,9 @@ cluster's trusted sources, and `GRANT` schema privileges. After the first
 just tf-db-bootstrap
 ```
 
-Then run migrations once and set `enable_predeploy_migrations = true` for
-automated migrations thereafter. (The manual equivalent is in the module's
-README → "Manual database bootstrap".)
+Then run migrations once and set `enable_predeploy_migrations = true` in
+`terraform.tfvars` for automated migrations thereafter. (The manual equivalent
+is in the module's README → "Manual database bootstrap".)
 
 ## Notes
 
