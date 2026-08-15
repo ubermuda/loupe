@@ -629,7 +629,7 @@
   };
 
   // ---- overlay render (scrim / highlight / pins / toast) ----
-  const HIGHLIGHT_PADDING = 4; // px of breathing room around the targeted element
+  const HIGHLIGHT_PADDING = 8; // px of breathing room around the targeted element
   const updateHighlight = () => {
     let hl = null;
     if (state.target && state.moveHL) {
