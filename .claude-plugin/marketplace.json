@@ -18,7 +18,7 @@
         "url": "https://github.com/ubermuda"
       },
       "homepage": "https://github.com/ubermuda/loupe",
-      "license": "MIT",
+      "license": "AGPL-3.0-or-later",
       "category": "development",
       "keywords": ["review", "documents", "site-review", "mcp"]
     }

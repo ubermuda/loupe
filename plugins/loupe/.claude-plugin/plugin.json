@@ -9,7 +9,7 @@
   },
   "homepage": "https://github.com/ubermuda/loupe",
   "repository": "https://github.com/ubermuda/loupe",
-  "license": "MIT",
+  "license": "AGPL-3.0-or-later",
   "keywords": [
     "review",
     "documents",
