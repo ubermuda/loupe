@@ -157,7 +157,13 @@
     '--on-accent': '#0f0f0d',
     // The dark edge that keeps a pin and the picker outline legible over a host
     // page whose background may be any colour, chartreuse-adjacent included.
-    '--pin-ring': '#0f0f0d',
+    // Deep chartreuse rather than ink, so the edge reads as part of the accent
+    // instead of a black box drawn over the page.
+    '--pin-ring': '#3f4700',
+    // Separation for the picker outline and its label. A soft shadow rather
+    // than a hard ring: stacked inside the accent border and the fill glow,
+    // a third concentric edge muddied the box at small sizes.
+    '--pin-shadow': 'rgba(63,71,0,.35)',
   };
   const LIGHT = {
     '--panel-bg': '#ffffff',
@@ -511,8 +517,8 @@
       /* Chartreuse alone can vanish against a pale or yellowish host page, so
          every marker the widget paints onto the page carries a near-black edge
          of its own: the accent reads as the brand, the ring keeps it visible. */
-      .highlight{position:fixed;border:2px solid var(--accent);background:var(--accent-fill);border-radius:10px;pointer-events:none;box-shadow:0 0 0 1px var(--pin-ring),0 0 0 5px var(--accent-fill);transition:left .07s ease,top .07s ease,width .07s ease,height .07s ease;z-index:2}
-      .lp-hl-label{position:absolute;left:-2px;top:-27px;display:inline-flex;align-items:center;max-width:240px;height:21px;padding:0 9px;background:var(--accent);color:var(--on-accent);font-size:11px;font-weight:600;border-radius:999px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;box-shadow:0 0 0 1px var(--pin-ring)}
+      .highlight{position:fixed;border:2px solid var(--accent);background:var(--accent-fill);border-radius:10px;pointer-events:none;box-shadow:0 2px 10px var(--pin-shadow);transition:left .07s ease,top .07s ease,width .07s ease,height .07s ease;z-index:2}
+      .lp-hl-label{position:absolute;left:-2px;top:-27px;display:inline-block;max-width:240px;height:21px;line-height:21px;padding:0 9px;background:var(--accent);color:var(--on-accent);font-size:11px;font-weight:600;border-radius:999px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;box-shadow:0 2px 10px var(--pin-shadow)}
       .lp-pin-wrap{position:fixed;z-index:4;pointer-events:auto}
       .lp-ov.targeting .lp-pin-wrap{pointer-events:none}
       .pin{width:24px;height:24px;border-radius:50% 50% 50% 2px;border:2px solid var(--pin-ring);background:var(--accent);color:var(--on-accent);font-family:inherit;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;cursor:pointer;box-shadow:0 2px 8px rgba(15,15,13,.35);animation:lp-pin .22s cubic-bezier(.2,1.3,.5,1)}
@@ -623,6 +629,7 @@
   };
 
   // ---- overlay render (scrim / highlight / pins / toast) ----
+  const HIGHLIGHT_PADDING = 4; // px of breathing room around the targeted element
   const updateHighlight = () => {
     let hl = null;
     if (state.target && state.moveHL) {
@@ -648,13 +655,26 @@
       hlNode.style.display = 'none';
       return;
     }
+    // Outset the measured rect so the outline frames the element rather than
+    // tracing its edge. Applied before the label is placed, so the label keeps
+    // sitting against the box the reviewer actually sees.
+    hl = {
+      ...hl,
+      left: hl.left - HIGHLIGHT_PADDING,
+      top: hl.top - HIGHLIGHT_PADDING,
+      width: hl.width + HIGHLIGHT_PADDING * 2,
+      height: hl.height + HIGHLIGHT_PADDING * 2,
+    };
     hlNode.style.display = 'block';
     hlNode.style.left = hl.left + 'px';
     hlNode.style.top = hl.top + 'px';
     hlNode.style.width = hl.width + 'px';
     hlNode.style.height = hl.height + 'px';
     if (hl.label) {
-      hlLabel.style.display = 'inline-flex';
+      // Block, not inline-flex: text-overflow has no effect on a flex container's
+      // anonymous text item, so the label would hard-clip mid-word instead of
+      // ellipsing when the element's first line runs past the pill's max width.
+      hlLabel.style.display = 'block';
       hlLabel.textContent = hl.label;
       // The label normally sits just above the box's left corner; when the box hugs an
       // edge of the viewport that placement clips off-screen, so flip to the other side.
