@@ -27,8 +27,9 @@ claude plugin marketplace add ubermuda/loupe
 claude plugin install loupe@loupe
 ```
 
-Installing prompts for the `/mcp` endpoint of your instance and a project API
-token — both are on the project's Connect page. The token is marked sensitive,
+Installing asks for a project API token, from the project's Connect page. The
+endpoint defaults to the hosted instance; if you self-host, set it to your own
+`/mcp` URL, which the same page shows. The token is marked sensitive,
 so it goes to the OS keychain rather than a settings file, and it is never read
 from a repository's `.claude/settings.json`: a cloned project cannot inject one.
 

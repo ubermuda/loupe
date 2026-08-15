@@ -20,8 +20,8 @@
     "server_url": {
       "type": "string",
       "title": "MCP endpoint URL",
-      "description": "The full /mcp endpoint of your Loupe instance, e.g. https://loupe.example.com/mcp — shown on a project's Connect page.",
-      "required": true
+      "description": "Defaults to the hosted instance. Self-hosting? Use your own /mcp endpoint, shown on a project's Connect page.",
+      "default": "https://loupe.ac/mcp"
     },
     "api_token": {
       "type": "string",
