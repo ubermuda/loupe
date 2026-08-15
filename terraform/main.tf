@@ -83,9 +83,11 @@ module "app" {
   domain_zone   = var.domain_zone
   default_uri   = var.default_uri
 
-  # First deploy: keep off, run `just tf-db-bootstrap`, then flip on for
-  # automated migrations.
-  # enable_predeploy_migrations = true
+  # Off for the first apply — the job cannot reach the database until the
+  # one-time schema GRANT has run, and a failing PRE_DEPLOY job fails the whole
+  # deployment. On thereafter, so every deploy migrates before the new
+  # containers roll.
+  enable_predeploy_migrations = var.enable_predeploy_migrations
 
   # Background worker, from the same image as the web service. Without it
   # nothing consumes the async or scheduler transports: queued mail is never

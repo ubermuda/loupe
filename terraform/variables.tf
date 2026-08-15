@@ -29,6 +29,12 @@ variable "spaces_secret_key" {
 # party's deployment at infrastructure they cannot reach — so this root demands
 # both explicitly.
 
+variable "enable_predeploy_migrations" {
+  type        = bool
+  default     = false
+  description = "Run migrations as a PRE_DEPLOY job on every deploy. Must stay false for the very first apply: PostgreSQL 15+ denies CREATE on the public schema to a non-owner, so until the one-time GRANT has been issued as the cluster admin the job fails — and a failing PRE_DEPLOY job fails the whole deployment, on every subsequent attempt too. Turn it on once migrations have been run by hand."
+}
+
 variable "health_check_path" {
   type        = string
   default     = "/login"
