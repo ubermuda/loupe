@@ -17,6 +17,57 @@ token can be revoked from `/account/api-tokens/{tokenId}/revoke`.
 
 The first-run wizard mints one for you at `/welcome/connect`.
 
+## The Claude Code plugin
+
+Claude Code users can install the endpoint and the two Loupe skills together,
+instead of wiring the server up by hand:
+
+```bash
+claude plugin marketplace add ubermuda/loupe
+claude plugin install loupe@loupe
+```
+
+Installing asks for a project API token, from the project's Connect page. The
+endpoint defaults to the hosted instance; if you self-host, set it to your own
+`/mcp` URL, which the same page shows. The token is marked sensitive,
+so it goes to the OS keychain rather than a settings file, and it is never read
+from a repository's `.claude/settings.json`: a cloned project cannot inject one.
+
+### Setting and changing the two values
+
+Answer the prompts, or pass them on the command line:
+
+```bash
+claude plugin install loupe@loupe \
+  --config server_url=https://loupe.example.com/mcp \
+  --config api_token=<token>
+```
+
+To change either one later — pointing at a different instance, switching
+projects, or rotating a token — run `/plugin configure loupe@loupe` inside
+Claude Code, or re-run the same `install --config` command with the new value.
+Re-running prints `Plugin "loupe@loupe" is already installed`, which reads like
+nothing happened; the config is updated regardless. Confirm with `claude mcp
+list`, which prints the endpoint the plugin resolved:
+
+```
+plugin:loupe:loupe: https://loupe.example.com/mcp (HTTP) - ✔ Connected
+```
+
+Omitting a value leaves the notice `1 userConfig option not yet set` after
+install. For `server_url` that is cosmetic — the default applies — but the
+plugin cannot work until a token is set.
+
+Alongside the server the plugin ships `loupe:loupe-documents`, which formats a
+document for the review UI, and `loupe:loupe-site-review`, which works the
+comment loop. The `claude mcp add` one-liner on the Connect page remains the
+right choice for any other MCP client.
+
+**A hand-configured server of the same name wins.** If you previously ran
+`claude mcp add ... loupe ...`, that entry takes precedence and the plugin's
+server is ignored with no warning — `claude mcp list` shows `loupe` rather than
+`plugin:loupe:loupe`. Run `claude mcp remove loupe` after installing the plugin.
+
 ## What the tools do
 
 Roughly in the order an agent uses them:

@@ -1,0 +1,26 @@
+{
+  "name": "loupe",
+  "owner": {
+    "name": "Geoffrey Bachelet",
+    "url": "https://github.com/ubermuda"
+  },
+  "description": "The Loupe plugin for Claude Code — document review and site-review feedback.",
+  "version": "0.1.0",
+  "plugins": [
+    {
+      "name": "loupe",
+      "displayName": "Loupe",
+      "source": "./plugins/loupe",
+      "version": "0.1.0",
+      "description": "Submit long-form documents for human review and act on site-review comments, from inside Claude Code.",
+      "author": {
+        "name": "Geoffrey Bachelet",
+        "url": "https://github.com/ubermuda"
+      },
+      "homepage": "https://github.com/ubermuda/loupe",
+      "license": "AGPL-3.0-or-later",
+      "category": "development",
+      "keywords": ["review", "documents", "site-review", "mcp"]
+    }
+  ]
+}
