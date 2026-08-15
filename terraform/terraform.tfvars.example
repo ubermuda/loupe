@@ -27,6 +27,18 @@ db_server_version = "18" # the cluster's actual PG major version
 # db_cluster_size       = "db-s-1vcpu-1gb"  # smallest managed plan
 # db_cluster_node_count = 1                 # 1 = no standby
 
+# Dedicated mode only. The module declares the cluster's whole trusted-source
+# list, so this is authoritative and `doctl databases firewalls append` does not
+# survive the next apply. Put your address here for the one-time schema GRANT,
+# then empty it again.
+# db_cluster_trusted_ips = ["203.0.113.7"]
+
+# --- Optional: DigitalOcean project ---
+# Files the app, cluster and export bucket under one project. Omit and they land
+# in the account's DEFAULT project, which on a multi-app account belongs to
+# something else. `doctl projects list` for the UUID.
+# project_id = "00000000-0000-0000-0000-000000000000"
+
 # --- Required: credentials ---
 
 do_token             = "dop_v1_..."            # or export DIGITALOCEAN_TOKEN and drop this

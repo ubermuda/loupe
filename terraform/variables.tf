@@ -29,6 +29,12 @@ variable "spaces_secret_key" {
 # party's deployment at infrastructure they cannot reach — so this root demands
 # both explicitly.
 
+variable "project_id" {
+  type        = string
+  default     = ""
+  description = "UUID of the DigitalOcean project to file the app, database cluster and export bucket under — `doctl projects list`. Organisational only; it grants nothing. Left empty, resources land in whatever project the account marks as default, which on a multi-app account is some unrelated deployment's."
+}
+
 variable "region" {
   type        = string
   description = "App Platform region slug (e.g. tor, nyc, fra). MUST match the region of the Postgres cluster named by db_cluster_name, so app-to-database traffic stays on the private network. Note this is the App Platform slug, not the Spaces slug: Spaces uses tor1/nyc3/fra1 — see export_bucket_region."
@@ -67,6 +73,12 @@ variable "db_cluster_node_count" {
   type        = number
   default     = 1
   description = "Node count for the dedicated cluster (create_db_cluster = true). 1 means no standby: a node failure is downtime and restore-from-backup, not failover."
+}
+
+variable "db_cluster_trusted_ips" {
+  type        = list(string)
+  default     = []
+  description = "Extra IPs or CIDRs allowed to reach the dedicated cluster (create_db_cluster = true), on top of the app itself. The module declares the cluster's whole trusted-source list, so this is AUTHORITATIVE: a rule appended with `doctl databases firewalls append` is removed on the next apply. Add the workstation address here for the one-time schema GRANT, then empty it again — leaving it populated exposes the cluster to an address that is probably a home connection on a dynamic lease. Inert when attaching to a cluster you already run, where the module does not manage trusted sources at all."
 }
 
 variable "db_server_version" {
