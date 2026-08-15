@@ -29,6 +29,36 @@ variable "spaces_secret_key" {
 # party's deployment at infrastructure they cannot reach — so this root demands
 # both explicitly.
 
+variable "health_check_path" {
+  type        = string
+  default     = "/login"
+  description = "Path App Platform probes to decide a container is healthy. /healthz is the real check — it answers 503 when the database is unreachable — but it cannot be used on the very first apply: the module attaches the cluster's trusted sources AFTER the app, so the app boots with no database access and would never pass. /login is public, queries nothing and returns 200. Switch to /healthz once the database is reachable."
+}
+
+variable "custom_domain" {
+  type        = string
+  default     = ""
+  description = "Custom domain to serve the app on (e.g. loupe.ac, or app.example.com). Empty serves only on the assigned *.ondigitalocean.app hostname."
+}
+
+variable "domain_zone" {
+  type        = string
+  default     = ""
+  description = "DigitalOcean DNS zone holding custom_domain — usually the apex, and it must be a zone THIS account serves (`doctl compute domain list`). Set it and App Platform writes the record itself; leave it empty to point DNS yourself."
+}
+
+variable "default_uri" {
+  type        = string
+  default     = ""
+  description = "Absolute base URL for URLs generated outside a request — password-reset mails, export download links — which have no host to infer one from. Derives from custom_domain when that is set, so it is only needed when serving on the assigned *.ondigitalocean.app hostname, which is not known until after the first apply."
+}
+
+variable "project_id" {
+  type        = string
+  default     = ""
+  description = "UUID of the DigitalOcean project to file the app, database cluster and export bucket under — `doctl projects list`. Organisational only; it grants nothing. Left empty, resources land in whatever project the account marks as default, which on a multi-app account is some unrelated deployment's."
+}
+
 variable "region" {
   type        = string
   description = "App Platform region slug (e.g. tor, nyc, fra). MUST match the region of the Postgres cluster named by db_cluster_name, so app-to-database traffic stays on the private network. Note this is the App Platform slug, not the Spaces slug: Spaces uses tor1/nyc3/fra1 — see export_bucket_region."
@@ -67,6 +97,12 @@ variable "db_cluster_node_count" {
   type        = number
   default     = 1
   description = "Node count for the dedicated cluster (create_db_cluster = true). 1 means no standby: a node failure is downtime and restore-from-backup, not failover."
+}
+
+variable "db_cluster_trusted_ips" {
+  type        = list(string)
+  default     = []
+  description = "Extra IPs or CIDRs allowed to reach the dedicated cluster (create_db_cluster = true), on top of the app itself. The module declares the cluster's whole trusted-source list, so this is AUTHORITATIVE: a rule appended with `doctl databases firewalls append` is removed on the next apply. Add the workstation address here for the one-time schema GRANT, then empty it again — leaving it populated exposes the cluster to an address that is probably a home connection on a dynamic lease. Inert when attaching to a cluster you already run, where the module does not manage trusted sources at all."
 }
 
 variable "db_server_version" {

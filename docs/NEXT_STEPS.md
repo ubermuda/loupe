@@ -340,6 +340,35 @@ can offer the two plugin commands next to the existing `claude mcp add`
 one-liner. It was deliberately left untouched so it would not advertise an
 install that fails.
 
+## `just tf-db-bootstrap` does not survive an apply on a dedicated cluster
+
+**Author:** Claude · **Type:** tooling · **Priority:** high · **Status:** pending
+
+The recipe adds the app and the operator's IP to the cluster's trusted sources
+with `doctl databases firewalls append`, then grants the app user schema
+privileges. That is correct only when attaching to a cluster someone else owns.
+
+With `create_db_cluster = true` the shared module declares a
+`digitalocean_database_firewall` for the cluster, and that resource is
+**authoritative** — it replaces the whole trusted-source list. So both appended
+rules are silently dropped by the next `terraform apply`, including the app's
+own. The supported route in that mode is the `db_cluster_trusted_ips` variable
+(added on the same branch as this note): set it to the workstation address,
+apply, run the GRANT, empty it, apply again. The GRANT half of the recipe is
+still needed in both modes — DigitalOcean's API exposes no resource for
+Postgres grants.
+
+Nothing warns about this. The recipe exits 0, the rules exist, and they vanish
+on an apply that may be days later — presenting as an app that abruptly cannot
+reach its own database.
+
+Close it out by having the recipe read `create_db_cluster` (or the presence of
+the firewall in state) and, in dedicated mode, skip the `firewalls append` calls
+and tell the operator to set `db_cluster_trusted_ips` instead. The prose in
+`terraform/README.md` and `docs/getting-started/digitalocean.md` says create mode
+"removes the firewall half" of the bootstrap, which is true but reads as
+"the recipe is fine to run" rather than "half of what it does will be undone".
+
 ## Proper HTTP API + outbound webhooks
 
 

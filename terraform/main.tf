@@ -41,6 +41,12 @@ module "app" {
   db_cluster_size       = var.db_cluster_size
   db_cluster_node_count = var.db_cluster_node_count
 
+  # Dedicated mode only, and authoritative: the module declares the cluster's
+  # whole trusted-source list, so a rule appended with `doctl` is dropped on the
+  # next apply. The one-time schema GRANT runs from a workstation, which must
+  # therefore be listed here for that step and removed again afterwards.
+  db_cluster_trusted_ips = var.db_cluster_trusted_ips
+
   # Image coordinates. These must agree with `prod_image` in the justfile, which
   # builds and pushes what App Platform pulls here.
   registry_type    = var.registry_type
@@ -58,10 +64,24 @@ module "app" {
   # db_name          = "loupe"   # defaults to app_name (- -> _)
   # db_user          = "loupe"   # defaults to db_name
 
-  # Optional custom domain (this repo has none):
-  # custom_domain = "app.example.com"
-  # domain_zone   = "example.com"
-  # default_uri   = "https://app.example.com"
+  # /login for the first apply, /healthz once the database is reachable — see
+  # the variable for why the order matters.
+  health_check_path = var.health_check_path
+
+  # Optional custom domain, supplied per-account like the placement above rather
+  # than hardcoded: domain_zone must name a DNS zone the deploying account's own
+  # DigitalOcean DNS serves, so a literal here would fail at apply for everyone
+  # but us.
+  #
+  # default_uri is what absolute URLs generated outside a request are built from
+  # — password-reset mails, export download links — so leaving it wrong points
+  # them at the wrong host with nothing to signal it. It derives from
+  # custom_domain when that is set; set it explicitly only when serving on the
+  # assigned *.ondigitalocean.app hostname, which is not known until after the
+  # first apply.
+  custom_domain = var.custom_domain
+  domain_zone   = var.domain_zone
+  default_uri   = var.default_uri
 
   # First deploy: keep off, run `just tf-db-bootstrap`, then flip on for
   # automated migrations.
