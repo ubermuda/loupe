@@ -73,9 +73,9 @@
                        {% if route == 'app_project_site_review' %}aria-current="page"{% endif %}>
                         <twig:ux:icon name="lucide:globe" />
                         <span class="lp-sidebar__link-label">{{ 'nav.link.site_review'|trans }}</span>
-                        {# The pill counts every submitted comment; it only turns amber
-                           while some of them are still waiting on the agent. Both
-                           figures come from one call, so the badge costs one query. #}
+                        {# The pill counts every comment; it only turns amber while some
+                           of them are still waiting on the agent. Both figures come from
+                           one call, so the badge costs one query. #}
                         {% set reviewCounts = project_site_review_counts(project) %}
                         <span class="lp-sidebar__pill{% if reviewCounts.pending > 0 %} lp-sidebar__pill--amber{% endif %}">{{ reviewCounts.total }}</span>
                     </a>

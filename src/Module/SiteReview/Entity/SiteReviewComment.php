@@ -22,7 +22,7 @@ class SiteReviewComment
     public private(set) ?Uuid $id = null;
 
     #[ORM\Column(length: 20, enumType: SiteReviewCommentStatus::class)]
-    public SiteReviewCommentStatus $status = SiteReviewCommentStatus::Draft;
+    public SiteReviewCommentStatus $status = SiteReviewCommentStatus::Pending;
 
     public function __construct(
         #[ORM\JoinColumn(nullable: false)]
@@ -32,7 +32,7 @@ class SiteReviewComment
         #[ORM\Column]
         public readonly int $position,
 
-        // Mutable: the widget can edit the body while the comment is still a Draft.
+        // Mutable: the widget can edit the body while the comment is still Pending.
         #[ORM\Column(type: Types::TEXT)]
         public string $body,
 

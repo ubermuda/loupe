@@ -4,9 +4,9 @@ description: "An embeddable widget for commenting on live web pages. Preview —
 ---
 
 The site-review widget brings the select-and-comment flow to any web page. A
-reviewer highlights something on the page, leaves a comment, and it arrives in
-the project as a Draft comment; with a Mercure hub running, it also streams to a
-connected agent in real time.
+reviewer highlights something on the page and leaves a comment; it is saved to
+the project the moment they press Save, and the agent can pull it with
+`site_review_get` from then on. There is no send step to remember.
 
 **This is a preview.** It works and is used daily on this project, but it is not
 covered by any release promise, and the pieces around it — the hub, the

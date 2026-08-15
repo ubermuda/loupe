@@ -20,7 +20,7 @@ final readonly class UpdateCommentHandler
 
     public function __invoke(UpdateCommentCommand $command): SiteReviewComment
     {
-        $comment = $this->siteReviewComments->findOneDraft($command->commentId, $command->project)
+        $comment = $this->siteReviewComments->findOnePending($command->commentId, $command->project)
             ?? throw CommentNotFound::forId($command->commentId);
 
         $comment->body = $command->body;

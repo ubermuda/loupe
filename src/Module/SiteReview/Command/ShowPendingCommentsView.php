@@ -6,7 +6,7 @@ namespace App\Module\SiteReview\Command;
 
 use App\Module\SiteReview\Entity\SiteReviewComment;
 
-final readonly class ShowDraftCommentsView
+final readonly class ShowPendingCommentsView
 {
     /** @param list<SiteReviewComment> $comments */
     public function __construct(

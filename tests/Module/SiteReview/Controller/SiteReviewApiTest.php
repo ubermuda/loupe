@@ -44,7 +44,7 @@ final class SiteReviewApiTest extends WebTestCase
             content: null === $json ? null : json_encode($json, \JSON_THROW_ON_ERROR));
     }
 
-    public function test_add_comment_creates_a_draft_comment(): void
+    public function test_add_comment_creates_a_pending_comment(): void
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
@@ -58,8 +58,8 @@ final class SiteReviewApiTest extends WebTestCase
         self::assertIsArray($data);
         self::assertArrayHasKey('commentId', $data);
 
-        $drafts = static::getContainer()->get(SiteReviewCommentRepository::class)->findDraftForProject($project);
-        self::assertCount(1, $drafts);
+        $pending = static::getContainer()->get(SiteReviewCommentRepository::class)->findPendingForProject($project);
+        self::assertCount(1, $pending);
     }
 
     public function test_unbound_site_review_token_is_forbidden(): void
@@ -80,7 +80,7 @@ final class SiteReviewApiTest extends WebTestCase
         self::assertSame('token_not_bound_to_site', json_decode((string) $client->getResponse()->getContent(), true)['error'] ?? null);
     }
 
-    public function test_current_draft_round_trip_and_submit(): void
+    public function test_saved_comments_are_immediately_live(): void
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
@@ -98,20 +98,26 @@ final class SiteReviewApiTest extends WebTestCase
         self::assertSame('one', $data['comments'][0]['body']);
         self::assertNotEmpty($data['comments'][0]['id']);
 
-        $this->api($client, Request::METHOD_POST, '/api/site-review/review/submit', $raw);
-        self::assertResponseIsSuccessful();
+        // No send step: the POSTs alone put both comments on the agent's queue.
         $em->clear();
         $pending = static::getContainer()->get(SiteReviewCommentRepository::class)->findPendingForProject($project);
         self::assertCount(2, $pending);
-
-        // No draft anymore: a second submit is a 422, and GET review is empty again.
-        $this->api($client, Request::METHOD_POST, '/api/site-review/review/submit', $raw);
-        self::assertResponseStatusCodeSame(422);
-        $this->api($client, Request::METHOD_GET, '/api/site-review/review', $raw);
-        self::assertSame(['comments' => []], json_decode((string) $client->getResponse()->getContent(), true));
     }
 
-    public function test_edit_and_delete_draft_comment(): void
+    public function test_the_submit_route_is_gone(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        [$raw] = $this->projectWithToken($em, 'api-e@example.com');
+
+        // The GET on the same prefix must keep working — only the POST is gone.
+        $this->api($client, Request::METHOD_POST, '/api/site-review/review/submit', $raw);
+        self::assertResponseStatusCodeSame(404);
+        $this->api($client, Request::METHOD_GET, '/api/site-review/review', $raw);
+        self::assertResponseIsSuccessful();
+    }
+
+    public function test_edit_and_delete_pending_comment(): void
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);

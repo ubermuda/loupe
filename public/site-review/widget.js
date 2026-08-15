@@ -10,9 +10,11 @@
   const script = document.currentScript;
   const BACKEND = new URL(script.src).origin;
   const TOKEN = script.getAttribute('data-token') || '';
-  // Comments now live server-side as the project's Draft comments; `pending`
-  // mirrors them. Each item: { id, body, selector, text, url }.
-  let pending = [];
+  // Every comment is saved to the API as it is written and is live from that
+  // moment — there is no send step. `comments` mirrors the project's Pending
+  // comments, the ones this reviewer may still edit or delete; once the agent
+  // marks one addressed it drops out. Each item: { id, body, selector, text, url }.
+  let comments = [];
 
   const api = async (method, path, body) => {
     const response = await fetch(`${BACKEND}${path}`, {
@@ -39,39 +41,40 @@
     return response.status === 204 ? null : response.json();
   };
 
-  // A 401/403 from ANY endpoint means the widget's token is unusable — loading, saving,
-  // and sending all fail the same way — so it is not a per-action hiccup. Callers promote
-  // it to the fatal state instead of showing a retryable inline error.
+  // A 401/403 from ANY endpoint means the widget's token is unusable — loading, saving
+  // and deleting all fail the same way — so it is not a per-action hiccup. Callers
+  // promote it to the fatal state instead of showing a dismissible inline error.
   const authFailed = (error) => !!error && (error.status === 401 || error.status === 403);
   const fatalFrom = (error) => ({ status: error.status, code: error.code });
   // Enter the terminal fatal state: record the cause and tear down everything interactive
-  // so the critical panel actually surfaces cleanly. Drops the in-memory review (so no
+  // so the critical panel actually surfaces cleanly. Drops the in-memory list (so no
   // stale pins/rows/highlights linger as clickable dead ends), and exits pick and compose
   // modes — pick mode in particular hides the whole widget behind its scrim and keeps
   // document-level click listeners, which a boot rejection landing after the user entered
   // pick mode would otherwise leave stuck on the page.
   const enterFatal = (error) => {
     state.fatal = fatalFrom(error);
-    pending = [];
+    comments = [];
     setTargeting(false);
     state.composing = false;
     state.composeTarget = null;
     state.editId = null;
     state.draft = '';
-    state.sendError = null;
+    state.actionError = null;
+    state.savedNotice = null;
     textareaNode.value = '';
   };
 
-  // Rehydrate the pending list from the server's Draft comments.
+  // Rehydrate the list from the project's Pending comments.
   const refresh = async () => {
     try {
-      const { comments } = await api('GET', '/api/site-review/review');
-      pending = comments || [];
+      const payload = await api('GET', '/api/site-review/review');
+      comments = payload.comments || [];
     } catch (error) {
       // Catch a rejected token at the earliest possible point — the boot load — so the
-      // widget opens straight into its critical state instead of a misleading empty review.
+      // widget opens straight into its critical state instead of a misleading empty list.
       if (authFailed(error)) enterFatal(error);
-      pending = [];
+      comments = [];
     }
   };
 
@@ -105,7 +108,7 @@
     return parts.join(' > ');
   };
 
-  // Resolve a pending comment to a live element on the current page, or null when it
+  // Resolve a comment to a live element on the current page, or null when it
   // is unanchored, was made on another page, or its selector no longer matches.
   const resolveElement = (comment) => {
     if (!comment.selector || comment.url !== location.href) return null;
@@ -154,7 +157,13 @@
     '--on-accent': '#0f0f0d',
     // The dark edge that keeps a pin and the picker outline legible over a host
     // page whose background may be any colour, chartreuse-adjacent included.
-    '--pin-ring': '#0f0f0d',
+    // Deep chartreuse rather than ink, so the edge reads as part of the accent
+    // instead of a black box drawn over the page.
+    '--pin-ring': '#3f4700',
+    // Separation for the picker outline and its label. A soft shadow rather
+    // than a hard ring: stacked inside the accent border and the fill glow,
+    // a third concentric edge muddied the box at small sizes.
+    '--pin-shadow': 'rgba(63,71,0,.35)',
   };
   const LIGHT = {
     '--panel-bg': '#ffffff',
@@ -223,8 +232,6 @@
     close: (s) =>
       svg(s, '<line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/>', 2),
     chevron: (s) => svg(s, '<polyline points="6 9 12 15 18 9"/>', 2.2),
-    send: (s) =>
-      svg(s, '<line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/>', 2),
     trash: (s) =>
       svg(
         s,
@@ -251,8 +258,8 @@
       ),
   };
 
-  // ---- widget state (the in-progress review's comments live in `pending`; this is UI state) ----
-  // Comments are identified by their index in `pending`; every mutation re-renders.
+  // ---- widget state (the reviewer's comments live in `comments`; this is UI state) ----
+  // Comments are identified by their index in `comments`; every mutation re-renders.
   const state = {
     open: false,
     target: false,
@@ -271,9 +278,8 @@
     pinConfirmId: null, // armed pin-popover delete
     saving: false,
     deleting: false,
-    sending: false,
-    sent: false, // true after a successful submit
-    sendError: null, // transient mutation failure (network/5xx/429): a retryable inline banner
+    savedNotice: null, // brief "it is live now" toast text, cleared on a timer
+    actionError: null, // failed mutation (network/5xx/429/404): a dismissible inline banner
     fatal: null, // { status } once the token is rejected (401/403) — replaces the panel
   };
   let moveBase = null; // deepest element under the cursor while picking
@@ -362,7 +368,7 @@
       .lp-action{flex:1;height:38px;display:flex;align-items:center;justify-content:center;gap:7px;border-radius:999px;font-family:inherit;font-size:13px;font-weight:600;cursor:pointer;border:0;background:var(--chip-bg);color:var(--text);transition:background .15s ease,color .15s ease}
       .lp-action:hover{background:var(--field-focus)}
       /* Pressed, not primary: a solid accent fill here would compete with the
-         Save/Send button for the eye, so the toggle takes the pale tint. */
+         Save button for the eye, so the toggle takes the pale tint. */
       .lp-action.active{background:var(--accent-tint);color:var(--accent-ink);box-shadow:inset 0 0 0 1px var(--accent-border)}
       .lp-kbd{font-family:var(--mono);font-size:10px;line-height:1;padding:2px 4px;border-radius:4px;background:var(--panel-elev);border:1px solid var(--panel-border);border-bottom-width:2px;color:var(--chip-text)}
 
@@ -407,26 +413,17 @@
       .lp-chev{transition:transform .25s ease}
       .lp-clear{height:32px;padding:0 13px;background:transparent;border:0;color:var(--muted);font-family:inherit;font-size:12.5px;font-weight:600;border-radius:999px;cursor:pointer}
       .lp-clear:hover{background:var(--chip-bg);color:var(--danger)}
-      .lp-send{height:32px;padding:0 17px;display:flex;align-items:center;gap:7px;background:var(--accent);color:var(--on-accent);border:0;border-radius:999px;font-family:inherit;font-size:12.5px;font-weight:700;cursor:pointer;transition:background .14s ease}
-      .lp-send:hover{background:var(--accent-hover)}
-      .lp-send[disabled]{opacity:.55;cursor:default}
-      .lp-confirm-text{font-size:12px;color:var(--text);font-weight:600}
+      .lp-clear[disabled]{opacity:.55;cursor:default}
+      .lp-confirm-text{flex:1;font-size:12px;color:var(--text);font-weight:600;line-height:1.4}
       .lp-clear-cancel{height:32px;padding:0 13px;background:transparent;border:0;color:var(--muted);font-family:inherit;font-size:12.5px;font-weight:600;border-radius:999px;cursor:pointer}
       .lp-clear-cancel:hover{background:var(--chip-bg);color:var(--text)}
       .lp-clear-yes{height:32px;padding:0 15px;background:var(--danger);color:#fff;border:0;border-radius:999px;font-family:inherit;font-size:12.5px;font-weight:700;cursor:pointer}
       .lp-spin{width:13px;height:13px;border:2px solid currentColor;border-right-color:transparent;border-radius:50%;display:inline-block;animation:lp-spin .6s linear infinite}
 
-      .lp-sent{padding:6px 18px 20px;text-align:center;animation:lp-pop .2s ease}
-      .lp-sent-disc{width:46px;height:46px;margin:8px auto 12px;border-radius:50%;background:color-mix(in srgb,var(--success) 14%,transparent);display:flex;align-items:center;justify-content:center;color:var(--success)}
-      .lp-sent-title{font-size:14.5px;font-weight:700}
-      .lp-sent-sub{font-size:12.5px;color:var(--muted);margin-top:3px}
-
       .lp-fatal{padding:10px 24px 26px;text-align:center;animation:lp-pop .2s ease}
       .lp-fatal-disc{width:46px;height:46px;margin:6px auto 13px;border-radius:50%;background:color-mix(in srgb,var(--danger) 13%,transparent);display:flex;align-items:center;justify-content:center;color:var(--danger)}
       .lp-fatal-title{font-size:14.5px;font-weight:700;color:var(--text)}
       .lp-fatal-sub{max-width:252px;margin:6px auto 0;font-size:12.5px;color:var(--muted);line-height:1.55}
-      .lp-new{margin-top:10px;height:34px;width:100%;background:var(--chip-bg);border:0;border-radius:999px;color:var(--text);font-family:inherit;font-size:13px;font-weight:600;cursor:pointer;transition:background .14s ease}
-      .lp-new:hover{background:var(--field-focus)}
     </style>
     <div class="lp-launcher" id="lp-launcher">
       <div class="lp-launch-quick" id="lp-launch-quick">
@@ -492,18 +489,16 @@
               <span id="lp-list-toggle-text">Show comments</span>
             </button>
             <div class="lp-spacer"></div>
-            <button class="lp-clear" id="lp-clear">Clear</button>
-            <button class="lp-send" id="lp-send">${ICON.send(14)}Send</button>
+            <button class="lp-clear" id="lp-clear">Delete all</button>
           </div>
           <div class="lp-footer-row" id="lp-footer-confirm" style="display:none">
             <span class="lp-confirm-text" id="lp-clear-confirm-text"></span>
             <div class="lp-spacer"></div>
             <button class="lp-clear-cancel" id="lp-clear-cancel">Cancel</button>
-            <button class="lp-clear-yes" id="lp-clear-yes">Clear all</button>
+            <button class="lp-clear-yes" id="lp-clear-yes">Delete</button>
           </div>
         </div>
       </div>
-      <div id="lp-sent" style="display:none"></div>
       <div id="lp-fatal" style="display:none"></div>
     </div>`;
 
@@ -522,8 +517,8 @@
       /* Chartreuse alone can vanish against a pale or yellowish host page, so
          every marker the widget paints onto the page carries a near-black edge
          of its own: the accent reads as the brand, the ring keeps it visible. */
-      .highlight{position:fixed;border:2px solid var(--accent);background:var(--accent-fill);border-radius:10px;pointer-events:none;box-shadow:0 0 0 1px var(--pin-ring),0 0 0 5px var(--accent-fill);transition:left .07s ease,top .07s ease,width .07s ease,height .07s ease;z-index:2}
-      .lp-hl-label{position:absolute;left:-2px;top:-27px;display:inline-flex;align-items:center;max-width:240px;height:21px;padding:0 9px;background:var(--accent);color:var(--on-accent);font-size:11px;font-weight:600;border-radius:999px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;box-shadow:0 0 0 1px var(--pin-ring)}
+      .highlight{position:fixed;border:2px solid var(--accent);background:var(--accent-fill);border-radius:10px;pointer-events:none;box-shadow:0 2px 10px var(--pin-shadow);transition:left .07s ease,top .07s ease,width .07s ease,height .07s ease;z-index:2}
+      .lp-hl-label{position:absolute;left:-2px;top:-27px;display:inline-block;max-width:240px;height:21px;line-height:21px;padding:0 9px;background:var(--accent);color:var(--on-accent);font-size:11px;font-weight:600;border-radius:999px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;box-shadow:0 2px 10px var(--pin-shadow)}
       .lp-pin-wrap{position:fixed;z-index:4;pointer-events:auto}
       .lp-ov.targeting .lp-pin-wrap{pointer-events:none}
       .pin{width:24px;height:24px;border-radius:50% 50% 50% 2px;border:2px solid var(--pin-ring);background:var(--accent);color:var(--on-accent);font-family:inherit;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;cursor:pointer;box-shadow:0 2px 8px rgba(15,15,13,.35);animation:lp-pin .22s cubic-bezier(.2,1.3,.5,1)}
@@ -548,6 +543,7 @@
       .lp-toast-dim{color:var(--bar-mute);font-size:12px;font-weight:500}
       .lp-toast-key{margin-left:2px;padding:3px 9px;background:var(--bar-raised);border:1px solid var(--bar-line);border-radius:999px;font-size:11px;font-weight:600;cursor:pointer;transition:background .12s ease}
       .lp-toast-key:hover{background:var(--bar-line)}
+      .lp-toast--saved{padding:9px 15px}
     </style>
     <div class="lp-ov" id="lp-ov">
       <div class="lp-scrim" id="lp-scrim" style="display:none"></div>
@@ -560,6 +556,10 @@
         <span class="lp-toast-dim">⌥ scroll to resize</span>
         <span class="lp-toast-key" id="lp-toast-esc">Esc</span>
       </div>
+      <div class="lp-toast lp-toast--saved" id="lp-saved" style="display:none">
+        ${ICON.check(15, 2.6, 'var(--success)')}
+        <span id="lp-saved-text"></span>
+      </div>
     </div>`;
 
   const $ = (id) => root.getElementById(id);
@@ -571,9 +571,9 @@
   const hlLabel = $$('lp-hl-label');
   const pinsNode = $$('lp-pins');
   const toastNode = $$('lp-toast');
+  const savedToastNode = $$('lp-saved');
   const panelNode = $('lp-panel');
   const mainNode = $('lp-main');
-  const sentNode = $('lp-sent');
   const fatalNode = $('lp-fatal');
   const composerNode = $('lp-composer');
   const composeHead = $('lp-compose-head');
@@ -587,7 +587,7 @@
   const footerNode = $('lp-footer');
   const footerMain = $('lp-footer-main');
   const footerConfirm = $('lp-footer-confirm');
-  const sendBtn = $('lp-send');
+  const clearBtn = $('lp-clear');
   const saveBtn = $('lp-save');
   const generalBtn = $('general');
   const targetBtn = $('target');
@@ -629,6 +629,7 @@
   };
 
   // ---- overlay render (scrim / highlight / pins / toast) ----
+  const HIGHLIGHT_PADDING = 8; // px of breathing room around the targeted element
   const updateHighlight = () => {
     let hl = null;
     if (state.target && state.moveHL) {
@@ -644,7 +645,7 @@
     } else {
       const index = state.hoverPinId != null ? state.hoverPinId : state.hoverId;
       if (index != null) {
-        const comment = pending[index];
+        const comment = comments[index];
         const el = comment && resolveElement(comment);
         const r = el && rectOf(el);
         if (r) hl = { left: r.left, top: r.top, width: r.width, height: r.height, label: null };
@@ -654,13 +655,26 @@
       hlNode.style.display = 'none';
       return;
     }
+    // Outset the measured rect so the outline frames the element rather than
+    // tracing its edge. Applied before the label is placed, so the label keeps
+    // sitting against the box the reviewer actually sees.
+    hl = {
+      ...hl,
+      left: hl.left - HIGHLIGHT_PADDING,
+      top: hl.top - HIGHLIGHT_PADDING,
+      width: hl.width + HIGHLIGHT_PADDING * 2,
+      height: hl.height + HIGHLIGHT_PADDING * 2,
+    };
     hlNode.style.display = 'block';
     hlNode.style.left = hl.left + 'px';
     hlNode.style.top = hl.top + 'px';
     hlNode.style.width = hl.width + 'px';
     hlNode.style.height = hl.height + 'px';
     if (hl.label) {
-      hlLabel.style.display = 'inline-flex';
+      // Block, not inline-flex: text-overflow has no effect on a flex container's
+      // anonymous text item, so the label would hard-clip mid-word instead of
+      // ellipsing when the element's first line runs past the pill's max width.
+      hlLabel.style.display = 'block';
       hlLabel.textContent = hl.label;
       // The label normally sits just above the box's left corner; when the box hugs an
       // edge of the viewport that placement clips off-screen, so flip to the other side.
@@ -764,7 +778,7 @@
   const renderPins = () => {
     ovRoot.classList.toggle('targeting', state.target);
     const wanted = new Map();
-    pending.forEach((comment, index) => {
+    comments.forEach((comment, index) => {
       const el = resolveElement(comment);
       if (!el) return;
       const r = rectOf(el);
@@ -860,20 +874,21 @@
     toastNode.style.display = state.target ? 'flex' : 'none';
     // offsetHeight only reads correctly once the toast is shown, so position after.
     if (state.target) positionToast();
+    // Both toasts sit top-centre, so the pick-mode one wins while it is up.
+    const showSaved = !!state.savedNotice && !state.target;
+    savedToastNode.style.display = showSaved ? 'flex' : 'none';
+    if (showSaved) $$('lp-saved-text').textContent = state.savedNotice;
     renderPins();
     updateHighlight();
   };
 
-  // Copy for a *transient* mutation failure (offline, 5xx, 429 rate-limit). Auth failures
-  // (401/403) never reach here — authFailed() promotes them to the fatal state — so this
-  // banner always offers a genuine retry on the send path.
-  const describeError = (scope) => ({
-    text:
-      scope === 'send'
-        ? 'Couldn’t send your review. Please try again.'
-        : 'Couldn’t apply that change. Please try again.',
-    retry: scope === 'send',
-  });
+  // Copy for a failed mutation. Auth failures (401/403) never reach here — authFailed()
+  // promotes them to the fatal state. A 404 is its own case: the comment stopped being
+  // editable because the agent picked it up, so retrying would fail the same way.
+  const errorText = (error) =>
+    error && error.status === 404
+      ? 'Your agent has already picked that comment up, so it can’t be changed now.'
+      : 'Couldn’t apply that change. Please try again.';
 
   // Detail line for the fatal panel, tailored to how the token was rejected. Keyed on the
   // server's error code (from the response body) with a status fallback: the three cases
@@ -895,7 +910,7 @@
   // ---- panel render ----
   const updatePanel = () => {
     const fatal = null !== state.fatal;
-    const n = pending.length;
+    const n = comments.length;
     const launchCount = $('lp-launch-count');
     launchCount.style.display = !fatal && n > 0 ? 'inline-flex' : 'none';
     launchCount.textContent = String(n);
@@ -917,22 +932,16 @@
     panelNode.style.display = state.open && !state.target ? 'flex' : 'none';
     if (!state.open || state.target) return;
 
-    const sent = state.sent;
     const headCount = $('lp-head-count');
-    headCount.style.display = n > 0 && !sent && !fatal ? 'inline-flex' : 'none';
+    headCount.style.display = n > 0 && !fatal ? 'inline-flex' : 'none';
     headCount.textContent = String(n);
 
     // A rejected token takes precedence over every other panel state.
     fatalNode.style.display = fatal ? 'block' : 'none';
-    mainNode.style.display = fatal || sent ? 'none' : 'flex';
-    sentNode.style.display = !fatal && sent ? 'block' : 'none';
+    mainNode.style.display = fatal ? 'none' : 'flex';
 
     if (fatal) {
       renderFatal();
-      return;
-    }
-    if (sent) {
-      renderSent();
       return;
     }
 
@@ -940,9 +949,7 @@
     composerNode.style.maxHeight = state.composing ? '240px' : '0px';
     composerNode.style.opacity = state.composing ? '1' : '0';
     composerNode.style.pointerEvents = state.composing ? 'auto' : 'none';
-    // The save is the composer's own action, so its progress belongs on the Save
-    // button. Without this the only thing that visibly reacted to a save was the
-    // footer's Send button greying out, which reads as if Send had been pressed.
+    // The save is the composer's own action, so its progress belongs on the Save button.
     saveBtn.disabled = state.saving;
     saveBtn.innerHTML = state.saving
       ? `<span class="lp-spin"></span>Saving…`
@@ -965,20 +972,15 @@
     targetBtn.classList.toggle('active', state.target);
     targetBtn.setAttribute('aria-pressed', state.target ? 'true' : 'false');
 
-    if (state.sendError) {
-      const { text, retry } = describeError(state.sendError.scope);
+    if (state.actionError) {
       errorNode.style.display = 'flex';
-      errorNode.innerHTML = retry
-        ? `<span>${text}</span><button id="lp-retry">Try again</button>`
-        : `<span>${text}</span><button id="lp-retry-dismiss">Dismiss</button>`;
-      const retryBtn = root.getElementById('lp-retry');
-      if (retryBtn) retryBtn.addEventListener('click', send);
-      const dismiss = root.getElementById('lp-retry-dismiss');
-      if (dismiss)
-        dismiss.addEventListener('click', () => {
-          state.sendError = null;
-          updatePanel();
-        });
+      errorNode.innerHTML =
+        `<span>${escapeHtml(errorText(state.actionError))}</span>` +
+        `<button id="lp-error-dismiss">Dismiss</button>`;
+      root.getElementById('lp-error-dismiss').addEventListener('click', () => {
+        state.actionError = null;
+        updatePanel();
+      });
     } else {
       errorNode.style.display = 'none';
     }
@@ -1006,12 +1008,13 @@
         : n === 1
           ? 'Show 1 comment'
           : `Show ${n} comments`;
+      // These are live comments the agent may already be acting on, not a private
+      // draft, so the confirmation says what is actually at stake.
       $('lp-clear-confirm-text').textContent =
-        n === 1 ? 'Remove this comment?' : `Remove all ${n} comments?`;
-      sendBtn.disabled = state.sending || state.saving || state.deleting || n === 0;
-      sendBtn.innerHTML = state.sending
-        ? `<span class="lp-spin"></span>Sending…`
-        : `${ICON.send(14)}Send`;
+        n === 1
+          ? 'Delete this comment? Your agent may have it already.'
+          : `Delete all ${n} comments? Your agent may have them already.`;
+      clearBtn.disabled = state.saving || state.deleting;
     }
   };
 
@@ -1034,12 +1037,12 @@
   };
   const renderList = () => {
     rowNodes.forEach((row, index) => {
-      if (index >= pending.length) {
+      if (index >= comments.length) {
         row.remove();
         rowNodes.delete(index);
       }
     });
-    pending.forEach((comment, index) => {
+    comments.forEach((comment, index) => {
       let row = rowNodes.get(index);
       if (!row) {
         row = document.createElement('div');
@@ -1050,7 +1053,7 @@
           `<button class="lp-edit" aria-label="Edit comment">${ICON.edit(14)}</button>` +
           `<button class="lp-del" aria-label="Delete comment">${ICON.trash(14)}</button>`;
         row.addEventListener('mouseenter', () => {
-          if (state.target || !pending[index] || !pending[index].selector) return;
+          if (state.target || !comments[index] || !comments[index].selector) return;
           state.hoverId = index;
           updateHighlight();
         });
@@ -1089,25 +1092,6 @@
     });
   };
 
-  // Built once per submit; `sent` is boolean so re-renders reconcile via the flag.
-  const renderSent = () => {
-    if (sentNode.dataset.shown) return;
-    sentNode.dataset.shown = '1';
-    sentNode.innerHTML = `<div class="lp-sent">
-        <div class="lp-sent-disc">${ICON.check(22, 2.4)}</div>
-        <div class="lp-sent-title">Review sent</div>
-        <div class="lp-sent-sub">Your agent has been notified and will pick it up from here.</div>
-        <button class="lp-new" id="lp-new">Start a new review</button>
-      </div>`;
-    $('lp-new').addEventListener('click', dismissSent);
-  };
-  const dismissSent = () => {
-    state.sent = false;
-    delete sentNode.dataset.shown;
-    state.listExpanded = false;
-    sync();
-  };
-
   // The critical state for a rejected token. Built once and sticky — a bad token cannot
   // recover without a fresh page load (with a corrected embed), so there is nothing to
   // retry or dismiss; the copy tells the embedder how to fix it.
@@ -1124,6 +1108,19 @@
   const sync = () => {
     updatePanel();
     renderOverlay();
+  };
+
+  // The comment is live the moment the API accepts it, and nothing else on screen
+  // says so — the pin and the row look identical to an unsaved one. This is that
+  // acknowledgement, on the same toast furniture pick mode uses.
+  let savedToastTimer = 0;
+  const flashSaved = (text) => {
+    state.savedNotice = text;
+    clearTimeout(savedToastTimer);
+    savedToastTimer = setTimeout(() => {
+      state.savedNotice = null;
+      renderOverlay();
+    }, 2400);
   };
 
   // ---- composer / focus ----
@@ -1178,7 +1175,7 @@
   // Re-open the composer pre-filled to edit an existing comment in place. The anchor
   // (selector/text) is preserved and rebuilt from storage; only the body is editable.
   const openEditComposer = (index) => {
-    const comment = pending[index];
+    const comment = comments[index];
     if (!comment) return;
     state.composing = true;
     state.editId = comment.id;
@@ -1209,19 +1206,20 @@
   const saveComment = async () => {
     const body = state.draft.trim();
     if (!body || state.saving) return;
+    const editing = state.editId != null;
     state.saving = true;
-    state.sendError = null;
+    state.actionError = null;
     updatePanel();
     try {
       await ready; // don't let the boot refresh clobber an early save
-      if (state.editId != null) {
-        // Resolve by server id — a concurrent delete may have shifted indices. If the
-        // comment is gone, skip the PATCH and just close the composer gracefully.
-        const target = pending.find((c) => c.id === state.editId);
-        if (target) {
-          await api('PATCH', `/api/site-review/comments/${target.id}`, { body });
-          target.body = body;
-        }
+      if (editing) {
+        // Resolve by server id — a concurrent delete, or the reconcile after a 404,
+        // may have dropped the row. Nothing was written then, so say so rather than
+        // closing the composer under a "saved" toast the reviewer would believe.
+        const target = comments.find((c) => c.id === state.editId);
+        if (!target) throw Object.assign(new Error('HTTP 404'), { status: 404 });
+        await api('PATCH', `/api/site-review/comments/${target.id}`, { body });
+        target.body = body;
       } else {
         const ct = state.composeTarget || { type: 'general' };
         const comment =
@@ -1229,18 +1227,27 @@
             ? { body, selector: ct.selector, text: ct.text, url: location.href }
             : { body, selector: '', text: '', url: location.href };
         const { commentId } = await api('POST', '/api/site-review/comments', comment);
-        pending.push({ id: commentId, ...comment });
+        comments.push({ id: commentId, ...comment });
       }
       state.composing = false;
       state.composeTarget = null;
       state.editId = null;
       state.draft = '';
       textareaNode.value = '';
+      flashSaved(
+        editing
+          ? 'Comment updated — your agent sees the new text'
+          : 'Comment saved — your agent can see it now',
+      );
     } catch (error) {
-      // A rejected token is fatal; anything else keeps the composer open with the draft
-      // intact so nothing is lost.
+      // A rejected token is fatal; anything else keeps the composer open with the text
+      // intact so nothing is lost. A 404 means the agent addressed it mid-edit, so the
+      // list is stale — reconcile it.
       if (authFailed(error)) enterFatal(error);
-      else state.sendError = { scope: 'change', error };
+      else {
+        state.actionError = error;
+        if (error && error.status === 404) await refresh();
+      }
     }
     state.saving = false;
     sync();
@@ -1248,25 +1255,28 @@
 
   // ---- destructive actions (every one is confirmed) ----
   const removeComment = async (index) => {
-    const target = pending[index];
+    const target = comments[index];
     if (!target) return;
     if (state.deleting) return;
     state.deleting = true;
-    sync(); // paint the disabled Send now, or the click below is silently dropped
+    sync(); // paint the disabled footer now, or the click below is silently dropped
     try {
       await ready; // don't let the boot refresh clobber an early delete
       await api('DELETE', `/api/site-review/comments/${target.id}`);
-      pending.splice(index, 1);
+      comments.splice(index, 1);
     } catch (error) {
       if (authFailed(error)) enterFatal(error);
-      else state.sendError = { scope: 'change', error };
+      else {
+        state.actionError = error;
+        if (error && error.status === 404) await refresh();
+      }
     }
     state.deleting = false;
     state.confirmDeleteId = null;
     state.pinConfirmId = null;
     state.hoverId = null;
     state.hoverPinId = null;
-    if (!pending.length) state.listExpanded = false;
+    if (!comments.length) state.listExpanded = false;
     sync();
   };
   const armClear = () => {
@@ -1282,14 +1292,29 @@
     state.deleting = true;
     try {
       await ready; // don't let the boot refresh clobber an early clear
-      await Promise.all(pending.map((comment) => api('DELETE', `/api/site-review/comments/${comment.id}`)));
-      pending = [];
+      // allSettled, not all: a rejection from one delete must not send us to
+      // refresh() while the rest are still in flight, or the rehydrate races
+      // them and restores rows that are about to disappear.
+      const results = await Promise.allSettled(
+        comments.map((comment) => api('DELETE', `/api/site-review/comments/${comment.id}`)),
+      );
+      const failure = results.find((result) => 'rejected' === result.status);
+      if (!failure) {
+        comments = [];
+      } else if (authFailed(failure.reason)) {
+        enterFatal(failure.reason);
+      } else {
+        // Some deletes landed, and a 404 just means the agent addressed one
+        // first — either way the server is the truth now.
+        state.actionError = failure.reason;
+        await refresh();
+      }
     } catch (error) {
       if (authFailed(error)) {
         enterFatal(error);
       } else {
-        state.sendError = { scope: 'change', error };
-        await refresh(); // reconcile: some deletes may have landed
+        state.actionError = error;
+        await refresh();
       }
     }
     state.deleting = false;
@@ -1445,49 +1470,6 @@
     sync();
   };
 
-  // ---- send ----
-  const send = async () => {
-    // state.deleting is the backstop for a click that lands before the disable
-    // paints: the delete has not spliced yet, so submitting now would send a
-    // review still containing the comment being removed.
-    if (!pending.length || state.sending || state.saving || state.deleting) return;
-    state.sending = true;
-    state.sendError = null;
-    updatePanel();
-    try {
-      await ready; // don't submit before the boot refresh has settled
-      await api('POST', '/api/site-review/review/submit');
-      pending = [];
-      setTargeting(false);
-      Object.assign(state, {
-        sending: false,
-        sent: true,
-        sendError: null,
-        composing: false,
-        composeTarget: null,
-        editId: null,
-        draft: '',
-        listExpanded: false,
-        confirmClear: false,
-        confirmDeleteId: null,
-        pinConfirmId: null,
-        hoverId: null,
-        hoverPinId: null,
-        moveHL: null,
-      });
-      textareaNode.value = '';
-      sync();
-    } catch (error) {
-      // A rejected token is fatal; otherwise the draft stays server-side and the reviewer
-      // can retry.
-      state.sending = false;
-      if (authFailed(error)) enterFatal(error);
-      else state.sendError = { scope: 'send', error };
-      // sync (not updatePanel) so entering the fatal state also clears the overlay pins.
-      sync();
-    }
-  };
-
   // ---- panel open/close ----
   const togglePanel = () => {
     state.open = !state.open;
@@ -1526,7 +1508,6 @@
   $('lp-clear').addEventListener('click', armClear);
   $('lp-clear-cancel').addEventListener('click', cancelClear);
   $('lp-clear-yes').addEventListener('click', confirmClearYes);
-  sendBtn.addEventListener('click', send);
   $$('lp-toast-esc').addEventListener('click', () => {
     setTargeting(false);
     sync();

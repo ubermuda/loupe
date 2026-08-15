@@ -14,7 +14,7 @@ use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 
 final class SiteReviewCommentRepositoryTest extends KernelTestCase
 {
-    public function test_submitted_status_counts_cover_every_status_except_draft(): void
+    public function test_status_counts_cover_every_status(): void
     {
         self::bootKernel();
         $em = static::getContainer()->get(EntityManagerInterface::class);
@@ -31,7 +31,6 @@ final class SiteReviewCommentRepositoryTest extends KernelTestCase
 
         $position = 0;
         foreach ([
-            SiteReviewCommentStatus::Draft,
             SiteReviewCommentStatus::Pending,
             SiteReviewCommentStatus::Addressed,
             SiteReviewCommentStatus::Resolved,
@@ -42,11 +41,9 @@ final class SiteReviewCommentRepositoryTest extends KernelTestCase
         }
         $em->flush();
 
-        // Three of the four statuses count; the draft is the reviewer's own
-        // unsent scratch and must not show up in the nav pill.
         self::assertSame(
             ['pending' => 1, 'addressed' => 1, 'resolved' => 1],
-            $repository->submittedStatusCountsForProject($project),
+            $repository->statusCountsForProject($project),
         );
         self::assertSame(1, $repository->countOpenForProject($project));
     }

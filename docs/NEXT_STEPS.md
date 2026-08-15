@@ -3565,6 +3565,27 @@ exist, since backfilling them with the migration timestamp would claim every
 old comment was written the day the column shipped. Leaving those blank is
 probably the honest answer.
 
+## Running prettier on the site-review widget reformats all 1600 lines
+
+**Author:** Claude · **Type:** tooling · **Priority:** low · **Status:** pending
+
+`just prettier` and `just lint`'s prettier leg both scope to `assets/` and
+`e2e/` only, so `public/site-review/widget.js` has never been formatted by it.
+Running `npx prettier --write` on that file rewrites essentially every line —
+1382 insertions, 1315 deletions on a file of 1633 — because the whole file is
+being formatted for the first time.
+
+Nothing is broken today; the trap is that a small widget change plus a reflexive
+prettier run produces a phantom 1600-line diff, and the real change is
+unreviewable inside it. Hit on 2026-08-13 while dropping the widget's send step;
+the fix was to revert and re-apply the edit by hand.
+
+Two ways to close it, and either is fine as long as it is a decision: leave the
+file out of prettier's scope deliberately (it is hand-formatted, dense, and
+`npx eslint public/site-review/widget.js` already gates it), or reformat it once
+in a commit that changes nothing else, then add `public/` to the prettier
+recipes in the `justfile` so it stays formatted.
+
 ## Connect cannot mask a token, because no part of the raw value is stored
 
 **Author:** Claude · **Type:** feature · **Priority:** medium · **Status:** pending
@@ -3810,3 +3831,27 @@ never health — a running consumer leaves no lasting trace, so an empty queue i
 genuinely unknown rather than good. Report unknown as unknown; a green check
 that cannot distinguish "working" from "nothing running" is worse than no check,
 because it is the exact failure this project has hit before.
+
+## The site-review push subsystem has no producer left
+
+**Author:** Geoffrey · **Type:** feature · **Priority:** medium · **Status:** pending
+
+Dropping the widget's send step (2026-08-13) removed the only code that ever
+created a `SiteReviewEvent`. Everything downstream of it is still in place and
+still tested — the outbox table, `DrainOutboxHandler`, the drain scheduler, the
+per-project and admin outbox pages, `StreamCredentialsController`,
+`SiteReviewTopicBuilder`, and the `site_review.push.enabled` feature flag — but
+nothing writes a row, so the outbox is permanently empty, the "N reviews have
+not reached your agent yet" notice on `/projects/{id}/site-review` never shows,
+and a connected bridge CLI receives nothing.
+
+This is deliberate, not an oversight: the push feature is still under
+development and the owner accepted a temporarily producer-less state rather
+than deleting it. Open work is deciding what re-triggers a push now that there
+is no batch boundary to hang it on — per comment on save (which makes any
+visitor of a public page able to nudge the owner's agent, the exact risk the
+`widgetToken.forwardsToAgent` check was added for), debounced per project, or
+something else. Whatever it becomes, it belongs in
+`src/Module/SiteReview/Command/AddCommentHandler.php` or a listener beside it,
+and the forwardable decision from the deleted `SubmitReviewHandler` is worth
+re-reading in git history before rebuilding it.

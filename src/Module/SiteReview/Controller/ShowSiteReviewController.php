@@ -33,7 +33,6 @@ class ShowSiteReviewController extends AppController
         return $this->render('@SiteReview/show_site_review.html.twig', [
             'project' => $view->project,
             'comments' => $view->comments,
-            'submittedCount' => $view->submittedCount,
             'unsentCount' => $view->unsentCount,
         ]);
     }

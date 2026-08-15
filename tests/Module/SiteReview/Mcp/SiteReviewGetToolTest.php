@@ -76,8 +76,10 @@ final class SiteReviewGetToolTest extends KernelTestCase
         $third->status = SiteReviewCommentStatus::Pending;
         $this->em->persist($third);
 
-        // Draft comment must NOT appear.
-        $this->em->persist(new SiteReviewComment($project, 3, 'draft-comment', '.e', 'E', 'https://app/draft'));
+        // An addressed comment must NOT appear — the queue is the pending ones.
+        $addressed = new SiteReviewComment($project, 3, 'addressed-comment', '.e', 'E', 'https://app/done');
+        $addressed->status = SiteReviewCommentStatus::Addressed;
+        $this->em->persist($addressed);
 
         $this->em->flush();
 

@@ -59,7 +59,7 @@ final class SidebarStatesTest extends WebTestCase
         self::assertSelectorExists('a.lp-sidebar__link[href="/projects/'.$id.'/site-review"]');
     }
 
-    public function test_site_review_pill_counts_submitted_comments_and_tints_only_while_pending(): void
+    public function test_site_review_pill_counts_comments_and_tints_only_while_pending(): void
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
@@ -67,9 +67,7 @@ final class SidebarStatesTest extends WebTestCase
         $project = new Project($owner, 'pill-project');
         $em->persist($project);
 
-        // A draft never reaches the shared record, so it must not be counted.
         foreach ([
-            SiteReviewCommentStatus::Draft,
             SiteReviewCommentStatus::Pending,
             SiteReviewCommentStatus::Addressed,
             SiteReviewCommentStatus::Resolved,

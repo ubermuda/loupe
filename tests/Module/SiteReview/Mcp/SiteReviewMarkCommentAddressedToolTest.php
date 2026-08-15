@@ -94,7 +94,7 @@ final class SiteReviewMarkCommentAddressedToolTest extends KernelTestCase
         self::assertSame(SiteReviewCommentStatus::Addressed, $c2->status);
     }
 
-    public function test_skips_non_pending_unknown_invalid_and_draft(): void
+    public function test_skips_resolved_addressed_unknown_and_invalid(): void
     {
         $email = 'addr-skip@example.com';
         $user = new User(fullName: 'U', email: $email, password: 'x');
@@ -106,16 +106,16 @@ final class SiteReviewMarkCommentAddressedToolTest extends KernelTestCase
         $resolvedComment->status = SiteReviewCommentStatus::Resolved;
         $this->em->persist($resolvedComment);
 
-        // A Draft comment (not_submitted).
-        $draftComment = new SiteReviewComment($project, 1, 'draft', '.b', 'B', 'https://app/y');
-        $this->em->persist($draftComment);
+        $addressedComment = new SiteReviewComment($project, 1, 'addressed', '.b', 'B', 'https://app/y');
+        $addressedComment->status = SiteReviewCommentStatus::Addressed;
+        $this->em->persist($addressedComment);
 
         $this->em->flush();
 
         $resolvedId = $resolvedComment->id;
-        $draftId = $draftComment->id;
+        $addressedId = $addressedComment->id;
         self::assertNotNull($resolvedId);
-        self::assertNotNull($draftId);
+        self::assertNotNull($addressedId);
 
         $randomUuid = (string) Uuid::v4();
 
@@ -124,7 +124,7 @@ final class SiteReviewMarkCommentAddressedToolTest extends KernelTestCase
             (string) $resolvedId, // resolved
             $randomUuid,           // unknown
             'not-a-uuid',          // invalid_id
-            (string) $draftId,     // not_submitted
+            (string) $addressedId, // already_addressed
         ]);
 
         self::assertCount(0, $result['addressed']);
@@ -138,12 +138,12 @@ final class SiteReviewMarkCommentAddressedToolTest extends KernelTestCase
         self::assertArrayHasKey('resolved', $skippedByReason);
         self::assertArrayHasKey('unknown', $skippedByReason);
         self::assertArrayHasKey('invalid_id', $skippedByReason);
-        self::assertArrayHasKey('not_submitted', $skippedByReason);
+        self::assertArrayHasKey('already_addressed', $skippedByReason);
 
         self::assertSame((string) $resolvedId, $skippedByReason['resolved']);
         self::assertSame($randomUuid, $skippedByReason['unknown']);
         self::assertSame('not-a-uuid', $skippedByReason['invalid_id']);
-        self::assertSame((string) $draftId, $skippedByReason['not_submitted']);
+        self::assertSame((string) $addressedId, $skippedByReason['already_addressed']);
 
         // No statuses should have changed.
         $this->em->clear();

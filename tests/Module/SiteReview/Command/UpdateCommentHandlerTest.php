@@ -36,7 +36,7 @@ final class UpdateCommentHandlerTest extends KernelTestCase
         $this->handler = $handler;
     }
 
-    public function test_edits_a_draft_comment_body(): void
+    public function test_edits_a_pending_comment_body(): void
     {
         $project = $this->project('upd-a@example.com');
         $comment = ($this->addHandler)(new AddCommentCommand($project, 'orig', '', '', 'https://app/x'));
@@ -50,11 +50,11 @@ final class UpdateCommentHandlerTest extends KernelTestCase
         self::assertSame('edited', $persisted->body);
     }
 
-    public function test_submitted_comment_is_not_editable(): void
+    public function test_addressed_comment_is_not_editable(): void
     {
         $project = $this->project('upd-b@example.com');
         $comment = ($this->addHandler)(new AddCommentCommand($project, 'orig', '', '', 'https://app/x'));
-        $comment->status = SiteReviewCommentStatus::Pending;
+        $comment->status = SiteReviewCommentStatus::Addressed;
         $this->em->flush();
 
         $this->expectException(CommentNotFound::class);

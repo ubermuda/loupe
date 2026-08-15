@@ -18,7 +18,7 @@ use Symfony\Component\Routing\Attribute\Route;
  *
  * Account-level tokens only. Project-bound widget tokens (embedded in page
  * HTML, public by design) are rejected with 403 — their contract is "one
- * project, drafts + submit, nothing else"; letting one enumerate the owner's
+ * project's comments, nothing else"; letting one enumerate the owner's
  * projects would leak the project inventory to any page visitor.
  */
 #[Route(

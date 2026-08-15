@@ -24,7 +24,7 @@ use Ubermuda\FeatureFlagsBundle\Attribute\RequireFeatureFlag;
  *
  * Account-level tokens only. Project-bound widget tokens (embedded in page
  * HTML, public by design) are rejected with 403 — their contract is "one
- * project, drafts + submit, nothing else"; letting one mint subscriber JWTs
+ * project's comments, nothing else"; letting one mint subscriber JWTs
  * would let any page visitor spy on the owner's review streams.
  *
  * Role gating (ROLE_API_SITE_REVIEW) comes from the firewall access_control on

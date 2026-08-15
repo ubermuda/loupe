@@ -8,8 +8,8 @@ use Symfony\Component\Uid\Uuid;
 
 /**
  * Thrown when a widget operation targets a comment that is not an editable
- * Draft of this project (unknown id, another project, or already sent). The
- * API controllers map this to a 404.
+ * Pending comment of this project (unknown id, another project, or already
+ * addressed by the agent). The API controllers map this to a 404.
  */
 final class CommentNotFound extends \DomainException
 {

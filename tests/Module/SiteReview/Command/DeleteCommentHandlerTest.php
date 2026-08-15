@@ -36,7 +36,7 @@ final class DeleteCommentHandlerTest extends KernelTestCase
         $this->handler = $handler;
     }
 
-    public function test_deletes_a_draft_comment(): void
+    public function test_deletes_a_pending_comment(): void
     {
         $project = $this->project('del-a@example.com');
         $comment = ($this->addHandler)(new AddCommentCommand($project, 'to delete', '', '', 'https://app/x'));
@@ -48,11 +48,11 @@ final class DeleteCommentHandlerTest extends KernelTestCase
         self::assertNull($this->em->find(SiteReviewComment::class, $id));
     }
 
-    public function test_submitted_comment_throws_comment_not_found(): void
+    public function test_addressed_comment_throws_comment_not_found(): void
     {
         $project = $this->project('del-b@example.com');
         $comment = ($this->addHandler)(new AddCommentCommand($project, 'orig', '', '', 'https://app/x'));
-        $comment->status = SiteReviewCommentStatus::Pending;
+        $comment->status = SiteReviewCommentStatus::Addressed;
         $this->em->flush();
 
         $this->expectException(CommentNotFound::class);

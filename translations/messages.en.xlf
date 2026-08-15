@@ -1471,9 +1471,9 @@
                 <source>project.list.meta.documents</source>
                 <target>{0}0 documents|{1}1 document|]1,Inf[%count% documents</target>
             </trans-unit>
-            <trans-unit id="project.list.meta.reviews">
-                <source>project.list.meta.reviews</source>
-                <target>{0}0 reviews|{1}1 review|]1,Inf[%count% reviews</target>
+            <trans-unit id="project.list.meta.comments">
+                <source>project.list.meta.comments</source>
+                <target>{0}0 comments|{1}1 comment|]1,Inf[%count% comments</target>
             </trans-unit>
             <trans-unit id="project.list.meta.open">
                 <source>project.list.meta.open</source>
@@ -1619,10 +1619,6 @@
             <trans-unit id="project.error.mcp_token_already_minted">
                 <source>project.error.mcp_token_already_minted</source>
                 <target>This project already has an MCP token. Revoke it first.</target>
-            </trans-unit>
-            <trans-unit id="site_review.error.nothing_to_submit">
-                <source>site_review.error.nothing_to_submit</source>
-                <target>There are no draft comments to send.</target>
             </trans-unit>
 
             <!-- Connect agent (handoff §5) -->
@@ -1924,13 +1920,9 @@
                 <source>site_review.page.description</source>
                 <target>Visual comments captured on the live site through the review widget. Each carries the element, URL, and selector — no snapshot needed.</target>
             </trans-unit>
-            <trans-unit id="site_review.page.submitted_count">
-                <source>site_review.page.submitted_count</source>
-                <target>{0} No submitted reviews yet|{1} 1 submitted review|]1,Inf[ %count% submitted reviews</target>
-            </trans-unit>
-            <trans-unit id="site_review.comment.status.draft">
-                <source>site_review.comment.status.draft</source>
-                <target>Draft</target>
+            <trans-unit id="site_review.page.comment_count">
+                <source>site_review.page.comment_count</source>
+                <target>{0} No comments yet|{1} 1 comment|]1,Inf[ %count% comments</target>
             </trans-unit>
             <trans-unit id="site_review.comment.status.pending">
                 <source>site_review.comment.status.pending</source>
@@ -1963,14 +1955,6 @@
             <trans-unit id="site_review.comment.action.reopen">
                 <source>site_review.comment.action.reopen</source>
                 <target>Reopen</target>
-            </trans-unit>
-            <trans-unit id="site_review.site.reviews.empty">
-                <source>site_review.site.reviews.empty</source>
-                <target>No reviews yet. Embed the widget and send your first review.</target>
-            </trans-unit>
-            <trans-unit id="site_review.error.comment_not_actionable">
-                <source>site_review.error.comment_not_actionable</source>
-                <target>Draft comments cannot be resolved or reopened.</target>
             </trans-unit>
 
             <!-- Admin -->
@@ -2595,7 +2579,7 @@
             </trans-unit>
             <trans-unit id="site_review.site.reviews.empty_title">
                 <source>site_review.site.reviews.empty_title</source>
-                <target>No reviews yet</target>
+                <target>No comments yet</target>
             </trans-unit>
             <trans-unit id="site_review.site.reviews.empty_body">
                 <source>site_review.site.reviews.empty_body</source>

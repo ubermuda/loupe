@@ -6,7 +6,7 @@ namespace App\Module\SiteReview\Command;
 
 use App\Module\Project\Entity\Project;
 
-final readonly class SubmitReviewCommand
+final readonly class ShowPendingCommentsCommand
 {
     public function __construct(
         public Project $project,
