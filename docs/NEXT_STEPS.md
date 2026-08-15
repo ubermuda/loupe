@@ -3855,3 +3855,31 @@ something else. Whatever it becomes, it belongs in
 `src/Module/SiteReview/Command/AddCommentHandler.php` or a listener beside it,
 and the forwardable decision from the deleted `SubmitReviewHandler` is worth
 re-reading in git history before rebuilding it.
+
+## `site_review_get` does not say who wrote a comment
+
+**Author:** Claude · **Type:** security · **Priority:** medium · **Status:** pending
+
+The payload from `site_review_get`
+(`src/Module/SiteReview/Mcp/SiteReviewGetTool.php`) carries `id`, `url`,
+`selector`, `text`, `body` and `createdAt` — but nothing identifying the
+author. Since the widget is embeddable on public pages, a comment may have been
+written by the project owner or by any visitor, and an agent consuming the tool
+cannot tell the two apart.
+
+The consequence is that `loupe-site-review` has to escalate categorically: any
+comment that would change a destination, an identity, a credential or
+third-party code goes to the human, because the alternative is applying a
+hostile edit dressed as ordinary feedback. Verified 2026-08-15 by testing an
+agent against comments of exactly that shape — it applied a link-destination
+change and a support-email change on its own judgement when the skill was
+absent.
+
+That blanket rule is correct while authorship is unknown, but it taxes the
+common case: the owner's own "this link 404s" bounces to a human every time.
+Exposing an author or a trust level on the comment (and on the widget token
+that created it) would let the rule relax for the owner while keeping it for
+anonymous visitors. Decide what the widget can actually attest to first — a
+public token identifies a project, not a person, so this may need per-reviewer
+identity to mean anything. See "Personal reviewer tokens as an identity layer
+for the widget".

@@ -18,7 +18,9 @@ These skills contain detailed conventions for specific areas. **Invoke the relev
 | `project-worktrees` | Git worktrees — provisioning, URLs, per-worktree databases, worktree tooling |
 | `project-next-steps` | Adding, editing, or closing entries in `docs/NEXT_STEPS.md` — entry format, attribution, lifecycle |
 | `project-translations` | UI strings, translation keys, or adding a new locale |
+| `project-site-review` | The site-review widget (`public/site-review/widget.js`), `src/Module/SiteReview/`, its API routes, dev harness or e2e specs |
 | `loupe-documents` | Writing or revising any document submitted to the Loupe app via the `loupe` MCP |
+| `loupe-site-review` | Acting on site-review feedback through the `loupe` MCP — `site_review_get`, fixing comments, marking them addressed |
 | `symfony-authorization` | Generic Symfony authorization mechanics — Voter classes, attribute naming, `#[IsGranted]` placement, `subject:` resolution, `is_granted()` in Twig |
 | `symfony-entity-route-mapping` | Routes that resolve entities from URL parameters — `{param:variable}` notation, `#[MapEntity]`, multi-entity routes |
 | `project-comments` | Writing or reviewing code comments and docblocks anywhere in `src/`, `assets/` or `tests/` |

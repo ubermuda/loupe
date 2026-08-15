@@ -40,13 +40,29 @@ plain HTTP. Embedding it in an **HTTPS** page while Loupe is on
 exempts localhost, but because of Chrome's private-network rules. That is
 untested; see [Reverse proxy](../extending/reverse-proxy.md).
 
-## Where submissions go
+## What the reviewer sees, and for how long
 
-Every submission is recorded in an outbox before its Mercure update is
-published, so an unreachable hub loses nothing permanently. Undelivered events
-are visible per-project and, for administrators, instance-wide at
-`/admin/site-review-outbox`. The worker retries them on a schedule. See
-[Failed messages and the outbox](../operating/failed-messages.md).
+The widget lists the comments still waiting on the agent. A comment stays in
+that list — editable and deletable — until the agent marks it addressed, and
+then it **disappears from the widget**.
 
-Without a hub, submissions still save — they simply never reach a running
-agent, and the publish failure is only logged. See [Mercure](../extending/mercure.md).
+That is the intended lifecycle, not a loss: the comment is still on the
+project's site-review page in the web UI, where you review the fix and resolve
+it. But it means the widget is a worklist of outstanding feedback rather than a
+record of everything you have said, and a comment can vanish from under you
+while you are looking at the page.
+
+If you are editing a comment at the moment the agent picks it up, your save is
+refused and the widget tells you so rather than silently discarding it.
+
+## Reaching your agent
+
+Comments do not push. Your agent sees them when it calls `site_review_get`, so
+ask it to look — there is nothing to press, and nothing arrives unprompted.
+
+Live push over a Mercure hub, an outbox for undelivered events, and the
+[command-line bridge](../extending/cli-bridge.md) are all still present but
+**currently inert**: nothing publishes an event, so the outbox stays empty and
+the per-project and `/admin/site-review-outbox` pages have nothing to show.
+That part of the feature is unfinished. Pulling with `site_review_get` is the
+supported path today.
