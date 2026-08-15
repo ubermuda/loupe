@@ -1292,14 +1292,27 @@
     state.deleting = true;
     try {
       await ready; // don't let the boot refresh clobber an early clear
-      await Promise.all(comments.map((comment) => api('DELETE', `/api/site-review/comments/${comment.id}`)));
-      comments = [];
+      // allSettled, not all: a rejection from one delete must not send us to
+      // refresh() while the rest are still in flight, or the rehydrate races
+      // them and restores rows that are about to disappear.
+      const results = await Promise.allSettled(
+        comments.map((comment) => api('DELETE', `/api/site-review/comments/${comment.id}`)),
+      );
+      const failure = results.find((result) => 'rejected' === result.status);
+      if (!failure) {
+        comments = [];
+      } else if (authFailed(failure.reason)) {
+        enterFatal(failure.reason);
+      } else {
+        // Some deletes landed, and a 404 just means the agent addressed one
+        // first — either way the server is the truth now.
+        state.actionError = failure.reason;
+        await refresh();
+      }
     } catch (error) {
       if (authFailed(error)) {
         enterFatal(error);
       } else {
-        // Some deletes may have landed, and a 404 here just means the agent addressed
-        // one first — either way the server is the truth now.
         state.actionError = error;
         await refresh();
       }
