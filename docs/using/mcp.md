@@ -17,6 +17,31 @@ token can be revoked from `/account/api-tokens/{tokenId}/revoke`.
 
 The first-run wizard mints one for you at `/welcome/connect`.
 
+## The Claude Code plugin
+
+Claude Code users can install the endpoint and the two Loupe skills together,
+instead of wiring the server up by hand:
+
+```bash
+claude plugin marketplace add ubermuda/loupe
+claude plugin install loupe@loupe
+```
+
+Installing prompts for the `/mcp` endpoint of your instance and a project API
+token — both are on the project's Connect page. The token is marked sensitive,
+so it goes to the OS keychain rather than a settings file, and it is never read
+from a repository's `.claude/settings.json`: a cloned project cannot inject one.
+
+Alongside the server the plugin ships `loupe:loupe-documents`, which formats a
+document for the review UI, and `loupe:loupe-site-review`, which works the
+comment loop. The `claude mcp add` one-liner on the Connect page remains the
+right choice for any other MCP client.
+
+**A hand-configured server of the same name wins.** If you previously ran
+`claude mcp add ... loupe ...`, that entry takes precedence and the plugin's
+server is ignored with no warning — `claude mcp list` shows `loupe` rather than
+`plugin:loupe:loupe`. Run `claude mcp remove loupe` after installing the plugin.
+
 ## What the tools do
 
 Roughly in the order an agent uses them:
