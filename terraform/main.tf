@@ -64,6 +64,10 @@ module "app" {
   # db_name          = "loupe"   # defaults to app_name (- -> _)
   # db_user          = "loupe"   # defaults to db_name
 
+  # /login for the first apply, /healthz once the database is reachable — see
+  # the variable for why the order matters.
+  health_check_path = var.health_check_path
+
   # Optional custom domain, supplied per-account like the placement above rather
   # than hardcoded: domain_zone must name a DNS zone the deploying account's own
   # DigitalOcean DNS serves, so a literal here would fail at apply for everyone
