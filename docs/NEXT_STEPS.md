@@ -3986,3 +3986,42 @@ anonymous visitors. Decide what the widget can actually attest to first — a
 public token identifies a project, not a person, so this may need per-reviewer
 identity to mean anything. See "Personal reviewer tokens as an identity layer
 for the widget".
+
+## Transactional jobs run inline in e2e under `X-Playwright`
+
+**Author:** Geoffrey · **Type:** tooling · **Priority:** low · **Status:** pending
+
+Owner decision (2026-08-16): `PlaywrightSyncMiddleware` stamps every envelope
+dispatched during a request carrying `X-Playwright`, not just mail, so the e2e
+suite needs no messenger consumer at all.
+
+A Codex review argued for excluding `CancelSubscriptionMessage` and
+`GenerateDataExportMessage`, because handling them inline puts their handlers
+inside the request's Doctrine transaction: account deletion can call Stripe with
+the transaction still open, and a Stripe failure then rolls the deletion back
+instead of entering Messenger's retry flow.
+
+Declined deliberately — removing the worker as a variable from e2e was the
+point, and the middleware is registered under `when@dev` only, so production
+semantics are untouched. The accepted cost is that e2e exercises inline rather
+than queued delivery for those two jobs, so a bug in their real async path would
+not be caught by a green suite. Revisit if either grows behaviour that depends
+on the surrounding transaction having committed.
+
+## An e2e context built without the project config may not send `X-Playwright`
+
+**Author:** Claude · **Type:** tooling · **Priority:** low · **Status:** pending
+
+`e2e/tests/billing/trial-end-lifecycle.spec.ts` builds a context with
+`browser.newContext({ storageState })`, passing none of the project's `use`
+options. The worker-scoped fixture in `e2e/tests/fixtures.ts` had that same
+shape and did **not** receive `X-Playwright`, so its mail stayed on the async
+transport and the suite still needed a consumer; that was fixed by copying
+`extraHTTPHeaders` from `workerInfo.project.use`.
+
+Whether this second context receives the header was never established. It
+navigates with relative URLs through `adminLogin` and passes today, which
+implies it inherits `baseURL` from somewhere — so the two facts are in tension
+and only a test settles it. Worth settling before any mail assertion is added to
+that spec: the failure mode is a 30-second timeout that reads as an application
+bug rather than a missing header.
