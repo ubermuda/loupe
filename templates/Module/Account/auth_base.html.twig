@@ -17,12 +17,14 @@
         {% block topbar_nav %}{% endblock %}
     </div>
 
-    {# Card #}
-    <div class="relative z-10 flex items-start justify-center px-7 pt-8 pb-12">
+    {# Card. The <main> landmark is the page's own: an auth page used to inherit
+       one from the app shell, but only while the visitor happened to be signed
+       in, so signed-out visitors never had one at all. #}
+    <main class="relative z-10 flex items-start justify-center px-7 pt-8 pb-12">
         <div class="w-full max-w-sm bg-surface-1 border border-line rounded-xl shadow-md px-8 pt-8 pb-7 flex flex-col gap-6">
             {% block auth_body %}{% endblock %}
         </div>
-    </div>
+    </main>
 
     {# Footer #}
     <div class="relative z-10 flex flex-wrap items-center gap-x-3.5 gap-y-2 px-7 py-5 text-xs text-fg-dim">
