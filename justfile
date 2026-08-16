@@ -282,11 +282,16 @@ e2e-up:
         printf 'fastcgi_param DEFAULT_URI "https://%s";\n' "$host"
     } > "$main/var/nginx-e2e-env.conf"
 
-    if ! docker compose exec -T database psql -U app -tAc \
+    # Always from scratch. A reused database carries over whatever the last run
+    # left behind — a half-registered fixture user is enough to fail every
+    # worker-fixture spec on every later run, and it reads as a code regression
+    # rather than stale state. --force because a worker may still hold a handle.
+    if docker compose exec -T database psql -U app -tAc \
         "SELECT 1 FROM pg_database WHERE datname='${db}'" | grep -q 1; then
-        docker compose exec -T database createdb -U app "${db}"
-        echo "e2e: created database ${db}"
+        docker compose exec -T database dropdb -U app --force "${db}"
     fi
+    docker compose exec -T database createdb -U app "${db}"
+    echo "e2e: created database ${db}"
 
     docker compose exec -T -e WORKTREE_DB_SUFFIX=_e2e php-fpm \
         bin/console doctrine:migrations:migrate --no-interaction --allow-no-migration >/dev/null
@@ -298,41 +303,6 @@ e2e-up:
         docker compose -f "$main/docker/compose/e2e.yaml" -p "${project}-e2e" up -d >/dev/null
 
     echo "e2e target ready at https://${host} (database ${db})"
-    echo "Run 'just e2e-worker' in another shell before specs that need mail or exports."
-
-# A worker is a CLI process, so it never sees the fastcgi_params pointing web
-# requests at the e2e database — without both variables it consumes the DEV
-# queue. --memory-limit must sit BELOW PHP's own (128M here) or it never fires.
-# Messenger worker for the e2e target. Runs until interrupted.
-e2e-worker *args:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    main=$(git worktree list --porcelain | awk '/^worktree /{print $2; exit}')
-    project=$(grep -E '^COMPOSE_PROJECT_NAME=' .env | head -1 | cut -d= -f2-)
-    host="e2e.${project}.dev.localhost"
-    stop_marker="$main/var/e2e-worker.stop"
-    rm -f "$stop_marker"
-    trap 'echo "e2e-worker: stopped." >&2; exit 0' INT TERM
-    while true; do
-        if ! docker compose exec -T \
-            -e WORKTREE_DB_SUFFIX=_e2e \
-            -e DEFAULT_URI="https://${host}" \
-            php-fpm bin/console messenger:consume scheduler_default async \
-            --time-limit=3600 --memory-limit=100M "$@"; then
-            echo "e2e-worker: consumer exited non-zero — stopping rather than looping on a failure." >&2
-            exit 1
-        fi
-        # A clean exit is either a limit recycle (relaunch) or `e2e-down`
-        # stopping us before it drops the database (do not), and the exit code
-        # cannot separate them. The marker can: e2e-down writes it BEFORE
-        # signalling, so it cannot race. Not cleared here — several workers may
-        # be looping, and the first to clear it would strand the rest.
-        if [ -f "$stop_marker" ]; then
-            echo "e2e-worker: teardown requested — stopping." >&2
-            exit 0
-        fi
-        echo "e2e-worker: consumer recycled on a limit, relaunching." >&2
-    done
 
 # Remove the e2e sidecar and drop its database.
 e2e-down:
@@ -356,21 +326,6 @@ e2e-down:
     E2E_APP_NETWORK="${project}_default" \
         docker compose -f "$main/docker/compose/e2e.yaml" -p "${project}-e2e" down >/dev/null
 
-    # Stop the worker first, or it survives to its --time-limit and the next
-    # `e2e-up` gets two consumers on one queue. Matched by environment, not
-    # command line — the main worker's command is byte-identical. The marker
-    # goes down BEFORE the signal, or e2e-worker reads the clean exit as a
-    # recycle and relaunches into a dropped database.
-    : > "$main/var/e2e-worker.stop"
-    docker compose exec -T php-fpm sh -c '
-        for proc in /proc/[0-9]*; do
-            pid=${proc#/proc/}
-            [ -r "$proc/environ" ] || continue
-            tr "\0" "\n" < "$proc/environ" 2>/dev/null | grep -qx "WORKTREE_DB_SUFFIX=_e2e" || continue
-            tr "\0" " " < "$proc/cmdline" 2>/dev/null | grep -q "messenger:consume" || continue
-            kill "$pid" 2>/dev/null || true
-        done' 2>/dev/null || true
-
     # The database may legitimately not exist; the sidecar removal above may
     # not. Only these are tolerant.
     docker compose exec -T database psql -U app -d postgres -tAc \
@@ -392,27 +347,6 @@ e2e *args:
     if ! curl -sf -o /dev/null "$E2E_BASE_URL/login"; then
         echo "e2e: $E2E_BASE_URL is not reachable — run 'just e2e-up' first." >&2
         exit 1
-    fi
-    # With nothing consuming `async`, login, signup, the wizard and paywall all
-    # fail while the app returns 200 and `just ci` is green. Matching the command
-    # line is not enough — `just worker` is byte-identical against the DEV
-    # database — so read the environment. A worktree's consumer is invisible
-    # from here, so that case is skipped rather than failed.
-    if [ "$E2E_BASE_URL" = "$dedicated_url" ]; then
-        if ! docker compose exec -T php-fpm sh -c '
-            for p in /proc/[0-9]*; do
-                grep -qa "messenger:consume" "$p/cmdline" 2>/dev/null || continue
-                tr "\0" "\n" < "$p/environ" 2>/dev/null | grep -qx "WORKTREE_DB_SUFFIX=_e2e" && exit 0
-            done
-            exit 1'; then
-            echo "e2e: no messenger consumer for the e2e database — run 'just e2e-worker' in another shell." >&2
-            echo "     Without one the authenticated fixture cannot verify its user, and roughly" >&2
-            echo "     a third of the suite fails in ways that look like application bugs." >&2
-            echo "     A consumer for the dev database does not count: it drains a different queue." >&2
-            exit 1
-        fi
-    else
-        echo "e2e: targeting $E2E_BASE_URL — make sure that worktree has a consumer running." >&2
     fi
     cd e2e && npx playwright test "$@"
 

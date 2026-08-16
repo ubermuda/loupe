@@ -10,7 +10,6 @@ framework:
                     max_retries: 3
                     multiplier: 2
             failed: 'doctrine://default?queue_name=failed'
-            # sync: 'sync://'
 
         default_bus: messenger.bus.default
 
@@ -26,6 +25,19 @@ framework:
 
             # Route your messages to the transports
             # 'App\Message\YourMessage': async
+
+# Registered only here: the override is keyed on a client-supplied header, so in
+# production any caller could force queued work inline.
+when@dev:
+    framework:
+        messenger:
+            transports:
+                sync: 'sync://'
+
+            buses:
+                messenger.bus.default:
+                    middleware:
+                        - App\Messenger\Middleware\PlaywrightSyncMiddleware
 
 when@test:
     framework:

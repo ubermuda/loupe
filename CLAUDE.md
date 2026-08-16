@@ -189,7 +189,7 @@ From inside the php-fpm container (`just shell`), use the `database` Docker serv
 
 **Running tests in parallel worktrees:** `config/packages/doctrine.yaml` sets `dbname_suffix: '_test%env(default::TEST_TOKEN)%'`, so PHPUnit's database is `app_test<TEST_TOKEN>`. To run `just ci` / PHPUnit in a git worktree without colliding with the main checkout or a sibling worktree, export a unique `TEST_TOKEN` (e.g. `TEST_TOKEN=_wt1`) so each gets its own `app_test_wt1` schema (bootstrap drop→create→migrate is per-DB). `just worktree-up` writes that token for you. Since each worktree also has its own **dev** database (`app_wt_<name>`, selected by `WORKTREE_DB_SUFFIX` in its `.env.local`), `just migrate-run` and `bin/console` in a worktree never touch the main dev database. **`just e2e` still cannot be parallelized** — Mailpit is shared, so mail-asserting specs across concurrent runs would read each other's messages. `playwright.config.ts` therefore sets `workers: 1`, so the plain command is already correct — pass `--workers=N` only for a subset that touches no mail.
 
-**The full suite runs against the dedicated e2e target, not a worktree and never the dev host.** `just e2e-up` creates a disposable `app_e2e` database and an nginx sidecar at `e2e.<project>.dev.localhost` serving **this checkout** — so it gates whatever branch you have checked out, with no worktree involved. `just e2e` defaults there and refuses to start if it is not up. Add `just e2e-worker` in another shell for specs that assert on mail or a download link. Tear down with `just e2e-down`.
+**The full suite runs against the dedicated e2e target, not a worktree and never the dev host.** `just e2e-up` creates a disposable `app_e2e` database and an nginx sidecar at `e2e.<project>.dev.localhost` serving **this checkout** — so it gates whatever branch you have checked out, with no worktree involved. `just e2e` defaults there and refuses to start if it is not up. Tear down with `just e2e-down`.
 
 Why the dev host is not an option: the suite is destructive by design. The `install-reset` project **truncates every table**, and `trial-end-lifecycle` flips global feature flags and disables every expired-trial account — so one run against `loupe.dev.localhost` wipes your development database. Pointing e2e at a worktree still works (`E2E_BASE_URL=https://<slug>.loupe.dev.localhost just e2e --workers=1`) and remains the right tool when you need to gate a branch *without* checking it out; it is no longer the only one. The DB-free static gate (`just cs`, `just phpstan`, `just lint`, `just arkitect`, `just gamache`) is always safe to run in parallel.
 
@@ -203,19 +203,9 @@ A run started against a cold `var/cache/dev`, or one whose cache is rebuilt mid-
 
 So: warm first, then run e2e, and do not run a gate against a worktree while its suite is in flight. If a spec fails and then passes in isolation, check `ls var/cache/dev/ | grep -c '^Container'` — more than one container hash means a rebuild happened during the run, and the failure is environmental rather than yours. That is a diagnosis, not a licence to re-run until green: confirm the cause before dismissing any failure.
 
-**A worktree e2e run also needs its own consumer, and forgetting it fails ~19 specs at once.** The suite's authenticated fixture registers a user and verifies it through the emailed link, so with nothing consuming `async` the failures are not confined to the obviously mail-shaped specs — login, signup, delete-account, forgot-password, the first-run wizard, admin smoke, paywall and delete-project all go down together. Nineteen failures spanning unrelated areas, with the app returning 200 and `just ci` green, means **no worker**, not a broken branch:
+**The e2e suite needs no messenger consumer.** Every message dispatched during a request carrying `X-Playwright: 1` is handled inline by `PlaywrightSyncMiddleware`, registered under `when@dev` only — production and ordinary dev dispatch are untouched. There is no worker to start and none to forget.
 
-```bash
-docker exec <project>-php-fpm-1 sh -c "ps aux | grep -c '[m]essenger:consume'"   # 0 = that is your bug
-```
-
-Start one before the suite and leave it running:
-
-```bash
-( cd .claude/worktrees/<name> && bin/worktrees/compose-exec.sh bin/console messenger:consume scheduler_default async --time-limit=3600 --memory-limit=256M )
-```
-
-Distinguish the two failure modes by their shape: a **cache** problem produces one or two odd failures with a disabled button and no logged error, while a **missing consumer** produces a large, auth-shaped block of them. Reaching for a re-run without telling them apart is how a real regression gets mistaken for a flake.
+A large auth-shaped block of failures — login, signup, the wizard, admin smoke and paywall going down together while the app returns 200 and `just ci` is green — therefore means **stale state, not a missing queue**. The usual cause is a fixture user left half-registered by an interrupted run: `just e2e-up` drops and recreates `app_e2e` every time it is called, so re-running it clears the poison. Diagnose before re-running; a database that survives a run is how stale state gets mistaken for a code regression.
 
 **php-cs-fixer works from worktrees.** `.php-cs-fixer.dist.php` uses explicit excludes rather than `ignoreVCSIgnored(true)`, and throws when the finder matches zero files. Both matter: the old VCS-ignore heuristic matched **0 files** under the gitignored `.claude/worktrees/`, so `just cs` fixed nothing and `just ci`'s cs-check leg passed vacuously (a committed brace jam once sailed through a "green" gate that way). `.claude` stays excluded deliberately — worktrees live inside the main checkout, so without it the main run would scan every worktree's copy of the tree. No explicit-path workaround is needed any more; if you see one in an old PR body, it predates this.
 

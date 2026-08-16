@@ -58,10 +58,13 @@ export function createTest(credentials: Credentials) {
     return base.extend<{}, { workerStorageState: StorageState }>({
         workerStorageState: [
             async ({ browser }, use, workerInfo) => {
-                // baseURL is a test-scoped fixture, unavailable here — read it
-                // from the project config instead of hardcoding a host.
+                // A manual context inherits nothing from `use`, so each option
+                // is copied. Without X-Playwright the fixture's own mail stays
+                // async and the suite needs a worker again.
                 const ctx = await browser.newContext({
                     baseURL: workerInfo.project.use.baseURL,
+                    extraHTTPHeaders: workerInfo.project.use.extraHTTPHeaders,
+                    ignoreHTTPSErrors: workerInfo.project.use.ignoreHTTPSErrors,
                 });
                 const page = await ctx.newPage();
 
@@ -70,13 +73,19 @@ export function createTest(credentials: Credentials) {
                 await page.getByLabel('Password').fill(credentials.password);
                 await page.getByRole('button', { name: 'Sign in' }).click();
 
-                // Either the session lands on the home page (logout form
-                // present), or the credentials are unknown and the auth
-                // error appears — meaning this is the first run.
+                // Three outcomes: logged in (logout form), unknown credentials
+                // (auth error), or registered-but-unverified — redirected to
+                // check-email, showing neither. The third belongs here or the
+                // self-heal below is unreachable.
                 await expect(
                     page
                         .locator('form[action="/logout"]')
-                        .or(page.locator('.auth-error')),
+                        .or(page.locator('.auth-error'))
+                        .or(
+                            page.getByRole('button', {
+                                name: 'Resend verification email',
+                            }),
+                        ),
                 ).toBeVisible();
 
                 if (await page.locator('.auth-error').isVisible()) {
