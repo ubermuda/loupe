@@ -21,15 +21,13 @@ locals {
 }
 
 module "app" {
-  source = "git::https://github.com/ubermuda/terraform-digitalocean-symfony-app.git//?ref=v1.7.0"
+  source = "git::https://github.com/ubermuda/terraform-digitalocean-symfony-app.git//?ref=v2.1.0"
 
   app_name = local.app_name
 
-  # Placement and the database cluster. Passed explicitly rather than left to the
-  # module's defaults, which name one specific pre-existing cluster in one
-  # specific region — inheriting them makes `terraform apply` fail for anyone
-  # else. The module creates a database and user ON this cluster; it does not
-  # create the cluster.
+  # Placement and the database cluster, both required by the module since v2.0.0
+  # — it no longer falls back to a cluster of its own. In attach mode it creates
+  # a database and user ON the named cluster without creating the cluster itself.
   region                  = var.region
   db_cluster_name         = var.db_cluster_name
   database_server_version = var.db_server_version

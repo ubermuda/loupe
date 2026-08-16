@@ -369,6 +369,77 @@ and tell the operator to set `db_cluster_trusted_ips` instead. The prose in
 "removes the firewall half" of the bootstrap, which is true but reads as
 "the recipe is fine to run" rather than "half of what it does will be undone".
 
+## Auth pages render inside the app shell when the visitor is signed in
+
+**Author:** Geoffrey · **Type:** bug · **Priority:** high · **Status:** pending
+
+`base.html.twig` opens the sidebar shell on `{% if app.user %}` and puts
+`{% block body %}` inside `<main class="lp-main">`.
+`templates/Module/Account/auth_base.html.twig` overrides only `body`, so it does
+not replace that shell — it renders the centred auth card *inside* it, complete
+with the project switcher and the Billing/Account/Admin/About nav.
+
+This is on the ordinary signup path rather than an edge case. Registration
+authenticates the user before the address is verified, `RedirectUnverifiedUserListener`
+sends them to `/register/check-email`, and `app.user` is set by then — so the
+"Check your email" page shows a full application sidebar to someone who cannot
+use any of it. Observed on loupe.ac on 2026-08-15. Every `auth_base` page has
+the same exposure whenever a signed-in visitor reaches it, including
+`/oauth/link` and the password-reset confirmation.
+
+The fix is a layout split rather than a per-template patch: the shell and the
+bare page need to be siblings, so an auth template can select the bare one
+instead of overriding a block inside the shell. Note `auth_base`'s footer
+already special-cases `{% if not app.user %}` for the source link, which is the
+same problem treated symptomatically.
+
+## `digitalocean_app` shows a perpetual diff, so every apply redeploys
+
+**Author:** Claude · **Type:** tooling · **Priority:** low · **Status:** pending
+
+`terraform plan` never reaches "no changes" against the loupe.ac deployment. It
+reports the app as updated in place every time, with ten `env` blocks removed
+and ten re-added (the same ten, reordered — the provider treats them as a set
+and does not stabilise the order), `job.instance_count` drifting `1 -> null`,
+and the `image` blocks re-rendering.
+
+Nothing is wrong with the result and no value actually changes, but each apply
+consequently rolls a fresh deployment, so an apply is never free and `plan` can
+no longer be used to answer "is anything outstanding". This matches the upstream
+report at
+https://github.com/digitalocean/terraform-provider-digitalocean/issues/1075.
+
+Observed on provider 2.99.1. Not established whether 2.93.0 was clean — the
+lockfile was upgraded mid-deploy, so the two were never compared on the same
+state. Worth checking before anything more elaborate: if it is a regression, the
+fix is pinning rather than chasing the provider.
+
+## No database-free health check path, so a from-scratch first deploy deadlocks
+
+**Author:** Claude · **Type:** bug · **Priority:** medium · **Status:** pending
+
+The shared Terraform module defaults `health_check_path` to `/login` on the
+reasoning that it is public and returns 200 without touching the database. That
+is not true of this application: feature flags are a Doctrine entity, and the
+login page renders flag-gated social buttons, so `/login` queries `feature_flag`
+on every request. `/healthz` is a deliberate dependency probe and answers 503
+when the database is unreachable.
+
+That leaves no path a container can serve before the database works — and on a
+first apply the database never works, because the module attaches the cluster's
+trusted sources *after* the app (the app's ID is one of the firewall rules). The
+app therefore fails its health check, App Platform never marks the deployment
+live, and the apply dies on a condition the next resource in the graph would
+have resolved. It took down the loupe.ac first apply on 2026-08-15; recovery was
+to append the trusted sources by hand, grant, migrate, `terraform untaint` the
+app (Terraform wanted to *replace* it, which would have minted a new app ID and
+orphaned the firewall rule), then apply targeted.
+
+Worth fixing before anyone else follows the documented first-deploy sequence.
+The cheapest candidate is a liveness path that renders nothing and reads
+nothing — distinct from `/healthz`, which should keep failing closed on database
+loss because that is what a load balancer needs from it after boot.
+
 ## Proper HTTP API + outbound webhooks
 
 
