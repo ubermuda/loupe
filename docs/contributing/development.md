@@ -48,11 +48,9 @@ creates a disposable database and a sidecar serving this checkout; `just e2e`
 refuses to start without it. The suite is destructive by design — one project
 truncates every table — so pointing it at your development database wipes it.
 
-Some specs assert on mail or a download link and need a consumer:
-`just e2e-worker` in another shell. Forgetting it fails around nineteen specs at
-once, spanning login, signup, the wizard and the paywall — a large auth-shaped
-block of failures with the app returning 200 and `just ci` green means no
-worker, not a broken branch.
+No messenger consumer is needed. Messages dispatched during a request carrying
+`X-Playwright: 1` are handled inline, so specs that assert on mail or a download
+link work with nothing draining the queue.
 
 The suite cannot be parallelised: Mailpit is shared, so mail-asserting specs
 across concurrent runs read each other's messages.

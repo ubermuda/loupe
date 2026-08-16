@@ -1081,51 +1081,6 @@ multi-round spec reviews much cheaper. Section identity comes from headings, so
 `App\Module\Review\Service\HeadingExtractor` is the existing source of it; also
 interacts with comment re-anchoring.
 
-## Make messenger synchronous under Playwright so e2e needs no consumer
-
-**Author:** Geoffrey · **Type:** tooling · **Priority:** medium · **Status:** pending
-
-Owner decision (2026-08-04): e2e should not need a messenger consumer at all.
-This supersedes the earlier "wire it or delete it" question about
-`PlaywrightSyncEmailMiddleware` — the answer is wire it, and wider than mail.
-
-Until it lands the consumer requirement is at least no longer silent: `just e2e`
-refuses to start unless a consumer is live, and `just e2e-worker` recycles below
-PHP's own memory limit and relaunches itself, so a worker cannot disappear
-mid-session. This entry would delete that machinery rather than merely stop it
-hurting.
-
-An attempt on 2026-08-04 got most of the way and is worth reading before the
-next one starts, because the remaining gap is specific rather than general.
-
-What worked: a bus middleware that stamps `TransportNamesStamp(['sync'])` on any
-envelope dispatched during a request carrying `X-Playwright`, with the `sync`
-transport uncommented in `config/packages/messenger.yaml`. Registered under
-`framework.messenger.buses.messenger.bus.default.middleware`. With no consumer
-running at all, the whole authentication-shaped block passes — signup, login,
-email verification, forgot-password, waitlist, the first-run wizard — which is
-the ~19-spec failure mode that made a forgotten worker so expensive.
-
-What did not: the data-export chain. `GenerateDataExportMessage` is handled
-inline, but the email `ProcessDataExportHandler` sends from inside that handler
-still lands on `async` and sits there. One `SendEmailMessage` row remains queued
-after the spec runs. The likely cause is that the nested dispatch happens where
-`RequestStack::getCurrentRequest()` no longer returns the request, so the
-middleware's guard skips it — worth confirming before designing around it, since
-if that is right the fix is to capture the flag once per request rather than
-re-read the stack per dispatch.
-
-Two traps found while testing this, both of which cost a full suite run:
-
-- Verifying the middleware is wired by grepping the compiled container gives a
-  false negative against a stale `var/cache/dev`. It showed only in
-  `removed-ids.php` until the cache was rebuilt, which reads exactly like a
-  config that never took effect.
-- `just e2e-up` migrates `app_e2e` but never rolls it back, so a database
-  migrated by one branch is ahead of another branch's code and the suite fails
-  with SQL errors that look like application bugs. Drop the database and re-run
-  `just e2e-up` when switching between branches whose schemas differ.
-
 ## Fuller billing section in account settings (manage sub in-app)
 
 
@@ -1839,10 +1794,9 @@ point.
 
 Check when picking this up: `e2e/` currently resolves Mailpit from a fixed
 host/port — that lookup has to become worktree-aware too, or the specs will
-still all talk to the shared instance. Interacts with "Decide fate of
-PlaywrightSyncEmailMiddleware": if Playwright-headed requests ever deliver mail
-synchronously, the worktree-scoped worker requirement for mail specs goes away,
-but the Mailpit isolation problem does not.
+still all talk to the shared instance. Playwright-headed requests now deliver
+mail synchronously, so there is no worker to scope per worktree — but that
+changed nothing about the Mailpit isolation problem, which is still open.
 
 ## Ship a minified site-review widget
 
@@ -2886,36 +2840,6 @@ once already, on the line below the one that fails.
 
 Related: 'phpstan runs out of memory in a worktree' — same 128M CLI limit,
 different command, and worth fixing in one place rather than per recipe.
-
-## `just e2e-down` makes the worker report a failure it did not have
-
-**Author:** Claude · **Type:** tooling · **Priority:** medium · **Status:** pending
-
-`e2e-worker` loops a consumer and uses a stop marker to tell a limit recycle
-(relaunch) from `e2e-down` tearing the target down (stop). The marker is
-consulted **only on a clean exit** — the non-zero branch exits 1 immediately
-with "consumer exited non-zero — stopping rather than looping on a failure",
-without ever looking at it.
-
-Observed 2026-08-05: a normal `just e2e-down` after a fully green suite ended
-the worker with exit code 1 and that message. Nothing was actually wrong — no
-consumer was left in the container afterwards
-(`docker exec loupe-php-fpm-1 sh -c "ps aux | grep -c '[m]essenger:consume'"`
-returned 0) — but the recipe reported a failure for a routine teardown.
-
-The comment in the recipe states the assumption that made this invisible:
-"Messenger stops gracefully on SIGTERM when pcntl is loaded, so the exit code
-cannot separate them." That is a claim about a *clean* exit. When `e2e-down`
-removes the compose project first, the `docker compose exec` itself can fail,
-and the consumer's database can go out from under it — either way the exit is
-non-zero and the marker is never read.
-
-The fix is to check the marker before deciding the non-zero exit is real, in
-both branches rather than one. Worth doing because the cost is not the wrong
-exit code but the wrong signal: a teardown that always prints "consumer exited
-non-zero" teaches a reader to ignore the one time it means something, and
-`just e2e` already depends on people trusting worker diagnostics — a missing
-consumer is documented as the cause of a ~19-spec failure block.
 
 ## No CI pipeline runs the gate — deferred to the open-source flip
 

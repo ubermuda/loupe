@@ -148,8 +148,8 @@ highlight's **visibility**, not its geometry, so padding and colour changes do
 not break it. `tests/Module/SiteReview/WidgetFileTest.php` asserts structural
 facts about the file itself.
 
-The e2e suite needs a consumer running or roughly a third of it fails in ways
-that look like application bugs (`just e2e-worker` in another shell).
+The e2e suite needs no messenger consumer: messages dispatched during a request
+carrying `X-Playwright: 1` are handled inline.
 
 ## Common mistakes
 
