@@ -369,30 +369,6 @@ and tell the operator to set `db_cluster_trusted_ips` instead. The prose in
 "removes the firewall half" of the bootstrap, which is true but reads as
 "the recipe is fine to run" rather than "half of what it does will be undone".
 
-## Auth pages render inside the app shell when the visitor is signed in
-
-**Author:** Geoffrey · **Type:** bug · **Priority:** high · **Status:** pending
-
-`base.html.twig` opens the sidebar shell on `{% if app.user %}` and puts
-`{% block body %}` inside `<main class="lp-main">`.
-`templates/Module/Account/auth_base.html.twig` overrides only `body`, so it does
-not replace that shell — it renders the centred auth card *inside* it, complete
-with the project switcher and the Billing/Account/Admin/About nav.
-
-This is on the ordinary signup path rather than an edge case. Registration
-authenticates the user before the address is verified, `RedirectUnverifiedUserListener`
-sends them to `/register/check-email`, and `app.user` is set by then — so the
-"Check your email" page shows a full application sidebar to someone who cannot
-use any of it. Observed on loupe.ac on 2026-08-15. Every `auth_base` page has
-the same exposure whenever a signed-in visitor reaches it, including
-`/oauth/link` and the password-reset confirmation.
-
-The fix is a layout split rather than a per-template patch: the shell and the
-bare page need to be siblings, so an auth template can select the bare one
-instead of overriding a block inside the shell. Note `auth_base`'s footer
-already special-cases `{% if not app.user %}` for the source link, which is the
-same problem treated symptomatically.
-
 ## `digitalocean_app` shows a perpetual diff, so every apply redeploys
 
 **Author:** Claude · **Type:** tooling · **Priority:** low · **Status:** pending

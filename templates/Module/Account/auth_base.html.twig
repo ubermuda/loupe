@@ -1,6 +1,6 @@
-{% extends 'base.html.twig' %}
+{% extends 'layout_base.html.twig' %}
 
-{% block body %}
+{% block page %}
 <div class="auth-page">
 
     {# Background effects #}
@@ -17,23 +17,20 @@
         {% block topbar_nav %}{% endblock %}
     </div>
 
-    {# Card #}
-    <div class="relative z-10 flex items-start justify-center px-7 pt-8 pb-12">
+    {# Card. The <main> landmark is the page's own: an auth page used to inherit
+       one from the app shell, but only while the visitor happened to be signed
+       in, so signed-out visitors never had one at all. #}
+    <main class="relative z-10 flex items-start justify-center px-7 pt-8 pb-12">
         <div class="w-full max-w-sm bg-surface-1 border border-line rounded-xl shadow-md px-8 pt-8 pb-7 flex flex-col gap-6">
             {% block auth_body %}{% endblock %}
         </div>
-    </div>
+    </main>
 
     {# Footer #}
     <div class="relative z-10 flex flex-wrap items-center gap-x-3.5 gap-y-2 px-7 py-5 text-xs text-fg-dim">
         <span>{{ 'account.auth.footer.copyright'|trans }}</span>
         <span class="flex-1"></span>
-        {# Only when signed out: the app shell's sidebar already carries this
-           link, and these pages (account deletion, social account linking) are
-           reachable from inside it. #}
-        {% if not app.user %}
-            {% include '_source_link.html.twig' with {class: 'auth-footer__link gap-1.5'} only %}
-        {% endif %}
+        {% include '_source_link.html.twig' with {class: 'auth-footer__link gap-1.5'} only %}
         <a href="{{ app_docs_url }}/" class="auth-footer__link">{{ 'account.auth.footer.docs'|trans }}</a>
         <a href="{{ path('app_privacy') }}" class="auth-footer__link">{{ 'account.auth.footer.privacy'|trans }}</a>
         <a href="{{ path('app_terms') }}" class="auth-footer__link">{{ 'account.auth.footer.terms'|trans }}</a>
