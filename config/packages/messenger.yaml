@@ -10,12 +10,16 @@ framework:
                     max_retries: 3
                     multiplier: 2
             failed: 'doctrine://default?queue_name=failed'
-            # sync: 'sync://'
+            sync: 'sync://'
 
         default_bus: messenger.bus.default
 
         buses:
-            messenger.bus.default: []
+            messenger.bus.default:
+                middleware:
+                    # Only fires for requests carrying X-Playwright, so dev and
+                    # production dispatch is untouched.
+                    - App\Messenger\Middleware\PlaywrightSyncMiddleware
 
         routing:
             Symfony\Component\Mailer\Messenger\SendEmailMessage: async
