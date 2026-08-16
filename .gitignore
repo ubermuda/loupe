@@ -92,3 +92,6 @@ e2e/.step-ca-root.crt
 /website/dist
 /website/.astro
 /website/.env
+
+# graft's local graph cache — regenerable, not committed (run `graft build`).
+graft/
