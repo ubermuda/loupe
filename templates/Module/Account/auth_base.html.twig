@@ -1,6 +1,6 @@
-{% extends 'base.html.twig' %}
+{% extends 'layout_base.html.twig' %}
 
-{% block body %}
+{% block page %}
 <div class="auth-page">
 
     {# Background effects #}
@@ -28,12 +28,7 @@
     <div class="relative z-10 flex flex-wrap items-center gap-x-3.5 gap-y-2 px-7 py-5 text-xs text-fg-dim">
         <span>{{ 'account.auth.footer.copyright'|trans }}</span>
         <span class="flex-1"></span>
-        {# Only when signed out: the app shell's sidebar already carries this
-           link, and these pages (account deletion, social account linking) are
-           reachable from inside it. #}
-        {% if not app.user %}
-            {% include '_source_link.html.twig' with {class: 'auth-footer__link gap-1.5'} only %}
-        {% endif %}
+        {% include '_source_link.html.twig' with {class: 'auth-footer__link gap-1.5'} only %}
         <a href="{{ app_docs_url }}/" class="auth-footer__link">{{ 'account.auth.footer.docs'|trans }}</a>
         <a href="{{ path('app_privacy') }}" class="auth-footer__link">{{ 'account.auth.footer.privacy'|trans }}</a>
         <a href="{{ path('app_terms') }}" class="auth-footer__link">{{ 'account.auth.footer.terms'|trans }}</a>

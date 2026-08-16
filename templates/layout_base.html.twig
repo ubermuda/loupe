@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>{% block title %}{{ 'app.name'|trans }}{% endblock %}</title>
+        {% block stylesheets %}{% endblock %}
+        {% block javascripts %}
+            {# The importmap renders two inline <script> tags, which are the only
+               inline scripts this app emits. Nonces are what will let script-src
+               drop 'unsafe-inline' when the CSP moves from report to enforce;
+               they are inert until then. csp_nonce() exists in every
+               environment — see config/bundles.php. #}
+            {% block importmap %}{{ importmap('app', {nonce: csp_nonce('script')}) }}{% endblock %}
+        {% endblock %}
+        {% set frankenphpHotReload = app.request.server.get('FRANKENPHP_HOT_RELOAD') %}
+        {% if frankenphpHotReload %}
+        <meta name="frankenphp-hot-reload:url" content="{{ frankenphpHotReload }}">
+        <script src="https://cdn.jsdelivr.net/npm/idiomorph"></script>
+        <script src="https://cdn.jsdelivr.net/npm/frankenphp-hot-reload/+esm" type="module"></script>
+        {% endif %}
+    </head>
+    <body class="{% block body_class %}{% endblock %}">
+        {# The page's outermost chrome, and the only thing that decides whether
+           the application shell is present. `base.html.twig` fills it with the
+           sidebar shell; `@Account/auth_base.html.twig` fills it with a bare
+           centred card. They are siblings on purpose: an auth page that
+           extended the shell could only ever nest inside it. #}
+        {% block page %}{% endblock %}
+        {% if site_review_widget_token %}
+        <script src="/site-review/widget.js" data-token="{{ site_review_widget_token }}"></script>
+        {% endif %}
+    </body>
+</html>

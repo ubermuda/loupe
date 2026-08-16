@@ -1,26 +1,6 @@
-<!DOCTYPE html>
-<html lang="en">
-    <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>{% block title %}{{ 'app.name'|trans }}{% endblock %}</title>
-        {% block stylesheets %}{% endblock %}
-        {% block javascripts %}
-            {# The importmap renders two inline <script> tags, which are the only
-               inline scripts this app emits. Nonces are what will let script-src
-               drop 'unsafe-inline' when the CSP moves from report to enforce;
-               they are inert until then. csp_nonce() exists in every
-               environment — see config/bundles.php. #}
-            {% block importmap %}{{ importmap('app', {nonce: csp_nonce('script')}) }}{% endblock %}
-        {% endblock %}
-        {% set frankenphpHotReload = app.request.server.get('FRANKENPHP_HOT_RELOAD') %}
-        {% if frankenphpHotReload %}
-        <meta name="frankenphp-hot-reload:url" content="{{ frankenphpHotReload }}">
-        <script src="https://cdn.jsdelivr.net/npm/idiomorph"></script>
-        <script src="https://cdn.jsdelivr.net/npm/frankenphp-hot-reload/+esm" type="module"></script>
-        {% endif %}
-    </head>
-    <body class="{% block body_class %}{% endblock %}">
+{% extends 'layout_base.html.twig' %}
+
+{% block page %}
         {% if app.user %}
         {% set project = current_project() %}
         {% set route = app.request.attributes.get('_route') %}
@@ -181,8 +161,4 @@
         {% else %}
         {% block body_unauthenticated %}{{ block('body') }}{% endblock %}
         {% endif %}
-        {% if site_review_widget_token %}
-        <script src="/site-review/widget.js" data-token="{{ site_review_widget_token }}"></script>
-        {% endif %}
-    </body>
-</html>
+{% endblock %}
