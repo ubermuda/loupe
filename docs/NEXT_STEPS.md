@@ -3949,3 +3949,23 @@ implies it inherits `baseURL` from somewhere — so the two facts are in tension
 and only a test settles it. Worth settling before any mail assertion is added to
 that spec: the failure mode is a 30-second timeout that reads as an application
 bug rather than a missing header.
+
+## `project-backend` documents a `getLogger()` helper that does not exist
+
+**Author:** Claude · **Type:** docs · **Priority:** medium · **Status:** pending
+
+`.claude/skills/project-backend/SKILL.md` tells agents that controllers log with
+`$this->getLogger()->info('event.name', [...])`. `src/Controller/AppController.php`
+has no such method — its only helper is `getInjectedFormView()` — so following
+the skill produces a call to an undefined method.
+
+The correct guidance is to inject `LoggerInterface` via the constructor in
+controllers and services alike. The same commit should re-check two neighbouring
+claims that were wrong at the same time: `getInjectedFormView()` is retrieved in
+the receiving *Twig component* rather than the receiving controller, and its
+docblock line describing the signature carries a redundant parenthetical.
+
+Found 2026-08-16 while clearing `origin/chore/next-steps-housekeeping`, whose
+PR #48 was closed unmerged in 2026-07-25. That branch carried this fix; the rest
+of it has since been overtaken by newer edits to the same files, so take the
+correction rather than the branch.
