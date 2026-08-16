@@ -393,6 +393,27 @@ instead of overriding a block inside the shell. Note `auth_base`'s footer
 already special-cases `{% if not app.user %}` for the source link, which is the
 same problem treated symptomatically.
 
+## `digitalocean_app` shows a perpetual diff, so every apply redeploys
+
+**Author:** Claude · **Type:** tooling · **Priority:** low · **Status:** pending
+
+`terraform plan` never reaches "no changes" against the loupe.ac deployment. It
+reports the app as updated in place every time, with ten `env` blocks removed
+and ten re-added (the same ten, reordered — the provider treats them as a set
+and does not stabilise the order), `job.instance_count` drifting `1 -> null`,
+and the `image` blocks re-rendering.
+
+Nothing is wrong with the result and no value actually changes, but each apply
+consequently rolls a fresh deployment, so an apply is never free and `plan` can
+no longer be used to answer "is anything outstanding". This matches the upstream
+report at
+https://github.com/digitalocean/terraform-provider-digitalocean/issues/1075.
+
+Observed on provider 2.99.1. Not established whether 2.93.0 was clean — the
+lockfile was upgraded mid-deploy, so the two were never compared on the same
+state. Worth checking before anything more elaborate: if it is a regression, the
+fix is pinning rather than chasing the provider.
+
 ## No database-free health check path, so a from-scratch first deploy deadlocks
 
 **Author:** Claude · **Type:** bug · **Priority:** medium · **Status:** pending
