@@ -79,11 +79,11 @@ variable "create_db_cluster" {
 variable "db_cluster_name" {
   type        = string
   default     = ""
-  description = "Name of an EXISTING managed Postgres cluster in your account; the module creates a per-app database and user on it. App-Platform-provisioned clusters are named app-<uuid> and that string IS the name — `doctl databases list`. Leave this empty and set create_db_cluster = true to have the module create a dedicated cluster instead. Exactly one of the two is required: an empty name with create_db_cluster = false would fall through to the module's own historical default, which is this project's cluster and not yours."
+  description = "Name of an EXISTING managed Postgres cluster in your account; the module creates a per-app database and user on it. App-Platform-provisioned clusters are named app-<uuid> and that string IS the name — `doctl databases list`. Leave this empty and set create_db_cluster = true to have the module create a dedicated cluster instead. Exactly one of the two is required: the module has no default cluster to fall back on, so leaving both unset is a plan-time error rather than a silent attachment."
 
   validation {
     condition     = (var.db_cluster_name != "") != var.create_db_cluster
-    error_message = "Set exactly one of db_cluster_name (attach to a cluster you already run) or create_db_cluster = true (have Terraform create a dedicated one). Setting neither would silently attach to the upstream project's own cluster; setting both is ambiguous."
+    error_message = "Set exactly one of db_cluster_name (attach to a cluster you already run) or create_db_cluster = true (have Terraform create a dedicated one). Setting neither leaves the module with no cluster to use; setting both is ambiguous."
   }
 }
 
