@@ -22,7 +22,12 @@ type Handler struct {
 	OnError   func(error)
 }
 
-const maxBackoff = 30 * time.Second
+const (
+	maxBackoff = 30 * time.Second
+	// Just over twice the hub's 40s default heartbeat, so an idle-but-healthy
+	// connection is never mistaken for a dead one.
+	readTimeout = 90 * time.Second
+)
 
 // TokenFunc returns a subscriber JWT for the hub. It is called before every
 // connection attempt, so a long-running subscriber survives token expiry:
@@ -68,9 +73,7 @@ func Subscribe(ctx context.Context, hc *http.Client, hubURL, topic string, token
 				return ctx.Err()
 			case <-time.After(backoff):
 			}
-			if backoff < maxBackoff {
-				backoff *= 2
-			}
+			backoff = min(backoff*2, maxBackoff)
 
 			continue
 		}
@@ -99,9 +102,7 @@ func Subscribe(ctx context.Context, hc *http.Client, hubURL, topic string, token
 			return ctx.Err()
 		case <-time.After(backoff):
 		}
-		if backoff < maxBackoff {
-			backoff *= 2
-		}
+		backoff = min(backoff*2, maxBackoff)
 	}
 }
 
@@ -135,8 +136,18 @@ func stream(ctx context.Context, hc *http.Client, target, jwt, lastID string, h 
 	sc := bufio.NewScanner(resp.Body)
 	sc.Buffer(make([]byte, 0, 64*1024), 1024*1024)
 
+	// A connection can die without the read ever returning: a NAT idle reset or
+	// a suspended laptop leaves Scan blocked forever, so nothing reconnects and
+	// the bridge looks healthy while receiving nothing. Closing the body from
+	// under Scan is what unblocks it. The hub heartbeats every 40s by default,
+	// so silence beyond readTimeout means the connection, not the traffic.
+	idle := time.AfterFunc(readTimeout, func() { _ = resp.Body.Close() })
+	defer idle.Stop()
+
 	var data strings.Builder
+	pendingID := ""
 	for sc.Scan() {
+		idle.Reset(readTimeout)
 		line := sc.Text()
 		switch {
 		case line == "": // event boundary
@@ -146,8 +157,15 @@ func stream(ctx context.Context, hc *http.Client, target, jwt, lastID string, h 
 				}
 				data.Reset()
 			}
+			// The resume point moves only once the event has been handed over.
+			// Committing it at the `id:` line instead would let a drop between
+			// the two skip an event that was never delivered — and because the
+			// hub replays from Last-Event-ID, that event is then gone for good.
+			if pendingID != "" {
+				lastID, pendingID = pendingID, ""
+			}
 		case strings.HasPrefix(line, "id:"):
-			lastID = strings.TrimPrefix(strings.TrimPrefix(line, "id:"), " ")
+			pendingID = strings.TrimPrefix(strings.TrimPrefix(line, "id:"), " ")
 		case strings.HasPrefix(line, "data:"):
 			if data.Len() > 0 {
 				data.WriteByte('\n')
