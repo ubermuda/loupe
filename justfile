@@ -153,8 +153,11 @@ gamache:
 # must not turn a vulnerable lockfile green, and in a worktree the two drift
 # routinely. Reaches packagist's advisory API, which works unauthenticated —
 # the anonymous rate limit bites `composer update`, not this.
+# No --omit=dev: every npm package here is tooling, so it would scan nothing.
 audit:
     bin/worktrees/compose-exec.sh composer audit --locked
+    npm audit
+    cd e2e && npm audit
 
 # Not part of `ci`, unlike `audit` above: needs host tooling as well as outbound
 # network, and scans all of history rather than the current tree. gitleaks matches

@@ -2,9 +2,13 @@
   "name": "loupe",
   "private": true,
   "license": "AGPL-3.0-or-later",
+  "scripts": {
+    "build:widget": "esbuild public/site-review/widget.js --minify --target=es2020 --outfile=var/widget.min.js"
+  },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
     "@tailwindcss/typography": "^0.5.19",
+    "esbuild": "0.28.2",
     "eslint": "^10.4.1",
     "globals": "^17.6.0",
     "prettier": "^3.8.3"
