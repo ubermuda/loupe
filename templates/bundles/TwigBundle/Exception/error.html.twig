@@ -9,6 +9,9 @@
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         {%- set key = status_code in [403, 404, 500] ? status_code : 'default' -%}
         <title>{{ ('error.' ~ key ~ '.title')|trans }} — {{ 'app.name'|trans }}</title>
+        {# Standalone, so it carries its own stylesheet: app.js no longer
+           imports the CSS, and this page does not extend layout_base. #}
+        <link rel="stylesheet" href="{{ asset('styles/app.css') }}">
         {{ importmap('app', {nonce: csp_nonce('script')}) }}
     </head>
     <body>
