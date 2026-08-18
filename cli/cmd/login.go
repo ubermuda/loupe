@@ -3,7 +3,9 @@ package cmd
 import (
 	"bufio"
 	"context"
+	"errors"
 	"fmt"
+	"io"
 	"os"
 	"strings"
 	"time"
@@ -28,7 +30,15 @@ func newLoginCmd() *cobra.Command {
 			}
 			if token == "" {
 				fmt.Fprint(cmd.OutOrStdout(), "API token (site-review scope): ")
-				line, _ := bufio.NewReader(cmd.InOrStdin()).ReadString('\n')
+				line, err := bufio.NewReader(cmd.InOrStdin()).ReadString('\n')
+				// A token piped in without a trailing newline ends in EOF with
+				// the line already read, which is success. EOF with nothing
+				// read, or any other error, is a failed read — reporting it as
+				// "no token provided" would send the user looking in the wrong
+				// place.
+				if err != nil && !(errors.Is(err, io.EOF) && line != "") {
+					return fmt.Errorf("read token: %w", err)
+				}
 				token = line
 			}
 			token = strings.TrimSpace(token)

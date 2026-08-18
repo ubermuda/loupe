@@ -72,3 +72,21 @@ func TestDirectiveInterpolatesNothing(t *testing.T) {
 		t.Fatal("directive is not constant")
 	}
 }
+
+// TestParseRejectsUnexpectedTypes is the second half of the prompt-injection
+// guard. Whatever else appears on the topic must be ignored rather than acted
+// on: without the type check, any well-formed JSON would type the directive
+// into the user's agent session.
+func TestParseRejectsUnexpectedTypes(t *testing.T) {
+	for _, payload := range []string{
+		`{}`,
+		`{"type":""}`,
+		`{"type":"site_review.something_else"}`,
+		`{"type":null}`,
+		`{"siteName":"acme"}`,
+	} {
+		if _, err := Parse([]byte(payload)); err == nil {
+			t.Fatalf("expected %s to be rejected, got no error", payload)
+		}
+	}
+}

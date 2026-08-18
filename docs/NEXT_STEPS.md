@@ -163,6 +163,18 @@ omits the Mercure hub origin, which is fine while browser-side Mercure is
 disabled in `assets/controllers.json` — enabling browser SSE would need it
 added.
 
+**Owner decision (2026-08-17): keep CSS out of the import map, then flip.** A
+Lighthouse run against `loupe.ac` caught a live violation the earlier analysis
+had missed — `script-src-elem`, blocked URI `data`, from the AssetMapper import
+map line `"/assets/styles/app.css": "data:application/javascript,"`. So it is
+not only the inline styles that would break: AssetMapper emits a `data:` script
+for the CSS entry, and an enforcing policy blocks it.
+
+Of the four ways out — allow `data:` scripts, collect violation reports first,
+leave it report-only and write that down, or stop the `data:` script being
+emitted at all — the last was chosen, because it is the only one that ends with
+a policy that both enforces and stays strict.
+
 **Do not treat this flip as a mitigation for markup-injection findings.** A
 review of the Markdown sanitizer produced an attack where a `class` attribute on
 document-supplied `<code>` selected the app's own compiled stylesheet rules to
@@ -1058,14 +1070,33 @@ matched zero files and let a formatting bug through a green pipeline — fixed s
 switching `.php-cs-fixer.dist.php` to explicit excludes plus a throw when the finder
 matches nothing. The arkitect equivalent has no such guard.
 
-Known cycles to break, confirmed in the code: Project↔Review and Project↔SiteReview
-(`ListProjectsController.php` and `CreateProjectController.php` import
-`DocumentRepository`, `SiteReviewCommentRepository`, `SiteReviewEventRepository`),
-Account↔Project (`HomeController.php`, `DeleteAccountHandler.php`), and Account↔Billing
-(`DeleteAccountHandler.php` imports `BillingProfileRepository` +
-`StripeGatewayInterface`). The duplicated project-list count block in the two Project
-controllers is the natural first extraction seam — one provider service fixes the reverse
-edges and the 3-counts-per-project N+1 together.
+Known cycles to break, re-confirmed in the code on 2026-08-17: Project↔Review and
+Project↔SiteReview (`Project/Command/ListProjectsHandler.php` imports
+`Review\Repository\DocumentRepository` and
+`SiteReview\Repository\SiteReviewCommentRepository`), Account↔Project
+(`Account/Command/ShowHomeHandler.php`, `DeleteAccountHandler.php`), and
+Account↔Billing (`DeleteAccountHandler.php` imports `BillingProfileRepository` +
+`StripeGatewayInterface`). The duplicated project-list count block is the natural first
+extraction seam — one provider service fixes the reverse edges and the
+3-counts-per-project N+1 together. The shape to copy is
+`UserDataExporterInterface`, which already solves exactly this: a
+`ProjectStatsProviderInterface` declared in Project and implemented by Review and
+SiteReview reverses both edges without Project naming either module.
+
+Three specific misplacements to fix while here, each confirmed at source:
+
+- **Account reaches into Project to clear tokens.** `Account/Command/RevokeApiTokenHandler.php`
+  nulls `Project.widgetToken` and `Project.mcpToken` directly, with a comment
+  acknowledging it. Emitting an `ApiTokenRevoked` event, the way `ProjectDeleting`
+  already works, keeps the write inside the module that owns the field.
+- **The home page lives in Account but is about Projects.** `Account/Command/ShowHomeHandler.php`
+  and `ShowHomeView.php`.
+- **Project depends on the two modules that depend on it** — the `ListProjectsHandler`
+  imports above.
+
+`src/Module/Diagnostics/` (added 2026-08-17) is the worked example of the target
+shape: it imports nothing from any module, and Billing and Account contribute
+their own tagged checks to it.
 
 Two pieces of work, in order:
 
@@ -1840,6 +1871,11 @@ treatment as everything under `/assets/` (which would also give it a
 content-hashed filename, and the cache block could then become `immutable`
 instead of the current 5-minute window).
 
+**Owner decision (2026-08-17): add the build step, keep the readable source in
+the repo.** The two options above are still both open — this settles that it
+gets compressed, not how. It ships at 79 KB (about 20 KB compressed) on a
+5-minute cache, and it is your customers' visitors who pay that, not you.
+
 ## Self-hosting audit
 
 
@@ -2184,10 +2220,12 @@ does not currently carry, so it interacts with the `extra_env` wiring in
 
 The health and status surface is currently hand-rolled and lives entirely in
 this app: `App\Controller\ShowHealthController` serves `/healthz`, and
-`App\Module\Account\Command\CheckSystemStatusHandler` runs the six checks
-behind `/admin/status` and the install wizard's status step. Three options are
-worth weighing rather than letting the hand-rolled version become the answer
-by default:
+`src/Module/Diagnostics/` runs the seven checks behind `/admin/status` and the
+install wizard's status step. Since 2026-08-17 those checks are one tagged
+class each behind `DiagnosticInterface`, so the seam a third-party package
+would need already exists and adopting one is now a swap rather than a rewrite.
+Three options are worth weighing rather than letting the hand-rolled version
+become the answer by default:
 
 1. **Adopt an existing open-source package.** `liip/monitor-bundle` is the
    long-standing Symfony option and ships checks for Doctrine connections,
@@ -2652,37 +2690,6 @@ respect to the published MCP schema, which is not obvious. The SDK builds
 `inputSchema` from `@param` docblock tags only, and emits an `outputSchema`
 solely when one is passed explicitly to `#[McpTool]` — verified in
 `vendor/mcp/sdk/src/Capability/Discovery/SchemaGenerator.php`.
-
-## The system status page is one handler with a check method per concern
-
-**Author:** Geoffrey · **Type:** tooling · **Priority:** medium · **Status:** pending
-
-Owner note (2026-08-04): the status page needs to be modularized.
-
-`App\Module\Account\Command\CheckSystemStatusHandler` holds every check as a
-private method on one class, and the class takes a constructor argument per
-thing any of them needs — a connection, an HTTP client, the mailer transport
-factory, the feature flags, and six autowired environment values. Adding the
-agent-account check meant adding a method and a SQL constant to a class that
-already knows about SMTP, Mercure, Stripe and the messenger tables.
-
-The shape to move to is one class per check behind a common interface, tagged
-and collected, so a check declares its own dependencies and can be tested
-without constructing the others. `SystemCheck` and `SystemCheckState` are
-already the right value objects for it; what is missing is the seam.
-
-Two things to preserve, because they are the parts that took thought. The
-worker check deliberately never reports "ok" — an idle queue cannot prove a
-consumer is running — and a generic collector must not tempt anyone into
-reporting green for "no errors". And the Stripe check is skipped rather than
-failed when billing is switched off, so whatever replaces the current
-`if` needs a way for a check to declare itself not-applicable that is distinct
-from passing.
-
-Related: 'Decide whether health checks stay hand-rolled, move to a third-party
-package, or become our own' — that entry asks whether to adopt
-`liip/monitor-bundle`, whose check abstraction would be the seam this entry
-wants. Settle that one first, or this refactor is done twice.
 
 ## MCP tool: hand the human a list of what needs their attention
 

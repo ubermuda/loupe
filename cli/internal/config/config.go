@@ -69,8 +69,15 @@ func Save(c Config) error {
 	if err != nil {
 		return err
 	}
-	if err := os.WriteFile(filepath.Join(d, "config.json"), b, 0o600); err != nil {
+	path := filepath.Join(d, "config.json")
+	if err := os.WriteFile(path, b, 0o600); err != nil {
 		return fmt.Errorf("write config: %w", err)
+	}
+	// WriteFile's mode applies only when it creates the file, so a config that
+	// already existed keeps whatever permissions it had — including
+	// world-readable ones holding an API token.
+	if err := os.Chmod(path, 0o600); err != nil {
+		return fmt.Errorf("secure config: %w", err)
 	}
 
 	return nil
