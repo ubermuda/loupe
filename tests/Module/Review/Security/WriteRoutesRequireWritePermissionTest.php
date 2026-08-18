@@ -30,17 +30,28 @@ final class WriteRoutesRequireWritePermissionTest extends TestCase
             }
 
             $reflection = new \ReflectionClass($class);
-            $methods = [];
-            foreach ($reflection->getAttributes(Route::class) as $route) {
-                $methods = [...$methods, ...(array) ($route->getArguments()['methods'] ?? [])];
+
+            // Symfony honours either attribute on the class or on the action, so
+            // both placements are collected — a route seen in only one of them
+            // would otherwise drop out of this scan entirely.
+            $routes = $reflection->getAttributes(Route::class);
+            $granted = $reflection->getAttributes(IsGranted::class);
+            foreach ($reflection->getMethods() as $method) {
+                $routes = [...$routes, ...$method->getAttributes(Route::class)];
+                $granted = [...$granted, ...$method->getAttributes(IsGranted::class)];
             }
-            if ([] === array_intersect($methods, self::WRITE_METHODS)) {
+
+            $httpMethods = [];
+            foreach ($routes as $route) {
+                $httpMethods = [...$httpMethods, ...(array) ($route->getArguments()['methods'] ?? [])];
+            }
+            if ([] === array_intersect($httpMethods, self::WRITE_METHODS)) {
                 continue;
             }
 
             ++$checked;
-            foreach ($reflection->getAttributes(IsGranted::class) as $granted) {
-                if (DocumentVoter::VIEW === $granted->newInstance()->attribute) {
+            foreach ($granted as $isGranted) {
+                if (DocumentVoter::VIEW === $isGranted->newInstance()->attribute) {
                     $offenders[] = $reflection->getShortName();
                 }
             }
