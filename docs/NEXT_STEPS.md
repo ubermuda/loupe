@@ -3844,3 +3844,28 @@ keep its shape while the list-shaped ones stream. That changes an exported
 archive's format if done carelessly, which is why it was not folded into the
 in-memory fix.
 
+
+## A mark-addressed skip reason is best-effort, because the re-read is not under the write's lock
+
+**Author:** Claude · **Type:** bug · **Priority:** low · **Status:** pending
+
+`SiteReviewCommentRepository::markAddressedIfPending()` and its twin on
+`App\Module\Review\Repository\CommentRepository` settle the write with a
+conditional `UPDATE … WHERE status = 'pending'`, which is what stops an agent
+overwriting a human's Resolve. A zero-row result only says the comment was not
+pending, so both MCP mark-addressed tools then call `currentStatus()` to learn
+why and report `already_addressed` / `resolved` / not-found accordingly.
+
+That second read is a separate statement outside any row lock, so the status can
+move again between the two. The reported *reason* is therefore best-effort: an
+agent can be told `resolved` for a comment that was addressed a moment earlier,
+or the reverse.
+
+Only the label is affected — the write itself is already safe, and no comment
+changes state because of this. Closing it properly means the read-check-write
+pattern `project-backend` documents (`wrapInTransaction` + `lock(PESSIMISTIC_WRITE)`
++ `refresh()`), which was passed over because it costs a lock per comment on
+every batch to sharpen a string that is only wrong when two writers race the same
+comment. Note `refresh()` does not work on these entities — Doctrine refuses to
+rehydrate their readonly `createdAt` — so a lock-based version needs another way
+to re-read.
