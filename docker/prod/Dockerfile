@@ -1,3 +1,14 @@
+# The site-review widget is a third-party embed pulled in on every page of every
+# customer site, so its size is paid by their visitors. The readable source stays
+# in the repo and is what dev serves; only the image carries the compressed file,
+# written to the same URL so embeds already on customer pages keep working.
+FROM node:22-alpine AS widget
+WORKDIR /build
+COPY package.json package-lock.json ./
+RUN npm ci --ignore-scripts=false --no-audit --no-fund
+COPY public/site-review/widget.js public/site-review/widget.js
+RUN npm run build:widget
+
 # Pinned by digest so the same Dockerfile always produces the same base layer:
 # `php:8.5-fpm-alpine` is a mutable tag that is rebuilt on every patch release
 # and every Alpine bump, so without this two builds a week apart ship different
@@ -46,6 +57,8 @@ COPY docker/prod/nginx.conf /etc/nginx/http.d/default.conf
 COPY docker/prod/supervisord.conf /etc/supervisord.conf
 
 COPY . .
+
+COPY --from=widget /build/var/widget.min.js public/site-review/widget.js
 
 RUN set -eux; \
 	mkdir -p var/cache var/log var/share var/tailwind var/exports; \
