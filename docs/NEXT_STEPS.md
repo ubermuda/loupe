@@ -909,6 +909,23 @@ work before it's a turnkey distributable:
   (mode 0600). Move it to the OS keychain (e.g. `go-keyring`) with the file as a fallback.
 - **CI + release.** Wire `just cli-test` into the gate, and add goreleaser for a
   multi-platform release matrix (current `just cli-build` only cross-compiles one target).
+- **Detaching can close the log file mid-write.** `cli/cmd/bridge.go` never waits
+  for its background worker. Have the worker close a `done` channel and wait on it.
+- **A slow token refresh freezes reconnection permanently.** `cli/cmd/bridge.go`
+  refreshes with `http.DefaultClient`, which has no timeout. Give each refresh
+  about 15 seconds.
+- **The bridge acts on any well-formed JSON.** `cli/internal/inject/inject.go`
+  never checks the event type, so `{}` gets typed into the session. Reject a
+  missing or unexpected type.
+- **Saving the login does not fix permissions on an existing file.**
+  `cli/internal/config/config.go` uses `os.WriteFile`, whose `0600` applies only
+  on creation. `Chmod(0600)` after writing, or write and rename.
+- **A read failure at login looks like "no token".** `cli/cmd/login.go` discards
+  the error. Handle it, treating EOF with a non-empty line as success.
+
+Each of these came out of the 2026-08-17 audit of `c5e8b96`; the resume-point,
+idle-timeout and backoff-cap findings from the same pass are already fixed
+(PR #193).
 
 ## Site-review comments have no agent-reply data model
 
@@ -3969,3 +3986,190 @@ Found 2026-08-16 while clearing `origin/chore/next-steps-housekeeping`, whose
 PR #48 was closed unmerged in 2026-07-25. That branch carried this fix; the rest
 of it has since been overtaken by newer edits to the same files, so take the
 correction rather than the branch.
+
+## The live site never tells browsers to stay on HTTPS
+
+**Author:** Claude · **Type:** security · **Priority:** high · **Status:** pending
+
+`curl -I https://loupe.ac/` returns no `Strict-Transport-Security` header, and
+nothing in `docker/compose/prod.yaml` or `terraform/` adds one, so a first visit
+over `http://` is downgradeable. Symfony can set it directly:
+`forced_ssl: { hsts_max_age: 31536000 }` under `when@prod` in
+`config/packages/nelmio_security.yaml`.
+
+Decide `includeSubDomains` and preloading deliberately before turning either on
+— both are hard to walk back, and a preload entry outlives the deployment that
+asked for it. Found by the 2026-08-17 audit of `c5e8b96`.
+
+## The text ladder has lost a rung to the contrast fix
+
+**Author:** Claude · **Type:** bug · **Priority:** medium · **Status:** pending
+
+`--text-dim` was `#8f8f84`, which measures 3.26:1 against white where WCAG AA
+needs 4.5:1, and it failed on every page checked. PR #194 darkened it to
+`#6f6f66` — but that is the exact value of `--text-mute`, so two rungs of the
+ladder in `assets/styles/app.css` are now the same colour and every
+`text-fg-dim` usage renders as mute.
+
+No lighter grey clears the threshold: `#6f6f66` is 5.07:1 on white and 4.45:1
+on the darkest sunken surface (`#f0f0ec`), so a dim usage on a sunken surface is
+still marginally short. Re-spacing `--text`, `--text-mute`, `--text-dim` and
+`--faint` into three distinguishable text rungs that all pass — or deciding
+that dim and mute should collapse into one token and deleting the other — is a
+deliberate design pass, and it needs the owner's eye rather than a measurement.
+
+## Two list pages run a query per row
+
+**Author:** Claude · **Type:** bug · **Priority:** medium · **Status:** pending
+
+`ListDocumentsHandler` counts open comments one document at a time, 20 per page,
+in code that already batches tags and version data. `ListProjectsHandler` is
+worse: two queries per row, 40 at 20 projects — and the batched
+`DocumentRepository::countActiveByProjects()` it needs already exists and is
+used by `base.html.twig`.
+
+Both want a grouped query returning counts keyed by id: a
+`countOpenByVersions(array $versionIds)` for the first, and reuse plus a
+`statusCountsForProjects()` for the second. Found by the 2026-08-17 audit of
+`c5e8b96`.
+
+## Posting one review comment loads every version of the document
+
+**Author:** Claude · **Type:** bug · **Priority:** medium · **Status:** pending
+
+`Review/Entity/Document::latestVersion()` walks the whole `versions` collection,
+and each version holds the document's full markdown and HTML — so an innocuous
+write pulls megabytes into memory on a document with any history. Counting for
+the next version number does the same thing.
+
+Five paths take it instead of the purpose-built `DocumentVersionRepository::findLatest()`:
+`AddCommentHandler`, `SubmitReviewHandler`, `SetDocumentHighlightsHandler`,
+`GetReviewStateHandler` and `ReviseDocumentHandler`. Switch them, and use a
+`MAX()` query for the next number rather than a count of loaded rows. Found by
+the 2026-08-17 audit of `c5e8b96`.
+
+## Exporting an account builds the whole archive in memory three times
+
+**Author:** Claude · **Type:** bug · **Priority:** medium · **Status:** pending
+
+`DocumentExporter` loads everything and copies it, then
+`DataExportArchiveBuilder` serialises the result into a single JSON string —
+three full copies of an account's documents resident at once. A large account
+fails, and keeps failing, with no path to a successful export.
+
+The fix is to batch the read, stream each part to a temp file, and add those
+files to the zip rather than building a string. Found by the 2026-08-17 audit of
+`c5e8b96`. Related: 'A ready data export offers no way to download it'.
+
+## `npm audit` is not part of the gate, and both trees have advisories
+
+**Author:** Geoffrey · **Type:** tooling · **Priority:** medium · **Status:** pending
+
+The `audit` recipe in the `justfile` runs only `composer audit --locked`, so the
+npm side is unchecked — and `brace-expansion` currently carries denial-of-service
+advisories in both `package-lock.json` and `e2e/package-lock.json`. Dev tooling
+only; the PHP side is clean.
+
+Owner decision (2026-08-17, reviewing the audit of `c5e8b96`): add `npm audit`
+to the gate. Two things it needs. **Run `npm audit fix` in both trees first**, or
+the new check goes red immediately and blocks unrelated work on day one. And do
+**not** reach for `--omit=dev` to quieten it: every npm package here is tooling,
+because the app's own JavaScript goes through the import map, so omitting dev
+dependencies would leave the check scanning almost nothing — a check that passes
+because it looks at nothing. Both lines belong next to the existing host-side
+`npx prettier` and `npx eslint` steps, not behind `compose-exec`.
+
+## A scheduled job has no task class and no registration test
+
+**Author:** Claude · **Type:** tooling · **Priority:** medium · **Status:** pending
+
+`PurgeExpiredExportsCommand` carries `#[AsCronTask]` on the console command
+itself, unlike its two siblings, which each have a task class under
+`Scheduler/` plus a test asserting the registered cron expression. The wiring
+lives entirely in an attribute and a compiler pass, so a job that quietly stops
+being registered says nothing at all.
+
+Give it the same shape as `DrainSiteReviewOutboxTask`: a task class delegating
+to the handler, and a test reading the expression back through
+`App\Tests\Support\ScheduledTasks`. Found by the 2026-08-17 audit of `c5e8b96`.
+
+## Review has two shapes for one idea, and one of them hides from gamache
+
+**Author:** Claude · **Type:** tooling · **Priority:** medium · **Status:** pending
+
+`Review/Query/GetDocument.php` and `Review/Query/GetReview.php` are called
+directly from controllers and return loose arrays, while `GetReviewStateHandler`
+does the same job as a proper command/handler pair with a result object. The
+`Query\` folder is also why nothing flags them: gamache's handler conventions
+key on `Command\`.
+
+Move both to `Command/` as `Show*Handler` pairs returning result objects, which
+brings them under the existing checks as a side effect. Found by the 2026-08-17
+audit of `c5e8b96`.
+
+## Shared MCP code names a specific module's class
+
+**Author:** Claude · **Type:** tooling · **Priority:** medium · **Status:** pending
+
+`src/Mcp/FlagGatedListToolsHandler.php` hard-codes a Review class to decide
+which tools a flag gates, and `src/Mcp/ResolvesBoundProject.php` imports Project.
+Root `src/` is for code generic across modules, so naming one module's classes
+there inverts the dependency the layout is meant to express.
+
+Let each tool declare its own flag and have the handler collect them, rather
+than the shared handler knowing the list. Found by the 2026-08-17 audit of
+`c5e8b96`. Related: 'Domain boundaries sweep — and the arkitect gate that has
+never rejected anything'.
+
+## No page has a meta description
+
+**Author:** Claude · **Type:** bug · **Priority:** low · **Status:** pending
+
+A Lighthouse run against `loupe.ac` on 2026-08-17 scored SEO 90, and the missing
+meta description was the entire deduction on all three pages checked. The
+landing and legal pages are the ones that matter, since they are what a search
+result would show.
+
+## The landing page has no `main` region and bakes the brand into its title
+
+**Author:** Claude · **Type:** bug · **Priority:** low · **Status:** pending
+
+Two small landing-page defects found by the 2026-08-17 Lighthouse run. The page
+has no `<main>` element, so it offers no main landmark to a screen reader, while
+the other two pages checked do have one. Separately, its title string in
+`messages.en.xlf` has the product name written into the translated text; it
+should be a page part composed with `app.name`, so a rename or a self-hosted
+rebrand does not need the translation edited.
+
+## Three strings use "(s)" instead of plural rules
+
+**Author:** Claude · **Type:** bug · **Priority:** low · **Status:** pending
+
+Three entries in `messages.en.xlf` write "(s)" rather than pluralising. Symfony
+interval syntax handles it, and this app's convention requires the `{0}` case be
+included — omitting it throws at render time when the count can be zero. Found
+by the 2026-08-17 audit of `c5e8b96`.
+
+## Small correctness gaps found by the 2026-08-17 audit
+
+**Author:** Claude · **Type:** bug · **Priority:** low · **Status:** pending
+
+Each is independent and small; grouped so they are not lost individually.
+
+- **A duplicate project name gives one user a 500.** `CreateProjectHandler`
+  checks then inserts, so two requests racing both pass the check. Catch
+  `UniqueConstraintViolationException` and turn it into a form error, as
+  `RegisterUserHandler` already does.
+- **A verdict can land on an out-of-date version.** `SubmitReviewHandler` reads
+  the document unlocked. Take the write lock `SelectDecisionOptionHandler` uses.
+- **Titles are validated on rename but not on creation.** `CreateDocumentHandler`
+  applies none of the trim, blank and length checks its rename counterpart does.
+- **Comment authors are fetched one query at a time.** `CommentRepository`'s two
+  finders omit the author that `CommentThread.html.twig` then displays; join it
+  in both.
+- **Account imports Billing directly when deleting.** `DeleteAccountHandler` does
+  this for a documented reason; a pre-purge collect step on the purger interface
+  would remove the need.
+- **One migration uses a round timestamp.** `Version20260529000000` is already
+  deployed, so there is nothing to fix — the note exists only so the pattern is
+  not copied.
