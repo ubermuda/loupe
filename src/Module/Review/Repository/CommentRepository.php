@@ -171,10 +171,16 @@ class CommentRepository extends ServiceEntityRepository
             return false;
         }
 
-        // A DQL update bypasses the identity map, so the caller's copy would
-        // otherwise still read Pending and a second pass would misreport why it
-        // skipped.
+        // A DQL update bypasses the identity map. The snapshot must move with
+        // the copy, or the next flush reissues this as an unconditional UPDATE
+        // and the race reopens. refresh() cannot do it: Doctrine refuses to
+        // rehydrate the entity's readonly property.
         $comment->status = CommentStatus::Addressed;
+        $this->getEntityManager()->getUnitOfWork()->setOriginalEntityProperty(
+            spl_object_id($comment),
+            'status',
+            CommentStatus::Addressed,
+        );
 
         return true;
     }

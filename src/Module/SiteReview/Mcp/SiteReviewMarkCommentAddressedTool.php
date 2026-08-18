@@ -8,6 +8,7 @@ use App\Mcp\ResolvesBoundProject;
 use App\Module\Project\Security\AuthenticatedProjectResolver;
 use App\Module\SiteReview\Entity\SiteReviewCommentStatus;
 use App\Module\SiteReview\Repository\SiteReviewCommentRepository;
+use Doctrine\ORM\EntityManagerInterface;
 use Mcp\Capability\Attribute\McpTool;
 use Mcp\Exception\ToolCallException;
 use Symfony\Component\Uid\Uuid;
@@ -36,6 +37,7 @@ final readonly class SiteReviewMarkCommentAddressedTool
 
     public function __construct(
         private SiteReviewCommentRepository $siteReviewComments,
+        private EntityManagerInterface $em,
         private AuthenticatedProjectResolver $projectResolver,
     ) {
     }
@@ -57,37 +59,42 @@ final readonly class SiteReviewMarkCommentAddressedTool
         try {
             $project = $this->requireBoundProject($this->projectResolver);
 
-            foreach ($commentIds as $id) {
-                try {
-                    $uuid = Uuid::fromString($id);
-                } catch (\InvalidArgumentException) {
-                    $skipped[] = ['id' => $id, 'reason' => 'invalid_id'];
-                    continue;
-                }
+            // One transaction for the batch: each id is now written as it is
+            // decided, so without this a failure partway through would leave
+            // the earlier ids addressed while the call reports an error.
+            $this->em->wrapInTransaction(function () use ($commentIds, $project, &$addressed, &$skipped): void {
+                foreach ($commentIds as $id) {
+                    try {
+                        $uuid = Uuid::fromString($id);
+                    } catch (\InvalidArgumentException) {
+                        $skipped[] = ['id' => $id, 'reason' => 'invalid_id'];
+                        continue;
+                    }
 
-                $comment = $this->siteReviewComments->findOneForProject($uuid, $project);
-                if (null === $comment) {
-                    $skipped[] = ['id' => $id, 'reason' => 'unknown'];
-                    continue;
-                }
-                if (SiteReviewCommentStatus::Pending !== $comment->status) {
-                    $skipped[] = ['id' => $id, 'reason' => match ($comment->status) {
-                        SiteReviewCommentStatus::Addressed => 'already_addressed',
-                        default => 'resolved',
-                    }];
-                    continue;
-                }
+                    $comment = $this->siteReviewComments->findOneForProject($uuid, $project);
+                    if (null === $comment) {
+                        $skipped[] = ['id' => $id, 'reason' => 'unknown'];
+                        continue;
+                    }
+                    if (SiteReviewCommentStatus::Pending !== $comment->status) {
+                        $skipped[] = ['id' => $id, 'reason' => match ($comment->status) {
+                            SiteReviewCommentStatus::Addressed => 'already_addressed',
+                            default => 'resolved',
+                        }];
+                        continue;
+                    }
 
-                // The status check above is advisory: it produces the precise
-                // skip reason, but a human can click Resolve between it and the
-                // write. Only the conditional UPDATE decides.
-                if (!$this->siteReviewComments->markAddressedIfPending($comment)) {
-                    $skipped[] = ['id' => $id, 'reason' => 'resolved'];
-                    continue;
-                }
+                    // The status check above is advisory: it produces the precise
+                    // skip reason, but a human can click Resolve between it and the
+                    // write. Only the conditional UPDATE decides.
+                    if (!$this->siteReviewComments->markAddressedIfPending($comment)) {
+                        $skipped[] = ['id' => $id, 'reason' => 'resolved'];
+                        continue;
+                    }
 
-                $addressed[] = $id;
-            }
+                    $addressed[] = $id;
+                }
+            });
         } catch (ToolCallException $e) {
             throw $e;
         } catch (\Throwable $e) {

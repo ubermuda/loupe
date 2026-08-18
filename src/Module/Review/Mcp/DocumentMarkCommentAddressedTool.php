@@ -10,6 +10,7 @@ use App\Module\Review\Entity\CommentStatus;
 use App\Module\Review\Repository\CommentRepository;
 use App\Module\Review\Repository\DocumentVersionRepository;
 use App\Module\Review\Security\McpBoundProjectVoter;
+use Doctrine\ORM\EntityManagerInterface;
 use Mcp\Capability\Attribute\McpTool;
 use Mcp\Exception\ToolCallException;
 use Symfony\Component\Uid\Uuid;
@@ -27,6 +28,7 @@ final readonly class DocumentMarkCommentAddressedTool
     public function __construct(
         private ReviewSubjectResolver $subjects,
         private CommentRepository $comments,
+        private EntityManagerInterface $em,
         private AuthenticatedProjectResolver $projectResolver,
         private DocumentVersionRepository $documentVersions,
     ) {
@@ -55,63 +57,68 @@ final readonly class DocumentMarkCommentAddressedTool
             /** @var array<string, string> $currentVersionIds latest version id, keyed by document id */
             $currentVersionIds = [];
 
-            foreach ($commentIds as $id) {
-                if (!Uuid::isValid($id)) {
-                    $skipped[] = ['id' => $id, 'reason' => 'invalid_id'];
-                    continue;
-                }
+            // One transaction for the batch: each id is now written as it is
+            // decided, so without this a failure partway through would leave
+            // the earlier ids addressed while the call reports an error.
+            $this->em->wrapInTransaction(function () use ($commentIds, &$currentVersionIds, &$addressed, &$skipped): void {
+                foreach ($commentIds as $id) {
+                    if (!Uuid::isValid($id)) {
+                        $skipped[] = ['id' => $id, 'reason' => 'invalid_id'];
+                        continue;
+                    }
 
-                try {
-                    $comment = $this->subjects->requireComment($id, McpBoundProjectVoter::COMMENT_WRITE);
-                } catch (ToolCallException) {
-                    // One unreachable id must not abandon the rest of the batch.
-                    // Same reason for "does not exist" and "another project", so
-                    // the tolerant shape cannot be used to probe what exists.
-                    $skipped[] = ['id' => $id, 'reason' => 'not_found'];
-                    continue;
-                }
+                    try {
+                        $comment = $this->subjects->requireComment($id, McpBoundProjectVoter::COMMENT_WRITE);
+                    } catch (ToolCallException) {
+                        // One unreachable id must not abandon the rest of the batch.
+                        // Same reason for "does not exist" and "another project", so
+                        // the tolerant shape cannot be used to probe what exists.
+                        $skipped[] = ['id' => $id, 'reason' => 'not_found'];
+                        continue;
+                    }
 
-                // Checked first, because a superseded id is wrong in a way the
-                // other reasons mask: a pre-revision id still resolves and still
-                // looks pending, but flipping it moves a row nobody reads while
-                // the live thread stays open.
-                $documentId = (string) $comment->version->document->id;
-                $currentVersionIds[$documentId] ??= (string) $this->documentVersions->findLatest($comment->version->document)->id;
-                if ($currentVersionIds[$documentId] !== (string) $comment->version->id) {
-                    $skipped[] = ['id' => $id, 'reason' => 'superseded'];
-                    continue;
-                }
+                    // Checked first, because a superseded id is wrong in a way the
+                    // other reasons mask: a pre-revision id still resolves and still
+                    // looks pending, but flipping it moves a row nobody reads while
+                    // the live thread stays open.
+                    $documentId = (string) $comment->version->document->id;
+                    $currentVersionIds[$documentId] ??= (string) $this->documentVersions->findLatest($comment->version->document)->id;
+                    if ($currentVersionIds[$documentId] !== (string) $comment->version->id) {
+                        $skipped[] = ['id' => $id, 'reason' => 'superseded'];
+                        continue;
+                    }
 
-                // Status lives on the thread root, so a reply has no status of
-                // its own to move. Checked before the status branch below:
-                // threadStatus reads through to the root and would make a reply
-                // in a pending thread look eligible.
-                if (null !== $comment->parent) {
-                    $skipped[] = ['id' => $id, 'reason' => 'is_reply'];
-                    continue;
-                }
+                    // Status lives on the thread root, so a reply has no status of
+                    // its own to move. Checked before the status branch below:
+                    // threadStatus reads through to the root and would make a reply
+                    // in a pending thread look eligible.
+                    if (null !== $comment->parent) {
+                        $skipped[] = ['id' => $id, 'reason' => 'is_reply'];
+                        continue;
+                    }
 
-                if (CommentStatus::Pending !== $comment->status) {
-                    // No default arm: a status added later must be an
-                    // unhandled match here rather than be silently reported as
-                    // already resolved.
-                    $skipped[] = ['id' => $id, 'reason' => match ($comment->status) {
-                        CommentStatus::Addressed => 'already_addressed',
-                        CommentStatus::Resolved => 'already_resolved',
-                    }];
-                    continue;
-                }
+                    if (CommentStatus::Pending !== $comment->status) {
+                        // No default arm: a status added later must be an
+                        // unhandled match here rather than be silently reported as
+                        // already resolved.
+                        $skipped[] = ['id' => $id, 'reason' => match ($comment->status) {
+                            CommentStatus::Addressed => 'already_addressed',
+                            CommentStatus::Resolved => 'already_resolved',
+                        }];
+                        continue;
+                    }
 
-                // The status check above is advisory: it produces the precise
-                // skip reason, but a human can click Resolve between it and the
-                // write. Only the conditional UPDATE decides.
-                if (!$this->comments->markAddressedIfPending($comment)) {
-                    $skipped[] = ['id' => $id, 'reason' => 'already_resolved'];
-                    continue;
-                }
+                    // The status check above is advisory: it produces the precise
+                    // skip reason, but a human can click Resolve between it and the
+                    // write. Only the conditional UPDATE decides.
+                    if (!$this->comments->markAddressedIfPending($comment)) {
+                        $skipped[] = ['id' => $id, 'reason' => 'already_resolved'];
+                        continue;
+                    }
 
-                $addressed[] = $id;
-            }
+                    $addressed[] = $id;
+                }
+            });
         } catch (ToolCallException $e) {
             throw $e;
         } catch (\Throwable $e) {
