@@ -145,7 +145,7 @@ func stream(ctx context.Context, hc *http.Client, target, jwt, lastID string, h 
 	defer idle.Stop()
 
 	var data strings.Builder
-	pendingID := ""
+	pendingID, haveID := "", false
 	for sc.Scan() {
 		idle.Reset(readTimeout)
 		line := sc.Text()
@@ -161,11 +161,13 @@ func stream(ctx context.Context, hc *http.Client, target, jwt, lastID string, h 
 			// Committing it at the `id:` line instead would let a drop between
 			// the two skip an event that was never delivered — and because the
 			// hub replays from Last-Event-ID, that event is then gone for good.
-			if pendingID != "" {
-				lastID, pendingID = pendingID, ""
+			if haveID {
+				lastID, pendingID, haveID = pendingID, "", false
 			}
 		case strings.HasPrefix(line, "id:"):
-			pendingID = strings.TrimPrefix(strings.TrimPrefix(line, "id:"), " ")
+			// An empty `id:` clears the resume point per the SSE spec, so
+			// presence is tracked apart from the value.
+			pendingID, haveID = strings.TrimPrefix(strings.TrimPrefix(line, "id:"), " "), true
 		case strings.HasPrefix(line, "data:"):
 			if data.Len() > 0 {
 				data.WriteByte('\n')

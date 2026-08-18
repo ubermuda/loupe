@@ -164,6 +164,80 @@ func TestSubscribeDoesNotCommitIDOfUndeliveredEvent(t *testing.T) {
 	}
 }
 
+// TestSubscribeClearsResumePointOnEmptyID pins the SSE rule that an empty `id:`
+// resets the resume point: announcing the previous id after one would ask the
+// hub to replay events already handled.
+func TestSubscribeClearsResumePointOnEmptyID(t *testing.T) {
+	var (
+		mu       sync.Mutex
+		lastSeen []string
+		received []string
+	)
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		mu.Lock()
+		lastSeen = append(lastSeen, r.Header.Get("Last-Event-ID"))
+		attempt := len(lastSeen)
+		mu.Unlock()
+
+		w.Header().Set("Content-Type", "text/event-stream")
+		w.WriteHeader(http.StatusOK)
+		if attempt == 1 {
+			_, _ = w.Write([]byte("id: 42\ndata: {\"type\":\"site_review.submitted\"}\n\n"))
+			_, _ = w.Write([]byte("id:\ndata: {\"type\":\"site_review.submitted\"}\n\n"))
+			if f, ok := w.(http.Flusher); ok {
+				f.Flush()
+			}
+		}
+	}))
+	defer srv.Close()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		_ = Subscribe(ctx, srv.Client(), srv.URL, "https://example.test/topic",
+			func(context.Context) (string, error) { return "jwt", nil },
+			Handler{
+				OnData: func(data []byte) {
+					mu.Lock()
+					received = append(received, string(data))
+					mu.Unlock()
+				},
+			},
+		)
+	}()
+
+	deadline := time.After(4 * time.Second)
+	for {
+		mu.Lock()
+		attempts := len(lastSeen)
+		mu.Unlock()
+		if attempts >= 2 {
+			break
+		}
+		select {
+		case <-deadline:
+			t.Fatalf("hub saw %d connection(s); expected a reconnect", attempts)
+		case <-time.After(20 * time.Millisecond):
+		}
+	}
+	cancel()
+	<-done
+
+	mu.Lock()
+	defer mu.Unlock()
+
+	if len(received) != 2 {
+		t.Fatalf("both events should have been delivered; got %q", received)
+	}
+	if lastSeen[1] != "" {
+		t.Fatalf("an empty id must clear the resume point; got Last-Event-ID %q", lastSeen[1])
+	}
+}
+
 // TestStreamHandlesCRLFLineEndings pins the behaviour the SSE spec allows and
 // bufio.ScanLines already provides, so a future change to the scanner's split
 // function cannot break CRLF hubs unnoticed.
