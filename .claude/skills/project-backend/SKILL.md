@@ -83,7 +83,7 @@ When a service produces a structured read model consumed by multiple controllers
 
 **`AppController` helpers:** `AppController` lives in `src/Controller/AppController.php`. Existing helpers:
 - `renderFormResponse(string $view, FormInterface $form, array $extra = []): Response` — renders and automatically sets HTTP 422 when the form was submitted (invalid), 200 otherwise. Use this in every controller that renders a form instead of chaining `->setStatusCode(...)` manually. When a `DomainErrors` exception is caught (see below), add the field errors to the form and re-render with this method.
-- `getInjectedFormView(Request $request, string $key): ?FormView` — retrieves a `FormView` forwarded via request attribute (see above); callers fall back with `?? $this->createForm(...)->createView()`. (The Request is a parameter — this is the signature as actually implemented.)
+- `getInjectedFormView(Request $request, string $key): ?FormView` — retrieves a `FormView` forwarded via request attribute (see above); callers fall back with `?? $this->createForm(...)->createView()`.
 
 **Current user:** Use `$this->getUser()` (inherited from `AbstractController` via `AppController`) to retrieve the authenticated user. Do not inject `Symfony\Bundle\SecurityBundle\Security` into a controller solely to call `getUser()`.
 
@@ -128,8 +128,7 @@ When code makes a domain decision (access denied, state transition, significant 
 - Controlled skips / redirects driven by state → `info` with reason
 
 **How to log:**
-- In controllers (subclasses of `AppController`): use `$this->getLogger()->info('event.name', ['key' => $value])`
-- In services / actions: inject `LoggerInterface` via constructor
+- Inject `LoggerInterface` via the constructor and call `$this->logger->info('event.name', ['key' => $value])`. This is the same in controllers and in services — `AppController` has no logger helper.
 
 **Event name convention:** `<module>.<entity>.<outcome>` — e.g. `foo.created`, `bar.access_denied`
 

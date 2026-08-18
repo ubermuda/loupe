@@ -49,6 +49,35 @@ final class DocumentMarkCommentAddressedToolTest extends KernelTestCase
         self::assertSame(CommentStatus::Addressed, $comment->status);
     }
 
+    public function test_a_resolve_the_identity_map_has_not_seen_is_not_overwritten(): void
+    {
+        $owner = $this->user('mark-race@example.com');
+        $comment = $this->rootComment($owner);
+        $this->actAsMcpTokenBoundTo($comment->version->document->project);
+
+        // Stands in for a human clicking Resolve after the tool has read the
+        // row: written straight to the database so the tool's in-memory copy
+        // still says Pending, which is what the race actually looks like.
+        $this->em->createQuery(
+            'UPDATE '.Comment::class.' c SET c.status = :resolved WHERE c.id = :id'
+        )
+            ->setParameter('resolved', CommentStatus::Resolved)
+            ->setParameter('id', $comment->id, 'uuid')
+            ->execute();
+        self::assertSame(CommentStatus::Pending, $comment->status);
+
+        $result = ($this->tool)([(string) $comment->id]);
+
+        self::assertSame([], $result['addressed']);
+        self::assertSame([['id' => (string) $comment->id, 'reason' => 'already_resolved']], $result['skipped']);
+
+        $id = $comment->id;
+        $this->em->clear();
+        $fetched = $this->em->find(Comment::class, $id);
+        self::assertNotNull($fetched);
+        self::assertSame(CommentStatus::Resolved, $fetched->status);
+    }
+
     public function test_each_refusal_reports_its_own_reason_without_failing_the_batch(): void
     {
         $owner = $this->user('mark-mixed@example.com');

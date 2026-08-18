@@ -58,9 +58,10 @@ export function createTest(credentials: Credentials) {
     return base.extend<{}, { workerStorageState: StorageState }>({
         workerStorageState: [
             async ({ browser }, use, workerInfo) => {
-                // A manual context inherits nothing from `use`, so each option
-                // is copied. Without X-Playwright the fixture's own mail stays
-                // async and the suite needs a worker again.
+                // Copied explicitly rather than relied upon: Playwright 1.60
+                // does propagate `use` into a manual context, but without
+                // X-Playwright this fixture's mail stays async and the suite
+                // needs a worker again — too quiet a failure to leave implicit.
                 const ctx = await browser.newContext({
                     baseURL: workerInfo.project.use.baseURL,
                     extraHTTPHeaders: workerInfo.project.use.extraHTTPHeaders,

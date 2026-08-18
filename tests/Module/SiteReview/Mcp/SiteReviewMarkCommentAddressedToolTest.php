@@ -94,6 +94,37 @@ final class SiteReviewMarkCommentAddressedToolTest extends KernelTestCase
         self::assertSame(SiteReviewCommentStatus::Addressed, $c2->status);
     }
 
+    public function test_a_resolve_the_identity_map_has_not_seen_is_not_overwritten(): void
+    {
+        $email = 'addr-race@example.com';
+        [$project, $comments] = $this->projectWithPendingComments($email, 'addr-race-site');
+
+        $id = $comments[0]->id;
+        self::assertNotNull($id);
+
+        // Stands in for a human clicking Resolve after the tool has read the
+        // row: written straight to the database so the tool's in-memory copy
+        // still says Pending, which is what the race actually looks like.
+        $this->em->createQuery(
+            'UPDATE '.SiteReviewComment::class.' c SET c.status = :resolved WHERE c.id = :id'
+        )
+            ->setParameter('resolved', SiteReviewCommentStatus::Resolved)
+            ->setParameter('id', $id, 'uuid')
+            ->execute();
+        self::assertSame(SiteReviewCommentStatus::Pending, $comments[0]->status);
+
+        $this->actAsMcpTokenBoundTo($project);
+        $result = ($this->tool)([(string) $id]);
+
+        self::assertSame([], $result['addressed']);
+        self::assertSame([['id' => (string) $id, 'reason' => 'resolved']], $result['skipped']);
+
+        $this->em->clear();
+        $fetched = $this->em->find(SiteReviewComment::class, $id);
+        self::assertNotNull($fetched);
+        self::assertSame(SiteReviewCommentStatus::Resolved, $fetched->status);
+    }
+
     public function test_skips_resolved_addressed_unknown_and_invalid(): void
     {
         $email = 'addr-skip@example.com';

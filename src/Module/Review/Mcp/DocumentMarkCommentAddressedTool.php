@@ -7,9 +7,9 @@ namespace App\Module\Review\Mcp;
 use App\Mcp\ResolvesBoundProject;
 use App\Module\Project\Security\AuthenticatedProjectResolver;
 use App\Module\Review\Entity\CommentStatus;
+use App\Module\Review\Repository\CommentRepository;
 use App\Module\Review\Repository\DocumentVersionRepository;
 use App\Module\Review\Security\McpBoundProjectVoter;
-use Doctrine\ORM\EntityManagerInterface;
 use Mcp\Capability\Attribute\McpTool;
 use Mcp\Exception\ToolCallException;
 use Symfony\Component\Uid\Uuid;
@@ -26,7 +26,7 @@ final readonly class DocumentMarkCommentAddressedTool
 
     public function __construct(
         private ReviewSubjectResolver $subjects,
-        private EntityManagerInterface $em,
+        private CommentRepository $comments,
         private AuthenticatedProjectResolver $projectResolver,
         private DocumentVersionRepository $documentVersions,
     ) {
@@ -102,11 +102,16 @@ final readonly class DocumentMarkCommentAddressedTool
                     continue;
                 }
 
-                $comment->status = CommentStatus::Addressed;
+                // The status check above is advisory: it produces the precise
+                // skip reason, but a human can click Resolve between it and the
+                // write. Only the conditional UPDATE decides.
+                if (!$this->comments->markAddressedIfPending($comment)) {
+                    $skipped[] = ['id' => $id, 'reason' => 'already_resolved'];
+                    continue;
+                }
+
                 $addressed[] = $id;
             }
-
-            $this->em->flush();
         } catch (ToolCallException $e) {
             throw $e;
         } catch (\Throwable $e) {

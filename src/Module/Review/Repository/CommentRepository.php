@@ -147,4 +147,35 @@ class CommentRepository extends ServiceEntityRepository
     {
         return $this->findBy(['author' => $author]);
     }
+
+    /**
+     * Pending → Addressed as a single conditional statement, so a human who
+     * clicks Resolve between the caller's read and this write keeps their
+     * resolution instead of having it silently replaced. Returns false when the
+     * row was no longer pending.
+     */
+    public function markAddressedIfPending(Comment $comment): bool
+    {
+        $updated = $this->createQueryBuilder('c')
+            ->update()
+            ->set('c.status', ':addressed')
+            ->andWhere('c.id = :id')
+            ->andWhere('c.status = :pending')
+            ->setParameter('addressed', CommentStatus::Addressed)
+            ->setParameter('id', $comment->id, 'uuid')
+            ->setParameter('pending', CommentStatus::Pending)
+            ->getQuery()
+            ->execute();
+
+        if (0 === $updated) {
+            return false;
+        }
+
+        // A DQL update bypasses the identity map, so the caller's copy would
+        // otherwise still read Pending and a second pass would misreport why it
+        // skipped.
+        $comment->status = CommentStatus::Addressed;
+
+        return true;
+    }
 }

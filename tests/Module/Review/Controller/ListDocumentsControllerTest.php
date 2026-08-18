@@ -278,6 +278,30 @@ final class ListDocumentsControllerTest extends WebTestCase
         self::assertCount(1, $crawler->filter('[data-document-id]'));
     }
 
+    public function test_the_filter_count_reports_the_total_not_rows_on_the_page(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+
+        $alice = $this->createUser($em, 'alice-count', 'alice-count@example.com');
+        $project = $this->project($em, $alice);
+        for ($i = 0; $i < 21; ++$i) {
+            $this->document($em, $alice, $project, 'Doc '.$i);
+        }
+        $em->flush();
+        $projectId = (string) $project->id;
+        $em->clear();
+
+        $client->loginUser($alice);
+        $crawler = $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/documents');
+
+        self::assertResponseIsSuccessful();
+        // 21 match and 20 fit on the page: the count must be the match total,
+        // or a filtered list reads as having matched only one page.
+        self::assertCount(20, $crawler->filter('[data-document-id]'));
+        self::assertSelectorTextContains('.lp-filter-count', '21 of 21 documents');
+    }
+
     public function test_out_of_range_page_redirects_to_the_last_page(): void
     {
         $client = static::createClient();
