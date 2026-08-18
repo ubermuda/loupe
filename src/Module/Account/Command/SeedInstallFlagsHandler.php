@@ -4,20 +4,23 @@ declare(strict_types=1);
 
 namespace App\Module\Account\Command;
 
-use App\Module\Account\Controller\LandingController;
-use App\Module\Account\Service\RegistrationGate;
-use App\Service\UpdateCheck;
+use App\Module\Account\Install\InstallFlagDefault;
+use App\Module\Account\Install\InstallFlagDefaultsInterface;
 use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
 use Doctrine\ORM\EntityManagerInterface;
+use Symfony\Component\DependencyInjection\Attribute\AutowireIterator;
 use Ubermuda\FeatureFlagsBundle\Entity\FeatureFlag;
-use Ubermuda\FeatureFlagsBundle\Enum\FeatureFlagType;
 use Ubermuda\FeatureFlagsBundle\Repository\FeatureFlagRepository;
 
 final readonly class SeedInstallFlagsHandler
 {
+    /** @param iterable<InstallFlagDefaultsInterface> $flagDefaults */
     public function __construct(
         private FeatureFlagRepository $featureFlags,
         private EntityManagerInterface $em,
+
+        #[AutowireIterator('app.install_flag_defaults')]
+        private iterable $flagDefaults,
     ) {
     }
 
@@ -25,40 +28,15 @@ final readonly class SeedInstallFlagsHandler
     {
         $existing = $this->featureFlags->findAllIndexed();
 
-        /** @var list<array{string, FeatureFlagType, mixed, list<string>|null}> $defaults */
-        $defaults = [
-            [RegistrationGate::CAP_FLAG, FeatureFlagType::Int, $command->registrationCap, null],
-            [RegistrationGate::ENABLED_FLAG, FeatureFlagType::Bool, $command->registrationEnabled, null],
-            ['billing.enabled', FeatureFlagType::Bool, $command->billingEnabled, null],
-            ['billing.trial_days', FeatureFlagType::Int, $command->billingTrialDays, null],
-            ['billing.stripe_price_id', FeatureFlagType::Select, $command->billingStripePriceId, []],
-            ['auth.github.enabled', FeatureFlagType::Bool, $command->authGithubEnabled, null],
-            ['auth.google.enabled', FeatureFlagType::Bool, $command->authGoogleEnabled, null],
-            // Seeded on rather than off. Its environment prerequisite already
-            // holds it off on an instance with no hub configured, so seeding it
-            // off would mean an operator who *did* configure Mercure still had
-            // to find a switch to make it work.
-            ['site_review.push.enabled', FeatureFlagType::Bool, true, null],
-            // Off: it is the only outbound request the app makes on its own,
-            // and an operator has to choose to tell GitHub this instance exists.
-            [UpdateCheck::FLAG, FeatureFlagType::Bool, false, null],
-            // Off: agent-placed highlights steer where a reviewer looks first,
-            // which is a nudge an operator opts into rather than inherits.
-            ['review.highlights.enabled', FeatureFlagType::Bool, false, null],
-            // Off: the marketing page advertises a hosted plan with a price on
-            // it, which only the instance selling that plan should serve.
-            [LandingController::ENABLED_FLAG, FeatureFlagType::Bool, false, null],
-        ];
-
         $created = 0;
-        foreach ($defaults as [$name, $type, $value, $options]) {
-            if (isset($existing[$name])) {
-                continue;
+        foreach ($this->flagDefaults as $contributor) {
+            foreach ($contributor->defaults($command) as $default) {
+                if (isset($existing[$default->name])) {
+                    continue;
+                }
+                $this->em->persist($this->build($default));
+                ++$created;
             }
-            $flag = new FeatureFlag(name: $name, type: $type, value: $value);
-            $flag->options = $options;
-            $this->em->persist($flag);
-            ++$created;
         }
 
         if (0 === $created) {
@@ -71,5 +49,13 @@ final readonly class SeedInstallFlagsHandler
             // A concurrent seeding request won the race on the unique flag name;
             // the flags exist, which is all this handler guarantees.
         }
+    }
+
+    private function build(InstallFlagDefault $default): FeatureFlag
+    {
+        $flag = new FeatureFlag(name: $default->name, type: $default->type, value: $default->value);
+        $flag->options = $default->options;
+
+        return $flag;
     }
 }

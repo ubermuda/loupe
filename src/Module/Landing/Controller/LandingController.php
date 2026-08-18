@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Module\Account\Controller;
+namespace App\Module\Landing\Controller;
 
 use App\Controller\AppController;
 use App\Module\Account\Entity\User;
@@ -42,7 +42,7 @@ class LandingController extends AppController
                 return $this->redirectToRoute('app_login');
             }
 
-            return $this->render('@Account/landing.html.twig', [
+            return $this->render('@Landing/landing.html.twig', [
                 'demoCommand' => $this->demoCommand,
                 'hostedPrice' => $this->hostedPrice,
             ]);
