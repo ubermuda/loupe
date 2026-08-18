@@ -12,7 +12,7 @@
     <p class="status-summary status-summary-{{ status.overall.value }}">{{ 'account.install.status.warning'|trans }}</p>
 {% endif %}
 
-{% include '@Account/_system_status_checks.html.twig' with {checks: status.checks} only %}
+{% include '@Diagnostics/_checks.html.twig' with {checks: status.checks} only %}
 
 <div class="flex flex-col gap-3">
     <a href="{{ path('app_install_admin') }}" class="auth-submit">{{ 'account.install.status.continue'|trans }}</a>

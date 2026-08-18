@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace App\Tests\Module\Account\Controller\Install;
 
-use App\Module\Account\Command\CheckSystemStatusHandler;
 use App\Module\Account\Entity\User;
-use App\Tests\Support\SystemStatus;
+use App\Module\Diagnostics\Command\RunDiagnosticsHandler;
+use App\Tests\Support\Diagnostics;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
@@ -68,8 +68,8 @@ final class ShowStatusControllerTest extends WebTestCase
         $client->disableReboot();
         $connection = self::getContainer()->get(EntityManagerInterface::class)->getConnection();
         self::getContainer()->set(
-            CheckSystemStatusHandler::class,
-            SystemStatus::handler($connection),
+            RunDiagnosticsHandler::class,
+            Diagnostics::handler($connection),
         );
     }
 

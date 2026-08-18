@@ -2,17 +2,17 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Module\Account\Controller\Admin;
+namespace App\Tests\Module\Diagnostics\Controller\Admin;
 
-use App\Module\Account\Command\CheckSystemStatusHandler;
 use App\Module\Account\Entity\User;
-use App\Tests\Support\SystemStatus;
+use App\Module\Diagnostics\Command\RunDiagnosticsHandler;
+use App\Tests\Support\Diagnostics;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 
-final class ShowSystemStatusControllerTest extends WebTestCase
+final class ShowDiagnosticsControllerTest extends WebTestCase
 {
     public function test_admin_sees_the_checks(): void
     {
@@ -64,8 +64,8 @@ final class ShowSystemStatusControllerTest extends WebTestCase
     {
         $connection = self::getContainer()->get(EntityManagerInterface::class)->getConnection();
         self::getContainer()->set(
-            CheckSystemStatusHandler::class,
-            SystemStatus::handler($connection),
+            RunDiagnosticsHandler::class,
+            Diagnostics::handler($connection),
         );
     }
 

@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Tests\Support;
 
-use App\Module\Account\Command\CheckSystemStatusHandler;
+use App\Module\Diagnostics\Command\RunDiagnosticsHandler;
 use Doctrine\DBAL\Connection;
 use Psr\Log\NullLogger;
 use Symfony\Component\HttpClient\MockHttpClient;
@@ -16,14 +16,14 @@ use Symfony\Contracts\HttpClient\HttpClientInterface;
 use Ubermuda\FeatureFlagsBundle\FeatureFlagService;
 
 /**
- * Builds a real CheckSystemStatusHandler wired to values a test controls.
+ * Builds a real RunDiagnosticsHandler wired to values a test controls.
  *
  * The handler is `final readonly`, so it cannot be mocked; controller tests
  * substitute a genuine instance instead. The defaults are the combination that
  * touches no network at all — a null mail transport and no Mercure hub — so a
  * test that does not care about the checks still cannot hang on a socket.
  */
-final class SystemStatus
+final class Diagnostics
 {
     public static function handler(
         Connection $connection,
@@ -35,8 +35,8 @@ final class SystemStatus
         ?string $stripeWebhookSecret = null,
         ?HttpClientInterface $httpClient = null,
         ?FeatureFlagService $featureFlags = null,
-    ): CheckSystemStatusHandler {
-        return new CheckSystemStatusHandler(
+    ): RunDiagnosticsHandler {
+        return new RunDiagnosticsHandler(
             connection: $connection,
             httpClient: $httpClient ?? new MockHttpClient(),
             featureFlags: $featureFlags ?? FeatureFlags::service(),

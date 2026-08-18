@@ -2,9 +2,11 @@
 
 declare(strict_types=1);
 
-namespace App\Module\Account\Command;
+namespace App\Module\Diagnostics\Command;
 
 use App\Module\Account\Entity\User;
+use App\Module\Diagnostics\Diagnostic;
+use App\Module\Diagnostics\DiagnosticState;
 use Doctrine\DBAL\Connection;
 use Doctrine\DBAL\Types\Types;
 use Psr\Log\LoggerInterface;
@@ -23,10 +25,10 @@ use Ubermuda\FeatureFlagsBundle\FeatureFlagService;
  * Mercure hub, Stripe — actually wired up, or has it been accepted silently?
  *
  * Every check reports what was *observed*. Where nothing can be observed from a
- * web request the result is SystemCheckState::Unknown with a sentence saying
+ * web request the result is DiagnosticState::Unknown with a sentence saying
  * so, never a green tick.
  */
-final readonly class CheckSystemStatusHandler
+final readonly class RunDiagnosticsHandler
 {
     /**
      * Queue name of the `failed` transport in config/packages/messenger.yaml.
@@ -116,7 +118,7 @@ final readonly class CheckSystemStatusHandler
     ) {
     }
 
-    public function __invoke(): CheckSystemStatusView
+    public function __invoke(): RunDiagnosticsView
     {
         $checks = [
             $this->checkMailerTransport(),
@@ -134,14 +136,14 @@ final readonly class CheckSystemStatusHandler
             $checks[] = $this->checkStripe();
         }
 
-        $overall = SystemCheckState::Ok;
+        $overall = DiagnosticState::Ok;
         foreach ($checks as $check) {
             if ($check->state->severity() > $overall->severity()) {
                 $overall = $check->state;
             }
         }
 
-        return new CheckSystemStatusView(checks: $checks, overall: $overall);
+        return new RunDiagnosticsView(checks: $checks, overall: $overall);
     }
 
     /**
@@ -150,10 +152,10 @@ final readonly class CheckSystemStatusHandler
      * assumed working: an API transport would need a live credentialed call to
      * prove anything, and a status page must not spend the operator's quota.
      */
-    private function checkMailerTransport(): SystemCheck
+    private function checkMailerTransport(): Diagnostic
     {
         if (null === $this->mailerDsn || '' === $this->mailerDsn) {
-            return new SystemCheck('mailer', SystemCheckState::Failed, 'account.system_status.mailer.unset');
+            return new Diagnostic('mailer', DiagnosticState::Failed, 'account.system_status.mailer.unset');
         }
 
         try {
@@ -161,15 +163,15 @@ final readonly class CheckSystemStatusHandler
         } catch (\Throwable $e) {
             $this->logger->warning('account.system_status.mailer_dsn_invalid', ['exception' => $e]);
 
-            return new SystemCheck('mailer', SystemCheckState::Failed, 'account.system_status.mailer.invalid');
+            return new Diagnostic('mailer', DiagnosticState::Failed, 'account.system_status.mailer.invalid');
         }
 
         if ($transport instanceof NullTransport) {
-            return new SystemCheck('mailer', SystemCheckState::Failed, 'account.system_status.mailer.null_transport');
+            return new Diagnostic('mailer', DiagnosticState::Failed, 'account.system_status.mailer.null_transport');
         }
 
         if (!$transport instanceof SmtpTransport) {
-            return new SystemCheck('mailer', SystemCheckState::Unknown, 'account.system_status.mailer.unverifiable');
+            return new Diagnostic('mailer', DiagnosticState::Unknown, 'account.system_status.mailer.unverifiable');
         }
 
         $stream = $transport->getStream();
@@ -183,21 +185,21 @@ final readonly class CheckSystemStatusHandler
         } catch (\Throwable $e) {
             $this->logger->warning('account.system_status.smtp_unreachable', ['exception' => $e]);
 
-            return new SystemCheck('mailer', SystemCheckState::Failed, 'account.system_status.mailer.smtp_unreachable');
+            return new Diagnostic('mailer', DiagnosticState::Failed, 'account.system_status.mailer.smtp_unreachable');
         }
 
-        return new SystemCheck('mailer', SystemCheckState::Ok, 'account.system_status.mailer.smtp_reachable');
+        return new Diagnostic('mailer', DiagnosticState::Ok, 'account.system_status.mailer.smtp_reachable');
     }
 
-    private function checkMailerSender(): SystemCheck
+    private function checkMailerSender(): Diagnostic
     {
         if ('' === $this->mailerFromAddress || str_ends_with($this->mailerFromAddress, self::PLACEHOLDER_FROM_DOMAIN)) {
-            return new SystemCheck('mailer_sender', SystemCheckState::Warning, 'account.system_status.mailer_sender.placeholder');
+            return new Diagnostic('mailer_sender', DiagnosticState::Warning, 'account.system_status.mailer_sender.placeholder');
         }
 
-        return new SystemCheck(
+        return new Diagnostic(
             'mailer_sender',
-            SystemCheckState::Ok,
+            DiagnosticState::Ok,
             'account.system_status.mailer_sender.configured',
             ['%address%' => $this->mailerFromAddress],
         );
@@ -220,7 +222,7 @@ final readonly class CheckSystemStatusHandler
      * young it is reported as claimed-and-unfinished, which is honestly unknown
      * rather than either a failure or an all-clear.
      */
-    private function checkWorker(): SystemCheck
+    private function checkWorker(): Diagnostic
     {
         $now = new \DateTimeImmutable('now', new \DateTimeZone('UTC'));
 
@@ -237,7 +239,7 @@ final readonly class CheckSystemStatusHandler
         } catch (\Throwable $e) {
             $this->logger->warning('account.system_status.queue_unreadable', ['exception' => $e]);
 
-            return new SystemCheck('worker', SystemCheckState::Unknown, 'account.system_status.worker.queue_unreadable');
+            return new Diagnostic('worker', DiagnosticState::Unknown, 'account.system_status.worker.queue_unreadable');
         }
 
         $pending = false === $row ? 0 : (int) $row['pending'];
@@ -245,32 +247,32 @@ final readonly class CheckSystemStatusHandler
 
         if (0 === $pending) {
             if ($claimed > 0) {
-                return new SystemCheck(
+                return new Diagnostic(
                     'worker',
-                    SystemCheckState::Unknown,
+                    DiagnosticState::Unknown,
                     'account.system_status.worker.claimed_in_flight',
                     ['%count%' => (string) $claimed],
                 );
             }
 
-            return new SystemCheck('worker', SystemCheckState::Unknown, 'account.system_status.worker.queue_empty');
+            return new Diagnostic('worker', DiagnosticState::Unknown, 'account.system_status.worker.queue_empty');
         }
 
         $oldest = $this->parseUtcTimestamp(false === $row ? null : $row['oldest']);
         $waitedSeconds = null === $oldest ? 0 : $now->getTimestamp() - $oldest->getTimestamp();
 
         if ($waitedSeconds >= self::BACKLOG_STALE_SECONDS) {
-            return new SystemCheck(
+            return new Diagnostic(
                 'worker',
-                SystemCheckState::Failed,
+                DiagnosticState::Failed,
                 'account.system_status.worker.backlog_stale',
                 ['%count%' => (string) $pending, '%seconds%' => (string) $waitedSeconds],
             );
         }
 
-        return new SystemCheck(
+        return new Diagnostic(
             'worker',
-            SystemCheckState::Unknown,
+            DiagnosticState::Unknown,
             'account.system_status.worker.backlog_fresh',
             ['%count%' => (string) $pending],
         );
@@ -287,24 +289,24 @@ final readonly class CheckSystemStatusHandler
      * the cause, and only for the operator who happens to be using the MCP.
      * Cheap to check and impossible to infer from anything else on this page.
      */
-    private function checkAgentAccount(): SystemCheck
+    private function checkAgentAccount(): Diagnostic
     {
         try {
             $present = (int) $this->connection->fetchOne(self::AGENT_ACCOUNT_SQL, ['id' => User::AGENT_ID]);
         } catch (\Throwable $e) {
             $this->logger->warning('account.system_status.agent_account_unreadable', ['exception' => $e]);
 
-            return new SystemCheck('agent_account', SystemCheckState::Unknown, 'account.system_status.agent_account.unreadable');
+            return new Diagnostic('agent_account', DiagnosticState::Unknown, 'account.system_status.agent_account.unreadable');
         }
 
         if (0 === $present) {
-            return new SystemCheck('agent_account', SystemCheckState::Failed, 'account.system_status.agent_account.missing');
+            return new Diagnostic('agent_account', DiagnosticState::Failed, 'account.system_status.agent_account.missing');
         }
 
-        return new SystemCheck('agent_account', SystemCheckState::Ok, 'account.system_status.agent_account.present');
+        return new Diagnostic('agent_account', DiagnosticState::Ok, 'account.system_status.agent_account.present');
     }
 
-    private function checkFailedMessages(): SystemCheck
+    private function checkFailedMessages(): Diagnostic
     {
         try {
             $failed = (int) $this->connection->fetchOne(
@@ -314,16 +316,16 @@ final readonly class CheckSystemStatusHandler
         } catch (\Throwable $e) {
             $this->logger->warning('account.system_status.failed_queue_unreadable', ['exception' => $e]);
 
-            return new SystemCheck('failed_messages', SystemCheckState::Unknown, 'account.system_status.failed_messages.unreadable');
+            return new Diagnostic('failed_messages', DiagnosticState::Unknown, 'account.system_status.failed_messages.unreadable');
         }
 
         if (0 === $failed) {
-            return new SystemCheck('failed_messages', SystemCheckState::Ok, 'account.system_status.failed_messages.none');
+            return new Diagnostic('failed_messages', DiagnosticState::Ok, 'account.system_status.failed_messages.none');
         }
 
-        return new SystemCheck(
+        return new Diagnostic(
             'failed_messages',
-            SystemCheckState::Warning,
+            DiagnosticState::Warning,
             'account.system_status.failed_messages.present',
             ['%count%' => (string) $failed],
         );
@@ -336,11 +338,11 @@ final readonly class CheckSystemStatusHandler
      * legitimately rejects an unauthenticated, topic-less GET, so only a
      * transport-level error means "not there".
      */
-    private function checkMercure(): SystemCheck
+    private function checkMercure(): Diagnostic
     {
         if (null === $this->mercureUrl || '' === $this->mercureUrl
             || null === $this->mercureJwtSecret || '' === $this->mercureJwtSecret) {
-            return new SystemCheck('mercure', SystemCheckState::Warning, 'account.system_status.mercure.unconfigured');
+            return new Diagnostic('mercure', DiagnosticState::Warning, 'account.system_status.mercure.unconfigured');
         }
 
         try {
@@ -350,12 +352,12 @@ final readonly class CheckSystemStatusHandler
         } catch (TransportExceptionInterface $e) {
             $this->logger->warning('account.system_status.mercure_unreachable', ['exception' => $e]);
 
-            return new SystemCheck('mercure', SystemCheckState::Warning, 'account.system_status.mercure.unreachable');
+            return new Diagnostic('mercure', DiagnosticState::Warning, 'account.system_status.mercure.unreachable');
         }
 
-        return new SystemCheck(
+        return new Diagnostic(
             'mercure',
-            SystemCheckState::Ok,
+            DiagnosticState::Ok,
             'account.system_status.mercure.reachable',
             ['%status%' => (string) $statusCode],
         );
@@ -366,7 +368,7 @@ final readonly class CheckSystemStatusHandler
      * an operator opens on a whim, and a self-hosted instance should not make
      * outbound calls nobody asked for.
      */
-    private function checkStripe(): SystemCheck
+    private function checkStripe(): Diagnostic
     {
         $missing = [];
         if (null === $this->stripeSecretKey || '' === $this->stripeSecretKey) {
@@ -377,12 +379,12 @@ final readonly class CheckSystemStatusHandler
         }
 
         if ([] === $missing) {
-            return new SystemCheck('stripe', SystemCheckState::Ok, 'account.system_status.stripe.configured');
+            return new Diagnostic('stripe', DiagnosticState::Ok, 'account.system_status.stripe.configured');
         }
 
-        return new SystemCheck(
+        return new Diagnostic(
             'stripe',
-            SystemCheckState::Failed,
+            DiagnosticState::Failed,
             'account.system_status.stripe.missing',
             ['%variables%' => implode(', ', $missing)],
         );
