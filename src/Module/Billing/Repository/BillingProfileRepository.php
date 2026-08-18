@@ -57,6 +57,10 @@ class BillingProfileRepository extends ServiceEntityRepository
             ->join('p.user', 'u')
             ->andWhere('p.status = :status')->setParameter('status', BillingStatus::Canceled)
             ->andWhere('p.currentPeriodEnd IS NULL OR p.currentPeriodEnd < :now')->setParameter('now', $now)
+            // A Canceled status that never came from a real deletion may be an
+            // `incomplete` subscription; leave those alone until the trial lapses.
+            ->andWhere('p.lastStripeEventType = :deleted OR p.trialEndsAt <= :now')
+            ->setParameter('deleted', BillingProfile::SUBSCRIPTION_DELETED_EVENT_TYPE)
             ->andWhere('u.disabledAt IS NULL OR p.cancelSurveySentAt IS NULL')
             ->getQuery()->getResult();
     }

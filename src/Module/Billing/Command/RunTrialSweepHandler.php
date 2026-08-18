@@ -163,8 +163,14 @@ final readonly class RunTrialSweepHandler
             $this->em->lock($profile, LockMode::PESSIMISTIC_WRITE);
             $this->em->refresh($profile);
 
+            // fromStripeStatus() folds `incomplete` into Canceled, so an abandoned
+            // 3D Secure prompt looks identical to a real cancellation here. A user
+            // still inside their trial has lost nothing yet, and disabling them —
+            // with a cancellation survey — within the hour is wrong. Once the trial
+            // lapses they have no subscription and no trial, so the pass applies.
             if (BillingStatus::Canceled !== $profile->status
-                || (null !== $profile->currentPeriodEnd && $now < $profile->currentPeriodEnd)) {
+                || (null !== $profile->currentPeriodEnd && $now < $profile->currentPeriodEnd)
+                || (BillingProfile::SUBSCRIPTION_DELETED_EVENT_TYPE !== $profile->lastStripeEventType && $now < $profile->trialEndsAt)) {
                 $this->logger->debug('billing.trial_sweep.skipped_after_lock', ['userId' => (string) $profile->user->id, 'pass' => 'canceled_past_period']);
 
                 return [0, 0];

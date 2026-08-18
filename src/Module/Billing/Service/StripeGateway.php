@@ -98,6 +98,23 @@ final readonly class StripeGateway implements StripeGatewayInterface
     }
 
     #[\Override]
+    public function retrieveSubscription(string $subscriptionId): ?SubscriptionView
+    {
+        try {
+            $subscription = $this->stripe()->subscriptions->retrieve($subscriptionId);
+        } catch (\Throwable) {
+            // The caller is breaking a tie between two same-second events and has
+            // a usable fallback; an unreachable Stripe must not fail the webhook.
+            return null;
+        }
+
+        return new SubscriptionView(
+            status: $subscription->status,
+            currentPeriodEnd: StripeSubscriptionPeriodEnd::from($subscription),
+        );
+    }
+
+    #[\Override]
     public function cancelSubscription(string $subscriptionId): void
     {
         $this->stripe()->subscriptions->cancel($subscriptionId);

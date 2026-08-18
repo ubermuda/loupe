@@ -8,6 +8,8 @@ use App\Module\Account\Repository\WaitlistEntryRepository;
 use App\Module\Billing\Entity\BillingProfile;
 use App\Module\Billing\Entity\BillingStatus;
 use App\Module\Billing\Repository\BillingProfileRepository;
+use App\Module\Billing\Service\StripeGatewayInterface;
+use App\Module\Billing\Service\SubscriptionView;
 use Doctrine\DBAL\LockMode;
 use Doctrine\ORM\EntityManagerInterface;
 use Psr\Log\LoggerInterface;
@@ -16,6 +18,7 @@ final readonly class SyncStripeSubscriptionHandler
 {
     public function __construct(
         private BillingProfileRepository $billingProfiles,
+        private StripeGatewayInterface $stripe,
         private WaitlistEntryRepository $waitlistEntries,
         private EntityManagerInterface $em,
         private LoggerInterface $logger,
@@ -34,25 +37,42 @@ final readonly class SyncStripeSubscriptionHandler
             return;
         }
 
+        // Asked before the lock is taken, deliberately: this is a network call,
+        // and holding a row lock for its duration would block the very event it
+        // is being compared against. The read may be stale, in which case a tie
+        // goes unresolved below and arrival order decides as it did before.
+        $authoritative = $this->sameSecondAs($command, $profile)
+            ? $this->stripe->retrieveSubscription($command->stripeSubscriptionId)
+            : null;
+
         // Stripe can deliver two events at once, and both requests would
         // otherwise read the same profile, pass their ordering checks and race
         // to flush — the loser's older snapshot winning. The whole
         // check-then-write runs under a write lock on the row instead.
-        $this->em->wrapInTransaction(function () use ($command, $profile): void {
+        $this->em->wrapInTransaction(function () use ($command, $profile, $authoritative): void {
             $this->em->lock($profile, LockMode::PESSIMISTIC_WRITE);
             // lock() takes the row but does not refresh what is in memory; the
             // ordering checks must see what a racing request committed.
             $this->em->refresh($profile);
 
-            $this->apply($command, $profile);
+            $this->apply($command, $profile, $authoritative);
         });
+    }
+
+    /** A distinct event Stripe stamped in the same second as the last one applied. */
+    private function sameSecondAs(SyncStripeSubscriptionCommand $command, BillingProfile $profile): bool
+    {
+        return null !== $profile->lastStripeEventAt
+            && $command->eventCreatedAt->getTimestamp() === $profile->lastStripeEventAt->getTimestamp()
+            && $command->stripeEventId !== $profile->lastStripeEventId;
     }
 
     /**
      * Stripe guarantees neither ordering nor exactly-once delivery, so two
-     * things must be filtered out here, and only those two.
+     * things must be filtered out here, and only those two — then a same-second
+     * pair, which no timestamp can order, is settled by what Stripe holds now.
      */
-    private function apply(SyncStripeSubscriptionCommand $command, BillingProfile $profile): void
+    private function apply(SyncStripeSubscriptionCommand $command, BillingProfile $profile, ?SubscriptionView $authoritative): void
     {
         // A strictly older event is a stale snapshot (an `updated` arriving
         // after `deleted`) and must not overwrite newer state.
@@ -67,11 +87,11 @@ final readonly class SyncStripeSubscriptionHandler
             return;
         }
 
-        // Within one second `created` cannot order events, so arrival order
-        // decides — except behind a deletion, which is terminal until something
-        // strictly newer supersedes it. Ordinary same-second events still both
-        // apply: a subscription is routinely created `incomplete` and updated to
-        // `active` in one second, and dropping the second would paywall a payer.
+        // A deletion is terminal until something strictly newer supersedes it,
+        // so nothing from its own second may reopen it. Ordinary same-second
+        // events are not dropped here — a subscription is routinely created
+        // `incomplete` and updated to `active` within one second, and both
+        // belong; which of them wins is decided further down.
         if (BillingProfile::SUBSCRIPTION_DELETED_EVENT_TYPE === $profile->lastStripeEventType
             && null !== $profile->lastStripeEventAt
             && $command->eventCreatedAt <= $profile->lastStripeEventAt) {
@@ -98,9 +118,26 @@ final readonly class SyncStripeSubscriptionHandler
             return;
         }
 
+        // Within one second `created` cannot order two events, so whichever
+        // arrived last would otherwise win — and a `created` (incomplete)
+        // landing after its own `updated` (active) paywalls someone who has
+        // just paid. Where Stripe answered, its state settles it instead.
+        $stripeStatus = $command->stripeStatus;
+        $currentPeriodEnd = $command->currentPeriodEnd;
+        if (null !== $authoritative && $this->sameSecondAs($command, $profile)) {
+            $stripeStatus = $authoritative->status;
+            $currentPeriodEnd = $authoritative->currentPeriodEnd;
+            $this->logger->info('billing.webhook.tie_broken_by_lookup', [
+                'stripeCustomerId' => $command->stripeCustomerId,
+                'eventId' => $command->stripeEventId,
+                'eventStatus' => $command->stripeStatus,
+                'stripeStatus' => $authoritative->status,
+            ]);
+        }
+
         $profile->stripeSubscriptionId = $command->stripeSubscriptionId;
-        $profile->status = BillingStatus::fromStripeStatus($command->stripeStatus);
-        $profile->currentPeriodEnd = $command->currentPeriodEnd;
+        $profile->status = BillingStatus::fromStripeStatus($stripeStatus);
+        $profile->currentPeriodEnd = $currentPeriodEnd;
         $profile->lastStripeEventAt = $command->eventCreatedAt;
         $profile->lastStripeEventId = $command->stripeEventId;
         $profile->lastStripeEventType = $command->stripeEventType;

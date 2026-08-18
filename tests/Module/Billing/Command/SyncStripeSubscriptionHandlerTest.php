@@ -12,6 +12,8 @@ use App\Module\Billing\Command\SyncStripeSubscriptionHandler;
 use App\Module\Billing\Entity\BillingProfile;
 use App\Module\Billing\Entity\BillingStatus;
 use App\Module\Billing\Repository\BillingProfileRepository;
+use App\Module\Billing\Service\StripeGatewayInterface;
+use App\Module\Billing\Service\SubscriptionView;
 use App\Tests\Support\RecordingLogger;
 use App\Tests\Support\TransactionalEntityManagerStub;
 use Doctrine\ORM\EntityManagerInterface;
@@ -35,6 +37,7 @@ final class SyncStripeSubscriptionHandlerTest extends TestCase
         ?BillingProfile $profile,
         ?WaitlistEntry $waitlistEntry = null,
         ?LoggerInterface $logger = null,
+        ?SubscriptionView $stripeState = null,
     ): SyncStripeSubscriptionHandler {
         $profiles = $this->createStub(BillingProfileRepository::class);
         $profiles->method('findOneByStripeCustomerId')->willReturn($profile);
@@ -46,8 +49,12 @@ final class SyncStripeSubscriptionHandlerTest extends TestCase
             static fn (string $email): ?WaitlistEntry => 'synced@example.com' === $email ? $waitlistEntry : null,
         );
 
+        $stripe = $this->createStub(StripeGatewayInterface::class);
+        $stripe->method('retrieveSubscription')->willReturn($stripeState);
+
         return new SyncStripeSubscriptionHandler(
             $profiles,
+            $stripe,
             $waitlistEntries,
             TransactionalEntityManagerStub::configure($this->createStub(EntityManagerInterface::class)),
             $logger ?? new NullLogger(),
@@ -156,6 +163,61 @@ final class SyncStripeSubscriptionHandlerTest extends TestCase
         $handler($this->command('active', '2026-07-25 12:00:05', 'evt_stale_update'));
 
         self::assertSame(BillingStatus::Canceled, $profile->status);
+    }
+
+    /**
+     * The reverse of the case above: a `created` (incomplete) delivered after
+     * its own `updated` (active) from the same second. Arrival order alone would
+     * paywall someone who has just paid, so Stripe's current state decides.
+     */
+    public function test_a_same_second_pair_delivered_out_of_order_is_settled_by_stripe(): void
+    {
+        $profile = $this->profile();
+        $handler = $this->handler(
+            $profile,
+            stripeState: new SubscriptionView('active', new \DateTimeImmutable('2026-08-25 12:00:00')),
+        );
+
+        $handler($this->command('active', '2026-07-25 12:00:05', 'evt_updated'));
+        $handler($this->command('incomplete', '2026-07-25 12:00:05', 'evt_created'));
+
+        self::assertSame(BillingStatus::Active, $profile->status);
+        self::assertEquals(new \DateTimeImmutable('2026-08-25 12:00:00'), $profile->currentPeriodEnd);
+    }
+
+    /** An unreachable Stripe leaves the previous arrival-order behaviour intact. */
+    public function test_an_unanswered_lookup_falls_back_to_arrival_order(): void
+    {
+        $profile = $this->profile();
+        $handler = $this->handler($profile, stripeState: null);
+
+        $handler($this->command('active', '2026-07-25 12:00:05', 'evt_updated'));
+        $handler($this->command('incomplete', '2026-07-25 12:00:05', 'evt_created'));
+
+        self::assertSame(BillingStatus::Canceled, $profile->status);
+    }
+
+    /** A lone event is not a tie, so it costs no Stripe call. */
+    public function test_a_first_event_is_not_looked_up(): void
+    {
+        $profile = $this->profile();
+        $stripe = $this->createMock(StripeGatewayInterface::class);
+        $stripe->expects($this->never())->method('retrieveSubscription');
+
+        $profiles = $this->createStub(BillingProfileRepository::class);
+        $profiles->method('findOneByStripeCustomerId')->willReturn($profile);
+
+        $handler = new SyncStripeSubscriptionHandler(
+            $profiles,
+            $stripe,
+            $this->createStub(WaitlistEntryRepository::class),
+            TransactionalEntityManagerStub::configure($this->createStub(EntityManagerInterface::class)),
+            new NullLogger(),
+        );
+
+        $handler($this->command('active', '2026-07-25 12:00:05', 'evt_only'));
+
+        self::assertSame(BillingStatus::Active, $profile->status);
     }
 
     public function test_a_newer_event_is_applied(): void
