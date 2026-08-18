@@ -101,7 +101,10 @@
   // shed until it fits — classes first, then outermost ancestors — because a
   // less specific anchor beats a comment the API rejects.
   const selectorFor = (element) => {
-    if (element.id) return `#${CSS.escape(element.id)}`;
+    if (element.id) {
+      const byId = `#${CSS.escape(element.id)}`;
+      if (byId.length <= SELECTOR_MAX) return byId;
+    }
     const parts = [];
     let current = element;
     while (current && current.nodeType === 1 && parts.length < 5) {
