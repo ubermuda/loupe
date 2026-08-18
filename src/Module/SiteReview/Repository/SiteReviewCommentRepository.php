@@ -88,6 +88,48 @@ class SiteReviewCommentRepository extends ServiceEntityRepository
     }
 
     /**
+     * Same counts as statusCountsForProject, for several projects in one query.
+     * The projects list renders every project on the page, so the per-project
+     * form is an N+1 across all of them.
+     *
+     * @param list<Project> $projects
+     *
+     * @return array<string, array{pending: int, addressed: int, resolved: int}> keyed by project id
+     */
+    public function statusCountsForProjects(array $projects): array
+    {
+        if ([] === $projects) {
+            return [];
+        }
+
+        /** @var list<array{id: mixed, status: SiteReviewCommentStatus, count: int|string}> $rows */
+        $rows = $this->createQueryBuilder('c')
+            ->select('IDENTITY(c.project) AS id', 'c.status AS status', 'COUNT(c.id) AS count')
+            ->andWhere('c.project IN (:projects)')
+            ->setParameter('projects', $projects)
+            ->groupBy('c.project', 'c.status')
+            ->getQuery()
+            ->getResult();
+
+        $tallies = [];
+        foreach ($rows as $row) {
+            $tallies[(string) $row['id']][$row['status']->value] = (int) $row['count'];
+        }
+
+        $counts = [];
+        foreach ($projects as $project) {
+            $id = (string) $project->id;
+            $counts[$id] = [
+                'pending' => $tallies[$id]['pending'] ?? 0,
+                'addressed' => $tallies[$id]['addressed'] ?? 0,
+                'resolved' => $tallies[$id]['resolved'] ?? 0,
+            ];
+        }
+
+        return $counts;
+    }
+
+    /**
      * A Pending comment of the project — the only comments the widget may edit
      * or delete. Once the agent has addressed or resolved one, it is frozen.
      */

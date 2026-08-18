@@ -14,10 +14,12 @@ use App\Module\Review\Entity\Document;
 use App\Module\Review\Entity\DocumentStatus;
 use App\Module\Review\Entity\Tag;
 use App\Module\Review\ValueObject\Anchor;
+use Doctrine\Bundle\DoctrineBundle\DataCollector\DoctrineDataCollector;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use Symfony\Component\DomCrawler\Crawler;
 use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\HttpKernel\Profiler\Profile;
 
 final class ListDocumentsControllerTest extends WebTestCase
 {
@@ -90,6 +92,54 @@ final class ListDocumentsControllerTest extends WebTestCase
         self::assertResponseIsSuccessful();
         self::assertSelectorTextContains('body', 'Alice Draft');
         self::assertStringNotContainsString('Bob Secret', (string) $client->getResponse()->getContent());
+    }
+
+    /**
+     * The open-thread count is one grouped query for the page. Per row it was an
+     * N+1 that nothing would notice — the list renders identically either way.
+     */
+    public function test_the_documents_list_counts_open_threads_in_one_query(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+
+        $owner = $this->createUser($em, 'countowner', 'count-owner@example.com');
+        $project = $this->project($em, $owner);
+        for ($i = 0; $i < 6; ++$i) {
+            $this->document($em, $owner, $project, 'Doc '.$i);
+        }
+        $em->flush();
+        $projectId = (string) $project->id;
+        $em->clear();
+
+        $client->loginUser($owner);
+        $client->enableProfiler();
+        $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/documents');
+        self::assertResponseIsSuccessful();
+
+        $profile = $client->getProfile();
+        self::assertInstanceOf(Profile::class, $profile);
+        $collector = $profile->getCollector('db');
+        self::assertInstanceOf(DoctrineDataCollector::class, $collector);
+
+        $countQueries = 0;
+        $total = 0;
+        foreach ($collector->getQueries() as $queries) {
+            foreach ($queries as $query) {
+                ++$total;
+                $sql = (string) $query['sql'];
+                if (str_contains($sql, 'FROM comments') && str_contains($sql, 'COUNT(')) {
+                    ++$countQueries;
+                }
+            }
+        }
+
+        // Without this the assertion below would also pass on a request that ran
+        // no queries at all.
+        self::assertGreaterThan(0, $total);
+
+        // Six documents, one grouped count. Per row this would be six.
+        self::assertLessThanOrEqual(1, $countQueries);
     }
 
     public function test_a_documents_tags_are_rendered_on_its_row(): void

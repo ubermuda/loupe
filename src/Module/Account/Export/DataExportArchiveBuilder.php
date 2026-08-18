@@ -56,21 +56,45 @@ readonly class DataExportArchiveBuilder
             throw new \RuntimeException(sprintf('Cannot open export archive "%s".', $localPath));
         }
 
-        foreach ($this->exporters as $exporter) {
-            $added = $zip->addFromString(
-                $exporter->filename(),
-                json_encode($exporter->export($user), \JSON_THROW_ON_ERROR | \JSON_PRETTY_PRINT | \JSON_UNESCAPED_SLASHES),
-            );
-            if (!$added) {
-                throw new \RuntimeException(sprintf('Cannot write "%s" into export archive "%s".', $exporter->filename(), $localPath));
-            }
-        }
+        // Each payload goes to a temp file and is added by path, not by string:
+        // addFromString() holds its data until close(), so every exporter's JSON
+        // was resident at once and the peak was their sum. addFile() reads from
+        // disk while the archive is written, so the peak is one payload.
+        $payloadPaths = [];
 
-        // close() can fail after every addFromString() succeeded (e.g. the
-        // volume fills up while ZipArchive flushes its central directory) —
-        // a Ready export must never point at a truncated ZIP.
-        if (!$zip->close()) {
-            throw new \RuntimeException(sprintf('Cannot finalize export archive "%s".', $localPath));
+        try {
+            foreach ($this->exporters as $exporter) {
+                $payloadPath = tempnam(sys_get_temp_dir(), 'loupe-export-payload-');
+                if (false === $payloadPath) {
+                    throw new \RuntimeException('Cannot create a temporary file for an export payload.');
+                }
+                $payloadPaths[] = $payloadPath;
+
+                $written = file_put_contents(
+                    $payloadPath,
+                    json_encode($exporter->export($user), \JSON_THROW_ON_ERROR | \JSON_PRETTY_PRINT | \JSON_UNESCAPED_SLASHES),
+                );
+                if (false === $written) {
+                    throw new \RuntimeException(sprintf('Cannot write the "%s" export payload.', $exporter->filename()));
+                }
+
+                if (!$zip->addFile($payloadPath, $exporter->filename())) {
+                    throw new \RuntimeException(sprintf('Cannot write "%s" into export archive "%s".', $exporter->filename(), $localPath));
+                }
+            }
+
+            // close() can fail after every add succeeded (e.g. the volume fills
+            // up while ZipArchive flushes its central directory) — a Ready
+            // export must never point at a truncated ZIP.
+            if (!$zip->close()) {
+                throw new \RuntimeException(sprintf('Cannot finalize export archive "%s".', $localPath));
+            }
+        } finally {
+            // Only after close(): addFile() defers the read, so deleting a
+            // payload before the archive is finalized empties its entry.
+            foreach ($payloadPaths as $payloadPath) {
+                @unlink($payloadPath);
+            }
         }
     }
 

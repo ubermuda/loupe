@@ -28,20 +28,26 @@ final readonly class ListProjectsHandler
         $total = count($paginator);
         $totalPages = max(1, (int) ceil($total / self::PER_PAGE));
 
+        $projects = iterator_to_array($paginator, false);
+
+        // Two grouped queries for the whole page rather than two per row: at 20
+        // projects that was 40 round trips to render one list.
+        $documentCounts = $this->documents->countActiveByProjects($projects);
+        $siteReviewCounts = $this->siteReviewComments->statusCountsForProjects($projects);
+
         return new ListProjectsView(
             items: array_map(
-                function (Project $project): ProjectListItem {
-                    // One grouped query for both figures, as the nav pill does.
-                    $siteReviewCounts = $this->siteReviewComments->statusCountsForProject($project);
+                static function (Project $project) use ($documentCounts, $siteReviewCounts): ProjectListItem {
+                    $counts = $siteReviewCounts[(string) $project->id];
 
                     return new ProjectListItem(
                         project: $project,
-                        documentCount: $this->documents->countActiveByProject($project),
-                        commentCount: array_sum($siteReviewCounts),
-                        openCount: $siteReviewCounts['pending'],
+                        documentCount: $documentCounts[(string) $project->id] ?? 0,
+                        commentCount: array_sum($counts),
+                        openCount: $counts['pending'],
                     );
                 },
-                iterator_to_array($paginator, false),
+                $projects,
             ),
             totalPages: $totalPages,
             pageList: PageList::build($command->page, $totalPages),

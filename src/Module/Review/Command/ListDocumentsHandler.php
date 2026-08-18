@@ -43,18 +43,23 @@ final readonly class ListDocumentsHandler
         $this->documents->preloadTags($documents);
         $latestVersions = $this->documentVersions->findLatestMetaByDocuments($documents);
 
+        // One grouped query for the page rather than one per row, matching how
+        // tags and version metadata above are already loaded.
+        $openThreadCounts = $this->comments->countOpenByVersions(array_values(array_map(
+            static fn (array $meta): string => (string) $meta['versionId'],
+            $latestVersions,
+        )));
+
         return new ListDocumentsView(
             items: array_map(
-                function (Document $document) use ($latestVersions): DocumentListItem {
+                static function (Document $document) use ($latestVersions, $openThreadCounts): DocumentListItem {
                     $meta = $latestVersions[(string) $document->id] ?? throw new \LogicException('Document has no versions.');
 
                     return new DocumentListItem(
                         document: $document,
                         versionNumber: $meta['versionNumber'],
                         updatedAt: $meta['createdAt'],
-                        openThreadCount: $this->comments->countOpenByVersion(
-                            $this->documentVersions->getReferenceTo($meta['versionId']),
-                        ),
+                        openThreadCount: $openThreadCounts[(string) $meta['versionId']] ?? 0,
                     );
                 },
                 $documents,

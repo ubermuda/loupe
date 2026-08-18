@@ -6,6 +6,7 @@ namespace App\Module\Review\Command;
 
 use App\Exception\DomainErrors;
 use App\Module\Review\Entity\Comment;
+use App\Module\Review\Repository\DocumentVersionRepository;
 use App\Module\Review\Service\AnchorService;
 use App\Module\Review\ValueObject\Anchor;
 use Doctrine\ORM\EntityManagerInterface;
@@ -15,6 +16,7 @@ final readonly class AddCommentHandler
     public function __construct(
         private EntityManagerInterface $em,
         private AnchorService $anchorService,
+        private DocumentVersionRepository $documentVersions,
     ) {
     }
 
@@ -32,7 +34,7 @@ final readonly class AddCommentHandler
             throw new DomainErrors(['quote' => 'review.document.suggestion.error.no_anchor']);
         }
 
-        $version = $command->document->currentVersion();
+        $version = $this->documentVersions->findLatest($command->document);
         $text = $version->plainText();
 
         $prefix = $command->prefix ?? '';
