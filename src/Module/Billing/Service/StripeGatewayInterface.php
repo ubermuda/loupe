@@ -30,5 +30,13 @@ interface StripeGatewayInterface
 
     public function retrievePrice(string $priceId): PriceView;
 
+    /**
+     * The subscription's state as Stripe holds it now, or null when it cannot be
+     * read. Callers use it to break a tie between events Stripe timestamped in
+     * the same second, so a failure must leave them free to fall back rather
+     * than abort — never let this throw.
+     */
+    public function retrieveSubscription(string $subscriptionId): ?SubscriptionView;
+
     public function cancelSubscription(string $subscriptionId): void;
 }

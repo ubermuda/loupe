@@ -167,6 +167,45 @@ final class RunTrialSweepHandlerTest extends KernelTestCase
         self::assertSame('@Billing/email/cancel_survey.html.twig', $email->getHtmlTemplate());
     }
 
+    /**
+     * An abandoned 3D Secure prompt leaves an `incomplete` subscription, which
+     * fromStripeStatus() folds into Canceled. The user has lost nothing — their
+     * trial is still running — so the sweep must not disable and survey them.
+     */
+    public function test_an_incomplete_subscription_inside_a_running_trial_is_left_alone(): void
+    {
+        $profile = $this->seedProfile(
+            'incompletetrial',
+            BillingStatus::Canceled,
+            trialEndsAt: $this->now->modify('+5 days'),
+            lastStripeEventType: 'customer.subscription.updated',
+        );
+
+        $result = ($this->handler())(new RunTrialSweepCommand($this->now));
+
+        self::assertEquals(new TrialSweepResult(), $result);
+        self::assertNull($profile->user->disabledAt);
+        self::assertNull($profile->cancelSurveySentAt);
+        self::assertCount(0, $this->mailer->sent);
+    }
+
+    /** The trial is no shield once a real deletion has been applied. */
+    public function test_a_real_deletion_inside_a_running_trial_still_settles(): void
+    {
+        $profile = $this->seedProfile(
+            'deletedintrial',
+            BillingStatus::Canceled,
+            trialEndsAt: $this->now->modify('+5 days'),
+            currentPeriodEnd: $this->now->modify('-1 hour'),
+            lastStripeEventType: BillingProfile::SUBSCRIPTION_DELETED_EVENT_TYPE,
+        );
+
+        $result = ($this->handler())(new RunTrialSweepCommand($this->now));
+
+        self::assertEquals(new TrialSweepResult(disabled: 1, cancelSurveys: 1), $result);
+        self::assertEquals($this->now, $profile->user->disabledAt);
+    }
+
     public function test_canceled_user_already_disabled_by_the_webhook_still_gets_the_cancel_survey(): void
     {
         $disabledAt = $this->now->modify('-2 hours');
@@ -275,12 +314,14 @@ final class RunTrialSweepHandlerTest extends KernelTestCase
         BillingStatus $status,
         ?\DateTimeImmutable $trialEndsAt = null,
         ?\DateTimeImmutable $currentPeriodEnd = null,
+        ?string $lastStripeEventType = null,
     ): BillingProfile {
         $scenario = new BillingScenario(static::getContainer());
         $user = $scenario->verifiedUser($username);
         $profile = $scenario->profile($user, $trialEndsAt ?? $this->now->modify('-1 day'));
         $profile->status = $status;
         $profile->currentPeriodEnd = $currentPeriodEnd;
+        $profile->lastStripeEventType = $lastStripeEventType;
         $this->em()->flush();
 
         return $profile;

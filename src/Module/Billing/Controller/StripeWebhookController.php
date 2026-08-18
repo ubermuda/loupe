@@ -8,10 +8,10 @@ use App\Controller\AppController;
 use App\Module\Billing\Command\SyncStripeSubscriptionCommand;
 use App\Module\Billing\Command\SyncStripeSubscriptionHandler;
 use App\Module\Billing\Entity\BillingProfile;
+use App\Module\Billing\Service\StripeSubscriptionPeriodEnd;
 use Psr\Log\LoggerInterface;
 use Stripe\Exception\SignatureVerificationException;
 use Stripe\Exception\UnexpectedValueException as StripeUnexpectedValueException;
-use Stripe\StripeObject;
 use Stripe\Webhook;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -87,30 +87,10 @@ final class StripeWebhookController extends AppController
                 ? 'canceled'
                 : (is_string($subscription['status'] ?? null) ? $subscription['status'] : 'canceled'),
             stripeEventType: $eventType,
-            currentPeriodEnd: $this->periodEnd($subscription),
+            currentPeriodEnd: StripeSubscriptionPeriodEnd::from($subscription),
             eventCreatedAt: new \DateTimeImmutable('@'.$event->created),
         ));
 
         return new JsonResponse(['received' => true]);
-    }
-
-    /**
-     * current_period_end moved in Stripe's Basil API version: classic payloads
-     * carry it on the subscription, newer ones only per item under
-     * items.data[].current_period_end. Both shapes are accepted; a payload with
-     * neither simply has no known period end.
-     */
-    private function periodEnd(StripeObject $subscription): ?\DateTimeImmutable
-    {
-        $raw = $subscription['current_period_end'] ?? null;
-
-        if (!is_int($raw)) {
-            $items = $subscription['items'] ?? null;
-            $data = $items instanceof StripeObject ? ($items['data'] ?? null) : null;
-            $first = is_array($data) ? ($data[0] ?? null) : null;
-            $raw = $first instanceof StripeObject ? ($first['current_period_end'] ?? null) : null;
-        }
-
-        return is_int($raw) ? new \DateTimeImmutable('@'.$raw) : null;
     }
 }
