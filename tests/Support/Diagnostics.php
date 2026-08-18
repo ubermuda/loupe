@@ -4,6 +4,13 @@ declare(strict_types=1);
 
 namespace App\Tests\Support;
 
+use App\Module\Account\Diagnostics\AgentAccountCheck;
+use App\Module\Billing\Diagnostics\StripeCheck;
+use App\Module\Diagnostics\Check\FailedMessagesCheck;
+use App\Module\Diagnostics\Check\MailerSenderCheck;
+use App\Module\Diagnostics\Check\MailerTransportCheck;
+use App\Module\Diagnostics\Check\MercureCheck;
+use App\Module\Diagnostics\Check\WorkerCheck;
 use App\Module\Diagnostics\Command\RunDiagnosticsHandler;
 use Doctrine\DBAL\Connection;
 use Psr\Log\NullLogger;
@@ -16,7 +23,8 @@ use Symfony\Contracts\HttpClient\HttpClientInterface;
 use Ubermuda\FeatureFlagsBundle\FeatureFlagService;
 
 /**
- * Builds a real RunDiagnosticsHandler wired to values a test controls.
+ * Builds a real RunDiagnosticsHandler wired to values a test controls, with the
+ * checks in the order the container gives them so a test sees the real report.
  *
  * The handler is `final readonly`, so it cannot be mocked; controller tests
  * substitute a genuine instance instead. The defaults are the combination that
@@ -36,22 +44,24 @@ final class Diagnostics
         ?HttpClientInterface $httpClient = null,
         ?FeatureFlagService $featureFlags = null,
     ): RunDiagnosticsHandler {
-        return new RunDiagnosticsHandler(
-            connection: $connection,
-            httpClient: $httpClient ?? new MockHttpClient(),
-            featureFlags: $featureFlags ?? FeatureFlags::service(),
-            logger: new NullLogger(),
-            transportFactory: new Transport([
-                new NullTransportFactory(),
-                new SendmailTransportFactory(),
-                new EsmtpTransportFactory(),
-            ]),
-            mailerDsn: $mailerDsn,
-            mailerFromAddress: $mailerFromAddress,
-            mercureUrl: $mercureUrl,
-            mercureJwtSecret: $mercureJwtSecret,
-            stripeSecretKey: $stripeSecretKey,
-            stripeWebhookSecret: $stripeWebhookSecret,
-        );
+        $logger = new NullLogger();
+
+        return new RunDiagnosticsHandler([
+            new MailerTransportCheck(
+                new Transport([
+                    new NullTransportFactory(),
+                    new SendmailTransportFactory(),
+                    new EsmtpTransportFactory(),
+                ]),
+                $mailerDsn,
+                $logger,
+            ),
+            new MailerSenderCheck($mailerFromAddress),
+            new WorkerCheck($connection, $logger),
+            new FailedMessagesCheck($connection, $logger),
+            new MercureCheck($httpClient ?? new MockHttpClient(), $mercureUrl, $mercureJwtSecret, $logger),
+            new AgentAccountCheck($connection, $logger),
+            new StripeCheck($featureFlags ?? FeatureFlags::service(), $stripeSecretKey, $stripeWebhookSecret),
+        ]);
     }
 }
