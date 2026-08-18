@@ -2184,10 +2184,12 @@ does not currently carry, so it interacts with the `extra_env` wiring in
 
 The health and status surface is currently hand-rolled and lives entirely in
 this app: `App\Controller\ShowHealthController` serves `/healthz`, and
-`App\Module\Account\Command\CheckSystemStatusHandler` runs the six checks
-behind `/admin/status` and the install wizard's status step. Three options are
-worth weighing rather than letting the hand-rolled version become the answer
-by default:
+`src/Module/Diagnostics/` runs the seven checks behind `/admin/status` and the
+install wizard's status step. Since 2026-08-17 those checks are one tagged
+class each behind `DiagnosticInterface`, so the seam a third-party package
+would need already exists and adopting one is now a swap rather than a rewrite.
+Three options are worth weighing rather than letting the hand-rolled version
+become the answer by default:
 
 1. **Adopt an existing open-source package.** `liip/monitor-bundle` is the
    long-standing Symfony option and ships checks for Doctrine connections,
@@ -2652,37 +2654,6 @@ respect to the published MCP schema, which is not obvious. The SDK builds
 `inputSchema` from `@param` docblock tags only, and emits an `outputSchema`
 solely when one is passed explicitly to `#[McpTool]` — verified in
 `vendor/mcp/sdk/src/Capability/Discovery/SchemaGenerator.php`.
-
-## The system status page is one handler with a check method per concern
-
-**Author:** Geoffrey · **Type:** tooling · **Priority:** medium · **Status:** pending
-
-Owner note (2026-08-04): the status page needs to be modularized.
-
-`App\Module\Account\Command\CheckSystemStatusHandler` holds every check as a
-private method on one class, and the class takes a constructor argument per
-thing any of them needs — a connection, an HTTP client, the mailer transport
-factory, the feature flags, and six autowired environment values. Adding the
-agent-account check meant adding a method and a SQL constant to a class that
-already knows about SMTP, Mercure, Stripe and the messenger tables.
-
-The shape to move to is one class per check behind a common interface, tagged
-and collected, so a check declares its own dependencies and can be tested
-without constructing the others. `SystemCheck` and `SystemCheckState` are
-already the right value objects for it; what is missing is the seam.
-
-Two things to preserve, because they are the parts that took thought. The
-worker check deliberately never reports "ok" — an idle queue cannot prove a
-consumer is running — and a generic collector must not tempt anyone into
-reporting green for "no errors". And the Stripe check is skipped rather than
-failed when billing is switched off, so whatever replaces the current
-`if` needs a way for a check to declare itself not-applicable that is distinct
-from passing.
-
-Related: 'Decide whether health checks stay hand-rolled, move to a third-party
-package, or become our own' — that entry asks whether to adopt
-`liip/monitor-bundle`, whose check abstraction would be the seam this entry
-wants. Settle that one first, or this refactor is done twice.
 
 ## MCP tool: hand the human a list of what needs their attention
 
