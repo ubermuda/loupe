@@ -159,6 +159,8 @@
             </div>
         </div>
         {% else %}
-        {% block body_unauthenticated %}{{ block('body') }}{% endblock %}
+        {# The shell above has its own <main>; this branch skips the shell, so
+           without one here an unauthenticated page offers no main landmark. #}
+        <main>{% block body_unauthenticated %}{{ block('body') }}{% endblock %}</main>
         {% endif %}
 {% endblock %}

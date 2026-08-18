@@ -1,6 +1,8 @@
 {% extends 'base.html.twig' %}
 
-{% block title %}{{ 'landing.meta.title'|trans }}{% endblock %}
+{% block title %}{{ 'landing.meta.title'|trans }} — {{ 'app.name'|trans }}{% endblock %}
+
+{% block meta_description %}<meta name="description" content="{{ 'landing.meta.description'|trans }}">{% endblock %}
 
 {% block body_unauthenticated %}
 <div class="lp-landing">

@@ -103,7 +103,7 @@ final readonly class WorkerCheck implements DiagnosticInterface
                     'worker',
                     DiagnosticState::Unknown,
                     'account.system_status.worker.claimed_in_flight',
-                    ['%count%' => (string) $claimed],
+                    ['%count%' => $claimed],
                 );
             }
 
@@ -118,7 +118,7 @@ final readonly class WorkerCheck implements DiagnosticInterface
                 'worker',
                 DiagnosticState::Failed,
                 'account.system_status.worker.backlog_stale',
-                ['%count%' => (string) $pending, '%seconds%' => (string) $waitedSeconds],
+                ['%count%' => $pending, '%seconds%' => (string) $waitedSeconds],
             );
         }
 
@@ -126,7 +126,7 @@ final readonly class WorkerCheck implements DiagnosticInterface
             'worker',
             DiagnosticState::Unknown,
             'account.system_status.worker.backlog_fresh',
-            ['%count%' => (string) $pending],
+            ['%count%' => $pending],
         );
     }
 

@@ -111,7 +111,7 @@ final class RunDiagnosticsHandlerTest extends KernelTestCase
         $check = self::check($view, 'worker');
         self::assertSame(DiagnosticState::Failed, $check->state);
         self::assertSame('account.system_status.worker.backlog_stale', $check->detail);
-        self::assertSame('1', $check->detailParameters['%count%']);
+        self::assertSame(1, $check->detailParameters['%count%']);
         self::assertGreaterThanOrEqual(300, (int) $check->detailParameters['%seconds%']);
     }
 
@@ -130,7 +130,7 @@ final class RunDiagnosticsHandlerTest extends KernelTestCase
         $check = self::check($view, 'worker');
         self::assertSame(DiagnosticState::Failed, $check->state);
         self::assertSame('account.system_status.worker.backlog_stale', $check->detail);
-        self::assertSame('1', $check->detailParameters['%count%']);
+        self::assertSame(1, $check->detailParameters['%count%']);
     }
 
     public function test_a_message_a_worker_claimed_moments_ago_is_unknown_not_failed(): void
@@ -148,7 +148,7 @@ final class RunDiagnosticsHandlerTest extends KernelTestCase
         $check = self::check($view, 'worker');
         self::assertSame(DiagnosticState::Unknown, $check->state);
         self::assertSame('account.system_status.worker.claimed_in_flight', $check->detail);
-        self::assertSame('1', $check->detailParameters['%count%']);
+        self::assertSame(1, $check->detailParameters['%count%']);
     }
 
     public function test_messages_parked_in_the_failed_transport_do_not_count_as_a_backlog(): void
@@ -161,7 +161,7 @@ final class RunDiagnosticsHandlerTest extends KernelTestCase
         // on a run where the row was never inserted.
         $failedMessages = self::check($view, 'failed_messages');
         self::assertSame(DiagnosticState::Warning, $failedMessages->state);
-        self::assertSame('1', $failedMessages->detailParameters['%count%']);
+        self::assertSame(1, $failedMessages->detailParameters['%count%']);
 
         self::assertSame(DiagnosticState::Unknown, self::check($view, 'worker')->state);
     }

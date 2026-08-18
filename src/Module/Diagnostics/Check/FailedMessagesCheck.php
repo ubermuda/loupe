@@ -53,7 +53,7 @@ final readonly class FailedMessagesCheck implements DiagnosticInterface
             'failed_messages',
             DiagnosticState::Warning,
             'account.system_status.failed_messages.present',
-            ['%count%' => (string) $failed],
+            ['%count%' => $failed],
         );
     }
 }
