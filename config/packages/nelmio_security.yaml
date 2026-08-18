@@ -26,23 +26,25 @@ when@prod:
             policies:
                 - 'strict-origin-when-cross-origin'
 
-        # REPORT-ONLY (the `report` key, not `enforce`), so it blocks nothing. No
-        # report-uri is set and the bundle ships no route for its reporting
-        # controller, so nothing collects violations either — this allow-list has
-        # never been checked against real traffic. Collecting them needs a public
-        # unauthenticated endpoint, which is a decision rather than a config line.
+        # ENFORCING. The one violation report-only surfaced on the live site was
+        # a `data:application/javascript,` script, which AssetMapper emitted for
+        # the CSS entry in the import map; the stylesheet is a plain <link> now,
+        # so nothing needs `data:` in script-src.
         csp:
             # CSP only makes sense on HTML documents; skip assets, JSON, downloads.
             content_types: ['text/html']
             # Standard header only — skip the legacy X-Content-Security-Policy /
             # X-WebKit-CSP variants (and the per-request User-Agent parsing they need).
             compat_headers: false
-            report:
+            enforce:
                 default-src: ["'self'"]
                 base-uri: ["'self'"]
                 object-src: ["'none'"]
                 frame-ancestors: ["'self'"]
-                script-src: ["'self'", "'unsafe-inline'"]
+                # The bundle appends 'unsafe-inline' next to the nonce as its
+                # CSP Level 1 fallback; a nonce-aware browser discards it. Not
+                # listed here so the fallback is the only thing adding it.
+                script-src: ["'self'"]
                 # Fonts are self-hosted (assets/fonts, SIL OFL) — no external
                 # font or stylesheet origins are needed.
                 style-src: ["'self'", "'unsafe-inline'"]
