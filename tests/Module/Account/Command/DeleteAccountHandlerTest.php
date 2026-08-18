@@ -18,7 +18,6 @@ use App\Module\Account\Entity\User;
 use App\Module\Account\Repository\UserRepository;
 use App\Module\Billing\Entity\BillingProfile;
 use App\Module\Billing\Messenger\CancelSubscriptionMessage;
-use App\Module\Billing\Repository\BillingProfileRepository;
 use App\Module\Project\Entity\Project;
 use App\Module\Review\Entity\Comment;
 use App\Module\Review\Entity\DecisionSelection;
@@ -187,19 +186,13 @@ final class DeleteAccountHandlerTest extends KernelTestCase
         $users = $this->createStub(UserRepository::class);
         $users->method('findByAccountDeletionToken')->willReturn($user);
 
-        $profile = new BillingProfile($user, new \DateTimeImmutable('+14 days'));
-        $profile->stripeSubscriptionId = 'sub_rollback';
-        $profile->stripeCustomerId = 'cus_rollback';
-        $billingProfiles = $this->createStub(BillingProfileRepository::class);
-        $billingProfiles->method('findOneByUser')->willReturn($profile);
-
         $em = $this->createStub(EntityManagerInterface::class);
         $em->method('wrapInTransaction')->willThrowException(new \RuntimeException('simulated transaction failure'));
 
         $bus = $this->createMock(MessageBusInterface::class);
         $bus->expects(self::never())->method('dispatch');
 
-        $handler = new DeleteAccountHandler($users, $billingProfiles, $bus, $em, new NullLogger(), $this->createStub(FilesystemOperator::class), []);
+        $handler = new DeleteAccountHandler($users, $bus, $em, new NullLogger(), $this->createStub(FilesystemOperator::class), []);
 
         $this->expectException(\RuntimeException::class);
         $this->expectExceptionMessage('simulated transaction failure');
@@ -215,9 +208,6 @@ final class DeleteAccountHandlerTest extends KernelTestCase
 
         $users = $this->createStub(UserRepository::class);
         $users->method('findByAccountDeletionToken')->willReturn($user);
-
-        $billingProfiles = $this->createStub(BillingProfileRepository::class);
-        $billingProfiles->method('findOneByUser')->willReturn(null);
 
         $em = $this->createStub(EntityManagerInterface::class);
         $em->method('wrapInTransaction')->willReturnCallback(static fn (callable $fn) => $fn());
@@ -249,7 +239,7 @@ final class DeleteAccountHandlerTest extends KernelTestCase
 
         $purgers = [$makePurger(80), $makePurger(10), $makePurger(30)];
 
-        $handler = new DeleteAccountHandler($users, $billingProfiles, $this->createStub(MessageBusInterface::class), $em, new NullLogger(), $this->createStub(FilesystemOperator::class), $purgers);
+        $handler = new DeleteAccountHandler($users, $this->createStub(MessageBusInterface::class), $em, new NullLogger(), $this->createStub(FilesystemOperator::class), $purgers);
         $handler(new DeleteAccountCommand($token));
 
         self::assertSame([10, 30, 80], $calls->getArrayCopy());

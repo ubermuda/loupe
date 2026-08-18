@@ -9,8 +9,6 @@ use App\Module\Account\Deletion\AccountDataPurgerInterface;
 use App\Module\Account\Deletion\AccountDeletionCleanup;
 use App\Module\Account\Entity\User;
 use App\Module\Account\Repository\UserRepository;
-use App\Module\Billing\Messenger\CancelSubscriptionMessage;
-use App\Module\Billing\Repository\BillingProfileRepository;
 use Doctrine\ORM\EntityManagerInterface;
 use League\Flysystem\FilesystemException;
 use League\Flysystem\FilesystemOperator;
@@ -28,9 +26,10 @@ use Symfony\Component\Messenger\MessageBusInterface;
  * design) that clears its own tables; this handler orders and iterates them,
  * then deletes the user row itself.
  *
- * Billing is the one module this handler still depends on directly: the Stripe
- * identifiers must be read before BillingProfileAccountPurger deletes the row
- * holding them, so it cannot be reached through the purger alone.
+ * A purger that needs follow-up work records it on AccountDeletionCleanup:
+ * messages go out inside the transaction, storage deletions after it commits.
+ * That is how Billing gets its Stripe cancellation dispatched without this
+ * handler importing anything from Billing.
  */
 final readonly class DeleteAccountHandler
 {
@@ -40,7 +39,6 @@ final readonly class DeleteAccountHandler
     /** @param iterable<AccountDataPurgerInterface> $purgers */
     public function __construct(
         private UserRepository $users,
-        private BillingProfileRepository $billingProfiles,
         private MessageBusInterface $bus,
         private EntityManagerInterface $em,
         private LoggerInterface $logger,
@@ -65,27 +63,18 @@ final readonly class DeleteAccountHandler
 
         $userId = $user->id ?? throw new \LogicException('a persisted user always has an id');
 
-        // Read the Stripe identifiers before the transaction starts: by the
-        // time BillingProfileAccountPurger deletes the row below there is
-        // nothing left to read them from.
-        $profile = $this->billingProfiles->findOneByUser($user);
-        $subscriptionId = $profile?->stripeSubscriptionId;
-        $customerId = $profile?->stripeCustomerId;
-
         $cleanup = new AccountDeletionCleanup();
 
-        $this->em->wrapInTransaction(function () use ($user, $userId, $cleanup, $subscriptionId, $customerId): void {
+        $this->em->wrapInTransaction(function () use ($user, $userId, $cleanup): void {
             foreach ($this->purgers as $purger) {
                 $purger->purge($user, $cleanup);
             }
 
-            // Recorded, not called: the async transport is doctrine://default —
-            // the same connection as this transaction — so the row commits or
-            // rolls back with the deletion. The Stripe call happens later, in
-            // CancelSubscriptionHandler, because an external call must never
-            // hold a DB transaction open.
-            if (null !== $subscriptionId) {
-                $this->bus->dispatch(new CancelSubscriptionMessage($subscriptionId, $customerId, (string) $userId));
+            // Dispatched here, not after the commit: the async transport is
+            // doctrine://default — the same connection as this transaction — so
+            // each row commits or rolls back with the deletion itself.
+            foreach ($cleanup->messagesToDispatch() as $message) {
+                $this->bus->dispatch($message);
             }
 
             $this->em->getConnection()->executeStatement('DELETE FROM users WHERE id = :id', ['id' => (string) $userId]);

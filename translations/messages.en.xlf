@@ -1051,6 +1051,14 @@
                 <source>review.rename.error.too_long</source>
                 <target>That title is too long.</target>
             </trans-unit>
+            <trans-unit id="review.create.error.blank">
+                <source>review.create.error.blank</source>
+                <target>A document needs a title.</target>
+            </trans-unit>
+            <trans-unit id="review.create.error.too_long">
+                <source>review.create.error.too_long</source>
+                <target>That title is too long.</target>
+            </trans-unit>
             <trans-unit id="review.revise.error.description_blank">
                 <source>review.revise.error.description_blank</source>
                 <target>Say what changed in this version.</target>

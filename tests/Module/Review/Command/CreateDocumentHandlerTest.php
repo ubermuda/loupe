@@ -12,6 +12,7 @@ use App\Module\Review\Command\CreateDocumentHandler;
 use App\Module\Review\Entity\DocumentStatus;
 use App\Module\Review\Entity\Tag;
 use Doctrine\ORM\EntityManagerInterface;
+use PHPUnit\Framework\Attributes\DataProvider;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 
 final class CreateDocumentHandlerTest extends KernelTestCase
@@ -32,6 +33,59 @@ final class CreateDocumentHandlerTest extends KernelTestCase
         self::assertSame(DocumentStatus::InReview, $doc->status);
         self::assertSame(1, $doc->versions->count());
         self::assertStringContainsString('<h1 id="heading-auth">Auth</h1>', $doc->currentVersion()->renderedHtml);
+    }
+
+    /** @return iterable<string, array{string, string}> */
+    public static function rejectedTitles(): iterable
+    {
+        yield 'blank' => ['', 'review.create.error.blank'];
+
+        yield 'only whitespace' => ['   ', 'review.create.error.blank'];
+
+        yield 'over the maximum length' => [str_repeat('a', 256), 'review.create.error.too_long'];
+    }
+
+    /**
+     * Creation went without the checks a rename enforces, so a document could be
+     * born with a title no rename would ever accept.
+     *
+     * @param non-empty-string $expectedKey
+     */
+    #[DataProvider('rejectedTitles')]
+    public function test_a_title_a_rename_would_reject_is_rejected_at_creation(string $title, string $expectedKey): void
+    {
+        self::bootKernel();
+        $em = self::getContainer()->get(EntityManagerInterface::class);
+        $user = new User(fullName: 'Agent', email: 'title-'.uniqid().'@example.com', password: 'hashed-placeholder');
+        $em->persist($user);
+        $project = new Project($user, 'p-'.uniqid());
+        $em->persist($project);
+        $em->flush();
+
+        $handler = self::getContainer()->get(CreateDocumentHandler::class);
+
+        try {
+            $handler(new CreateDocumentCommand(project: $project, title: $title, markdown: '# Hi'));
+            self::fail('expected the title to be rejected');
+        } catch (DomainErrors $e) {
+            self::assertSame(['title' => $expectedKey], $e->errors);
+        }
+    }
+
+    public function test_a_created_title_is_trimmed(): void
+    {
+        self::bootKernel();
+        $em = self::getContainer()->get(EntityManagerInterface::class);
+        $user = new User(fullName: 'Agent', email: 'trim-'.uniqid().'@example.com', password: 'hashed-placeholder');
+        $em->persist($user);
+        $project = new Project($user, 'p-'.uniqid());
+        $em->persist($project);
+        $em->flush();
+
+        $handler = self::getContainer()->get(CreateDocumentHandler::class);
+        $doc = $handler(new CreateDocumentCommand(project: $project, title: '  Spaced  ', markdown: '# Hi'));
+
+        self::assertSame('Spaced', $doc->title);
     }
 
     public function test_a_rejected_tag_name_leaves_no_document_behind(): void
