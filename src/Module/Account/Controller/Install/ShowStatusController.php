@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace App\Module\Account\Controller\Install;
 
 use App\Controller\AppController;
-use App\Module\Account\Command\CheckSystemStatusHandler;
 use App\Module\Account\Service\InstallAccessGuard;
+use App\Module\Diagnostics\Command\RunDiagnosticsHandler;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
@@ -30,7 +30,7 @@ final class ShowStatusController extends AppController
 {
     public function __construct(
         private readonly InstallAccessGuard $installAccessGuard,
-        private readonly CheckSystemStatusHandler $checkSystemStatus,
+        private readonly RunDiagnosticsHandler $runDiagnostics,
     ) {
     }
 
@@ -43,7 +43,7 @@ final class ShowStatusController extends AppController
         }
 
         return $this->render('@Account/install/show_status.html.twig', [
-            'status' => ($this->checkSystemStatus)(),
+            'status' => ($this->runDiagnostics)(),
         ]);
     }
 }

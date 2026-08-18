@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace App\Module\Account\Controller\Admin;
+namespace App\Module\Diagnostics\Controller\Admin;
 
 use App\Controller\AppController;
-use App\Module\Account\Command\CheckSystemStatusHandler;
+use App\Module\Diagnostics\Command\RunDiagnosticsHandler;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
@@ -21,20 +21,20 @@ use Symfony\Component\Security\Http\Attribute\IsGranted;
 #[IsGranted('ROLE_ADMIN')]
 #[Route(
     '/admin/status',
-    name: 'app_admin_system_status',
+    name: 'app_admin_diagnostics',
     methods: ['GET'],
 )]
-final class ShowSystemStatusController extends AppController
+final class ShowDiagnosticsController extends AppController
 {
     public function __construct(
-        private readonly CheckSystemStatusHandler $checkSystemStatus,
+        private readonly RunDiagnosticsHandler $runDiagnostics,
     ) {
     }
 
     public function __invoke(): Response
     {
-        return $this->render('@Account/admin/show_system_status.html.twig', [
-            'status' => ($this->checkSystemStatus)(),
+        return $this->render('@Diagnostics/admin/show_diagnostics.html.twig', [
+            'status' => ($this->runDiagnostics)(),
         ]);
     }
 }

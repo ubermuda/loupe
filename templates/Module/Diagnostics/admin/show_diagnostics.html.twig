@@ -10,7 +10,7 @@
         </div>
 
         <div class="admin-card p-6">
-            {% include '@Account/_system_status_checks.html.twig' with {checks: status.checks} only %}
+            {% include '@Diagnostics/_checks.html.twig' with {checks: status.checks} only %}
         </div>
 
         <div class="admin-card p-6">

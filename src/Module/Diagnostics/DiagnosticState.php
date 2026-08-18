@@ -2,17 +2,17 @@
 
 declare(strict_types=1);
 
-namespace App\Module\Account\Command;
+namespace App\Module\Diagnostics;
 
 /**
- * Outcome of a single system-status check.
+ * Outcome of a single diagnostic check.
  *
  * `Unknown` is a first-class result, not a placeholder: some things an operator
  * needs (is a messenger worker consuming?) cannot be established from a web
  * request, and reporting them as green would be an assertion the app cannot
  * back up.
  */
-enum SystemCheckState: string
+enum DiagnosticState: string
 {
     case Ok = 'ok';
     case Warning = 'warning';

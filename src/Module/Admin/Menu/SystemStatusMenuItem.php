@@ -35,12 +35,12 @@ final class SystemStatusMenuItem implements NonPrefetchableAdminMenuItem
 
     public function getRouteName(): string
     {
-        return 'app_admin_system_status';
+        return 'app_admin_diagnostics';
     }
 
     public function getActiveRoutePrefix(): string
     {
-        return 'app_admin_system_status';
+        return 'app_admin_diagnostics';
     }
 
     public function getPriority(): int

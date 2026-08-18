@@ -2,14 +2,14 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Module\Account\Command;
+namespace App\Tests\Module\Diagnostics\Command;
 
-use App\Module\Account\Command\CheckSystemStatusView;
-use App\Module\Account\Command\SystemCheck;
-use App\Module\Account\Command\SystemCheckState;
 use App\Module\Account\Entity\User;
+use App\Module\Diagnostics\Command\RunDiagnosticsView;
+use App\Module\Diagnostics\Diagnostic;
+use App\Module\Diagnostics\DiagnosticState;
+use App\Tests\Support\Diagnostics;
 use App\Tests\Support\FeatureFlags;
-use App\Tests\Support\SystemStatus;
 use Doctrine\DBAL\Connection;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\EntityManagerInterface;
@@ -23,7 +23,7 @@ use Symfony\Component\HttpClient\Response\MockResponse;
  * messenger_messages stores UTC wall-clock times in a timezone-less column — is
  * exercised as written rather than mocked away.
  */
-final class CheckSystemStatusHandlerTest extends KernelTestCase
+final class RunDiagnosticsHandlerTest extends KernelTestCase
 {
     private Connection $connection;
 
@@ -36,58 +36,58 @@ final class CheckSystemStatusHandlerTest extends KernelTestCase
 
     public function test_the_shipped_null_mailer_is_a_failure_not_a_pass(): void
     {
-        $view = (SystemStatus::handler($this->connection, mailerDsn: 'null://null'))();
+        $view = (Diagnostics::handler($this->connection, mailerDsn: 'null://null'))();
 
         $check = self::check($view, 'mailer');
-        self::assertSame(SystemCheckState::Failed, $check->state);
+        self::assertSame(DiagnosticState::Failed, $check->state);
         self::assertSame('account.system_status.mailer.null_transport', $check->detail);
     }
 
     public function test_a_non_smtp_transport_is_reported_as_unverifiable_not_ok(): void
     {
-        $view = (SystemStatus::handler($this->connection, mailerDsn: 'sendmail://default'))();
+        $view = (Diagnostics::handler($this->connection, mailerDsn: 'sendmail://default'))();
 
-        self::assertSame(SystemCheckState::Unknown, self::check($view, 'mailer')->state);
+        self::assertSame(DiagnosticState::Unknown, self::check($view, 'mailer')->state);
     }
 
     public function test_an_unparseable_dsn_is_a_failure(): void
     {
-        $view = (SystemStatus::handler($this->connection, mailerDsn: 'not-a-dsn'))();
+        $view = (Diagnostics::handler($this->connection, mailerDsn: 'not-a-dsn'))();
 
         $check = self::check($view, 'mailer');
-        self::assertSame(SystemCheckState::Failed, $check->state);
+        self::assertSame(DiagnosticState::Failed, $check->state);
         self::assertSame('account.system_status.mailer.invalid', $check->detail);
     }
 
     public function test_the_placeholder_sender_address_is_flagged(): void
     {
-        $view = (SystemStatus::handler($this->connection, mailerFromAddress: 'noreply@localhost'))();
+        $view = (Diagnostics::handler($this->connection, mailerFromAddress: 'noreply@localhost'))();
 
-        self::assertSame(SystemCheckState::Warning, self::check($view, 'mailer_sender')->state);
+        self::assertSame(DiagnosticState::Warning, self::check($view, 'mailer_sender')->state);
     }
 
     public function test_any_localhost_sender_address_is_flagged_not_just_the_shipped_default(): void
     {
-        $view = (SystemStatus::handler($this->connection, mailerFromAddress: 'admin@localhost'))();
+        $view = (Diagnostics::handler($this->connection, mailerFromAddress: 'admin@localhost'))();
 
-        self::assertSame(SystemCheckState::Warning, self::check($view, 'mailer_sender')->state);
+        self::assertSame(DiagnosticState::Warning, self::check($view, 'mailer_sender')->state);
     }
 
     public function test_a_real_sender_address_passes_and_is_echoed_back(): void
     {
-        $view = (SystemStatus::handler($this->connection, mailerFromAddress: 'hello@example.com'))();
+        $view = (Diagnostics::handler($this->connection, mailerFromAddress: 'hello@example.com'))();
 
         $check = self::check($view, 'mailer_sender');
-        self::assertSame(SystemCheckState::Ok, $check->state);
+        self::assertSame(DiagnosticState::Ok, $check->state);
         self::assertSame(['%address%' => 'hello@example.com'], $check->detailParameters);
     }
 
     public function test_an_empty_queue_is_unknown_because_it_proves_nothing(): void
     {
-        $view = (SystemStatus::handler($this->connection))();
+        $view = (Diagnostics::handler($this->connection))();
 
         $check = self::check($view, 'worker');
-        self::assertSame(SystemCheckState::Unknown, $check->state);
+        self::assertSame(DiagnosticState::Unknown, $check->state);
         self::assertSame('account.system_status.worker.queue_empty', $check->detail);
     }
 
@@ -95,10 +95,10 @@ final class CheckSystemStatusHandlerTest extends KernelTestCase
     {
         $this->enqueue('default', new \DateTimeImmutable('now', new \DateTimeZone('UTC')));
 
-        $view = (SystemStatus::handler($this->connection))();
+        $view = (Diagnostics::handler($this->connection))();
 
         $check = self::check($view, 'worker');
-        self::assertSame(SystemCheckState::Unknown, $check->state);
+        self::assertSame(DiagnosticState::Unknown, $check->state);
         self::assertSame('account.system_status.worker.backlog_fresh', $check->detail);
     }
 
@@ -106,10 +106,10 @@ final class CheckSystemStatusHandlerTest extends KernelTestCase
     {
         $this->enqueue('default', new \DateTimeImmutable('-5 minutes', new \DateTimeZone('UTC')));
 
-        $view = (SystemStatus::handler($this->connection))();
+        $view = (Diagnostics::handler($this->connection))();
 
         $check = self::check($view, 'worker');
-        self::assertSame(SystemCheckState::Failed, $check->state);
+        self::assertSame(DiagnosticState::Failed, $check->state);
         self::assertSame('account.system_status.worker.backlog_stale', $check->detail);
         self::assertSame('1', $check->detailParameters['%count%']);
         self::assertGreaterThanOrEqual(300, (int) $check->detailParameters['%seconds%']);
@@ -125,10 +125,10 @@ final class CheckSystemStatusHandlerTest extends KernelTestCase
         $claimedAt = new \DateTimeImmutable('-2 hours', new \DateTimeZone('UTC'));
         $this->enqueue('default', $claimedAt, $claimedAt);
 
-        $view = (SystemStatus::handler($this->connection))();
+        $view = (Diagnostics::handler($this->connection))();
 
         $check = self::check($view, 'worker');
-        self::assertSame(SystemCheckState::Failed, $check->state);
+        self::assertSame(DiagnosticState::Failed, $check->state);
         self::assertSame('account.system_status.worker.backlog_stale', $check->detail);
         self::assertSame('1', $check->detailParameters['%count%']);
     }
@@ -143,10 +143,10 @@ final class CheckSystemStatusHandlerTest extends KernelTestCase
             new \DateTimeImmutable('now', new \DateTimeZone('UTC')),
         );
 
-        $view = (SystemStatus::handler($this->connection))();
+        $view = (Diagnostics::handler($this->connection))();
 
         $check = self::check($view, 'worker');
-        self::assertSame(SystemCheckState::Unknown, $check->state);
+        self::assertSame(DiagnosticState::Unknown, $check->state);
         self::assertSame('account.system_status.worker.claimed_in_flight', $check->detail);
         self::assertSame('1', $check->detailParameters['%count%']);
     }
@@ -155,32 +155,32 @@ final class CheckSystemStatusHandlerTest extends KernelTestCase
     {
         $this->enqueue('failed', new \DateTimeImmutable('-5 minutes', new \DateTimeZone('UTC')));
 
-        $view = (SystemStatus::handler($this->connection))();
+        $view = (Diagnostics::handler($this->connection))();
 
         // Guard: without it, "the worker check is not Failed" would also pass
         // on a run where the row was never inserted.
         $failedMessages = self::check($view, 'failed_messages');
-        self::assertSame(SystemCheckState::Warning, $failedMessages->state);
+        self::assertSame(DiagnosticState::Warning, $failedMessages->state);
         self::assertSame('1', $failedMessages->detailParameters['%count%']);
 
-        self::assertSame(SystemCheckState::Unknown, self::check($view, 'worker')->state);
+        self::assertSame(DiagnosticState::Unknown, self::check($view, 'worker')->state);
     }
 
     public function test_an_empty_failed_transport_passes(): void
     {
-        $view = (SystemStatus::handler($this->connection))();
+        $view = (Diagnostics::handler($this->connection))();
 
-        self::assertSame(SystemCheckState::Ok, self::check($view, 'failed_messages')->state);
+        self::assertSame(DiagnosticState::Ok, self::check($view, 'failed_messages')->state);
     }
 
     public function test_an_unconfigured_mercure_hub_warns_without_calling_anything(): void
     {
         $client = new MockHttpClient(static fn (): MockResponse => throw new \LogicException('no request expected'));
 
-        $view = (SystemStatus::handler($this->connection, httpClient: $client))();
+        $view = (Diagnostics::handler($this->connection, httpClient: $client))();
 
         $check = self::check($view, 'mercure');
-        self::assertSame(SystemCheckState::Warning, $check->state);
+        self::assertSame(DiagnosticState::Warning, $check->state);
         self::assertSame('account.system_status.mercure.unconfigured', $check->detail);
     }
 
@@ -190,7 +190,7 @@ final class CheckSystemStatusHandlerTest extends KernelTestCase
         // a 401 is proof it is listening — gating on 2xx would be a false red.
         $client = new MockHttpClient(new MockResponse('', ['http_code' => 401]));
 
-        $view = (SystemStatus::handler(
+        $view = (Diagnostics::handler(
             $this->connection,
             mercureUrl: 'http://mercure/.well-known/mercure',
             mercureJwtSecret: 'a-secret-that-is-long-enough-for-hs256',
@@ -198,7 +198,7 @@ final class CheckSystemStatusHandlerTest extends KernelTestCase
         ))();
 
         $check = self::check($view, 'mercure');
-        self::assertSame(SystemCheckState::Ok, $check->state);
+        self::assertSame(DiagnosticState::Ok, $check->state);
         self::assertSame(['%status%' => '401'], $check->detailParameters);
     }
 
@@ -206,7 +206,7 @@ final class CheckSystemStatusHandlerTest extends KernelTestCase
     {
         $client = new MockHttpClient(static fn (): MockResponse => throw new TransportException('name or service not known'));
 
-        $view = (SystemStatus::handler(
+        $view = (Diagnostics::handler(
             $this->connection,
             mercureUrl: 'http://mercure/.well-known/mercure',
             mercureJwtSecret: 'a-secret-that-is-long-enough-for-hs256',
@@ -214,29 +214,29 @@ final class CheckSystemStatusHandlerTest extends KernelTestCase
         ))();
 
         $check = self::check($view, 'mercure');
-        self::assertSame(SystemCheckState::Warning, $check->state);
+        self::assertSame(DiagnosticState::Warning, $check->state);
         self::assertSame('account.system_status.mercure.unreachable', $check->detail);
     }
 
     public function test_stripe_is_not_checked_when_billing_is_off(): void
     {
-        $view = (SystemStatus::handler($this->connection))();
+        $view = (Diagnostics::handler($this->connection))();
 
         self::assertSame([], array_values(array_filter(
             $view->checks,
-            static fn (SystemCheck $check): bool => 'stripe' === $check->key,
+            static fn (Diagnostic $check): bool => 'stripe' === $check->key,
         )));
     }
 
     public function test_billing_without_stripe_credentials_is_a_failure(): void
     {
-        $view = (SystemStatus::handler(
+        $view = (Diagnostics::handler(
             $this->connection,
             featureFlags: FeatureFlags::service(['billing.enabled' => true]),
         ))();
 
         $check = self::check($view, 'stripe');
-        self::assertSame(SystemCheckState::Failed, $check->state);
+        self::assertSame(DiagnosticState::Failed, $check->state);
         self::assertSame(
             ['%variables%' => 'STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET'],
             $check->detailParameters,
@@ -245,22 +245,22 @@ final class CheckSystemStatusHandlerTest extends KernelTestCase
 
     public function test_billing_with_both_stripe_keys_passes(): void
     {
-        $view = (SystemStatus::handler(
+        $view = (Diagnostics::handler(
             $this->connection,
             stripeSecretKey: 'sk_test_dummy',
             stripeWebhookSecret: 'whsec_test',
             featureFlags: FeatureFlags::service(['billing.enabled' => true]),
         ))();
 
-        self::assertSame(SystemCheckState::Ok, self::check($view, 'stripe')->state);
+        self::assertSame(DiagnosticState::Ok, self::check($view, 'stripe')->state);
     }
 
     public function test_the_overall_state_is_the_worst_of_the_checks(): void
     {
         // A null mail transport is a failure, so nothing milder can win.
-        $view = (SystemStatus::handler($this->connection, mailerDsn: 'null://null'))();
+        $view = (Diagnostics::handler($this->connection, mailerDsn: 'null://null'))();
 
-        self::assertSame(SystemCheckState::Failed, $view->overall);
+        self::assertSame(DiagnosticState::Failed, $view->overall);
     }
 
     /**
@@ -287,9 +287,9 @@ final class CheckSystemStatusHandlerTest extends KernelTestCase
     public function test_the_agent_account_is_reported_present_when_the_row_exists(): void
     {
         // The migrations insert it, so the bootstrapped test database has it.
-        $view = (SystemStatus::handler($this->connection))();
+        $view = (Diagnostics::handler($this->connection))();
 
-        self::assertSame(SystemCheckState::Ok, self::check($view, 'agent_account')->state);
+        self::assertSame(DiagnosticState::Ok, self::check($view, 'agent_account')->state);
     }
 
     public function test_a_missing_agent_account_is_a_failure_not_a_warning(): void
@@ -298,16 +298,16 @@ final class CheckSystemStatusHandlerTest extends KernelTestCase
         // test back, and nothing else in this test reads the row.
         $this->connection->delete('users', ['id' => User::AGENT_ID]);
 
-        $view = (SystemStatus::handler($this->connection))();
+        $view = (Diagnostics::handler($this->connection))();
 
         // Failed rather than Warning: every comment written through the MCP is
         // authored by this row, so without it that path does not degrade, it
         // breaks.
-        self::assertSame(SystemCheckState::Failed, self::check($view, 'agent_account')->state);
-        self::assertSame(SystemCheckState::Failed, $view->overall);
+        self::assertSame(DiagnosticState::Failed, self::check($view, 'agent_account')->state);
+        self::assertSame(DiagnosticState::Failed, $view->overall);
     }
 
-    private static function check(CheckSystemStatusView $view, string $key): SystemCheck
+    private static function check(RunDiagnosticsView $view, string $key): Diagnostic
     {
         foreach ($view->checks as $check) {
             if ($check->key === $key) {
