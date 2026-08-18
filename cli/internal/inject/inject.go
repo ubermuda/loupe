@@ -19,11 +19,21 @@ type Event struct {
 	Type string `json:"type"`
 }
 
+// SubmittedType is the only event the bridge acts on.
+const SubmittedType = "site_review.submitted"
+
 // Parse decodes a Mercure data payload into an Event.
+//
+// The type is checked rather than assumed: without it any well-formed JSON —
+// `{}` included — would type a directive into the user's agent session, so
+// whatever else appears on the topic must be ignored rather than acted on.
 func Parse(data []byte) (Event, error) {
 	var e Event
 	if err := json.Unmarshal(data, &e); err != nil {
 		return e, fmt.Errorf("parse event: %w", err)
+	}
+	if e.Type != SubmittedType {
+		return e, fmt.Errorf("unexpected event type %q", e.Type)
 	}
 
 	return e, nil

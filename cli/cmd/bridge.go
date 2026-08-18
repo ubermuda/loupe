@@ -10,6 +10,7 @@ import (
 	"os/signal"
 	"path/filepath"
 	"syscall"
+	"time"
 
 	"github.com/spf13/cobra"
 	"github.com/ubermuda/loupe/cli/internal/api"
@@ -21,6 +22,17 @@ import (
 
 // defaultSession is the tmux session name used in spawn mode.
 const defaultSession = "loupe"
+
+// refreshTimeout bounds a credentials fetch. http.DefaultClient has none at
+// all, so a single unanswered request would stall reconnection for good — the
+// bridge would sit there looking healthy and never receive anything again.
+const refreshTimeout = 15 * time.Second
+
+// apiClient is for short request/response calls only. The SSE subscription must
+// keep its own timeout-free client: a stream is meant to stay open.
+func apiClient(cfg config.Config) *api.Client {
+	return api.New(cfg.BaseURL, cfg.Token, &http.Client{Timeout: refreshTimeout})
+}
 
 func newBridgeCmd() *cobra.Command {
 	cmd := &cobra.Command{
@@ -59,7 +71,7 @@ func newBridgeRunCmd() *cobra.Command {
 				return err
 			}
 
-			client := api.New(cfg.BaseURL, cfg.Token, nil)
+			client := apiClient(cfg)
 			if site == "" {
 				if !isTerminal(os.Stdin) {
 					return fmt.Errorf("--site is required when not running interactively")
@@ -136,7 +148,12 @@ func runAttached(cmd *cobra.Command, cfg config.Config, site, target string, h t
 		return err
 	}
 
+	// The handler writes to the bridge log, which the caller closes as soon as
+	// this returns — so detaching while a write is in flight would close the
+	// file underneath it. Wait for the loop to actually stop.
+	done := make(chan struct{})
 	go func() {
+		defer close(done)
 		_ = transport.Subscribe(ctx, &http.Client{}, creds.HubURL, creds.Topic, jwtRefresher(cfg, creds.Site.ID), h)
 	}()
 
@@ -152,6 +169,7 @@ func runAttached(cmd *cobra.Command, cfg config.Config, site, target string, h t
 	attachCmd.Stdin, attachCmd.Stdout, attachCmd.Stderr = os.Stdin, os.Stdout, os.Stderr
 	err = attachCmd.Run()
 	cancel() // detached — stop the subscribe loop
+	<-done
 	if err != nil && ctx.Err() == nil {
 		return fmt.Errorf("tmux attach: %w", err)
 	}
@@ -185,7 +203,7 @@ func buildHandler(out, errOut io.Writer, target string) transport.Handler {
 }
 
 func fetchCreds(ctx context.Context, cfg config.Config, site string) (api.StreamCredentials, error) {
-	return api.New(cfg.BaseURL, cfg.Token, nil).StreamCredentials(ctx, site)
+	return apiClient(cfg).StreamCredentials(ctx, site)
 }
 
 // jwtRefresher mints a fresh subscriber JWT per connection attempt. Subscriber
