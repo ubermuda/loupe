@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Module\Review\Command;
 
+use App\Exception\DomainErrors;
 use App\Module\Review\Entity\Document;
 use App\Module\Review\Entity\Tag;
 use App\Module\Review\Service\DocumentReferenceValidator;
@@ -31,7 +32,17 @@ final readonly class CreateDocumentHandler
         // process, or the worker — to write on its behalf.
         Tag::normalizeNames($command->tagNames);
 
-        $document = new Document(owner: $command->project->owner, project: $command->project, title: $command->title);
+        // The same rules a rename enforces. Creation went without them, so a
+        // document could be born with a title no rename would ever accept.
+        $title = trim($command->title);
+        if ('' === $title) {
+            throw new DomainErrors(['title' => 'review.create.error.blank']);
+        }
+        if (mb_strlen($title) > Document::MAX_TITLE_LENGTH) {
+            throw new DomainErrors(['title' => 'review.create.error.too_long']);
+        }
+
+        $document = new Document(owner: $command->project->owner, project: $command->project, title: $title);
         $document->addVersion($command->markdown, $this->renderer->render($command->markdown), $command->description);
 
         // Also before persist(), for the same reason: this rejects a reference

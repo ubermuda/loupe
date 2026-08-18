@@ -74,6 +74,10 @@ class CommentRepository extends ServiceEntityRepository
     public function findByVersion(DocumentVersion $version): array
     {
         return $this->createQueryBuilder('c')
+            // CommentThread renders author.fullName for every row, so without
+            // this each comment costs its own query to load the author proxy.
+            ->addSelect('author')
+            ->join('c.author', 'author')
             ->where('c.version = :version')
             ->setParameter('version', $version)
             // Document order — see findOpenByVersion().
@@ -92,6 +96,9 @@ class CommentRepository extends ServiceEntityRepository
     public function findReplies(Comment $parent): array
     {
         return $this->createQueryBuilder('c')
+            // Replies render their author too — same reason as findByVersion().
+            ->addSelect('author')
+            ->join('c.author', 'author')
             ->where('c.parent = :parent')
             ->setParameter('parent', $parent)
             ->orderBy('c.id', 'ASC')
