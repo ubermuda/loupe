@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Module\Review\Query;
+namespace App\Tests\Module\Review\Command;
 
 use App\Module\Account\Entity\User;
 use App\Module\Account\Repository\UserRepository;
@@ -11,18 +11,20 @@ use App\Module\Review\Command\CreateDocumentCommand;
 use App\Module\Review\Command\CreateDocumentHandler;
 use App\Module\Review\Command\SelectDecisionOptionCommand;
 use App\Module\Review\Command\SelectDecisionOptionHandler;
+use App\Module\Review\Command\ShowDocumentDataCommand;
+use App\Module\Review\Command\ShowDocumentDataHandler;
+use App\Module\Review\Command\ShowReviewCommand;
+use App\Module\Review\Command\ShowReviewHandler;
 use App\Module\Review\Entity\Comment;
 use App\Module\Review\Entity\CommentStatus;
 use App\Module\Review\Entity\Document;
 use App\Module\Review\Entity\Review;
 use App\Module\Review\Entity\Verdict;
-use App\Module\Review\Query\GetDocument;
-use App\Module\Review\Query\GetReview;
 use App\Module\Review\ValueObject\Anchor;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 
-final class GetReviewTest extends KernelTestCase
+final class ShowReviewHandlerTest extends KernelTestCase
 {
     /**
      * Keys that would name the person behind a comment. `document_get_review` promises in its
@@ -43,8 +45,8 @@ final class GetReviewTest extends KernelTestCase
     ];
 
     private EntityManagerInterface $em;
-    private GetReview $getReview;
-    private GetDocument $getDocument;
+    private ShowReviewHandler $getReview;
+    private ShowDocumentDataHandler $getDocument;
     private User $owner;
     private User $agent;
     private Project $project;
@@ -57,12 +59,12 @@ final class GetReviewTest extends KernelTestCase
         self::assertInstanceOf(EntityManagerInterface::class, $em);
         $this->em = $em;
 
-        $getReview = self::getContainer()->get(GetReview::class);
-        self::assertInstanceOf(GetReview::class, $getReview);
+        $getReview = self::getContainer()->get(ShowReviewHandler::class);
+        self::assertInstanceOf(ShowReviewHandler::class, $getReview);
         $this->getReview = $getReview;
 
-        $getDocument = self::getContainer()->get(GetDocument::class);
-        self::assertInstanceOf(GetDocument::class, $getDocument);
+        $getDocument = self::getContainer()->get(ShowDocumentDataHandler::class);
+        self::assertInstanceOf(ShowDocumentDataHandler::class, $getDocument);
         $this->getDocument = $getDocument;
 
         $users = self::getContainer()->get(UserRepository::class);
@@ -113,7 +115,7 @@ final class GetReviewTest extends KernelTestCase
         $this->em->persist($review);
         $this->em->flush();
 
-        $result = ($this->getReview)($doc);
+        $result = ($this->getReview)(new ShowReviewCommand($doc));
 
         self::assertSame('in-review', $result['status']);
         self::assertSame('changes-requested', $result['verdict']);
@@ -158,7 +160,7 @@ final class GetReviewTest extends KernelTestCase
         $this->em->persist($reply);
         $this->em->flush();
 
-        $comments = ($this->getReview)($doc)['comments'];
+        $comments = ($this->getReview)(new ShowReviewCommand($doc))['comments'];
 
         // Assert the entries were built before asserting what they leave out, so the
         // absence checks below cannot pass on an empty payload.
@@ -183,7 +185,7 @@ final class GetReviewTest extends KernelTestCase
         $this->em->persist($root);
         $this->em->flush();
 
-        $comments = ($this->getReview)($doc)['comments'];
+        $comments = ($this->getReview)(new ShowReviewCommand($doc))['comments'];
 
         self::assertCount(1, $comments);
         self::assertSame('addressed', $comments[0]['status']);
@@ -217,7 +219,7 @@ final class GetReviewTest extends KernelTestCase
         $this->em->persist($reply);
         $this->em->flush();
 
-        $result = ($this->getReview)($doc);
+        $result = ($this->getReview)(new ShowReviewCommand($doc));
 
         // Replies inherit the parent's anchor, so both entries must widen alike.
         self::assertSame('authenticate every', $result['comments'][0]['quote']);
@@ -260,7 +262,7 @@ final class GetReviewTest extends KernelTestCase
         $this->em->flush();
 
         // CommentRepository orders by offsetHint, so the payload order is deterministic.
-        $quotes = array_column(($this->getReview)($doc)['comments'], 'quote');
+        $quotes = array_column(($this->getReview)(new ShowReviewCommand($doc))['comments'], 'quote');
 
         self::assertSame(['', ' line ', 'here'], $quotes);
     }
@@ -297,7 +299,7 @@ final class GetReviewTest extends KernelTestCase
         $this->em->persist($url);
         $this->em->flush();
 
-        $quotes = array_column(($this->getReview)($doc)['comments'], 'quote');
+        $quotes = array_column(($this->getReview)(new ShowReviewCommand($doc))['comments'], 'quote');
 
         self::assertSame(['設計方針', 'review'], $quotes);
     }
@@ -332,7 +334,7 @@ final class GetReviewTest extends KernelTestCase
         $this->em->persist($rewording);
         $this->em->flush();
 
-        $comments = ($this->getReview)($doc)['comments'];
+        $comments = ($this->getReview)(new ShowReviewCommand($doc))['comments'];
 
         self::assertSame('utilise', $comments[0]['quote'], 'a prose quote is still widened to whole words');
         self::assertNull($comments[0]['replacement']);
@@ -357,7 +359,7 @@ final class GetReviewTest extends KernelTestCase
         $this->em->persist($strike);
         $this->em->flush();
 
-        $comments = ($this->getReview)($doc)['comments'];
+        $comments = ($this->getReview)(new ShowReviewCommand($doc))['comments'];
 
         // '' and null must stay distinguishable across the wire: one says "remove
         // this", the other says "no edit proposed".
@@ -373,7 +375,7 @@ final class GetReviewTest extends KernelTestCase
         $this->em->persist($doc);
         $this->em->flush();
 
-        $result = ($this->getReview)($doc);
+        $result = ($this->getReview)(new ShowReviewCommand($doc));
 
         self::assertNull($result['verdict']);
         self::assertSame('in-review', $result['status']);
@@ -400,7 +402,7 @@ final class GetReviewTest extends KernelTestCase
         self::assertInstanceOf(SelectDecisionOptionHandler::class, $select);
         $select(new SelectDecisionOptionCommand($doc, 'deploy-target', 1, displayedVersionNumber: 1));
 
-        $decisions = ($this->getReview)($doc)['decisions'];
+        $decisions = ($this->getReview)(new ShowReviewCommand($doc))['decisions'];
 
         self::assertCount(2, $decisions);
 
@@ -430,7 +432,7 @@ final class GetReviewTest extends KernelTestCase
         $this->em->persist($doc);
         $this->em->flush();
 
-        self::assertSame([], ($this->getReview)($doc)['decisions']);
+        self::assertSame([], ($this->getReview)(new ShowReviewCommand($doc))['decisions']);
     }
 
     public function test_get_document_returns_correct_shape(): void
@@ -441,7 +443,7 @@ final class GetReviewTest extends KernelTestCase
         $this->em->persist($doc);
         $this->em->flush();
 
-        $result = ($this->getDocument)($doc);
+        $result = ($this->getDocument)(new ShowDocumentDataCommand($doc));
 
         self::assertSame((string) $doc->id, $result['documentId']);
         self::assertSame('Shape Test', $result['title']);

@@ -10,7 +10,6 @@ use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Console\Style\SymfonyStyle;
-use Symfony\Component\Scheduler\Attribute\AsCronTask;
 
 /**
  * Deletes expired data-export archives and their rows. The scheduler fires it
@@ -23,10 +22,6 @@ use Symfony\Component\Scheduler\Attribute\AsCronTask;
     name: 'app:purge-expired-exports',
     description: 'Delete expired data-export archives and rows. Safe for cron.',
 )]
-// A cron trigger, not `every('1 hour')`: the periodic trigger counts down from
-// worker boot, so a worker recycled by --time-limit=3600 restarts the countdown
-// and the tick may never fire. Half past keeps it off the trial sweep's slot.
-#[AsCronTask('30 * * * *')]
 final class PurgeExpiredExportsCommand extends Command
 {
     public function __construct(

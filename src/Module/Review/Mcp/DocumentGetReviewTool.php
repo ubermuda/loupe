@@ -4,7 +4,8 @@ declare(strict_types=1);
 
 namespace App\Module\Review\Mcp;
 
-use App\Module\Review\Query\GetReview;
+use App\Module\Review\Command\ShowReviewCommand;
+use App\Module\Review\Command\ShowReviewHandler;
 use App\Module\Review\Security\McpBoundProjectVoter;
 use Mcp\Capability\Attribute\McpTool;
 use Mcp\Exception\ToolCallException;
@@ -16,7 +17,7 @@ use Mcp\Exception\ToolCallException;
 final readonly class DocumentGetReviewTool
 {
     public function __construct(
-        private GetReview $getReview,
+        private ShowReviewHandler $showReview,
         private ReviewSubjectResolver $subjects,
     ) {
     }
@@ -61,7 +62,7 @@ final readonly class DocumentGetReviewTool
         try {
             $document = $this->subjects->requireDocument($documentId, McpBoundProjectVoter::DOCUMENT_READ);
 
-            return ($this->getReview)($document);
+            return ($this->showReview)(new ShowReviewCommand($document));
         } catch (ToolCallException $e) {
             throw $e;
         } catch (\Throwable $e) {

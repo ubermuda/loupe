@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Mcp;
 
-use App\Module\Review\Mcp\DocumentHighlightTool;
 use Mcp\Capability\RegistryInterface;
 use Mcp\Schema\JsonRpc\Request;
 use Mcp\Schema\JsonRpc\Response;
@@ -14,6 +13,7 @@ use Mcp\Schema\Tool;
 use Mcp\Server\Handler\Request\RequestHandlerInterface;
 use Mcp\Server\Session\SessionInterface;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
+use Symfony\Component\DependencyInjection\Attribute\AutowireIterator;
 use Ubermuda\FeatureFlagsBundle\FeatureFlagService;
 
 /**
@@ -27,13 +27,12 @@ use Ubermuda\FeatureFlagsBundle\FeatureFlagService;
  */
 final readonly class FlagGatedListToolsHandler implements RequestHandlerInterface
 {
-    /** @var array<string, string> tool name => the flag that must be on to advertise it */
-    private const array GATED_TOOLS = [
-        DocumentHighlightTool::NAME => DocumentHighlightTool::FLAG,
-    ];
-
+    /** @param iterable<FlagGatedToolInterface> $gatedTools */
     public function __construct(
         private FeatureFlagService $featureFlags,
+
+        #[AutowireIterator('app.mcp_gated_tool')]
+        private iterable $gatedTools,
 
         #[Autowire(service: 'mcp.registry')]
         private RegistryInterface $registry,
@@ -56,11 +55,16 @@ final readonly class FlagGatedListToolsHandler implements RequestHandlerInterfac
 
         $page = $this->registry->getTools($this->paginationLimit, $request->cursor);
 
+        $gates = [];
+        foreach ($this->gatedTools as $gatedTool) {
+            $gates[$gatedTool->gatedToolName()] = $gatedTool->requiredFlag();
+        }
+
         $tools = [];
         foreach ($page->references as $tool) {
             \assert($tool instanceof Tool);
 
-            if (isset(self::GATED_TOOLS[$tool->name]) && !$this->featureFlags->isEnabled(self::GATED_TOOLS[$tool->name])) {
+            if (isset($gates[$tool->name]) && !$this->featureFlags->isEnabled($gates[$tool->name])) {
                 continue;
             }
 

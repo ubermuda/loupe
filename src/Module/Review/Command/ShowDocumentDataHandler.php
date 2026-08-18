@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Module\Review\Query;
+namespace App\Module\Review\Command;
 
 use App\Module\Review\Entity\Document;
 use App\Module\Review\Repository\DocumentVersionRepository;
@@ -10,7 +10,7 @@ use App\Module\Review\Repository\DocumentVersionRepository;
 /**
  * @phpstan-type DocumentPayload array{documentId: string, title: string, status: string, archived: bool, archiveReason: ?string, version: int, versionDescription: ?string, markdown: string, tags: list<string>, references: list<array{documentId: string, title: string, archived: bool}>, referencedBy: list<array{documentId: string, title: string, archived: bool}>}
  */
-final readonly class GetDocument
+final readonly class ShowDocumentDataHandler
 {
     public function __construct(
         private DocumentVersionRepository $documentVersions,
@@ -22,8 +22,10 @@ final readonly class GetDocument
      *
      * @return DocumentPayload
      */
-    public function __invoke(Document $document): array
+    public function __invoke(ShowDocumentDataCommand $command): array
     {
+        $document = $command->document;
+
         $currentVersion = $this->documentVersions->findLatest($document);
 
         // Revising replaces the whole reference set, so an agent that means to

@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Module\Review\Query;
+namespace App\Module\Review\Command;
 
 use App\Module\Review\Entity\Comment;
 use App\Module\Review\Entity\Document;
@@ -13,7 +13,7 @@ use App\Module\Review\Repository\ReviewRepository;
 use App\Module\Review\Service\DecisionBlockService;
 use App\Module\Review\ValueObject\Anchor;
 
-final readonly class GetReview
+final readonly class ShowReviewHandler
 {
     public function __construct(
         private DocumentVersionRepository $documentVersions,
@@ -59,8 +59,10 @@ final readonly class GetReview
      *     decisions: list<array{id: string, options: list<string>, selected: string|null, selected_index: int|null, answered_at: string|null, answered_at_version: int|null}>
      * }
      */
-    public function __invoke(Document $document): array
+    public function __invoke(ShowReviewCommand $command): array
     {
+        $document = $command->document;
+
         $currentVersion = $this->documentVersions->findLatest($document);
         $review = $this->reviews->findLatestByVersion($currentVersion);
         $allComments = $this->comments->findByVersion($currentVersion);

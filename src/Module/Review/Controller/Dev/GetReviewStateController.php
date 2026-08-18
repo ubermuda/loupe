@@ -8,7 +8,8 @@ use App\Controller\AppController;
 use App\Module\Account\Entity\User;
 use App\Module\Review\Command\GetReviewStateCommand;
 use App\Module\Review\Command\GetReviewStateHandler;
-use App\Module\Review\Query\GetReview;
+use App\Module\Review\Command\ShowReviewCommand;
+use App\Module\Review\Command\ShowReviewHandler;
 use Symfony\Component\DependencyInjection\Attribute\When;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\Routing\Attribute\Route;
@@ -27,7 +28,7 @@ use Symfony\Component\Uid\Uuid;
 final class GetReviewStateController extends AppController
 {
     public function __construct(
-        private readonly GetReview $getReview,
+        private readonly ShowReviewHandler $showReview,
         private readonly GetReviewStateHandler $getReviewState,
     ) {
     }
@@ -50,7 +51,7 @@ final class GetReviewStateController extends AppController
             return $this->json(['error' => 'not found'], JsonResponse::HTTP_NOT_FOUND);
         }
 
-        $payload = ($this->getReview)($view->document);
+        $payload = ($this->showReview)(new ShowReviewCommand($view->document));
         $payload['storedAnchors'] = $view->storedAnchors;
 
         return $this->json($payload);
