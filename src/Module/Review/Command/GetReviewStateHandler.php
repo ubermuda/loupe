@@ -7,12 +7,14 @@ namespace App\Module\Review\Command;
 use App\Module\Review\Entity\Document;
 use App\Module\Review\Repository\CommentRepository;
 use App\Module\Review\Repository\DocumentRepository;
+use App\Module\Review\Repository\DocumentVersionRepository;
 
 final readonly class GetReviewStateHandler
 {
     public function __construct(
         private DocumentRepository $documents,
         private CommentRepository $comments,
+        private DocumentVersionRepository $documentVersions,
     ) {
     }
 
@@ -31,7 +33,7 @@ final readonly class GetReviewStateHandler
     private function storedAnchors(Document $document): array
     {
         $anchors = [];
-        foreach ($this->comments->findByVersion($document->currentVersion()) as $comment) {
+        foreach ($this->comments->findByVersion($this->documentVersions->findLatest($document)) as $comment) {
             $anchors[] = [
                 'quote' => $comment->anchor->quote,
                 'prefix' => $comment->anchor->prefix,

@@ -66,6 +66,42 @@ class CommentRepository extends ServiceEntityRepository
     }
 
     /**
+     * Same count as countOpenByVersion, for several versions in one query. The
+     * documents list renders a page of rows, so the per-version form is an N+1
+     * across the whole page.
+     *
+     * @param list<string> $versionIds
+     *
+     * @return array<string, int> keyed by version id; a version with no open
+     *                            threads is absent rather than zero
+     */
+    public function countOpenByVersions(array $versionIds): array
+    {
+        if ([] === $versionIds) {
+            return [];
+        }
+
+        /** @var list<array{id: mixed, total: mixed}> $rows */
+        $rows = $this->createQueryBuilder('c')
+            ->select('IDENTITY(c.version) AS id, COUNT(c.id) AS total')
+            ->where('c.version IN (:versions)')
+            ->andWhere('c.status != :resolved')
+            ->andWhere('c.parent IS NULL')
+            ->setParameter('versions', $versionIds)
+            ->setParameter('resolved', CommentStatus::Resolved)
+            ->groupBy('c.version')
+            ->getQuery()
+            ->getArrayResult();
+
+        $counts = [];
+        foreach ($rows as $row) {
+            $counts[(string) $row['id']] = (int) $row['total'];
+        }
+
+        return $counts;
+    }
+
+    /**
      * Returns all comments for a version (open threads and resolved ones), in
      * document order (by anchor offset, then id for stable ties).
      *

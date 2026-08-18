@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Module\Review\Command;
 
 use App\Module\Review\Entity\Highlight;
+use App\Module\Review\Repository\DocumentVersionRepository;
 use App\Module\Review\Service\AnchorService;
 use Doctrine\ORM\EntityManagerInterface;
 
@@ -13,6 +14,7 @@ final readonly class SetDocumentHighlightsHandler
     public function __construct(
         private EntityManagerInterface $em,
         private AnchorService $anchorService,
+        private DocumentVersionRepository $documentVersions,
     ) {
     }
 
@@ -28,7 +30,7 @@ final readonly class SetDocumentHighlightsHandler
      */
     public function __invoke(SetDocumentHighlightsCommand $command): array
     {
-        $version = $command->document->currentVersion();
+        $version = $this->documentVersions->findLatest($command->document);
         $text = $version->plainText();
 
         // The command states the whole set, so the previous one goes first;
