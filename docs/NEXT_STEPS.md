@@ -163,6 +163,18 @@ omits the Mercure hub origin, which is fine while browser-side Mercure is
 disabled in `assets/controllers.json` — enabling browser SSE would need it
 added.
 
+**Owner decision (2026-08-17): keep CSS out of the import map, then flip.** A
+Lighthouse run against `loupe.ac` caught a live violation the earlier analysis
+had missed — `script-src-elem`, blocked URI `data`, from the AssetMapper import
+map line `"/assets/styles/app.css": "data:application/javascript,"`. So it is
+not only the inline styles that would break: AssetMapper emits a `data:` script
+for the CSS entry, and an enforcing policy blocks it.
+
+Of the four ways out — allow `data:` scripts, collect violation reports first,
+leave it report-only and write that down, or stop the `data:` script being
+emitted at all — the last was chosen, because it is the only one that ends with
+a policy that both enforces and stays strict.
+
 **Do not treat this flip as a mitigation for markup-injection findings.** A
 review of the Markdown sanitizer produced an attack where a `class` attribute on
 document-supplied `<code>` selected the app's own compiled stylesheet rules to
@@ -1058,14 +1070,33 @@ matched zero files and let a formatting bug through a green pipeline — fixed s
 switching `.php-cs-fixer.dist.php` to explicit excludes plus a throw when the finder
 matches nothing. The arkitect equivalent has no such guard.
 
-Known cycles to break, confirmed in the code: Project↔Review and Project↔SiteReview
-(`ListProjectsController.php` and `CreateProjectController.php` import
-`DocumentRepository`, `SiteReviewCommentRepository`, `SiteReviewEventRepository`),
-Account↔Project (`HomeController.php`, `DeleteAccountHandler.php`), and Account↔Billing
-(`DeleteAccountHandler.php` imports `BillingProfileRepository` +
-`StripeGatewayInterface`). The duplicated project-list count block in the two Project
-controllers is the natural first extraction seam — one provider service fixes the reverse
-edges and the 3-counts-per-project N+1 together.
+Known cycles to break, re-confirmed in the code on 2026-08-17: Project↔Review and
+Project↔SiteReview (`Project/Command/ListProjectsHandler.php` imports
+`Review\Repository\DocumentRepository` and
+`SiteReview\Repository\SiteReviewCommentRepository`), Account↔Project
+(`Account/Command/ShowHomeHandler.php`, `DeleteAccountHandler.php`), and
+Account↔Billing (`DeleteAccountHandler.php` imports `BillingProfileRepository` +
+`StripeGatewayInterface`). The duplicated project-list count block is the natural first
+extraction seam — one provider service fixes the reverse edges and the
+3-counts-per-project N+1 together. The shape to copy is
+`UserDataExporterInterface`, which already solves exactly this: a
+`ProjectStatsProviderInterface` declared in Project and implemented by Review and
+SiteReview reverses both edges without Project naming either module.
+
+Three specific misplacements to fix while here, each confirmed at source:
+
+- **Account reaches into Project to clear tokens.** `Account/Command/RevokeApiTokenHandler.php`
+  nulls `Project.widgetToken` and `Project.mcpToken` directly, with a comment
+  acknowledging it. Emitting an `ApiTokenRevoked` event, the way `ProjectDeleting`
+  already works, keeps the write inside the module that owns the field.
+- **The home page lives in Account but is about Projects.** `Account/Command/ShowHomeHandler.php`
+  and `ShowHomeView.php`.
+- **Project depends on the two modules that depend on it** — the `ListProjectsHandler`
+  imports above.
+
+`src/Module/Diagnostics/` (added 2026-08-17) is the worked example of the target
+shape: it imports nothing from any module, and Billing and Account contribute
+their own tagged checks to it.
 
 Two pieces of work, in order:
 
@@ -1839,6 +1870,11 @@ Docker prod build; or bringing the widget into AssetMapper so it gets the same
 treatment as everything under `/assets/` (which would also give it a
 content-hashed filename, and the cache block could then become `immutable`
 instead of the current 5-minute window).
+
+**Owner decision (2026-08-17): add the build step, keep the readable source in
+the repo.** The two options above are still both open — this settles that it
+gets compressed, not how. It ships at 79 KB (about 20 KB compressed) on a
+5-minute cache, and it is your customers' visitors who pay that, not you.
 
 ## Self-hosting audit
 
