@@ -130,4 +130,32 @@ final class SubmitReviewControllerTest extends WebTestCase
         self::assertInstanceOf(Document::class, $freshDoc);
         self::assertSame(DocumentStatus::InReview, $freshDoc->status);
     }
+
+    /**
+     * NotBlank accepts "0", so it arrives as a submitted value and must travel
+     * the same unrecognised-verdict path as any other unknown string rather
+     * than tripping the can't-happen guard.
+     */
+    public function test_a_verdict_of_zero_flashes_error_via_domain_errors(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+
+        [$owner, , $projectId, $docId] = $this->seedOwnerAndDocument($em, '4');
+
+        $client->loginUser($owner);
+        $client->request(Request::METHOD_GET, "/projects/$projectId/documents/$docId/review");
+        $client->request(Request::METHOD_POST, "/projects/$projectId/documents/$docId/review/submit", [
+            '_csrf_token' => 'csrf-token',
+            'submit_review_form' => ['verdict' => '0'],
+        ]);
+
+        self::assertResponseRedirects("/projects/$projectId/documents/$docId/review");
+        $client->followRedirect();
+        self::assertSelectorExists('.lp-flash--error');
+
+        $freshDoc = static::getContainer()->get(EntityManagerInterface::class)->find(Document::class, $docId);
+        self::assertInstanceOf(Document::class, $freshDoc);
+        self::assertSame(DocumentStatus::InReview, $freshDoc->status);
+    }
 }

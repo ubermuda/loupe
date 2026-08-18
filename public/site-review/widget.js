@@ -66,17 +66,26 @@
   };
 
   // Rehydrate the list from the project's Pending comments.
-  const refresh = async () => {
+  const refresh = async ({ firstLoad = false } = {}) => {
     try {
       const payload = await api('GET', '/api/site-review/review');
       comments = payload.comments || [];
     } catch (error) {
       // Catch a rejected token at the earliest possible point — the boot load — so the
       // widget opens straight into its critical state instead of a misleading empty list.
-      if (authFailed(error)) enterFatal(error);
-      comments = [];
+      if (authFailed(error)) {
+        enterFatal(error);
+      } else if (firstLoad) {
+        // A later failure keeps the list it already holds: the comments are safe on
+        // the server, and blanking the screen would say otherwise. Only the boot
+        // load has nothing to keep.
+        comments = [];
+      }
     }
   };
+
+  const SELECTOR_MAX = 2000; // AddCommentRequest's cap — over it the API 400s
+  const TEXT_MAX = 200; // how much anchor text the widget keeps, well under the cap
 
   // Comment bodies and anchor labels are arbitrary host-page text rendered into
   // innerHTML on a third-party page — every dynamic value MUST go through this.
@@ -88,24 +97,43 @@
     );
 
   // Build a stable-ish CSS selector for an element (used for re-anchoring on revisit).
+  // A class-heavy page can outgrow the server's SELECTOR_MAX cap, so precision is
+  // shed until it fits — classes first, then outermost ancestors — because a
+  // less specific anchor beats a comment the API rejects.
   const selectorFor = (element) => {
     if (element.id) return `#${CSS.escape(element.id)}`;
     const parts = [];
     let current = element;
     while (current && current.nodeType === 1 && parts.length < 5) {
-      let part = current.tagName.toLowerCase();
-      if (current.classList.length) {
-        part += '.' + [...current.classList].map((className) => CSS.escape(className)).join('.');
-      }
+      const classes = [...current.classList].map((className) => CSS.escape(className));
+      let nth = '';
       const parent = current.parentElement;
       if (parent) {
         const siblings = [...parent.children].filter((child) => child.tagName === current.tagName);
-        if (siblings.length > 1) part += `:nth-of-type(${siblings.indexOf(current) + 1})`;
+        if (siblings.length > 1) nth = `:nth-of-type(${siblings.indexOf(current) + 1})`;
       }
-      parts.unshift(part);
+      parts.unshift({ tag: current.tagName.toLowerCase(), classes, nth });
       current = current.parentElement;
     }
-    return parts.join(' > ');
+
+    const render = (from, withClasses) =>
+      parts
+        .slice(from)
+        .map(
+          (part) =>
+            part.tag +
+            (withClasses && part.classes.length ? '.' + part.classes.join('.') : '') +
+            part.nth,
+        )
+        .join(' > ');
+
+    for (const withClasses of [true, false]) {
+      for (let from = 0; from < parts.length; from++) {
+        const selector = render(from, withClasses);
+        if (selector.length <= SELECTOR_MAX) return selector;
+      }
+    }
+    return '';
   };
 
   // Resolve a comment to a live element on the current page, or null when it
@@ -1161,7 +1189,11 @@
       type: 'element',
       el,
       selector: selectorFor(el),
-      text: (el.innerText || '').trim().slice(0, 200),
+      // Array.from splits on code points, so a truncation cannot land inside an
+      // emoji and produce the broken character the API rejects.
+      text: Array.from((el.innerText || '').trim())
+        .slice(0, TEXT_MAX)
+        .join(''),
       label: firstLineLabel(el.innerText),
     };
     state.editId = null;
@@ -1608,7 +1640,7 @@
     document.addEventListener(evt, rerenderAnchors),
   );
 
-  const ready = refresh();
+  const ready = refresh({ firstLoad: true });
   sync();
   ready.then(sync);
 })();

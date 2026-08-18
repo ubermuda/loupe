@@ -208,7 +208,9 @@
     --ink: #0f0f0d;
     --text: #14140f;
     --text-mute: #6f6f66;
-    --text-dim: #8f8f84;
+    /* Same value as --text-mute: no lighter grey clears 4.5:1, so this rung of
+       the ladder is currently a duplicate awaiting a deliberate re-spacing. */
+    --text-dim: #6f6f66;
     --faint: #c9c9c0;
     --prose: #22262b;
 

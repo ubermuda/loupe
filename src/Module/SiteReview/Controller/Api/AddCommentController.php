@@ -32,9 +32,14 @@ final class AddCommentController extends AppController
             return $this->json(['error' => 'token_not_bound_to_site'], JsonResponse::HTTP_FORBIDDEN);
         }
 
+        $body = trim($payload->body ?? '');
+        if ('' === $body) {
+            throw new \LogicException('body required after validation');
+        }
+
         $comment = ($this->handler)(new AddCommentCommand(
             project: $project,
-            body: trim($payload->body ?? '') ?: throw new \LogicException('body required after validation'),
+            body: $body,
             selector: $payload->selector,
             text: $payload->text,
             url: trim($payload->url ?? ''),

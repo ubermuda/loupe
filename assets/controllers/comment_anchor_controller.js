@@ -447,8 +447,19 @@ export default class extends Controller {
      * Character offset of (node, offsetInNode) from the start of the doc
      * container, summing text-node lengths in document order. Matches the basis
      * the server uses (plainText()).
+     *
+     * A boundary can also land on an element — a triple-click selects a whole
+     * block — where the offset counts child nodes rather than characters.
      */
     #textOffset(targetNode, offsetInNode) {
+        if (targetNode.nodeType === Node.ELEMENT_NODE) {
+            const childrenBefore = [...targetNode.childNodes]
+                .slice(0, offsetInNode)
+                .reduce((total, child) => total + child.textContent.length, 0);
+
+            return this.#elementStartOffset(targetNode) + childrenBefore;
+        }
+
         const walker = document.createTreeWalker(
             this.docTarget,
             NodeFilter.SHOW_TEXT,
@@ -459,6 +470,30 @@ export default class extends Controller {
         while (node !== null) {
             if (node === targetNode) {
                 return offset + offsetInNode;
+            }
+            offset += node.textContent.length;
+            node = walker.nextNode();
+        }
+        return offset;
+    }
+
+    /** Character offset at which an element's own text begins. */
+    #elementStartOffset(element) {
+        const walker = document.createTreeWalker(
+            this.docTarget,
+            NodeFilter.SHOW_TEXT,
+            null,
+        );
+        let offset = 0;
+        let node = walker.nextNode();
+        while (node !== null) {
+            // Descendants of the element also report FOLLOWING, so this stops at
+            // the element's own subtree as well as at anything after it.
+            if (
+                element.compareDocumentPosition(node) &
+                Node.DOCUMENT_POSITION_FOLLOWING
+            ) {
+                break;
             }
             offset += node.textContent.length;
             node = walker.nextNode();

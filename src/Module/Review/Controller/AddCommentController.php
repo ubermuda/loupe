@@ -57,6 +57,11 @@ final class AddCommentController extends AppController
         if (!$form->isSubmitted() || !$form->isValid()) {
             $errorMessage = $this->formErrorMessage($form);
         } else {
+            $body = $data->body ?? '';
+            if ('' === $body) {
+                throw new \LogicException('body required after validation');
+            }
+
             try {
                 ($this->addCommentHandler)(new AddCommentCommand(
                     actor: $user,
@@ -64,7 +69,7 @@ final class AddCommentController extends AppController
                     quote: $data->quote,
                     prefix: $data->prefix,
                     suffix: $data->suffix,
-                    body: $data->body ?: throw new \LogicException('body required after validation'),
+                    body: $body,
                 ));
                 $errorMessage = null;
             } catch (DomainErrors $e) {
