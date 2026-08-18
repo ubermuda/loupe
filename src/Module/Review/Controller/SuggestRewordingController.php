@@ -29,7 +29,7 @@ use Symfony\UX\Turbo\TurboBundle;
  * Suggests a rewording of the selected passage: an anchored comment carrying the
  * text that should stand in its place, plus an optional rationale.
  */
-#[IsGranted(DocumentVoter::VIEW, subject: 'document')]
+#[IsGranted(DocumentVoter::CONTRIBUTE, subject: 'document')]
 #[Route(
     '/projects/{projectId}/documents/{documentId}/suggestions',
     name: 'app_comment_suggest',

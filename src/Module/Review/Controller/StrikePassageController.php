@@ -29,7 +29,7 @@ use Symfony\UX\Turbo\TurboBundle;
  * takes an anchor and nothing else. It stores a suggestion whose replacement is
  * the empty string, which is what makes the accept path identical to a rewording's.
  */
-#[IsGranted(DocumentVoter::VIEW, subject: 'document')]
+#[IsGranted(DocumentVoter::CONTRIBUTE, subject: 'document')]
 #[Route(
     '/projects/{projectId}/documents/{documentId}/strikes',
     name: 'app_comment_strike',

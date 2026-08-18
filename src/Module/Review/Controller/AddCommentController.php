@@ -25,7 +25,7 @@ use Symfony\Component\Security\Http\Attribute\IsGranted;
 use Symfony\Contracts\Translation\TranslatorInterface;
 use Symfony\UX\Turbo\TurboBundle;
 
-#[IsGranted(DocumentVoter::VIEW, subject: 'document')]
+#[IsGranted(DocumentVoter::CONTRIBUTE, subject: 'document')]
 #[Route(
     '/projects/{projectId}/documents/{documentId}/comments',
     name: 'app_comment_add',

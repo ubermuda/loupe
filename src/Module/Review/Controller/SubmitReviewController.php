@@ -24,7 +24,7 @@ use Symfony\Contracts\Translation\TranslatorInterface;
 use Ubermuda\SymfonyExtra\Csrf\Attribute\CsrfToken;
 
 #[CsrfToken('submit-review')]
-#[IsGranted(DocumentVoter::VIEW, subject: 'document')]
+#[IsGranted(DocumentVoter::CONTRIBUTE, subject: 'document')]
 #[Route(
     '/projects/{projectId}/documents/{documentId}/review/submit',
     name: 'app_document_review_submit',
