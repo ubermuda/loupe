@@ -23,6 +23,7 @@ framework:
             - billing-portal
             - wizard-skip
             - wizard-mint-mcp
+            - wizard-mint-widget
             - wizard-finish
             - request-data-export
             - request-account-deletion

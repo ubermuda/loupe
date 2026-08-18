@@ -9,8 +9,8 @@ use Symfony\Component\Validator\Constraints as Assert;
 class ProfileRequest
 {
     public function __construct(
-        #[Assert\Length(max: 150)]
-        #[Assert\NotBlank]
+        #[Assert\Length(max: 150, normalizer: 'trim')]
+        #[Assert\NotBlank(normalizer: 'trim')]
         public ?string $fullName = null,
     ) {
     }

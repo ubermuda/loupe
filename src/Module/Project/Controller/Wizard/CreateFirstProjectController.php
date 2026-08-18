@@ -51,10 +51,15 @@ class CreateFirstProjectController extends AppController
         $form->handleRequest($request);
 
         if ($form->isSubmitted() && $form->isValid()) {
+            $name = trim($data->name ?? '');
+            if ('' === $name) {
+                throw new \LogicException('name required after validation');
+            }
+
             try {
                 ($this->createProjectHandler)(new CreateProjectCommand(
                     owner: $user,
-                    name: trim($data->name ?? '') ?: throw new \LogicException('name required after validation'),
+                    name: $name,
                     domain: trim($data->domain ?? '') ?: null,
                 ));
 

@@ -40,11 +40,16 @@ final class UpdateCommentController extends AppController
             return $this->json(['error' => 'not_found'], JsonResponse::HTTP_NOT_FOUND);
         }
 
+        $body = trim($payload->body ?? '');
+        if ('' === $body) {
+            throw new \LogicException('body required after validation');
+        }
+
         try {
             $comment = ($this->handler)(new UpdateCommentCommand(
                 project: $project,
                 commentId: $commentId,
-                body: trim($payload->body ?? '') ?: throw new \LogicException('body required after validation'),
+                body: $body,
             ));
         } catch (CommentNotFound) {
             return $this->json(['error' => 'not_found'], JsonResponse::HTTP_NOT_FOUND);

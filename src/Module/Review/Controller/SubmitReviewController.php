@@ -62,11 +62,16 @@ final class SubmitReviewController extends AppController
             throw new \LogicException(\sprintf('%s reached without an authenticated User (got %s); this route must stay behind the ROLE_USER catch-all.', self::class, get_debug_type($user)));
         }
 
+        $verdict = $data->verdict ?? '';
+        if ('' === $verdict) {
+            throw new \LogicException('verdict required after validation');
+        }
+
         try {
             $review = ($this->submitReviewHandler)(new SubmitReviewCommand(
                 reviewer: $user,
                 document: $document,
-                verdict: $data->verdict ?: throw new \LogicException('verdict required after validation'),
+                verdict: $verdict,
             ));
         } catch (DomainErrors $e) {
             foreach ($e->errors as $translationKey) {

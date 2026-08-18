@@ -139,6 +139,27 @@ final class SiteReviewApiTest extends WebTestCase
         self::assertSame([], json_decode((string) $client->getResponse()->getContent(), true)['comments']);
     }
 
+    /**
+     * NotBlank accepts "0" by design, so a comment body of exactly that reaches
+     * the controller as a valid payload and must not be mistaken for empty.
+     */
+    public function test_a_comment_body_of_zero_is_saved_and_editable(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        [$raw] = $this->projectWithToken($em, 'api-zero@example.com');
+
+        $this->api($client, Request::METHOD_POST, '/api/site-review/comments', $raw, ['body' => '0', 'url' => 'https://app/x']);
+        self::assertResponseStatusCodeSame(201);
+        $id = json_decode((string) $client->getResponse()->getContent(), true)['commentId'];
+
+        $this->api($client, Request::METHOD_PATCH, '/api/site-review/comments/'.$id, $raw, ['body' => '0']);
+        self::assertResponseIsSuccessful();
+
+        $this->api($client, Request::METHOD_GET, '/api/site-review/review', $raw);
+        self::assertSame('0', json_decode((string) $client->getResponse()->getContent(), true)['comments'][0]['body']);
+    }
+
     public function test_cross_site_comment_is_not_reachable(): void
     {
         $client = static::createClient();

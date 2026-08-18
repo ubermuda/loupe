@@ -139,6 +139,22 @@ final class ProjectsPageTest extends WebTestCase
         self::assertNull($project->domain);
     }
 
+    /** NotBlank accepts "0", so a project may legitimately be named it. */
+    public function test_create_project_named_zero_is_allowed(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $owner = $this->user($em, 'projects-zero@example.com');
+        $em->flush();
+
+        $client->loginUser($owner);
+        $client->request(Request::METHOD_GET, '/projects');
+        $client->submitForm('Add project', ['create_project_form[name]' => '0']);
+
+        self::assertResponseRedirects('/projects');
+        self::assertNotNull(static::getContainer()->get(ProjectRepository::class)->findOneByOwnerAndName($owner, '0'));
+    }
+
     public function test_duplicate_name_for_same_owner_is_rejected(): void
     {
         $client = static::createClient();

@@ -16,6 +16,7 @@ use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Uid\Uuid;
+use Symfony\Contracts\Translation\TranslatorInterface;
 use Ubermuda\SymfonyExtra\Csrf\Attribute\CsrfToken;
 
 #[CsrfToken('revoke-api-token')]
@@ -30,6 +31,7 @@ class RevokeApiTokenController extends AppController
         private readonly ShowOwnedApiTokenHandler $showOwnedApiToken,
         private readonly RevokeApiTokenHandler $revokeApiTokenHandler,
         private readonly LoggerInterface $logger,
+        private readonly TranslatorInterface $translator,
     ) {
     }
 
@@ -49,7 +51,7 @@ class RevokeApiTokenController extends AppController
         $label = $token->label;
         ($this->revokeApiTokenHandler)(new RevokeApiTokenCommand($token));
 
-        $this->addFlash('success', sprintf('Token "%s" has been revoked.', $label));
+        $this->addFlash('success', $this->translator->trans('account.api_token.flash.revoked', ['%label%' => $label]));
 
         // returnTo must be a same-origin local path and inside /projects/ — both
         // checks apply to different attack shapes (protocol-relative/backslash-host

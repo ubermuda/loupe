@@ -56,11 +56,16 @@ final class ReplyToCommentController extends AppController
         $status = Response::HTTP_OK;
 
         if ($form->isSubmitted() && $form->isValid()) {
+            $body = $data->body ?? '';
+            if ('' === $body) {
+                throw new \LogicException('body required after validation');
+            }
+
             try {
                 ($this->replyToCommentHandler)(new ReplyToCommentCommand(
                     actor: $user,
                     parent: $comment,
-                    body: $data->body ?: throw new \LogicException('body required after validation'),
+                    body: $body,
                 ));
             } catch (DomainErrors $e) {
                 foreach ($e->errors as $field => $translationKey) {
