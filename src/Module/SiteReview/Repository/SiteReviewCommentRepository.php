@@ -244,4 +244,21 @@ class SiteReviewCommentRepository extends ServiceEntityRepository
 
         return true;
     }
+
+    /**
+     * The status the row carries right now, read past the identity map. Only
+     * useful after {@see markAddressedIfPending} returns false, to tell a
+     * concurrent Resolve from a concurrent Addressed. Null if the row is gone.
+     */
+    public function currentStatus(SiteReviewComment $comment): ?SiteReviewCommentStatus
+    {
+        $row = $this->createQueryBuilder('c')
+            ->select('c.status')
+            ->andWhere('c.id = :id')
+            ->setParameter('id', $comment->id, 'uuid')
+            ->getQuery()
+            ->getOneOrNullResult();
+
+        return is_array($row) && $row['status'] instanceof SiteReviewCommentStatus ? $row['status'] : null;
+    }
 }

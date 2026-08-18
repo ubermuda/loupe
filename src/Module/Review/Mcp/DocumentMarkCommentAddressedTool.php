@@ -112,7 +112,11 @@ final readonly class DocumentMarkCommentAddressedTool
                     // skip reason, but a human can click Resolve between it and the
                     // write. Only the conditional UPDATE decides.
                     if (!$this->comments->markAddressedIfPending($comment)) {
-                        $skipped[] = ['id' => $id, 'reason' => 'already_resolved'];
+                        $skipped[] = ['id' => $id, 'reason' => match ($this->comments->currentStatus($comment)) {
+                            CommentStatus::Addressed => 'already_addressed',
+                            CommentStatus::Resolved => 'already_resolved',
+                            default => 'not_found',
+                        }];
                         continue;
                     }
 

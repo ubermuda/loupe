@@ -88,7 +88,11 @@ final readonly class SiteReviewMarkCommentAddressedTool
                     // skip reason, but a human can click Resolve between it and the
                     // write. Only the conditional UPDATE decides.
                     if (!$this->siteReviewComments->markAddressedIfPending($comment)) {
-                        $skipped[] = ['id' => $id, 'reason' => 'resolved'];
+                        $skipped[] = ['id' => $id, 'reason' => match ($this->siteReviewComments->currentStatus($comment)) {
+                            SiteReviewCommentStatus::Addressed => 'already_addressed',
+                            SiteReviewCommentStatus::Resolved => 'resolved',
+                            default => 'unknown',
+                        }];
                         continue;
                     }
 

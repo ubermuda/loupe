@@ -78,6 +78,29 @@ final class DocumentMarkCommentAddressedToolTest extends KernelTestCase
         self::assertSame(CommentStatus::Resolved, $fetched->status);
     }
 
+    public function test_a_concurrent_address_is_reported_as_addressed_not_resolved(): void
+    {
+        $owner = $this->user('mark-concurrent@example.com');
+        $comment = $this->rootComment($owner);
+        $this->actAsMcpTokenBoundTo($comment->version->document->project);
+
+        // A second agent gets there first. The losing conditional update cannot
+        // tell this from a human's Resolve on its own, so the reason has to
+        // come from re-reading the row.
+        $this->em->createQuery(
+            'UPDATE '.Comment::class.' c SET c.status = :addressed WHERE c.id = :id'
+        )
+            ->setParameter('addressed', CommentStatus::Addressed)
+            ->setParameter('id', $comment->id, 'uuid')
+            ->execute();
+        self::assertSame(CommentStatus::Pending, $comment->status);
+
+        $result = ($this->tool)([(string) $comment->id]);
+
+        self::assertSame([], $result['addressed']);
+        self::assertSame([['id' => (string) $comment->id, 'reason' => 'already_addressed']], $result['skipped']);
+    }
+
     public function test_each_refusal_reports_its_own_reason_without_failing_the_batch(): void
     {
         $owner = $this->user('mark-mixed@example.com');
