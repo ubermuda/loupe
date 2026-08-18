@@ -10,8 +10,9 @@ use App\Module\Review\Command\CreateDocumentCommand;
 use App\Module\Review\Command\CreateDocumentHandler;
 use App\Module\Review\Command\ReviseDocumentCommand;
 use App\Module\Review\Command\ReviseDocumentHandler;
+use App\Module\Review\Command\ShowReviewCommand;
+use App\Module\Review\Command\ShowReviewHandler;
 use App\Module\Review\Entity\Document;
-use App\Module\Review\Query\GetReview;
 use App\Module\Review\Repository\DecisionSelectionRepository;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
@@ -193,9 +194,9 @@ final class SelectDecisionOptionControllerTest extends WebTestCase
         self::assertSelectorExists('#decision_option_deploy-target_1[checked]');
         self::assertSelectorNotExists('#decision_option_deploy-target_0[checked]');
 
-        $getReview = static::getContainer()->get(GetReview::class);
-        self::assertInstanceOf(GetReview::class, $getReview);
-        $decisions = $getReview($document)['decisions'];
+        $getReview = static::getContainer()->get(ShowReviewHandler::class);
+        self::assertInstanceOf(ShowReviewHandler::class, $getReview);
+        $decisions = $getReview(new ShowReviewCommand($document))['decisions'];
         self::assertSame(['Ship it', 'Ship it'], $decisions[0]['options']);
         self::assertSame(1, $decisions[0]['selected_index']);
     }

@@ -6,19 +6,22 @@ namespace App\Module\Project\Command;
 
 use App\Module\Project\Entity\Project;
 use App\Module\Project\Repository\ProjectRepository;
+use App\Module\Project\Stats\ProjectStats;
+use App\Module\Project\Stats\ProjectStatsProviderInterface;
 use App\Module\Project\View\ProjectListItem;
-use App\Module\Review\Repository\DocumentRepository;
-use App\Module\SiteReview\Repository\SiteReviewCommentRepository;
 use App\Utils\PageList;
+use Symfony\Component\DependencyInjection\Attribute\AutowireIterator;
 
 final readonly class ListProjectsHandler
 {
     public const int PER_PAGE = 20;
 
+    /** @param iterable<ProjectStatsProviderInterface> $statsProviders */
     public function __construct(
         private ProjectRepository $projects,
-        private DocumentRepository $documents,
-        private SiteReviewCommentRepository $siteReviewComments,
+
+        #[AutowireIterator('app.project_stats_provider')]
+        private iterable $statsProviders,
     ) {
     }
 
@@ -30,21 +33,26 @@ final readonly class ListProjectsHandler
 
         $projects = iterator_to_array($paginator, false);
 
-        // Two grouped queries for the whole page rather than two per row: at 20
-        // projects that was 40 round trips to render one list.
-        $documentCounts = $this->documents->countActiveByProjects($projects);
-        $siteReviewCounts = $this->siteReviewComments->statusCountsForProjects($projects);
+        // Each module counts its own rows for the whole page at once — one
+        // grouped query per provider rather than one per project per figure,
+        // which is what made this list forty queries.
+        $stats = [];
+        foreach ($this->statsProviders as $provider) {
+            foreach ($provider->statsFor($projects) as $projectId => $contribution) {
+                $stats[$projectId] = ($stats[$projectId] ?? new ProjectStats())->merge($contribution);
+            }
+        }
 
         return new ListProjectsView(
             items: array_map(
-                static function (Project $project) use ($documentCounts, $siteReviewCounts): ProjectListItem {
-                    $counts = $siteReviewCounts[(string) $project->id];
+                static function (Project $project) use ($stats): ProjectListItem {
+                    $projectStats = $stats[(string) $project->id] ?? new ProjectStats();
 
                     return new ProjectListItem(
                         project: $project,
-                        documentCount: $documentCounts[(string) $project->id] ?? 0,
-                        commentCount: array_sum($counts),
-                        openCount: $counts['pending'],
+                        documentCount: $projectStats->documentCount,
+                        commentCount: $projectStats->commentCount,
+                        openCount: $projectStats->openCommentCount,
                     );
                 },
                 $projects,

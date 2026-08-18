@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Module\Review\Mcp;
 
+use App\Mcp\FlagGatedToolInterface;
 use App\Module\Review\Command\SetDocumentHighlightsCommand;
 use App\Module\Review\Command\SetDocumentHighlightsHandler;
 use App\Module\Review\Security\McpBoundProjectVoter;
@@ -22,7 +23,7 @@ use Ubermuda\FeatureFlagsBundle\FeatureFlagService;
  * reply on the reviewer's own thread.
  */
 #[McpTool(name: self::NAME, description: 'Highlight the passages of a document a reviewer should read first, so a long document is entered where it matters rather than at the top. Replaces the document\'s whole highlight set on every call; pass an empty list to clear it. Quote each passage exactly as it reads in rendered prose, NOT as Markdown source — "**must**" will not match, "must" will — and keep each quote inside a single paragraph or list item, because block boundaries are line breaks in the text quotes are matched against. A quote that appears more than once in the document lands on the FIRST occurrence and reports success either way, and repeating it in the list is skipped as a duplicate rather than reaching the second one, so extend the quote until it is unique when you mean a later one. Highlights belong to the version current at the time of the call and are dropped by document_revise, so restate them after revising. Quotes that cannot be located are reported back and skipped, not fatal.')]
-final readonly class DocumentHighlightTool
+final readonly class DocumentHighlightTool implements FlagGatedToolInterface
 {
     public const string NAME = 'document_highlight';
 
@@ -31,6 +32,18 @@ final readonly class DocumentHighlightTool
      * should read first is a nudge some reviewers want and others resent.
      */
     public const string FLAG = 'review.highlights.enabled';
+
+    #[\Override]
+    public function gatedToolName(): string
+    {
+        return self::NAME;
+    }
+
+    #[\Override]
+    public function requiredFlag(): string
+    {
+        return self::FLAG;
+    }
 
     public function __construct(
         private ReviewSubjectResolver $subjects,

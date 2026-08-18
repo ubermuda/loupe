@@ -4,7 +4,8 @@ declare(strict_types=1);
 
 namespace App\Module\Review\Mcp;
 
-use App\Module\Review\Query\GetDocument;
+use App\Module\Review\Command\ShowDocumentDataCommand;
+use App\Module\Review\Command\ShowDocumentDataHandler;
 use App\Module\Review\Security\McpBoundProjectVoter;
 use Mcp\Capability\Attribute\McpTool;
 use Mcp\Exception\ToolCallException;
@@ -13,16 +14,16 @@ use Mcp\Exception\ToolCallException;
  * Fetch a document's current Markdown source and status by id.
  *
  * The payload shape is imported rather than restated: this tool is a thin
- * delegation to GetDocument, and two copies of the same array shape drift the
+ * delegation to ShowDocumentDataHandler, and two copies of the same array shape drift the
  * moment a key is added to one of them.
  *
- * @phpstan-import-type DocumentPayload from GetDocument
+ * @phpstan-import-type DocumentPayload from ShowDocumentDataHandler
  */
 #[McpTool(name: 'document_get', description: 'Fetch a document\'s current Markdown source, title, status, archive state and reason, version number, that version\'s description, and the documents it references.')]
 final readonly class DocumentGetTool
 {
     public function __construct(
-        private GetDocument $getDocument,
+        private ShowDocumentDataHandler $showDocumentData,
         private ReviewSubjectResolver $subjects,
     ) {
     }
@@ -42,7 +43,7 @@ final readonly class DocumentGetTool
         try {
             $document = $this->subjects->requireDocument($documentId, McpBoundProjectVoter::DOCUMENT_READ);
 
-            return ($this->getDocument)($document);
+            return ($this->showDocumentData)(new ShowDocumentDataCommand($document));
         } catch (ToolCallException $e) {
             throw $e;
         } catch (\Throwable $e) {

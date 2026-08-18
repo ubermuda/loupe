@@ -13,7 +13,6 @@ use App\Module\Account\Repository\ApiTokenRepository;
 use App\Module\Project\Entity\Project;
 use App\Module\Project\Repository\ProjectRepository;
 use Doctrine\ORM\EntityManagerInterface;
-use Psr\Log\NullLogger;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 
 final class RevokeApiTokenHandlerTest extends KernelTestCase
@@ -35,7 +34,12 @@ final class RevokeApiTokenHandlerTest extends KernelTestCase
         $projects = self::getContainer()->get(ProjectRepository::class);
         self::assertInstanceOf(ProjectRepository::class, $projects);
         $this->projects = $projects;
-        $this->handler = new RevokeApiTokenHandler($this->em, $this->projects, new NullLogger());
+        // From the container, not `new`: clearing the project's binding now
+        // happens in a Project listener, so a hand-built handler would prove
+        // nothing about whether the event reaches it.
+        $handler = self::getContainer()->get(RevokeApiTokenHandler::class);
+        self::assertInstanceOf(RevokeApiTokenHandler::class, $handler);
+        $this->handler = $handler;
     }
 
     public function test_revoking_sets_revoked_at_but_keeps_the_row(): void

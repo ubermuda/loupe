@@ -100,11 +100,11 @@ when@test:
             autowire: true
             public: true
 
-        App\Module\Review\Query\GetDocument:
+        App\Module\Review\Command\ShowDocumentDataHandler:
             autowire: true
             public: true
 
-        App\Module\Review\Query\GetReview:
+        App\Module\Review\Command\ShowReviewHandler:
             autowire: true
             public: true
 

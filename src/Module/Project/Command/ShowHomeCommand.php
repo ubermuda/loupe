@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Module\Account\Command;
+namespace App\Module\Project\Command;
 
 use App\Module\Account\Entity\User;
 

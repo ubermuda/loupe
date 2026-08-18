@@ -4,15 +4,16 @@ declare(strict_types=1);
 
 namespace App\Module\Account\Command;
 
-use App\Module\Project\Repository\ProjectRepository;
+use App\Module\Account\Event\ApiTokenRevoked;
 use Doctrine\ORM\EntityManagerInterface;
 use Psr\Log\LoggerInterface;
+use Symfony\Contracts\EventDispatcher\EventDispatcherInterface;
 
 final readonly class RevokeApiTokenHandler
 {
     public function __construct(
         private EntityManagerInterface $em,
-        private ProjectRepository $projects,
+        private EventDispatcherInterface $dispatcher,
         private LoggerInterface $logger,
     ) {
     }
@@ -29,20 +30,9 @@ final readonly class RevokeApiTokenHandler
 
         $token->revoke();
 
-        // Revocation keeps the row, so the ON DELETE SET NULL cascade on
-        // Project.widgetToken/mcpToken never fires; clear the binding by hand.
-        // Branch on which query matched rather than on object identity, which
-        // stays correct even if the association and $token load as distinct
-        // instances.
-        $widgetProject = $this->projects->findOneByWidgetToken($token);
-        if (null !== $widgetProject) {
-            $widgetProject->widgetToken = null;
-        } else {
-            $mcpProject = $this->projects->findOneByMcpToken($token);
-            if (null !== $mcpProject) {
-                $mcpProject->mcpToken = null;
-            }
-        }
+        // Dispatched before the flush, so a module clearing its own reference to
+        // the token is written in the same unit of work as the revocation.
+        $this->dispatcher->dispatch(new ApiTokenRevoked($token));
 
         $this->em->flush();
 
