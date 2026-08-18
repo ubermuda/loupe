@@ -9,6 +9,7 @@ twig:
         '%kernel.project_dir%/templates/Module/Admin': 'Admin'
         '%kernel.project_dir%/templates/Module/Billing': 'Billing'
         '%kernel.project_dir%/templates/Module/Diagnostics': 'Diagnostics'
+        '%kernel.project_dir%/templates/Module/Landing': 'Landing'
         '%kernel.project_dir%/templates/Module/Legal': 'Legal'
         '%kernel.project_dir%/templates/Module/Project': 'Project'
         '%kernel.project_dir%/templates/Module/Review': 'Review'

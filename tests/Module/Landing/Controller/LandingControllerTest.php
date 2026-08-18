@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Module\Account\Controller;
+namespace App\Tests\Module\Landing\Controller;
 
-use App\Module\Account\Controller\LandingController;
 use App\Module\Account\Entity\User;
+use App\Module\Landing\Controller\LandingController;
 use App\Module\Project\Entity\Project;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;

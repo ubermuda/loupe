@@ -128,63 +128,6 @@ Closing this means one export against a real Spaces bucket with the ACL
 Terraform sets.
 
 
-## Flip the CSP from report-only to enforcing
-
-**Author:** Claude · **Type:** security · **Priority:** high · **Status:** pending
-
-`config/packages/nelmio_security.yaml` still sends the policy under `report`
-rather than `enforce`, so it blocks nothing.
-
-**The nonce work it was waiting on is done.** `importmap()` in
-`templates/base.html.twig` — the only inline scripts this app emits — carries
-`csp_nonce('script')`, and the nonce reaches the header as well as the markup:
-observed on a dev request configured with a report policy, `script-src` came
-back containing `'nonce-…'` matching the rendered tags. `NelmioSecurityBundle`
-is now registered in every environment for that to be possible, with only prod
-configuring anything that emits a header.
-
-What is left is the flip itself, plus two allowlist edits it enables:
-`'unsafe-inline'` can come out of `script-src` (browsers ignore it once a nonce
-is present), and `style-src` still needs it, because the inline styles are not
-nonced.
-
-**It cannot be verified from a dev gate, and that is the real blocker.**
-`just e2e` runs against a dev-mode target, which by design sends no policy at
-all, so a green suite proves nothing about an enforcing header. Verifying needs
-a prod-like target — `compose.prod.yaml` is the obvious candidate, driven by
-`compose.prod.env`. Build that first; shipping the flip on a dev-green gate
-risks a blank page for every real user, since a policy that blocks the
-importmap breaks all JavaScript on the page.
-
-Two things already checked, so they need not be rechecked. The `cdn.jsdelivr.net`
-scripts in `base.html.twig` are gated behind `FRANKENPHP_HOT_RELOAD` and never
-render in production, so they need no allowlist entry. And `connect-src` still
-omits the Mercure hub origin, which is fine while browser-side Mercure is
-disabled in `assets/controllers.json` — enabling browser SSE would need it
-added.
-
-**Owner decision (2026-08-17): keep CSS out of the import map, then flip.** A
-Lighthouse run against `loupe.ac` caught a live violation the earlier analysis
-had missed — `script-src-elem`, blocked URI `data`, from the AssetMapper import
-map line `"/assets/styles/app.css": "data:application/javascript,"`. So it is
-not only the inline styles that would break: AssetMapper emits a `data:` script
-for the CSS entry, and an enforcing policy blocks it.
-
-Of the four ways out — allow `data:` scripts, collect violation reports first,
-leave it report-only and write that down, or stop the `data:` script being
-emitted at all — the last was chosen, because it is the only one that ends with
-a policy that both enforces and stays strict.
-
-**Do not treat this flip as a mitigation for markup-injection findings.** A
-review of the Markdown sanitizer produced an attack where a `class` attribute on
-document-supplied `<code>` selected the app's own compiled stylesheet rules to
-paint a full-screen phishing overlay. An enforcing CSP would not have stopped
-it: CSP governs neither `class` attributes nor which of the app's own rules
-apply, and `style-src 'self'` permits exactly the stylesheet the payload used.
-The mitigation for that class of attack is restricting what the sanitizer
-admits. Flipping the CSP buys script-injection defence, not markup-shaped
-attacks that stay inside the app's own CSS.
-
 ## The MCP connection drops repeatedly, and reconnecting does not restore the tools
 
 **Author:** Claude · **Type:** bug · **Priority:** high · **Status:** pending
@@ -921,23 +864,9 @@ work before it's a turnkey distributable:
   (mode 0600). Move it to the OS keychain (e.g. `go-keyring`) with the file as a fallback.
 - **CI + release.** Wire `just cli-test` into the gate, and add goreleaser for a
   multi-platform release matrix (current `just cli-build` only cross-compiles one target).
-- **Detaching can close the log file mid-write.** `cli/cmd/bridge.go` never waits
-  for its background worker. Have the worker close a `done` channel and wait on it.
-- **A slow token refresh freezes reconnection permanently.** `cli/cmd/bridge.go`
-  refreshes with `http.DefaultClient`, which has no timeout. Give each refresh
-  about 15 seconds.
-- **The bridge acts on any well-formed JSON.** `cli/internal/inject/inject.go`
-  never checks the event type, so `{}` gets typed into the session. Reject a
-  missing or unexpected type.
-- **Saving the login does not fix permissions on an existing file.**
-  `cli/internal/config/config.go` uses `os.WriteFile`, whose `0600` applies only
-  on creation. `Chmod(0600)` after writing, or write and rename.
-- **A read failure at login looks like "no token".** `cli/cmd/login.go` discards
-  the error. Handle it, treating EOF with a non-empty line as success.
 
-Each of these came out of the 2026-08-17 audit of `c5e8b96`; the resume-point,
-idle-timeout and backoff-cap findings from the same pass are already fixed
-(PR #193).
+The 2026-08-17 audit of `c5e8b96` raised eight more bridge findings; all are now
+fixed (PRs #193 and #198), leaving the items above.
 
 ## Site-review comments have no agent-reply data model
 
@@ -1845,36 +1774,6 @@ host/port — that lookup has to become worktree-aware too, or the specs will
 still all talk to the shared instance. Playwright-headed requests now deliver
 mail synchronously, so there is no worker to scope per worktree — but that
 changed nothing about the Mailpit isolation problem, which is still open.
-
-## Ship a minified site-review widget
-
-
-
-
-**Author:** Geoffrey · **Type:** tooling · **Priority:** medium · **Status:** pending
-
-`public/site-review/widget.js` is 76 KB unminified and is the third-party embed
-loaded on every page of every customer site. The 2026-07-26 audit paired this
-with missing cache headers; the caching half shipped (an exact-match
-`location = /site-review/widget.js` block in `docker/prod/nginx.conf`), the
-minification half did not.
-
-It was deferred because the project has no minifier at all: `package.json`
-carries only eslint and prettier, and AssetMapper does not cover the widget —
-it is a standalone static file served directly, not part of the importmap. So
-this needs a build-step decision, which is why it is not a one-line fix. Owner
-decision (2026-07-26): log it rather than bundle it into the perf PR.
-
-Options to weigh: an `esbuild`/`terser` npm script wired into `just cs` and the
-Docker prod build; or bringing the widget into AssetMapper so it gets the same
-treatment as everything under `/assets/` (which would also give it a
-content-hashed filename, and the cache block could then become `immutable`
-instead of the current 5-minute window).
-
-**Owner decision (2026-08-17): add the build step, keep the readable source in
-the repo.** The two options above are still both open — this settles that it
-gets compressed, not how. It ships at 79 KB (about 20 KB compressed) on a
-5-minute cache, and it is your customers' visitors who pay that, not you.
 
 ## Self-hosting audit
 
@@ -3994,189 +3893,39 @@ PR #48 was closed unmerged in 2026-07-25. That branch carried this fix; the rest
 of it has since been overtaken by newer edits to the same files, so take the
 correction rather than the branch.
 
-## The live site never tells browsers to stay on HTTPS
-
-**Author:** Claude · **Type:** security · **Priority:** high · **Status:** pending
-
-`curl -I https://loupe.ac/` returns no `Strict-Transport-Security` header, and
-nothing in `docker/compose/prod.yaml` or `terraform/` adds one, so a first visit
-over `http://` is downgradeable. Symfony can set it directly:
-`forced_ssl: { hsts_max_age: 31536000 }` under `when@prod` in
-`config/packages/nelmio_security.yaml`.
-
-Decide `includeSubDomains` and preloading deliberately before turning either on
-— both are hard to walk back, and a preload entry outlives the deployment that
-asked for it. Found by the 2026-08-17 audit of `c5e8b96`.
-
-## The text ladder has lost a rung to the contrast fix
+## Revising a document still loads every one of its versions
 
 **Author:** Claude · **Type:** bug · **Priority:** medium · **Status:** pending
 
-`--text-dim` was `#8f8f84`, which measures 3.26:1 against white where WCAG AA
-needs 4.5:1, and it failed on every page checked. PR #194 darkened it to
-`#6f6f66` — but that is the exact value of `--text-mute`, so two rungs of the
-ladder in `assets/styles/app.css` are now the same colour and every
-`text-fg-dim` usage renders as mute.
+Four of the five paths the 2026-08-17 audit named now read the latest version
+through `DocumentVersionRepository::findLatest()`. `ReviseDocumentHandler` is the
+one left, and the audit's suggested fix does not work there:
+`Document::addVersion()` calls both `count()` and `add()` on the versions
+collection, and `PersistentCollection` initialises on either unless the
+association is `EXTRA_LAZY` — so swapping the read alone changes nothing while
+looking like a fix.
 
-No lighter grey clears the threshold: `#6f6f66` is 5.07:1 on white and 4.45:1
-on the darkest sunken surface (`#f0f0ec`), so a dim usage on a sunken surface is
-still marginally short. Re-spacing `--text`, `--text-mute`, `--text-dim` and
-`--faint` into three distinguishable text rungs that all pass — or deciding
-that dim and mute should collapse into one token and deleting the other — is a
-deliberate design pass, and it needs the owner's eye rather than a measurement.
+Two ways out, neither small. Mark the association `EXTRA_LAZY`, which changes
+collection semantics everywhere `->versions` is touched. Or take the next version
+number from a `MAX()` query and construct the `DocumentVersion` outside the
+collection, which means reworking `addVersion()`'s API and re-reading the
+concurrency comment that makes it the first thing to touch `->versions` under the
+row lock.
 
-## Two list pages run a query per row
-
-**Author:** Claude · **Type:** bug · **Priority:** medium · **Status:** pending
-
-`ListDocumentsHandler` counts open comments one document at a time, 20 per page,
-in code that already batches tags and version data. `ListProjectsHandler` is
-worse: two queries per row, 40 at 20 projects — and the batched
-`DocumentRepository::countActiveByProjects()` it needs already exists and is
-used by `base.html.twig`.
-
-Both want a grouped query returning counts keyed by id: a
-`countOpenByVersions(array $versionIds)` for the first, and reuse plus a
-`statusCountsForProjects()` for the second. Found by the 2026-08-17 audit of
-`c5e8b96`.
-
-## Posting one review comment loads every version of the document
-
-**Author:** Claude · **Type:** bug · **Priority:** medium · **Status:** pending
-
-`Review/Entity/Document::latestVersion()` walks the whole `versions` collection,
-and each version holds the document's full markdown and HTML — so an innocuous
-write pulls megabytes into memory on a document with any history. Counting for
-the next version number does the same thing.
-
-Five paths take it instead of the purpose-built `DocumentVersionRepository::findLatest()`:
-`AddCommentHandler`, `SubmitReviewHandler`, `SetDocumentHighlightsHandler`,
-`GetReviewStateHandler` and `ReviseDocumentHandler`. Switch them, and use a
-`MAX()` query for the next number rather than a count of loaded rows. Found by
-the 2026-08-17 audit of `c5e8b96`.
-
-## Exporting an account builds the whole archive in memory three times
-
-**Author:** Claude · **Type:** bug · **Priority:** medium · **Status:** pending
-
-`DocumentExporter` loads everything and copies it, then
-`DataExportArchiveBuilder` serialises the result into a single JSON string —
-three full copies of an account's documents resident at once. A large account
-fails, and keeps failing, with no path to a successful export.
-
-The fix is to batch the read, stream each part to a temp file, and add those
-files to the zip rather than building a string. Found by the 2026-08-17 audit of
-`c5e8b96`. Related: 'A ready data export offers no way to download it'.
-
-## `npm audit` is not part of the gate, and both trees have advisories
-
-**Author:** Geoffrey · **Type:** tooling · **Priority:** medium · **Status:** pending
-
-The `audit` recipe in the `justfile` runs only `composer audit --locked`, so the
-npm side is unchecked — and `brace-expansion` currently carries denial-of-service
-advisories in both `package-lock.json` and `e2e/package-lock.json`. Dev tooling
-only; the PHP side is clean.
-
-Owner decision (2026-08-17, reviewing the audit of `c5e8b96`): add `npm audit`
-to the gate. Two things it needs. **Run `npm audit fix` in both trees first**, or
-the new check goes red immediately and blocks unrelated work on day one. And do
-**not** reach for `--omit=dev` to quieten it: every npm package here is tooling,
-because the app's own JavaScript goes through the import map, so omitting dev
-dependencies would leave the check scanning almost nothing — a check that passes
-because it looks at nothing. Both lines belong next to the existing host-side
-`npx prettier` and `npx eslint` steps, not behind `compose-exec`.
-
-## A scheduled job has no task class and no registration test
-
-**Author:** Claude · **Type:** tooling · **Priority:** medium · **Status:** pending
-
-`PurgeExpiredExportsCommand` carries `#[AsCronTask]` on the console command
-itself, unlike its two siblings, which each have a task class under
-`Scheduler/` plus a test asserting the registered cron expression. The wiring
-lives entirely in an attribute and a compiler pass, so a job that quietly stops
-being registered says nothing at all.
-
-Give it the same shape as `DrainSiteReviewOutboxTask`: a task class delegating
-to the handler, and a test reading the expression back through
-`App\Tests\Support\ScheduledTasks`. Found by the 2026-08-17 audit of `c5e8b96`.
-
-## Review has two shapes for one idea, and one of them hides from gamache
-
-**Author:** Claude · **Type:** tooling · **Priority:** medium · **Status:** pending
-
-`Review/Query/GetDocument.php` and `Review/Query/GetReview.php` are called
-directly from controllers and return loose arrays, while `GetReviewStateHandler`
-does the same job as a proper command/handler pair with a result object. The
-`Query\` folder is also why nothing flags them: gamache's handler conventions
-key on `Command\`.
-
-Move both to `Command/` as `Show*Handler` pairs returning result objects, which
-brings them under the existing checks as a side effect. Found by the 2026-08-17
-audit of `c5e8b96`.
-
-## Shared MCP code names a specific module's class
-
-**Author:** Claude · **Type:** tooling · **Priority:** medium · **Status:** pending
-
-`src/Mcp/FlagGatedListToolsHandler.php` hard-codes a Review class to decide
-which tools a flag gates, and `src/Mcp/ResolvesBoundProject.php` imports Project.
-Root `src/` is for code generic across modules, so naming one module's classes
-there inverts the dependency the layout is meant to express.
-
-Let each tool declare its own flag and have the handler collect them, rather
-than the shared handler knowing the list. Found by the 2026-08-17 audit of
-`c5e8b96`. Related: 'Domain boundaries sweep — and the arkitect gate that has
-never rejected anything'.
-
-## No page has a meta description
+## An account export still holds one payload in memory twice
 
 **Author:** Claude · **Type:** bug · **Priority:** low · **Status:** pending
 
-A Lighthouse run against `loupe.ac` on 2026-08-17 scored SEO 90, and the missing
-meta description was the entire deduction on all three pages checked. The
-landing and legal pages are the ones that matter, since they are what a search
-result would show.
+The worst of it is fixed: `ZipArchive::addFromString()` buffered every exporter's
+JSON until `close()`, so all seven were resident together. Payloads now go to
+temp files and are added by path, and the peak is one payload rather than their
+sum.
 
-## The landing page has no `main` region and bakes the brand into its title
+What remains is that one payload exists twice — the array an exporter returns,
+and the JSON string encoded from it. Removing that needs
+`UserDataExporterInterface` to yield rows rather than return an array, across
+seven implementations, and the object-shaped payload (the profile) would have to
+keep its shape while the list-shaped ones stream. That changes an exported
+archive's format if done carelessly, which is why it was not folded into the
+in-memory fix.
 
-**Author:** Claude · **Type:** bug · **Priority:** low · **Status:** pending
-
-Two small landing-page defects found by the 2026-08-17 Lighthouse run. The page
-has no `<main>` element, so it offers no main landmark to a screen reader, while
-the other two pages checked do have one. Separately, its title string in
-`messages.en.xlf` has the product name written into the translated text; it
-should be a page part composed with `app.name`, so a rename or a self-hosted
-rebrand does not need the translation edited.
-
-## Three strings use "(s)" instead of plural rules
-
-**Author:** Claude · **Type:** bug · **Priority:** low · **Status:** pending
-
-Three entries in `messages.en.xlf` write "(s)" rather than pluralising. Symfony
-interval syntax handles it, and this app's convention requires the `{0}` case be
-included — omitting it throws at render time when the count can be zero. Found
-by the 2026-08-17 audit of `c5e8b96`.
-
-## Small correctness gaps found by the 2026-08-17 audit
-
-**Author:** Claude · **Type:** bug · **Priority:** low · **Status:** pending
-
-Each is independent and small; grouped so they are not lost individually.
-
-- **A duplicate project name gives one user a 500.** `CreateProjectHandler`
-  checks then inserts, so two requests racing both pass the check. Catch
-  `UniqueConstraintViolationException` and turn it into a form error, as
-  `RegisterUserHandler` already does.
-- **A verdict can land on an out-of-date version.** `SubmitReviewHandler` reads
-  the document unlocked. Take the write lock `SelectDecisionOptionHandler` uses.
-- **Titles are validated on rename but not on creation.** `CreateDocumentHandler`
-  applies none of the trim, blank and length checks its rename counterpart does.
-- **Comment authors are fetched one query at a time.** `CommentRepository`'s two
-  finders omit the author that `CommentThread.html.twig` then displays; join it
-  in both.
-- **Account imports Billing directly when deleting.** `DeleteAccountHandler` does
-  this for a documented reason; a pre-purge collect step on the purger interface
-  would remove the need.
-- **One migration uses a round timestamp.** `Version20260529000000` is already
-  deployed, so there is nothing to fix — the note exists only so the pattern is
-  not copied.
