@@ -1195,7 +1195,7 @@
             </trans-unit>
             <trans-unit id="review.document.orphan_banner">
                 <source>review.document.orphan_banner</source>
-                <target>%count% comment(s) refer to text that has been removed or changed.</target>
+                <target>{0}No comments refer to text that has been removed or changed.|{1}One comment refers to text that has been removed or changed.|]1,Inf[%count% comments refer to text that has been removed or changed.</target>
             </trans-unit>
             <trans-unit id="review.document.version.read_only">
                 <source>review.document.version.read_only</source>
@@ -2210,15 +2210,15 @@
             </trans-unit>
             <trans-unit id="account.system_status.worker.backlog_stale">
                 <source>account.system_status.worker.backlog_stale</source>
-                <target>%count% message(s) have been waiting %seconds% seconds without being processed. Nothing is consuming the queue: start a worker with "bin/console messenger:consume scheduler_default async".</target>
+                <target>{0}Nothing has been waiting in the queue.|{1}One message has been waiting %seconds% seconds without being processed. Nothing is consuming the queue: start a worker with "bin/console messenger:consume scheduler_default async".|]1,Inf[%count% messages have been waiting %seconds% seconds without being processed. Nothing is consuming the queue: start a worker with "bin/console messenger:consume scheduler_default async".</target>
             </trans-unit>
             <trans-unit id="account.system_status.worker.claimed_in_flight">
                 <source>account.system_status.worker.claimed_in_flight</source>
-                <target>%count% message(s) are claimed by a worker and not finished. That is normal while one is being processed — but if that worker has died, they will not be offered to another one until the redelivery timeout expires an hour after the claim.</target>
+                <target>{0}No messages are claimed by a worker.|{1}One message is claimed by a worker and not finished. That is normal while it is being processed — but if that worker has died, it will not be offered to another one until the redelivery timeout expires an hour after the claim.|]1,Inf[%count% messages are claimed by a worker and not finished. That is normal while they are being processed — but if that worker has died, they will not be offered to another one until the redelivery timeout expires an hour after the claim.</target>
             </trans-unit>
             <trans-unit id="account.system_status.worker.backlog_fresh">
                 <source>account.system_status.worker.backlog_fresh</source>
-                <target>%count% message(s) are queued and were enqueued moments ago. Too soon to tell whether anything is consuming them — reload in a minute.</target>
+                <target>{0}Nothing is queued.|{1}One message is queued and was enqueued moments ago. Too soon to tell whether anything is consuming it — reload in a minute.|]1,Inf[%count% messages are queued and were enqueued moments ago. Too soon to tell whether anything is consuming them — reload in a minute.</target>
             </trans-unit>
             <trans-unit id="account.system_status.failed_messages.unreadable">
                 <source>account.system_status.failed_messages.unreadable</source>
@@ -2246,7 +2246,7 @@
             </trans-unit>
             <trans-unit id="account.system_status.failed_messages.present">
                 <source>account.system_status.failed_messages.present</source>
-                <target>%count% message(s) exhausted their retries and are parked in the failed transport. Inspect them with "bin/console messenger:failed:show" and re-queue them with "bin/console messenger:failed:retry".</target>
+                <target>{0}No messages are parked in the failed transport.|{1}One message exhausted its retries and is parked in the failed transport. Inspect it with "bin/console messenger:failed:show" and re-queue it with "bin/console messenger:failed:retry".|]1,Inf[%count% messages exhausted their retries and are parked in the failed transport. Inspect them with "bin/console messenger:failed:show" and re-queue them with "bin/console messenger:failed:retry".</target>
             </trans-unit>
             <trans-unit id="account.system_status.mercure.unconfigured">
                 <source>account.system_status.mercure.unconfigured</source>
@@ -2707,9 +2707,25 @@
                 <target>Back to document</target>
             </trans-unit>
 
+            <trans-unit id="landing.meta.description">
+                <source>landing.meta.description</source>
+                <target>Your AI agent writes docs and pages faster than you can skim them. Loupe lets you read them rendered, comment on any line, and send structured feedback straight back to the agent over MCP.</target>
+            </trans-unit>
+            <trans-unit id="legal.privacy.meta_description">
+                <source>legal.privacy.meta_description</source>
+                <target>What Loupe collects, why, how long it is kept, and how to export or delete it.</target>
+            </trans-unit>
+            <trans-unit id="legal.terms.meta_description">
+                <source>legal.terms.meta_description</source>
+                <target>The terms you agree to when using Loupe, including acceptable use, accounts and liability.</target>
+            </trans-unit>
+            <trans-unit id="legal.ai_policy.meta_description">
+                <source>legal.ai_policy.meta_description</source>
+                <target>How Loupe uses AI, what it does with the content you submit, and what it never trains on.</target>
+            </trans-unit>
             <trans-unit id="landing.meta.title">
                 <source>landing.meta.title</source>
-                <target>Loupe · The human review layer for your agent loop</target>
+                <target>The human review layer for your agent loop</target>
             </trans-unit>
             <trans-unit id="landing.nav.how">
                 <source>landing.nav.how</source>

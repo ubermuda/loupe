@@ -15,9 +15,10 @@ namespace App\Module\Diagnostics;
 final readonly class Diagnostic
 {
     /**
-     * @param non-empty-string      $key              identifies the check in markup and translation keys
-     * @param non-empty-string      $detail           translation key of the explanatory sentence
-     * @param array<string, string> $detailParameters placeholders for $detail
+     * @param non-empty-string          $key              identifies the check in markup and translation keys
+     * @param non-empty-string          $detail           translation key of the explanatory sentence
+     * @param array<string, string|int> $detailParameters placeholders for $detail; an
+     *                                                    int `%count%` drives plural selection
      */
     public function __construct(
         public string $key,
