@@ -32,11 +32,6 @@ test('a verified ADMIN_EMAIL user is promoted and sees the dashboard', async ({
 test('the admin layout actually loads the stylesheet', async ({ page }) => {
     await page.goto('/admin');
 
-    // A computed style rather than the presence of a <link>: the admin area
-    // extends the bundle's layout instead of layout_base.html.twig, so it has
-    // its own path to the stylesheet, and a link pointing at a missing asset
-    // would still be in the DOM. The bundle's <body> carries Tailwind's `flex`,
-    // which only resolves if the sheet loaded and applied.
     await expect(page.locator('body')).toHaveCSS('display', 'flex');
 });
 

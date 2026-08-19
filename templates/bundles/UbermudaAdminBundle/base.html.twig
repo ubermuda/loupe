@@ -4,10 +4,6 @@
    bundle's own copy — the plain name would resolve back to this file. #}
 {% extends '@!UbermudaAdmin/base.html.twig' %}
 
-{# The admin area extends the bundle's layout, not layout_base.html.twig, so it
-   does not inherit that file's stylesheet link. It used to get the sheet from
-   the import map, until `assets/app.js` stopped importing it so that script-src
-   need not allow `data:`. Without this the whole admin area renders unstyled. #}
 {% block stylesheets %}
     <link rel="stylesheet" href="{{ asset('styles/app.css') }}">
 {% endblock %}
