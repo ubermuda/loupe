@@ -3827,6 +3827,38 @@ collection, which means reworking `addVersion()`'s API and re-reading the
 concurrency comment that makes it the first thing to touch `->versions` under the
 row lock.
 
+## The site-review widget API has no rate limit, and its token is public by design
+
+**Author:** Claude · **Type:** security · **Priority:** medium · **Status:** pending
+
+The widget authenticates with a project-scoped token that ships inside the page
+it is embedded in, so any visitor to a public page carrying the widget can read
+it out of the source and call the API directly. That is the intended design —
+the token identifies a project, not a person — but it means the write routes
+under `^/api/site-review` (`AddCommentController`, `UpdateCommentController`,
+`DeleteCommentController` in `src/Module/SiteReview/Controller/Api/`) are
+reachable by anyone who can see a page, with nothing bounding how often.
+
+`config/packages/security.yaml` gates the path on `ROLE_API_SITE_REVIEW`, which
+proves the token and stops there. `config/packages/framework.yaml` defines
+exactly one limiter, `resend_verification_email`; the login firewall adds
+`login_throttling`. Neither covers this. Per-call size is capped —
+`AddCommentRequest` allows 10,000 characters of body and 2,000 for the selector
+and page fields — so a single call is bounded and the call count is not.
+
+Recorded 2026-08-19. The cost is database rows and a review queue full of noise
+for both the agent and the human reading it, not money: nothing behind these
+routes calls a metered third-party API. That is why this is medium rather than
+high, and it stops being true the day a paid call sits behind a widget write.
+
+The fix is a rate limiter on the write routes with a `when@test` high-limit
+override, following the pattern in `project-backend`. Keying it is the part
+worth thinking about: the project token is shared by every visitor, so limiting
+on it alone lets one abuser throttle a whole project's genuine feedback.
+Per-reviewer identity would give a better key — see "Personal reviewer tokens as
+an identity layer for the widget" and "`site_review_get` does not say who wrote
+a comment", which want the same thing for different reasons.
+
 ## An account export still holds one payload in memory twice
 
 **Author:** Claude · **Type:** bug · **Priority:** low · **Status:** pending
