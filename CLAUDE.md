@@ -167,13 +167,13 @@ This project uses Docker Compose for local development. Commands are managed via
 docker compose up -d          # Start containers (nginx, php-fpm, postgres)
 composer install              # Install PHP dependencies
 bin/console doctrine:migrations:migrate  # Run pending migrations
-just tailwind                 # Build Tailwind CSS (watch mode, auto-rebuilds on change — already running in dev)
+just tailwind                 # Foreground Tailwind watcher (the `tailwind` compose service already does this)
 bin/console tailwind:build    # One-shot Tailwind build (use this in CI scripts and plan verify steps only)
 ```
 
 Tailwind CSS is rebuilt automatically in the dev container — **never run `bin/console tailwind:build` manually after editing templates or `app.css`**. The watcher picks changes up within a second or two; if a class doesn't appear in the compiled CSS, wait briefly and re-check rather than reaching for a manual build. Only run `bin/console tailwind:build` explicitly in CI scripts or plan verify steps. The same applies to `cache:clear` — not needed in dev.
 
-The app runs at `https://loupe.dev.localhost`. PHP-FPM is on port 9000. A `worker` compose service consumes the async transport; `docker compose logs worker` to observe, `just worker` for a foreground consumer.
+The app runs at `https://loupe.dev.localhost`. PHP-FPM is on port 9000. A `worker` compose service consumes the async transport; `docker compose logs worker` to observe, `just worker` for a foreground consumer. A `tailwind` compose service watches and rebuilds the stylesheet the same way; `docker compose logs tailwind` to observe, `just tailwind` for a foreground watcher. Do not run both — two watchers write the same file and race.
 
 **Production deployment — prod runs per-process containers.** Each process type (web, messenger worker) is its own container from the same image; `docker/prod/supervisord.conf` is only the web container's image-default CMD. Never add background processes as `[program:]` blocks there — the worker's command belongs to whatever orchestrates the containers: `worker_command` in `terraform/main.tf` for App Platform, the `worker` service in `docker/compose/prod.yaml` for a single host. Both run `messenger:consume scheduler_default async --time-limit=3600 --memory-limit=128M` (schedule transport first: a deep async backlog must not delay ticks).
 
