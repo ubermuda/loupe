@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Module\Account\Form;
 
+use App\Module\Account\Entity\User;
 use Symfony\Component\Validator\Constraints as Assert;
 
 class InstallAdminRequest
@@ -13,7 +14,7 @@ class InstallAdminRequest
         #[Assert\NotBlank]
         public ?string $email = null,
 
-        #[Assert\Length(max: 150)]
+        #[Assert\Length(max: User::MAX_FULL_NAME_LENGTH)]
         #[Assert\NotBlank]
         public ?string $fullName = null,
 

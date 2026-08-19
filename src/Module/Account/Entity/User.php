@@ -23,6 +23,9 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface, AdminPr
      */
     public const string AGENT_ID = '1073e0a5-9b1c-42f7-8e44-a10a6e57c3d9';
 
+    /** The users.full_name column width, and the single source of truth for every check against it. */
+    public const int MAX_FULL_NAME_LENGTH = 150;
+
     #[ORM\Column(type: UuidType::NAME, unique: true)]
     #[ORM\CustomIdGenerator(class: 'doctrine.uuid_generator')]
     #[ORM\GeneratedValue(strategy: 'CUSTOM')]
@@ -73,7 +76,7 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface, AdminPr
          * provider, the console admin command — derive it from the email with
          * DisplayNameDeriver.
          */
-        #[ORM\Column(length: 150)]
+        #[ORM\Column(length: self::MAX_FULL_NAME_LENGTH)]
         public string $fullName,
 
         /** @phpstan-var non-empty-string */

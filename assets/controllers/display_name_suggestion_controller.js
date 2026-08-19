@@ -1,8 +1,5 @@
 import { Controller } from '@hotwired/stimulus';
 
-/** Matches the users.full_name column. */
-const MAX_LENGTH = 150;
-
 /**
  * Derives a display name from an email address.
  *
@@ -10,7 +7,7 @@ const MAX_LENGTH = 150;
  * which produces the same value for the paths that have no form to ask on.
  * Change one and you must change the other.
  */
-function deriveDisplayName(email) {
+function deriveDisplayName(email, maxLength) {
     const localPart = email.split('@')[0];
 
     // A `+tag` suffix addresses a mailbox, it is not part of anyone's name.
@@ -24,7 +21,7 @@ function deriveDisplayName(email) {
     // Array.from splits by code point, matching PHP's mb_substr — slice would
     // count UTF-16 units and could cut a surrogate pair in half.
     return Array.from(derived !== '' ? derived : email)
-        .slice(0, MAX_LENGTH)
+        .slice(0, maxLength)
         .join('');
 }
 
@@ -49,7 +46,8 @@ function upperFirst(value) {
  * types a name of their own. Clearing that name re-arms the suggestion.
  *
  * Usage:
- *   <form data-controller="display-name-suggestion">
+ *   <form data-controller="display-name-suggestion"
+ *         data-display-name-suggestion-max-length-value="150">
  *     <input data-display-name-suggestion-target="email"
  *            data-action="input->display-name-suggestion#suggest">
  *     <input data-display-name-suggestion-target="displayName"
@@ -61,6 +59,10 @@ function upperFirst(value) {
  */
 export default class extends Controller {
     static targets = ['email', 'displayName'];
+
+    // Carries User::MAX_FULL_NAME_LENGTH from the template. No default: an
+    // absent value must truncate nothing rather than to zero characters.
+    static values = { maxLength: Number };
 
     connect() {
         // A re-rendered invalid submission arrives with the name already
@@ -75,6 +77,7 @@ export default class extends Controller {
 
         this.displayNameTarget.value = deriveDisplayName(
             this.emailTarget.value,
+            this.hasMaxLengthValue ? this.maxLengthValue : undefined,
         );
     }
 

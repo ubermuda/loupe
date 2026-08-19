@@ -7,6 +7,7 @@ namespace App\Module\Account\Controller\Dev;
 use App\Controller\AppController;
 use App\Module\Account\Command\RegisterAndVerifyCommand;
 use App\Module\Account\Command\RegisterAndVerifyHandler;
+use App\Module\Account\Entity\User;
 use App\Module\Account\Service\DisplayNameDeriver;
 use Symfony\Component\DependencyInjection\Attribute\When;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -41,9 +42,9 @@ final class RegisterAndVerifyController extends AppController
         }
 
         // The browser fills this field on the real form; a caller that skips it
-        // gets the same value the registration page would have suggested. The
-        // truncation matches users.full_name, which no form guards here.
-        $fullName = mb_substr($request->request->getString('fullName'), 0, 150);
+        // gets the same value the registration page would have suggested. No
+        // form guards the length here.
+        $fullName = mb_substr($request->request->getString('fullName'), 0, User::MAX_FULL_NAME_LENGTH);
         if ('' === $fullName) {
             $fullName = $this->displayNameDeriver->derive($email);
         }
