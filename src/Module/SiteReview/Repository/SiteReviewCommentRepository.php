@@ -159,6 +159,25 @@ class SiteReviewCommentRepository extends ServiceEntityRepository
     }
 
     /**
+     * The project's comments in one status, oldest first. Kept beside
+     * {@see findForProject} rather than folded into it: the agent's queue is a
+     * status-filtered read and the widget's list is not.
+     *
+     * @return list<SiteReviewComment>
+     */
+    public function findForProjectWithStatus(Project $project, SiteReviewCommentStatus $status): array
+    {
+        return $this->createQueryBuilder('c')
+            ->andWhere('c.project = :project')
+            ->andWhere('c.status = :status')
+            ->setParameter('project', $project)
+            ->setParameter('status', $status)
+            ->orderBy('c.position', 'ASC')
+            ->getQuery()
+            ->getResult();
+    }
+
+    /**
      * The project's whole comment list for the site-review page — a flat,
      * position-ordered feed across every status.
      *

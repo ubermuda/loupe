@@ -156,6 +156,12 @@ final readonly class MarkdownRenderer
             // (`|:--|--:|`); colspan/rowspan/scope come from hand-written tables.
             ->allowElement('th', ['align', 'colspan', 'rowspan', 'scope'])
             ->allowElement('td', ['align', 'colspan', 'rowspan'])
+            // Without this the sanitizer strips the href from any non-absolute
+            // link, so a document's own `[jump](#heading-intro)` renders as dead
+            // text — and the renderer mints those heading ids itself, so authors
+            // have every reason to write them. Same-origin paths are allowed
+            // with them; href only, so nothing new reaches plainText().
+            ->allowRelativeLinks()
             ->allowElement('a', ['href', 'title'])
             ->allowElement('img', ['src', 'alt', 'title', 'width', 'height'])
             // `class` carries the fenced-code info string as `language-<name>`, the
