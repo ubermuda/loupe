@@ -32,6 +32,10 @@ terraform/
 # runtime, and graft/ alone is ~14 MB of build context.
 graft/
 cli/
+# The marketing site is a separate Astro project, deployed on its own; the PHP
+# runtime never serves it. With its node_modules and dist it is ~234 MB, which
+# was over half the image.
+website/
 .vite/
 docs/
 test-results/

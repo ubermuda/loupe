@@ -66,7 +66,11 @@ RUN set -eux; \
 
 RUN composer install --no-dev --prefer-dist --optimize-autoloader --classmap-authoritative
 RUN bin/console importmap:install
-RUN bin/console tailwind:build
+# The prune shares this RUN deliberately: the downloaded Tailwind CLI is ~110 MB
+# and a later `rm` would leave it in this layer regardless. Only app.built.css is
+# needed past build time, and the binary is re-downloaded if a build ever needs it.
+RUN bin/console tailwind:build \
+	&& find var/tailwind -mindepth 1 -maxdepth 1 ! -name 'app.built.css' -exec rm -rf {} +
 RUN bin/console asset-map:compile
 RUN bin/console cache:warmup --env=prod
 
