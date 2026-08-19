@@ -29,6 +29,12 @@ test('a verified ADMIN_EMAIL user is promoted and sees the dashboard', async ({
     ).toBeVisible();
 });
 
+test('the admin layout actually loads the stylesheet', async ({ page }) => {
+    await page.goto('/admin');
+
+    await expect(page.locator('body')).toHaveCSS('display', 'flex');
+});
+
 test('a bool flag can be created, toggled and deleted', async ({ page }) => {
     await page.goto('/admin/feature-flags');
     await page.getByRole('link', { name: 'New flag', exact: true }).click();

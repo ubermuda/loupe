@@ -4,6 +4,10 @@
    bundle's own copy — the plain name would resolve back to this file. #}
 {% extends '@!UbermudaAdmin/base.html.twig' %}
 
+{% block stylesheets %}
+    <link rel="stylesheet" href="{{ asset('styles/app.css') }}">
+{% endblock %}
+
 {% block sidebar_footer %}
     {{ parent() }}
     <div class="px-3 pb-4">
