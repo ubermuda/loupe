@@ -47,22 +47,30 @@ final readonly class RateLimitSiteReviewWrites
     }
 
     /**
-     * One bucket per API credential, never per owner: every token authenticates
-     * as its owning user, so an owner-keyed limit would let a visitor exhaust
-     * one publicly-embedded widget token and 429 that owner's other projects
-     * and their account-level clients too.
+     * Never per owner: every token authenticates as its owning user, so an
+     * owner-keyed limit would let one token's traffic 429 that owner's other
+     * projects and their account-level clients too.
+     *
+     * Nor per token alone. A widget token is shared by everyone who loads the
+     * page carrying it, so a single bucket per token lets one abusive visitor
+     * spend the whole allowance and deny every genuine reviewer on that project
+     * — turning an abuse problem into an outage. Combining the two gives each
+     * visitor their own allowance within a project. The known gap is an
+     * attacker who rotates addresses; that costs them reach rather than costing
+     * everyone else theirs.
      */
     private function key(Request $request): string
     {
+        $ip = 'ip:'.((string) $request->getClientIp());
         $securityToken = $this->tokenStorage->getToken();
 
         if (null !== $securityToken && $securityToken->hasAttribute(ApiTokenAuthenticator::API_TOKEN_ID_ATTR)) {
             $apiTokenId = $securityToken->getAttribute(ApiTokenAuthenticator::API_TOKEN_ID_ATTR);
             if (is_string($apiTokenId)) {
-                return 'token:'.$apiTokenId;
+                return 'token:'.$apiTokenId.'|'.$ip;
             }
         }
 
-        return 'ip:'.((string) $request->getClientIp());
+        return $ip;
     }
 }
