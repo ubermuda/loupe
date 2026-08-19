@@ -35,6 +35,17 @@ test('the admin layout actually loads the stylesheet', async ({ page }) => {
     await expect(page.locator('body')).toHaveCSS('display', 'flex');
 });
 
+test('the site-review widget reaches the admin area too', async ({ page }) => {
+    const widget = 'script[src="/site-review/widget.js"]';
+
+    await page.goto('/');
+    const configured = await page.locator(widget).count();
+    test.skip(configured === 0, 'SITE_REVIEW_WIDGET_TOKEN is not set here');
+
+    await page.goto('/admin');
+    await expect(page.locator(widget)).toHaveCount(1);
+});
+
 test('a bool flag can be created, toggled and deleted', async ({ page }) => {
     await page.goto('/admin/feature-flags');
     await page.getByRole('link', { name: 'New flag', exact: true }).click();
