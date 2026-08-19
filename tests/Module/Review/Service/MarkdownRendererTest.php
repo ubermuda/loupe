@@ -22,6 +22,23 @@ final class MarkdownRendererTest extends TestCase
         self::assertStringNotContainsString('alert(1)', $html);
     }
 
+    public function test_keeps_the_href_on_a_documents_own_in_page_link(): void
+    {
+        $html = new MarkdownRenderer(new NullLogger())->render("# Intro\n\n[jump](#heading-intro)");
+
+        // The renderer mints heading-<slug> ids itself, so an author has every
+        // reason to link to one; the sanitizer used to strip the href and leave
+        // dead text with no error anywhere.
+        self::assertStringContainsString('href="#heading-intro"', $html);
+    }
+
+    public function test_keeps_the_href_on_a_same_origin_path(): void
+    {
+        $html = new MarkdownRenderer(new NullLogger())->render('[the project](/projects/abc)');
+
+        self::assertStringContainsString('href="/projects/abc"', $html);
+    }
+
     public function test_strips_onclick_attributes(): void
     {
         $html = new MarkdownRenderer(new NullLogger())->render('<p onclick="alert(2)">hi</p>');

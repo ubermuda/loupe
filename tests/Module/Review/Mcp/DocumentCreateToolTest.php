@@ -173,4 +173,14 @@ final class DocumentCreateToolTest extends KernelTestCase
         $this->expectExceptionMessage('MCP token is not bound to a project. Mint a project token from the Connect page.');
         ($this->tool)('Title', '# Body');
     }
+
+    public function test_the_size_cap_stays_below_what_postgres_can_index(): void
+    {
+        // to_tsvector refuses a vector over 1,048,575 bytes. Accepting a
+        // document larger than it can index stored the row and then failed
+        // indexing, and on create and rename that failure happens after the
+        // flush — leaving the document permanently unsearchable with nothing
+        // to retry it.
+        self::assertLessThanOrEqual(1_048_575, DocumentCreateTool::MAX_MARKDOWN_BYTES);
+    }
 }

@@ -126,6 +126,59 @@ final class SiteReviewGetToolTest extends KernelTestCase
         self::assertSame('pending', $result['comments'][0]['body']);
     }
 
+    public function test_status_reads_back_the_comments_the_agent_addressed(): void
+    {
+        $user = new User(fullName: 'U', email: 'get-readback@example.com', password: 'x');
+        $this->em->persist($user);
+        $project = new Project($user, 'readback-site');
+        $this->em->persist($project);
+
+        $pending = new SiteReviewComment($project, 0, 'pending', '.a', 'A', 'https://app/x');
+        $addressed = new SiteReviewComment($project, 1, 'addressed', '.b', 'B', 'https://app/y');
+        $addressed->status = SiteReviewCommentStatus::Addressed;
+        $resolved = new SiteReviewComment($project, 2, 'resolved', '.c', 'C', 'https://app/z');
+        $resolved->status = SiteReviewCommentStatus::Resolved;
+        $this->em->persist($pending);
+        $this->em->persist($addressed);
+        $this->em->persist($resolved);
+        $this->em->flush();
+
+        $this->actAsMcpTokenBoundTo($project);
+
+        // Marking a comment addressed used to put it beyond every read path in
+        // this server, so an agent could not report on its own work.
+        $bodies = static fn (array $r): array => array_column($r['comments'], 'body');
+
+        self::assertSame(['pending'], $bodies(($this->tool)()));
+        self::assertSame(['pending'], $bodies(($this->tool)(status: 'pending')));
+        self::assertSame(['addressed'], $bodies(($this->tool)(status: 'addressed')));
+        self::assertSame(['resolved'], $bodies(($this->tool)(status: 'resolved')));
+        self::assertSame(['pending', 'addressed', 'resolved'], $bodies(($this->tool)(status: 'all')));
+    }
+
+    public function test_every_comment_carries_its_status(): void
+    {
+        $email = 'get-carries-status@example.com';
+        [$project] = $this->projectWithPendingComments($email, 'carries-status-site');
+
+        $this->actAsMcpTokenBoundTo($project);
+        $result = ($this->tool)();
+
+        self::assertNotEmpty($result['comments']);
+        self::assertSame('pending', $result['comments'][0]['status']);
+    }
+
+    public function test_an_unknown_status_is_refused_rather_than_silently_ignored(): void
+    {
+        $email = 'get-bad-status@example.com';
+        [$project] = $this->projectWithPendingComments($email, 'bad-status-site');
+
+        $this->actAsMcpTokenBoundTo($project);
+
+        $this->expectException(ToolCallException::class);
+        ($this->tool)(status: 'addresed');
+    }
+
     public function test_matching_handle_by_name_or_id_returns_the_bound_project(): void
     {
         $userEmail = 'get-resolve@example.com';
