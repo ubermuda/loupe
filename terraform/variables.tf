@@ -182,6 +182,24 @@ variable "admin_email" {
   description = "ADMIN_EMAIL. The user with this address is promoted to ROLE_ADMIN. Empty disables promotion."
 }
 
+variable "analytics_script_url" {
+  type        = string
+  default     = ""
+  description = "ANALYTICS_SCRIPT_URL: full URL of the Umami script. Empty emits no tag. The analytics.enabled feature flag must also be on."
+}
+
+variable "analytics_website_id" {
+  type        = string
+  default     = ""
+  description = "ANALYTICS_WEBSITE_ID: the Umami site identifier. Empty emits no tag."
+}
+
+variable "analytics_origin" {
+  type        = string
+  default     = ""
+  description = "ANALYTICS_ORIGIN: the origin of analytics_script_url, allowed in the content security policy. Separate because the policy is static and cannot parse a URL. Empty leaves the policy unchanged."
+}
+
 variable "health_probe_token" {
   type        = string
   sensitive   = true

@@ -54,6 +54,12 @@ db_server_version = "18" # the cluster's actual PG major version
 # `openssl rand -hex 32`.
 # health_probe_token = "..."
 
+# --- Analytics (Umami) ---
+# All three, plus the analytics.enabled feature flag, before any tag is emitted.
+# analytics_script_url = "https://cloud.umami.is/script.js"
+# analytics_website_id = "00000000-0000-0000-0000-000000000000"
+# analytics_origin     = "https://cloud.umami.is"
+
 # --- Optional: custom domain ---
 # Omit both and the app serves only on its assigned *.ondigitalocean.app
 # hostname. domain_zone must be a zone THIS account's DNS serves
