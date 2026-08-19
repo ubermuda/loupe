@@ -378,8 +378,10 @@ open-coverage:
 browser-sync:
     npx browser-sync start --proxy localhost --files "templates/**/*.html.twig, assets/**/*.css, assets/**/*.js"
 
+# The `tailwind` compose service already watches; this is the foreground
+# equivalent, for when you want to see the rebuilds.
 tailwind:
-    bin/console tailwind:build --watch
+    bin/worktrees/compose-exec.sh bin/console tailwind:build --watch
 
 # --- Docs site (Starlight, reads docs/ — see website/README.md) ---
 

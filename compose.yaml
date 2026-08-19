@@ -81,6 +81,21 @@ services:
       - database
       - mailer
 
+  # Rebuilds var/tailwind/app.built.css when a template or stylesheet changes.
+  # In the container rather than on the host so a fresh `docker compose up`
+  # serves styled pages with nothing else to start, and so the build uses the
+  # same PHP as the app. `just tailwind` is the foreground equivalent.
+  tailwind:
+    build:
+      dockerfile: ./docker/dev/php-fpm/Dockerfile
+    restart: unless-stopped
+    command: php bin/console tailwind:build --watch
+    volumes:
+      - .:/var/www/html
+    environment:
+      XDEBUG_MODE: "off"
+      DATABASE_URL: "postgresql://${POSTGRES_USER:-app}:${POSTGRES_PASSWORD:-!ChangeMe!}@database:5432/${POSTGRES_DB:-app}?serverVersion=16&charset=utf8"
+
 ###> symfony/mailer ###
   # mailpit is reached via traefik at mailpit.${COMPOSE_PROJECT_NAME}.dev.localhost
   # (the e2e suite uses that URL); no host port is published.
