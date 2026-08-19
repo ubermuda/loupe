@@ -182,6 +182,13 @@ variable "admin_email" {
   description = "ADMIN_EMAIL. The user with this address is promoted to ROLE_ADMIN. Empty disables promotion."
 }
 
+variable "site_review_widget_token" {
+  type        = string
+  sensitive   = true
+  default     = ""
+  description = "SITE_REVIEW_WIDGET_TOKEN: the widget token of the project site-review comments should file into. Optional; empty serves no widget at all. The widget is shown to administrators only unless SITE_REVIEW_WIDGET_PUBLIC is set, which production should leave alone."
+}
+
 variable "health_probe_token" {
   type        = string
   sensitive   = true
