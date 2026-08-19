@@ -66,9 +66,14 @@ final readonly class RefreshDocumentVersionsHtmlHandler
      *
      * Per version rather than one transaction for the whole run: the run walks
      * every version in the database, and a single transaction would hold locks
-     * across all of them. Per version is still enough to rule out the state
-     * that matters — new HTML committed beside anchors still describing the old
-     * text, which is worse than either half alone.
+     * across all of them.
+     *
+     * That pairs each version's rewrite with its own anchors, but it does not
+     * serialize against someone commenting while the run is in progress: a
+     * comment anchored against the old rendering can still be inserted after
+     * this version's comments were read. The pass is idempotent, so a second run
+     * catches it — which is a better trade than making every comment write take
+     * a lock to protect a maintenance command.
      *
      * An anchor that still resolves keeps its quote, prefix and suffix and gains
      * the new offset; those three describe the same passage, only its position
@@ -112,11 +117,20 @@ final readonly class RefreshDocumentVersionsHtmlHandler
                     // A fresh anchor, not just the new offset: the browser never
                     // receives offsetHint and re-locates by quote and context, so
                     // prefix and suffix have to describe the new text too.
-                    $this->comments->reanchor($comment['id'], $this->anchorService->create(
+                    $moved = $this->anchorService->create(
                         $text,
                         $offset,
                         mb_strlen($comment['anchor']->quote, 'UTF-8'),
-                    ), false);
+                    );
+
+                    // Nothing to write, and nothing to report: most versions
+                    // re-render identically, and counting those would have every
+                    // run claim it moved every comment in the database.
+                    if ($moved == $comment['anchor'] && !$comment['orphaned']) {
+                        continue;
+                    }
+
+                    $this->comments->reanchor($comment['id'], $moved, false);
                     ++$reanchored;
                 }
             });

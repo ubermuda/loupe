@@ -244,16 +244,18 @@ final class RefreshDocumentVersionsHtmlHandlerTest extends KernelTestCase
         self::assertSame('', trim((string) $row['anchor_suffix']), '"title" ends the rendered text');
     }
 
-    public function test_a_second_reanchor_run_reports_nothing_newly_orphaned(): void
+    public function test_a_second_reanchor_run_reports_no_further_work(): void
     {
         [$container] = $this->seedStrandingVersion('reanchor-twice');
 
         $handler = $container->get(RefreshDocumentVersionsHtmlHandler::class);
         self::assertSame(1, $handler(new RefreshDocumentVersionsHtmlCommand(reanchor: true))->orphaned);
 
-        // Already orphaned, so nothing changed and the count must say so —
-        // otherwise every re-run re-reports the same damage as new.
-        self::assertSame(0, $handler(new RefreshDocumentVersionsHtmlCommand(reanchor: true))->orphaned);
+        // Nothing changed the second time, and both counts must say so —
+        // otherwise every re-run re-reports the same work as if it were new.
+        $second = $handler(new RefreshDocumentVersionsHtmlCommand(reanchor: true));
+        self::assertSame(0, $second->orphaned);
+        self::assertSame(0, $second->reanchored);
     }
 
     public function test_reanchoring_marks_a_comment_the_new_text_no_longer_contains(): void
