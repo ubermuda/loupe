@@ -344,7 +344,7 @@ e2e-down:
 e2e *args:
     #!/usr/bin/env bash
     set -euo pipefail
-    IFS=$'\t' read -r E2E_BASE_URL worktree main < <(bin/e2e-target.sh)
+    { read -r E2E_BASE_URL; read -r worktree; read -r main; } < <(bin/e2e-target.sh)
     export E2E_BASE_URL
     [ -n "$worktree" ] && echo "e2e: worktree '$worktree' detected"
     echo "e2e: target $E2E_BASE_URL"
@@ -377,7 +377,7 @@ e2e-coverage *args:
     # Same target resolution as `just e2e`, through the same script so the two
     # cannot drift: this recipe once fell through to Playwright's own default of
     # the dev host and truncated the development database.
-    IFS=$'\t' read -r E2E_BASE_URL worktree main < <(bin/e2e-target.sh)
+    { read -r E2E_BASE_URL; read -r worktree; read -r main; } < <(bin/e2e-target.sh)
     export E2E_BASE_URL
     echo "e2e: target $E2E_BASE_URL"
     if ! curl -sf -o /dev/null "$E2E_BASE_URL/login"; then
