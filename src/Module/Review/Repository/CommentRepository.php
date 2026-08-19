@@ -147,4 +147,58 @@ class CommentRepository extends ServiceEntityRepository
     {
         return $this->findBy(['author' => $author]);
     }
+
+    /**
+     * Pending → Addressed as a single conditional statement, so a human who
+     * clicks Resolve between the caller's read and this write keeps their
+     * resolution instead of having it silently replaced. Returns false when the
+     * row was no longer pending.
+     */
+    public function markAddressedIfPending(Comment $comment): bool
+    {
+        $updated = $this->createQueryBuilder('c')
+            ->update()
+            ->set('c.status', ':addressed')
+            ->andWhere('c.id = :id')
+            ->andWhere('c.status = :pending')
+            ->setParameter('addressed', CommentStatus::Addressed)
+            ->setParameter('id', $comment->id, 'uuid')
+            ->setParameter('pending', CommentStatus::Pending)
+            ->getQuery()
+            ->execute();
+
+        if (0 === $updated) {
+            return false;
+        }
+
+        // A DQL update bypasses the identity map. The snapshot must move with
+        // the copy, or the next flush reissues this as an unconditional UPDATE
+        // and the race reopens. refresh() cannot do it: Doctrine refuses to
+        // rehydrate the entity's readonly property.
+        $comment->status = CommentStatus::Addressed;
+        $this->getEntityManager()->getUnitOfWork()->setOriginalEntityProperty(
+            spl_object_id($comment),
+            'status',
+            CommentStatus::Addressed,
+        );
+
+        return true;
+    }
+
+    /**
+     * The status the row carries right now, read past the identity map. Only
+     * useful after {@see markAddressedIfPending} returns false, to tell a
+     * concurrent Resolve from a concurrent Addressed. Null if the row is gone.
+     */
+    public function currentStatus(Comment $comment): ?CommentStatus
+    {
+        $row = $this->createQueryBuilder('c')
+            ->select('c.status')
+            ->andWhere('c.id = :id')
+            ->setParameter('id', $comment->id, 'uuid')
+            ->getQuery()
+            ->getOneOrNullResult();
+
+        return is_array($row) && $row['status'] instanceof CommentStatus ? $row['status'] : null;
+    }
 }

@@ -10,27 +10,24 @@ the end of their priority band. Format and rules: `project-next-steps` skill.
 
 **Author:** Claude · **Type:** tooling · **Priority:** high · **Status:** pending
 
-There are **two** independent fallbacks that both silently point an e2e run away
-from the branch under test, and neither announces itself.
+Half of this is fixed. `e2e/playwright.config.ts` now **throws** when
+`E2E_BASE_URL` is unset instead of defaulting to `https://loupe.dev.localhost`,
+so a stray `npx playwright test` can no longer truncate the developer's own
+database. What remains is the worktree fallback below.
 
 `just e2e-up` resolves its target with
 `git worktree list --porcelain | awk '/^worktree /{print $2; exit}'` — the
 **first** entry, which is always the main checkout — and serves that. This is
 by design and documented. The trap is the consequence: a `just e2e` run started
 from a worktree, without `E2E_BASE_URL`, exercises the main checkout's code and
-**passes while gating none of the branch**. Separately, `playwright.config.ts`
-falls back to `https://loupe.dev.localhost` when `E2E_BASE_URL` is unset, which
-points at the developer's own dev host — and the suite is destructive, so that
-path truncates every table in the working database.
+**passes while gating none of the branch**.
 
 Observed on 2026-08-03: a worktree run "failed" because the rendered page had no
 filter bar at all. It was serving `main`'s template. The failure was only
 noticeable because the branch added visible UI — a branch changing behaviour
 without changing markup would have gone green while testing nothing.
 
-Two fixes worth considering together: make `playwright.config.ts` **throw**
-rather than default when `E2E_BASE_URL` is unset, since a wrong target is worse
-than a refusal; and have `just e2e` detect that it is being run from a worktree
+The fix left is to have `just e2e` detect that it is being run from a worktree
 and either target that worktree or refuse. Until then the only reliable check is
 to prove the target after every run — the worktree database must show the
 `install-reset` truncation while the main `app` database is untouched.
@@ -2346,33 +2343,6 @@ old one, or records which side it was made on. Anchoring to the new version is
 the intuitive default — a reviewer commenting on a change is usually commenting
 on the result — but a comment on deleted text has no home there.
 
-## Marking a comment addressed can overwrite a human's Resolve
-
-
-**Author:** Claude · **Type:** bug · **Priority:** medium · **Status:** pending
-
-Both mark-addressed tools read a comment, check its status, and write — with no
-version column, no `SELECT … FOR UPDATE`, and a `flush()` that happens after the
-whole batch. A human clicking Resolve in the web UI in that window has their
-resolution silently replaced by `addressed`, and the thread reopens in front of
-them. The check that is supposed to refuse a resolved thread passes, because it
-ran against the row as it was before they clicked.
-
-The window is short and the collision needs a reviewer and an agent working the
-same thread at the same second, which is why this is recorded rather than fixed.
-It is also **not new**: `SiteReviewMarkCommentAddressedTool` has had the identical
-shape since it shipped, and `DocumentMarkCommentAddressedTool`
-(`src/Module/Review/Mcp/`) copied it deliberately. Fixing one without the other
-would leave the surprising half in place.
-
-The fix is the read-check-write-under-a-row-lock pattern `project-backend`
-already documents — `wrapInTransaction` + `lock(PESSIMISTIC_WRITE)` + `refresh()`
-around each comment — or a conditional `UPDATE … WHERE status = 'pending'` whose
-affected-row count decides between `addressed` and a `already_resolved` skip. The
-second is cheaper and fits the batch shape better. Note that neither is
-unit-testable here: `dama/doctrine-test-bundle` runs each test inside one
-connection's transaction, so two overlapping DB transactions cannot be expressed.
-
 ## There is no JavaScript test harness, and the JS is no longer trivial
 
 
@@ -3559,23 +3529,6 @@ written alongside `tokenHash` — and a migration. Four characters of a 64-hex
 token leaves 60 unknown, so the tail is not usefully brute-forceable, but that
 is a decision to take deliberately rather than assume.
 
-## The documents list reports rows on the page as if it were the filtered total
-
-**Author:** Claude · **Type:** bug · **Priority:** medium · **Status:** pending
-
-The filter row on `templates/Module/Review/list_documents.html.twig` renders
-"N of M documents". M is the project's unfiltered total and is right. N is
-`items|length` — the number of rows on the current page — because
-`ListDocumentsView` exposes `totalPages` but no filtered count.
-
-On a single-page list the two coincide and the line is correct. On a paginated
-one it under-reports: a search matching 30 documents on a 20-per-page list reads
-"20 of 47 documents", which a reader will take to mean the search matched 20.
-
-The fix is to thread the filtered total through `ListDocumentsHandler` into
-`ListDocumentsView` and render that. Until then the number is wrong whenever
-pagination engages, so this is worth doing before the list grows.
-
 ## A verdict cannot be undone, and a resolved comment cannot be reopened
 
 **Author:** Claude · **Type:** feature · **Priority:** medium · **Status:** pending
@@ -3855,44 +3808,6 @@ than queued delivery for those two jobs, so a bug in their real async path would
 not be caught by a green suite. Revisit if either grows behaviour that depends
 on the surrounding transaction having committed.
 
-## An e2e context built without the project config may not send `X-Playwright`
-
-**Author:** Claude · **Type:** tooling · **Priority:** low · **Status:** pending
-
-`e2e/tests/billing/trial-end-lifecycle.spec.ts` builds a context with
-`browser.newContext({ storageState })`, passing none of the project's `use`
-options. The worker-scoped fixture in `e2e/tests/fixtures.ts` had that same
-shape and did **not** receive `X-Playwright`, so its mail stayed on the async
-transport and the suite still needed a consumer; that was fixed by copying
-`extraHTTPHeaders` from `workerInfo.project.use`.
-
-Whether this second context receives the header was never established. It
-navigates with relative URLs through `adminLogin` and passes today, which
-implies it inherits `baseURL` from somewhere — so the two facts are in tension
-and only a test settles it. Worth settling before any mail assertion is added to
-that spec: the failure mode is a 30-second timeout that reads as an application
-bug rather than a missing header.
-
-## `project-backend` documents a `getLogger()` helper that does not exist
-
-**Author:** Claude · **Type:** docs · **Priority:** medium · **Status:** pending
-
-`.claude/skills/project-backend/SKILL.md` tells agents that controllers log with
-`$this->getLogger()->info('event.name', [...])`. `src/Controller/AppController.php`
-has no such method — its only helper is `getInjectedFormView()` — so following
-the skill produces a call to an undefined method.
-
-The correct guidance is to inject `LoggerInterface` via the constructor in
-controllers and services alike. The same commit should re-check two neighbouring
-claims that were wrong at the same time: `getInjectedFormView()` is retrieved in
-the receiving *Twig component* rather than the receiving controller, and its
-docblock line describing the signature carries a redundant parenthetical.
-
-Found 2026-08-16 while clearing `origin/chore/next-steps-housekeeping`, whose
-PR #48 was closed unmerged in 2026-07-25. That branch carried this fix; the rest
-of it has since been overtaken by newer edits to the same files, so take the
-correction rather than the branch.
-
 ## Revising a document still loads every one of its versions
 
 **Author:** Claude · **Type:** bug · **Priority:** medium · **Status:** pending
@@ -3929,3 +3844,28 @@ keep its shape while the list-shaped ones stream. That changes an exported
 archive's format if done carelessly, which is why it was not folded into the
 in-memory fix.
 
+
+## A mark-addressed skip reason is best-effort, because the re-read is not under the write's lock
+
+**Author:** Claude · **Type:** bug · **Priority:** low · **Status:** pending
+
+`SiteReviewCommentRepository::markAddressedIfPending()` and its twin on
+`App\Module\Review\Repository\CommentRepository` settle the write with a
+conditional `UPDATE … WHERE status = 'pending'`, which is what stops an agent
+overwriting a human's Resolve. A zero-row result only says the comment was not
+pending, so both MCP mark-addressed tools then call `currentStatus()` to learn
+why and report `already_addressed` / `resolved` / not-found accordingly.
+
+That second read is a separate statement outside any row lock, so the status can
+move again between the two. The reported *reason* is therefore best-effort: an
+agent can be told `resolved` for a comment that was addressed a moment earlier,
+or the reverse.
+
+Only the label is affected — the write itself is already safe, and no comment
+changes state because of this. Closing it properly means the read-check-write
+pattern `project-backend` documents (`wrapInTransaction` + `lock(PESSIMISTIC_WRITE)`
++ `refresh()`), which was passed over because it costs a lock per comment on
+every batch to sharpen a string that is only wrong when two writers race the same
+comment. Note `refresh()` does not work on these entities — Doctrine refuses to
+rehydrate their readonly `createdAt` — so a lock-based version needs another way
+to re-read.

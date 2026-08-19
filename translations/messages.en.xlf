@@ -2660,7 +2660,7 @@
             </trans-unit>
             <trans-unit id="review.dashboard.filter.count">
                 <source>review.dashboard.filter.count</source>
-                <target>%shown% of %total% documents</target>
+                <target>%matching% of %total% documents</target>
             </trans-unit>
             <trans-unit id="review.dashboard.meta.open_count">
                 <source>review.dashboard.meta.open_count</source>

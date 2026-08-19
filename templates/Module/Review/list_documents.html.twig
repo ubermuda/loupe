@@ -105,7 +105,7 @@
         {# The total counts live documents only, so it is omitted while archived
            ones are on screen rather than reporting more rows than documents. #}
         {% if totalDocuments > 0 and not listQuery.includeArchived %}
-        <span class="lp-filter-count">{{ 'review.dashboard.filter.count'|trans({'%shown%': items|length, '%total%': totalDocuments}) }}</span>
+        <span class="lp-filter-count">{{ 'review.dashboard.filter.count'|trans({'%matching%': filteredTotal, '%total%': totalDocuments}) }}</span>
         {% endif %}
     </div>
     {% endif %}

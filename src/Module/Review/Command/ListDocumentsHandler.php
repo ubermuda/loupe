@@ -64,6 +64,7 @@ final readonly class ListDocumentsHandler
                 },
                 $documents,
             ),
+            filteredTotal: $total,
             totalPages: $totalPages,
             pageList: PageList::build($listQuery->page, $totalPages),
             projectTags: $this->tags->findByProject($command->project),

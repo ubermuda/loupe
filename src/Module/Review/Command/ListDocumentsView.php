@@ -16,6 +16,7 @@ final readonly class ListDocumentsView
      */
     public function __construct(
         public array $items,
+        public int $filteredTotal,
         public int $totalPages,
         public array $pageList,
         public array $projectTags,

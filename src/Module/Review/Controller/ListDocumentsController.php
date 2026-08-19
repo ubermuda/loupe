@@ -52,6 +52,7 @@ class ListDocumentsController extends AppController
         return $this->render('@Review/list_documents.html.twig', [
             'project' => $project,
             'items' => $view->items,
+            'filteredTotal' => $view->filteredTotal,
             'page' => $listQuery->page,
             'totalPages' => $view->totalPages,
             'pageList' => $view->pageList,
