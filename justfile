@@ -344,7 +344,7 @@ e2e-down:
 e2e *args:
     #!/usr/bin/env bash
     set -euo pipefail
-    IFS=$'\t' read -r E2E_BASE_URL worktree < <(bin/e2e-target.sh)
+    IFS=$'\t' read -r E2E_BASE_URL worktree main < <(bin/e2e-target.sh)
     export E2E_BASE_URL
     [ -n "$worktree" ] && echo "e2e: worktree '$worktree' detected"
     echo "e2e: target $E2E_BASE_URL"
@@ -359,8 +359,12 @@ e2e *args:
     # later as "the login does not work". The suite's exit code is preserved:
     # a re-seed must never turn a red run green.
     if [ -n "$worktree" ]; then
-        echo "e2e: re-seeding $worktree (install-reset truncates its dev data)"
-        bin/worktrees/compose-exec.sh bin/console app:dev:seed
+        # worktree-up rather than a bare seed: install-reset drops the project
+        # the widget token belongs to, and bootstrap is what notices the token
+        # in .env.local no longer resolves and reissues it. Run from main, where
+        # the bare compose calls inside it resolve correctly.
+        echo "e2e: repairing $worktree (install-reset truncates its dev data)"
+        ( cd "$main" && bin/worktrees/worktree-bootstrap.sh "$worktree" >/dev/null )
     fi
     exit $status
 
@@ -373,7 +377,7 @@ e2e-coverage *args:
     # Same target resolution as `just e2e`, through the same script so the two
     # cannot drift: this recipe once fell through to Playwright's own default of
     # the dev host and truncated the development database.
-    IFS=$'\t' read -r E2E_BASE_URL worktree < <(bin/e2e-target.sh)
+    IFS=$'\t' read -r E2E_BASE_URL worktree main < <(bin/e2e-target.sh)
     export E2E_BASE_URL
     echo "e2e: target $E2E_BASE_URL"
     if ! curl -sf -o /dev/null "$E2E_BASE_URL/login"; then
@@ -381,8 +385,21 @@ e2e-coverage *args:
         exit 1
     fi
     rm -rf var/coverage
-    cd e2e && COVERAGE=1 npx playwright test "$@"
-    cd .. && bin/worktrees/compose-exec.sh vendor/bin/phpcov merge var/coverage --html var/coverage/html
+    status=0
+    ( cd e2e && COVERAGE=1 npx playwright test "$@" ) || status=$?
+    # Same repair as `just e2e`, for the same reason: this run is destructive to
+    # a worktree's dev data, and `set -e` would otherwise skip the repair on
+    # exactly the failing runs that leave the tree in the worst state.
+    if [ -n "$worktree" ]; then
+        # worktree-up rather than a bare seed: install-reset drops the project
+        # the widget token belongs to, and bootstrap is what notices the token
+        # in .env.local no longer resolves and reissues it. Run from main, where
+        # the bare compose calls inside it resolve correctly.
+        echo "e2e: repairing $worktree (install-reset truncates its dev data)"
+        ( cd "$main" && bin/worktrees/worktree-bootstrap.sh "$worktree" >/dev/null )
+    fi
+    [ "$status" -eq 0 ] || exit $status
+    bin/worktrees/compose-exec.sh vendor/bin/phpcov merge var/coverage --html var/coverage/html
 
 open-coverage:
     open var/coverage/html/index.html
