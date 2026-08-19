@@ -48,6 +48,12 @@ db_server_version = "18" # the cluster's actual PG major version
 # nothing and returns 200. Switch once migrations have run.
 # health_check_path = "/healthz"
 
+# Optional. Lets a post-deploy check read the running build:
+#     curl -sH "X-Probe-Token: $TOKEN" https://<host>/healthz | jq -r .version
+# Unset, /healthz never reports a version to anyone. Generate with
+# `openssl rand -hex 32`.
+# health_probe_token = "..."
+
 # --- Optional: custom domain ---
 # Omit both and the app serves only on its assigned *.ondigitalocean.app
 # hostname. domain_zone must be a zone THIS account's DNS serves
@@ -138,6 +144,7 @@ export_bucket_region = "tor1"
 # create_export_bucket = false
 # export_storage_bucket         = "loupe-exports"
 # export_storage_region         = "eu-west-1"
+# export_storage_prefix         = "archives/"   # empty stores at the bucket root
 # export_storage_endpoint       = "https://minio.example.com"
 # export_storage_key            = "..."
 # export_storage_secret         = "..."

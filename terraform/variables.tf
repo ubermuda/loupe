@@ -182,6 +182,13 @@ variable "admin_email" {
   description = "ADMIN_EMAIL. The user with this address is promoted to ROLE_ADMIN. Empty disables promotion."
 }
 
+variable "health_probe_token" {
+  type        = string
+  sensitive   = true
+  default     = ""
+  description = "HEALTH_PROBE_TOKEN letting a post-deploy check read the running build from /healthz via an X-Probe-Token header. Optional: empty means /healthz never reports a version."
+}
+
 variable "install_token" {
   type        = string
   sensitive   = true
