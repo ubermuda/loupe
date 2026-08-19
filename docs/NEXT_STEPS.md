@@ -3765,10 +3765,15 @@ re-reading in git history before rebuilding it.
 
 The payload from `site_review_get`
 (`src/Module/SiteReview/Mcp/SiteReviewGetTool.php`) carries `id`, `url`,
-`selector`, `text`, `body` and `createdAt` — but nothing identifying the
-author. Since the widget is embeddable on public pages, a comment may have been
-written by the project owner or by any visitor, and an agent consuming the tool
-cannot tell the two apart.
+`selector`, `text`, `body` and `createdAt` — but nothing identifying the author,
+and `SiteReviewComment` has no author column to expose. Every comment arrives
+through `AddCommentController`, which resolves a *project* from the widget token
+and stores nothing about who submitted it.
+
+Scoped 2026-08-19: this is not live on loupe.ac. The widget renders only where
+`SITE_REVIEW_WIDGET_TOKEN` is set, which is development, so in practice the
+author is the developer. It matters for an operator who serves the widget on a
+public page, where a visitor's comment and the owner's are indistinguishable.
 
 The consequence is that `loupe-site-review` has to escalate categorically: any
 comment that would change a destination, an identity, a credential or
@@ -3778,14 +3783,13 @@ agent against comments of exactly that shape — it applied a link-destination
 change and a support-email change on its own judgement when the skill was
 absent.
 
-That blanket rule is correct while authorship is unknown, but it taxes the
-common case: the owner's own "this link 404s" bounces to a human every time.
-Exposing an author or a trust level on the comment (and on the widget token
-that created it) would let the rule relax for the owner while keeping it for
-anonymous visitors. Decide what the widget can actually attest to first — a
-public token identifies a project, not a person, so this may need per-reviewer
-identity to mean anything. See "Personal reviewer tokens as an identity layer
-for the widget".
+Owner decision 2026-08-19: keep the blanket rule. There is no cheap middle
+option — one project-scoped token is the only credential, and a Loupe session
+cookie is never sent with widget requests from a page the app does not serve, so
+nothing distinguishes an owner from a visitor without per-reviewer tokens. Those
+are worth building for their own reasons; see "Personal reviewer tokens as an
+identity layer for the widget". Until then the escalation stays, and the tax on
+the owner's own feedback is accepted rather than worked around.
 
 ## Transactional jobs run inline in e2e under `X-Playwright`
 
@@ -3827,17 +3831,22 @@ collection, which means reworking `addVersion()`'s API and re-reading the
 concurrency comment that makes it the first thing to touch `->versions` under the
 row lock.
 
-## The site-review widget API has no rate limit, and its token is public by design
+## The site-review widget API has no rate limit
 
-**Author:** Claude · **Type:** security · **Priority:** medium · **Status:** pending
+**Author:** Claude · **Type:** security · **Priority:** low · **Status:** pending
 
-The widget authenticates with a project-scoped token that ships inside the page
-it is embedded in, so any visitor to a public page carrying the widget can read
-it out of the source and call the API directly. That is the intended design —
-the token identifies a project, not a person — but it means the write routes
-under `^/api/site-review` (`AddCommentController`, `UpdateCommentController`,
-`DeleteCommentController` in `src/Module/SiteReview/Controller/Api/`) are
-reachable by anyone who can see a page, with nothing bounding how often.
+Corrected 2026-08-19: an earlier version of this entry called the token public
+by design. It is not. The widget is emitted only when the
+`site_review_widget_token` Twig global is non-empty, which reads
+`SITE_REVIEW_WIDGET_TOKEN` — set in `.env.local` and in no terraform variable or
+production compose file. The widget is a development dogfooding tool and is not
+served on loupe.ac at all, so the token is an ordinary secret rather than a
+published one.
+
+What remains is that the write routes under `^/api/site-review`
+(`AddCommentController`, `UpdateCommentController`, `DeleteCommentController` in
+`src/Module/SiteReview/Controller/Api/`) have nothing bounding how often they may
+be called by whoever holds the token.
 
 `config/packages/security.yaml` gates the path on `ROLE_API_SITE_REVIEW`, which
 proves the token and stops there. `config/packages/framework.yaml` defines
@@ -3846,10 +3855,12 @@ exactly one limiter, `resend_verification_email`; the login firewall adds
 `AddCommentRequest` allows 10,000 characters of body and 2,000 for the selector
 and page fields — so a single call is bounded and the call count is not.
 
-Recorded 2026-08-19. The cost is database rows and a review queue full of noise
-for both the agent and the human reading it, not money: nothing behind these
-routes calls a metered third-party API. That is why this is medium rather than
-high, and it stops being true the day a paid call sits behind a widget write.
+The cost is database rows and a review queue full of noise, not money: nothing
+behind these routes calls a metered third-party API. With the token unpublished
+and the widget absent from production, this is low rather than the medium it was
+first filed as. It becomes urgent the day an operator does serve the widget on a
+public page, which the snippet in `templates/Module/Project/_widget_snippet.html.twig`
+exists to let them do.
 
 The fix is a rate limiter on the write routes with a `when@test` high-limit
 override, following the pattern in `project-backend`. Keying it is the part
