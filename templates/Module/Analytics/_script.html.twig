@@ -1,0 +1,4 @@
+{% set analytics = analytics_script() %}
+{% if analytics %}
+    <script defer src="{{ analytics.src }}" data-website-id="{{ analytics.websiteId }}"></script>
+{% endif %}

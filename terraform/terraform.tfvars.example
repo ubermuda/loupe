@@ -143,6 +143,7 @@ export_bucket_region = "tor1"
 # side is identical, only these values change.
 # create_export_bucket = false
 # export_storage_bucket         = "loupe-exports"
+# export_storage                = "s3"          # local (default) or s3
 # export_storage_region         = "eu-west-1"
 # export_storage_prefix         = "archives/"   # empty stores at the bucket root
 # export_storage_endpoint       = "https://minio.example.com"
