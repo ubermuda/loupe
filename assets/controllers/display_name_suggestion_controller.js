@@ -47,7 +47,7 @@ function upperFirst(value) {
  *
  * Usage:
  *   <form data-controller="display-name-suggestion"
- *         data-display-name-suggestion-max-length-value="150">
+ *         data-display-name-suggestion-max-length-value="…">
  *     <input data-display-name-suggestion-target="email"
  *            data-action="input->display-name-suggestion#suggest">
  *     <input data-display-name-suggestion-target="displayName"
