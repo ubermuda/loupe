@@ -344,14 +344,25 @@ e2e-down:
 e2e *args:
     #!/usr/bin/env bash
     set -euo pipefail
-    project=$(grep -E '^COMPOSE_PROJECT_NAME=' .env | head -1 | cut -d= -f2-)
-    dedicated_url="https://e2e.${project}.dev.localhost"
-    export E2E_BASE_URL="${E2E_BASE_URL:-$dedicated_url}"
+    IFS=$'\t' read -r E2E_BASE_URL worktree < <(bin/e2e-target.sh)
+    export E2E_BASE_URL
+    [ -n "$worktree" ] && echo "e2e: worktree '$worktree' detected"
+    echo "e2e: target $E2E_BASE_URL"
     if ! curl -sf -o /dev/null "$E2E_BASE_URL/login"; then
-        echo "e2e: $E2E_BASE_URL is not reachable — run 'just e2e-up' first." >&2
+        echo "e2e: $E2E_BASE_URL is not reachable — run 'just e2e-up' (or 'just worktree-up') first." >&2
         exit 1
     fi
-    cd e2e && npx playwright test "$@"
+    status=0
+    ( cd e2e && npx playwright test "$@" ) || status=$?
+    # install-reset truncates every table, so a worktree loses the dev user and
+    # project it was seeded with. Restored here rather than left to surface
+    # later as "the login does not work". The suite's exit code is preserved:
+    # a re-seed must never turn a red run green.
+    if [ -n "$worktree" ]; then
+        echo "e2e: re-seeding $worktree (install-reset truncates its dev data)"
+        bin/worktrees/compose-exec.sh bin/console app:dev:seed
+    fi
+    exit $status
 
 # CoverageSubscriber writes .cov files to var/coverage, which are then merged
 # into an HTML report.
@@ -359,13 +370,14 @@ e2e *args:
 e2e-coverage *args:
     #!/usr/bin/env bash
     set -euo pipefail
-    # Same target and same guard as `just e2e`. Without this the coverage run
-    # fell through to Playwright's own default of the dev host — a documented
-    # full-suite command that truncates the development database.
-    project=$(grep -E '^COMPOSE_PROJECT_NAME=' .env | head -1 | cut -d= -f2-)
-    export E2E_BASE_URL="${E2E_BASE_URL:-https://e2e.${project}.dev.localhost}"
+    # Same target resolution as `just e2e`, through the same script so the two
+    # cannot drift: this recipe once fell through to Playwright's own default of
+    # the dev host and truncated the development database.
+    IFS=$'\t' read -r E2E_BASE_URL worktree < <(bin/e2e-target.sh)
+    export E2E_BASE_URL
+    echo "e2e: target $E2E_BASE_URL"
     if ! curl -sf -o /dev/null "$E2E_BASE_URL/login"; then
-        echo "e2e: $E2E_BASE_URL is not reachable — run 'just e2e-up' first." >&2
+        echo "e2e: $E2E_BASE_URL is not reachable — run 'just e2e-up' (or 'just worktree-up') first." >&2
         exit 1
     fi
     rm -rf var/coverage
