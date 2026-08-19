@@ -230,12 +230,30 @@ final class RefreshDocumentVersionsHtmlHandlerTest extends KernelTestCase
         self::assertSame(0, $result->orphaned);
 
         $row = $connection->fetchAssociative(
-            'SELECT c.anchor_offset_hint, c.orphaned FROM comments c WHERE c.version_id = :id::uuid',
+            'SELECT c.anchor_offset_hint, c.anchor_prefix, c.anchor_suffix, c.orphaned FROM comments c WHERE c.version_id = :id::uuid',
             ['id' => (string) $versionId],
         );
         self::assertIsArray($row);
         self::assertSame(6, (int) $row['anchor_offset_hint'], 'the offset of "title" in "Fresh title"');
         self::assertFalse((bool) $row['orphaned']);
+        // The context, not just the offset. The browser never receives
+        // offsetHint and re-locates by quote and surrounding text, so an anchor
+        // whose prefix still described the old rendering would keep sending it
+        // to the wrong occurrence of a repeated quote.
+        self::assertSame('Fresh ', $row['anchor_prefix']);
+        self::assertSame('', trim((string) $row['anchor_suffix']), '"title" ends the rendered text');
+    }
+
+    public function test_a_second_reanchor_run_reports_nothing_newly_orphaned(): void
+    {
+        [$container] = $this->seedStrandingVersion('reanchor-twice');
+
+        $handler = $container->get(RefreshDocumentVersionsHtmlHandler::class);
+        self::assertSame(1, $handler(new RefreshDocumentVersionsHtmlCommand(reanchor: true))->orphaned);
+
+        // Already orphaned, so nothing changed and the count must say so —
+        // otherwise every re-run re-reports the same damage as new.
+        self::assertSame(0, $handler(new RefreshDocumentVersionsHtmlCommand(reanchor: true))->orphaned);
     }
 
     public function test_reanchoring_marks_a_comment_the_new_text_no_longer_contains(): void

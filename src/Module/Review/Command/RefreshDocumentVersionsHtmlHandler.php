@@ -82,43 +82,42 @@ final readonly class RefreshDocumentVersionsHtmlHandler
         $reanchored = 0;
         $orphaned = 0;
 
-        /** @var array<string, list<array{comment_id: string, anchor: Anchor}>> $commentsByVersion */
-        $commentsByVersion = [];
-        foreach ($this->documentVersions->streamAnchoredCommentsByVersion() as $row) {
-            $commentsByVersion[$row['id']][] = [
-                'comment_id' => $row['comment_id'],
-                'anchor' => new Anchor(
-                    $row['anchor_quote'],
-                    $row['anchor_prefix'],
-                    $row['anchor_suffix'],
-                    $row['anchor_offset_hint'],
-                ),
-            ];
-        }
-
         foreach ($this->documentVersions->streamAllSources() as $row) {
             ++$total;
             $versionId = $row['id'];
             $html = $this->renderer->render($row['markdown_source']);
             $text = DocumentVersion::plainTextOf($html);
-            $comments = $commentsByVersion[$versionId] ?? [];
 
-            $this->em->wrapInTransaction(function () use ($versionId, $html, $text, $comments, &$changed, &$reanchored, &$orphaned): void {
+            $this->em->wrapInTransaction(function () use ($versionId, $html, $text, &$changed, &$reanchored, &$orphaned): void {
                 $changed += $this->documentVersions->updateRenderedHtml($versionId, $html);
 
-                foreach ($comments as $comment) {
+                // Read inside the transaction, one version at a time: a snapshot
+                // taken before the run would both hold every comment in the
+                // database in memory and miss any created while it ran, leaving
+                // exactly the new-HTML-beside-old-anchors state this is for.
+                foreach ($this->comments->anchoredForVersion($versionId) as $comment) {
                     $offset = $this->anchorService->resolve($text, $comment['anchor']);
-                    $this->comments->reanchor(
-                        $comment['comment_id'],
-                        $offset ?? $comment['anchor']->offsetHint,
-                        null === $offset,
-                    );
 
                     if (null === $offset) {
-                        ++$orphaned;
-                    } else {
-                        ++$reanchored;
+                        // The anchor is left as it was so a later revision can
+                        // still try to place it; only the flag records that this
+                        // rendering cannot. Counted as newly orphaned only when
+                        // it was not already, so a second run reports nothing.
+                        $this->comments->reanchor($comment['id'], $comment['anchor'], true);
+                        $orphaned += $comment['orphaned'] ? 0 : 1;
+
+                        continue;
                     }
+
+                    // A fresh anchor, not just the new offset: the browser never
+                    // receives offsetHint and re-locates by quote and context, so
+                    // prefix and suffix have to describe the new text too.
+                    $this->comments->reanchor($comment['id'], $this->anchorService->create(
+                        $text,
+                        $offset,
+                        mb_strlen($comment['anchor']->quote, 'UTF-8'),
+                    ), false);
+                    ++$reanchored;
                 }
             });
         }

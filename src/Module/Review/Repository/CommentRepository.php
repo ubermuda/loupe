@@ -8,6 +8,7 @@ use App\Module\Account\Entity\User;
 use App\Module\Review\Entity\Comment;
 use App\Module\Review\Entity\CommentStatus;
 use App\Module\Review\Entity\DocumentVersion;
+use App\Module\Review\ValueObject\Anchor;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\Persistence\ManagerRegistry;
 
@@ -205,23 +206,64 @@ class CommentRepository extends ServiceEntityRepository
     /**
      * Moves a comment's anchor onto re-rendered text, in place.
      *
+     * The whole anchor, not just the offset. The browser never receives
+     * offsetHint — it re-locates each comment by quote and by the surrounding
+     * prefix and suffix — so moving the offset alone would update the one field
+     * highlighting does not read and leave the ones it does describing the old
+     * text. Where a quote appears more than once, that is how a highlight lands
+     * on the wrong occurrence.
+     *
      * A DQL update rather than loading the entity: this runs across every
-     * comment in the database, and Comment::$anchor is readonly because an
-     * anchor never changes for any other reason. Re-rendering is the one
-     * operation that legitimately moves one, and it moves only the offset —
-     * quote, prefix and suffix still describe the same passage.
+     * comment in the database, and Comment::$anchor is readonly because
+     * re-rendering is the only thing that legitimately moves one.
      */
-    public function reanchor(string $commentId, int $offsetHint, bool $orphaned): void
+    public function reanchor(string $commentId, Anchor $anchor, bool $orphaned): void
     {
         $this->createQueryBuilder('c')
             ->update()
+            ->set('c.anchor.quote', ':quote')
+            ->set('c.anchor.prefix', ':prefix')
+            ->set('c.anchor.suffix', ':suffix')
             ->set('c.anchor.offsetHint', ':offsetHint')
             ->set('c.orphaned', ':orphaned')
             ->andWhere('c.id = :id')
-            ->setParameter('offsetHint', $offsetHint)
+            ->setParameter('quote', $anchor->quote)
+            ->setParameter('prefix', $anchor->prefix)
+            ->setParameter('suffix', $anchor->suffix)
+            ->setParameter('offsetHint', $anchor->offsetHint)
             ->setParameter('orphaned', $orphaned)
             ->setParameter('id', $commentId, 'uuid')
             ->getQuery()
             ->execute();
+    }
+
+    /**
+     * Anchored comments on one version, read inside the caller's transaction so
+     * a comment created after a broader snapshot is not left behind with the old
+     * rendering.
+     *
+     * @return list<array{id: string, anchor: Anchor, orphaned: bool}>
+     */
+    public function anchoredForVersion(string $versionId): array
+    {
+        $rows = $this->getEntityManager()->getConnection()->fetchAllAssociative(
+            "SELECT id, anchor_quote, anchor_prefix, anchor_suffix, anchor_offset_hint, orphaned
+             FROM comments WHERE version_id = :version::uuid AND anchor_quote <> ''",
+            ['version' => $versionId],
+        );
+
+        return array_map(
+            static fn (array $row): array => [
+                'id' => (string) $row['id'],
+                'anchor' => new Anchor(
+                    (string) $row['anchor_quote'],
+                    (string) $row['anchor_prefix'],
+                    (string) $row['anchor_suffix'],
+                    (int) $row['anchor_offset_hint'],
+                ),
+                'orphaned' => (bool) $row['orphaned'],
+            ],
+            $rows,
+        );
     }
 }
