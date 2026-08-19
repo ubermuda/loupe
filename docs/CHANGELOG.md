@@ -30,6 +30,104 @@ entry.
 
 ## [Unreleased]
 
+- `0406b9c` (#209) — **Fixed:** the admin area loads the application stylesheet
+  again; it extends the bundle's layout rather than `layout_base.html.twig`, so
+  it lost its only source of CSS when `assets/app.js` stopped importing the
+  sheet.
+- `167f3c9` (#208) — **Added:** `/healthz` reports the running build to a caller
+  presenting `HEALTH_PROBE_TOKEN` as an `X-Probe-Token` header, so a post-deploy
+  check can prove which image is live; unset, it reports nothing.
+- `77bc23c` (#207) — **Changed:** the production and demo images no longer ship
+  the marketing site or the Tailwind CLI, taking them from 1.13 GB to 105 MB and
+  from 1.16 GB to 505 MB.
+- `47c67f5` (#206) — **Fixed:** marking a comment addressed no longer overwrites
+  a human's Resolve, the documents list counts matching documents rather than
+  rows on the current page, and the `project-backend` skill stops documenting a
+  `getLogger()` helper that does not exist.
+- `2f30fd2` (#205) — **Changed:** the landing page moves into its own module,
+  and each module seeds its own feature flags.
+- `fdefb96` (#204) — **Changed:** each module owns its own counts, tokens and
+  gates rather than sharing one surface.
+- `87fc6bb` (#203) — **Changed:** the list pages batch their queries, and an
+  account export stops buffering every payload at once.
+- `7d788fa` (#202) — **Changed:** the content security policy blocks rather
+  than merely reporting, and responses carry HSTS; `assets/app.js` no longer
+  imports the stylesheet, which becomes a plain `<link>`.
+- `d077eff` (#201) — **Added:** the gate audits the npm dependency trees, and
+  the site-review widget ships minified.
+- `2de6a00` (#200) — **Fixed:** the spacing of the type scale, and the landing
+  page's document head.
+- `4b8a339` (#199) — **Fixed:** five small correctness gaps found by the
+  audit.
+- `b8c0563` (#198) — **Fixed:** the site-review bridge CLI no longer stalls
+  silently or acts on stray events.
+- `80ccd47` (#197) — **Changed:** the system status page moves into its own
+  Diagnostics module.
+- `d749322` (#196) — **Fixed:** an incomplete subscription no longer disables
+  an account that is still trialling.
+- `9377355` (#195) — **Fixed:** review writes require a write permission.
+- `11612ae` (#194) — **Fixed:** a 500 on the display name "0", widget
+  robustness, a CSRF gap and colour contrast.
+- `4a656f8` (#193) — **Fixed:** the bridge's SSE resume point survives a
+  connection dropped mid-event.
+- `53797e9` (#192) — **Changed:** messages dispatched under Playwright are
+  handled inline, so the e2e suite needs no consumer.
+- `9021216` (#190) — **Fixed:** the authentication pages render outside the
+  signed-in application shell.
+- `aa76637` (#189) — **Changed:** the Terraform configuration pins the shared
+  module at v2.1.0.
+- `f35b3fd` (#188) — **Added:** predeploy migrations can be switched on and
+  off with a Terraform variable.
+- `18070c3` (#187) — **Added:** Terraform configuration for a first
+  DigitalOcean deploy.
+- `8f5b08e` (#185) — **Added:** two site-review skills, and a correction to
+  the site-review user documentation.
+- `ab352e0` (#184) — **Changed:** the site-review widget saves comments as
+  they are written, so there is no send step.
+- `8de0aaf` (#178) — **Fixed:** the landing page scrolls to a section instead
+  of jumping to it.
+- `db02e7d` (#177) — **Added:** the site-review widget loads on public pages
+  as well as authenticated ones.
+- `ee0bad6` (#176) — **Added:** a marketing landing page at `/`.
+- `f3f6a85` (#175) — **Changed:** `document_highlight` sits behind the
+  `review.highlights.enabled` flag, seeded off.
+- `97a1ecd` (#174) — **Added:** a Starlight site that renders `docs/` in
+  place.
+- `b8981fc` (#173) — **Changed:** the documentation is restructured, and non-
+  development configuration moves out of the repository root.
+- `90a73ce` (#169) — **Added:** `composer audit` runs as part of the CI gate.
+- `31f9280` (#172) — **Added:** a single-container demo image, published to
+  GHCR.
+- `57be275` (#170) — **Added:** an About page, branded error pages and a real
+  build version, alongside install-wizard polish.
+- `0b44e2a` (#167) — **Fixed:** `league/commonmark` moves to 2.9.0, closing
+  six published advisories.
+- `bd03266` (#166) — **Changed:** the comment budget fails the build instead
+  of advising.
+- `dae4ba1` (#165) — **Fixed:** a third party's first install works, from the
+  self-hosting audit.
+- `a752adc` (#161) — **Changed:** the over-budget comment blocks reported by
+  the comment budget are cut.
+- `6d2f003` (#164) — **Fixed:** the minor items the review loop left open.
+- `4387161` (#163) — **Changed:** the signed-in application is redesigned.
+- `6624b79` (#162) — **Changed:** gamache is repointed at its Flex-marker fix.
+- `e384254` (#159) — **Added:** comment length is measured, and handlers are
+  read through everywhere.
+- `99c6f21` (#154) — **Changed:** sessions, the application cache and rate-
+  limit counters move to Postgres.
+- `d50f3ed` (#158) — **Changed:** the site-review Mercure push sits behind a
+  flag with an environment prerequisite.
+- `24c9d8d` (#160) — **Changed:** the Mercure hub is opt-in.
+- `b7c9f2a` (#156) — **Added:** an opt-in MinIO container, with the export
+  storage exercised against it.
+- `0e45ade` (#155) — **Changed:** the inline importmap scripts carry a nonce,
+  ahead of enforcing the policy.
+- `5a2b8b2` (#153) — **Added:** backup guidance, the torn-down-worktree write
+  hazard, and the MCP findings.
+- `0b2acd6` (#152) — **Fixed:** nine easy tracker items.
+- `dc62be7` (#151) — **Fixed:** `guzzlehttp/guzzle` moves to 7.15.2.
+- `1fa8b42` (#150) — **Changed:** the changelog is rewritten at one entry per
+  pull request.
 - `455648b` (#138) — **Fixed:** six small tracker items — phpstan's memory
   limit, MCP array parameter schemas, a `DisplayLabel` rename, the tsconfig, and
   the widget's send guard.
