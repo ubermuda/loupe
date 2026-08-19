@@ -7,7 +7,9 @@ namespace App\Module\Review\Command;
 use App\Exception\DomainErrors;
 use App\Module\Review\Entity\Document;
 use App\Module\Review\Entity\DocumentStatus;
+use App\Module\Review\Entity\DocumentVersion;
 use App\Module\Review\Repository\CommentRepository;
+use App\Module\Review\Repository\DocumentVersionRepository;
 use App\Module\Review\Service\DocumentReferenceValidator;
 use App\Module\Review\Service\DocumentSearchIndexer;
 use App\Module\Review\Service\MarkdownRenderer;
@@ -22,6 +24,7 @@ final readonly class ReviseDocumentHandler
         private MarkdownRenderer $renderer,
         private ReanchoringService $reanchoringService,
         private CommentRepository $comments,
+        private DocumentVersionRepository $documentVersions,
         private DocumentReferenceValidator $referenceValidator,
         private DocumentSearchIndexer $searchIndexer,
     ) {
@@ -62,22 +65,29 @@ final readonly class ReviseDocumentHandler
             : $this->referenceValidator->validated($document->project, $document, $command->references);
 
         return $this->em->wrapInTransaction(function () use ($document, $command, $description, $title, $references): array {
-            // Locks the documents row before anything reads $document->versions, so two
-            // concurrent revisions of the same document serialize here instead of both
-            // computing the same "next version number" from a collection loaded before
-            // either lock was held (Document::addVersion() derives the number from the
-            // collection's count — must stay the first thing that touches ->versions).
+            // Locks the documents row before the number below is read, so two
+            // concurrent revisions serialize here rather than both deriving the
+            // same next version number.
             $this->em->lock($document, LockMode::PESSIMISTIC_WRITE);
 
-            // Capture the previous current version BEFORE adding the new one.
-            $previousVersion = $document->currentVersion();
+            // Both reads go through the repository, and the version is built and
+            // persisted directly rather than through Document::addVersion(): that
+            // helper calls count() and add() on ->versions, and the association is
+            // not EXTRA_LAZY, so either one loads every version of the document.
+            $previousVersion = $this->documentVersions->findLatest($document);
 
-            // Add the new version (rendered from Markdown).
-            $newVersion = $document->addVersion(
+            $newVersion = new DocumentVersion(
+                $document,
+                $this->documentVersions->nextVersionNumber($document),
                 $command->markdown,
                 $this->renderer->render($command->markdown),
                 $description,
             );
+            $this->em->persist($newVersion);
+            // Kept in step in memory as well: currentVersion() reads the
+            // collection, so anything reading the document later in this
+            // request would otherwise still see the previous version.
+            $document->versions->add($newVersion);
 
             // A revision may also correct the title; leaving it out means "keep
             // the current one" rather than "clear it".
@@ -107,7 +117,7 @@ final readonly class ReviseDocumentHandler
             // Transition document status back to in-review.
             $document->status = DocumentStatus::InReview;
 
-            // Flush: Document → versions cascade persists new version; version → comments cascade persists copies.
+            // Flush: the new version is persisted explicitly above; version → comments cascade persists the copies.
             $this->em->flush();
 
             // Inside the transaction: a revision that rolls back must not leave

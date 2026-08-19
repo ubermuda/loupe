@@ -23,6 +23,7 @@ use App\Module\Review\Entity\DocumentVersion;
 use App\Module\Review\Repository\CommentRepository;
 use App\Module\Review\ValueObject\Anchor;
 use Doctrine\ORM\EntityManagerInterface;
+use Doctrine\ORM\PersistentCollection;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Symfony\Component\Uid\Uuid;
 
@@ -233,6 +234,39 @@ final class ReviseDocumentHandlerTest extends KernelTestCase
      * transaction, so two overlapping DB transactions cannot be expressed
      * here; the lock ordering itself is verified by code review.
      */
+    public function test_revising_does_not_load_the_documents_versions(): void
+    {
+        self::bootKernel();
+        $em = self::getContainer()->get(EntityManagerInterface::class);
+
+        $user = new User(fullName: 'Agent', email: 'lazy-'.uniqid().'@example.com', password: 'hashed');
+        $em->persist($user);
+        $project = new Project($user, 'p-'.uniqid());
+        $em->persist($project);
+        $em->flush();
+
+        $createHandler = self::getContainer()->get(CreateDocumentHandler::class);
+        $doc = $createHandler(new CreateDocumentCommand($project, 'Lazy', 'first'));
+        $id = $doc->id;
+        self::assertNotNull($id);
+
+        // A document loaded fresh, exactly as a request would have it: the
+        // versions collection is a proxy nobody has touched yet.
+        $em->clear();
+        $doc = $em->find(Document::class, $id);
+        self::assertNotNull($doc);
+        $versions = $doc->versions;
+        self::assertInstanceOf(PersistentCollection::class, $versions);
+        self::assertFalse($versions->isInitialized(), 'precondition: collection starts uninitialised');
+
+        $reviseHandler = self::getContainer()->get(ReviseDocumentHandler::class);
+        $reviseHandler(new ReviseDocumentCommand($doc, 'second', 'a revision'));
+
+        // The whole point: numbering the new version used to count the
+        // collection, which loads every version of the document.
+        self::assertFalse($versions->isInitialized());
+    }
+
     public function test_two_sequential_revisions_get_consecutive_version_numbers(): void
     {
         self::bootKernel();

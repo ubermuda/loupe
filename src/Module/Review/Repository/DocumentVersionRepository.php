@@ -230,4 +230,22 @@ class DocumentVersionRepository extends ServiceEntityRepository
             ? $value
             : throw new \LogicException(sprintf('Column %s must be a string.', $column));
     }
+
+    /**
+     * The number the next version of this document should carry.
+     *
+     * A MAX() rather than a count of the versions collection: the collection is
+     * not EXTRA_LAZY, so counting it loads every version of the document. The
+     * caller must hold the document's row lock, which is what makes read-then-
+     * write safe against a concurrent revision.
+     */
+    public function nextVersionNumber(Document $document): int
+    {
+        return 1 + (int) $this->createQueryBuilder('v')
+            ->select('COALESCE(MAX(v.versionNumber), 0)')
+            ->andWhere('v.document = :document')
+            ->setParameter('document', $document)
+            ->getQuery()
+            ->getSingleScalarResult();
+    }
 }
