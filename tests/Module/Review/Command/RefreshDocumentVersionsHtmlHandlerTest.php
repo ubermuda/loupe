@@ -216,6 +216,58 @@ final class RefreshDocumentVersionsHtmlHandlerTest extends KernelTestCase
         self::assertSame(0, $result->atRisk);
     }
 
+    public function test_reanchoring_moves_an_anchor_onto_the_re_rendered_text(): void
+    {
+        // "title" survives the re-render but sits at a different offset in it;
+        // the seeded hint of 0 is what the old text said.
+        [$container, $connection, $versionId] = $this->seedVersion('reanchor-moves', '# Fresh title', '<p>stale</p>', 'title');
+
+        $handler = $container->get(RefreshDocumentVersionsHtmlHandler::class);
+        $result = $handler(new RefreshDocumentVersionsHtmlCommand(reanchor: true));
+
+        self::assertFalse($result->refused);
+        self::assertSame(1, $result->reanchored);
+        self::assertSame(0, $result->orphaned);
+
+        $row = $connection->fetchAssociative(
+            'SELECT c.anchor_offset_hint, c.orphaned FROM comments c WHERE c.version_id = :id::uuid',
+            ['id' => (string) $versionId],
+        );
+        self::assertIsArray($row);
+        self::assertSame(6, (int) $row['anchor_offset_hint'], 'the offset of "title" in "Fresh title"');
+        self::assertFalse((bool) $row['orphaned']);
+    }
+
+    public function test_reanchoring_marks_a_comment_the_new_text_no_longer_contains(): void
+    {
+        [$container, $connection, $versionId] = $this->seedStrandingVersion('reanchor-strands');
+
+        $handler = $container->get(RefreshDocumentVersionsHtmlHandler::class);
+        $result = $handler(new RefreshDocumentVersionsHtmlCommand(reanchor: true));
+
+        // Reanchoring answers the refusal rather than being stopped by it.
+        self::assertFalse($result->refused);
+        self::assertSame(1, $result->orphaned);
+        self::assertSame(0, $result->reanchored);
+
+        $row = $connection->fetchAssociative(
+            'SELECT c.anchor_offset_hint, c.anchor_quote, c.orphaned FROM comments c WHERE c.version_id = :id::uuid',
+            ['id' => (string) $versionId],
+        );
+        self::assertIsArray($row);
+        self::assertTrue((bool) $row['orphaned'], 'flagged here rather than waiting for someone to revise');
+        // The anchor itself is left alone so a later revision can still try to
+        // place it — only the flag records that this rendering cannot.
+        self::assertSame(self::STRANDING_QUOTE, $row['anchor_quote']);
+        self::assertSame(0, (int) $row['anchor_offset_hint']);
+
+        // And the re-render did land: the point is both halves commit together.
+        self::assertNotSame(self::STRANDING_STORED_HTML, $connection->fetchOne(
+            'SELECT rendered_html FROM document_versions WHERE id = :id::uuid',
+            ['id' => (string) $versionId],
+        ));
+    }
+
     /**
      * A version whose stored HTML no longer matches its Markdown, carrying one
      * comment with $quote as its anchor.

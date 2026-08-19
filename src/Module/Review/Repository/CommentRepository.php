@@ -201,4 +201,27 @@ class CommentRepository extends ServiceEntityRepository
 
         return is_array($row) && $row['status'] instanceof CommentStatus ? $row['status'] : null;
     }
+
+    /**
+     * Moves a comment's anchor onto re-rendered text, in place.
+     *
+     * A DQL update rather than loading the entity: this runs across every
+     * comment in the database, and Comment::$anchor is readonly because an
+     * anchor never changes for any other reason. Re-rendering is the one
+     * operation that legitimately moves one, and it moves only the offset —
+     * quote, prefix and suffix still describe the same passage.
+     */
+    public function reanchor(string $commentId, int $offsetHint, bool $orphaned): void
+    {
+        $this->createQueryBuilder('c')
+            ->update()
+            ->set('c.anchor.offsetHint', ':offsetHint')
+            ->set('c.orphaned', ':orphaned')
+            ->andWhere('c.id = :id')
+            ->setParameter('offsetHint', $offsetHint)
+            ->setParameter('orphaned', $orphaned)
+            ->setParameter('id', $commentId, 'uuid')
+            ->getQuery()
+            ->execute();
+    }
 }

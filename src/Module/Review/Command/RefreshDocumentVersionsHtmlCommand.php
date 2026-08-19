@@ -15,6 +15,13 @@ final readonly class RefreshDocumentVersionsHtmlCommand
          * healthy until some later revision marks it orphaned.
          */
         public bool $acceptCommentOrphaning = false,
+        /**
+         * Move every anchor onto the re-rendered text instead of leaving it
+         * describing the old one. Comments whose quote the new text no longer
+         * contains are marked orphaned here rather than waiting for someone to
+         * revise the document, which is what made the damage silent.
+         */
+        public bool $reanchor = false,
     ) {
     }
 }
