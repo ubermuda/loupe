@@ -146,6 +146,102 @@ and tell the operator to set `db_cluster_trusted_ips` instead. The prose in
 "removes the firewall half" of the bootstrap, which is true but reads as
 "the recipe is fine to run" rather than "half of what it does will be undone".
 
+## Security events are logged at info, which production throws away
+
+**Author:** Claude · **Type:** security · **Priority:** high · **Status:** pending
+
+`config/packages/monolog.yaml` gives the prod `main` handler
+`type: fingers_crossed` with `action_level: error`. Every security-relevant
+event in the codebase is logged at `info`: `review.mcp.access_denied`
+(`src/Module/Review/Security/McpBoundProjectVoter.php`),
+`account.data_export.download_denied`
+(`src/Module/Account/Controller/DownloadDataExportController.php`), and the
+token mint/revoke handlers under `src/Module/Account/Command/`.
+
+A denied request is not an error, so nothing in that request raises the buffer
+to `error`, and the buffered records are discarded when the request ends. The
+logging exists in code and cannot reach stderr in production. Anyone reading
+the source would reasonably conclude these events are recorded.
+
+The fix pattern is already in the same file. `cache_warnings` is deliberately
+registered outside `fingers_crossed`, with a comment explaining that a lone
+cache failure would otherwise never surface. A security channel wants the same
+treatment — an always-on handler, or a level that qualifies on its own.
+
+Found by an audit on 2026-08-20.
+
+## A single-host deployment has no database backup at all
+
+**Author:** Claude · **Type:** tooling · **Priority:** high · **Status:** pending
+
+`docker/compose/prod.yaml` keeps Postgres in a local `database_data` volume.
+No dump job, no WAL archiving, no off-host copy exists anywhere in `docker/`,
+the `justfile` or `docs/`. Disk loss on that host is total, permanent data
+loss.
+
+The DigitalOcean path is better but not covered: `terraform/main.tf` provisions
+a managed cluster, so DigitalOcean's own daily backups apply, but nothing adds
+an independent copy or a retention window beyond the platform default. There is
+no second location and no second custodian.
+
+**No restore has been rehearsed on either path.** `docs/operating/backups.md`
+states this outright — "Loupe schedules nothing, ships no backup command" and
+"Your restore is yours to prove". An unrehearsed restore is not a backup, and
+this is the entry that should close by proving one. Note that
+`docs/operating/recovering.md` is administrator-account recovery despite the
+name; there is no database restore runbook.
+
+The data-export feature is a per-user GDPR export, not a backup, and must not
+be mistaken for one.
+
+Found by an audit on 2026-08-20.
+
+## Signing up with Google or GitHub never presents the terms
+
+**Author:** Claude · **Type:** bug · **Priority:** high · **Status:** pending
+
+Password registration requires agreement:
+`src/Module/Account/Form/RegistrationRequest.php` carries
+`#[Assert\IsTrue]` on `$agreeTerms`, and the template renders the link.
+
+OAuth registration does not. `ResolveSocialLoginHandler` constructs
+`new User(...)` directly and never touches the registration form, so a
+first-time Google or GitHub signer sees no terms text and agrees to nothing.
+It is not that acceptance goes unrecorded — it is never requested.
+
+Compounding it, no acceptance is stored on **either** path. There is no
+`termsAcceptedAt` or `termsVersion` column anywhere in `src/` or `migrations/`,
+so there is no record of what any given user agreed to and no way to re-prompt
+when the terms change.
+
+Two separable pieces of work: show and validate agreement on the OAuth path,
+and persist a timestamp plus version on both.
+
+Found by an audit on 2026-08-20.
+
+## Terraform state holds production secrets in plaintext on the operator's machine
+
+**Author:** Claude · **Type:** security · **Priority:** high · **Status:** pending
+
+`terraform/versions.tf` has its `backend "s3"` block commented out, so state is
+local. `terraform/terraform.tfstate`, `.tfstate.backup`, `.tfstate.bak` and
+`terraform.tfvars` therefore hold live production credentials in cleartext on
+whichever machine last ran `apply` — the managed-database password, the
+application secret, the DigitalOcean API token and the registry PAT among them.
+
+**This is not a repository exposure and should not be triaged as one.** All four
+are covered by `terraform/.gitignore` (`*.tfstate.*` catches the `.bak`) and
+none has ever been committed — verified against full history on 2026-08-20. The
+exposure is everything that copies a home directory: system backups, cloud
+sync, a support bundle, a stolen laptop.
+
+`terraform.tfstate.bak` is the sharpest edge. Terraform neither manages nor
+rotates it, so it holds whatever the secrets were on the day it was written and
+will keep holding them.
+
+Closing this means configuring the encrypted remote backend the file already
+documents, migrating state to it, and removing the local copies.
+
 ## `digitalocean_app` shows a perpetual diff, so every apply redeploys
 
 **Author:** Claude · **Type:** tooling · **Priority:** low · **Status:** pending
@@ -2325,6 +2421,143 @@ The `install-reset` project truncates every table as its last act. `just e2e`
 now re-seeds a worktree afterwards rather than leaving it broken, so this is a
 question of design rather than a live breakage.
 
+## The MCP endpoint has no rate limit
+
+**Author:** Claude · **Type:** security · **Priority:** medium · **Status:** pending
+
+`POST /mcp` (routed by `config/packages/mcp.yaml`, firewalled in
+`config/packages/security.yaml`) is not covered by any limiter. Any holder of a
+`ROLE_API_MCP` token can call `document_create` / `document_revise` without
+bound, so one leaked or misbehaving agent token can fill the database.
+
+The comparison worth noting: the commit that capped MCP *payload sizes* also
+added the site-review write throttle (`config/packages/rate_limiter.yaml` plus
+`src/Module/SiteReview/EventListener/RateLimitSiteReviewWrites.php`). The size
+cap landed on the MCP path; the request throttle did not.
+
+`RateLimitSiteReviewWrites` is the model to copy — keyed per token so one
+caller's allowance is its own.
+
+Found by an audit on 2026-08-20.
+
+## Registration discloses whether an address is already registered
+
+**Author:** Claude · **Type:** security · **Priority:** medium · **Status:** pending
+
+`src/Module/Account/Command/RegisterUserHandler.php` returns a distinct
+`account.registration.error.email_duplicate` field error when the address
+already exists, so an unauthenticated caller can enumerate registered users
+through `/register`.
+
+What makes this worth fixing is that the codebase has already decided the other
+way everywhere else. `RequestPasswordResetHandler` carries a docblock stating
+that account existence "must not be observable (anti-enumeration policy)" and
+completes silently either way; `JoinWaitlistController` notes that it
+"enumerates nothing"; `ListSitesController` reasons about the same property.
+Registration is the one hole in a stated policy, not a missing control.
+
+The usual shape: respond identically whichever way it goes, and mail the
+existing account a "someone tried to register with your address" notice instead
+of surfacing the collision inline. Note the handler raises the same error from
+two places — the pre-check and the unique-constraint race after flush.
+
+Found by an audit on 2026-08-20.
+
+## Email-sending limiters key on IP alone, so one inbox can be flooded
+
+**Author:** Claude · **Type:** security · **Priority:** medium · **Status:** pending
+
+`RequestPasswordResetController` (5/hr), `RegisterController` (10/hr) and
+`ResendVerificationEmailController` (1/60s) all build their limiter key from
+`$request->getClientIp()` and nothing else. The allowance is therefore per
+sender, not per recipient: an attacker rotating addresses can send one victim
+as much mail as they have IPs, and the victim's inbox — not the attacker — is
+what degrades.
+
+The fix is a second bucket keyed on the target address, applied alongside the
+IP one rather than instead of it. Keep both: the IP bucket is what limits
+broad spraying, and the address bucket is what protects an individual.
+
+Found by an audit on 2026-08-20.
+
+## Waitlist joins write the raw email address to the log
+
+**Author:** Claude · **Type:** security · **Priority:** medium · **Status:** pending
+
+`src/Module/Account/Command/JoinWaitlistHandler.php` logs
+`['email' => $command->email]` on four paths — join, duplicate, rejoin and the
+rejection branch. Production formats logs as JSON to stderr, so every address
+anyone submits to the public waitlist form lands in whatever aggregates that
+stream, for as long as it is retained (CWE-532).
+
+Log the waitlist entry id, or a hash, and keep the address in the database
+where the retention policy already covers it.
+
+Worth doing as one sweep with a grep for other identifiers passed to
+`$logger->`; this was the only raw-PII case found on 2026-08-20, but the check
+is cheap and the class of mistake recurs.
+
+## A failed API token authentication is never logged
+
+**Author:** Claude · **Type:** security · **Priority:** medium · **Status:** pending
+
+`src/Module/Account/Security/ApiTokenAuthenticator::onAuthenticationFailure()`
+returns a 401 and logs nothing. Guessing at MCP or site-review widget tokens
+therefore leaves no trace at all — not a rate-limit rejection, not a counter,
+not a line in the log.
+
+There is also nothing that would notice a spike if it were logged: no Sentry,
+no APM, no alerting. `src/Module/Diagnostics/` is an admin-visible page that
+answers "is this instance healthy", pulled rather than pushed.
+
+Two independent pieces: log the failure with enough context to be useful
+(token id prefix, path, address — not the presented token), and decide whether
+anything watches. See 'Security events are logged at info, which production
+throws away' — logging this at `info` today would achieve nothing.
+
+Found by an audit on 2026-08-20.
+
+## A data export omits two categories that deleting the account does purge
+
+**Author:** Claude · **Type:** feature · **Priority:** medium · **Status:** pending
+
+Account deletion runs eight `AccountDataPurgerInterface` implementations. The
+export side has seven `UserDataExporterInterface` implementations, and the two
+that are missing are `ConnectedAccount` (the linked Google/GitHub identities)
+and the billing profile (Stripe customer and subscription ids, plan, trial and
+renewal dates).
+
+Both are named in the privacy policy as data the service holds, and both have
+purgers, so the account can erase them but the user cannot obtain them. Access
+and erasure should cover the same set.
+
+Two new exporters, following the shape of the existing ones under each module.
+
+Found by an audit on 2026-08-20.
+
+## The privacy policy denies analytics the app can be configured to send
+
+**Author:** Claude · **Type:** feature · **Priority:** medium · **Status:** pending
+
+`templates/Module/Legal/show_privacy.en.html.twig` states the service sets "no
+analytics cookies" and performs "no third-party tracking", and its processor
+table lists no analytics vendor. `src/Module/Analytics/Twig/AnalyticsScript.php`
+emits the Umami tag on every page once the `analytics.enabled` flag and the
+script/website environment variables are set, and no consent-management code
+exists anywhere in `src/`, `templates/` or `assets/`.
+
+Nothing is wrong today: the flag is seeded off and the environment variables
+are empty, so the tag is not emitted. The defect is that enabling analytics —
+the documented, supported thing to do — silently makes the published policy
+false, and nothing in the flag's description says so.
+
+Three things to settle together: whether the snippet waits on a stored consent
+decision, whether the policy text becomes conditional on the flag, and whether
+a cookieless Umami configuration changes the answer to the first. They are one
+decision, not three, which is why this is a single entry.
+
+Found by an audit on 2026-08-20.
+
 ## Decide how CommentBudgetCheck should treat `.env`
 
 **Author:** Geoffrey · **Type:** docs · **Priority:** low · **Status:** pending
@@ -3327,45 +3560,6 @@ semantics are untouched. The accepted cost is that e2e exercises inline rather
 than queued delivery for those two jobs, so a bug in their real async path would
 not be caught by a green suite. Revisit if either grows behaviour that depends
 on the surrounding transaction having committed.
-
-## The site-review widget API has no rate limit
-
-**Author:** Claude · **Type:** security · **Priority:** low · **Status:** pending
-
-Corrected 2026-08-19: an earlier version of this entry called the token public
-by design. It is not. The widget is emitted only when the
-`site_review_widget_token` Twig global is non-empty, which reads
-`SITE_REVIEW_WIDGET_TOKEN` — set in `.env.local` and in no terraform variable or
-production compose file. The widget is a development dogfooding tool and is not
-served on loupe.ac at all, so the token is an ordinary secret rather than a
-published one.
-
-What remains is that the write routes under `^/api/site-review`
-(`AddCommentController`, `UpdateCommentController`, `DeleteCommentController` in
-`src/Module/SiteReview/Controller/Api/`) have nothing bounding how often they may
-be called by whoever holds the token.
-
-`config/packages/security.yaml` gates the path on `ROLE_API_SITE_REVIEW`, which
-proves the token and stops there. `config/packages/framework.yaml` defines
-exactly one limiter, `resend_verification_email`; the login firewall adds
-`login_throttling`. Neither covers this. Per-call size is capped —
-`AddCommentRequest` allows 10,000 characters of body and 2,000 for the selector
-and page fields — so a single call is bounded and the call count is not.
-
-The cost is database rows and a review queue full of noise, not money: nothing
-behind these routes calls a metered third-party API. With the token unpublished
-and the widget absent from production, this is low rather than the medium it was
-first filed as. It becomes urgent the day an operator does serve the widget on a
-public page, which the snippet in `templates/Module/Project/_widget_snippet.html.twig`
-exists to let them do.
-
-The fix is a rate limiter on the write routes with a `when@test` high-limit
-override, following the pattern in `project-backend`. Keying it is the part
-worth thinking about: the project token is shared by every visitor, so limiting
-on it alone lets one abuser throttle a whole project's genuine feedback.
-Per-reviewer identity would give a better key — see "Personal reviewer tokens as
-an identity layer for the widget" and "`site_review_get` does not say who wrote
-a comment", which want the same thing for different reasons.
 
 ## An account export still holds one payload in memory twice
 
