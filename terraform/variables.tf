@@ -182,6 +182,12 @@ variable "admin_email" {
   description = "ADMIN_EMAIL. The user with this address is promoted to ROLE_ADMIN. Empty disables promotion."
 }
 
+variable "site_review_widget_public" {
+  type        = string
+  default     = ""
+  description = "SITE_REVIEW_WIDGET_PUBLIC: leave empty (the default) to show the site-review widget to administrators only. Set to 1 to offer it to every visitor — its comments are instructions an agent may act on, so only do that where you trust everyone who can reach the site."
+}
+
 variable "site_review_widget_token" {
   type        = string
   sensitive   = true
