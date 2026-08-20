@@ -12,7 +12,7 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 
 DOTENV=.env
-CONFIG_DIR=config
+ENV_REF_DIRS="config src"
 MAIN_TF=terraform/main.tf
 VARIABLES_TF=terraform/variables.tf
 TFVARS_EXAMPLE=terraform/terraform.tfvars.example
@@ -56,14 +56,15 @@ MESSENGER_TRANSPORT_DSN
 
 sorted() { grep -oE '[A-Z_0-9]+' | sort -u; }
 
-# What the app reads: .env is not complete on its own — MERCURE_JWT_SECRET is
-# resolved from config/ and never appears there.
+# What the app reads. .env is not complete on its own — MERCURE_JWT_SECRET is
+# resolved from a placeholder and never appears there — and placeholders live in
+# src/ too, in #[Autowire] attributes, not only in config/.
 app_vars() {
     {
         grep -oE '^[A-Z_][A-Z_0-9]*=' "$DOTENV" | tr -d '='
         # The name is the last colon-separated segment, after any processors and
         # a parameter fallback: %env(default:app.trusted_proxies_default:TRUSTED_PROXIES)%.
-        grep -rhoE '%env\([^)]*\)%' "$CONFIG_DIR" \
+        grep -rhoE '%env\([^)]*\)%' $ENV_REF_DIRS \
             | sed -E 's/^%env\((.*)\)%$/\1/; s/.*://' \
             | grep -E '^[A-Z_][A-Z_0-9]*$'
     } | sort -u
