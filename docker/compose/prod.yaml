@@ -84,6 +84,12 @@ x-app-environment: &app-environment
   # Optional: lets a post-deploy check read the running build from /healthz.
   # Empty means the endpoint never reports a version.
   HEALTH_PROBE_TOKEN: "${HEALTH_PROBE_TOKEN:-}"
+  # Optional: the widget token of the project site-review comments file into.
+  # Empty serves no widget; when set it is shown to administrators only.
+  SITE_REVIEW_WIDGET_TOKEN: "${SITE_REVIEW_WIDGET_TOKEN:-}"
+  # Empty shows the widget to administrators only. "1" offers it to every
+  # visitor, whose comments an agent may then act on.
+  SITE_REVIEW_WIDGET_PUBLIC: "${SITE_REVIEW_WIDGET_PUBLIC:-}"
   # Umami. All three, plus the analytics.enabled flag, before a tag is emitted.
   ANALYTICS_SCRIPT_URL: "${ANALYTICS_SCRIPT_URL:-}"
   ANALYTICS_WEBSITE_ID: "${ANALYTICS_WEBSITE_ID:-}"

@@ -2,6 +2,7 @@ twig:
     file_name_pattern: '*.twig'
     globals:
         site_review_widget_token: '%env(SITE_REVIEW_WIDGET_TOKEN)%'
+        site_review_widget_public: '%env(bool:SITE_REVIEW_WIDGET_PUBLIC)%'
         app_source_url: '%app.source_url%'
         app_docs_url: '%app.docs_url%'
     paths:

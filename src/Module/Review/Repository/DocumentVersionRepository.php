@@ -193,12 +193,12 @@ class DocumentVersionRepository extends ServiceEntityRepository
      *
      * A cursor rather than a fetch, for the same reason as streamAllSources().
      *
-     * @return iterable<array{id: string, markdown_source: string, rendered_html: string, anchor_quote: string, anchor_prefix: string, anchor_suffix: string, anchor_offset_hint: int}>
+     * @return iterable<array{id: string, comment_id: string, markdown_source: string, rendered_html: string, anchor_quote: string, anchor_prefix: string, anchor_suffix: string, anchor_offset_hint: int}>
      */
     public function streamAnchoredCommentsByVersion(): iterable
     {
         $rows = $this->getEntityManager()->getConnection()->iterateAssociative(
-            "SELECT v.id, v.markdown_source, v.rendered_html,
+            "SELECT v.id, v.markdown_source, v.rendered_html, c.id AS comment_id,
                     c.anchor_quote, c.anchor_prefix, c.anchor_suffix, c.anchor_offset_hint
              FROM document_versions v
              JOIN comments c ON c.version_id = v.id AND c.anchor_quote <> ''
@@ -210,6 +210,7 @@ class DocumentVersionRepository extends ServiceEntityRepository
 
             yield [
                 'id' => $this->text($row['id'], 'id'),
+                'comment_id' => $this->text($row['comment_id'], 'comment_id'),
                 'markdown_source' => $this->text($row['markdown_source'], 'markdown_source'),
                 'rendered_html' => $this->text($row['rendered_html'], 'rendered_html'),
                 'anchor_quote' => $this->text($row['anchor_quote'], 'anchor_quote'),

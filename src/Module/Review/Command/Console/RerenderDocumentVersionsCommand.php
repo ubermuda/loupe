@@ -24,6 +24,7 @@ use Symfony\Component\Console\Style\SymfonyStyle;
 final class RerenderDocumentVersionsCommand extends Command
 {
     private const string ACCEPT_ORPHANING = 'accept-comment-orphaning';
+    private const string REANCHOR = 'reanchor';
 
     public function __construct(
         private readonly RefreshDocumentVersionsHtmlHandler $refreshDocumentVersionsHtml,
@@ -40,6 +41,12 @@ final class RerenderDocumentVersionsCommand extends Command
             InputOption::VALUE_NONE,
             'Re-render even where it strands existing comments. They will stop highlighting.',
         );
+        $this->addOption(
+            self::REANCHOR,
+            null,
+            InputOption::VALUE_NONE,
+            'Move every comment anchor onto the re-rendered text, marking the ones it no longer contains.',
+        );
     }
 
     #[\Override]
@@ -49,6 +56,7 @@ final class RerenderDocumentVersionsCommand extends Command
 
         $result = ($this->refreshDocumentVersionsHtml)(new RefreshDocumentVersionsHtmlCommand(
             acceptCommentOrphaning: true === $input->getOption(self::ACCEPT_ORPHANING),
+            reanchor: true === $input->getOption(self::REANCHOR),
         ));
 
         if ($result->refused) {
@@ -62,11 +70,11 @@ final class RerenderDocumentVersionsCommand extends Command
                 'nothing — the comment stays in the sidebar looking healthy, and is only marked',
                 'orphaned whenever someone next revises that document.',
                 '',
-                'The missing piece is a reanchoring pass over the rewritten versions. It is',
-                'tracked in docs/NEXT_STEPS.md under "Re-rendering stored versions un-highlights',
-                'comments without flagging them".',
+                sprintf('Re-run with --%s to move every anchor onto the new text instead. Comments', self::REANCHOR),
+                'it can no longer find are marked orphaned there and then, rather than waiting for',
+                'someone to revise the document.',
                 '',
-                sprintf('To accept that damage anyway, re-run with --%s.', self::ACCEPT_ORPHANING),
+                sprintf('To accept the damage without reanchoring, re-run with --%s.', self::ACCEPT_ORPHANING),
             ]);
 
             return Command::FAILURE;
@@ -74,7 +82,20 @@ final class RerenderDocumentVersionsCommand extends Command
 
         $io->success(sprintf('Re-rendered %d of %d document version(s).', $result->changed, $result->total));
 
-        if ($result->atRisk > 0) {
+        if ($result->reanchored > 0 || $result->orphaned > 0) {
+            $io->text(sprintf('Reanchored %d comment(s) onto the new text.', $result->reanchored));
+        }
+
+        if ($result->orphaned > 0) {
+            $io->warning(sprintf(
+                '%d comment(s) quote text the new rendering no longer contains, and are now marked orphaned.',
+                $result->orphaned,
+            ));
+        }
+
+        // Only where nothing was reanchored: after a reanchor run the orphaned
+        // count above is the truth, and reporting both says the same damage twice.
+        if ($result->atRisk > 0 && 0 === $result->reanchored && 0 === $result->orphaned) {
             $io->warning(sprintf('%d comment(s) no longer resolve and will not highlight.', $result->atRisk));
         }
 

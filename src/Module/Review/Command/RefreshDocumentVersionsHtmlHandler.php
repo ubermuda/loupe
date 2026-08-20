@@ -5,10 +5,12 @@ declare(strict_types=1);
 namespace App\Module\Review\Command;
 
 use App\Module\Review\Entity\DocumentVersion;
+use App\Module\Review\Repository\CommentRepository;
 use App\Module\Review\Repository\DocumentVersionRepository;
 use App\Module\Review\Service\AnchorService;
 use App\Module\Review\Service\MarkdownRenderer;
 use App\Module\Review\ValueObject\Anchor;
+use Doctrine\ORM\EntityManagerInterface;
 
 /**
  * Re-renders the stored HTML of every document version from its Markdown
@@ -24,12 +26,22 @@ final readonly class RefreshDocumentVersionsHtmlHandler
         private DocumentVersionRepository $documentVersions,
         private MarkdownRenderer $renderer,
         private AnchorService $anchorService,
+        private CommentRepository $comments,
+        private EntityManagerInterface $em,
     ) {
     }
 
     public function __invoke(RefreshDocumentVersionsHtmlCommand $command): RefreshDocumentVersionsHtmlResult
     {
         $atRisk = $this->countCommentsThatWouldStopResolving();
+
+        // Reanchoring is the answer to $atRisk rather than a thing to be
+        // stopped by it: it moves every anchor onto the new text and records
+        // the ones that genuinely cannot follow.
+        if ($command->reanchor) {
+            return $this->rerenderAndReanchor($atRisk);
+        }
+
         if ($atRisk > 0 && !$command->acceptCommentOrphaning) {
             return new RefreshDocumentVersionsHtmlResult(atRisk: $atRisk, refused: true);
         }
@@ -46,6 +58,85 @@ final readonly class RefreshDocumentVersionsHtmlHandler
         }
 
         return new RefreshDocumentVersionsHtmlResult($total, $changed, $atRisk);
+    }
+
+    /**
+     * Re-renders every version and moves its comments' anchors onto the new
+     * text, one transaction per version.
+     *
+     * Per version rather than one transaction for the whole run: the run walks
+     * every version in the database, and a single transaction would hold locks
+     * across all of them.
+     *
+     * That pairs each version's rewrite with its own anchors, but it does not
+     * serialize against someone commenting while the run is in progress: a
+     * comment anchored against the old rendering can still be inserted after
+     * this version's comments were read. The pass is idempotent, so a second run
+     * catches it — which is a better trade than making every comment write take
+     * a lock to protect a maintenance command.
+     *
+     * An anchor that still resolves keeps its quote, prefix and suffix and gains
+     * the new offset; those three describe the same passage, only its position
+     * moved. One that does not resolve keeps its anchor untouched and is marked
+     * orphaned, so a later revision can still try to re-place it.
+     */
+    private function rerenderAndReanchor(int $atRisk): RefreshDocumentVersionsHtmlResult
+    {
+        $total = 0;
+        $changed = 0;
+        $reanchored = 0;
+        $orphaned = 0;
+
+        foreach ($this->documentVersions->streamAllSources() as $row) {
+            ++$total;
+            $versionId = $row['id'];
+            $html = $this->renderer->render($row['markdown_source']);
+            $text = DocumentVersion::plainTextOf($html);
+
+            $this->em->wrapInTransaction(function () use ($versionId, $html, $text, &$changed, &$reanchored, &$orphaned): void {
+                $changed += $this->documentVersions->updateRenderedHtml($versionId, $html);
+
+                // Read inside the transaction, one version at a time: a snapshot
+                // taken before the run would both hold every comment in the
+                // database in memory and miss any created while it ran, leaving
+                // exactly the new-HTML-beside-old-anchors state this is for.
+                foreach ($this->comments->anchoredForVersion($versionId) as $comment) {
+                    $offset = $this->anchorService->resolve($text, $comment['anchor']);
+
+                    if (null === $offset) {
+                        // The anchor is left as it was so a later revision can
+                        // still try to place it; only the flag records that this
+                        // rendering cannot. Counted as newly orphaned only when
+                        // it was not already, so a second run reports nothing.
+                        $this->comments->reanchor($comment['id'], $comment['anchor'], true);
+                        $orphaned += $comment['orphaned'] ? 0 : 1;
+
+                        continue;
+                    }
+
+                    // A fresh anchor, not just the new offset: the browser never
+                    // receives offsetHint and re-locates by quote and context, so
+                    // prefix and suffix have to describe the new text too.
+                    $moved = $this->anchorService->create(
+                        $text,
+                        $offset,
+                        mb_strlen($comment['anchor']->quote, 'UTF-8'),
+                    );
+
+                    // Nothing to write, and nothing to report: most versions
+                    // re-render identically, and counting those would have every
+                    // run claim it moved every comment in the database.
+                    if ($moved == $comment['anchor'] && !$comment['orphaned']) {
+                        continue;
+                    }
+
+                    $this->comments->reanchor($comment['id'], $moved, false);
+                    ++$reanchored;
+                }
+            });
+        }
+
+        return new RefreshDocumentVersionsHtmlResult($total, $changed, $atRisk, false, $reanchored, $orphaned);
     }
 
     /**
