@@ -5,87 +5,6 @@ Open work and observations worth revisiting. Delete items entirely once resolved
 Entries are ordered by priority (high → medium → low); insert new entries at
 the end of their priority band. Format and rules: `project-next-steps` skill.
 
-## `just e2e` from a worktree gates the main checkout unless `E2E_BASE_URL` is set
-
-
-**Author:** Claude · **Type:** tooling · **Priority:** high · **Status:** pending
-
-Half of this is fixed. `e2e/playwright.config.ts` now **throws** when
-`E2E_BASE_URL` is unset instead of defaulting to `https://loupe.dev.localhost`,
-so a stray `npx playwright test` can no longer truncate the developer's own
-database. What remains is the worktree fallback below.
-
-`just e2e-up` resolves its target with
-`git worktree list --porcelain | awk '/^worktree /{print $2; exit}'` — the
-**first** entry, which is always the main checkout — and serves that. This is
-by design and documented. The trap is the consequence: a `just e2e` run started
-from a worktree, without `E2E_BASE_URL`, exercises the main checkout's code and
-**passes while gating none of the branch**.
-
-Observed on 2026-08-03: a worktree run "failed" because the rendered page had no
-filter bar at all. It was serving `main`'s template. The failure was only
-noticeable because the branch added visible UI — a branch changing behaviour
-without changing markup would have gone green while testing nothing.
-
-The fix left is to have `just e2e` detect that it is being run from a worktree
-and either target that worktree or refuse. Until then the only reliable check is
-to prove the target after every run — the worktree database must show the
-`install-reset` truncation while the main `app` database is untouched.
-
-## Unset optional config should disable a feature, not break it
-
-
-**Author:** Geoffrey · **Type:** feature · **Priority:** high · **Status:** pending
-
-Owner note (2026-07-27, reviewing DEPLOY.md on PR #85): leaving an optional
-integration's configuration unset should cleanly disable that feature, rather
-than leaving a path that fails when a user reaches it.
-
-The Terraform side already behaves this way — every entry in `extra_env`
-(`terraform/main.tf`) is omitted from the app spec when its variable is empty,
-and `enable_mercure` keys off whether `mercure_jwt_secret` is set. The gap is
-in the application: with those variables absent the env vars simply do not
-exist, and the affected code paths error rather than being switched off.
-`docs/reference/environment.md`'s "If unset" column records the current behaviour honestly —
-"Billing paths fail", "Those buttons fail" — and that is what should change.
-
-Affected surfaces, each needing its own decision about what "disabled" means:
-**Stripe** (`STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`) — probably the whole
-billing area hidden, which interacts with the `#[PaywallExempt]` work in
-"Encapsulate Billing: replace #[PaywallExempt] with a firewall-level rule";
-**OAuth** (`OAUTH_GOOGLE_ID`/`_SECRET`, `OAUTH_GITHUB_ID`/`_SECRET`) — the
-provider's button should not render at all rather than 500 on click, and each
-provider should be independently toggleable; **Mercure** — already degrades
-correctly, since a failed publish is caught and logged, and is worth using as
-the reference shape; **`ADMIN_EMAIL`** — already a no-op when unset.
-
-Relevant to self-hosting: a self-hoster who wants neither billing nor social
-login should get a working install without setting either. See "Self-hosting
-audit".
-
-## Set a real INSTALL_TOKEN value in the production deploy config
-
-
-**Author:** Claude · **Type:** security · **Priority:** high · **Status:** pending
-
-`src/Module/Account/Service/InstallAccessGuard.php` gates `/install` and fails
-CLOSED: with an empty `INSTALL_TOKEN`, it 404s in `prod` specifically (only
-outside prod — dev, test, `just worktree-up` — does an empty token leave the
-wizard open, deliberately, so those keep running the wizard unattended). The
-vulnerability this entry originally tracked (a forgotten variable silently
-leaving an admin-minting endpoint open in production) is closed at the code
-level.
-
-What remains is operational: `terraform/main.tf` now declares `install_token`
-as a variable and wires it into `extra_env` (omitted from the app spec when
-empty), but that only means the plumbing exists — someone still has to supply
-the actual secret value when running `terraform apply` against production.
-Until that happens, `/install` 404s in prod, so the first administrator has to
-be created from a shell instead (`bin/console app:admin:create`, see
-`docs/operating/recovering.md`). Track this as a pre-launch deploy
-checklist item, not a live code vulnerability — hence the lower priority than
-when this was first filed.
-
 ## Data-export object storage is proven on Garage, not on a hosted provider
 
 **Author:** Claude · **Type:** tooling · **Priority:** medium · **Status:** pending
@@ -125,100 +44,6 @@ Closing this means one export against a real Spaces bucket with the ACL
 Terraform sets.
 
 
-## The MCP connection drops repeatedly, and reconnecting does not restore the tools
-
-**Author:** Claude · **Type:** bug · **Priority:** high · **Status:** pending
-
-An agent session connected to this app over MCP lost the connection three
-separate times on 2026-08-01, in three different ways: `ConnectionRefused`, a
-silent drop mid-task, and finally a reconnect that reported success but left the
-client with no tools. Once in that last state the client sees `MCP error -32001:
-Request timed out` and cannot call anything. The only recovery found was
-restarting the agent session entirely; `/mcp reconnect` restores the transport
-without repopulating the tool list.
-
-This matters more than a flaky dev convenience: submitting and revising
-documents over MCP is how documents get into the app at all, so a dropped
-connection stops the primary workflow, and it did so mid-task here.
-
-**The server side is healthy — do not start by debugging it.** Verified while
-the client was in the broken state: `bin/console debug:mcp` lists every tool;
-`var/log/dev.log` shows them registering on each handshake; `POST /mcp` answers
-200; unauthenticated requests answer 401; and all containers were up.
-
-**Three dead ends, recorded so they are not chased again.** `GET /mcp`
-answering 405 and `POST /mcp` answering 202 both look like smoking guns and are
-neither — 405 on GET is a legal way to say the server offers no server-initiated
-stream, and 202 is the correct response to a notification, which has no reply by
-design.
-
-The third was, until 2026-08-05, this entry's one remaining lead: every tool
-registering **twice** per handshake, with two `Manual element registration
-complete` lines. **That is a dev-only web-profiler artifact and is not a bug.**
-`Symfony\Bundle\McpBundle\Profiler\DataCollector::lateCollect()` calls
-`$this->builder->build()` on every request, which re-runs the loaders against
-the shared registry — the bundle's own comment there says re-building on an MCP
-request is harmless. `WebProfilerBundle` is registered for `dev` and `test` only
-(`config/bundles.php`), so a production instance registers once. Nothing to fix.
-
-**Also checked and dead for now: upgrading out of it.** `symfony/mcp-bundle`
-0.12.0 and `mcp/sdk` 0.7.0 are both installed, and both are the newest releases
-that exist — there is no newer version whose notes could mention tool-list
-delivery or session handling. Re-check when either publishes a release; both are
-pre-1.0 and moving.
-
-**What the entry now turns on, and why it is stuck.** Every observation here was
-against the local dev host. Whether a deployed instance drops connections the
-same way decides whether this is a local annoyance or a production defect
-affecting every agent that connects — and there is no deployed instance to test
-against yet. That makes this **blocked on having a deployment**, not on
-analysis. Until one exists there is no experiment left to run that has not been
-run.
-
-## Give each agent its own container in the cloud instead of sharing one dev stack
-
-
-**Author:** Geoffrey · **Type:** tooling · **Priority:** high · **Status:** pending
-
-Every git worktree gets its own nginx sidecar, database and URL, but they all
-share **one php-fpm container, one Mailpit and one Postgres**. That sharing is
-the root of most of the parallel-work pain, and on 2026-08-03 it cost most of a
-day across nine concurrent branches.
-
-What sharing actually causes, all observed rather than predicted:
-
-- **php-fpm worker exhaustion.** `docker/dev/php-fpm/zz-pm.conf` sets
-  `pm.max_children = 20` with `pm = dynamic` and `pm.start_servers = 4`. One
-  pool serves every worktree plus all e2e traffic. The logs carry both failure
-  modes — 71 "seems busy … 0 idle" spawn-rate warnings and 4 "server reached
-  pm.max_children setting (20)". A request that gets no worker returns nothing:
-  no response body, no fatal, no log line, and a submit button left disabled
-  with no validation error. That signature is documented elsewhere as a
-  cold-cache symptom and has been misattributed that way more than once.
-- **e2e cannot be parallelised at all**, because Mailpit is shared and
-  mail-asserting specs across concurrent runs read each other's messages. That
-  forces `workers: 1` and one branch at a time — roughly 8.5 minutes per branch,
-  which becomes the throughput ceiling for a multi-branch wave.
-- **Any sibling's `just ci` starves an in-flight e2e run**, so gating has to be
-  coordinated by hand. That coordination does not survive parallel agents; it
-  has to be remembered by whoever is orchestrating.
-
-Per-agent containers would remove all three by construction rather than by
-convention, and would also end the class of bug where a stop or a kill reaches
-only the host-side wrapper (see 'Host `pkill` does not kill a process inside the
-php-fpm container').
-
-Worth deciding alongside it: whether the e2e suite still needs to be destructive.
-Today the `install-reset` project truncates every table as its last act, which
-is only tolerable because the target is disposable — see 'A green e2e run leaves
-the worktree database unusable for the next one'.
-
-Cheaper interim step if this stays unbuilt: raise the pool limits. Observed peak
-demand is 17–20 concurrent, so `pm.max_children = 40` with
-`pm.start_servers = 12` and `pm.min_spare_servers = 8` gives headroom for bursts
-without waiting on the spawn rate. That addresses reliability but not
-parallelism.
-
 ## The authenticated app has no mobile layout — deferred by decision, not overlooked
 
 **Author:** Geoffrey · **Type:** bug · **Priority:** high · **Status:** pending
@@ -243,22 +68,22 @@ contained 13 responsive variants in 3,027 lines and all 13 sat inside the
 template, had any responsive treatment. Measured consequences at 375px:
 
 - `.lp-sidebar` is a fixed 236px that never collapses, leaving `.lp-main` 129px
-  wide on every authenticated screen (`templates/base.html.twig:27-28`,
-  `app.css:1955-1971`).
+  wide on every authenticated screen (the `<aside>`/`<main>` pair in
+  `templates/base.html.twig`, `.lp-sidebar` in `app.css`).
 - `.lp-review-block` is a fixed 972px (`w-243`, not a max-width) with the
   comment margin absolutely positioned at `left-169`, so on the review screen
   139px of the 640px prose column is visible and comments start 537px off-screen
-  (`app.css:1249-1271`, `templates/Module/Review/show_document.html.twig:76`).
+  (`app.css`, `templates/Module/Review/show_document.html.twig`).
 - The comment flow binds only `mouseup`/`mousemove`/`mouseenter`; there is no
   `touchend`, `pointerup` or `selectionchange` handler in
   `assets/controllers/comment_anchor_controller.js`, so text selection likely
   cannot trigger the comment toolbar on touch. Needs confirming on real hardware.
 - The review topbar sits outside the `.lp-main` scroll container, so it widens
   the whole page to 517px and the verdict buttons overprint the breadcrumb
-  (`templates/Module/Review/show_document.html.twig:22-30`).
+  (the topbar block in `templates/Module/Review/show_document.html.twig`).
 - Four controls are 14px and will trigger iOS Safari's zoom-on-focus:
   `.lp-comment-composer textarea`, `.lp-comment-reply-form textarea`,
-  `.lp-filter-input`, `.lp-filter-select` (`app.css:1650, 1820, 990, 993`).
+  `.lp-filter-input`, `.lp-filter-select` (all four in `app.css`).
   `.lp-input` and `.auth-input` are already correct at 16px.
 
 One cost of deferring rather than declaring the app desktop-only: a phone
@@ -420,10 +245,11 @@ boolean with a three-case status (pending, addressed, resolved) on the thread
 root, which is what makes "has addressed comments" answerable for a document.
 
 Worth settling when this is picked up: whether these signals are computed per
-request or denormalised (the documents list already issues one
-`countOpenByVersion()` per row, so a naive per-row derivation compounds an
-existing N+1 — `SiteReviewCommentRepository::submittedStatusCountsForProject()`
-is the in-repo precedent for a single grouped tally), where they surface
+request or denormalised (the documents list now batches its open-thread tally
+through `countOpenByVersions()` in `ListDocumentsHandler`, so a naive per-row
+derivation would reintroduce the N+1 that batching removed —
+`SiteReviewCommentRepository::statusCountsForProject()` is the other in-repo
+precedent for a single grouped tally), where they surface
 alongside the existing status badge, and whether the MCP payload carries them.
 
 ## Automate the worktree lifecycle instead of driving it by hand
@@ -442,39 +268,6 @@ were all lifecycle, never provisioning:
   database and no sidecar — so it cannot run `just ci`. That is why the wave
   hand-created and hand-named every worktree instead of using harness
   isolation.
-- **`worktree-up` dies on a large container.** `cache:clear` runs
-  `str_replace` over the whole compiled container XML and exceeds the php-fpm
-  container's 128M CLI `memory_limit`. Two of the nine worktrees failed to
-  provision until the limit was raised by hand, and that change lives only in
-  the running container — a rebuild loses it.
-
-  Because of this, `worktree-up` cannot be used to **reset** a worktree whose
-  database an e2e run has truncated, which is the case that matters most. The
-  working sequence, reconstructed by hand three separate times before being
-  written down, takes about ninety seconds — run from the worktree, and note
-  the `-d memory_limit=512M` is load-bearing on **every** line:
-
-  ```bash
-  bin/worktrees/compose-exec.sh php -d memory_limit=512M bin/console doctrine:database:drop --force --if-exists
-  bin/worktrees/compose-exec.sh php -d memory_limit=512M bin/console doctrine:database:create
-  bin/worktrees/compose-exec.sh php -d memory_limit=512M bin/console doctrine:migrations:migrate --no-interaction
-  bin/worktrees/compose-exec.sh php -d memory_limit=512M bin/console app:dev:seed --reissue-widget-token
-  # paste the printed token into .env.local as SITE_REVIEW_WIDGET_TOKEN, then:
-  bin/worktrees/compose-exec.sh php -d memory_limit=512M bin/console tailwind:build
-  ```
-
-  Three things that waste time if missed: the drop fails with *"1 other session
-  using the database"* unless the messenger consumer is stopped first; the token
-  step is not optional — skipping it leaves the site-review widget in its
-  rejected-token state, which surfaces as unrelated-looking spec failures; and
-  the final `tailwind:build` matters whenever `app.css` changed in a merge,
-  because a worktree serving stale CSS fails any spec asserting on a new class
-  in a way that reads as a template bug rather than a missing build.
-- **`vendor/` goes stale silently.** `worktree-up` rsyncs `vendor/` from the
-  main checkout, but nothing re-runs `composer install` on main after a merge
-  changes `composer.lock`. After the export-storage branch merged, main's
-  `vendor/` had no Flysystem, so every worktree provisioned from it failed
-  `just ci` with a missing-class error that looks exactly like broken code.
 - **Messenger consumers die when the cache rebuilds under them**, and a live
   consumer then blocks `just worktree-down`, which drops the database *after*
   git has already deregistered the worktree — leaving a directory behind.
@@ -484,11 +277,7 @@ were all lifecycle, never provisioning:
 
 The shape of the fix is Claude Code's `WorktreeCreate` and `WorktreeRemove`
 hooks: create runs the bootstrap (making harness isolation usable, which is the
-biggest win), remove kills consumers before `just worktree-down`. Two fixes do
-not belong in hooks and are worth doing regardless — `worktree-up` should run
-`composer install` when `vendor/` does not match the lock it is being given,
-and it should raise the CLI memory limit itself rather than depending on a
-hand-edited container.
+biggest win), remove kills consumers before `just worktree-down`.
 
 Prior art worth reading before designing this: `raine/workmux` exposes
 `post_create` / `pre_merge` / `pre_remove` hooks plus declarative file
@@ -730,9 +519,9 @@ sharing one dev stack'. Build the coordination layer only for what survives that
 
 **Author:** Geoffrey · **Type:** tooling · **Priority:** medium · **Status:** pending
 
-The e2e suite is 64 specs and cannot be parallelised (shared Mailpit), so it is
-a serial gate every branch queues behind. Most of it is asserting things that do
-not need a browser.
+The e2e suite is 26 spec files carrying 92 tests, and cannot be parallelised
+(shared Mailpit), so it is a serial gate every branch queues behind. Most of it
+is asserting things that do not need a browser.
 
 **The discriminating question for each spec: does this assertion depend on a
 real browser?** If it asserts a status code, a redirect, a flash message, or the
@@ -1256,9 +1045,11 @@ merely currently-absent.
 
 The trust model inverts, so little of the current widget's API carries over:
 
-- Today the widget only renders for a logged-in user
-  (`{% if app.user and site_review_widget_token %}` in `base.html.twig`) and its
-  token is minted per project with the `ROLE_API_SITE_REVIEW` scope that
+- Today the widget only renders when a token exists and the instance opts in or
+  the viewer is an admin — the gate in `templates/layout_base.html.twig` is
+  `{% if site_review_widget_token and (site_review_widget_public or is_granted('ROLE_ADMIN')) %}`,
+  driven by the `SITE_REVIEW_WIDGET_PUBLIC` env var. Its token is minted per
+  project with the `ROLE_API_SITE_REVIEW` scope that
   `config/packages/security.yaml` names above the deny-by-default `^/api` rule.
   A public widget's token ships in the page source of a public site to anyone,
   so it needs its own scope that can **create only** — never list, patch or
@@ -1280,32 +1071,6 @@ inbox screen, not the site-review list), whether it notifies by email, and its
 retention story — the account-deletion and data-export purgers exist for
 `User`-owned data, and anonymous submissions with no owning user fit none of
 those paths while still potentially carrying personal data.
-
-## The full e2e suite wipes a worktree's dev database
-
-
-**Author:** Claude · **Type:** docs · **Priority:** medium · **Status:** pending
-
-`just e2e` includes an `install-reset` Playwright project
-(`e2e/tests/install/install.spec.ts`) that resets the app to a fresh-install
-state to exercise the first-install wizard. Run against a worktree — which is
-the correct gate target — it destroys that worktree's **dev** data: the seeded
-`dev@loupe.test` user, its project, and anything created for manual review.
-Observed 2026-07-27: after a green suite the dev database held one user
-(`e2e-install-admin@example.com`) and zero projects, so the login handed to a
-human for manual review simply did not exist.
-
-`just worktree-up` is idempotent and re-seeds the user and its project, so the
-recovery is cheap once you know. What is missing is the signal: nothing warns
-that the suite is destructive to dev data, and the failure surfaces much later
-as "the login does not work". Options: have `just e2e` print a warning when
-pointed at a worktree, re-seed automatically on completion, or scope the
-install-reset project behind an opt-in flag so the default run is
-non-destructive. Note it also leaves `e2e-install-admin@example.com` behind as
-a stray ROLE_ADMIN account.
-
-Related: 'Worktree e2e runs now require a worktree-scoped worker' — same
-setup surface, and both are things a person only learns by losing time to them.
 
 ## Let the agent close the loop when a human approves the work
 
@@ -1337,11 +1102,11 @@ work in its own right rather than a detail of this one:
    receiver is `/webhooks/stripe`. It is the right template if this is ever
    built — signature-verified over raw request bytes, outside `/api` on purpose
    — but it is billing-specific today.
-4. **Addressed comments become invisible to the agent.** `site_review_get`
-   calls `findPendingForProject`, which filters on `status = Pending`. The
-   moment the agent marks a comment addressed, its id is returned by no MCP
-   tool, so "resolve the comments this PR closed" cannot enumerate them. Tracked
-   separately in 'Addressed site-review comments disappear from the MCP'.
+4. **Addressed comments are readable again.** `site_review_get` used to filter
+   on `status = Pending`, so a comment vanished from every MCP tool the moment
+   the agent marked it addressed. It now takes a `status` argument covering
+   pending, addressed, resolved and all, so enumerating "the comments this PR
+   closed" works — this is no longer a blocker for the approval half below.
 
 What remains open here is the **document-approval** half — letting an agent
 record that a human approved a document. It carries the same evidence problem
@@ -1353,7 +1118,8 @@ request already holds that `User`, because `ApiTokenAuthenticator` authenticates
 as the project owner. So a tool writing a `Review` would produce a row
 **indistinguishable from one the owner clicked** — their name on an approval
 they never gave — and there is no audit trail to separate the two afterwards
-(see 'No audit trail distinguishes agent-written state from human action').
+(see 'The actor model is unsettled — no audit trail, and an agent's writes look
+like the owner's').
 
 The second reason cuts the other way and is worth recording, because the
 original note had it backwards: document approval does **not** depend on
@@ -1618,58 +1384,6 @@ which is the hook to watch: a document that starts or stops logging it across a
 dependency bump has moved. Worth deciding whether the fallback path should be
 pinned by storing which path a version used, rather than recomputed.
 
-## A renderer change that moves plainText needs a reanchor pass, not just a rerender
-
-
-**Author:** Claude · **Type:** bug · **Priority:** medium · **Status:** pending
-
-`app:review:rerender-versions` (`RefreshDocumentVersionsHtmlHandler`) rewrites
-`document_versions.rendered_html` from the stored Markdown and nothing else. Every
-comment anchor is an offset plus a quote into `DocumentVersion::plainText()`, which is
-derived from that HTML — so any renderer change that alters the **text** invalidates
-every anchor at or after the change. The browser re-locates each anchor by quote and
-context (`comment_anchor_controller`'s `#findRange`), so a comment whose quote has moved
-simply gets no highlight while still looking healthy in the sidebar; `comments.orphaned`
-is only ever set later, by `ReanchoringService`, when someone next revises the document.
-
-Measured on seeded data while adding front-matter and HTML-comment rendering: of four
-comments placed around the affected regions, two resolved cleanly against the
-re-rendered text (shifted +2 and +35 characters) and two resolved to nothing — one
-anchored on front-matter text that is now table cells, one whose quote spanned the point
-where a previously invisible HTML comment now contributes text. The re-render reported
-"1 of 3 versions" and left all four `comments` rows byte-identical, `orphaned` still
-false.
-
-**Mitigated, not fixed.** The command now inspects every version before writing anything
-and refuses outright when any version carries an anchored comment whose plain text the
-re-render would move, reporting the count and exiting non-zero.
-`--accept-comment-orphaning` proceeds anyway and still reports the count as a warning.
-So the silent data problem is now a loud one — but the damage is unchanged if the flag is
-passed, and the flag is the only way to re-render a document whose rendering has
-legitimately changed. Untargeted comments (empty anchor quote) are deliberately not
-counted: they are never relocated, and an alarm that cannot come true is how an opt-in
-flag turns into something people pass by reflex.
-
-The real fix is a maintenance entry point that walks stored comments and re-resolves them
-against the re-rendered basis, marking the unresolvable ones `orphaned` — so the damage is
-recorded when it happens rather than surfacing at the next revision. Add a `--dry-run`
-that reports the counts before writing, since that is what you want before running a
-renderer migration. Once that lands, the refusal and its flag should go away rather than
-being kept alongside it.
-
-Two things make this more than it looks. `ReanchoringService::reanchor()` cannot be
-reused: it builds *new* `Comment` rows against a *new* `DocumentVersion`, whereas this
-needs an in-place update of the existing rows — a different operation against the same
-`AnchorService::resolve()` predicate. And `RefreshDocumentVersionsHtmlHandler` runs
-without a transaction, so a reanchor pass has to wrap rewrite-plus-reanchor per version; a
-mid-run crash that left new HTML beside stale anchors would be worse than today's uniform
-silent de-highlight.
-
-**This entry blocks three others**, all deliberately deferred rather than forgotten:
-"Simplify the sanitizer block list with defaultAction(Block)", "A document cannot render a
-checkbox, by either route", and "No table of contents on document versions rendered before
-headings had ids". Build this first and each becomes a normal change.
-
 ## Simplify the sanitizer block list with defaultAction(Block)
 
 
@@ -1689,9 +1403,9 @@ refactor: with Block as the default, `<script>`, `<style>`, `<iframe>`, `<form>`
 `<textarea>` and `<select>` stop being dropped and start contributing their
 contents as visible text — a script body would render as prose. That changes
 `plainText()` for any stored document containing one, which moves every comment
-anchor below it. Doing it therefore needs a rerender **and** a reanchor pass; see
-"A renderer change that moves plainText needs a reanchor pass, not just a
-rerender". Elements whose text must stay out (`script`, `style`) would also each
+anchor below it. Doing it therefore needs a rerender **and** a reanchor pass —
+`bin/console app:review:rerender-versions --reanchor` does both in one go.
+Elements whose text must stay out (`script`, `style`) would also each
 need an explicit `dropElement()`, and note that `dropElement('style')` and
 `dropElement('title')` are **no-ops in body context** — `HtmlSanitizer` filters
 `W3CReference::HEAD_ELEMENTS` out of the body element config entirely.
@@ -1725,25 +1439,6 @@ Ranked below "CSP is report-only until inline scripts carry nonces" deliberately
 `img-src` half of the answer is decided there, and this entry only survives on its own if
 the answer turns out to be a render-time proxy or inlining, which nobody has scoped.
 
-## A document's own in-page links lose their href
-
-
-
-
-**Author:** Claude · **Type:** bug · **Priority:** medium · **Status:** pending
-
-`HtmlSanitizerConfig::allowRelativeLinks()` is not enabled in
-`App\Module\Review\Service\MarkdownRenderer`, so the sanitizer strips the `href`
-from any non-absolute link. A document that hand-writes `[jump](#heading-intro)`
-renders as unclickable text with no error anywhere.
-
-Pre-existing, but newly worth fixing: the renderer now mints stable
-`heading-<slug>` ids for every heading (that is what the review screen's table of
-contents links to), so a document author has a real reason to write intra-page
-links and they will silently not work. `allowRelativeLinks()` also permits
-same-origin paths like `/projects/…`, so decide whether that is wanted before
-switching it on.
-
 ## Per-worktree Mailpit sidecar so e2e can run in parallel
 
 
@@ -1759,8 +1454,8 @@ serialized gate was the single largest cost: ~15 branches each needing a full
 suite run, back to back, while the DB-free static gate parallelised freely.
 
 Owner decision (2026-07-26): fix it with a **per-worktree Mailpit sidecar**,
-mirroring the nginx sidecar design already in `compose.worktree.yaml` — its own
-container, its own Traefik route, and a per-worktree `MAILER_DSN` +
+mirroring the nginx sidecar design already in `docker/compose/worktree.yaml` —
+its own container, its own Traefik route, and a per-worktree `MAILER_DSN` +
 Mailpit API base URL that the e2e harness reads. Provisioned and torn down by
 `bin/worktrees/worktree-bootstrap.sh` / `worktree-teardown.sh` alongside the
 existing sidecar and databases, so `just worktree-up` remains the single entry
@@ -1904,34 +1599,25 @@ things were deliberately left out.
    and this is cosmetic — but a reviewer selecting across two options gets a
    quote with no separator in it.
 
-## Version checker for self-hosted installs
+## Rolling a production image back can leave the schema ahead of the code
 
+**Author:** Geoffrey · **Type:** tooling · **Priority:** medium · **Status:** pending
 
-**Author:** Geoffrey · **Type:** feature · **Priority:** medium · **Status:** pending
+`docker/prod/release.sh` applies migrations unconditionally, and no
+expand/contract policy is written down anywhere. Until one is, rolling an image
+back leaves the database schema ahead of the code that runs against it, with no
+documented way to get back to a consistent pair.
 
-Owner note (2026-07-27): self-hosted installations need a way to learn that a
-newer Loupe release exists — an operator running an old build should be told,
-not left to notice.
+This was originally recorded as the second half of a version-checker entry, on
+the reasoning that version identity and a rollback-safe migration policy had to
+land together. The first half has since landed — `src/Service/BuildIdentity.php`
+derives the running build's version and `src/Service/UpdateCheck.php` compares it
+against GitHub releases behind an off-by-default flag — so what remains is the
+policy, which nothing forced along with it.
 
-Prerequisite the codebase does not have yet: **the running build has no version
-identity.** `prod_image` in the `justfile` is a fixed `:prod` tag, so there is
-no release number or commit SHA to compare against, and no rollback handle
-either (noted in `docs/known-gaps.md`). Tagging images by version or commit SHA and
-baking that value into the image is step one; the checker is step two.
-
-Things to settle: where the check runs — a scheduled task on the existing
-scheduler transport is the natural fit, not a per-request call; where it
-surfaces — an admin-only banner or a line in the admin dashboard, never a
-public page; what it contacts — GitHub releases is the obvious source but means
-a self-hosted install calls out to the internet, so it must be switchable off
-and must never transmit installation data; and how it interacts with the
-self-hosting audit already tracked under "Self-hosting audit".
-
-Related gap from the self-hosting audit (2026-07-28): `docker/prod/release.sh`
-applies migrations unconditionally, and no expand/contract policy is written
-down anywhere. Until one is, rolling an image back can leave the schema ahead
-of the code — so version identity and a rollback-safe migration policy need to
-land together, not separately.
+Settling it means deciding what a migration is allowed to do in a release that
+might be rolled back (expand-only, contract in a later release), and making
+`release.sh` honour that rather than migrating on every deploy regardless.
 
 ## Inbound MCP events so an agent can react without being asked
 
@@ -1978,9 +1664,10 @@ already applies to site-review comment bodies.
 
 **Author:** Claude · **Type:** feature · **Priority:** medium · **Status:** pending
 
-The `worker` check on `/admin/status` (`CheckSystemStatusHandler::checkWorker()`
-in `src/Module/Account/Command/`) can only prove the *failure* case: it measures
-the age of the oldest available-and-unclaimed row in `messenger_messages`, so a
+The `worker` check on `/admin/status`
+(`src/Module/Diagnostics/Check/WorkerCheck.php`) can only prove the *failure*
+case: it measures the age of the oldest available-and-unclaimed row in
+`messenger_messages`, so a
 backlog nobody has touched for a minute means nothing is consuming. An empty
 queue is reported as `Unknown`, because a running worker leaves no trace and a
 green tick there would be an assertion the app cannot back up.
@@ -1997,72 +1684,6 @@ Deliberately not built with the status page: it costs a table plus a migration
 for a check the owner had already accepted could be approximate. Revisit if
 "unknown" turns out to be the answer operators see most of the time.
 
-## Pick the analytics vendor — PostHog or Umami — before the CSP commits us further
-
-
-**Author:** Geoffrey · **Type:** idea · **Priority:** medium · **Status:** pending
-
-`config/packages/nelmio_security.yaml` already allows `https://cloud.umami.is`
-in both `script-src` (line 37) and `connect-src` (line 43), but **no analytics
-code exists anywhere** — a grep across `src/`, `templates/` and `assets/` for
-either vendor returns nothing. So the CSP pre-authorises a vendor that has not
-landed, and picking PostHog instead would leave those two entries pointing at
-the wrong origin.
-
-The self-hosting audit withdrew this as a finding on the grounds that Umami was
-coming shortly, and noted the part that still matters whichever vendor wins:
-**the origin should be env-driven rather than hardcoded**, so an operator who
-does not want third-party analytics can drop it. A self-hosted instance that
-silently phones a third party contradicts the "no phone-home of any kind"
-property the audit verified across every other subsystem, and that property is
-the single most valuable claim in the report.
-
-What to weigh:
-
-- **Both self-host**, which is what keeps that property intact — the question is
-  which is less work to run alongside Postgres and the Mercure hub, not which
-  cloud is cheaper.
-- **Scope.** Umami is page analytics. PostHog is analytics plus session replay,
-  feature flags and experiments — and this app already has its own feature-flag
-  system (`ubermuda/feature-flags-bundle`), so adopting PostHog raises the
-  question of whether two flag systems coexist or one absorbs the other. That is
-  a bigger decision than the analytics one and should be made deliberately
-  rather than inherited.
-- **Payload weight and CSP surface.** PostHog's client is substantially larger
-  and, with session replay on, records DOM content — which is a privacy posture
-  decision for an app whose users paste their own documents into it, not merely
-  a performance one.
-
-Whichever is chosen, the work is: make the origin a parameter, add the snippet
-behind a feature flag so it is off by default, and correct or remove the two
-`cloud.umami.is` CSP entries. If the answer turns out to be "neither for now",
-delete those entries — a CSP that allows an origin nothing uses is a standing
-invitation to assume something does.
-
-## Install Umami analytics
-
-
-**Author:** Geoffrey · **Type:** feature · **Priority:** medium · **Status:** pending
-
-Owner note (2026-07-27): add Umami (privacy-focused, self-hostable web
-analytics) to Loupe.
-
-Things to settle when picking this up: whether the tracker is self-hosted
-alongside the app or uses Umami Cloud — self-hosting means another App Platform
-component and another database. The shared terraform module has no generic
-"extra component" escape hatch, so this needs the same treatment the Mercure hub
-got: a purpose-built opt-in component added to the module upstream (shipped
-there in v1.6.0, and worth reading as the template for how to add another);
-which
-pages are tracked, and whether authenticated app pages are tracked at all or
-only marketing/public routes; and the CSP interaction — `nelmio_security.yaml`
-is report-only today, but `script-src` will need the tracker's origin before
-enforcement is switched on.
-
-Note the site-review widget is embedded on customers' own sites; keep analytics
-out of `public/site-review/widget.js`, which must stay a small, dependency-free
-third-party embed.
-
 ## Public /open page fed by real data
 
 
@@ -2074,7 +1695,9 @@ the application database, Umami, Stripe, DigitalOcean, and Claude token spend.
 
 Rough shape of each source: **database** for product metrics (projects,
 documents, reviews, registered users) — all already queryable; **Umami** for
-traffic, which depends on "Install Umami analytics"; **Stripe** for revenue
+traffic, now installed under `src/Module/Analytics/` but flag-gated off by
+default, so an instance must enable it before there is anything to read;
+**Stripe** for revenue
 (MRR, active subscriptions, churn) via the existing `StripeGatewayInterface`,
 though the read side is not built yet; **DigitalOcean** for infrastructure cost,
 via the API used by the App Platform deployment; **Claude** for what it cost in
@@ -2283,27 +1906,6 @@ singleton user and provenance rides beside it.
 
 Worth deciding before something writes state that cannot be attributed afterwards.
 
-## Addressed site-review comments disappear from the MCP
-
-
-**Author:** Claude · **Type:** bug · **Priority:** medium · **Status:** pending
-
-`SiteReviewGetTool` calls `SiteReviewCommentRepository::findPendingForProject`,
-which filters on `status = Pending`. So the moment an agent marks a comment
-addressed through `site_review_mark_comment_addressed`, that comment's id is returned
-by no MCP tool at all.
-
-The agent therefore cannot re-read what it addressed, report on it, or act on it
-in a later session — its own write makes the record unreachable. Anything that
-needs to enumerate previously-addressed comments is blocked by this, including
-the parked PR-driven half of 'Let the agent close the loop when a human approves
-the work'.
-
-The fix is a read path that can return non-pending comments — either a status
-filter parameter on `site_review_get` or a companion tool. Note the document
-side does not have this problem: `GetReview` uses `findByVersion`, which returns
-every comment regardless of state.
-
 ## Comment on a diff, not only on a document
 
 
@@ -2355,9 +1957,9 @@ and a mail catcher, and costs minutes.
 
 That was proportionate when the front end was a handful of small Stimulus
 controllers. It is not any more: `assets/controllers/comment_anchor_controller.js`
-is ~500 lines carrying the selection capture, the anchor extraction and the
+is ~1130 lines carrying the selection capture, the anchor extraction and the
 highlight painting that document review depends on, and
-`public/site-review/widget.js` is ~1600 lines that ships to other people's sites.
+`public/site-review/widget.js` is ~1650 lines that ships to other people's sites.
 
 Two consequences already visible:
 
@@ -2384,32 +1986,6 @@ is present), whether the widget's tests run against source or the minified
 artefact, and whether `just ci` gains a leg or it stays opt-in until the suite
 earns its place.
 
-## Ship a skill bundle so agents know when to call Loupe
-
-
-**Author:** Geoffrey · **Type:** feature · **Priority:** medium · **Status:** pending
-
-The MCP server gives an agent the ability to submit a document and to fetch a
-review; nothing tells it *when*. Today the user has to say "pull the site
-review" by hand every time, which was hit live on 2026-08-03 while storyboarding
-the reveal video.
-
-Close it with a `SKILL.md` bundle (and/or a `/loupe` slash command) that teaches
-the agent the natural moments: submit a plan before implementing, pull pending
-site-review comments before continuing, re-fetch after a revision. This is the
-cheap half of the harness work — a skill is instructions, not an integration.
-
-`SKILL.md` was confirmed first-party in 13 of 14 agent harnesses surveyed on
-2026-08-03, so one bundle covers nearly the whole ecosystem. Caveat: Agent
-Skills is the least governed spec in that survey — no version, no RFC 2119, no
-discovery protocol — so expect churn.
-
-Do **not** solve this with a blocking hook. Almost every harness's hooks halt
-the agent until the hook returns (exit 2 to deny), which is the gate model a
-competitor uses and the source of their largest issue cluster. Only Gemini CLI
-(5 of its 11 events are explicitly advisory) and Cline (per-hook
-`mode: blocking|async`) support fire-and-forget natively.
-
 ## Package Loupe as a Claude Code plugin and list it in the agent directories
 
 
@@ -2422,19 +1998,17 @@ with essentially no help from Reddit, Hacker News or Product Hunt — a flat
 installable from inside the tools people already use: a one-line installer, a
 plugin marketplace entry, and listings in auto-generated directories.
 
-Two build artefacts cover most of the ecosystem, because the de facto standard
-is Claude Code's file layout — Copilot CLI, Cursor, OpenCode, Cline, Amp, Pi and
-Droid all read parts of it directly:
+**The packaging half has landed** (commit 142db56):
+`.claude-plugin/marketplace.json` sits at the repo root, and
+`plugins/loupe/.claude-plugin/plugin.json` plus `plugins/loupe/.mcp.json` sit at
+the plugin root, so the MCP server and the skill bundle install as one plugin.
+That covers most of the ecosystem, because the de facto standard is Claude
+Code's file layout — Copilot CLI, Cursor, OpenCode, Cline, Amp, Pi and Droid all
+read parts of it directly.
 
-- the existing MCP server (confirmed first-party in 11 of 11 harnesses checked)
-- the skill bundle tracked in the entry above
-
-Packaging detail that is easy to get wrong: `.mcp.json` goes at the **plugin
-root**, not inside `plugin.json`, and `.claude-plugin/marketplace.json` must sit
-at the **repo root**.
-
-Then list it. Self-serve, no gatekeeper: Gemini CLI (add the GitHub topic
-`gemini-cli-extension` plus a root `gemini-extension.json`, crawled daily), Pi
+What is left is distribution: the plugin is not listed anywhere. Self-serve, no
+gatekeeper: Gemini CLI (add the GitHub topic `gemini-cli-extension` plus a root
+`gemini-extension.json`, crawled daily), Pi
 (npm keyword `pi-package`), OpenCode (PR to their ecosystem page), skills.sh,
 and the MCP registry (still in preview). Curated but open: the Claude Code
 plugin directory, Cursor's marketplace (manual review, plugins must be open
@@ -2533,9 +2107,9 @@ needs its own storage.
 
 **Author:** Claude · **Type:** tooling · **Priority:** medium · **Status:** pending
 
-`DocumentGetTool` and `GetDocument` each carried a full `@return array{...}`
-for the same payload, so adding a key to the query alone left the two
-disagreeing. That pair is fixed — the query declares a `@phpstan-type
+`DocumentGetTool` and `ShowDocumentDataHandler` each carried a full
+`@return array{...}` for the same payload, so adding a key to the query alone
+left the two disagreeing. That pair is fixed — the query declares a `@phpstan-type
 DocumentPayload` alias and the tool imports it with `@phpstan-import-type` —
 but only that pair, by hand, and nothing stops the next tool from restating a
 shape again.
@@ -2612,35 +2186,6 @@ read by most harnesses directly, so the cost of "all relevant" may be much lower
 than it sounds — or much higher, if the ruled-out ones each need their own
 format.
 
-## Single-container install so people can try Loupe quickly
-
-**Author:** Geoffrey · **Type:** feature · **Priority:** medium · **Status:** pending
-
-Owner note (2026-08-05): there should be a single-container install for people
-who just want a quick try.
-
-Today the shortest path to a running instance is `compose.prod.yaml` — web,
-worker, Postgres and a Mercure hub, driven by a `compose.prod.env` the user has
-to fill in from `compose.prod.env.example`. That is the right shape for someone
-who has decided to self-host, and the wrong shape for someone deciding whether
-to bother: four services and a config file before the first screen.
-
-What a one-container image has to fold in, each of which is a real decision
-rather than a packaging detail: Postgres (embedded, or SQLite, or a bundled
-server in the same image), the messenger consumer (which mail, exports and the
-verification link all depend on — see the worker notes in `CLAUDE.md` for what
-breaks without one), the Mercure hub, and asset build output. Storage has to
-survive a container restart or the trial is worse than none, so a single
-declared volume is part of it.
-
-Constraints worth stating up front. It must not become a second production
-topology anyone is tempted to run for real — `compose.prod.yaml` and
-`terraform/` stay the supported paths, and this one should say so. And the
-existing per-process split in prod is deliberate (`docker/prod/supervisord.conf`
-is the web container's CMD only, never a place to add background programs), so
-whatever runs several processes in the trial image must be scoped to that image
-and not leak back into the prod one.
-
 ## A step-ca thread leak takes down `docker exec` for every other container
 
 **Author:** Claude · **Type:** tooling · **Priority:** medium · **Status:** pending
@@ -2704,36 +2249,6 @@ diagnosis cost the first time.
 Same family as 'Host `pkill` does not kill a process inside the php-fpm
 container': the host-visible symptom names the wrong process.
 
-## `bin/console cache:clear` runs out of memory in dev
-
-**Author:** Claude · **Type:** tooling · **Priority:** medium · **Status:** pending
-
-`just exec bin/console cache:clear` fails in the dev environment with
-`Allowed memory size of 134217728 bytes exhausted`, thrown while warming a
-compiled Twig template. Reproduced on `main` on 2026-08-05, four runs out of
-four, so it is not branch-specific; an isolated run that succeeds is luck, not
-evidence, which is what made it look like a change had caused it.
-
-It passes at a higher limit — `docker exec loupe-php-fpm-1 php -d
-memory_limit=512M bin/console cache:clear` succeeds — so the fix is the CLI
-memory limit for this container, not the cache itself.
-
-**It is on the gate path, which was not obvious at first.** `just phpstan` runs
-`bin/console cache:warmup` before analysing, and that inherits the same 128M —
-so against a *cold* cache phpstan dies with exit 255 having analysed nothing,
-and the output is a var-dumper stack trace that names neither memory nor
-warmup. A warm cache makes warmup nearly a no-op, which is why it normally
-passes; it bites exactly after something has invalidated the cache, such as a
-dependency change, which is when the gate is most worth trusting.
-
-Nothing sets `memory_limit` anywhere under `docker/dev/`, so this is PHP's
-built-in default rather than a considered choice. Note that `just phpstan`
-already passes `--memory-limit=1G` to phpstan itself — half of this was fixed
-once already, on the line below the one that fails.
-
-Related: 'phpstan runs out of memory in a worktree' — same 128M CLI limit,
-different command, and worth fixing in one place rather than per recipe.
-
 ## No CI pipeline runs the gate — deferred to the open-source flip
 
 **Author:** Geoffrey · **Type:** tooling · **Priority:** medium · **Status:** pending
@@ -2741,9 +2256,9 @@ different command, and worth fixing in one place rather than per recipe.
 Owner decision (2026-08-09): a CI pipeline is added when the repository is made
 public, not before. Recorded so the gap is a choice rather than an oversight.
 
-There is no `.github/workflows` — `docs/getting-started/digitalocean.md` states it outright — so every gate
-runs only when a human runs it locally: `just ci`, `just e2e`, `just secrets-scan`
-and `just audit`. Nothing observes a branch, and nothing observes the calendar.
+There is no `.github/workflows`, so every gate runs only when a human runs it
+locally: `just ci`, `just e2e`, `just secrets-scan` and `just audit`. Nothing
+observes a branch, and nothing observes the calendar.
 
 What that leaves open, specifically. `composer audit` joined `just ci` (PR #168),
 which closes "nobody ever ran it" but not "an advisory was published while nobody
@@ -2762,6 +2277,53 @@ VCS repositories — `composer update` is rate-limited anonymously, though
 `composer audit` is not).
 
 Same trigger as the tracker removal: the visibility flip, not "at some point".
+
+## Give each agent its own container in the cloud instead of sharing one dev stack
+
+**Author:** Geoffrey · **Type:** tooling · **Priority:** medium · **Status:** pending
+
+Every git worktree gets its own nginx sidecar, database and URL, but they all
+share **one php-fpm container, one Mailpit and one Postgres**. That sharing is
+the root of most of the parallel-work pain, and on 2026-08-03 it cost most of a
+day across nine concurrent branches.
+
+What sharing actually causes, all observed rather than predicted:
+
+- **php-fpm worker exhaustion.** One pool serves every worktree plus all e2e
+  traffic. The logs carry both failure modes — 71 "seems busy … 0 idle"
+  spawn-rate warnings and 4 "server reached pm.max_children setting". A request
+  that gets no worker returns nothing: no response body, no fatal, no log line,
+  and a submit button left disabled with no validation error. That signature is
+  documented elsewhere as a cold-cache symptom and has been misattributed that
+  way more than once.
+- **e2e cannot be parallelised at all**, because Mailpit is shared and
+  mail-asserting specs across concurrent runs read each other's messages. That
+  forces `workers: 1` and one branch at a time — roughly 8.5 minutes per branch,
+  which becomes the throughput ceiling for a multi-branch wave.
+- **Any sibling's `just ci` starves an in-flight e2e run**, so gating has to be
+  coordinated by hand. That coordination does not survive parallel agents; it
+  has to be remembered by whoever is orchestrating.
+
+Two things have since reduced the pressure without removing the cause. Messenger
+dispatch is handled inline under `X-Playwright` (`PlaywrightSyncMiddleware`),
+which took one process out of the shared pool and removed the class of failure
+where a forgotten worker made an e2e run hang. And the pool limits were raised:
+`docker/dev/php-fpm/zz-pm.conf` now sets `pm.max_children = 32`,
+`pm.start_servers = 12`, `pm.min_spare_servers = 8`, against an observed peak
+demand of 17–20 concurrent. Together those are why this is no longer `high`.
+
+Neither touches the second bullet: Mailpit is still shared, `workers: 1` still
+stands, and the per-branch throughput ceiling is unchanged.
+
+Per-agent containers would remove all three by construction rather than by
+convention, and would also end the class of bug where a stop or a kill reaches
+only the host-side wrapper (see 'Host `pkill` does not kill a process inside the
+php-fpm container').
+
+Worth deciding alongside it: whether the e2e suite still needs to be destructive.
+The `install-reset` project truncates every table as its last act. `just e2e`
+now re-seeds a worktree afterwards rather than leaving it broken, so this is a
+question of design rather than a live breakage.
 
 ## Decide how CommentBudgetCheck should treat `.env`
 
@@ -2873,8 +2435,8 @@ characters between the brackets from the rendered text and therefore from
 `DocumentVersion::plainText()`, so every comment anchor below the first task list
 moves; existing document versions use that syntax, and their open comments would
 orphan on the next revision. Like the sanitizer default above, it needs a rerender
-plus a reanchor pass — see "A renderer change that moves plainText needs a
-reanchor pass, not just a rerender". Re-allowing `<input>` is the cheaper half and
+plus a reanchor pass, which `bin/console app:review:rerender-versions --reanchor`
+now performs. Re-allowing `<input>` is the cheaper half and
 has no anchor cost, but on its own it only serves hand-written HTML.
 
 Note the review screen's decision controls are **not** this: they are minted after
@@ -3231,21 +2793,21 @@ enough over them to be worth building at all.
 
 **Author:** Claude · **Type:** tooling · **Priority:** low · **Status:** pending
 
-`assets/styles/app.css` defines roughly 380 semantic component classes across
-1,777 lines, built with `@apply` inside `@layer components`. Because a class is
+`assets/styles/app.css` defines roughly 523 semantic component classes across
+3,120 lines, built with `@apply` inside `@layer components`. Because a class is
 declared in CSS rather than emitted on demand from template usage, deleting the
 markup that used it leaves the rule behind — and nothing currently notices.
 Checking every component class against `templates/`, `assets/js/`, `src/` and
 the `vendor/ubermuda/*` bundle templates, then discounting every class built by
 interpolation (`lp-flash--{{ label }}`, `lp-ribbon__bar--{{ state }}`,
-`status-check-badge-{{ state }}` and similar), leaves 24 that are referenced
+`status-check-badge-{{ state }}` and similar), leaves 22 that are referenced
 nowhere:
 
 ```
 lp-doc-list  lp-doc-row  lp-doc-row__main  lp-doc-row__meta  lp-doc-row__tags
 lp-doc-row__title  lp-doc-row__title--stretched  lp-page  lp-page-header
-lp-page-title  lp-section-title  lp-table  lp-select  lp-code
-lp-key-values  lp-key-values__row  lp-copy-row  lp-form-hint  lp-anchor
+lp-page-title  lp-section-title  lp-table  lp-code
+lp-key-values  lp-key-values__row  lp-copy-row  lp-anchor
 lp-anchor--orphan  lp-btn--warning  lp-comment-composer--untargeted  kbd
 admin-badge-off
 ```
@@ -3381,9 +2943,9 @@ that predates only that change re-renders cleanly. A version old enough to
 predate a renderer change that *did* move text is the one where the guard fires,
 and where the choice is between a table of contents and stranded comments.
 
-What removes that choice is the re-anchoring pass described in "A renderer change
-that moves plainText needs a reanchor pass, not just a rerender": with it, an old
-version can be brought forward and its comments re-resolved in the same motion.
+What removes that choice is the re-anchoring pass now shipped as
+`bin/console app:review:rerender-versions --reanchor`: with it, an old version
+can be brought forward and its comments re-resolved in the same motion.
 
 ## Referencing a document changes a page the referrer may not write to
 
@@ -3401,52 +2963,6 @@ several users with differentiated grants — someone who may only read a
 document can still add a line to it. Requiring WRITE on the target is the
 wrong fix: it would break pointing at something you are allowed to read,
 which is the normal case. Revisit when per-document grants exist.
-
-## Search indexing can fail on a document the app itself accepts
-
-
-**Author:** Claude · **Type:** bug · **Priority:** low · **Status:** pending
-
-`to_tsvector` caps a vector at 1,048,575 bytes while `MAX_MARKDOWN_BYTES` allows
-1,048,576, so there is a narrow band where a document passes the app's own limit
-and `App\Module\Review\Service\DocumentSearchIndexer` raises.
-
-Measured on 2026-08-03, the band is narrower than the two numbers suggest:
-indexing a full 1 MiB of varied prose succeeded, and 1,154,787 bytes of source
-produced a 360,310-byte vector — 34% of the cap. Stemming and de-duplication mean
-realistic text shrinks by roughly two thirds, so reaching the cap needs
-pathological input (a very large number of long, distinct, unstemmable tokens),
-not a long document. Recorded for the asymmetry rather than as a live incident.
-
-It bites unevenly. `ReviseDocumentHandler` indexes inside its transaction, so a
-failure rolls the revision back. `CreateDocumentHandler` and
-`RenameDocumentHandler` index after their flush, so the row commits and the
-document is left permanently unsearchable with nothing to retry it. Closing this
-means either bounding what is fed to `to_tsvector` or lowering
-`MAX_MARKDOWN_BYTES` below the tsvector cap; making all three handlers
-transactional is **not** the answer, because wrapping create would close the
-EntityManager on a rejected tag name.
-
-## The display-name maximum length of 150 is written out in ten places
-
-**Author:** Geoffrey · **Type:** tooling · **Priority:** low · **Status:** pending
-
-The `users.full_name` limit is encoded independently as `MAX_LENGTH` in
-`src/Module/Account/Service/DisplayNameDeriver.php` and in
-`assets/controllers/display_name_suggestion_controller.js`, as
-`MAX_FULL_NAME_LENGTH` in `App\Module\Account\Command\CreateAdminUserHandler`
-and `App\Module\Account\Command\ResolveSocialLoginHandler`, as
-`#[Assert\Length(max: 150)]` on `RegistrationRequest`, `InstallAdminRequest`
-and `ProfileRequest`, as `#[ORM\Column(length: 150)]` on
-`App\Module\Account\Entity\User`, as `left(..., 150)` in
-`migrations/Version20260804225237.php`, and as `mb_substr(..., 0, 150)` in
-`src/Module/Account/Controller/Dev/RegisterAndVerifyController.php`. Raising or
-lowering the limit means finding all ten, and the JS copy cannot read a PHP
-constant at all, so the two derivers can silently disagree on truncation.
-
-Consolidating touches the entity mapping, three form DTOs and the built asset
-pipeline, so it is a refactor rather than a fix — worth doing on its own branch,
-not folded into a change that happens to touch one of the ten.
 
 ## Bump `.skeleton.json` once the Turbo-prefetch PR merges
 
@@ -3491,12 +3007,12 @@ probably the honest answer.
 
 `just prettier` and `just lint`'s prettier leg both scope to `assets/` and
 `e2e/` only, so `public/site-review/widget.js` has never been formatted by it.
-Running `npx prettier --write` on that file rewrites essentially every line —
-1382 insertions, 1315 deletions on a file of 1633 — because the whole file is
+Running `npx prettier --write` on that file rewrites a large share of it —
+~414 insertions, ~318 deletions on a file of 1649 — because the whole file is
 being formatted for the first time.
 
 Nothing is broken today; the trap is that a small widget change plus a reflexive
-prettier run produces a phantom 1600-line diff, and the real change is
+prettier run produces a phantom several-hundred-line diff, and the real change is
 unreviewable inside it. Hit on 2026-08-13 while dropping the widget's send step;
 the fix was to revert and re-apply the edit by hand.
 
@@ -3609,8 +3125,8 @@ than only trimming the ends — but the anchor stored has to keep pointing at th
 right offsets in the unnormalised text, so this is a change to how
 `AnchorService` locates a quote, not a change to `plainText()`. Altering
 `plainTextOf()` would move every stored anchor in every existing version, which
-is the failure mode already recorded in 'A renderer change that moves plainText
-needs a reanchor pass, not just a rerender'.
+is the failure mode `bin/console app:review:rerender-versions --reanchor` exists
+to repair.
 
 ## A decision card cannot show its own recorded answer
 
@@ -3725,9 +3241,9 @@ browser and an email client — so in practice they are skipped.
 A console command should run everything automatable and exit non-zero on
 failure, so a deploy can end with a check rather than with a checklist somebody
 remembers. Most of the work exists already:
-`CheckSystemStatusHandler` in `src/Module/Account/Command/` computes what
-`/admin/status` renders, so the command is largely a CLI presenter over it plus
-the HTTP and migration checks.
+`src/Module/Diagnostics/Command/RunDiagnosticsHandler.php`, routed from
+`ShowDiagnosticsController.php`, computes what `/admin/status` renders, so the
+command is largely a CLI presenter over it plus the HTTP and migration checks.
 
 One thing it must not do is overclaim. The worker check can only prove failure,
 never health — a running consumer leaves no lasting trace, so an empty queue is
@@ -3811,25 +3327,6 @@ semantics are untouched. The accepted cost is that e2e exercises inline rather
 than queued delivery for those two jobs, so a bug in their real async path would
 not be caught by a green suite. Revisit if either grows behaviour that depends
 on the surrounding transaction having committed.
-
-## Revising a document still loads every one of its versions
-
-**Author:** Claude · **Type:** bug · **Priority:** medium · **Status:** pending
-
-Four of the five paths the 2026-08-17 audit named now read the latest version
-through `DocumentVersionRepository::findLatest()`. `ReviseDocumentHandler` is the
-one left, and the audit's suggested fix does not work there:
-`Document::addVersion()` calls both `count()` and `add()` on the versions
-collection, and `PersistentCollection` initialises on either unless the
-association is `EXTRA_LAZY` — so swapping the read alone changes nothing while
-looking like a fix.
-
-Two ways out, neither small. Mark the association `EXTRA_LAZY`, which changes
-collection semantics everywhere `->versions` is touched. Or take the next version
-number from a `MAX()` query and construct the `DocumentVersion` outside the
-collection, which means reworking `addVersion()`'s API and re-reading the
-concurrency comment that makes it the first thing to touch `->versions` under the
-row lock.
 
 ## The site-review widget API has no rate limit
 
@@ -3951,3 +3448,47 @@ every batch to sharpen a string that is only wrong when two writers race the sam
 comment. Note `refresh()` does not work on these entities — Doctrine refuses to
 rehydrate their readonly `createdAt` — so a lock-based version needs another way
 to re-read.
+
+## The MCP connection drops repeatedly, and reconnecting does not restore the tools
+
+**Author:** Claude · **Type:** bug · **Priority:** low · **Status:** pending
+
+An agent session connected to this app over MCP lost the connection three
+separate times on 2026-08-01, in three different ways: `ConnectionRefused`, a
+silent drop mid-task, and finally a reconnect that reported success but left the
+client with no tools. Once in that last state the client sees `MCP error -32001:
+Request timed out` and cannot call anything. The only recovery found was
+restarting the agent session entirely; `/mcp reconnect` restores the transport
+without repopulating the tool list.
+
+**This has not recurred since agent sessions were pointed at the deployed
+instance rather than the local dev host**, which answers the question the entry
+was stuck on: it is a local-dev symptom, not a production defect affecting every
+agent that connects. It stays open at low priority only because no cause was
+ever found — nothing was fixed, so a recurrence is possible. The value below is
+the list of leads already exhausted.
+
+**The server side is healthy — do not start by debugging it.** Verified while
+the client was in the broken state: `bin/console debug:mcp` lists every tool;
+`var/log/dev.log` shows them registering on each handshake; `POST /mcp` answers
+200; unauthenticated requests answer 401; and all containers were up.
+
+**Three dead ends, recorded so they are not chased again.** `GET /mcp`
+answering 405 and `POST /mcp` answering 202 both look like smoking guns and are
+neither — 405 on GET is a legal way to say the server offers no server-initiated
+stream, and 202 is the correct response to a notification, which has no reply by
+design.
+
+The third was, until 2026-08-05, this entry's one remaining lead: every tool
+registering **twice** per handshake, with two `Manual element registration
+complete` lines. **That is a dev-only web-profiler artifact and is not a bug.**
+`Symfony\Bundle\McpBundle\Profiler\DataCollector::lateCollect()` calls
+`$this->builder->build()` on every request, which re-runs the loaders against
+the shared registry — the bundle's own comment there says re-building on an MCP
+request is harmless. `WebProfilerBundle` is registered for `dev` and `test` only
+(`config/bundles.php`), so a production instance registers once. Nothing to fix.
+
+**Also checked and dead for now: upgrading out of it.** `symfony/mcp-bundle`
+0.12.0 and `mcp/sdk` 0.7.1 are installed. Re-check when either publishes a
+release whose notes mention tool-list delivery or session handling; both are
+pre-1.0 and moving.
