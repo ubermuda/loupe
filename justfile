@@ -175,7 +175,7 @@ secrets-scan:
 
 # lint already covers parallel-lint, prettier --check and eslint (incl. e2e).
 # Check-only gate: lint, style dry-run, phpstan, arkitect, gamache, advisories, PHPUnit.
-ci: lint cs-check phpstan arkitect gamache audit phpunit
+ci: lint cs-check phpstan arkitect gamache deploy-env audit phpunit
 
 # One argument per word: `set positional-arguments` forwards a quoted string to
 # compose-exec.sh whole, so Docker looks for a binary with a space in its name.
@@ -502,6 +502,11 @@ demo port="8080": build-demo
 # Initialise the working dir / fetch the module + provider.
 tf-init:
     cd terraform && terraform init
+
+# Check every env var the app reads reaches terraform/ and docker/compose/, and
+# that every operator knob there is in the file operators copy.
+deploy-env:
+    bin/check-deploy-env.sh
 
 # Format all terraform files in place.
 tf-fmt:
