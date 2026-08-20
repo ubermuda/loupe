@@ -233,6 +233,12 @@ variable "mcp_allowed_hosts" {
   description = "MCP_ALLOWED_HOSTS: comma-separated DNS-rebinding allowlist for /mcp. Must include the app's real hostname or every MCP call is rejected."
 }
 
+variable "trusted_proxies" {
+  type        = string
+  default     = ""
+  description = "TRUSTED_PROXIES: a proxy of your own in front of App Platform, as an IP or CIDR. Added to the private ranges rather than replacing them, since the platform ingress is still the nearest hop. Empty trusts the private ranges alone."
+}
+
 variable "app_source_url" {
   type        = string
   default     = ""

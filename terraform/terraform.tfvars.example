@@ -120,6 +120,7 @@ registry = "you"
 
 # admin_email       = "you@example.com"       # promoted to ROLE_ADMIN
 # mcp_allowed_hosts = "loupe.example.com"     # must list the app's real hostname
+# trusted_proxies   = "203.0.113.4"           # your own proxy; private ranges stay trusted
 
 # Where the source of THIS instance can be obtained, linked in the footer of
 # every page. Leaving it out keeps the committed default, which points at the

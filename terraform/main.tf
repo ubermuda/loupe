@@ -119,6 +119,11 @@ module "app" {
   extra_env = merge(
     var.admin_email == "" ? {} : { ADMIN_EMAIL = { value = var.admin_email } },
     var.mcp_allowed_hosts == "" ? {} : { MCP_ALLOWED_HOSTS = { value = var.mcp_allowed_hosts } },
+    # Kept alongside the private ranges rather than replacing them: on App
+    # Platform the app's immediate peer is always the platform's own private
+    # ingress, so trusting only the operator's public proxy would leave the
+    # nearest hop untrusted and X-Forwarded-* ignored.
+    var.trusted_proxies == "" ? {} : { TRUSTED_PROXIES = { value = "PRIVATE_SUBNETS,${var.trusted_proxies}" } },
     var.mailer_from_address == "" ? {} : { MAILER_FROM_ADDRESS = { value = var.mailer_from_address } },
     var.mailer_from_name == "" ? {} : { MAILER_FROM_NAME = { value = var.mailer_from_name } },
     var.install_token == "" ? {} : { INSTALL_TOKEN = { value = var.install_token, type = "SECRET" } },

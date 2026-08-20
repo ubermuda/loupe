@@ -3367,45 +3367,6 @@ Per-reviewer identity would give a better key — see "Personal reviewer tokens 
 an identity layer for the widget" and "`site_review_get` does not say who wrote
 a comment", which want the same thing for different reasons.
 
-## Nothing checks that a new Terraform variable reaches the tfvars template
-
-**Author:** Claude · **Type:** tooling · **Priority:** medium · **Status:** pending
-
-A variable can be declared in `terraform/variables.tf` and consumed in
-`terraform/main.tf` while never appearing in
-`terraform/terraform.tfvars.example` — the file an operator actually copies to
-configure an instance. `terraform validate` passes either way, because the
-template is a comment-only example and nothing reads it. The option is then
-real but undiscoverable by the documented route.
-
-This bit twice inside one branch (PR #208, 2026-08-19): `health_probe_token`
-was wired end to end and missing from the template, and auditing the rest
-turned up `export_storage_prefix`, absent since it was introduced. Both were
-one-line additions once seen; seeing them was the whole difficulty.
-
-The check is a loop over the declared names:
-
-```sh
-for v in $(grep -oE '^variable "[a-z_]+"' terraform/variables.tf \
-  | sed 's/variable "//;s/"//'); do
-  grep -q "$v" terraform/terraform.tfvars.example || echo "MISSING: $v"
-done
-```
-
-Where it should live needs a decision. `gamache` is the natural home for a
-convention check, but its `src/Check/` layer walks PHP and Twig and this reads
-two `.tf` files, so it may not fit the existing shape — and gamache is an
-external package, so any rule there is a PR on that repository rather than a
-change here. The cheaper alternative is a script under `bin/` called from a
-`just` recipe and added to `just ci`, which keeps it beside the `tf-fmt` and
-`tf-validate` recipes it belongs with.
-
-Note the same failure mode exists one layer out and is already fixed rather
-than guarded: `HEALTH_PROBE_TOKEN` was documented in
-`docker/compose/prod.env.example` while missing from `x-app-environment` in
-`docker/compose/prod.yaml`, so a Compose operator could set it and watch it be
-ignored. A check worth writing might cover both files rather than only Terraform.
-
 ## An account export still holds one payload in memory twice
 
 **Author:** Claude · **Type:** bug · **Priority:** low · **Status:** pending

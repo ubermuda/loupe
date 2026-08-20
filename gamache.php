@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use Gamache\Check\CommentBudgetCheck;
+use Gamache\Check\DeploymentConfigParityCheck;
 use Gamache\Check\FormTypeTranslationKeysCheck;
 use Gamache\Check\MessengerRoutingCheck;
 use Gamache\Check\NoArbitraryValuesCheck;
@@ -29,6 +30,43 @@ return (new GamacheConfig())->registerChecks([
     new NoArbitraryValuesCheck(),
     new NoTodosCheck(),
     new SelfContainedCommentsCheck(),
+    new DeploymentConfigParityCheck(
+        moduleProvidedEnvKeys: [
+            /*
+             * base_env in terraform-digitalocean-symfony-app, at the ref
+             * terraform/main.tf pins. Only some of the module's arguments become
+             * environment variables, so this cannot be derived from the argument
+             * list — re-read the module when changing the pin.
+             */
+            'APP_ENCRYPTION_KEY',
+            'APP_ENV',
+            'APP_SECRET',
+            'APP_SHARE_DIR',
+            'DATABASE_URL',
+            'DEFAULT_URI',
+            'MAILER_DSN',
+            'MERCURE_JWT_SECRET',
+            'MERCURE_PUBLIC_URL',
+            'MERCURE_URL',
+            'MESSENGER_TRANSPORT_DSN',
+        ],
+        ignoredAppEnvKeys: [
+            // Compose reads this one itself; it never reaches the app.
+            'COMPOSE_PROJECT_NAME',
+            // The committed .env value is the production answer, and matches the
+            // module's own default.
+            'MESSENGER_TRANSPORT_DSN',
+            // Development tooling: the IDE link, Symfony's own proxy and sendfile
+            // overrides, the PHPUnit database suffix, the dump server and the
+            // per-worktree database suffix.
+            'SYMFONY_IDE',
+            'SYMFONY_TRUSTED_PROXIES',
+            'SYMFONY_TRUST_X_SENDFILE_TYPE_HEADER',
+            'TEST_TOKEN',
+            'VAR_DUMPER_SERVER',
+            'WORKTREE_DB_SUFFIX',
+        ],
+    ),
     new CommentBudgetCheck(
         /*
          * Beyond the default Symfony layout, the files where comment essays
