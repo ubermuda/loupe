@@ -13,6 +13,10 @@ final readonly class RefreshDocumentVersionsHtmlResult
         public int $atRisk = 0,
         /** True when $atRisk stopped the run and nothing was written. */
         public bool $refused = false,
+        /** Anchors moved onto the re-rendered text. */
+        public int $reanchored = 0,
+        /** Comments the re-rendered text no longer contains, newly marked orphaned. */
+        public int $orphaned = 0,
     ) {
     }
 }
