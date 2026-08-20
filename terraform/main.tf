@@ -123,6 +123,8 @@ module "app" {
     var.mailer_from_name == "" ? {} : { MAILER_FROM_NAME = { value = var.mailer_from_name } },
     var.install_token == "" ? {} : { INSTALL_TOKEN = { value = var.install_token, type = "SECRET" } },
     var.health_probe_token == "" ? {} : { HEALTH_PROBE_TOKEN = { value = var.health_probe_token, type = "SECRET" } },
+    var.site_review_widget_token == "" ? {} : { SITE_REVIEW_WIDGET_TOKEN = { value = var.site_review_widget_token, type = "SECRET" } },
+    var.site_review_widget_public == "" ? {} : { SITE_REVIEW_WIDGET_PUBLIC = { value = var.site_review_widget_public } },
 
     # The AGPL source offer. Conditional like the rest, but for a different
     # reason: everywhere else an empty value and an absent key mean the same

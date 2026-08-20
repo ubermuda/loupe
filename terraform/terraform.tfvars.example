@@ -54,6 +54,15 @@ db_server_version = "18" # the cluster's actual PG major version
 # `openssl rand -hex 32`.
 # health_probe_token = "..."
 
+# --- Site review ---
+# Optional. The widget token of the loupe.ac project site-review comments should
+# file into — read it from that project's page. Unset serves no widget. It is
+# shown to administrators only, so ordinary visitors never see it.
+# site_review_widget_token = "..."
+# Empty (the default) shows the widget to administrators only. "1" offers it to
+# every visitor, whose comments an agent may then act on.
+# site_review_widget_public = "1"
+
 # --- Optional: custom domain ---
 # Omit both and the app serves only on its assigned *.ondigitalocean.app
 # hostname. domain_zone must be a zone THIS account's DNS serves
