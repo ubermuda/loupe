@@ -22,7 +22,6 @@ PROD_ENV_EXAMPLE=docker/compose/prod.env.example
 # Read by the app in development only; no deployment path is expected to set them.
 DEV_ONLY="
 COMPOSE_PROJECT_NAME
-MESSENGER_TRANSPORT_DSN
 SYMFONY_IDE
 SYMFONY_TRUSTED_PROXIES
 SYMFONY_TRUST_X_SENDFILE_TYPE_HEADER
@@ -31,14 +30,28 @@ VAR_DUMPER_SERVER
 WORKTREE_DB_SUFFIX
 "
 
-# Set by terraform-digitalocean-symfony-app itself (pinned in main.tf), so they
-# have no variable here and must not be reported as unreachable.
-MODULE_INTERNAL="
+# The committed .env value is already the production answer, so no deployment
+# path has to repeat it.
+IMAGE_DEFAULT="
+MESSENGER_TRANSPORT_DSN
+"
+
+# Set by terraform-digitalocean-symfony-app's own base_env, so they need no
+# variable here. Transcribed from the ref main.tf pins, not inferred: only some
+# module arguments become env vars, so deriving this from the argument list
+# would excuse a name the module never sets. Re-read it when changing the pin.
+MODULE_PROVIDED="
+APP_ENCRYPTION_KEY
 APP_ENV
+APP_SECRET
+APP_SHARE_DIR
 DATABASE_URL
+DEFAULT_URI
+MAILER_DSN
+MERCURE_JWT_SECRET
 MERCURE_PUBLIC_URL
 MERCURE_URL
-TRUSTED_PROXIES
+MESSENGER_TRANSPORT_DSN
 "
 
 sorted() { grep -oE '[A-Z_0-9]+' | sort -u; }
@@ -52,12 +65,11 @@ app_vars() {
     } | sort -u
 }
 
-# Env keys terraform hands the app: the extra_env map, plus module arguments,
-# which the module uppercases into env names (app_secret -> APP_SECRET).
+# Env keys terraform hands the app: the extra_env map, plus what the module sets.
 terraform_env() {
     {
         grep -oE '\b[A-Z_][A-Z_0-9]* *= *\{' "$MAIN_TF" | sed 's/ *= *{//'
-        sed -n '/^module "app"/,/^}/p' "$MAIN_TF" | grep -oE '^  [a-z_0-9]+ *=' | tr -d ' =' | tr 'a-z' 'A-Z'
+        printf '%s\n' $MODULE_PROVIDED
     } | sort -u
 }
 
@@ -90,10 +102,10 @@ report() {
 }
 
 app=$(app_vars)
-deployable=$(comm -23 <(printf '%s\n' "$app") <(printf '%s\n' $DEV_ONLY | sorted))
+deployable=$(comm -23 <(printf '%s\n' "$app") <(printf '%s\n%s\n' "$DEV_ONLY" "$IMAGE_DEFAULT" | sorted))
 
 report "Read by the app, never set by terraform/ — add to extra_env in $MAIN_TF:" \
-    "$(comm -23 <(printf '%s\n' "$deployable") <(cat <(terraform_env) <(printf '%s\n' $MODULE_INTERNAL | sorted) | sort -u))"
+    "$(comm -23 <(printf '%s\n' "$deployable") <(terraform_env))"
 
 report "Read by the app, never set by $PROD_YAML:" \
     "$(comm -23 <(printf '%s\n' "$deployable") <(compose_env))"
@@ -112,8 +124,8 @@ report "Listed in $PROD_ENV_EXAMPLE, never read by $PROD_YAML:" \
 
 # An ignore list that outlives the variable it excuses is where the next missing
 # variable hides.
-report "Ignored by this script but no longer read by the app — drop from DEV_ONLY/MODULE_INTERNAL:" \
-    "$(comm -23 <(printf '%s\n%s\n' "$DEV_ONLY" "$MODULE_INTERNAL" | sorted) <(printf '%s\n' "$app"))"
+report "Ignored by this script but no longer read by the app — drop from DEV_ONLY/IMAGE_DEFAULT:" \
+    "$(comm -23 <(printf '%s\n%s\n' "$DEV_ONLY" "$IMAGE_DEFAULT" | sorted) <(printf '%s\n' "$app"))"
 
 if [ "$failed" -eq 0 ]; then
     echo "deploy env parity: ok"
