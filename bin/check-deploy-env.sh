@@ -61,7 +61,11 @@ sorted() { grep -oE '[A-Z_0-9]+' | sort -u; }
 app_vars() {
     {
         grep -oE '^[A-Z_][A-Z_0-9]*=' "$DOTENV" | tr -d '='
-        grep -rhoE '%env\([A-Za-z:]*[A-Z_][A-Z_0-9]*\)%' "$CONFIG_DIR" | grep -oE '[A-Z_][A-Z_0-9]{3,}'
+        # The name is the last colon-separated segment, after any processors and
+        # a parameter fallback: %env(default:app.trusted_proxies_default:TRUSTED_PROXIES)%.
+        grep -rhoE '%env\([^)]*\)%' "$CONFIG_DIR" \
+            | sed -E 's/^%env\((.*)\)%$/\1/; s/.*://' \
+            | grep -E '^[A-Z_][A-Z_0-9]*$'
     } | sort -u
 }
 
