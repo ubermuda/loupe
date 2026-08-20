@@ -125,6 +125,9 @@ module "app" {
     var.health_probe_token == "" ? {} : { HEALTH_PROBE_TOKEN = { value = var.health_probe_token, type = "SECRET" } },
     var.site_review_widget_token == "" ? {} : { SITE_REVIEW_WIDGET_TOKEN = { value = var.site_review_widget_token, type = "SECRET" } },
     var.site_review_widget_public == "" ? {} : { SITE_REVIEW_WIDGET_PUBLIC = { value = var.site_review_widget_public } },
+    var.analytics_script_url == "" ? {} : { ANALYTICS_SCRIPT_URL = { value = var.analytics_script_url } },
+    var.analytics_website_id == "" ? {} : { ANALYTICS_WEBSITE_ID = { value = var.analytics_website_id } },
+    var.analytics_origin == "" ? {} : { ANALYTICS_ORIGIN = { value = var.analytics_origin } },
 
     # The AGPL source offer. Conditional like the rest, but for a different
     # reason: everywhere else an empty value and an absent key mean the same

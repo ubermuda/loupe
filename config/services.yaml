@@ -7,6 +7,10 @@
 # Put parameters here that don't need to change on each machine where the app is deployed
 # https://symfony.com/doc/current/best_practices.html#use-parameters-for-application-configuration
 parameters:
+    # CSP is static configuration, so an unset analytics origin needs to resolve
+    # to a valid token rather than an empty one. Repeating 'self' is a no-op.
+    app.analytics_csp_fallback: "'self'"
+
     # Sender of every transactional email. Environment-driven because a
     # self-hosted instance can only pass SPF/DKIM/DMARC with a domain its
     # operator actually owns.

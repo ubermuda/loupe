@@ -90,6 +90,10 @@ x-app-environment: &app-environment
   # Empty shows the widget to administrators only. "1" offers it to every
   # visitor, whose comments an agent may then act on.
   SITE_REVIEW_WIDGET_PUBLIC: "${SITE_REVIEW_WIDGET_PUBLIC:-}"
+  # Umami. All three, plus the analytics.enabled flag, before a tag is emitted.
+  ANALYTICS_SCRIPT_URL: "${ANALYTICS_SCRIPT_URL:-}"
+  ANALYTICS_WEBSITE_ID: "${ANALYTICS_WEBSITE_ID:-}"
+  ANALYTICS_ORIGIN: "${ANALYTICS_ORIGIN:-}"
   ADMIN_EMAIL: "${ADMIN_EMAIL:-}"
 
   # Empty keeps push off: the feature flag keys off MERCURE_JWT_SECRET being set.

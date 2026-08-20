@@ -62,6 +62,11 @@ db_server_version = "18" # the cluster's actual PG major version
 # Empty (the default) shows the widget to administrators only. "1" offers it to
 # every visitor, whose comments an agent may then act on.
 # site_review_widget_public = "1"
+# --- Analytics (Umami) ---
+# All three, plus the analytics.enabled feature flag, before any tag is emitted.
+# analytics_script_url = "https://cloud.umami.is/script.js"
+# analytics_website_id = "00000000-0000-0000-0000-000000000000"
+# analytics_origin     = "https://cloud.umami.is"
 
 # --- Optional: custom domain ---
 # Omit both and the app serves only on its assigned *.ondigitalocean.app
@@ -152,6 +157,7 @@ export_bucket_region = "tor1"
 # side is identical, only these values change.
 # create_export_bucket = false
 # export_storage_bucket         = "loupe-exports"
+# export_storage                = "s3"          # local (default) or s3
 # export_storage_region         = "eu-west-1"
 # export_storage_prefix         = "archives/"   # empty stores at the bucket root
 # export_storage_endpoint       = "https://minio.example.com"

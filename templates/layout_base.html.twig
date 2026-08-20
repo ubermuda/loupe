@@ -31,6 +31,7 @@
            centred card. They are siblings on purpose: an auth page that
            extended the shell could only ever nest inside it. #}
         {% block page %}{% endblock %}
+        {% include '@Analytics/_script.html.twig' only %}
         {% if site_review_widget_token and (site_review_widget_public or is_granted('ROLE_ADMIN')) %}
         <script src="/site-review/widget.js" data-token="{{ site_review_widget_token }}"></script>
         {% endif %}

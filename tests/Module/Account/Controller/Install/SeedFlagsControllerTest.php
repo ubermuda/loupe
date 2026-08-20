@@ -6,6 +6,7 @@ namespace App\Tests\Module\Account\Controller\Install;
 
 use App\Module\Account\Entity\User;
 use App\Module\Account\Service\RegistrationGate;
+use App\Module\Analytics\Twig\AnalyticsScript;
 use App\Module\Review\Mcp\DocumentHighlightTool;
 use App\Service\UpdateCheck;
 use Doctrine\ORM\EntityManagerInterface;
@@ -51,11 +52,14 @@ final class SeedFlagsControllerTest extends WebTestCase
         // prefilled default, and that default has to be "on" or a freshly
         // installed instance cannot register anybody.
         self::assertTrue($flags[RegistrationGate::ENABLED_FLAG]->value);
-        self::assertCount(11, $flags);
+        self::assertCount(12, $flags);
         // Seeded off: the update check is the app's only self-initiated
         // outbound request, so an install must not start making it unasked.
         self::assertFalse($flags[UpdateCheck::FLAG]->value);
         self::assertFalse($flags[DocumentHighlightTool::FLAG]->value);
+        // Same reasoning as the update check: an install sends nothing to a
+        // third party until someone decides it should.
+        self::assertFalse($flags[AnalyticsScript::ENABLED_FLAG]->value);
     }
 
     public function test_invalid_submit_returns_422(): void
