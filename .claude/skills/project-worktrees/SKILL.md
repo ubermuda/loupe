@@ -204,7 +204,8 @@ suspecting the branch.
 | A spec fails, then passes on a quiet re-run | Something else was loading the shared php-fpm — a sibling agent running `just ci` or `composer install`. Check what is in flight **before** investigating the branch; this produced a false "regression" that was nearly filed against a clean PR. |
 | `worktree-up` fails with an "Unrecognized option" or missing-class error | The new worktree seeded its `vendor/` from the main checkout, and the main checkout is stale. Fast-forwarding the main checkout does **not** update its `vendor/`, so every worktree created afterwards inherits dependencies from the old commit. Run `composer install` in the main checkout, then re-run `just worktree-up`. |
 | Every e2e spec fails on a **new** worktree host with `ERR_CERT_AUTHORITY_INVALID`, while existing hosts stay fine | The `traefik-dnsmasq-1` container (in the separate `traefik` stack) is down. It holds `address=/dev.localhost/172.20.0.2`, the wildcard that lets step-ca resolve a host to validate ACME; without it `tls-alpn-01` fails with "could not connect to validation target" and Traefik serves its default cert. Hosts already in `certs/acme.json` keep working, which is what makes this look worktree-specific. `restart: unless-stopped` does **not** revive it after an exit 255. Fix: `( cd ../traefik && docker compose up -d dnsmasq )`, then **restart Traefik too** — it otherwise keeps polling the already-failed authorization instead of opening a fresh order. Verify with `curl -o /dev/null -w '%{ssl_verify_result}'` (0 = good) before blaming the branch. |
-| Mail-asserting e2e specs time out against a worktree / no mail in Mailpit | Nothing consumes the worktree's `async` transport — the shared `worker` consumes only main's database. Start a worktree-scoped consumer: `bin/worktrees/compose-exec.sh bin/console messenger:consume scheduler_default async` from the worktree; stop it when done. |
+| Mail-asserting e2e specs time out against a worktree / no mail in Mailpit | Not a missing consumer — `PlaywrightSyncMiddleware` handles `X-Playwright` dispatches inline, so no worker is involved. Suspect a request that never carried the header (a context built without the project's `use` options), or stale state from an interrupted run. |
+| You cannot tell whether an e2e run is already in flight | `ps ax` truncates command lines to terminal width, and a worktree's `e2e/node_modules` is a symlink to the main checkout, so **every** playwright process reports an identical command line whichever tree launched it. Use `pgrep -f 'playwright test'` — it neither truncates nor lets you distinguish trees, so treat any hit as "someone is running e2e" and wait. |
 
 ## Writing worktree tooling
 
@@ -233,37 +234,41 @@ e2e at a **worktree**, which is still supported and is the right tool when you
 need to gate a branch without checking it out — but it is no longer the only
 way, and it is the more expensive one.
 
-`just e2e` does not parallelize (shared Mailpit). To aim it at a worktree:
+`just e2e` does not parallelize (shared Mailpit). Run **from** a worktree it now
+resolves that worktree as its target, prints which one, and repairs the dev data
+the suite destroys once it finishes:
 
 ```sh
-E2E_BASE_URL=https://<slug>.loupe.dev.localhost just e2e
+( cd .claude/worktrees/<name> && just e2e )
 ```
+
+`E2E_BASE_URL` still overrides, and is what you want to aim at a worktree from
+somewhere else. Setting it also suppresses the repair, because an explicit target
+may be anything and repairing a tree nobody chose is worse than leaving it.
 
 ## Running the full e2e suite from a worktree
 
-The worktree e2e gate needs four things beyond `E2E_BASE_URL`:
+The worktree e2e gate needs three things:
 
 1. **`DEFAULT_URI=https://<slug>.loupe.dev.localhost` in the worktree's
-   `.env.local`** — CLI/worker-generated absolute URLs (export download emails)
+   `.env.local`** — CLI-generated absolute URLs (export download emails)
    otherwise point at `localhost`. Re-check after any re-provisioning:
    `worktree-up` regenerates `.env.local`.
-2. **A worktree-scoped worker**:
-   `bin/worktrees/compose-exec.sh bin/console messenger:consume async` started
-   from the worktree cwd — the main `worker` container consumes main's DB only,
-   so the data-export spec hangs without this. Kill it afterwards
-   (`docker exec loupe-php-fpm-1 pkill -f 'messenger:consume async'`), and
-   restart it after changing any PHP it has already loaded.
+2. **No worker.** This used to require a worktree-scoped
+   `messenger:consume`, because the shared `worker` container consumes main's
+   database only. It no longer does: `PlaywrightSyncMiddleware` handles every
+   message dispatched under `X-Playwright` inline, so there is no queue to drain.
+   The middleware is registered `when@dev` only, which is what a worktree runs.
 
 Everything here that says "from the worktree" means the command needs the
 worktree as its **cwd for that call only**. Wrap each one in a subshell:
 
-    ( cd .claude/worktrees/<name> && E2E_BASE_URL=https://<slug>.loupe.dev.localhost just e2e --workers=1 )
+    ( cd .claude/worktrees/<name> && just e2e )
 
 A bare `cd` persists across later tool calls and turns "run this one command
 there" into "move the session in", which CLAUDE.md forbids for the main session
 — see "The main session never moves into a worktree" for why that bites.
-3. **`--workers=1`.**
-4. **A quiet stack**: no worktree provisioning, `composer install`, or sibling
+3. **A quiet stack**: no worktree provisioning, `composer install`, or sibling
    `just ci` during the run — they share php-fpm and skew timings past
    Playwright's timeouts.
 
