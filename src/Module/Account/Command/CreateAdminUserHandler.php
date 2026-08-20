@@ -22,8 +22,6 @@ use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
  */
 final readonly class CreateAdminUserHandler
 {
-    private const int MAX_FULL_NAME_LENGTH = 150;
-
     public function __construct(
         private UserRepository $users,
         private EntityManagerInterface $em,
@@ -62,7 +60,7 @@ final readonly class CreateAdminUserHandler
 
         $user = new User(
             fullName: '' !== $fullName
-                ? mb_substr($fullName, 0, self::MAX_FULL_NAME_LENGTH)
+                ? mb_substr($fullName, 0, User::MAX_FULL_NAME_LENGTH)
                 : $this->displayNameDeriver->derive($email),
             email: $email,
         );

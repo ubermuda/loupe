@@ -23,9 +23,6 @@ use Symfony\Contracts\EventDispatcher\EventDispatcherInterface;
 
 final readonly class ResolveSocialLoginHandler
 {
-    /** Matches the users.full_name column. */
-    private const int MAX_FULL_NAME_LENGTH = 150;
-
     public function __construct(
         private ConnectedAccountRepository $connectedAccounts,
         private UserRepository $users,
@@ -109,7 +106,7 @@ final readonly class ResolveSocialLoginHandler
             $providerName = trim($profile->fullName ?? '');
             $user = new User(
                 fullName: '' !== $providerName
-                    ? mb_substr($providerName, 0, self::MAX_FULL_NAME_LENGTH)
+                    ? mb_substr($providerName, 0, User::MAX_FULL_NAME_LENGTH)
                     : $this->displayNameDeriver->derive($matchEmail),
                 email: $matchEmail,
             );
