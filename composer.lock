@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "01b83ee072f3077c0ab813aa783ab0b9",
+    "content-hash": "532d1cd57d16fd8535bd5b3d18bcecb0",
     "packages": [
         {
             "name": "async-aws/core",
@@ -16135,12 +16135,12 @@
             "source": {
                 "type": "git",
                 "url": "https://github.com/ubermuda/gamache.git",
-                "reference": "59772dfb9a94832d6ea3b8eb55f0528ab3dac651"
+                "reference": "27e95ce5e5718959928eded9451b7d620920e85e"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/ubermuda/gamache/zipball/59772dfb9a94832d6ea3b8eb55f0528ab3dac651",
-                "reference": "59772dfb9a94832d6ea3b8eb55f0528ab3dac651",
+                "url": "https://api.github.com/repos/ubermuda/gamache/zipball/27e95ce5e5718959928eded9451b7d620920e85e",
+                "reference": "27e95ce5e5718959928eded9451b7d620920e85e",
                 "shasum": ""
             },
             "require": {
@@ -16188,7 +16188,7 @@
                 "source": "https://github.com/ubermuda/gamache/tree/feat/deployment-parity-app-vars",
                 "issues": "https://github.com/ubermuda/gamache/issues"
             },
-            "time": "2026-08-20T14:00:27+00:00"
+            "time": "2026-08-20T14:13:07+00:00"
         },
         {
             "name": "vincentlanglet/twig-cs-fixer",
