@@ -236,7 +236,7 @@ variable "mcp_allowed_hosts" {
 variable "trusted_proxies" {
   type        = string
   default     = ""
-  description = "TRUSTED_PROXIES: the proxy in front of App Platform, as an IP or CIDR. Empty trusts the private ranges, which is right unless a proxy of your own reaches the app from a public address."
+  description = "TRUSTED_PROXIES: a proxy of your own in front of App Platform, as an IP or CIDR. Added to the private ranges rather than replacing them, since the platform ingress is still the nearest hop. Empty trusts the private ranges alone."
 }
 
 variable "app_source_url" {
