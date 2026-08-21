@@ -5,6 +5,31 @@ Open work and observations worth revisiting. Delete items entirely once resolved
 Entries are ordered by priority (high → medium → low); insert new entries at
 the end of their priority band. Format and rules: `project-next-steps` skill.
 
+## The terms interstitial's "Decline" link 403s, trapping a user who will not accept
+
+**Author:** Claude · **Type:** bug · **Priority:** high · **Status:** pending
+
+`templates/Module/Account/accept_terms.html.twig:30` renders the decline action
+as a bare `<a href="{{ path('app_logout') }}">`. `config/packages/security.yaml`
+sets `logout: enable_csrf: true`, so a plain GET to `/logout` fails the CSRF
+check and returns 403 instead of logging the user out.
+
+The working pattern is three lines below it in `templates/base.html.twig:114` —
+a POST form with `<input type="hidden" name="_csrf_token" value="{{ csrf_token('logout') }}">`.
+Copy that.
+
+Why this is worse than a broken link: `RequireTermsAcceptanceListener` pins a
+user who has not accepted the current terms version to this page, and exempts
+`/logout` precisely so leaving stays possible. Decline is the only exit offered,
+and it does not work — so a user who refuses the terms cannot accept, cannot
+proceed, and cannot leave. They have to clear cookies.
+
+Found 2026-08-21 while building the suspended-account page, which had the same
+bare-link draft and was corrected before it shipped. Confirmed in a browser
+against the running dev app, not only by reading the config. No test covers it,
+because the e2e specs and the WebTestCase fixtures all stamp acceptance on their
+users and so never render the decline path.
+
 ## Data-export object storage is proven on Garage, not on a hosted provider
 
 **Author:** Claude · **Type:** tooling · **Priority:** medium · **Status:** pending
@@ -2374,6 +2399,112 @@ inactive" flags on one entity, each owned by a different module.
 
 Related: 'Encapsulate Billing: replace #[PaywallExempt] with a firewall-level
 rule', which chases the same encapsulation goal from the control-flow side.
+
+## Rector does not run on `migrations/`, so generated migrations keep their scaffold
+
+**Author:** Claude · **Type:** tooling · **Priority:** medium · **Status:** pending
+
+`rector.php`'s `withPaths()` lists `config`, `public`, `src` and `tests` — not
+`migrations`. So `just cs` never tidies a freshly generated migration, and two
+kinds of drift recur on every one: the `#[\Override]` attributes on
+`getDescription()` and `down()` that Rector would add automatically, and the
+`Auto-generated Migration: Please modify to your needs!` docblock plus the two
+`// this up()/down() migration is auto-generated` comments that
+`project-comments` says to cut.
+
+Both had to be fixed by hand on the migration adding the user suspension
+columns (2026-08-21), and a review of the five migrations before it shows the
+same hand-tidy was applied each time — the convention is real, it is just
+enforced by whoever remembers.
+
+The inconsistency worth noting: `phpstan.dist.neon` **does** list `migrations/`
+deliberately, so `MigrationDescriptionRule` runs there. The two tools disagree
+about whether a migration is code. Adding `__DIR__.'/migrations'` to Rector's
+paths would settle it in favour of phpstan's answer and make `just cs` fix the
+`#[\Override]` case on its own. Check the fixer does not rewrite historical
+migrations in ways that change their SQL before committing to it.
+
+## `ControllerTemplateNameRule` is documented as enforced but ships switched off
+
+**Author:** Claude · **Type:** tooling · **Priority:** medium · **Status:** pending
+
+The `project-templates` skill presents the controller-to-template naming
+convention (`ShowFooController` renders `show_foo.html.twig`) as enforced by
+gamache. It is not. `vendor/ubermuda/gamache/extension.neon:19` defaults
+`gamache.controllerTemplates.namespacePattern` to `''`, which the rule reads as
+"off", and `phpstan.dist.neon` never sets it. Nothing fails when the convention
+is broken.
+
+Found 2026-08-21: a new `ShowSuspendedController` rendered
+`suspended.html.twig` and `just ci` stayed green. The existing tree mostly
+complies by habit — `show_account_settings`, `show_account_deleted` — but
+`accept_terms.html.twig` (from `ShowAcceptTermsController`) does not, so
+switching the rule on will report pre-existing violations that have to be
+renamed or the pattern relaxed.
+
+Two ways to settle it, and the choice is real rather than obvious. Set
+`namespacePattern` in `phpstan.dist.neon` and fix the offenders, so the skill's
+claim becomes true. Or soften the skill's wording to "convention, not enforced",
+if the verb-prefix rule is not actually wanted for every controller. Either is
+fine; a skill that says "enforced" about a rule that is off is not, because it
+teaches a reader to trust a gate that will not catch them.
+
+## The listeners' `/logout` exemptions are dead in production but live in their unit tests
+
+**Author:** Claude · **Type:** tooling · **Priority:** low · **Status:** pending
+
+`RequireTermsAcceptanceListener::isExempt()` and
+`RequireNotSuspendedListener::isExempt()` both exempt `/logout`. In the real HTTP
+stack the branch never runs: the firewall's `LogoutListener` answers that path at
+priority 8 and calls `setResponse()`, which stops propagation, so neither gate
+(priority 3 and 6) sees it. Verified with a throwing probe that never fired.
+
+Removing them is not free, though, and an attempt on 2026-08-21 was reverted for
+this reason. `RequireTermsAcceptanceListenerTest` instantiates the listener
+directly and passes it a synthetic `Request::create('/logout')` with no firewall
+involved, so in that context the exemption **is** load-bearing — deleting it
+fails the test. The test case is the only place the invariant "a gated user can
+always leave" is written down at that layer, and that is precisely the invariant
+the terms Decline bug violated.
+
+Sequence it like this. Once the Decline fix has merged, `AcceptTermsControllerTest`
+covers the invariant functionally (it submits the page's own control and asserts
+the redirect to `/login`). At that point the unit-test entries can go along with
+the exemptions, because the guarantee has a better home. Doing it in the other
+order trades a real assertion for three lines of tidiness.
+
+## Consider scoped mutation testing, because a green suite proved little here
+
+**Author:** Geoffrey · **Type:** tooling · **Priority:** medium · **Status:** pending
+
+No mutation-testing tooling is installed — checked against `composer.json`,
+`package.json` and the `justfile`. Infection is the PHP tool for it.
+
+What prompted this: three tests written for the account-suspension work passed
+regardless of the code they were meant to guard. One asserted the page body
+contained "suspended", which the heading renders unconditionally. One asserted a
+redirect that the firewall produced at priority 8 for an unrelated reason. One
+used a fixture that stamped terms acceptance and so never triggered the gate
+under test. All three were defects in the plan they were written from, and the
+suite was green throughout.
+
+Each was caught by hand: revert the change the test guards, confirm the test
+fails, restore. That is one mutant, placed where a weakness was already
+suspected. It gives no score and covers none of the mutants nobody thought of —
+which is exactly the gap a tool closes.
+
+Proposal: scope Infection to the directories where a silently-passing test costs
+most — `src/Module/Account/Security/` and `src/Module/Account/EventListener/` —
+rather than the whole codebase. Both hold code that runs on every authenticated
+request, where a wrong answer is an outage or an authorization hole rather than
+a broken page.
+
+The open question is not whether it is useful but where it runs. Infection
+reruns the suite once per mutant, so a full-repo pass against ~1450 tests is
+coffee-break length, not a pre-commit hook. Decide between a `just ci` leg on a
+narrow path list and a manual command invoked when touching security-adjacent
+code. Cost is the deciding factor; measure a scoped run before wiring it into a
+gate.
 
 ## Registration discloses whether an address is registered, and that is accepted
 

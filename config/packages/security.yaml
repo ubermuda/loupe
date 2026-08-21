@@ -11,14 +11,19 @@ security:
         dev:
             pattern: ^/(_profiler|_wdt|assets|build)/
             security: false
+        # The suspension gate on these two firewalls is the user_checker, not
+        # RequireNotSuspendedListener: that listener exempts ^/api and ^/mcp
+        # because an HTML redirect would corrupt a machine client's response.
         mcp:
             pattern: ^/mcp
             stateless: true
+            user_checker: App\Module\Account\Security\AccountStatusChecker
             custom_authenticators:
                 - App\Module\Account\Security\ApiTokenAuthenticator
         api:
             pattern: ^/api
             stateless: true
+            user_checker: App\Module\Account\Security\AccountStatusChecker
             custom_authenticators:
                 - App\Module\Account\Security\ApiTokenAuthenticator
             access_denied_handler: App\Module\Account\Security\ApiAccessDeniedHandler
