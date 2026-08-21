@@ -52,6 +52,21 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface, AdminPr
     public ?\DateTimeImmutable $disabledAt = null;
 
     /**
+     * Set by an admin, and distinct from disabledAt, which billing owns: a
+     * suspension must survive the trial sweep that clears disabledAt.
+     */
+    #[ORM\Column(nullable: true)]
+    public ?\DateTimeImmutable $suspendedAt = null;
+
+    #[ORM\Column(length: 500, nullable: true)]
+    public ?string $suspendedReason = null;
+
+    /** SET NULL, not RESTRICT: DeleteAccountHandler removes the row with raw SQL. */
+    #[ORM\JoinColumn(nullable: true, onDelete: 'SET NULL')]
+    #[ORM\ManyToOne(targetEntity: self::class)]
+    public ?self $suspendedBy = null;
+
+    /**
      * Null on every row predating the terms gate, and on every account the
      * OAuth path creates — that path has no form to ask on, so the null is what
      * makes RequireTermsAcceptanceListener divert the user to the interstitial.
@@ -148,6 +163,11 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface, AdminPr
     public function isDisabled(): bool
     {
         return null !== $this->disabledAt;
+    }
+
+    public function isSuspended(): bool
+    {
+        return null !== $this->suspendedAt;
     }
 
     public function isAgent(): bool
