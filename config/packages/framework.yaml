@@ -41,17 +41,33 @@ framework:
                     Accept: 'application/vnd.github+json'
 
     rate_limiter:
+        # The `*_address` buckets below are keyed on a hash of the target email
+        # address rather than the client address, and are consumed alongside the
+        # per-IP ones. Without them the allowance is per sender, so an attacker
+        # with N addresses can send one victim N times the mail.
         resend_verification_email:
             policy: fixed_window
             limit: 1
             interval: '60 seconds'
+        resend_verification_email_address:
+            policy: fixed_window
+            limit: 3
+            interval: '1 hour'
         registration:
             policy: fixed_window
             limit: 10
             interval: '1 hour'
+        registration_address:
+            policy: fixed_window
+            limit: 3
+            interval: '1 hour'
         password_reset_request:
             policy: fixed_window
             limit: 5
+            interval: '1 hour'
+        password_reset_request_address:
+            policy: fixed_window
+            limit: 3
             interval: '1 hour'
         # Password-confirmation attempts on the social-account link page. This is
         # an online password guessing surface, so keep it tight.
@@ -73,11 +89,23 @@ when@dev:
                 policy: fixed_window
                 limit: 1000
                 interval: '60 seconds'
+            resend_verification_email_address:
+                policy: fixed_window
+                limit: 1000
+                interval: '1 hour'
             registration:
                 policy: fixed_window
                 limit: 1000
                 interval: '1 hour'
+            registration_address:
+                policy: fixed_window
+                limit: 1000
+                interval: '1 hour'
             password_reset_request:
+                policy: fixed_window
+                limit: 1000
+                interval: '1 hour'
+            password_reset_request_address:
                 policy: fixed_window
                 limit: 1000
                 interval: '1 hour'
@@ -102,11 +130,23 @@ when@test:
                 policy: fixed_window
                 limit: 1000
                 interval: '60 seconds'
+            resend_verification_email_address:
+                policy: fixed_window
+                limit: 1000
+                interval: '1 hour'
             registration:
                 policy: fixed_window
                 limit: 1000
                 interval: '1 hour'
+            registration_address:
+                policy: fixed_window
+                limit: 1000
+                interval: '1 hour'
             password_reset_request:
+                policy: fixed_window
+                limit: 1000
+                interval: '1 hour'
+            password_reset_request_address:
                 policy: fixed_window
                 limit: 1000
                 interval: '1 hour'

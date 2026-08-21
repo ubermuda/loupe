@@ -36,13 +36,13 @@ final readonly class JoinWaitlistHandler
                     $existingEntry->reopen();
                     $this->em->flush();
 
-                    $this->logger->info('account.waitlist.rejoined', ['email' => $command->email]);
+                    $this->logger->info('account.waitlist.rejoined', ['entryId' => self::entryId($existingEntry)]);
 
                     return;
                 }
             }
 
-            $this->logger->info('account.waitlist.duplicate_join', ['email' => $command->email]);
+            $this->logger->info('account.waitlist.duplicate_join', ['entryId' => self::entryId($existingEntry)]);
 
             return;
         }
@@ -53,13 +53,20 @@ final readonly class JoinWaitlistHandler
         // address is registered.
         $existingUser = $this->users->findOneByEmail($command->email);
         if (null !== $existingUser && !$existingUser->isDisabled()) {
-            $this->logger->info('account.waitlist.join_skipped_existing_account', ['email' => $command->email]);
+            // Named by the account that made this path fire. A digest of the
+            // address would do the same correlating job while staying guessable
+            // from a wordlist, which is the thing being avoided here.
+            $this->logger->info('account.waitlist.join_skipped_existing_account', [
+                'userId' => (string) ($existingUser->id ?? throw new \LogicException('A persisted user always has an id.')),
+            ]);
 
             return;
         }
 
+        $entry = new WaitlistEntry($command->email);
+
         try {
-            $this->em->persist(new WaitlistEntry($command->email));
+            $this->em->persist($entry);
             $this->em->flush();
         } catch (UniqueConstraintViolationException) {
             // Two concurrent joins with the same email — the row exists, which
@@ -67,6 +74,11 @@ final readonly class JoinWaitlistHandler
             return;
         }
 
-        $this->logger->info('account.waitlist.joined', ['email' => $command->email]);
+        $this->logger->info('account.waitlist.joined', ['entryId' => self::entryId($entry)]);
+    }
+
+    private static function entryId(WaitlistEntry $entry): string
+    {
+        return (string) ($entry->id ?? throw new \LogicException('a persisted waitlist entry always has an id'));
     }
 }
