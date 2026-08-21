@@ -26,12 +26,13 @@ final readonly class RequireTermsAcceptanceListener
     public const string ACCEPTANCE_ROUTE = 'app_account_accept_terms';
 
     /**
-     * Both halves of the interstitial: gating the POST would make accepting
-     * impossible. The suspended page joins them because the priority-6 gate
-     * sends a suspended user there first, and bouncing them on to acceptance
-     * would hide why their account stopped working.
+     * Routes this gate must never redirect away from. Both halves of the
+     * interstitial, because gating the POST would make accepting impossible;
+     * and the suspended page, because the priority-6 gate sends a suspended
+     * user there first and bouncing them onward would hide why their account
+     * stopped working.
      */
-    public const array ACCEPTANCE_ROUTES = [
+    public const array EXEMPT_ROUTES = [
         self::ACCEPTANCE_ROUTE,
         'app_account_accept_terms_submit',
         RequireNotSuspendedListener::SUSPENDED_ROUTE,
@@ -81,7 +82,7 @@ final readonly class RequireTermsAcceptanceListener
     {
         // By route name, not path: the acceptance page redirecting to itself is
         // the one failure mode that takes the whole app down.
-        if (in_array($request->attributes->get('_route'), self::ACCEPTANCE_ROUTES, true)) {
+        if (in_array($request->attributes->get('_route'), self::EXEMPT_ROUTES, true)) {
             return true;
         }
 

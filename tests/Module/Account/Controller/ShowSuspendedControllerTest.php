@@ -37,17 +37,31 @@ final class ShowSuspendedControllerTest extends WebTestCase
         $this->assertSelectorNotExists('.auth-error');
     }
 
+    public function test_a_user_who_is_not_suspended_is_redirected_away(): void
+    {
+        $client = static::createClient();
+        $user = $this->seedSuspendedUser('active@suspended-test.example.com', null, suspended: false);
+
+        $client->loginUser($user);
+        $client->request(Request::METHOD_GET, '/account/suspended');
+
+        $this->assertResponseRedirects('/');
+    }
+
     /**
      * @param non-empty-string $email
      */
-    private function seedSuspendedUser(string $email, ?string $reason): User
+    private function seedSuspendedUser(string $email, ?string $reason, bool $suspended = true): User
     {
         $em = static::getContainer()->get(EntityManagerInterface::class);
 
         $user = new User(fullName: 'Suspended User', email: $email);
         AcceptedTerms::stamp($user, static::getContainer());
         $user->emailVerifiedAt = new \DateTimeImmutable();
-        $user->suspendedAt = new \DateTimeImmutable();
+        if ($suspended) {
+            $user->suspendedAt = new \DateTimeImmutable();
+        }
+
         $user->suspendedReason = $reason;
         $em->persist($user);
         $em->flush();

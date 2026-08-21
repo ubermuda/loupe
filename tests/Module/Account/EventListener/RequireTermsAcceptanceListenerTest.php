@@ -88,9 +88,9 @@ final class RequireTermsAcceptanceListenerTest extends TestCase
         self::assertNull($this->handle($request));
     }
 
-    public function test_every_declared_acceptance_route_is_exempt(): void
+    public function test_every_declared_exempt_route_is_never_diverted(): void
     {
-        foreach (RequireTermsAcceptanceListener::ACCEPTANCE_ROUTES as $route) {
+        foreach (RequireTermsAcceptanceListener::EXEMPT_ROUTES as $route) {
             $request = Request::create(self::ACCEPTANCE_PATH);
             $request->attributes->set('_route', $route);
 
