@@ -2554,6 +2554,116 @@
                 <source>account.admin.users.error.last_admin</source>
                 <target>This is the only administrator who can still sign in. Give another account the administrator role first, or nobody will be able to reach this page again.</target>
             </trans-unit>
+            <trans-unit id="account.admin.users.error.email_taken">
+                <source>account.admin.users.error.email_taken</source>
+                <target>Another account already uses that email address.</target>
+            </trans-unit>
+
+            <!-- Admin user detail -->
+            <trans-unit id="account.admin.users.column.actions">
+                <source>account.admin.users.column.actions</source>
+                <target>Actions</target>
+            </trans-unit>
+            <trans-unit id="account.admin.users.detail.link">
+                <source>account.admin.users.detail.link</source>
+                <target>Manage</target>
+            </trans-unit>
+            <trans-unit id="account.admin.users.detail.page.title">
+                <source>account.admin.users.detail.page.title</source>
+                <target>User</target>
+            </trans-unit>
+            <trans-unit id="account.admin.users.detail.back">
+                <source>account.admin.users.detail.back</source>
+                <target>Back to users</target>
+            </trans-unit>
+            <trans-unit id="account.admin.users.detail.context.title">
+                <source>account.admin.users.detail.context.title</source>
+                <target>Account</target>
+            </trans-unit>
+            <trans-unit id="account.admin.users.detail.verified_at">
+                <source>account.admin.users.detail.verified_at</source>
+                <target>Email verified</target>
+            </trans-unit>
+            <trans-unit id="account.admin.users.detail.terms_accepted_at">
+                <source>account.admin.users.detail.terms_accepted_at</source>
+                <target>Terms accepted</target>
+            </trans-unit>
+            <trans-unit id="account.admin.users.detail.connected_accounts">
+                <source>account.admin.users.detail.connected_accounts</source>
+                <target>Connected accounts</target>
+            </trans-unit>
+            <trans-unit id="account.admin.users.detail.api_tokens">
+                <source>account.admin.users.detail.api_tokens</source>
+                <target>Active API tokens</target>
+            </trans-unit>
+            <trans-unit id="account.admin.users.detail.data_exports">
+                <source>account.admin.users.detail.data_exports</source>
+                <target>Data exports</target>
+            </trans-unit>
+            <trans-unit id="account.admin.users.detail.never">
+                <source>account.admin.users.detail.never</source>
+                <target>Never</target>
+            </trans-unit>
+            <trans-unit id="account.admin.users.detail.none">
+                <source>account.admin.users.detail.none</source>
+                <target>None</target>
+            </trans-unit>
+            <trans-unit id="account.admin.users.detail.suspended_on">
+                <source>account.admin.users.detail.suspended_on</source>
+                <target>Suspended on %date%.</target>
+            </trans-unit>
+            <trans-unit id="account.admin.users.detail.suspended_by">
+                <source>account.admin.users.detail.suspended_by</source>
+                <target>Suspended by %admin%.</target>
+            </trans-unit>
+            <trans-unit id="account.admin.users.detail.suspended_by_unknown">
+                <source>account.admin.users.detail.suspended_by_unknown</source>
+                <target>The administrator who suspended this account no longer exists.</target>
+            </trans-unit>
+            <trans-unit id="account.admin.users.detail.edit.title">
+                <source>account.admin.users.detail.edit.title</source>
+                <target>Edit account</target>
+            </trans-unit>
+            <trans-unit id="account.admin.users.detail.save">
+                <source>account.admin.users.detail.save</source>
+                <target>Save changes</target>
+            </trans-unit>
+            <trans-unit id="account.admin.users.detail.cancel">
+                <source>account.admin.users.detail.cancel</source>
+                <target>Cancel</target>
+            </trans-unit>
+            <trans-unit id="account.admin.users.detail.danger.title">
+                <source>account.admin.users.detail.danger.title</source>
+                <target>Danger zone</target>
+            </trans-unit>
+            <trans-unit id="account.admin.users.detail.danger.empty">
+                <source>account.admin.users.detail.danger.empty</source>
+                <target>No destructive actions are available yet.</target>
+            </trans-unit>
+            <trans-unit id="account.admin.users.flash.updated">
+                <source>account.admin.users.flash.updated</source>
+                <target>Account updated.</target>
+            </trans-unit>
+            <trans-unit id="account.form.admin_user_form.full_name.label">
+                <source>account.form.admin_user_form.full_name.label</source>
+                <target>Full name</target>
+            </trans-unit>
+            <trans-unit id="account.form.admin_user_form.email.label">
+                <source>account.form.admin_user_form.email.label</source>
+                <target>Email address</target>
+            </trans-unit>
+            <trans-unit id="account.form.admin_user_form.email.help">
+                <source>account.form.admin_user_form.email.help</source>
+                <target>Changing the address clears verification and sends a new verification email.</target>
+            </trans-unit>
+            <trans-unit id="account.form.admin_user_form.is_admin.label">
+                <source>account.form.admin_user_form.is_admin.label</source>
+                <target>Administrator</target>
+            </trans-unit>
+            <trans-unit id="account.form.admin_user_form.is_verified.label">
+                <source>account.form.admin_user_form.is_verified.label</source>
+                <target>Email verified</target>
+            </trans-unit>
 
             <!-- Billing -->
             <trans-unit id="nav.link.billing">

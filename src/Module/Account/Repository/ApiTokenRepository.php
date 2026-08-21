@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Module\Account\Repository;
 
 use App\Module\Account\Entity\ApiToken;
+use App\Module\Account\Entity\User;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\Persistence\ManagerRegistry;
@@ -23,6 +24,12 @@ class ApiTokenRepository extends ServiceEntityRepository
         // revokedAt: null excludes revoked tokens — a revoked token's row survives
         // (see ApiToken::revoke()) but must never authenticate again.
         return $this->findOneBy(['tokenHash' => hash('sha256', $rawToken), 'revokedAt' => null]);
+    }
+
+    /** Tokens that can still authenticate; a revoked token's row survives but must not be counted. */
+    public function countActiveByOwner(User $owner): int
+    {
+        return $this->count(['owner' => $owner, 'revokedAt' => null]);
     }
 
     /**

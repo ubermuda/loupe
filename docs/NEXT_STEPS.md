@@ -3543,6 +3543,28 @@ are worth building for their own reasons; see "Personal reviewer tokens as an
 identity layer for the widget". Until then the escalation stays, and the tax on
 the owner's own feedback is accepted rather than worked around.
 
+## The admin user detail page shows no project or billing context
+
+**Author:** Claude · **Type:** feature · **Priority:** medium · **Status:** pending
+
+`/admin/users/{id}` (`src/Module/Account/Controller/Admin/ShowUserController.php`,
+served by `ShowUserHandler` → `UserDetailView`) shows only Account-owned context:
+roles, status, verification, terms, connected accounts, active API token count and
+data exports. It shows nothing about how many projects the account owns or what its
+billing state is, which is usually the first thing an admin wants before suspending
+or deleting someone.
+
+Both live in other modules, and reaching for them from Account would add two more
+edges to the module graph that the boundaries sweep is meant to remove. The shape
+that fits is the one `AccountDataPurgerInterface` and `UserDataExporterInterface`
+already use here: a tagged `AdminUserContextProviderInterface` declared in Account,
+implemented by Project and Billing, iterated by `ShowUserHandler`, with the view
+rendering whatever labelled values come back. Deliberately not built up front — an
+unused tagged interface with no implementations is dead code.
+
+Do this with, or after, the boundaries sweep; see "Domain boundaries sweep — and the
+arkitect gate that has never rejected anything".
+
 ## Transactional jobs run inline in e2e under `X-Playwright`
 
 **Author:** Geoffrey · **Type:** tooling · **Priority:** low · **Status:** pending

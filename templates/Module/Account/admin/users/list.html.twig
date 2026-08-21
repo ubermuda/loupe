@@ -57,6 +57,7 @@
                 <th>{{ 'account.admin.users.column.roles'|trans }}</th>
                 <th>{{ 'account.admin.users.column.status'|trans }}</th>
                 <th><twig:UbermudaAdmin:AdminListSortLink route="app_admin_users_list" column="createdAt" label="{{ 'account.admin.users.column.joined'|trans }}" :currentSort="sort" :currentDir="dir" :filters="filters" /></th>
+                <th>{{ 'account.admin.users.column.actions'|trans }}</th>
             </tr>
         </twig:block>
 
@@ -84,6 +85,9 @@
                         {% endif %}
                     </td>
                     <td>{{ user.createdAt|date('Y-m-d H:i') }}</td>
+                    <td class="text-right">
+                        <a href="{{ path('app_admin_users_detail', {id: user.id, returnTo: app.request.requestUri}) }}" data-turbo-frame="_top" class="admin-button-secondary admin-button-small">{{ 'account.admin.users.detail.link'|trans }}</a>
+                    </td>
                 </tr>
             {% endfor %}
         </twig:block>
