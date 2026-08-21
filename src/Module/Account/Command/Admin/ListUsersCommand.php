@@ -10,10 +10,10 @@ final readonly class ListUsersCommand
         public int $page,
         public string $sort,
         public string $dir,
-        public string $query = '',
-        public string $verified = '',
-        public string $state = '',
-        public string $role = '',
+        public ?string $query = null,
+        public ?string $verified = null,
+        public ?string $state = null,
+        public ?string $role = null,
     ) {
     }
 }

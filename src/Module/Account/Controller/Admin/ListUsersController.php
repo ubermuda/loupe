@@ -38,10 +38,10 @@ final class ListUsersController extends AppController
             page: $listRequest->page,
             sort: $listRequest->sort,
             dir: $listRequest->dir,
-            query: $request->query->getString('q'),
-            verified: $request->query->getString('verified'),
-            state: $request->query->getString('state'),
-            role: $request->query->getString('role'),
+            query: $request->query->getString('q') ?: null,
+            verified: $request->query->getString('verified') ?: null,
+            state: $request->query->getString('state') ?: null,
+            role: $request->query->getString('role') ?: null,
         ));
 
         if (null !== $view->clampedPage) {

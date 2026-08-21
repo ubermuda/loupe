@@ -24,12 +24,14 @@ final readonly class ListUsersHandler
 
     public function __invoke(ListUsersCommand $command): ListUsersView
     {
+        // null means "not filtering"; an allowlist miss collapses to the same
+        // thing, so a rejected value can never reach the query.
         $filters = array_filter([
-            'q' => trim($command->query),
-            'verified' => in_array($command->verified, self::ALLOWED_VERIFIED, true) ? $command->verified : '',
-            'state' => in_array($command->state, self::ALLOWED_STATES, true) ? $command->state : '',
-            'role' => in_array($command->role, self::ALLOWED_ROLES, true) ? $command->role : '',
-        ], static fn (string $value): bool => '' !== $value);
+            'q' => trim($command->query ?? '') ?: null,
+            'verified' => in_array($command->verified, self::ALLOWED_VERIFIED, true) ? $command->verified : null,
+            'state' => in_array($command->state, self::ALLOWED_STATES, true) ? $command->state : null,
+            'role' => in_array($command->role, self::ALLOWED_ROLES, true) ? $command->role : null,
+        ], static fn (?string $value): bool => null !== $value);
 
         $paginator = $this->users->findPaginatedForAdmin(
             page: $command->page,
