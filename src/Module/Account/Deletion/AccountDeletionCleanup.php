@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace App\Module\Account\Deletion;
 
 /**
- * Collects the work a purger cannot do inline, so DeleteAccountHandler can run
- * it at the right moment without knowing which module asked.
+ * Collects the work a purger cannot do inline, so AccountPurger can run it at
+ * the right moment without knowing which module asked.
  *
  * Storage deletions wait until after the transaction commits: a rolled-back
  * deletion must leave a still-existing row's archive untouched, so a purger
