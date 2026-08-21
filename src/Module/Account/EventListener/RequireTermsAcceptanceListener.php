@@ -101,12 +101,21 @@ final readonly class RequireTermsAcceptanceListener
     }
 
     /**
-     * A Turbo-stream or JSON fetch would render an HTML redirect into a frame or
-     * a parse error. Turbo form submissions accept streams too, so writes stay
-     * ungated: this is a navigation interstitial, not an authorization boundary.
+     * Only safe methods are gated. Redirecting a submission would discard it
+     * with nothing to resume — the intended path below is recorded for GET
+     * alone, because replaying a POST URI would 405. A Turbo-stream or JSON
+     * fetch is skipped too, since an HTML redirect would land in a frame or a
+     * parse error.
+     *
+     * So writes stay ungated: this is a navigation interstitial, not an
+     * authorization boundary, and voters still authorize every write.
      */
     private function isHtmlNavigation(Request $request): bool
     {
+        if (!$request->isMethodSafe()) {
+            return false;
+        }
+
         if (str_contains((string) $request->headers->get('Accept', ''), TurboBundle::STREAM_MEDIA_TYPE)) {
             return false;
         }

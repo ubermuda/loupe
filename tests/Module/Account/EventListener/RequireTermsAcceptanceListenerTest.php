@@ -158,13 +158,15 @@ final class RequireTermsAcceptanceListenerTest extends TestCase
         );
     }
 
-    public function test_a_gated_post_stashes_nothing(): void
+    public function test_a_write_is_never_swallowed_by_the_gate(): void
     {
         $request = Request::create('/projects', Request::METHOD_POST);
         $request->setSession(new Session(new MockArraySessionStorage()));
 
-        self::assertInstanceOf(RedirectResponse::class, $this->handle($request));
-        // Replaying a POST URI as a redirect target after acceptance would 405.
+        // Redirecting a submission would discard it with nothing to resume:
+        // the intended path is recorded for GET alone, because replaying a POST
+        // URI would 405. Writes stay ungated and voters still authorize them.
+        self::assertNull($this->handle($request));
         self::assertFalse($request->getSession()->has(RequireTermsAcceptanceListener::INTENDED_PATH_SESSION_KEY));
     }
 
