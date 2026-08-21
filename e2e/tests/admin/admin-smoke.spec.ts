@@ -36,7 +36,7 @@ test('the admin layout actually loads the stylesheet', async ({ page }) => {
 });
 
 test('the site-review widget reaches the admin area too', async ({ page }) => {
-    const widget = 'script[src="/site-review/widget.js"]';
+    const widget = 'script[src$="/site-review/widget.js"]';
 
     await page.goto('/');
     const configured = await page.locator(widget).count();

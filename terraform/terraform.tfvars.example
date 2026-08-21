@@ -62,6 +62,9 @@ db_server_version = "18" # the cluster's actual PG major version
 # Empty (the default) shows the widget to administrators only. "1" offers it to
 # every visitor, whose comments an agent may then act on.
 # site_review_widget_public = "1"
+# The origin serving the widget, and so the instance its comments file into.
+# Unset is this one; point it elsewhere to review this deployment from another.
+# site_review_widget_backend = "https://loupe.ac"
 # --- Analytics (Umami) ---
 # All three, plus the analytics.enabled feature flag, before any tag is emitted.
 # analytics_script_url = "https://cloud.umami.is/script.js"

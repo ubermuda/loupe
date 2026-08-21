@@ -90,6 +90,9 @@ x-app-environment: &app-environment
   # Empty shows the widget to administrators only. "1" offers it to every
   # visitor, whose comments an agent may then act on.
   SITE_REVIEW_WIDGET_PUBLIC: "${SITE_REVIEW_WIDGET_PUBLIC:-}"
+  # Origin serving the widget, hence the instance its comments file into.
+  # Empty is this one.
+  SITE_REVIEW_WIDGET_BACKEND: "${SITE_REVIEW_WIDGET_BACKEND:-}"
   # Umami. All three, plus the analytics.enabled flag, before a tag is emitted.
   ANALYTICS_SCRIPT_URL: "${ANALYTICS_SCRIPT_URL:-}"
   ANALYTICS_WEBSITE_ID: "${ANALYTICS_WEBSITE_ID:-}"
