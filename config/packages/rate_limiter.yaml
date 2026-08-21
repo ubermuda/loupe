@@ -8,3 +8,11 @@ framework:
             policy: 'sliding_window'
             limit: 60
             interval: '1 minute'
+
+        # Bounds the whole MCP endpoint, not only writes: every JSON-RPC message
+        # rides POST, including initialize, tools/list and ping. Keyed per token
+        # alone, unlike the widget limiter above — see RateLimitMcpRequests.
+        mcp_requests:
+            policy: 'sliding_window'
+            limit: 120
+            interval: '1 minute'

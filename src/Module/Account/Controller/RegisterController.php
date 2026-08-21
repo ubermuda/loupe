@@ -12,13 +12,14 @@ use App\Module\Account\Command\RegisterUserCommand;
 use App\Module\Account\Command\RegisterUserHandler;
 use App\Module\Account\Form\RegistrationFormType;
 use App\Module\Account\Form\RegistrationRequest;
+use App\Module\Account\Service\EmailRateLimitKey;
 use App\Module\Account\Service\RegistrationGate;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\Form\FormError;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
-use Symfony\Component\RateLimiter\RateLimiterFactory;
+use Symfony\Component\RateLimiter\RateLimiterFactoryInterface;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Contracts\Translation\TranslatorInterface;
 
@@ -35,7 +36,11 @@ class RegisterController extends AppController
         private readonly LoggerInterface $logger,
 
         #[Autowire(service: 'limiter.registration')]
-        private readonly RateLimiterFactory $registrationLimiter,
+        private readonly RateLimiterFactoryInterface $registrationLimiter,
+
+        #[Autowire(service: 'limiter.registration_address')]
+        private readonly RateLimiterFactoryInterface $registrationAddressLimiter,
+        private readonly EmailRateLimitKey $addressKey,
     ) {
     }
 
@@ -97,9 +102,23 @@ class RegisterController extends AppController
                 throw new \LogicException('Display name is required after form validation.');
             }
 
+            $email = $data->email ?: throw new \LogicException('Email is required after form validation.');
+
+            // Reported, not silenced. Faking the check-email redirect here would
+            // stash an unowned address in `registration_email`, which the resend
+            // flow trusts — turning the throttle into a way to mail a stranger.
+            // Nothing is disclosed by reporting it: this form already tells the
+            // caller on the first attempt whether the address is taken.
+            $addressLimiter = $this->registrationAddressLimiter->create(($this->addressKey)($email));
+            if (!$addressLimiter->consume(1)->isAccepted()) {
+                $form->get('email')->addError(new FormError($this->translator->trans('account.registration.error.throttled')));
+
+                return $this->renderFormResponse('@Account/registration/register.html.twig', $form);
+            }
+
             try {
                 $user = ($this->registerUser)(new RegisterUserCommand(
-                    email: $data->email ?: throw new \LogicException('Email is required after form validation.'),
+                    email: $email,
                     fullName: $fullName,
                     plainPassword: (string) $data->plainPassword,
                     inviteToken: $inviteToken,

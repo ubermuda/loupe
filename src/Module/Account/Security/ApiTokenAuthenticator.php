@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace App\Module\Account\Security;
 
 use App\Module\Account\Repository\ApiTokenRepository;
+use Monolog\Attribute\WithMonologChannel;
+use Psr\Log\LoggerInterface;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Security\Core\Authentication\Token\TokenInterface;
@@ -16,6 +18,7 @@ use Symfony\Component\Security\Http\Authenticator\Passport\SelfValidatingPasspor
 use Symfony\Component\Security\Http\Authenticator\Token\PostAuthenticationToken;
 use Symfony\Component\Security\Http\EntryPoint\AuthenticationEntryPointInterface;
 
+#[WithMonologChannel('app_security')]
 final class ApiTokenAuthenticator extends AbstractAuthenticator implements AuthenticationEntryPointInterface
 {
     private const string SCOPE_ROLE_ATTR = 'scopeRole';
@@ -30,6 +33,7 @@ final class ApiTokenAuthenticator extends AbstractAuthenticator implements Authe
 
     public function __construct(
         private readonly ApiTokenRepository $apiTokens,
+        private readonly LoggerInterface $logger,
     ) {
     }
 
@@ -85,8 +89,17 @@ final class ApiTokenAuthenticator extends AbstractAuthenticator implements Authe
         return $authenticatedToken;
     }
 
+    #[\Override]
     public function onAuthenticationFailure(Request $request, AuthenticationException $exception): Response
     {
+        // Deliberately no token material, not even a prefix: these records go to
+        // stderr in production, where a guessed-token log becomes the leak.
+        $this->logger->warning('account.api_token.authentication_failed', [
+            'path' => $request->getPathInfo(),
+            'ip' => $request->getClientIp(),
+            'reason' => $exception->getMessage(),
+        ]);
+
         return new Response('{"error":"unauthorized"}', Response::HTTP_UNAUTHORIZED, ['Content-Type' => 'application/json']);
     }
 
