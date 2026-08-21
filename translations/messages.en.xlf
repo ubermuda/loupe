@@ -2415,6 +2415,24 @@
                 <target>Converted</target>
             </trans-unit>
 
+            <!-- Admin user management guards -->
+            <trans-unit id="account.admin.users.error.agent_account">
+                <source>account.admin.users.error.agent_account</source>
+                <target>The agent account authors everything agents write, so it cannot be changed or removed.</target>
+            </trans-unit>
+            <trans-unit id="account.admin.users.error.self_target">
+                <source>account.admin.users.error.self_target</source>
+                <target>You cannot delete or suspend your own account. Ask another administrator to do it.</target>
+            </trans-unit>
+            <trans-unit id="account.admin.users.error.self_demote">
+                <source>account.admin.users.error.self_demote</source>
+                <target>You cannot take away your own administrator role. Ask another administrator to do it.</target>
+            </trans-unit>
+            <trans-unit id="account.admin.users.error.last_admin">
+                <source>account.admin.users.error.last_admin</source>
+                <target>This is the only administrator who can still sign in. Give another account the administrator role first, or nobody will be able to reach this page again.</target>
+            </trans-unit>
+
             <!-- Billing -->
             <trans-unit id="nav.link.billing">
                 <source>nav.link.billing</source>

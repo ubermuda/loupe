@@ -108,6 +108,24 @@ class UserRepository extends ServiceEntityRepository implements PasswordUpgrader
     }
 
     /**
+     * Administrators who could still log in. The agent is excluded for the same
+     * reason countHumans() excludes it, and a suspended admin does not count —
+     * the suspension gate pins them out of the admin area entirely.
+     */
+    public function countActiveAdmins(): int
+    {
+        $sql = <<<'SQL'
+            SELECT COUNT(*) FROM users
+            WHERE id != :agent
+              AND suspended_at IS NULL
+              AND jsonb_exists(roles::jsonb, 'ROLE_ADMIN')
+            SQL;
+
+        return (int) $this->getEntityManager()->getConnection()
+            ->fetchOne($sql, ['agent' => User::AGENT_ID]);
+    }
+
+    /**
      * The singleton account that authors agent-written content. Inserted by a
      * migration, so its absence is a broken schema rather than a runtime state
      * a caller could recover from.
