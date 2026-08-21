@@ -219,29 +219,6 @@ and persist a timestamp plus version on both.
 
 Found by an audit on 2026-08-20.
 
-## Terraform state holds production secrets in plaintext on the operator's machine
-
-**Author:** Claude · **Type:** security · **Priority:** high · **Status:** pending
-
-`terraform/versions.tf` has its `backend "s3"` block commented out, so state is
-local. `terraform/terraform.tfstate`, `.tfstate.backup`, `.tfstate.bak` and
-`terraform.tfvars` therefore hold live production credentials in cleartext on
-whichever machine last ran `apply` — the managed-database password, the
-application secret, the DigitalOcean API token and the registry PAT among them.
-
-**This is not a repository exposure and should not be triaged as one.** All four
-are covered by `terraform/.gitignore` (`*.tfstate.*` catches the `.bak`) and
-none has ever been committed — verified against full history on 2026-08-20. The
-exposure is everything that copies a home directory: system backups, cloud
-sync, a support bundle, a stolen laptop.
-
-`terraform.tfstate.bak` is the sharpest edge. Terraform neither manages nor
-rotates it, so it holds whatever the secrets were on the day it was written and
-will keep holding them.
-
-Closing this means configuring the encrypted remote backend the file already
-documents, migrating state to it, and removing the local copies.
-
 ## `digitalocean_app` shows a perpetual diff, so every apply redeploys
 
 **Author:** Claude · **Type:** tooling · **Priority:** low · **Status:** pending
@@ -2440,28 +2417,33 @@ caller's allowance is its own.
 
 Found by an audit on 2026-08-20.
 
-## Registration discloses whether an address is already registered
+## Registration discloses whether an address is registered, and that is accepted
 
-**Author:** Claude · **Type:** security · **Priority:** medium · **Status:** pending
+**Author:** Geoffrey · **Type:** docs · **Priority:** low · **Status:** pending
 
 `src/Module/Account/Command/RegisterUserHandler.php` returns a distinct
 `account.registration.error.email_duplicate` field error when the address
 already exists, so an unauthenticated caller can enumerate registered users
 through `/register`.
 
-What makes this worth fixing is that the codebase has already decided the other
-way everywhere else. `RequestPasswordResetHandler` carries a docblock stating
-that account existence "must not be observable (anti-enumeration policy)" and
-completes silently either way; `JoinWaitlistController` notes that it
-"enumerates nothing"; `ListSitesController` reasons about the same property.
-Registration is the one hole in a stated policy, not a missing control.
+**Decided on 2026-08-20: leave it.** The owner does not mind enumeration at
+registration. The alternative — responding identically whichever way it goes —
+costs a real inline error for anyone who mistypes an address they already
+registered with, and buys little when the same address can be probed at other
+providers anyway.
 
-The usual shape: respond identically whichever way it goes, and mail the
-existing account a "someone tried to register with your address" notice instead
-of surfacing the collision inline. Note the handler raises the same error from
-two places — the pre-check and the unique-constraint race after flush.
+This entry exists so the next audit does not re-file it. It is a deliberate
+exception, not an oversight, and the reason it looks like one is that the
+codebase decided the other way elsewhere: `RequestPasswordResetHandler` states
+in a docblock that account existence "must not be observable (anti-enumeration
+policy)", `JoinWaitlistController` notes that it "enumerates nothing", and
+`ListSitesController` reasons about the same property. Those remain correct for
+their paths — the policy holds everywhere the response is a bare
+acknowledgement, and is waived where a form has a field to attach an error to.
 
-Found by an audit on 2026-08-20.
+Close this by writing that distinction into the `project-authz` skill or a
+comment on the handler, so the exception is discoverable from the code rather
+than only here.
 
 ## Email-sending limiters key on IP alone, so one inbox can be flooded
 
@@ -2551,12 +2533,21 @@ are empty, so the tag is not emitted. The defect is that enabling analytics —
 the documented, supported thing to do — silently makes the published policy
 false, and nothing in the flag's description says so.
 
-Three things to settle together: whether the snippet waits on a stored consent
-decision, whether the policy text becomes conditional on the flag, and whether
-a cookieless Umami configuration changes the answer to the first. They are one
-decision, not three, which is why this is a single entry.
+**Narrowed on 2026-08-20, and smaller than first filed.** Umami sets no cookies
+("Umami does not use any cookies in the tracking code", its own documentation),
+so no consent banner is required and the policy's "no analytics cookies" line
+stays true either way. What does not stay true is "no third-party tracking",
+because the decision is that `ANALYTICS_ORIGIN` points at Umami Cloud — a third
+party, and a processor the table at the foot of the policy does not list.
 
-Found by an audit on 2026-08-20.
+So the work is confined to the policy template: make the third-party-tracking
+sentence and the processor row conditional on the analytics flag, so the page
+tells the truth in both states. No consent-management code, no change to
+`AnalyticsScript`.
+
+A self-hosted operator pointing the same flag at their own Umami instance has
+no third party and needs no processor row, which is a second reason the text
+has to be conditional rather than simply rewritten.
 
 ## Decide how CommentBudgetCheck should treat `.env`
 
@@ -3647,3 +3638,37 @@ request is harmless. `WebProfilerBundle` is registered for `dev` and `test` only
 0.12.0 and `mcp/sdk` 0.7.1 are installed. Re-check when either publishes a
 release whose notes mention tool-list delivery or session handling; both are
 pre-1.0 and moving.
+
+## Terraform state keeps production secrets on the operator's machine, accepted for now
+
+**Author:** Geoffrey · **Type:** security · **Priority:** low · **Status:** pending
+
+`terraform/versions.tf` has its `backend "s3"` block commented out, so state is
+local. `terraform/terraform.tfstate`, `.tfstate.backup`, `.tfstate.bak` and
+`terraform.tfvars` hold live production credentials in cleartext on whichever
+machine last ran `apply` — the managed-database password, the application
+secret, the DigitalOcean API token and the registry PAT among them.
+
+**This is not a repository exposure and should not be triaged as one.** All four
+are covered by `terraform/.gitignore` (`*.tfstate.*` catches the `.bak`) and
+none has ever been committed — verified against full history on 2026-08-20. The
+exposure is everything that copies a home directory: system backups, cloud
+sync, a support bundle, a stolen laptop.
+
+**Decided on 2026-08-20: keep state local, change nothing.** With one operator
+on one machine, a remote backend adds a bucket, a lock table and another
+credential to hold, against a risk that is currently bounded by that machine's
+own security. Graded low on that basis rather than closed, because the
+reasoning is about today's circumstances and not about the exposure being
+acceptable in general.
+
+Revisit when any of these becomes true: a second person runs `apply`, CI runs
+it, the machine stops being a single trusted laptop, or the repository goes
+public and the blast radius of a mistake changes. At that point the work is the
+encrypted backend the file already documents, `terraform init -migrate-state`,
+and deleting the local copies.
+
+One thing worth doing even under this decision: `terraform.tfstate.bak` is not
+managed or rotated by Terraform, so it holds whatever the secrets were on the
+day it was written, indefinitely. Deleting it costs nothing and removes the
+oldest copy.
