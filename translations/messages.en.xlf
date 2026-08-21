@@ -2415,6 +2415,128 @@
                 <target>Converted</target>
             </trans-unit>
 
+            <!-- Admin users page -->
+            <trans-unit id="account.admin.users.page.title">
+                <source>account.admin.users.page.title</source>
+                <target>Users</target>
+            </trans-unit>
+            <trans-unit id="account.admin.users.title">
+                <source>account.admin.users.title</source>
+                <target>Users</target>
+            </trans-unit>
+            <trans-unit id="account.admin.users.unit">
+                <source>account.admin.users.unit</source>
+                <target>user</target>
+            </trans-unit>
+            <trans-unit id="account.admin.users.unit_plural">
+                <source>account.admin.users.unit_plural</source>
+                <target>users</target>
+            </trans-unit>
+            <trans-unit id="account.admin.users.empty">
+                <source>account.admin.users.empty</source>
+                <target>No users match these filters.</target>
+            </trans-unit>
+            <trans-unit id="account.admin.users.column.name">
+                <source>account.admin.users.column.name</source>
+                <target>Name</target>
+            </trans-unit>
+            <trans-unit id="account.admin.users.column.email">
+                <source>account.admin.users.column.email</source>
+                <target>Email</target>
+            </trans-unit>
+            <trans-unit id="account.admin.users.column.roles">
+                <source>account.admin.users.column.roles</source>
+                <target>Roles</target>
+            </trans-unit>
+            <trans-unit id="account.admin.users.column.status">
+                <source>account.admin.users.column.status</source>
+                <target>Status</target>
+            </trans-unit>
+            <trans-unit id="account.admin.users.column.joined">
+                <source>account.admin.users.column.joined</source>
+                <target>Joined</target>
+            </trans-unit>
+            <trans-unit id="account.admin.users.role.admin">
+                <source>account.admin.users.role.admin</source>
+                <target>Administrator</target>
+            </trans-unit>
+            <trans-unit id="account.admin.users.role.user">
+                <source>account.admin.users.role.user</source>
+                <target>User</target>
+            </trans-unit>
+            <trans-unit id="account.admin.users.status.active">
+                <source>account.admin.users.status.active</source>
+                <target>Active</target>
+            </trans-unit>
+            <trans-unit id="account.admin.users.status.suspended">
+                <source>account.admin.users.status.suspended</source>
+                <target>Suspended</target>
+            </trans-unit>
+            <trans-unit id="account.admin.users.status.disabled">
+                <source>account.admin.users.status.disabled</source>
+                <target>Disabled</target>
+            </trans-unit>
+            <trans-unit id="account.admin.users.status.unverified">
+                <source>account.admin.users.status.unverified</source>
+                <target>Unverified</target>
+            </trans-unit>
+            <trans-unit id="account.admin.users.filter.search_placeholder">
+                <source>account.admin.users.filter.search_placeholder</source>
+                <target>Search by name or email…</target>
+            </trans-unit>
+            <trans-unit id="account.admin.users.filter.role">
+                <source>account.admin.users.filter.role</source>
+                <target>Role</target>
+            </trans-unit>
+            <trans-unit id="account.admin.users.filter.role_any">
+                <source>account.admin.users.filter.role_any</source>
+                <target>Any role</target>
+            </trans-unit>
+            <trans-unit id="account.admin.users.filter.role_admin">
+                <source>account.admin.users.filter.role_admin</source>
+                <target>Administrators</target>
+            </trans-unit>
+            <trans-unit id="account.admin.users.filter.role_user">
+                <source>account.admin.users.filter.role_user</source>
+                <target>Users only</target>
+            </trans-unit>
+            <trans-unit id="account.admin.users.filter.verified">
+                <source>account.admin.users.filter.verified</source>
+                <target>Email verification</target>
+            </trans-unit>
+            <trans-unit id="account.admin.users.filter.verified_any">
+                <source>account.admin.users.filter.verified_any</source>
+                <target>Any verification</target>
+            </trans-unit>
+            <trans-unit id="account.admin.users.filter.verified_yes">
+                <source>account.admin.users.filter.verified_yes</source>
+                <target>Verified</target>
+            </trans-unit>
+            <trans-unit id="account.admin.users.filter.verified_no">
+                <source>account.admin.users.filter.verified_no</source>
+                <target>Not verified</target>
+            </trans-unit>
+            <trans-unit id="account.admin.users.filter.state">
+                <source>account.admin.users.filter.state</source>
+                <target>Account state</target>
+            </trans-unit>
+            <trans-unit id="account.admin.users.filter.state_any">
+                <source>account.admin.users.filter.state_any</source>
+                <target>Any state</target>
+            </trans-unit>
+            <trans-unit id="account.admin.users.filter.state_active">
+                <source>account.admin.users.filter.state_active</source>
+                <target>Active</target>
+            </trans-unit>
+            <trans-unit id="account.admin.users.filter.state_suspended">
+                <source>account.admin.users.filter.state_suspended</source>
+                <target>Suspended</target>
+            </trans-unit>
+            <trans-unit id="account.admin.users.filter.state_disabled">
+                <source>account.admin.users.filter.state_disabled</source>
+                <target>Disabled</target>
+            </trans-unit>
+
             <!-- Admin user management guards -->
             <trans-unit id="account.admin.users.error.agent_account">
                 <source>account.admin.users.error.agent_account</source>

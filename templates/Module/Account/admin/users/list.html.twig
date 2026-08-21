@@ -1,0 +1,91 @@
+{% extends '@UbermudaAdmin/base.html.twig' %}
+
+{% block title %}{{ 'account.admin.users.page.title'|trans }} — {{ 'app.name'|trans }}{% endblock %}
+
+{% block body %}
+    <twig:UbermudaAdmin:AdminList
+        title="{{ 'account.admin.users.title'|trans }}"
+        :total="total"
+        unitLabel="{{ 'account.admin.users.unit'|trans }}"
+        unitLabelPlural="{{ 'account.admin.users.unit_plural'|trans }}"
+        frameId="users-table"
+        :filters="filters"
+        route="app_admin_users_list"
+        :page="page"
+        :totalPages="totalPages"
+        :pageList="pageList"
+        sort="{{ sort }}"
+        dir="{{ dir }}"
+        tableClass="admin-table"
+        emptyLabel="{{ 'account.admin.users.empty'|trans }}"
+    >
+        <twig:block name="filter_bar">
+            <twig:UbermudaAdmin:AdminListFilterBar
+                route="app_admin_users_list"
+                frameId="users-table"
+                searchPlaceholder="{{ 'account.admin.users.filter.search_placeholder'|trans }}"
+                :filters="filters"
+                sort="{{ sort }}"
+                dir="{{ dir }}"
+            >
+                <twig:block name="filter_fields">
+                    {# The bundle only wires its own search box; a select fires nothing without this action. #}
+                    <select name="role" class="admin-field-input admin-field-select !w-auto shrink-0" aria-label="{{ 'account.admin.users.filter.role'|trans }}" data-action="change->autosearch#search">
+                        <option value="">{{ 'account.admin.users.filter.role_any'|trans }}</option>
+                        <option value="admin"{{ filters.role|default('') == 'admin' ? ' selected' : '' }}>{{ 'account.admin.users.filter.role_admin'|trans }}</option>
+                        <option value="user"{{ filters.role|default('') == 'user' ? ' selected' : '' }}>{{ 'account.admin.users.filter.role_user'|trans }}</option>
+                    </select>
+                    <select name="verified" class="admin-field-input admin-field-select !w-auto shrink-0" aria-label="{{ 'account.admin.users.filter.verified'|trans }}" data-action="change->autosearch#search">
+                        <option value="">{{ 'account.admin.users.filter.verified_any'|trans }}</option>
+                        <option value="yes"{{ filters.verified|default('') == 'yes' ? ' selected' : '' }}>{{ 'account.admin.users.filter.verified_yes'|trans }}</option>
+                        <option value="no"{{ filters.verified|default('') == 'no' ? ' selected' : '' }}>{{ 'account.admin.users.filter.verified_no'|trans }}</option>
+                    </select>
+                    <select name="state" class="admin-field-input admin-field-select !w-auto shrink-0" aria-label="{{ 'account.admin.users.filter.state'|trans }}" data-action="change->autosearch#search">
+                        <option value="">{{ 'account.admin.users.filter.state_any'|trans }}</option>
+                        <option value="active"{{ filters.state|default('') == 'active' ? ' selected' : '' }}>{{ 'account.admin.users.filter.state_active'|trans }}</option>
+                        <option value="suspended"{{ filters.state|default('') == 'suspended' ? ' selected' : '' }}>{{ 'account.admin.users.filter.state_suspended'|trans }}</option>
+                        <option value="disabled"{{ filters.state|default('') == 'disabled' ? ' selected' : '' }}>{{ 'account.admin.users.filter.state_disabled'|trans }}</option>
+                    </select>
+                </twig:block>
+            </twig:UbermudaAdmin:AdminListFilterBar>
+        </twig:block>
+
+        <twig:block name="thead">
+            <tr>
+                <th><twig:UbermudaAdmin:AdminListSortLink route="app_admin_users_list" column="fullName" label="{{ 'account.admin.users.column.name'|trans }}" :currentSort="sort" :currentDir="dir" :filters="filters" /></th>
+                <th><twig:UbermudaAdmin:AdminListSortLink route="app_admin_users_list" column="email" label="{{ 'account.admin.users.column.email'|trans }}" :currentSort="sort" :currentDir="dir" :filters="filters" /></th>
+                <th>{{ 'account.admin.users.column.roles'|trans }}</th>
+                <th>{{ 'account.admin.users.column.status'|trans }}</th>
+                <th><twig:UbermudaAdmin:AdminListSortLink route="app_admin_users_list" column="createdAt" label="{{ 'account.admin.users.column.joined'|trans }}" :currentSort="sort" :currentDir="dir" :filters="filters" /></th>
+            </tr>
+        </twig:block>
+
+        <twig:block name="tbody">
+            {% for user in users %}
+                <tr data-user-id="{{ user.id }}">
+                    <td>{{ user.fullName }}</td>
+                    <td>{{ user.email }}</td>
+                    <td>
+                        {% if 'ROLE_ADMIN' in user.roles %}
+                            <span class="admin-badge admin-badge-count">{{ 'account.admin.users.role.admin'|trans }}</span>
+                        {% else %}
+                            <span class="admin-badge admin-badge-neutral">{{ 'account.admin.users.role.user'|trans }}</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if user.suspended %}
+                            <span class="admin-badge admin-badge-off">{{ 'account.admin.users.status.suspended'|trans }}</span>
+                        {% elseif user.disabled %}
+                            <span class="admin-badge admin-badge-off">{{ 'account.admin.users.status.disabled'|trans }}</span>
+                        {% elseif not user.verified %}
+                            <span class="admin-badge admin-badge-neutral">{{ 'account.admin.users.status.unverified'|trans }}</span>
+                        {% else %}
+                            <span class="admin-badge admin-badge-on">{{ 'account.admin.users.status.active'|trans }}</span>
+                        {% endif %}
+                    </td>
+                    <td>{{ user.createdAt|date('Y-m-d H:i') }}</td>
+                </tr>
+            {% endfor %}
+        </twig:block>
+    </twig:UbermudaAdmin:AdminList>
+{% endblock %}
