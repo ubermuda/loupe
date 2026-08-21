@@ -64,6 +64,25 @@ final class DeleteUserControllerTest extends WebTestCase
         $this->assertResponseRedirects('/admin/users?role=user');
     }
 
+    public function test_a_mismatched_confirmation_flashes_and_deletes_nothing(): void
+    {
+        $client = static::createClient();
+        $em = $this->em();
+        $admin = $this->seedUser($em, 'delete-mismatch-admin@admin-test.example.com', ['ROLE_ADMIN']);
+        $target = $this->seedUser($em, 'delete-mismatch-target@admin-test.example.com');
+        $targetId = $target->id ?? throw new \LogicException('seeded user has no id');
+
+        $client->loginUser($admin);
+        $this->post($client, $target, confirmEmail: 'not-the-right@address.example.com');
+
+        $this->assertResponseRedirects('/admin/users/'.$targetId);
+        $client->followRedirect();
+        self::assertStringContainsString('Nothing was deleted', (string) $client->getResponse()->getContent());
+
+        $em->clear();
+        self::assertNotNull($em->find(User::class, $targetId));
+    }
+
     public function test_a_guard_violation_flashes_and_deletes_nothing(): void
     {
         $client = static::createClient();
@@ -99,9 +118,12 @@ final class DeleteUserControllerTest extends WebTestCase
         self::assertNotNull($em->find(User::class, $adminId));
     }
 
-    private function post(KernelBrowser $client, User $target, ?string $returnTo = null): void
+    private function post(KernelBrowser $client, User $target, ?string $returnTo = null, ?string $confirmEmail = null): void
     {
-        $parameters = ['_csrf_token' => 'csrf-token'];
+        $parameters = [
+            '_csrf_token' => 'csrf-token',
+            'delete_user_form' => ['confirmEmail' => $confirmEmail ?? $target->email],
+        ];
         if (null !== $returnTo) {
             $parameters['returnTo'] = $returnTo;
         }

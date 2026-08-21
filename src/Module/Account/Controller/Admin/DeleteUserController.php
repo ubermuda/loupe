@@ -9,6 +9,8 @@ use App\Exception\DomainErrors;
 use App\Module\Account\Command\Admin\DeleteUserCommand;
 use App\Module\Account\Command\Admin\DeleteUserHandler;
 use App\Module\Account\Entity\User;
+use App\Module\Account\Form\Admin\DeleteUserFormType;
+use App\Module\Account\Form\Admin\DeleteUserRequest;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
@@ -41,8 +43,19 @@ final class DeleteUserController extends AppController
             throw new \LogicException(\sprintf('%s reached without an authenticated User (got %s).', self::class, get_debug_type($actor)));
         }
 
+        $data = new DeleteUserRequest();
+        $form = $this->createForm(DeleteUserFormType::class, $data);
+        $form->handleRequest($request);
+
+        if (!$form->isSubmitted() || !$form->isValid()) {
+            // Nothing typed at all, which the handler would reject anyway.
+            $this->addFlash('error', $this->translator->trans('account.admin.users.error.email_mismatch'));
+
+            return $this->redirectToRoute('app_admin_users_detail', ['id' => (string) $target->id]);
+        }
+
         try {
-            ($this->deleteUser)(new DeleteUserCommand($target, $actor));
+            ($this->deleteUser)(new DeleteUserCommand($target, $actor, $data->confirmEmail ?? ''));
 
             $this->addFlash('success', $this->translator->trans('account.admin.users.flash.deleted'));
         } catch (DomainErrors $e) {

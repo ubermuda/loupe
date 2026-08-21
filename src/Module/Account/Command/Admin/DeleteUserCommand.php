@@ -11,6 +11,7 @@ final readonly class DeleteUserCommand
     public function __construct(
         public User $target,
         public User $actor,
+        public string $confirmEmail,
     ) {
     }
 }

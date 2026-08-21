@@ -172,7 +172,7 @@
                             <p class="admin-dialog-body">{{ 'account.admin.users.detail.danger.delete.modal.warning'|trans }}</p>
                             <div class="flex flex-col gap-1.5">
                                 <label for="delete-confirm-email" class="admin-field-label">{{ 'account.admin.users.detail.danger.delete.modal.label'|trans }}</label>
-                                <input id="delete-confirm-email" type="text" autocomplete="off" class="admin-field-input"
+                                <input id="delete-confirm-email" name="delete_user_form[confirmEmail]" type="text" autocomplete="off" class="admin-field-input"
                                        data-confirm-input-target="input" data-action="input->confirm-input#check">
                             </div>
                             <div class="admin-dialog-actions">

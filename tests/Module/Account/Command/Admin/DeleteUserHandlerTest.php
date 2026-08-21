@@ -37,7 +37,54 @@ final class DeleteUserHandlerTest extends KernelTestCase
         $target = $this->seedUser('delete-target@example.com');
         $targetId = $target->id ?? throw new \LogicException('seeded user has no id');
 
-        ($this->handler)(new DeleteUserCommand($target, $actor));
+        ($this->handler)(new DeleteUserCommand($target, $actor, $target->email));
+
+        $this->em->clear();
+        self::assertNull($this->em->find(User::class, $targetId));
+    }
+
+    public function test_a_mismatched_confirmation_deletes_nothing(): void
+    {
+        $actor = $this->seedUser('confirm-actor@example.com', ['ROLE_ADMIN']);
+        $target = $this->seedUser('confirm-target@example.com');
+        $targetId = $target->id ?? throw new \LogicException('seeded user has no id');
+
+        try {
+            ($this->handler)(new DeleteUserCommand($target, $actor, 'confirm-actor@example.com'));
+            self::fail('Expected DomainErrors for a mismatched confirmation.');
+        } catch (DomainErrors $e) {
+            self::assertSame(['confirmEmail' => 'account.admin.users.error.email_mismatch'], $e->errors);
+        }
+
+        $this->em->clear();
+        self::assertNotNull($this->em->find(User::class, $targetId));
+    }
+
+    public function test_an_empty_confirmation_deletes_nothing(): void
+    {
+        $actor = $this->seedUser('empty-confirm-actor@example.com', ['ROLE_ADMIN']);
+        $target = $this->seedUser('empty-confirm-target@example.com');
+        $targetId = $target->id ?? throw new \LogicException('seeded user has no id');
+
+        try {
+            ($this->handler)(new DeleteUserCommand($target, $actor, ''));
+            self::fail('Expected DomainErrors for an empty confirmation.');
+        } catch (DomainErrors $e) {
+            self::assertSame(['confirmEmail' => 'account.admin.users.error.email_mismatch'], $e->errors);
+        }
+
+        $this->em->clear();
+        self::assertNotNull($this->em->find(User::class, $targetId));
+    }
+
+    /** The stored address is lowercase, and an admin retyping it is not being tested on caps. */
+    public function test_the_confirmation_ignores_case_and_surrounding_space(): void
+    {
+        $actor = $this->seedUser('case-confirm-actor@example.com', ['ROLE_ADMIN']);
+        $target = $this->seedUser('case-confirm-target@example.com');
+        $targetId = $target->id ?? throw new \LogicException('seeded user has no id');
+
+        ($this->handler)(new DeleteUserCommand($target, $actor, '  Case-Confirm-Target@Example.com '));
 
         $this->em->clear();
         self::assertNull($this->em->find(User::class, $targetId));
@@ -56,7 +103,7 @@ final class DeleteUserHandlerTest extends KernelTestCase
         $targetId = $target->id ?? throw new \LogicException('seeded user has no id');
         $suspendedId = $suspended->id ?? throw new \LogicException('seeded user has no id');
 
-        ($this->handler)(new DeleteUserCommand($target, $actor));
+        ($this->handler)(new DeleteUserCommand($target, $actor, $target->email));
 
         $this->em->clear();
         self::assertNull($this->em->find(User::class, $targetId));
@@ -103,7 +150,7 @@ final class DeleteUserHandlerTest extends KernelTestCase
     private function expectDomainError(User $target, User $actor, string $expectedKey): void
     {
         try {
-            ($this->handler)(new DeleteUserCommand($target, $actor));
+            ($this->handler)(new DeleteUserCommand($target, $actor, $target->email));
             self::fail('Expected DomainErrors, none thrown.');
         } catch (DomainErrors $e) {
             self::assertContains($expectedKey, $e->errors);

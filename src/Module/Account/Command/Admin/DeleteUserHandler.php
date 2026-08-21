@@ -18,12 +18,19 @@ final readonly class DeleteUserHandler
     ) {
     }
 
-    /** @throws DomainErrors when the guard refuses the deletion */
+    /** @throws DomainErrors when the guard refuses the deletion, or the typed confirmation does not match */
     public function __invoke(DeleteUserCommand $command): void
     {
         $target = $command->target;
 
         $this->guard->assertDeletable($target, $command->actor);
+
+        // The typed confirmation is a rule, not a UI convention: a POST that
+        // skips the modal must not delete anything. Case-insensitive because
+        // User::$email is lowercased on write.
+        if (mb_strtolower(trim($command->confirmEmail)) !== $target->email) {
+            throw new DomainErrors(['confirmEmail' => 'account.admin.users.error.email_mismatch']);
+        }
 
         // Read before the purge: the row, and the entity's id with it, is gone.
         $targetId = (string) ($target->id ?? throw new \LogicException('a persisted user always has an id'));

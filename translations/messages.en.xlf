@@ -2708,6 +2708,10 @@
                 <source>account.admin.users.flash.deleted</source>
                 <target>Account permanently deleted.</target>
             </trans-unit>
+            <trans-unit id="account.admin.users.error.email_mismatch">
+                <source>account.admin.users.error.email_mismatch</source>
+                <target>Nothing was deleted: type the account's email address exactly as it appears on this page to confirm.</target>
+            </trans-unit>
             <trans-unit id="account.admin.users.flash.verification_resent">
                 <source>account.admin.users.flash.verification_resent</source>
                 <target>Verification email sent.</target>
