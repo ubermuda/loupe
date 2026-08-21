@@ -60,7 +60,7 @@ for that reading context, not for a terminal or a README.
    instruction, and the reader sails past the choice instead of making it.
 
    Where the alternatives are a clean either/or, wrap them in a **decision
-   fence** (rule 11) as well, so the reviewer clicks the option instead of
+   fence** (rule 12) as well, so the reviewer clicks the option instead of
    typing "option 2" into a comment for you to parse back out.
 
 6. **After addressing review comments, revise the document.** When you act on
@@ -106,7 +106,26 @@ for that reading context, not for a terminal or a README.
    about to see, and each thread's status is already correct when the new
    version lands.
 
-8. **Say what changed in the version description.** `document_revise` requires
+8. **Replies are two or three sentences.** A reply is a turn in a
+   conversation, not a section of the document. Say what you did or what you
+   concluded, and stop — the reviewer asked a question, not for an essay.
+
+   Concretely: no headings, no bold lead-ins, no bullet or numbered lists, no
+   tables. Do not restate the comment back to the reviewer, and do not rehearse
+   the reasoning that produced the answer. "Renamed to `AccountStatusChecker` —
+   `ActiveUserChecker` collides with `countActive()`, which already means
+   something else here." is a complete reply. Four paragraphs arguing the same
+   conclusion is the same reply with the reviewer's time spent.
+
+   **Length is a signal, not just a cost.** An answer that genuinely needs more
+   than a short paragraph belongs in the document rather than in the thread —
+   the document is what the reviewer re-reads later, and a comment thread is
+   the worst place to keep a decision. Put it in the next version and let the
+   reply be the pointer: "Reworked that section in v4." The one case that earns
+   more room is disagreement, where the reviewer needs the reasoning to judge
+   it — and even then, one paragraph.
+
+9. **Say what changed in the version description.** `document_revise` requires
    a `description`, and `document_create` takes an optional one. It is shown
    under that version in the review UI's version list, and it is what a
    reviewer coming back to "v4" reads to decide whether they need to re-read
@@ -136,16 +155,16 @@ for that reading context, not for a terminal or a README.
    this document is and what it exists to settle. One sentence is usually
    enough ("Design spec for the site-review widget, deciding the auth model").
 
-9. **Renaming is `document_rename`, not a revision.** Correcting a title —
-   fixing a typo, making a batch of related documents consistent — goes
-   through `document_rename`, which changes the title and nothing else. Do not
-   resubmit unchanged markdown through `document_revise` to carry a new title:
-   that mints a version whose description can only say "renamed", and every
-   version after it is one more entry a reviewer has to skip. `document_revise`
-   takes a `title` only for the case where the content and the title change
-   together.
+10. **Renaming is `document_rename`, not a revision.** Correcting a title —
+    fixing a typo, making a batch of related documents consistent — goes
+    through `document_rename`, which changes the title and nothing else. Do not
+    resubmit unchanged markdown through `document_revise` to carry a new title:
+    that mints a version whose description can only say "renamed", and every
+    version after it is one more entry a reviewer has to skip. `document_revise`
+    takes a `title` only for the case where the content and the title change
+    together.
 
-10. **Point at the passages that matter with `document_highlight` — where the
+11. **Point at the passages that matter with `document_highlight` — where the
     instance offers it.** Highlighting is off by default, and an instance with
     it off does not advertise the tool at all: **if `document_highlight` is not
     among your tools, skip this rule.** Nothing else in it applies, and there is
@@ -172,7 +191,7 @@ for that reading context, not for a terminal or a README.
     revising, on the text you have just written. Use a handful: a document
     where everything is marked has nothing marked.
 
-11. **A decision fence turns a choice into something the reviewer clicks.**
+12. **A decision fence turns a choice into something the reviewer clicks.**
     Wrap the alternatives in a pair of HTML comments carrying an identifier,
     and Loupe renders them as a group of radio buttons whose answer comes back
     in `document_get_review` under `decisions`:
@@ -269,4 +288,8 @@ Not: "Drop `x-forwarded-host` or generate these links from a pinned
 - Holding comment ids across a `document_revise` call. They do not survive it
   (rule 7); re-read the review or reply before revising.
 - Quoting your own Markdown to `document_highlight`. It matches the rendered
-  prose, so inline markup in the quote finds nothing (rule 10).
+  prose, so inline markup in the quote finds nothing (rule 11).
+- Answering a one-line comment with a structured essay — bold lead-ins,
+  sub-points, the whole argument that produced the answer. Give the answer
+  (rule 8); if it does not fit in a short paragraph, it belongs in the
+  document.

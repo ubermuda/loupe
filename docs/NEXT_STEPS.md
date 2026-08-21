@@ -2351,6 +2351,30 @@ The `install-reset` project truncates every table as its last act. `just e2e`
 now re-seeds a worktree afterwards rather than leaving it broken, so this is a
 question of design rather than a live breakage.
 
+## `users.disabledAt` is written by Billing but lives on the Account entity
+
+**Author:** Geoffrey · **Type:** tooling · **Priority:** medium · **Status:** pending
+
+Owner note (2026-08-21): `User::$disabledAt` should eventually move into the
+Billing module — onto a `Subscription` entity or something similar — rather
+than sitting on the Account module's `User`.
+
+Today the column is declared on `App\Module\Account\Entity\User`, but every
+write to it belongs to Billing: `RunTrialSweepHandler` sets it when a trial
+lapses, `SyncStripeSubscriptionHandler` clears it when a subscription goes live
+and sets it when one ends, and `SeedBillingStateHandler` drives it for seeding.
+Account reads it back in `JoinWaitlistHandler` and
+`UserRepository::countActive()`, so the coupling runs both ways.
+
+The practical cost surfaced while designing the admin user-management section:
+an admin suspend control could not reuse the field, because a manual re-enable
+would be silently reverted by the next trial sweep. That design added a separate
+`suspendedAt` the admin owns — correct, but it leaves two "this account is
+inactive" flags on one entity, each owned by a different module.
+
+Related: 'Encapsulate Billing: replace #[PaywallExempt] with a firewall-level
+rule', which chases the same encapsulation goal from the control-flow side.
+
 ## Registration discloses whether an address is registered, and that is accepted
 
 **Author:** Geoffrey · **Type:** docs · **Priority:** low · **Status:** pending
