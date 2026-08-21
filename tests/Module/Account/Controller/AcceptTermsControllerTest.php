@@ -118,14 +118,18 @@ final class AcceptTermsControllerTest extends WebTestCase
         }
     }
 
-    public function test_logout_is_reachable_while_gated(): void
+    public function test_declining_logs_the_user_out(): void
     {
         $client = static::createClient();
         $this->login($client, 'leaver@example.com', termsVersion: null);
 
-        $client->request(Request::METHOD_GET, '/logout');
+        // Submitting the page's own decline control rather than requesting
+        // /logout: the firewall answers that path before this gate sees it, so
+        // asserting on it proves nothing about whether declining works.
+        $crawler = $client->request(Request::METHOD_GET, self::ACCEPTANCE_PATH);
+        $client->submit($crawler->filter('form[action="/logout"]')->form());
 
-        self::assertNotSame(self::ACCEPTANCE_PATH, $client->getResponse()->headers->get('Location'));
+        self::assertResponseRedirects('/login');
     }
 
     public function test_machine_endpoints_are_not_diverted(): void

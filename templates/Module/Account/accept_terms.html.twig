@@ -27,6 +27,10 @@
         </button>
     </form>
 
-    <a href="{{ path('app_logout') }}" class="text-sm text-fg-mute hover:underline mt-1">{{ 'account.accept_terms.decline'|trans }}</a>
+    {# A POST with a token, not a link: logout has enable_csrf on, so a bare GET 403s. #}
+    <form method="post" action="{{ path('app_logout') }}" class="mt-1">
+        <input type="hidden" name="_csrf_token" value="{{ csrf_token('logout') }}">
+        <button type="submit" class="text-sm text-fg-mute hover:underline">{{ 'account.accept_terms.decline'|trans }}</button>
+    </form>
 </div>
 {% endblock %}
