@@ -118,10 +118,73 @@
             </div>
         </div>
 
-        <div class="admin-card p-8 flex flex-col gap-3" data-testid="danger-zone">
+        <div class="admin-card p-8 flex flex-col gap-6" data-testid="danger-zone">
             <h2 class="text-base font-semibold text-red-700">{{ 'account.admin.users.detail.danger.title'|trans }}</h2>
-            <p class="text-sm text-slate-500">{{ 'account.admin.users.detail.danger.empty'|trans }}</p>
-            {# Suspend, unsuspend, delete and resend-verification actions belong here. #}
+
+            {% if user.suspended %}
+                <form method="post" action="{{ path('app_admin_users_unsuspend', {id: user.id}) }}" class="flex flex-col gap-2">
+                    <input type="hidden" name="_csrf_token" value="{{ csrf_token('admin-user-unsuspend') }}">
+                    <input type="hidden" name="returnTo" value="{{ app.request.requestUri }}">
+                    <p class="text-sm text-slate-500">{{ 'account.admin.users.detail.danger.unsuspend.help'|trans }}</p>
+                    <div>
+                        <button type="submit" class="admin-button admin-button-small">{{ 'account.admin.users.detail.danger.unsuspend.button'|trans }}</button>
+                    </div>
+                </form>
+            {% else %}
+                <form method="post" action="{{ path('app_admin_users_suspend', {id: user.id}) }}" class="flex flex-col gap-2">
+                    <input type="hidden" name="_csrf_token" value="{{ csrf_token('admin-user-suspend') }}">
+                    <input type="hidden" name="returnTo" value="{{ app.request.requestUri }}">
+                    <label for="suspend-reason" class="admin-field-label">{{ 'account.form.suspend_user_form.reason.label'|trans }}</label>
+                    <textarea id="suspend-reason" name="suspend_user_form[reason]" rows="3" maxlength="{{ constant('App\\Module\\Account\\Entity\\User::MAX_SUSPENDED_REASON_LENGTH') }}" class="admin-field-input"
+                              placeholder="{{ 'account.admin.users.detail.danger.suspend.placeholder'|trans }}"></textarea>
+                    <p class="text-sm text-slate-500">{{ 'account.admin.users.detail.danger.suspend.help'|trans }}</p>
+                    <div>
+                        <button type="submit" class="admin-button-danger admin-button-small">{{ 'account.admin.users.detail.danger.suspend.button'|trans }}</button>
+                    </div>
+                </form>
+            {% endif %}
+
+            {% if not user.verified %}
+                <form method="post" action="{{ path('app_admin_users_resend_verification', {id: user.id}) }}" class="flex flex-col gap-2">
+                    <input type="hidden" name="_csrf_token" value="{{ csrf_token('admin-user-resend-verification') }}">
+                    <input type="hidden" name="returnTo" value="{{ app.request.requestUri }}">
+                    <p class="text-sm text-slate-500">{{ 'account.admin.users.detail.danger.resend.help'|trans }}</p>
+                    <div>
+                        <button type="submit" class="admin-button-secondary admin-button-small">{{ 'account.admin.users.detail.danger.resend.button'|trans }}</button>
+                    </div>
+                </form>
+            {% endif %}
+
+            <div class="flex flex-col gap-2" data-controller="modal">
+                <p class="text-sm text-slate-500">{{ 'account.admin.users.detail.danger.delete.help'|trans }}</p>
+                <div>
+                    <button type="button" class="admin-button-danger admin-button-small" data-action="click->modal#open">
+                        {{ 'account.admin.users.detail.danger.delete.button'|trans }}
+                    </button>
+                </div>
+
+                <dialog data-modal-target="dialog" class="admin-dialog-box">
+                    <div data-controller="confirm-input" data-confirm-input-expected-value="{{ user.email }}">
+                        <form method="post" action="{{ path('app_admin_users_delete', {id: user.id}) }}">
+                            <input type="hidden" name="_csrf_token" value="{{ csrf_token('admin-user-delete') }}">
+                            <input type="hidden" name="returnTo" value="{{ backHref }}">
+                            <h3 class="admin-dialog-title">{{ 'account.admin.users.detail.danger.delete.modal.title'|trans({'%email%': user.email}) }}</h3>
+                            <p class="admin-dialog-body">{{ 'account.admin.users.detail.danger.delete.modal.warning'|trans }}</p>
+                            <div class="flex flex-col gap-1.5">
+                                <label for="delete-confirm-email" class="admin-field-label">{{ 'account.admin.users.detail.danger.delete.modal.label'|trans }}</label>
+                                <input id="delete-confirm-email" type="text" autocomplete="off" class="admin-field-input"
+                                       data-confirm-input-target="input" data-action="input->confirm-input#check">
+                            </div>
+                            <div class="admin-dialog-actions">
+                                <button type="button" class="admin-button-secondary" data-action="click->modal#close">{{ 'account.admin.users.detail.danger.delete.modal.cancel'|trans }}</button>
+                                <button type="submit" class="admin-button-danger" data-confirm-input-target="submit" disabled>
+                                    {{ 'account.admin.users.detail.danger.delete.modal.confirm'|trans }}
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </dialog>
+            </div>
         </div>
     </div>
 {% endblock %}
