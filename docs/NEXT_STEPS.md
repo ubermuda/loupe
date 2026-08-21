@@ -2506,6 +2506,33 @@ narrow path list and a manual command invoked when touching security-adjacent
 code. Cost is the deciding factor; measure a scoped run before wiring it into a
 gate.
 
+## `countActiveAdmins()` depends on two rules that live somewhere else
+
+**Author:** Claude · **Type:** tooling · **Priority:** low · **Status:** pending
+
+`UserRepository::countActiveAdmins()` decides whether an admin action would
+strand an instance with no way back in — the `AdminUserGuard` G4 rule. Its
+correctness rests on two facts it cannot see, and neither is asserted anywhere.
+
+**It ignores `disabled_at` on purpose.** A billing-disabled admin still counts as
+a recovery path, because `RequireSubscriptionListener` returns early for any
+route beginning `app_admin_`, so the paywall never blocks the admin area. That
+exemption is in the Billing module. If it is ever removed — and there is a
+tracker entry proposing exactly that, "Encapsulate Billing: replace
+#[PaywallExempt] with a firewall-level rule" — then a disabled admin can no
+longer reach the admin area, and the query needs `AND disabled_at IS NULL` or G4
+stops protecting anything.
+
+**It matches `ROLE_ADMIN` literally**, via `jsonb_exists(roles::jsonb, 'ROLE_ADMIN')`.
+There is no `role_hierarchy` configured in `config/` today, so the literal is the
+whole admin surface. Introducing a hierarchy where some other role inherits
+`ROLE_ADMIN` would make this query undercount, and G4 would start refusing safe
+deletions while believing it was preventing lockout.
+
+Neither is broken now. Both are the kind of coupling that breaks silently and
+far from the change that caused it, which is why they are written down rather
+than commented in the query.
+
 ## Registration discloses whether an address is registered, and that is accepted
 
 **Author:** Geoffrey · **Type:** docs · **Priority:** low · **Status:** pending
