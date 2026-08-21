@@ -9,7 +9,7 @@ use Symfony\Component\DependencyInjection\Attribute\AutoconfigureTag;
 
 /**
  * One implementation per module; each purges its own user-owned rows during
- * account deletion. Tagged + collected (and ordered) by DeleteAccountHandler,
+ * account deletion. Tagged + collected (and ordered) by AccountPurger,
  * mirroring UserDataExporterInterface's per-module export design — each
  * module owns its own purger, Account owns only the iteration.
  *
