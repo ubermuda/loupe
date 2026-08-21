@@ -1,0 +1,76 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Module\Account\Controller\Admin;
+
+use App\Controller\AppController;
+use App\Exception\DomainErrors;
+use App\Module\Account\Command\Admin\DeleteUserCommand;
+use App\Module\Account\Command\Admin\DeleteUserHandler;
+use App\Module\Account\Entity\User;
+use App\Module\Account\Form\Admin\DeleteUserFormType;
+use App\Module\Account\Form\Admin\DeleteUserRequest;
+use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\Routing\Attribute\Route;
+use Symfony\Component\Security\Http\Attribute\IsGranted;
+use Symfony\Contracts\Translation\TranslatorInterface;
+use Ubermuda\AdminBundle\Listing\AdminReturnTo;
+use Ubermuda\SymfonyExtra\Csrf\Attribute\CsrfToken;
+
+#[CsrfToken('admin-user-delete')]
+#[IsGranted('ROLE_ADMIN')]
+#[Route(
+    '/admin/users/{id:target}/delete',
+    name: 'app_admin_users_delete',
+    requirements: ['id' => '[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}'],
+    methods: ['POST'],
+)]
+final class DeleteUserController extends AppController
+{
+    public function __construct(
+        private readonly DeleteUserHandler $deleteUser,
+        private readonly AdminReturnTo $returnTo,
+        private readonly TranslatorInterface $translator,
+    ) {
+    }
+
+    public function __invoke(User $target, Request $request): Response
+    {
+        $actor = $this->getUser();
+        if (!$actor instanceof User) {
+            throw new \LogicException(\sprintf('%s reached without an authenticated User (got %s).', self::class, get_debug_type($actor)));
+        }
+
+        $data = new DeleteUserRequest();
+        $form = $this->createForm(DeleteUserFormType::class, $data);
+        $form->handleRequest($request);
+
+        if (!$form->isSubmitted() || !$form->isValid()) {
+            // Nothing typed at all, which the handler would reject anyway.
+            $this->addFlash('error', $this->translator->trans('account.admin.users.error.email_mismatch'));
+
+            return $this->redirectToRoute('app_admin_users_detail', ['id' => (string) $target->id]);
+        }
+
+        try {
+            ($this->deleteUser)(new DeleteUserCommand($target, $actor, $data->confirmEmail ?? ''));
+
+            $this->addFlash('success', $this->translator->trans('account.admin.users.flash.deleted'));
+        } catch (DomainErrors $e) {
+            foreach ($e->errors as $translationKey) {
+                $this->addFlash('error', $this->translator->trans($translationKey));
+            }
+
+            return $this->redirectToRoute('app_admin_users_detail', ['id' => (string) $target->id]);
+        }
+
+        // The list, never the detail page: that account no longer exists, so
+        // its URL is now a 404.
+        return $this->redirect(
+            $this->returnTo->validate('user', $request->request->get('returnTo'))
+                ?? $this->generateUrl('app_admin_users_list'),
+        );
+    }
+}

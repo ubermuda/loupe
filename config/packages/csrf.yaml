@@ -30,3 +30,7 @@ framework:
             - request-account-deletion
             - confirm-account-deletion
             - admin-waitlist-invite
+            - admin-user-suspend
+            - admin-user-unsuspend
+            - admin-user-delete
+            - admin-user-resend-verification

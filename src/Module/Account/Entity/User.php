@@ -26,6 +26,9 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface, AdminPr
     /** The users.full_name column width, and the single source of truth for every check against it. */
     public const int MAX_FULL_NAME_LENGTH = 150;
 
+    /** The users.suspended_reason column width, and the single source of truth for every check against it. */
+    public const int MAX_SUSPENDED_REASON_LENGTH = 500;
+
     #[ORM\Column(type: UuidType::NAME, unique: true)]
     #[ORM\CustomIdGenerator(class: 'doctrine.uuid_generator')]
     #[ORM\GeneratedValue(strategy: 'CUSTOM')]
@@ -58,7 +61,7 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface, AdminPr
     #[ORM\Column(nullable: true)]
     public ?\DateTimeImmutable $suspendedAt = null;
 
-    #[ORM\Column(length: 500, nullable: true)]
+    #[ORM\Column(length: self::MAX_SUSPENDED_REASON_LENGTH, nullable: true)]
     public ?string $suspendedReason = null;
 
     /** SET NULL, not RESTRICT: AccountPurger removes the row with raw SQL. */

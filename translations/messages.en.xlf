@@ -2636,13 +2636,97 @@
                 <source>account.admin.users.detail.danger.title</source>
                 <target>Danger zone</target>
             </trans-unit>
-            <trans-unit id="account.admin.users.detail.danger.empty">
-                <source>account.admin.users.detail.danger.empty</source>
-                <target>No destructive actions are available yet.</target>
-            </trans-unit>
             <trans-unit id="account.admin.users.flash.updated">
                 <source>account.admin.users.flash.updated</source>
                 <target>Account updated.</target>
+            </trans-unit>
+            <trans-unit id="account.admin.users.detail.danger.suspend.button">
+                <source>account.admin.users.detail.danger.suspend.button</source>
+                <target>Suspend account</target>
+            </trans-unit>
+            <trans-unit id="account.admin.users.detail.danger.suspend.help">
+                <source>account.admin.users.detail.danger.suspend.help</source>
+                <target>A suspended account can still sign in, but sees only the suspension notice until it is reinstated.</target>
+            </trans-unit>
+            <trans-unit id="account.admin.users.detail.danger.suspend.placeholder">
+                <source>account.admin.users.detail.danger.suspend.placeholder</source>
+                <target>Optional — shown to the account holder</target>
+            </trans-unit>
+            <trans-unit id="account.admin.users.detail.danger.unsuspend.button">
+                <source>account.admin.users.detail.danger.unsuspend.button</source>
+                <target>Lift suspension</target>
+            </trans-unit>
+            <trans-unit id="account.admin.users.detail.danger.unsuspend.help">
+                <source>account.admin.users.detail.danger.unsuspend.help</source>
+                <target>Reinstating clears the suspension and its reason.</target>
+            </trans-unit>
+            <trans-unit id="account.admin.users.detail.danger.resend.button">
+                <source>account.admin.users.detail.danger.resend.button</source>
+                <target>Resend verification email</target>
+            </trans-unit>
+            <trans-unit id="account.admin.users.detail.danger.resend.help">
+                <source>account.admin.users.detail.danger.resend.help</source>
+                <target>This address has never been verified. Send the verification email again.</target>
+            </trans-unit>
+            <trans-unit id="account.admin.users.detail.danger.delete.button">
+                <source>account.admin.users.detail.danger.delete.button</source>
+                <target>Delete account</target>
+            </trans-unit>
+            <trans-unit id="account.admin.users.detail.danger.delete.help">
+                <source>account.admin.users.detail.danger.delete.help</source>
+                <target>Deleting removes the account and everything it owns. This cannot be undone.</target>
+            </trans-unit>
+            <trans-unit id="account.admin.users.detail.danger.delete.modal.title">
+                <source>account.admin.users.detail.danger.delete.modal.title</source>
+                <target>Delete %email%?</target>
+            </trans-unit>
+            <trans-unit id="account.admin.users.detail.danger.delete.modal.warning">
+                <source>account.admin.users.detail.danger.delete.modal.warning</source>
+                <target>Every project, document, comment and token belonging to this account is permanently removed.</target>
+            </trans-unit>
+            <trans-unit id="account.admin.users.detail.danger.delete.modal.label">
+                <source>account.admin.users.detail.danger.delete.modal.label</source>
+                <target>Type the account email address to confirm</target>
+            </trans-unit>
+            <trans-unit id="account.admin.users.detail.danger.delete.modal.cancel">
+                <source>account.admin.users.detail.danger.delete.modal.cancel</source>
+                <target>Cancel</target>
+            </trans-unit>
+            <trans-unit id="account.admin.users.detail.danger.delete.modal.confirm">
+                <source>account.admin.users.detail.danger.delete.modal.confirm</source>
+                <target>I understand, delete this account</target>
+            </trans-unit>
+            <trans-unit id="account.admin.users.flash.suspended">
+                <source>account.admin.users.flash.suspended</source>
+                <target>Account suspended.</target>
+            </trans-unit>
+            <trans-unit id="account.admin.users.flash.unsuspended">
+                <source>account.admin.users.flash.unsuspended</source>
+                <target>Suspension lifted.</target>
+            </trans-unit>
+            <trans-unit id="account.admin.users.flash.deleted">
+                <source>account.admin.users.flash.deleted</source>
+                <target>Account permanently deleted.</target>
+            </trans-unit>
+            <trans-unit id="account.admin.users.error.email_mismatch">
+                <source>account.admin.users.error.email_mismatch</source>
+                <target>Nothing was deleted: type the account's email address exactly as it appears on this page to confirm.</target>
+            </trans-unit>
+            <trans-unit id="account.admin.users.flash.verification_resent">
+                <source>account.admin.users.flash.verification_resent</source>
+                <target>Verification email sent.</target>
+            </trans-unit>
+            <trans-unit id="account.admin.users.flash.resend_throttled">
+                <source>account.admin.users.flash.resend_throttled</source>
+                <target>That address has been sent too many verification emails recently. Try again later.</target>
+            </trans-unit>
+            <trans-unit id="account.admin.users.flash.reason_too_long">
+                <source>account.admin.users.flash.reason_too_long</source>
+                <target>The suspension reason is too long.</target>
+            </trans-unit>
+            <trans-unit id="account.form.suspend_user_form.reason.label">
+                <source>account.form.suspend_user_form.reason.label</source>
+                <target>Reason for suspension</target>
             </trans-unit>
             <trans-unit id="account.form.admin_user_form.full_name.label">
                 <source>account.form.admin_user_form.full_name.label</source>

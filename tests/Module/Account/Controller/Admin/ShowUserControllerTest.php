@@ -33,6 +33,24 @@ final class ShowUserControllerTest extends WebTestCase
         $this->assertSelectorTextNotContains('body', 'account.admin.users.');
     }
 
+    public function test_an_unverified_account_gets_a_resend_verification_form(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $admin = $this->seedUser($em, 'detail-resend-admin@admin-test.example.com', ['ROLE_ADMIN']);
+        $target = $this->seedUser($em, 'detail-resend@admin-test.example.com');
+        $target->emailVerifiedAt = null;
+        $em->flush();
+        $em->clear();
+
+        $client->loginUser($admin);
+        $client->request(Request::METHOD_GET, '/admin/users/'.$target->id);
+
+        $this->assertResponseIsSuccessful();
+        $this->assertSelectorExists('form[action$="/resend-verification"]');
+        $this->assertSelectorTextNotContains('body', 'account.admin.users.');
+    }
+
     public function test_logged_in_non_admin_gets_403(): void
     {
         $client = static::createClient();
