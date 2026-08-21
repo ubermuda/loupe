@@ -2449,24 +2449,29 @@ if the verb-prefix rule is not actually wanted for every controller. Either is
 fine; a skill that says "enforced" about a rule that is off is not, because it
 teaches a reader to trust a gate that will not catch them.
 
-## Two request listeners carry an identical dead `/logout` branch
+## The listeners' `/logout` exemptions are dead in production but live in their unit tests
 
 **Author:** Claude · **Type:** tooling · **Priority:** low · **Status:** pending
 
 `RequireTermsAcceptanceListener::isExempt()` and
-`RequireNotSuspendedListener::isExempt()` both exempt `/logout`, and in both the
-branch is unreachable. Symfony's firewall `LogoutListener` runs at priority 8,
-sets the response and stops propagation, so neither gate — at priority 3 and 6 —
-ever sees that path under any method.
+`RequireNotSuspendedListener::isExempt()` both exempt `/logout`. In the real HTTP
+stack the branch never runs: the firewall's `LogoutListener` answers that path at
+priority 8 and calls `setResponse()`, which stops propagation, so neither gate
+(priority 3 and 6) sees it. Verified with a throwing probe that never fired.
 
-Proven 2026-08-21 by placing a throwing probe at the top of the suspension
-gate's `__invoke` and requesting `/logout`: it never fired.
+Removing them is not free, though, and an attempt on 2026-08-21 was reverted for
+this reason. `RequireTermsAcceptanceListenerTest` instantiates the listener
+directly and passes it a synthetic `Request::create('/logout')` with no firewall
+involved, so in that context the exemption **is** load-bearing — deleting it
+fails the test. The test case is the only place the invariant "a gated user can
+always leave" is written down at that layer, and that is precisely the invariant
+the terms Decline bug violated.
 
-Removing it is safe (if logout ever left the firewall, `LogoutController` throws
-a `LogicException` and 500s rather than looping), but do it in both places or
-neither — stripping one sibling and not the other reads as though the remaining
-branch is load-bearing. The comment above the terms gate's copy, "Leaving must
-always be possible", is what makes it look load-bearing today.
+Sequence it like this. Once the Decline fix has merged, `AcceptTermsControllerTest`
+covers the invariant functionally (it submits the page's own control and asserts
+the redirect to `/login`). At that point the unit-test entries can go along with
+the exemptions, because the guarantee has a better home. Doing it in the other
+order trades a real assertion for three lines of tidiness.
 
 ## Consider scoped mutation testing, because a green suite proved little here
 
