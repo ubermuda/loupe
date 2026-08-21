@@ -25,7 +25,7 @@ class ShowSuspendedController extends AppController
             throw new \LogicException(\sprintf('%s reached without an authenticated User (got %s); this route must stay behind the ROLE_USER catch-all.', self::class, get_debug_type($user)));
         }
 
-        return $this->render('@Account/suspended.html.twig', [
+        return $this->render('@Account/show_suspended.html.twig', [
             'reason' => $user->suspendedReason,
         ]);
     }

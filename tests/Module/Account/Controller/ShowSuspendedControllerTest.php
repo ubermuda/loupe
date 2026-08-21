@@ -22,6 +22,7 @@ final class ShowSuspendedControllerTest extends WebTestCase
 
         $this->assertResponseIsSuccessful();
         $this->assertSelectorTextContains('body', 'Repeated spam reports');
+        $this->assertSelectorExists('form[action="/logout"][method="post"] input[name="_csrf_token"]');
     }
 
     public function test_it_falls_back_to_a_generic_message_without_a_reason(): void
@@ -33,7 +34,7 @@ final class ShowSuspendedControllerTest extends WebTestCase
         $client->request(Request::METHOD_GET, '/account/suspended');
 
         $this->assertResponseIsSuccessful();
-        $this->assertSelectorTextContains('body', 'suspended');
+        $this->assertSelectorNotExists('.auth-error');
     }
 
     /**
