@@ -24,6 +24,7 @@ final class Version20260813191024 extends AbstractMigration
      * Not reversible: once promoted, nothing distinguishes a former draft from a
      * comment that was already pending.
      */
+    #[\Override]
     public function down(Schema $schema): void
     {
         $this->throwIrreversibleMigrationException();

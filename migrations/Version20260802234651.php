@@ -9,6 +9,7 @@ use Doctrine\Migrations\AbstractMigration;
 
 final class Version20260802234651 extends AbstractMigration
 {
+    #[\Override]
     public function getDescription(): string
     {
         return 'Replace comments.resolved with a status column (pending/addressed/resolved), mapping existing resolved rows onto the resolved case so no resolution state is lost.';
@@ -26,6 +27,7 @@ final class Version20260802234651 extends AbstractMigration
         $this->addSql('ALTER TABLE comments DROP resolved');
     }
 
+    #[\Override]
     public function down(Schema $schema): void
     {
         $this->addSql('ALTER TABLE comments ADD resolved BOOLEAN DEFAULT false NOT NULL');

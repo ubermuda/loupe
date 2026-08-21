@@ -12,6 +12,7 @@ use Doctrine\Migrations\AbstractMigration;
  */
 final class Version20260725150617 extends AbstractMigration
 {
+    #[\Override]
     public function getDescription(): string
     {
         return 'Create data_exports table';
@@ -26,6 +27,7 @@ final class Version20260725150617 extends AbstractMigration
         $this->addSql('ALTER TABLE data_exports ADD CONSTRAINT FK_882542B1A76ED395 FOREIGN KEY (user_id) REFERENCES users (id) NOT DEFERRABLE');
     }
 
+    #[\Override]
     public function down(Schema $schema): void
     {
         // this down() migration is auto-generated, please modify it to your needs

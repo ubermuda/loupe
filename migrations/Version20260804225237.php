@@ -9,6 +9,7 @@ use Doctrine\Migrations\AbstractMigration;
 
 final class Version20260804225237 extends AbstractMigration
 {
+    #[\Override]
     public function getDescription(): string
     {
         return 'Make users.full_name NOT NULL: every account now has a display name.';
@@ -37,6 +38,7 @@ final class Version20260804225237 extends AbstractMigration
         $this->addSql('ALTER TABLE users ALTER full_name SET NOT NULL');
     }
 
+    #[\Override]
     public function down(Schema $schema): void
     {
         // The backfilled names stay: nothing records which rows had none, and a

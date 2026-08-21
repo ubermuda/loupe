@@ -9,6 +9,7 @@ use Doctrine\Migrations\AbstractMigration;
 
 final class Version20260725152500 extends AbstractMigration
 {
+    #[\Override]
     public function getDescription(): string
     {
         return 'Create billing_profiles table';
@@ -21,6 +22,7 @@ final class Version20260725152500 extends AbstractMigration
         $this->addSql('ALTER TABLE billing_profiles ADD CONSTRAINT FK_93ECECCCA76ED395 FOREIGN KEY (user_id) REFERENCES users (id) NOT DEFERRABLE');
     }
 
+    #[\Override]
     public function down(Schema $schema): void
     {
         $this->addSql('ALTER TABLE billing_profiles DROP CONSTRAINT FK_93ECECCCA76ED395');

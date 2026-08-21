@@ -9,6 +9,7 @@ use Doctrine\Migrations\AbstractMigration;
 
 final class Version20260727210416 extends AbstractMigration
 {
+    #[\Override]
     public function getDescription(): string
     {
         return 'Add opt-in agent forwarding to API tokens and mark site-review events forwardable.';
@@ -30,6 +31,7 @@ final class Version20260727210416 extends AbstractMigration
         $this->addSql('ALTER TABLE site_review_events ADD forwardable BOOLEAN DEFAULT true NOT NULL');
     }
 
+    #[\Override]
     public function down(Schema $schema): void
     {
         $this->addSql('ALTER TABLE api_tokens DROP forwards_to_agent');

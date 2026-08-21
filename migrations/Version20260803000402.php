@@ -9,6 +9,7 @@ use Doctrine\Migrations\AbstractMigration;
 
 final class Version20260803000402 extends AbstractMigration
 {
+    #[\Override]
     public function getDescription(): string
     {
         return 'Insert the singleton agent user that authors agent-written comments.';
@@ -47,6 +48,7 @@ final class Version20260803000402 extends AbstractMigration
             SQL);
     }
 
+    #[\Override]
     public function down(Schema $schema): void
     {
         // Comments the agent authored reference this row, so they go first —

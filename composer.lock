@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "69cb9bdaeab97d854fe52d5a2f63b59a",
+    "content-hash": "05d4142fd4787c96209661133de73900",
     "packages": [
         {
             "name": "async-aws/core",
@@ -16135,12 +16135,12 @@
             "source": {
                 "type": "git",
                 "url": "https://github.com/ubermuda/gamache.git",
-                "reference": "f64d0f97275469f69b34de753d53690df4929372"
+                "reference": "fc6f383aaae4df51d756a352b1a0df669341f470"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/ubermuda/gamache/zipball/f64d0f97275469f69b34de753d53690df4929372",
-                "reference": "f64d0f97275469f69b34de753d53690df4929372",
+                "url": "https://api.github.com/repos/ubermuda/gamache/zipball/fc6f383aaae4df51d756a352b1a0df669341f470",
+                "reference": "fc6f383aaae4df51d756a352b1a0df669341f470",
                 "shasum": ""
             },
             "require": {
@@ -16189,7 +16189,7 @@
                 "source": "https://github.com/ubermuda/gamache/tree/main",
                 "issues": "https://github.com/ubermuda/gamache/issues"
             },
-            "time": "2026-08-20T16:26:57+00:00"
+            "time": "2026-08-21T22:29:13+00:00"
         },
         {
             "name": "vincentlanglet/twig-cs-fixer",

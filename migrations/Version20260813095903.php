@@ -36,6 +36,7 @@ final class Version20260813095903 extends AbstractMigration
             SQL);
     }
 
+    #[\Override]
     public function down(Schema $schema): void
     {
         $this->addSql("DELETE FROM feature_flag WHERE name = 'landing.enabled'");

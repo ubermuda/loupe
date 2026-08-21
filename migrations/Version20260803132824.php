@@ -9,6 +9,7 @@ use Doctrine\Migrations\AbstractMigration;
 
 final class Version20260803132824 extends AbstractMigration
 {
+    #[\Override]
     public function getDescription(): string
     {
         return 'Create decision_selections, a reviewer\'s answer per document and decision id';
@@ -22,6 +23,7 @@ final class Version20260803132824 extends AbstractMigration
         $this->addSql('ALTER TABLE decision_selections ADD CONSTRAINT FK_493164F0C33F7837 FOREIGN KEY (document_id) REFERENCES documents (id) NOT DEFERRABLE');
     }
 
+    #[\Override]
     public function down(Schema $schema): void
     {
         $this->addSql('ALTER TABLE decision_selections DROP CONSTRAINT FK_493164F0C33F7837');

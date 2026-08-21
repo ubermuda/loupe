@@ -12,6 +12,7 @@ use Doctrine\Migrations\AbstractMigration;
  */
 final class Version20260702190847 extends AbstractMigration
 {
+    #[\Override]
     public function getDescription(): string
     {
         return 'Rename Site to Project: new projects table with domain and per-binding token columns; site reviews now belong to a project.';
@@ -47,6 +48,7 @@ final class Version20260702190847 extends AbstractMigration
         $this->addSql('CREATE UNIQUE INDEX uniq_site_review_in_progress ON site_review_reviews (project_id) WHERE ((status)::text = \'in-progress\'::text)');
     }
 
+    #[\Override]
     public function down(Schema $schema): void
     {
         // this down() migration is auto-generated, please modify it to your needs

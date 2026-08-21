@@ -9,6 +9,7 @@ use Doctrine\Migrations\AbstractMigration;
 
 final class Version20260727012747 extends AbstractMigration
 {
+    #[\Override]
     public function getDescription(): string
     {
         return 'Add unique constraint on document_versions (document_id, version_number)';
@@ -46,6 +47,7 @@ final class Version20260727012747 extends AbstractMigration
         $this->addSql('CREATE UNIQUE INDEX uniq_document_version_number ON document_versions (document_id, version_number)');
     }
 
+    #[\Override]
     public function down(Schema $schema): void
     {
         $this->addSql('DROP INDEX uniq_document_version_number');

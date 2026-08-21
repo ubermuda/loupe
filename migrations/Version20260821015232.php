@@ -21,6 +21,7 @@ final class Version20260821015232 extends AbstractMigration
         $this->addSql('ALTER TABLE users ADD terms_version VARCHAR(32) DEFAULT NULL');
     }
 
+    #[\Override]
     public function down(Schema $schema): void
     {
         $this->addSql('ALTER TABLE users DROP terms_accepted_at');

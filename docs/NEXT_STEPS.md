@@ -2400,54 +2400,33 @@ inactive" flags on one entity, each owned by a different module.
 Related: 'Encapsulate Billing: replace #[PaywallExempt] with a firewall-level
 rule', which chases the same encapsulation goal from the control-flow side.
 
-## Rector does not run on `migrations/`, so generated migrations keep their scaffold
+## Four templates are baselined against the controller-naming rule and should be renamed
 
-**Author:** Claude · **Type:** tooling · **Priority:** medium · **Status:** pending
+**Author:** Claude · **Type:** tooling · **Priority:** low · **Status:** pending
 
-`rector.php`'s `withPaths()` lists `config`, `public`, `src` and `tests` — not
-`migrations`. So `just cs` never tidies a freshly generated migration, and two
-kinds of drift recur on every one: the `#[\Override]` attributes on
-`getDescription()` and `down()` that Rector would add automatically, and the
-`Auto-generated Migration: Please modify to your needs!` docblock plus the two
-`// this up()/down() migration is auto-generated` comments that
-`project-comments` says to cut.
+`ControllerTemplateNameRule` is now switched on (`controllerTemplates.namespacePattern`
+in `phpstan.dist.neon`) with nine pre-existing violations baselined. Five of
+those are rule limitations and should be deleted from the baseline only when the
+rule improves. Four are real: the template genuinely does not match its
+controller.
 
-Both had to be fixed by hand on the migration adding the user suspension
-columns (2026-08-21), and a review of the five migrations before it shows the
-same hand-tidy was applied each time — the convention is real, it is just
-enforced by whoever remembers.
+Rename these and delete their baseline entries as you go:
 
-The inconsistency worth noting: `phpstan.dist.neon` **does** list `migrations/`
-deliberately, so `MigrationDescriptionRule` runs there. The two tools disagree
-about whether a migration is code. Adding `__DIR__.'/migrations'` to Rector's
-paths would settle it in favour of phpstan's answer and make `just cs` fix the
-`#[\Override]` case on its own. Check the fixer does not rewrite historical
-migrations in ways that change their SQL before committing to it.
+- `ShowAcceptTermsController` renders `accept_terms.html.twig` → `show_accept_terms.html.twig`
+- `ListWaitlistController` renders `admin/waitlist.html.twig` → `admin/list_waitlist.html.twig`
+- `SiteReviewHarnessController` renders `dev/harness.html.twig` → `dev/site_review_harness.html.twig`
+- `PasswordResetCheckEmailController` renders `reset_password/check_email.html.twig` — a word-order
+  mismatch rather than a missing prefix. Its siblings are `ResetPasswordController` and the
+  `reset_password/` directory, so renaming the **controller** to `ResetPasswordCheckEmailController`
+  is the smaller and more consistent change. That is a class rename, so check the route name and
+  any test referencing it.
 
-## `ControllerTemplateNameRule` is documented as enforced but ships switched off
+The `accept_terms` one must wait until the terms Decline fix has merged — that
+branch modifies the same file, and a rename against a modification across two
+branches is the conflict shape worth avoiding.
 
-**Author:** Claude · **Type:** tooling · **Priority:** medium · **Status:** pending
-
-The `project-templates` skill presents the controller-to-template naming
-convention (`ShowFooController` renders `show_foo.html.twig`) as enforced by
-gamache. It is not. `vendor/ubermuda/gamache/extension.neon:19` defaults
-`gamache.controllerTemplates.namespacePattern` to `''`, which the rule reads as
-"off", and `phpstan.dist.neon` never sets it. Nothing fails when the convention
-is broken.
-
-Found 2026-08-21: a new `ShowSuspendedController` rendered
-`suspended.html.twig` and `just ci` stayed green. The existing tree mostly
-complies by habit — `show_account_settings`, `show_account_deleted` — but
-`accept_terms.html.twig` (from `ShowAcceptTermsController`) does not, so
-switching the rule on will report pre-existing violations that have to be
-renamed or the pattern relaxed.
-
-Two ways to settle it, and the choice is real rather than obvious. Set
-`namespacePattern` in `phpstan.dist.neon` and fix the offenders, so the skill's
-claim becomes true. Or soften the skill's wording to "convention, not enforced",
-if the verb-prefix rule is not actually wanted for every controller. Either is
-fine; a skill that says "enforced" about a rule that is off is not, because it
-teaches a reader to trust a gate that will not catch them.
+The baseline file itself carries the full categorisation, including which five
+entries are rule limitations and why.
 
 ## The listeners' `/logout` exemptions are dead in production but live in their unit tests
 
