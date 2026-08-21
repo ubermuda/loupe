@@ -1,2 +1,75 @@
+# Every entry here is controller.templateName, from the naming rule enabled in
+# phpstan.dist.neon. They fall into two kinds, and the difference decides whether
+# an entry should ever be removed.
+#
+# RULE LIMITATION — the code is named correctly and these should be deleted when
+# the rule learns to handle them, not by renaming anything:
+#   ShowAiPolicy / ShowPrivacy / ShowTerms  a locale segment (show_terms.en.html.twig)
+#                                           defeats the matcher, and the path is
+#                                           built at runtime from getLocale()
+#   ConfirmAccountDeletion, JoinWaitlist    the template names an outcome
+#                                           (invalid, waitlist_joined) rather than
+#                                           the controller's action, which is the
+#                                           better name of the two
+#
+# REAL DEBT — rename the template and delete the entry:
+#   ShowAcceptTerms, ListWaitlist, SiteReviewHarness
+#   PasswordResetCheckEmail                 word order; its siblings are
+#                                           ResetPasswordController and
+#                                           reset_password/, so the controller is
+#                                           the odd one out
 parameters:
-    ignoreErrors:
+	ignoreErrors:
+		-
+			message: '#^Controller ListWaitlistController renders a template but none under templates/Module/Account matches its name \(expected "list_waitlist\.html\.twig"; matching ignores case, underscores, and directories\)\.$#'
+			identifier: controller.templateName
+			count: 1
+			path: src/Module/Account/Controller/Admin/ListWaitlistController.php
+
+		-
+			message: '#^Controller ConfirmAccountDeletionController renders a template but none under templates/Module/Account matches its name \(expected "confirm_account_deletion\.html\.twig"; matching ignores case, underscores, and directories\)\.$#'
+			identifier: controller.templateName
+			count: 1
+			path: src/Module/Account/Controller/ConfirmAccountDeletionController.php
+
+		-
+			message: '#^Controller JoinWaitlistController renders a template but none under templates/Module/Account matches its name \(expected "join_waitlist\.html\.twig"; matching ignores case, underscores, and directories\)\.$#'
+			identifier: controller.templateName
+			count: 1
+			path: src/Module/Account/Controller/JoinWaitlistController.php
+
+		-
+			message: '#^Controller PasswordResetCheckEmailController renders a template but none under templates/Module/Account matches its name \(expected "password_reset_check_email\.html\.twig"; matching ignores case, underscores, and directories\)\.$#'
+			identifier: controller.templateName
+			count: 1
+			path: src/Module/Account/Controller/PasswordResetCheckEmailController.php
+
+		-
+			message: '#^Controller ShowAcceptTermsController renders a template but none under templates/Module/Account matches its name \(expected "show_accept_terms\.html\.twig"; matching ignores case, underscores, and directories\)\.$#'
+			identifier: controller.templateName
+			count: 1
+			path: src/Module/Account/Controller/ShowAcceptTermsController.php
+
+		-
+			message: '#^Controller ShowAiPolicyController renders a template but none under templates/Module/Legal matches its name \(expected "show_ai_policy\.html\.twig"; matching ignores case, underscores, and directories\)\.$#'
+			identifier: controller.templateName
+			count: 1
+			path: src/Module/Legal/Controller/ShowAiPolicyController.php
+
+		-
+			message: '#^Controller ShowPrivacyController renders a template but none under templates/Module/Legal matches its name \(expected "show_privacy\.html\.twig"; matching ignores case, underscores, and directories\)\.$#'
+			identifier: controller.templateName
+			count: 1
+			path: src/Module/Legal/Controller/ShowPrivacyController.php
+
+		-
+			message: '#^Controller ShowTermsController renders a template but none under templates/Module/Legal matches its name \(expected "show_terms\.html\.twig"; matching ignores case, underscores, and directories\)\.$#'
+			identifier: controller.templateName
+			count: 1
+			path: src/Module/Legal/Controller/ShowTermsController.php
+
+		-
+			message: '#^Controller SiteReviewHarnessController renders a template but none under templates/Module/SiteReview matches its name \(expected "site_review_harness\.html\.twig"; matching ignores case, underscores, and directories\)\.$#'
+			identifier: controller.templateName
+			count: 1
+			path: src/Module/SiteReview/Controller/Dev/SiteReviewHarnessController.php

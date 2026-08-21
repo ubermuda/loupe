@@ -15,6 +15,9 @@ parameters:
 
     gamache:
         controllerBaseClass: 'App\Controller\AppController'
+        controllerTemplates:
+            namespacePattern: '#^App\\Module\\([^\\]+)\\Controller\\#'
+            templateDirectory: 'templates/Module'
         templateNamespaces:
             forbiddenPathPrefix: 'Module/'
         translationCallSites:
