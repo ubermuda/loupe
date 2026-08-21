@@ -62,6 +62,7 @@ phpstan.neon
 /.serena/
 /.claude/worktrees/
 /.claude/scratch/
+/.claude/*.md
 /node_modules
 /.eslintcache
 /docs/superpowers/
