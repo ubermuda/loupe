@@ -9,7 +9,7 @@ Everything runs in Docker; `just --list` shows every recipe.
 just up                # start nginx, php-fpm, postgres
 just composer install  # composer inside the container — never on the host
 just migrate-run       # set up the database
-just exec bin/console app:dev:seed   # log in as dev@loupe.test / password
+just exec bin/console app:dev:seed   # dev@loupe.test or admin@loupe.test / password
 ```
 
 `just up` publishes no host port and needs a reverse proxy — see

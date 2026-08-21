@@ -10,7 +10,7 @@ that first account comes from, and that is what actually distinguishes them.
 | I want to… | Page | First account |
 |---|---|---|
 | Look at it, without cloning | [Demo](demo.md) | `admin@example.com` / `loupe-admin`, baked into the image |
-| Develop on it | [From source](from-source.md) | `dev@loupe.test` / `password`, from `app:dev:seed` |
+| Develop on it | [From source](from-source.md) | `dev@loupe.test` or `admin@loupe.test` / `password`, from `app:dev:seed` |
 | Run it on one machine | [Single-host Docker Compose](docker-compose.md) | the wizard at `/install`, gated by `INSTALL_TOKEN` |
 | Run it on DigitalOcean | [App Platform](digitalocean.md) | the same wizard |
 | Get back in when locked out | [Recovering an instance](../operating/recovering.md) | the address you name; creates or promotes it |

@@ -8,7 +8,8 @@ standing between a defect and production. Items marked **regression-only** have
 a passing e2e suite that proves the feature does not break anything *else*,
 while asserting nothing about whether the feature works.
 
-Log in at `https://loupe.dev.localhost` with `dev@loupe.test` / `password`.
+Log in at `https://loupe.dev.localhost` with `dev@loupe.test` / `password`, or
+`admin@loupe.test` / `password` to reach `/admin`.
 
 ---
 

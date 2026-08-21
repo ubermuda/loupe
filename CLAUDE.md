@@ -48,7 +48,8 @@ When an item in `docs/NEXT_STEPS.md` is resolved, **delete it entirely**. Do not
 Worktrees are stored in `.claude/worktrees/` (already gitignored). **Every
 worktree is a full application of its own** — run `just worktree-up` and it gets
 its own URL (`https://<name>.loupe.dev.localhost`), its own migrated and seeded
-database, and its own compiled CSS. Log in with `dev@loupe.test` / `password`.
+database, and its own compiled CSS. Log in with `dev@loupe.test` / `password`,
+or `admin@loupe.test` / `password` for the admin area.
 
 - **The main session never moves into a worktree.** If you are the session
   running in the main checkout, do not call `EnterWorktree` and do not `cd` into

@@ -47,6 +47,7 @@ use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 final class SeedDevDataCommand extends Command
 {
     private const string EMAIL = 'dev@loupe.test';
+    private const string ADMIN_EMAIL = 'admin@loupe.test';
     private const string PASSWORD = 'password';
     private const string PROJECT_NAME = 'Dev Project';
 
@@ -83,20 +84,12 @@ final class SeedDevDataCommand extends Command
         // Idempotent: bootstrap re-runs on every worktree entry, and re-seeding
         // must not create a second user or a second widget token (minting one
         // twice is rejected outright by the handler).
-        $user = $this->users->findOneBy(['email' => self::EMAIL]);
-        if (!$user instanceof User) {
-            $user = new User(fullName: 'Dev User', email: self::EMAIL);
-            $user->password = $this->passwordHasher->hashPassword($user, self::PASSWORD);
-            // Verified up front — there is no inbox to click through, and an
-            // unverified user cannot reach the pages worth looking at.
-            $user->emailVerifiedAt = new \DateTimeImmutable();
-            // Same reasoning as the verification above: a seeded login exists to
-            // land on the app, not on an acceptance interstitial.
-            $user->termsAcceptedAt = new \DateTimeImmutable();
-            $user->termsVersion = $this->termsVersion;
-            $this->em->persist($user);
-            $this->em->flush();
-        }
+        $user = $this->seedUser(self::EMAIL, 'Dev User');
+
+        // A second account rather than ROLE_ADMIN on the first: toggling one
+        // user's role to compare the admin and member views is what makes a dev
+        // database drift, and it costs nothing to keep both logged in at once.
+        $this->seedUser(self::ADMIN_EMAIL, 'Admin User', ['ROLE_ADMIN']);
 
         $project = $this->projects->findOneBy(['owner' => $user, 'name' => self::PROJECT_NAME]);
         if (!$project instanceof Project) {
@@ -123,8 +116,53 @@ final class SeedDevDataCommand extends Command
             $output->writeln('SITE_REVIEW_WIDGET_TOKEN='.$rawToken);
         }
 
-        $io->success(sprintf('Seeded %s (password: %s).', self::EMAIL, self::PASSWORD));
+        $io->success(sprintf(
+            'Seeded %s and %s (password: %s).',
+            self::EMAIL,
+            self::ADMIN_EMAIL,
+            self::PASSWORD,
+        ));
 
         return Command::SUCCESS;
+    }
+
+    /**
+     * Idempotent: bootstrap re-runs on every worktree entry, so a second call
+     * must find the existing row rather than collide with its unique email.
+     *
+     * @param non-empty-string $email
+     * @param list<string>     $roles
+     */
+    private function seedUser(string $email, string $fullName, array $roles = []): User
+    {
+        $user = $this->users->findOneBy(['email' => $email]);
+        if ($user instanceof User) {
+            // Re-apply the roles rather than trusting the row: an account
+            // demoted while testing would otherwise keep being reported as
+            // seeded while the documented credentials could not reach /admin.
+            // Appended, not assigned — the row may carry roles of its own.
+            $missing = array_diff($roles, $user->roles);
+            if ([] !== $missing) {
+                $user->roles = array_values(array_unique([...$user->roles, ...$roles]));
+                $this->em->flush();
+            }
+
+            return $user;
+        }
+
+        $user = new User(fullName: $fullName, email: $email);
+        $user->password = $this->passwordHasher->hashPassword($user, self::PASSWORD);
+        $user->roles = $roles;
+        // Verified up front — there is no inbox to click through, and an
+        // unverified user cannot reach the pages worth looking at.
+        $user->emailVerifiedAt = new \DateTimeImmutable();
+        // Same reasoning as the verification above: a seeded login exists to
+        // land on the app, not on an acceptance interstitial.
+        $user->termsAcceptedAt = new \DateTimeImmutable();
+        $user->termsVersion = $this->termsVersion;
+        $this->em->persist($user);
+        $this->em->flush();
+
+        return $user;
     }
 }

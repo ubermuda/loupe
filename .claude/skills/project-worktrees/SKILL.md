@@ -33,7 +33,8 @@ boots with the worktree as its project directory and reads that worktree's
 
 Provisioned per worktree: `https://<slug>.loupe.dev.localhost`, dev DB
 `app_wt_<slug>`, test DB `app_test_<slug>`, compose project `loupe-wt-<slug>`.
-Log in with `dev@loupe.test` / `password`.
+Log in with `dev@loupe.test` / `password`, or `admin@loupe.test` / `password`
+for the admin area.
 
 `just up` must have run first — bootstrap fails fast rather than leaving a
 worktree whose `.env.local` points at a database that was never created.
