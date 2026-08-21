@@ -2375,6 +2375,30 @@ inactive" flags on one entity, each owned by a different module.
 Related: 'Encapsulate Billing: replace #[PaywallExempt] with a firewall-level
 rule', which chases the same encapsulation goal from the control-flow side.
 
+## Rector does not run on `migrations/`, so generated migrations keep their scaffold
+
+**Author:** Claude · **Type:** tooling · **Priority:** medium · **Status:** pending
+
+`rector.php`'s `withPaths()` lists `config`, `public`, `src` and `tests` — not
+`migrations`. So `just cs` never tidies a freshly generated migration, and two
+kinds of drift recur on every one: the `#[\Override]` attributes on
+`getDescription()` and `down()` that Rector would add automatically, and the
+`Auto-generated Migration: Please modify to your needs!` docblock plus the two
+`// this up()/down() migration is auto-generated` comments that
+`project-comments` says to cut.
+
+Both had to be fixed by hand on the migration adding the user suspension
+columns (2026-08-21), and a review of the five migrations before it shows the
+same hand-tidy was applied each time — the convention is real, it is just
+enforced by whoever remembers.
+
+The inconsistency worth noting: `phpstan.dist.neon` **does** list `migrations/`
+deliberately, so `MigrationDescriptionRule` runs there. The two tools disagree
+about whether a migration is code. Adding `__DIR__.'/migrations'` to Rector's
+paths would settle it in favour of phpstan's answer and make `just cs` fix the
+`#[\Override]` case on its own. Check the fixer does not rewrite historical
+migrations in ways that change their SQL before committing to it.
+
 ## Registration discloses whether an address is registered, and that is accepted
 
 **Author:** Geoffrey · **Type:** docs · **Priority:** low · **Status:** pending
