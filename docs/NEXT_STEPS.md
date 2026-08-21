@@ -2424,6 +2424,31 @@ paths would settle it in favour of phpstan's answer and make `just cs` fix the
 `#[\Override]` case on its own. Check the fixer does not rewrite historical
 migrations in ways that change their SQL before committing to it.
 
+## `ControllerTemplateNameRule` is documented as enforced but ships switched off
+
+**Author:** Claude · **Type:** tooling · **Priority:** medium · **Status:** pending
+
+The `project-templates` skill presents the controller-to-template naming
+convention (`ShowFooController` renders `show_foo.html.twig`) as enforced by
+gamache. It is not. `vendor/ubermuda/gamache/extension.neon:19` defaults
+`gamache.controllerTemplates.namespacePattern` to `''`, which the rule reads as
+"off", and `phpstan.dist.neon` never sets it. Nothing fails when the convention
+is broken.
+
+Found 2026-08-21: a new `ShowSuspendedController` rendered
+`suspended.html.twig` and `just ci` stayed green. The existing tree mostly
+complies by habit — `show_account_settings`, `show_account_deleted` — but
+`accept_terms.html.twig` (from `ShowAcceptTermsController`) does not, so
+switching the rule on will report pre-existing violations that have to be
+renamed or the pattern relaxed.
+
+Two ways to settle it, and the choice is real rather than obvious. Set
+`namespacePattern` in `phpstan.dist.neon` and fix the offenders, so the skill's
+claim becomes true. Or soften the skill's wording to "convention, not enforced",
+if the verb-prefix rule is not actually wanted for every controller. Either is
+fine; a skill that says "enforced" about a rule that is off is not, because it
+teaches a reader to trust a gate that will not catch them.
+
 ## Registration discloses whether an address is registered, and that is accepted
 
 **Author:** Geoffrey · **Type:** docs · **Priority:** low · **Status:** pending
