@@ -978,6 +978,28 @@
                 <target>Everything is gone — projects, documents, reviews, and your profile. Thanks for trying Loupe.</target>
             </trans-unit>
 
+            <!-- Account suspended page -->
+            <trans-unit id="account.suspended.page.title">
+                <source>account.suspended.page.title</source>
+                <target>Account suspended</target>
+            </trans-unit>
+            <trans-unit id="account.suspended.heading">
+                <source>account.suspended.heading</source>
+                <target>Your account has been suspended</target>
+            </trans-unit>
+            <trans-unit id="account.suspended.body">
+                <source>account.suspended.body</source>
+                <target>An administrator has suspended this account. You cannot use the application until it is reinstated.</target>
+            </trans-unit>
+            <trans-unit id="account.suspended.reason_label">
+                <source>account.suspended.reason_label</source>
+                <target>Reason given:</target>
+            </trans-unit>
+            <trans-unit id="account.suspended.logout">
+                <source>account.suspended.logout</source>
+                <target>Log out</target>
+            </trans-unit>
+
             <!-- Document dashboard -->
             <trans-unit id="review.dashboard.page.title">
                 <source>review.dashboard.page.title</source>
