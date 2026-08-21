@@ -30,6 +30,29 @@ against the running dev app, not only by reading the config. No test covers it,
 because the e2e specs and the WebTestCase fixtures all stamp acceptance on their
 users and so never render the decline path.
 
+## A suspended account can still write — the gate only covers navigation
+
+**Author:** Claude · **Type:** security · **Priority:** high · **Status:** pending
+
+`RequireNotSuspendedListener` gates safe methods only: `isHtmlNavigation()`
+returns false for anything that is not a GET/HEAD, so the redirect never fires
+on a POST. A suspended user is pinned to `/account/suspended` when they
+navigate, but every write endpoint in the app still accepts their submissions.
+
+This matches the approved design, which says in as many words that the listener
+is "a navigation gate rather than the authorization boundary", and it matches
+the sibling `RequireTermsAcceptanceListener`, whose docblock makes the same
+point. It is deliberate: widening the gate to unsafe methods at priority 6 would
+intercept Turbo form submissions across the whole application.
+
+It is still worth a second look, because the word "suspended" promises more than
+navigation-pinning delivers, and the terms gate's reasoning does not transfer
+cleanly — a user who has not accepted terms is being asked for something,
+whereas a suspended user is being denied. The fix, if wanted, is authorization
+rather than a listener: a voter check, or a `#[IsGranted]` on write routes.
+Decide whether suspension means "cannot browse" or "cannot act" before building
+anything.
+
 ## Data-export object storage is proven on Garage, not on a hosted provider
 
 **Author:** Claude · **Type:** tooling · **Priority:** medium · **Status:** pending
@@ -2448,6 +2471,25 @@ claim becomes true. Or soften the skill's wording to "convention, not enforced",
 if the verb-prefix rule is not actually wanted for every controller. Either is
 fine; a skill that says "enforced" about a rule that is off is not, because it
 teaches a reader to trust a gate that will not catch them.
+
+## Two request listeners carry an identical dead `/logout` branch
+
+**Author:** Claude · **Type:** tooling · **Priority:** low · **Status:** pending
+
+`RequireTermsAcceptanceListener::isExempt()` and
+`RequireNotSuspendedListener::isExempt()` both exempt `/logout`, and in both the
+branch is unreachable. Symfony's firewall `LogoutListener` runs at priority 8,
+sets the response and stops propagation, so neither gate — at priority 3 and 6 —
+ever sees that path under any method.
+
+Proven 2026-08-21 by placing a throwing probe at the top of the suspension
+gate's `__invoke` and requesting `/logout`: it never fired.
+
+Removing it is safe (if logout ever left the firewall, `LogoutController` throws
+a `LogicException` and 500s rather than looping), but do it in both places or
+neither — stripping one sibling and not the other reads as though the remaining
+branch is load-bearing. The comment above the terms gate's copy, "Leaving must
+always be possible", is what makes it look load-bearing today.
 
 ## Registration discloses whether an address is registered, and that is accepted
 
