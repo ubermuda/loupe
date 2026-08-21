@@ -5,6 +5,31 @@ Open work and observations worth revisiting. Delete items entirely once resolved
 Entries are ordered by priority (high → medium → low); insert new entries at
 the end of their priority band. Format and rules: `project-next-steps` skill.
 
+## The terms interstitial's "Decline" link 403s, trapping a user who will not accept
+
+**Author:** Claude · **Type:** bug · **Priority:** high · **Status:** pending
+
+`templates/Module/Account/accept_terms.html.twig:30` renders the decline action
+as a bare `<a href="{{ path('app_logout') }}">`. `config/packages/security.yaml`
+sets `logout: enable_csrf: true`, so a plain GET to `/logout` fails the CSRF
+check and returns 403 instead of logging the user out.
+
+The working pattern is three lines below it in `templates/base.html.twig:114` —
+a POST form with `<input type="hidden" name="_csrf_token" value="{{ csrf_token('logout') }}">`.
+Copy that.
+
+Why this is worse than a broken link: `RequireTermsAcceptanceListener` pins a
+user who has not accepted the current terms version to this page, and exempts
+`/logout` precisely so leaving stays possible. Decline is the only exit offered,
+and it does not work — so a user who refuses the terms cannot accept, cannot
+proceed, and cannot leave. They have to clear cookies.
+
+Found 2026-08-21 while building the suspended-account page, which had the same
+bare-link draft and was corrected before it shipped. Confirmed in a browser
+against the running dev app, not only by reading the config. No test covers it,
+because the e2e specs and the WebTestCase fixtures all stamp acceptance on their
+users and so never render the decline path.
+
 ## Data-export object storage is proven on Garage, not on a hosted provider
 
 **Author:** Claude · **Type:** tooling · **Priority:** medium · **Status:** pending
