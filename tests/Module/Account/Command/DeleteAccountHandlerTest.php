@@ -9,6 +9,7 @@ use App\Module\Account\Command\DeleteAccountCommand;
 use App\Module\Account\Command\DeleteAccountHandler;
 use App\Module\Account\Deletion\AccountDataPurgerInterface;
 use App\Module\Account\Deletion\AccountDeletionCleanup;
+use App\Module\Account\Deletion\AccountPurger;
 use App\Module\Account\Entity\ApiToken;
 use App\Module\Account\Entity\ApiTokenScope;
 use App\Module\Account\Entity\ConnectedAccount;
@@ -192,7 +193,7 @@ final class DeleteAccountHandlerTest extends KernelTestCase
         $bus = $this->createMock(MessageBusInterface::class);
         $bus->expects(self::never())->method('dispatch');
 
-        $handler = new DeleteAccountHandler($users, $bus, $em, new NullLogger(), $this->createStub(FilesystemOperator::class), []);
+        $handler = new DeleteAccountHandler($users, new AccountPurger($bus, $em, new NullLogger(), $this->createStub(FilesystemOperator::class), []));
 
         $this->expectException(\RuntimeException::class);
         $this->expectExceptionMessage('simulated transaction failure');
@@ -239,7 +240,7 @@ final class DeleteAccountHandlerTest extends KernelTestCase
 
         $purgers = [$makePurger(80), $makePurger(10), $makePurger(30)];
 
-        $handler = new DeleteAccountHandler($users, $this->createStub(MessageBusInterface::class), $em, new NullLogger(), $this->createStub(FilesystemOperator::class), $purgers);
+        $handler = new DeleteAccountHandler($users, new AccountPurger($this->createStub(MessageBusInterface::class), $em, new NullLogger(), $this->createStub(FilesystemOperator::class), $purgers));
         $handler(new DeleteAccountCommand($token));
 
         self::assertSame([10, 30, 80], $calls->getArrayCopy());
