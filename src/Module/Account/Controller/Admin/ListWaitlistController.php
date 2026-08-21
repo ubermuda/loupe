@@ -44,7 +44,7 @@ final class ListWaitlistController extends AppController
             );
         }
 
-        return $this->render('@Account/admin/waitlist.html.twig', [
+        return $this->render('@Account/admin/list_waitlist.html.twig', [
             'entries' => $view->entries,
             'total' => $view->total,
             'page' => $listRequest->page,

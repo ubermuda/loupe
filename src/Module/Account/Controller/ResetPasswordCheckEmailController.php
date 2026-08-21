@@ -9,7 +9,7 @@ use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
 
 #[Route('/forgot-password/check-email', name: 'app_forgot_password_check_email')]
-class PasswordResetCheckEmailController extends AppController
+class ResetPasswordCheckEmailController extends AppController
 {
     public function __invoke(): Response
     {
