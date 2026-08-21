@@ -4,7 +4,6 @@ namespace App\Tests\Module\Account\Controller;
 
 use App\Module\Account\Repository\UserRepository;
 use App\Tests\Support\InstalledInstance;
-use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 
 final class RegistrationControllerTest extends WebTestCase
@@ -14,7 +13,7 @@ final class RegistrationControllerTest extends WebTestCase
         $client = static::createClient();
         // Sign-up refuses to create the *first* account on an instance — that is
         // the install wizard's job — and the test database starts empty.
-        InstalledInstance::ensure(static::getContainer()->get(EntityManagerInterface::class));
+        InstalledInstance::ensure(static::getContainer());
         $client->request(\Symfony\Component\HttpFoundation\Request::METHOD_GET, '/register');
         $this->assertResponseIsSuccessful();
     }
@@ -24,7 +23,7 @@ final class RegistrationControllerTest extends WebTestCase
         $client = static::createClient();
         // Sign-up refuses to create the *first* account on an instance — that is
         // the install wizard's job — and the test database starts empty.
-        InstalledInstance::ensure(static::getContainer()->get(EntityManagerInterface::class));
+        InstalledInstance::ensure(static::getContainer());
         $client->request(\Symfony\Component\HttpFoundation\Request::METHOD_GET, '/register');
 
         $client->submitForm('Create account', [
@@ -52,7 +51,7 @@ final class RegistrationControllerTest extends WebTestCase
         $client = static::createClient();
         // Sign-up refuses to create the *first* account on an instance — that is
         // the install wizard's job — and the test database starts empty.
-        InstalledInstance::ensure(static::getContainer()->get(EntityManagerInterface::class));
+        InstalledInstance::ensure(static::getContainer());
         // Register once
         $client->request(\Symfony\Component\HttpFoundation\Request::METHOD_GET, '/register');
         $client->submitForm('Create account', [
@@ -87,7 +86,7 @@ final class RegistrationControllerTest extends WebTestCase
         $client = static::createClient();
         // Sign-up refuses to create the *first* account on an instance — that is
         // the install wizard's job — and the test database starts empty.
-        InstalledInstance::ensure(static::getContainer()->get(EntityManagerInterface::class));
+        InstalledInstance::ensure(static::getContainer());
         $client->request(\Symfony\Component\HttpFoundation\Request::METHOD_GET, '/register');
 
         $client->submitForm('Create account', [

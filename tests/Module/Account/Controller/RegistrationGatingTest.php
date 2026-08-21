@@ -118,9 +118,7 @@ final class RegistrationGatingTest extends WebTestCase
 
     private function install(KernelBrowser $client): void
     {
-        $em = $client->getContainer()->get(EntityManagerInterface::class);
-        self::assertInstanceOf(EntityManagerInterface::class, $em);
-        InstalledInstance::ensure($em);
+        InstalledInstance::ensure($client->getContainer());
     }
 
     private function setRegistrationEnabled(KernelBrowser $client, bool $enabled): void

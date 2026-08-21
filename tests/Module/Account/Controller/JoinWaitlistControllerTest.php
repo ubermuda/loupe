@@ -20,7 +20,7 @@ final class JoinWaitlistControllerTest extends WebTestCase
     public function test_gate_open_redirects_to_register(): void
     {
         $client = static::createClient();
-        InstalledInstance::ensure(static::getContainer()->get(EntityManagerInterface::class));
+        InstalledInstance::ensure(static::getContainer());
 
         $client->request(Request::METHOD_GET, '/waitlist');
 

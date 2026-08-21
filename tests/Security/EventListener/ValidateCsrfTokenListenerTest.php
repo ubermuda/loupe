@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Tests\Security\EventListener;
 
 use App\Module\Account\Entity\User;
+use App\Tests\Support\AcceptedTerms;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\DataProvider;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
@@ -30,6 +31,7 @@ final class ValidateCsrfTokenListenerTest extends WebTestCase
         $user = new User('Csrf Guard', 'csrfguard@example.com');
         $user->password = $hasher->hashPassword($user, 'password');
         $user->emailVerifiedAt = new \DateTimeImmutable();
+        AcceptedTerms::stamp($user, static::getContainer());
 
         $em->persist($user);
         $em->flush();

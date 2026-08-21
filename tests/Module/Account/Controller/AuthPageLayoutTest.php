@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Tests\Module\Account\Controller;
 
 use App\Module\Account\Entity\User;
+use App\Tests\Support\AcceptedTerms;
 use App\Tests\Support\InstalledInstance;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
@@ -23,9 +24,10 @@ final class AuthPageLayoutTest extends WebTestCase
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
-        InstalledInstance::ensure($em);
+        InstalledInstance::ensure(static::getContainer());
 
         $user = new User(fullName: 'Riley Chen', email: 'unverified@example.test');
+        AcceptedTerms::stamp($user, static::getContainer());
         $user->password = 'not-a-real-hash';
         $em->persist($user);
         $em->flush();
@@ -50,7 +52,7 @@ final class AuthPageLayoutTest extends WebTestCase
     public function test_an_application_page_still_renders_the_shell(): void
     {
         $client = static::createClient();
-        $admin = InstalledInstance::ensure(static::getContainer()->get(EntityManagerInterface::class));
+        $admin = InstalledInstance::ensure(static::getContainer());
 
         $client->loginUser($admin);
         $crawler = $client->request(Request::METHOD_GET, '/account');

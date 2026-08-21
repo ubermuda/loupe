@@ -10,6 +10,7 @@ use App\Module\Account\Repository\UserRepository;
 use App\Module\Account\Service\AgentAccountInstaller;
 use App\Module\Account\Service\VerificationEmailSender;
 use Doctrine\ORM\EntityManagerInterface;
+use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 
 /**
@@ -27,6 +28,9 @@ final readonly class CreateInstallAdminHandler
         private EntityManagerInterface $em,
         private UserPasswordHasherInterface $passwordHasher,
         private VerificationEmailSender $verificationEmailSender,
+
+        #[Autowire(param: 'app.terms.version')]
+        private string $termsVersion,
     ) {
     }
 
@@ -50,6 +54,10 @@ final readonly class CreateInstallAdminHandler
             );
             $user->password = $this->passwordHasher->hashPassword($user, $command->plainPassword);
             $user->roles = ['ROLE_ADMIN'];
+            // The operator installing a self-hosted instance is the party the
+            // terms would be presented by, so there is no one to accept from.
+            $user->termsAcceptedAt = new \DateTimeImmutable();
+            $user->termsVersion = $this->termsVersion;
             $this->em->persist($user);
 
             // Inside the transaction that claims the install: an instance that

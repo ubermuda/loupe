@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Tests\Controller;
 
 use App\Module\Account\Entity\User;
+use App\Tests\Support\AcceptedTerms;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use Symfony\Component\HttpFoundation\Request;
@@ -26,6 +27,7 @@ final class ShowAboutControllerTest extends WebTestCase
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
         $user = new User('Aboutviewer', 'about-viewer@example.com');
+        AcceptedTerms::stamp($user, static::getContainer());
         $user->password = 'hashed-password-placeholder';
         $user->emailVerifiedAt = new \DateTimeImmutable();
         $em->persist($user);

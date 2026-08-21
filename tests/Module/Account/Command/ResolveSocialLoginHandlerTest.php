@@ -56,7 +56,7 @@ final class ResolveSocialLoginHandlerTest extends KernelTestCase
 
         // Sign-up refuses to create the first account on an instance; every
         // branch-D test below needs the install to already be complete.
-        InstalledInstance::ensure($this->em);
+        InstalledInstance::ensure(self::getContainer());
 
         $this->handler = $this->buildHandler(
             new RegistrationGate($this->openFlags(), $this->users, new InstallationState($this->users)),
@@ -154,6 +154,19 @@ final class ResolveSocialLoginHandlerTest extends KernelTestCase
         ));
 
         self::assertSame($owner->id, $this->resolvedUser($outcome)->id);
+    }
+
+    public function test_oauth_registration_records_no_terms_acceptance(): void
+    {
+        // The null is the feature, not an omission: there is no checkbox on the
+        // OAuth path, so RequireTermsAcceptanceListener has to divert the new
+        // account to the interstitial before it can be used.
+        $profile = new SocialProfile(SocialProvider::Google, 'g-terms', 'oauth-terms@example.com', 'Terms', emailVerified: true);
+
+        $user = $this->resolvedUser(($this->handler)(new ResolveSocialLoginCommand($profile)));
+
+        self::assertNull($user->termsAcceptedAt);
+        self::assertNull($user->termsVersion);
     }
 
     public function test_resolving_the_same_identity_twice_reuses_the_link(): void

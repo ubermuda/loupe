@@ -37,6 +37,9 @@ parameters:
     # One-container demo, offered on the landing page as the way to try Loupe
     # without provisioning anything.
     app.demo_command: "docker run --rm -p 127.0.0.1:8080:80 ghcr.io/ubermuda/loupe:demo"
+    # Revision of the terms of service, as the date they took effect. Bumping it
+    # re-prompts every account for acceptance on their next HTML navigation.
+    app.terms.version: '2026-08-20'
     # Monthly price of the hosted plan during beta, in whole dollars. Shown on
     # the landing page only — Stripe remains the source of truth for what is
     # actually charged.

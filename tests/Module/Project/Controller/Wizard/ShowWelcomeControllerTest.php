@@ -7,6 +7,7 @@ namespace App\Tests\Module\Project\Controller\Wizard;
 use App\Module\Account\Entity\User;
 use App\Module\Project\Entity\Project;
 use App\Module\Project\Repository\ProjectRepository;
+use App\Tests\Support\AcceptedTerms;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use Symfony\Component\HttpFoundation\Request;
@@ -19,6 +20,7 @@ final class ShowWelcomeControllerTest extends WebTestCase
         $user = new User(ucfirst($username), $email);
         $user->password = 'hashed-password-placeholder';
         $user->emailVerifiedAt = new \DateTimeImmutable();
+        AcceptedTerms::stamp($user, static::getContainer());
         $em->persist($user);
 
         return $user;

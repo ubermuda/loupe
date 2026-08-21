@@ -10,6 +10,8 @@
 {% block legal_title %}{{ 'legal.privacy.title'|trans }}{% endblock %}
 
 {% block legal_body %}
+    {%- set analytics = analytics_script() %}
+    {%- set analytics_host = analytics and '//' in analytics.src ? analytics.src|split('//')[1]|split('/')[0] : 'a host this instance is configured with' %}
     <p class="lp-legal__updated">Last updated: August 13, 2026</p>
 
     <section>
@@ -64,7 +66,7 @@
                 </tr>
             </tbody>
         </table>
-        <p>We use no analytics cookies, no advertising cookies and no third-party tracking.</p>
+        <p>{% if analytics %}We use no advertising cookies and no cross-site tracking. Page views are counted by an analytics service at {{ analytics_host }}, which sets no cookies and cannot follow you to another site.{% else %}We use no analytics cookies, no advertising cookies and no third-party tracking.{% endif %}</p>
     </section>
 
     <section>
@@ -99,7 +101,13 @@
                     <td>Payments and subscription billing</td>
                     <td>United States and Ireland</td>
                 </tr>
-            </tbody>
+{# Column 0 is deliberate: an indented tag leaves stray whitespace where the row is skipped. #}
+{% if analytics %}                <tr>
+                    <td>{{ analytics_host }}</td>
+                    <td>Page-view analytics</td>
+                    <td>Determined by its operator</td>
+                </tr>
+{% endif %}            </tbody>
         </table>
         <p>Each is bound by its own privacy policy and by applicable data protection law, and processes data only as needed to deliver its service to us.</p>
     </section>

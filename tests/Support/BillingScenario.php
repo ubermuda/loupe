@@ -32,6 +32,7 @@ final readonly class BillingScenario
     {
         $user = new User(ucfirst($username), $username.'@example.com', 'hashed-password-placeholder');
         $user->emailVerifiedAt = new \DateTimeImmutable();
+        AcceptedTerms::stamp($user, $this->container);
 
         $em = $this->em();
         $em->persist($user);

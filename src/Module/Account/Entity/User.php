@@ -51,6 +51,18 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface, AdminPr
     #[ORM\Column(nullable: true)]
     public ?\DateTimeImmutable $disabledAt = null;
 
+    /**
+     * Null on every row predating the terms gate, and on every account the
+     * OAuth path creates — that path has no form to ask on, so the null is what
+     * makes RequireTermsAcceptanceListener divert the user to the interstitial.
+     */
+    #[ORM\Column(nullable: true)]
+    public ?\DateTimeImmutable $termsAcceptedAt = null;
+
+    /** The terms revision agreed to; a bump of app.terms.version re-prompts everyone. */
+    #[ORM\Column(length: 32, nullable: true)]
+    public ?string $termsVersion = null;
+
     #[ORM\Column(length: 64, nullable: true)]
     private ?string $emailVerificationTokenHash = null;
 

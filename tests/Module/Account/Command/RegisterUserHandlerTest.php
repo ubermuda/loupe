@@ -48,7 +48,7 @@ final class RegisterUserHandlerTest extends KernelTestCase
 
         // Sign-up refuses to create the first account on an instance; these
         // tests all register into an instance that is already installed.
-        InstalledInstance::ensure($this->em);
+        InstalledInstance::ensure(self::getContainer());
     }
 
     public function test_concurrent_duplicate_registration_surfaces_domain_error_not_500(): void
@@ -87,6 +87,7 @@ final class RegisterUserHandlerTest extends KernelTestCase
             waitlistEntries: $this->createStub(WaitlistEntryRepository::class),
             eventDispatcher: $this->neverDispatches(),
             logger: new NullLogger(),
+            termsVersion: $this->currentTermsVersion(),
         );
 
         try {
@@ -99,6 +100,17 @@ final class RegisterUserHandlerTest extends KernelTestCase
         } catch (DomainErrors $e) {
             $this->assertSame(['email' => 'account.registration.error.email_duplicate'], $e->errors);
         }
+    }
+
+    public function test_password_registration_records_acceptance_of_the_current_terms(): void
+    {
+        // The form asserts IsTrue on agreeTerms, so reaching this handler is
+        // itself the consent — and recording it is what keeps the OAuth-only
+        // terms gate from firing for password registrants.
+        $user = ($this->handler)($this->makeCommand(email: 'terms-recorded@example.com'));
+
+        $this->assertNotNull($user->termsAcceptedAt);
+        $this->assertSame($this->currentTermsVersion(), $user->termsVersion);
     }
 
     public function test_registration_open_with_a_mismatched_email_leaves_the_invite_unconverted(): void
@@ -319,6 +331,14 @@ final class RegisterUserHandlerTest extends KernelTestCase
         self::assertNotNull($user->id);
     }
 
+    private function currentTermsVersion(): string
+    {
+        $version = self::getContainer()->getParameter('app.terms.version');
+        self::assertIsString($version);
+
+        return $version;
+    }
+
     /** Container-wired collaborators with only the dispatcher swapped out. */
     private function handlerWith(EventDispatcherInterface $dispatcher): RegisterUserHandler
     {
@@ -341,6 +361,7 @@ final class RegisterUserHandlerTest extends KernelTestCase
             waitlistEntries: $this->entries,
             eventDispatcher: $dispatcher,
             logger: new NullLogger(),
+            termsVersion: $this->currentTermsVersion(),
         );
     }
 

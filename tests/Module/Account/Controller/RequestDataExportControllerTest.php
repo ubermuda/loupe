@@ -6,6 +6,7 @@ namespace App\Tests\Module\Account\Controller;
 
 use App\Module\Account\Entity\User;
 use App\Module\Account\Repository\DataExportRepository;
+use App\Tests\Support\AcceptedTerms;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use Symfony\Component\HttpFoundation\Request;
@@ -20,6 +21,7 @@ final class RequestDataExportControllerTest extends WebTestCase
             email: $email,
             password: 'hashed-password-placeholder',
         );
+        AcceptedTerms::stamp($user, static::getContainer());
         $user->emailVerifiedAt = new \DateTimeImmutable();
         $em->persist($user);
         $em->flush();

@@ -11,6 +11,7 @@ use App\Module\Account\Service\AgentAccountInstaller;
 use App\Module\Account\Service\DisplayNameDeriver;
 use Doctrine\ORM\EntityManagerInterface;
 use Psr\Log\LoggerInterface;
+use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 
 /**
@@ -30,6 +31,9 @@ final readonly class CreateAdminUserHandler
         private MarkEmailVerifiedHandler $markEmailVerified,
         private LoggerInterface $logger,
         private DisplayNameDeriver $displayNameDeriver,
+
+        #[Autowire(param: 'app.terms.version')]
+        private string $termsVersion,
     ) {
     }
 
@@ -67,6 +71,11 @@ final readonly class CreateAdminUserHandler
         $user->password = $this->passwordHasher->hashPassword($user, $command->plainPassword);
         $user->roles = ['ROLE_ADMIN'];
         $user->emailVerifiedAt = new \DateTimeImmutable();
+        // A console entry point has no form to present the terms on, and this
+        // is the documented repair for an instance whose admin is locked out —
+        // gating the account it mints would lock them out again.
+        $user->termsAcceptedAt = new \DateTimeImmutable();
+        $user->termsVersion = $this->termsVersion;
 
         $this->em->persist($user);
         $this->em->flush();

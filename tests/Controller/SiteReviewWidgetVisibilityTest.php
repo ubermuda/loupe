@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Tests\Controller;
 
 use App\Module\Account\Entity\User;
+use App\Tests\Support\AcceptedTerms;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use Symfony\Component\HttpFoundation\Request;
@@ -33,6 +34,7 @@ final class SiteReviewWidgetVisibilityTest extends WebTestCase
         $em = static::getContainer()->get(EntityManagerInterface::class);
 
         $user = new User(fullName: 'Plain', email: 'widget-plain@example.com', password: 'x');
+        AcceptedTerms::stamp($user, static::getContainer());
         $user->emailVerifiedAt = new \DateTimeImmutable();
         $em->persist($user);
         $em->flush();
@@ -50,6 +52,7 @@ final class SiteReviewWidgetVisibilityTest extends WebTestCase
         $em = static::getContainer()->get(EntityManagerInterface::class);
 
         $admin = new User(fullName: 'Admin', email: 'widget-admin@example.com', password: 'x');
+        AcceptedTerms::stamp($admin, static::getContainer());
         $admin->roles = ['ROLE_ADMIN'];
         $admin->emailVerifiedAt = new \DateTimeImmutable();
         $em->persist($admin);

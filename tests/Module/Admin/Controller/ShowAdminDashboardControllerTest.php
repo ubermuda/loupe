@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Tests\Module\Admin\Controller;
 
 use App\Module\Account\Entity\User;
+use App\Tests\Support\AcceptedTerms;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use Symfony\Component\HttpFoundation\Request;
@@ -95,6 +96,7 @@ final class ShowAdminDashboardControllerTest extends WebTestCase
         $hasher = static::getContainer()->get(UserPasswordHasherInterface::class);
 
         $user = new User(fullName: 'Test User', email: $email);
+        AcceptedTerms::stamp($user, static::getContainer());
         $user->password = $hasher->hashPassword($user, 'TestPass123!');
         // Unverified users are bounced by RedirectUnverifiedUserListener, which
         // would turn the expected 200/403 into a redirect.

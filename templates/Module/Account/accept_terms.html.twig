@@ -1,0 +1,32 @@
+{% extends '@Account/auth_base.html.twig' %}
+
+{% block title %}{{ 'account.accept_terms.page.title'|trans }} — {{ 'app.name'|trans }}{% endblock %}
+
+{% block auth_body %}
+<div class="flex flex-col items-center gap-3 py-4 text-center">
+    <div class="auth-icon-badge">
+        <twig:UX:Icon name="lucide:file-text" class="w-5 h-5" aria-hidden="true" />
+    </div>
+    <div>
+        <h1 class="text-xl font-semibold tracking-tight text-fg">{{ 'account.accept_terms.heading'|trans }}</h1>
+        <div class="text-fg-mute text-sm mt-1.5 leading-normal">
+            {{ 'account.accept_terms.body'|trans }}
+        </div>
+    </div>
+
+    <div class="flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-sm">
+        <a href="{{ path('app_terms') }}" class="text-accent font-medium hover:underline">{{ 'account.accept_terms.link.terms'|trans }}</a>
+        <a href="{{ path('app_privacy') }}" class="text-accent font-medium hover:underline">{{ 'account.accept_terms.link.privacy'|trans }}</a>
+    </div>
+
+    <form method="post" action="{{ path('app_account_accept_terms_submit') }}" class="mt-1.5 w-full">
+        <input type="hidden" name="_csrf_token" value="{{ csrf_token('accept-terms') }}">
+        <button type="submit" class="btn primary sm w-full justify-center">
+            <twig:UX:Icon name="lucide:check" class="w-3.5 h-3.5" aria-hidden="true" />
+            {{ 'account.accept_terms.submit'|trans }}
+        </button>
+    </form>
+
+    <a href="{{ path('app_logout') }}" class="text-sm text-fg-mute hover:underline mt-1">{{ 'account.accept_terms.decline'|trans }}</a>
+</div>
+{% endblock %}

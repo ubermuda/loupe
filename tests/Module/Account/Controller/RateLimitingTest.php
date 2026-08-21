@@ -29,7 +29,7 @@ final class RateLimitingTest extends WebTestCase
         $client = static::createClient();
         $client->disableReboot(); // keep the limiter override alive across requests
         static::getContainer()->set('limiter.registration', self::lowLimitFactory('registration'));
-        InstalledInstance::ensure(static::getContainer()->get(EntityManagerInterface::class));
+        InstalledInstance::ensure(static::getContainer());
 
         $client->request(Request::METHOD_GET, '/register');
         $client->submitForm('Create account', [

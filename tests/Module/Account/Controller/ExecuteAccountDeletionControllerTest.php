@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Tests\Module\Account\Controller;
 
 use App\Module\Account\Entity\User;
+use App\Tests\Support\AcceptedTerms;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use Symfony\Component\HttpFoundation\Request;
@@ -18,6 +19,7 @@ final class ExecuteAccountDeletionControllerTest extends WebTestCase
         $client->disableReboot();
         $em = self::getContainer()->get(EntityManagerInterface::class);
         $user = new User('Del Exec', 'del-exec@example.com', 'hash');
+        AcceptedTerms::stamp($user, self::getContainer());
         $user->emailVerifiedAt = new \DateTimeImmutable();
         $em->persist($user);
         $token = $user->generateAccountDeletionToken();
@@ -51,6 +53,7 @@ final class ExecuteAccountDeletionControllerTest extends WebTestCase
         self::assertInstanceOf(UserPasswordHasherInterface::class, $hasher);
 
         $user = new User('Del RM', 'del-rm@example.com');
+        AcceptedTerms::stamp($user, self::getContainer());
         $user->password = $hasher->hashPassword($user, 'p4ssw0rd!');
         $user->emailVerifiedAt = new \DateTimeImmutable();
         $em->persist($user);
