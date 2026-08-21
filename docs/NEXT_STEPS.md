@@ -146,30 +146,6 @@ and tell the operator to set `db_cluster_trusted_ips` instead. The prose in
 "removes the firewall half" of the bootstrap, which is true but reads as
 "the recipe is fine to run" rather than "half of what it does will be undone".
 
-## Security events are logged at info, which production throws away
-
-**Author:** Claude · **Type:** security · **Priority:** high · **Status:** pending
-
-`config/packages/monolog.yaml` gives the prod `main` handler
-`type: fingers_crossed` with `action_level: error`. Every security-relevant
-event in the codebase is logged at `info`: `review.mcp.access_denied`
-(`src/Module/Review/Security/McpBoundProjectVoter.php`),
-`account.data_export.download_denied`
-(`src/Module/Account/Controller/DownloadDataExportController.php`), and the
-token mint/revoke handlers under `src/Module/Account/Command/`.
-
-A denied request is not an error, so nothing in that request raises the buffer
-to `error`, and the buffered records are discarded when the request ends. The
-logging exists in code and cannot reach stderr in production. Anyone reading
-the source would reasonably conclude these events are recorded.
-
-The fix pattern is already in the same file. `cache_warnings` is deliberately
-registered outside `fingers_crossed`, with a comment explaining that a lone
-cache failure would otherwise never surface. A security channel wants the same
-treatment — an always-on handler, or a level that qualifies on its own.
-
-Found by an audit on 2026-08-20.
-
 ## A single-host deployment has no database backup at all
 
 **Author:** Claude · **Type:** tooling · **Priority:** high · **Status:** pending
@@ -193,29 +169,6 @@ name; there is no database restore runbook.
 
 The data-export feature is a per-user GDPR export, not a backup, and must not
 be mistaken for one.
-
-Found by an audit on 2026-08-20.
-
-## Signing up with Google or GitHub never presents the terms
-
-**Author:** Claude · **Type:** bug · **Priority:** high · **Status:** pending
-
-Password registration requires agreement:
-`src/Module/Account/Form/RegistrationRequest.php` carries
-`#[Assert\IsTrue]` on `$agreeTerms`, and the template renders the link.
-
-OAuth registration does not. `ResolveSocialLoginHandler` constructs
-`new User(...)` directly and never touches the registration form, so a
-first-time Google or GitHub signer sees no terms text and agrees to nothing.
-It is not that acceptance goes unrecorded — it is never requested.
-
-Compounding it, no acceptance is stored on **either** path. There is no
-`termsAcceptedAt` or `termsVersion` column anywhere in `src/` or `migrations/`,
-so there is no record of what any given user agreed to and no way to re-prompt
-when the terms change.
-
-Two separable pieces of work: show and validate agreement on the OAuth path,
-and persist a timestamp plus version on both.
 
 Found by an audit on 2026-08-20.
 
@@ -2398,25 +2351,6 @@ The `install-reset` project truncates every table as its last act. `just e2e`
 now re-seeds a worktree afterwards rather than leaving it broken, so this is a
 question of design rather than a live breakage.
 
-## The MCP endpoint has no rate limit
-
-**Author:** Claude · **Type:** security · **Priority:** medium · **Status:** pending
-
-`POST /mcp` (routed by `config/packages/mcp.yaml`, firewalled in
-`config/packages/security.yaml`) is not covered by any limiter. Any holder of a
-`ROLE_API_MCP` token can call `document_create` / `document_revise` without
-bound, so one leaked or misbehaving agent token can fill the database.
-
-The comparison worth noting: the commit that capped MCP *payload sizes* also
-added the site-review write throttle (`config/packages/rate_limiter.yaml` plus
-`src/Module/SiteReview/EventListener/RateLimitSiteReviewWrites.php`). The size
-cap landed on the MCP path; the request throttle did not.
-
-`RateLimitSiteReviewWrites` is the model to copy — keyed per token so one
-caller's allowance is its own.
-
-Found by an audit on 2026-08-20.
-
 ## Registration discloses whether an address is registered, and that is accepted
 
 **Author:** Geoffrey · **Type:** docs · **Priority:** low · **Status:** pending
@@ -2444,110 +2378,6 @@ acknowledgement, and is waived where a form has a field to attach an error to.
 Close this by writing that distinction into the `project-authz` skill or a
 comment on the handler, so the exception is discoverable from the code rather
 than only here.
-
-## Email-sending limiters key on IP alone, so one inbox can be flooded
-
-**Author:** Claude · **Type:** security · **Priority:** medium · **Status:** pending
-
-`RequestPasswordResetController` (5/hr), `RegisterController` (10/hr) and
-`ResendVerificationEmailController` (1/60s) all build their limiter key from
-`$request->getClientIp()` and nothing else. The allowance is therefore per
-sender, not per recipient: an attacker rotating addresses can send one victim
-as much mail as they have IPs, and the victim's inbox — not the attacker — is
-what degrades.
-
-The fix is a second bucket keyed on the target address, applied alongside the
-IP one rather than instead of it. Keep both: the IP bucket is what limits
-broad spraying, and the address bucket is what protects an individual.
-
-Found by an audit on 2026-08-20.
-
-## Waitlist joins write the raw email address to the log
-
-**Author:** Claude · **Type:** security · **Priority:** medium · **Status:** pending
-
-`src/Module/Account/Command/JoinWaitlistHandler.php` logs
-`['email' => $command->email]` on four paths — join, duplicate, rejoin and the
-rejection branch. Production formats logs as JSON to stderr, so every address
-anyone submits to the public waitlist form lands in whatever aggregates that
-stream, for as long as it is retained (CWE-532).
-
-Log the waitlist entry id, or a hash, and keep the address in the database
-where the retention policy already covers it.
-
-Worth doing as one sweep with a grep for other identifiers passed to
-`$logger->`; this was the only raw-PII case found on 2026-08-20, but the check
-is cheap and the class of mistake recurs.
-
-## A failed API token authentication is never logged
-
-**Author:** Claude · **Type:** security · **Priority:** medium · **Status:** pending
-
-`src/Module/Account/Security/ApiTokenAuthenticator::onAuthenticationFailure()`
-returns a 401 and logs nothing. Guessing at MCP or site-review widget tokens
-therefore leaves no trace at all — not a rate-limit rejection, not a counter,
-not a line in the log.
-
-There is also nothing that would notice a spike if it were logged: no Sentry,
-no APM, no alerting. `src/Module/Diagnostics/` is an admin-visible page that
-answers "is this instance healthy", pulled rather than pushed.
-
-Two independent pieces: log the failure with enough context to be useful
-(token id prefix, path, address — not the presented token), and decide whether
-anything watches. See 'Security events are logged at info, which production
-throws away' — logging this at `info` today would achieve nothing.
-
-Found by an audit on 2026-08-20.
-
-## A data export omits two categories that deleting the account does purge
-
-**Author:** Claude · **Type:** feature · **Priority:** medium · **Status:** pending
-
-Account deletion runs eight `AccountDataPurgerInterface` implementations. The
-export side has seven `UserDataExporterInterface` implementations, and the two
-that are missing are `ConnectedAccount` (the linked Google/GitHub identities)
-and the billing profile (Stripe customer and subscription ids, plan, trial and
-renewal dates).
-
-Both are named in the privacy policy as data the service holds, and both have
-purgers, so the account can erase them but the user cannot obtain them. Access
-and erasure should cover the same set.
-
-Two new exporters, following the shape of the existing ones under each module.
-
-Found by an audit on 2026-08-20.
-
-## The privacy policy denies analytics the app can be configured to send
-
-**Author:** Claude · **Type:** feature · **Priority:** medium · **Status:** pending
-
-`templates/Module/Legal/show_privacy.en.html.twig` states the service sets "no
-analytics cookies" and performs "no third-party tracking", and its processor
-table lists no analytics vendor. `src/Module/Analytics/Twig/AnalyticsScript.php`
-emits the Umami tag on every page once the `analytics.enabled` flag and the
-script/website environment variables are set, and no consent-management code
-exists anywhere in `src/`, `templates/` or `assets/`.
-
-Nothing is wrong today: the flag is seeded off and the environment variables
-are empty, so the tag is not emitted. The defect is that enabling analytics —
-the documented, supported thing to do — silently makes the published policy
-false, and nothing in the flag's description says so.
-
-**Narrowed on 2026-08-20, and smaller than first filed.** Umami sets no cookies
-("Umami does not use any cookies in the tracking code", its own documentation),
-so no consent banner is required and the policy's "no analytics cookies" line
-stays true either way. What does not stay true is "no third-party tracking",
-because the decision is that `ANALYTICS_ORIGIN` points at Umami Cloud — a third
-party, and a processor the table at the foot of the policy does not list.
-
-So the work is confined to the policy template: make the third-party-tracking
-sentence and the processor row conditional on the analytics flag, so the page
-tells the truth in both states. No consent-management code, no change to
-`AnalyticsScript`.
-
-A self-hosted operator pointing the same flag at their own Umami instance has
-no third party and needs no processor row, which is a second reason the text
-has to be conditional rather than simply rewritten.
 
 ## Decide how CommentBudgetCheck should treat `.env`
 
