@@ -129,6 +129,36 @@
                 <target>AI Policy</target>
             </trans-unit>
 
+            <!-- Terms acceptance -->
+            <trans-unit id="account.accept_terms.page.title">
+                <source>account.accept_terms.page.title</source>
+                <target>Accept the terms</target>
+            </trans-unit>
+            <trans-unit id="account.accept_terms.heading">
+                <source>account.accept_terms.heading</source>
+                <target>Before you continue</target>
+            </trans-unit>
+            <trans-unit id="account.accept_terms.body">
+                <source>account.accept_terms.body</source>
+                <target>Please read and accept our terms of service and privacy policy to keep using your account.</target>
+            </trans-unit>
+            <trans-unit id="account.accept_terms.link.terms">
+                <source>account.accept_terms.link.terms</source>
+                <target>Read the terms of service</target>
+            </trans-unit>
+            <trans-unit id="account.accept_terms.link.privacy">
+                <source>account.accept_terms.link.privacy</source>
+                <target>Read the privacy policy</target>
+            </trans-unit>
+            <trans-unit id="account.accept_terms.submit">
+                <source>account.accept_terms.submit</source>
+                <target>I accept</target>
+            </trans-unit>
+            <trans-unit id="account.accept_terms.decline">
+                <source>account.accept_terms.decline</source>
+                <target>Log out instead</target>
+            </trans-unit>
+
             <!-- Legal pages -->
             <trans-unit id="legal.nav.back_home">
                 <source>legal.nav.back_home</source>

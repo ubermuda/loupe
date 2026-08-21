@@ -19,6 +19,7 @@ use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Console\Style\SymfonyStyle;
+use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 
 /**
@@ -56,6 +57,9 @@ final class SeedDevDataCommand extends Command
         private readonly UserPasswordHasherInterface $passwordHasher,
         private readonly MintProjectWidgetTokenHandler $mintWidgetToken,
         private readonly RegenerateProjectWidgetTokenHandler $regenerateWidgetToken,
+
+        #[Autowire(param: 'app.terms.version')]
+        private readonly string $termsVersion,
     ) {
         parent::__construct();
     }
@@ -86,6 +90,10 @@ final class SeedDevDataCommand extends Command
             // Verified up front — there is no inbox to click through, and an
             // unverified user cannot reach the pages worth looking at.
             $user->emailVerifiedAt = new \DateTimeImmutable();
+            // Same reasoning as the verification above: a seeded login exists to
+            // land on the app, not on an acceptance interstitial.
+            $user->termsAcceptedAt = new \DateTimeImmutable();
+            $user->termsVersion = $this->termsVersion;
             $this->em->persist($user);
             $this->em->flush();
         }

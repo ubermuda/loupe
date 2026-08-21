@@ -118,3 +118,28 @@ $factory = new RateLimiterFactory(
     new InMemoryStorage(),
 );
 ```
+
+## Terms acceptance in a WebTestCase
+
+**A fixture `User` has not accepted the terms, so an authenticated HTML request
+is diverted to the interstitial by `RequireTermsAcceptanceListener`.** The
+symptom is an unexplained `302` to `/terms/accept` in a test that has nothing
+to do with terms — usually read as a broken redirect or a lost session.
+
+Stamp the fixture:
+
+```php
+$user = new User(fullName: 'Riley Chen', email: 'riley@example.com', password: 'x');
+AcceptedTerms::stamp($user, static::getContainer());
+$em->persist($user);
+```
+
+`App\Tests\Support\AcceptedTerms` reads `app.terms.version`, so a bump to that
+parameter does not invalidate the fixtures.
+
+The gate stays live in the test environment on purpose. Making it inert there
+would be three lines instead of a stamp per fixture, but the rest of the suite
+would then run a configuration production never uses, and a regression where
+the gate fires when it should not would pass unnoticed. The tests that *are*
+about the gate — `RequireTermsAcceptanceListenerTest`, `AcceptTermsControllerTest`
+— build their users without the stamp.

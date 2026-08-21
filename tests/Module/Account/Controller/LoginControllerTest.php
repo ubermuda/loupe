@@ -3,6 +3,7 @@
 namespace App\Tests\Module\Account\Controller;
 
 use App\Module\Account\Entity\User;
+use App\Tests\Support\AcceptedTerms;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use Symfony\Component\HttpFoundation\Request;
@@ -16,6 +17,7 @@ final class LoginControllerTest extends WebTestCase
         $hasher = static::getContainer()->get(UserPasswordHasherInterface::class);
 
         $user = new User('Login User', 'login@example.com');
+        AcceptedTerms::stamp($user, static::getContainer());
         $user->password = $hasher->hashPassword($user, 'SecurePassword1!');
         if ($verified) {
             $user->emailVerifiedAt = new \DateTimeImmutable();

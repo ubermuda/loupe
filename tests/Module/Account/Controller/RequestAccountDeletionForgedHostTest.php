@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Tests\Module\Account\Controller;
 
 use App\Module\Account\Entity\User;
+use App\Tests\Support\AcceptedTerms;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use Symfony\Component\HttpFoundation\Request;
@@ -21,6 +22,7 @@ final class RequestAccountDeletionForgedHostTest extends WebTestCase
         $client = static::createClient();
         $em = self::getContainer()->get(EntityManagerInterface::class);
         $user = new User('Del Forge', 'del-forge@example.com', 'hash');
+        AcceptedTerms::stamp($user, static::getContainer());
         $user->emailVerifiedAt = new \DateTimeImmutable();
         $em->persist($user);
         $em->flush();

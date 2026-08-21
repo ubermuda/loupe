@@ -9,6 +9,7 @@ use App\Module\Account\Entity\ApiTokenScope;
 use App\Module\Account\Entity\User;
 use App\Module\Project\Entity\Project;
 use App\Module\Review\Mcp\DocumentHighlightTool;
+use App\Tests\Support\AcceptedTerms;
 use Doctrine\ORM\EntityManagerInterface;
 use Mcp\Capability\RegistryInterface;
 use Mcp\Schema\Tool;
@@ -23,6 +24,7 @@ final class ConnectAgentControllerTest extends WebTestCase
     private function user(EntityManagerInterface $em, string $email): User
     {
         $user = new User(fullName: 'U', email: $email, password: 'x');
+        AcceptedTerms::stamp($user, static::getContainer());
         $user->emailVerifiedAt = new \DateTimeImmutable();
         $em->persist($user);
 

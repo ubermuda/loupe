@@ -10,6 +10,7 @@ framework:
             - authenticate
             - logout
             - resend-verification
+            - accept-terms
             - revoke-api-token
             - submit-review
             - comment-action

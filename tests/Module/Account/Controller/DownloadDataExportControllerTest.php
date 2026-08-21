@@ -7,6 +7,7 @@ namespace App\Tests\Module\Account\Controller;
 use App\Module\Account\Entity\DataExport;
 use App\Module\Account\Entity\User;
 use App\Module\Account\Export\DataExportArchiveBuilder;
+use App\Tests\Support\AcceptedTerms;
 use Doctrine\ORM\EntityManagerInterface;
 use League\Flysystem\FilesystemOperator;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
@@ -22,6 +23,7 @@ final class DownloadDataExportControllerTest extends WebTestCase
             email: $email,
             password: 'hashed-password-placeholder',
         );
+        AcceptedTerms::stamp($user, static::getContainer());
         $user->emailVerifiedAt = new \DateTimeImmutable();
         $em->persist($user);
         $em->flush();

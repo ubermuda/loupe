@@ -7,6 +7,7 @@ namespace App\Tests\Module\SiteReview\Controller\Admin;
 use App\Module\Account\Entity\User;
 use App\Module\Project\Entity\Project;
 use App\Module\SiteReview\Entity\SiteReviewEvent;
+use App\Tests\Support\AcceptedTerms;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use Symfony\Component\DomCrawler\Crawler;
@@ -119,6 +120,7 @@ final class ListSiteReviewOutboxControllerTest extends WebTestCase
         $user = new User(fullName: 'U', email: $email, password: 'x');
         $user->emailVerifiedAt = new \DateTimeImmutable();
         $user->roles = $roles;
+        AcceptedTerms::stamp($user, static::getContainer());
         $em->persist($user);
 
         return $user;

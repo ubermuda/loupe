@@ -8,6 +8,7 @@ use App\Module\Account\Entity\SocialProvider;
 use App\Module\Account\Entity\User;
 use App\Module\Account\Repository\ConnectedAccountRepository;
 use App\Module\Account\Repository\UserRepository;
+use App\Tests\Support\AcceptedTerms;
 use App\Tests\Support\SocialLoginScenario;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
@@ -182,6 +183,7 @@ final class LinkSocialAccountControllerTest extends WebTestCase
         $hasher = $container->get(UserPasswordHasherInterface::class);
 
         $user = new User(fullName: 'Link User', email: self::EMAIL);
+        AcceptedTerms::stamp($user, $container);
         $user->password = $hasher->hashPassword($user, self::PASSWORD);
         if ($verified) {
             $user->emailVerifiedAt = new \DateTimeImmutable();

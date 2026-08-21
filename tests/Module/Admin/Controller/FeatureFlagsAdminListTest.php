@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Tests\Module\Admin\Controller;
 
 use App\Module\Account\Entity\User;
+use App\Tests\Support\AcceptedTerms;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use Symfony\Component\HttpFoundation\Request;
@@ -26,6 +27,7 @@ final class FeatureFlagsAdminListTest extends WebTestCase
         $hasher = static::getContainer()->get(UserPasswordHasherInterface::class);
 
         $admin = new User(fullName: 'Admin', email: 'flags-admin@admin-test.example.com');
+        AcceptedTerms::stamp($admin, static::getContainer());
         $admin->password = $hasher->hashPassword($admin, 'TestPass123!');
         $admin->emailVerifiedAt = new \DateTimeImmutable();
         $admin->roles = ['ROLE_ADMIN'];
@@ -53,6 +55,7 @@ final class FeatureFlagsAdminListTest extends WebTestCase
         $hasher = static::getContainer()->get(UserPasswordHasherInterface::class);
 
         $admin = new User(fullName: 'Admin', email: 'flags-filter-admin@admin-test.example.com');
+        AcceptedTerms::stamp($admin, static::getContainer());
         $admin->password = $hasher->hashPassword($admin, 'TestPass123!');
         $admin->emailVerifiedAt = new \DateTimeImmutable();
         $admin->roles = ['ROLE_ADMIN'];

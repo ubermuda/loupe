@@ -9,6 +9,7 @@ use App\Module\Account\Entity\User;
 use App\Module\Account\Security\ApiTokenAuthenticator;
 use App\Module\Project\Entity\Project;
 use App\Module\Project\Security\AuthenticatedProjectResolver;
+use App\Tests\Support\AcceptedTerms;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use Symfony\Component\HttpFoundation\Request;
@@ -155,6 +156,7 @@ final class MintProjectMcpTokenControllerTest extends WebTestCase
     {
         $user = new User(fullName: 'U', email: $email, password: 'x');
         $user->emailVerifiedAt = new \DateTimeImmutable();
+        AcceptedTerms::stamp($user, static::getContainer());
         $em->persist($user);
 
         return $user;

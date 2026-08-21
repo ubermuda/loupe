@@ -7,6 +7,7 @@ namespace App\Tests\Module\Account\Controller\Admin;
 use App\Module\Account\Entity\User;
 use App\Module\Account\Entity\WaitlistEntry;
 use App\Module\Account\Repository\WaitlistEntryRepository;
+use App\Tests\Support\AcceptedTerms;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use Symfony\Component\HttpFoundation\Request;
@@ -167,6 +168,7 @@ final class ListWaitlistControllerTest extends WebTestCase
         $hasher = static::getContainer()->get(UserPasswordHasherInterface::class);
 
         $user = new User(fullName: 'Test User', email: $email);
+        AcceptedTerms::stamp($user, static::getContainer());
         $user->password = $hasher->hashPassword($user, 'TestPass123!');
         $user->emailVerifiedAt = new \DateTimeImmutable();
         $user->roles = $roles;

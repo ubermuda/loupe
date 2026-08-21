@@ -10,6 +10,7 @@ use App\Module\Review\Entity\Comment;
 use App\Module\Review\Entity\Document;
 use App\Module\Review\Entity\DocumentStatus;
 use App\Module\Review\Repository\CommentRepository;
+use App\Tests\Support\AcceptedTerms;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
@@ -221,6 +222,7 @@ final class StrikeAndSuggestControllerTest extends WebTestCase
             password: 'hashed-password-placeholder',
         );
         $owner->emailVerifiedAt = new \DateTimeImmutable();
+        AcceptedTerms::stamp($owner, static::getContainer());
         $em->persist($owner);
 
         $project = new Project($owner, 'p-'.uniqid());

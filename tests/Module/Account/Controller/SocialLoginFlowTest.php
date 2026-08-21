@@ -43,7 +43,7 @@ final class SocialLoginFlowTest extends WebTestCase
         $client = static::createClient();
         $client->disableReboot();
         $this->setProviderFlag($client, SocialProvider::Google, true);
-        InstalledInstance::ensure($client->getContainer()->get(EntityManagerInterface::class));
+        InstalledInstance::ensure($client->getContainer());
         $this->stubProvider($client, 'google-sub-1', ['email' => 'newbie@example.com', 'email_verified' => true, 'name' => 'New Bie']);
 
         $client->request(Request::METHOD_GET, self::CALLBACK);
@@ -161,7 +161,7 @@ final class SocialLoginFlowTest extends WebTestCase
         $client->disableReboot();
         $this->setProviderFlag($client, SocialProvider::Google, true);
         $this->setProviderFlag($client, SocialProvider::Github, false);
-        InstalledInstance::ensure($client->getContainer()->get(EntityManagerInterface::class));
+        InstalledInstance::ensure($client->getContainer());
 
         foreach (['/login', '/register'] as $path) {
             $client->request(Request::METHOD_GET, $path);
@@ -217,7 +217,7 @@ final class SocialLoginFlowTest extends WebTestCase
         $client = static::createClient();
         $client->disableReboot();
         $this->setProviderFlag($client, SocialProvider::Google, true);
-        InstalledInstance::ensure($client->getContainer()->get(EntityManagerInterface::class));
+        InstalledInstance::ensure($client->getContainer());
         $this->disableRegistration($client);
         $this->stubProvider($client, 'google-sub-closed', ['email' => 'oauth-closed@example.com', 'email_verified' => true, 'name' => 'Closed OAuth']);
 

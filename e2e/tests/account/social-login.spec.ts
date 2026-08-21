@@ -81,6 +81,12 @@ test('a first social sign-in creates a verified account, and a repeat sign-in re
         email,
         fullName: 'Social One',
     });
+
+    // There is no terms checkbox on the OAuth path, so the account is created
+    // with no acceptance recorded and the gate diverts it here first.
+    await expect(page).toHaveURL('/account/accept-terms');
+    await page.getByRole('button', { name: 'I accept' }).click();
+
     // A brand-new account owns no project and hasn't completed the first-run
     // wizard yet, so LandingController lands it on /welcome rather than /projects.
     await expect(page).toHaveURL('/welcome');

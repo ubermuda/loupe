@@ -6,6 +6,7 @@ namespace App\Tests\Module\Project\Controller;
 
 use App\Module\Account\Entity\User;
 use App\Module\Project\Entity\Project;
+use App\Tests\Support\AcceptedTerms;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use Symfony\Component\HttpFoundation\Request;
@@ -143,6 +144,7 @@ final class EditProjectControllerTest extends WebTestCase
     {
         $user = new User(fullName: 'U', email: $email, password: 'x');
         $user->emailVerifiedAt = new \DateTimeImmutable();
+        AcceptedTerms::stamp($user, static::getContainer());
         $em->persist($user);
 
         return $user;

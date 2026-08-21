@@ -14,6 +14,7 @@ use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
 use Doctrine\DBAL\LockMode;
 use Doctrine\ORM\EntityManagerInterface;
 use Psr\Log\LoggerInterface;
+use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 use Symfony\Contracts\EventDispatcher\EventDispatcherInterface;
 
@@ -28,6 +29,9 @@ final readonly class RegisterUserHandler
         private WaitlistEntryRepository $waitlistEntries,
         private EventDispatcherInterface $eventDispatcher,
         private LoggerInterface $logger,
+
+        #[Autowire(param: 'app.terms.version')]
+        private string $termsVersion,
     ) {
     }
 
@@ -74,6 +78,10 @@ final readonly class RegisterUserHandler
                     email: $command->email,
                 );
                 $user->password = $this->passwordHasher->hashPassword($user, $command->plainPassword);
+                // The form's IsTrue-asserted agreeTerms checkbox is the consent
+                // this records; it cannot be reached with the box unticked.
+                $user->termsAcceptedAt = new \DateTimeImmutable();
+                $user->termsVersion = $this->termsVersion;
 
                 $this->em->persist($user);
 

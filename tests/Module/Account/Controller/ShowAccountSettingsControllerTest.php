@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Tests\Module\Account\Controller;
 
 use App\Module\Account\Entity\User;
+use App\Tests\Support\AcceptedTerms;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use Symfony\Component\HttpFoundation\Request;
@@ -19,6 +20,7 @@ final class ShowAccountSettingsControllerTest extends WebTestCase
             email: $email,
             password: 'hashed-password-placeholder',
         );
+        AcceptedTerms::stamp($user, static::getContainer());
         $user->emailVerifiedAt = new \DateTimeImmutable();
         $em->persist($user);
         $em->flush();

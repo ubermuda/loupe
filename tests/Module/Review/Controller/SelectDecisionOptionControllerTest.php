@@ -14,6 +14,7 @@ use App\Module\Review\Command\ShowReviewCommand;
 use App\Module\Review\Command\ShowReviewHandler;
 use App\Module\Review\Entity\Document;
 use App\Module\Review\Repository\DecisionSelectionRepository;
+use App\Tests\Support\AcceptedTerms;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
@@ -174,6 +175,7 @@ final class SelectDecisionOptionControllerTest extends WebTestCase
 
         $owner = new User(fullName: 'Twin', email: 'twin-'.uniqid().'@example.com', password: 'hashed');
         $owner->emailVerifiedAt = new \DateTimeImmutable();
+        AcceptedTerms::stamp($owner, static::getContainer());
         $em->persist($owner);
         $project = new Project($owner, 'p-'.uniqid());
         $em->persist($project);
@@ -515,6 +517,7 @@ final class SelectDecisionOptionControllerTest extends WebTestCase
         self::assertInstanceOf(EntityManagerInterface::class, $em);
         $stranger = new User(fullName: 'Stranger', email: 'stranger-'.uniqid().'@example.com', password: 'hashed');
         $stranger->emailVerifiedAt = new \DateTimeImmutable();
+        AcceptedTerms::stamp($stranger, static::getContainer());
         $em->persist($stranger);
         $em->flush();
 
@@ -540,6 +543,7 @@ final class SelectDecisionOptionControllerTest extends WebTestCase
 
         $owner = new User(fullName: 'Decider', email: 'decider-'.uniqid().'@example.com', password: 'hashed');
         $owner->emailVerifiedAt = new \DateTimeImmutable();
+        AcceptedTerms::stamp($owner, static::getContainer());
         $em->persist($owner);
         $project = new Project($owner, 'p-'.uniqid());
         $em->persist($project);

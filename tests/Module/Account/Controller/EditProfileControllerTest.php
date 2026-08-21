@@ -6,6 +6,7 @@ namespace App\Tests\Module\Account\Controller;
 
 use App\Module\Account\Entity\User;
 use App\Module\Account\Repository\UserRepository;
+use App\Tests\Support\AcceptedTerms;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
@@ -28,6 +29,7 @@ final class EditProfileControllerTest extends WebTestCase
     private function signedInUser(string $email, string $fullName): User
     {
         $user = new User(fullName: $fullName, email: $email, password: 'hashed');
+        AcceptedTerms::stamp($user, static::getContainer());
         $user->emailVerifiedAt = new \DateTimeImmutable();
         $this->em->persist($user);
         $this->em->flush();

@@ -6,6 +6,7 @@ namespace App\Tests\Module\Diagnostics\Controller\Admin;
 
 use App\Module\Account\Entity\User;
 use App\Module\Diagnostics\Command\RunDiagnosticsHandler;
+use App\Tests\Support\AcceptedTerms;
 use App\Tests\Support\Diagnostics;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
@@ -79,6 +80,7 @@ final class ShowDiagnosticsControllerTest extends WebTestCase
         $hasher = self::getContainer()->get(UserPasswordHasherInterface::class);
 
         $user = new User(fullName: 'Test User', email: $email);
+        AcceptedTerms::stamp($user, static::getContainer());
         $user->password = $hasher->hashPassword($user, 'TestPass123!');
         // Unverified users are bounced by RedirectUnverifiedUserListener, which
         // would turn the expected 200/403 into a redirect.

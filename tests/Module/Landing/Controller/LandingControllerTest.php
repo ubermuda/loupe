@@ -7,6 +7,7 @@ namespace App\Tests\Module\Landing\Controller;
 use App\Module\Account\Entity\User;
 use App\Module\Landing\Controller\LandingController;
 use App\Module\Project\Entity\Project;
+use App\Tests\Support\AcceptedTerms;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
@@ -34,6 +35,7 @@ final class LandingControllerTest extends WebTestCase
             email: $email,
             password: 'hashed-password-placeholder',
         );
+        AcceptedTerms::stamp($user, static::getContainer());
         $user->emailVerifiedAt = new \DateTimeImmutable();
         $em->persist($user);
 

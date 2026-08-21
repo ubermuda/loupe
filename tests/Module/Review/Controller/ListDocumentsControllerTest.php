@@ -14,6 +14,7 @@ use App\Module\Review\Entity\Document;
 use App\Module\Review\Entity\DocumentStatus;
 use App\Module\Review\Entity\Tag;
 use App\Module\Review\ValueObject\Anchor;
+use App\Tests\Support\AcceptedTerms;
 use Doctrine\Bundle\DoctrineBundle\DataCollector\DoctrineDataCollector;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
@@ -32,6 +33,7 @@ final class ListDocumentsControllerTest extends WebTestCase
             password: 'hashed-password-placeholder',
         );
         $user->emailVerifiedAt = new \DateTimeImmutable();
+        AcceptedTerms::stamp($user, static::getContainer());
         $em->persist($user);
 
         return $user;
