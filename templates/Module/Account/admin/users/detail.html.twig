@@ -1,0 +1,127 @@
+{% extends '@UbermudaAdmin/base.html.twig' %}
+
+{% block title %}{{ 'account.admin.users.detail.page.title'|trans }} — {{ 'app.name'|trans }}{% endblock %}
+
+{% block body %}
+    {% set returnTo = app.request.query.get('returnTo') %}
+    {% set backHref = (returnTo and returnTo starts with '/admin/') ? returnTo : path('app_admin_users_list') %}
+
+    <div class="admin-page" data-user-id="{{ user.id }}">
+        <div class="flex items-start justify-between gap-4">
+            <div>
+                <h1 class="text-2xl font-bold text-slate-900">{{ user.fullName }}</h1>
+                <p class="text-sm text-slate-500">{{ user.email }}</p>
+            </div>
+            <a href="{{ backHref }}" class="admin-button-secondary admin-button-small shrink-0">{{ 'account.admin.users.detail.back'|trans }}</a>
+        </div>
+
+        <div class="admin-card p-8 flex flex-col gap-4">
+            <h2 class="text-base font-semibold text-slate-900">{{ 'account.admin.users.detail.context.title'|trans }}</h2>
+
+            <dl class="grid grid-cols-2 gap-x-8 gap-y-3 text-sm">
+                <dt class="text-slate-500">{{ 'account.admin.users.column.roles'|trans }}</dt>
+                <dd>
+                    {% if 'ROLE_ADMIN' in user.roles %}
+                        <span class="admin-badge admin-badge-count">{{ 'account.admin.users.role.admin'|trans }}</span>
+                    {% else %}
+                        <span class="admin-badge admin-badge-neutral">{{ 'account.admin.users.role.user'|trans }}</span>
+                    {% endif %}
+                </dd>
+
+                <dt class="text-slate-500">{{ 'account.admin.users.column.status'|trans }}</dt>
+                <dd data-testid="user-status">
+                    {% if user.suspended %}
+                        <span class="admin-badge admin-badge-off">{{ 'account.admin.users.status.suspended'|trans }}</span>
+                    {% elseif user.disabled %}
+                        <span class="admin-badge admin-badge-off">{{ 'account.admin.users.status.disabled'|trans }}</span>
+                    {% elseif not user.verified %}
+                        <span class="admin-badge admin-badge-neutral">{{ 'account.admin.users.status.unverified'|trans }}</span>
+                    {% else %}
+                        <span class="admin-badge admin-badge-on">{{ 'account.admin.users.status.active'|trans }}</span>
+                    {% endif %}
+                </dd>
+
+                <dt class="text-slate-500">{{ 'account.admin.users.column.joined'|trans }}</dt>
+                <dd>{{ user.createdAt|date('Y-m-d H:i') }}</dd>
+
+                <dt class="text-slate-500">{{ 'account.admin.users.detail.verified_at'|trans }}</dt>
+                <dd>{{ user.emailVerifiedAt ? user.emailVerifiedAt|date('Y-m-d H:i') : 'account.admin.users.detail.never'|trans }}</dd>
+
+                <dt class="text-slate-500">{{ 'account.admin.users.detail.terms_accepted_at'|trans }}</dt>
+                <dd>{{ user.termsAcceptedAt ? user.termsAcceptedAt|date('Y-m-d H:i') : 'account.admin.users.detail.never'|trans }}</dd>
+
+                <dt class="text-slate-500">{{ 'account.admin.users.detail.connected_accounts'|trans }}</dt>
+                <dd data-testid="connected-accounts">
+                    {% if connectedAccounts is empty %}
+                        {{ 'account.admin.users.detail.none'|trans }}
+                    {% else %}
+                        {{ connectedAccounts|map(account => account.provider.value)|join(', ') }}
+                    {% endif %}
+                </dd>
+
+                <dt class="text-slate-500">{{ 'account.admin.users.detail.api_tokens'|trans }}</dt>
+                <dd data-testid="api-token-count">{{ apiTokenCount }}</dd>
+
+                <dt class="text-slate-500">{{ 'account.admin.users.detail.data_exports'|trans }}</dt>
+                <dd data-testid="data-export-count">{{ dataExports|length }}</dd>
+            </dl>
+
+            {% if user.suspended %}
+                <div class="rounded-xl bg-red-50 p-4 text-sm text-red-800" data-testid="suspension-details">
+                    <p class="font-semibold">{{ 'account.admin.users.detail.suspended_on'|trans({'%date%': user.suspendedAt|date('Y-m-d H:i')}) }}</p>
+                    {% if user.suspendedBy %}
+                        <p>{{ 'account.admin.users.detail.suspended_by'|trans({'%admin%': user.suspendedBy.email}) }}</p>
+                    {% else %}
+                        <p>{{ 'account.admin.users.detail.suspended_by_unknown'|trans }}</p>
+                    {% endif %}
+                    {% if user.suspendedReason %}
+                        <p>{{ user.suspendedReason }}</p>
+                    {% endif %}
+                </div>
+            {% endif %}
+        </div>
+
+        <div class="admin-card p-8">
+            <div class="admin-form">
+                <h2 class="text-base font-semibold text-slate-900">{{ 'account.admin.users.detail.edit.title'|trans }}</h2>
+
+                {{ form_start(form, {'attr': {'novalidate': 'novalidate'}}) }}
+                    <div class="flex flex-col gap-1.5">
+                        {{ form_label(form.fullName, null, {'label_attr': {'class': 'admin-field-label'}}) }}
+                        {{ form_widget(form.fullName, {'attr': {'class': 'admin-field-input'}}) }}
+                        {{ form_errors(form.fullName) }}
+                    </div>
+
+                    <div class="flex flex-col gap-1.5">
+                        {{ form_label(form.email, null, {'label_attr': {'class': 'admin-field-label'}}) }}
+                        {{ form_widget(form.email, {'attr': {'class': 'admin-field-input'}}) }}
+                        {{ form_help(form.email) }}
+                        {{ form_errors(form.email) }}
+                    </div>
+
+                    <div class="flex flex-col gap-2">
+                        <div class="flex items-center gap-2">
+                            {{ form_widget(form.isAdmin) }}
+                            {{ form_label(form.isAdmin, null, {'label_attr': {'class': 'admin-field-label'}}) }}
+                        </div>
+                        <div class="flex items-center gap-2">
+                            {{ form_widget(form.isVerified) }}
+                            {{ form_label(form.isVerified, null, {'label_attr': {'class': 'admin-field-label'}}) }}
+                        </div>
+                    </div>
+
+                    <div class="admin-form-actions">
+                        <a href="{{ backHref }}" class="admin-button-secondary mr-auto">{{ 'account.admin.users.detail.cancel'|trans }}</a>
+                        <button type="submit" class="admin-button">{{ 'account.admin.users.detail.save'|trans }}</button>
+                    </div>
+                {{ form_end(form) }}
+            </div>
+        </div>
+
+        <div class="admin-card p-8 flex flex-col gap-3" data-testid="danger-zone">
+            <h2 class="text-base font-semibold text-red-700">{{ 'account.admin.users.detail.danger.title'|trans }}</h2>
+            <p class="text-sm text-slate-500">{{ 'account.admin.users.detail.danger.empty'|trans }}</p>
+            {# Suspend, unsuspend, delete and resend-verification actions belong here. #}
+        </div>
+    </div>
+{% endblock %}

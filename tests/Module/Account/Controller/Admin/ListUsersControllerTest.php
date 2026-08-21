@@ -125,6 +125,33 @@ final class ListUsersControllerTest extends WebTestCase
         $this->assertSelectorNotExists(sprintf('[data-user-id="%s"]', $disabled->id));
     }
 
+    /**
+     * data-turbo-frame="_top" is load-bearing: the rows live inside the listing's
+     * turbo-frame, and the detail page has no frame of that id, so a plain link
+     * renders "Content missing" instead of navigating.
+     */
+    public function test_each_row_links_to_the_detail_page_and_carries_the_filters(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $admin = $this->seedUser($em, 'users-link-admin@admin-test.example.com', ['ROLE_ADMIN']);
+        $target = $this->seedUser($em, 'users-link@admin-test.example.com');
+
+        $client->loginUser($admin);
+        $crawler = $client->request(Request::METHOD_GET, '/admin/users?role=user');
+
+        $link = $crawler->filter(sprintf('[data-user-id="%s"] a[href*="/admin/users/"]', $target->id));
+        self::assertCount(1, $link);
+        self::assertSame('_top', $link->attr('data-turbo-frame'));
+
+        $href = (string) $link->attr('href');
+        self::assertStringStartsWith('/admin/users/'.$target->id.'?', $href);
+        self::assertStringContainsString('returnTo=/admin/users?role=user', urldecode($href));
+
+        $client->request(Request::METHOD_GET, $href);
+        $this->assertResponseIsSuccessful();
+    }
+
     public function test_the_agent_account_is_never_listed(): void
     {
         $client = static::createClient();
