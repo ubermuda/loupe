@@ -54,8 +54,10 @@ final readonly class CreateInstallAdminHandler
             );
             $user->password = $this->passwordHasher->hashPassword($user, $command->plainPassword);
             $user->roles = ['ROLE_ADMIN'];
-            // The operator installing a self-hosted instance is the party the
-            // terms would be presented by, so there is no one to accept from.
+            // The operator is the party the terms are presented by, not to. The
+            // document states it governs the hosted service at loupe.ac only,
+            // so prompting a self-hoster would ask them to accept a text that
+            // disclaims their own deployment.
             $user->termsAcceptedAt = new \DateTimeImmutable();
             $user->termsVersion = $this->termsVersion;
             $this->em->persist($user);
