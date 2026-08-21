@@ -12,6 +12,7 @@ use Doctrine\Migrations\AbstractMigration;
  */
 final class Version20260725204231 extends AbstractMigration
 {
+    #[\Override]
     public function getDescription(): string
     {
         return 'Add account deletion token to users';
@@ -23,6 +24,7 @@ final class Version20260725204231 extends AbstractMigration
         $this->addSql('ALTER TABLE users ADD account_deletion_token_expires_at TIMESTAMP(0) WITHOUT TIME ZONE DEFAULT NULL');
     }
 
+    #[\Override]
     public function down(Schema $schema): void
     {
         $this->addSql('ALTER TABLE users DROP account_deletion_token_hash');

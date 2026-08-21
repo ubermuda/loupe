@@ -12,6 +12,7 @@ use Doctrine\Migrations\AbstractMigration;
  */
 final class Version20260727014442 extends AbstractMigration
 {
+    #[\Override]
     public function getDescription(): string
     {
         return 'Create site_review_events table (durable outbox for review-submitted Mercure updates)';
@@ -25,6 +26,7 @@ final class Version20260727014442 extends AbstractMigration
         $this->addSql('ALTER TABLE site_review_events ADD CONSTRAINT FK_8B5278213E2E969B FOREIGN KEY (review_id) REFERENCES site_review_reviews (id) NOT DEFERRABLE');
     }
 
+    #[\Override]
     public function down(Schema $schema): void
     {
         // this down() migration is auto-generated, please modify it to your needs

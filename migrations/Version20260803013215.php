@@ -9,6 +9,7 @@ use Doctrine\Migrations\AbstractMigration;
 
 final class Version20260803013215 extends AbstractMigration
 {
+    #[\Override]
     public function getDescription(): string
     {
         return 'Create project-scoped tags and the document_tags join table';
@@ -27,6 +28,7 @@ final class Version20260803013215 extends AbstractMigration
         $this->addSql('ALTER TABLE tags ADD CONSTRAINT FK_6FBC9426166D1F9C FOREIGN KEY (project_id) REFERENCES projects (id) NOT DEFERRABLE');
     }
 
+    #[\Override]
     public function down(Schema $schema): void
     {
         $this->addSql('ALTER TABLE document_tags DROP CONSTRAINT FK_C80818B5C33F7837');

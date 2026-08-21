@@ -12,6 +12,7 @@ use Doctrine\Migrations\AbstractMigration;
  */
 final class Version20260619155932 extends AbstractMigration
 {
+    #[\Override]
     public function getDescription(): string
     {
         return 'Add scope column to api_tokens, backfilling existing rows to mcp.';
@@ -25,6 +26,7 @@ final class Version20260619155932 extends AbstractMigration
         $this->addSql('ALTER TABLE api_tokens ALTER scope DROP DEFAULT');
     }
 
+    #[\Override]
     public function down(Schema $schema): void
     {
         // this down() migration is auto-generated, please modify it to your needs

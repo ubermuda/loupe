@@ -12,6 +12,7 @@ use Doctrine\Migrations\AbstractMigration;
  */
 final class Version20260619233827 extends AbstractMigration
 {
+    #[\Override]
     public function getDescription(): string
     {
         return 'Add last_used_at column to api_tokens';
@@ -23,6 +24,7 @@ final class Version20260619233827 extends AbstractMigration
         $this->addSql('ALTER TABLE api_tokens ADD last_used_at TIMESTAMP(0) WITHOUT TIME ZONE DEFAULT NULL');
     }
 
+    #[\Override]
     public function down(Schema $schema): void
     {
         // this down() migration is auto-generated, please modify it to your needs

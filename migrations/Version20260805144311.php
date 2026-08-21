@@ -12,6 +12,7 @@ use Doctrine\Migrations\AbstractMigration;
  */
 final class Version20260805144311 extends AbstractMigration
 {
+    #[\Override]
     public function getDescription(): string
     {
         return 'Create the sessions and cache_items tables, moving both off container-local disk';
@@ -25,6 +26,7 @@ final class Version20260805144311 extends AbstractMigration
         $this->addSql('CREATE INDEX sess_lifetime_idx ON sessions (sess_lifetime)');
     }
 
+    #[\Override]
     public function down(Schema $schema): void
     {
         // this down() migration is auto-generated, please modify it to your needs

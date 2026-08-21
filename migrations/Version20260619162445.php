@@ -12,6 +12,7 @@ use Doctrine\Migrations\AbstractMigration;
  */
 final class Version20260619162445 extends AbstractMigration
 {
+    #[\Override]
     public function getDescription(): string
     {
         return 'Create site_review_batches and site_review_comments tables';
@@ -28,6 +29,7 @@ final class Version20260619162445 extends AbstractMigration
         $this->addSql('ALTER TABLE site_review_comments ADD CONSTRAINT FK_7246C1CAF39EBE7A FOREIGN KEY (batch_id) REFERENCES site_review_batches (id) NOT DEFERRABLE');
     }
 
+    #[\Override]
     public function down(Schema $schema): void
     {
         // this down() migration is auto-generated, please modify it to your needs

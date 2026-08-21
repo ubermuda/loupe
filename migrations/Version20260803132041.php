@@ -9,6 +9,7 @@ use Doctrine\Migrations\AbstractMigration;
 
 final class Version20260803132041 extends AbstractMigration
 {
+    #[\Override]
     public function getDescription(): string
     {
         return 'Create document_highlights table';
@@ -22,6 +23,7 @@ final class Version20260803132041 extends AbstractMigration
         $this->addSql('ALTER TABLE document_highlights ADD CONSTRAINT FK_9BB008304BBC2705 FOREIGN KEY (version_id) REFERENCES document_versions (id) NOT DEFERRABLE');
     }
 
+    #[\Override]
     public function down(Schema $schema): void
     {
         // this down() migration is auto-generated, please modify it to your needs

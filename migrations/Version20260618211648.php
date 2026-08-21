@@ -12,6 +12,7 @@ use Doctrine\Migrations\AbstractMigration;
  */
 final class Version20260618211648 extends AbstractMigration
 {
+    #[\Override]
     public function getDescription(): string
     {
         return 'Create comments and reviews tables with embedded anchor columns';
@@ -33,6 +34,7 @@ final class Version20260618211648 extends AbstractMigration
         $this->addSql('ALTER TABLE reviews ADD CONSTRAINT FK_6970EB0F70574616 FOREIGN KEY (reviewer_id) REFERENCES users (id) NOT DEFERRABLE');
     }
 
+    #[\Override]
     public function down(Schema $schema): void
     {
         $this->addSql('ALTER TABLE comments DROP CONSTRAINT FK_5F9E962A4BBC2705');

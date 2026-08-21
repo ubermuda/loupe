@@ -12,6 +12,7 @@ use Doctrine\Migrations\AbstractMigration;
  */
 final class Version20260725170223 extends AbstractMigration
 {
+    #[\Override]
     public function getDescription(): string
     {
         return 'Create waitlist_entries table';
@@ -25,6 +26,7 @@ final class Version20260725170223 extends AbstractMigration
         $this->addSql('CREATE INDEX idx_waitlist_entries_invite_token_hash ON waitlist_entries (invite_token_hash)');
     }
 
+    #[\Override]
     public function down(Schema $schema): void
     {
         // this down() migration is auto-generated, please modify it to your needs

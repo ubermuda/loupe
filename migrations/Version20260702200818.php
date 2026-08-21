@@ -9,6 +9,7 @@ use Doctrine\Migrations\AbstractMigration;
 
 final class Version20260702200818 extends AbstractMigration
 {
+    #[\Override]
     public function getDescription(): string
     {
         return 'Documents belong to a project; wipe pre-project document data (pre-prod).';
@@ -27,6 +28,7 @@ final class Version20260702200818 extends AbstractMigration
         $this->addSql('CREATE INDEX IDX_A2B07288166D1F9C ON documents (project_id)');
     }
 
+    #[\Override]
     public function down(Schema $schema): void
     {
         $this->addSql('ALTER TABLE documents DROP CONSTRAINT FK_A2B07288166D1F9C');

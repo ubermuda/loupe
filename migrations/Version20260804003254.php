@@ -9,6 +9,7 @@ use Doctrine\Migrations\AbstractMigration;
 
 final class Version20260804003254 extends AbstractMigration
 {
+    #[\Override]
     public function getDescription(): string
     {
         return 'Add archive_reason to documents';
@@ -19,6 +20,7 @@ final class Version20260804003254 extends AbstractMigration
         $this->addSql('ALTER TABLE documents ADD archive_reason TEXT DEFAULT NULL');
     }
 
+    #[\Override]
     public function down(Schema $schema): void
     {
         $this->addSql('ALTER TABLE documents DROP archive_reason');

@@ -9,6 +9,7 @@ use Doctrine\Migrations\AbstractMigration;
 
 final class Version20260725152835 extends AbstractMigration
 {
+    #[\Override]
     public function getDescription(): string
     {
         return 'Create connected_accounts for social login identities';
@@ -22,6 +23,7 @@ final class Version20260725152835 extends AbstractMigration
         $this->addSql('ALTER TABLE connected_accounts ADD CONSTRAINT FK_E3A2453A76ED395 FOREIGN KEY (user_id) REFERENCES users (id) NOT DEFERRABLE');
     }
 
+    #[\Override]
     public function down(Schema $schema): void
     {
         $this->addSql('ALTER TABLE connected_accounts DROP CONSTRAINT FK_E3A2453A76ED395');

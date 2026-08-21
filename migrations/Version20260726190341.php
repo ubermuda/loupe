@@ -12,6 +12,7 @@ use Doctrine\Migrations\AbstractMigration;
  */
 final class Version20260726190341 extends AbstractMigration
 {
+    #[\Override]
     public function getDescription(): string
     {
         return 'Add composite indexes for the billing trial sweep candidate queries.';
@@ -27,6 +28,7 @@ final class Version20260726190341 extends AbstractMigration
         SQL);
     }
 
+    #[\Override]
     public function down(Schema $schema): void
     {
         $this->addSql('DROP INDEX idx_billing_profiles_status_trial_ends_at');

@@ -12,6 +12,7 @@ use Doctrine\Migrations\AbstractMigration;
  */
 final class Version20260702023711 extends AbstractMigration
 {
+    #[\Override]
     public function getDescription(): string
     {
         return 'Create site_review_sites (per-site site-review model, phase 1).';
@@ -28,6 +29,7 @@ final class Version20260702023711 extends AbstractMigration
         $this->addSql('ALTER TABLE site_review_sites ADD CONSTRAINT FK_64041BCB7E3C61F9 FOREIGN KEY (owner_id) REFERENCES users (id) NOT DEFERRABLE');
     }
 
+    #[\Override]
     public function down(Schema $schema): void
     {
         // this down() migration is auto-generated, please modify it to your needs

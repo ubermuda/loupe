@@ -35,6 +35,7 @@ final class Version20260809204852 extends AbstractMigration
             SQL);
     }
 
+    #[\Override]
     public function down(Schema $schema): void
     {
         $this->addSql("DELETE FROM feature_flag WHERE name = 'about.update_check.enabled'");
