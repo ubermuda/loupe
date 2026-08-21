@@ -5,31 +5,6 @@ Open work and observations worth revisiting. Delete items entirely once resolved
 Entries are ordered by priority (high → medium → low); insert new entries at
 the end of their priority band. Format and rules: `project-next-steps` skill.
 
-## The terms interstitial's "Decline" link 403s, trapping a user who will not accept
-
-**Author:** Claude · **Type:** bug · **Priority:** high · **Status:** pending
-
-`templates/Module/Account/accept_terms.html.twig:30` renders the decline action
-as a bare `<a href="{{ path('app_logout') }}">`. `config/packages/security.yaml`
-sets `logout: enable_csrf: true`, so a plain GET to `/logout` fails the CSRF
-check and returns 403 instead of logging the user out.
-
-The working pattern is three lines below it in `templates/base.html.twig:114` —
-a POST form with `<input type="hidden" name="_csrf_token" value="{{ csrf_token('logout') }}">`.
-Copy that.
-
-Why this is worse than a broken link: `RequireTermsAcceptanceListener` pins a
-user who has not accepted the current terms version to this page, and exempts
-`/logout` precisely so leaving stays possible. Decline is the only exit offered,
-and it does not work — so a user who refuses the terms cannot accept, cannot
-proceed, and cannot leave. They have to clear cookies.
-
-Found 2026-08-21 while building the suspended-account page, which had the same
-bare-link draft and was corrected before it shipped. Confirmed in a browser
-against the running dev app, not only by reading the config. No test covers it,
-because the e2e specs and the WebTestCase fixtures all stamp acceptance on their
-users and so never render the decline path.
-
 ## Data-export object storage is proven on Garage, not on a hosted provider
 
 **Author:** Claude · **Type:** tooling · **Priority:** medium · **Status:** pending
@@ -2400,33 +2375,27 @@ inactive" flags on one entity, each owned by a different module.
 Related: 'Encapsulate Billing: replace #[PaywallExempt] with a firewall-level
 rule', which chases the same encapsulation goal from the control-flow side.
 
-## Four templates are baselined against the controller-naming rule and should be renamed
+## The controller-naming rule is blind to every form controller
 
-**Author:** Claude · **Type:** tooling · **Priority:** low · **Status:** pending
+**Author:** Claude · **Type:** tooling · **Priority:** medium · **Status:** pending
 
-`ControllerTemplateNameRule` is now switched on (`controllerTemplates.namespacePattern`
-in `phpstan.dist.neon`) with nine pre-existing violations baselined. Five of
-those are rule limitations and should be deleted from the baseline only when the
-rule improves. Four are real: the template genuinely does not match its
-controller.
+`gamache.controllerTemplates.renderMethods` is not set in `phpstan.dist.neon`,
+so it takes the package default of `['render']`. This project's standard
+form-render path is `AppController::renderFormResponse()`, which means
+`ControllerTemplateNameRule` silently skips every controller that renders a
+form — a large share of them.
 
-Rename these and delete their baseline entries as you go:
+Found 2026-08-21: `ShowUserController` renders `admin/users/detail.html.twig`
+and does not violate the rule. Not because it matches — `showuser` against
+`detail` does not — but because the rule never looks at it. Its sibling
+`ListUsersController` uses `render()` and was caught immediately.
 
-- `ShowAcceptTermsController` renders `accept_terms.html.twig` → `show_accept_terms.html.twig`
-- `ListWaitlistController` renders `admin/waitlist.html.twig` → `admin/list_waitlist.html.twig`
-- `SiteReviewHarnessController` renders `dev/harness.html.twig` → `dev/site_review_harness.html.twig`
-- `PasswordResetCheckEmailController` renders `reset_password/check_email.html.twig` — a word-order
-  mismatch rather than a missing prefix. Its siblings are `ResetPasswordController` and the
-  `reset_password/` directory, so renaming the **controller** to `ResetPasswordCheckEmailController`
-  is the smaller and more consistent change. That is a class rename, so check the route name and
-  any test referencing it.
-
-The `accept_terms` one must wait until the terms Decline fix has merged — that
-branch modifies the same file, and a rename against a modification across two
-branches is the conflict shape worth avoiding.
-
-The baseline file itself carries the full categorisation, including which five
-entries are rule limitations and why.
+The fix is one config line adding `renderFormResponse` to `renderMethods`.
+Expect it to surface a fresh batch of violations, each needing the same
+judgement the first round did: rename where the controller is right, leave it
+where the template names an outcome better than the action does, and fix the
+rule where the rule is wrong. Do it as its own PR so that triage is visible
+rather than buried.
 
 ## The listeners' `/logout` exemptions are dead in production but live in their unit tests
 
