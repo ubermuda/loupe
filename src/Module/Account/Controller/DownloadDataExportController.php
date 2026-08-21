@@ -10,6 +10,7 @@ use App\Module\Account\Entity\User;
 use App\Routing\PaywallExempt;
 use League\Flysystem\FilesystemException;
 use League\Flysystem\FilesystemOperator;
+use Monolog\Attribute\WithMonologChannel;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\DependencyInjection\Attribute\Target;
 use Symfony\Component\HttpFoundation\HeaderUtils;
@@ -24,6 +25,7 @@ use Symfony\Component\Routing\Attribute\Route;
     name: 'app_account_export_download',
     methods: ['GET'],
 )]
+#[WithMonologChannel('app_security')]
 class DownloadDataExportController extends AppController
 {
     public function __construct(

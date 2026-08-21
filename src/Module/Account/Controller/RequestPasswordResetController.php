@@ -8,11 +8,12 @@ use App\Controller\AppController;
 use App\Module\Account\Command\RequestPasswordResetCommand;
 use App\Module\Account\Command\RequestPasswordResetHandler;
 use App\Module\Account\Form\ResetPasswordRequestFormType;
+use App\Module\Account\Service\EmailRateLimitKey;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\Form\FormError;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
-use Symfony\Component\RateLimiter\RateLimiterFactory;
+use Symfony\Component\RateLimiter\RateLimiterFactoryInterface;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Contracts\Translation\TranslatorInterface;
 
@@ -24,7 +25,11 @@ class RequestPasswordResetController extends AppController
         private readonly TranslatorInterface $translator,
 
         #[Autowire(service: 'limiter.password_reset_request')]
-        private readonly RateLimiterFactory $passwordResetRequestLimiter,
+        private readonly RateLimiterFactoryInterface $passwordResetRequestLimiter,
+
+        #[Autowire(service: 'limiter.password_reset_request_address')]
+        private readonly RateLimiterFactoryInterface $passwordResetRequestAddressLimiter,
+        private readonly EmailRateLimitKey $addressKey,
     ) {
     }
 
@@ -41,8 +46,17 @@ class RequestPasswordResetController extends AppController
                 return $this->renderFormResponse('@Account/reset_password/request.html.twig', $form);
             }
 
-            $email = $form->get('email')->getData();
-            ($this->requestPasswordReset)(new RequestPasswordResetCommand(is_string($email) ? $email : ''));
+            $submitted = $form->get('email')->getData();
+            $email = is_string($submitted) ? $submitted : '';
+
+            // Consumed for every address, not only ones with an account, and a
+            // rejection still returns the success redirect below — anything
+            // else would answer the question RequestPasswordResetHandler's
+            // anti-enumeration policy refuses to answer.
+            $addressLimiter = $this->passwordResetRequestAddressLimiter->create(($this->addressKey)($email));
+            if ($addressLimiter->consume(1)->isAccepted()) {
+                ($this->requestPasswordReset)(new RequestPasswordResetCommand($email));
+            }
 
             return $this->redirectToRoute('app_forgot_password_check_email');
         }

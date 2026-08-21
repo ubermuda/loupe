@@ -7,6 +7,7 @@ namespace App\Module\Review\Security;
 use App\Module\Project\Security\AuthenticatedProjectResolver;
 use App\Module\Review\Entity\Comment;
 use App\Module\Review\Entity\Document;
+use Monolog\Attribute\WithMonologChannel;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\Security\Core\Authentication\Token\TokenInterface;
 use Symfony\Component\Security\Core\Authorization\Voter\Vote;
@@ -26,6 +27,7 @@ use Symfony\Component\Security\Core\Authorization\Voter\Voter;
  *
  * @extends Voter<'document.mcp_read'|'document.mcp_write'|'comment.mcp_read'|'comment.mcp_write', Comment|Document>
  */
+#[WithMonologChannel('app_security')]
 final class McpBoundProjectVoter extends Voter
 {
     public const string DOCUMENT_READ = 'document.mcp_read';

@@ -120,7 +120,47 @@ final class JoinWaitlistHandlerTest extends KernelTestCase
             static fn (array $record): bool => 'account.waitlist.rejoined' === $record['message'],
         ));
         self::assertCount(1, $rejoined);
-        self::assertSame(['email' => 'converted-disabled@example.com'], $rejoined[0]['context']);
+        self::assertSame(['entryId' => (string) $reopened->id], $rejoined[0]['context']);
+    }
+
+    public function test_no_log_line_carries_a_raw_email_address(): void
+    {
+        self::bootKernel();
+        $container = self::getContainer();
+        $em = $container->get(EntityManagerInterface::class);
+        self::assertInstanceOf(EntityManagerInterface::class, $em);
+        $em->persist(new User(fullName: 'Registered', email: 'registered@example.com', password: 'x'));
+        $em->flush();
+
+        $repo = $container->get(WaitlistEntryRepository::class);
+        self::assertInstanceOf(WaitlistEntryRepository::class, $repo);
+        $users = $container->get(UserRepository::class);
+        self::assertInstanceOf(UserRepository::class, $users);
+        $logger = new RecordingLogger();
+        $handler = new JoinWaitlistHandler($repo, $users, $em, $logger);
+
+        $handler(new JoinWaitlistCommand('fresh@example.com'));
+        $handler(new JoinWaitlistCommand('fresh@example.com'));
+        $handler(new JoinWaitlistCommand('registered@example.com'));
+
+        self::assertCount(3, $logger->records);
+        $encoded = json_encode($logger->records, \JSON_THROW_ON_ERROR);
+        self::assertStringNotContainsString('fresh@example.com', $encoded);
+        self::assertStringNotContainsString('registered@example.com', $encoded);
+        self::assertStringNotContainsString('@example.com', $encoded);
+
+        $entry = $repo->findOneByEmail('fresh@example.com');
+        self::assertNotNull($entry);
+        self::assertSame(['entryId' => (string) $entry->id], $logger->records[0]['context']);
+        self::assertSame(['entryId' => (string) $entry->id], $logger->records[1]['context']);
+        // Named by the account rather than a digest of the address: a bare hash
+        // correlates just as well while staying guessable from a wordlist.
+        $registered = $users->findOneByEmail('registered@example.com');
+        self::assertNotNull($registered);
+        self::assertSame(
+            ['userId' => (string) $registered->id],
+            $logger->records[2]['context'],
+        );
     }
 
     public function test_a_converted_row_stays_untouched_when_its_account_is_enabled(): void
