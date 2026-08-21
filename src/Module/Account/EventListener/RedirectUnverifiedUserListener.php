@@ -36,6 +36,10 @@ final readonly class RedirectUnverifiedUserListener
         'app_account_delete_confirm',
         'app_account_delete_execute',
         'app_account_deleted',
+        // A suspended user is diverted here by the priority-6 gate; without this
+        // entry an unverified suspended account bounces to the verify page and
+        // never learns it was suspended.
+        'app_account_suspended',
     ];
 
     public function __construct(

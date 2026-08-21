@@ -25,8 +25,17 @@ final readonly class RequireTermsAcceptanceListener
 
     public const string ACCEPTANCE_ROUTE = 'app_account_accept_terms';
 
-    /** Both halves of the interstitial: gating the POST would make accepting impossible. */
-    public const array ACCEPTANCE_ROUTES = [self::ACCEPTANCE_ROUTE, 'app_account_accept_terms_submit'];
+    /**
+     * Both halves of the interstitial: gating the POST would make accepting
+     * impossible. The suspended page joins them because the priority-6 gate
+     * sends a suspended user there first, and bouncing them on to acceptance
+     * would hide why their account stopped working.
+     */
+    public const array ACCEPTANCE_ROUTES = [
+        self::ACCEPTANCE_ROUTE,
+        'app_account_accept_terms_submit',
+        RequireNotSuspendedListener::SUSPENDED_ROUTE,
+    ];
 
     /** Must stay readable, or there is no way to know what is being accepted. */
     private const array LEGAL_PATHS = ['/terms', '/privacy', '/ai-policy'];
