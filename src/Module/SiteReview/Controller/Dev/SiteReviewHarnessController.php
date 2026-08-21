@@ -43,6 +43,6 @@ final class SiteReviewHarnessController extends AppController
             keepComments: $request->query->getBoolean('keep'),
         ));
 
-        return $this->render('@SiteReview/dev/harness.html.twig', ['token' => $view->rawToken]);
+        return $this->render('@SiteReview/dev/site_review_harness.html.twig', ['token' => $view->rawToken]);
     }
 }
