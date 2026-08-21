@@ -8,7 +8,7 @@ description: "A development clone. Assumes Docker, just, and a way to reach the 
 just up                # start nginx, php-fpm, postgres — see the note below
 just composer install  # runs inside the php-fpm container
 just migrate-run       # set up the database
-just exec bin/console app:dev:seed   # log in as dev@loupe.test / password
+just exec bin/console app:dev:seed   # dev@loupe.test or admin@loupe.test / password
 ```
 
 `just --list` shows every recipe. `just mercure-up` additionally starts the

@@ -15,7 +15,8 @@ just worktree-prune       # drop sidecars and databases whose worktree is gone
 
 Each gets `https://<slug>.<project>.dev.localhost` and its own dev database, so
 `bin/console` in a worktree never touches the main development database. Log in
-with the seeded `dev@loupe.test` / `password`.
+with the seeded `dev@loupe.test` / `password`, or `admin@loupe.test` for the
+admin area.
 
 ## Rules that prevent real damage
 
