@@ -9,10 +9,13 @@ use App\Tests\Support\AcceptedTerms;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\HttpFoundation\Response;
 
 final class RequireNotSuspendedListenerTest extends WebTestCase
 {
     private const string SUSPENDED_PATH = '/account/suspended';
+
+    private const string WRITE_PATH = '/account/profile';
 
     public function test_a_suspended_user_is_redirected_to_the_explanation_page(): void
     {
@@ -46,6 +49,28 @@ final class RequireNotSuspendedListenerTest extends WebTestCase
         $client->submit($crawler->filter('form[action="/logout"]')->form());
 
         $this->assertResponseRedirects('/login');
+    }
+
+    public function test_a_suspended_user_cannot_post(): void
+    {
+        $client = static::createClient();
+        $client->loginUser($this->seedUser('writer@suspended-gate.example.com', suspended: true));
+
+        $client->request(Request::METHOD_POST, self::WRITE_PATH, ['profile_form' => ['fullName' => 'Renamed']]);
+
+        $this->assertResponseStatusCodeSame(Response::HTTP_FORBIDDEN);
+    }
+
+    public function test_an_unsuspended_user_can_still_post(): void
+    {
+        $client = static::createClient();
+        $client->loginUser($this->seedUser('active-writer@suspended-gate.example.com', suspended: false));
+
+        $client->request(Request::METHOD_POST, self::WRITE_PATH, ['profile_form' => ['fullName' => '']]);
+
+        // A blank name fails the form's own validation, which is the point:
+        // the request reached the controller instead of being refused.
+        $this->assertResponseStatusCodeSame(Response::HTTP_UNPROCESSABLE_ENTITY);
     }
 
     public function test_an_unsuspended_user_is_not_redirected(): void

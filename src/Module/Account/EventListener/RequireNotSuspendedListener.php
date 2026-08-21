@@ -9,9 +9,9 @@ use Symfony\Component\EventDispatcher\Attribute\AsEventListener;
 use Symfony\Component\HttpFoundation\RedirectResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpKernel\Event\RequestEvent;
+use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
 use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 use Symfony\Component\Security\Core\Authentication\Token\Storage\TokenStorageInterface;
-use Symfony\UX\Turbo\TurboBundle;
 
 // Priority 6: after the firewall (8) so the token is resolved, and above the
 // unverified (5), paywall (4) and terms (3) gates — a suspended account should
@@ -45,6 +45,12 @@ final readonly class RequireNotSuspendedListener
             return;
         }
 
+        // A suspended account may read the explanation, nothing more: a safe
+        // method is pinned to the interstitial, everything else is refused.
+        if (!$event->getRequest()->isMethodSafe()) {
+            throw new AccessDeniedHttpException('This account is suspended.');
+        }
+
         $event->setResponse(new RedirectResponse($this->urlGenerator->generate(self::SUSPENDED_ROUTE)));
     }
 
@@ -72,24 +78,6 @@ final readonly class RequireNotSuspendedListener
             return true;
         }
 
-        return !$this->isHtmlNavigation($request);
-    }
-
-    /**
-     * Only safe HTML navigations are gated, matching the terms gate: an HTML
-     * redirect sent to a Turbo-stream or JSON fetch lands in a frame or a parse
-     * error, and unsafe methods stay with the voters that authorize them.
-     */
-    private function isHtmlNavigation(Request $request): bool
-    {
-        if (!$request->isMethodSafe()) {
-            return false;
-        }
-
-        if (str_contains((string) $request->headers->get('Accept', ''), TurboBundle::STREAM_MEDIA_TYPE)) {
-            return false;
-        }
-
-        return 'html' === $request->getPreferredFormat();
+        return false;
     }
 }

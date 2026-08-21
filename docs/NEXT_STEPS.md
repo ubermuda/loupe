@@ -30,29 +30,6 @@ against the running dev app, not only by reading the config. No test covers it,
 because the e2e specs and the WebTestCase fixtures all stamp acceptance on their
 users and so never render the decline path.
 
-## A suspended account can still write — the gate only covers navigation
-
-**Author:** Claude · **Type:** security · **Priority:** high · **Status:** pending
-
-`RequireNotSuspendedListener` gates safe methods only: `isHtmlNavigation()`
-returns false for anything that is not a GET/HEAD, so the redirect never fires
-on a POST. A suspended user is pinned to `/account/suspended` when they
-navigate, but every write endpoint in the app still accepts their submissions.
-
-This matches the approved design, which says in as many words that the listener
-is "a navigation gate rather than the authorization boundary", and it matches
-the sibling `RequireTermsAcceptanceListener`, whose docblock makes the same
-point. It is deliberate: widening the gate to unsafe methods at priority 6 would
-intercept Turbo form submissions across the whole application.
-
-It is still worth a second look, because the word "suspended" promises more than
-navigation-pinning delivers, and the terms gate's reasoning does not transfer
-cleanly — a user who has not accepted terms is being asked for something,
-whereas a suspended user is being denied. The fix, if wanted, is authorization
-rather than a listener: a voter check, or a `#[IsGranted]` on write routes.
-Decide whether suspension means "cannot browse" or "cannot act" before building
-anything.
-
 ## Data-export object storage is proven on Garage, not on a hosted provider
 
 **Author:** Claude · **Type:** tooling · **Priority:** medium · **Status:** pending
