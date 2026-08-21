@@ -115,7 +115,7 @@ final class RateLimitingTest extends WebTestCase
         $client = static::createClient();
         $client->disableReboot();
         static::getContainer()->set('limiter.registration_address', self::lowLimitFactory('registration_address'));
-        InstalledInstance::ensure(static::getContainer()->get(EntityManagerInterface::class));
+        InstalledInstance::ensure(static::getContainer());
 
         $client->request(Request::METHOD_GET, '/register', server: ['REMOTE_ADDR' => '203.0.113.2']);
         $client->submitForm('Create account', [
@@ -149,7 +149,7 @@ final class RateLimitingTest extends WebTestCase
         $client = static::createClient();
         $client->disableReboot();
         static::getContainer()->set('limiter.resend_verification_email_address', self::lowLimitFactory('resend_verification_email_address'));
-        InstalledInstance::ensure(static::getContainer()->get(EntityManagerInterface::class));
+        InstalledInstance::ensure(static::getContainer());
 
         $client->request(Request::METHOD_GET, '/register', server: ['REMOTE_ADDR' => '203.0.113.3']);
         $client->submitForm('Create account', [
