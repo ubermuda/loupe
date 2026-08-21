@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace App\Module\Billing\Messenger;
 
 /**
- * Dispatched by DeleteAccountHandler from inside the account deletion
+ * Dispatched by AccountPurger from inside the account deletion
  * transaction. The `async` transport is Doctrine-backed (see
  * MESSENGER_TRANSPORT_DSN), so the enqueued row is written by the same
  * commit as the deletion — a rolled-back deletion rolls this back too, and

@@ -61,7 +61,7 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface, AdminPr
     #[ORM\Column(length: 500, nullable: true)]
     public ?string $suspendedReason = null;
 
-    /** SET NULL, not RESTRICT: DeleteAccountHandler removes the row with raw SQL. */
+    /** SET NULL, not RESTRICT: AccountPurger removes the row with raw SQL. */
     #[ORM\JoinColumn(nullable: true, onDelete: 'SET NULL')]
     #[ORM\ManyToOne(targetEntity: self::class)]
     public ?self $suspendedBy = null;
