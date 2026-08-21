@@ -2468,6 +2468,39 @@ neither — stripping one sibling and not the other reads as though the remainin
 branch is load-bearing. The comment above the terms gate's copy, "Leaving must
 always be possible", is what makes it look load-bearing today.
 
+## Consider scoped mutation testing, because a green suite proved little here
+
+**Author:** Geoffrey · **Type:** tooling · **Priority:** medium · **Status:** pending
+
+No mutation-testing tooling is installed — checked against `composer.json`,
+`package.json` and the `justfile`. Infection is the PHP tool for it.
+
+What prompted this: three tests written for the account-suspension work passed
+regardless of the code they were meant to guard. One asserted the page body
+contained "suspended", which the heading renders unconditionally. One asserted a
+redirect that the firewall produced at priority 8 for an unrelated reason. One
+used a fixture that stamped terms acceptance and so never triggered the gate
+under test. All three were defects in the plan they were written from, and the
+suite was green throughout.
+
+Each was caught by hand: revert the change the test guards, confirm the test
+fails, restore. That is one mutant, placed where a weakness was already
+suspected. It gives no score and covers none of the mutants nobody thought of —
+which is exactly the gap a tool closes.
+
+Proposal: scope Infection to the directories where a silently-passing test costs
+most — `src/Module/Account/Security/` and `src/Module/Account/EventListener/` —
+rather than the whole codebase. Both hold code that runs on every authenticated
+request, where a wrong answer is an outage or an authorization hole rather than
+a broken page.
+
+The open question is not whether it is useful but where it runs. Infection
+reruns the suite once per mutant, so a full-repo pass against ~1450 tests is
+coffee-break length, not a pre-commit hook. Decide between a `just ci` leg on a
+narrow path list and a manual command invoked when touching security-adjacent
+code. Cost is the deciding factor; measure a scoped run before wiring it into a
+gate.
+
 ## Registration discloses whether an address is registered, and that is accepted
 
 **Author:** Geoffrey · **Type:** docs · **Priority:** low · **Status:** pending
