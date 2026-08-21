@@ -51,7 +51,7 @@ final class ListUsersController extends AppController
             );
         }
 
-        return $this->render('@Account/admin/users/list.html.twig', [
+        return $this->render('@Account/admin/users/list_users.html.twig', [
             'users' => $view->users,
             'total' => $view->total,
             'page' => $listRequest->page,

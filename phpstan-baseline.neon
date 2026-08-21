@@ -2,11 +2,6 @@
 # Renaming either would make it worse — `account_deletion/invalid.html.twig`
 # says what the page is, and `confirm_account_deletion.html.twig` would not.
 # These stay baselined; they are not debt.
-#
-# ShowAcceptTermsController is debt and its rename is blocked: PR #228 modifies
-# accept_terms.html.twig on main, and renaming it here would produce a
-# rename-versus-modification conflict when both land. Drop this third entry and
-# rename the template once #228 has merged.
 parameters:
 	ignoreErrors:
 		-
@@ -20,9 +15,3 @@ parameters:
 			identifier: controller.templateName
 			count: 1
 			path: src/Module/Account/Controller/JoinWaitlistController.php
-
-		-
-			message: '#^Controller ShowAcceptTermsController renders a template but none under templates/Module/Account matches its name \(expected "show_accept_terms\.html\.twig"; matching ignores case, underscores, and directories\)\.$#'
-			identifier: controller.templateName
-			count: 1
-			path: src/Module/Account/Controller/ShowAcceptTermsController.php

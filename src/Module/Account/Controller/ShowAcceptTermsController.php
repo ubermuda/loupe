@@ -22,6 +22,6 @@ class ShowAcceptTermsController extends AppController
 {
     public function __invoke(): Response
     {
-        return $this->render('@Account/accept_terms.html.twig');
+        return $this->render('@Account/show_accept_terms.html.twig');
     }
 }
