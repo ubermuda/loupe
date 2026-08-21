@@ -9,6 +9,7 @@ use Doctrine\Migrations\AbstractMigration;
 
 final class Version20260725143358 extends AbstractMigration
 {
+    #[\Override]
     public function getDescription(): string
     {
         return 'Create feature_flag table';
@@ -20,6 +21,7 @@ final class Version20260725143358 extends AbstractMigration
         $this->addSql('CREATE UNIQUE INDEX UNIQ_83DE64E95E237E06 ON feature_flag (name)');
     }
 
+    #[\Override]
     public function down(Schema $schema): void
     {
         $this->addSql('DROP TABLE feature_flag');

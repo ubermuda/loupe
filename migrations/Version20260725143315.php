@@ -12,6 +12,7 @@ use Doctrine\Migrations\AbstractMigration;
  */
 final class Version20260725143315 extends AbstractMigration
 {
+    #[\Override]
     public function getDescription(): string
     {
         return 'Add wizard_completed_at to users, backfilled for existing accounts';
@@ -23,6 +24,7 @@ final class Version20260725143315 extends AbstractMigration
         $this->addSql('UPDATE users SET wizard_completed_at = created_at');
     }
 
+    #[\Override]
     public function down(Schema $schema): void
     {
         // this down() migration is auto-generated, please modify it to your needs

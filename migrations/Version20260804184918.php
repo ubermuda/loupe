@@ -9,6 +9,7 @@ use Doctrine\Migrations\AbstractMigration;
 
 final class Version20260804184918 extends AbstractMigration
 {
+    #[\Override]
     public function getDescription(): string
     {
         return 'Drop users.username and make users.full_name nullable: the email is the identity, and a display name is optional.';
@@ -27,6 +28,7 @@ final class Version20260804184918 extends AbstractMigration
         $this->addSql('ALTER TABLE users ALTER COLUMN full_name DROP NOT NULL');
     }
 
+    #[\Override]
     public function down(Schema $schema): void
     {
         // Irreversible in the part that matters: the usernames are gone, so a

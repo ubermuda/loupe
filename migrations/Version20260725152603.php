@@ -9,6 +9,7 @@ use Doctrine\Migrations\AbstractMigration;
 
 final class Version20260725152603 extends AbstractMigration
 {
+    #[\Override]
     public function getDescription(): string
     {
         return 'Make users.password nullable for OAuth-only accounts';
@@ -19,6 +20,7 @@ final class Version20260725152603 extends AbstractMigration
         $this->addSql('ALTER TABLE users ALTER password DROP NOT NULL');
     }
 
+    #[\Override]
     public function down(Schema $schema): void
     {
         // Social login creates accounts with a null password, so restoring the

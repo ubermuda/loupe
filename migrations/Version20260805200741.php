@@ -9,6 +9,7 @@ use Doctrine\Migrations\AbstractMigration;
 
 final class Version20260805200741 extends AbstractMigration
 {
+    #[\Override]
     public function getDescription(): string
     {
         return 'Seed the site_review.push.enabled flag so existing instances keep publishing';
@@ -40,6 +41,7 @@ final class Version20260805200741 extends AbstractMigration
             SQL);
     }
 
+    #[\Override]
     public function down(Schema $schema): void
     {
         $this->addSql("DELETE FROM feature_flag WHERE name = 'site_review.push.enabled'");

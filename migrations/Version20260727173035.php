@@ -9,6 +9,7 @@ use Doctrine\Migrations\AbstractMigration;
 
 final class Version20260727173035 extends AbstractMigration
 {
+    #[\Override]
     public function getDescription(): string
     {
         return 'Drop the SiteReview entity: comments and events key on project directly, comment status gains Draft, site_review_reviews is dropped.';
@@ -80,6 +81,7 @@ final class Version20260727173035 extends AbstractMigration
         $this->addSql('DROP TABLE site_review_reviews');
     }
 
+    #[\Override]
     public function down(Schema $schema): void
     {
         $this->addSql(<<<'SQL'

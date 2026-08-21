@@ -9,6 +9,7 @@ use Doctrine\Migrations\AbstractMigration;
 
 final class Version20260529000000 extends AbstractMigration
 {
+    #[\Override]
     public function getDescription(): string
     {
         return 'Create users and messenger_messages tables';
@@ -23,6 +24,7 @@ final class Version20260529000000 extends AbstractMigration
         $this->addSql('CREATE INDEX IDX_75EA56E0FB7336F0E3BD61CE16BA31DBBF396750 ON messenger_messages (queue_name, available_at, delivered_at, id)');
     }
 
+    #[\Override]
     public function down(Schema $schema): void
     {
         $this->addSql('DROP TABLE users');

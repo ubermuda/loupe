@@ -9,6 +9,7 @@ use Doctrine\Migrations\AbstractMigration;
 
 final class Version20260803012924 extends AbstractMigration
 {
+    #[\Override]
     public function getDescription(): string
     {
         return 'Create the document_references join table, linking a document to the documents it points at.';
@@ -25,6 +26,7 @@ final class Version20260803012924 extends AbstractMigration
         $this->addSql('ALTER TABLE document_references ADD CONSTRAINT FK_3EDD86CA4405373D FOREIGN KEY (target_document_id) REFERENCES documents (id) NOT DEFERRABLE');
     }
 
+    #[\Override]
     public function down(Schema $schema): void
     {
         $this->addSql('ALTER TABLE document_references DROP CONSTRAINT FK_3EDD86CAFF402897');

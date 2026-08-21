@@ -9,6 +9,7 @@ use Doctrine\Migrations\AbstractMigration;
 
 final class Version20260803015620 extends AbstractMigration
 {
+    #[\Override]
     public function getDescription(): string
     {
         return 'Add a weighted full-text search vector to documents, backfilled from each document\'s current version';
@@ -42,6 +43,7 @@ final class Version20260803015620 extends AbstractMigration
         $this->addSql('CREATE INDEX idx_documents_search_vector ON documents USING gin (search_vector)');
     }
 
+    #[\Override]
     public function down(Schema $schema): void
     {
         $this->addSql('DROP INDEX idx_documents_search_vector');

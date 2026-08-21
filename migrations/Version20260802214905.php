@@ -9,6 +9,7 @@ use Doctrine\Migrations\AbstractMigration;
 
 final class Version20260802214905 extends AbstractMigration
 {
+    #[\Override]
     public function getDescription(): string
     {
         return 'Add archived_at to documents and description to document_versions';
@@ -20,6 +21,7 @@ final class Version20260802214905 extends AbstractMigration
         $this->addSql('ALTER TABLE documents ADD archived_at TIMESTAMP(0) WITHOUT TIME ZONE DEFAULT NULL');
     }
 
+    #[\Override]
     public function down(Schema $schema): void
     {
         $this->addSql('ALTER TABLE document_versions DROP description');

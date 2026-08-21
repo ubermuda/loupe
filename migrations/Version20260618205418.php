@@ -12,6 +12,7 @@ use Doctrine\Migrations\AbstractMigration;
  */
 final class Version20260618205418 extends AbstractMigration
 {
+    #[\Override]
     public function getDescription(): string
     {
         return 'Create documents and document_versions tables';
@@ -28,6 +29,7 @@ final class Version20260618205418 extends AbstractMigration
         $this->addSql('ALTER TABLE documents ADD CONSTRAINT FK_A2B072887E3C61F9 FOREIGN KEY (owner_id) REFERENCES users (id) NOT DEFERRABLE');
     }
 
+    #[\Override]
     public function down(Schema $schema): void
     {
         // this down() migration is auto-generated, please modify it to your needs

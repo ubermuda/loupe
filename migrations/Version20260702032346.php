@@ -9,6 +9,7 @@ use Doctrine\Migrations\AbstractMigration;
 
 final class Version20260702032346 extends AbstractMigration
 {
+    #[\Override]
     public function getDescription(): string
     {
         return 'Per-site site reviews: drop batch tables, add reviews and reshaped comments.';
@@ -34,6 +35,7 @@ final class Version20260702032346 extends AbstractMigration
         $this->addSql('ALTER TABLE site_review_comments ADD CONSTRAINT FK_7246C1CA3E2E969B FOREIGN KEY (review_id) REFERENCES site_review_reviews (id) NOT DEFERRABLE');
     }
 
+    #[\Override]
     public function down(Schema $schema): void
     {
         $this->addSql('CREATE TABLE site_review_batches (id UUID NOT NULL, created_at TIMESTAMP(0) WITHOUT TIME ZONE NOT NULL, owner_id UUID NOT NULL, PRIMARY KEY(id))');

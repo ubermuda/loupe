@@ -12,6 +12,7 @@ use Doctrine\Migrations\AbstractMigration;
  */
 final class Version20260726002828 extends AbstractMigration
 {
+    #[\Override]
     public function getDescription(): string
     {
         return 'Add users.disabled_at and billing_profiles survey markers for the trial-end sweep.';
@@ -25,6 +26,7 @@ final class Version20260726002828 extends AbstractMigration
         $this->addSql('ALTER TABLE users ADD disabled_at TIMESTAMP(0) WITHOUT TIME ZONE DEFAULT NULL');
     }
 
+    #[\Override]
     public function down(Schema $schema): void
     {
         // this down() migration is auto-generated, please modify it to your needs

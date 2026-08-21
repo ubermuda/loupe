@@ -12,6 +12,7 @@ use Doctrine\Migrations\AbstractMigration;
  */
 final class Version20260618201309 extends AbstractMigration
 {
+    #[\Override]
     public function getDescription(): string
     {
         return 'Create api_tokens table';
@@ -26,6 +27,7 @@ final class Version20260618201309 extends AbstractMigration
         $this->addSql('ALTER TABLE api_tokens ADD CONSTRAINT FK_2CAD560E7E3C61F9 FOREIGN KEY (owner_id) REFERENCES users (id) NOT DEFERRABLE');
     }
 
+    #[\Override]
     public function down(Schema $schema): void
     {
         // this down() migration is auto-generated, please modify it to your needs
