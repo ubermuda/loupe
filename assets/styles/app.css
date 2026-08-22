@@ -2593,6 +2593,19 @@
         @apply flex items-center justify-end gap-3 pt-2;
     }
 
+    /* The admin nav stays put while a long record scrolls. Fixed rather than
+       sticky: the bundle gives <html> a hard 100dvh height, so a sticky item
+       gets no travel range and rides the scroll away. Taking the nav out of
+       flow means its sibling carries the matching offset — w-56 on the aside,
+       ml-56 here. Belongs in the admin bundle; overridden here until it does. */
+    .admin-sidebar {
+        @apply fixed top-0 left-0 overflow-y-auto;
+        height: 100dvh;
+    }
+    .admin-sidebar + div {
+        @apply ml-56;
+    }
+
     /* Status line at the left of an admin form's submit row. */
     .admin-form-note {
         @apply mr-auto text-sm text-fg-dim;

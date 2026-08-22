@@ -55,19 +55,19 @@
             </div>
         {% endif %}
 
-        <div class="flex flex-col gap-6 xl:flex-row xl:items-start xl:gap-0">
+        <div class="flex flex-col gap-6 lg:flex-row lg:items-start lg:gap-0">
             <div class="admin-edit-form">
                 <div class="admin-card p-6" data-controller="form-dirty"
                      data-form-dirty-clean-value="{{ 'account.admin.users.detail.form.clean'|trans }}"
                      data-form-dirty-dirty-value="{{ 'account.admin.users.detail.form.dirty'|trans }}"
                      data-form-dirty-submitted-value="{{ form.vars.submitted ? 'true' : 'false' }}">
-                    <div class="admin-form">
+                    <div class="flex flex-col gap-5">
                         <div>
                             <h2 class="admin-section-title">{{ 'account.admin.users.detail.edit.title'|trans }}</h2>
                             <p class="admin-section-subtitle">{{ 'account.admin.users.detail.edit.subtitle'|trans }}</p>
                         </div>
 
-                        {{ form_start(form, {'attr': {'novalidate': 'novalidate', 'data-action': 'input->form-dirty#check change->form-dirty#check'}}) }}
+                        {{ form_start(form, {'attr': {'novalidate': 'novalidate', 'class': 'flex flex-col gap-5', 'data-action': 'input->form-dirty#check change->form-dirty#check'}}) }}
                             <div class="flex flex-col gap-1.5">
                                 {{ form_label(form.fullName, null, {'label_attr': {'class': 'admin-field-label'}}) }}
                                 {{ form_widget(form.fullName, {'attr': {'class': 'admin-field-input'}}) }}
@@ -215,7 +215,7 @@
 
             {# The bundle class is desktop-shaped (w-72, pl-8); below xl the sidebar
                stacks under the form and spans it. #}
-            <div class="admin-edit-sidebar w-full pl-0 xl:w-72 xl:pl-8">
+            <div class="admin-edit-sidebar w-full pl-0 lg:w-72 lg:pl-8">
                 <div class="admin-card p-5">
                     <h2 class="admin-panel-title">{{ 'account.admin.users.detail.context.title'|trans }}</h2>
                     <div class="admin-detail-row">
