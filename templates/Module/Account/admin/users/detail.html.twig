@@ -57,7 +57,8 @@
 
         <div class="flex items-start">
             <div class="admin-edit-form">
-                <div class="admin-card p-6" data-controller="form-dirty">
+                <div class="admin-card p-6" data-controller="form-dirty"
+                     data-form-dirty-dirty-value="{{ 'account.admin.users.detail.form.dirty'|trans }}">
                     <div class="admin-form">
                         <div>
                             <h2 class="admin-section-title">{{ 'account.admin.users.detail.edit.title'|trans }}</h2>
@@ -96,9 +97,7 @@
                             </div>
 
                             <div class="admin-form-actions">
-                                <span class="admin-form-note"
-                                      data-form-dirty-target="note"
-                                      data-form-dirty-dirty-value="{{ 'account.admin.users.detail.form.dirty'|trans }}">{{ 'account.admin.users.detail.form.clean'|trans }}</span>
+                                <span class="admin-form-note" data-form-dirty-target="note">{{ 'account.admin.users.detail.form.clean'|trans }}</span>
                                 <a href="{{ backHref }}" class="admin-button-secondary">{{ 'account.admin.users.detail.cancel'|trans }}</a>
                                 <button type="submit" class="admin-button">{{ 'account.admin.users.detail.save'|trans }}</button>
                             </div>
