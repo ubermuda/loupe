@@ -55,7 +55,7 @@
             </div>
         {% endif %}
 
-        <div class="flex items-start">
+        <div class="flex flex-col gap-6 xl:flex-row xl:items-start xl:gap-0">
             <div class="admin-edit-form">
                 <div class="admin-card p-6" data-controller="form-dirty"
                      data-form-dirty-dirty-value="{{ 'account.admin.users.detail.form.dirty'|trans }}">
@@ -211,7 +211,9 @@
                 </div>
             </div>
 
-            <div class="admin-edit-sidebar">
+            {# The bundle class is desktop-shaped (w-72, pl-8); below xl the sidebar
+               stacks under the form and spans it. #}
+            <div class="admin-edit-sidebar w-full pl-0 xl:w-72 xl:pl-8">
                 <div class="admin-card p-5">
                     <h2 class="admin-panel-title">{{ 'account.admin.users.detail.context.title'|trans }}</h2>
                     <div class="admin-detail-row">
