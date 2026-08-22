@@ -92,4 +92,39 @@ final class LoginControllerTest extends WebTestCase
         $client->followRedirect();
         $this->assertResponseRedirects('/register/check-email');
     }
+
+    public function test_successful_login_stamps_last_signed_in_at(): void
+    {
+        $client = static::createClient();
+        $user = $this->createUser(verified: true);
+        self::assertNull($user->lastSignedInAt);
+
+        $client->request(Request::METHOD_GET, '/login');
+        $client->submitForm('Sign in', [
+            'email' => 'login@example.com',
+            'password' => 'SecurePassword1!',
+        ]);
+        $this->assertResponseRedirects('/');
+
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $em->clear();
+        self::assertNotNull($em->find(User::class, $user->id)?->lastSignedInAt);
+    }
+
+    public function test_failed_login_leaves_last_signed_in_at_untouched(): void
+    {
+        $client = static::createClient();
+        $user = $this->createUser(verified: true);
+
+        $client->request(Request::METHOD_GET, '/login');
+        $client->submitForm('Sign in', [
+            'email' => 'login@example.com',
+            'password' => 'WrongPassword!',
+        ]);
+        $this->assertResponseRedirects('/login');
+
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $em->clear();
+        self::assertNull($em->find(User::class, $user->id)?->lastSignedInAt);
+    }
 }

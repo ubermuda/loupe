@@ -5,185 +5,267 @@
 {% block body %}
     {% set returnTo = app.request.query.get('returnTo') %}
     {% set backHref = (returnTo and returnTo starts with '/admin/') ? returnTo : path('app_admin_users_list') %}
+    {% set initials = user.fullName|split(' ')|slice(0, 2)|map(part => part|slice(0, 1))|join|upper %}
 
     <div class="admin-page" data-user-id="{{ user.id }}">
-        <div class="flex items-start justify-between gap-4">
-            <div>
-                <h1 class="text-2xl font-bold text-slate-900">{{ user.fullName }}</h1>
-                <p class="text-sm text-slate-500">{{ user.email }}</p>
+        <div class="admin-identity">
+            <div class="flex items-center gap-3.5 min-w-0">
+                <span class="admin-avatar" aria-hidden="true">{{ initials }}</span>
+                <div class="min-w-0">
+                    <h1 class="admin-identity-name">{{ user.fullName }}</h1>
+                    <div class="admin-identity-meta">
+                        <span>{{ user.email }}</span>
+                        <span data-testid="user-status">
+                            {% if user.suspended %}
+                                <span class="admin-badge admin-badge-off">{{ 'account.admin.users.status.suspended'|trans }}</span>
+                            {% elseif user.disabled %}
+                                <span class="admin-badge admin-badge-off">{{ 'account.admin.users.status.disabled'|trans }}</span>
+                            {% elseif not user.verified %}
+                                <span class="admin-badge admin-badge-neutral">{{ 'account.admin.users.status.unverified'|trans }}</span>
+                            {% else %}
+                                <span class="admin-badge admin-badge-on">{{ 'account.admin.users.status.active'|trans }}</span>
+                            {% endif %}
+                        </span>
+                        {% if 'ROLE_ADMIN' in user.roles %}
+                            <span class="admin-badge admin-badge-count">{{ 'account.admin.users.role.admin'|trans }}</span>
+                        {% endif %}
+                    </div>
+                </div>
             </div>
-            <a href="{{ backHref }}" class="admin-button-secondary admin-button-small shrink-0">{{ 'account.admin.users.detail.back'|trans }}</a>
+            <a href="{{ backHref }}" class="admin-button-secondary admin-button-small shrink-0">
+                <twig:UX:Icon name="lucide:arrow-left" class="w-3.5 h-3.5 shrink-0" />
+                {{ 'account.admin.users.detail.back'|trans }}
+            </a>
         </div>
 
-        <div class="admin-card p-8 flex flex-col gap-4">
-            <h2 class="text-base font-semibold text-slate-900">{{ 'account.admin.users.detail.context.title'|trans }}</h2>
-
-            <dl class="grid grid-cols-2 gap-x-8 gap-y-3 text-sm">
-                <dt class="text-slate-500">{{ 'account.admin.users.column.roles'|trans }}</dt>
-                <dd>
-                    {% if 'ROLE_ADMIN' in user.roles %}
-                        <span class="admin-badge admin-badge-count">{{ 'account.admin.users.role.admin'|trans }}</span>
-                    {% else %}
-                        <span class="admin-badge admin-badge-neutral">{{ 'account.admin.users.role.user'|trans }}</span>
-                    {% endif %}
-                </dd>
-
-                <dt class="text-slate-500">{{ 'account.admin.users.column.status'|trans }}</dt>
-                <dd data-testid="user-status">
-                    {% if user.suspended %}
-                        <span class="admin-badge admin-badge-off">{{ 'account.admin.users.status.suspended'|trans }}</span>
-                    {% elseif user.disabled %}
-                        <span class="admin-badge admin-badge-off">{{ 'account.admin.users.status.disabled'|trans }}</span>
-                    {% elseif not user.verified %}
-                        <span class="admin-badge admin-badge-neutral">{{ 'account.admin.users.status.unverified'|trans }}</span>
-                    {% else %}
-                        <span class="admin-badge admin-badge-on">{{ 'account.admin.users.status.active'|trans }}</span>
-                    {% endif %}
-                </dd>
-
-                <dt class="text-slate-500">{{ 'account.admin.users.column.joined'|trans }}</dt>
-                <dd>{{ user.createdAt|date('Y-m-d H:i') }}</dd>
-
-                <dt class="text-slate-500">{{ 'account.admin.users.detail.verified_at'|trans }}</dt>
-                <dd>{{ user.emailVerifiedAt ? user.emailVerifiedAt|date('Y-m-d H:i') : 'account.admin.users.detail.never'|trans }}</dd>
-
-                <dt class="text-slate-500">{{ 'account.admin.users.detail.terms_accepted_at'|trans }}</dt>
-                <dd>{{ user.termsAcceptedAt ? user.termsAcceptedAt|date('Y-m-d H:i') : 'account.admin.users.detail.never'|trans }}</dd>
-
-                <dt class="text-slate-500">{{ 'account.admin.users.detail.connected_accounts'|trans }}</dt>
-                <dd data-testid="connected-accounts">
-                    {% if connectedAccounts is empty %}
-                        {{ 'account.admin.users.detail.none'|trans }}
-                    {% else %}
-                        {{ connectedAccounts|map(account => account.provider.value)|join(', ') }}
-                    {% endif %}
-                </dd>
-
-                <dt class="text-slate-500">{{ 'account.admin.users.detail.api_tokens'|trans }}</dt>
-                <dd data-testid="api-token-count">{{ apiTokenCount }}</dd>
-
-                <dt class="text-slate-500">{{ 'account.admin.users.detail.data_exports'|trans }}</dt>
-                <dd data-testid="data-export-count">{{ dataExports|length }}</dd>
-            </dl>
-
-            {% if user.suspended %}
-                <div class="rounded-xl bg-red-50 p-4 text-sm text-red-800" data-testid="suspension-details">
-                    <p class="font-semibold">{{ 'account.admin.users.detail.suspended_on'|trans({'%date%': user.suspendedAt|date('Y-m-d H:i')}) }}</p>
+        {% if user.suspended %}
+            <div class="admin-suspension-banner" data-testid="suspension-details">
+                <twig:UX:Icon name="lucide:triangle-alert" class="w-4.5 h-4.5 shrink-0 mt-px" />
+                <div>
+                    <p class="m-0">{{ 'account.admin.users.detail.suspended_on'|trans({'%date%': user.suspendedAt|date('j M Y, H:i')}) }}</p>
                     {% if user.suspendedBy %}
-                        <p>{{ 'account.admin.users.detail.suspended_by'|trans({'%admin%': user.suspendedBy.email}) }}</p>
+                        <p class="m-0">{{ 'account.admin.users.detail.suspended_by'|trans({'%admin%': user.suspendedBy.email}) }}</p>
                     {% else %}
-                        <p>{{ 'account.admin.users.detail.suspended_by_unknown'|trans }}</p>
+                        <p class="m-0">{{ 'account.admin.users.detail.suspended_by_unknown'|trans }}</p>
                     {% endif %}
                     {% if user.suspendedReason %}
-                        <p>{{ user.suspendedReason }}</p>
+                        <p class="m-0 font-normal">{{ user.suspendedReason }}</p>
                     {% endif %}
                 </div>
-            {% endif %}
-        </div>
-
-        <div class="admin-card p-8">
-            <div class="admin-form">
-                <h2 class="text-base font-semibold text-slate-900">{{ 'account.admin.users.detail.edit.title'|trans }}</h2>
-
-                {{ form_start(form, {'attr': {'novalidate': 'novalidate'}}) }}
-                    <div class="flex flex-col gap-1.5">
-                        {{ form_label(form.fullName, null, {'label_attr': {'class': 'admin-field-label'}}) }}
-                        {{ form_widget(form.fullName, {'attr': {'class': 'admin-field-input'}}) }}
-                        {{ form_errors(form.fullName) }}
-                    </div>
-
-                    <div class="flex flex-col gap-1.5">
-                        {{ form_label(form.email, null, {'label_attr': {'class': 'admin-field-label'}}) }}
-                        {{ form_widget(form.email, {'attr': {'class': 'admin-field-input'}}) }}
-                        {{ form_help(form.email) }}
-                        {{ form_errors(form.email) }}
-                    </div>
-
-                    <div class="flex flex-col gap-2">
-                        <div class="flex items-center gap-2">
-                            {{ form_widget(form.isAdmin) }}
-                            {{ form_label(form.isAdmin, null, {'label_attr': {'class': 'admin-field-label'}}) }}
-                        </div>
-                        <div class="flex items-center gap-2">
-                            {{ form_widget(form.isVerified) }}
-                            {{ form_label(form.isVerified, null, {'label_attr': {'class': 'admin-field-label'}}) }}
-                        </div>
-                    </div>
-
-                    <div class="admin-form-actions">
-                        <a href="{{ backHref }}" class="admin-button-secondary mr-auto">{{ 'account.admin.users.detail.cancel'|trans }}</a>
-                        <button type="submit" class="admin-button">{{ 'account.admin.users.detail.save'|trans }}</button>
-                    </div>
-                {{ form_end(form) }}
             </div>
-        </div>
+        {% endif %}
 
-        <div class="admin-card p-8 flex flex-col gap-6" data-testid="danger-zone">
-            <h2 class="text-base font-semibold text-red-700">{{ 'account.admin.users.detail.danger.title'|trans }}</h2>
+        <div class="flex flex-col gap-6 lg:flex-row lg:items-start lg:gap-0">
+            <div class="admin-edit-form">
+                <div class="admin-card p-0" data-controller="form-dirty"
+                     data-form-dirty-clean-value="{{ 'account.admin.users.detail.form.clean'|trans }}"
+                     data-form-dirty-dirty-value="{{ 'account.admin.users.detail.form.dirty'|trans }}"
+                     data-form-dirty-submitted-value="{{ form.vars.submitted ? 'true' : 'false' }}">
+                    {{ form_start(form, {'attr': {'novalidate': 'novalidate', 'class': 'flex flex-col', 'data-action': 'input->form-dirty#check change->form-dirty#check'}}) }}
+                        <div class="flex flex-col gap-5 p-6">
+                            <div>
+                                <h2 class="admin-section-title">{{ 'account.admin.users.detail.edit.title'|trans }}</h2>
+                                <p class="admin-section-subtitle">{{ 'account.admin.users.detail.edit.subtitle'|trans }}</p>
+                            </div>
+                            <div class="flex flex-col gap-1.5">
+                                {{ form_label(form.fullName, null, {'label_attr': {'class': 'admin-field-label'}}) }}
+                                {{ form_widget(form.fullName, {'attr': {'class': 'admin-field-input'}}) }}
+                                {{ form_errors(form.fullName) }}
+                            </div>
 
-            {% if user.suspended %}
-                <form method="post" action="{{ path('app_admin_users_unsuspend', {id: user.id}) }}" class="flex flex-col gap-2">
-                    <input type="hidden" name="_csrf_token" value="{{ csrf_token('admin-user-unsuspend') }}">
-                    <input type="hidden" name="returnTo" value="{{ app.request.requestUri }}">
-                    <p class="text-sm text-slate-500">{{ 'account.admin.users.detail.danger.unsuspend.help'|trans }}</p>
-                    <div>
-                        <button type="submit" class="admin-button admin-button-small">{{ 'account.admin.users.detail.danger.unsuspend.button'|trans }}</button>
-                    </div>
-                </form>
-            {% else %}
-                <form method="post" action="{{ path('app_admin_users_suspend', {id: user.id}) }}" class="flex flex-col gap-2">
-                    <input type="hidden" name="_csrf_token" value="{{ csrf_token('admin-user-suspend') }}">
-                    <input type="hidden" name="returnTo" value="{{ app.request.requestUri }}">
-                    <label for="suspend-reason" class="admin-field-label">{{ 'account.form.suspend_user_form.reason.label'|trans }}</label>
-                    <textarea id="suspend-reason" name="suspend_user_form[reason]" rows="3" maxlength="{{ constant('App\\Module\\Account\\Entity\\User::MAX_SUSPENDED_REASON_LENGTH') }}" class="admin-field-input"
-                              placeholder="{{ 'account.admin.users.detail.danger.suspend.placeholder'|trans }}"></textarea>
-                    <p class="text-sm text-slate-500">{{ 'account.admin.users.detail.danger.suspend.help'|trans }}</p>
-                    <div>
-                        <button type="submit" class="admin-button-danger admin-button-small">{{ 'account.admin.users.detail.danger.suspend.button'|trans }}</button>
-                    </div>
-                </form>
-            {% endif %}
+                            <div class="flex flex-col gap-1.5">
+                                {{ form_label(form.email, null, {'label_attr': {'class': 'admin-field-label'}}) }}
+                                {{ form_widget(form.email, {'attr': {'class': 'admin-field-input'}}) }}
+                                {{ form_help(form.email) }}
+                                {{ form_errors(form.email) }}
+                            </div>
 
-            {% if not user.verified %}
-                <form method="post" action="{{ path('app_admin_users_resend_verification', {id: user.id}) }}" class="flex flex-col gap-2">
-                    <input type="hidden" name="_csrf_token" value="{{ csrf_token('admin-user-resend-verification') }}">
-                    <input type="hidden" name="returnTo" value="{{ app.request.requestUri }}">
-                    <p class="text-sm text-slate-500">{{ 'account.admin.users.detail.danger.resend.help'|trans }}</p>
-                    <div>
-                        <button type="submit" class="admin-button-secondary admin-button-small">{{ 'account.admin.users.detail.danger.resend.button'|trans }}</button>
-                    </div>
-                </form>
-            {% endif %}
+                            <div class="flex flex-col">
+                                <div class="admin-switch-row">
+                                    {{ form_widget(form.isAdmin, {'attr': {'class': 'admin-switch'}}) }}
+                                    <div>
+                                        {{ form_label(form.isAdmin, null, {'label_attr': {'class': 'admin-switch-label'}}) }}
+                                        <p class="admin-switch-help">{{ 'account.admin.users.detail.access.admin.help'|trans }}</p>
+                                    </div>
+                                </div>
+                                <div class="admin-switch-row">
+                                    {{ form_widget(form.isVerified, {'attr': {'class': 'admin-switch'}}) }}
+                                    <div>
+                                        {{ form_label(form.isVerified, null, {'label_attr': {'class': 'admin-switch-label'}}) }}
+                                        <p class="admin-switch-help">{{ 'account.admin.users.detail.access.verified.help'|trans }}</p>
+                                    </div>
+                                </div>
+                            </div>
 
-            <div class="flex flex-col gap-2" data-controller="modal">
-                <p class="text-sm text-slate-500">{{ 'account.admin.users.detail.danger.delete.help'|trans }}</p>
-                <div>
-                    <button type="button" class="admin-button-danger admin-button-small" data-action="click->modal#open">
-                        {{ 'account.admin.users.detail.danger.delete.button'|trans }}
-                    </button>
+                        </div>
+
+                        <div class="admin-form-actions-bar">
+                            <span class="admin-form-note" data-form-dirty-target="note">{{ (form.vars.submitted ? 'account.admin.users.detail.form.dirty' : 'account.admin.users.detail.form.clean')|trans }}</span>
+                            <a href="{{ backHref }}" class="admin-button-secondary">{{ 'account.admin.users.detail.cancel'|trans }}</a>
+                            <button type="submit" class="admin-button">{{ 'account.admin.users.detail.save'|trans }}</button>
+                        </div>
+                    {{ form_end(form) }}
                 </div>
 
-                <dialog data-modal-target="dialog" class="admin-dialog-box">
-                    <div data-controller="confirm-input" data-confirm-input-expected-value="{{ user.email }}">
-                        <form method="post" action="{{ path('app_admin_users_delete', {id: user.id}) }}">
-                            <input type="hidden" name="_csrf_token" value="{{ csrf_token('admin-user-delete') }}">
-                            <input type="hidden" name="returnTo" value="{{ backHref }}">
-                            <h3 class="admin-dialog-title">{{ 'account.admin.users.detail.danger.delete.modal.title'|trans({'%email%': user.email}) }}</h3>
-                            <p class="admin-dialog-body">{{ 'account.admin.users.detail.danger.delete.modal.warning'|trans }}</p>
-                            <div class="flex flex-col gap-1.5">
-                                <label for="delete-confirm-email" class="admin-field-label">{{ 'account.admin.users.detail.danger.delete.modal.label'|trans }}</label>
-                                <input id="delete-confirm-email" name="delete_user_form[confirmEmail]" type="text" autocomplete="off" class="admin-field-input"
-                                       data-confirm-input-target="input" data-action="input->confirm-input#check">
-                            </div>
-                            <div class="admin-dialog-actions">
-                                <button type="button" class="admin-button-secondary" data-action="click->modal#close">{{ 'account.admin.users.detail.danger.delete.modal.cancel'|trans }}</button>
-                                <button type="submit" class="admin-button-danger" data-confirm-input-target="submit" disabled>
-                                    {{ 'account.admin.users.detail.danger.delete.modal.confirm'|trans }}
-                                </button>
-                            </div>
-                        </form>
+                <div class="admin-card p-6 flex flex-col gap-4">
+                    <div>
+                        <h2 class="admin-section-title">{{ 'account.admin.users.detail.actions.title'|trans }}</h2>
                     </div>
-                </dialog>
+
+                    <div>
+                        {% if user.suspended %}
+                            <div class="admin-action-item admin-action-row">
+                                <div class="grow">
+                                    <div class="admin-action-title">{{ 'account.admin.users.detail.danger.unsuspend.button'|trans }}</div>
+                                    <p class="admin-action-help">{{ 'account.admin.users.detail.danger.unsuspend.help'|trans }}</p>
+                                </div>
+                                <form method="post" action="{{ path('app_admin_users_unsuspend', {id: user.id}) }}" class="shrink-0">
+                                    <input type="hidden" name="_csrf_token" value="{{ csrf_token('admin-user-unsuspend') }}">
+                                    <input type="hidden" name="returnTo" value="{{ app.request.requestUri }}">
+                                    <button type="submit" class="admin-button-secondary admin-button-small">{{ 'account.admin.users.detail.danger.unsuspend.button'|trans }}</button>
+                                </form>
+                            </div>
+                        {% else %}
+                            <details class="admin-action-item" data-controller="disclosure">
+                                <summary class="admin-action-row" data-testid="suspend-disclosure" data-action="click->disclosure#toggle">
+                                    <div class="grow">
+                                        <div class="admin-action-title">{{ 'account.admin.users.detail.danger.suspend.button'|trans }}</div>
+                                        <p class="admin-action-help">{{ 'account.admin.users.detail.danger.suspend.help'|trans }}</p>
+                                    </div>
+                                    <span class="admin-button-secondary admin-button-small shrink-0">{{ 'account.admin.users.detail.danger.suspend.open'|trans }}</span>
+                                </summary>
+                                <div class="overflow-hidden" data-disclosure-target="content">
+                                    <form method="post" action="{{ path('app_admin_users_suspend', {id: user.id}) }}" class="admin-inline-panel">
+                                        <input type="hidden" name="_csrf_token" value="{{ csrf_token('admin-user-suspend') }}">
+                                        <input type="hidden" name="returnTo" value="{{ app.request.requestUri }}">
+                                        <div class="flex flex-col gap-1.5">
+                                            <label for="suspend-reason" class="admin-field-label">{{ 'account.form.suspend_user_form.reason.label'|trans }}</label>
+                                            <textarea id="suspend-reason" name="suspend_user_form[reason]" rows="3" maxlength="{{ constant('App\\Module\\Account\\Entity\\User::MAX_SUSPENDED_REASON_LENGTH') }}" class="admin-field-input"
+                                                      data-disclosure-target="autofocus"
+                                                      placeholder="{{ 'account.admin.users.detail.danger.suspend.placeholder'|trans }}"></textarea>
+                                        </div>
+                                        <div class="flex justify-end">
+                                            <button type="submit" class="admin-button-danger admin-button-small">{{ 'account.admin.users.detail.danger.suspend.button'|trans }}</button>
+                                        </div>
+                                    </form>
+                                </div>
+                            </details>
+                        {% endif %}
+
+                        <div class="admin-action-item admin-action-row">
+                            <div class="grow">
+                                <div class="admin-action-title">{{ 'account.admin.users.detail.danger.resend.button'|trans }}</div>
+                                <p class="admin-action-help">
+                                    {{ user.verified
+                                        ? 'account.admin.users.detail.danger.resend.unavailable'|trans
+                                        : 'account.admin.users.detail.danger.resend.help'|trans }}
+                                </p>
+                            </div>
+                            {% if not user.verified %}
+                                <form method="post" action="{{ path('app_admin_users_resend_verification', {id: user.id}) }}" class="shrink-0">
+                                    <input type="hidden" name="_csrf_token" value="{{ csrf_token('admin-user-resend-verification') }}">
+                                    <input type="hidden" name="returnTo" value="{{ app.request.requestUri }}">
+                                    <button type="submit" class="admin-button-secondary admin-button-small">{{ 'account.admin.users.detail.danger.resend.button'|trans }}</button>
+                                </form>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+
+                <div class="admin-danger-card p-6 flex flex-col gap-4" data-testid="danger-zone">
+                    <div>
+                        <h2 class="admin-danger-title">{{ 'account.admin.users.detail.danger.title'|trans }}</h2>
+                    </div>
+
+                    <div class="admin-action-item admin-action-row" data-controller="modal">
+                        <div class="grow">
+                            <div class="admin-action-title">{{ 'account.admin.users.detail.danger.delete.button'|trans }}</div>
+                            <p class="admin-action-help">{{ 'account.admin.users.detail.danger.delete.help'|trans }}</p>
+                        </div>
+                        <button type="button" class="admin-button-danger admin-button-small shrink-0" data-action="click->modal#open">
+                            {{ 'account.admin.users.detail.danger.delete.button'|trans }}
+                        </button>
+
+                        <dialog data-modal-target="dialog" class="admin-dialog-box">
+                            <div data-controller="confirm-input" data-confirm-input-expected-value="{{ user.email }}">
+                                <form method="post" action="{{ path('app_admin_users_delete', {id: user.id}) }}">
+                                    <input type="hidden" name="_csrf_token" value="{{ csrf_token('admin-user-delete') }}">
+                                    <input type="hidden" name="returnTo" value="{{ backHref }}">
+                                    <h3 class="admin-dialog-title">{{ 'account.admin.users.detail.danger.delete.modal.title'|trans({'%email%': user.email}) }}</h3>
+                                    <p class="admin-dialog-body">{{ 'account.admin.users.detail.danger.delete.modal.warning'|trans }}</p>
+                                    <div class="flex flex-col gap-1.5">
+                                        <label for="delete-confirm-email" class="admin-field-label">{{ 'account.admin.users.detail.danger.delete.modal.label'|trans }}</label>
+                                        <input id="delete-confirm-email" name="delete_user_form[confirmEmail]" type="text" autocomplete="off" class="admin-field-input"
+                                               data-confirm-input-target="input" data-action="input->confirm-input#check">
+                                    </div>
+                                    <div class="admin-dialog-actions">
+                                        <button type="button" class="admin-button-secondary" data-action="click->modal#close">{{ 'account.admin.users.detail.danger.delete.modal.cancel'|trans }}</button>
+                                        <button type="submit" class="admin-button-danger" data-confirm-input-target="submit" disabled>
+                                            {{ 'account.admin.users.detail.danger.delete.modal.confirm'|trans }}
+                                        </button>
+                                    </div>
+                                </form>
+                            </div>
+                        </dialog>
+                    </div>
+                </div>
+            </div>
+
+            {# The bundle class is desktop-shaped (w-72, pl-8); below xl the sidebar
+               stacks under the form and spans it. #}
+            <div class="admin-edit-sidebar w-full pl-0 lg:w-72 lg:pl-8">
+                <div class="admin-card p-5">
+                    <h2 class="admin-panel-title">{{ 'account.admin.users.detail.context.title'|trans }}</h2>
+                    <div class="admin-detail-row">
+                        <span class="admin-detail-key">{{ 'account.admin.users.column.joined'|trans }}</span>
+                        <span class="admin-detail-value">{{ user.createdAt|date('j M Y') }}</span>
+                    </div>
+                    <div class="admin-detail-row">
+                        <span class="admin-detail-key">{{ 'account.admin.users.detail.verified_at'|trans }}</span>
+                        <span class="admin-detail-value">{{ user.emailVerifiedAt ? user.emailVerifiedAt|date('j M Y') : 'account.admin.users.detail.never'|trans }}</span>
+                    </div>
+                    <div class="admin-detail-row">
+                        <span class="admin-detail-key">{{ 'account.admin.users.detail.terms_accepted_at'|trans }}</span>
+                        <span class="admin-detail-value">{{ user.termsAcceptedAt ? user.termsAcceptedAt|date('j M Y') : 'account.admin.users.detail.never'|trans }}</span>
+                    </div>
+                    <div class="admin-detail-row">
+                        <span class="admin-detail-key">{{ 'account.admin.users.detail.last_signed_in'|trans }}</span>
+                        <span class="admin-detail-value" data-testid="last-signed-in">{{ user.lastSignedInAt ? user.lastSignedInAt|date('j M Y') : 'account.admin.users.detail.never'|trans }}</span>
+                    </div>
+                </div>
+
+                <div class="admin-card p-5">
+                    <h2 class="admin-panel-title">{{ 'account.admin.users.detail.owns.title'|trans }}</h2>
+                    <div class="admin-detail-row">
+                        <span class="admin-detail-key">{{ 'account.admin.users.detail.connected_accounts'|trans }}</span>
+                        <span class="admin-detail-value" data-testid="connected-accounts">
+                            {%- if connectedAccounts is empty -%}
+                                {{ 'account.admin.users.detail.none'|trans }}
+                            {%- else -%}
+                                {{ connectedAccounts|map(account => account.provider.value)|join(', ') }}
+                            {%- endif -%}
+                        </span>
+                    </div>
+                    <div class="admin-detail-row">
+                        <span class="admin-detail-key">{{ 'account.admin.users.detail.api_tokens'|trans }}</span>
+                        <span class="admin-detail-value" data-testid="api-token-count">{{ apiTokenCount }}</span>
+                    </div>
+                    <div class="admin-detail-row">
+                        <span class="admin-detail-key">{{ 'account.admin.users.detail.data_exports'|trans }}</span>
+                        <span class="admin-detail-value" data-testid="data-export-count">{{ dataExports|length }}</span>
+                    </div>
+                </div>
+
+                <div class="admin-card p-5" data-controller="clipboard"
+                     data-clipboard-text-value="{{ user.id }}"
+                     data-clipboard-copied-label-value="{{ 'account.admin.users.detail.copied'|trans }}">
+                    <div class="flex items-center justify-between gap-2">
+                        <span class="admin-detail-key">{{ 'account.admin.users.detail.account_id'|trans }}</span>
+                        <button type="button" class="admin-button-secondary admin-button-small"
+                                data-clipboard-target="button" data-action="click->clipboard#copy">{{ 'account.admin.users.detail.copy'|trans }}</button>
+                    </div>
+                    <div class="font-mono text-sm text-fg-mute mt-1 break-all">{{ user.id }}</div>
+                </div>
             </div>
         </div>
     </div>

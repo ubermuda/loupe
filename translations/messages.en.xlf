@@ -2632,6 +2632,58 @@
                 <source>account.admin.users.detail.cancel</source>
                 <target>Cancel</target>
             </trans-unit>
+            <trans-unit id="account.admin.users.detail.edit.subtitle">
+                <source>account.admin.users.detail.edit.subtitle</source>
+                <target>Changes take effect immediately for the account holder.</target>
+            </trans-unit>
+            <trans-unit id="account.admin.users.detail.actions.title">
+                <source>account.admin.users.detail.actions.title</source>
+                <target>Account actions</target>
+            </trans-unit>
+            <trans-unit id="account.admin.users.detail.danger.suspend.open">
+                <source>account.admin.users.detail.danger.suspend.open</source>
+                <target>Suspend…</target>
+            </trans-unit>
+            <trans-unit id="account.admin.users.detail.danger.resend.unavailable">
+                <source>account.admin.users.detail.danger.resend.unavailable</source>
+                <target>Available only while the address is unverified.</target>
+            </trans-unit>
+            <trans-unit id="account.admin.users.detail.last_signed_in">
+                <source>account.admin.users.detail.last_signed_in</source>
+                <target>Last signed in</target>
+            </trans-unit>
+            <trans-unit id="account.admin.users.detail.owns.title">
+                <source>account.admin.users.detail.owns.title</source>
+                <target>Owns</target>
+            </trans-unit>
+            <trans-unit id="account.admin.users.detail.account_id">
+                <source>account.admin.users.detail.account_id</source>
+                <target>Account ID</target>
+            </trans-unit>
+            <trans-unit id="account.admin.users.detail.form.clean">
+                <source>account.admin.users.detail.form.clean</source>
+                <target>No unsaved changes.</target>
+            </trans-unit>
+            <trans-unit id="account.admin.users.detail.form.dirty">
+                <source>account.admin.users.detail.form.dirty</source>
+                <target>Unsaved changes.</target>
+            </trans-unit>
+            <trans-unit id="account.admin.users.detail.access.admin.help">
+                <source>account.admin.users.detail.access.admin.help</source>
+                <target>Full access to this admin area, including other people&apos;s accounts.</target>
+            </trans-unit>
+            <trans-unit id="account.admin.users.detail.access.verified.help">
+                <source>account.admin.users.detail.access.verified.help</source>
+                <target>Marks the address as confirmed without sending a verification email.</target>
+            </trans-unit>
+            <trans-unit id="account.admin.users.detail.copy">
+                <source>account.admin.users.detail.copy</source>
+                <target>Copy</target>
+            </trans-unit>
+            <trans-unit id="account.admin.users.detail.copied">
+                <source>account.admin.users.detail.copied</source>
+                <target>Copied</target>
+            </trans-unit>
             <trans-unit id="account.admin.users.detail.danger.title">
                 <source>account.admin.users.detail.danger.title</source>
                 <target>Danger zone</target>

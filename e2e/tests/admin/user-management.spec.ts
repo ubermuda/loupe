@@ -86,6 +86,9 @@ test.describe.serial('admin user management', () => {
         await registerAndVerify(victimPage, request, victim);
 
         await openVictimDetail(admin);
+        // The reason field lives in a closed <details>; its contents are out of
+        // the accessibility tree until the summary is clicked.
+        await admin.locator('[data-testid="suspend-disclosure"]').click();
         await admin.locator('#suspend-reason').fill(SUSPENSION_REASON);
         await admin
             .getByRole('button', { name: 'Suspend account', exact: true })
@@ -181,9 +184,11 @@ test.describe.serial('admin user management', () => {
             .getByRole('button', { name: 'Lift suspension', exact: true })
             .click();
 
-        // Same-URL redirect again: the suspend form replacing the unsuspend one
-        // is the signal that the POST landed.
-        await expect(admin.locator('#suspend-reason')).toBeVisible();
+        // Same-URL redirect again: the suspend disclosure replacing the
+        // unsuspend row is the signal that the POST landed.
+        await expect(
+            admin.locator('[data-testid="suspend-disclosure"]'),
+        ).toBeVisible();
         await expect(admin.locator('[data-testid="user-status"]')).toHaveText(
             'Active',
         );
