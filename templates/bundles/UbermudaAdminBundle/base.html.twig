@@ -8,6 +8,11 @@
     <link rel="stylesheet" href="{{ asset('styles/app.css') }}">
 {% endblock %}
 
+{# The bundle renders its importmap without a nonce, so every inline script it
+   emits is blocked by the enforcing prod CSP and the admin area boots no
+   JavaScript at all. Mirrors layout_base.html.twig. #}
+{% block importmap %}{{ importmap(admin_importmap_entry, {nonce: csp_nonce('script')}) }}{% endblock %}
+
 {% block javascripts %}
     {{ parent() }}
     {% if site_review_widget_token and (site_review_widget_public or is_granted('ROLE_ADMIN')) %}

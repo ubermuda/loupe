@@ -3513,6 +3513,31 @@ unused tagged interface with no implementations is dead code.
 Do this with, or after, the boundaries sweep; see "Domain boundaries sweep — and the
 arkitect gate that has never rejected anything".
 
+## The admin sidebar is pinned from the app's CSS, reaching into the bundle's markup
+
+**Author:** Claude · **Type:** bug · **Priority:** medium · **Status:** pending
+
+`.admin-sidebar` is `position: fixed` in `assets/styles/app.css`, and because
+that takes the nav out of flow, the sibling that holds the page content carries
+a matching `ml-56`. That offset is applied through an adjacent-sibling selector,
+`.admin-sidebar + div`, because the element belongs to
+`ubermuda/admin-bundle`'s `templates/base.html.twig` and the app cannot put a
+class on it.
+
+Two things to know. Sticky is not an option here: the bundle gives `<html>` a
+hard `100dvh` height, so a sticky item has no travel range and rides the scroll
+away — measured, not assumed. And the offset is silently fragile: if the bundle
+ever wraps or reorders that content div, the selector stops matching, the
+content slides under the fixed nav, and nothing fails loudly. A bundle version
+bump is what would trigger it.
+
+The fix is a PR on `ubermuda/admin-bundle` — the aside and the content wrapper
+have to change together, which is exactly why it belongs there. Then delete
+both rules from `app.css`.
+
+Landed 2026-08-22 in PR #241 (admin user page redesign), in response to a
+site-review comment asking for a fixed admin menu.
+
 ## Transactional jobs run inline in e2e under `X-Playwright`
 
 **Author:** Geoffrey · **Type:** tooling · **Priority:** low · **Status:** pending
