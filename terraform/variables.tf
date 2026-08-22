@@ -182,6 +182,12 @@ variable "admin_email" {
   description = "ADMIN_EMAIL. The user with this address is promoted to ROLE_ADMIN. Empty disables promotion."
 }
 
+variable "site_review_widget_backend" {
+  type        = string
+  default     = ""
+  description = "SITE_REVIEW_WIDGET_BACKEND: origin serving the site-review widget, and therefore the instance its comments file into. Empty (the default) means this instance."
+}
+
 variable "site_review_widget_public" {
   type        = string
   default     = ""
