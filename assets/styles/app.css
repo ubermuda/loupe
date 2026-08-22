@@ -2566,7 +2566,7 @@
         @apply bg-tint text-fg-dim;
     }
     .admin-badge-count {
-        @apply bg-accent-soft text-accent;
+        @apply bg-accent-faint text-accent-ink;
     }
 
     /* Admin modal <dialog>. Opened via the shared modal Stimulus controller.
@@ -2604,6 +2604,13 @@
     }
     .admin-sidebar + div {
         @apply ml-56;
+    }
+
+    /* Submit row as a bar flush to the bottom of its card. The card must drop
+       its own padding (p-0) and this must be the last child, or the corners
+       will not meet. Must stay after .admin-form-actions. */
+    .admin-form-actions-bar {
+        @apply flex items-center justify-end gap-3 px-6 py-4 bg-surface-2 border-t border-line rounded-b-xl;
     }
 
     /* Status line at the left of an admin form's submit row. */
@@ -2736,10 +2743,6 @@
 
     .admin-danger-title {
         @apply font-display font-extrabold text-lg tracking-tight text-status-danger-deep m-0;
-    }
-
-    .admin-danger-subtitle {
-        @apply mt-1 text-sm text-status-danger-deep;
     }
 
     /* Standing notice that an account is suspended. Its own rule rather than

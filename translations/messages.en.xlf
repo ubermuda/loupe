@@ -2640,14 +2640,6 @@
                 <source>account.admin.users.detail.actions.title</source>
                 <target>Account actions</target>
             </trans-unit>
-            <trans-unit id="account.admin.users.detail.actions.subtitle">
-                <source>account.admin.users.detail.actions.subtitle</source>
-                <target>Reversible. None of these deletes anything.</target>
-            </trans-unit>
-            <trans-unit id="account.admin.users.detail.danger.subtitle">
-                <source>account.admin.users.detail.danger.subtitle</source>
-                <target>Irreversible. Requires typing the account email to confirm.</target>
-            </trans-unit>
             <trans-unit id="account.admin.users.detail.danger.suspend.open">
                 <source>account.admin.users.detail.danger.suspend.open</source>
                 <target>Suspend…</target>
@@ -2683,6 +2675,14 @@
             <trans-unit id="account.admin.users.detail.access.verified.help">
                 <source>account.admin.users.detail.access.verified.help</source>
                 <target>Marks the address as confirmed without sending a verification email.</target>
+            </trans-unit>
+            <trans-unit id="account.admin.users.detail.copy">
+                <source>account.admin.users.detail.copy</source>
+                <target>Copy</target>
+            </trans-unit>
+            <trans-unit id="account.admin.users.detail.copied">
+                <source>account.admin.users.detail.copied</source>
+                <target>Copied</target>
             </trans-unit>
             <trans-unit id="account.admin.users.detail.danger.title">
                 <source>account.admin.users.detail.danger.title</source>

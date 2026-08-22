@@ -42,7 +42,7 @@
             <div class="admin-suspension-banner" data-testid="suspension-details">
                 <twig:UX:Icon name="lucide:triangle-alert" class="w-4.5 h-4.5 shrink-0 mt-px" />
                 <div>
-                    <p class="m-0">{{ 'account.admin.users.detail.suspended_on'|trans({'%date%': user.suspendedAt|date('Y-m-d H:i')}) }}</p>
+                    <p class="m-0">{{ 'account.admin.users.detail.suspended_on'|trans({'%date%': user.suspendedAt|date('j M Y, H:i')}) }}</p>
                     {% if user.suspendedBy %}
                         <p class="m-0">{{ 'account.admin.users.detail.suspended_by'|trans({'%admin%': user.suspendedBy.email}) }}</p>
                     {% else %}
@@ -57,17 +57,16 @@
 
         <div class="flex flex-col gap-6 lg:flex-row lg:items-start lg:gap-0">
             <div class="admin-edit-form">
-                <div class="admin-card p-6" data-controller="form-dirty"
+                <div class="admin-card p-0" data-controller="form-dirty"
                      data-form-dirty-clean-value="{{ 'account.admin.users.detail.form.clean'|trans }}"
                      data-form-dirty-dirty-value="{{ 'account.admin.users.detail.form.dirty'|trans }}"
                      data-form-dirty-submitted-value="{{ form.vars.submitted ? 'true' : 'false' }}">
-                    <div class="flex flex-col gap-5">
-                        <div>
-                            <h2 class="admin-section-title">{{ 'account.admin.users.detail.edit.title'|trans }}</h2>
-                            <p class="admin-section-subtitle">{{ 'account.admin.users.detail.edit.subtitle'|trans }}</p>
-                        </div>
-
-                        {{ form_start(form, {'attr': {'novalidate': 'novalidate', 'class': 'flex flex-col gap-5', 'data-action': 'input->form-dirty#check change->form-dirty#check'}}) }}
+                    {{ form_start(form, {'attr': {'novalidate': 'novalidate', 'class': 'flex flex-col', 'data-action': 'input->form-dirty#check change->form-dirty#check'}}) }}
+                        <div class="flex flex-col gap-5 p-6">
+                            <div>
+                                <h2 class="admin-section-title">{{ 'account.admin.users.detail.edit.title'|trans }}</h2>
+                                <p class="admin-section-subtitle">{{ 'account.admin.users.detail.edit.subtitle'|trans }}</p>
+                            </div>
                             <div class="flex flex-col gap-1.5">
                                 {{ form_label(form.fullName, null, {'label_attr': {'class': 'admin-field-label'}}) }}
                                 {{ form_widget(form.fullName, {'attr': {'class': 'admin-field-input'}}) }}
@@ -98,19 +97,19 @@
                                 </div>
                             </div>
 
-                            <div class="admin-form-actions">
-                                <span class="admin-form-note" data-form-dirty-target="note">{{ (form.vars.submitted ? 'account.admin.users.detail.form.dirty' : 'account.admin.users.detail.form.clean')|trans }}</span>
-                                <a href="{{ backHref }}" class="admin-button-secondary">{{ 'account.admin.users.detail.cancel'|trans }}</a>
-                                <button type="submit" class="admin-button">{{ 'account.admin.users.detail.save'|trans }}</button>
-                            </div>
-                        {{ form_end(form) }}
-                    </div>
+                        </div>
+
+                        <div class="admin-form-actions-bar">
+                            <span class="admin-form-note" data-form-dirty-target="note">{{ (form.vars.submitted ? 'account.admin.users.detail.form.dirty' : 'account.admin.users.detail.form.clean')|trans }}</span>
+                            <a href="{{ backHref }}" class="admin-button-secondary">{{ 'account.admin.users.detail.cancel'|trans }}</a>
+                            <button type="submit" class="admin-button">{{ 'account.admin.users.detail.save'|trans }}</button>
+                        </div>
+                    {{ form_end(form) }}
                 </div>
 
                 <div class="admin-card p-6 flex flex-col gap-4">
                     <div>
                         <h2 class="admin-section-title">{{ 'account.admin.users.detail.actions.title'|trans }}</h2>
-                        <p class="admin-section-subtitle">{{ 'account.admin.users.detail.actions.subtitle'|trans }}</p>
                     </div>
 
                     <div>
@@ -176,7 +175,6 @@
                 <div class="admin-danger-card p-6 flex flex-col gap-4" data-testid="danger-zone">
                     <div>
                         <h2 class="admin-danger-title">{{ 'account.admin.users.detail.danger.title'|trans }}</h2>
-                        <p class="admin-danger-subtitle">{{ 'account.admin.users.detail.danger.subtitle'|trans }}</p>
                     </div>
 
                     <div class="admin-action-item admin-action-row" data-controller="modal">
@@ -220,19 +218,19 @@
                     <h2 class="admin-panel-title">{{ 'account.admin.users.detail.context.title'|trans }}</h2>
                     <div class="admin-detail-row">
                         <span class="admin-detail-key">{{ 'account.admin.users.column.joined'|trans }}</span>
-                        <span class="admin-detail-value">{{ user.createdAt|date('Y-m-d') }}</span>
+                        <span class="admin-detail-value">{{ user.createdAt|date('j M Y') }}</span>
                     </div>
                     <div class="admin-detail-row">
                         <span class="admin-detail-key">{{ 'account.admin.users.detail.verified_at'|trans }}</span>
-                        <span class="admin-detail-value">{{ user.emailVerifiedAt ? user.emailVerifiedAt|date('Y-m-d') : 'account.admin.users.detail.never'|trans }}</span>
+                        <span class="admin-detail-value">{{ user.emailVerifiedAt ? user.emailVerifiedAt|date('j M Y') : 'account.admin.users.detail.never'|trans }}</span>
                     </div>
                     <div class="admin-detail-row">
                         <span class="admin-detail-key">{{ 'account.admin.users.detail.terms_accepted_at'|trans }}</span>
-                        <span class="admin-detail-value">{{ user.termsAcceptedAt ? user.termsAcceptedAt|date('Y-m-d') : 'account.admin.users.detail.never'|trans }}</span>
+                        <span class="admin-detail-value">{{ user.termsAcceptedAt ? user.termsAcceptedAt|date('j M Y') : 'account.admin.users.detail.never'|trans }}</span>
                     </div>
                     <div class="admin-detail-row">
                         <span class="admin-detail-key">{{ 'account.admin.users.detail.last_signed_in'|trans }}</span>
-                        <span class="admin-detail-value" data-testid="last-signed-in">{{ user.lastSignedInAt ? user.lastSignedInAt|date('Y-m-d') : 'account.admin.users.detail.never'|trans }}</span>
+                        <span class="admin-detail-value" data-testid="last-signed-in">{{ user.lastSignedInAt ? user.lastSignedInAt|date('j M Y') : 'account.admin.users.detail.never'|trans }}</span>
                     </div>
                 </div>
 
@@ -258,9 +256,15 @@
                     </div>
                 </div>
 
-                <div class="admin-card p-5">
-                    <div class="admin-detail-key">{{ 'account.admin.users.detail.account_id'|trans }}</div>
-                    <div class="font-mono text-sm text-fg-mute mt-1">{{ user.id }}</div>
+                <div class="admin-card p-5" data-controller="clipboard"
+                     data-clipboard-text-value="{{ user.id }}"
+                     data-clipboard-copied-label-value="{{ 'account.admin.users.detail.copied'|trans }}">
+                    <div class="flex items-center justify-between gap-2">
+                        <span class="admin-detail-key">{{ 'account.admin.users.detail.account_id'|trans }}</span>
+                        <button type="button" class="admin-button-secondary admin-button-small"
+                                data-clipboard-target="button" data-action="click->clipboard#copy">{{ 'account.admin.users.detail.copy'|trans }}</button>
+                    </div>
+                    <div class="font-mono text-sm text-fg-mute mt-1 break-all">{{ user.id }}</div>
                 </div>
             </div>
         </div>
