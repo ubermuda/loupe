@@ -306,6 +306,13 @@ e2e-up:
     E2E_APP_NETWORK="${project}_default" \
         docker compose -f "$main/docker/compose/e2e.yaml" -p "${project}-e2e" up -d >/dev/null
 
+    # The env file above is bind-mounted, so a container that was already up
+    # keeps serving the previous values until nginx re-reads it.
+    E2E_MAIN="$main" E2E_PROJECT="$project" E2E_HOST="$host" \
+    E2E_APP_NETWORK="${project}_default" \
+        docker compose -f "$main/docker/compose/e2e.yaml" -p "${project}-e2e" \
+        exec -T nginx nginx -s reload >/dev/null
+
     echo "e2e target ready at https://${host} (database ${db})"
 
 # Remove the e2e sidecar and drop its database.
