@@ -44,12 +44,12 @@ when@prod:
                 # The bundle appends 'unsafe-inline' next to the nonce as its
                 # CSP Level 1 fallback; a nonce-aware browser discards it. Not
                 # listed here so the fallback is the only thing adding it.
-                # Unset, the analytics origin falls back to 'self' — a no-op
+                # Unset, an external origin falls back to 'self' — a no-op
                 # rather than an empty token.
-                script-src: ["'self'", "%env(default:app.analytics_csp_fallback:ANALYTICS_ORIGIN)%"]
+                script-src: ["'self'", "%env(default:app.csp_origin_fallback:ANALYTICS_ORIGIN)%", "%env(default:app.csp_origin_fallback:SITE_REVIEW_WIDGET_BACKEND)%"]
                 # Fonts are self-hosted (assets/fonts, SIL OFL) — no external
                 # font or stylesheet origins are needed.
                 style-src: ["'self'", "'unsafe-inline'"]
                 font-src: ["'self'"]
                 img-src: ["'self'", 'data:', 'https:']
-                connect-src: ["'self'", "%env(default:app.analytics_csp_fallback:ANALYTICS_ORIGIN)%"]
+                connect-src: ["'self'", "%env(default:app.csp_origin_fallback:ANALYTICS_ORIGIN)%", "%env(default:app.csp_origin_fallback:SITE_REVIEW_WIDGET_BACKEND)%"]
