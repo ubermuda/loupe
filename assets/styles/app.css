@@ -503,9 +503,14 @@
 
     /* Resting surfaces are told apart by fill, never by shadow — elevation is
        reserved for things floating above the page. */
-    .lp-card,
-    .admin-card {
+    .lp-card {
         @apply bg-surface-2 rounded-xl py-4 px-4.5;
+    }
+
+    /* The admin shell's ground is --bg-sunken, so an admin card is paper with a
+       hairline rather than a tint — a tinted card on a tinted ground vanishes. */
+    .admin-card {
+        @apply bg-surface-1 border border-line rounded-xl py-4 px-4.5;
     }
 
     /* ── Form controls (lp- namespace) ──────────────────────────────── */
@@ -2513,7 +2518,7 @@
 
     /* Primary admin action button. */
     .admin-button {
-        @apply inline-flex items-center gap-2 rounded-lg px-5 py-2.5 text-sm font-semibold cursor-pointer no-underline whitespace-nowrap transition bg-accent text-white border-0;
+        @apply inline-flex items-center gap-2 rounded-lg px-5 py-2.5 text-sm font-semibold cursor-pointer no-underline whitespace-nowrap transition bg-accent text-ink border-0;
     }
     .admin-button:hover {
         @apply bg-accent-hover;
@@ -2586,6 +2591,148 @@
     /* Submit row inside an admin form. */
     .admin-form-actions {
         @apply flex items-center justify-end gap-3 pt-2;
+    }
+
+    /* Status line at the left of an admin form's submit row. */
+    .admin-form-note {
+        @apply mr-auto text-sm text-fg-dim;
+    }
+
+    /* ── Admin record header ────────────────────────────────────────── */
+
+    .admin-identity {
+        @apply flex items-start justify-between gap-4;
+    }
+
+    /* Initials disc standing in for an avatar the app does not store. */
+    .admin-avatar {
+        @apply flex items-center justify-center shrink-0 w-11 h-11 rounded-full bg-accent-faint border border-accent-border font-display font-extrabold text-lg text-accent-ink;
+    }
+
+    .admin-identity-name {
+        @apply font-display font-extrabold text-2xl tracking-tight text-ink m-0;
+    }
+
+    .admin-identity-meta {
+        @apply mt-1 flex items-center gap-2 flex-wrap text-sm text-fg-mute;
+    }
+
+    /* ── Admin card headings ────────────────────────────────────────── */
+
+    .admin-section-title {
+        @apply font-display font-extrabold text-lg tracking-tight text-ink m-0;
+    }
+
+    .admin-section-subtitle {
+        @apply mt-1 text-sm text-fg-dim;
+    }
+
+    /* Small heading for a sidebar panel — a rung below .admin-section-title. */
+    .admin-panel-title {
+        @apply font-display font-extrabold text-sm tracking-tight text-ink m-0 mb-3;
+    }
+
+    /* ── Admin switch (native checkbox, restyled) ───────────────────── */
+
+    /* The input stays a real checkbox so form binding and keyboard access are
+       untouched; only its box is redrawn as a track and knob. */
+    .admin-switch {
+        @apply relative shrink-0 w-10 h-6 mt-px appearance-none rounded-full bg-line-strong cursor-pointer transition-colors;
+    }
+    .admin-switch::after {
+        @apply absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-surface-1 transition-all;
+        content: '';
+    }
+    .admin-switch:checked {
+        @apply bg-accent;
+    }
+    .admin-switch:checked::after {
+        @apply left-4.5;
+    }
+    .admin-switch:focus-visible {
+        @apply outline-2 outline-offset-2 outline-accent-ink;
+    }
+
+    .admin-switch-row {
+        @apply flex items-start gap-3 py-2;
+    }
+
+    .admin-switch-label {
+        @apply text-sm font-semibold text-ink cursor-pointer;
+    }
+
+    .admin-switch-help {
+        @apply mt-0.5 text-xs text-fg-dim;
+    }
+
+    /* ── Admin action rows (reversible operations) ──────────────────── */
+
+    /* One entry in an action list. Also used on a <details> whose <summary> is
+       the row, so the rule must sit on the wrapper rather than the row itself. */
+    .admin-action-item {
+        @apply py-4 border-b border-line last:border-b-0 last:pb-0 first:pt-0;
+    }
+
+    .admin-action-row {
+        @apply flex items-start gap-4;
+    }
+
+    /* The row doubles as the disclosure trigger; the default marker would sit
+       in front of the title. */
+    summary.admin-action-row {
+        @apply list-none cursor-pointer;
+    }
+    summary.admin-action-row::-webkit-details-marker {
+        @apply hidden;
+    }
+
+    .admin-action-title {
+        @apply text-sm font-semibold text-ink;
+    }
+
+    .admin-action-help {
+        @apply mt-0.5 text-xs text-fg-dim;
+    }
+
+    /* Inline confirmation revealed by the suspend disclosure. */
+    .admin-inline-panel {
+        @apply mt-3.5 p-3.5 rounded-xl bg-status-pending-bg border border-status-pending-border flex flex-col gap-2.5;
+    }
+
+    /* ── Admin key/value list (record sidebar) ──────────────────────── */
+
+    .admin-detail-row {
+        @apply flex items-baseline justify-between gap-3 py-2 border-b border-line last:border-b-0 last:pb-0 first:pt-0;
+    }
+
+    .admin-detail-key {
+        @apply text-sm text-fg-dim;
+    }
+
+    .admin-detail-value {
+        @apply text-sm font-semibold text-fg tabular-nums;
+    }
+
+    /* ── Admin danger zone ──────────────────────────────────────────── */
+
+    /* Irreversible actions only — reversible ones live in a plain .admin-card
+       so the red never becomes background noise. */
+    .admin-danger-card {
+        @apply bg-status-danger-bg border border-status-danger-border rounded-xl py-4 px-4.5;
+    }
+
+    .admin-danger-title {
+        @apply font-display font-extrabold text-lg tracking-tight text-status-danger-deep m-0;
+    }
+
+    .admin-danger-subtitle {
+        @apply mt-1 text-sm text-status-danger-deep;
+    }
+
+    /* Standing notice that an account is suspended. Its own rule rather than
+       .admin-alert-error, which is the bundle's red-100 flash styling. */
+    .admin-suspension-banner {
+        @apply flex items-start gap-2.5 rounded-xl px-4 py-3.5 text-sm bg-status-danger-bg border border-status-danger-border text-status-danger-deep;
     }
 
     /* ── Landing page ───────────────────────────────────────────────────

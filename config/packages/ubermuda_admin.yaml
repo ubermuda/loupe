@@ -3,3 +3,6 @@ ubermuda_admin:
     app_route: 'app_home'
     importmap_entry: 'app'
     admin_email: '%env(ADMIN_EMAIL)%'
+    # `!` because the bundle's <body> hardcodes bg-slate-100 and appends this;
+    # two utilities on one property, and Tailwind's sort decides the winner.
+    body_class: '!bg-sunken'

@@ -45,6 +45,9 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface, AdminPr
     #[ORM\Column(nullable: true)]
     public ?\DateTimeImmutable $wizardCompletedAt = null;
 
+    #[ORM\Column(nullable: true)]
+    public ?\DateTimeImmutable $lastSignedInAt = null;
+
     /**
      * A disabled account keeps its data and may still log in, but is excluded
      * from the registration-cap count and blocked by the billing paywall until
