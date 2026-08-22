@@ -8,17 +8,25 @@ import { Controller } from '@hotwired/stimulus';
  */
 export default class extends Controller {
     static targets = ['note'];
-    static values = { dirty: String };
+    static values = { clean: String, dirty: String, submitted: Boolean };
 
     connect() {
-        this.cleanText = this.noteTarget.textContent.trim();
         this.form = this.element.querySelector('form');
         this.initial = this.serialize();
     }
 
     check() {
-        const dirty = this.serialize() !== this.initial;
-        this.noteTarget.textContent = dirty ? this.dirtyValue : this.cleanText;
+        // A rejected submission is redisplayed with the typed values, which were
+        // never persisted. The server already rendered it dirty, and no amount
+        // of further typing makes it clean again.
+        if (this.submittedValue) {
+            return;
+        }
+
+        this.noteTarget.textContent =
+            this.serialize() === this.initial
+                ? this.cleanValue
+                : this.dirtyValue;
     }
 
     serialize() {
