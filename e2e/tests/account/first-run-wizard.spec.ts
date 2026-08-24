@@ -27,7 +27,18 @@ test.describe('first-run wizard', () => {
 
         await expect(page).toHaveURL(/\/welcome\/connect$/);
         await expect(page.locator('ol[data-wizard-step="2"]')).toBeVisible();
-        await expect(page.getByText('claude mcp add')).toBeVisible();
+        // The three ways to connect start collapsed, so the command is in the DOM
+        // but out of the accessibility tree until its disclosure is opened.
+        await expect(page.locator('details.lp-install')).toHaveCount(3);
+        const byHandCommand = page.getByText('claude mcp add --transport');
+        await expect(byHandCommand).toBeHidden();
+        await page.getByText('Claude Code, by hand').click();
+        await expect(byHandCommand).toBeVisible();
+
+        // The skills are named outside the plugin card, so a hand-wired install
+        // still meets them.
+        await expect(page.getByText('loupe-site-review')).toBeVisible();
+
         await expect(
             page.getByRole('button', { name: 'Skip setup' }),
         ).toBeVisible();

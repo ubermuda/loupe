@@ -2373,22 +2373,81 @@
     .lp-tools-disclosure[open] .lp-tools-disclosure__caret {
         @apply rotate-90;
     }
-    /* .lp-skills is the same hairline mono-name list, kept a separate name
-       because a skill is not an MCP tool — a test asserts .lp-tools__name
-       matches the server's tool registry exactly. */
-    .lp-tools,
-    .lp-skills {
+    .lp-tools {
         @apply flex flex-col mt-2;
     }
-    .lp-tools__row,
-    .lp-skills__row {
+    .lp-tools__row {
         @apply flex items-start gap-4 border-t border-line py-3 px-0.5;
     }
-    .lp-tools__name,
-    .lp-skills__name {
+    .lp-tools__name {
         @apply font-mono font-semibold text-ink shrink-0 w-65 text-xs;
     }
-    .lp-tools__desc,
+    .lp-tools__desc {
+        @apply text-fg-mute m-0 text-sm leading-normal;
+    }
+
+    /* Three ways to wire the endpoint up, each behind its own disclosure, so the
+       step opens as a list of choices instead of three stacked code blocks. */
+    .lp-install-list {
+        @apply flex flex-col gap-2;
+    }
+    .lp-install {
+        @apply rounded-xl bg-app overflow-hidden;
+    }
+    .lp-install__summary {
+        @apply flex items-center gap-3 cursor-pointer py-3.5 px-4 transition-colors hover:bg-surface-3;
+        list-style: none;
+    }
+    .lp-install__summary::-webkit-details-marker {
+        display: none;
+    }
+    .lp-install__glyph {
+        @apply shrink-0 text-fg-mute;
+    }
+    .lp-install__text {
+        @apply flex flex-col gap-0.5 mr-auto min-w-0;
+    }
+    .lp-install__title {
+        @apply text-sm font-semibold text-ink;
+    }
+    .lp-install__sub {
+        @apply text-xs text-fg-mute;
+    }
+    .lp-install__caret {
+        @apply w-4 h-4 shrink-0 text-fg-mute transition-transform duration-100;
+    }
+    .lp-install[open] .lp-install__caret {
+        @apply rotate-90;
+    }
+    .lp-install__body {
+        @apply flex flex-col gap-2.5 px-4 pb-4;
+    }
+
+    /* The skills are what make the endpoint worth having, and only the plugin
+       installs them — so they get an accent panel rather than a fourth quiet
+       block a reader scrolls past. .lp-skills is deliberately not .lp-tools: a
+       test asserts every .lp-tools__name matches the server's tool registry. */
+    .lp-skills-panel {
+        @apply flex flex-col gap-2.5 rounded-xl bg-accent-faint-2 border border-accent-border py-4 px-4.5;
+    }
+    .lp-skills-panel__header {
+        @apply flex items-center gap-2.5;
+    }
+    .lp-skills-panel__icon {
+        @apply shrink-0 text-accent-ink;
+    }
+    .lp-skills-panel__title {
+        @apply font-display font-bold text-ink m-0 text-base;
+    }
+    .lp-skills {
+        @apply flex flex-col;
+    }
+    .lp-skills__row {
+        @apply flex items-start gap-4 border-t border-accent-border py-3 px-0.5;
+    }
+    .lp-skills__name {
+        @apply font-mono font-semibold text-accent-ink shrink-0 w-65 text-xs;
+    }
     .lp-skills__desc {
         @apply text-fg-mute m-0 text-sm leading-normal;
     }

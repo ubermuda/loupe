@@ -189,6 +189,15 @@ final class ConnectAgentControllerTest extends WebTestCase
         // here, so its snippet is not among them.
         self::assertCount(3, $crawler->filter('.lp-code-dark'));
 
+        // Each sits behind its own disclosure, and every one of them starts shut:
+        // the step opens as a list of choices, not three stacked code blocks.
+        self::assertCount(3, $crawler->filter('details.lp-install'));
+        self::assertCount(0, $crawler->filter('details.lp-install[open]'));
+
+        // Only the plugin brings the skills, so they are named outside it — a
+        // reader who takes either hand-wired route still meets them.
+        self::assertCount(2, $crawler->filter('.lp-skills__name'));
+
         // The tool list renders here; which tools belong on it is asserted once,
         // against the server's registry, in the parity test above. Restating the
         // names in a second place is what let them go stale to begin with.

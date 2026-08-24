@@ -1710,28 +1710,40 @@
                 <source>project.connect.token.regenerate</source>
                 <target>Regenerate</target>
             </trans-unit>
-            <trans-unit id="project.connect.mcp_json.eyebrow">
-                <source>project.connect.mcp_json.eyebrow</source>
-                <target>Or configure any other MCP client</target>
+            <trans-unit id="project.connect.mcp_json.heading">
+                <source>project.connect.mcp_json.heading</source>
+                <target>Any other MCP client</target>
+            </trans-unit>
+            <trans-unit id="project.connect.mcp_json.sub">
+                <source>project.connect.mcp_json.sub</source>
+                <target>Paste the JSON into your client's config.</target>
             </trans-unit>
             <trans-unit id="project.connect.mcp_json.label">
                 <source>project.connect.mcp_json.label</source>
                 <target>.mcp.json</target>
             </trans-unit>
-            <trans-unit id="project.connect.plugin.eyebrow">
-                <source>project.connect.plugin.eyebrow</source>
-                <target>Claude Code plugin — the quickest way</target>
+            <trans-unit id="project.connect.methods.eyebrow">
+                <source>project.connect.methods.eyebrow</source>
+                <target>Pick how you connect</target>
             </trans-unit>
-            <trans-unit id="project.connect.plugin.hint">
-                <source>project.connect.plugin.hint</source>
-                <target>One install wires up the endpoint and teaches the agent how to use it.</target>
+            <trans-unit id="project.connect.methods.recommended">
+                <source>project.connect.methods.recommended</source>
+                <target>Recommended</target>
+            </trans-unit>
+            <trans-unit id="project.connect.plugin.heading">
+                <source>project.connect.plugin.heading</source>
+                <target>Claude Code plugin</target>
+            </trans-unit>
+            <trans-unit id="project.connect.plugin.sub">
+                <source>project.connect.plugin.sub</source>
+                <target>One command. Brings the skills below with it.</target>
             </trans-unit>
             <trans-unit id="project.connect.plugin.label">
                 <source>project.connect.plugin.label</source>
                 <target>claude · terminal</target>
             </trans-unit>
-            <trans-unit id="project.connect.skills.eyebrow">
-                <source>project.connect.skills.eyebrow</source>
+            <trans-unit id="project.connect.skills.heading">
+                <source>project.connect.skills.heading</source>
                 <target>Don't skip the two agent skills</target>
             </trans-unit>
             <trans-unit id="project.connect.skills.hint">
@@ -1750,9 +1762,13 @@
                 <source>project.connect.skills.manual</source>
                 <target>The plugin above installs both. If you wired the server up by hand, copy plugins/loupe/skills/ from the Loupe repository into your project's .claude/skills/.</target>
             </trans-unit>
-            <trans-unit id="project.connect.cli.eyebrow">
-                <source>project.connect.cli.eyebrow</source>
-                <target>Or add the server by hand</target>
+            <trans-unit id="project.connect.cli.heading">
+                <source>project.connect.cli.heading</source>
+                <target>Claude Code, by hand</target>
+            </trans-unit>
+            <trans-unit id="project.connect.cli.sub">
+                <source>project.connect.cli.sub</source>
+                <target>One claude mcp add line. You add the skills yourself.</target>
             </trans-unit>
             <trans-unit id="project.connect.cli.label">
                 <source>project.connect.cli.label</source>
