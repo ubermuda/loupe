@@ -3535,21 +3535,6 @@ both rules from `app.css`.
 Landed 2026-08-22 in PR #241 (admin user page redesign), in response to a
 site-review comment asking for a fixed admin menu.
 
-## Repoint the feature-flags bundle pin off its feature branch
-
-**Author:** Claude · **Type:** tooling · **Priority:** medium · **Status:** pending
-
-`composer.json` pins `ubermuda/feature-flags-bundle` to
-`dev-feat/admin-form-theme#6ba24cf6e557879b7e554ffaa07c2ab5d8b09aa6 as dev-main`,
-landed by PR #247 so the admin feature-flag create/edit forms render styled.
-The `as dev-main` alias is load-bearing while the pin points at a branch —
-sibling `ubermuda/*` packages require `dev-main@dev`.
-
-Once ubermuda/feature-flags-bundle#6 merges, repoint to plain
-`dev-main#<merge-sha>` and drop the alias. Nothing breaks if this is left
-alone; the cost is that the app tracks a branch that no longer receives the
-bundle's later work.
-
 ## Transactional jobs run inline in e2e under `X-Playwright`
 
 **Author:** Geoffrey · **Type:** tooling · **Priority:** low · **Status:** pending
