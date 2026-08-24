@@ -2443,10 +2443,10 @@
         @apply flex flex-col;
     }
     .lp-skills__row {
-        @apply flex items-start gap-4 border-t border-accent-border py-3 px-0.5;
+        @apply flex flex-col gap-1 border-t border-accent-border py-3 px-0.5 sm:flex-row sm:items-start sm:gap-4;
     }
     .lp-skills__name {
-        @apply font-mono font-semibold text-accent-ink shrink-0 w-65 text-xs;
+        @apply font-mono font-semibold text-accent-ink text-xs sm:shrink-0 sm:w-65;
     }
     .lp-skills__desc {
         @apply text-fg-mute m-0 text-sm leading-normal;
