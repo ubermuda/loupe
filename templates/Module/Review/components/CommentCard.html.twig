@@ -1,0 +1,67 @@
+{#
+  Props:  @comment-budget-ignore
+    domId, author, status, kind, quote, prefix, suffix, replacement, body,
+    orphaned, replies — see CommentCardComponent for what each carries.
+
+  The card's markup and every class on it live here so the review margin and the
+  landing page's try-it prototype cannot drift apart. Anything route-bound —
+  reply, resolve, delete — is passed in through the content block instead.
+#}
+<div
+    {% if this.domId != '' %}id="comment-thread-{{ this.domId }}"{% endif %}
+    class="lp-comment-thread{% if this.status == 'resolved' %} lp-comment-thread--resolved{% endif %}{% if this.orphaned %} lp-comment-thread--orphaned{% endif %}{% if this.isGeneral %} lp-comment-thread--general{% endif %}"
+    data-comment-anchor-target="thread"
+    data-anchor-quote="{{ this.quote }}"
+    data-anchor-prefix="{{ this.prefix }}"
+    data-anchor-suffix="{{ this.suffix }}"
+    data-anchor-status="{{ this.status }}"
+    data-anchor-kind="{{ this.kind }}"
+    {% if this.isGeneral %}data-comment-general="true"{% endif %}
+    data-action="mouseenter->comment-anchor#focusThread mouseleave->comment-anchor#blurThread"
+>
+    <div class="lp-comment-thread__header">
+        {# The design puts the comment's age beside the author. Comment carries no
+           timestamp column, so there is nothing to render — see docs/NEXT_STEPS.md. #}
+        <span class="lp-comment-author">{{ this.author }}</span>
+        <span class="lp-comment-status lp-comment-status--{{ this.statusLabel }}">{{ ('review.document.status.' ~ this.statusLabel)|trans }}</span>
+    </div>
+
+    {# The quoted passage is gone from this version, so there is no highlight in
+       the document to look for and the card has to say so itself. #}
+    {% if this.orphaned %}
+    <span class="lp-comment-orphan-pill">{{ 'review.document.comment.orphaned'|trans }}</span>
+    {% endif %}
+
+    {# A strike shows the doomed passage struck through; a rewording shows it
+       above what should replace it. Neither is markup from the document — these
+       are tags this template emits around escaped text. #}
+    {% if this.kind in ['suggestion', 'strike'] %}
+    <blockquote class="lp-comment-quote lp-comment-quote--struck"><del>{{ this.quote }}</del></blockquote>
+        {% if this.kind != 'strike' %}
+        <blockquote class="lp-comment-quote lp-comment-quote--inserted"><ins>{{ this.replacement }}</ins></blockquote>
+        {% endif %}
+    {% elseif this.quote != '' %}
+    <blockquote class="lp-comment-quote">{{ this.quote }}</blockquote>
+    {% endif %}
+
+    {# A strike carries no rationale — nothing was typed — so the body element is
+       omitted rather than rendered empty. #}
+    {% if this.body is not empty %}
+    <div class="lp-comment-body">{{ this.body }}</div>
+    {% endif %}
+
+    {% if this.replies|length > 0 %}
+    <div class="lp-comment-replies">
+        {% for reply in this.replies %}
+        <div class="lp-comment--reply">
+            <div class="lp-comment-reply__head">
+                <span class="lp-comment-author">{{ reply.author }}</span>
+            </div>
+            <div class="lp-comment-body">{{ reply.body }}</div>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    {% block content %}{% endblock %}
+</div>
