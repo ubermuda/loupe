@@ -3395,11 +3395,11 @@
             </trans-unit>
             <trans-unit id="landing.demo.select_hint_lead">
                 <source>landing.demo.select_hint_lead</source>
-                <target>Go on, pick a fight with this paragraph.</target>
+                <target>Go on, pick a fight with this page.</target>
             </trans-unit>
             <trans-unit id="landing.demo.select_hint">
                 <source>landing.demo.select_hint</source>
-                <target>The whole page is a live review. Highlight anything. Nothing is saved and nobody's feelings are involved.</target>
+                <target>Every line of it is a live review — headline, footer, this very sentence. Nothing is saved and nobody's feelings are involved.</target>
             </trans-unit>
             <trans-unit id="landing.demo.widget_hint_lead">
                 <source>landing.demo.widget_hint_lead</source>
