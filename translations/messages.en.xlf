@@ -1730,9 +1730,25 @@
                 <source>project.connect.plugin.label</source>
                 <target>claude · terminal</target>
             </trans-unit>
-            <trans-unit id="project.connect.plugin.skills">
-                <source>project.connect.plugin.skills</source>
-                <target>It ships two skills: loupe-documents formats a document for the review UI, and loupe-site-review works the comment loop.</target>
+            <trans-unit id="project.connect.skills.eyebrow">
+                <source>project.connect.skills.eyebrow</source>
+                <target>Don't skip the two agent skills</target>
+            </trans-unit>
+            <trans-unit id="project.connect.skills.hint">
+                <source>project.connect.skills.hint</source>
+                <target>The endpoint gives an agent the tools; these teach it how to use them well. Without them you get documents formatted for a terminal and site-review comments answered in the wrong file.</target>
+            </trans-unit>
+            <trans-unit id="project.connect.skills.documents">
+                <source>project.connect.skills.documents</source>
+                <target>Formats a document for how reviewers actually read it — passage by passage, in the review UI.</target>
+            </trans-unit>
+            <trans-unit id="project.connect.skills.site_review">
+                <source>project.connect.skills.site_review</source>
+                <target>Works the comment loop: read what a reviewer pointed at on the page, fix it, mark it addressed.</target>
+            </trans-unit>
+            <trans-unit id="project.connect.skills.manual">
+                <source>project.connect.skills.manual</source>
+                <target>The plugin above installs both. If you wired the server up by hand, copy plugins/loupe/skills/ from the Loupe repository into your project's .claude/skills/.</target>
             </trans-unit>
             <trans-unit id="project.connect.cli.eyebrow">
                 <source>project.connect.cli.eyebrow</source>

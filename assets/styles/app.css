@@ -2373,16 +2373,23 @@
     .lp-tools-disclosure[open] .lp-tools-disclosure__caret {
         @apply rotate-90;
     }
-    .lp-tools {
+    /* .lp-skills is the same hairline mono-name list, kept a separate name
+       because a skill is not an MCP tool — a test asserts .lp-tools__name
+       matches the server's tool registry exactly. */
+    .lp-tools,
+    .lp-skills {
         @apply flex flex-col mt-2;
     }
-    .lp-tools__row {
+    .lp-tools__row,
+    .lp-skills__row {
         @apply flex items-start gap-4 border-t border-line py-3 px-0.5;
     }
-    .lp-tools__name {
+    .lp-tools__name,
+    .lp-skills__name {
         @apply font-mono font-semibold text-ink shrink-0 w-65 text-xs;
     }
-    .lp-tools__desc {
+    .lp-tools__desc,
+    .lp-skills__desc {
         @apply text-fg-mute m-0 text-sm leading-normal;
     }
 

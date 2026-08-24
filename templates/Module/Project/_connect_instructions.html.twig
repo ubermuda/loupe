@@ -1,8 +1,7 @@
-{#- MCP connect instructions: the endpoint URL, the Claude Code plugin, and the
-    `claude mcp add` CLI one-liner. Shared by the full connect page and the
-    first-run wizard's connect step. Props: mcpServerName (string),
-    mintedMcpToken (string|null — raw token to embed once, placeholder
-    otherwise). -#}
+{#- MCP connect instructions: the endpoint, the three ways to wire it up, and the
+    two agent skills. Shared by the full connect page and the first-run wizard's
+    connect step. Props: mcpServerName (string), mintedMcpToken (string|null —
+    raw token to embed once, placeholder otherwise). -#}
 {%- set mcpUrl = url('_mcp_endpoint') -%}
 {%- set mcpTokenValue = mintedMcpToken ?: 'YOUR_TOKEN' -%}
 {%- set claudeCommand = 'claude mcp add --transport http ' ~ mcpServerName ~ ' ' ~ mcpUrl ~ ' --header "Authorization: Bearer ' ~ mcpTokenValue ~ '"' -%}
@@ -11,6 +10,23 @@
     'claude plugin install loupe@loupe \\',
     '  --config server_url=' ~ mcpUrl ~ ' \\',
     '  --config api_token=' ~ mcpTokenValue
+]|join("\n") -%}
+{%- set skills = {
+    'loupe-documents': 'project.connect.skills.documents',
+    'loupe-site-review': 'project.connect.skills.site_review',
+} -%}
+{%- set mcpJson = [
+    "{",
+    "  \"mcpServers\": {",
+    "    \"" ~ mcpServerName ~ "\": {",
+    "      \"type\": \"http\",",
+    "      \"url\": \"" ~ mcpUrl ~ "\",",
+    "      \"headers\": {",
+    "        \"Authorization\": \"Bearer " ~ mcpTokenValue ~ "\"",
+    "      }",
+    "    }",
+    "  }",
+    "}"
 ]|join("\n") -%}
 
 {# ── MCP endpoint (global; project inferred from the bearer token) ── #}
@@ -36,7 +52,6 @@
         </div>
         <pre class="lp-code-dark__body"><code>{{ pluginCommand }}</code></pre>
     </div>
-    <p class="lp-connect-hint">{{ 'project.connect.plugin.skills'|trans }}</p>
 </div>
 
 {# ── claude mcp add — CLI one-liner, for clients without the plugin ── #}
@@ -50,4 +65,34 @@
         </div>
         <pre class="lp-code-dark__body"><code>{{ claudeCommand }}</code></pre>
     </div>
+</div>
+
+{# ── .mcp.json — for any MCP client that is not Claude Code ── #}
+<div class="lp-connect-block">
+    <p class="lp-eyebrow">{{ 'project.connect.mcp_json.eyebrow'|trans }}</p>
+    <div class="lp-code-dark" data-controller="clipboard" data-clipboard-text-value="{{ mcpJson }}"
+         data-clipboard-copied-label-value="{{ 'project.connect.copied'|trans }}">
+        <div class="lp-code-dark__header">
+            <span class="lp-code-dark__label">{{ 'project.connect.mcp_json.label'|trans }}</span>
+            <button type="button" class="lp-code-dark__copy" data-clipboard-target="button" data-action="clipboard#copy">{{ 'project.connect.copy'|trans }}</button>
+        </div>
+        <pre class="lp-code-dark__body"><code>{{ mcpJson }}</code></pre>
+    </div>
+</div>
+
+{#- Sits after every install path on purpose: the plugin ships the skills, so a
+    reader who took either hand-wired route would otherwise never learn they
+    exist. -#}
+<div class="lp-connect-block">
+    <p class="lp-eyebrow">{{ 'project.connect.skills.eyebrow'|trans }}</p>
+    <p class="lp-connect-hint">{{ 'project.connect.skills.hint'|trans }}</p>
+    <div class="lp-skills">
+        {% for name, descriptionKey in skills %}
+        <div class="lp-skills__row">
+            <code class="lp-skills__name">{{ name }}</code>
+            <p class="lp-skills__desc">{{ descriptionKey|trans }}</p>
+        </div>
+        {% endfor %}
+    </div>
+    <p class="lp-connect-hint">{{ 'project.connect.skills.manual'|trans }}</p>
 </div>
