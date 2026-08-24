@@ -1295,13 +1295,7 @@
       state.editId = null;
       state.draft = '';
       textareaNode.value = '';
-      flashSaved(
-        DEMO
-          ? 'Saved in this page only — nothing left your browser'
-          : editing
-            ? 'Comment updated — your agent sees the new text'
-            : 'Comment saved — your agent can see it now',
-      );
+      flashSaved(editing ? 'Comment updated' : 'Comment saved');
     } catch (error) {
       // A rejected token is fatal; anything else keeps the composer open with the text
       // intact so nothing is lost. A 404 means the agent addressed it mid-edit, so the
