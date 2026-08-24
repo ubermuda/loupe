@@ -3399,15 +3399,15 @@
             </trans-unit>
             <trans-unit id="landing.demo.select_hint">
                 <source>landing.demo.select_hint</source>
-                <target>Every line of it is a live review — headline, footer, this very sentence. Nothing is saved and nobody's feelings are involved.</target>
+                <target>Select any piece of text and leave a comment — the headline, the footer, this very sentence, all fair game. Nothing is saved and nobody's feelings are involved.</target>
             </trans-unit>
             <trans-unit id="landing.demo.widget_hint_lead">
                 <source>landing.demo.widget_hint_lead</source>
-                <target>This widget is live too.</target>
+                <target>This widget is a demo.</target>
             </trans-unit>
             <trans-unit id="landing.demo.widget_hint">
                 <source>landing.demo.widget_hint</source>
-                <target>Go on — point it at anything on the page.</target>
+                <target>Point it at anything on the page.</target>
             </trans-unit>
             <trans-unit id="landing.try.title">
                 <source>landing.try.title</source>
