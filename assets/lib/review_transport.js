@@ -1,11 +1,7 @@
 /*
- * Where a comment goes once the reviewer has written it.
- *
- * The review screen posts it and lets the server return a Turbo Stream that
- * inserts the card. The landing page's try-it demo has no backend and no
- * account, so it builds the card itself from a prototype the server rendered
- * into a <template>. Both speak the same three verbs, which is what lets one
- * controller drive both.
+ * Where a comment goes once it is written: the review screen posts it, the
+ * landing page's demo builds the card itself. Same verbs, so one controller
+ * drives both.
  */
 
 /** Posts through the Symfony forms already on the review screen. */
@@ -36,13 +32,9 @@ export class ServerTransport {
 }
 
 /**
- * Builds the card in the page and keeps nothing. Reload and the marks are gone —
- * which is the point: the demo has to be able to say honestly that none of it
- * was saved.
- *
- * The markup comes from a prototype per kind, rendered by CommentCard so the
- * demo card is the review screen's card rather than a copy of it. Filling is
- * therefore text and attributes only; no markup is assembled here.
+ * Builds the card in the page and keeps nothing; a reload clears it. The markup
+ * comes from a CommentCard prototype per kind, so filling is text and
+ * attributes only — no markup is assembled here.
  */
 export class DemoTransport {
     constructor(controller) {

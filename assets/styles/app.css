@@ -2809,30 +2809,25 @@
         @apply m-0 text-xs text-chrome-dim;
     }
 
-    /* ── Hero app still ─────────────────────────────────────────────────
-       At real app dimensions, so it fits only by transform. The resting 0.72 is
-       what containers over 907px resolve to; landing_mock_controller corrects
-       narrower ones and owns the wrapper height, which nothing else can set
-       while the frame is out of flow. Hidden below sm:, where fit nears 0.25. */
     /* ── Landing try-it demo ────────────────────────────────────────────
-       The demo drives the review screen's comment-anchor controller over this
-       page, so the frame exists only to be the offset parent its toolbar,
-       composers and card margin are positioned against. */
+       Offset parent for the toolbar, composers and card margin. */
     .lp-demo-frame {
         @apply relative;
     }
-    /* 1024px of copy leaves no gutter wide enough for a card on a 1440px
-       screen, so the column overlaps the content and must not take the clicks
-       that selecting text needs. The cards take their own back. Hidden below
-       xl, where there is no gutter at all — see DEMO_MIN_WIDTH. */
+    /* Overlaps the copy at 1440px, so it must not take the clicks selection
+       needs; cards take their own back. Gone below xl — see DEMO_MIN_WIDTH. */
     .lp-demo-margin {
         @apply hidden xl:block absolute top-0 right-0 w-74 pointer-events-none;
     }
     .lp-demo-margin .lp-comment-thread {
         @apply pointer-events-auto shadow-card;
     }
-    /* A decorative screenshot at app scale: a selection inside it would anchor
-       to text no reader sees as prose. */
+
+    /* ── Hero app still ─────────────────────────────────────────────────
+       At real app dimensions, so it fits only by transform. The resting 0.72 is
+       what containers over 907px resolve to; landing_mock_controller corrects
+       narrower ones and owns the wrapper height. Hidden below sm:, where fit
+       nears 0.25; unselectable, so the demo cannot anchor into it. */
     .lp-landing-mock {
         @apply relative hidden sm:block max-w-6xl mx-auto mt-16 h-115 overflow-hidden select-none;
     }
