@@ -49,7 +49,10 @@
             <p class="lp-landing-hero__note">{{ 'landing.hero.note'|trans }}</p>
             <p class="lp-demo-hint">
                 <twig:ux:icon name="lucide:message-square-plus" class="lp-demo-hint__icon" />
-                {{ 'landing.demo.select_hint'|trans }}
+                <span>
+                    <span class="lp-demo-hint__lead">{{ 'landing.demo.select_hint_lead'|trans }}</span>
+                    {{ 'landing.demo.select_hint'|trans }}
+                </span>
             </p>
         </div>
 

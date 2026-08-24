@@ -2890,11 +2890,16 @@
     }
     /* Names the demo before a visitor stumbles into it. Gone with the margin:
        inviting a selection at a width that declines it is a lie. */
+    /* An invitation, not a footnote: the page itself is the demo, and the muted
+       pill this used to be went unread. Sized to match the widget call-out. */
     .lp-demo-hint {
-        @apply hidden xl:inline-flex items-center gap-2 m-0 mt-1 rounded-full border border-line bg-elev py-1.5 px-3 text-xs text-fg-mute shadow-card;
+        @apply hidden xl:flex items-start gap-2.5 m-0 mt-2 max-w-md rounded-xl bg-accent py-3 px-4 text-left text-sm text-ink shadow-toolbar;
+    }
+    .lp-demo-hint__lead {
+        @apply block text-base font-bold leading-snug;
     }
     .lp-demo-hint__icon {
-        @apply w-3.5 h-3.5 shrink-0 text-accent;
+        @apply w-5 h-5 shrink-0 mt-0.5 text-ink;
     }
     /* A speech bubble for the site-review widget's launcher: it sits in the slot
        the widget's own panel opens into, so the panel covers it while open. */
