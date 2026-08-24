@@ -2830,13 +2830,19 @@
     .lp-demo-hint__icon {
         @apply w-3.5 h-3.5 shrink-0 text-accent;
     }
-    /* Points at the site-review widget's launcher, so it sits in the slot the
-       widget's own panel opens into and is covered while that panel is open. */
+    /* A speech bubble for the site-review widget's launcher: it sits in the slot
+       the widget's own panel opens into, so the panel covers it while open. */
     .lp-demo-widget-hint {
-        @apply fixed right-5 bottom-20 z-40 m-0 flex items-center gap-2 max-w-2xs rounded-xl border border-chrome-line bg-chrome py-2 px-3 text-xs font-medium text-white shadow-toolbar pointer-events-none;
+        @apply fixed right-5 bottom-20 z-40 m-0 flex flex-col gap-0.5 max-w-2xs rounded-xl bg-accent py-2.5 px-3.5 text-xs text-ink shadow-toolbar pointer-events-none;
+        animation: lp-demo-nudge 2800ms ease-in-out infinite;
     }
-    .lp-demo-widget-hint__arrow {
-        @apply w-3.5 h-3.5 shrink-0 text-chrome-mute;
+    /* The tail, aimed at the launcher below. */
+    .lp-demo-widget-hint::after {
+        content: '';
+        @apply absolute top-full right-8 w-0 h-0 border-x-8 border-t-8 border-x-transparent border-t-accent;
+    }
+    .lp-demo-widget-hint__lead {
+        @apply text-sm font-bold leading-snug;
     }
     /* Gone with the margin: a toolbar whose actions have nowhere to land is
        worse than no toolbar. */
@@ -3272,7 +3278,8 @@
 }
 
 /* The only entry motion in the app: flash, toolbar, composer, switcher panel,
-   metadata panels, modal. Nothing else animates, and nothing ever slides. */
+   metadata panels, modal. Nothing else animates, and nothing ever slides —
+   except the landing page's widget call-out, which has to catch an eye. */
 @keyframes lp-appear {
     from {
         opacity: 0;
@@ -3284,9 +3291,23 @@
     }
 }
 
+@keyframes lp-demo-nudge {
+    0%,
+    100% {
+        transform: translateY(0);
+    }
+    50% {
+        transform: translateY(-3px);
+    }
+}
+
 @media (prefers-reduced-motion: reduce) {
     html:has(.lp-landing) {
         scroll-behavior: auto;
+    }
+
+    .lp-demo-widget-hint {
+        animation: none;
     }
 
     @keyframes lp-appear {
