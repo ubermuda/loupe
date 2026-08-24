@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "05d4142fd4787c96209661133de73900",
+    "content-hash": "a58e4f017424d4f6b526470ef3ec7798",
     "packages": [
         {
             "name": "async-aws/core",
@@ -12137,16 +12137,16 @@
         },
         {
             "name": "ubermuda/feature-flags-bundle",
-            "version": "dev-main",
+            "version": "dev-feat/admin-form-theme",
             "source": {
                 "type": "git",
                 "url": "https://github.com/ubermuda/feature-flags-bundle.git",
-                "reference": "607843ada7c8aad3bd04b2d58fb0b87b91b7d2d1"
+                "reference": "6ba24cf6e557879b7e554ffaa07c2ab5d8b09aa6"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/ubermuda/feature-flags-bundle/zipball/607843ada7c8aad3bd04b2d58fb0b87b91b7d2d1",
-                "reference": "607843ada7c8aad3bd04b2d58fb0b87b91b7d2d1",
+                "url": "https://api.github.com/repos/ubermuda/feature-flags-bundle/zipball/6ba24cf6e557879b7e554ffaa07c2ab5d8b09aa6",
+                "reference": "6ba24cf6e557879b7e554ffaa07c2ab5d8b09aa6",
                 "shasum": ""
             },
             "require": {
@@ -12169,7 +12169,6 @@
                 "phpunit/phpunit": "^11.5",
                 "symfony/phpunit-bridge": "^7.2|^8.0"
             },
-            "default-branch": true,
             "type": "symfony-bundle",
             "autoload": {
                 "psr-4": {
@@ -12186,10 +12185,10 @@
             ],
             "description": "Database-backed feature flags for Symfony, with an admin UI built on ubermuda/admin-bundle.",
             "support": {
-                "source": "https://github.com/ubermuda/feature-flags-bundle/tree/main",
+                "source": "https://github.com/ubermuda/feature-flags-bundle/tree/feat/admin-form-theme",
                 "issues": "https://github.com/ubermuda/feature-flags-bundle/issues"
             },
-            "time": "2026-08-06T21:18:17+00:00"
+            "time": "2026-08-24T20:53:24+00:00"
         },
         {
             "name": "ubermuda/symfony-extra",
@@ -16269,7 +16268,14 @@
             "time": "2026-06-29T15:22:14+00:00"
         }
     ],
-    "aliases": [],
+    "aliases": [
+        {
+            "package": "ubermuda/feature-flags-bundle",
+            "version": "dev-feat/admin-form-theme",
+            "alias": "dev-main",
+            "alias_normalized": "dev-main"
+        }
+    ],
     "minimum-stability": "dev",
     "stability-flags": {
         "ubermuda/admin-bundle": 20,
