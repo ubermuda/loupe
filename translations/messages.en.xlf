@@ -3393,9 +3393,13 @@
                 <source>landing.demo.author</source>
                 <target>You</target>
             </trans-unit>
+            <trans-unit id="landing.demo.select_hint_lead">
+                <source>landing.demo.select_hint_lead</source>
+                <target>Go on, pick a fight with this page.</target>
+            </trans-unit>
             <trans-unit id="landing.demo.select_hint">
                 <source>landing.demo.select_hint</source>
-                <target>Select any text on this page — it is a live review. Nothing is saved.</target>
+                <target>Every line of it is a live review — headline, footer, this very sentence. Nothing is saved and nobody's feelings are involved.</target>
             </trans-unit>
             <trans-unit id="landing.demo.widget_hint_lead">
                 <source>landing.demo.widget_hint_lead</source>
