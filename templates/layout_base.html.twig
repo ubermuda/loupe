@@ -32,8 +32,13 @@
            extended the shell could only ever nest inside it. #}
         {% block page %}{% endblock %}
         {% include '@Analytics/_script.html.twig' only %}
+        {# A block so a page can swap what loads here. The widget guards itself
+           against a second instance, so the landing page's demo has to replace
+           this one rather than sit alongside it. #}
+        {% block site_review_widget %}
         {% if site_review_widget_token and (site_review_widget_public or is_granted('ROLE_ADMIN')) %}
         <script src="{{ site_review_widget_backend|trim('/', 'right') }}/site-review/widget.js" data-token="{{ site_review_widget_token }}"></script>
         {% endif %}
+        {% endblock %}
     </body>
 </html>

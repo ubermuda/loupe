@@ -4,6 +4,11 @@
 
 {% block meta_description %}<meta name="description" content="{{ 'landing.meta.description'|trans }}">{% endblock %}
 
+{# The visitor reviews this page with the real widget, backed by nothing. #}
+{% block site_review_widget %}
+<script src="/site-review/widget.js" data-demo></script>
+{% endblock %}
+
 {% block body_unauthenticated %}
 {# The try-it demo runs the review screen's own comment-anchor controller over
    this page, with a transport that keeps nothing. `doc` is what a visitor may

@@ -10,13 +10,37 @@
   const script = document.currentScript;
   const BACKEND = new URL(script.src).origin;
   const TOKEN = script.getAttribute('data-token') || '';
+  // The landing page runs this widget over itself with no project behind it, so
+  // a visitor can try the flow before signing up. It swaps the transport and
+  // nothing else — every behaviour below is the widget customers embed.
+  const DEMO = script.hasAttribute('data-demo');
   // Every comment is saved to the API as it is written and is live from that
   // moment — there is no send step. `comments` mirrors the project's Pending
   // comments, the ones this reviewer may still edit or delete; once the agent
   // marks one addressed it drops out. Each item: { id, body, selector, text, url }.
   let comments = [];
 
-  const api = async (method, path, body) => {
+  // Demo transport: an in-memory list that dies with the page. Same four calls,
+  // same shapes, same 404 for a row that is gone — so the widget cannot tell.
+  const demoStore = { comments: [], nextId: 1 };
+  const demoApi = async (method, path, body) => {
+    if (method === 'GET') {
+      return { comments: demoStore.comments.map((comment) => ({ ...comment })) };
+    }
+    if (method === 'POST') {
+      const commentId = `demo-${demoStore.nextId++}`;
+      demoStore.comments.push({ id: commentId, ...body });
+      return { commentId };
+    }
+    const id = path.slice(path.lastIndexOf('/') + 1);
+    const index = demoStore.comments.findIndex((comment) => comment.id === id);
+    if (index === -1) throw Object.assign(new Error('HTTP 404'), { status: 404 });
+    if (method === 'PATCH') demoStore.comments[index].body = body.body;
+    else demoStore.comments.splice(index, 1);
+    return null;
+  };
+
+  const serverApi = async (method, path, body) => {
     const response = await fetch(`${BACKEND}${path}`, {
       method,
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${TOKEN}` },
@@ -40,6 +64,8 @@
     }
     return response.status === 204 ? null : response.json();
   };
+
+  const api = DEMO ? demoApi : serverApi;
 
   // A 401/403 from ANY endpoint means the widget's token is unusable — loading, saving
   // and deleting all fail the same way — so it is not a per-action hiccup. Callers
@@ -1270,9 +1296,11 @@
       state.draft = '';
       textareaNode.value = '';
       flashSaved(
-        editing
-          ? 'Comment updated — your agent sees the new text'
-          : 'Comment saved — your agent can see it now',
+        DEMO
+          ? 'Saved in this page only — nothing left your browser'
+          : editing
+            ? 'Comment updated — your agent sees the new text'
+            : 'Comment saved — your agent can see it now',
       );
     } catch (error) {
       // A rejected token is fatal; anything else keeps the composer open with the text
