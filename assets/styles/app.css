@@ -2896,7 +2896,7 @@
     /* A comic speech balloon, tail aimed at the page it dares you to mark up.
        The muted pill this used to be went unread. */
     .lp-demo-hint {
-        @apply hidden xl:flex relative items-start gap-3 m-0 mt-2 max-w-lg -rotate-1 rounded-2xl border-4 border-accent bg-app py-3.5 px-5 text-left text-sm text-ink shadow-comic;
+        @apply hidden xl:flex absolute top-96 right-7 items-start gap-3 m-0 max-w-xs -rotate-1 rounded-2xl border-4 border-accent bg-app py-3.5 px-5 text-left text-sm text-ink shadow-comic;
     }
     /* Tail: the outline triangle, then the paper one inset over it, lifted to break
        the balloon's bottom border so the interiors join. */
@@ -2913,6 +2913,11 @@
     }
     .lp-demo-hint__icon {
         @apply w-5 h-5 shrink-0 mt-0.5 text-ink;
+    }
+    /* It shares the card column, so the first card takes the slot back. */
+    .lp-demo-frame:has(.lp-demo-margin .lp-comment-thread:not([hidden]))
+        .lp-demo-hint {
+        display: none;
     }
     /* The hero balloon's twin, for the site-review widget's launcher: it sits in
        the slot the widget's own panel opens into, so the panel covers it while

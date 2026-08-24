@@ -47,14 +47,15 @@
                 <a href="#try" class="lp-btn lp-btn--outline lp-btn--lg">{{ 'landing.cta.demo'|trans }}</a>
             </div>
             <p class="lp-landing-hero__note">{{ 'landing.hero.note'|trans }}</p>
-            <p class="lp-demo-hint">
-                <twig:ux:icon name="lucide:message-square-plus" class="lp-demo-hint__icon" />
-                <span>
-                    <span class="lp-demo-hint__lead">{{ 'landing.demo.select_hint_lead'|trans }}</span>
-                    {{ 'landing.demo.select_hint'|trans }}
-                </span>
-            </p>
         </div>
+
+        <p class="lp-demo-hint">
+            <twig:ux:icon name="lucide:message-square-plus" class="lp-demo-hint__icon" />
+            <span>
+                <span class="lp-demo-hint__lead">{{ 'landing.demo.select_hint_lead'|trans }}</span>
+                {{ 'landing.demo.select_hint'|trans }}
+            </span>
+        </p>
 
         {% include '@Landing/landing/_mock.html.twig' only %}
     </section>
