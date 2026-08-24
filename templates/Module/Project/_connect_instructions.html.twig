@@ -1,10 +1,61 @@
-{#- MCP connect instructions: the endpoint URL and the `claude mcp add` CLI
-    one-liner. Shared by the full connect page and the first-run wizard's
+{#- MCP connect instructions: the endpoint, the three ways to wire it up, and the
+    two agent skills. Shared by the full connect page and the first-run wizard's
     connect step. Props: mcpServerName (string), mintedMcpToken (string|null —
     raw token to embed once, placeholder otherwise). -#}
 {%- set mcpUrl = url('_mcp_endpoint') -%}
 {%- set mcpTokenValue = mintedMcpToken ?: 'YOUR_TOKEN' -%}
 {%- set claudeCommand = 'claude mcp add --transport http ' ~ mcpServerName ~ ' ' ~ mcpUrl ~ ' --header "Authorization: Bearer ' ~ mcpTokenValue ~ '"' -%}
+{%- set pluginCommand = [
+    'claude plugin marketplace add ubermuda/loupe',
+    'claude plugin install loupe@loupe \\',
+    '  --config server_url=' ~ mcpUrl ~ ' \\',
+    '  --config api_token=' ~ mcpTokenValue
+]|join("\n") -%}
+{%- set mcpJson = [
+    "{",
+    "  \"mcpServers\": {",
+    "    \"" ~ mcpServerName ~ "\": {",
+    "      \"type\": \"http\",",
+    "      \"url\": \"" ~ mcpUrl ~ "\",",
+    "      \"headers\": {",
+    "        \"Authorization\": \"Bearer " ~ mcpTokenValue ~ "\"",
+    "      }",
+    "    }",
+    "  }",
+    "}"
+]|join("\n") -%}
+{%- set skills = {
+    'loupe-documents': 'project.connect.skills.documents',
+    'loupe-site-review': 'project.connect.skills.site_review',
+} -%}
+{#- Keys spelled out rather than built from a prefix, so grepping for one finds
+    this line. -#}
+{%- set methods = [
+    {
+        icon: 'lucide:package',
+        heading: 'project.connect.plugin.heading',
+        sub: 'project.connect.plugin.sub',
+        label: 'project.connect.plugin.label',
+        command: pluginCommand,
+        recommended: true,
+    },
+    {
+        icon: 'lucide:code',
+        heading: 'project.connect.cli.heading',
+        sub: 'project.connect.cli.sub',
+        label: 'project.connect.cli.label',
+        command: claudeCommand,
+        recommended: false,
+    },
+    {
+        icon: 'lucide:file-text',
+        heading: 'project.connect.mcp_json.heading',
+        sub: 'project.connect.mcp_json.sub',
+        label: 'project.connect.mcp_json.label',
+        command: mcpJson,
+        recommended: false,
+    },
+] -%}
 
 {# ── MCP endpoint (global; project inferred from the bearer token) ── #}
 <div class="lp-connect-block">
@@ -17,15 +68,55 @@
     </div>
 </div>
 
-{# ── claude mcp add — CLI one-liner (Claude Code) ── #}
+{#- Collapsed by default, all three: a reader picks the one client they use, and
+    an expanded block is three-quarters of a page nobody else needs. -#}
 <div class="lp-connect-block">
-    <p class="lp-eyebrow">{{ 'project.connect.cli.eyebrow'|trans }}</p>
-    <div class="lp-code-dark" data-controller="clipboard" data-clipboard-text-value="{{ claudeCommand }}"
-         data-clipboard-copied-label-value="{{ 'project.connect.copied'|trans }}">
-        <div class="lp-code-dark__header">
-            <span class="lp-code-dark__label">{{ 'project.connect.cli.label'|trans }}</span>
-            <button type="button" class="lp-code-dark__copy" data-clipboard-target="button" data-action="clipboard#copy">{{ 'project.connect.copy'|trans }}</button>
-        </div>
-        <pre class="lp-code-dark__body"><code>{{ claudeCommand }}</code></pre>
+    <p class="lp-eyebrow">{{ 'project.connect.methods.eyebrow'|trans }}</p>
+    <div class="lp-install-list">
+        {% for method in methods %}
+        <details class="lp-install">
+            <summary class="lp-install__summary">
+                <twig:ux:icon name="{{ method.icon }}" class="lp-install__glyph w-4 h-4" />
+                <span class="lp-install__text">
+                    <span class="lp-install__title">{{ method.heading|trans }}</span>
+                    <span class="lp-install__sub">{{ method.sub|trans }}</span>
+                </span>
+                {% if method.recommended %}
+                <span class="lp-connect-tag">{{ 'project.connect.methods.recommended'|trans }}</span>
+                {% endif %}
+                <twig:ux:icon name="lucide:chevron-right" class="lp-install__caret" />
+            </summary>
+            <div class="lp-install__body">
+                <div class="lp-code-dark" data-controller="clipboard" data-clipboard-text-value="{{ method.command }}"
+                     data-clipboard-copied-label-value="{{ 'project.connect.copied'|trans }}">
+                    <div class="lp-code-dark__header">
+                        <span class="lp-code-dark__label">{{ method.label|trans }}</span>
+                        <button type="button" class="lp-code-dark__copy" data-clipboard-target="button" data-action="clipboard#copy">{{ 'project.connect.copy'|trans }}</button>
+                    </div>
+                    <pre class="lp-code-dark__body"><code>{{ method.command }}</code></pre>
+                </div>
+            </div>
+        </details>
+        {% endfor %}
     </div>
+</div>
+
+{#- Sits after every method on purpose: only the plugin ships the skills, so a
+    reader who took either hand-wired route would otherwise never learn they
+    exist. -#}
+<div class="lp-skills-panel">
+    <div class="lp-skills-panel__header">
+        <twig:ux:icon name="lucide:graduation-cap" class="lp-skills-panel__icon w-5 h-5" />
+        <h3 class="lp-skills-panel__title">{{ 'project.connect.skills.heading'|trans }}</h3>
+    </div>
+    <p class="lp-connect-hint">{{ 'project.connect.skills.hint'|trans }}</p>
+    <div class="lp-skills">
+        {% for name, descriptionKey in skills %}
+        <div class="lp-skills__row">
+            <code class="lp-skills__name">{{ name }}</code>
+            <p class="lp-skills__desc">{{ descriptionKey|trans }}</p>
+        </div>
+        {% endfor %}
+    </div>
+    <p class="lp-connect-hint">{{ 'project.connect.skills.manual'|trans }}</p>
 </div>

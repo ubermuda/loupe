@@ -94,11 +94,13 @@ If this stays deferred for long, that notice is the cheap interim step.
 
 **Author:** Claude · **Type:** docs · **Priority:** high · **Status:** pending
 
-`docs/using/mcp.md` tells users to run `claude plugin marketplace add
-ubermuda/loupe`, which cannot resolve while the repo is private. The owner chose
-on 2026-08-15 to ship the section anyway rather than hold it, on the bet that the
-visibility flip lands soon — so until then the published docs site carries an
-instruction that fails. Re-check it at the flip.
+`docs/using/mcp.md` and the Connect page
+(`templates/Module/Project/_connect_instructions.html.twig`) both tell users to
+run `claude plugin marketplace add ubermuda/loupe`, which cannot resolve while
+the repo is private. The owner chose on 2026-08-15 to ship the docs section
+anyway rather than hold it, on the bet that the visibility flip lands soon, and
+on 2026-08-24 extended the same bet to the Connect page — so until then both
+carry an instruction that fails. Re-check them at the flip.
 
 The install path itself is also unverified. Every test of the plugin went
 through a local-path marketplace (`claude plugin marketplace add ./`), which
@@ -111,11 +113,6 @@ never had the local one registered, installing, and confirming `claude mcp list`
 shows `plugin:loupe:loupe` connected. A stale local registration pointing at
 `/Users/geoffrey/Code/loupe` would make that check pass for the wrong reason —
 `claude plugin marketplace list` first.
-
-Once it passes, the Connect page (`templates/Module/Project/_connect_instructions.html.twig`)
-can offer the two plugin commands next to the existing `claude mcp add`
-one-liner. It was deliberately left untouched so it would not advertise an
-install that fails.
 
 ## `just tf-db-bootstrap` does not survive an apply on a dedicated cluster
 
@@ -3679,3 +3676,24 @@ One thing worth doing even under this decision: `terraform.tfstate.bak` is not
 managed or rotated by Terraform, so it holds whatever the secrets were on the
 day it was written, indefinitely. Deleting it costs nothing and removes the
 oldest copy.
+
+## Watch an agent work, rather than reading what it finished
+
+**Author:** Geoffrey · **Type:** idea · **Priority:** low · **Status:** pending
+
+https://doop.design/ is a multiplayer design canvas where agents join over MCP
+and their work streams onto the canvas live — they announce the task they are
+starting, others watch it happen, and feedback given mid-flight is picked up
+before the agent finishes. Noted on 2026-08-24 as a direction worth thinking
+about, not a commitment.
+
+Loupe's cycle is the opposite shape: the agent submits a finished document,
+a human reviews it, the agent revises. Nothing is visible between submit and
+submit, and a reviewer who spots the wrong premise in paragraph two still waits
+for the whole draft before saying so.
+
+The pieces for a live channel already exist and are idle — `SiteReviewEvent`,
+the outbox, `DrainOutboxHandler`, the Mercure hub and the `site_review.push`
+flag — but nothing writes an event any more (see 'The site-review push
+subsystem has no producer left'). Any work here starts by deciding what an
+agent would announce, not by building transport.
