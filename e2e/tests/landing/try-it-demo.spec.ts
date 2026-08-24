@@ -130,6 +130,19 @@ test('the page says it can be annotated, and points at the widget', async ({
     await expect(page.locator('.lp-demo-widget-hint')).toBeVisible();
 });
 
+test('the widget call-out leaves the slot its panel opens into', async ({
+    page,
+}) => {
+    const hint = page.locator('.lp-demo-widget-hint');
+    await expect(hint).toBeVisible();
+
+    await page.locator('#lp-launch-main').click();
+    await expect(hint).toBeHidden();
+
+    await page.locator('#lp-close').click();
+    await expect(hint).toBeVisible();
+});
+
 test.describe('below xl', () => {
     test.use({ viewport: { width: 1024, height: 900 } });
 

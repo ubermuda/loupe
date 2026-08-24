@@ -2844,6 +2844,10 @@
     .lp-demo-widget-hint__lead {
         @apply text-sm font-bold leading-snug;
     }
+    /* Set by the widget while its panel is open or it is picking an element. */
+    html[data-loupe-review-open] .lp-demo-widget-hint {
+        display: none;
+    }
     /* Gone with the margin: a toolbar whose actions have nowhere to land is
        worse than no toolbar. */
     .lp-demo-frame > .lp-anchor-toolbar:not([hidden]),
