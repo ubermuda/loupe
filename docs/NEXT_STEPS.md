@@ -94,11 +94,13 @@ If this stays deferred for long, that notice is the cheap interim step.
 
 **Author:** Claude · **Type:** docs · **Priority:** high · **Status:** pending
 
-`docs/using/mcp.md` tells users to run `claude plugin marketplace add
-ubermuda/loupe`, which cannot resolve while the repo is private. The owner chose
-on 2026-08-15 to ship the section anyway rather than hold it, on the bet that the
-visibility flip lands soon — so until then the published docs site carries an
-instruction that fails. Re-check it at the flip.
+`docs/using/mcp.md` and the Connect page
+(`templates/Module/Project/_connect_instructions.html.twig`) both tell users to
+run `claude plugin marketplace add ubermuda/loupe`, which cannot resolve while
+the repo is private. The owner chose on 2026-08-15 to ship the docs section
+anyway rather than hold it, on the bet that the visibility flip lands soon, and
+on 2026-08-24 extended the same bet to the Connect page — so until then both
+carry an instruction that fails. Re-check them at the flip.
 
 The install path itself is also unverified. Every test of the plugin went
 through a local-path marketplace (`claude plugin marketplace add ./`), which
@@ -111,11 +113,6 @@ never had the local one registered, installing, and confirming `claude mcp list`
 shows `plugin:loupe:loupe` connected. A stale local registration pointing at
 `/Users/geoffrey/Code/loupe` would make that check pass for the wrong reason —
 `claude plugin marketplace list` first.
-
-Once it passes, the Connect page (`templates/Module/Project/_connect_instructions.html.twig`)
-can offer the two plugin commands next to the existing `claude mcp add`
-one-liner. It was deliberately left untouched so it would not advertise an
-install that fails.
 
 ## `just tf-db-bootstrap` does not survive an apply on a dedicated cluster
 

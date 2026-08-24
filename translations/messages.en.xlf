@@ -1710,17 +1710,65 @@
                 <source>project.connect.token.regenerate</source>
                 <target>Regenerate</target>
             </trans-unit>
-            <trans-unit id="project.connect.mcp_json.eyebrow">
-                <source>project.connect.mcp_json.eyebrow</source>
-                <target>Then add this to .mcp.json</target>
+            <trans-unit id="project.connect.mcp_json.heading">
+                <source>project.connect.mcp_json.heading</source>
+                <target>Any other MCP client</target>
+            </trans-unit>
+            <trans-unit id="project.connect.mcp_json.sub">
+                <source>project.connect.mcp_json.sub</source>
+                <target>Paste the JSON into your client's config.</target>
             </trans-unit>
             <trans-unit id="project.connect.mcp_json.label">
                 <source>project.connect.mcp_json.label</source>
                 <target>.mcp.json</target>
             </trans-unit>
-            <trans-unit id="project.connect.cli.eyebrow">
-                <source>project.connect.cli.eyebrow</source>
-                <target>Install with the Claude Code CLI</target>
+            <trans-unit id="project.connect.methods.eyebrow">
+                <source>project.connect.methods.eyebrow</source>
+                <target>Pick how you connect</target>
+            </trans-unit>
+            <trans-unit id="project.connect.methods.recommended">
+                <source>project.connect.methods.recommended</source>
+                <target>Recommended</target>
+            </trans-unit>
+            <trans-unit id="project.connect.plugin.heading">
+                <source>project.connect.plugin.heading</source>
+                <target>Claude Code plugin</target>
+            </trans-unit>
+            <trans-unit id="project.connect.plugin.sub">
+                <source>project.connect.plugin.sub</source>
+                <target>One command. Brings the skills below with it.</target>
+            </trans-unit>
+            <trans-unit id="project.connect.plugin.label">
+                <source>project.connect.plugin.label</source>
+                <target>claude · terminal</target>
+            </trans-unit>
+            <trans-unit id="project.connect.skills.heading">
+                <source>project.connect.skills.heading</source>
+                <target>Don't skip the two agent skills</target>
+            </trans-unit>
+            <trans-unit id="project.connect.skills.hint">
+                <source>project.connect.skills.hint</source>
+                <target>The endpoint gives an agent the tools; these teach it how to use them well. Without them you get documents formatted for a terminal and site-review comments answered in the wrong file.</target>
+            </trans-unit>
+            <trans-unit id="project.connect.skills.documents">
+                <source>project.connect.skills.documents</source>
+                <target>Formats a document for how reviewers actually read it — passage by passage, in the review UI.</target>
+            </trans-unit>
+            <trans-unit id="project.connect.skills.site_review">
+                <source>project.connect.skills.site_review</source>
+                <target>Works the comment loop: read what a reviewer pointed at on the page, fix it, mark it addressed.</target>
+            </trans-unit>
+            <trans-unit id="project.connect.skills.manual">
+                <source>project.connect.skills.manual</source>
+                <target>The plugin above installs both. If you wired the server up by hand, copy plugins/loupe/skills/ from the Loupe repository into your project's .claude/skills/.</target>
+            </trans-unit>
+            <trans-unit id="project.connect.cli.heading">
+                <source>project.connect.cli.heading</source>
+                <target>Claude Code, by hand</target>
+            </trans-unit>
+            <trans-unit id="project.connect.cli.sub">
+                <source>project.connect.cli.sub</source>
+                <target>One claude mcp add line. You add the skills yourself.</target>
             </trans-unit>
             <trans-unit id="project.connect.cli.label">
                 <source>project.connect.cli.label</source>
