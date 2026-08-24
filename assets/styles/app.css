@@ -2817,7 +2817,7 @@
     /* Overlaps the copy at 1440px, so it must not take the clicks selection
        needs; cards take their own back. Gone below xl — see DEMO_MIN_WIDTH. */
     .lp-demo-margin {
-        @apply hidden xl:block absolute top-0 right-0 w-74 pointer-events-none;
+        @apply hidden xl:block absolute top-0 right-7 w-74 pointer-events-none;
     }
     .lp-demo-margin .lp-comment-thread {
         @apply pointer-events-auto shadow-card;
