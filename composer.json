@@ -93,7 +93,7 @@
         "twig/twig": "^2.12|^3.28",
         "ubermuda/admin-bundle": "dev-main#e1acfd023cc9f5330bb43d3ecc025c069ae4b2d7",
         "ubermuda/doctrine-extra": "dev-main#ec867f3bf1ed362c201abbe152ac27447ec37526",
-        "ubermuda/feature-flags-bundle": "dev-feat/admin-form-theme#6ba24cf6e557879b7e554ffaa07c2ab5d8b09aa6 as dev-main",
+        "ubermuda/feature-flags-bundle": "dev-main#d8934784a9545dc5ec648c68deb0b2d58757764f",
         "ubermuda/symfony-extra": "dev-main#690508f376fd9acf6a00fcab69172bd8590fe3c5"
     },
     "config": {
