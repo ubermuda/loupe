@@ -179,7 +179,23 @@ test('full review loop: comment, request changes, reload persistence', async ({
         .locator('[data-comment-anchor-target="composerBody"]')
         .fill(COMMENT_BODY);
 
-    await page.getByRole('button', { name: 'Post' }).click();
+    // Turbo disables the form's submitter for the length of the request, which
+    // is what stops a second click posting the same comment twice. It can only
+    // do that if the button reaches requestSubmit() as the submitter, so hold
+    // the POST open long enough to see it.
+    let held = false;
+    await page.route('**/comments', async (route) => {
+        // Only the first one, and never unrouted: tearing the route down while
+        // its handler is still sleeping aborts the request it is holding.
+        if (!held) {
+            held = true;
+            await new Promise((resolve) => setTimeout(resolve, 1500));
+        }
+        await route.continue();
+    });
+    const post = page.getByRole('button', { name: 'Post' });
+    await post.click();
+    await expect(post).toBeDisabled({ timeout: 1000 });
 
     // The composer is a plain form submitted through Turbo; the controller returns
     // a Turbo Stream that replaces the thread list in place (no reload). The

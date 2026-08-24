@@ -12,12 +12,12 @@ export class ServerTransport {
 
     // The anchor and body are already in the form's own fields — startComment
     // and startSuggestion put them there — so submitting is the whole job.
-    comment() {
-        this.controller.composerTarget.requestSubmit();
+    comment(anchor, body, submitter) {
+        this.controller.composerTarget.requestSubmit(submitter);
     }
 
-    suggestion() {
-        this.controller.suggestComposerTarget.requestSubmit();
+    suggestion(anchor, replacement, body, submitter) {
+        this.controller.suggestComposerTarget.requestSubmit(submitter);
     }
 
     strike(anchor) {

@@ -340,12 +340,20 @@ export default class extends Controller {
         this.#settleDemoWrite();
     }
 
-    /** Composer action: hand what was written to the transport. */
+    /**
+     * Composer action: hand what was written to the transport.
+     *
+     * The click is cancelled and re-issued through the transport so both modes
+     * take the same path. The button is still the form's submitter and is
+     * passed along as one — Turbo disables the submitter for the length of the
+     * request, and a submit without one leaves it live for a second click.
+     */
     submitComment(event) {
         event?.preventDefault();
         this.transport.comment(
             this.#composerAnchor(),
             this.composerBodyTarget.value,
+            this.#submitterOf(event),
         );
         this.#settleDemoWrite();
     }
@@ -357,8 +365,19 @@ export default class extends Controller {
             this.#composerAnchor(),
             this.suggestReplacementTarget.value,
             this.suggestBodyTarget.value,
+            this.#submitterOf(event),
         );
         this.#settleDemoWrite();
+    }
+
+    // requestSubmit() rejects anything that is not one of the form's own submit
+    // buttons, and the demo composers reach here from a keydown on a div.
+    #submitterOf(event) {
+        const candidate = event?.currentTarget;
+        return candidate instanceof HTMLButtonElement &&
+            candidate.type === 'submit'
+            ? candidate
+            : null;
     }
 
     /**
