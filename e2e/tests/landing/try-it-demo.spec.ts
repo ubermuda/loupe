@@ -123,12 +123,38 @@ test('the widget on the landing page is the one backed by nothing', async ({
     await expect(widget).toHaveAttribute('data-demo', '');
 });
 
+test('the page says it can be annotated, and points at the widget', async ({
+    page,
+}) => {
+    await expect(page.locator('.lp-demo-hint')).toBeVisible();
+    await expect(page.locator('.lp-demo-widget-hint')).toBeVisible();
+});
+
+test('the widget call-out leaves the slot its panel opens into', async ({
+    page,
+}) => {
+    const hint = page.locator('.lp-demo-widget-hint');
+    await expect(hint).toBeVisible();
+
+    await page.locator('#lp-launch-main').click();
+    await expect(hint).toBeHidden();
+
+    await page.locator('#lp-close').click();
+    await expect(hint).toBeVisible();
+});
+
 test.describe('below xl', () => {
     test.use({ viewport: { width: 1024, height: 900 } });
 
     test('the demo declines the selection', async ({ page }) => {
         await selectFirstLine(page, firstProse(page));
         await expect(page.locator(TOOLBAR)).toBeHidden();
+    });
+
+    // The widget works at every width, so only the selection call-out goes.
+    test('the call-out that invites a selection is gone', async ({ page }) => {
+        await expect(page.locator('.lp-demo-hint')).toBeHidden();
+        await expect(page.locator('.lp-demo-widget-hint')).toBeVisible();
     });
 });
 

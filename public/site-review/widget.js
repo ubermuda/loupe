@@ -983,6 +983,12 @@
     // the Review toggle) whenever the panel is open — or fatal, where they'd only launch a
     // composer the critical state immediately hides.
     launcherNode.classList.toggle('open', state.open || fatal);
+    // A host page may float its own chrome beside the launcher. Both the panel
+    // and pick mode take the space over, so say when that happens.
+    document.documentElement.toggleAttribute(
+      'data-loupe-review-open',
+      state.open || Boolean(state.target),
+    );
     // Clip the quick actions while they collapse; once expanded and idle, allow overflow
     // so their hover tooltips can escape upward (see the transitionend handler).
     if (state.open) launchQuick.style.overflow = 'hidden';

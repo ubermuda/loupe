@@ -2888,6 +2888,32 @@
     .lp-demo-margin .lp-comment-thread {
         @apply pointer-events-auto shadow-card;
     }
+    /* Names the demo before a visitor stumbles into it. Gone with the margin:
+       inviting a selection at a width that declines it is a lie. */
+    .lp-demo-hint {
+        @apply hidden xl:inline-flex items-center gap-2 m-0 mt-1 rounded-full border border-line bg-elev py-1.5 px-3 text-xs text-fg-mute shadow-card;
+    }
+    .lp-demo-hint__icon {
+        @apply w-3.5 h-3.5 shrink-0 text-accent;
+    }
+    /* A speech bubble for the site-review widget's launcher: it sits in the slot
+       the widget's own panel opens into, so the panel covers it while open. */
+    .lp-demo-widget-hint {
+        @apply fixed right-5 bottom-20 z-40 m-0 flex flex-col gap-0.5 max-w-2xs rounded-xl bg-accent py-2.5 px-3.5 text-xs text-ink shadow-toolbar pointer-events-none;
+        animation: lp-demo-nudge 2800ms ease-in-out infinite;
+    }
+    /* The tail, aimed at the launcher below. */
+    .lp-demo-widget-hint::after {
+        content: '';
+        @apply absolute top-full right-8 w-0 h-0 border-x-8 border-t-8 border-x-transparent border-t-accent;
+    }
+    .lp-demo-widget-hint__lead {
+        @apply text-sm font-bold leading-snug;
+    }
+    /* Set by the widget while its panel is open or it is picking an element. */
+    html[data-loupe-review-open] .lp-demo-widget-hint {
+        display: none;
+    }
     /* Gone with the margin: a toolbar whose actions have nowhere to land is
        worse than no toolbar. */
     .lp-demo-frame > .lp-anchor-toolbar:not([hidden]),
@@ -3322,7 +3348,8 @@
 }
 
 /* The only entry motion in the app: flash, toolbar, composer, switcher panel,
-   metadata panels, modal. Nothing else animates, and nothing ever slides. */
+   metadata panels, modal. Nothing else animates, and nothing ever slides —
+   except the landing page's widget call-out, which has to catch an eye. */
 @keyframes lp-appear {
     from {
         opacity: 0;
@@ -3334,9 +3361,23 @@
     }
 }
 
+@keyframes lp-demo-nudge {
+    0%,
+    100% {
+        transform: translateY(0);
+    }
+    50% {
+        transform: translateY(-3px);
+    }
+}
+
 @media (prefers-reduced-motion: reduce) {
     html:has(.lp-landing) {
         scroll-behavior: auto;
+    }
+
+    .lp-demo-widget-hint {
+        animation: none;
     }
 
     @keyframes lp-appear {
