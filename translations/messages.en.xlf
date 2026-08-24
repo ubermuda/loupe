@@ -3345,6 +3345,14 @@
                 <source>landing.demo.author</source>
                 <target>You</target>
             </trans-unit>
+            <trans-unit id="landing.demo.select_hint">
+                <source>landing.demo.select_hint</source>
+                <target>Select any text on this page — it is a live review. Nothing is saved.</target>
+            </trans-unit>
+            <trans-unit id="landing.demo.widget_hint">
+                <source>landing.demo.widget_hint</source>
+                <target>The widget in the corner is live too. Point it at anything.</target>
+            </trans-unit>
             <trans-unit id="landing.try.title">
                 <source>landing.try.title</source>
                 <target>Try it in one command.</target>

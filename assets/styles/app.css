@@ -2822,6 +2822,22 @@
     .lp-demo-margin .lp-comment-thread {
         @apply pointer-events-auto shadow-card;
     }
+    /* Names the demo before a visitor stumbles into it. Gone with the margin:
+       inviting a selection at a width that declines it is a lie. */
+    .lp-demo-hint {
+        @apply hidden xl:inline-flex items-center gap-2 m-0 mt-1 rounded-full border border-line bg-elev py-1.5 px-3 text-xs text-fg-mute shadow-card;
+    }
+    .lp-demo-hint__icon {
+        @apply w-3.5 h-3.5 shrink-0 text-accent;
+    }
+    /* Points at the site-review widget's launcher, so it sits in the slot the
+       widget's own panel opens into and is covered while that panel is open. */
+    .lp-demo-widget-hint {
+        @apply fixed right-5 bottom-20 z-40 m-0 flex items-center gap-2 max-w-2xs rounded-xl border border-chrome-line bg-chrome py-2 px-3 text-xs font-medium text-white shadow-toolbar pointer-events-none;
+    }
+    .lp-demo-widget-hint__arrow {
+        @apply w-3.5 h-3.5 shrink-0 text-chrome-mute;
+    }
     /* Gone with the margin: a toolbar whose actions have nowhere to land is
        worse than no toolbar. */
     .lp-demo-frame > .lp-anchor-toolbar:not([hidden]),

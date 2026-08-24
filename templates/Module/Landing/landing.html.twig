@@ -47,6 +47,10 @@
                 <a href="#try" class="lp-btn lp-btn--outline lp-btn--lg">{{ 'landing.cta.demo'|trans }}</a>
             </div>
             <p class="lp-landing-hero__note">{{ 'landing.hero.note'|trans }}</p>
+            <p class="lp-demo-hint">
+                <twig:ux:icon name="lucide:message-square-plus" class="lp-demo-hint__icon" />
+                {{ 'landing.demo.select_hint'|trans }}
+            </p>
         </div>
 
         {% include '@Landing/landing/_mock.html.twig' only %}
@@ -232,6 +236,13 @@
 <div class="lp-demo-margin" data-comment-anchor-target="margin"></div>
 {% include '@Landing/landing/_demo_layer.html.twig' only %}
 </div>
+
+{# Sits in the slot above the site-review widget's launcher, which is fixed
+   bottom-right at every width. The widget's panel opens over the same slot. #}
+<p class="lp-demo-widget-hint">
+    {{ 'landing.demo.widget_hint'|trans }}
+    <twig:ux:icon name="lucide:arrow-down" class="lp-demo-widget-hint__arrow" />
+</p>
 
 </div>
 {% endblock %}
