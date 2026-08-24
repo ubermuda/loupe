@@ -2814,8 +2814,27 @@
        what containers over 907px resolve to; landing_mock_controller corrects
        narrower ones and owns the wrapper height, which nothing else can set
        while the frame is out of flow. Hidden below sm:, where fit nears 0.25. */
+    /* ── Landing try-it demo ────────────────────────────────────────────
+       The demo drives the review screen's comment-anchor controller over this
+       page, so the frame exists only to be the offset parent its toolbar,
+       composers and card margin are positioned against. */
+    .lp-demo-frame {
+        @apply relative;
+    }
+    /* 1024px of copy leaves no gutter wide enough for a card on a 1440px
+       screen, so the column overlaps the content and must not take the clicks
+       that selecting text needs. The cards take their own back. Hidden below
+       xl, where there is no gutter at all — see DEMO_MIN_WIDTH. */
+    .lp-demo-margin {
+        @apply hidden xl:block absolute top-0 right-0 w-74 pointer-events-none;
+    }
+    .lp-demo-margin .lp-comment-thread {
+        @apply pointer-events-auto shadow-card;
+    }
+    /* A decorative screenshot at app scale: a selection inside it would anchor
+       to text no reader sees as prose. */
     .lp-landing-mock {
-        @apply relative hidden sm:block max-w-6xl mx-auto mt-16 h-115 overflow-hidden;
+        @apply relative hidden sm:block max-w-6xl mx-auto mt-16 h-115 overflow-hidden select-none;
     }
     .lp-landing-mock__frame {
         @apply absolute left-1/2 top-0 w-315 origin-top overflow-hidden rounded-t-xl border border-b-0 border-chrome-raised bg-chrome;

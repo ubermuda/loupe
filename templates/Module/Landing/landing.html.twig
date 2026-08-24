@@ -5,7 +5,14 @@
 {% block meta_description %}<meta name="description" content="{{ 'landing.meta.description'|trans }}">{% endblock %}
 
 {% block body_unauthenticated %}
-<div class="lp-landing">
+{# The try-it demo runs the review screen's own comment-anchor controller over
+   this page, with a transport that keeps nothing. `doc` is what a visitor may
+   annotate, `block` is the offset parent the toolbar and composers position
+   against, and `margin` is the overlay the cards land in. #}
+<div class="lp-landing" data-controller="comment-anchor" data-comment-anchor-demo-value="true">
+<div class="lp-demo-frame" data-comment-anchor-target="block"
+     data-action="mouseup->comment-anchor#onDocMouseup mousemove->comment-anchor#onDocMousemove">
+<div class="lp-demo-page" data-comment-anchor-target="doc">
 
     <header class="lp-landing-nav">
         <a href="#top" class="lp-landing-nav__brand">
@@ -215,6 +222,11 @@
     </section>
 
     {% include '_marketing_footer.html.twig' only %}
+
+</div>
+<div class="lp-demo-margin" data-comment-anchor-target="margin"></div>
+{% include '@Landing/landing/_demo_layer.html.twig' only %}
+</div>
 
 </div>
 {% endblock %}

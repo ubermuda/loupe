@@ -1,4 +1,5 @@
 import { Controller } from '@hotwired/stimulus';
+import { DemoTransport, ServerTransport } from '../lib/review_transport.js';
 
 /**
  * Drives the review document's commenting UX.
@@ -54,6 +55,7 @@ export default class extends Controller {
         'toolbar',
         'thread',
         'agentHighlight',
+        'prototype',
     ];
 
     // Anchor highlight names keyed by a thread's data-anchor-status. Each maps to
@@ -101,6 +103,11 @@ export default class extends Controller {
 
     static CONTEXT = 32;
 
+    // Below this the page has no gutter a card could sit in, so demo mode
+    // declines the selection rather than covering the copy it points at. The
+    // card margin is hidden at the same width.
+    static DEMO_MIN_WIDTH = 1280;
+
     // Clearance between one comment card and the next when a passage carries
     // more comments than the space beside it can hold.
     static CARD_GAP = 12;
@@ -110,7 +117,10 @@ export default class extends Controller {
     // composer to fill in.
     static STRIKE_KEY = 's';
 
-    static values = { hideResolved: Boolean };
+    // Demo mode drives the same UI with no backend behind it: the landing page's
+    // try-it section, where a visitor annotates the marketing copy and nothing is
+    // saved. It only picks the transport — every other behaviour here is shared.
+    static values = { hideResolved: Boolean, demo: Boolean };
 
     // Where the resolved-comments preference is remembered. It is a view
     // preference rather than document state, so it belongs to the reader and
@@ -118,6 +128,9 @@ export default class extends Controller {
     static HIDE_RESOLVED_KEY = 'loupe:review:hide-resolved';
 
     connect() {
+        this.transport = this.demoValue
+            ? new DemoTransport(this)
+            : new ServerTransport(this);
         this.pendingSelection = null;
         this.strikeInFlight = false;
         this.hoveredThread = null;
@@ -195,6 +208,14 @@ export default class extends Controller {
      */
     onDocMouseup(event) {
         if (!this.docTarget.contains(event.target)) {
+            return;
+        }
+        // Read at interaction time, not connect(): a rotation or a resize must
+        // change the answer.
+        if (
+            this.demoValue &&
+            window.innerWidth < this.constructor.DEMO_MIN_WIDTH
+        ) {
             return;
         }
 
@@ -285,7 +306,10 @@ export default class extends Controller {
      */
     strike(event) {
         event?.preventDefault();
-        if (this.pendingSelection === null || !this.hasStrikeFormTarget) {
+        if (this.pendingSelection === null) {
+            return;
+        }
+        if (!this.demoValue && !this.hasStrikeFormTarget) {
             return;
         }
         // Nothing clears pendingSelection until the response lands, so without this
@@ -296,15 +320,90 @@ export default class extends Controller {
         }
         this.strikeInFlight = true;
 
-        this.strikeQuoteTarget.value = this.pendingSelection.quote;
-        this.strikePrefixTarget.value = this.pendingSelection.prefix;
-        this.strikeSuffixTarget.value = this.pendingSelection.suffix;
-
         this.#hideToolbar();
         this.#hideComposer();
-        // requestSubmit(), not submit(): only the former fires the submit event
-        // Turbo listens for, so submit() would trigger a full page navigation.
-        this.strikeFormTarget.requestSubmit();
+        this.transport.strike(this.pendingSelection);
+        this.#settleDemoWrite();
+    }
+
+    /** Composer action: hand what was written to the transport. */
+    submitComment(event) {
+        event?.preventDefault();
+        this.transport.comment(
+            this.#composerAnchor(),
+            this.composerBodyTarget.value,
+        );
+        this.#settleDemoWrite();
+    }
+
+    /** Rewording composer action: same, with the proposed wording. */
+    submitSuggestion(event) {
+        event?.preventDefault();
+        this.transport.suggestion(
+            this.#composerAnchor(),
+            this.suggestReplacementTarget.value,
+            this.suggestBodyTarget.value,
+        );
+        this.#settleDemoWrite();
+    }
+
+    /**
+     * Cmd/Ctrl+Enter inside a demo composer. The review screen's composers are
+     * real forms and get this from keyboard_submit_controller; the demo's are
+     * not forms at all, so there is nothing for that controller to submit.
+     */
+    composerKeydown(event) {
+        if (event.key !== 'Enter' || !(event.metaKey || event.ctrlKey)) {
+            return;
+        }
+        event.preventDefault();
+        if (
+            this.hasSuggestComposerTarget &&
+            this.suggestComposerTarget.contains(event.target)
+        ) {
+            this.submitSuggestion(event);
+            return;
+        }
+        this.submitComment(event);
+    }
+
+    /** Demo card action: drop the card and close the gap it leaves. */
+    deleteDemoComment(event) {
+        event?.preventDefault();
+        event.currentTarget.closest('.lp-comment-thread')?.remove();
+        this.#scheduleLayout();
+    }
+
+    /** The prototype card for a kind, which demo mode clones. */
+    prototypeFor(kind) {
+        return (
+            this.prototypeTargets.find(
+                (template) => template.dataset.kind === kind,
+            ) ?? null
+        );
+    }
+
+    // A comment with no live selection is a general one, which has no anchor.
+    #composerAnchor() {
+        if (this.pendingSelection === null) {
+            return { quote: '', prefix: '', suffix: '' };
+        }
+        const { quote, prefix, suffix } = this.pendingSelection;
+        return { quote, prefix, suffix };
+    }
+
+    // The server path settles when Turbo's response lands, in onSubmitEnd. The
+    // demo has no response to wait for, so the same cleanup runs inline.
+    #settleDemoWrite() {
+        if (!this.demoValue) {
+            return;
+        }
+        this.strikeInFlight = false;
+        this.#resetComposers();
+        this.pendingSelection = null;
+        this.#clearActiveHighlight();
+        this.#hideComposer();
+        this.#scheduleLayout();
     }
 
     /**
@@ -401,6 +500,14 @@ export default class extends Controller {
             return;
         }
 
+        this.#resetComposers();
+        this.pendingSelection = null;
+        this.#clearActiveHighlight();
+        this.#hideComposer();
+        this.#scheduleLayout();
+    }
+
+    #resetComposers() {
         this.composerBodyTarget.value = '';
         if (this.hasComposerErrorTarget) {
             this.composerErrorTarget.textContent = '';
@@ -413,10 +520,6 @@ export default class extends Controller {
         if (this.hasActionErrorTarget) {
             this.actionErrorTarget.textContent = '';
         }
-        this.pendingSelection = null;
-        this.#clearActiveHighlight();
-        this.#hideComposer();
-        this.#scheduleLayout();
     }
 
     // ── Anchor extraction ───────────────────────────────────────────────────
