@@ -2893,13 +2893,13 @@
     /* An invitation, not a footnote: the page itself is the demo, and the muted
        pill this used to be went unread. Sized to match the widget call-out. */
     .lp-demo-hint {
-        @apply hidden xl:flex items-start gap-2.5 m-0 mt-2 max-w-md rounded-xl bg-accent py-3 px-4 text-left text-sm text-ink shadow-toolbar;
+        @apply hidden xl:flex items-start gap-2.5 m-0 mt-2 max-w-md rounded-xl border border-accent bg-chrome-raised py-3 px-4 text-left text-sm text-chrome-fg shadow-toolbar;
     }
     .lp-demo-hint__lead {
-        @apply block text-base font-bold leading-snug;
+        @apply block text-base font-bold leading-snug text-accent;
     }
     .lp-demo-hint__icon {
-        @apply w-5 h-5 shrink-0 mt-0.5 text-ink;
+        @apply w-5 h-5 shrink-0 mt-0.5 text-accent;
     }
     /* A speech bubble for the site-review widget's launcher: it sits in the slot
        the widget's own panel opens into, so the panel covers it while open. */
