@@ -177,7 +177,10 @@
     --color-danger: var(--status-danger);
 
     /* Shadows — the only three the design allows: selection toolbar (dark
-       floating pill), floating composer, and the active-card focus ring. */
+       floating pill), floating composer, and the active-card focus ring.
+       The fourth is the landing page's comic balloon, which is a hard offset
+       rather than a blur and belongs to nothing else. */
+    --shadow-comic: 6px 6px 0 var(--accent);
     --shadow-toolbar: 0 6px 20px rgba(15, 15, 13, 0.25);
     --shadow-composer: 0 10px 34px rgba(15, 15, 13, 0.22);
     --shadow-card: 0 8px 26px rgba(15, 15, 13, 0.18);
@@ -2890,16 +2893,26 @@
     }
     /* Names the demo before a visitor stumbles into it. Gone with the margin:
        inviting a selection at a width that declines it is a lie. */
-    /* An invitation, not a footnote: the page itself is the demo, and the muted
-       pill this used to be went unread. Sized to match the widget call-out. */
+    /* A comic speech balloon, tail aimed at the page it dares you to mark up.
+       The muted pill this used to be went unread. */
     .lp-demo-hint {
-        @apply hidden xl:flex items-start gap-2.5 m-0 mt-2 max-w-md rounded-xl border border-accent bg-chrome-raised py-3 px-4 text-left text-sm text-chrome-fg shadow-toolbar;
+        @apply hidden xl:flex relative items-start gap-3 m-0 mt-2 max-w-lg -rotate-1 rounded-2xl border-4 border-accent bg-app py-3.5 px-5 text-left text-sm text-ink shadow-comic;
+    }
+    /* Tail: the outline triangle, then the paper one inset over it, lifted to break
+       the balloon's bottom border so the interiors join. */
+    .lp-demo-hint::before {
+        content: '';
+        @apply absolute top-full left-12 w-0 h-0 border-x-12 border-t-14 border-x-transparent border-t-accent;
+    }
+    .lp-demo-hint::after {
+        content: '';
+        @apply absolute top-full left-13 -mt-1 w-0 h-0 border-x-8 border-t-10 border-x-transparent border-t-app;
     }
     .lp-demo-hint__lead {
-        @apply block text-base font-bold leading-snug text-accent;
+        @apply block font-display text-lg font-extrabold uppercase tracking-tight leading-none text-accent-ink;
     }
     .lp-demo-hint__icon {
-        @apply w-5 h-5 shrink-0 mt-0.5 text-accent;
+        @apply w-5 h-5 shrink-0 mt-0.5 text-ink;
     }
     /* A speech bubble for the site-review widget's launcher: it sits in the slot
        the widget's own panel opens into, so the panel covers it while open. */
