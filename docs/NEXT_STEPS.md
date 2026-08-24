@@ -3676,3 +3676,24 @@ One thing worth doing even under this decision: `terraform.tfstate.bak` is not
 managed or rotated by Terraform, so it holds whatever the secrets were on the
 day it was written, indefinitely. Deleting it costs nothing and removes the
 oldest copy.
+
+## Watch an agent work, rather than reading what it finished
+
+**Author:** Geoffrey · **Type:** idea · **Priority:** low · **Status:** pending
+
+https://doop.design/ is a multiplayer design canvas where agents join over MCP
+and their work streams onto the canvas live — they announce the task they are
+starting, others watch it happen, and feedback given mid-flight is picked up
+before the agent finishes. Noted on 2026-08-24 as a direction worth thinking
+about, not a commitment.
+
+Loupe's cycle is the opposite shape: the agent submits a finished document,
+a human reviews it, the agent revises. Nothing is visible between submit and
+submit, and a reviewer who spots the wrong premise in paragraph two still waits
+for the whole draft before saying so.
+
+The pieces for a live channel already exist and are idle — `SiteReviewEvent`,
+the outbox, `DrainOutboxHandler`, the Mercure hub and the `site_review.push`
+flag — but nothing writes an event any more (see 'The site-review push
+subsystem has no producer left'). Any work here starts by deciding what an
+agent would announce, not by building transport.
