@@ -7,9 +7,11 @@
                                  reply/resolve/delete would act on a version the
                                  reviewer has navigated away from. Defaults false.
 
-  Reply is a Symfony form; resolve is a fieldless plain form submitted by the
-  Resolve button via form=. Both post through Turbo; the controllers return a
-  Turbo Stream that replaces this thread (targeted by the id below).
+  The card itself is <twig:CommentCard>; this maps the entity onto its scalar
+  props and supplies the write controls. Reply is a Symfony form; resolve is a
+  fieldless plain form submitted by the Resolve button via form=. Both post
+  through Turbo; the controllers return a Turbo Stream that replaces this thread
+  (targeted by the id CommentCard renders).
 
   A card with an anchor is positioned by comment_anchor_controller so it sits
   level with the passage it points at; a general comment carries
@@ -17,67 +19,19 @@
 #}
 {% set status = comment.threadStatus.value %}
 {% set kind = comment.isStrike ? 'strike' : (comment.isSuggestion ? 'suggestion' : 'comment') %}
-{# `is empty` would call a comment anchored to the literal text 0 general. #}
-{% set isGeneral = comment.anchor.quote == '' %}
-{% set statusLabel = comment.orphaned
-    ? 'open'
-    : (isGeneral and status == 'pending' ? 'general' : (kind == 'strike' and status == 'pending' ? 'strike' : status)) %}
-<div
-    id="comment-thread-{{ comment.id }}"
-    class="lp-comment-thread{% if status == 'resolved' %} lp-comment-thread--resolved{% endif %}{% if comment.orphaned %} lp-comment-thread--orphaned{% endif %}{% if isGeneral %} lp-comment-thread--general{% endif %}"
-    data-comment-anchor-target="thread"
-    data-anchor-quote="{{ comment.anchor.quote }}"
-    data-anchor-prefix="{{ comment.anchor.prefix }}"
-    data-anchor-suffix="{{ comment.anchor.suffix }}"
-    data-anchor-status="{{ status }}"
-    data-anchor-kind="{{ kind }}"
-    {% if isGeneral %}data-comment-general="true"{% endif %}
-    data-action="mouseenter->comment-anchor#focusThread mouseleave->comment-anchor#blurThread"
+<twig:CommentCard
+    domId="{{ comment.id }}"
+    author="{{ comment.author.fullName }}"
+    status="{{ status }}"
+    kind="{{ kind }}"
+    quote="{{ comment.anchor.quote }}"
+    prefix="{{ comment.anchor.prefix }}"
+    suffix="{{ comment.anchor.suffix }}"
+    :replacement="comment.replacement ?? ''"
+    body="{{ comment.body }}"
+    :orphaned="comment.orphaned"
+    :replies="replies|map(reply => {author: reply.author.fullName, body: reply.body})"
 >
-    <div class="lp-comment-thread__header">
-        {# The design puts the comment's age beside the author. Comment carries no
-           timestamp column, so there is nothing to render — see docs/NEXT_STEPS.md. #}
-        <span class="lp-comment-author">{{ comment.author.fullName }}</span>
-        <span class="lp-comment-status lp-comment-status--{{ statusLabel }}">{{ ('review.document.status.' ~ statusLabel)|trans }}</span>
-    </div>
-
-    {# The quoted passage is gone from this version, so there is no highlight in
-       the document to look for and the card has to say so itself. #}
-    {% if comment.orphaned %}
-    <span class="lp-comment-orphan-pill">{{ 'review.document.comment.orphaned'|trans }}</span>
-    {% endif %}
-
-    {# A strike shows the doomed passage struck through; a rewording shows it
-       above what should replace it. Neither is markup from the document — these
-       are tags this template emits around escaped text. #}
-    {% if comment.isSuggestion %}
-    <blockquote class="lp-comment-quote lp-comment-quote--struck"><del>{{ comment.anchor.quote }}</del></blockquote>
-        {% if not comment.isStrike %}
-        <blockquote class="lp-comment-quote lp-comment-quote--inserted"><ins>{{ comment.replacement }}</ins></blockquote>
-        {% endif %}
-    {% elseif comment.anchor.quote != '' %}
-    <blockquote class="lp-comment-quote">{{ comment.anchor.quote }}</blockquote>
-    {% endif %}
-
-    {# A strike carries no rationale — nothing was typed — so the body element is
-       omitted rather than rendered empty. #}
-    {% if comment.body is not empty %}
-    <div class="lp-comment-body">{{ comment.body }}</div>
-    {% endif %}
-
-    {% if replies|length > 0 %}
-    <div class="lp-comment-replies">
-        {% for reply in replies %}
-        <div class="lp-comment--reply">
-            <div class="lp-comment-reply__head">
-                <span class="lp-comment-author">{{ reply.author.fullName }}</span>
-            </div>
-            <div class="lp-comment-body">{{ reply.body }}</div>
-        </div>
-        {% endfor %}
-    </div>
-    {% endif %}
-
     {# On an earlier version there is nothing to act on: every one of these posts
        resolves its target through the comment's own id, but the reviewer is
        looking at a record of a past discussion, not the live one. #}
@@ -118,4 +72,4 @@
     </div>
     {% endif %}
     {% endif %}
-</div>
+</twig:CommentCard>

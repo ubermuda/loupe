@@ -3341,6 +3341,10 @@
                 <source>landing.tech.widget.text</source>
                 <target>Drop the site review widget into your app and the same select-and-comment flow works on a live page. Your agent reads those comments back over MCP.</target>
             </trans-unit>
+            <trans-unit id="landing.demo.author">
+                <source>landing.demo.author</source>
+                <target>You</target>
+            </trans-unit>
             <trans-unit id="landing.try.title">
                 <source>landing.try.title</source>
                 <target>Try it in one command.</target>

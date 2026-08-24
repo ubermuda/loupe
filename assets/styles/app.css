@@ -2809,13 +2809,33 @@
         @apply m-0 text-xs text-chrome-dim;
     }
 
+    /* ── Landing try-it demo ────────────────────────────────────────────
+       Offset parent for the toolbar, composers and card margin. */
+    .lp-demo-frame {
+        @apply relative;
+    }
+    /* Overlaps the copy at 1440px, so it must not take the clicks selection
+       needs; cards take their own back. Gone below xl — see DEMO_MIN_WIDTH. */
+    .lp-demo-margin {
+        @apply hidden xl:block absolute top-0 right-7 w-74 pointer-events-none;
+    }
+    .lp-demo-margin .lp-comment-thread {
+        @apply pointer-events-auto shadow-card;
+    }
+    /* Gone with the margin: a toolbar whose actions have nowhere to land is
+       worse than no toolbar. */
+    .lp-demo-frame > .lp-anchor-toolbar:not([hidden]),
+    .lp-demo-frame > .lp-comment-composer:not([hidden]) {
+        @apply hidden xl:flex;
+    }
+
     /* ── Hero app still ─────────────────────────────────────────────────
        At real app dimensions, so it fits only by transform. The resting 0.72 is
        what containers over 907px resolve to; landing_mock_controller corrects
-       narrower ones and owns the wrapper height, which nothing else can set
-       while the frame is out of flow. Hidden below sm:, where fit nears 0.25. */
+       narrower ones and owns the wrapper height. Hidden below sm:, where fit
+       nears 0.25; unselectable, so the demo cannot anchor into it. */
     .lp-landing-mock {
-        @apply relative hidden sm:block max-w-6xl mx-auto mt-16 h-115 overflow-hidden;
+        @apply relative hidden sm:block max-w-6xl mx-auto mt-16 h-115 overflow-hidden select-none;
     }
     .lp-landing-mock__frame {
         @apply absolute left-1/2 top-0 w-315 origin-top overflow-hidden rounded-t-xl border border-b-0 border-chrome-raised bg-chrome;

@@ -228,7 +228,7 @@ test('saving a comment confirms it is live', async ({ page }) => {
     const saved = page.locator('#lp-saved');
     await page.getByRole('button', { name: 'Save' }).click();
     await expect(saved).toBeVisible();
-    await expect(saved).toContainText('your agent can see it now');
+    await expect(saved).toContainText('Comment saved');
 
     const persisted = await fetchReviewComments(page);
     expect(persisted.map((comment) => comment.body)).toEqual([

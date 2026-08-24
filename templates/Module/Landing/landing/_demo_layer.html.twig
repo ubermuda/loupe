@@ -1,0 +1,82 @@
+{#
+  The demo's floating parts, plus one prototype card per kind for DemoTransport
+  to clone. The composers are divs, not forms — there is nowhere to post to.
+#}
+<div class="lp-anchor-toolbar" data-comment-anchor-target="toolbar" hidden>
+    <button type="button" class="lp-anchor-toolbar__btn" data-action="comment-anchor#startComment">
+        <twig:ux:icon name="lucide:message-square-plus" class="w-3.5 h-3.5 shrink-0" />
+        {{ 'review.document.comment.add'|trans }}
+    </button>
+    <button type="button" class="lp-anchor-toolbar__btn" data-action="comment-anchor#startSuggestion">
+        <twig:ux:icon name="lucide:replace" class="w-3.5 h-3.5 shrink-0" />
+        {{ 'review.document.suggestion.add'|trans }}
+    </button>
+    <button type="button" class="lp-anchor-toolbar__btn" data-action="comment-anchor#strike">
+        <twig:ux:icon name="lucide:strikethrough" class="w-3.5 h-3.5 shrink-0" />
+        {{ 'review.document.strike.add'|trans }}
+        <kbd class="lp-anchor-toolbar__key">{{ 'review.document.strike.shortcut'|trans }}</kbd>
+    </button>
+</div>
+
+<div class="lp-comment-composer" data-comment-anchor-target="composer" hidden
+     data-action="keydown->comment-anchor#composerKeydown">
+    <input type="hidden" data-comment-anchor-target="quote">
+    <input type="hidden" data-comment-anchor-target="prefix">
+    <input type="hidden" data-comment-anchor-target="suffix">
+    <blockquote class="lp-composer-quote" data-comment-anchor-target="quotePreview"></blockquote>
+    <textarea rows="3" data-comment-anchor-target="composerBody"
+              placeholder="{{ 'review.document.comment.placeholder'|trans }}"></textarea>
+    <div class="lp-comment-composer__actions">
+        <span class="lp-composer-hint">{{ 'review.document.comment.hint'|trans }}</span>
+        {# The controller writes into this unguarded, so it has to exist even
+           though a demo write can never fail. #}
+        <span class="lp-comment-composer__error" data-comment-anchor-target="composerError"></span>
+        <button type="button" class="lp-btn lp-btn--ghost lp-btn--sm"
+                data-action="comment-anchor#hideComposer">{{ 'review.document.comment.cancel'|trans }}</button>
+        <button type="button" class="lp-btn lp-btn--primary lp-btn--sm"
+                data-action="comment-anchor#submitComment">{{ 'review.document.comment.submit'|trans }}</button>
+    </div>
+</div>
+
+<div class="lp-comment-composer" data-comment-anchor-target="suggestComposer" hidden
+     data-action="keydown->comment-anchor#composerKeydown">
+    <input type="hidden" data-comment-anchor-target="suggestQuote">
+    <input type="hidden" data-comment-anchor-target="suggestPrefix">
+    <input type="hidden" data-comment-anchor-target="suggestSuffix">
+    <blockquote class="lp-composer-quote lp-composer-quote--struck" data-comment-anchor-target="suggestQuotePreview"></blockquote>
+    <textarea rows="3" data-comment-anchor-target="suggestReplacement"
+              placeholder="{{ 'review.document.suggestion.replacement_placeholder'|trans }}"></textarea>
+    <textarea rows="2" data-comment-anchor-target="suggestBody"
+              placeholder="{{ 'review.document.suggestion.rationale_placeholder'|trans }}"></textarea>
+    <div class="lp-comment-composer__actions">
+        <span class="lp-composer-hint">{{ 'review.document.comment.hint'|trans }}</span>
+        {# The controller writes into this unguarded, so it has to exist even
+           though a demo write can never fail. #}
+        <span class="lp-comment-composer__error" data-comment-anchor-target="suggestComposerError"></span>
+        <button type="button" class="lp-btn lp-btn--ghost lp-btn--sm"
+                data-action="comment-anchor#hideComposer">{{ 'review.document.comment.cancel'|trans }}</button>
+        <button type="button" class="lp-btn lp-btn--primary lp-btn--sm"
+                data-action="comment-anchor#submitSuggestion">{{ 'review.document.suggestion.submit'|trans }}</button>
+    </div>
+</div>
+
+{# The placeholder quote and body are non-empty so the elements the transport
+   fills exist to be filled — and so an empty quote does not make the prototype
+   render as a general comment. #}
+{% for kind in ['comment', 'suggestion', 'strike'] %}
+<template data-comment-anchor-target="prototype" data-kind="{{ kind }}">
+    <twig:CommentCard
+        author="{{ 'landing.demo.author'|trans }}"
+        status="pending"
+        kind="{{ kind }}"
+        quote="…"
+        replacement="…"
+        body="{{ kind == 'strike' ? '' : '…' }}"
+    >
+        <div class="lp-comment-actions">
+            <button type="button" class="lp-btn lp-btn--danger-ghost lp-btn--sm lp-comment-actions__delete"
+                    data-action="comment-anchor#deleteDemoComment">{{ 'review.document.comment.delete'|trans }}</button>
+        </div>
+    </twig:CommentCard>
+</template>
+{% endfor %}
