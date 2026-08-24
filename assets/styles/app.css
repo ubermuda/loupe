@@ -2893,37 +2893,23 @@
     }
     /* Names the demo before a visitor stumbles into it. Gone with the margin:
        inviting a selection at a width that declines it is a lie. */
-    /* A comic speech balloon, tail aimed at the page it dares you to mark up.
-       The muted pill this used to be went unread. */
+    /* An accent band between the hero and the first section, daring a visitor
+       into the demo the page itself is. The muted pill this used to be went
+       unread, so it carries the brand colour at section weight. */
     .lp-demo-hint {
-        @apply hidden xl:flex absolute top-96 right-7 items-start gap-3 m-0 max-w-xs -rotate-1 rounded-2xl border-4 border-accent bg-app py-3.5 px-5 text-left text-sm text-ink shadow-comic;
-    }
-    /* Tail: the outline triangle, then the paper one inset over it, lifted to break
-       the balloon's bottom border so the interiors join. */
-    .lp-demo-hint::before {
-        content: '';
-        @apply absolute top-full left-12 w-0 h-0 border-x-16 border-t-20 border-x-transparent border-t-accent;
-    }
-    .lp-demo-hint::after {
-        content: '';
-        @apply absolute top-full left-13 -mt-1 w-0 h-0 border-x-12 border-t-16 border-x-transparent border-t-app;
+        @apply hidden xl:flex flex-col items-center gap-2 m-0 bg-accent px-7 py-10 text-center text-ink;
     }
     .lp-demo-hint__lead {
-        @apply block font-display text-lg font-extrabold uppercase tracking-tight leading-none text-accent-ink;
+        @apply font-display text-3xl font-extrabold tracking-tighter sm:text-4xl;
     }
-    .lp-demo-hint__icon {
-        @apply w-5 h-5 shrink-0 mt-0.5 text-ink;
-    }
-    /* It shares the card column, so the first card takes the slot back. */
-    .lp-demo-frame:has(.lp-demo-margin .lp-comment-thread:not([hidden]))
-        .lp-demo-hint {
-        display: none;
+    .lp-demo-hint__body {
+        @apply max-w-2xl text-lg leading-relaxed;
     }
     /* The hero balloon's twin, for the site-review widget's launcher: it sits in
        the slot the widget's own panel opens into, so the panel covers it while
        open. */
     .lp-demo-widget-hint {
-        @apply fixed right-5 bottom-20 z-40 m-0 flex flex-col gap-1 max-w-xs rotate-1 rounded-2xl border-4 border-accent bg-app py-3 px-4 text-sm text-ink shadow-comic pointer-events-none;
+        @apply fixed right-5 bottom-20 z-40 m-0 flex flex-col gap-1 max-w-xs rotate-3 rounded-2xl border-4 border-accent bg-app py-3 px-4 text-sm text-ink shadow-comic pointer-events-none;
         animation: lp-demo-nudge 2800ms ease-in-out infinite;
     }
     /* The tail, aimed at the launcher below. */

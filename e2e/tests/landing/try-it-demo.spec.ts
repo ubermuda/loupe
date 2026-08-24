@@ -115,22 +115,6 @@ test('a card can be deleted', async ({ page }) => {
     await expect(card).toHaveCount(0);
 });
 
-test('the call-out leaves the card column to the first card', async ({
-    page,
-}) => {
-    const hint = page.locator('.lp-demo-hint');
-    await expect(hint).toBeVisible();
-
-    await selectFirstLine(page, firstProse(page));
-    await page.getByRole('button', { name: /^Strike/ }).click();
-    const card = page.locator(`${MARGIN} .lp-comment-thread`);
-    await expect(card).toHaveCount(1);
-    await expect(hint).toBeHidden();
-
-    await card.getByRole('button', { name: 'Delete', exact: true }).click();
-    await expect(hint).toBeVisible();
-});
-
 test('the widget on the landing page is the one backed by nothing', async ({
     page,
 }) => {
