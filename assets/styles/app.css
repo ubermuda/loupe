@@ -2822,6 +2822,12 @@
     .lp-demo-margin .lp-comment-thread {
         @apply pointer-events-auto shadow-card;
     }
+    /* Gone with the margin: a toolbar whose actions have nowhere to land is
+       worse than no toolbar. */
+    .lp-demo-frame > .lp-anchor-toolbar:not([hidden]),
+    .lp-demo-frame > .lp-comment-composer:not([hidden]) {
+        @apply hidden xl:flex;
+    }
 
     /* ── Hero app still ─────────────────────────────────────────────────
        At real app dimensions, so it fits only by transform. The resting 0.72 is

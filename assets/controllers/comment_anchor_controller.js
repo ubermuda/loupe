@@ -141,7 +141,16 @@ export default class extends Controller {
         this.#registerHighlights();
 
         this.scheduledLayout = null;
-        this.onResize = () => this.#scheduleLayout();
+        this.onResize = () => {
+            // Narrowing past the threshold hides the margin a captured
+            // selection would land in, so the capture goes with it — otherwise
+            // the strike shortcut still fires against a passage whose toolbar
+            // the reader can no longer see.
+            if (this.#demoUnavailable()) {
+                this.#clearPendingSelection();
+            }
+            this.#scheduleLayout();
+        };
         window.addEventListener('resize', this.onResize);
 
         // Web fonts land after first layout and change every line box, so a
@@ -210,12 +219,8 @@ export default class extends Controller {
         if (!this.docTarget.contains(event.target)) {
             return;
         }
-        // Read at interaction time, not connect(): a rotation or a resize must
-        // change the answer.
-        if (
-            this.demoValue &&
-            window.innerWidth < this.constructor.DEMO_MIN_WIDTH
-        ) {
+        if (this.#demoUnavailable()) {
+            this.#clearPendingSelection();
             return;
         }
 
@@ -239,6 +244,15 @@ export default class extends Controller {
 
         this.pendingSelection = { ...anchor, range: range.cloneRange() };
         this.#showToolbarNear(range);
+    }
+
+    // Read at interaction time, not connect(): a resize or a rotation must
+    // change the answer.
+    #demoUnavailable() {
+        return (
+            this.demoValue &&
+            window.innerWidth < this.constructor.DEMO_MIN_WIDTH
+        );
     }
 
     #clearPendingSelection() {

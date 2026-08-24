@@ -131,3 +131,18 @@ test.describe('below xl', () => {
         await expect(page.locator(TOOLBAR)).toBeHidden();
     });
 });
+
+test('narrowing past the threshold drops a selection already captured', async ({
+    page,
+}) => {
+    await selectFirstLine(page, firstProse(page));
+    await expect(page.locator(TOOLBAR)).toBeVisible();
+
+    await page.setViewportSize({ width: 1024, height: 900 });
+    await expect(page.locator(TOOLBAR)).toBeHidden();
+
+    // The shortcut reads the captured selection, not the toolbar, so a stale
+    // capture would strike a passage with nowhere to show the result.
+    await page.keyboard.press('s');
+    await expect(page.locator(`${MARGIN} .lp-comment-thread`)).toHaveCount(0);
+});
