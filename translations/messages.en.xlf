@@ -1712,15 +1712,31 @@
             </trans-unit>
             <trans-unit id="project.connect.mcp_json.eyebrow">
                 <source>project.connect.mcp_json.eyebrow</source>
-                <target>Then add this to .mcp.json</target>
+                <target>Or configure any other MCP client</target>
             </trans-unit>
             <trans-unit id="project.connect.mcp_json.label">
                 <source>project.connect.mcp_json.label</source>
                 <target>.mcp.json</target>
             </trans-unit>
+            <trans-unit id="project.connect.plugin.eyebrow">
+                <source>project.connect.plugin.eyebrow</source>
+                <target>Claude Code plugin — the quickest way</target>
+            </trans-unit>
+            <trans-unit id="project.connect.plugin.hint">
+                <source>project.connect.plugin.hint</source>
+                <target>One install wires up the endpoint and teaches the agent how to use it.</target>
+            </trans-unit>
+            <trans-unit id="project.connect.plugin.label">
+                <source>project.connect.plugin.label</source>
+                <target>claude · terminal</target>
+            </trans-unit>
+            <trans-unit id="project.connect.plugin.skills">
+                <source>project.connect.plugin.skills</source>
+                <target>It ships two skills: loupe-documents formats a document for the review UI, and loupe-site-review works the comment loop.</target>
+            </trans-unit>
             <trans-unit id="project.connect.cli.eyebrow">
                 <source>project.connect.cli.eyebrow</source>
-                <target>Install with the Claude Code CLI</target>
+                <target>Or add the server by hand</target>
             </trans-unit>
             <trans-unit id="project.connect.cli.label">
                 <source>project.connect.cli.label</source>

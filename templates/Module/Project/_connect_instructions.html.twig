@@ -1,10 +1,17 @@
-{#- MCP connect instructions: the endpoint URL and the `claude mcp add` CLI
-    one-liner. Shared by the full connect page and the first-run wizard's
-    connect step. Props: mcpServerName (string), mintedMcpToken (string|null —
-    raw token to embed once, placeholder otherwise). -#}
+{#- MCP connect instructions: the endpoint URL, the Claude Code plugin, and the
+    `claude mcp add` CLI one-liner. Shared by the full connect page and the
+    first-run wizard's connect step. Props: mcpServerName (string),
+    mintedMcpToken (string|null — raw token to embed once, placeholder
+    otherwise). -#}
 {%- set mcpUrl = url('_mcp_endpoint') -%}
 {%- set mcpTokenValue = mintedMcpToken ?: 'YOUR_TOKEN' -%}
 {%- set claudeCommand = 'claude mcp add --transport http ' ~ mcpServerName ~ ' ' ~ mcpUrl ~ ' --header "Authorization: Bearer ' ~ mcpTokenValue ~ '"' -%}
+{%- set pluginCommand = [
+    'claude plugin marketplace add ubermuda/loupe',
+    'claude plugin install loupe@loupe \\',
+    '  --config server_url=' ~ mcpUrl ~ ' \\',
+    '  --config api_token=' ~ mcpTokenValue
+]|join("\n") -%}
 
 {# ── MCP endpoint (global; project inferred from the bearer token) ── #}
 <div class="lp-connect-block">
@@ -17,7 +24,22 @@
     </div>
 </div>
 
-{# ── claude mcp add — CLI one-liner (Claude Code) ── #}
+{# ── Claude Code plugin — the endpoint and both skills in one install ── #}
+<div class="lp-connect-block">
+    <p class="lp-eyebrow">{{ 'project.connect.plugin.eyebrow'|trans }}</p>
+    <p class="lp-connect-hint">{{ 'project.connect.plugin.hint'|trans }}</p>
+    <div class="lp-code-dark" data-controller="clipboard" data-clipboard-text-value="{{ pluginCommand }}"
+         data-clipboard-copied-label-value="{{ 'project.connect.copied'|trans }}">
+        <div class="lp-code-dark__header">
+            <span class="lp-code-dark__label">{{ 'project.connect.plugin.label'|trans }}</span>
+            <button type="button" class="lp-code-dark__copy" data-clipboard-target="button" data-action="clipboard#copy">{{ 'project.connect.copy'|trans }}</button>
+        </div>
+        <pre class="lp-code-dark__body"><code>{{ pluginCommand }}</code></pre>
+    </div>
+    <p class="lp-connect-hint">{{ 'project.connect.plugin.skills'|trans }}</p>
+</div>
+
+{# ── claude mcp add — CLI one-liner, for clients without the plugin ── #}
 <div class="lp-connect-block">
     <p class="lp-eyebrow">{{ 'project.connect.cli.eyebrow'|trans }}</p>
     <div class="lp-code-dark" data-controller="clipboard" data-clipboard-text-value="{{ claudeCommand }}"

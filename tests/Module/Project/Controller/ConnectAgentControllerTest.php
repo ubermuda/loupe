@@ -184,10 +184,10 @@ final class ConnectAgentControllerTest extends WebTestCase
         );
         self::assertNotEmpty(array_filter($fieldValues, static fn (string $value): bool => str_contains($value, '/mcp')));
 
-        // The two copyable configurations the token unlocks: the .mcp.json block
-        // and the CLI one-liner. The widget step has no token here, so its snippet
-        // is not among them.
-        self::assertCount(2, $crawler->filter('.lp-code-dark'));
+        // The three copyable configurations the token unlocks: the plugin install,
+        // the CLI one-liner, and the .mcp.json block. The widget step has no token
+        // here, so its snippet is not among them.
+        self::assertCount(3, $crawler->filter('.lp-code-dark'));
 
         // The tool list renders here; which tools belong on it is asserted once,
         // against the server's registry, in the parity test above. Restating the

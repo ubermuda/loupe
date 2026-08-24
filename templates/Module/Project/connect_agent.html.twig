@@ -81,6 +81,8 @@
             </div>
         </div>
 
+        {% include '@Project/_connect_instructions.html.twig' with {mcpServerName: mcpServerName, mintedMcpToken: mintedMcpToken} only %}
+
         <div class="lp-connect-block">
             <p class="lp-eyebrow">{{ 'project.connect.mcp_json.eyebrow'|trans }}</p>
             <div class="lp-code-dark" data-controller="clipboard" data-clipboard-text-value="{{ mcpJson }}"
@@ -92,8 +94,6 @@
                 <pre class="lp-code-dark__body"><code>{{ mcpJson }}</code></pre>
             </div>
         </div>
-
-        {% include '@Project/_connect_instructions.html.twig' with {mcpServerName: mcpServerName, mintedMcpToken: mintedMcpToken} only %}
 
         <details class="lp-tools-disclosure">
             <summary class="lp-tools-disclosure__summary">
