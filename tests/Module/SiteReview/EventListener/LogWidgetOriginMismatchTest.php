@@ -12,7 +12,9 @@ use App\Module\Project\Repository\ProjectRepository;
 use App\Module\Project\Security\AuthenticatedProjectResolver;
 use App\Module\SiteReview\EventListener\LogWidgetOriginMismatch;
 use PHPUnit\Framework\TestCase;
+use Psr\Cache\CacheItemPoolInterface;
 use Psr\Log\AbstractLogger;
+use Symfony\Component\Cache\Adapter\ArrayAdapter;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpKernel\Event\ResponseEvent;
@@ -63,6 +65,19 @@ final class LogWidgetOriginMismatchTest extends TestCase
         self::assertSame([], $this->handle('https://evil.example', null));
     }
 
+    /**
+     * Safe methods are not rate-limited, so without this an unlimited GET loop
+     * would mint an unlimited number of warnings.
+     */
+    public function test_a_project_is_only_warned_about_once_in_the_window(): void
+    {
+        $seen = new ArrayAdapter();
+
+        self::assertCount(1, $this->handle('https://evil.example', 'loupe.ac', seen: $seen));
+        self::assertSame([], $this->handle('https://evil.example', 'loupe.ac', seen: $seen));
+        self::assertSame([], $this->handle('https://other.example', 'loupe.ac', seen: $seen));
+    }
+
     public function test_requests_outside_the_site_review_api_are_ignored(): void
     {
         self::assertSame([], $this->handle('https://evil.example', 'loupe.ac', '/projects/123'));
@@ -71,7 +86,7 @@ final class LogWidgetOriginMismatchTest extends TestCase
     /**
      * @return list<array{message: string, context: array<string, mixed>}>
      */
-    private function handle(?string $origin, ?string $domain, string $path = '/api/site-review/review'): array
+    private function handle(?string $origin, ?string $domain, string $path = '/api/site-review/review', ?CacheItemPoolInterface $seen = null): array
     {
         $project = new Project(new User('Riley Chen', 'riley@example.com', 'x'), 'Loupe', $domain);
 
@@ -101,6 +116,7 @@ final class LogWidgetOriginMismatchTest extends TestCase
 
         $listener = new LogWidgetOriginMismatch(
             new AuthenticatedProjectResolver($tokenStorage, $apiTokens, $projects),
+            $seen ?? new ArrayAdapter(),
             $logger,
         );
 

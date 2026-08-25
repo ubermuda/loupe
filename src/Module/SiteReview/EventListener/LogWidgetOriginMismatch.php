@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Module\SiteReview\EventListener;
 
 use App\Module\Project\Security\AuthenticatedProjectResolver;
+use Psr\Cache\CacheItemPoolInterface;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\EventDispatcher\Attribute\AsEventListener;
 use Symfony\Component\HttpKernel\Event\ResponseEvent;
@@ -17,8 +18,11 @@ use Symfony\Component\HttpKernel\Event\ResponseEvent;
 #[AsEventListener]
 final readonly class LogWidgetOriginMismatch
 {
+    private const int REPEAT_AFTER_SECONDS = 3600;
+
     public function __construct(
         private AuthenticatedProjectResolver $projects,
+        private CacheItemPoolInterface $seen,
         private LoggerInterface $logger,
     ) {
     }
@@ -46,6 +50,16 @@ final readonly class LogWidgetOriginMismatch
         if (!is_string($host) || self::normalise($host) === self::normalise($project->domain)) {
             return;
         }
+
+        // One warning per project per hour. Safe methods bypass
+        // RateLimitSiteReviewWrites, so keying on the origin too would let a
+        // token holder mint a warning per request by varying it.
+        $item = $this->seen->getItem('site_review.origin_mismatch.'.(string) $project->id);
+        if ($item->isHit()) {
+            return;
+        }
+
+        $this->seen->save($item->set(true)->expiresAfter(self::REPEAT_AFTER_SECONDS));
 
         $this->logger->warning('site_review.widget.origin_mismatch', [
             'project' => (string) $project->id,
