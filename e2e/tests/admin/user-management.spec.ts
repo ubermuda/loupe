@@ -95,14 +95,10 @@ test.describe.serial('admin user management', () => {
             .click();
 
         // The suspend form posts a returnTo of the current URL, so the redirect
-        // lands back on this same detail page — toHaveURL would resolve before
-        // the POST round-trips. The suspension summary only renders once the
-        // account is actually suspended, so wait on that instead.
-        //
-        // 15s rather than the default 5: this page loads a lazy Stimulus
-        // controller and two font files after first paint, and on a two-core
-        // runner the Turbo submit queues behind them. At 5s it failed with the
-        // reason still sitting in the textarea and no request completed.
+        // lands back here — toHaveURL would resolve before the POST
+        // round-trips. Wait on the summary, which renders only once suspended.
+        // 15s because this page is still fetching a lazy controller and two
+        // fonts after first paint; at 5s a slow runner never got there.
         await expect(
             admin.locator('[data-testid="suspension-details"]'),
         ).toContainText(SUSPENSION_REASON, { timeout: 15000 });
