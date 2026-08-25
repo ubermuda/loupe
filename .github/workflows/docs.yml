@@ -24,7 +24,7 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
       # The site content is ../docs, so the whole repository has to be present
       # even though the Astro project root is website/.
       - uses: withastro/action@v6
