@@ -1,0 +1,23 @@
+# Overrides that make the dev stack usable on a CI runner, where there is no
+# traefik and no step-ca. Ports are published straight to the runner instead,
+# so the app answers on http://localhost — which is what DEFAULT_URI in .env
+# already says, so no URL rewriting is needed anywhere.
+#
+#   docker compose -f compose.yaml -f docker/compose/ci.yaml up -d ...
+#
+# The traefik labels on the services stay in place and are simply inert without
+# traefik running; the network they attach to is created empty by the workflow.
+services:
+  nginx:
+    ports:
+      - '80:80'
+
+  mailer:
+    ports:
+      - '8025:8025'
+
+  php-fpm:
+    environment:
+      # The dev stack collects coverage on every request. Nothing here reads it,
+      # and it roughly doubles the PHPUnit leg on a two-core runner.
+      XDEBUG_MODE: 'off'

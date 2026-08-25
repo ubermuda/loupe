@@ -1,0 +1,110 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+# Deliberately not path-filtered, unlike the docs deploy. These are required
+# checks: a filtered check never reports on a PR it skipped, and a PR waiting
+# for a report that will never arrive cannot be merged at all. The local
+# documentation-only carve-out in CLAUDE.md is about a human waiting four
+# minutes, which is not a cost a runner pays.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # Five of the dependencies are VCS-sourced from github.com, and anonymous
+  # composer gets 60 API requests an hour across the whole runner fleet.
+  COMPOSER_AUTH: '{"github-oauth":{"github.com":"${{ github.token }}"}}'
+
+jobs:
+  ci:
+    name: ci
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.5'
+          extensions: ctype, iconv, intl, pdo_pgsql, zip, bcmath, xsl
+          coverage: none
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            e2e/package-lock.json
+
+      - uses: extractions/setup-just@v3
+
+      # compose.yaml attaches to a traefik network that a workstation shares
+      # with a long-running proxy. Nothing routes through it here; it only has
+      # to exist, or every service referencing it fails to start.
+      - run: docker network create traefik
+
+      - run: docker compose up -d --wait database php-fpm
+
+      - name: Install PHP dependencies
+        run: docker compose exec -T php-fpm composer install --no-interaction --no-progress
+
+      - run: npm ci
+      - run: npm ci --prefix e2e
+
+      - run: just ci
+
+  e2e:
+    name: e2e
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: e2e/package-lock.json
+
+      - uses: extractions/setup-just@v3
+
+      - run: docker network create traefik
+
+      # By name, not a bare `up`: the `tailwind` service is a watcher, and it
+      # would race the one-shot build below over the same output file. The
+      # worker is not needed either — every message dispatched under the
+      # X-Playwright header is handled inline.
+      - run: >
+          docker compose -f compose.yaml -f docker/compose/ci.yaml
+          up -d --wait database php-fpm nginx mailer
+
+      - name: Install PHP dependencies
+        run: docker compose exec -T php-fpm composer install --no-interaction --no-progress
+
+      - name: Prepare the application
+        run: |
+          docker compose exec -T php-fpm bin/console doctrine:migrations:migrate --no-interaction --allow-no-migration
+          docker compose exec -T php-fpm bin/console app:dev:seed
+          docker compose exec -T php-fpm bin/console tailwind:build
+
+      - run: npm ci --prefix e2e
+      - run: npx playwright install --with-deps chromium
+        working-directory: e2e
+
+      # The runner's whole database is disposable, so the suite runs against the
+      # main stack rather than the `just e2e-up` sidecar, whose only purpose is
+      # to keep a developer's own database out of the way.
+      - run: just e2e
+        env:
+          E2E_BASE_URL: http://localhost
+          MAILPIT_URL: http://localhost:8025
+
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-report
+          path: e2e/playwright-report
+          retention-days: 7
