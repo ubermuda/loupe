@@ -110,8 +110,8 @@ sparse-clones instead. Almost certainly fine, but never exercised.
 
 Close it out by adding the marketplace by `owner/repo` on a machine that has
 never had the local one registered, installing, and confirming `claude mcp list`
-shows `plugin:loupe:loupe` connected. A stale local registration pointing at
-`/Users/geoffrey/Code/loupe` would make that check pass for the wrong reason —
+shows `plugin:loupe:loupe` connected. A stale local registration pointing at a
+working copy would make that check pass for the wrong reason — run
 `claude plugin marketplace list` first.
 
 ## `just tf-db-bootstrap` does not survive an apply on a dedicated cluster
@@ -169,58 +169,11 @@ be mistaken for one.
 
 Found by an audit on 2026-08-20.
 
-## The site-review widget token can read, edit and delete any pending comment in its project
-
-**Author:** Claude · **Type:** security · **Priority:** high · **Status:** pending
-
-`SiteReviewComment` has no author column. Every comment arrives through
-`AddCommentController`, which resolves a *project* from the widget token and
-stores nothing about who submitted it. Two consequences follow; only the second
-was tracked before 2026-08-25.
-
-**Authorization.** With no author, nothing can scope a mutation to the person who
-wrote the comment. Holding only the widget token — a `data-token` attribute in
-page HTML, public by design, as `ApiToken` itself notes ("anyone who can view the
-page holds the credential") — and no session, a visitor can `GET
-/api/site-review/review` for every pending comment in the project (bodies, URLs,
-selectors, quoted page text, not merely the current page's), and `PATCH` or
-`DELETE /api/site-review/comments/{id}` against any of them: `UpdateCommentHandler`
-and `DeleteCommentHandler` both resolve via `findOnePending($commentId, $project)`,
-project scope only. `SiteReviewCorsSubscriber` reflects the request `Origin`, so
-it works from any page, not just an instrumented one.
-
-Bounded three ways: Pending comments only (`Addressed` and `Resolved` are immune),
-one project (widget tokens are rejected by `/api/site-review/sites` and
-`/api/site-review/stream`, so no project enumeration and no Mercure JWT), and
-throttled by `RateLimitSiteReviewWrites` — which slows churn but not a targeted
-delete. Not exposed on loupe.ac: `.env` ships `SITE_REVIEW_WIDGET_TOKEN` empty and
-`templates/layout_base.html.twig` gates it behind `site_review_widget_public or
-is_granted('ROLE_ADMIN')`. It bites any deployment that serves the widget to
-untrusted visitors — which is the case the widget exists for.
-
-**Attribution.** `site_review_get` (`src/Module/SiteReview/Mcp/SiteReviewGetTool.php`)
-carries `id`, `url`, `selector`, `text`, `body`, `status` and `createdAt`, and
-cannot say who wrote any of them, so a visitor's comment and the owner's are
-indistinguishable to an agent. `loupe-site-review` therefore escalates
-categorically: any comment that would change a destination, an identity, a
-credential or third-party code goes to the human. Verified 2026-08-15 by testing
-an agent against comments of exactly that shape — it applied a link-destination
-change and a support-email change on its own judgement when the skill was absent.
-
-Owner decision 2026-08-19 accepted the escalation tax, reasoning that one
-project-scoped token is the only credential and a Loupe session cookie is never
-sent with widget requests from a page the app does not serve, so nothing
-distinguishes an owner from a visitor. **That decision covered injection, not
-tampering** — it predates the read/edit/delete reach above being traced, so it is
-not an acceptance of this entry as now written. Per-reviewer tokens close both
-halves; see 'Personal reviewer tokens as an identity layer for the widget'.
-
-
 ## `digitalocean_app` shows a perpetual diff, so every apply redeploys
 
 **Author:** Claude · **Type:** tooling · **Priority:** low · **Status:** pending
 
-`terraform plan` never reaches "no changes" against the loupe.ac deployment. It
+`terraform plan` never reaches "no changes" against a live deployment. It
 reports the app as updated in place every time, with ten `env` blocks removed
 and ten re-added (the same ten, reordered — the provider treats them as a set
 and does not stabilise the order), `job.instance_count` drifting `1 -> null`,
@@ -253,10 +206,10 @@ first apply the database never works, because the module attaches the cluster's
 trusted sources *after* the app (the app's ID is one of the firewall rules). The
 app therefore fails its health check, App Platform never marks the deployment
 live, and the apply dies on a condition the next resource in the graph would
-have resolved. It took down the loupe.ac first apply on 2026-08-15; recovery was
-to append the trusted sources by hand, grant, migrate, `terraform untaint` the
-app (Terraform wanted to *replace* it, which would have minted a new app ID and
-orphaned the firewall rule), then apply targeted.
+have resolved. Observed on a first apply, and recovered by appending the trusted
+sources by hand, granting, migrating, `terraform untaint`ing the app (Terraform
+wanted to *replace* it, which would have minted a new app ID and orphaned the
+firewall rule), then applying targeted.
 
 Worth fixing before anyone else follows the documented first-deploy sequence.
 The cheapest candidate is a liveness path that renders nothing and reads
@@ -2291,7 +2244,7 @@ blameless because it is.
 Recovery is a restart of the offending container, and it is immediate:
 
 ```bash
-( cd ~/Code/traefik && docker compose restart step-ca )
+docker compose -f <your traefik stack> restart step-ca
 ```
 
 Afterwards `docker exec` works again and TLS still verifies
@@ -2333,35 +2286,6 @@ diagnosis cost the first time.
 
 Same family as 'Host `pkill` does not kill a process inside the php-fpm
 container': the host-visible symptom names the wrong process.
-
-## No CI pipeline runs the gate — deferred to the open-source flip
-
-**Author:** Geoffrey · **Type:** tooling · **Priority:** medium · **Status:** pending
-
-Owner decision (2026-08-09): a CI pipeline is added when the repository is made
-public, not before. Recorded so the gap is a choice rather than an oversight.
-
-There is no `.github/workflows`, so every gate runs only when a human runs it
-locally: `just ci`, `just e2e`, `just secrets-scan` and `just audit`. Nothing
-observes a branch, and nothing observes the calendar.
-
-What that leaves open, specifically. `composer audit` joined `just ci` (PR #168),
-which closes "nobody ever ran it" but not "an advisory was published while nobody
-opened a pull request". Both advisories this project has been bitten by went
-unnoticed for days and were found by hand for unrelated reasons: `guzzlehttp/guzzle`
-7.15.1 and `league/commonmark` 2.8.3, the latter carrying an XSS bypass. A
-scheduled advisory run is the one gate that genuinely cannot be replaced by a
-local pre-PR step, because its trigger is time rather than a change.
-
-Worth settling when this is picked up: whether the pipeline mirrors the pre-PR
-gate or only a subset, since `just e2e` is a serial ~5 minutes that cannot be
-parallelised (Mailpit is shared, so `playwright.config.ts` pins `workers: 1`);
-whether the Codex review leg has any hosted equivalent; and what a runner needs
-that a workstation has today (Docker, Postgres, a GitHub token for the `ubermuda/*`
-VCS repositories — `composer update` is rate-limited anonymously, though
-`composer audit` is not).
-
-Same trigger as the tracker removal: the visibility flip, not "at some point".
 
 ## Give each agent its own container in the cloud instead of sharing one dev stack
 
@@ -3574,6 +3498,67 @@ both rules from `app.css`.
 Landed 2026-08-22 in PR #241 (admin user page redesign), in response to a
 site-review comment asking for a fixed admin menu.
 
+## The site-review widget token can read, edit and delete any pending comment in its project
+
+**Author:** Claude · **Type:** security · **Priority:** medium · **Status:** pending
+
+`SiteReviewComment` has no author column. Every comment arrives through
+`AddCommentController`, which resolves a *project* from the widget token and
+stores nothing about who submitted it. Two consequences follow; only the second
+was tracked before 2026-08-25.
+
+**Authorization.** With no author, nothing can scope a mutation to the person who
+wrote the comment. Holding only the widget token — a `data-token` attribute in
+page HTML, public by design, as `ApiToken` itself notes ("anyone who can view the
+page holds the credential") — and no session, a visitor can `GET
+/api/site-review/review` for every pending comment in the project (bodies, URLs,
+selectors, quoted page text, not merely the current page's), and `PATCH` or
+`DELETE /api/site-review/comments/{id}` against any of them: `UpdateCommentHandler`
+and `DeleteCommentHandler` both resolve via `findOnePending($commentId, $project)`,
+project scope only. `SiteReviewCorsSubscriber` reflects the request `Origin`, so
+it works from any page, not just an instrumented one.
+
+Bounded by policy first: PR #252 states the staging-and-preview-only deployment
+model in `docs/using/site-review.md` and in `ApiToken`'s docblock, matching what
+the Connect page already said, so everyone who can see the token is someone
+already entitled to those comments. That is what took this off `high` — the
+reach itself is unchanged.
+
+Bounded three ways in code as well: Pending comments only (`Addressed` and `Resolved` are immune),
+one project (widget tokens are rejected by `/api/site-review/sites` and
+`/api/site-review/stream`, so no project enumeration and no Mercure JWT), and
+throttled by `RateLimitSiteReviewWrites` — which slows churn but not a targeted
+delete. Not exposed on loupe.ac: `.env` ships `SITE_REVIEW_WIDGET_TOKEN` empty and
+`templates/layout_base.html.twig` gates it behind `site_review_widget_public or
+is_granted('ROLE_ADMIN')`. It bites any deployment that serves the widget to
+untrusted visitors — which is the case the widget exists for.
+
+**Attribution.** `site_review_get` (`src/Module/SiteReview/Mcp/SiteReviewGetTool.php`)
+carries `id`, `url`, `selector`, `text`, `body`, `status` and `createdAt`, and
+cannot say who wrote any of them, so a visitor's comment and the owner's are
+indistinguishable to an agent. `loupe-site-review` therefore escalates
+categorically: any comment that would change a destination, an identity, a
+credential or third-party code goes to the human. Verified 2026-08-15 by testing
+an agent against comments of exactly that shape — it applied a link-destination
+change and a support-email change on its own judgement when the skill was absent.
+
+An enforcing per-project origin allowlist was designed and deferred on
+2026-08-25: cross-project access is already blocked by the token binding and
+`Origin` is forgeable by any non-browser caller, so it would only stop a browser
+page on an unregistered origin — against a column, a migration, a backfill over
+a free-text field, and widgets going dark under fail-closed. `LogWidgetOriginMismatch`
+records the mismatch instead. The plan is in Loupe as 'Per-project allowed
+origins for the site-review widget' if the trade is ever worth revisiting.
+
+Owner decision 2026-08-19 accepted the escalation tax, reasoning that one
+project-scoped token is the only credential and a Loupe session cookie is never
+sent with widget requests from a page the app does not serve, so nothing
+distinguishes an owner from a visitor. **That decision covered injection, not
+tampering** — it predates the read/edit/delete reach above being traced, so it is
+not an acceptance of this entry as now written. Per-reviewer tokens close both
+halves; see 'Personal reviewer tokens as an identity layer for the widget'.
+
+
 ## Transactional jobs run inline in e2e under `X-Playwright`
 
 **Author:** Geoffrey · **Type:** tooling · **Priority:** low · **Status:** pending
@@ -3688,15 +3673,11 @@ pre-1.0 and moving.
 
 `terraform/versions.tf` has its `backend "s3"` block commented out, so state is
 local. `terraform/terraform.tfstate` and `.tfstate.backup` hold live production
-credentials in cleartext on whichever machine last ran `apply` — the
-managed-database password and URI, the Spaces access and secret keys,
-`APP_SECRET`, `APP_ENCRYPTION_KEY`, `STRIPE_SECRET_KEY`,
-`STRIPE_WEBHOOK_SECRET`, the OAuth client secrets, `INSTALL_TOKEN` and
-`HEALTH_PROBE_TOKEN` among them. They are marked `"type":"SECRET"` in the app
-spec but stored plaintext in state. The DigitalOcean API token and the registry
-PAT are **not** in state — provider credentials are not persisted there — they
-sit beside it in `terraform/terraform.tfvars`. Same machine, same blast radius,
-different file.
+credentials in cleartext on whichever machine last ran `apply`: everything the
+app spec marks `"type":"SECRET"`, plus the managed-database URI and the Spaces
+keys, all stored plaintext in state whatever the spec calls them. Provider
+credentials are not persisted in state; they sit beside it in
+`terraform/terraform.tfvars`. Same machine, same blast radius, different file.
 
 **This is not a repository exposure and should not be triaged as one.** All of
 them are covered by `terraform/.gitignore` and none has ever been committed —
@@ -3712,10 +3693,15 @@ reasoning is about today's circumstances and not about the exposure being
 acceptable in general.
 
 Revisit when any of these becomes true: a second person runs `apply`, CI runs
-it, the machine stops being a single trusted laptop, or the repository goes
-public and the blast radius of a mistake changes. At that point the work is the
-encrypted backend the file already documents, `terraform init -migrate-state`,
-and deleting the local copies.
+it, or the operator's machine stops being a single trusted one. At that point
+the work is the encrypted backend the file already documents,
+`terraform init -migrate-state`, and deleting the local copies.
+
+The fourth trigger — the repository going public — has now fired, and the
+decision above predates it. Publishing does not move any of these files, which
+are gitignored and have never been committed, so nothing changed about the
+exposure itself. What changed is that a mistake is now made in the open. That
+re-decision is open.
 
 
 ## Watch an agent work, rather than reading what it finished

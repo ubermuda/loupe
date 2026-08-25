@@ -39,7 +39,9 @@ When you identify something worth remembering for a future session — a TODO, a
 
 `docs/NEXT_STEPS.md` is **committed**, because a tracker only one checkout can see is a tracker the next session cannot read. Being tracked also means it is branch content: parallel branches that both append will conflict, and the resolution is always to keep both entries (see `project-next-steps`).
 
-**Before making this repo public**, open work must move to GitHub issues and the tracker must come out — and by then it is in git history, so deleting it from `HEAD` is not enough. Treat the visibility flip as the trigger, not "at some point".
+**The tracker is public**, and stays. Moving it to GitHub issues was once the plan for the visibility flip; it is not, because a tracker an agent can read in one `cat` beats one behind an API call. Write every entry as public text — no secrets, no customer names, no venting about people — and remember it is already in git history, so an entry cannot be unpublished by deleting it.
+
+Entries go through a branch and a pull request like anything else. `main` is protected, so the old commit-straight-to-main shortcut for tracker notes no longer exists.
 
 When an item in `docs/NEXT_STEPS.md` is resolved, **delete it entirely**. Do not mark it with "— CLOSED", add a resolution note, or leave it under a `CLOSED` heading. The file should contain only open work. Closed content is noise.
 

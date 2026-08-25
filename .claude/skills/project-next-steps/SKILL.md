@@ -10,6 +10,10 @@ known issues, deferred decisions, product ideas. It is the ONLY sanctioned place
 for such notes — never in code comments (gamache's `NoTodosCheck` enforces that
 side).
 
+**The repository is public, so every entry is published the moment it is
+pushed.** Write accordingly: no secrets, no customer names, no venting about
+people. Deleting an entry later does not unpublish it — it stays in git history.
+
 **It is tracked, so it is branch content.** Two consequences:
 
 - Edit it in whatever worktree you are working in, like any other file. It used

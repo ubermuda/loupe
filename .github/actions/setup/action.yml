@@ -1,0 +1,69 @@
+name: Set up the project
+description: PHP, just, and the project's dependencies — plus Node and the Docker stack for the legs that need them.
+
+inputs:
+  node:
+    description: Install Node and the npm dependencies.
+    default: 'false'
+  docker:
+    description: Bring up the php-fpm and database containers and build the stylesheet.
+    default: 'false'
+
+runs:
+  using: composite
+  steps:
+    - uses: shivammathur/setup-php@v2
+      with:
+        php-version: '8.5'
+        extensions: ctype, iconv, intl, pdo_pgsql, zip, bcmath, xsl
+        coverage: none
+
+    - uses: extractions/setup-just@v4
+
+    - uses: actions/cache@v6
+      with:
+        path: vendor
+        key: vendor-${{ hashFiles('composer.lock') }}
+
+    # On a workstation composer runs in the container, because the host is a Mac
+    # with a different PHP. Here the runner is pinned to the same 8.5 and the same
+    # extension set, and the container bind-mounts this checkout, so one install
+    # on the host serves every leg — including the ones that need no container
+    # at all. twig.yaml registers var/tailwind as a template path, and the
+    # post-install cache:clear refuses to run without it.
+    - name: Install PHP dependencies
+      shell: bash
+      run: |
+        mkdir -p var/tailwind
+        composer install --no-interaction --no-progress
+
+    - if: inputs.node == 'true'
+      uses: actions/setup-node@v7
+      with:
+        node-version: 24
+        cache: npm
+        cache-dependency-path: |
+          package-lock.json
+          e2e/package-lock.json
+
+    - if: inputs.node == 'true'
+      shell: bash
+      run: |
+        npm ci
+        npm ci --prefix e2e
+
+    # compose.yaml attaches to a traefik network that a workstation shares with a
+    # long-running proxy. Nothing routes through it here; it only has to exist, or
+    # every service referencing it fails to start.
+    - if: inputs.docker == 'true'
+      shell: bash
+      run: |
+        docker network create traefik
+        docker compose up -d --wait database php-fpm
+
+    # WebTestCase renders real templates, and layout_base.html.twig resolves the
+    # compiled stylesheet through AssetMapper. The dev stack has a watcher
+    # producing it; here it takes one explicit build.
+    - if: inputs.docker == 'true'
+      shell: bash
+      run: docker compose exec -T php-fpm bin/console tailwind:build
