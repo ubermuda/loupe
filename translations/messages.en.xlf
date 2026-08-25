@@ -3639,7 +3639,7 @@
             </trans-unit>
             <trans-unit id="landing.mock.email">
                 <source>landing.mock.email</source>
-                <target>geoffrey@atlas.dev</target>
+                <target>geoffrey@example.com</target>
             </trans-unit>
             <trans-unit id="landing.mock.document.title">
                 <source>landing.mock.document.title</source>

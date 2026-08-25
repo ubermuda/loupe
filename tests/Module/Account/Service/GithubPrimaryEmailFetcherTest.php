@@ -80,6 +80,11 @@ final class GithubPrimaryEmailFetcherTest extends TestCase
 
                 return new JsonMockResponse([['email' => 'octo@example.com', 'primary' => true, 'verified' => true]]);
             },
+            // The host is the scoped github.api_client's base_uri, not something
+            // the fetcher builds — it asks for a path and the bounded client
+            // supplies the rest. Passing it here keeps the assertion below
+            // checking the join rather than a hardcoded literal.
+            'https://api.github.com',
         );
 
         new GithubPrimaryEmailFetcher($client)->fetchPrimary('secret-token');

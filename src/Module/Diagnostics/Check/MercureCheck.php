@@ -21,8 +21,13 @@ use Symfony\Contracts\HttpClient\HttpClientInterface;
  */
 final readonly class MercureCheck implements DiagnosticInterface
 {
-    /** A firewalled hub host must make the page slow, never make it hang. */
+    /**
+     * A firewalled hub host must make the page slow, never make it hang. timeout
+     * alone does not deliver that: it bounds idle time, so a hub dripping bytes
+     * is never idle and never cut off. max_duration bounds the whole exchange.
+     */
     private const float PROBE_TIMEOUT_SECONDS = 3.0;
+    private const float PROBE_MAX_DURATION_SECONDS = 5.0;
 
     public function __construct(
         private HttpClientInterface $httpClient,
@@ -55,7 +60,10 @@ final readonly class MercureCheck implements DiagnosticInterface
 
         try {
             $statusCode = $this->httpClient
-                ->request('GET', $this->mercureUrl, ['timeout' => self::PROBE_TIMEOUT_SECONDS])
+                ->request('GET', $this->mercureUrl, [
+                    'timeout' => self::PROBE_TIMEOUT_SECONDS,
+                    'max_duration' => self::PROBE_MAX_DURATION_SECONDS,
+                ])
                 ->getStatusCode();
         } catch (TransportExceptionInterface $e) {
             $this->logger->warning('account.system_status.mercure_unreachable', ['exception' => $e]);

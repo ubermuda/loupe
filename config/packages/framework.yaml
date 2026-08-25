@@ -20,10 +20,10 @@ framework:
 
     http_client:
         scoped_clients:
-            # SubmitReviewHandler publishes to the hub inline, before the visitor's
-            # response, so a hung hub would add its full timeout to every review
-            # submit. symfony/mercure-bundle exposes no per-hub http_client option,
-            # so MercureHubTimeoutPass swaps this in on the hub service instead.
+            # DrainOutboxHandler publishes to the hub, and a hung hub would
+            # otherwise stall the scheduled drain for its full timeout.
+            # symfony/mercure-bundle exposes no per-hub http_client option, so
+            # MercureHubTimeoutPass swaps this in on the hub service instead.
             # timeout is the idle timeout, max_duration the whole exchange.
             mercure.hub_client:
                 base_uri: '%env(MERCURE_URL)%'

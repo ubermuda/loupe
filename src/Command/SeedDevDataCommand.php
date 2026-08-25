@@ -20,6 +20,7 @@ use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Console\Style\SymfonyStyle;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
+use Symfony\Component\DependencyInjection\Attribute\When;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 
 /**
@@ -44,6 +45,7 @@ use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
     name: 'app:dev:seed',
     description: 'Seed an empty dev database with a verified user, a project, and a widget token.',
 )]
+#[When('dev')]
 final class SeedDevDataCommand extends Command
 {
     private const string EMAIL = 'dev@loupe.test';
