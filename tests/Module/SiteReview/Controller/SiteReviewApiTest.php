@@ -219,4 +219,14 @@ final class SiteReviewApiTest extends WebTestCase
         self::assertSame('GET, POST, PATCH, DELETE, OPTIONS', $client->getResponse()->headers->get('Access-Control-Allow-Methods'));
         self::assertSame('https://app.localhost', $client->getResponse()->headers->get('Access-Control-Allow-Origin'));
     }
+
+    public function test_a_request_without_an_origin_is_granted_no_origin(): void
+    {
+        $client = static::createClient();
+        $client->request(Request::METHOD_OPTIONS, '/api/site-review/comments');
+
+        // A wildcard fallback here would hand the API to every page on the web.
+        self::assertResponseStatusCodeSame(204);
+        self::assertFalse($client->getResponse()->headers->has('Access-Control-Allow-Origin'));
+    }
 }

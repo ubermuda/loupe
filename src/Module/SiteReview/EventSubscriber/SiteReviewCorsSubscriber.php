@@ -47,12 +47,20 @@ final class SiteReviewCorsSubscriber implements EventSubscriberInterface
     /** @return array<string, string> */
     private function headers(Request $request): array
     {
-        return [
-            'Access-Control-Allow-Origin' => (string) $request->headers->get('Origin', '*'),
+        $headers = [
             'Access-Control-Allow-Methods' => 'GET, POST, PATCH, DELETE, OPTIONS',
             'Access-Control-Allow-Headers' => 'Authorization, Content-Type',
             'Access-Control-Max-Age' => '3600',
             'Vary' => 'Origin',
         ];
+
+        // A request with no Origin is same-origin or not from a browser; neither
+        // needs the header, and a blanket '*' would grant every other page too.
+        $origin = $request->headers->get('Origin');
+        if (null !== $origin) {
+            $headers['Access-Control-Allow-Origin'] = $origin;
+        }
+
+        return $headers;
     }
 }
