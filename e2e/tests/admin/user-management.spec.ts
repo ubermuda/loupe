@@ -98,11 +98,17 @@ test.describe.serial('admin user management', () => {
         // lands back on this same detail page — toHaveURL would resolve before
         // the POST round-trips. The suspension summary only renders once the
         // account is actually suspended, so wait on that instead.
+        //
+        // 15s rather than the default 5: this page loads a lazy Stimulus
+        // controller and two font files after first paint, and on a two-core
+        // runner the Turbo submit queues behind them. At 5s it failed with the
+        // reason still sitting in the textarea and no request completed.
         await expect(
             admin.locator('[data-testid="suspension-details"]'),
-        ).toContainText(SUSPENSION_REASON);
+        ).toContainText(SUSPENSION_REASON, { timeout: 15000 });
         await expect(admin.locator('[data-testid="user-status"]')).toHaveText(
             'Suspended',
+            { timeout: 15000 },
         );
 
         // The account holder is now pinned: any safe navigation lands on the
