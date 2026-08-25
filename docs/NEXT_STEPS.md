@@ -3691,32 +3691,3 @@ the outbox, `DrainOutboxHandler`, the Mercure hub and the `site_review.push`
 flag — but nothing writes an event any more (see 'The site-review push
 subsystem has no producer left'). Any work here starts by deciding what an
 agent would announce, not by building transport.
-
-## Site-review comments have no author, and that is deliberate
-
-**Author:** Geoffrey · **Type:** docs · **Priority:** low · **Status:** pending
-
-Recorded because an audit will keep finding this and grading it as a
-vulnerability. `SiteReviewComment` stores no author: `AddCommentController`
-resolves a project from the widget token and nothing about who submitted the
-comment. Two things follow, and the owner accepted both.
-
-A widget token is therefore project-scoped rather than person-scoped, so anyone
-who can load an instrumented page can read every pending comment in that
-project and edit or delete any of them. That is bounded to pending comments in
-one project, and the widget is not built for public sites: it ships to
-administrators only unless `SITE_REVIEW_WIDGET_PUBLIC` is set, which
-`terraform/variables.tf` tells the operator to leave alone in production and to
-enable only where every visitor is trusted. With a solo developer as the
-intended user, per-comment ownership buys nothing.
-
-An agent also cannot tell whose comment it is reading — `site_review_get`
-carries no author field — so the `loupe-site-review` skill escalates
-categorically instead: any comment that would change a destination, an
-identity, a credential or third-party code goes to the human. That escalation
-tax was accepted on 2026-08-19 and verified by testing an agent against
-comments of exactly that shape.
-
-Revisit only if Loupe grows past the solo-developer case, or if the widget is
-ever meant for a site with untrusted visitors. 'Personal reviewer tokens as an
-identity layer for the widget' is the design that would close both halves.
