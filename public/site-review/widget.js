@@ -364,11 +364,13 @@
     <style>
       *{box-sizing:border-box}
       :host{all:initial}
-      /* The panel is a fixed-size popover and picking wants a cursor, so below
-         the app's own mobile boundary the widget hides rather than degrades.
-         A media query, not a boot-time check: it follows a rotation or a resize
-         back into view on its own. */
-      @media (max-width:639px){:host{display:none}}
+      /* The panel is a fixed-size popover and picking drives off hover, so the
+         widget hides rather than degrades: below the app's own mobile boundary,
+         and on any touch-primary device regardless of width — an embedder page
+         with no viewport meta reports ~980px on a phone, so width alone would
+         miss it. A media query, not a boot-time check: it follows a rotation or
+         a resize back into view on its own. */
+      @media (max-width:639px),(hover:none) and (pointer:coarse){:host{display:none}}
       @keyframes lp-spin{to{transform:rotate(360deg)}}
       @keyframes lp-pop{from{transform:translateY(8px) scale(.985)}to{transform:none}}
       @keyframes lp-slide-left{from{transform:translateX(-100%)}to{transform:translateX(0)}}
@@ -568,11 +570,13 @@
     <style>
       *{box-sizing:border-box}
       :host{all:initial}
-      /* The panel is a fixed-size popover and picking wants a cursor, so below
-         the app's own mobile boundary the widget hides rather than degrades.
-         A media query, not a boot-time check: it follows a rotation or a resize
-         back into view on its own. */
-      @media (max-width:639px){:host{display:none}}
+      /* The panel is a fixed-size popover and picking drives off hover, so the
+         widget hides rather than degrades: below the app's own mobile boundary,
+         and on any touch-primary device regardless of width — an embedder page
+         with no viewport meta reports ~980px on a phone, so width alone would
+         miss it. A media query, not a boot-time check: it follows a rotation or
+         a resize back into view on its own. */
+      @media (max-width:639px),(hover:none) and (pointer:coarse){:host{display:none}}
       @keyframes lp-fade{from{opacity:0}to{opacity:1}}
       @keyframes lp-slide-left{from{transform:translateX(-100%)}to{transform:translateX(0)}}
       @keyframes lp-slide-left-out{from{transform:translateX(0)}to{transform:translateX(-100%)}}
@@ -1421,15 +1425,16 @@
   };
 
   // ---- element picker (target mode) ----
-  // Pick mode does not live in the shadow roots the breakpoint hides: its click
-  // and contextmenu handlers are on the document and the crosshair is a
-  // stylesheet on the root. An invisible widget eating the page's clicks is
-  // worse than no widget, so picking is stood down on the way in and refused
-  // while hidden — the launcher is gone at that width but the 't' shortcut is
-  // not.
-  const belowBreakpoint = window.matchMedia('(max-width:639px)');
+  // Mirrors the :host rule above. Pick mode does not live in the shadow roots
+  // that rule hides: its click and contextmenu handlers are on the document and
+  // the crosshair is a stylesheet on the root. An invisible widget eating the
+  // page's clicks is worse than no widget, so picking is stood down on the way
+  // in and refused while hidden — the launcher goes, the 't' shortcut does not.
+  const hidden = window.matchMedia(
+    '(max-width:639px),(hover:none) and (pointer:coarse)',
+  );
   const setTargeting = (on) => {
-    if (on && belowBreakpoint.matches) return;
+    if (on && hidden.matches) return;
     state.target = on;
     if (!on) {
       state.moveHL = null;
@@ -1452,7 +1457,7 @@
     }
   };
 
-  belowBreakpoint.addEventListener('change', (event) => {
+  hidden.addEventListener('change', (event) => {
     if (event.matches) {
       setTargeting(false);
       // setTargeting only moves state; without this the widget comes back on a
@@ -1634,8 +1639,10 @@
       }
     }
     // Single-key shortcuts only while the panel is open, no modifier held, not typing —
-    // and never in the fatal state, where there is nothing to compose.
-    if (!state.open || state.fatal) return;
+    // and never in the fatal state, where there is nothing to compose. Nor while
+    // the breakpoint hides the widget: swallowing the host page's 'c' and 't' to
+    // drive UI nobody can see is worse than not being there.
+    if (!state.open || state.fatal || hidden.matches) return;
     if (event.metaKey || event.ctrlKey || event.altKey || isTyping()) return;
     if (event.key === 'c') {
       event.preventDefault();

@@ -771,6 +771,26 @@ test.describe('on a phone', () => {
     });
 });
 
+// Width alone would miss a phone on an embedder page with no viewport meta —
+// those report a ~980px layout viewport — so a touch-primary device hides the
+// widget at any width.
+test.describe('on a touch device', () => {
+    test.use({
+        viewport: { width: 1280, height: 800 },
+        hasTouch: true,
+        isMobile: true,
+    });
+
+    test('the widget stays out of the way however wide the viewport', async ({
+        page,
+    }) => {
+        await registerUser(page);
+        await page.goto(HARNESS_URL);
+
+        await expect(page.locator('#lp-launcher')).toBeHidden();
+    });
+});
+
 // Pick mode's handlers and its crosshair live on the document, not in the
 // shadow roots the breakpoint hides — so narrowing mid-pick would otherwise
 // leave an invisible widget swallowing the page's clicks.
@@ -790,10 +810,12 @@ test('narrowing to a phone mid-pick stands the widget down', async ({
 
     await expect(page.locator('body')).not.toHaveCSS('cursor', 'crosshair');
 
-    // The launcher is gone at this width but the 't' shortcut is not, so
-    // picking must be refused rather than merely exited.
+    // The launcher is gone at this width but the shortcuts are not: 't' must
+    // not re-enter picking, and 'c' must not open a composer nobody can see.
     await page.keyboard.press('t');
     await expect(page.locator('body')).not.toHaveCSS('cursor', 'crosshair');
+    await page.keyboard.press('c');
+    await expect(page.locator('#lp-textarea')).toBeHidden();
 
     // Widening brings it back as it should be, not mid-pick.
     await page.setViewportSize({ width: 1280, height: 844 });
