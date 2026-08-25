@@ -60,6 +60,11 @@ jobs:
       - run: npm ci
       - run: npm ci --prefix e2e
 
+      # WebTestCase renders real templates, and layout_base.html.twig resolves
+      # the compiled stylesheet through AssetMapper. The dev stack has a watcher
+      # producing it; here it takes one explicit build.
+      - run: docker compose exec -T php-fpm bin/console tailwind:build
+
       - run: just ci
 
   e2e:
@@ -111,6 +116,10 @@ jobs:
         env:
           E2E_BASE_URL: http://localhost
           MAILPIT_URL: http://localhost:8025
+
+      - name: Application errors
+        if: failure()
+        run: docker compose exec -T php-fpm sh -c 'grep -hE "CRITICAL|ERROR" var/log/dev.log | tail -n 40'
 
       - uses: actions/upload-artifact@v4
         if: failure()
