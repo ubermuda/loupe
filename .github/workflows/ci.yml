@@ -1,0 +1,137 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+# Deliberately not path-filtered, unlike the docs deploy. These are required
+# checks: a filtered check never reports on a pull request it skipped, and a
+# pull request waiting for a report that will never arrive cannot be merged at
+# all. The local documentation-only carve-out in CLAUDE.md is about a human
+# waiting four minutes, which is not a cost a runner pays.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # Five of the dependencies are VCS-sourced from github.com, and anonymous
+  # composer gets 60 API requests an hour across the whole runner fleet.
+  COMPOSER_AUTH: '{"github-oauth":{"github.com":"${{ github.token }}"}}'
+
+# One job per leg of `just ci`, rather than one job running it. A single job
+# reports a single check, so a red build names the branch and nothing else —
+# split, the failure names itself in the checks list and branch protection can
+# require the legs individually. Each job runs the same recipe a workstation
+# runs, so the two gates cannot drift.
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./.github/actions/setup
+        with:
+          node: 'true'
+      - run: just lint
+
+  cs-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./.github/actions/setup
+      - run: just cs-check
+
+  phpstan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./.github/actions/setup
+        with:
+          docker: 'true'
+      - run: just phpstan
+
+  arkitect:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./.github/actions/setup
+      - run: just arkitect
+
+  gamache:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./.github/actions/setup
+      - run: just gamache
+
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./.github/actions/setup
+        with:
+          node: 'true'
+          docker: 'true'
+      - run: just audit
+
+  phpunit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./.github/actions/setup
+        with:
+          docker: 'true'
+      - run: just phpunit
+
+  e2e:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./.github/actions/setup
+        with:
+          node: 'true'
+          docker: 'true'
+
+      # By name, not a bare `up`: the `tailwind` service is a watcher, and it
+      # would race the stylesheet build in the setup action. The worker is not
+      # needed either — every message dispatched under the X-Playwright header
+      # is handled inline.
+      - run: >
+          docker compose -f compose.yaml -f docker/compose/ci.yaml
+          up -d --wait nginx mailer
+
+      - name: Prepare the application
+        run: |
+          docker compose exec -T php-fpm bin/console doctrine:migrations:migrate --no-interaction --allow-no-migration
+          docker compose exec -T php-fpm bin/console app:dev:seed
+
+      # Everything above runs as root in the container; php-fpm serves requests
+      # as www-data, and var/ is owned by the runner. Without this the first
+      # request that writes a log line dies on a 500 instead — three specs deep
+      # into the suite, where it reads as an application bug.
+      - name: Let php-fpm write to var/
+        run: |
+          mkdir -p var/log
+          sudo chmod -R a+rwX var
+
+      - run: npx playwright install --with-deps chromium
+        working-directory: e2e
+
+      # The runner's whole database is disposable, so the suite runs against the
+      # main stack rather than the `just e2e-up` sidecar, whose only purpose is
+      # to keep a developer's own database out of the way.
+      - run: just e2e
+        env:
+          E2E_BASE_URL: http://localhost
+          MAILPIT_URL: http://localhost:8025
+
+      - name: Application errors
+        if: failure()
+        run: docker compose exec -T php-fpm sh -c 'grep -hE "CRITICAL|ERROR" var/log/dev.log | tail -n 40'
+
+      - uses: actions/upload-artifact@v7
+        if: failure()
+        with:
+          name: playwright-report
+          path: e2e/playwright-report
+          retention-days: 7
