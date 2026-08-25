@@ -789,4 +789,9 @@ test('narrowing to a phone mid-pick stands the widget down', async ({
     await page.setViewportSize({ width: 390, height: 844 });
 
     await expect(page.locator('body')).not.toHaveCSS('cursor', 'crosshair');
+
+    // Widening brings it back as it should be, not mid-pick.
+    await page.setViewportSize({ width: 1280, height: 844 });
+    await expect(page.locator('#lp-toast')).toBeHidden();
+    await expect(page.getByRole('button', { name: 'Review' })).toBeVisible();
 });

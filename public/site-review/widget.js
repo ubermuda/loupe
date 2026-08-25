@@ -1452,6 +1452,9 @@
   belowBreakpoint.addEventListener('change', (event) => {
     if (event.matches) {
       setTargeting(false);
+      // setTargeting only moves state; without this the widget comes back on a
+      // widen still showing the pick toast it is no longer in.
+      sync();
     }
   });
   const toggleTarget = () => {
