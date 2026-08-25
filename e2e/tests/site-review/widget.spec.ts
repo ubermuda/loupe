@@ -770,3 +770,23 @@ test.describe('on a phone', () => {
         await expect(page.getByRole('button', { name: 'Review' })).toBeHidden();
     });
 });
+
+// Pick mode's handlers and its crosshair live on the document, not in the
+// shadow roots the breakpoint hides — so narrowing mid-pick would otherwise
+// leave an invisible widget swallowing the page's clicks.
+test('narrowing to a phone mid-pick stands the widget down', async ({
+    page,
+}) => {
+    await registerUser(page);
+    await page.goto(HARNESS_URL);
+
+    await page
+        .getByRole('button', { name: 'Pick element', exact: true })
+        .click();
+    await expect(page.locator('#lp-toast')).toBeVisible();
+    await expect(page.locator('body')).toHaveCSS('cursor', 'crosshair');
+
+    await page.setViewportSize({ width: 390, height: 844 });
+
+    await expect(page.locator('body')).not.toHaveCSS('cursor', 'crosshair');
+});

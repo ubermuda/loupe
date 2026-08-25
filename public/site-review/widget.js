@@ -1443,6 +1443,17 @@
       window.removeEventListener('wheel', onWheel);
     }
   };
+
+  // Narrowing past the breakpoint hides both shadow hosts, but pick mode does
+  // not live in them: its click and contextmenu handlers are on the document and
+  // the crosshair is a stylesheet on the root. An invisible widget eating the
+  // page's clicks is worse than no widget, so stand it down on the way in.
+  const belowBreakpoint = window.matchMedia('(max-width:639px)');
+  belowBreakpoint.addEventListener('change', (event) => {
+    if (event.matches) {
+      setTargeting(false);
+    }
+  });
   const toggleTarget = () => {
     if (state.fatal) return;
     const on = !state.target;
