@@ -110,8 +110,8 @@ sparse-clones instead. Almost certainly fine, but never exercised.
 
 Close it out by adding the marketplace by `owner/repo` on a machine that has
 never had the local one registered, installing, and confirming `claude mcp list`
-shows `plugin:loupe:loupe` connected. A stale local registration pointing at
-`/Users/geoffrey/Code/loupe` would make that check pass for the wrong reason —
+shows `plugin:loupe:loupe` connected. A stale local registration pointing at a
+working copy would make that check pass for the wrong reason — run
 `claude plugin marketplace list` first.
 
 ## `just tf-db-bootstrap` does not survive an apply on a dedicated cluster
@@ -173,7 +173,7 @@ Found by an audit on 2026-08-20.
 
 **Author:** Claude · **Type:** tooling · **Priority:** low · **Status:** pending
 
-`terraform plan` never reaches "no changes" against the loupe.ac deployment. It
+`terraform plan` never reaches "no changes" against a live deployment. It
 reports the app as updated in place every time, with ten `env` blocks removed
 and ten re-added (the same ten, reordered — the provider treats them as a set
 and does not stabilise the order), `job.instance_count` drifting `1 -> null`,
@@ -206,10 +206,10 @@ first apply the database never works, because the module attaches the cluster's
 trusted sources *after* the app (the app's ID is one of the firewall rules). The
 app therefore fails its health check, App Platform never marks the deployment
 live, and the apply dies on a condition the next resource in the graph would
-have resolved. It took down the loupe.ac first apply on 2026-08-15; recovery was
-to append the trusted sources by hand, grant, migrate, `terraform untaint` the
-app (Terraform wanted to *replace* it, which would have minted a new app ID and
-orphaned the firewall rule), then apply targeted.
+have resolved. Observed on a first apply, and recovered by appending the trusted
+sources by hand, granting, migrating, `terraform untaint`ing the app (Terraform
+wanted to *replace* it, which would have minted a new app ID and orphaned the
+firewall rule), then applying targeted.
 
 Worth fixing before anyone else follows the documented first-deploy sequence.
 The cheapest candidate is a liveness path that renders nothing and reads
@@ -2244,7 +2244,7 @@ blameless because it is.
 Recovery is a restart of the offending container, and it is immediate:
 
 ```bash
-( cd ~/Code/traefik && docker compose restart step-ca )
+docker compose -f <your traefik stack> restart step-ca
 ```
 
 Afterwards `docker exec` works again and TLS still verifies
@@ -3673,15 +3673,11 @@ pre-1.0 and moving.
 
 `terraform/versions.tf` has its `backend "s3"` block commented out, so state is
 local. `terraform/terraform.tfstate` and `.tfstate.backup` hold live production
-credentials in cleartext on whichever machine last ran `apply` — the
-managed-database password and URI, the Spaces access and secret keys,
-`APP_SECRET`, `APP_ENCRYPTION_KEY`, `STRIPE_SECRET_KEY`,
-`STRIPE_WEBHOOK_SECRET`, the OAuth client secrets, `INSTALL_TOKEN` and
-`HEALTH_PROBE_TOKEN` among them. They are marked `"type":"SECRET"` in the app
-spec but stored plaintext in state. The DigitalOcean API token and the registry
-PAT are **not** in state — provider credentials are not persisted there — they
-sit beside it in `terraform/terraform.tfvars`. Same machine, same blast radius,
-different file.
+credentials in cleartext on whichever machine last ran `apply`: everything the
+app spec marks `"type":"SECRET"`, plus the managed-database URI and the Spaces
+keys, all stored plaintext in state whatever the spec calls them. Provider
+credentials are not persisted in state; they sit beside it in
+`terraform/terraform.tfvars`. Same machine, same blast radius, different file.
 
 **This is not a repository exposure and should not be triaged as one.** All of
 them are covered by `terraform/.gitignore` and none has ever been committed —
@@ -3697,10 +3693,15 @@ reasoning is about today's circumstances and not about the exposure being
 acceptable in general.
 
 Revisit when any of these becomes true: a second person runs `apply`, CI runs
-it, the machine stops being a single trusted laptop, or the repository goes
-public and the blast radius of a mistake changes. At that point the work is the
-encrypted backend the file already documents, `terraform init -migrate-state`,
-and deleting the local copies.
+it, or the operator's machine stops being a single trusted one. At that point
+the work is the encrypted backend the file already documents,
+`terraform init -migrate-state`, and deleting the local copies.
+
+The fourth trigger — the repository going public — has now fired, and the
+decision above predates it. Publishing does not move any of these files, which
+are gitignored and have never been committed, so nothing changed about the
+exposure itself. What changed is that a mistake is now made in the open. That
+re-decision is open.
 
 
 ## Watch an agent work, rather than reading what it finished

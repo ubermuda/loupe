@@ -63,6 +63,12 @@ refused and the widget tells you so rather than silently discarding it.
 Comments do not push. Your agent sees them when it calls `site_review_get`, so
 ask it to look — there is nothing to press, and nothing arrives unprompted.
 
+A comment carries no author, so an agent cannot tell yours apart from anyone
+else's on the page. The shipped `loupe-site-review` skill therefore escalates by
+category rather than by who asked: any comment that would change a destination,
+an identity, a credential or third-party code goes to you instead of being
+acted on. That is the same reason the widget belongs on staging only.
+
 Live push over a Mercure hub, an outbox for undelivered events, and the
 [command-line bridge](../extending/cli-bridge.md) are all still present but
 **currently inert**: nothing publishes an event, so the outbox stays empty and
