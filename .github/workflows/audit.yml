@@ -1,0 +1,22 @@
+name: Audit
+
+# `just ci` already audits composer.lock on every pull request. This exists for
+# the case that cannot: an advisory published while nobody opens one. Both
+# advisories this project has been bitten by went unnoticed for days.
+on:
+  schedule:
+    - cron: '17 6 * * 1'
+  workflow_dispatch:
+
+jobs:
+  composer:
+    name: composer audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.5'
+          coverage: none
+      # --locked audits the lockfile itself, so no install is needed.
+      - run: composer audit --locked
