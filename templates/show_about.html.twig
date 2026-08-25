@@ -21,6 +21,18 @@
             </div>
         </section>
 
+        <section class="lp-about-card">
+            <span class="lp-about-card__glyph"><twig:ux:icon name="lucide:book-open" class="w-4.5 h-4.5" /></span>
+            <div class="lp-about-card__main">
+                <h2 class="lp-about-card__title">{{ 'about.docs.heading'|trans }}</h2>
+                <p class="lp-about-card__text">{{ 'about.docs.body'|trans }}</p>
+                <a href="{{ app_docs_url }}/" class="lp-btn" target="_blank" rel="noopener noreferrer">
+                    <twig:ux:icon name="lucide:book-open" class="w-3.5 h-3.5 shrink-0" />
+                    <span>{{ 'about.docs.action'|trans }}</span>
+                </a>
+            </div>
+        </section>
+
         {% if app.user %}
         <section class="lp-about-card">
             <span class="lp-about-card__glyph"><twig:ux:icon name="lucide:tag" class="w-4.5 h-4.5" /></span>

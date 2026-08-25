@@ -20,6 +20,7 @@ final class ShowAboutControllerTest extends WebTestCase
         self::assertResponseIsSuccessful();
         self::assertSelectorExists('a[href="https://github.com/ubermuda/loupe"]');
         self::assertSelectorNotExists('[data-testid="app-version"]');
+        self::assertSelectorExists('a[href="https://ubermuda.github.io/loupe/"]');
     }
 
     public function test_signed_in_visitor_also_sees_the_build_version(): void
