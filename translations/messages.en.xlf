@@ -3200,17 +3200,13 @@
                 <source>review.dashboard.empty.connect</source>
                 <target>Connect an agent</target>
             </trans-unit>
-            <trans-unit id="review.dashboard.empty.skills.title">
-                <source>review.dashboard.empty.skills.title</source>
-                <target>Install the Loupe agent skills</target>
-            </trans-unit>
             <trans-unit id="review.dashboard.empty.skills.hint">
                 <source>review.dashboard.empty.skills.hint</source>
-                <target>If you haven't already, install the Loupe skills so your agent knows how to write and revise documents here.</target>
+                <target>If you haven't already, install the loupe-documents and loupe-site-review skills so your agent knows how to use Loupe.</target>
             </trans-unit>
             <trans-unit id="review.dashboard.empty.skills.action">
                 <source>review.dashboard.empty.skills.action</source>
-                <target>How to install them</target>
+                <target>See the install steps</target>
             </trans-unit>
             <trans-unit id="review.dashboard.empty_filtered.title">
                 <source>review.dashboard.empty_filtered.title</source>
