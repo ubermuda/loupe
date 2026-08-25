@@ -427,7 +427,9 @@ tailwind:
 docs-install:
     cd website && npm install
 
-# Live-reloading preview of docs/ at http://localhost:4321 (Ctrl-C to stop).
+# Live-reloading preview of docs/ at http://localhost:4321/loupe/ (Ctrl-C to
+# stop). The /loupe/ prefix is the deployed base path, applied in dev too so a
+# link that would 404 on Pages 404s here first.
 docs *args: docs-install
     cd website && npx astro dev "$@"
 

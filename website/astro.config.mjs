@@ -7,6 +7,11 @@ import { remarkDocsLinks } from './remark-docs-links.mjs';
 
 const docsDir = fileURLToPath(new URL('../docs', import.meta.url));
 
+// The site is served from a project page, so every route sits under /loupe.
+// remarkDocsLinks rewrites Markdown links to absolute routes and Astro does not
+// touch those, so it has to prefix the base itself.
+const base = '/loupe';
+
 // astro.config runs in Node, where .env is not loaded for us. Absent a token the
 // widget is simply not injected — see .env.example.
 const env = loadEnv(process.env.NODE_ENV ?? 'development', process.cwd(), '');
@@ -26,8 +31,10 @@ const siteReviewWidget = isDevServer && env.PUBLIC_SITE_REVIEW_TOKEN
   : [];
 
 export default defineConfig({
+  site: 'https://ubermuda.github.io',
+  base,
   markdown: {
-    remarkPlugins: [[remarkDocsLinks, { docsDir }]],
+    remarkPlugins: [[remarkDocsLinks, { docsDir, base }]],
   },
   integrations: [
     starlight({

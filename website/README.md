@@ -5,10 +5,14 @@ Markdown in [`../docs`](../docs). It is a static build with no dependency on the
 application, so it runs on the host rather than in a container.
 
 ```sh
-just docs           # live preview at http://localhost:4321
+just docs           # live preview at http://localhost:4321/loupe/
 just docs-build     # static build into website/dist, search index included
 just docs-preview   # serve the built output rather than the dev server
 ```
+
+The `/loupe/` prefix is the `base` the site is deployed under, and it applies in
+dev and preview as well as in the build — a link that would 404 on Pages 404s
+here first.
 
 Each recipe installs `website/node_modules` first, so the first run is slow and
 the rest are not. Nothing here is part of `just ci`.

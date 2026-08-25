@@ -10,8 +10,10 @@ shared module
 [`terraform-digitalocean-symfony-app`](https://github.com/ubermuda/terraform-digitalocean-symfony-app),
 pinned to a tag in `terraform/main.tf`.
 
-Point the platform's health check at `GET /healthz` (see "Operating an
-instance").
+The health check starts at `GET /login` and moves to `GET /healthz` once the
+database is reachable — see step 6 below. `/healthz` queries the database, and
+on the first apply the app boots before trusted sources attach, so pointing at
+it up front fails the deploy.
 
 ## Prerequisites
 
@@ -84,18 +86,35 @@ just tf-apply
 #    trusted sources, and GRANT schema privileges to the app's user.
 just tf-db-bootstrap
 
-# 4. Run migrations once, by hand.
-docker run --rm --env-file <prod env file> \
+# 4. Run migrations once, by hand. release.sh needs exactly three values.
+#    There is no env-file template for this: docker/compose/prod.env.example
+#    belongs to the single-host stack, which has no DATABASE_URL at all —
+#    prod.yaml assembles one from POSTGRES_* against a `database` container
+#    that does not exist here. Build the DSN from the managed cluster instead.
+#    The connection string below is the cluster's DEFAULT user and database, so
+#    substitute this app's own, which `just tf-output` reports as db_user and
+#    db_name.
+doctl databases connection "$(just tf-output -raw db_cluster_id)" --format URI
+
+docker run --rm \
+    -e APP_ENV=prod \
+    -e APP_SECRET="$TF_VAR_app_secret" \
+    -e DATABASE_URL="postgresql://<db_user>:<password>@<host>:<port>/<db_name>?sslmode=require&serverVersion=16" \
     "${LOUPE_PROD_IMAGE:-ghcr.io/ubermuda/loupe:prod}" docker/prod/release.sh
 
 # 5. Turn on automated migrations for every deploy afterwards:
 #    set `enable_predeploy_migrations = true` in terraform.tfvars, then
 just tf-apply
+
+# 6. Now that the database is reachable, move the health check onto /healthz:
+#    set `health_check_path = "/healthz"` in terraform.tfvars, then
+just tf-apply
 ```
 
 After the first apply, note the assigned `*.ondigitalocean.app` URL and set
-`default_uri` in `terraform/main.tf` to it (or set `custom_domain` and let the
-module derive it). Without that, CLI- and worker-generated absolute URLs —
+`default_uri` to it in `terraform.tfvars` (or set `custom_domain` there and let
+the module derive it). Set it in `terraform.tfvars`, not in `terraform/main.tf`,
+where both are already wired to those variables. Without that, CLI- and worker-generated absolute URLs —
 password reset links, data-export download links — point at the wrong host.
 
 ## Routine deploys
