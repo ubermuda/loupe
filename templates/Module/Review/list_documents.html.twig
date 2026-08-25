@@ -206,6 +206,30 @@
         <p class="lp-empty-state__body">{{ 'review.dashboard.empty.body'|trans }}</p>
         <a class="lp-btn" href="{{ path('app_project_connect', {id: project.id}) }}">{{ 'review.dashboard.empty.connect'|trans }}</a>
         {% endif %}
+
+        {# Outside the branch: the skills are worth having whether or not a token
+           is bound, and nothing server-side can tell whether they are installed —
+           they live in the reader's client. #}
+        <div class="lp-skills-panel lp-empty-state__callout">
+            <div class="lp-skills-panel__header">
+                <twig:ux:icon name="lucide:graduation-cap" class="lp-skills-panel__icon w-5 h-5" />
+                <h3 class="lp-skills-panel__title">{{ 'review.dashboard.empty.skills.title'|trans }}</h3>
+            </div>
+            <p class="lp-connect-hint">{{ 'review.dashboard.empty.skills.hint'|trans }}</p>
+            <div class="lp-skills">
+                {% for name, descriptionKey in {
+                    'loupe-documents': 'project.connect.skills.documents',
+                    'loupe-site-review': 'project.connect.skills.site_review',
+                } %}
+                <div class="lp-skills__row">
+                    <code class="lp-skills__name">{{ name }}</code>
+                    <p class="lp-skills__desc">{{ descriptionKey|trans }}</p>
+                </div>
+                {% endfor %}
+            </div>
+            <a class="lp-btn lp-btn--ghost lp-btn--sm lp-empty-state__callout-action"
+               href="{{ path('app_project_connect', {id: project.id}) }}">{{ 'review.dashboard.empty.skills.action'|trans }}</a>
+        </div>
     </div>
     {% endif %}
 </div>

@@ -112,6 +112,28 @@
             </article>
         {% endfor %}
     </div>
+    {% elseif project.widgetToken is null %}
+    <div class="lp-empty-state">
+        <twig:ux:icon name="lucide:code-xml" class="lp-empty-state__icon w-12 h-12" />
+        <h2 class="lp-empty-state__title">{{ 'site_review.site.reviews.setup_title'|trans }}</h2>
+        <p class="lp-empty-state__body">{{ 'site_review.site.reviews.setup_body'|trans }}</p>
+        <a class="lp-btn" href="{{ path('app_project_connect', {id: project.id}) }}">{{ 'site_review.site.reviews.setup_action'|trans }}</a>
+    </div>
+    {% elseif project.widgetToken.lastUsedAt is null %}
+    {# The widget calls the review endpoint as it boots, and that call stamps the
+       token, so an unstamped token means the snippet has never run anywhere. #}
+    <div class="lp-empty-state">
+        <twig:ux:icon name="lucide:globe" class="lp-empty-state__icon w-12 h-12" />
+        <h2 class="lp-empty-state__title">{{ 'site_review.site.reviews.not_loaded_title'|trans }}</h2>
+        <p class="lp-empty-state__body">
+            {%- if project.domain -%}
+                {{ 'site_review.site.reviews.not_loaded_body'|trans({'%domain%': project.domain}) }}
+            {%- else -%}
+                {{ 'site_review.site.reviews.not_loaded_body_no_domain'|trans }}
+            {%- endif -%}
+        </p>
+        <a class="lp-btn" href="{{ path('app_project_connect', {id: project.id}) }}">{{ 'site_review.site.reviews.not_loaded_action'|trans }}</a>
+    </div>
     {% else %}
     <div class="lp-empty-state">
         <twig:ux:icon name="lucide:message-square" class="lp-empty-state__icon w-12 h-12" />

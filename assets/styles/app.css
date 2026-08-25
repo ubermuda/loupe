@@ -1095,7 +1095,8 @@
         @apply text-fg-mute text-sm py-4;
     }
     /* Full-panel empty state: an icon, a heading, a sentence explaining how the
-       thing gets created, and at most one action. */
+       thing gets created, at most one action, and optionally a quieter callout
+       panel below it. */
     .lp-empty-state {
         @apply flex flex-col items-center text-center gap-3 rounded-xl bg-surface-2 py-16 px-8;
     }
@@ -1107,6 +1108,14 @@
     }
     .lp-empty-state__body {
         @apply max-w-md text-sm text-fg-mute m-0 leading-relaxed;
+    }
+    /* Applied alongside a panel class. The panel's own rows are left-aligned
+       prose, which the centred empty state would otherwise centre. */
+    .lp-empty-state__callout {
+        @apply w-full max-w-2xl text-left mt-3;
+    }
+    .lp-empty-state__callout-action {
+        @apply self-start;
     }
 
     /* ── Buttons (lp- namespace) ────────────────────────────────────── */
