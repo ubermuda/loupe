@@ -169,53 +169,6 @@ be mistaken for one.
 
 Found by an audit on 2026-08-20.
 
-## The site-review widget token can read, edit and delete any pending comment in its project
-
-**Author:** Claude · **Type:** security · **Priority:** high · **Status:** pending
-
-`SiteReviewComment` has no author column. Every comment arrives through
-`AddCommentController`, which resolves a *project* from the widget token and
-stores nothing about who submitted it. Two consequences follow; only the second
-was tracked before 2026-08-25.
-
-**Authorization.** With no author, nothing can scope a mutation to the person who
-wrote the comment. Holding only the widget token — a `data-token` attribute in
-page HTML, public by design, as `ApiToken` itself notes ("anyone who can view the
-page holds the credential") — and no session, a visitor can `GET
-/api/site-review/review` for every pending comment in the project (bodies, URLs,
-selectors, quoted page text, not merely the current page's), and `PATCH` or
-`DELETE /api/site-review/comments/{id}` against any of them: `UpdateCommentHandler`
-and `DeleteCommentHandler` both resolve via `findOnePending($commentId, $project)`,
-project scope only. `SiteReviewCorsSubscriber` reflects the request `Origin`, so
-it works from any page, not just an instrumented one.
-
-Bounded three ways: Pending comments only (`Addressed` and `Resolved` are immune),
-one project (widget tokens are rejected by `/api/site-review/sites` and
-`/api/site-review/stream`, so no project enumeration and no Mercure JWT), and
-throttled by `RateLimitSiteReviewWrites` — which slows churn but not a targeted
-delete. Not exposed on loupe.ac: `.env` ships `SITE_REVIEW_WIDGET_TOKEN` empty and
-`templates/layout_base.html.twig` gates it behind `site_review_widget_public or
-is_granted('ROLE_ADMIN')`. It bites any deployment that serves the widget to
-untrusted visitors — which is the case the widget exists for.
-
-**Attribution.** `site_review_get` (`src/Module/SiteReview/Mcp/SiteReviewGetTool.php`)
-carries `id`, `url`, `selector`, `text`, `body`, `status` and `createdAt`, and
-cannot say who wrote any of them, so a visitor's comment and the owner's are
-indistinguishable to an agent. `loupe-site-review` therefore escalates
-categorically: any comment that would change a destination, an identity, a
-credential or third-party code goes to the human. Verified 2026-08-15 by testing
-an agent against comments of exactly that shape — it applied a link-destination
-change and a support-email change on its own judgement when the skill was absent.
-
-Owner decision 2026-08-19 accepted the escalation tax, reasoning that one
-project-scoped token is the only credential and a Loupe session cookie is never
-sent with widget requests from a page the app does not serve, so nothing
-distinguishes an owner from a visitor. **That decision covered injection, not
-tampering** — it predates the read/edit/delete reach above being traced, so it is
-not an acceptance of this entry as now written. Per-reviewer tokens close both
-halves; see 'Personal reviewer tokens as an identity layer for the widget'.
-
-
 ## `digitalocean_app` shows a perpetual diff, so every apply redeploys
 
 **Author:** Claude · **Type:** tooling · **Priority:** low · **Status:** pending
@@ -3738,3 +3691,32 @@ the outbox, `DrainOutboxHandler`, the Mercure hub and the `site_review.push`
 flag — but nothing writes an event any more (see 'The site-review push
 subsystem has no producer left'). Any work here starts by deciding what an
 agent would announce, not by building transport.
+
+## Site-review comments have no author, and that is deliberate
+
+**Author:** Geoffrey · **Type:** docs · **Priority:** low · **Status:** pending
+
+Recorded because an audit will keep finding this and grading it as a
+vulnerability. `SiteReviewComment` stores no author: `AddCommentController`
+resolves a project from the widget token and nothing about who submitted the
+comment. Two things follow, and the owner accepted both.
+
+A widget token is therefore project-scoped rather than person-scoped, so anyone
+who can load an instrumented page can read every pending comment in that
+project and edit or delete any of them. That is bounded to pending comments in
+one project, and the widget is not built for public sites: it ships to
+administrators only unless `SITE_REVIEW_WIDGET_PUBLIC` is set, which
+`terraform/variables.tf` tells the operator to leave alone in production and to
+enable only where every visitor is trusted. With a solo developer as the
+intended user, per-comment ownership buys nothing.
+
+An agent also cannot tell whose comment it is reading — `site_review_get`
+carries no author field — so the `loupe-site-review` skill escalates
+categorically instead: any comment that would change a destination, an
+identity, a credential or third-party code goes to the human. That escalation
+tax was accepted on 2026-08-19 and verified by testing an agent against
+comments of exactly that shape.
+
+Revisit only if Loupe grows past the solo-developer case, or if the widget is
+ever meant for a site with untrusted visitors. 'Personal reviewer tokens as an
+identity layer for the widget' is the design that would close both halves.
