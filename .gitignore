@@ -63,6 +63,9 @@ phpstan.neon
 /.claude/worktrees/
 /.claude/scratch/
 /.claude/*.md
+# Per-machine tool settings. Ignored by the author's global config today, which
+# is no rule at all for anyone else's clone.
+/.claude/settings.local.json
 /node_modules
 /.eslintcache
 /docs/superpowers/

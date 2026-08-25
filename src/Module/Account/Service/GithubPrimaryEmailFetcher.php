@@ -11,7 +11,7 @@ use Symfony\Contracts\HttpClient\HttpClientInterface;
 final readonly class GithubPrimaryEmailFetcher
 {
     public function __construct(
-        private HttpClientInterface $httpClient,
+        private HttpClientInterface $githubApiClient,
     ) {
     }
 
@@ -25,11 +25,8 @@ final readonly class GithubPrimaryEmailFetcher
     public function fetchPrimary(string $accessToken): ?array
     {
         try {
-            $response = $this->httpClient->request('GET', 'https://api.github.com/user/emails', [
-                'headers' => [
-                    'Authorization' => 'Bearer '.$accessToken,
-                    'Accept' => 'application/vnd.github+json',
-                ],
+            $response = $this->githubApiClient->request('GET', '/user/emails', [
+                'headers' => ['Authorization' => 'Bearer '.$accessToken],
             ]);
             // getStatusCode() does not throw on 4xx/5xx, so gate on it before
             // toArray() — a revoked token must degrade, not abort the login.
