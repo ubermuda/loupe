@@ -758,3 +758,67 @@ test('the launcher exposes icon-only quick actions for note and pick', async ({
     await expect(page.locator('#lp-panel')).toBeHidden();
     await expect(launcher).toBeHidden();
 });
+
+test.describe('on a phone', () => {
+    test.use({ viewport: { width: 390, height: 844 } });
+
+    test('the widget stays out of the way', async ({ page }) => {
+        await registerUser(page);
+        await page.goto(HARNESS_URL);
+
+        await expect(page.locator('#lp-launcher')).toBeHidden();
+        await expect(page.getByRole('button', { name: 'Review' })).toBeHidden();
+    });
+});
+
+// Width alone would miss a phone on an embedder page with no viewport meta —
+// those report a ~980px layout viewport — so a touch-primary device hides the
+// widget at any width.
+test.describe('on a touch device', () => {
+    test.use({
+        viewport: { width: 1280, height: 800 },
+        hasTouch: true,
+        isMobile: true,
+    });
+
+    test('the widget stays out of the way however wide the viewport', async ({
+        page,
+    }) => {
+        await registerUser(page);
+        await page.goto(HARNESS_URL);
+
+        await expect(page.locator('#lp-launcher')).toBeHidden();
+    });
+});
+
+// Pick mode's handlers and its crosshair live on the document, not in the
+// shadow roots the breakpoint hides — so narrowing mid-pick would otherwise
+// leave an invisible widget swallowing the page's clicks.
+test('narrowing to a phone mid-pick stands the widget down', async ({
+    page,
+}) => {
+    await registerUser(page);
+    await page.goto(HARNESS_URL);
+
+    await page
+        .getByRole('button', { name: 'Pick element', exact: true })
+        .click();
+    await expect(page.locator('#lp-toast')).toBeVisible();
+    await expect(page.locator('body')).toHaveCSS('cursor', 'crosshair');
+
+    await page.setViewportSize({ width: 390, height: 844 });
+
+    await expect(page.locator('body')).not.toHaveCSS('cursor', 'crosshair');
+
+    // The launcher is gone at this width but the shortcuts are not: 't' must
+    // not re-enter picking, and 'c' must not open a composer nobody can see.
+    await page.keyboard.press('t');
+    await expect(page.locator('body')).not.toHaveCSS('cursor', 'crosshair');
+    await page.keyboard.press('c');
+    await expect(page.locator('#lp-textarea')).toBeHidden();
+
+    // Widening brings it back as it should be, not mid-pick.
+    await page.setViewportSize({ width: 1280, height: 844 });
+    await expect(page.locator('#lp-toast')).toBeHidden();
+    await expect(page.getByRole('button', { name: 'Review' })).toBeVisible();
+});
