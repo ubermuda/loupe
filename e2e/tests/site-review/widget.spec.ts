@@ -790,6 +790,11 @@ test('narrowing to a phone mid-pick stands the widget down', async ({
 
     await expect(page.locator('body')).not.toHaveCSS('cursor', 'crosshair');
 
+    // The launcher is gone at this width but the 't' shortcut is not, so
+    // picking must be refused rather than merely exited.
+    await page.keyboard.press('t');
+    await expect(page.locator('body')).not.toHaveCSS('cursor', 'crosshair');
+
     // Widening brings it back as it should be, not mid-pick.
     await page.setViewportSize({ width: 1280, height: 844 });
     await expect(page.locator('#lp-toast')).toBeHidden();

@@ -1421,7 +1421,15 @@
   };
 
   // ---- element picker (target mode) ----
+  // Pick mode does not live in the shadow roots the breakpoint hides: its click
+  // and contextmenu handlers are on the document and the crosshair is a
+  // stylesheet on the root. An invisible widget eating the page's clicks is
+  // worse than no widget, so picking is stood down on the way in and refused
+  // while hidden — the launcher is gone at that width but the 't' shortcut is
+  // not.
+  const belowBreakpoint = window.matchMedia('(max-width:639px)');
   const setTargeting = (on) => {
+    if (on && belowBreakpoint.matches) return;
     state.target = on;
     if (!on) {
       state.moveHL = null;
@@ -1444,11 +1452,6 @@
     }
   };
 
-  // Narrowing past the breakpoint hides both shadow hosts, but pick mode does
-  // not live in them: its click and contextmenu handlers are on the document and
-  // the crosshair is a stylesheet on the root. An invisible widget eating the
-  // page's clicks is worse than no widget, so stand it down on the way in.
-  const belowBreakpoint = window.matchMedia('(max-width:639px)');
   belowBreakpoint.addEventListener('change', (event) => {
     if (event.matches) {
       setTargeting(false);
