@@ -57,6 +57,13 @@ async function openVictimDetail(admin: Page): Promise<void> {
 
     await expect(admin).toHaveURL(/\/admin\/users\/[0-9a-f-]{36}/);
     await expect(admin.locator('[data-testid="danger-zone"]')).toBeVisible();
+
+    // Both webfonts are font-display: swap and arrive after the HTML, so on a
+    // slow machine they reflow this page under the pointer. Playwright starts
+    // move, press and release together and only hit-tests the first, so a swap
+    // between press and release drops the click entirely: no click event, no
+    // submit, no request, and a passing action log.
+    await admin.evaluate(() => document.fonts.ready.then(() => undefined));
 }
 
 test.describe.serial('admin user management', () => {
