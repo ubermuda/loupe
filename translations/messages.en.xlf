@@ -3083,6 +3083,34 @@
                 <source>site_review.site.reviews.empty_body</source>
                 <target>Install the review widget on your site, and the comments you capture in the browser will appear here.</target>
             </trans-unit>
+            <trans-unit id="site_review.site.reviews.setup_title">
+                <source>site_review.site.reviews.setup_title</source>
+                <target>Set up the site-review widget</target>
+            </trans-unit>
+            <trans-unit id="site_review.site.reviews.setup_body">
+                <source>site_review.site.reviews.setup_body</source>
+                <target>The widget is what collects comments from your site: a reviewer points at anything on the page, leaves a note, and it lands here. Mint a widget token and drop the snippet into your pages to start.</target>
+            </trans-unit>
+            <trans-unit id="site_review.site.reviews.setup_action">
+                <source>site_review.site.reviews.setup_action</source>
+                <target>Set up the widget</target>
+            </trans-unit>
+            <trans-unit id="site_review.site.reviews.not_loaded_title">
+                <source>site_review.site.reviews.not_loaded_title</source>
+                <target>The widget hasn't loaded yet</target>
+            </trans-unit>
+            <trans-unit id="site_review.site.reviews.not_loaded_body">
+                <source>site_review.site.reviews.not_loaded_body</source>
+                <target>Your widget token is ready, but the widget hasn't loaded on your site yet — add the snippet to %domain% and open a page there.</target>
+            </trans-unit>
+            <trans-unit id="site_review.site.reviews.not_loaded_body_no_domain">
+                <source>site_review.site.reviews.not_loaded_body_no_domain</source>
+                <target>Your widget token is ready, but the widget hasn't loaded on your site yet — add the snippet to your pages and open one of them.</target>
+            </trans-unit>
+            <trans-unit id="site_review.site.reviews.not_loaded_action">
+                <source>site_review.site.reviews.not_loaded_action</source>
+                <target>See the snippet</target>
+            </trans-unit>
             <trans-unit id="project.connect.step.agent.heading">
                 <source>project.connect.step.agent.heading</source>
                 <target>Connect your agent</target>
@@ -3171,6 +3199,14 @@
             <trans-unit id="review.dashboard.empty.connect">
                 <source>review.dashboard.empty.connect</source>
                 <target>Connect an agent</target>
+            </trans-unit>
+            <trans-unit id="review.dashboard.empty.skills.hint">
+                <source>review.dashboard.empty.skills.hint</source>
+                <target>If you haven't already, install the loupe-documents and loupe-site-review skills so your agent knows how to use Loupe.</target>
+            </trans-unit>
+            <trans-unit id="review.dashboard.empty.skills.action">
+                <source>review.dashboard.empty.skills.action</source>
+                <target>See the install steps</target>
             </trans-unit>
             <trans-unit id="review.dashboard.empty_filtered.title">
                 <source>review.dashboard.empty_filtered.title</source>

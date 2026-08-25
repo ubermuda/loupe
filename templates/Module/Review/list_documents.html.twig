@@ -202,6 +202,12 @@
         {% if project.mcpToken %}
         <p class="lp-empty-state__body">{{ 'review.dashboard.empty.connected_body'|trans }}</p>
         <a class="lp-btn" href="{{ path('app_project_connect', {id: project.id}) }}">{{ 'review.dashboard.empty.tools'|trans }}</a>
+        {# The connect page renders its skills section only alongside a token, so
+           with none bound this would point at a page that never mentions them. #}
+        <p class="lp-empty-state__body">
+            {{ 'review.dashboard.empty.skills.hint'|trans }}
+            <a class="lp-empty-state__link" href="{{ path('app_project_connect', {id: project.id}) }}">{{ 'review.dashboard.empty.skills.action'|trans }}</a>
+        </p>
         {% else %}
         <p class="lp-empty-state__body">{{ 'review.dashboard.empty.body'|trans }}</p>
         <a class="lp-btn" href="{{ path('app_project_connect', {id: project.id}) }}">{{ 'review.dashboard.empty.connect'|trans }}</a>

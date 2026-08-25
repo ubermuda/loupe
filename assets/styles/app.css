@@ -1108,6 +1108,11 @@
     .lp-empty-state__body {
         @apply max-w-md text-sm text-fg-mute m-0 leading-relaxed;
     }
+    /* Preflight strips a bare anchor's colour and underline, so a link inside the
+       body sentence would be indistinguishable from the text around it. */
+    .lp-empty-state__link {
+        @apply text-accent-ink underline underline-offset-2 hover:text-ink;
+    }
 
     /* ── Buttons (lp- namespace) ────────────────────────────────────── */
 
