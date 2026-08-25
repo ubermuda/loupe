@@ -49,8 +49,13 @@ jobs:
 
       - run: docker compose up -d --wait database php-fpm
 
+      # twig.yaml registers var/tailwind as a template path, and composer's
+      # post-install cache:clear refuses to run without it. On a workstation
+      # the tailwind watcher has always created it already.
       - name: Install PHP dependencies
-        run: docker compose exec -T php-fpm composer install --no-interaction --no-progress
+        run: |
+          mkdir -p var/tailwind
+          docker compose exec -T php-fpm composer install --no-interaction --no-progress
 
       - run: npm ci
       - run: npm ci --prefix e2e
@@ -81,8 +86,13 @@ jobs:
           docker compose -f compose.yaml -f docker/compose/ci.yaml
           up -d --wait database php-fpm nginx mailer
 
+      # twig.yaml registers var/tailwind as a template path, and composer's
+      # post-install cache:clear refuses to run without it. On a workstation
+      # the tailwind watcher has always created it already.
       - name: Install PHP dependencies
-        run: docker compose exec -T php-fpm composer install --no-interaction --no-progress
+        run: |
+          mkdir -p var/tailwind
+          docker compose exec -T php-fpm composer install --no-interaction --no-progress
 
       - name: Prepare the application
         run: |
