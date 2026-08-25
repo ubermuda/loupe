@@ -6,10 +6,10 @@ on:
     branches: [main]
 
 # Deliberately not path-filtered, unlike the docs deploy. These are required
-# checks: a filtered check never reports on a PR it skipped, and a PR waiting
-# for a report that will never arrive cannot be merged at all. The local
-# documentation-only carve-out in CLAUDE.md is about a human waiting four
-# minutes, which is not a cost a runner pays.
+# checks: a filtered check never reports on a pull request it skipped, and a
+# pull request waiting for a report that will never arrive cannot be merged at
+# all. The local documentation-only carve-out in CLAUDE.md is about a human
+# waiting four minutes, which is not a cost a runner pays.
 concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
@@ -19,91 +19,91 @@ env:
   # composer gets 60 API requests an hour across the whole runner fleet.
   COMPOSER_AUTH: '{"github-oauth":{"github.com":"${{ github.token }}"}}'
 
+# One job per leg of `just ci`, rather than one job running it. A single job
+# reports a single check, so a red build names the branch and nothing else —
+# split, the failure names itself in the checks list and branch protection can
+# require the legs individually. Each job runs the same recipe a workstation
+# runs, so the two gates cannot drift.
 jobs:
-  ci:
-    name: ci
+  lint:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
-
-      - uses: shivammathur/setup-php@v2
+      - uses: ./.github/actions/setup
         with:
-          php-version: '8.5'
-          extensions: ctype, iconv, intl, pdo_pgsql, zip, bcmath, xsl
-          coverage: none
+          node: 'true'
+      - run: just lint
 
-      - uses: actions/setup-node@v6
+  cs-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: ./.github/actions/setup
+      - run: just cs-check
+
+  phpstan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: ./.github/actions/setup
         with:
-          node-version: 24
-          cache: npm
-          cache-dependency-path: |
-            package-lock.json
-            e2e/package-lock.json
+          docker: 'true'
+      - run: just phpstan
 
-      - uses: extractions/setup-just@v3
+  arkitect:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: ./.github/actions/setup
+      - run: just arkitect
 
-      # compose.yaml attaches to a traefik network that a workstation shares
-      # with a long-running proxy. Nothing routes through it here; it only has
-      # to exist, or every service referencing it fails to start.
-      - run: docker network create traefik
+  gamache:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: ./.github/actions/setup
+      - run: just gamache
 
-      - run: docker compose up -d --wait database php-fpm
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: ./.github/actions/setup
+        with:
+          node: 'true'
+          docker: 'true'
+      - run: just audit
 
-      # twig.yaml registers var/tailwind as a template path, and composer's
-      # post-install cache:clear refuses to run without it. On a workstation
-      # the tailwind watcher has always created it already.
-      - name: Install PHP dependencies
-        run: |
-          mkdir -p var/tailwind
-          docker compose exec -T php-fpm composer install --no-interaction --no-progress
-
-      - run: npm ci
-      - run: npm ci --prefix e2e
-
-      # WebTestCase renders real templates, and layout_base.html.twig resolves
-      # the compiled stylesheet through AssetMapper. The dev stack has a watcher
-      # producing it; here it takes one explicit build.
-      - run: docker compose exec -T php-fpm bin/console tailwind:build
-
-      - run: just ci
+  phpunit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: ./.github/actions/setup
+        with:
+          docker: 'true'
+      - run: just phpunit
 
   e2e:
-    name: e2e
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
-
-      - uses: actions/setup-node@v6
+      - uses: ./.github/actions/setup
         with:
-          node-version: 24
-          cache: npm
-          cache-dependency-path: e2e/package-lock.json
-
-      - uses: extractions/setup-just@v3
-
-      - run: docker network create traefik
+          node: 'true'
+          docker: 'true'
 
       # By name, not a bare `up`: the `tailwind` service is a watcher, and it
-      # would race the one-shot build below over the same output file. The
-      # worker is not needed either — every message dispatched under the
-      # X-Playwright header is handled inline.
+      # would race the stylesheet build in the setup action. The worker is not
+      # needed either — every message dispatched under the X-Playwright header
+      # is handled inline.
       - run: >
           docker compose -f compose.yaml -f docker/compose/ci.yaml
-          up -d --wait database php-fpm nginx mailer
-
-      # twig.yaml registers var/tailwind as a template path, and composer's
-      # post-install cache:clear refuses to run without it. On a workstation
-      # the tailwind watcher has always created it already.
-      - name: Install PHP dependencies
-        run: |
-          mkdir -p var/tailwind
-          docker compose exec -T php-fpm composer install --no-interaction --no-progress
+          up -d --wait nginx mailer
 
       - name: Prepare the application
         run: |
           docker compose exec -T php-fpm bin/console doctrine:migrations:migrate --no-interaction --allow-no-migration
           docker compose exec -T php-fpm bin/console app:dev:seed
-          docker compose exec -T php-fpm bin/console tailwind:build
 
       # Everything above runs as root in the container; php-fpm serves requests
       # as www-data, and var/ is owned by the runner. Without this the first
@@ -114,7 +114,6 @@ jobs:
           mkdir -p var/log
           sudo chmod -R a+rwX var
 
-      - run: npm ci --prefix e2e
       - run: npx playwright install --with-deps chromium
         working-directory: e2e
 
