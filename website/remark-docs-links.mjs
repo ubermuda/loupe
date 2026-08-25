@@ -11,15 +11,17 @@ import { visit } from 'unist-util-visit';
 // become links to the repository instead.
 const REPO = 'https://github.com/ubermuda/loupe';
 
-const routeFor = (relativePath) => {
+const routeFor = (relativePath, base) => {
   const withoutExtension = relativePath.replace(/\.md$/, '');
   const segments = withoutExtension.split(path.sep);
   if (segments.at(-1) === 'index') segments.pop();
   const route = segments.join('/').toLowerCase();
-  return route === '' ? '/' : `/${route}/`;
+  return route === '' ? `${base}/` : `${base}/${route}/`;
 };
 
-export function remarkDocsLinks({ docsDir }) {
+export function remarkDocsLinks({ docsDir, base = '' }) {
+  const prefix = base.replace(/\/$/, '');
+
   return (tree, file) => {
     const from = file.history[0];
     if (!from) return;
@@ -39,7 +41,7 @@ export function remarkDocsLinks({ docsDir }) {
         node.url = `${REPO}/${kind}/main/${fromRoot}${hash}`;
         return;
       }
-      if (target.endsWith('.md')) node.url = routeFor(relative) + hash;
+      if (target.endsWith('.md')) node.url = routeFor(relative, prefix) + hash;
     });
   };
 }
