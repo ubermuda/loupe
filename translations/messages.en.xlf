@@ -60,6 +60,18 @@
                 <source>about.lead</source>
                 <target>Loupe collects review comments on documents and live pages, and hands them to the coding agent that acts on them.</target>
             </trans-unit>
+            <trans-unit id="about.docs.heading">
+                <source>about.docs.heading</source>
+                <target>Documentation</target>
+            </trans-unit>
+            <trans-unit id="about.docs.body">
+                <source>about.docs.body</source>
+                <target>How to run Loupe, connect an agent to it, and operate it in production.</target>
+            </trans-unit>
+            <trans-unit id="about.docs.action">
+                <source>about.docs.action</source>
+                <target>Read the documentation</target>
+            </trans-unit>
             <trans-unit id="about.version.heading">
                 <source>about.version.heading</source>
                 <target>Version</target>

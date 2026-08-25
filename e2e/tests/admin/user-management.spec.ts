@@ -57,6 +57,32 @@ async function openVictimDetail(admin: Page): Promise<void> {
 
     await expect(admin).toHaveURL(/\/admin\/users\/[0-9a-f-]{36}/);
     await expect(admin.locator('[data-testid="danger-zone"]')).toBeVisible();
+
+    // Both webfonts are font-display: swap and arrive after the HTML, so on a
+    // slow machine they reflow this page under the pointer. Playwright starts
+    // move, press and release together and only hit-tests the first, so a swap
+    // between press and release drops the click entirely: no click event, no
+    // submit, no request, and a passing action log.
+    await admin.evaluate(() => document.fonts.ready.then(() => undefined));
+}
+
+/**
+ * Waits for the disclosure panel to stop moving.
+ *
+ * Playwright issues pointer move, press and release together and hit-tests
+ * only the first, so anything that shifts the button between press and release
+ * loses the click outright — no click event, no submit, no request, and an
+ * action log that reads as success.
+ */
+async function settlePanel(admin: Page): Promise<void> {
+    await admin
+        .locator('[data-disclosure-target="content"]')
+        .first()
+        .evaluate(async (panel) => {
+            await Promise.all(
+                panel.getAnimations().map((a) => a.finished.catch(() => {})),
+            );
+        });
 }
 
 test.describe.serial('admin user management', () => {
@@ -89,6 +115,10 @@ test.describe.serial('admin user management', () => {
         // The reason field lives in a closed <details>; its contents are out of
         // the accessibility tree until the summary is clicked.
         await admin.locator('[data-testid="suspend-disclosure"]').click();
+        // Let the open animation finish. It grows the panel's clientHeight
+        // frame by frame, and the browser clamps scrollTop down to match — so
+        // mid-animation the button drifts under the pointer.
+        await settlePanel(admin);
         await admin.locator('#suspend-reason').fill(SUSPENSION_REASON);
         await admin
             .getByRole('button', { name: 'Suspend account', exact: true })
