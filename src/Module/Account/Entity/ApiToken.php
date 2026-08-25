@@ -45,10 +45,12 @@ class ApiToken
      * Whether a review submitted with this token may be forwarded to the owner's
      * agent. Off by default and only ever meaningful for a site-review widget
      * token, whose raw value is embedded in the page markup of the site it is
-     * installed on — anyone who can view the page holds the credential, so
-     * opting in is a deliberate act by the owner rather than the default. A
-     * collect-only token still accepts comments and submits; only the Mercure
-     * nudge that reaches the agent is withheld (see SubmitReviewHandler).
+     * installed on — so anyone who can view that page holds the credential, and
+     * opting in is a deliberate act by the owner rather than the default. The
+     * widget is meant for staging and preview environments only, never a public
+     * site, which is what bounds who that is. A collect-only token still accepts
+     * comments and submits; only the Mercure nudge that reaches the agent is
+     * withheld (see SubmitReviewHandler).
      */
     #[ORM\Column(options: ['default' => false])]
     public bool $forwardsToAgent = false;

@@ -24,9 +24,12 @@ Mint a widget token from the project (`/projects/{id}/widget-token`, and
 The widget derives its backend from its own `script.src`, so the host it is
 served from is the instance it talks to.
 
-**The token appears in page source.** Use a dedicated site-review-scoped token,
-never an MCP token or a production credential, and expect anyone who can view
-the page to be able to read it.
+**Install it on staging and preview environments only, never a public site.**
+The token appears in page source, so anyone who can view the page holds it — and
+that credential reads, edits and deletes every pending comment on the project,
+not only the ones its holder wrote. Keeping the widget off public pages is what
+bounds who that is. Use a dedicated site-review-scoped token, never an MCP token
+or a production credential.
 
 ## What it needs from the page
 
