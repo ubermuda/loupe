@@ -2314,7 +2314,7 @@ that a workstation has today (Docker, Postgres, a GitHub token for the `ubermuda
 VCS repositories — `composer update` is rate-limited anonymously, though
 `composer audit` is not).
 
-Same trigger as the tracker removal: the visibility flip, not "at some point".
+Trigger: the visibility flip, not "at some point".
 
 ## Give each agent its own container in the cloud instead of sharing one dev stack
 
