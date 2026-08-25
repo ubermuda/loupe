@@ -86,6 +86,7 @@ Roughly in the order an agent uses them:
 | `document_set_tags` / `document_set_references` | Group it, or link it to sibling documents |
 | `tag_list` | The project's existing tag vocabulary |
 | `site_review_get` | Comments submitted through the widget |
+| `site_review_mark_comment_addressed` | Mark a widget comment acted on, so the next `site_review_get` skips it |
 
 ## Two things agents get wrong
 

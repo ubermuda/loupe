@@ -23,7 +23,7 @@ slot for it?** "No" means both templates cover it.
 | `DATABASE_URL` | Postgres DSN. `serverVersion` must match the real cluster: understating it is safe, overstating it can break queries. | No |
 | `DEFAULT_URI` | **The instance's public URL, scheme included.** The single host-shaped setting the app has. It builds absolute links in non-HTTP contexts (console commands, the worker), pins the host of links in security-sensitive email so a forged `Host` header cannot redirect them, and is the base of the Mercure topics the bridge CLI subscribes to. Get it wrong and password-reset and export-download emails point somewhere nobody can act on. | No |
 | `MCP_ALLOWED_HOSTS` | Comma-separated DNS-rebinding allowlist for `/mcp`, **hostnames only, no port**. It must contain the hostname agents actually use, or every MCP call is rejected with a 403 — one that names this variable and echoes the host it rejected, so the failure is self-explaining. | No |
-| `TRUSTED_PROXIES` | The reverse proxy in front of the app, as IPs or CIDR ranges. **Empty falls back to `PRIVATE_SUBNETS`**, which covers Docker and any balancer on a private network. Set it when your balancer reaches the app from a public address: until you do, `X-Forwarded-Proto` and `X-Forwarded-Host` are ignored (generated URLs get the wrong scheme and host) and every visitor shares the balancer's IP, so the per-IP registration and password-reset limiters throttle all your users collectively. | **Yes on App Platform** — `docker/compose/prod.env.example` has a slot, Terraform has none |
+| `TRUSTED_PROXIES` | The reverse proxy in front of the app, as IPs or CIDR ranges. **Empty falls back to `PRIVATE_SUBNETS`**, which covers Docker and any balancer on a private network. Set it when your balancer reaches the app from a public address: until you do, `X-Forwarded-Proto` and `X-Forwarded-Host` are ignored (generated URLs get the wrong scheme and host) and every visitor shares the balancer's IP, so the per-IP registration and password-reset limiters throttle all your users collectively. | No — `trusted_proxies` in `terraform.tfvars`, or a slot in `docker/compose/prod.env.example` |
 | `APP_SOURCE_URL` | Where *this instance's* source can be obtained, rendered as a footer link on every page. A default ships in `.env` pointing at upstream, which is correct for an unmodified instance and wrong for a modified one. **If you change the code, the AGPL requires you to point this at your repository.** | No |
 
 ## Mail
@@ -61,19 +61,21 @@ agent, and the publish failure is only logged — it degrades silently.
 | `APP_ENCRYPTION_KEY` | Only once an `encrypted_string` column is in use. **Losing it makes existing encrypted columns unreadable.** | No |
 | `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET` | Billing. Nothing instantiates the Stripe client until the `billing.enabled` feature flag is on. | No |
 | `OAUTH_GOOGLE_ID` / `_SECRET`, `OAUTH_GITHUB_ID` / `_SECRET` | Social login. A provider becomes reachable only when its credentials **and** its feature flag (`auth.google.enabled` / `auth.github.enabled`) are both set. | No |
-| `SITE_REVIEW_WIDGET_TOKEN` | Only for dogfooding the review widget on Loupe's own pages, public ones included. It appears in the page source anyone can view without an account, so use a dedicated SiteReview-scoped token, never an MCP or production credential. | **Yes, both topologies** |
+| `HEALTH_PROBE_TOKEN` | Adds the build version to `GET /healthz`, for a caller presenting it as an `X-Probe-Token` header — so a post-deploy check can prove which build went live without a session. Unset, the field never appears: an instance must not advertise its build to anyone who asks. | No |
+| `SITE_REVIEW_WIDGET_PUBLIC` | Serves the site-review widget to every visitor instead of administrators only. Its comments are instructions an agent may act on, so set it only where you trust everyone who can reach the site — **production should leave it empty**. | No |
+| `SITE_REVIEW_WIDGET_BACKEND` | Overrides the instance the widget talks to. Empty means the host that served the script, which is what you want unless the widget is embedded from somewhere else. | No |
+| `ANALYTICS_SCRIPT_URL`, `ANALYTICS_WEBSITE_ID`, `ANALYTICS_ORIGIN` | A self-hosted analytics tag. Nothing is emitted unless both of the first two are set **and** the `analytics.enabled` flag is on, so the page calls nowhere by default. | No |
+| `SITE_REVIEW_WIDGET_TOKEN` | Only for dogfooding the review widget on Loupe's own pages, public ones included. It appears in the page source anyone can view without an account, so use a dedicated SiteReview-scoped token, never an MCP or production credential. | No — `site_review_widget_token` in `terraform.tfvars`, or a slot in `docker/compose/prod.env.example` |
 
-## What the Terraform root does not set
+## How the Terraform root sets things
 
-One variable above has no Terraform variable and no `extra_env` entry in
-`terraform/main.tf`: **`SITE_REVIEW_WIDGET_TOKEN`**. The widget is a dogfooding
-aid rather than part of the deploy surface, so add it by hand to `extra_env` if
-you want it — there is no variable to fill in.
+Every variable on this page is wired on both topologies — nothing needs adding
+to `extra_env` by hand, including `SITE_REVIEW_WIDGET_TOKEN` (`site_review_widget_token`,
+emitted as a `SECRET`) and `TRUSTED_PROXIES` (`trusted_proxies`, appended to the
+private ranges rather than replacing them). Adding either by hand would produce
+a duplicate key and fail the apply.
 
-`TRUSTED_PROXIES` likewise has no Terraform variable; on App Platform the
-`PRIVATE_SUBNETS` fallback applies unless you add it yourself.
-
-`APP_SOURCE_URL` **is** wired on both topologies — `app_source_url` in
+`APP_SOURCE_URL` is wired the same way — `app_source_url` in
 `terraform/variables.tf` feeds an `extra_env` entry, and
 `docker/compose/prod.env.example` carries a commented slot. Both deliberately omit the
 key entirely when it is empty, rather than passing an empty string: an absent
@@ -89,8 +91,15 @@ them in `terraform.tfvars` or as `TF_VAR_*`. Each is omitted from the app spec
 entirely when left empty, so a feature is off rather than half-configured.
 
 `DEFAULT_URI` is the exception worth watching: the module injects the key, but
-*you* supply the value, through `default_uri` or `custom_domain` in
-`terraform/main.tf`. Both ship commented out.
+*you* supply the value, through the `default_uri` or `custom_domain` variables.
+Set them in `terraform.tfvars` — both ship commented out in
+`terraform/terraform.tfvars.example`. Do not edit `terraform/main.tf`, where
+they are already wired to those variables: replacing a reference there breaks
+`TF_VAR_default_uri` silently.
+
+`EXPORT_STORAGE` and its `EXPORT_STORAGE_*` companions are not listed here;
+[Object storage](../extending/object-storage.md) covers them, including the
+`EXPORT_STORAGE_ACL` value each provider needs.
 
 ## Secrets
 
