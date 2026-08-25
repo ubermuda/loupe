@@ -64,4 +64,25 @@ final class SiteReviewWidgetVisibilityTest extends WebTestCase
         self::assertResponseIsSuccessful();
         self::assertCount(1, $crawler->filter(self::WIDGET));
     }
+
+    public function test_the_admin_area_offers_the_widget_from_its_own_layout(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+
+        $admin = new User(fullName: 'Admin', email: 'widget-admin-area@example.com', password: 'x');
+        AcceptedTerms::stamp($admin, static::getContainer());
+        $admin->roles = ['ROLE_ADMIN'];
+        $admin->emailVerifiedAt = new \DateTimeImmutable();
+        $em->persist($admin);
+        $em->flush();
+
+        $client->loginUser($admin);
+        // The admin area renders from UbermudaAdminBundle's own base template,
+        // which carries its own copy of the widget gate.
+        $crawler = $client->request(Request::METHOD_GET, '/admin');
+
+        self::assertResponseIsSuccessful();
+        self::assertCount(1, $crawler->filter(self::WIDGET));
+    }
 }
