@@ -169,53 +169,6 @@ be mistaken for one.
 
 Found by an audit on 2026-08-20.
 
-## The site-review widget token can read, edit and delete any pending comment in its project
-
-**Author:** Claude · **Type:** security · **Priority:** high · **Status:** pending
-
-`SiteReviewComment` has no author column. Every comment arrives through
-`AddCommentController`, which resolves a *project* from the widget token and
-stores nothing about who submitted it. Two consequences follow; only the second
-was tracked before 2026-08-25.
-
-**Authorization.** With no author, nothing can scope a mutation to the person who
-wrote the comment. Holding only the widget token — a `data-token` attribute in
-page HTML, public by design, as `ApiToken` itself notes ("anyone who can view the
-page holds the credential") — and no session, a visitor can `GET
-/api/site-review/review` for every pending comment in the project (bodies, URLs,
-selectors, quoted page text, not merely the current page's), and `PATCH` or
-`DELETE /api/site-review/comments/{id}` against any of them: `UpdateCommentHandler`
-and `DeleteCommentHandler` both resolve via `findOnePending($commentId, $project)`,
-project scope only. `SiteReviewCorsSubscriber` reflects the request `Origin`, so
-it works from any page, not just an instrumented one.
-
-Bounded three ways: Pending comments only (`Addressed` and `Resolved` are immune),
-one project (widget tokens are rejected by `/api/site-review/sites` and
-`/api/site-review/stream`, so no project enumeration and no Mercure JWT), and
-throttled by `RateLimitSiteReviewWrites` — which slows churn but not a targeted
-delete. Not exposed on loupe.ac: `.env` ships `SITE_REVIEW_WIDGET_TOKEN` empty and
-`templates/layout_base.html.twig` gates it behind `site_review_widget_public or
-is_granted('ROLE_ADMIN')`. It bites any deployment that serves the widget to
-untrusted visitors — which is the case the widget exists for.
-
-**Attribution.** `site_review_get` (`src/Module/SiteReview/Mcp/SiteReviewGetTool.php`)
-carries `id`, `url`, `selector`, `text`, `body`, `status` and `createdAt`, and
-cannot say who wrote any of them, so a visitor's comment and the owner's are
-indistinguishable to an agent. `loupe-site-review` therefore escalates
-categorically: any comment that would change a destination, an identity, a
-credential or third-party code goes to the human. Verified 2026-08-15 by testing
-an agent against comments of exactly that shape — it applied a link-destination
-change and a support-email change on its own judgement when the skill was absent.
-
-Owner decision 2026-08-19 accepted the escalation tax, reasoning that one
-project-scoped token is the only credential and a Loupe session cookie is never
-sent with widget requests from a page the app does not serve, so nothing
-distinguishes an owner from a visitor. **That decision covered injection, not
-tampering** — it predates the read/edit/delete reach above being traced, so it is
-not an acceptance of this entry as now written. Per-reviewer tokens close both
-halves; see 'Personal reviewer tokens as an identity layer for the widget'.
-
-
 ## `digitalocean_app` shows a perpetual diff, so every apply redeploys
 
 **Author:** Claude · **Type:** tooling · **Priority:** low · **Status:** pending
@@ -3573,6 +3526,67 @@ both rules from `app.css`.
 
 Landed 2026-08-22 in PR #241 (admin user page redesign), in response to a
 site-review comment asking for a fixed admin menu.
+
+## The site-review widget token can read, edit and delete any pending comment in its project
+
+**Author:** Claude · **Type:** security · **Priority:** medium · **Status:** pending
+
+`SiteReviewComment` has no author column. Every comment arrives through
+`AddCommentController`, which resolves a *project* from the widget token and
+stores nothing about who submitted it. Two consequences follow; only the second
+was tracked before 2026-08-25.
+
+**Authorization.** With no author, nothing can scope a mutation to the person who
+wrote the comment. Holding only the widget token — a `data-token` attribute in
+page HTML, public by design, as `ApiToken` itself notes ("anyone who can view the
+page holds the credential") — and no session, a visitor can `GET
+/api/site-review/review` for every pending comment in the project (bodies, URLs,
+selectors, quoted page text, not merely the current page's), and `PATCH` or
+`DELETE /api/site-review/comments/{id}` against any of them: `UpdateCommentHandler`
+and `DeleteCommentHandler` both resolve via `findOnePending($commentId, $project)`,
+project scope only. `SiteReviewCorsSubscriber` reflects the request `Origin`, so
+it works from any page, not just an instrumented one.
+
+Bounded by policy first: PR #252 states the staging-and-preview-only deployment
+model in `docs/using/site-review.md` and in `ApiToken`'s docblock, matching what
+the Connect page already said, so everyone who can see the token is someone
+already entitled to those comments. That is what took this off `high` — the
+reach itself is unchanged.
+
+Bounded three ways in code as well: Pending comments only (`Addressed` and `Resolved` are immune),
+one project (widget tokens are rejected by `/api/site-review/sites` and
+`/api/site-review/stream`, so no project enumeration and no Mercure JWT), and
+throttled by `RateLimitSiteReviewWrites` — which slows churn but not a targeted
+delete. Not exposed on loupe.ac: `.env` ships `SITE_REVIEW_WIDGET_TOKEN` empty and
+`templates/layout_base.html.twig` gates it behind `site_review_widget_public or
+is_granted('ROLE_ADMIN')`. It bites any deployment that serves the widget to
+untrusted visitors — which is the case the widget exists for.
+
+**Attribution.** `site_review_get` (`src/Module/SiteReview/Mcp/SiteReviewGetTool.php`)
+carries `id`, `url`, `selector`, `text`, `body`, `status` and `createdAt`, and
+cannot say who wrote any of them, so a visitor's comment and the owner's are
+indistinguishable to an agent. `loupe-site-review` therefore escalates
+categorically: any comment that would change a destination, an identity, a
+credential or third-party code goes to the human. Verified 2026-08-15 by testing
+an agent against comments of exactly that shape — it applied a link-destination
+change and a support-email change on its own judgement when the skill was absent.
+
+An enforcing per-project origin allowlist was designed and deferred on
+2026-08-25: cross-project access is already blocked by the token binding and
+`Origin` is forgeable by any non-browser caller, so it would only stop a browser
+page on an unregistered origin — against a column, a migration, a backfill over
+a free-text field, and widgets going dark under fail-closed. `LogWidgetOriginMismatch`
+records the mismatch instead. The plan is in Loupe as 'Per-project allowed
+origins for the site-review widget' if the trade is ever worth revisiting.
+
+Owner decision 2026-08-19 accepted the escalation tax, reasoning that one
+project-scoped token is the only credential and a Loupe session cookie is never
+sent with widget requests from a page the app does not serve, so nothing
+distinguishes an owner from a visitor. **That decision covered injection, not
+tampering** — it predates the read/edit/delete reach above being traced, so it is
+not an acceptance of this entry as now written. Per-reviewer tokens close both
+halves; see 'Personal reviewer tokens as an identity layer for the widget'.
+
 
 ## Transactional jobs run inline in e2e under `X-Playwright`
 
