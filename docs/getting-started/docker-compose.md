@@ -43,6 +43,12 @@ own image instead, set `LOUPE_PROD_IMAGE` and skip the step.
 
 What you still have to provide:
 
+- **`INSTALL_TOKEN`, before the first deploy.** It gates `/install`, which is
+  where the first administrator comes from — registration will not create one.
+  The wizard fails closed in production, so an unset value means `/install`
+  returns 404 and there is no browser route to an account at all. The
+  `${INSTALL_TOKEN:?}` guard in `prod.yaml` stops the stack rather than let
+  that happen. [First run](../operating/first-run.md) walks the wizard through.
 - **A reverse proxy.** Both published ports bind to loopback. Terminate TLS in
   front, forward `X-Forwarded-Proto` and `X-Forwarded-For`, and set
   `TRUSTED_PROXIES` if that proxy reaches the app from a public address.
