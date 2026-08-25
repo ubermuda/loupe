@@ -105,6 +105,15 @@ jobs:
           docker compose exec -T php-fpm bin/console app:dev:seed
           docker compose exec -T php-fpm bin/console tailwind:build
 
+      # Everything above runs as root in the container; php-fpm serves requests
+      # as www-data, and var/ is owned by the runner. Without this the first
+      # request that writes a log line dies on a 500 instead — three specs deep
+      # into the suite, where it reads as an application bug.
+      - name: Let php-fpm write to var/
+        run: |
+          mkdir -p var/log
+          sudo chmod -R a+rwX var
+
       - run: npm ci --prefix e2e
       - run: npx playwright install --with-deps chromium
         working-directory: e2e
