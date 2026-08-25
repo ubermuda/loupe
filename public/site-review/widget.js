@@ -364,6 +364,11 @@
     <style>
       *{box-sizing:border-box}
       :host{all:initial}
+      /* The panel is a fixed-size popover and picking wants a cursor, so below
+         the app's own mobile boundary the widget hides rather than degrades.
+         A media query, not a boot-time check: it follows a rotation or a resize
+         back into view on its own. */
+      @media (max-width:639px){:host{display:none}}
       @keyframes lp-spin{to{transform:rotate(360deg)}}
       @keyframes lp-pop{from{transform:translateY(8px) scale(.985)}to{transform:none}}
       @keyframes lp-slide-left{from{transform:translateX(-100%)}to{transform:translateX(0)}}
@@ -563,6 +568,11 @@
     <style>
       *{box-sizing:border-box}
       :host{all:initial}
+      /* The panel is a fixed-size popover and picking wants a cursor, so below
+         the app's own mobile boundary the widget hides rather than degrades.
+         A media query, not a boot-time check: it follows a rotation or a resize
+         back into view on its own. */
+      @media (max-width:639px){:host{display:none}}
       @keyframes lp-fade{from{opacity:0}to{opacity:1}}
       @keyframes lp-slide-left{from{transform:translateX(-100%)}to{transform:translateX(0)}}
       @keyframes lp-slide-left-out{from{transform:translateX(0)}to{transform:translateX(-100%)}}

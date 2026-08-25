@@ -45,7 +45,7 @@ Adding `rounded-full` to the hint div does **not** fix this — only the `@theme
 
 When a form action row needs to stack vertically on mobile and be side-by-side on desktop, use responsive flexbox utilities. If the DOM order must differ between mobile and desktop (e.g. button first on mobile, link first on desktop), use `sm:order-1` / `sm:order-2` on the children — do not duplicate elements.
 
-**Absolutely-positioned panels anchored to a padded parent:** `right: 0` on an absolutely positioned child resolves against the parent's *padding edge*, not its border edge. If the parent has `padding-right: Xpx`, `right: 0` places the child's right edge `X`px inward from the parent's border. Use this deliberately for precise panel alignment. Verify with DevTools `getBoundingClientRect()`.
+**Absolutely-positioned panels anchored to a padded parent:** an absolutely positioned child's containing block is the parent's *padding box*, and the padding box **includes** the padding — it runs out to the inner border edge. So `right: 0` puts the child's right edge level with the parent's border, and the parent's `padding-right` does **not** inset it. To line a panel up with the padded content instead, restate the padding on the child (`right-7` under a `px-7` parent). This entry previously claimed the opposite; it was measured wrong. Verify with `getBoundingClientRect()` rather than reasoning it out.
 
 **`details[open]` CSS for open-state styling:** Use `details[open] > .child-class { ... }` in `app.css` to style elements differently when a `<details>` is open — no Stimulus controller or JS needed.
 

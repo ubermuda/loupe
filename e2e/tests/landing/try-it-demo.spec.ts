@@ -143,6 +143,15 @@ test('the widget call-out leaves the slot its panel opens into', async ({
     await expect(hint).toBeVisible();
 });
 
+test.describe('on a phone', () => {
+    test.use({ viewport: { width: 390, height: 844 } });
+
+    // It points at the widget's launcher, which is itself gone at this width.
+    test('the widget call-out goes with the widget', async ({ page }) => {
+        await expect(page.locator('.lp-demo-widget-hint')).toBeHidden();
+    });
+});
+
 test.describe('below xl', () => {
     test.use({ viewport: { width: 1024, height: 900 } });
 

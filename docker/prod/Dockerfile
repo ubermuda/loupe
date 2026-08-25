@@ -64,7 +64,12 @@ RUN set -eux; \
 	mkdir -p var/cache var/log var/share var/tailwind var/exports; \
 	chmod +x bin/console;
 
-RUN composer install --no-dev --prefer-dist --optimize-autoloader --classmap-authoritative
+# git is Composer's fallback when a dist download fails. Without it a single
+# transient GitHub 5xx on one zipball fails the whole build, because the source
+# retry dies with "git was not found in your PATH".
+RUN apk add --no-cache --virtual .composer-deps git \
+ && composer install --no-dev --prefer-dist --optimize-autoloader --classmap-authoritative \
+ && apk del .composer-deps
 RUN bin/console importmap:install
 # The prune shares this RUN deliberately: the downloaded Tailwind CLI is ~110 MB
 # and a later `rm` would leave it in this layer regardless. Only app.built.css is

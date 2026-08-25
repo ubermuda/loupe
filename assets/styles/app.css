@@ -2909,7 +2909,7 @@
        the slot the widget's own panel opens into, so the panel covers it while
        open. */
     .lp-demo-widget-hint {
-        @apply fixed right-5 bottom-20 z-40 m-0 flex flex-col gap-1 max-w-xs rotate-3 rounded-2xl border-4 border-accent bg-app py-3 px-4 text-sm text-ink shadow-comic pointer-events-none;
+        @apply fixed right-5 bottom-20 z-40 m-0 hidden sm:flex flex-col gap-1 max-w-xs rotate-3 rounded-2xl border-4 border-accent bg-app py-3 px-4 text-sm text-ink shadow-comic pointer-events-none;
         animation: lp-demo-nudge 2800ms ease-in-out infinite;
     }
     /* The tail, aimed at the launcher below. */

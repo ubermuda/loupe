@@ -758,3 +758,15 @@ test('the launcher exposes icon-only quick actions for note and pick', async ({
     await expect(page.locator('#lp-panel')).toBeHidden();
     await expect(launcher).toBeHidden();
 });
+
+test.describe('on a phone', () => {
+    test.use({ viewport: { width: 390, height: 844 } });
+
+    test('the widget stays out of the way', async ({ page }) => {
+        await registerUser(page);
+        await page.goto(HARNESS_URL);
+
+        await expect(page.locator('#lp-launcher')).toBeHidden();
+        await expect(page.getByRole('button', { name: 'Review' })).toBeHidden();
+    });
+});
