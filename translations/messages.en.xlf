@@ -1748,7 +1748,7 @@
             </trans-unit>
             <trans-unit id="project.connect.plugin.sub">
                 <source>project.connect.plugin.sub</source>
-                <target>One command. Brings the skills below with it.</target>
+                <target>One command, and it ships the skills. Holds a single token, so it suits one project.</target>
             </trans-unit>
             <trans-unit id="project.connect.plugin.label">
                 <source>project.connect.plugin.label</source>
@@ -1776,11 +1776,11 @@
             </trans-unit>
             <trans-unit id="project.connect.cli.heading">
                 <source>project.connect.cli.heading</source>
-                <target>Claude Code, by hand</target>
+                <target>Claude Code</target>
             </trans-unit>
             <trans-unit id="project.connect.cli.sub">
                 <source>project.connect.cli.sub</source>
-                <target>One claude mcp add line. You add the skills yourself.</target>
+                <target>One claude mcp add line, scoped to this project — which is what a per-project token needs.</target>
             </trans-unit>
             <trans-unit id="project.connect.cli.label">
                 <source>project.connect.cli.label</source>

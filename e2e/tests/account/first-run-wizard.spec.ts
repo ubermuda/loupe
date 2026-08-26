@@ -32,7 +32,9 @@ test.describe('first-run wizard', () => {
         await expect(page.locator('details.lp-install')).toHaveCount(3);
         const byHandCommand = page.getByText('claude mcp add --transport');
         await expect(byHandCommand).toBeHidden();
-        await page.getByText('Claude Code, by hand').click();
+        // Keyed on the method rather than its heading: this assertion broke once
+        // when the heading was reworded, which a copy change should not do.
+        await page.locator('[data-testid="install-cli"] summary').click();
         await expect(byHandCommand).toBeVisible();
 
         // The skills are named outside the plugin card, so a hand-wired install

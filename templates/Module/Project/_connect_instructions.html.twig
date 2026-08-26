@@ -32,24 +32,27 @@
     this line. -#}
 {%- set methods = [
     {
-        icon: 'lucide:package',
-        heading: 'project.connect.plugin.heading',
-        sub: 'project.connect.plugin.sub',
-        label: 'project.connect.plugin.label',
-        command: pluginCommand,
-        recommended: true,
-    },
-    {
         icon: 'lucide:code',
         heading: 'project.connect.cli.heading',
+        id: 'cli',
         sub: 'project.connect.cli.sub',
         label: 'project.connect.cli.label',
         command: claudeCommand,
+        recommended: true,
+    },
+    {
+        icon: 'lucide:package',
+        heading: 'project.connect.plugin.heading',
+        id: 'plugin',
+        sub: 'project.connect.plugin.sub',
+        label: 'project.connect.plugin.label',
+        command: pluginCommand,
         recommended: false,
     },
     {
         icon: 'lucide:file-text',
         heading: 'project.connect.mcp_json.heading',
+        id: 'mcp_json',
         sub: 'project.connect.mcp_json.sub',
         label: 'project.connect.mcp_json.label',
         command: mcpJson,
@@ -74,7 +77,7 @@
     <p class="lp-eyebrow">{{ 'project.connect.methods.eyebrow'|trans }}</p>
     <div class="lp-install-list">
         {% for method in methods %}
-        <details class="lp-install">
+        <details class="lp-install" data-testid="install-{{ method.id }}">
             <summary class="lp-install__summary">
                 <twig:ux:icon name="{{ method.icon }}" class="lp-install__glyph w-4 h-4" />
                 <span class="lp-install__text">
