@@ -3697,11 +3697,11 @@ it, or the operator's machine stops being a single trusted one. At that point
 the work is the encrypted backend the file already documents,
 `terraform init -migrate-state`, and deleting the local copies.
 
-The fourth trigger — the repository going public — has now fired, and the
-decision above predates it. Publishing does not move any of these files, which
-are gitignored and have never been committed, so nothing changed about the
-exposure itself. What changed is that a mistake is now made in the open. That
-re-decision is open.
+The repository going public was a fourth trigger, and it fired on 2026-08-26.
+**Re-decided the same day: keep state local, still change nothing.** Publishing
+moves none of these files — they are gitignored and have never been committed —
+so nothing about the exposure changed; only the cost of a future mistake did.
+The three triggers above still stand.
 
 
 ## Watch an agent work, rather than reading what it finished
