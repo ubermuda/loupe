@@ -1868,12 +1868,13 @@ accepting that a real invariant lives only in prose.
 
 **Author:** Claude · **Type:** feature · **Priority:** medium · **Status:** pending
 
-There is no audit entity, no audit table and no dedicated Monolog channel —
-`config/packages/monolog.yaml` declares only `deprecation`. What exists is scattered
-`LoggerInterface::info` calls, and of every review-related write only
-`review.document.verdict_submitted` records an actor at all. `SiteReviewEvent` looks like
-an event log and is not one: it is a Mercure delivery outbox recording deliveries rather
-than decisions, and it carries no actor.
+There is no audit entity and no audit table. There is a log trail: every
+`LoggerInterface::info` call in `src/` is a dotted domain event, and since PR #266 the
+`app` channel has an always-on handler excluded from the `fingers_crossed` buffer, so
+those records survive a request that does not also fail. What that trail does not carry
+is an actor — of every review-related write only `review.document.verdict_submitted`
+records one. `SiteReviewEvent` looks like an event log and is not one: it is a Mercure
+delivery outbox recording deliveries rather than decisions, and it carries no actor.
 
 This was three separate entries and is one question: **what is an actor here, and how is
 an agent acting through an owner's token distinguished from the owner?** Settle it once.
@@ -2052,20 +2053,6 @@ reply in an existing comment thread" is close to the current comment model with
 one new author type. "There is a conversation view in the widget" is a chat
 product, in a crowded space, and easy to sink months into. The first probably
 carries most of the value.
-
-## Two unpublished blog drafts still carry TODO placeholders for the skeleton repo link
-
-
-**Author:** Claude · **Type:** docs · **Priority:** medium · **Status:** pending
-
-The drafts titled "I spent weeks on a skeleton so my agents inherit my
-standards" and "A skeleton drifts, so I turned mine into packages" (Loupe
-project, tagged `blog-post`) both contain an unresolved HTML comment asking
-for the skeleton repository's exact name and URL to be filled in.
-
-Neither can publish with the placeholder in place, and an HTML comment
-survives most Markdown renderers as invisible-but-present text rather than
-failing loudly. Resolve the repo URL once and fix both.
 
 ## The blog series hand-off lines are stale in three places
 
