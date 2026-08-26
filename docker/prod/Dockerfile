@@ -86,6 +86,16 @@ RUN bin/console cache:warmup --env=prod
 ARG APP_VERSION=""
 RUN if [ -n "$APP_VERSION" ]; then printf '%s' "$APP_VERSION" > var/build-version; fi
 
+# Provenance for the published package: GitHub links a container to its
+# repository through image.source, and an AGPL image should say so where a tool
+# can read it. An ARG rather than a literal for the same reason APP_SOURCE_URL
+# is one — a fork's image must not claim upstream as the source of code it is
+# not running. Labels are inherited, so the demo image built FROM this one
+# needs no copy of them.
+ARG APP_SOURCE_URL=https://github.com/ubermuda/loupe
+LABEL org.opencontainers.image.source=$APP_SOURCE_URL
+LABEL org.opencontainers.image.licenses=AGPL-3.0-or-later
+
 # var/ is created and warmed above as root, but php-fpm workers run as www-data.
 # Cache pools and prod logs are written lazily at runtime; without this, www-data
 # cannot create those dirs and the writes (incl. any cache-backed rate limiter)

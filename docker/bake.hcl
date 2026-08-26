@@ -16,12 +16,13 @@
 variable "PROD_IMAGE" { default = "ghcr.io/ubermuda/loupe:prod" }
 variable "DEMO_IMAGE" { default = "ghcr.io/ubermuda/loupe:demo" }
 variable "APP_VERSION" { default = "" }
+variable "APP_SOURCE_URL" { default = "https://github.com/ubermuda/loupe" }
 variable "PLATFORMS" { default = "linux/amd64,linux/arm64" }
 
 target "prod" {
   context    = "."
   dockerfile = "docker/prod/Dockerfile"
-  args       = { APP_VERSION = APP_VERSION }
+  args       = { APP_VERSION = APP_VERSION, APP_SOURCE_URL = APP_SOURCE_URL }
   platforms  = split(",", PLATFORMS)
 }
 
