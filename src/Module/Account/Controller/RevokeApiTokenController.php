@@ -11,6 +11,7 @@ use App\Module\Account\Command\ShowOwnedApiTokenCommand;
 use App\Module\Account\Command\ShowOwnedApiTokenHandler;
 use App\Module\Account\Entity\User;
 use App\Utils\SafeRedirect;
+use Monolog\Attribute\WithMonologChannel;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -25,6 +26,7 @@ use Ubermuda\SymfonyExtra\Csrf\Attribute\CsrfToken;
     name: 'app_api_token_revoke',
     methods: ['POST'],
 )]
+#[WithMonologChannel('app_security')]
 class RevokeApiTokenController extends AppController
 {
     public function __construct(

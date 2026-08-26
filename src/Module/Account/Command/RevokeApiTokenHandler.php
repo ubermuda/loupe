@@ -6,9 +6,11 @@ namespace App\Module\Account\Command;
 
 use App\Module\Account\Event\ApiTokenRevoked;
 use Doctrine\ORM\EntityManagerInterface;
+use Monolog\Attribute\WithMonologChannel;
 use Psr\Log\LoggerInterface;
 use Symfony\Contracts\EventDispatcher\EventDispatcherInterface;
 
+#[WithMonologChannel('app_security')]
 final readonly class RevokeApiTokenHandler
 {
     public function __construct(

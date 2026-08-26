@@ -7,6 +7,7 @@ namespace App\Module\Account\Command;
 use App\Exception\DomainErrors;
 use App\Module\Account\Repository\UserRepository;
 use Doctrine\ORM\EntityManagerInterface;
+use Monolog\Attribute\WithMonologChannel;
 use Psr\Log\LoggerInterface;
 
 /**
@@ -16,6 +17,7 @@ use Psr\Log\LoggerInterface;
  * an unverified administrator is parked on the check-email page and cannot
  * reach the admin area at all.
  */
+#[WithMonologChannel('app_security')]
 final readonly class MarkEmailVerifiedHandler
 {
     public function __construct(
