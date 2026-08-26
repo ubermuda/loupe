@@ -90,30 +90,6 @@ One cost of deferring rather than declaring the app desktop-only: a phone
 currently gets a broken layout instead of an honest "not supported here" notice.
 If this stays deferred for long, that notice is the cheap interim step.
 
-## Verify the Claude Code plugin install path when the repo goes public
-
-**Author:** Claude · **Type:** docs · **Priority:** high · **Status:** pending
-
-`docs/using/mcp.md` and the Connect page
-(`templates/Module/Project/_connect_instructions.html.twig`) both tell users to
-run `claude plugin marketplace add ubermuda/loupe`, which cannot resolve while
-the repo is private. The owner chose on 2026-08-15 to ship the docs section
-anyway rather than hold it, on the bet that the visibility flip lands soon, and
-on 2026-08-24 extended the same bet to the Connect page — so until then both
-carry an instruction that fails. Re-check them at the flip.
-
-The install path itself is also unverified. Every test of the plugin went
-through a local-path marketplace (`claude plugin marketplace add ./`), which
-resolves the `source: "./plugins/loupe"` entry in `.claude-plugin/marketplace.json`
-against a working tree. The documented path is a GitHub-source add, which
-sparse-clones instead. Almost certainly fine, but never exercised.
-
-Close it out by adding the marketplace by `owner/repo` on a machine that has
-never had the local one registered, installing, and confirming `claude mcp list`
-shows `plugin:loupe:loupe` connected. A stale local registration pointing at a
-working copy would make that check pass for the wrong reason — run
-`claude plugin marketplace list` first.
-
 ## `just tf-db-bootstrap` does not survive an apply on a dedicated cluster
 
 **Author:** Claude · **Type:** tooling · **Priority:** high · **Status:** pending
@@ -1892,12 +1868,13 @@ accepting that a real invariant lives only in prose.
 
 **Author:** Claude · **Type:** feature · **Priority:** medium · **Status:** pending
 
-There is no audit entity, no audit table and no dedicated Monolog channel —
-`config/packages/monolog.yaml` declares only `deprecation`. What exists is scattered
-`LoggerInterface::info` calls, and of every review-related write only
-`review.document.verdict_submitted` records an actor at all. `SiteReviewEvent` looks like
-an event log and is not one: it is a Mercure delivery outbox recording deliveries rather
-than decisions, and it carries no actor.
+There is no audit entity and no audit table. There is a log trail: every
+`LoggerInterface::info` call in `src/` is a dotted domain event, and since PR #266 the
+`app` channel has an always-on handler excluded from the `fingers_crossed` buffer, so
+those records survive a request that does not also fail. What that trail does not carry
+is an actor — of every review-related write only `review.document.verdict_submitted`
+records one. `SiteReviewEvent` looks like an event log and is not one: it is a Mercure
+delivery outbox recording deliveries rather than decisions, and it carries no actor.
 
 This was three separate entries and is one question: **what is an actor here, and how is
 an agent acting through an owner's token distinguished from the owner?** Settle it once.
@@ -2076,41 +2053,6 @@ reply in an existing comment thread" is close to the current comment model with
 one new author type. "There is a conversation view in the widget" is a chat
 product, in a crowded space, and easy to sink months into. The first probably
 carries most of the value.
-
-## Two unpublished blog drafts still carry TODO placeholders for the skeleton repo link
-
-
-**Author:** Claude · **Type:** docs · **Priority:** medium · **Status:** pending
-
-The drafts titled "I spent weeks on a skeleton so my agents inherit my
-standards" and "A skeleton drifts, so I turned mine into packages" (Loupe
-project, tagged `blog-post`) both contain an unresolved HTML comment asking
-for the skeleton repository's exact name and URL to be filled in.
-
-Neither can publish with the placeholder in place, and an HTML comment
-survives most Markdown renderers as invisible-but-present text rather than
-failing loudly. Resolve the repo URL once and fix both.
-
-## The blog series hand-off lines are stale in three places
-
-
-**Author:** Claude · **Type:** docs · **Priority:** medium · **Status:** pending
-
-The blog series in the Loupe project was written as a six-post arc, then had
-a post inserted mid-sequence and five more appended. Three closing hand-offs
-were never updated to match:
-
-- "I spent weeks on a skeleton so my agents inherit my standards" closes with
-  "that's the next post" pointing at the deterministic-guardrails piece, but
-  the packages post now sits between them.
-- The companion thread for that same post repeats the identical wrong
-  hand-off, so fixing one without the other leaves the chain broken.
-- "Deterministic guardrails: let machines catch the boring stuff" closes with
-  "it's the last post in this series" — five later posts exist.
-
-Each will read as a broken promise to anyone reading in order. Decide whether
-the later posts are the same series or a second one, then fix the three
-closers to match that answer.
 
 ## Enable and disable individual MCP tools per instance and per project
 
