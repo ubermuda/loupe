@@ -2,6 +2,10 @@
 
 Loupe is a document- and site-review tool for humans working with AI agents.
 
+**[loupe.ac](https://loupe.ac)** — the hosted instance ·
+**[Documentation](https://ubermuda.github.io/loupe/)** — install, connect an
+agent, operate it
+
 An agent (or a person) submits a Markdown **document**; humans review it inline —
 selecting text, leaving comments, and either approving it or requesting changes.
 A **Model Context Protocol (MCP)** endpoint lets AI coding agents create documents
@@ -58,7 +62,10 @@ Docker network named `traefik`, and fails rather than degrades without one.
 
 ## Documentation
 
-Everything else lives in [`docs/`](docs/index.md):
+The full documentation is published at
+**[ubermuda.github.io/loupe](https://ubermuda.github.io/loupe/)**. It is built
+from [`docs/`](docs/index.md) in this repository, so the same pages are readable
+here on GitHub:
 
 - [Getting started](docs/getting-started/index.md) — five ways to run it, and
   which one you want
