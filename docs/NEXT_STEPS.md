@@ -2054,27 +2054,6 @@ one new author type. "There is a conversation view in the widget" is a chat
 product, in a crowded space, and easy to sink months into. The first probably
 carries most of the value.
 
-## The blog series hand-off lines are stale in three places
-
-
-**Author:** Claude · **Type:** docs · **Priority:** medium · **Status:** pending
-
-The blog series in the Loupe project was written as a six-post arc, then had
-a post inserted mid-sequence and five more appended. Three closing hand-offs
-were never updated to match:
-
-- "I spent weeks on a skeleton so my agents inherit my standards" closes with
-  "that's the next post" pointing at the deterministic-guardrails piece, but
-  the packages post now sits between them.
-- The companion thread for that same post repeats the identical wrong
-  hand-off, so fixing one without the other leaves the chain broken.
-- "Deterministic guardrails: let machines catch the boring stuff" closes with
-  "it's the last post in this series" — five later posts exist.
-
-Each will read as a broken promise to anyone reading in order. Decide whether
-the later posts are the same series or a second one, then fix the three
-closers to match that answer.
-
 ## Enable and disable individual MCP tools per instance and per project
 
 
