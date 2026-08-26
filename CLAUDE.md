@@ -144,6 +144,16 @@ When several feature branches are in flight (worktrees, parallel agents), merges
 
    The sharpest form is **rename/rename**: two branches move the same file for different reasons — one namespacing a directory, one renaming for a naming convention — and git reports a conflict where *neither side is correct*. The answer is the combination: the newer branch's **content** at the other branch's **path**. Afterwards, verify every reference resolves to a file that exists, because a wrong choice here compiles fine and only fails at runtime.
 7. **`gh pr merge` right after `git push` often reports "Pull Request is not mergeable".** GitHub has not recomputed mergeability yet. Wait a few seconds and retry — it is not a real conflict.
+8. **`main` is protected by a ruleset, and it allows `--squash` only.** A plain `gh pr merge` fails with `GraphQL: Merge commits are not allowed on this repository`. Use `gh pr merge <n> --squash`. History on `main` is therefore one commit per pull request, and the **PR body becomes the commit body** — which is the real reason to write the body well, not just for the reviewer.
+
+   **Do not diagnose a rejected merge with `gh repo view`.** It reports the repository's *settings*, which happily say all three methods are allowed while the ruleset forbids two of them. The authority is the ruleset:
+
+   ```bash
+   id=$(gh api repos/ubermuda/loupe/rulesets -q '.[0].id')
+   gh api repos/ubermuda/loupe/rulesets/$id -q '.rules[]|select(.type=="pull_request")|.parameters'
+   ```
+
+   The same ruleset requires the eight CI checks (`lint`, `cs-check`, `phpstan`, `arkitect`, `gamache`, `audit`, `phpunit`, `e2e`) and **one approving review**. An approval in chat is not a GitHub approval: check `gh pr view <n> --json reviewDecision,mergeStateStatus` before concluding a merge is blocked by something else.
 
 ## General Guidelines
 
