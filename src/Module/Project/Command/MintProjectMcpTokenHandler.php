@@ -10,8 +10,10 @@ use App\Module\Account\Entity\ApiTokenScope;
 use App\Module\Project\Repository\ProjectRepository;
 use Doctrine\DBAL\LockMode;
 use Doctrine\ORM\EntityManagerInterface;
+use Monolog\Attribute\WithMonologChannel;
 use Psr\Log\LoggerInterface;
 
+#[WithMonologChannel('app_security')]
 final readonly class MintProjectMcpTokenHandler
 {
     public function __construct(
