@@ -32,19 +32,19 @@
     this line. -#}
 {%- set methods = [
     {
-        icon: 'lucide:package',
-        heading: 'project.connect.plugin.heading',
-        sub: 'project.connect.plugin.sub',
-        label: 'project.connect.plugin.label',
-        command: pluginCommand,
-        recommended: true,
-    },
-    {
         icon: 'lucide:code',
         heading: 'project.connect.cli.heading',
         sub: 'project.connect.cli.sub',
         label: 'project.connect.cli.label',
         command: claudeCommand,
+        recommended: true,
+    },
+    {
+        icon: 'lucide:package',
+        heading: 'project.connect.plugin.heading',
+        sub: 'project.connect.plugin.sub',
+        label: 'project.connect.plugin.label',
+        command: pluginCommand,
         recommended: false,
     },
     {

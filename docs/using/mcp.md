@@ -19,8 +19,14 @@ The first-run wizard mints one for you at `/welcome/connect`.
 
 ## The Claude Code plugin
 
-Claude Code users can install the endpoint and the two Loupe skills together,
-instead of wiring the server up by hand:
+**Use this for the skills, not for the endpoint.** A plugin holds one set of
+config values per user — Claude Code deliberately refuses to read them from a
+repository's settings, so a clone cannot inject a credential — which means one
+`api_token` across every project you work in. Loupe's tokens are per project, so
+anyone with more than one wants the `claude mcp add` line above and the plugin
+alongside it for the skills.
+
+For a single project the plugin does both at once:
 
 ```bash
 claude plugin marketplace add ubermuda/loupe
@@ -66,7 +72,37 @@ right choice for any other MCP client.
 **A hand-configured server of the same name wins.** If you previously ran
 `claude mcp add ... loupe ...`, that entry takes precedence and the plugin's
 server is ignored with no warning — `claude mcp list` shows `loupe` rather than
-`plugin:loupe:loupe`. Run `claude mcp remove loupe` after installing the plugin.
+`plugin:loupe:loupe`.
+
+Whether that is a problem depends on how many projects you have. With one, it is
+a leftover: `claude mcp remove loupe` and let the plugin serve the endpoint. With
+several it is the arrangement you want — the per-project server carries that
+project's token while the plugin supplies the skills — and removing it would
+point every project at whichever single token the plugin holds.
+
+### Working across several projects
+
+Register the server per project and keep the plugin for the skills. `claude mcp
+add` defaults to **local** scope, which is per project and stays out of the
+repository; do **not** pass `--scope project`, which writes the token into a
+committed `.mcp.json`.
+
+To keep the token out of the file entirely, `.mcp.json` interpolates the
+environment, so the value can live in the project's own untracked settings:
+
+```json
+{
+  "mcpServers": {
+    "loupe": {
+      "type": "http",
+      "url": "https://loupe.example.com/mcp",
+      "headers": { "Authorization": "Bearer ${LOUPE_API_TOKEN}" }
+    }
+  }
+}
+```
+
+with `LOUPE_API_TOKEN` set under `env` in `.claude/settings.local.json`.
 
 ## What the tools do
 
