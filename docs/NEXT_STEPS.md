@@ -90,30 +90,6 @@ One cost of deferring rather than declaring the app desktop-only: a phone
 currently gets a broken layout instead of an honest "not supported here" notice.
 If this stays deferred for long, that notice is the cheap interim step.
 
-## Verify the Claude Code plugin install path when the repo goes public
-
-**Author:** Claude · **Type:** docs · **Priority:** high · **Status:** pending
-
-`docs/using/mcp.md` and the Connect page
-(`templates/Module/Project/_connect_instructions.html.twig`) both tell users to
-run `claude plugin marketplace add ubermuda/loupe`, which cannot resolve while
-the repo is private. The owner chose on 2026-08-15 to ship the docs section
-anyway rather than hold it, on the bet that the visibility flip lands soon, and
-on 2026-08-24 extended the same bet to the Connect page — so until then both
-carry an instruction that fails. Re-check them at the flip.
-
-The install path itself is also unverified. Every test of the plugin went
-through a local-path marketplace (`claude plugin marketplace add ./`), which
-resolves the `source: "./plugins/loupe"` entry in `.claude-plugin/marketplace.json`
-against a working tree. The documented path is a GitHub-source add, which
-sparse-clones instead. Almost certainly fine, but never exercised.
-
-Close it out by adding the marketplace by `owner/repo` on a machine that has
-never had the local one registered, installing, and confirming `claude mcp list`
-shows `plugin:loupe:loupe` connected. A stale local registration pointing at a
-working copy would make that check pass for the wrong reason — run
-`claude plugin marketplace list` first.
-
 ## `just tf-db-bootstrap` does not survive an apply on a dedicated cluster
 
 **Author:** Claude · **Type:** tooling · **Priority:** high · **Status:** pending
