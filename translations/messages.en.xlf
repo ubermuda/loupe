@@ -3539,7 +3539,7 @@
             </trans-unit>
             <trans-unit id="landing.tech.still.target_label">
                 <source>landing.tech.still.target_label</source>
-                <target>h1.pricing-hero__title</target>
+                <target>Simple pricing</target>
             </trans-unit>
             <trans-unit id="landing.tech.still.composer_title">
                 <source>landing.tech.still.composer_title</source>

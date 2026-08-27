@@ -3144,14 +3144,16 @@
     /* The picker's outline and its element label, and the composer holding what
        it picked. The widget ships these styles inside a shadow root, so they
        cannot be shared from here — only kept in step with widget.js. */
+    /* HIGHLIGHT_PADDING in widget.js: the outline frames the element rather than
+       tracing its edge, and the label sits against the box the reviewer sees. */
     .lp-tech-target {
-        @apply relative inline-block mt-5 rounded-xl border-2 border-accent bg-accent-faint;
+        @apply relative inline-block mt-6 p-2 rounded-xl border-2 border-accent bg-accent-faint;
     }
     .lp-tech-target__label {
-        @apply absolute -left-0.5 -top-6.5 inline-flex items-center h-5 px-2.5 rounded-full bg-accent text-ink text-xs font-semibold;
+        @apply absolute -left-0.5 -top-6.25 inline-block max-w-60 h-5.25 px-2.25 rounded-full bg-accent text-ink text-xs font-semibold leading-5.25 truncate;
     }
     .lp-tech-composer {
-        @apply absolute right-5 bottom-20 flex w-80 flex-col rounded-2xl border border-line bg-app;
+        @apply absolute right-5 bottom-19.5 flex w-87 flex-col rounded-2xl border border-line bg-app;
     }
     .lp-tech-composer__head {
         @apply flex items-center px-4 pt-3.5 pb-3;
