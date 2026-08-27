@@ -2375,6 +2375,47 @@ establish whether any production row predates the switch; if none does, the
 migration is insurance that costs one no-op pass, which is the point of doing it
 before real data arrives rather than after.
 
+## The `cli-test` CI check is not required, so a broken CLI cannot block a merge
+
+**Author:** Claude · **Type:** tooling · **Priority:** medium · **Status:** pending
+
+`just ci` now ends in `cli-test`, and `.github/workflows/ci.yml` runs it as its
+own job, but the branch ruleset on `main` still requires only the original eight
+checks — `lint`, `cs-check`, `phpstan`, `arkitect`, `gamache`, `audit`,
+`phpunit`, `e2e`. A red `cli-test` therefore reports failure and merges anyway,
+which makes the job decoration rather than a gate.
+
+Adding it is a repository setting and cannot be done from a branch. The ruleset
+is readable with:
+
+```bash
+id=$(gh api repos/ubermuda/loupe/rulesets -q '.[0].id')
+gh api repos/ubermuda/loupe/rulesets/$id
+```
+
+Until it is required, treat a green merge as saying nothing about the Go bridge.
+
+## Three external bundle and package PRs are open, and their tracker entries stay open until the pins move
+
+**Author:** Claude · **Type:** tooling · **Priority:** medium · **Status:** pending
+
+Work that fixes this app but lives in another repository does not land when the
+PR merges — it lands when this project's pin moves. Three are in flight:
+
+1. `ubermuda/gamache` gained three rules (a skill-reference check, an MCP
+   tool-name rule and a delegated-shape rule) as PRs 37, 38 and 39. Two of them
+   touch the same lines of `extension.neon` and the README rule count, so
+   whichever merges second needs both entries kept and the count bumped again.
+2. `ubermuda/admin-bundle` PR 8 moves the admin sidebar pinning into the bundle.
+   Only after it merges and the pin moves can `assets/styles/app.css` drop its
+   `.admin-sidebar { position: fixed }` and `.admin-sidebar + div` rules — the
+   interim state renders identically, so there is no rush, but the app rules are
+   dead weight from that point on.
+3. `ubermuda/feature-flags-bundle` PR 7 replaces the arbitrary Tailwind values.
+
+After any of these merges, repoint the pin per the `ubermuda/*` pinning rule in
+`CLAUDE.md` and only then delete the corresponding entry here.
+
 ## The listeners' `/logout` exemptions are dead in production but live in their unit tests
 
 **Author:** Claude · **Type:** tooling · **Priority:** low · **Status:** pending
