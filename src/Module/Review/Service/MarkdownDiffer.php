@@ -10,11 +10,13 @@ use App\Module\Review\ValueObject\DiffRefusal;
 use App\Module\Review\ValueObject\DiffSegment;
 use App\Module\Review\ValueObject\DocumentDiff;
 use Jfcherng\Diff\Differ;
+use Jfcherng\Diff\Factory\LineRendererFactory;
 use Jfcherng\Diff\Options\DifferOptions;
 use Jfcherng\Diff\Options\RendererOptions;
 use Jfcherng\Diff\Renderer\Html\JsonHtml;
 use Jfcherng\Diff\Renderer\RendererConstant;
 use Jfcherng\Diff\SequenceMatcher;
+use Jfcherng\Utility\MbString;
 
 /**
  * Word-level diff of two documents' Markdown sources.
@@ -76,17 +78,7 @@ final readonly class MarkdownDiffer
             ),
         );
 
-        $renderer = new JsonHtml(new RendererOptions(
-            detailLevel: 'word',
-            lineNumbers: false,
-            separateBlock: false,
-            showHeader: false,
-            // A space joins two marked runs that are adjacent apart from it, so
-            // "delta instead" is one insertion rather than two; a hyphen does the
-            // same inside a compound word. Neither ever absorbs unchanged text —
-            // only runs separated by nothing but glue are joined.
-            wordGlues: ['-', ' '],
-        ));
+        $renderer = new JsonHtml($this->rendererOptions());
 
         /** @var list<list<array{tag: int, old: array{lines: array<int, string>}, new: array{lines: array<int, string>}}>> $changes */
         $changes = $renderer->getChanges($differ);
@@ -101,6 +93,21 @@ final readonly class MarkdownDiffer
         }
 
         return new DocumentDiff($lines);
+    }
+
+    private function rendererOptions(): RendererOptions
+    {
+        return new RendererOptions(
+            detailLevel: 'word',
+            lineNumbers: false,
+            separateBlock: false,
+            showHeader: false,
+            // A space joins two marked runs that are adjacent apart from it, so
+            // "delta instead" is one insertion rather than two; a hyphen does the
+            // same inside a compound word. Neither ever absorbs unchanged text —
+            // only runs separated by nothing but glue are joined.
+            wordGlues: ['-', ' '],
+        );
     }
 
     /** @param list<string> $lines */
@@ -182,14 +189,27 @@ final readonly class MarkdownDiffer
      */
     private function linesForReplacement(array $old, array $new): array
     {
-        // The library only marks words when both sides have the same line count;
-        // otherwise the lines arrive unmarked and there is nothing to weigh.
-        $marked = count($old) === count($new) && $this->changedRatio($old, $new) <= self::MERGE_THRESHOLD;
+        // The library only marks words when both sides have the same line count,
+        // so a revision that rewords a paragraph and adds one beside it arrives
+        // unmarked. Marking it here is what keeps that common shape word-level.
+        $paired = count($old) === count($new);
+        if (!$paired) {
+            [$old, $new] = $this->markAcrossLines($old, $new);
+        }
 
-        if (!$marked) {
+        if ($this->changedRatio($old, $new) > self::MERGE_THRESHOLD) {
             return [
                 ...array_map(fn (string $line): DiffLine => DiffLine::deleted($this->stripMarks($line)), $old),
                 ...array_map(fn (string $line): DiffLine => DiffLine::inserted($this->stripMarks($line)), $new),
+            ];
+        }
+
+        if (!$paired) {
+            // No line to sit opposite, so the sides are shown in turn rather
+            // than interleaved.
+            return [
+                ...array_map(fn (string $line): DiffLine => new DiffLine(DiffKind::Deleted, $this->segments($line, DiffKind::Deleted)), $old),
+                ...array_map(fn (string $line): DiffLine => new DiffLine(DiffKind::Inserted, $this->segments($line, DiffKind::Inserted)), $new),
             ];
         }
 
@@ -197,6 +217,60 @@ final readonly class MarkdownDiffer
         foreach ($old as $index => $oldLine) {
             $lines[] = new DiffLine(DiffKind::Deleted, $this->segments($oldLine, DiffKind::Deleted));
             $lines[] = new DiffLine(DiffKind::Inserted, $this->segments($new[$index], DiffKind::Inserted));
+        }
+
+        return $lines;
+    }
+
+    /**
+     * Word-marks a replaced block whose sides have different line counts, the
+     * way the library's `Combined` renderer does: each side is joined into one
+     * string, the word renderer runs over the pair, and the result is split
+     * back. The lines arrive HTML-escaped, so only the library's private-use
+     * marks are swapped for tags afterwards — a literal `<del>` in the Markdown
+     * already reads `&lt;del&gt;` and cannot be mistaken for one.
+     *
+     * @param list<string> $old
+     * @param list<string> $new
+     *
+     * @return array{list<string>, list<string>}
+     */
+    private function markAcrossLines(array $old, array $new): array
+    {
+        $markedOld = new MbString(implode("\n", $old));
+        $markedNew = new MbString(implode("\n", $new));
+
+        LineRendererFactory::make('word', new DifferOptions(), $this->rendererOptions())
+            ->render($markedOld, $markedNew);
+
+        return [
+            $this->splitMarkedLines($markedOld->get(), 'del'),
+            $this->splitMarkedLines($markedNew->get(), 'ins'),
+        ];
+    }
+
+    /**
+     * Splits a joined marked side back into lines, reopening any mark that
+     * spans a line break so each line stands on its own.
+     *
+     * @return list<string>
+     */
+    private function splitMarkedLines(string $marked, string $tag): array
+    {
+        $closures = RendererConstant::HTML_CLOSURES;
+        [$open, $close] = $closures;
+
+        $lines = [];
+        $spanning = false;
+        foreach (explode("\n", $marked) as $line) {
+            if ($spanning) {
+                $line = $open.$line;
+            }
+            $spanning = substr_count($line, $open) > substr_count($line, $close);
+            if ($spanning) {
+                $line .= $close;
+            }
+            $lines[] = str_replace($closures, ['<'.$tag.'>', '</'.$tag.'>'], $line);
         }
 
         return $lines;

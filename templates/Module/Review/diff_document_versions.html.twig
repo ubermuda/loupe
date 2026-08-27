@@ -25,6 +25,40 @@
         <a class="lp-btn" href="{{ documentPath }}">{{ 'review.document.diff.back'|trans }}</a>
     </div>
 
+    {# Any two versions, not only the adjacent pair the version switcher links
+       to: a reviewer who commented on v1 and comes back three revisions later
+       wants exactly that comparison, and used to have to edit the URL. #}
+    {% if versions|length > 1 %}
+    <form class="lp-filter-form mb-8"
+          data-controller="version-compare"
+          data-version-compare-url-value="{{ path('app_document_review_diff', {projectId: document.project.id, documentId: document.id, fromVersionNumber: diffFromVersion, toVersionNumber: version.versionNumber}) }}"
+          data-action="submit->version-compare#compare change->version-compare#sync">
+        <label class="sr-only" for="diff-from">{{ 'review.document.diff.picker.from_label'|trans }}</label>
+        <select id="diff-from"
+                name="from"
+                class="lp-input lp-select lp-filter-select"
+                data-version-compare-target="from">
+            {% for meta in versions|reverse %}
+                <option value="{{ meta.versionNumber }}"{{ meta.versionNumber == diffFromVersion ? ' selected' : '' }}>{{ 'v' ~ meta.versionNumber }}</option>
+            {% endfor %}
+        </select>
+
+        <span class="lp-form-hint">{{ 'review.document.diff.picker.separator'|trans }}</span>
+
+        <label class="sr-only" for="diff-to">{{ 'review.document.diff.picker.to_label'|trans }}</label>
+        <select id="diff-to"
+                name="to"
+                class="lp-input lp-select lp-filter-select"
+                data-version-compare-target="to">
+            {% for meta in versions|reverse %}
+                <option value="{{ meta.versionNumber }}"{{ meta.versionNumber == version.versionNumber ? ' selected' : '' }}>{{ 'v' ~ meta.versionNumber }}</option>
+            {% endfor %}
+        </select>
+
+        <button type="submit" class="lp-btn">{{ 'review.document.diff.picker.submit'|trans }}</button>
+    </form>
+    {% endif %}
+
     {# What the author said each revision changed, read next to what it actually
        changed. Only the versions the diff spans are listed. #}
     {% set changeNotes = versions|filter(meta =>

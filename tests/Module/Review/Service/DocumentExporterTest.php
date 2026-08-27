@@ -27,7 +27,7 @@ final class DocumentExporterTest extends TestCase
         $repo = $this->createStub(DocumentRepository::class);
         $repo->method('findByOwner')->willReturn([$document]);
 
-        $rows = new DocumentExporter($repo)->export($user);
+        $rows = iterator_to_array(new DocumentExporter($repo)->export($user));
 
         self::assertCount(1, $rows);
         self::assertSame('My doc', $rows[0]['title']);
@@ -52,7 +52,7 @@ final class DocumentExporterTest extends TestCase
         $repo = $this->createStub(DocumentRepository::class);
         $repo->method('findByOwner')->willReturn([$document]);
 
-        $rows = new DocumentExporter($repo)->export($user);
+        $rows = iterator_to_array(new DocumentExporter($repo)->export($user));
 
         self::assertSame(['design', 'release'], $rows[0]['tags']);
     }
@@ -67,7 +67,7 @@ final class DocumentExporterTest extends TestCase
         $repo = $this->createStub(DocumentRepository::class);
         $repo->method('findByOwner')->willReturn([$document]);
 
-        self::assertSame([], new DocumentExporter($repo)->export($user)[0]['tags']);
+        self::assertSame([], iterator_to_array(new DocumentExporter($repo)->export($user))[0]['tags']);
     }
 
     public function test_exports_archive_state_and_version_descriptions(): void
@@ -83,7 +83,7 @@ final class DocumentExporterTest extends TestCase
         $repo = $this->createStub(DocumentRepository::class);
         $repo->method('findByOwner')->willReturn([$document]);
 
-        $rows = new DocumentExporter($repo)->export($user);
+        $rows = iterator_to_array(new DocumentExporter($repo)->export($user));
 
         self::assertSame('2026-08-02T10:00:00+00:00', $rows[0]['archivedAt']);
         self::assertSame('First draft of the auth design.', $rows[0]['versions'][0]['description']);
@@ -107,7 +107,7 @@ final class DocumentExporterTest extends TestCase
         $repo = $this->createStub(DocumentRepository::class);
         $repo->method('findByOwner')->willReturn([$document]);
 
-        $rows = new DocumentExporter($repo)->export($user);
+        $rows = iterator_to_array(new DocumentExporter($repo)->export($user));
 
         self::assertCount(1, $rows[0]['references']);
         self::assertSame('The spec it answers', $rows[0]['references'][0]['title']);
@@ -123,7 +123,7 @@ final class DocumentExporterTest extends TestCase
         $repo = $this->createStub(DocumentRepository::class);
         $repo->method('findByOwner')->willReturn([$document]);
 
-        $rows = new DocumentExporter($repo)->export($user);
+        $rows = iterator_to_array(new DocumentExporter($repo)->export($user));
 
         self::assertArrayHasKey('archivedAt', $rows[0]);
         self::assertNull($rows[0]['archivedAt']);

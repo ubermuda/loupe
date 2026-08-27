@@ -48,7 +48,7 @@ final class DataExportArchiveBuilderTest extends TestCase
             }
 
             #[\Override]
-            public function export(User $user): array
+            public function export(User $user): iterable
             {
                 return [['name' => 'thing-1']];
             }
@@ -79,7 +79,7 @@ final class DataExportArchiveBuilderTest extends TestCase
             }
 
             #[\Override]
-            public function export(User $user): array
+            public function export(User $user): iterable
             {
                 throw new \RuntimeException('boom');
             }
@@ -179,7 +179,7 @@ final class DataExportArchiveBuilderTest extends TestCase
             }
 
             #[\Override]
-            public function export(User $user): array
+            public function export(User $user): iterable
             {
                 return [];
             }

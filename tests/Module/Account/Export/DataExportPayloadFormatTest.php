@@ -112,7 +112,7 @@ final class DataExportPayloadFormatTest extends TestCase
             }
 
             #[\Override]
-            public function export(User $user): array
+            public function export(User $user): iterable
             {
                 return [
                     ['id' => 'a/b', 'name' => 'Café 🎉', 'tags' => ['x', 'y'], 'nested' => ['k' => null], 'empty' => []],
@@ -132,7 +132,7 @@ final class DataExportPayloadFormatTest extends TestCase
             }
 
             #[\Override]
-            public function export(User $user): array
+            public function export(User $user): iterable
             {
                 return ['fullName' => 'A/B', 'when' => null, 'deep' => ['p' => 1]];
             }
@@ -149,7 +149,7 @@ final class DataExportPayloadFormatTest extends TestCase
             }
 
             #[\Override]
-            public function export(User $user): array
+            public function export(User $user): iterable
             {
                 return [];
             }

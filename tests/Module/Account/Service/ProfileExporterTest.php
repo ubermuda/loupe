@@ -13,7 +13,7 @@ final class ProfileExporterTest extends TestCase
     public function test_exports_profile_fields_without_credentials(): void
     {
         $user = new User('Alice A', 'alice@example.com', 'hashed-password');
-        $data = new ProfileExporter()->export($user);
+        $data = iterator_to_array(new ProfileExporter()->export($user));
 
         self::assertArrayNotHasKey('username', $data);
         self::assertSame('Alice A', $data['fullName']);

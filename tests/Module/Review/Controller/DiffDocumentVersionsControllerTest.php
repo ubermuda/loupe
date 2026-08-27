@@ -328,6 +328,52 @@ final class DiffDocumentVersionsControllerTest extends WebTestCase
         self::assertResponseStatusCodeSame(404);
     }
 
+    /**
+     * The only links into a diff compare a version with the one before it, so
+     * without a picker on the page itself, comparing v1 with v4 means editing
+     * the URL by hand.
+     */
+    public function test_the_diff_offers_a_picker_for_any_pair_of_versions(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+
+        $owner = $this->createUser($em, 'owner-diff-pick', 'owner-diff-pick@example.com');
+        $project = $this->project($em, $owner);
+
+        $doc = new Document(owner: $owner, project: $project, title: 'Four Versions');
+        foreach (range(1, 4) as $number) {
+            $doc->addVersion("# Plan\n\nRevision {$number} of the body.", '<h1>Plan</h1>');
+        }
+        $em->persist($doc);
+        $em->flush();
+
+        $projectId = (string) $project->id;
+        $id = (string) $doc->id;
+        $em->clear();
+
+        $client->loginUser($owner);
+        $base = '/projects/'.$projectId.'/documents/'.$id.'/review/diff/';
+        $crawler = $client->request(Request::METHOD_GET, $base.'3/4');
+
+        self::assertResponseIsSuccessful();
+        $picker = $crawler->filter('[data-controller="version-compare"]');
+        self::assertCount(1, $picker);
+        self::assertSame($base.'3/4', $picker->attr('data-version-compare-url-value'));
+        // Every version in both selects: which pairs are comparable is settled in
+        // the browser, and the route already answers 404 for the rest.
+        self::assertCount(4, $crawler->filter('[data-version-compare-target="from"] option'));
+        self::assertCount(4, $crawler->filter('[data-version-compare-target="to"] option'));
+        self::assertSame('3', $crawler->filter('[data-version-compare-target="from"] option[selected]')->attr('value'));
+        self::assertSame('4', $crawler->filter('[data-version-compare-target="to"] option[selected]')->attr('value'));
+
+        // The non-adjacent pair the picker exists to reach.
+        $spanning = $client->request(Request::METHOD_GET, $base.'1/4');
+        self::assertResponseIsSuccessful();
+        self::assertCount(1, $spanning->filter('.lp-diff'));
+        self::assertSame($base.'1/4', $spanning->filter('[data-controller="version-compare"]')->attr('data-version-compare-url-value'));
+    }
+
     public function test_unauthenticated_user_is_redirected(): void
     {
         $client = static::createClient();

@@ -22,18 +22,15 @@ final readonly class ProjectExporter implements UserDataExporterInterface
     }
 
     #[\Override]
-    public function export(User $user): array
+    public function export(User $user): iterable
     {
-        $rows = [];
         foreach ($this->projects->findByOwner($user) as $project) {
-            $rows[] = [
+            yield [
                 'id' => (string) $project->id,
                 'name' => $project->name,
                 'domain' => $project->domain,
                 'createdAt' => $project->createdAt->format(\DateTimeInterface::ATOM),
             ];
         }
-
-        return $rows;
     }
 }

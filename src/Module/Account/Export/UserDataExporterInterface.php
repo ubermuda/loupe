@@ -17,6 +17,12 @@ interface UserDataExporterInterface
     /** Basename of the JSON file inside the archive, e.g. 'projects.json'. */
     public function filename(): string;
 
-    /** @return array<array-key, mixed> JSON-serializable payload. */
-    public function export(User $user): array;
+    /**
+     * Rows are yielded rather than returned so a payload is never resident
+     * whole. Integer keys produce a JSON array, string keys a JSON object;
+     * yielding nothing produces `[]`.
+     *
+     * @return iterable<array-key, mixed> JSON-serializable rows
+     */
+    public function export(User $user): iterable;
 }

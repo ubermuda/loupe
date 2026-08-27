@@ -22,7 +22,7 @@ final readonly class DocumentExporter implements UserDataExporterInterface
     }
 
     #[\Override]
-    public function export(User $user): array
+    public function export(User $user): iterable
     {
         $documents = $this->documents->findByOwner($user);
 
@@ -33,7 +33,6 @@ final readonly class DocumentExporter implements UserDataExporterInterface
         $this->documents->preloadVersions($documents);
         $this->documents->preloadReferences($documents);
 
-        $rows = [];
         foreach ($documents as $document) {
             $versions = [];
             foreach ($document->versions as $version) {
@@ -61,7 +60,7 @@ final readonly class DocumentExporter implements UserDataExporterInterface
                 ];
             }
 
-            $rows[] = [
+            yield [
                 'id' => (string) $document->id,
                 'project' => $document->project->name,
                 'title' => $document->title,
@@ -73,7 +72,5 @@ final readonly class DocumentExporter implements UserDataExporterInterface
                 'versions' => $versions,
             ];
         }
-
-        return $rows;
     }
 }
