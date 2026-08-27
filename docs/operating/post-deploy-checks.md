@@ -8,12 +8,19 @@ description: "What to verify after a deploy, and what each check can and cannot 
    sends `Cache-Control: no-store` so a probe never reads a cached verdict from
    a container that has since died. It deliberately says nothing else — an
    anonymous caller learns whether the instance is up, and no more.
+   `GET /livez` is the weaker sibling: no security listener, no template, no
+   database, so it answers 200 as soon as PHP runs. It is what a platform
+   health check should point at until the database is reachable — it proves
+   the container is alive and nothing else.
 2. `POST /mcp` with no credentials returns **401, not 404**. A 404 means the
    route did not register; a 401 means it registered and the firewall rejected
    you. A **403** is different again: that is the DNS-rebinding guard, and the
    body names `MCP_ALLOWED_HOSTS` and echoes the host it rejected.
 3. `bin/console doctrine:migrations:status` reports no pending migrations.
-4. Open **`/admin/status`**. It reports, for this instance, whether the mail
+4. Run **`bin/console app:system-status`**, or open **`/admin/status`** — same
+   checks, same wording. The command exits non-zero when any check has failed,
+   so a deploy script can end with it; add `--strict` to fail on warnings too.
+   Either one reports, for this instance, whether the mail
    transport accepts a connection, whether the sender address is still the
    undeliverable default, whether the message queue is being drained, how many
    messages have failed, whether the Mercure hub answers, and — when billing is

@@ -212,6 +212,11 @@ set_env "$root/.env.local" WORKTREE_DB_SUFFIX "_wt_$token"
 # main .env's http://localhost.
 set_env "$root/.env.local" DEFAULT_URI "https://$host"
 
+# This worktree's own Mailpit, so concurrent e2e suites cannot read (or clear)
+# each other's mail. Read by MAILER_DSN in .env.dev; must match the network
+# alias declared for the mailpit service in docker/compose/worktree.yaml.
+set_env "$root/.env.local" WORKTREE_MAILPIT_HOST "mailpit-$slug"
+
 # The MCP endpoint's DNS-rebinding guard is an exact-hostname allowlist, so
 # every worktree request would be rejected without its own host added.
 mcp_hosts=$(grep -E '^MCP_ALLOWED_HOSTS=' "$main/.env" | head -1 | cut -d= -f2- | tr -d '"')

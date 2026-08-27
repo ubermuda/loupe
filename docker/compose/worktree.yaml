@@ -8,7 +8,7 @@
 # The explicit -p matters — .env sets COMPOSE_PROJECT_NAME, and that
 # environment variable would override a `name:` key declared in this file.
 #
-# Only nginx is duplicated. php-fpm, Postgres, Mailpit and Mercure are shared
+# nginx and Mailpit are duplicated. php-fpm, Postgres and Mercure are shared
 # with the main stack: the whole main checkout is mounted at /var/www/html and
 # worktrees live inside it, so a worktree's files sit at the same path in both
 # this container and the shared php-fpm. That path identity is what lets one
@@ -44,6 +44,33 @@ services:
       - traefik.http.routers.wt-${WT_SLUG}.tls=true
       - traefik.http.routers.wt-${WT_SLUG}.tls.certresolver=stepca
       - traefik.http.services.wt-${WT_SLUG}.loadbalancer.server.port=80
+
+  # A shared Mailpit is what forced `just e2e` to run one worktree at a time:
+  # concurrent suites read each other's messages, and clearMailbox() wipes them
+  # all. One per worktree removes that coupling.
+  mailpit:
+    image: axllent/mailpit:v1.30
+    restart: unless-stopped
+    environment:
+      MP_SMTP_AUTH_ACCEPT_ANY: 1
+      MP_SMTP_AUTH_ALLOW_INSECURE: 1
+    networks:
+      traefik: {}
+      app:
+        # php-fpm is in the main stack's compose project, so this container's
+        # own service name does not resolve for it. The alias is the name the
+        # worktree's MAILER_DSN points at, and it must match the one
+        # worktree-bootstrap.sh writes as WORKTREE_MAILPIT_HOST.
+        aliases:
+          - mailpit-${WT_SLUG}
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=traefik
+      - traefik.http.routers.wt-mail-${WT_SLUG}.rule=Host(`mailpit-${WT_SLUG}.${WT_BASE_HOST:?set by worktree-bootstrap.sh}`)
+      - traefik.http.routers.wt-mail-${WT_SLUG}.entrypoints=websecure
+      - traefik.http.routers.wt-mail-${WT_SLUG}.tls=true
+      - traefik.http.routers.wt-mail-${WT_SLUG}.tls.certresolver=stepca
+      - traefik.http.services.wt-mail-${WT_SLUG}.loadbalancer.server.port=8025
 
 networks:
   traefik:

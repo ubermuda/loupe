@@ -8,8 +8,8 @@ description: Use when creating, entering, debugging or removing a git worktree u
 ## Overview
 
 Every worktree is a **full application of its own** — its own URL, database and
-compiled CSS — but only nginx is duplicated. php-fpm, Postgres and Mailpit are
-shared with the main stack, as is the Mercure hub when it is running — it sits
+compiled CSS — but only nginx and Mailpit are duplicated. php-fpm and Postgres
+are shared with the main stack, as is the Mercure hub when it is running — it sits
 behind a compose profile and is off unless someone ran `just mercure-up`, so a
 worktree working on site-review push has to start it and shares the one hub
 with every other worktree.
@@ -32,12 +32,42 @@ boots with the worktree as its project directory and reads that worktree's
 | `just worktree-tailwind` | Tailwind watch mode for the current worktree |
 
 Provisioned per worktree: `https://<slug>.loupe.dev.localhost`, dev DB
-`app_wt_<slug>`, test DB `app_test_<slug>`, compose project `loupe-wt-<slug>`.
+`app_wt_<slug>`, test DB `app_test_<slug>`, compose project `loupe-wt-<slug>`,
+and a Mailpit sidecar at `https://mailpit-<slug>.loupe.dev.localhost` (SMTP
+alias `mailpit-<slug>` on the app network). A worktree name that would normalise
+to a slug beginning `mailpit-` is refused, because it would claim a sibling's
+mail host.
 Log in with `dev@loupe.test` / `password`, or `admin@loupe.test` / `password`
 for the admin area.
 
 `just up` must have run first — bootstrap fails fast rather than leaving a
 worktree whose `.env.local` points at a database that was never created.
+
+## The lifecycle runs itself
+
+`.claude/settings.json` registers two hooks, so a harness-created worktree is a
+provisioned one and a harness-removed one leaves nothing behind:
+
+| Hook | Script | Does |
+|---|---|---|
+| `WorktreeCreate` | `.claude/hooks/worktree-create.sh` | Runs `worktree-bootstrap.sh` for the new tree |
+| `WorktreeRemove` | `.claude/hooks/worktree-remove.sh` | Runs `worktree-teardown.sh` with `WORKTREE_TEARDOWN_KEEP_TREE=1` |
+
+Both ignore any worktree outside `.claude/worktrees/`. Create is **blocking**:
+if bootstrap fails, creation fails, because a worktree that cannot run `just ci`
+is the exact problem the hook exists to remove — its stderr names the cause, and
+it is almost always a stopped stack. Remove leaves the `git worktree remove` to
+the harness so the two do not race; run `just worktree-down NAME` by hand and
+the tree goes too.
+
+Teardown kills anything still running against the worktree in the shared
+php-fpm before it drops the databases, matching on the process's working
+directory (every worktree's console process has an identical command line in
+one container) and dropping with `--force`. A surviving consumer used to make
+`dropdb` fail silently and orphan both databases.
+
+An `isolation: "worktree"` agent still gets a harness-generated branch name, so
+work that must land on a named branch is still renamed and pushed deliberately.
 
 ## Rules that prevent real damage
 
@@ -130,12 +160,13 @@ form appears when switching straight into a freshly created worktree — re-issu
 **Agents launched with `isolation: "worktree"` get their own binding** and can
 write in parallel (verified: the agent lands in `.claude/worktrees/agent-<id>`
 on its own branch, writes there freely, and is refused when writing into another
-worktree). Two caveats: the worktree starts bare, exactly like `git worktree
-add`, so run `just worktree-up` to complete it, same as any worktree; and the
-branch name is harness-generated, so work that must land on a named branch has
-to be renamed and pushed deliberately. These worktrees are created **locked**, but
-`just worktree-down agent-<id>` removes one cleanly anyway — sidecar and both
-databases included, no `--force` needed.
+worktree). The `WorktreeCreate` hook provisions it, so it is a full application
+from the start rather than the bare `git worktree add` it used to be; if that
+hook is not registered, run `just worktree-up` yourself. The remaining caveat is
+that the branch name is harness-generated, so work that must land on a named
+branch has to be renamed and pushed deliberately. These worktrees are created
+**locked**, but `just worktree-down agent-<id>` removes one cleanly anyway —
+sidecars and both databases included, no `--force` needed.
 
 Tear the agent's worktree down only after its branch is pushed, and **never
 tear down the worktree the parent session is bound to**: the binding keeps
@@ -160,10 +191,11 @@ land in the wrong worktree, stop — the orchestrator fixes the binding. Work
 already on disk survives a stopped agent, so resume it with a message rather
 than restarting.
 
-**Parallelising writes does not parallelise the gate.** `just e2e` is serialized
-by shared Mailpit regardless of how many worktrees exist, at roughly three
-minutes per branch — that, not the write binding, is the throughput ceiling for
-a multi-branch wave.
+**Parallelising writes does not yet parallelise the gate.** Mailpit is no longer
+shared — each worktree has its own sidecar and `just e2e` points the suite at it
+— but `playwright.config.ts` still sets `workers: 1`, and no branch has been
+gated concurrently to prove the rest of the suite is parallel-safe. Until
+someone does that, treat roughly three minutes per branch as the ceiling.
 
 ## Reusing one worktree for several branches
 
@@ -200,12 +232,13 @@ suspecting the branch.
 | Worktree URL returns **502** | Route exists but the backend doesn't — usually a worktree removed with bare `git worktree remove`. `just worktree-prune`. |
 | nginx exits with `host not found in upstream "php-fpm"` | The container reached the shared network *after* start. Attach every network at creation — this is why the sidecar is a compose file, not `docker run` + `docker network connect`. |
 | A class added in the worktree renders unstyled | `var/tailwind` must be a real directory per worktree, not a symlink to main's. `just worktree-up` fixes it; `just worktree-tailwind` watches. |
+| Layout looks like an older design; a hover/position spec fails but the page logs nothing | Different cause from the row above, same symptom family. `just worktree-up` builds `var/tailwind/app.built.css` **once** and nothing rebuilds it, so a worktree alive across a merge of `main` serves the CSS its branch had at provision time while its PHP, Twig and JS are current. `just e2e` now rebuilds it before every worktree run; for a browser session, `bin/worktrees/compose-exec.sh bin/console tailwind:build` (under a second) or `just worktree-tailwind` to watch. Diff the compiled sheet for a class the design introduced before blaming the branch. |
 | The site-review widget is in its rejected-token state | `SITE_REVIEW_WIDGET_TOKEN` refers to a row in another database. `just worktree-up` detects this (it hashes the token and looks for it locally) and reissues. |
-| e2e failures that vanish on a re-run | Mailpit is shared, so concurrent e2e runs read each other's messages. e2e must stay serialized — check whether another run is in flight before blaming the branch. |
+| Mail-asserting specs read another run's messages | Was the shared Mailpit; each worktree now has its own sidecar. Suspect a run launched without `just e2e` (which exports `MAILPIT_URL`) or with `E2E_BASE_URL` set, which deliberately falls back to the shared instance. `bin/e2e-target.sh` prints the Mailpit URL it resolved as its fourth line. |
 | A spec fails, then passes on a quiet re-run | Something else was loading the shared php-fpm — a sibling agent running `just ci` or `composer install`. Check what is in flight **before** investigating the branch; this produced a false "regression" that was nearly filed against a clean PR. |
 | `worktree-up` fails with an "Unrecognized option" or missing-class error | The new worktree seeded its `vendor/` from the main checkout, and the main checkout is stale. Fast-forwarding the main checkout does **not** update its `vendor/`, so every worktree created afterwards inherits dependencies from the old commit. Run `composer install` in the main checkout, then re-run `just worktree-up`. |
 | Every e2e spec fails on a **new** worktree host with `ERR_CERT_AUTHORITY_INVALID`, while existing hosts stay fine | The `traefik-dnsmasq-1` container (in the separate `traefik` stack) is down. It holds `address=/dev.localhost/172.20.0.2`, the wildcard that lets step-ca resolve a host to validate ACME; without it `tls-alpn-01` fails with "could not connect to validation target" and Traefik serves its default cert. Hosts already in `certs/acme.json` keep working, which is what makes this look worktree-specific. `restart: unless-stopped` does **not** revive it after an exit 255. Fix: `( cd ../traefik && docker compose up -d dnsmasq )`, then **restart Traefik too** — it otherwise keeps polling the already-failed authorization instead of opening a fresh order. Verify with `curl -o /dev/null -w '%{ssl_verify_result}'` (0 = good) before blaming the branch. |
-| Mail-asserting e2e specs time out against a worktree / no mail in Mailpit | Not a missing consumer — `PlaywrightSyncMiddleware` handles `X-Playwright` dispatches inline, so no worker is involved. Suspect a request that never carried the header (a context built without the project's `use` options), or stale state from an interrupted run. |
+| Mail-asserting e2e specs time out against a worktree / no mail in Mailpit | Not a missing consumer — `PlaywrightSyncMiddleware` handles `X-Playwright` dispatches inline, so no worker is involved. Check first that the worktree's Mailpit sidecar is up (`just worktree-up` recreates it) and that `MAILER_DSN` in the container resolves to `mailpit-<slug>`; container environment beats dotenv, so a php-fpm still carrying an old `MAILER_DSN` sends to the shared instance until the main stack is recreated. Otherwise suspect a request that never carried the header (a context built without the project's `use` options), or stale state from an interrupted run. |
 | You cannot tell whether an e2e run is already in flight | `ps ax` truncates command lines to terminal width, and a worktree's `e2e/node_modules` is a symlink to the main checkout, so **every** playwright process reports an identical command line whichever tree launched it. Use `pgrep -f 'playwright test'` — it neither truncates nor lets you distinguish trees, so treat any hit as "someone is running e2e" and wait. |
 
 ## Writing worktree tooling
@@ -235,17 +268,20 @@ e2e at a **worktree**, which is still supported and is the right tool when you
 need to gate a branch without checking it out — but it is no longer the only
 way, and it is the more expensive one.
 
-`just e2e` does not parallelize (shared Mailpit). Run **from** a worktree it now
-resolves that worktree as its target, prints which one, and repairs the dev data
-the suite destroys once it finishes:
+`just e2e` still runs one worker (`playwright.config.ts`), though Mailpit is now
+per-worktree rather than shared. Run **from** a worktree it resolves that
+worktree as its target and its Mailpit, prints both, rebuilds the worktree's
+stylesheet, and repairs the dev data the suite destroys once it finishes:
 
 ```sh
 ( cd .claude/worktrees/<name> && just e2e )
 ```
 
 `E2E_BASE_URL` still overrides, and is what you want to aim at a worktree from
-somewhere else. Setting it also suppresses the repair, because an explicit target
-may be anything and repairing a tree nobody chose is worse than leaving it.
+somewhere else. Setting it also suppresses the repair and the per-worktree
+Mailpit, because an explicit target may be anything: repairing a tree nobody
+chose is worse than leaving it, and guessing a mail host is worse than the
+shared one. Set `MAILPIT_URL` alongside it to aim the mail assertions too.
 
 ## Running the full e2e suite from a worktree
 
@@ -272,6 +308,11 @@ there" into "move the session in", which CLAUDE.md forbids for the main session
 3. **A quiet stack**: no worktree provisioning, `composer install`, or sibling
    `just ci` during the run — they share php-fpm and skew timings past
    Playwright's timeouts.
+4. **A current stylesheet.** `just e2e` now runs `tailwind:build` for the
+   detected worktree before starting Playwright, so this is automatic — but a
+   run started any other way (`npx playwright test` directly, or an explicit
+   `E2E_BASE_URL`, which suppresses worktree detection) still gates against the
+   CSS the tree was provisioned with.
 
 Never run the full suite against the **main checkout's live dev DB** once it
 holds real data: state-dependent specs fail and, worse, mutate live state (a

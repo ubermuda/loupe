@@ -60,6 +60,14 @@ worktree_assert_slug() {
             return 1
         fi
     done
+    # Each worktree's Mailpit sidecar is routed at mailpit-<slug>, so a worktree
+    # whose own slug starts with that prefix would claim a sibling's mail host.
+    case "$slug" in
+        mailpit-*)
+            echo "worktree: '$slug' would collide with another worktree's Mailpit route — rename it." >&2
+            return 1
+            ;;
+    esac
 }
 
 # Print every existing worktree's "<slug> <relative name>", one per line, read
