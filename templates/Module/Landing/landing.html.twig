@@ -95,7 +95,8 @@
                 <a href="{{ app_docs_url }}/using/site-review/" class="lp-landing-link--on-chrome">{{ 'landing.tech.widget_docs_link'|trans }}</a>
             </p>
 
-            <div class="lp-landing-tabs" data-controller="landing-tabs">
+            <div class="lp-landing-tabs" data-controller="landing-tabs"
+                 data-action="mouseenter->landing-tabs#hold mouseleave->landing-tabs#release focusin->landing-tabs#hold focusout->landing-tabs#release">
                 <div class="lp-landing-tabs__controls" role="tablist" aria-orientation="vertical"
                      aria-label="{{ 'landing.tech.tablist'|trans }}">
                     {% for panel in ['tools', 'markdown', 'widget'] %}

@@ -8,6 +8,8 @@ export default class extends Controller {
     connect() {
         this.index = 0;
         this.timer = null;
+        this.visible = false;
+        this.held = false;
         this.stopped = window.matchMedia(
             '(prefers-reduced-motion: reduce)',
         ).matches;
@@ -16,11 +18,8 @@ export default class extends Controller {
         // otherwise finds it mid-rotation on whichever panel the timer landed.
         this.observer = new IntersectionObserver(
             (entries) => {
-                if (entries.some((entry) => entry.isIntersecting)) {
-                    this.start();
-                } else {
-                    this.pause();
-                }
+                this.visible = entries.some((entry) => entry.isIntersecting);
+                this.sync();
             },
             { threshold: 0.35 },
         );
@@ -38,8 +37,28 @@ export default class extends Controller {
         this.show(this.tabTargets.indexOf(event.currentTarget));
     }
 
+    // Pointer or keyboard on the controls means someone is reading a panel they
+    // have not chosen yet, so the timer must not take it away from them.
+    hold() {
+        this.held = true;
+        this.sync();
+    }
+
+    release() {
+        this.held = false;
+        this.sync();
+    }
+
+    sync() {
+        if (this.visible && !this.held && !this.stopped) {
+            this.start();
+        } else {
+            this.pause();
+        }
+    }
+
     start() {
-        if (this.stopped || this.timer !== null) {
+        if (this.timer !== null) {
             return;
         }
         this.timer = setInterval(() => {
