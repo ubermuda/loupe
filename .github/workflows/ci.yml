@@ -83,6 +83,16 @@ jobs:
           docker: 'true'
       - run: just phpunit
 
+  # The Go CLI needs neither PHP nor the project's dependencies, so this leg
+  # skips the setup action and takes just alone; the recipe brings its own
+  # toolchain in a container.
+  cli-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: extractions/setup-just@v4
+      - run: just cli-test
+
   e2e:
     runs-on: ubuntu-latest
     steps:

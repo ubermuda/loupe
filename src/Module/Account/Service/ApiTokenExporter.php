@@ -22,11 +22,10 @@ final readonly class ApiTokenExporter implements UserDataExporterInterface
     }
 
     #[\Override]
-    public function export(User $user): array
+    public function export(User $user): iterable
     {
-        $rows = [];
         foreach ($this->apiTokens->findBy(['owner' => $user]) as $token) {
-            $rows[] = [
+            yield [
                 'label' => $token->label,
                 'scope' => $token->scope->value,
                 'forwardsToAgent' => $token->forwardsToAgent,
@@ -35,7 +34,5 @@ final readonly class ApiTokenExporter implements UserDataExporterInterface
                 'revokedAt' => $token->revokedAt?->format(\DateTimeInterface::ATOM),
             ];
         }
-
-        return $rows;
     }
 }

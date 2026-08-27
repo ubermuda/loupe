@@ -103,6 +103,10 @@ export default class extends Controller {
 
     static CONTEXT = 32;
 
+    // Leading/trailing characters of a context window used to confirm a match,
+    // mirroring AnchorService::FINGERPRINT.
+    static FINGERPRINT = 8;
+
     // Below this the page has no gutter a card could sit in, so demo mode
     // declines the selection rather than covering the copy it points at. The
     // card margin is hidden at the same width.
@@ -574,9 +578,27 @@ export default class extends Controller {
 
         return {
             quote: fullText.slice(start, end),
-            prefix: fullText.slice(Math.max(0, start - context), start),
-            suffix: fullText.slice(end, end + context),
+            prefix: this.#before(fullText, start, context),
+            suffix: this.#after(fullText, end, context),
         };
+    }
+
+    /**
+     * The last `count` codepoints of `text` ending at the UTF-16 offset `index`.
+     * The server slices its window in codepoints, so a plain slice would build a
+     * shorter one — and could halve a surrogate pair — around an emoji.
+     */
+    #before(text, index, count) {
+        return Array.from(text.slice(Math.max(0, index - count * 2), index))
+            .slice(-count)
+            .join('');
+    }
+
+    /** The first `count` codepoints of `text` starting at the UTF-16 offset `index`. */
+    #after(text, index, count) {
+        return Array.from(text.slice(index, index + count * 2))
+            .slice(0, count)
+            .join('');
     }
 
     /**
@@ -665,17 +687,23 @@ export default class extends Controller {
         }
 
         const context = this.constructor.CONTEXT;
+        const fingerprint = this.constructor.FINGERPRINT;
         const score = (start) => {
             let value = 0;
-            const before = fullText.slice(Math.max(0, start - context), start);
-            const after = fullText.slice(
-                start + quote.length,
-                start + quote.length + context,
-            );
-            if (prefix !== '' && before.endsWith(prefix.slice(-8))) {
+            const before = this.#before(fullText, start, context);
+            const after = this.#after(fullText, start + quote.length, context);
+            if (
+                prefix !== '' &&
+                before.endsWith(
+                    this.#before(prefix, prefix.length, fingerprint),
+                )
+            ) {
                 value += 1;
             }
-            if (suffix !== '' && after.startsWith(suffix.slice(0, 8))) {
+            if (
+                suffix !== '' &&
+                after.startsWith(this.#after(suffix, 0, fingerprint))
+            ) {
                 value += 1;
             }
             return value;

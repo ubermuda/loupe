@@ -14,7 +14,9 @@ use App\Module\Review\Entity\Comment;
 use App\Module\Review\Entity\CommentStatus;
 use App\Module\Review\Entity\Document;
 use App\Module\Review\Entity\DocumentStatus;
+use App\Module\Review\Entity\Review;
 use App\Module\Review\Entity\Tag;
+use App\Module\Review\Entity\Verdict;
 use App\Module\Review\Service\MarkdownRenderer;
 use App\Module\Review\ValueObject\Anchor;
 use App\Tests\Support\AcceptedTerms;
@@ -263,6 +265,135 @@ final class ShowDocumentControllerTest extends WebTestCase
         $fetched = $em->find(Comment::class, $comment->id);
         self::assertNotNull($fetched);
         self::assertSame(CommentStatus::Resolved, $fetched->status);
+    }
+
+    public function test_reopening_a_resolved_comment_returns_the_whole_list_as_one_stream(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+
+        $owner = $this->createUser($em, 'reopenowner', 'reopen@example.com');
+        $project = $this->project($em, $owner);
+
+        $doc = new Document(owner: $owner, project: $project, title: 'Reopen Doc');
+        $version = $doc->addVersion('# Body', '<h1>Body</h1>');
+        $em->persist($doc);
+
+        $comment = new Comment($version, $owner, 'Please fix this', new Anchor('Body', '', '', 0));
+        $comment->status = CommentStatus::Resolved;
+        $em->persist($comment);
+        $em->flush();
+
+        $commentId = (string) $comment->id;
+        $em->clear();
+
+        $client->loginUser($owner);
+        $client->request(
+            Request::METHOD_POST,
+            '/comments/'.$commentId.'/reopen',
+            ['_csrf_token' => 'csrf-token'],
+            server: [
+                'HTTP_ACCEPT' => TurboBundle::STREAM_MEDIA_TYPE,
+                'HTTP_REFERER' => 'http://localhost/comments/'.$commentId.'/reopen',
+            ],
+        );
+
+        self::assertResponseIsSuccessful();
+        $content = (string) $client->getResponse()->getContent();
+
+        self::assertStringContainsString('target="comment-threads"', $content);
+        self::assertStringNotContainsString('lp-comment-thread--resolved', $content);
+        self::assertStringContainsString('data-resolved-count="0"', $content);
+
+        $fetched = $em->find(Comment::class, $comment->id);
+        self::assertNotNull($fetched);
+        self::assertSame(CommentStatus::Pending, $fetched->status);
+    }
+
+    public function test_undoing_a_verdict_returns_the_document_to_review(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+
+        $owner = $this->createUser($em, 'undoowner', 'undo@example.com');
+        $project = $this->project($em, $owner);
+
+        $doc = new Document(owner: $owner, project: $project, title: 'Undo Doc');
+        $version = $doc->addVersion('# Done', '<h1>Done</h1>');
+        $doc->status = DocumentStatus::Approved;
+        $em->persist($doc);
+        $em->persist(new Review($version, Verdict::Approved, $owner));
+        $em->flush();
+
+        $projectId = (string) $project->id;
+        $documentId = (string) $doc->id;
+        $em->clear();
+
+        $client->loginUser($owner);
+        $crawler = $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/documents/'.$documentId.'/review');
+
+        self::assertResponseIsSuccessful();
+        self::assertCount(1, $crawler->filter('.lp-verdict-bar__undo'));
+
+        $client->request(
+            Request::METHOD_POST,
+            '/projects/'.$projectId.'/documents/'.$documentId.'/review/undo',
+            ['_csrf_token' => 'csrf-token'],
+            server: ['HTTP_REFERER' => 'http://localhost/projects/'.$projectId.'/documents/'.$documentId.'/review'],
+        );
+
+        self::assertResponseRedirects('/projects/'.$projectId.'/documents/'.$documentId.'/review');
+
+        $fetched = $em->find(Document::class, $doc->id);
+        self::assertNotNull($fetched);
+        self::assertSame(DocumentStatus::InReview, $fetched->status);
+
+        // Appended, not deleted — the approval is still under the withdrawal.
+        $log = $em->getRepository(Review::class)->findBy(
+            ['version' => $fetched->currentVersion()],
+            ['sequence' => 'ASC'],
+        );
+        self::assertCount(2, $log);
+        self::assertSame(Verdict::Approved, $log[0]->verdict);
+        self::assertSame(Verdict::Withdrawn, $log[1]->verdict);
+        self::assertSame((string) $owner->id, (string) $log[1]->reviewer->id, 'The log records who withdrew it');
+
+        $crawler = $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/documents/'.$documentId.'/review');
+        self::assertSelectorNotExists('.lp-verdict-bar');
+        self::assertCount(2, $crawler->filter('button[name="submit_review_form[verdict]"]'));
+    }
+
+    public function test_a_comment_card_shows_its_age_and_an_undated_one_shows_none(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+
+        $owner = $this->createUser($em, 'ageowner', 'age@example.com');
+        $project = $this->project($em, $owner);
+
+        $doc = new Document(owner: $owner, project: $project, title: 'Age Doc');
+        $version = $doc->addVersion('# Body', '<h1>Body</h1>');
+        $em->persist($doc);
+
+        $dated = new Comment($version, $owner, 'Written a while ago', new Anchor('Body', '', '', 0), createdAt: new \DateTimeImmutable('-2 hours'));
+        // Comments predating the column hydrate with a null createdAt; a fresh row
+        // cannot, so it is written null here to stand in for one.
+        $undated = new Comment($version, $owner, 'Written before the column', new Anchor('Body', '', '', 10), createdAt: null);
+        $em->persist($dated);
+        $em->persist($undated);
+        $em->flush();
+
+        $projectId = (string) $project->id;
+        $documentId = (string) $doc->id;
+        $em->clear();
+
+        $client->loginUser($owner);
+        $crawler = $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/documents/'.$documentId.'/review');
+
+        self::assertResponseIsSuccessful();
+        $ages = $crawler->filter('.lp-comment-age');
+        self::assertCount(1, $ages, 'Only the dated comment has an age to show');
+        self::assertSame('2h ago', trim($ages->text()));
     }
 
     public function test_approved_document_shows_locked_confirmation(): void

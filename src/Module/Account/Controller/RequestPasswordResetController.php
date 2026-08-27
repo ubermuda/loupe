@@ -43,7 +43,7 @@ class RequestPasswordResetController extends AppController
             if (!$limiter->consume(1)->isAccepted()) {
                 $form->get('email')->addError(new FormError($this->translator->trans('account.reset_password.error.throttled')));
 
-                return $this->renderFormResponse('@Account/reset_password/request.html.twig', $form);
+                return $this->renderFormResponse('@Account/reset_password/request_password_reset.html.twig', $form);
             }
 
             $submitted = $form->get('email')->getData();
@@ -61,6 +61,6 @@ class RequestPasswordResetController extends AppController
             return $this->redirectToRoute('app_forgot_password_check_email');
         }
 
-        return $this->renderFormResponse('@Account/reset_password/request.html.twig', $form);
+        return $this->renderFormResponse('@Account/reset_password/request_password_reset.html.twig', $form);
     }
 }

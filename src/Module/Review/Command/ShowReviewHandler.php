@@ -38,6 +38,11 @@ final readonly class ShowReviewHandler
      * containing characters the reviewer never selected, and replacing it in the
      * markdown would delete them.
      *
+     * `verdict` is the verdict standing on the current version: 'approved',
+     * 'changes-requested', or null when there is none — which covers both a version
+     * nobody has ruled on and one whose verdict the reviewer has since withdrawn.
+     * 'withdrawn' never appears here; it is a row in the log, not an outcome.
+     *
      * `replacement` is null for a prose comment, '' for a strike (remove the quote),
      * and the new text for a suggested rewording. Only root comments carry it — a
      * reply proposes nothing.
@@ -64,7 +69,10 @@ final readonly class ShowReviewHandler
         $document = $command->document;
 
         $currentVersion = $this->documentVersions->findLatest($document);
-        $review = $this->reviews->findLatestByVersion($currentVersion);
+        // A withdrawn verdict is no verdict: the payload reports null, the same as a
+        // version nobody has ruled on yet, rather than letting 'withdrawn' reach a
+        // field agents read as an outcome. `status` says in-review alongside it.
+        $review = $this->reviews->findStandingVerdictByVersion($currentVersion);
         $allComments = $this->comments->findByVersion($currentVersion);
 
         // Index replies by parent id so we can build threads in O(n).

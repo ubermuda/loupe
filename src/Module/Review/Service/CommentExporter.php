@@ -22,11 +22,10 @@ final readonly class CommentExporter implements UserDataExporterInterface
     }
 
     #[\Override]
-    public function export(User $user): array
+    public function export(User $user): iterable
     {
-        $rows = [];
         foreach ($this->comments->findByAuthor($user) as $comment) {
-            $rows[] = [
+            yield [
                 'id' => (string) $comment->id,
                 'parentId' => null !== $comment->parent ? (string) $comment->parent->id : null,
                 'document' => $comment->version->document->title,
@@ -46,7 +45,5 @@ final readonly class CommentExporter implements UserDataExporterInterface
                 ],
             ];
         }
-
-        return $rows;
     }
 }

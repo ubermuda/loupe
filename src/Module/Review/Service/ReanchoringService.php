@@ -21,6 +21,10 @@ final readonly class ReanchoringService
      * Parent references are remapped onto the copies: a reply's copy points at its parent's copy,
      * and a root's copy keeps a null parent. Nothing outside $openComments is ever copied.
      *
+     * A copy inherits the original's createdAt. It is the same comment carried forward, not a new
+     * one, so its age must keep counting from when it was written rather than restart at every
+     * revision.
+     *
      * @param list<Comment> $openComments
      *
      * @return array{carried: int, orphaned: int}
@@ -70,7 +74,7 @@ final readonly class ReanchoringService
         // An untargeted comment (empty-quote anchor) has nothing to relocate —
         // carry it forward unchanged; it is never orphaned.
         if ('' === $old->anchor->quote) {
-            $copy = new Comment($newVersion, $old->author, $old->body, $old->anchor, $newParent, $old->replacement);
+            $copy = new Comment($newVersion, $old->author, $old->body, $old->anchor, $newParent, $old->replacement, $old->createdAt);
             // An addressed thread carries its status onto the copy: the agent's
             // claim that it acted survives the revision, only the human clears it.
             $copy->status = $old->status;
@@ -93,11 +97,11 @@ final readonly class ReanchoringService
                 $resolvedOffset,
                 mb_strlen($old->anchor->quote, 'UTF-8'),
             );
-            $copy = new Comment($newVersion, $old->author, $old->body, $newAnchor, $newParent, $old->replacement);
+            $copy = new Comment($newVersion, $old->author, $old->body, $newAnchor, $newParent, $old->replacement, $old->createdAt);
             ++$carried;
         } else {
             // Quote not found — keep the old anchor data and mark orphaned.
-            $copy = new Comment($newVersion, $old->author, $old->body, $old->anchor, $newParent, $old->replacement);
+            $copy = new Comment($newVersion, $old->author, $old->body, $old->anchor, $newParent, $old->replacement, $old->createdAt);
             $copy->orphaned = true;
             ++$orphaned;
         }

@@ -1,0 +1,43 @@
+version: 2
+
+project_name: loupe
+
+builds:
+  - id: loupe
+    main: .
+    binary: loupe
+    # Static binaries: the keychain backends this CLI uses are pure Go, so
+    # nothing here needs libc.
+    env:
+      - CGO_ENABLED=0
+    goos: [darwin, linux, windows]
+    goarch: [amd64, arm64]
+    ldflags:
+      - -s -w
+
+archives:
+  - id: loupe
+    formats: [tar.gz]
+    format_overrides:
+      - goos: windows
+        formats: [zip]
+    name_template: "loupe_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+
+checksum:
+  name_template: checksums.txt
+
+snapshot:
+  version_template: "{{ incpatch .Version }}-next"
+
+changelog:
+  use: github
+  filters:
+    exclude:
+      - "^docs:"
+      - "^chore:"
+      - "^test:"
+
+# Drafted rather than published: the tag lives on the application repository, so
+# a release cut from it needs a human to confirm the CLI is what changed.
+release:
+  draft: true

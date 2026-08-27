@@ -188,8 +188,8 @@ secrets-scan:
     trufflehog git file://. --results=verified --fail --exclude-detectors=lob
 
 # lint already covers parallel-lint, prettier --check and eslint (incl. e2e).
-# Check-only gate: lint, style dry-run, phpstan, arkitect, gamache, advisories, PHPUnit.
-ci: lint cs-check phpstan arkitect gamache audit phpunit
+# Check-only gate: lint, style dry-run, phpstan, arkitect, gamache, advisories, PHPUnit, Go CLI.
+ci: lint cs-check phpstan arkitect gamache audit phpunit cli-test
 
 # One argument per word: `set positional-arguments` forwards a quoted string to
 # compose-exec.sh whole, so Docker looks for a binary with a space in its name.
@@ -486,8 +486,8 @@ tunnel:
 cli-test:
     docker run --rm -v "{{justfile_directory()}}/cli":/cli -w /cli -e GOTOOLCHAIN=local golang:1.26-alpine sh -c 'go vet ./... && go test ./...'
 
-# Defaults to the dev's mac; override e.g. `just cli-build linux amd64`. A full
-# release matrix is goreleaser's job (see NEXT_STEPS).
+# Defaults to the dev's mac; override e.g. `just cli-build linux amd64`. The
+# full release matrix is goreleaser's job — see cli/.goreleaser.yaml.
 # Cross-compile a static CLI binary into cli/dist/.
 cli-build goos="darwin" goarch="arm64":
     docker run --rm -v "{{justfile_directory()}}/cli":/cli -w /cli -e GOTOOLCHAIN=local -e CGO_ENABLED=0 -e GOOS={{goos}} -e GOARCH={{goarch}} golang:1.26-alpine sh -c 'go build -o dist/loupe-{{goos}}-{{goarch}} .'

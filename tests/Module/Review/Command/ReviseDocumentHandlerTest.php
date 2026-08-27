@@ -226,6 +226,65 @@ final class ReviseDocumentHandlerTest extends KernelTestCase
     }
 
     /**
+     * A carried comment is the same comment on a new version, not a new one, so
+     * its age keeps counting from when it was written. Without this the copy takes
+     * the entity default and every thread reads as freshly posted after a revision.
+     */
+    public function test_a_carried_comment_and_its_reply_keep_their_original_created_at(): void
+    {
+        self::bootKernel();
+        $em = self::getContainer()->get(EntityManagerInterface::class);
+
+        $user = new User(fullName: 'Agent', email: 'agent-createdat@example.com', password: 'hashed');
+        $em->persist($user);
+        $project = new Project($user, 'p-'.uniqid());
+        $em->persist($project);
+        $em->flush();
+
+        /** @var CreateDocumentHandler $createHandler */
+        $createHandler = self::getContainer()->get(CreateDocumentHandler::class);
+        $doc = $createHandler(new CreateDocumentCommand($project, 'Carried Age Doc', 'use JWTs and rate limiting'));
+
+        $v1 = $doc->currentVersion();
+        $writtenAt = new \DateTimeImmutable('-3 days');
+        $repliedAt = new \DateTimeImmutable('-2 days');
+
+        $root = new Comment($v1, $user, 'why JWT?', new Anchor('JWTs', 'use ', ' and', 4), createdAt: $writtenAt);
+        $em->persist($root);
+        $reply = new Comment($v1, $user, 'Because sessions do not travel', new Anchor('JWTs', 'use ', ' and', 4), parent: $root, createdAt: $repliedAt);
+        $em->persist($reply);
+        $em->flush();
+
+        $docId = $doc->id;
+        self::assertInstanceOf(Uuid::class, $docId);
+
+        /** @var ReviseDocumentHandler $reviseHandler */
+        $reviseHandler = self::getContainer()->get(ReviseDocumentHandler::class);
+        $summary = $reviseHandler(new ReviseDocumentCommand($doc, 'use JWTs only', 'Narrowed the token guidance to JWTs.'));
+
+        self::assertSame(2, $summary['carried']);
+
+        $em->clear();
+        $freshDoc = $em->find(Document::class, $docId);
+        self::assertInstanceOf(Document::class, $freshDoc);
+
+        /** @var CommentRepository $commentRepository */
+        $commentRepository = self::getContainer()->get(CommentRepository::class);
+        $v2Comments = $commentRepository->findByVersion($freshDoc->currentVersion());
+        self::assertCount(2, $v2Comments);
+
+        $carriedRoot = array_first(array_filter($v2Comments, static fn (Comment $c): bool => null === $c->parent));
+        $carriedReply = array_first(array_filter($v2Comments, static fn (Comment $c): bool => null !== $c->parent));
+        self::assertInstanceOf(Comment::class, $carriedRoot);
+        self::assertInstanceOf(Comment::class, $carriedReply);
+
+        self::assertNotNull($carriedRoot->createdAt);
+        self::assertNotNull($carriedReply->createdAt);
+        self::assertSame($writtenAt->format('Y-m-d H:i:s'), $carriedRoot->createdAt->format('Y-m-d H:i:s'));
+        self::assertSame($repliedAt->format('Y-m-d H:i:s'), $carriedReply->createdAt->format('Y-m-d H:i:s'));
+    }
+
+    /**
      * Regression guard for concurrent revisions computing the same "next
      * version number": two sequential revisions must land as versionNumber
      * 2 and 3, not both landing on 2 (the fixed bug) or the second one 500ing

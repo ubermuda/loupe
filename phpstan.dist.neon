@@ -18,6 +18,9 @@ parameters:
         controllerTemplates:
             namespacePattern: '#^App\\Module\\([^\\]+)\\Controller\\#'
             templateDirectory: 'templates/Module'
+            # Without renderFormResponse the rule sees only render(), and every
+            # controller that answers with a form is skipped.
+            renderMethods: ['render', 'renderFormResponse']
         templateNamespaces:
             forbiddenPathPrefix: 'Module/'
         translationCallSites:

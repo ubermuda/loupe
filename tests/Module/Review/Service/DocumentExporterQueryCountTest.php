@@ -100,7 +100,7 @@ final class DocumentExporterQueryCountTest extends KernelTestCase
     private function countQueriesDuringExportOf(User $user): array
     {
         $this->queries->reset();
-        $rows = $this->exporter->export($user);
+        $rows = iterator_to_array($this->exporter->export($user));
 
         // Guard: a query count means nothing if the export read no collections.
         // Both are lazy, so touching them is what would fire the extra queries.

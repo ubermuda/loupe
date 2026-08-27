@@ -15,3 +15,19 @@ parameters:
 			identifier: controller.templateName
 			count: 1
 			path: src/Module/Account/Controller/JoinWaitlistController.php
+
+		# The next two are POST-only endpoints that own no template: an invalid
+		# submit re-renders the sibling GET page (the project list, the wizard's
+		# welcome step) so the errors appear where the form was. A template named
+		# after either controller would be a duplicate of that page.
+		-
+			message: '#^Controller CreateProjectController renders a template but none under templates/Module/Project matches its name \(expected "create_project\.html\.twig"; matching ignores case, underscores, and directories\)\.$#'
+			identifier: controller.templateName
+			count: 1
+			path: src/Module/Project/Controller/CreateProjectController.php
+
+		-
+			message: '#^Controller CreateFirstProjectController renders a template but none under templates/Module/Project matches its name \(expected "create_first_project\.html\.twig"; matching ignores case, underscores, and directories\)\.$#'
+			identifier: controller.templateName
+			count: 1
+			path: src/Module/Project/Controller/Wizard/CreateFirstProjectController.php

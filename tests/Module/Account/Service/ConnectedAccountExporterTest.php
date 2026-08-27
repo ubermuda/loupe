@@ -19,7 +19,7 @@ final class ConnectedAccountExporterTest extends TestCase
         $user = new User('Alice A', 'alice@example.com', 'x');
         $account = new ConnectedAccount($user, SocialProvider::Google, 'google-subject-1', 'alice@gmail.com');
 
-        $rows = new ConnectedAccountExporter($this->repositoryReturning([$account]))->export($user);
+        $rows = iterator_to_array(new ConnectedAccountExporter($this->repositoryReturning([$account]))->export($user));
 
         self::assertCount(1, $rows);
         self::assertSame('google', $rows[0]['provider']);
@@ -33,7 +33,7 @@ final class ConnectedAccountExporterTest extends TestCase
     {
         $exporter = new ConnectedAccountExporter($this->repositoryReturning([]));
 
-        self::assertSame([], $exporter->export(new User('Bob B', 'bob@example.com', 'x')));
+        self::assertSame([], iterator_to_array($exporter->export(new User('Bob B', 'bob@example.com', 'x'))));
         self::assertSame('connected_accounts.json', $exporter->filename());
     }
 
