@@ -9,6 +9,7 @@ use App\Module\Review\Entity\DocumentStatus;
 use App\Module\Review\Entity\Review;
 use App\Module\Review\Entity\Verdict;
 use App\Module\Review\Repository\DocumentVersionRepository;
+use App\Module\Review\Repository\ReviewRepository;
 use Doctrine\DBAL\LockMode;
 use Doctrine\ORM\EntityManagerInterface;
 
@@ -17,6 +18,7 @@ final readonly class SubmitReviewHandler
     public function __construct(
         private EntityManagerInterface $em,
         private DocumentVersionRepository $documentVersions,
+        private ReviewRepository $reviews,
     ) {
     }
 
@@ -34,8 +36,18 @@ final readonly class SubmitReviewHandler
             // version the reviewer never saw.
             $this->em->lock($document, LockMode::PESSIMISTIC_WRITE);
 
+            $version = $this->documentVersions->findLatest($document);
+
+            // A version carries one verdict. Checked under the lock a double-clicked
+            // submit would otherwise slip through, leaving two rows that submitted_at
+            // cannot order — the UNIQUE index behind this would then reject the second
+            // write with a driver error instead of a field error the form can show.
+            if (null !== $this->reviews->findByVersion($version)) {
+                throw new DomainErrors(['verdict' => 'review.document.flash.verdict_already_given']);
+            }
+
             $review = new Review(
-                version: $this->documentVersions->findLatest($document),
+                version: $version,
                 verdict: $verdict,
                 reviewer: $command->reviewer,
             );

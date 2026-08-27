@@ -21,8 +21,13 @@ class Review
     public private(set) ?Uuid $id = null;
 
     public function __construct(
+        // One verdict per version, enforced by the UNIQUE index OneToOne implies.
+        // submitted_at is TIMESTAMP(0), so two rows on one version submitted in the
+        // same second are indistinguishable in time — "the latest verdict" would
+        // then be whichever the database happened to return, and undoing it could
+        // remove the wrong one. The invariant removes the question.
         #[ORM\JoinColumn(nullable: false)]
-        #[ORM\ManyToOne(targetEntity: DocumentVersion::class)]
+        #[ORM\OneToOne(targetEntity: DocumentVersion::class)]
         public readonly DocumentVersion $version,
 
         #[ORM\Column(enumType: Verdict::class)]

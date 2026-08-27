@@ -21,23 +21,14 @@ class ReviewRepository extends ServiceEntityRepository
     }
 
     /**
-     * Returns the most recent review for a given version, or null if none exists.
-     */
-    public function findLatestByVersion(DocumentVersion $version): ?Review
-    {
-        $results = $this->findBy(['version' => $version], ['submittedAt' => 'DESC'], 1);
-
-        return $results[0] ?? null;
-    }
-
-    /**
-     * Every verdict on a version, newest first.
+     * The verdict on a given version, or null if none has been submitted.
      *
-     * @return list<Review>
+     * There is at most one — the relation is OneToOne — so this needs no ordering
+     * and cannot pick the wrong row.
      */
-    public function findByVersionNewestFirst(DocumentVersion $version): array
+    public function findByVersion(DocumentVersion $version): ?Review
     {
-        return $this->findBy(['version' => $version], ['submittedAt' => 'DESC']);
+        return $this->findOneBy(['version' => $version]);
     }
 
     /** @return list<Review> */

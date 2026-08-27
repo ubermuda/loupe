@@ -19,6 +19,7 @@ use App\Module\Review\Entity\Review;
 use App\Module\Review\Entity\Verdict;
 use App\Module\Review\Repository\ReviewRepository;
 use Doctrine\ORM\EntityManagerInterface;
+use Doctrine\Persistence\ManagerRegistry;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Symfony\Component\Uid\Uuid;
 
@@ -71,14 +72,20 @@ final class UndoVerdictHandlerTest extends KernelTestCase
         self::assertInstanceOf(Document::class, $freshDoc);
         self::assertSame(DocumentStatus::InReview, $freshDoc->status);
 
-        // The MCP review payload reads the verdict off the latest Review row, so
-        // the row has to go with the status or the two disagree.
+        // The MCP review payload reads the verdict off the Review row, so the row
+        // has to go with the status or the two disagree.
         /** @var ReviewRepository $reviews */
         $reviews = self::getContainer()->get(ReviewRepository::class);
-        self::assertNull($reviews->findLatestByVersion($freshDoc->currentVersion()));
+        self::assertNull($reviews->findByVersion($freshDoc->currentVersion()));
     }
 
-    public function test_undo_pops_only_the_latest_verdict(): void
+    /**
+     * submitted_at is TIMESTAMP(0), so two verdicts a second apart or less are
+     * indistinguishable in time. Rather than tie-break an ordering that cannot be
+     * trusted, the second verdict is refused — so there is never a pair for undo to
+     * choose between, and the one row it removes is necessarily the right one.
+     */
+    public function test_a_second_verdict_in_the_same_second_is_refused_and_the_first_is_what_undo_removes(): void
     {
         self::bootKernel();
         $em = self::getContainer()->get(EntityManagerInterface::class);
@@ -87,35 +94,50 @@ final class UndoVerdictHandlerTest extends KernelTestCase
         /** @var Document $doc */
         [$reviewer, $doc] = $this->createUserAndDocument($em, '2');
 
-        // Built directly rather than through the handler so its timestamp is
-        // unambiguously older — two handler calls in one test share a second, and
-        // "latest" is decided by submittedAt.
-        $older = new Review(
-            version: $doc->currentVersion(),
-            verdict: Verdict::ChangesRequested,
-            reviewer: $reviewer,
-            submittedAt: new \DateTimeImmutable('-1 hour'),
-        );
-        $em->persist($older);
-        $em->flush();
+        $docId = $doc->id;
+        self::assertInstanceOf(Uuid::class, $docId);
 
         /** @var SubmitReviewHandler $submit */
         $submit = self::getContainer()->get(SubmitReviewHandler::class);
-        $submit(new SubmitReviewCommand($reviewer, $doc, Verdict::Approved->value));
+        $first = $submit(new SubmitReviewCommand($reviewer, $doc, Verdict::ChangesRequested->value));
+        $firstId = (string) $first->id;
 
-        self::assertSame(DocumentStatus::Approved, $doc->status);
+        try {
+            $submit(new SubmitReviewCommand($reviewer, $doc, Verdict::Approved->value));
+            self::fail('A version already carrying a verdict must refuse a second one');
+        } catch (DomainErrors $e) {
+            self::assertContains('review.document.flash.verdict_already_given', $e->errors);
+        }
 
-        /** @var UndoVerdictHandler $undo */
-        $undo = self::getContainer()->get(UndoVerdictHandler::class);
-        $undo(new UndoVerdictCommand(document: $doc));
+        // wrapInTransaction closes the manager when the body throws, so everything
+        // below works through a fresh one — as the reviewer's next request would.
+        $registry = self::getContainer()->get('doctrine');
+        self::assertInstanceOf(ManagerRegistry::class, $registry);
+        $registry->resetManager();
+        $em = self::getContainer()->get(EntityManagerInterface::class);
 
-        self::assertSame(DocumentStatus::ChangesRequested, $doc->status, 'The verdict underneath comes back');
+        $freshDoc = $em->find(Document::class, $docId);
+        self::assertInstanceOf(Document::class, $freshDoc);
+        self::assertSame(DocumentStatus::ChangesRequested, $freshDoc->status, 'The refused submit changed nothing');
 
         /** @var ReviewRepository $reviews */
         $reviews = self::getContainer()->get(ReviewRepository::class);
-        $remaining = $reviews->findLatestByVersion($doc->currentVersion());
-        self::assertInstanceOf(Review::class, $remaining);
-        self::assertSame(Verdict::ChangesRequested, $remaining->verdict);
+        $onlyVerdict = $reviews->findByVersion($freshDoc->currentVersion());
+        self::assertInstanceOf(Review::class, $onlyVerdict);
+        self::assertSame($firstId, (string) $onlyVerdict->id, 'The refused submit wrote no second row');
+
+        /** @var UndoVerdictHandler $undo */
+        $undo = self::getContainer()->get(UndoVerdictHandler::class);
+        $undo(new UndoVerdictCommand(document: $freshDoc));
+
+        self::assertNull($reviews->findByVersion($freshDoc->currentVersion()));
+        self::assertSame(DocumentStatus::InReview, $freshDoc->status);
+
+        // And with the version clear again, a fresh verdict is accepted.
+        $freshReviewer = $em->find(User::class, $reviewer->id);
+        self::assertInstanceOf(User::class, $freshReviewer);
+        $submit(new SubmitReviewCommand($freshReviewer, $freshDoc, Verdict::Approved->value));
+        self::assertSame(DocumentStatus::Approved, $freshDoc->status);
     }
 
     public function test_a_document_with_no_verdict_cannot_be_undone(): void

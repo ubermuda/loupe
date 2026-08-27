@@ -64,7 +64,7 @@ final readonly class ShowReviewHandler
         $document = $command->document;
 
         $currentVersion = $this->documentVersions->findLatest($document);
-        $review = $this->reviews->findLatestByVersion($currentVersion);
+        $review = $this->reviews->findByVersion($currentVersion);
         $allComments = $this->comments->findByVersion($currentVersion);
 
         // Index replies by parent id so we can build threads in O(n).
