@@ -105,9 +105,9 @@
                             aria-selected="{{ loop.first ? 'true' : 'false' }}"
                             data-landing-tabs-target="tab"
                             data-action="landing-tabs#select">
+                        <span class="lp-landing-tab__fill"></span>
                         <span class="lp-landing-tab__title">{{ ('landing.tech.' ~ panel ~ '.title')|trans }}</span>
                         <span class="lp-landing-tab__text">{{ ('landing.tech.' ~ panel ~ '.text')|trans }}</span>
-                        <span class="lp-landing-tab__progress"><span class="lp-landing-tab__fill"></span></span>
                     </button>
                     {% endfor %}
                 </div>

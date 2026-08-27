@@ -3463,11 +3463,11 @@
             </trans-unit>
             <trans-unit id="landing.tech.tools.title">
                 <source>landing.tech.tools.title</source>
-                <target>Sixteen tools</target>
+                <target>One MCP server</target>
             </trans-unit>
             <trans-unit id="landing.tech.tools.text">
                 <source>landing.tech.tools.text</source>
-                <target>One MCP server. Your agent submits a document, reads the verdict and the open threads back, and revises — without you copying anything between windows.</target>
+                <target>Sixteen tools. Your agent submits a document, reads the verdict and the open threads back, and revises — without you copying anything between windows.</target>
             </trans-unit>
             <trans-unit id="landing.tech.markdown.title">
                 <source>landing.tech.markdown.title</source>
@@ -3536,6 +3536,26 @@
             <trans-unit id="landing.tech.still.launcher">
                 <source>landing.tech.still.launcher</source>
                 <target>Review</target>
+            </trans-unit>
+            <trans-unit id="landing.tech.still.target_label">
+                <source>landing.tech.still.target_label</source>
+                <target>a.cta</target>
+            </trans-unit>
+            <trans-unit id="landing.tech.still.composer_title">
+                <source>landing.tech.still.composer_title</source>
+                <target>Add a comment</target>
+            </trans-unit>
+            <trans-unit id="landing.tech.still.composer_body">
+                <source>landing.tech.still.composer_body</source>
+                <target>This promises a free tier the pricing table does not have.</target>
+            </trans-unit>
+            <trans-unit id="landing.tech.still.composer_hint">
+                <source>landing.tech.still.composer_hint</source>
+                <target>Sent to your agent</target>
+            </trans-unit>
+            <trans-unit id="landing.tech.still.composer_send">
+                <source>landing.tech.still.composer_send</source>
+                <target>Comment</target>
             </trans-unit>
             <trans-unit id="landing.demo.author">
                 <source>landing.demo.author</source>
