@@ -1,41 +1,38 @@
 {#
-  Still of a revised document: prose the agent submitted as Markdown, one
-  thread that followed its passage into the new version and one whose passage
-  is gone. Sample data, decorative — hence aria-hidden.
+  The review screen, cropped: the same panel, head, meta bar, prose and margin
+  thread the app renders. Sample data, decorative — hence aria-hidden.
 #}
 <div class="lp-tech-still" aria-hidden="true">
-    <div class="lp-tech-doc">
-        <div class="lp-tech-doc__head">
-            <span class="lp-tech-doc__title">{{ 'landing.mock.document.title'|trans }}</span>
-            <span class="lp-version-pill">{{ 'landing.tech.still.version'|trans }}</span>
-        </div>
-        <div class="lp-tech-doc__prose">
-            <h3>{{ 'landing.mock.body.heading'|trans }}</h3>
-            <p>
-                {{ 'landing.mock.body.paragraph1_before'|trans }}
-                <code>{{ 'landing.mock.body.aggregate'|trans }}</code>
-                {{ 'landing.mock.body.paragraph1_middle'|trans }}
-                <span class="lp-anchor">{{ 'landing.mock.comment.quote'|trans }}</span>.
-            </p>
-        </div>
-    </div>
-
-    <div class="lp-tech-threads">
-        <div class="lp-tech-thread lp-tech-thread--lit">
-            <div class="lp-tech-thread__head">
-                <span class="lp-tech-thread__author">{{ 'landing.mock.reviewer'|trans }}</span>
-                <span class="lp-tech-thread__status">{{ 'landing.tech.still.reanchored'|trans }}</span>
-            </div>
-            <blockquote class="lp-tech-thread__quote">{{ 'landing.mock.comment.quote'|trans }}</blockquote>
-            <span class="lp-tech-thread__body">{{ 'landing.mock.comment.body'|trans }}</span>
+    <div class="lp-tech-panel">
+        <div class="lp-review-doc__head">
+            <h1 class="lp-review-doc__title">{{ 'landing.tech.still.doc_title'|trans }}</h1>
+            <p class="lp-review-doc__byline">{{ 'landing.tech.still.byline'|trans }}</p>
         </div>
 
-        <div class="lp-tech-thread">
-            <div class="lp-tech-thread__head">
-                <span class="lp-tech-thread__author">{{ 'landing.mock.reviewer'|trans }}</span>
-                <span class="lp-tech-thread__status lp-tech-thread__status--gone">{{ 'landing.tech.still.orphaned'|trans }}</span>
+        <div class="lp-doc-meta">
+            <span class="lp-doc-meta__tab">{{ 'review.document.meta.versions'|trans }} <span class="lp-doc-meta__count">2</span></span>
+            <span class="lp-doc-meta__tab">{{ 'review.document.contents.label'|trans }} <span class="lp-doc-meta__count">3</span></span>
+        </div>
+
+        <div class="lp-tech-panel__body">
+            <div class="lp-review-doc__prose">
+                <h3>{{ 'landing.tech.still.doc_heading'|trans }}</h3>
+                <p>
+                    {{ 'landing.tech.still.doc_before'|trans }}
+                    <span class="lp-anchor">{{ 'landing.tech.still.doc_quote'|trans }}</span>{{ 'landing.tech.still.doc_after'|trans }}
+                </p>
             </div>
-            <span class="lp-tech-thread__body">{{ 'landing.tech.still.orphaned_body'|trans }}</span>
+
+            <div class="lp-tech-panel__margin">
+                <div class="lp-comment-thread lp-comment-thread--active">
+                    <div class="lp-comment-thread__header">
+                        <span class="lp-comment-author">{{ 'landing.mock.reviewer'|trans }}</span>
+                        <span class="lp-comment-status">{{ 'landing.tech.still.reanchored'|trans }}</span>
+                    </div>
+                    <blockquote class="lp-comment-quote">{{ 'landing.tech.still.doc_quote'|trans }}</blockquote>
+                    <div class="lp-comment-body">{{ 'landing.tech.still.comment_body'|trans }}</div>
+                </div>
+            </div>
         </div>
     </div>
 </div>

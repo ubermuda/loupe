@@ -1,7 +1,6 @@
 {#
-  Still of the site review widget on somebody else's page: their layout, the
-  launcher pinned bottom-right, one comment already placed. Sample data,
-  decorative — hence aria-hidden.
+  The review widget on somebody else's page: the launcher and a pin drawn to
+  the widget's own geometry. Sample data, decorative — hence aria-hidden.
 #}
 <div class="lp-tech-still" aria-hidden="true">
     <div class="lp-tech-browser">
@@ -16,20 +15,23 @@
             <span class="lp-tech-browser__heading">{{ 'landing.tech.still.page_heading'|trans }}</span>
             <span class="lp-tech-browser__line"></span>
             <span class="lp-tech-browser__line lp-tech-browser__line--short"></span>
-            <span class="lp-tech-browser__cta">{{ 'landing.tech.still.page_cta'|trans }}</span>
+
+            <span class="lp-tech-browser__cta">
+                {{ 'landing.tech.still.page_cta'|trans }}
+                <span class="lp-tech-pin">1</span>
+            </span>
+
             <span class="lp-tech-browser__line"></span>
             <span class="lp-tech-browser__line lp-tech-browser__line--short"></span>
 
-            <div class="lp-tech-browser__note">
-                <span class="lp-tech-browser__note-author">{{ 'landing.mock.reviewer'|trans }}</span>
-                <span class="lp-tech-browser__note-body">{{ 'landing.tech.still.note'|trans }}</span>
-            </div>
-
             <div class="lp-tech-launcher">
-                <twig:ux:icon name="lucide:message-square" class="lp-tech-launcher__icon" />
+                <span class="lp-tech-launcher__action"><twig:ux:icon name="lucide:message-square" class="w-4 h-4 shrink-0" /></span>
+                <span class="lp-tech-launcher__action"><twig:ux:icon name="lucide:crosshair" class="w-4 h-4 shrink-0" /></span>
                 <span class="lp-tech-launcher__divider"></span>
-                <span class="lp-tech-launcher__label">{{ 'landing.tech.still.launcher'|trans }}</span>
-                <span class="lp-tech-launcher__count">2</span>
+                <span class="lp-tech-launcher__main">
+                    {{ 'landing.tech.still.launcher'|trans }}
+                    <span class="lp-tech-launcher__count">1</span>
+                </span>
             </div>
         </div>
     </div>

@@ -8,6 +8,7 @@ use App\Controller\AppController;
 use App\Module\Account\Entity\User;
 use App\Module\Project\Command\ShowHomeCommand;
 use App\Module\Project\Command\ShowHomeHandler;
+use App\Module\Project\Mcp\AdvertisedTools;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
@@ -27,10 +28,6 @@ class LandingController extends AppController
 
         #[Autowire(param: 'app.compose_excerpt')]
         private readonly string $composeExcerpt,
-
-        /** @var list<string> */
-        #[Autowire(param: 'app.mcp.tool_names')]
-        private readonly array $mcpToolNames,
 
         #[Autowire(param: 'app.hosted_price')]
         private readonly string $hostedPrice,
@@ -52,7 +49,7 @@ class LandingController extends AppController
             return $this->render('@Landing/landing.html.twig', [
                 'demoCommand' => $this->demoCommand,
                 'composeExcerpt' => $this->composeExcerpt,
-                'mcpToolNames' => $this->mcpToolNames,
+                'mcpTools' => AdvertisedTools::ALL,
                 'hostedPrice' => $this->hostedPrice,
             ]);
         }

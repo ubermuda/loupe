@@ -3003,8 +3003,9 @@
 
     /* ── How it plugs in ────────────────────────────────────────────────
        Three claims down the left, the still that backs the selected one on the
-       right. The stage is a fixed height so a swap — clicked or on the timer —
-       never reflows the page under a reader. */
+       right. Each still is the app's own components on the section's chrome,
+       which is the same near-black the app shell uses. The stage is a fixed
+       height so a swap — clicked or on the timer — never reflows the page. */
     .lp-landing-tabs {
         @apply grid gap-7 items-start md:grid-cols-3;
     }
@@ -3012,13 +3013,13 @@
         @apply flex flex-col gap-2;
     }
     .lp-landing-tab {
-        @apply flex flex-col gap-1.5 rounded-xl border-0 border-l-2 border-transparent bg-transparent cursor-pointer text-left pl-4 pr-2 py-3 transition-colors;
+        @apply flex flex-col gap-1.5 rounded-xl border-0 bg-transparent cursor-pointer text-left px-4 pt-3 pb-0 transition-colors;
     }
     .lp-landing-tab:hover {
         @apply bg-chrome-raised;
     }
     .lp-landing-tab[aria-selected='true'] {
-        @apply border-accent bg-chrome-raised;
+        @apply bg-chrome-raised;
     }
     .lp-landing-tab__title {
         @apply text-chrome-mute text-base font-bold transition-colors;
@@ -3029,99 +3030,83 @@
     .lp-landing-tab__text {
         @apply text-chrome-mute m-0 text-sm leading-relaxed;
     }
+    /* The selected tab's bottom rule is also the rotation's countdown, so the
+       reader can see the swap coming rather than being surprised by it. */
+    .lp-landing-tab__progress {
+        @apply block w-full h-0.5 mt-3 bg-transparent overflow-hidden;
+    }
+    .lp-landing-tab[aria-selected='true'] .lp-landing-tab__progress {
+        @apply bg-chrome-line;
+    }
+    .lp-landing-tab__fill {
+        @apply block h-full w-full bg-accent origin-left;
+    }
+    .lp-landing-tab[aria-selected='false'] .lp-landing-tab__fill {
+        @apply hidden;
+    }
+    .lp-landing-tabs[data-running='true']
+        .lp-landing-tab[aria-selected='true']
+        .lp-landing-tab__fill {
+        animation: lp-tab-countdown 6s linear forwards;
+    }
 
     .lp-landing-tabs__stage {
-        @apply relative h-104 overflow-hidden rounded-2xl bg-chrome-raised md:col-span-2;
+        @apply relative h-104 overflow-hidden rounded-2xl md:col-span-2;
     }
     .lp-landing-tabs__panel {
         @apply absolute inset-0;
     }
     .lp-tech-still {
-        @apply flex h-full flex-col gap-4 overflow-hidden p-6 select-none;
+        @apply h-full overflow-hidden select-none;
+    }
+    /* The app renders its screens on a white panel inset into the dark shell;
+       the section band is that same shell colour, so the panel is the still. */
+    .lp-tech-panel {
+        @apply flex h-full flex-col gap-4 overflow-hidden rounded-2xl bg-app px-7 pt-7;
+        /* The still is a crop, so its foot fades rather than ending on a cut
+           row — the same treatment the hero mock gives its frame. */
+        -webkit-mask-image: linear-gradient(
+            to bottom,
+            #000 80%,
+            transparent 100%
+        );
+        mask-image: linear-gradient(to bottom, #000 80%, transparent 100%);
+    }
+    .lp-tech-panel__body {
+        @apply grid grid-cols-5 gap-6 overflow-hidden;
+    }
+    .lp-tech-panel__body .lp-review-doc__prose {
+        @apply col-span-3 min-w-0;
+    }
+    /* The real margin is absolutely positioned against the document block; here
+       the thread is simply the second column. */
+    .lp-tech-panel__margin {
+        @apply col-span-2 min-w-0;
+    }
+    /* A real thread is positioned against its passage by the anchor controller;
+       with no controller here it would otherwise sit at the origin. */
+    .lp-tech-panel__margin .lp-comment-thread {
+        @apply static;
+    }
+    /* The doc head at full app scale would spend the whole still on a title. */
+    .lp-tech-panel .lp-review-doc__title {
+        @apply text-2xl;
+    }
+    .lp-tech-panel .lp-review-doc__prose h3 {
+        @apply text-lg;
+    }
+    .lp-tech-panel .lp-review-doc__prose p {
+        @apply text-sm;
+    }
+    .lp-tech-panel .lp-tools {
+        @apply overflow-hidden;
     }
 
-    /* Tools: the whole surface, then one call through it. */
-    .lp-tech-tools {
-        @apply grid grid-cols-2 gap-x-4 gap-y-2 content-start;
-    }
-    .lp-tech-tools__name {
-        @apply font-mono text-chrome-mute text-xs leading-relaxed truncate;
-    }
-    .lp-tech-tools__name--lit {
-        @apply text-accent;
-    }
-    .lp-tech-call {
-        @apply mt-auto flex flex-col gap-1.5 rounded-xl bg-chrome px-4 py-3.5;
-    }
-    .lp-tech-call__line {
-        @apply flex items-center gap-2 m-0 text-sm;
-    }
-    .lp-tech-call__arrow {
-        @apply font-mono text-chrome-mute text-xs;
-    }
-    .lp-tech-call__line code {
-        @apply font-mono rounded-md bg-chrome-control text-accent py-0.5 px-1.5 text-xs;
-    }
-    .lp-tech-call__result {
-        @apply text-chrome-mute m-0 text-xs;
-    }
-    .lp-tech-call__verdict {
-        @apply text-white font-semibold;
-    }
-
-    /* Markdown: prose on the left, the threads that survived the revision. */
-    .lp-tech-doc {
-        @apply flex flex-col gap-3 rounded-xl bg-app px-5 py-4;
-    }
-    .lp-tech-doc__head {
-        @apply flex items-center gap-2.5;
-    }
-    .lp-tech-doc__title {
-        @apply font-display font-extrabold text-ink text-base tracking-tight;
-    }
-    .lp-tech-doc__prose {
-        @apply flex flex-col gap-2;
-    }
-    .lp-tech-doc__prose h3 {
-        @apply font-display font-extrabold text-ink m-0 text-sm tracking-tight;
-    }
-    .lp-tech-doc__prose p {
-        @apply text-fg-mute m-0 text-xs leading-relaxed;
-    }
-    .lp-tech-doc__prose code {
-        @apply font-mono rounded-md bg-tint-strong text-ink py-0.5 px-1;
-    }
-    .lp-tech-threads {
-        @apply flex flex-col gap-2.5;
-    }
-    .lp-tech-thread {
-        @apply flex flex-col gap-1.5 rounded-xl border border-line bg-app px-4 py-3;
-    }
-    .lp-tech-thread--lit {
-        @apply border-accent-border bg-accent-faint;
-    }
-    .lp-tech-thread__head {
-        @apply flex items-center justify-between gap-3;
-    }
-    .lp-tech-thread__author {
-        @apply text-ink text-xs font-semibold;
-    }
-    .lp-tech-thread__status {
-        @apply text-accent-ink text-xs font-semibold;
-    }
-    .lp-tech-thread__status--gone {
-        @apply text-fg-dim;
-    }
-    .lp-tech-thread__quote {
-        @apply m-0 rounded-md bg-surface-2 text-fg-mute px-2.5 py-1.5 text-xs leading-relaxed;
-    }
-    .lp-tech-thread__body {
-        @apply text-ink text-xs leading-relaxed;
-    }
-
-    /* Widget: somebody else's page, with the launcher on it. */
+    /* Somebody else's page, with the widget on it. The launcher and pin copy
+       the widget's own geometry — it ships its styles inside a shadow root, so
+       they cannot be shared, only kept in step. */
     .lp-tech-browser {
-        @apply flex h-full flex-col overflow-hidden rounded-xl bg-app;
+        @apply flex h-full flex-col overflow-hidden rounded-2xl bg-app;
     }
     .lp-tech-browser__bar {
         @apply flex items-center gap-1.5 bg-surface-2 px-4 py-2.5;
@@ -3133,88 +3118,38 @@
         @apply ml-2 font-mono text-fg-dim text-xs truncate;
     }
     .lp-tech-browser__page {
-        @apply relative flex flex-1 flex-col items-start gap-3 px-6 py-6;
+        @apply relative flex flex-1 flex-col items-start gap-4 px-7 py-7;
     }
     .lp-tech-browser__heading {
-        @apply font-display font-extrabold text-ink text-xl tracking-tight;
+        @apply font-display font-extrabold text-ink text-2xl tracking-tight;
     }
     .lp-tech-browser__line {
-        @apply h-2 w-full rounded-full bg-surface-3;
+        @apply h-2.5 w-full rounded-full bg-surface-3;
     }
     .lp-tech-browser__line--short {
         @apply w-3/5;
     }
     .lp-tech-browser__cta {
-        @apply inline-flex items-center h-8 px-4 rounded-full bg-accent text-ink text-xs font-semibold;
+        @apply relative inline-flex items-center h-9 px-5 rounded-full bg-accent text-ink text-sm font-semibold;
     }
-    .lp-tech-browser__note {
-        @apply flex flex-col gap-1 self-end max-w-3/5 rounded-xl border border-accent-border bg-accent-faint px-3.5 py-2.5;
-    }
-    .lp-tech-browser__note-author {
-        @apply text-accent-ink text-xs font-semibold;
-    }
-    .lp-tech-browser__note-body {
-        @apply text-ink text-xs leading-relaxed;
+    .lp-tech-pin {
+        @apply absolute -right-3 -top-3 inline-flex items-center justify-center w-6 h-6 border-2 border-accent-ink bg-accent text-ink text-xs font-bold;
+        border-radius: 50% 50% 50% 2px;
     }
     .lp-tech-launcher {
-        @apply absolute right-5 bottom-5 flex items-center gap-2.5 h-10 pl-3.5 pr-2.5 rounded-full bg-chrome;
+        @apply absolute right-5 bottom-5 flex items-center h-11.5 pl-2 pr-1.5 rounded-full border border-chrome-line bg-chrome;
     }
-    .lp-tech-launcher__icon {
-        @apply w-4 h-4 shrink-0 text-chrome-mute;
+    .lp-tech-launcher__action {
+        @apply flex items-center justify-center w-8.5 h-8.5 rounded-full text-chrome-mute;
     }
     .lp-tech-launcher__divider {
-        @apply w-px h-5 bg-chrome-line;
+        @apply w-px h-5.5 mx-1 bg-chrome-line;
     }
-    .lp-tech-launcher__label {
-        @apply text-white text-xs font-semibold;
+    .lp-tech-launcher__main {
+        @apply flex items-center gap-2.5 h-9.5 px-2.5 rounded-full text-chrome-fg text-sm font-semibold;
     }
     .lp-tech-launcher__count {
-        @apply inline-flex items-center justify-center w-5 h-5 rounded-full bg-accent text-ink text-xs font-bold;
-    }
-
-    .lp-landing-stack {
-        @apply flex flex-col gap-5;
-    }
-    .lp-landing-actions {
-        @apply flex flex-wrap items-center gap-3 mt-2;
-    }
-
-    /* ── Two paths ──────────────────────────────────────────────────────
-       Running it and looking at it are the same decision at two sizes, so
-       they sit side by side with the production install given the width. */
-    .lp-landing-paths {
-        @apply grid gap-5 items-start md:grid-cols-3;
-    }
-    /* min-w-0 so the compose block scrolls inside the card instead of stretching
-       it past the grid track. */
-    .lp-landing-path {
-        @apply flex flex-col gap-5 min-w-0 rounded-2xl px-8 py-8;
-    }
-    .lp-landing-path--wide {
-        @apply bg-app border border-line md:col-span-2;
-    }
-    .lp-landing-path--sunken {
-        @apply bg-surface-2 gap-4;
-    }
-    .lp-landing-path__head {
-        @apply flex flex-col gap-1.5;
-    }
-    .lp-landing-path__title {
-        @apply font-display font-extrabold text-ink m-0 text-2xl tracking-tight;
-    }
-    .lp-landing-path__text {
-        @apply text-fg-mute m-0 text-sm leading-relaxed;
-    }
-
-    /* The demo command on a light surface: short enough to read in place, and
-       the only thing on this page anyone pastes verbatim. */
-    .lp-code-plain {
-        @apply flex flex-col items-start gap-3 rounded-xl border border-line bg-app p-4;
-    }
-    .lp-code-plain__body {
-        @apply font-mono text-ink m-0 text-xs leading-relaxed;
-        white-space: pre-wrap;
-        overflow-wrap: anywhere;
+        @apply inline-flex items-center justify-center min-w-5 h-5 px-1.5 rounded-full bg-accent text-ink text-xs font-bold;
     }
 
     /* ── Pricing ────────────────────────────────────────────────────────
@@ -3474,6 +3409,15 @@
     to {
         opacity: 1;
         transform: translateY(0);
+    }
+}
+
+@keyframes lp-tab-countdown {
+    from {
+        transform: scaleX(0);
+    }
+    to {
+        transform: scaleX(1);
     }
 }
 

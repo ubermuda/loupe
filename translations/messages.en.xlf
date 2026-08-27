@@ -3489,33 +3489,37 @@
                 <source>landing.tech.tablist</source>
                 <target>How Loupe plugs in</target>
             </trans-unit>
-            <trans-unit id="landing.tech.still.call_arrow">
-                <source>landing.tech.still.call_arrow</source>
-                <target>&#8594;</target>
-            </trans-unit>
-            <trans-unit id="landing.tech.still.verdict">
-                <source>landing.tech.still.verdict</source>
-                <target>Changes requested</target>
-            </trans-unit>
-            <trans-unit id="landing.tech.still.threads">
-                <source>landing.tech.still.threads</source>
-                <target>&#183; 3 open threads, 1 suggestion</target>
-            </trans-unit>
-            <trans-unit id="landing.tech.still.version">
-                <source>landing.tech.still.version</source>
-                <target>v2</target>
-            </trans-unit>
             <trans-unit id="landing.tech.still.reanchored">
                 <source>landing.tech.still.reanchored</source>
                 <target>Re-anchored</target>
             </trans-unit>
-            <trans-unit id="landing.tech.still.orphaned">
-                <source>landing.tech.still.orphaned</source>
-                <target>Passage gone</target>
+            <trans-unit id="landing.tech.still.doc_title">
+                <source>landing.tech.still.doc_title</source>
+                <target>Comment re-anchoring on revision</target>
             </trans-unit>
-            <trans-unit id="landing.tech.still.orphaned_body">
-                <source>landing.tech.still.orphaned_body</source>
-                <target>The paragraph this thread quoted is not in v2. Flagged rather than dropped.</target>
+            <trans-unit id="landing.tech.still.byline">
+                <source>landing.tech.still.byline</source>
+                <target>Version 2 &#183; reviewed by Geoffrey &#183; updated 2w ago</target>
+            </trans-unit>
+            <trans-unit id="landing.tech.still.doc_heading">
+                <source>landing.tech.still.doc_heading</source>
+                <target>Orphans</target>
+            </trans-unit>
+            <trans-unit id="landing.tech.still.doc_before">
+                <source>landing.tech.still.doc_before</source>
+                <target>A comment whose quote is gone is</target>
+            </trans-unit>
+            <trans-unit id="landing.tech.still.doc_quote">
+                <source>landing.tech.still.doc_quote</source>
+                <target>marked orphaned rather than deleted</target>
+            </trans-unit>
+            <trans-unit id="landing.tech.still.doc_after">
+                <source>landing.tech.still.doc_after</source>
+                <target>. The reviewer said something; losing it because the author rewrote the sentence is the wrong trade.</target>
+            </trans-unit>
+            <trans-unit id="landing.tech.still.comment_body">
+                <source>landing.tech.still.comment_body</source>
+                <target>Good. Say what the reviewer sees when that happens — a flag on the thread, or a separate list?</target>
             </trans-unit>
             <trans-unit id="landing.tech.still.url">
                 <source>landing.tech.still.url</source>
@@ -3528,10 +3532,6 @@
             <trans-unit id="landing.tech.still.page_cta">
                 <source>landing.tech.still.page_cta</source>
                 <target>Start free</target>
-            </trans-unit>
-            <trans-unit id="landing.tech.still.note">
-                <source>landing.tech.still.note</source>
-                <target>This button says one thing and the heading above it says another.</target>
             </trans-unit>
             <trans-unit id="landing.tech.still.launcher">
                 <source>landing.tech.still.launcher</source>

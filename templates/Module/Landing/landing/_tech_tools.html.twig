@@ -1,23 +1,18 @@
 {#
-  Still of what an agent sees. Sample data, decorative — hence aria-hidden.
-  Props:
-    tools — list of MCP tool names, in the order they should read.
+  The Connect screen's agent-tools list, same rows and same copy.
+  Sample data, decorative — hence aria-hidden.
+  Props: tools — list of {name, descriptionKey}.
 #}
 <div class="lp-tech-still" aria-hidden="true">
-    <div class="lp-tech-tools">
-        {% for tool in tools %}
-        <span class="lp-tech-tools__name{{ loop.index <= 3 ? ' lp-tech-tools__name--lit' : '' }}">{{ tool }}</span>
-        {% endfor %}
-    </div>
-
-    <div class="lp-tech-call">
-        <p class="lp-tech-call__line">
-            <span class="lp-tech-call__arrow">{{ 'landing.tech.still.call_arrow'|trans }}</span>
-            <code>{{ 'landing.tech.tools.tool_review'|trans }}</code>
-        </p>
-        <p class="lp-tech-call__result">
-            <span class="lp-tech-call__verdict">{{ 'landing.tech.still.verdict'|trans }}</span>
-            {{ 'landing.tech.still.threads'|trans }}
-        </p>
+    <div class="lp-tech-panel">
+        <p class="lp-eyebrow">{{ 'project.connect.tools.summary'|trans({'%count%': tools|length}) }}</p>
+        <div class="lp-tools">
+            {% for tool in tools %}
+            <div class="lp-tools__row">
+                <code class="lp-tools__name">{{ tool.name }}</code>
+                <p class="lp-tools__desc">{{ tool.descriptionKey|trans }}</p>
+            </div>
+            {% endfor %}
+        </div>
     </div>
 </div>

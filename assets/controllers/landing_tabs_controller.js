@@ -64,11 +64,22 @@ export default class extends Controller {
         this.timer = setInterval(() => {
             this.show((this.index + 1) % this.panelTargets.length);
         }, ADVANCE_INTERVAL);
+        this.restartCountdown();
     }
 
     pause() {
         clearInterval(this.timer);
         this.timer = null;
+        this.element.dataset.running = 'false';
+    }
+
+    // The countdown is a CSS animation on the selected tab's rule, and a new
+    // interval always starts from zero — so resuming after a hold has to replay
+    // it rather than pick up where the freeze left off.
+    restartCountdown() {
+        this.element.dataset.running = 'false';
+        void this.element.offsetWidth;
+        this.element.dataset.running = 'true';
     }
 
     show(index) {

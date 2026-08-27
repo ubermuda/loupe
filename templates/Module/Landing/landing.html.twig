@@ -99,7 +99,7 @@
                  data-action="mouseenter->landing-tabs#hold mouseleave->landing-tabs#release focusin->landing-tabs#hold focusout->landing-tabs#release">
                 <div class="lp-landing-tabs__controls" role="tablist" aria-orientation="vertical"
                      aria-label="{{ 'landing.tech.tablist'|trans }}">
-                    {% for panel in ['tools', 'markdown', 'widget'] %}
+                    {% for panel in ['markdown', 'widget', 'tools'] %}
                     <button type="button" class="lp-landing-tab" role="tab"
                             id="tech-tab-{{ panel }}" aria-controls="tech-panel-{{ panel }}"
                             aria-selected="{{ loop.first ? 'true' : 'false' }}"
@@ -107,22 +107,23 @@
                             data-action="landing-tabs#select">
                         <span class="lp-landing-tab__title">{{ ('landing.tech.' ~ panel ~ '.title')|trans }}</span>
                         <span class="lp-landing-tab__text">{{ ('landing.tech.' ~ panel ~ '.text')|trans }}</span>
+                        <span class="lp-landing-tab__progress"><span class="lp-landing-tab__fill"></span></span>
                     </button>
                     {% endfor %}
                 </div>
 
                 <div class="lp-landing-tabs__stage">
-                    <div class="lp-landing-tabs__panel" role="tabpanel" id="tech-panel-tools"
-                         aria-labelledby="tech-tab-tools" data-landing-tabs-target="panel">
-                        {% include '@Landing/landing/_tech_tools.html.twig' with {tools: mcpToolNames} only %}
-                    </div>
                     <div class="lp-landing-tabs__panel" role="tabpanel" id="tech-panel-markdown"
-                         aria-labelledby="tech-tab-markdown" data-landing-tabs-target="panel" hidden>
+                         aria-labelledby="tech-tab-markdown" data-landing-tabs-target="panel">
                         {% include '@Landing/landing/_tech_markdown.html.twig' only %}
                     </div>
                     <div class="lp-landing-tabs__panel" role="tabpanel" id="tech-panel-widget"
                          aria-labelledby="tech-tab-widget" data-landing-tabs-target="panel" hidden>
                         {% include '@Landing/landing/_tech_widget.html.twig' only %}
+                    </div>
+                    <div class="lp-landing-tabs__panel" role="tabpanel" id="tech-panel-tools"
+                         aria-labelledby="tech-tab-tools" data-landing-tabs-target="panel" hidden>
+                        {% include '@Landing/landing/_tech_tools.html.twig' with {tools: mcpTools} only %}
                     </div>
                 </div>
             </div>
