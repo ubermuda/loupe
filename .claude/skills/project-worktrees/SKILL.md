@@ -264,13 +264,82 @@ suspecting the branch.
 | nginx exits with `host not found in upstream "php-fpm"` | The container reached the shared network *after* start. Attach every network at creation — this is why the sidecar is a compose file, not `docker run` + `docker network connect`. |
 | A class added in the worktree renders unstyled | `var/tailwind` must be a real directory per worktree, not a symlink to main's. `just worktree-up` fixes it; `just worktree-tailwind` watches. |
 | Layout looks like an older design; a hover/position spec fails but the page logs nothing | Different cause from the row above, same symptom family. `just worktree-up` builds `var/tailwind/app.built.css` **once** and nothing rebuilds it, so a worktree alive across a merge of `main` serves the CSS its branch had at provision time while its PHP, Twig and JS are current. `just e2e` now rebuilds it before every worktree run; for a browser session, `bin/worktrees/compose-exec.sh bin/console tailwind:build` (under a second) or `just worktree-tailwind` to watch. Diff the compiled sheet for a class the design introduced before blaming the branch. |
-| The site-review widget is in its rejected-token state | `SITE_REVIEW_WIDGET_TOKEN` refers to a row in another database. `just worktree-up` detects this (it hashes the token and looks for it locally) and reissues. |
+| The site-review widget shows its rejected-token state (a red `!` on the launcher) | `SITE_REVIEW_WIDGET_TOKEN` does not resolve **at the backend the widget actually talks to**, which is `SITE_REVIEW_WIDGET_BACKEND`, not the host serving the page. Bootstrap reissues a *local* token; if the backend still points at production, that token is rejected there. See "Which backend the widget talks to". |
+| The widget does not appear **at all** — no launcher, no error badge | The `<script>` failed to load, so nothing ever ran. A rejected token still renders the widget; an unreachable script renders nothing. Check the backend host resolves and serves `/site-review/widget.js`: a `SERVFAIL` on `loupe.ac` from the machine's own resolver produces exactly this, while the same request succeeds through `1.1.1.1`. |
 | Mail-asserting specs read another run's messages | Was the shared Mailpit; each worktree now has its own sidecar. Suspect a run launched without `just e2e` (which exports `MAILPIT_URL`) or with `E2E_BASE_URL` set, which deliberately falls back to the shared instance. `bin/e2e-target.sh` prints the Mailpit URL it resolved as its fourth line. |
 | A spec fails, then passes on a quiet re-run | Something else was loading the shared php-fpm — a sibling agent running `just ci` or `composer install`. Check what is in flight **before** investigating the branch; this produced a false "regression" that was nearly filed against a clean PR. |
 | `worktree-up` fails with an "Unrecognized option" or missing-class error | The new worktree seeded its `vendor/` from the main checkout, and the main checkout is stale. Fast-forwarding the main checkout does **not** update its `vendor/`, so every worktree created afterwards inherits dependencies from the old commit. Run `composer install` in the main checkout, then re-run `just worktree-up`. |
 | Every e2e spec fails on a **new** worktree host with `ERR_CERT_AUTHORITY_INVALID`, while existing hosts stay fine | The `traefik-dnsmasq-1` container (in the separate `traefik` stack) is down. It holds `address=/dev.localhost/172.20.0.2`, the wildcard that lets step-ca resolve a host to validate ACME; without it `tls-alpn-01` fails with "could not connect to validation target" and Traefik serves its default cert. Hosts already in `certs/acme.json` keep working, which is what makes this look worktree-specific. `restart: unless-stopped` does **not** revive it after an exit 255. Fix: `( cd ../traefik && docker compose up -d dnsmasq )`, then **restart Traefik too** — it otherwise keeps polling the already-failed authorization instead of opening a fresh order. Verify with `curl -o /dev/null -w '%{ssl_verify_result}'` (0 = good) before blaming the branch. |
 | Mail-asserting e2e specs time out against a worktree / no mail in Mailpit | Not a missing consumer — `PlaywrightSyncMiddleware` handles `X-Playwright` dispatches inline, so no worker is involved. Check first that the worktree's Mailpit sidecar is up (`just worktree-up` recreates it) and that `MAILER_DSN` in the container resolves to `mailpit-<slug>`; container environment beats dotenv, so a php-fpm still carrying an old `MAILER_DSN` sends to the shared instance until the main stack is recreated. Otherwise suspect a request that never carried the header (a context built without the project's `use` options), or stale state from an interrupted run. |
 | You cannot tell whether an e2e run is already in flight | `ps ax` truncates command lines to terminal width, and a worktree's `e2e/node_modules` is a symlink to the main checkout, so **every** playwright process reports an identical command line whichever tree launched it. Use `pgrep -f 'playwright test'` — it neither truncates nor lets you distinguish trees, so treat any hit as "someone is running e2e" and wait. |
+
+## Which backend the widget talks to
+
+The widget's embed is built from two independent values, and getting them out of
+step is the most common way a worktree's widget breaks.
+
+```twig
+<script src="{{ site_review_widget_backend }}/site-review/widget.js"
+        data-token="{{ site_review_widget_token }}"></script>
+```
+
+`widget.js` then does `BACKEND = new URL(script.src).origin`. **The widget posts
+to wherever its script came from, never to the host serving the page.** So a
+page on `https://<slug>.loupe.dev.localhost` whose script comes from
+`https://loupe.ac` sends its comments to production.
+
+That is deliberate — it is how the app is dogfooded, with the local UI annotated
+and the comments landing in hosted Loupe where an agent reads them over MCP. It
+also means the token must belong to the **backend**, not to the local database.
+
+### The rule for a worktree
+
+**A worktree points at production, with the production token**, so annotating a
+branch works the way it does everywhere else:
+
+```
+SITE_REVIEW_WIDGET_BACKEND=https://loupe.ac
+SITE_REVIEW_WIDGET_TOKEN=<the production widget token, same one the main checkout uses>
+```
+
+**Unless the branch changes the widget itself** — anything under
+`public/site-review/` or `src/Module/SiteReview/` that alters widget behaviour.
+Then point it at its own tree, so the code under review is the code being
+exercised:
+
+```
+SITE_REVIEW_WIDGET_BACKEND=https://<slug>.loupe.dev.localhost
+SITE_REVIEW_WIDGET_TOKEN=<the local token bootstrap minted>
+```
+
+Judge that by what the diff touches, not by the branch name. A change to
+`SiteReviewExporter` is not a widget change; a change to `widget.js` is.
+
+### Bootstrap leaves these two out of step
+
+`worktree-bootstrap.sh` mints a fresh **local** widget token and writes it into
+the worktree's `.env.local`, because a token copied from the main checkout
+refers to a row in another database. But `SITE_REVIEW_WIDGET_BACKEND` is copied
+across unchanged — so a worktree inherits `https://loupe.ac` and is handed a
+token production has never seen. Every worktree is therefore born with a widget
+that authenticates against nothing, and it happens again on every re-provision.
+
+Until bootstrap reconciles the pair, fix the worktree's `.env.local` by hand
+after provisioning, following the rule above. When diagnosing, check the pair
+together and test the token against the backend the page actually names:
+
+```bash
+tag=$(curl -sk https://<slug>.loupe.dev.localhost/login \
+      | grep -oE '<script src="[^"]*site-review/widget\.js" data-token="[a-f0-9]+"')
+origin=$(echo "$tag" | sed -E 's|.*src="(https?://[^/]+).*|\1|')
+token=$(echo "$tag"  | sed -E 's/.*data-token="([a-f0-9]+)".*/\1/')
+curl -s -o /dev/null -w '%{http_code}\n' -H "Authorization: Bearer $token" \
+     "$origin/api/site-review/review"
+```
+
+Testing the token against `localhost` instead proves nothing: `/api/site-review/*`
+exists on both hosts, so a local token returns 200 there while the widget — which
+is talking to production — still fails.
 
 ## Writing worktree tooling
 
