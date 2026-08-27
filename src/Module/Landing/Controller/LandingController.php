@@ -22,6 +22,7 @@ class LandingController extends AppController
     public function __construct(
         private readonly ShowHomeHandler $showHome,
         private readonly FeatureFlagService $featureFlags,
+        private readonly AdvertisedTools $advertisedTools,
 
         #[Autowire(param: 'app.demo_command')]
         private readonly string $demoCommand,
@@ -49,7 +50,7 @@ class LandingController extends AppController
             return $this->render('@Landing/landing.html.twig', [
                 'demoCommand' => $this->demoCommand,
                 'composeExcerpt' => $this->composeExcerpt,
-                'mcpTools' => AdvertisedTools::ALL,
+                'mcpTools' => $this->advertisedTools->enabled(),
                 'hostedPrice' => $this->hostedPrice,
             ]);
         }

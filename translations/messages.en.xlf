@@ -3467,7 +3467,7 @@
             </trans-unit>
             <trans-unit id="landing.tech.tools.text">
                 <source>landing.tech.tools.text</source>
-                <target>Sixteen tools. Your agent submits a document, reads the verdict and the open threads back, and revises — without you copying anything between windows.</target>
+                <target>%count% tools. Your agent submits a document, reads the verdict and the open threads back, and revises — without you copying anything between windows.</target>
             </trans-unit>
             <trans-unit id="landing.tech.markdown.title">
                 <source>landing.tech.markdown.title</source>

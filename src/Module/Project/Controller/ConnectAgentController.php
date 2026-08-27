@@ -12,7 +12,6 @@ use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
-use Ubermuda\FeatureFlagsBundle\FeatureFlagService;
 
 #[IsGranted(ProjectVoter::VIEW, subject: 'project')]
 #[Route(
@@ -23,7 +22,7 @@ use Ubermuda\FeatureFlagsBundle\FeatureFlagService;
 class ConnectAgentController extends AppController
 {
     public function __construct(
-        private readonly FeatureFlagService $featureFlags,
+        private readonly AdvertisedTools $advertisedTools,
 
         #[Autowire(param: 'app.mcp.server_name')]
         private readonly string $mcpServerName,
@@ -32,11 +31,7 @@ class ConnectAgentController extends AppController
 
     public function __invoke(Project $project): Response
     {
-        $tools = array_values(array_filter(
-            AdvertisedTools::ALL,
-            fn (array $tool): bool => !isset(AdvertisedTools::GATED[$tool['name']])
-                || $this->featureFlags->isEnabled(AdvertisedTools::GATED[$tool['name']]),
-        ));
+        $tools = $this->advertisedTools->enabled();
 
         return $this->render('@Project/connect_agent.html.twig', [
             'project' => $project,

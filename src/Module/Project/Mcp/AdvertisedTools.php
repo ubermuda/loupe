@@ -4,13 +4,15 @@ declare(strict_types=1);
 
 namespace App\Module\Project\Mcp;
 
+use Ubermuda\FeatureFlagsBundle\FeatureFlagService;
+
 /**
  * The MCP tools advertised to a connected agent, in the order the Connect
  * screen lists them. Each description is a translation key so the copy stays
  * in the message catalog. The landing page lists the same set, so this is the
  * one place the roster is written down.
  */
-final class AdvertisedTools
+final readonly class AdvertisedTools
 {
     /** @var list<array{name: string, descriptionKey: string}> */
     public const array ALL = [
@@ -34,4 +36,25 @@ final class AdvertisedTools
 
     /** @var array<string, string> tool name => the flag that must be on to advertise it */
     public const array GATED = ['document_highlight' => 'review.highlights.enabled'];
+
+    public function __construct(
+        private FeatureFlagService $featureFlags,
+    ) {
+    }
+
+    /**
+     * What this instance actually exposes. A gated tool is absent from the MCP
+     * server while its flag is off, so advertising it anywhere would promise a
+     * tool the agent cannot call.
+     *
+     * @return list<array{name: string, descriptionKey: string}>
+     */
+    public function enabled(): array
+    {
+        return array_values(array_filter(
+            self::ALL,
+            fn (array $tool): bool => !isset(self::GATED[$tool['name']])
+                || $this->featureFlags->isEnabled(self::GATED[$tool['name']]),
+        ));
+    }
 }

@@ -107,7 +107,7 @@
                             data-action="landing-tabs#select">
                         <span class="lp-landing-tab__fill"></span>
                         <span class="lp-landing-tab__title">{{ ('landing.tech.' ~ panel ~ '.title')|trans }}</span>
-                        <span class="lp-landing-tab__text">{{ ('landing.tech.' ~ panel ~ '.text')|trans }}</span>
+                        <span class="lp-landing-tab__text">{{ ('landing.tech.' ~ panel ~ '.text')|trans({'%count%': mcpTools|length}) }}</span>
                     </button>
                     {% endfor %}
                 </div>
