@@ -57,3 +57,7 @@ The auth flows deliberately differ on whether they reveal account existence:
 - **Password-reset request** and **resend-verification** are silent: unknown account, already-active token, and mail-transport failure all produce the same redirect. Keep new code on the silent side of these flows silent — do not add flashes or errors that distinguish the branches.
 
 This split is intentional; do not "fix" one flow to match the other without a maintainer decision.
+
+**The line between the two sides is what the response can carry.** The anti-enumeration policy holds everywhere the response is a bare acknowledgement — there is nothing to lose by making the two outcomes identical, which is why `RequestPasswordResetHandler` documents account existence as unobservable, and why `JoinWaitlistController` and `ListSitesController` reason the same way. It is waived where a form has a field to attach the error to. `RegisterUserHandler` returns a distinct `account.registration.error.email_duplicate` field error for exactly that reason: responding identically either way costs a real inline error for anyone who mistypes an address they already registered with, and buys little when the same address can be probed at other providers anyway.
+
+So registration's leak is a deliberate exception rather than an oversight. Do not re-file it as a finding, and do not generalise it to a flow whose response is a bare acknowledgement.

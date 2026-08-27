@@ -139,7 +139,9 @@ When several feature branches are in flight (worktrees, parallel agents), merges
 2. Merge **immediately** after the gate goes green — every merge to `main` between a branch's last sync and its own merge invalidates its PR (conflicts) or its gate (unexercised sibling specs).
 3. After **every** merge to main, run `just cs` on main and commit the drift — merge unions of two individually-clean branches produce fixer drift (missing `#[\Override]` etc.) that otherwise lands on whichever branch syncs next.
 4. Tear down a merged branch's worktree only **after** `gh pr merge` is confirmed — never in the same command chain. A failed merge with the worktree already destroyed forces a rebuild from origin.
-5. **A conflict-free merge is not a correct merge.** When one branch moves or renames a class, a *new* file on another branch merges cleanly while still importing the old name — git sees no conflict because the file never existed on both sides. After merging main into a branch that touched namespaces, run `just ci` before trusting the merge; phpstan is what catches this, not git.
+5. **A conflict-free merge is not a correct merge.** When one branch moves or renames a class, a *new* file on another branch merges cleanly while still importing the old name — git sees no conflict because the file never existed on both sides. After merging main into a branch that touched namespaces **or changed a constructor or method signature**, run `just ci` before trusting the merge; phpstan is what catches this, not git.
+
+   The signature variant is the same blind spot with a different tell. A branch that makes an argument required lives on, absorbs merges, and each incoming merge can bring a *new* file from a sibling that constructs the old shape. It existed on only one side, so git has nothing to report, and the result is a runtime `ArgumentCountError`. Grepping for the changed symbol is a good first pass and not sufficient — it finds only the shapes you thought to search for and goes stale at the next merge. When planning a wave, land signature changes early: every sibling merged ahead of one multiplies its exposure.
 6. **Resolving a conflict by taking one side can silently revert the other side's fix.** When two branches change the same region for unrelated reasons — one extracting a method, the other fixing a line inside the body it replaced — taking either side alone loses the other's intent. Before accepting a resolution, re-verify the *behaviour* both branches were protecting, not just that the markers are gone.
 
    The sharpest form is **rename/rename**: two branches move the same file for different reasons — one namespacing a directory, one renaming for a naming convention — and git reports a conflict where *neither side is correct*. The answer is the combination: the newer branch's **content** at the other branch's **path**. Afterwards, verify every reference resolves to a file that exists, because a wrong choice here compiles fine and only fails at runtime.
@@ -154,6 +156,29 @@ When several feature branches are in flight (worktrees, parallel agents), merges
    ```
 
    The same ruleset requires the eight CI checks (`lint`, `cs-check`, `phpstan`, `arkitect`, `gamache`, `audit`, `phpunit`, `e2e`) and **one approving review**. An approval in chat is not a GitHub approval: check `gh pr view <n> --json reviewDecision,mergeStateStatus` before concluding a merge is blocked by something else.
+
+## Recommendations and the quality bar
+
+### The owner sets the bar, not the agent
+
+Deciding what is good enough and what has to be exactly right is the owner's call. The failure to avoid is making that call silently and then presenting the outcome as a technical necessity, which removes the decision instead of informing it. Ranking findings "must-fix" and blocking on them, declaring one branch's failing run to outrank a merge queue, imposing mutation checks as a standard, requiring a stale form submission to be refused rather than resolved — each of those is a judgement about how much rigour something deserves, and several of them may well be right. That is not the point; the point is who made them.
+
+So: name the severity and the cost of fixing, recommend, and let the owner set the bar — especially where the fix is expensive, where the defect is unreachable in practice, or where "leave it and note it" is a legitimate answer. Reserve blocking language for what is genuinely unsafe to ship, and say plainly when something is a judgement call rather than a requirement.
+
+The tell to watch for is describing a preference as though it were a property of the code. "This must refuse" and "I think refusing is better, here is the cost of each" are different sentences, and only the second leaves the decision where it belongs.
+
+### Weigh the trade-offs; do not defend one option
+
+The habit to break is picking an approach and then arguing for it. The problem is rarely that the recommendation is wrong — it is that the *reasoning gets inflated to match the conclusion*. A minor downside of the rejected option gets described in the register of a serious one, which makes the argument unfalsifiable and hides how close the call actually was. A measured one-millisecond cost does not need to be dressed up as a "real correctness cost" to justify the right answer; overstating the case is worse than a weaker conclusion honestly argued.
+
+What to do instead:
+
+1. State the options and what each actually costs, in proportionate language.
+2. Give a recommendation and the confidence behind it, without padding the rejected options' downsides to justify it.
+3. Say plainly when a call is close, or when it rests on taste rather than evidence — "either is fine, I lean X" is a legitimate answer.
+4. Keep the alternatives genuinely available rather than mentioning them as a courtesy before dismissing them.
+
+This sits in tension with the instruction not to capitulate under pressure, and the tension is the point: hold a position against disagreement, but do not manufacture support for it.
 
 ## General Guidelines
 
@@ -187,6 +212,8 @@ bin/console tailwind:build    # One-shot Tailwind build (use this in CI scripts 
 Tailwind CSS is rebuilt automatically in the dev container — **never run `bin/console tailwind:build` manually after editing templates or `app.css`**. The watcher picks changes up within a second or two; if a class doesn't appear in the compiled CSS, wait briefly and re-check rather than reaching for a manual build. Only run `bin/console tailwind:build` explicitly in CI scripts or plan verify steps. The same applies to `cache:clear` — not needed in dev.
 
 The app runs at `https://loupe.dev.localhost`. PHP-FPM is on port 9000. A `worker` compose service consumes the async transport; `docker compose logs worker` to observe, `just worker` for a foreground consumer. A `tailwind` compose service watches and rebuilds the stylesheet the same way; `docker compose logs tailwind` to observe, `just tailwind` for a foreground watcher. Do not run both — two watchers write the same file and race.
+
+**A process started inside a container can only be observed and stopped from inside it.** The container has its own PID namespace, so a host-side `pkill -f <script>` — and the harness's own `TaskStop` — kills only the wrapper and reports success while the real process keeps running, invisible to the host process table. Stop it with `docker compose exec php-fpm pkill -f <script>` and confirm with `docker exec <project>-php-fpm-1 ps aux`; a host-side check will show a quiet container that is in fact fully loaded.
 
 **Production deployment — prod runs per-process containers.** Each process type (web, messenger worker) is its own container from the same image; `docker/prod/supervisord.conf` is only the web container's image-default CMD. Never add background processes as `[program:]` blocks there — the worker's command belongs to whatever orchestrates the containers: `worker_command` in `terraform/main.tf` for App Platform, the `worker` service in `docker/compose/prod.yaml` for a single host. Both run `messenger:consume scheduler_default async --time-limit=3600 --memory-limit=128M` (schedule transport first: a deep async backlog must not delay ticks).
 
