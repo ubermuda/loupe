@@ -4,57 +4,115 @@ declare(strict_types=1);
 
 namespace App\Module\Project\Mcp;
 
+use App\Mcp\FlagGatedToolInterface;
+use Mcp\Capability\RegistryInterface;
+use Mcp\Schema\Tool;
+use Mcp\Server\Builder;
+use Symfony\Component\DependencyInjection\Attribute\Autowire;
+use Symfony\Component\DependencyInjection\Attribute\AutowireIterator;
 use Ubermuda\FeatureFlagsBundle\FeatureFlagService;
 
 /**
- * The MCP tools advertised to a connected agent, in the order the Connect
- * screen lists them. Each description is a translation key so the copy stays
- * in the message catalog. The landing page lists the same set, so this is the
- * one place the roster is written down.
+ * The MCP tools this instance advertises, for the screens that list them.
+ *
+ * Both the roster and the gates are read from the server itself — the registry
+ * the #[McpTool] attributes build, and each tool's own requiredFlag() — so a
+ * tool added, renamed or gated cannot be described differently here than it
+ * behaves there.
  */
-final readonly class AdvertisedTools
+final class AdvertisedTools
 {
-    /** @var list<array{name: string, descriptionKey: string}> */
-    public const array ALL = [
-        ['name' => 'document_create', 'descriptionKey' => 'project.connect.tool.document_create'],
-        ['name' => 'document_list', 'descriptionKey' => 'project.connect.tool.document_list'],
-        ['name' => 'document_get', 'descriptionKey' => 'project.connect.tool.document_get'],
-        ['name' => 'document_revise', 'descriptionKey' => 'project.connect.tool.document_revise'],
-        ['name' => 'document_rename', 'descriptionKey' => 'project.connect.tool.document_rename'],
-        ['name' => 'document_archive', 'descriptionKey' => 'project.connect.tool.document_archive'],
-        ['name' => 'document_unarchive', 'descriptionKey' => 'project.connect.tool.document_unarchive'],
-        ['name' => 'document_set_tags', 'descriptionKey' => 'project.connect.tool.document_set_tags'],
-        ['name' => 'document_set_references', 'descriptionKey' => 'project.connect.tool.document_set_references'],
-        ['name' => 'document_highlight', 'descriptionKey' => 'project.connect.tool.document_highlight'],
-        ['name' => 'document_get_review', 'descriptionKey' => 'project.connect.tool.document_get_review'],
-        ['name' => 'document_reply_to_comment', 'descriptionKey' => 'project.connect.tool.document_reply_to_comment'],
-        ['name' => 'document_mark_comment_addressed', 'descriptionKey' => 'project.connect.tool.document_mark_comment_addressed'],
-        ['name' => 'tag_list', 'descriptionKey' => 'project.connect.tool.tag_list'],
-        ['name' => 'site_review_get', 'descriptionKey' => 'project.connect.tool.site_review_get'],
-        ['name' => 'site_review_mark_comment_addressed', 'descriptionKey' => 'project.connect.tool.site_review_mark_comment_addressed'],
+    private const string KEY_PREFIX = 'project.connect.tool.';
+
+    /**
+     * Reading order, and nothing else: writing a document comes before reading
+     * its review, which comes before answering it. A tool missing from this
+     * list is still advertised — it lands at the end.
+     */
+    private const array ORDER = [
+        'document_create',
+        'document_list',
+        'document_get',
+        'document_revise',
+        'document_rename',
+        'document_archive',
+        'document_unarchive',
+        'document_set_tags',
+        'document_set_references',
+        'document_highlight',
+        'document_get_review',
+        'document_reply_to_comment',
+        'document_mark_comment_addressed',
+        'tag_list',
+        'site_review_get',
+        'site_review_mark_comment_addressed',
     ];
 
-    /** @var array<string, string> tool name => the flag that must be on to advertise it */
-    public const array GATED = ['document_highlight' => 'review.highlights.enabled'];
+    /** @var list<array{name: string, descriptionKey: string}>|null */
+    private ?array $enabled = null;
 
+    /** @param iterable<FlagGatedToolInterface> $gatedTools */
     public function __construct(
-        private FeatureFlagService $featureFlags,
+        private readonly FeatureFlagService $featureFlags,
+
+        #[AutowireIterator('app.mcp_gated_tool')]
+        private readonly iterable $gatedTools,
+
+        #[Autowire(service: 'mcp.server.builder')]
+        private readonly Builder $builder,
+
+        #[Autowire(service: 'mcp.registry')]
+        private readonly RegistryInterface $registry,
     ) {
     }
 
     /**
-     * What this instance actually exposes. A gated tool is absent from the MCP
-     * server while its flag is off, so advertising it anywhere would promise a
-     * tool the agent cannot call.
+     * What an agent connecting right now would be offered: the same list
+     * FlagGatedListToolsHandler answers tools/list with.
      *
      * @return list<array{name: string, descriptionKey: string}>
      */
     public function enabled(): array
     {
-        return array_values(array_filter(
-            self::ALL,
-            fn (array $tool): bool => !isset(self::GATED[$tool['name']])
-                || $this->featureFlags->isEnabled(self::GATED[$tool['name']]),
-        ));
+        if (null !== $this->enabled) {
+            return $this->enabled;
+        }
+
+        // The loaders populate the registry when the server is built, so an
+        // unbuilt one answers with nothing at all rather than failing.
+        $this->builder->build();
+
+        $gates = [];
+        foreach ($this->gatedTools as $gatedTool) {
+            $gates[$gatedTool->gatedToolName()] = $gatedTool->requiredFlag();
+        }
+
+        $names = [];
+        foreach ($this->registry->getTools()->references as $tool) {
+            \assert($tool instanceof Tool);
+
+            if (isset($gates[$tool->name]) && !$this->featureFlags->isEnabled($gates[$tool->name])) {
+                continue;
+            }
+
+            $names[] = $tool->name;
+        }
+
+        usort($names, fn (string $left, string $right): int => $this->rank($left) <=> $this->rank($right));
+
+        return $this->enabled = array_map(
+            static fn (string $name): array => [
+                'name' => $name,
+                'descriptionKey' => self::KEY_PREFIX.$name,
+            ],
+            $names,
+        );
+    }
+
+    private function rank(string $name): int
+    {
+        $position = array_search($name, self::ORDER, true);
+
+        return false === $position ? \count(self::ORDER) : $position;
     }
 }
