@@ -566,4 +566,104 @@ final class MarkdownRendererTest extends TestCase
 
         self::assertSame("\n\n\ntitle\nT\n\n\n\nA.\nnote\nB.\n", $plainText);
     }
+
+    public function test_front_matter_that_cannot_be_tabulated_is_shown_verbatim(): void
+    {
+        // Parsed as Markdown instead, the closing `---` turns the lines above it
+        // into a setext heading — and HeadingExtractor reads the rendered HTML, so
+        // the contents panel listed a section the document never wrote.
+        $html = new MarkdownRenderer(new NullLogger())->render("---\njust a string\n---\n\n## Real Section\n\nBody.\n");
+
+        self::assertStringContainsString("<pre><code>---\njust a string\n---</code></pre>", $html);
+        self::assertStringNotContainsString('heading-just-a-string', $html);
+        self::assertStringContainsString('<h2 id="heading-real-section">Real Section</h2>', $html);
+        self::assertStringContainsString('<p>Body.</p>', $html);
+    }
+
+    public function test_unparseable_front_matter_is_escaped_rather_than_rendered(): void
+    {
+        $html = new MarkdownRenderer(new NullLogger())->render("---\ntitle: \"<b>x\n  bad: [1, 2\n---\n\nBody.\n");
+
+        self::assertStringContainsString('&lt;b&gt;x', $html);
+        self::assertStringNotContainsString('<b>', $html);
+    }
+
+    /**
+     * With everything unlisted blocked by default, the allow-list is the only
+     * thing keeping any of these tags — each would silently flatten to bare text
+     * if it ever fell off it, and no test elsewhere would notice.
+     */
+    #[DataProvider('markupTheAllowListMustKeep')]
+    public function test_allowed_markup_still_renders(string $markdown, string $expected): void
+    {
+        $html = new MarkdownRenderer(new NullLogger())->render($markdown);
+
+        self::assertStringContainsString($expected, $html);
+    }
+
+    /** @return iterable<string, array{string, string}> */
+    public static function markupTheAllowListMustKeep(): iterable
+    {
+        yield 'emphasis' => ['*a*', '<em>a</em>'];
+        yield 'strong' => ['**a**', '<strong>a</strong>'];
+        yield 'blockquote' => ['> quoted', '<blockquote>'];
+        yield 'ordered list start' => ["3. c\n4. d", '<ol start="3">'];
+        yield 'unordered list' => ['- a', '<li>a</li>'];
+        yield 'thematic break' => ["a\n\n***\n\nb", '<hr />'];
+        yield 'hard line break' => ["a  \nb", '<br />'];
+        yield 'fenced code language' => ["```php\n\$a = 1;\n```", '<code class="language-php">'];
+        yield 'inline code' => ['`x`', '<code>x</code>'];
+        yield 'table alignment' => ["| a | b |\n|:--|--:|\n| 1 | 2 |", '<th align="left">a</th>'];
+        yield 'table body cell' => ["| a |\n|--|\n| 1 |", '<td>1</td>'];
+        yield 'hand-written header cell' => ['<table><tr><th scope="row" colspan="2">h</th></tr></table>', '<th scope="row" colspan="2">h</th>'];
+        yield 'relative link' => ['[x](/p/1)', '<a href="/p/1">x</a>'];
+        yield 'image' => ['![alt](https://example.com/i.png)', '<img src="https://example.com/i.png" alt="alt"'];
+        yield 'strikethrough' => ['<s>gone</s>', '<s>gone</s>'];
+        yield 'definition list' => ['<dl><dt>t</dt><dd>d</dd></dl>', '<dl><dt>t</dt><dd>d</dd></dl>'];
+        yield 'abbreviation' => ['<abbr title="t">A</abbr>', '<abbr title="t">A</abbr>'];
+        yield 'insertion' => ['<ins datetime="2026-01-01">new</ins>', '<ins datetime="2026-01-01">new</ins>'];
+        yield 'deletion' => ['<del datetime="2026-01-01">old</del>', '<del datetime="2026-01-01">old</del>'];
+        yield 'superscript' => ['x<sup>1</sup>', '<sup>1</sup>'];
+        yield 'subscript' => ['x<sub>1</sub>', '<sub>1</sub>'];
+        yield 'keyboard' => ['<kbd>K</kbd>', '<kbd>K</kbd>'];
+        yield 'sample' => ['<samp>out</samp>', '<samp>out</samp>'];
+        yield 'variable' => ['<var>n</var>', '<var>n</var>'];
+        yield 'mark' => ['<mark>hit</mark>', '<mark>hit</mark>'];
+        yield 'small' => ['<small>fine</small>', '<small>fine</small>'];
+        yield 'quotation' => ['<q cite="/c">said</q>', '<q cite="/c">said</q>'];
+        yield 'citation' => ['<cite>src</cite>', '<cite>src</cite>'];
+        yield 'span' => ['<span>s</span>', '<span>s</span>'];
+        yield 'div' => ['<div>d</div>', '<div>d</div>'];
+    }
+
+    public function test_an_element_the_allow_list_never_heard_of_keeps_its_text(): void
+    {
+        // The point of blocking rather than dropping: plainText() is the basis every
+        // comment anchor is measured against, so an unanticipated tag must not take
+        // a paragraph with it.
+        $html = new MarkdownRenderer(new NullLogger())->render('<p>before <foobar>kept</foobar> after</p>');
+
+        self::assertStringNotContainsString('foobar', $html);
+        self::assertStringContainsString('before kept after', $html);
+    }
+
+    #[DataProvider('markupWhoseTextMustStayOut')]
+    public function test_code_never_becomes_prose(string $markdown, string $absent): void
+    {
+        // The exceptions to blocking: text that is code. `style` cannot be named in
+        // the sanitizer config at all in a body context, which is why the tree is
+        // stripped of it before the sanitizer sees it.
+        $html = new MarkdownRenderer(new NullLogger())->render($markdown."\n\nBody.\n");
+
+        self::assertStringNotContainsString($absent, $html);
+        self::assertStringContainsString('<p>Body.</p>', $html);
+    }
+
+    /** @return iterable<string, array{string, string}> */
+    public static function markupWhoseTextMustStayOut(): iterable
+    {
+        yield 'script' => ['<script>alert(1)</script>', 'alert'];
+        yield 'stylesheet' => ['<style>p { color: red }</style>', 'color'];
+        yield 'document title' => ['<title>Spoofed</title>', 'Spoofed'];
+    }
 }
