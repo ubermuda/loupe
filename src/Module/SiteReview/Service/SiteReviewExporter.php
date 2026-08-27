@@ -22,11 +22,10 @@ final readonly class SiteReviewExporter implements UserDataExporterInterface
     }
 
     #[\Override]
-    public function export(User $user): array
+    public function export(User $user): iterable
     {
-        $rows = [];
         foreach ($this->siteReviewComments->findByOwner($user) as $comment) {
-            $rows[] = [
+            yield [
                 'project' => $comment->project->name,
                 'body' => $comment->body,
                 'selector' => $comment->selector,
@@ -36,7 +35,5 @@ final readonly class SiteReviewExporter implements UserDataExporterInterface
                 'createdAt' => $comment->createdAt->format(\DateTimeInterface::ATOM),
             ];
         }
-
-        return $rows;
     }
 }

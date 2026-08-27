@@ -26,9 +26,9 @@ final class ReviewExporterTest extends TestCase
 
         /** @var ReviewRepository&Stub $repo */
         $repo = $this->createStub(ReviewRepository::class);
-        $repo->method('findByReviewer')->willReturn([$review]);
+        $repo->method('streamByReviewer')->willReturn([$review]);
 
-        $rows = new ReviewExporter($repo)->export($reviewer);
+        $rows = iterator_to_array(new ReviewExporter($repo)->export($reviewer));
 
         self::assertCount(1, $rows);
         self::assertSame('My doc', $rows[0]['document']);

@@ -124,6 +124,78 @@ final class DownloadDataExportControllerTest extends WebTestCase
         }
     }
 
+    public function test_the_signed_in_owner_downloads_without_a_token(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $owner = $this->createVerifiedUser($em, 'alice', 'alice@example.com');
+
+        $export = new DataExport($owner);
+        $export->complete();
+        $em->persist($export);
+        $em->flush();
+        $exportId = $export->id;
+        self::assertNotNull($exportId);
+        $em->clear();
+
+        $key = DataExport::computeArchiveKey($exportId);
+        $this->writeArchive($key);
+
+        try {
+            $client->loginUser($owner);
+            $client->request(Request::METHOD_GET, sprintf('/account/exports/%s/download', $exportId));
+
+            self::assertResponseIsSuccessful();
+            self::assertResponseHeaderSame(
+                'content-disposition',
+                sprintf('attachment; filename=loupe-export-%s.zip', $exportId),
+            );
+        } finally {
+            $this->exportStorage()->delete($key);
+        }
+    }
+
+    /** Ownership authorises the download; the 48-hour window still gates it. */
+    public function test_an_expired_export_gets_404_without_a_token(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $owner = $this->createVerifiedUser($em, 'alice', 'alice@example.com');
+
+        $export = new DataExport($owner);
+        $export->complete();
+        $export->expiresAt = new \DateTimeImmutable('-1 minute');
+        $em->persist($export);
+        $em->flush();
+        $exportId = $export->id;
+        self::assertNotNull($exportId);
+        $em->clear();
+
+        $client->loginUser($owner);
+        $client->request(Request::METHOD_GET, sprintf('/account/exports/%s/download', $exportId));
+
+        self::assertResponseStatusCodeSame(404);
+    }
+
+    public function test_a_pending_export_gets_404_without_a_token(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $owner = $this->createVerifiedUser($em, 'alice', 'alice@example.com');
+
+        $export = new DataExport($owner);
+        $em->persist($export);
+        $em->flush();
+        $exportId = $export->id;
+        self::assertNotNull($exportId);
+        $em->clear();
+
+        $client->loginUser($owner);
+        $client->request(Request::METHOD_GET, sprintf('/account/exports/%s/download', $exportId));
+
+        self::assertResponseStatusCodeSame(404);
+    }
+
     public function test_a_different_user_gets_404(): void
     {
         $client = static::createClient();

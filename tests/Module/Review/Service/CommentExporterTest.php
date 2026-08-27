@@ -34,7 +34,7 @@ final class CommentExporterTest extends TestCase
         $repo = $this->createStub(CommentRepository::class);
         $repo->method('findByAuthor')->willReturn([$parent, $reply]);
 
-        $rows = new CommentExporter($repo)->export($author);
+        $rows = iterator_to_array(new CommentExporter($repo)->export($author));
 
         self::assertCount(2, $rows);
         self::assertNull($rows[0]['parentId']);
@@ -70,7 +70,7 @@ final class CommentExporterTest extends TestCase
         $repo = $this->createStub(CommentRepository::class);
         $repo->method('findByAuthor')->willReturn([$prose, $strike, $rewording]);
 
-        $rows = new CommentExporter($repo)->export($author);
+        $rows = iterator_to_array(new CommentExporter($repo)->export($author));
 
         // A JSON export that collapsed '' into null would lose which passages the
         // user asked to delete.

@@ -22,20 +22,18 @@ final readonly class BillingProfileExporter implements UserDataExporterInterface
     }
 
     #[\Override]
-    public function export(User $user): array
+    public function export(User $user): iterable
     {
         $profile = $this->billingProfiles->findOneByUser($user);
         if (null === $profile) {
-            return [];
+            return;
         }
 
-        return [
-            'status' => $profile->status->value,
-            'stripeCustomerId' => $profile->stripeCustomerId,
-            'stripeSubscriptionId' => $profile->stripeSubscriptionId,
-            'trialEndsAt' => $profile->trialEndsAt->format(\DateTimeInterface::ATOM),
-            'currentPeriodEnd' => $profile->currentPeriodEnd?->format(\DateTimeInterface::ATOM),
-            'createdAt' => $profile->createdAt->format(\DateTimeInterface::ATOM),
-        ];
+        yield 'status' => $profile->status->value;
+        yield 'stripeCustomerId' => $profile->stripeCustomerId;
+        yield 'stripeSubscriptionId' => $profile->stripeSubscriptionId;
+        yield 'trialEndsAt' => $profile->trialEndsAt->format(\DateTimeInterface::ATOM);
+        yield 'currentPeriodEnd' => $profile->currentPeriodEnd?->format(\DateTimeInterface::ATOM);
+        yield 'createdAt' => $profile->createdAt->format(\DateTimeInterface::ATOM);
     }
 }

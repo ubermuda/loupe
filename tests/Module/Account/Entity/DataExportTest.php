@@ -59,4 +59,41 @@ final class DataExportTest extends TestCase
 
         self::assertFalse($export->isDownloadTokenValid($raw));
     }
+
+    public function test_a_ready_unexpired_export_is_downloadable(): void
+    {
+        $export = $this->makeExport();
+        self::assertFalse($export->isDownloadable(), 'A pending export has nothing to hand over');
+
+        $export->complete();
+
+        self::assertTrue($export->isDownloadable());
+    }
+
+    public function test_expiry_closes_the_download_regardless_of_the_token(): void
+    {
+        $export = $this->makeExport();
+        $export->complete();
+        $export->expiresAt = new \DateTimeImmutable('-1 minute');
+
+        self::assertFalse($export->isDownloadable());
+    }
+
+    public function test_a_null_expiry_closes_the_download(): void
+    {
+        $export = $this->makeExport();
+        $export->complete();
+        $export->expiresAt = null; // invalid state must fail closed
+
+        self::assertFalse($export->isDownloadable());
+    }
+
+    public function test_a_failed_export_is_not_downloadable(): void
+    {
+        $export = $this->makeExport();
+        $export->complete();
+        $export->fail();
+
+        self::assertFalse($export->isDownloadable());
+    }
 }

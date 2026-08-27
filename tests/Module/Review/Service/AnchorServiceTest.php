@@ -132,7 +132,7 @@ final class AnchorServiceTest extends TestCase
 
     public function test_from_quote_lands_on_the_first_occurrence_of_a_repeated_passage(): void
     {
-        // The caller has no context to disambiguate with, so locate() falls back
+        // The caller has no context to disambiguate with, so the search falls back
         // to earliest position. Pinned because it is silent: a caller meaning the
         // second occurrence gets the first one and is told the call succeeded.
         $text = 'Rotate the key. Some other sentence. Rotate the key.';
@@ -152,6 +152,66 @@ final class AnchorServiceTest extends TestCase
         // What an agent quoting its Markdown source hits: the rendered plain text
         // has no asterisks, so the quote is nowhere to be found.
         self::assertNull($this->service->fromQuote('We will rotate the key.', '**rotate**'));
+    }
+
+    public function test_from_quote_matches_a_passage_the_source_wrapped_across_lines(): void
+    {
+        // Markdown here is written at 80 columns and CommonMark keeps those
+        // newlines inside the paragraph, so a caller quoting what it read on the
+        // rendered page sends a space wherever the author's source wrapped.
+        $text = "Until the server says which of\nthree things went wrong, nothing moves.";
+
+        $anchor = $this->service->fromQuote($text, 'Until the server says which of three things went wrong');
+
+        self::assertNotNull($anchor);
+        // The stored quote is the verbatim span, newline included — the browser
+        // searches its own textContent for exactly this string.
+        self::assertSame("Until the server says which of\nthree things went wrong", $anchor->quote);
+        self::assertSame(0, $anchor->offsetHint);
+    }
+
+    public function test_from_quote_tolerates_whitespace_the_caller_introduced_too(): void
+    {
+        $anchor = $this->service->fromQuote('We rotate the key hourly.', "rotate\n   the  key");
+
+        self::assertNotNull($anchor);
+        self::assertSame('rotate the key', $anchor->quote);
+        self::assertSame(3, $anchor->offsetHint);
+    }
+
+    public function test_from_quote_offset_hint_counts_characters_not_bytes_across_a_wrap(): void
+    {
+        // An emoji costs four bytes and one character, so a hint left in byte space
+        // would point past the span the browser walks to.
+        $text = "Ship it 🚀 — until the server says which of\nthree things went wrong.";
+        $expected = mb_strpos($text, 'until the server');
+        self::assertIsInt($expected);
+
+        $anchor = $this->service->fromQuote($text, 'until the server says which of three things');
+
+        self::assertNotNull($anchor);
+        self::assertSame($expected, $anchor->offsetHint);
+        self::assertSame("until the server says which of\nthree things", $anchor->quote);
+    }
+
+    public function test_from_quote_prefers_the_earliest_span_however_it_was_wrapped(): void
+    {
+        // The wrapped occurrence comes first, so it wins over the later one that
+        // happens to match the quote character for character.
+        $text = "rotate\nthe key later; rotate the key.";
+
+        $anchor = $this->service->fromQuote($text, 'rotate the key');
+
+        self::assertNotNull($anchor);
+        self::assertSame(0, $anchor->offsetHint);
+        self::assertSame("rotate\nthe key", $anchor->quote);
+    }
+
+    public function test_from_quote_does_not_bridge_words_the_text_never_ran_together(): void
+    {
+        // Collapsing whitespace runs must not become "ignore whatever sits between
+        // the words" — the segments still have to be adjacent in the text.
+        self::assertNull($this->service->fromQuote('rotate the master key', 'rotate the key'));
     }
 
     public function test_unanchored_yields_empty_anchor(): void

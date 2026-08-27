@@ -13,6 +13,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/ubermuda/loupe/cli/internal/api"
 	"github.com/ubermuda/loupe/cli/internal/config"
+	"golang.org/x/term"
 )
 
 func newLoginCmd() *cobra.Command {
@@ -30,16 +31,11 @@ func newLoginCmd() *cobra.Command {
 			}
 			if token == "" {
 				fmt.Fprint(cmd.OutOrStdout(), "API token (site-review scope): ")
-				line, err := bufio.NewReader(cmd.InOrStdin()).ReadString('\n')
-				// A token piped in without a trailing newline ends in EOF with
-				// the line already read, which is success. EOF with nothing
-				// read, or any other error, is a failed read — reporting it as
-				// "no token provided" would send the user looking in the wrong
-				// place.
-				if err != nil && !(errors.Is(err, io.EOF) && line != "") {
-					return fmt.Errorf("read token: %w", err)
+				read, err := promptForToken(cmd)
+				if err != nil {
+					return err
 				}
-				token = line
+				token = read
 			}
 			token = strings.TrimSpace(token)
 			if token == "" {
@@ -66,4 +62,32 @@ func newLoginCmd() *cobra.Command {
 	cmd.Flags().StringVar(&token, "token", "", "API token (else LOUPE_TOKEN env, else prompt)")
 
 	return cmd
+}
+
+// promptForToken reads the token without echoing it when the input is a real
+// terminal, and falls back to a line read for pipes and tests.
+func promptForToken(cmd *cobra.Command) (string, error) {
+	in := cmd.InOrStdin()
+
+	if f, ok := in.(*os.File); ok && term.IsTerminal(int(f.Fd())) {
+		raw, err := term.ReadPassword(int(f.Fd()))
+		// Suppressed echo swallows the Enter keypress too, so the next line of
+		// output would otherwise run on from the prompt.
+		fmt.Fprintln(cmd.OutOrStdout())
+		if err != nil {
+			return "", fmt.Errorf("read token: %w", err)
+		}
+
+		return string(raw), nil
+	}
+
+	line, err := bufio.NewReader(in).ReadString('\n')
+	// A token piped in without a trailing newline ends in EOF with the line
+	// already read, which is success. EOF with nothing read, or any other
+	// error, is a failed read.
+	if err != nil && !(errors.Is(err, io.EOF) && line != "") {
+		return "", fmt.Errorf("read token: %w", err)
+	}
+
+	return line, nil
 }

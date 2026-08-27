@@ -22,7 +22,7 @@ final class ProjectExporterTest extends TestCase
         $repo = $this->createStub(ProjectRepository::class);
         $repo->method('findByOwner')->willReturn([$project]);
 
-        $rows = new ProjectExporter($repo)->export($user);
+        $rows = iterator_to_array(new ProjectExporter($repo)->export($user));
 
         self::assertCount(1, $rows);
         self::assertSame('My project', $rows[0]['name']);

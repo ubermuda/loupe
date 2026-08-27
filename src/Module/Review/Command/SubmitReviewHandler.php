@@ -5,10 +5,10 @@ declare(strict_types=1);
 namespace App\Module\Review\Command;
 
 use App\Exception\DomainErrors;
-use App\Module\Review\Entity\DocumentStatus;
 use App\Module\Review\Entity\Review;
 use App\Module\Review\Entity\Verdict;
 use App\Module\Review\Repository\DocumentVersionRepository;
+use App\Module\Review\Repository\ReviewRepository;
 use Doctrine\DBAL\LockMode;
 use Doctrine\ORM\EntityManagerInterface;
 
@@ -17,6 +17,7 @@ final readonly class SubmitReviewHandler
     public function __construct(
         private EntityManagerInterface $em,
         private DocumentVersionRepository $documentVersions,
+        private ReviewRepository $reviews,
     ) {
     }
 
@@ -24,6 +25,14 @@ final readonly class SubmitReviewHandler
     {
         $verdict = Verdict::tryFrom($command->verdict)
             ?? throw new DomainErrors(['verdict' => 'review.document.flash.verdict_invalid']);
+
+        // Withdrawn is a verdict value but not a submittable one — it is written by
+        // UndoVerdictHandler, which checks there is something to withdraw first.
+        // Nothing else rejects it: the form DTO only guards against a blank value,
+        // so a hand-crafted POST would otherwise reach the log through this route.
+        if (Verdict::Withdrawn === $verdict) {
+            throw new DomainErrors(['verdict' => 'review.document.flash.verdict_invalid']);
+        }
 
         $document = $command->document;
 
@@ -34,16 +43,18 @@ final readonly class SubmitReviewHandler
             // version the reviewer never saw.
             $this->em->lock($document, LockMode::PESSIMISTIC_WRITE);
 
+            $version = $this->documentVersions->findLatest($document);
+
+            // Appended rather than replacing whatever stands: a version may be
+            // approved, withdrawn and approved again, and the log keeps all three.
             $review = new Review(
-                version: $this->documentVersions->findLatest($document),
+                version: $version,
                 verdict: $verdict,
                 reviewer: $command->reviewer,
+                sequence: $this->reviews->nextSequenceFor($version),
             );
 
-            $document->status = match ($verdict) {
-                Verdict::Approved => DocumentStatus::Approved,
-                Verdict::ChangesRequested => DocumentStatus::ChangesRequested,
-            };
+            $document->status = $verdict->documentStatus();
 
             $this->em->persist($review);
             $this->em->flush();

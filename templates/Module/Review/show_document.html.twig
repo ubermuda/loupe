@@ -472,6 +472,10 @@
             <span class="lp-verdict-bar__title">{{ ('review.document.verdict.' ~ verdict)|trans }}</span>
             <span class="lp-verdict-bar__detail">{{ ('review.document.verdict.' ~ verdict ~ '_detail')|trans }}</span>
         </span>
+        <form class="lp-verdict-bar__undo" method="POST" action="{{ path('app_document_review_undo', {projectId: document.project.id, documentId: document.id}) }}">
+            <input type="hidden" name="_csrf_token" value="{{ csrf_token('submit-review') }}">
+            <button type="submit" class="lp-btn lp-btn--ghost lp-btn--sm">{{ 'review.document.verdict.undo'|trans }}</button>
+        </form>
     </div>
     {% endif %}
 </div>

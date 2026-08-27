@@ -22,17 +22,14 @@ final readonly class ConnectedAccountExporter implements UserDataExporterInterfa
     }
 
     #[\Override]
-    public function export(User $user): array
+    public function export(User $user): iterable
     {
-        $rows = [];
         foreach ($this->connectedAccounts->findBy(['user' => $user]) as $account) {
-            $rows[] = [
+            yield [
                 'provider' => $account->provider->value,
                 'providerUserId' => $account->providerUserId,
                 'linkedAt' => $account->createdAt->format(\DateTimeInterface::ATOM),
             ];
         }
-
-        return $rows;
     }
 }

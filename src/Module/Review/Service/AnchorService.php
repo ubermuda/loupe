@@ -24,12 +24,12 @@ use App\Module\Review\ValueObject\Anchor;
  * also weighs proximity to the previous version's offsetHint.
  *
  * Every offset, length and window this class exposes counts CHARACTERS, never
- * bytes — matching how the browser slices textContent (comment_anchor_controller's
- * #extractAnchor and #findRange), up to the caveat that JS counts UTF-16 code
- * units, so the two agree only within the Basic Multilingual Plane. Mixing the
- * units makes an anchor rebuilt by create() cover a different span from the one
- * the browser captured, and makes the two sides rank the occurrences of a
- * repeated quote differently.
+ * bytes — matching how the browser sizes its own windows: JS string indices are
+ * UTF-16 code units, so comment_anchor_controller's #extractAnchor and #findRange
+ * iterate codepoints to keep the two counts identical above the Basic Multilingual
+ * Plane. Mixing the units makes an anchor rebuilt by create() cover a different
+ * span from the one the browser captured, and makes the two sides rank the
+ * occurrences of a repeated quote differently.
  *
  * Searching and scoring nonetheless happen in byte space internally, converted to
  * characters once at the end (see characterOffsets) — mb_* seeking is linear in the
@@ -42,6 +42,9 @@ final class AnchorService
 
     /** Number of leading/trailing characters of the captured context used to confirm a match. */
     private const int FINGERPRINT = 8;
+
+    /** The bytes `\s` matches. None can occur inside a multi-byte UTF-8 sequence, so this is byte-safe. */
+    private const string WHITESPACE = " \t\n\r\v\f";
 
     /** $start and $length are character offsets into $text, not byte offsets. */
     public function create(string $text, int $start, int $length): Anchor
@@ -93,8 +96,8 @@ final class AnchorService
      * settle on the earliest occurrence.
      *
      * A quote that appears more than once resolves to the FIRST occurrence, and
-     * the caller is not told: with no context to score against, locate() has only
-     * its earliest-position tiebreak left. Server and browser both land there, so
+     * the caller is not told: with no context to score against, there is only an
+     * earliest-position tiebreak left. Server and browser both land there, so
      * nothing drifts — but a caller that meant a later occurrence gets the wrong
      * span cleanly, and its only remedy is to extend the quote until it is unique.
      *
@@ -104,12 +107,68 @@ final class AnchorService
      */
     public function fromQuote(string $text, string $quote): ?Anchor
     {
-        $offset = $this->locate($text, new Anchor($quote, '', '', 0));
-        if (null === $offset) {
+        $span = $this->locateAcrossWhitespace($text, $quote);
+        if (null === $span) {
             return null;
         }
 
-        return $this->create($text, $offset, mb_strlen($quote, 'UTF-8'));
+        return $this->create($text, ...$span);
+    }
+
+    /**
+     * Character offset and length of the earliest span of $text that reads as
+     * $quote once every whitespace run on either side counts as one break.
+     *
+     * A caller quoting what it read on the page sends a single space where the
+     * author's Markdown had a soft wrap: CommonMark keeps that newline inside the
+     * paragraph and plainText() preserves it, so an exact search never matches.
+     * The span returned is the UNNORMALISED one, so the anchor built from it still
+     * measures the text every other reader measures.
+     *
+     * @return array{int, int}|null character start and length
+     */
+    private function locateAcrossWhitespace(string $text, string $quote): ?array
+    {
+        // Split and walked by hand rather than searched with a pattern built FROM
+        // the quote: such a pattern stops compiling somewhere past 100 KB, and a
+        // quote can be a whole paragraph.
+        $segments = preg_split('~\s+~', $quote, -1, \PREG_SPLIT_NO_EMPTY);
+        if (false === $segments || [] === $segments) {
+            return null;
+        }
+
+        $first = array_shift($segments);
+        foreach ($this->occurrences($text, $first) as $byteStart) {
+            $byteEnd = $this->matchSegments($text, $segments, $byteStart + \strlen($first));
+            if (null === $byteEnd) {
+                continue;
+            }
+
+            $characters = $this->characterOffsets($text, [$byteStart, $byteEnd]);
+
+            return [$characters[$byteStart], $characters[$byteEnd] - $characters[$byteStart]];
+        }
+
+        return null;
+    }
+
+    /**
+     * Byte offset just past the last segment when each one follows the previous
+     * across at least one whitespace byte, null when the run breaks.
+     *
+     * @param list<string> $segments
+     */
+    private function matchSegments(string $text, array $segments, int $from): ?int
+    {
+        foreach ($segments as $segment) {
+            $gap = strspn($text, self::WHITESPACE, $from);
+            if (0 === $gap || 0 !== substr_compare($text, $segment, $from + $gap, \strlen($segment))) {
+                return null;
+            }
+            $from += $gap + \strlen($segment);
+        }
+
+        return $from;
     }
 
     /**

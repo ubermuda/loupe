@@ -75,6 +75,12 @@ class Comment
         // falsy, which collapses two of the three.
         #[ORM\Column(type: Types::TEXT, nullable: true)]
         public readonly ?string $replacement = null,
+
+        // Nullable because the column shipped after the rows did, and hydration
+        // bypasses this default. Comments written before it have no honest value
+        // to carry, so they carry none and their cards show no age.
+        #[ORM\Column(nullable: true)]
+        public readonly ?\DateTimeImmutable $createdAt = new \DateTimeImmutable(),
     ) {
     }
 }
