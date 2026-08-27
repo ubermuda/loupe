@@ -70,6 +70,11 @@ inside your OS config directory (`~/Library/Application Support` on macOS,
 Where no keychain is reachable — a container, or a Linux box with no D-Bus
 session — the token falls back into that same file at `0600`.
 
+Upgrading from a version that kept the token in `config.json` needs no action:
+the next command that reads it moves the token into the keychain and rewrites
+the file without it. On a host with no keychain, nothing changes and the file
+stays authoritative.
+
 ## `loupe bridge run`
 
 Subscribes to a site's review stream and injects each submitted review into a

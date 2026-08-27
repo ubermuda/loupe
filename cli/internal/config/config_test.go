@@ -18,6 +18,23 @@ func configPath(t *testing.T, root string) string {
 	return filepath.Join(root, "loupe", "config.json")
 }
 
+// writeLegacyConfig lays down the file an older CLI wrote: the token in the
+// JSON, no keychain entry anywhere.
+func writeLegacyConfig(t *testing.T, root string, c Config) {
+	t.Helper()
+
+	if err := os.MkdirAll(filepath.Join(root, "loupe"), 0o700); err != nil {
+		t.Fatalf("create config dir: %v", err)
+	}
+	b, err := json.Marshal(c)
+	if err != nil {
+		t.Fatalf("marshal config: %v", err)
+	}
+	if err := os.WriteFile(configPath(t, root), b, 0o600); err != nil {
+		t.Fatalf("write legacy config: %v", err)
+	}
+}
+
 func TestSaveLoadRoundTrip(t *testing.T) {
 	keyring.MockInit()
 	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
@@ -115,6 +132,96 @@ func TestSaveFallsBackToTheFileWithoutAKeychain(t *testing.T) {
 	}
 	if got != want {
 		t.Fatalf("round-trip mismatch: got %+v want %+v", got, want)
+	}
+}
+
+// TestLoadMigratesAFileTokenIntoTheKeychain covers the upgrade path. Someone
+// already logged in has no reason to run `login` again, so without this the
+// keychain never holds their token and it stays on disk forever.
+func TestLoadMigratesAFileTokenIntoTheKeychain(t *testing.T) {
+	keyring.MockInit()
+	root := t.TempDir()
+	t.Setenv("XDG_CONFIG_HOME", root)
+
+	want := Config{BaseURL: "https://example.test", Token: "sk-legacy"}
+	writeLegacyConfig(t, root, want)
+	// Loosened first, so the permission assertion below cannot pass by accident.
+	if err := os.Chmod(configPath(t, root), 0o644); err != nil {
+		t.Fatalf("chmod: %v", err)
+	}
+
+	got, err := Load()
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if got != want {
+		t.Fatalf("Load returned %+v, want %+v", got, want)
+	}
+
+	b, err := os.ReadFile(configPath(t, root))
+	if err != nil {
+		t.Fatalf("read config: %v", err)
+	}
+	if strings.Contains(string(b), "sk-legacy") {
+		t.Fatalf("token was left on disk after migration: %s", b)
+	}
+
+	stored, err := keyring.Get(keyringService, want.BaseURL)
+	if err != nil {
+		t.Fatalf("keychain Get: %v", err)
+	}
+	if stored != want.Token {
+		t.Fatalf("keychain holds %q, want the migrated token", stored)
+	}
+
+	info, err := os.Stat(configPath(t, root))
+	if err != nil {
+		t.Fatalf("stat: %v", err)
+	}
+	if perm := info.Mode().Perm(); perm != 0o600 {
+		t.Fatalf("migration left permissions at %04o, want 0600", perm)
+	}
+
+	// The next command reads the migrated token back out of the keychain.
+	again, err := Load()
+	if err != nil {
+		t.Fatalf("second Load: %v", err)
+	}
+	if again != want {
+		t.Fatalf("second Load returned %+v, want %+v", again, want)
+	}
+}
+
+// TestLoadKeepsTheFileTokenWithoutAKeychain is the other half: on a headless
+// host the migration must be a silent no-op rather than a logout.
+func TestLoadKeepsTheFileTokenWithoutAKeychain(t *testing.T) {
+	keyring.MockInitWithError(errors.New("no keychain here"))
+	t.Cleanup(keyring.MockInit)
+
+	root := t.TempDir()
+	t.Setenv("XDG_CONFIG_HOME", root)
+
+	want := Config{BaseURL: "https://example.test", Token: "sk-legacy"}
+	writeLegacyConfig(t, root, want)
+
+	got, err := Load()
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if got != want {
+		t.Fatalf("Load returned %+v, want %+v", got, want)
+	}
+
+	b, err := os.ReadFile(configPath(t, root))
+	if err != nil {
+		t.Fatalf("read config: %v", err)
+	}
+	var onDisk Config
+	if err := json.Unmarshal(b, &onDisk); err != nil {
+		t.Fatalf("parse config: %v", err)
+	}
+	if onDisk.Token != want.Token {
+		t.Fatalf("config file holds token %q; without a keychain it stays authoritative", onDisk.Token)
 	}
 }
 

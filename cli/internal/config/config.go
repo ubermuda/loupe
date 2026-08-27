@@ -2,6 +2,10 @@
 // a JSON file under the user's config dir; the API token goes to the OS
 // keychain, falling back to that same file (mode 0600) wherever no keychain is
 // reachable — a headless container or a Linux box with no D-Bus session.
+//
+// A token an older version left in the file migrates to the keychain on the
+// next read, so an installation that never logs in again still stops keeping
+// the secret on disk.
 package config
 
 import (
@@ -58,19 +62,39 @@ func Load() (Config, error) {
 	if c.BaseURL == "" {
 		return c, ErrNotLoggedIn
 	}
-	// An empty token on disk means Save handed it to the keychain. A keychain
-	// that has since become unreachable is indistinguishable from one that
-	// never held the token, and both mean the same thing to the caller.
 	if c.Token == "" {
+		// An empty token on disk means Save handed it to the keychain. A
+		// keychain that has since become unreachable is indistinguishable from
+		// one that never held it, and both mean the same to the caller.
 		if token, err := keyring.Get(keyringService, c.BaseURL); err == nil {
 			c.Token = token
 		}
+	} else {
+		migrateTokenToKeyring(d, c)
 	}
+
 	if c.Token == "" {
 		return c, ErrNotLoggedIn
 	}
 
 	return c, nil
+}
+
+// migrateTokenToKeyring moves a token an older version left in the config file
+// into the keychain, so the secret stops living on disk without the user having
+// to log in again. The file is rewritten only once the keychain confirms the
+// write — losing the token from both places would log the user out. Where no
+// keychain is reachable this is a silent no-op and the file stays authoritative.
+func migrateTokenToKeyring(d string, c Config) {
+	if err := keyring.Set(keyringService, c.BaseURL, c.Token); err != nil {
+		return
+	}
+
+	cleared := c
+	cleared.Token = ""
+	// A failed rewrite leaves the token in both places, and the next command
+	// tries again.
+	_ = writeConfig(d, cleared)
 }
 
 // Save writes credentials, creating the config dir if needed. The token goes to
@@ -89,10 +113,15 @@ func Save(c Config) error {
 		stored.Token = ""
 	}
 
-	b, err := json.MarshalIndent(stored, "", "  ")
+	return writeConfig(d, stored)
+}
+
+func writeConfig(d string, c Config) error {
+	b, err := json.MarshalIndent(c, "", "  ")
 	if err != nil {
 		return err
 	}
+
 	path := filepath.Join(d, "config.json")
 	if err := os.WriteFile(path, b, 0o600); err != nil {
 		return fmt.Errorf("write config: %w", err)
