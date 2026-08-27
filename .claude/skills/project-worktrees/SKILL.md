@@ -45,29 +45,39 @@ worktree whose `.env.local` points at a database that was never created.
 
 ## The lifecycle runs itself
 
-`.claude/settings.json` registers two hooks, so a harness-created worktree is a
-provisioned one and a harness-removed one leaves nothing behind:
+`.claude/settings.json` registers two hooks, so a worktree arrives provisioned
+and leaves nothing behind:
 
-| Hook | Script | Does |
-|---|---|---|
-| `WorktreeCreate` | `.claude/hooks/worktree-create.sh` | Runs `worktree-bootstrap.sh` for the new tree |
-| `WorktreeRemove` | `.claude/hooks/worktree-remove.sh` | Runs `worktree-teardown.sh` with `WORKTREE_TEARDOWN_KEEP_TREE=1` |
+| Hook | Script | Receives | Does |
+|---|---|---|---|
+| `WorktreeCreate` | `.claude/hooks/worktree-create.sh` | `name` | Creates the worktree, runs `worktree-bootstrap.sh`, prints the path |
+| `WorktreeRemove` | `.claude/hooks/worktree-remove.sh` | `worktree_path` | Runs `worktree-teardown.sh` with `WORKTREE_TEARDOWN_KEEP_TREE=1` |
 
-Both ignore any worktree outside `.claude/worktrees/`. Create is **blocking**:
-if bootstrap fails, creation fails, because a worktree that cannot run `just ci`
-is the exact problem the hook exists to remove — its stderr names the cause, and
-it is almost always a stopped stack. Remove leaves the `git worktree remove` to
-the harness so the two do not race; run `just worktree-down NAME` by hand and
-the tree goes too.
+**The two events have different contracts, and the create side is the
+surprising one.** `WorktreeCreate` does not react to a worktree the harness
+made — it is handed a *name* and must produce the worktree itself, printing its
+absolute path as the **last line of stdout**. A non-zero exit or a missing path
+fails the creation, so everything else the script says goes to stderr. It puts
+the tree at `.claude/worktrees/<name>` on a branch of the same name, cut from
+`main` rather than the current branch. If bootstrap then fails it removes what
+it just created before exiting non-zero: a worktree that cannot run `just ci` is
+the problem the hook exists to remove, and an orphaned directory plus branch
+would be a second one.
+
+`WorktreeRemove` **cannot block** — its exit code is only logged in debug mode —
+so that script is best-effort and idempotent, and leaves the `git worktree
+remove` to the harness so the two cannot race. Run `just worktree-down NAME` by
+hand and the tree goes too. Both hooks ignore anything outside
+`.claude/worktrees/`.
+
+`timeout` is in seconds and the documented default is 600, which is what these
+use; bootstrap has to fit inside it.
 
 Teardown kills anything still running against the worktree in the shared
 php-fpm before it drops the databases, matching on the process's working
 directory (every worktree's console process has an identical command line in
 one container) and dropping with `--force`. A surviving consumer used to make
 `dropdb` fail silently and orphan both databases.
-
-An `isolation: "worktree"` agent still gets a harness-generated branch name, so
-work that must land on a named branch is still renamed and pushed deliberately.
 
 ## Rules that prevent real damage
 
@@ -160,11 +170,12 @@ form appears when switching straight into a freshly created worktree — re-issu
 **Agents launched with `isolation: "worktree"` get their own binding** and can
 write in parallel (verified: the agent lands in `.claude/worktrees/agent-<id>`
 on its own branch, writes there freely, and is refused when writing into another
-worktree). The `WorktreeCreate` hook provisions it, so it is a full application
-from the start rather than the bare `git worktree add` it used to be; if that
-hook is not registered, run `just worktree-up` yourself. The remaining caveat is
-that the branch name is harness-generated, so work that must land on a named
-branch has to be renamed and pushed deliberately. These worktrees are created
+worktree). The `WorktreeCreate` hook creates and provisions it, so it is a full
+application from the start rather than the bare `git worktree add` it used to
+be; if that hook is not registered, run `just worktree-up` yourself. The
+remaining caveat is that the name is harness-generated (`agent-<id>`, and the
+hook gives the branch that same name), so work that must land on a named branch
+has to be renamed and pushed deliberately. These worktrees are created
 **locked**, but `just worktree-down agent-<id>` removes one cleanly anyway —
 sidecars and both databases included, no `--force` needed.
 

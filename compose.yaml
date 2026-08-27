@@ -52,6 +52,7 @@ services:
       # MAILER_DSN is deliberately NOT set here: real environment beats every
       # dotenv file, so a container value would pin every worktree to the shared
       # Mailpit. It comes from .env.dev, which resolves WORKTREE_MAILPIT_HOST.
+
       # The admin e2e spec logs in as this address; PromoteAdminUserListener
       # grants it ROLE_ADMIN on login. Dev-only file — production is untouched.
       ADMIN_EMAIL: "e2e-admin-smoke@example.com"
