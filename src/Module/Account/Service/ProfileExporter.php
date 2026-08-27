@@ -16,13 +16,11 @@ final readonly class ProfileExporter implements UserDataExporterInterface
     }
 
     #[\Override]
-    public function export(User $user): array
+    public function export(User $user): iterable
     {
-        return [
-            'fullName' => $user->fullName,
-            'email' => $user->email,
-            'createdAt' => $user->createdAt->format(\DateTimeInterface::ATOM),
-            'emailVerifiedAt' => $user->emailVerifiedAt?->format(\DateTimeInterface::ATOM),
-        ];
+        yield 'fullName' => $user->fullName;
+        yield 'email' => $user->email;
+        yield 'createdAt' => $user->createdAt->format(\DateTimeInterface::ATOM);
+        yield 'emailVerifiedAt' => $user->emailVerifiedAt?->format(\DateTimeInterface::ATOM);
     }
 }

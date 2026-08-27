@@ -60,3 +60,24 @@ description: "Things the application needs that are not configured on your behal
      started;
    - the production image itself, whose base is pinned by digest in
      `docker/prod/Dockerfile`; no image built from that pin has been deployed.
+
+6. **Terraform state holds production secrets in cleartext, on whichever machine
+   last ran `apply`.** `terraform/versions.tf` ships with its `backend "s3"`
+   block commented out, so state is local. `terraform/terraform.tfstate` and
+   `.tfstate.backup` then contain everything the app spec marks
+   `"type":"SECRET"`, plus the managed-database URI and the Spaces keys —
+   plaintext whatever the spec calls them. Provider credentials are not in state
+   but sit beside it in `terraform/terraform.tfvars`: same machine, same blast
+   radius, different file.
+
+   This is deliberate for a single operator on a single machine, where a remote
+   backend would add a bucket, a lock table and another credential against a
+   risk already bounded by that machine's own security. It is **not** a
+   repository exposure — all of it is covered by `terraform/.gitignore` and none
+   has ever been committed. The exposure is anything that copies a home
+   directory: system backups, cloud sync, a support bundle, a stolen laptop.
+
+   Switch to the encrypted remote backend the file already documents — then
+   `terraform init -migrate-state` and delete the local copies — as soon as any
+   of these is true: a second person runs `apply`, CI runs it, or the machine
+   stops being a single trusted one.

@@ -61,6 +61,16 @@ final class MarkdownDifferTest extends TestCase
 
         yield 'unicode and emoji' => ["Héllo wörld — naïve café 🎉\n", "Héllo wörld — naïve tea 🎉\n"];
 
+        yield 'a line reworded with another added beside it' => [
+            "# Title\n\nThe quick brown fox jumps over the lazy dog.\n",
+            "# Title\n\nThe quick brown fox leaps over the lazy dog.\n\nA second paragraph.\n",
+        ];
+
+        yield 'a mark spanning a line break' => [
+            "alpha beta\ngamma delta\n",
+            "alpha BETA\nGAMMA delta\nepsilon\n",
+        ];
+
         yield 'a long paragraph reflowed' => [
             "One sentence. Another sentence. A third sentence that is fairly long.\n",
             "One sentence.\nAnother sentence.\nA third sentence that is fairly long.\n",
@@ -105,6 +115,43 @@ final class MarkdownDifferTest extends TestCase
         self::assertTrue($diff->hasChanges());
         self::assertSame(['jumps'], self::textsOfKind($diff, DiffKind::Deleted));
         self::assertSame(['leaps'], self::textsOfKind($diff, DiffKind::Inserted));
+    }
+
+    /**
+     * The library marks words only when a replaced block has the same line count
+     * on both sides, so a revision that rewords a paragraph and adds one right
+     * after it used to come out as a whole-line delete plus insert.
+     */
+    public function test_a_reworded_line_keeps_its_word_marks_when_a_line_is_added_beside_it(): void
+    {
+        $diff = $this->differ->diff(
+            "The quick brown fox jumps over the lazy dog.\n",
+            "The quick brown fox leaps over the lazy dog.\nA second line.\n",
+        );
+
+        self::assertInstanceOf(DocumentDiff::class, $diff);
+        self::assertSame(['jumps'], self::textsOfKind($diff, DiffKind::Deleted));
+        self::assertContains('leaps', self::textsOfKind($diff, DiffKind::Inserted));
+        self::assertContains('The quick brown fox ', self::textsOfKind($diff, DiffKind::Unchanged));
+    }
+
+    /**
+     * A word run the library marks across the joined sides can straddle a line
+     * break; each line has to carry its own opening and closing mark or the
+     * second one renders the mark as literal text.
+     */
+    public function test_a_mark_spanning_a_line_break_is_reopened_on_the_next_line(): void
+    {
+        $diff = $this->differ->diff("alpha beta\ngamma delta\n", "alpha BETA\nGAMMA delta\nepsilon\n");
+
+        self::assertInstanceOf(DocumentDiff::class, $diff);
+        foreach ($diff->lines as $line) {
+            foreach ($line->segments as $segment) {
+                self::assertStringNotContainsString('<ins>', $segment->text);
+                self::assertStringNotContainsString('<del>', $segment->text);
+            }
+        }
+        self::assertContains(' delta', self::textsOfKind($diff, DiffKind::Unchanged));
     }
 
     /**

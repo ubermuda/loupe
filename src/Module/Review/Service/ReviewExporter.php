@@ -22,18 +22,15 @@ final readonly class ReviewExporter implements UserDataExporterInterface
     }
 
     #[\Override]
-    public function export(User $user): array
+    public function export(User $user): iterable
     {
-        $rows = [];
-        foreach ($this->reviews->findByReviewer($user) as $review) {
-            $rows[] = [
+        foreach ($this->reviews->streamByReviewer($user) as $review) {
+            yield [
                 'document' => $review->version->document->title,
                 'versionNumber' => $review->version->versionNumber,
                 'verdict' => $review->verdict->value,
                 'submittedAt' => $review->submittedAt->format(\DateTimeInterface::ATOM),
             ];
         }
-
-        return $rows;
     }
 }

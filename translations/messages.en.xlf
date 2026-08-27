@@ -3272,6 +3272,22 @@
                 <source>review.document.diff.back</source>
                 <target>Back to document</target>
             </trans-unit>
+            <trans-unit id="review.document.diff.picker.from_label">
+                <source>review.document.diff.picker.from_label</source>
+                <target>Compare from version</target>
+            </trans-unit>
+            <trans-unit id="review.document.diff.picker.to_label">
+                <source>review.document.diff.picker.to_label</source>
+                <target>Compare to version</target>
+            </trans-unit>
+            <trans-unit id="review.document.diff.picker.separator">
+                <source>review.document.diff.picker.separator</source>
+                <target>to</target>
+            </trans-unit>
+            <trans-unit id="review.document.diff.picker.submit">
+                <source>review.document.diff.picker.submit</source>
+                <target>Compare</target>
+            </trans-unit>
 
             <trans-unit id="landing.meta.description">
                 <source>landing.meta.description</source>
