@@ -140,8 +140,19 @@ as the bare-`docker compose` rule above: an invocation whose file cannot be
 resolved does not stay in its lane.
 
 **Tear down with `just worktree-down`, never a bare `git worktree remove`.**
-The latter leaves the sidecar and both databases behind, and the route then
+The latter leaves both sidecars and both databases behind, and the route then
 serves 502s. `just worktree-prune` cleans up after the fact.
+
+**Recover a worktree's identity from the compose project *label*, never from a
+container name.** A worktree has more than one sidecar, so any code that strips
+a service suffix (`-nginx-1`) breaks the moment a different service is the one
+that survived: prune parsed a Mailpit-only orphan as the slug
+`<slug>-mailpit-1`, then drove a teardown — and a database drop — from a slug
+belonging to nothing. Compose sets `com.docker.compose.project`, so
+`docker ps --format '{{.Label "com.docker.compose.project"}}'` reads the answer
+instead of reconstructing it. Adding a service must not be able to break
+cleanup. Teardown also passes `--remove-orphans`, so a `down` still removes a
+running service that the compose file it resolved does not declare.
 
 **The slug is not the directory name.** `Feature_X` lives in a directory of
 that name but owns the slug `feature-x`. Any tooling that matches worktrees —

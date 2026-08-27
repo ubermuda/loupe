@@ -88,10 +88,24 @@ worktree-prune:
     # Feature_X owns the slug feature-x, so looking for a directory of that
     # name would declare a live worktree orphaned and drop its databases.
     live=$(worktree_slug_index "$main" | awk '{print $1}')
-    for container in $(docker ps -a --filter "name=^${project}-wt-" --format '{{{{.Names}}'); do
-        slug=${container#"${project}-wt-"}
-        slug=${slug%-nginx-1}
+    # Read the compose project from the container's own label rather than
+    # reconstructing it by stripping a service suffix off the name. A worktree
+    # has more than one sidecar, so "strip -nginx-1" mis-parsed a Mailpit-only
+    # orphan as the slug '<slug>-mailpit-1' — the exact state prune exists for.
+    for compose_project in $(docker ps -a --filter "name=^${project}-wt-" \
+            --format '{{{{.Label "com.docker.compose.project"}}' | sort -u); do
+        case "$compose_project" in
+            "${project}-wt-"?*) ;;
+            *) echo "worktree-prune: ignoring '$compose_project' (not a worktree project)" >&2; continue ;;
+        esac
+        slug=${compose_project#"${project}-wt-"}
         if printf '%s\n' "$live" | grep -qx "$slug"; then
+            continue
+        fi
+        # This slug is about to drive a database drop, so make it prove it is
+        # one bootstrap could have minted before anything destructive runs.
+        if [ "$(worktree_slug "$slug")" != "$slug" ] || ! worktree_assert_slug "$slug" 2>/dev/null; then
+            echo "worktree-prune: refusing '$compose_project' — '$slug' is not a slug bootstrap could have created." >&2
             continue
         fi
         echo "pruning '$slug' (no worktree owns this slug)"
