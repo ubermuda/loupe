@@ -3145,10 +3145,10 @@
        it picked. The widget ships these styles inside a shadow root, so they
        cannot be shared from here — only kept in step with widget.js. */
     .lp-tech-target {
-        @apply relative inline-block my-2 rounded-xl border-2 border-accent bg-accent-faint-2;
+        @apply relative inline-block mt-5 rounded-xl border-2 border-accent bg-accent-faint;
     }
     .lp-tech-target__label {
-        @apply absolute -left-0.5 -top-6 inline-flex items-center h-5 px-2.5 rounded-full bg-accent text-ink text-xs font-semibold;
+        @apply absolute -left-0.5 -top-6.5 inline-flex items-center h-5 px-2.5 rounded-full bg-accent text-ink text-xs font-semibold;
     }
     .lp-tech-composer {
         @apply absolute right-5 bottom-20 flex w-80 flex-col rounded-2xl border border-line bg-app;
