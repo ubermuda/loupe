@@ -3042,10 +3042,20 @@
     .lp-landing-tab[aria-selected='false'] .lp-landing-tab__fill {
         @apply hidden;
     }
+    /* Both states carry the same animation so a hold only changes the play
+       state — dropping the rule would snap the sweep back to full. */
     .lp-landing-tabs[data-running='true']
+        .lp-landing-tab[aria-selected='true']
+        .lp-landing-tab__fill,
+    .lp-landing-tabs[data-running='paused']
         .lp-landing-tab[aria-selected='true']
         .lp-landing-tab__fill {
         animation: lp-tab-countdown 6s linear forwards;
+    }
+    .lp-landing-tabs[data-running='paused']
+        .lp-landing-tab[aria-selected='true']
+        .lp-landing-tab__fill {
+        animation-play-state: paused;
     }
 
     .lp-landing-tabs__stage {
