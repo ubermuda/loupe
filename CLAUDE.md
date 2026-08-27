@@ -24,6 +24,7 @@ These skills contain detailed conventions for specific areas. **Invoke the relev
 | `symfony-authorization` | Generic Symfony authorization mechanics — Voter classes, attribute naming, `#[IsGranted]` placement, `subject:` resolution, `is_granted()` in Twig |
 | `symfony-entity-route-mapping` | Routes that resolve entities from URL parameters — `{param:variable}` notation, `#[MapEntity]`, multi-entity routes |
 | `project-comments` | Writing or reviewing code comments and docblocks anywhere in `src/`, `assets/` or `tests/` |
+| `working-with-prs` | Opening, gating, reviewing or merging a pull request — the gate, the body, making a branch testable, Codex findings, merge protocol, running several branches at once |
 
 **Delegating to subagents:** a subagent does not inherit the skills you have loaded. When delegating PHP/entity/migration/command work to a subagent, state the relevant skill conventions in its prompt (or instruct it to invoke the skill first). Conventions that live only in a skill — e.g. the brand-new-table migration rule in `project-backend` — are silently missed when the subagent has no skill context.
 
@@ -100,62 +101,15 @@ or `admin@loupe.test` / `password` for the admin area.
 
 Custom slash commands go in `.claude/commands/` in this repository — not in user-level (`~/.claude/commands/`) or system-level directories.
 
-## Pre-PR gate
+## Pull requests
 
-Before opening a pull request, you must:
+**Invoke the `working-with-prs` skill before opening, gating or merging a pull request.** It carries the full gate, the merge protocol, the ruleset facts and the wave rules. The irreducible summary, so a session that skips it still does the right thing:
 
-1. Run `just cs` to apply formatter and rector fixes, and commit anything it changed. This works correctly from a worktree — the finder uses explicit excludes and throws if it matches zero files, so a vacuous pass is no longer possible.
-2. Run `just ci` and fix every failure — including ones that pre-date your change. `ci` is check-only: it reports style/rector violations but never rewrites files — `just cs` is the step that applies them.
-3. Run `just e2e` and fix every failure — including ones that pre-date your change.
-4. Run a Codex review of the branch: `mcp__codex-cli__review` with `model: "gpt-5.6-sol"` — always pass the model explicitly, because whatever the tool picks by default is rejected by this Codex account ("not supported when using Codex with a ChatGPT account").
-
-   **If `mcp__codex-cli__review` is not available in the session, STOP and tell the owner.** Do not silently fall back to the CLI and carry on — a missing MCP server is a configuration fault worth investigating, not an inconvenience to route around. Known cause: `codex-cli` is registered per-project in the user's own Claude configuration rather than in a committed `.mcp.json`, so a session running from a worktree path may not pick it up.
-
-   Once running, review against `origin/main`, not `main` — a worktree's local `main` is often stale, and reviewing against it reports findings for code that is already merged. Address the findings before opening the PR. If `codex review` produces no output for ~5 minutes with near-zero CPU, it is hung (typically at MCP startup) — kill it and fall back to `codex exec -c model="gpt-5.6-sol" "Review the diff of this branch against origin/main (git diff origin/main...HEAD) for correctness bugs and convention violations. Actionable findings only."`
-
-Do not open a PR until both commands pass cleanly. Pre-existing failures are not exempt; fix them as part of the branch.
-
-### Documentation-only branches skip e2e and Codex
-
-**When a branch changes nothing but Markdown, run steps 1 and 2 only.** Skip `just e2e` and the Codex review, and say so in the PR body so the record shows the gate was reduced deliberately rather than forgotten.
-
-The test is the diff, not the intent: **every changed file must end in `.md`**. Check it, do not assume —
-
-```bash
-git diff --name-only origin/main...HEAD | grep -v '\.md$'
-```
-
-Any output at all means the full gate applies. A branch that also touches `.env`, a Twig template, a fixture, `composer.json` or a `justfile` recipe is not documentation-only, however small the change looks.
-
-Two things this does **not** license. `just ci` still runs, because Markdown is not inert here: prettier covers some of it, `gamache`'s checks read `docs/`, and a docs commit can still break a build that greps them. And it does not extend to Markdown that is *executed* — a `.md` file a script or skill parses for commands is code wearing a `.md` suffix, so gate it fully.
-
-The reason is proportion rather than speed. `just e2e` is a serial ~4 minutes that cannot be parallelised (shared Mailpit), and running it to prove that a paragraph of prose did not break a browser test is a cost with no corresponding signal — while the habit of running a gate that can never fail is what teaches a reader to stop trusting gate results.
-
-## Parallel feature branches: merge protocol
-
-When several feature branches are in flight (worktrees, parallel agents), merges to `main` follow a strict protocol:
-
-1. A branch's final gate run (ci + codex + e2e) happens on the branch **fully merged with current main** — a branch cut or last-synced before a sibling merged has not really been gated (its e2e run never exercised the sibling's specs against its code).
-2. Merge **immediately** after the gate goes green — every merge to `main` between a branch's last sync and its own merge invalidates its PR (conflicts) or its gate (unexercised sibling specs).
-3. After **every** merge to main, run `just cs` on main and commit the drift — merge unions of two individually-clean branches produce fixer drift (missing `#[\Override]` etc.) that otherwise lands on whichever branch syncs next.
-4. Tear down a merged branch's worktree only **after** `gh pr merge` is confirmed — never in the same command chain. A failed merge with the worktree already destroyed forces a rebuild from origin.
-5. **A conflict-free merge is not a correct merge.** When one branch moves or renames a class, a *new* file on another branch merges cleanly while still importing the old name — git sees no conflict because the file never existed on both sides. After merging main into a branch that touched namespaces **or changed a constructor or method signature**, run `just ci` before trusting the merge; phpstan is what catches this, not git.
-
-   The signature variant is the same blind spot with a different tell. A branch that makes an argument required lives on, absorbs merges, and each incoming merge can bring a *new* file from a sibling that constructs the old shape. It existed on only one side, so git has nothing to report, and the result is a runtime `ArgumentCountError`. Grepping for the changed symbol is a good first pass and not sufficient — it finds only the shapes you thought to search for and goes stale at the next merge. When planning a wave, land signature changes early: every sibling merged ahead of one multiplies its exposure.
-6. **Resolving a conflict by taking one side can silently revert the other side's fix.** When two branches change the same region for unrelated reasons — one extracting a method, the other fixing a line inside the body it replaced — taking either side alone loses the other's intent. Before accepting a resolution, re-verify the *behaviour* both branches were protecting, not just that the markers are gone.
-
-   The sharpest form is **rename/rename**: two branches move the same file for different reasons — one namespacing a directory, one renaming for a naming convention — and git reports a conflict where *neither side is correct*. The answer is the combination: the newer branch's **content** at the other branch's **path**. Afterwards, verify every reference resolves to a file that exists, because a wrong choice here compiles fine and only fails at runtime.
-7. **`gh pr merge` right after `git push` often reports "Pull Request is not mergeable".** GitHub has not recomputed mergeability yet. Wait a few seconds and retry — it is not a real conflict.
-8. **`main` is protected by a ruleset, and it allows `--squash` only.** A plain `gh pr merge` fails with `GraphQL: Merge commits are not allowed on this repository`. Use `gh pr merge <n> --squash`. History on `main` is therefore one commit per pull request, and the **PR body becomes the commit body** — which is the real reason to write the body well, not just for the reviewer.
-
-   **Do not diagnose a rejected merge with `gh repo view`.** It reports the repository's *settings*, which happily say all three methods are allowed while the ruleset forbids two of them. The authority is the ruleset:
-
-   ```bash
-   id=$(gh api repos/ubermuda/loupe/rulesets -q '.[0].id')
-   gh api repos/ubermuda/loupe/rulesets/$id -q '.rules[]|select(.type=="pull_request")|.parameters'
-   ```
-
-   The same ruleset requires the eight CI checks (`lint`, `cs-check`, `phpstan`, `arkitect`, `gamache`, `audit`, `phpunit`, `e2e`) and **one approving review**. An approval in chat is not a GitHub approval: check `gh pr view <n> --json reviewDecision,mergeStateStatus` before concluding a merge is blocked by something else.
+- The gate is `just cs`, then `just ci`, then `just e2e`, then a Codex review (`mcp__codex-cli__review`, `model: "gpt-5.6-sol"`, against `origin/main`). Fix every failure, including pre-existing ones. If the Codex MCP is missing, **stop and tell the owner** rather than routing around it.
+- A branch whose every changed file ends in `.md` runs steps 1 and 2 only, and says so in the body. Verify with `git diff --name-only origin/main...HEAD | grep -v '\.md$'` — any output means the full gate applies.
+- `main` is protected and takes `--squash` only, so **the PR body becomes the commit body**. It requires eight CI checks and one approving review; an approval in chat is not a GitHub approval.
+- **Never approve your own work**, and do not merge on the owner's behalf unless asked.
+- A green gate is not evidence the change is correct. Read the diff.
 
 ## Recommendations and the quality bar
 
