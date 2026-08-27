@@ -3198,6 +3198,44 @@
         @apply inline-flex items-center justify-center min-w-5 h-5 px-1.5 rounded-full bg-accent text-ink text-xs font-bold;
     }
 
+    /* ── Two paths ──────────────────────────────────────────────────────
+       Running it and looking at it are the same decision at two sizes, so
+       they sit side by side with the production install given the width. */
+    .lp-landing-paths {
+        @apply grid gap-5 items-start md:grid-cols-3;
+    }
+    /* min-w-0 so the compose block scrolls inside the card instead of stretching
+       it past the grid track. */
+    .lp-landing-path {
+        @apply flex flex-col gap-5 min-w-0 rounded-2xl px-8 py-8;
+    }
+    .lp-landing-path--wide {
+        @apply bg-app border border-line md:col-span-2;
+    }
+    .lp-landing-path--sunken {
+        @apply bg-surface-2 gap-4;
+    }
+    .lp-landing-path__head {
+        @apply flex flex-col gap-1.5;
+    }
+    .lp-landing-path__title {
+        @apply font-display font-extrabold text-ink m-0 text-2xl tracking-tight;
+    }
+    .lp-landing-path__text {
+        @apply text-fg-mute m-0 text-sm leading-relaxed;
+    }
+
+    /* The demo command on a light surface: short enough to read in place, and
+       the only thing on this page anyone pastes verbatim. */
+    .lp-code-plain {
+        @apply flex flex-col items-start gap-3 rounded-xl border border-line bg-app p-4;
+    }
+    .lp-code-plain__body {
+        @apply font-mono text-ink m-0 text-xs leading-relaxed;
+        white-space: pre-wrap;
+        overflow-wrap: anywhere;
+    }
+
     /* ── Pricing ────────────────────────────────────────────────────────
        Two plans, the hosted one on the dark chrome so the pair reads as
        "yours" and "ours" rather than "worse" and "better". */
