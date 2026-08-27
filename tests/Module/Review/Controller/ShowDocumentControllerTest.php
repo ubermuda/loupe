@@ -348,6 +348,16 @@ final class ShowDocumentControllerTest extends WebTestCase
         self::assertNotNull($fetched);
         self::assertSame(DocumentStatus::InReview, $fetched->status);
 
+        // Appended, not deleted — the approval is still under the withdrawal.
+        $log = $em->getRepository(Review::class)->findBy(
+            ['version' => $fetched->currentVersion()],
+            ['sequence' => 'ASC'],
+        );
+        self::assertCount(2, $log);
+        self::assertSame(Verdict::Approved, $log[0]->verdict);
+        self::assertSame(Verdict::Withdrawn, $log[1]->verdict);
+        self::assertSame((string) $owner->id, (string) $log[1]->reviewer->id, 'The log records who withdrew it');
+
         $crawler = $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/documents/'.$documentId.'/review');
         self::assertSelectorNotExists('.lp-verdict-bar');
         self::assertCount(2, $crawler->filter('button[name="submit_review_form[verdict]"]'));

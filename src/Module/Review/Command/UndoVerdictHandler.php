@@ -5,7 +5,8 @@ declare(strict_types=1);
 namespace App\Module\Review\Command;
 
 use App\Exception\DomainErrors;
-use App\Module\Review\Entity\DocumentStatus;
+use App\Module\Review\Entity\Review;
+use App\Module\Review\Entity\Verdict;
 use App\Module\Review\Repository\DocumentVersionRepository;
 use App\Module\Review\Repository\ReviewRepository;
 use Doctrine\DBAL\LockMode;
@@ -20,27 +21,41 @@ final readonly class UndoVerdictHandler
     ) {
     }
 
-    public function __invoke(UndoVerdictCommand $command): void
+    public function __invoke(UndoVerdictCommand $command): Review
     {
         $document = $command->document;
 
-        $this->em->wrapInTransaction(function () use ($document): void {
-            // Same lock SubmitReviewHandler takes, for the same reason: a revision
-            // landing between the read and the write would otherwise undo a verdict
-            // attached to a version nobody is looking at any more.
+        return $this->em->wrapInTransaction(function () use ($command, $document): Review {
+            // Same lock SubmitReviewHandler takes, and needed for the same two
+            // reasons: a revision must not land between reading the version and
+            // writing to it, and the next sequence number must be read and used
+            // without another append slipping in between.
             $this->em->lock($document, LockMode::PESSIMISTIC_WRITE);
 
             $version = $this->documentVersions->findLatest($document);
-            $verdict = $this->reviews->findByVersion($version)
+            $newest = $this->reviews->findNewestByVersion($version)
                 ?? throw new DomainErrors(['verdict' => 'review.document.flash.verdict_none']);
 
-            // The row goes, rather than the status alone: document_get_review reports
-            // the verdict from the Review on the version, so a status-only undo would
-            // leave the agent reading an approval the page no longer shows.
-            $this->em->remove($verdict);
-            $document->status = DocumentStatus::InReview;
+            if (Verdict::Withdrawn === $newest->verdict) {
+                throw new DomainErrors(['verdict' => 'review.document.flash.verdict_already_withdrawn']);
+            }
 
+            // A withdrawal is appended, never a deletion or an edit of the verdict it
+            // takes back: the log is what says the document was approved at one point
+            // and by whom, and both of those are answers a reader wants later.
+            $withdrawal = new Review(
+                version: $version,
+                verdict: Verdict::Withdrawn,
+                reviewer: $command->actor,
+                sequence: $newest->sequence + 1,
+            );
+
+            $document->status = Verdict::Withdrawn->documentStatus();
+
+            $this->em->persist($withdrawal);
             $this->em->flush();
+
+            return $withdrawal;
         });
     }
 }

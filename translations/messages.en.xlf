@@ -1507,9 +1507,9 @@
                 <source>review.document.flash.verdict_invalid</source>
                 <target>Invalid verdict value submitted.</target>
             </trans-unit>
-            <trans-unit id="review.document.flash.verdict_already_given">
-                <source>review.document.flash.verdict_already_given</source>
-                <target>This version already has a verdict. Undo it before submitting another.</target>
+            <trans-unit id="review.document.flash.verdict_already_withdrawn">
+                <source>review.document.flash.verdict_already_withdrawn</source>
+                <target>That verdict has already been withdrawn.</target>
             </trans-unit>
             <trans-unit id="review.document.flash.verdict_undone">
                 <source>review.document.flash.verdict_undone</source>

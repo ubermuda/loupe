@@ -6,6 +6,7 @@ namespace App\Module\Review\Controller;
 
 use App\Controller\AppController;
 use App\Exception\DomainErrors;
+use App\Module\Account\Entity\User;
 use App\Module\Project\Entity\Project;
 use App\Module\Review\Command\UndoVerdictCommand;
 use App\Module\Review\Command\UndoVerdictHandler;
@@ -49,8 +50,13 @@ final class UndoVerdictController extends AppController
             'documentId' => (string) $document->id,
         ];
 
+        $user = $this->getUser();
+        if (!$user instanceof User) {
+            throw new \LogicException(\sprintf('%s reached without an authenticated User (got %s); this route must stay behind the ROLE_USER catch-all.', self::class, get_debug_type($user)));
+        }
+
         try {
-            ($this->undoVerdict)(new UndoVerdictCommand(document: $document));
+            ($this->undoVerdict)(new UndoVerdictCommand(document: $document, actor: $user));
         } catch (DomainErrors $e) {
             foreach ($e->errors as $translationKey) {
                 $this->addFlash('error', $this->translator->trans($translationKey));

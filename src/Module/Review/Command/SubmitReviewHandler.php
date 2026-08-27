@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Module\Review\Command;
 
 use App\Exception\DomainErrors;
-use App\Module\Review\Entity\DocumentStatus;
 use App\Module\Review\Entity\Review;
 use App\Module\Review\Entity\Verdict;
 use App\Module\Review\Repository\DocumentVersionRepository;
@@ -27,6 +26,14 @@ final readonly class SubmitReviewHandler
         $verdict = Verdict::tryFrom($command->verdict)
             ?? throw new DomainErrors(['verdict' => 'review.document.flash.verdict_invalid']);
 
+        // Withdrawn is a verdict value but not a submittable one — it is written by
+        // UndoVerdictHandler, which checks there is something to withdraw first.
+        // Nothing else rejects it: the form DTO only guards against a blank value,
+        // so a hand-crafted POST would otherwise reach the log through this route.
+        if (Verdict::Withdrawn === $verdict) {
+            throw new DomainErrors(['verdict' => 'review.document.flash.verdict_invalid']);
+        }
+
         $document = $command->document;
 
         return $this->em->wrapInTransaction(function () use ($command, $document, $verdict): Review {
@@ -38,24 +45,16 @@ final readonly class SubmitReviewHandler
 
             $version = $this->documentVersions->findLatest($document);
 
-            // A version carries one verdict. Checked under the lock a double-clicked
-            // submit would otherwise slip through, leaving two rows that submitted_at
-            // cannot order — the UNIQUE index behind this would then reject the second
-            // write with a driver error instead of a field error the form can show.
-            if (null !== $this->reviews->findByVersion($version)) {
-                throw new DomainErrors(['verdict' => 'review.document.flash.verdict_already_given']);
-            }
-
+            // Appended rather than replacing whatever stands: a version may be
+            // approved, withdrawn and approved again, and the log keeps all three.
             $review = new Review(
                 version: $version,
                 verdict: $verdict,
                 reviewer: $command->reviewer,
+                sequence: $this->reviews->nextSequenceFor($version),
             );
 
-            $document->status = match ($verdict) {
-                Verdict::Approved => DocumentStatus::Approved,
-                Verdict::ChangesRequested => DocumentStatus::ChangesRequested,
-            };
+            $document->status = $verdict->documentStatus();
 
             $this->em->persist($review);
             $this->em->flush();
