@@ -928,8 +928,9 @@ versioning would make the version list useless, so some form of draft state is
 probably needed. And who may edit: today authorship is implicit in whoever's
 agent token created the document, and there is no edit permission modelled.
 
-Related: "Review UI: version diff view", which becomes considerably more useful
-once humans are producing versions too.
+The review UI already renders a diff between any two versions of a document
+(`app_document_review_diff`); that view gets considerably more useful once
+humans are producing versions too.
 
 ## Review comments should be able to express an edit, not just describe one
 
