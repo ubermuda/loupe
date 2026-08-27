@@ -60,8 +60,11 @@ db_cluster_region = "tor1"   # datacenter slug, NOT the App Platform region
 
 Sized by `db_cluster_size` (default `db-s-1vcpu-1gb`) and
 `db_cluster_node_count` (default `1` — no standby). This mode also manages the
-cluster's trusted sources, which removes the firewall half of
-`just tf-db-bootstrap`.
+cluster's trusted sources, and manages them **authoritatively**: the firewall
+resource replaces the whole list on every apply, so a rule appended with `doctl`
+is silently dropped later — including the app's own. `just tf-db-bootstrap`
+detects this mode and skips its firewall half; the supported route is
+`db_cluster_trusted_ips`. Its GRANT half still runs, and is still needed.
 
 **Setting neither is rejected on purpose.** An empty `db_cluster_name` falls
 through to the shared module's own historical default, which is the upstream
@@ -74,14 +77,20 @@ wrong one plans cleanly and fails at apply.
 
 ## First deploy needs a one-time DB bootstrap
 
-The cluster needs two steps that can't be Terraformed (a firewall resource
-would cut off any sibling apps sharing it): add this app + your IP to the
-cluster's trusted sources, and `GRANT` schema privileges. After the first
+The cluster needs a `GRANT` of schema privileges, which DigitalOcean's API
+exposes no resource for. Attaching to a cluster you already run also needs this
+app + your IP added to its trusted sources, appended rather than declared so
+sibling apps sharing the cluster are not cut off. After the first
 `just tf-apply`, run:
 
 ```bash
 just tf-db-bootstrap
 ```
+
+In dedicated mode (`create_db_cluster = true`) the recipe runs the GRANT only,
+because Terraform owns the trusted-source list there. If this host cannot reach
+the cluster, add its address to `db_cluster_trusted_ips`, apply, re-run the
+recipe, then empty the variable and apply again.
 
 Then run migrations once and set `enable_predeploy_migrations = true` in
 `terraform.tfvars` for automated migrations thereafter. (The manual equivalent

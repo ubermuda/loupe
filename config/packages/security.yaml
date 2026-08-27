@@ -11,6 +11,11 @@ security:
         dev:
             pattern: ^/(_profiler|_wdt|assets|build)/
             security: false
+        # No security listener at all, so /livez cannot resolve a user and
+        # therefore cannot reach the database — see ShowLivenessController.
+        livez:
+            pattern: ^/livez$
+            security: false
         # The suspension gate on these two firewalls is the user_checker, not
         # RequireNotSuspendedListener: that listener exempts ^/api and ^/mcp
         # because an HTML redirect would corrupt a machine client's response.

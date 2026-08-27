@@ -1,10 +1,11 @@
 #!/usr/bin/env bash
-# Resolves the e2e target for the checkout this is run from, and prints three
+# Resolves the e2e target for the checkout this is run from, and prints four
 # lines:
 #
 #     <url>
 #     <worktree name, empty unless auto-detected>
 #     <main checkout path>
+#     <mailpit base url>
 #
 # One value per line, not tab-separated: tab is whitespace to IFS, so bash
 # collapses the empty middle field and shifts the main path into it.
@@ -30,15 +31,24 @@ project=$(grep -E '^COMPOSE_PROJECT_NAME=' "$main/.env" | head -1 | cut -d= -f2-
 project=${project:-loupe}
 
 worktree=""
+default_mailpit="https://mailpit.$project.dev.localhost"
 if [ "$here" != "$main" ]; then
     worktree=$(worktree_relative_name "$here" "$main")
-    default_url="https://$(worktree_slug "$worktree").$project.dev.localhost"
+    slug=$(worktree_slug "$worktree")
+    default_url="https://$slug.$project.dev.localhost"
+    # Each worktree gets its own Mailpit sidecar, which is what lets two suites
+    # run at once. Falls back to the shared one for the main checkout.
+    default_mailpit="https://mailpit-$slug.$project.dev.localhost"
 else
     default_url="https://e2e.$project.dev.localhost"
 fi
 
+# An explicit target may be anything, so neither the worktree-scoped repair nor
+# its Mailpit can be assumed to apply.
 if [ -n "${E2E_BASE_URL:-}" ]; then
     worktree=""
+    default_mailpit="https://mailpit.$project.dev.localhost"
 fi
 
-printf '%s\n%s\n%s\n' "${E2E_BASE_URL:-$default_url}" "$worktree" "$main"
+printf '%s\n%s\n%s\n%s\n' \
+    "${E2E_BASE_URL:-$default_url}" "$worktree" "$main" "${MAILPIT_URL:-$default_mailpit}"

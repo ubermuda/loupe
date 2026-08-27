@@ -44,8 +44,8 @@ db_server_version = "18" # the cluster's actual PG major version
 # Leave unset for the FIRST apply. The module attaches the cluster's trusted
 # sources after the app, so the app boots with no database access — and /healthz
 # answers 503 when the database is unreachable, which would stall the deploy on a
-# condition the next resource in the graph fixes. /login is public, queries
-# nothing and returns 200. Switch once migrations have run.
+# condition the next resource in the graph fixes. The /livez default reads no
+# database at all. Switch once migrations have run.
 # health_check_path = "/healthz"
 
 # Optional. Lets a post-deploy check read the running build:

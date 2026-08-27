@@ -37,8 +37,8 @@ variable "enable_predeploy_migrations" {
 
 variable "health_check_path" {
   type        = string
-  default     = "/login"
-  description = "Path App Platform probes to decide a container is healthy. /healthz is the real check — it answers 503 when the database is unreachable — but it cannot be used on the very first apply: the module attaches the cluster's trusted sources AFTER the app, so the app boots with no database access and would never pass. /login is public, queries nothing and returns 200. Switch to /healthz once the database is reachable."
+  default     = "/livez"
+  description = "Path App Platform probes to decide a container is healthy. /healthz is the real check — it answers 503 when the database is unreachable — but it cannot be used on the very first apply: the module attaches the cluster's trusted sources AFTER the app, so the app boots with no database access and would never pass. /livez is the deadlock-free default: it has no security listener, renders no template and reads no database, so it answers 200 as soon as PHP runs. Do NOT use /login for this — it renders flag-gated social buttons and therefore queries the database on every request. Switch to /healthz once the database is reachable."
 }
 
 variable "custom_domain" {

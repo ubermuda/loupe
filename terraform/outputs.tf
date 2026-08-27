@@ -18,6 +18,11 @@ output "db_cluster_id" {
   value       = module.app.db_cluster_id
 }
 
+output "db_cluster_is_dedicated" {
+  description = "True when Terraform created the cluster, and therefore owns its trusted-source list authoritatively. `just tf-db-bootstrap` reads this to decide whether appending firewall rules would survive the next apply."
+  value       = var.create_db_cluster
+}
+
 output "db_name" {
   description = "Per-app database name on the shared cluster."
   value       = module.app.db_name

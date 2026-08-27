@@ -62,7 +62,7 @@ module "app" {
   # db_name          = "loupe"   # defaults to app_name (- -> _)
   # db_user          = "loupe"   # defaults to db_name
 
-  # /login for the first apply, /healthz once the database is reachable — see
+  # /livez for the first apply, /healthz once the database is reachable — see
   # the variable for why the order matters.
   health_check_path = var.health_check_path
 

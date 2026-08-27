@@ -66,9 +66,9 @@ read by an agent rather than parsed by a script, so the reduced gate applies,
 but say in the body that you made that call.
 
 The reason is proportion rather than speed. `just e2e` is a serial four minutes
-that cannot be parallelised, and running it to prove a paragraph of prose did
-not break a browser test is cost with no signal — while the habit of running a
-gate that can never fail is what teaches a reader to stop trusting gate results.
+(`workers: 1`), and running it to prove a paragraph of prose did not break a
+browser test is cost with no signal — while the habit of running a gate that can
+never fail is what teaches a reader to stop trusting gate results.
 
 ## Write the body for two readers
 
@@ -154,8 +154,12 @@ Use bootstrap rather than a bare `app:dev:seed`: `install-reset` also drops the
 project the widget token belongs to, and bootstrap is what notices the token in
 `.env.local` no longer resolves and reissues it.
 
-Only one e2e run at a time, ever — Mailpit is shared, so concurrent runs read
-each other's mail.
+**Two runs launched this way cannot overlap.** Each worktree has its own Mailpit
+sidecar, so runs started with plain `just e2e` in different worktrees are
+isolated — but a run with an explicit `E2E_BASE_URL` deliberately falls back to
+the *shared* instance, so two of those read each other's mail. Serialise them.
+`bin/e2e-target.sh` prints the Mailpit URL it resolved as its fourth line, which
+is how you tell which one a run got.
 
 ## Merging
 

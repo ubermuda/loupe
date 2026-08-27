@@ -88,10 +88,24 @@ worktree-prune:
     # Feature_X owns the slug feature-x, so looking for a directory of that
     # name would declare a live worktree orphaned and drop its databases.
     live=$(worktree_slug_index "$main" | awk '{print $1}')
-    for container in $(docker ps -a --filter "name=^${project}-wt-" --format '{{{{.Names}}'); do
-        slug=${container#"${project}-wt-"}
-        slug=${slug%-nginx-1}
+    # Read the compose project from the container's own label rather than
+    # reconstructing it by stripping a service suffix off the name. A worktree
+    # has more than one sidecar, so "strip -nginx-1" mis-parsed a Mailpit-only
+    # orphan as the slug '<slug>-mailpit-1' — the exact state prune exists for.
+    for compose_project in $(docker ps -a --filter "name=^${project}-wt-" \
+            --format '{{{{.Label "com.docker.compose.project"}}' | sort -u); do
+        case "$compose_project" in
+            "${project}-wt-"?*) ;;
+            *) echo "worktree-prune: ignoring '$compose_project' (not a worktree project)" >&2; continue ;;
+        esac
+        slug=${compose_project#"${project}-wt-"}
         if printf '%s\n' "$live" | grep -qx "$slug"; then
+            continue
+        fi
+        # This slug is about to drive a database drop, so make it prove it is
+        # one bootstrap could have minted before anything destructive runs.
+        if [ "$(worktree_slug "$slug")" != "$slug" ] || ! worktree_assert_slug "$slug" 2>/dev/null; then
+            echo "worktree-prune: refusing '$compose_project' — '$slug' is not a slug bootstrap could have created." >&2
             continue
         fi
         echo "pruning '$slug' (no worktree owns this slug)"
@@ -352,13 +366,21 @@ e2e-down:
 e2e *args:
     #!/usr/bin/env bash
     set -euo pipefail
-    { read -r E2E_BASE_URL; read -r worktree; read -r main; } < <(bin/e2e-target.sh)
-    export E2E_BASE_URL
+    { read -r E2E_BASE_URL; read -r worktree; read -r main; read -r MAILPIT_URL; } < <(bin/e2e-target.sh)
+    export E2E_BASE_URL MAILPIT_URL
     [ -n "$worktree" ] && echo "e2e: worktree '$worktree' detected"
     echo "e2e: target $E2E_BASE_URL"
+    echo "e2e: mailpit $MAILPIT_URL"
     if ! curl -sf -o /dev/null "$E2E_BASE_URL/login"; then
         echo "e2e: $E2E_BASE_URL is not reachable — run 'just e2e-up' (or 'just worktree-up') first." >&2
         exit 1
+    fi
+    # A worktree's stylesheet is built once at provision time and by nothing
+    # afterwards, so a tree alive across a redesign serves CSS its branch had
+    # days ago while its Twig is current — which reads as a spec regression.
+    if [ -n "$worktree" ]; then
+        echo "e2e: rebuilding $worktree's stylesheet"
+        bin/worktrees/compose-exec.sh bin/console tailwind:build >/dev/null
     fi
     status=0
     ( cd e2e && npx playwright test "$@" ) || status=$?
@@ -385,12 +407,18 @@ e2e-coverage *args:
     # Same target resolution as `just e2e`, through the same script so the two
     # cannot drift: this recipe once fell through to Playwright's own default of
     # the dev host and truncated the development database.
-    { read -r E2E_BASE_URL; read -r worktree; read -r main; } < <(bin/e2e-target.sh)
-    export E2E_BASE_URL
+    { read -r E2E_BASE_URL; read -r worktree; read -r main; read -r MAILPIT_URL; } < <(bin/e2e-target.sh)
+    export E2E_BASE_URL MAILPIT_URL
     echo "e2e: target $E2E_BASE_URL"
+    echo "e2e: mailpit $MAILPIT_URL"
     if ! curl -sf -o /dev/null "$E2E_BASE_URL/login"; then
         echo "e2e: $E2E_BASE_URL is not reachable — run 'just e2e-up' (or 'just worktree-up') first." >&2
         exit 1
+    fi
+    # Same stale-stylesheet rebuild as `just e2e`, for the same reason.
+    if [ -n "$worktree" ]; then
+        echo "e2e: rebuilding $worktree's stylesheet"
+        bin/worktrees/compose-exec.sh bin/console tailwind:build >/dev/null
     fi
     rm -rf var/coverage
     status=0
@@ -534,11 +562,10 @@ tf-apply *args:
 tf-output *args:
     cd terraform && terraform output "$@"
 
-# One-time DB bootstrap on the shared cluster for THIS app (run once, after the
-# first `just tf-apply`). Adds the app + your current public IP to the cluster's
-# trusted sources (additive — preserves sibling apps), then grants the app user
-# schema privileges (PG15+ blocks CREATE on public otherwise). Needs doctl + docker.
-# One-time DB bootstrap on the shared cluster for THIS app.
+# One-time DB bootstrap for THIS app, run once after the first `just tf-apply`.
+# Grants the app user schema privileges (PG15+ blocks CREATE on public otherwise)
+# and, when attaching to a cluster someone else owns, appends the app + your
+# public IP to its trusted sources. Needs doctl + docker.
 tf-db-bootstrap:
     #!/usr/bin/env bash
     set -euo pipefail
@@ -547,11 +574,22 @@ tf-db-bootstrap:
     app_id=$(terraform output -raw app_id)
     db=$(terraform output -raw db_name)
     user=$(terraform output -raw db_user)
+    dedicated=$(terraform output -raw db_cluster_is_dedicated)
     myip=$(curl -fsS https://ifconfig.me)
-    echo "cluster=$cid app=$app_id db=$db user=$user ip=$myip"
-    doctl databases firewalls append "$cid" --rule app:"$app_id"
-    doctl databases firewalls append "$cid" --rule ip_addr:"$myip"
-    echo "Waiting for trusted-source change to propagate…"; sleep 5
+    echo "cluster=$cid app=$app_id db=$db user=$user ip=$myip dedicated=$dedicated"
+    # In dedicated mode the module declares a digitalocean_database_firewall for
+    # the cluster, and that resource replaces the WHOLE trusted-source list — so
+    # anything appended here is dropped by the next apply, including the app's
+    # own rule. Terraform is the only supported channel there.
+    if [ "$dedicated" = "true" ]; then
+      echo "Dedicated cluster: skipping the firewall append (Terraform owns the trusted-source list)."
+      echo "If this host cannot reach the cluster, add $myip to db_cluster_trusted_ips in"
+      echo "terraform.tfvars, run 'just tf-apply', re-run this recipe, then empty it and apply again."
+    else
+      doctl databases firewalls append "$cid" --rule app:"$app_id"
+      doctl databases firewalls append "$cid" --rule ip_addr:"$myip"
+      echo "Waiting for trusted-source change to propagate…"; sleep 5
+    fi
     read -r host port aduser adpass < <(doctl databases connection "$cid" --format Host,Port,User,Password --no-header)
     docker run --rm \
       -e PGHOST="$host" -e PGPORT="$port" -e PGUSER="$aduser" -e PGPASSWORD="$adpass" \

@@ -10,10 +10,13 @@ shared module
 [`terraform-digitalocean-symfony-app`](https://github.com/ubermuda/terraform-digitalocean-symfony-app),
 pinned to a tag in `terraform/main.tf`.
 
-The health check starts at `GET /login` and moves to `GET /healthz` once the
+The health check starts at `GET /livez` and moves to `GET /healthz` once the
 database is reachable — see step 6 below. `/healthz` queries the database, and
 on the first apply the app boots before trusted sources attach, so pointing at
-it up front fails the deploy.
+it up front fails the deploy. `/livez` exists for exactly this window: it runs
+with no security listener, renders no template and touches no database, so it
+answers 200 as soon as PHP starts. Do not substitute `/login` — it renders
+flag-gated social buttons, which is a database read on every request.
 
 ## Prerequisites
 
@@ -50,8 +53,13 @@ it up front fails the deploy.
    **Or have the module create a dedicated one** — set `create_db_cluster = true`
    and leave `db_cluster_name` unset. The module creates a cluster named
    `loupe-db`, sizes it from `db_cluster_size` (default `db-s-1vcpu-1gb`) and
-   `db_cluster_node_count` (default `1`), and manages its trusted sources — which
-   removes the `just tf-db-bootstrap` firewall step below. The cluster carries
+   `db_cluster_node_count` (default `1`), and manages its trusted sources
+   **authoritatively** — the firewall resource replaces the whole list on every
+   apply, so a rule appended by hand is dropped later, including the app's own.
+   `just tf-db-bootstrap` detects this mode and runs its GRANT half only; to let
+   your workstation reach the cluster for that step, put its address in
+   `db_cluster_trusted_ips`, apply, run the recipe, then empty it and apply
+   again. The cluster carries
    `prevent_destroy`, so `terraform destroy` refuses and so does flipping the
    flag back; `terraform state rm` is the deliberate override.
 
@@ -68,8 +76,10 @@ it up front fails the deploy.
 
 ## First deploy
 
-The first deploy has two steps that cannot be Terraformed, because a firewall
-resource would cut off the sibling apps sharing the cluster.
+The first deploy has a step that cannot be Terraformed: DigitalOcean exposes no
+resource for a Postgres GRANT. Attaching to a cluster you already run adds a
+second, appending trusted sources rather than declaring them, because a firewall
+resource would cut off the sibling apps sharing that cluster.
 
 ```bash
 # 1. Build and push the amd64 image. Export LOUPE_PROD_IMAGE first unless you
@@ -82,8 +92,8 @@ just push-prod
 just tf-init
 just tf-apply
 
-# 3. One-time database bootstrap: add this app plus your IP to the cluster's
-#    trusted sources, and GRANT schema privileges to the app's user.
+# 3. One-time database bootstrap: GRANT schema privileges to the app's user,
+#    and — attach mode only — add this app plus your IP to the trusted sources.
 just tf-db-bootstrap
 
 # 4. Run migrations once, by hand. release.sh needs exactly three values.
