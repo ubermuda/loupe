@@ -108,7 +108,7 @@ Custom slash commands go in `.claude/commands/` in this repository — not in us
 - The gate is `just cs`, then `just ci`, then `just e2e`, then a Codex review (`mcp__codex-cli__review`, `model: "gpt-5.6-sol"`, against `origin/main`). Fix every failure, including pre-existing ones. If the Codex MCP is missing, **stop and tell the owner** rather than routing around it.
 - A branch whose every changed file ends in `.md` runs steps 1 and 2 only, and says so in the body. Verify with `git diff --name-only origin/main...HEAD | grep -v '\.md$'` — any output means the full gate applies.
 - `main` is protected and takes `--squash` only, so **the PR body becomes the commit body**. It requires eight CI checks and one approving review; an approval in chat is not a GitHub approval.
-- **Never approve your own work**, and do not merge on the owner's behalf unless asked.
+- **Never approve your own work** — the review stays with a human. **Merging does not:** a PR that is approved with all required checks green is good to merge, without asking. Never merge one that is unapproved, has a failing or pending check, or would need `--admin`.
 - A green gate is not evidence the change is correct. Read the diff.
 
 ## Recommendations and the quality bar
