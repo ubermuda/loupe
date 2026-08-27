@@ -12,6 +12,14 @@
                 <source>footer.source.label</source>
                 <target>Source code</target>
             </trans-unit>
+            <trans-unit id="footer.social.x">
+                <source>footer.social.x</source>
+                <target>Geoffrey Bachelet on X</target>
+            </trans-unit>
+            <trans-unit id="footer.social.bluesky">
+                <source>footer.social.bluesky</source>
+                <target>Geoffrey Bachelet on Bluesky</target>
+            </trans-unit>
 
             <!-- Error pages -->
             <trans-unit id="error.home">
