@@ -94,35 +94,6 @@ One cost of deferring rather than declaring the app desktop-only: a phone
 currently gets a broken layout instead of an honest "not supported here" notice.
 If this stays deferred for long, that notice is the cheap interim step.
 
-## `just tf-db-bootstrap` does not survive an apply on a dedicated cluster
-
-**Author:** Claude · **Type:** tooling · **Priority:** high · **Status:** pending
-
-The recipe adds the app and the operator's IP to the cluster's trusted sources
-with `doctl databases firewalls append`, then grants the app user schema
-privileges. That is correct only when attaching to a cluster someone else owns.
-
-With `create_db_cluster = true` the shared module declares a
-`digitalocean_database_firewall` for the cluster, and that resource is
-**authoritative** — it replaces the whole trusted-source list. So both appended
-rules are silently dropped by the next `terraform apply`, including the app's
-own. The supported route in that mode is the `db_cluster_trusted_ips` variable
-(added on the same branch as this note): set it to the workstation address,
-apply, run the GRANT, empty it, apply again. The GRANT half of the recipe is
-still needed in both modes — DigitalOcean's API exposes no resource for
-Postgres grants.
-
-Nothing warns about this. The recipe exits 0, the rules exist, and they vanish
-on an apply that may be days later — presenting as an app that abruptly cannot
-reach its own database.
-
-Close it out by having the recipe read `create_db_cluster` (or the presence of
-the firewall in state) and, in dedicated mode, skip the `firewalls append` calls
-and tell the operator to set `db_cluster_trusted_ips` instead. The prose in
-`terraform/README.md` and `docs/getting-started/digitalocean.md` says create mode
-"removes the firewall half" of the bootstrap, which is true but reads as
-"the recipe is fine to run" rather than "half of what it does will be undone".
-
 ## A single-host deployment has no database backup at all
 
 **Author:** Claude · **Type:** tooling · **Priority:** high · **Status:** pending
@@ -169,32 +140,6 @@ Observed on provider 2.99.1. Not established whether 2.93.0 was clean — the
 lockfile was upgraded mid-deploy, so the two were never compared on the same
 state. Worth checking before anything more elaborate: if it is a regression, the
 fix is pinning rather than chasing the provider.
-
-## No database-free health check path, so a from-scratch first deploy deadlocks
-
-**Author:** Claude · **Type:** bug · **Priority:** medium · **Status:** pending
-
-The shared Terraform module defaults `health_check_path` to `/login` on the
-reasoning that it is public and returns 200 without touching the database. That
-is not true of this application: feature flags are a Doctrine entity, and the
-login page renders flag-gated social buttons, so `/login` queries `feature_flag`
-on every request. `/healthz` is a deliberate dependency probe and answers 503
-when the database is unreachable.
-
-That leaves no path a container can serve before the database works — and on a
-first apply the database never works, because the module attaches the cluster's
-trusted sources *after* the app (the app's ID is one of the firewall rules). The
-app therefore fails its health check, App Platform never marks the deployment
-live, and the apply dies on a condition the next resource in the graph would
-have resolved. Observed on a first apply, and recovered by appending the trusted
-sources by hand, granting, migrating, `terraform untaint`ing the app (Terraform
-wanted to *replace* it, which would have minted a new app ID and orphaned the
-firewall rule), then applying targeted.
-
-Worth fixing before anyone else follows the documented first-deploy sequence.
-The cheapest candidate is a liveness path that renders nothing and reads
-nothing — distinct from `/healthz`, which should keep failing closed on database
-loss because that is what a load balancer needs from it after boot.
 
 ## Proper HTTP API + outbound webhooks
 
@@ -255,116 +200,6 @@ derivation would reintroduce the N+1 that batching removed —
 precedent for a single grouped tally), where they surface
 alongside the existing status badge, and whether the MCP payload carries them.
 
-## Automate the worktree lifecycle instead of driving it by hand
-
-
-**Author:** Geoffrey · **Type:** tooling · **Priority:** medium · **Status:** pending
-
-`just worktree-up` provisions a worktree well, but nothing *invokes* it and
-nothing tears it down, so every step around it is manual and each one failed at
-least once during the nine-branch self-hosting wave on 2026-07-28. The failures
-were all lifecycle, never provisioning:
-
-- **A harness-created worktree is not a provisioned one.** An agent launched
-  with `isolation: "worktree"` gets a real git worktree under
-  `.claude/worktrees/agent-<id>` with no `vendor/`, no `.env.local`, no
-  database and no sidecar — so it cannot run `just ci`. That is why the wave
-  hand-created and hand-named every worktree instead of using harness
-  isolation.
-- **Messenger consumers die when the cache rebuilds under them**, and a live
-  consumer then blocks `just worktree-down`, which drops the database *after*
-  git has already deregistered the worktree — leaving a directory behind.
-- **Running `just cs`/`just ci` in a worktree while an e2e suite runs against
-  it corrupts the run.** It produced two false-red failures in that wave, both
-  presenting as an unrelated flaky spec.
-
-The shape of the fix is Claude Code's `WorktreeCreate` and `WorktreeRemove`
-hooks: create runs the bootstrap (making harness isolation usable, which is the
-biggest win), remove kills consumers before `just worktree-down`.
-
-Prior art worth reading before designing this: `raine/workmux` exposes
-`post_create` / `pre_merge` / `pre_remove` hooks plus declarative file
-copy/symlink and pane layout; `gausejakub/claude-skills` ships a
-`laravel-worktrees` skill doing per-worktree database, domain and port
-provisioning with Claude Code hooks for init and teardown — the same problem
-solved for Herd. There is also a "5 Claude Code worktree tips from creator
-of…" thread on r/ClaudeAI (`/r/ClaudeAI/comments/1rae05r/`) the owner flagged
-as worth mining.
-
-Related: 'Worktree e2e runs now require a worktree-scoped worker', which this
-would subsume.
-
-## Host `pkill` does not kill a process inside the php-fpm container
-
-
-**Author:** Claude · **Type:** tooling · **Priority:** medium · **Status:** pending
-
-`bin/worktrees/compose-exec.sh` ends in `exec docker compose exec … php-fpm
-"$@"`, so a host-side `pkill -f <script>` matches only the **client** process.
-The container has a separate PID namespace — on macOS, a separate VM entirely —
-so the real process keeps running, orphaned and invisible to the host process
-table, until it completes on its own.
-
-This is how a runaway scratch script consumed 26+ CPU-minutes while its author
-believed it had been killed, starving concurrent e2e runs the whole time. The
-symptom is deceptive: `ps` on the host shows nothing, so the container looks
-quiet when it is not.
-
-Kill container work from inside the container:
-
-```sh
-docker compose exec php-fpm pkill -f <script>
-```
-
-And check for it the same way — `docker exec <project>-php-fpm-1 ps aux` — since
-a host-side check will report a quiet container that is fully loaded.
-
-**The agent harness's own `TaskStop` has the same blind spot.** Stopping a
-background task that was launched through `compose-exec.sh` reports success and
-kills the **host-side wrapper**, leaving the real process running inside the
-container. This was observed with a `messenger:consume` consumer: `TaskStop`
-succeeded, a host-side check showed a clean shell, and the consumer was still
-holding the container. Anything that reports "the slot is free" on that basis is
-wrong.
-
-So the rule generalises past `pkill` to every stop mechanism: **a process
-started inside the container can only be observed and stopped from inside it.**
-Verify with `docker exec … ps aux` after any stop, whatever issued it.
-
-## A signature change on a long-lived branch makes every merge a phpstan question
-
-
-**Author:** Claude · **Type:** tooling · **Priority:** medium · **Status:** pending
-
-When a branch changes a constructor or method signature and then lives long
-enough to absorb several merges, **git cannot tell you what broke**. Each
-incoming merge may add a call site using the old signature, in a file the branch
-never touched — so there is no conflict, the merge is clean, and the result is a
-runtime `ArgumentCountError`.
-
-This happened **fourteen times** across four syncs of one branch on 2026-08-03,
-after it made a logger a required constructor argument of `MarkdownRenderer`.
-The last instance is the clearest: a construction inside
-`DiffDocumentVersionsControllerTest.php`, a **brand-new file** arriving from a
-sibling. It existed on only one side of the merge, so git had nothing to report
-at all. Twelve of the fourteen were found only because `just ci` ran.
-
-The rule worth internalising: after merging into a branch that changed a
-signature, the question "did this merge break anything" is answered by
-**phpstan, not by the absence of conflict markers**. A grep for the changed
-symbol is a good first pass but is not sufficient — it only finds shapes you
-thought to search for, and it goes stale the moment another merge lands.
-
-This is the same family as the rename/rename case already documented in
-`CLAUDE.md`'s merge protocol ("a conflict-free merge is not a correct merge"),
-but with a different tell: there, a file moves and a reference goes stale; here,
-a *new* file arrives already speaking the old contract. Both are invisible to
-git and visible to static analysis.
-
-Relevant when planning a wave: it argues for landing signature changes early
-rather than letting them ride at the back of a queue, since every sibling merged
-ahead of them multiplies the exposure.
-
 ## Set up ADRs and a stated list of architectural priorities
 
 
@@ -399,84 +234,6 @@ cases need escalating.
 Worth deciding when writing it: whether ADRs are required for a class of change
 (new dependency, schema change, cross-module boundary) or written on judgement,
 since a process nobody follows is worse than none.
-
-## The owner sets the quality bar, not the agent — say so in the instructions
-
-
-**Author:** Geoffrey · **Type:** tooling · **Priority:** medium · **Status:** pending
-
-Deciding what is good enough and what has to be exactly right is the owner's
-call. Claude has been making it silently and then presenting the outcome as a
-technical necessity, which removes the decision rather than informing it.
-
-Observed on 2026-08-03, across a wave of nine branches:
-
-- Findings were ranked "must-fix" and "should-fix" and agents were told to block
-  on the former. That ranking is a priority judgement wearing a severity label.
-- A branch's failing e2e run was declared to "outrank the merge queue".
-- Mutation-checking every fix was imposed as a standard rather than offered as
-  an option with a cost.
-- A stale form submission was required to be **refused** rather than resolved
-  against the version the reviewer saw — a product decision about what the user
-  experiences, presented as correctness.
-
-Some of these were probably the right calls. That is not the point: each was a
-choice about how much rigour a given thing deserves, and each was made without
-the person who gets to make it being asked.
-
-What the instructions should ask for: name the severity and the cost of fixing,
-recommend, and let the owner set the bar — especially where the fix is
-expensive, where the defect is unreachable in practice, or where "leave it and
-note it" is a legitimate answer. Reserve blocking language for things that are
-genuinely unsafe to ship, and say plainly when something is a judgement call
-rather than a requirement.
-
-The tell to watch for: describing a preference as though it were a property of
-the code. "This must refuse" and "I think refusing is better, here is the cost
-of each" are different sentences, and only the second leaves the decision where
-it belongs.
-
-Related: 'Update the agent instructions to weigh trade-offs instead of defending
-one option' — the same root, one level up. Inflating an argument defends a
-chosen approach; setting the bar unasked decides whether the approach was even
-needed.
-
-## Update the agent instructions to weigh trade-offs instead of defending one option
-
-
-**Author:** Geoffrey · **Type:** tooling · **Priority:** medium · **Status:** pending
-
-Claude tends to pick an approach and then argue for it, rather than laying out
-the options with honest costs on each side and letting the reader decide. The
-instructions should push toward the second behaviour explicitly.
-
-The failure is not that the recommendation is usually wrong — it is that the
-*reasoning is inflated to match the conclusion*. A minor downside of the
-rejected option gets described in the register of a serious one, which makes the
-argument unfalsifiable and hides how close the call actually was.
-
-Concrete example from 2026-08-03, on whether document search indexing should be
-synchronous. The measurement settled it easily: 1.07 ms for a typical document,
-109 ms at the 1 MiB input ceiling. "One millisecond, so async adds machinery for
-no gain" is the whole argument. What was written instead was that async would
-introduce "a window where a freshly created document is not yet findable" and a
-"real correctness cost" — for a delay of a second or two, in a document-review
-tool, which nobody would notice. The conclusion was right and the case for it
-was overstated, which is worse than a weaker conclusion honestly argued.
-
-What the instructions should ask for:
-
-1. State the options and what each actually costs, in proportionate language.
-2. Give a recommendation and the confidence behind it, without padding the
-   rejected options' downsides to justify it.
-3. Say plainly when a call is close, or when it rests on taste rather than
-   evidence — "either is fine, I lean X" is a legitimate answer.
-4. Keep the alternatives genuinely available rather than mentioning them as a
-   courtesy before dismissing them.
-
-Related: the existing instruction not to capitulate under pressure. These pull
-in opposite directions and the tension is the point — hold a position against
-disagreement, but do not manufacture support for it.
 
 ## A better framework for planning and running multi-branch waves
 
@@ -626,36 +383,6 @@ Whichever is chosen, changing the configuration requires rebuilding every stored
 vector in the same change — a vector stemmed as English and a query parsed as
 French do not meet. The migration that introduced the column
 (`Version20260803015620`) has the backfill statement to copy.
-
-## Site-review bridge CLI (`cli/`): polish before shipping
-
-
-
-
-**Author:** Claude · **Type:** feature · **Priority:** medium · **Status:** pending
-
-The Go bridge is functional (`loupe login` + `loupe bridge run
---site <name>`, with an interactive picker when the flag is omitted). Remaining
-work before it's a turnkey distributable:
-
-- **Reconnect-after-401 is still uncovered.** `cli/internal/transport/mercure_test.go`
-  (`TestSubscribeResumesFromLastEventID`) now covers the reconnect path in
-  general — a fake hub that drops the connection after one event, and asserts
-  the next connection sends `Last-Event-ID`. What it does not cover is the
-  specific 401-then-fresh-JWT scenario: `transport.Subscribe` mints a fresh
-  subscriber JWT per attempt (`TokenFunc`) and refreshes by resolved site id,
-  but no test exercises a hub that 401s and then serves an event on the
-  reconnect. That was the gap that let the expiring-JWT regression ship in the
-  first place.
-- **No-echo token prompt.** `login` reads the token from stdin with the terminal
-  still echoing. Use `golang.org/x/term` (or equivalent) to read without echo.
-- **OS keychain storage.** The token is stored in `~/.config/loupe/config.json`
-  (mode 0600). Move it to the OS keychain (e.g. `go-keyring`) with the file as a fallback.
-- **CI + release.** Wire `just cli-test` into the gate, and add goreleaser for a
-  multi-platform release matrix (current `just cli-build` only cross-compiles one target).
-
-The 2026-08-17 audit of `c5e8b96` raised eight more bridge findings; all are now
-fixed (PRs #193 and #198), leaving the items above.
 
 ## Site-review comments have no agent-reply data model
 
@@ -1201,8 +928,9 @@ versioning would make the version list useless, so some form of draft state is
 probably needed. And who may edit: today authorship is implicit in whoever's
 agent token created the document, and there is no edit permission modelled.
 
-Related: "Review UI: version diff view", which becomes considerably more useful
-once humans are producing versions too.
+The review UI already renders a diff between any two versions of a document
+(`app_document_review_diff`); that view gets considerably more useful once
+humans are producing versions too.
 
 ## Review comments should be able to express an edit, not just describe one
 
@@ -1387,32 +1115,6 @@ which is the hook to watch: a document that starts or stops logging it across a
 dependency bump has moved. Worth deciding whether the fallback path should be
 pinned by storing which path a version used, rather than recomputed.
 
-## Simplify the sanitizer block list with defaultAction(Block)
-
-
-
-
-**Author:** Claude · **Type:** tooling · **Priority:** medium · **Status:** pending
-
-`App\Module\Review\Service\MarkdownRenderer` ends its config with a loop that
-calls `blockElement()` on every `W3CReference::BODY_ELEMENTS` entry it does not
-render, so an element it does not know about keeps its text instead of being
-dropped with it. `HtmlSanitizerConfig::defaultAction(HtmlSanitizerAction::Block)`
-expresses exactly that intent in one call, and additionally covers element names
-the reference has never heard of (`<foobar>`), which the loop cannot.
-
-It was not done on the branch that introduced the loop because it is not a
-refactor: with Block as the default, `<script>`, `<style>`, `<iframe>`, `<form>`,
-`<textarea>` and `<select>` stop being dropped and start contributing their
-contents as visible text — a script body would render as prose. That changes
-`plainText()` for any stored document containing one, which moves every comment
-anchor below it. Doing it therefore needs a rerender **and** a reanchor pass —
-`bin/console app:review:rerender-versions --reanchor` does both in one go.
-Elements whose text must stay out (`script`, `style`) would also each
-need an explicit `dropElement()`, and note that `dropElement('style')` and
-`dropElement('title')` are **no-ops in body context** — `HtmlSanitizer` filters
-`W3CReference::HEAD_ELEMENTS` out of the body element config entirely.
-
 ## Document images are fetched from wherever the document points
 
 
@@ -1452,33 +1154,25 @@ only complete fix. Whoever scopes that should know `allowRelativeMedias()` is
 currently not called, so relative image paths are stripped today and a proxy has
 to add it.
 
-## Per-worktree Mailpit sidecar so e2e can run in parallel
-
-
-
+## The e2e suite is still serialized, and nothing has proved it parallel-safe
 
 **Author:** Geoffrey · **Type:** tooling · **Priority:** medium · **Status:** pending
 
-Mailpit is shared by the main stack and every worktree, so two concurrent
-`just e2e` runs read each other's messages and mail-asserting specs fail
-nondeterministically. That is why the suite must run `--workers=1` and
-one-worktree-at-a-time. During the 2026-07-26 audit-remediation wave this
-serialized gate was the single largest cost: ~15 branches each needing a full
-suite run, back to back, while the DB-free static gate parallelised freely.
+`playwright.config.ts` keeps `workers: 1` and the gate still runs one worktree
+at a time. During the 2026-07-26 audit-remediation wave that serialized gate was
+the single largest cost: ~15 branches each needing a full suite run, back to
+back, while the DB-free static gate parallelised freely.
 
-Owner decision (2026-07-26): fix it with a **per-worktree Mailpit sidecar**,
-mirroring the nginx sidecar design already in `docker/compose/worktree.yaml` —
-its own container, its own Traefik route, and a per-worktree `MAILER_DSN` +
-Mailpit API base URL that the e2e harness reads. Provisioned and torn down by
-`bin/worktrees/worktree-bootstrap.sh` / `worktree-teardown.sh` alongside the
-existing sidecar and databases, so `just worktree-up` remains the single entry
-point.
+The shared-Mailpit coupling that used to force it is gone: every worktree now
+gets its own Mailpit sidecar and its own `MAILER_DSN`, and `just e2e` exports a
+worktree-scoped `MAILPIT_URL` that the specs read. Playwright-headed requests
+also deliver mail synchronously, so there is no worker to scope either.
 
-Check when picking this up: `e2e/` currently resolves Mailpit from a fixed
-host/port — that lookup has to become worktree-aware too, or the specs will
-still all talk to the shared instance. Playwright-headed requests now deliver
-mail synchronously, so there is no worker to scope per worktree — but that
-changed nothing about the Mailpit isolation problem, which is still open.
+What is left is proof. Nothing has yet gated two branches concurrently, so no
+run has established that the rest of the suite — fixtures, feature flags, the
+destructive `install-reset` and `trial-end-lifecycle` projects, any other shared
+host state — tolerates it. Close this by running two branches' suites at once,
+finding what collides, and only then lifting `workers: 1`.
 
 ## Self-hosting audit
 
@@ -2237,10 +1931,10 @@ container': the host-visible symptom names the wrong process.
 
 **Author:** Geoffrey · **Type:** tooling · **Priority:** medium · **Status:** pending
 
-Every git worktree gets its own nginx sidecar, database and URL, but they all
-share **one php-fpm container, one Mailpit and one Postgres**. That sharing is
-the root of most of the parallel-work pain, and on 2026-08-03 it cost most of a
-day across nine concurrent branches.
+Every git worktree gets its own nginx sidecar, Mailpit sidecar, database and
+URL, but they all share **one php-fpm container and one Postgres**. That sharing
+is the root of most of the parallel-work pain, and on 2026-08-03 it cost most of
+a day across nine concurrent branches.
 
 What sharing actually causes, all observed rather than predicted:
 
@@ -2251,10 +1945,11 @@ What sharing actually causes, all observed rather than predicted:
   and a submit button left disabled with no validation error. That signature is
   documented elsewhere as a cold-cache symptom and has been misattributed that
   way more than once.
-- **e2e cannot be parallelised at all**, because Mailpit is shared and
-  mail-asserting specs across concurrent runs read each other's messages. That
-  forces `workers: 1` and one branch at a time — roughly 8.5 minutes per branch,
-  which becomes the throughput ceiling for a multi-branch wave.
+- **e2e is not parallelised.** The original cause — one shared Mailpit, whose
+  messages concurrent mail-asserting specs read from each other — is gone now
+  that each worktree has its own sidecar, but `workers: 1` still stands until
+  something proves the rest of the suite parallel-safe, so it is still one
+  branch at a time at roughly 8.5 minutes each.
 - **Any sibling's `just ci` starves an in-flight e2e run**, so gating has to be
   coordinated by hand. That coordination does not survive parallel agents; it
   has to be remembered by whoever is orchestrating.
@@ -2267,13 +1962,13 @@ where a forgotten worker made an e2e run hang. And the pool limits were raised:
 `pm.start_servers = 12`, `pm.min_spare_servers = 8`, against an observed peak
 demand of 17–20 concurrent. Together those are why this is no longer `high`.
 
-Neither touches the second bullet: Mailpit is still shared, `workers: 1` still
-stands, and the per-branch throughput ceiling is unchanged.
+Neither lifts `workers: 1`, so the per-branch throughput ceiling is unchanged;
+see 'The e2e suite is still serialized, and nothing has proved it parallel-safe'.
 
 Per-agent containers would remove all three by construction rather than by
 convention, and would also end the class of bug where a stop or a kill reaches
-only the host-side wrapper (see 'Host `pkill` does not kill a process inside the
-php-fpm container').
+only the host-side wrapper — a process started inside a container can only be
+observed and stopped from inside it, which `CLAUDE.md` now states.
 
 Worth deciding alongside it: whether the e2e suite still needs to be destructive.
 The `install-reset` project truncates every table as its last act. `just e2e`
@@ -2303,77 +1998,6 @@ inactive" flags on one entity, each owned by a different module.
 
 Related: 'Encapsulate Billing: replace #[PaywallExempt] with a firewall-level
 rule', which chases the same encapsulation goal from the control-flow side.
-
-## The controller-naming rule is blind to every form controller
-
-**Author:** Claude · **Type:** tooling · **Priority:** medium · **Status:** pending
-
-`gamache.controllerTemplates.renderMethods` is not set in `phpstan.dist.neon`,
-so it takes the package default of `['render']`. This project's standard
-form-render path is `AppController::renderFormResponse()`, which means
-`ControllerTemplateNameRule` silently skips every controller that renders a
-form — a large share of them.
-
-Found 2026-08-21: `ShowUserController` renders `admin/users/detail.html.twig`
-and does not violate the rule. Not because it matches — `showuser` against
-`detail` does not — but because the rule never looks at it. Its sibling
-`ListUsersController` uses `render()` and was caught immediately.
-
-The fix is one config line adding `renderFormResponse` to `renderMethods`.
-Expect it to surface a fresh batch of violations, each needing the same
-judgement the first round did: rename where the controller is right, leave it
-where the template names an outcome better than the action does, and fix the
-rule where the rule is wrong. Do it as its own PR so that triage is visible
-rather than buried.
-
-## `ReviewRepository::findByReviewer` is unbounded and needs streaming
-
-**Author:** Claude · **Type:** bug · **Priority:** medium · **Status:** pending
-
-`ReviewRepository::findByReviewer` loads every review for a reviewer in one
-query. Its only consumer is `ReviewExporter`, a full-export service that is
-supposed to read everything, so there is nothing to attach pagination controls
-to — the fix is to stream rather than page.
-
-Everything else in this area is already bounded: PR #79 paginated the projects
-list and the per-project documents list, the MCP `document_list` tool has its
-own `page`/`perPage`/`hasMore` backed by
-`DocumentRepository::findPaginatedByProject`, and the site-review page moved to
-a flat per-project comment list (`SiteReviewCommentRepository::findForProject`).
-
-Convert the export path to an iterator — Doctrine's `toIterable()` over the
-query, with the exporter writing as it reads — so memory stays flat regardless
-of how many reviews a reviewer accumulates.
-
-## Backfill `comments.anchor_offset_hint` to character offsets
-
-**Author:** Geoffrey · **Type:** bug · **Priority:** medium · **Status:** pending
-
-`AnchorService` used to write `Anchor::$offsetHint` as a byte offset into
-`DocumentVersion::plainText()` and now writes a character offset. The column was
-never migrated, on the grounds that no historical data existed at the time.
-
-Decided 2026-08-26: backfill rather than accept a settling period. The danger is
-a **mixed** version — some rows written before the switch, some after — not old
-rows on their own, and both consequences are invisible until someone reads the
-sidebar:
-
-- `CommentRepository` orders threads by `offsetHint`. Byte offsets are monotonic
-  in character offsets row-by-row, so a version that is entirely one unit still
-  sorts correctly; a version holding both does not, and the sidebar reading
-  order is wrong until that version is revised.
-- `AnchorService::resolve()` weighs proximity to `offsetHint` when a revised
-  document repeats a quote, so a stale byte offset can pull the match to the
-  wrong occurrence. That pick is **permanent**: `create()` then writes a
-  confident character offset for the wrong span, and nothing afterwards can tell
-  it was ever wrong.
-
-The conversion is `offsetHint = mb_strlen(substr(plainText, 0, offsetHint))` per
-comment, against its own version's text — the same arithmetic `AnchorService`
-already documents around its byte-to-character helper. First step is to
-establish whether any production row predates the switch; if none does, the
-migration is insurance that costs one no-op pass, which is the point of doing it
-before real data arrives rather than after.
 
 ## The `cli-test` CI check is not required, so a broken CLI cannot block a merge
 
@@ -2500,34 +2124,6 @@ Neither is broken now. Both are the kind of coupling that breaks silently and
 far from the change that caused it, which is why they are written down rather
 than commented in the query.
 
-## Registration discloses whether an address is registered, and that is accepted
-
-**Author:** Geoffrey · **Type:** docs · **Priority:** low · **Status:** pending
-
-`src/Module/Account/Command/RegisterUserHandler.php` returns a distinct
-`account.registration.error.email_duplicate` field error when the address
-already exists, so an unauthenticated caller can enumerate registered users
-through `/register`.
-
-**Decided on 2026-08-20: leave it.** The owner does not mind enumeration at
-registration. The alternative — responding identically whichever way it goes —
-costs a real inline error for anyone who mistypes an address they already
-registered with, and buys little when the same address can be probed at other
-providers anyway.
-
-This entry exists so the next audit does not re-file it. It is a deliberate
-exception, not an oversight, and the reason it looks like one is that the
-codebase decided the other way elsewhere: `RequestPasswordResetHandler` states
-in a docblock that account existence "must not be observable (anti-enumeration
-policy)", `JoinWaitlistController` notes that it "enumerates nothing", and
-`ListSitesController` reasons about the same property. Those remain correct for
-their paths — the policy holds everywhere the response is a bare
-acknowledgement, and is waived where a form has a field to attach an error to.
-
-Close this by writing that distinction into the `project-authz` skill or a
-comment on the handler, so the exception is discoverable from the code rather
-than only here.
-
 ## Decide how CommentBudgetCheck should treat `.env`
 
 **Author:** Geoffrey · **Type:** docs · **Priority:** low · **Status:** pending
@@ -2561,24 +2157,6 @@ directly in tests. Adding one is the decision to make; an untranslated English
 label would be worse than none. Note that any visible label would also land in
 `plainText()` and shift every anchor below it, so this needs the same re-render
 treatment as any other rendering change.
-
-## Malformed front matter puts a phantom entry in the table of contents
-
-
-**Author:** Claude · **Type:** bug · **Priority:** low · **Status:** pending
-
-When a document's `---` block cannot become a table, `MarkdownRenderer` renders
-it as ordinary Markdown — and the closing `---` turns the lines above it into a
-setext heading. `HeadingExtractor` reads the rendered HTML, so that heading
-becomes an entry in the document's table of contents: `---\njust a string\n---`
-yields `<h2 id="heading-just-a-string">`.
-
-Spoofing only — the `heading-` prefix keeps a computed id from colliding with a
-real page id — and it is the behaviour every front-matter document had before
-the block was tabulated at all, so this is a leftover rather than a regression.
-Fixing it means rendering the unparseable block as literal text (a code block)
-instead of as Markdown, which changes `plainText()` again and so needs a
-re-render; that is why it was left alone rather than done inline.
 
 ## An HTML comment inside a raw HTML block still renders as nothing
 
@@ -2751,21 +2329,6 @@ review screen in isolation. Product decision to make later: the widget isn't par
 of the review/site-review console screens' design — consider not loading it on
 those routes (scope the `base.html.twig` widget include out of the review console)
 so dogfooding a review doesn't cover the console's own controls.
-
-## Site-review widget: navigate to a comment's page from the comment list
-
-
-
-
-**Author:** Claude · **Type:** feature · **Priority:** low · **Status:** pending
-
-In the widget's comment list, each row shows the comment body plus a
-text-snippet chip (the anchored element's first line, or "General comment")
-— no page URL or other location context at all, for comments made on the
-current page or a different one. A reviewer has no way to tell a cross-page
-comment apart from one made on the page they're looking at, let alone jump to
-it. Add a "go to page" affordance (or at least a page-name label) on
-cross-page comments so a reviewer can navigate to where the comment was made.
 
 ## Billing paywall answers machine clients with 402
 
@@ -2963,100 +2526,30 @@ enough over them to be worth building at all.
 
 **Author:** Claude · **Type:** tooling · **Priority:** low · **Status:** pending
 
-`assets/styles/app.css` defines roughly 523 semantic component classes across
-3,120 lines, built with `@apply` inside `@layer components`. Because a class is
-declared in CSS rather than emitted on demand from template usage, deleting the
-markup that used it leaves the rule behind — and nothing currently notices.
-Checking every component class against `templates/`, `assets/js/`, `src/` and
-the `vendor/ubermuda/*` bundle templates, then discounting every class built by
-interpolation (`lp-flash--{{ label }}`, `lp-ribbon__bar--{{ state }}`,
-`status-check-badge-{{ state }}` and similar), leaves 22 that are referenced
-nowhere:
+`assets/styles/app.css` defines its semantic component classes with `@apply`
+inside `@layer components`. Because a class is declared in CSS rather than
+emitted on demand from template usage, deleting the markup that used it leaves
+the rule behind — and nothing currently notices.
 
-```
-lp-doc-list  lp-doc-row  lp-doc-row__main  lp-doc-row__meta  lp-doc-row__tags
-lp-doc-row__title  lp-doc-row__title--stretched  lp-page  lp-page-header
-lp-page-title  lp-section-title  lp-table  lp-code
-lp-key-values  lp-key-values__row  lp-copy-row  lp-anchor
-lp-anchor--orphan  lp-btn--warning  lp-comment-composer--untargeted  kbd
-admin-badge-off
-```
+The dead rules found on 2026-08-21 are gone: the `lp-doc-*` row family, the
+`lp-page*` / `lp-section-title` shell, `lp-table`, `lp-code`, `lp-key-values`,
+`lp-copy-row`, `lp-anchor--orphan`, `lp-btn--warning` and `.kbd` were all
+removed. Three names that sweep had listed were **not** dead and stay:
+`lp-anchor` (the landing mock), `lp-comment-composer--untargeted` (applied from
+`comment_anchor_controller.js`) and `admin-badge-off` (the admin users list and
+detail screens).
 
-Two of those are whole abandoned families rather than stragglers — the
-`lp-doc-*` row component and the `lp-page*` / `lp-section-title` page shell.
-
-Deleting them is the small half. The durable fix is a check that fails when a
-class defined in `@layer components` is referenced nowhere, since this will
-recur every time a component is replaced. It needs to understand interpolated
-class names or it will be too noisy to keep: the safe form is to treat a
-defined class as used when some template contains its prefix immediately
-followed by a Twig expression, which covers the modifier families above without
-whitelisting them by hand. Verify `admin-badge-off` against the admin bundle's
-compiled assets before removing it — the scan covered that bundle's templates
-and CSS, but a class applied from bundle JavaScript would not show up.
-
-## Anchor offsets still diverge from the browser above the BMP
-
-
-**Author:** Claude · **Type:** bug · **Priority:** low · **Status:** pending
-
-`AnchorService` counts codepoints (`mb_substr`/`mb_strpos`/`mb_strlen`) while
-`assets/controllers/comment_anchor_controller.js` counts UTF-16 code units. The
-two agree for every character in the Basic Multilingual Plane, so ordinary
-accented Latin, Greek, Cyrillic and CJK text is fine — but each emoji or other
-astral-plane character costs one unit on the server and two in the browser. The
-observable effect is limited: no offset crosses the wire, so this only shifts
-the 32-character context window and the 8-character fingerprint by a character
-or two, which at worst reranks two occurrences of a repeated quote differently
-on the two sides.
-
-**Fix the browser, not the server** (owner decision, 2026-08-02, deferred rather
-than declined). Making PHP count UTF-16 units is the expensive direction: PHP has
-no native UTF-16 length, so every window slice would need a conversion or a
-surrogate count, inside the context-scoring path that was deliberately moved back
-to byte-space search precisely because `mb_*` slicing made resolution quadratic —
-6.4 seconds on a 205 KB document before that fix. JavaScript can iterate
-codepoints for nothing (`Array.from`, or spread), so changing `#extractAnchor`
-and `#findRange` to slice by codepoint costs no server time and makes both sides
-agree completely, closing this entry rather than narrowing it.
-
-Wave C already edits that controller for strike, suggest and agent highlights, so
-that is the natural moment.
-
-## Version diff loses word marks when a revision changes a line and adds one beside it
-
-
-**Author:** Claude · **Type:** feature · **Priority:** low · **Status:** pending
-
-`jfcherng/php-diff` only marks individual words inside a replaced block when
-both sides have the same line count (`AbstractHtml::getChanges()`), so a
-revision that rewords a paragraph *and* inserts another right after it produces
-one replace block of 1 old line against 3 new ones — and the reworded paragraph
-comes out as a whole-line delete plus insert instead of a word-marked pair. The
-output is correct and readable, just coarser than it needs to be, and this shape
-(edit a sentence, add a paragraph) is common.
-
-The library's own `Combined` renderer handles it by joining both sides with
-`\n`, running the word line-renderer over the joined strings, then splitting
-back (`markReplaceBlockDiff`). Doing the same in
-`App\Module\Review\Service\MarkdownDiffer` means driving
-`LineRendererFactory`/`MbString` directly and reproducing the renderer's
-escape-then-mark ordering by hand, which is why it was not done up front — the
-escaping order is what stops a literal `<del>` in the Markdown being read as a
-diff mark. Any fix must keep `DocumentDiff::oldSource()`/`newSource()` exact;
-`MarkdownDifferTest` pins that.
-
-## Version diff is only reachable for adjacent version pairs
-
-
-**Author:** Claude · **Type:** feature · **Priority:** low · **Status:** pending
-
-The `app_document_review_diff` route takes any two version numbers, but the only
-links to it are the "What changed since v(n-1)" entries in the version switcher
-on the document review page, so comparing v1 with v4 means editing the URL. A
-reviewer who left comments on v1 and comes back after three revisions wants
-exactly that comparison. Needs a version picker on the diff view itself, not
-another set of links in the switcher.
+What is still open is the durable half: a check that fails when a class defined
+in `@layer components` is referenced nowhere, since this recurs every time a
+component is replaced. It needs to understand interpolated class names
+(`lp-flash--{{ label }}`, `lp-ribbon__bar--{{ state }}`,
+`status-check-badge-{{ state }}`) or it will be too noisy to keep — the safe
+form is to treat a defined class as used when some template contains its prefix
+immediately followed by a Twig expression, which covers the modifier families
+without whitelisting them by hand. It must also read the `vendor/ubermuda/*`
+bundle templates and any class a bundle applies from JavaScript, which is what
+made `admin-badge-off` look dead. The check itself belongs in `ubermuda/gamache`
+rather than here.
 
 ## Bump `.skeleton.json` once the Turbo-prefetch PR merges
 
@@ -3071,29 +2564,6 @@ Not done up front on purpose. That field records how far this project has
 absorbed the skeleton, so advancing it past an unmerged branch would claim a
 merge that has not happened and make the next `update-from-skeleton` run skip
 whatever else landed in between.
-
-## A review comment has no timestamp, so its card cannot show an age
-
-**Author:** Claude · **Type:** feature · **Priority:** low · **Status:** pending
-
-`App\Module\Review\Entity\Comment` carries no created-at column — the
-constructor takes version, author, body, anchor, parent and replacement, and
-nothing else. Every other entity on the review path has one
-(`Document::$createdAt`, `DocumentVersion::$createdAt`), so this is an omission
-rather than a decision.
-
-The visible cost is on the review screen: a comment card shows its author and
-its status but cannot show when it was written, and a thread with several
-replies gives no sense of how the conversation unfolded.
-`templates/Module/Review/components/CommentThread.html.twig` has a comment
-marking where the age would go.
-
-Closing it is a nullable `#[ORM\Column]` on `Comment`, a migration with a real
-current-datetime version name, and `|relative_time` in the two places the
-template marks — plus a decision about what to show for the rows that already
-exist, since backfilling them with the migration timestamp would claim every
-old comment was written the day the column shipped. Leaving those blank is
-probably the honest answer.
 
 ## Running prettier on the site-review widget reformats all 1600 lines
 
@@ -3138,89 +2608,6 @@ Closing it means storing a non-secret tail at issue time — a `tokenTail` colum
 written alongside `tokenHash` — and a migration. Four characters of a 64-hex
 token leaves 60 unknown, so the tail is not usefully brute-forceable, but that
 is a decision to take deliberately rather than assume.
-
-## A verdict cannot be undone, and a resolved comment cannot be reopened
-
-**Author:** Claude · **Type:** feature · **Priority:** medium · **Status:** pending
-
-Both controls are specified in the Chartreuse design and neither has a route.
-
-`src/Module/Review/Controller/` has `SubmitReviewController` but no undo, so
-approving a document or requesting changes is final from the UI — the verdict
-bar at the foot of the review page reports the outcome with no way back. The
-design puts an **Undo** on that bar.
-
-Separately there is `app_comment_resolve` but no reopen, so a thread resolved by
-mistake can only be deleted. The comment card shows **Resolve** on an open
-thread and, per the design, should show **Reopen** on a resolved one.
-
-Each is a command + handler pair and a route, following the shape of the
-existing resolve action. The templates already have the places they go.
-
-## A ready data export offers no way to download it
-
-**Author:** Claude · **Type:** bug · **Priority:** medium · **Status:** pending
-
-`templates/Module/Account/show_account_settings.html.twig` lists past exports
-with their timestamp and state, including `Ready` — but renders no download
-control, so the only route to a finished export is the emailed link.
-
-The route exists (`app_account_export_download`, `GET
-/account/exports/{id}/download`) and takes a `?token=` query parameter.
-`DataExport::complete()` returns the raw token once and persists only its
-sha256, and `ShowAccountSettingsView` exposes neither it nor anything the
-template could derive it from — so a link built from `export.id` alone 404s by
-design, which is the correct fail-closed behaviour.
-
-The token is not what authorises the download, so closing this is not simply a
-matter of dropping it. `DownloadDataExportController` already sits behind the
-`ROLE_USER` catch-all and separately checks that the export belongs to the
-signed-in user, so a forwarded link is refused on ownership alone. What the
-token actually carries is the **48-hour expiry**: `isDownloadTokenValid()`
-bundles the hash comparison, the Ready-status check and `isExpired()` into one
-call, and the expiry reaches the request through no other path.
-
-So closing it means splitting `isExpired()` out as a gate of its own and
-letting an authenticated owner download without a token. Doing only the first
-half — authorising on the session and skipping `isDownloadTokenValid()`
-entirely — would hand out expired archives indefinitely, which is the whole
-reason the window exists.
-
-## `document_highlight` matches against source-wrapped text, not rendered prose
-
-**Author:** Claude · **Type:** bug · **Priority:** medium · **Status:** pending
-
-A quote handed to `document_highlight` fails with `not_found` whenever the
-passage it names was wrapped across two lines in the submitted Markdown, even
-though it reads as one continuous sentence on the rendered page. Observed
-2026-08-07 submitting an 80-column-wrapped document: two quotes that happened to
-sit within a single source line anchored fine, and two that spanned a soft wrap
-were both rejected.
-
-The cause is that soft wraps survive rendering. CommonMark emits the source's
-newlines inside the `<p>`, and `DocumentVersion::plainTextOf()` is
-`html_entity_decode(strip_tags(...))`, which preserves them — so the text
-`AnchorService::fromQuote()` searches contains `Until the server says which of\nthree
-things went wrong`, while any caller quoting what it read on the page sends a
-single space. `SetDocumentHighlightsHandler` already trims the quote's outer
-whitespace for exactly this class of reason; interior whitespace gets no such
-treatment.
-
-This is worth separating from the constraint the `loupe-documents` skill already
-states — that a quote must stay inside one paragraph or list item, because block
-boundaries are real line breaks. That one is inherent. This one is an artefact of
-how the author happened to wrap their source, which is invisible to a reader and
-which nothing warns about. Wrapping prose at 80 columns is the normal shape for
-every Markdown file in this repository, so the tool is hardest to use on
-precisely the documents it is meant for.
-
-The fix is to collapse whitespace runs on both sides of the comparison rather
-than only trimming the ends — but the anchor stored has to keep pointing at the
-right offsets in the unnormalised text, so this is a change to how
-`AnchorService` locates a quote, not a change to `plainText()`. Altering
-`plainTextOf()` would move every stored anchor in every existing version, which
-is the failure mode `bin/console app:review:rerender-versions --reanchor` exists
-to repair.
 
 ## A decision card cannot show its own recorded answer
 
@@ -3271,29 +2658,6 @@ and that generated content is read inconsistently by screen readers, which
 matters more here than for the card's eyebrow because this text is an announced
 live region rather than decoration.
 
-## A worktree's compiled CSS freezes at provision time
-
-**Author:** Claude · **Type:** tooling · **Priority:** medium · **Status:** pending
-
-`just worktree-up` builds `var/tailwind/app.built.css` once and nothing rebuilds
-it afterwards unless someone leaves `just worktree-tailwind` running. A worktree
-that has been alive for a few days and then merges `main` therefore serves the
-CSS its branch had at provision time, while its PHP, Twig and JS are current.
-
-On 2026-08-08 the comment-budget-sweep worktree gated against a build predating
-the Chartreuse redesign. The compiled sheet had neither `lp-anchor-hover` nor
-`.lp-review-block`, so `review-loop.spec.ts`'s hover spec failed: it moves a real
-pointer at a rect measured inside the document pane, and that pane's layout class
-had no rules. One failure, eleven specs skipped behind it, nothing in the app
-logs — indistinguishable from a regression on the branch until you diff the
-compiled CSS. `bin/console tailwind:build` in the worktree fixed it in under a
-second.
-
-The worktree e2e checklist in `CLAUDE.md` already names warming the cache and
-starting a consumer as prerequisites; a CSS rebuild belongs beside them. The
-symptom table in `project-worktrees` covers only the single-unstyled-new-class
-case, which points at the `var/tailwind` symlink rather than at staleness.
-
 ## Text-selection mode for the site-review widget
 
 **Author:** Geoffrey · **Type:** feature · **Priority:** medium · **Status:** pending
@@ -3320,30 +2684,6 @@ edit); the document-review side chose quoted text and hit the
 matches-twice case, which is worth reading before repeating the choice.
 
 Server side lives in `src/Module/SiteReview/`.
-
-## A runnable post-deploy check command
-
-**Author:** Geoffrey · **Type:** feature · **Priority:** medium · **Status:** pending
-
-`docs/operating/post-deploy-checks.md` lists five things to verify after a
-deploy: `/healthz` returns 200, an unauthenticated `POST /mcp` returns 401 (not
-404, which would mean the route never registered), `doctrine:migrations:status`
-reports nothing pending, `/admin/status` is clean, and something that queues
-async work actually completes. Every one is manual, and the last two need a
-browser and an email client — so in practice they are skipped.
-
-A console command should run everything automatable and exit non-zero on
-failure, so a deploy can end with a check rather than with a checklist somebody
-remembers. Most of the work exists already:
-`src/Module/Diagnostics/Command/RunDiagnosticsHandler.php`, routed from
-`ShowDiagnosticsController.php`, computes what `/admin/status` renders, so the
-command is largely a CLI presenter over it plus the HTTP and migration checks.
-
-One thing it must not do is overclaim. The worker check can only prove failure,
-never health — a running consumer leaves no lasting trace, so an empty queue is
-genuinely unknown rather than good. Report unknown as unknown; a green check
-that cannot distinguish "working" from "nothing running" is worse than no check,
-because it is the exact failure this project has hit before.
 
 ## The site-review push subsystem has no producer left
 
@@ -3476,24 +2816,43 @@ tampering** — it predates the read/edit/delete reach above being traced, so it
 not an acceptance of this entry as now written. Per-reviewer tokens close both
 halves; see 'Personal reviewer tokens as an identity layer for the widget'.
 
+## A recorded decision cannot be undone
 
-## An account export still holds one payload in memory twice
+**Author:** Geoffrey · **Type:** feature · **Priority:** medium · **Status:** pending
 
-**Author:** Claude · **Type:** bug · **Priority:** low · **Status:** pending
+A decision card in a document review records an answer and then offers no way
+back: a reviewer who picks the wrong option, or who changes their mind after
+reading further, cannot revise it. The verdict side of this already shipped —
+`src/Module/Review/Command/UndoVerdictHandler.php` withdraws a verdict — so
+there is a pattern to follow for what an undo does to the stored answer and to
+anything derived from it.
 
-The worst of it is fixed: `ZipArchive::addFromString()` buffered every exporter's
-JSON until `close()`, so all seven were resident together. Payloads now go to
-temp files and are added by path, and the peak is one payload rather than their
-sum.
+Related: 'A decision card cannot show its own recorded answer'.
 
-What remains is that one payload exists twice — the array an exporter returns,
-and the JSON string encoded from it. Removing that needs
-`UserDataExporterInterface` to yield rows rather than return an array, across
-seven implementations, and the object-shaped payload (the profile) would have to
-keep its shape while the list-shaped ones stream. That changes an exported
-archive's format if done carelessly, which is why it was not folded into the
-in-memory fix.
+## A decision card offers no free-text option
 
+**Author:** Geoffrey · **Type:** feature · **Priority:** medium · **Status:** pending
+
+A decision card presents a fixed set of choices. A reviewer whose answer is
+none of them has nowhere to put it, so the answer ends up in a comment,
+decoupled from the decision it belongs to. Wanted: an "other" choice carrying
+a free-text field, stored alongside the predefined options.
+
+Related: 'Decision controls: multi-select, and whether a choice should carry a comment'.
+
+## A decision card cannot mark one option as recommended
+
+**Author:** Geoffrey · **Type:** feature · **Priority:** medium · **Status:** pending
+
+An agent authoring a decision card presents its options as a flat set, with no
+way to say which one it would pick. The recommendation is the agent's actual
+opinion and it currently has to go in surrounding prose, where it is detached
+from the choice it refers to and easy to miss. Wanted: an option can be tagged
+as recommended by the authoring agent, through the document MCP surface
+(`document_create` / `document_revise`), and the review UI renders that tag on
+the option itself.
+
+Related: 'Decision controls: multi-select, and whether a choice should carry a comment'.
 
 ## A mark-addressed skip reason is best-effort, because the re-read is not under the write's lock
 
