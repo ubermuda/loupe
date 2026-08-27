@@ -362,11 +362,6 @@
         @apply rounded-md bg-ink text-white;
     }
 
-    /* Keyboard shortcut chip */
-    .kbd {
-        @apply inline-flex items-center justify-center h-4 px-1 border border-line-strong rounded font-mono text-fg-mute bg-surface-2 min-w-4 border-b-2 text-xs;
-    }
-
     .auth-error {
         @apply flex items-start gap-2 px-3 py-2.5 border border-red-300 bg-red-50 text-red-700 rounded-md text-sm leading-snug;
     }
@@ -490,18 +485,6 @@
 /* ── lp- component classes (review UI, dashboard, api-tokens) ──────── */
 
 @layer components {
-    /* ── Page shell ─────────────────────────────────────────────────── */
-
-    .lp-page {
-        @apply max-w-5xl mx-auto px-6 py-8;
-    }
-    .lp-page-header {
-        @apply flex items-center justify-between gap-4 mb-6;
-    }
-    .lp-page-title {
-        @apply text-xl font-semibold tracking-tight text-fg m-0;
-    }
-
     /* ── Card ───────────────────────────────────────────────────────── */
 
     /* Resting surfaces are told apart by fill, never by shadow — elevation is
@@ -554,21 +537,6 @@
     }
     .lp-form-hint {
         @apply text-xs text-fg-dim;
-    }
-
-    /* ── Table ──────────────────────────────────────────────────────── */
-
-    .lp-table {
-        @apply w-full border-collapse text-sm;
-    }
-    .lp-table th {
-        @apply text-left text-fg-mute font-medium pb-2 border-b border-line;
-    }
-    .lp-table td {
-        @apply py-2.5 border-b border-line align-middle;
-    }
-    .lp-table tr:last-child td {
-        @apply border-b-0;
     }
 
     /* ── Badge ──────────────────────────────────────────────────────── */
@@ -710,42 +678,6 @@
         @apply max-w-md text-base text-fg-mute m-0 leading-relaxed;
     }
 
-    /* ── Document list ──────────────────────────────────────────────── */
-
-    /* Flush hairline divider list — no card wrapper: a top hairline, and each
-       row a bottom hairline (#ececf4) with a subtle #fbfbfe hover. */
-    .lp-doc-list {
-        @apply flex flex-col border-t border-line;
-    }
-    .lp-doc-row {
-        @apply relative flex items-center gap-4 px-4 py-3.5 border-b border-line transition-colors;
-    }
-    .lp-doc-row:hover {
-        @apply bg-tint;
-    }
-    .lp-doc-row__main {
-        @apply min-w-0 flex-1;
-    }
-    .lp-doc-row__title {
-        @apply text-sm font-medium text-fg no-underline;
-    }
-    .lp-doc-row__title:hover {
-        @apply text-accent;
-    }
-    /* Stretches the title link's hit area across the whole row, so clicking
-       anywhere on the row follows the title's href. Interactive siblings that
-       must stay clickable need their own stacking context (relative z-10). */
-    .lp-doc-row__title--stretched::after {
-        @apply absolute inset-0;
-        content: '';
-    }
-    .lp-doc-row__meta {
-        @apply flex items-center gap-2 mt-1 text-xs text-fg-dim;
-    }
-    .lp-doc-row__tags {
-        @apply flex items-center gap-1.5;
-    }
-
     /* ── Workspace / projects index ─────────────────────────────────── */
 
     /* Left-aligned page container. Its top/side padding matches the document
@@ -878,12 +810,11 @@
         @apply text-fg-mute;
     }
 
-    /* ── Documents list (handoff §2) ────────────────────────────────── */
+    /* ── Documents list ─────────────────────────────────────────────── */
 
     /* Flush hairline divider list of document rows: top hairline, per-row bottom
-       hairline (#ececf4), subtle #fbfbfe hover. Distinct from the shared
-       .lp-doc-row (token/site-review rows) so its 16px 6px rhythm and version
-       pill stay local to this screen. */
+       hairline, subtle hover. Its rhythm and version pill are local to this
+       screen rather than shared with the token and site-review row lists. */
     .lp-document-list {
         @apply flex flex-col mt-2;
     }
@@ -1161,12 +1092,6 @@
     }
     .lp-btn--success:hover {
         @apply bg-status-ok-bg;
-    }
-    .lp-btn--warning {
-        @apply bg-status-pending-bg text-status-pending-deep font-bold;
-    }
-    .lp-btn--warning:hover {
-        @apply bg-status-pending-border;
     }
     /* Filled destructive — irreversible, and the only red fill on the screen. */
     .lp-btn--danger {
@@ -1619,9 +1544,6 @@
 
     .lp-anchor {
         @apply bg-accent-soft rounded outline outline-accent-border;
-    }
-    .lp-anchor--orphan {
-        @apply bg-status-pending-bg rounded outline outline-status-pending-border;
     }
 
     /* ── Floating "Comment" toolbar (dark pill) ─────────────────────────
@@ -2177,9 +2099,6 @@
 
     /* ── Code / pre blocks ──────────────────────────────────────────────── */
 
-    .lp-code {
-        @apply font-mono text-sm bg-surface-3 rounded-md px-1.5 py-0.5 text-ink;
-    }
     .lp-pre {
         @apply font-mono text-sm bg-surface-3 rounded-xl p-4 overflow-x-auto text-ink leading-relaxed;
         white-space: pre;
@@ -2187,30 +2106,6 @@
 
     /* ── MCP connection card ─────────────────────────────────────────── */
 
-    .lp-section-title {
-        @apply text-base font-semibold tracking-tight text-fg m-0 mb-4;
-    }
-    .lp-key-values {
-        @apply flex flex-col gap-3 m-0 mb-5;
-    }
-    .lp-key-values__row {
-        @apply flex flex-col gap-1;
-    }
-    .lp-key-values dt {
-        @apply text-xs font-medium text-fg-mute;
-    }
-    .lp-key-values dd {
-        @apply m-0;
-    }
-    .lp-copy-row {
-        @apply flex items-center gap-2;
-    }
-    .lp-copy-row .lp-code {
-        @apply min-w-0 truncate;
-    }
-    .lp-copy-row .lp-btn {
-        @apply shrink-0;
-    }
     .lp-code-block {
         @apply mb-4;
     }

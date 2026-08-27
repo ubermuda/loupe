@@ -30,9 +30,20 @@ class ReviewRepository extends ServiceEntityRepository
         return $results[0] ?? null;
     }
 
-    /** @return list<Review> */
-    public function findByReviewer(User $reviewer): array
+    /**
+     * Streams rather than returns a list: the only caller is the full account
+     * export, which has no page to bound it and no reason to hold every review
+     * of a long-lived account at once.
+     *
+     * @return iterable<Review>
+     */
+    public function streamByReviewer(User $reviewer): iterable
     {
-        return $this->findBy(['reviewer' => $reviewer], ['submittedAt' => 'DESC']);
+        return $this->createQueryBuilder('review')
+            ->andWhere('review.reviewer = :reviewer')
+            ->setParameter('reviewer', $reviewer)
+            ->orderBy('review.submittedAt', 'DESC')
+            ->getQuery()
+            ->toIterable();
     }
 }

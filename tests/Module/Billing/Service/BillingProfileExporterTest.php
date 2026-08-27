@@ -24,7 +24,7 @@ final class BillingProfileExporterTest extends TestCase
         $profile->currentPeriodEnd = new \DateTimeImmutable('2026-02-28T00:00:00+00:00');
         $profile->lastStripeEventId = 'evt_secret';
 
-        $row = new BillingProfileExporter($this->repositoryReturning($profile))->export($user);
+        $row = iterator_to_array(new BillingProfileExporter($this->repositoryReturning($profile))->export($user));
 
         self::assertSame('active', $row['status']);
         self::assertSame('cus_123', $row['stripeCustomerId']);
@@ -39,7 +39,7 @@ final class BillingProfileExporterTest extends TestCase
     {
         $exporter = new BillingProfileExporter($this->repositoryReturning(null));
 
-        self::assertSame([], $exporter->export(new User('Bob B', 'bob@example.com', 'x')));
+        self::assertSame([], iterator_to_array($exporter->export(new User('Bob B', 'bob@example.com', 'x'))));
         self::assertSame('billing_profile.json', $exporter->filename());
     }
 
