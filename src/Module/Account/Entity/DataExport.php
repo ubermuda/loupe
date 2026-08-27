@@ -65,15 +65,23 @@ class DataExport
         $this->completedAt = new \DateTimeImmutable();
     }
 
-    public function isDownloadTokenValid(string $token): bool
+    /**
+     * Whether the archive may still be handed over at all — status and window,
+     * with no opinion on who is asking. The caller supplies the identity: the
+     * signed-in owner, or a matching token from the emailed link.
+     */
+    public function isDownloadable(): bool
     {
-        if (DataExportStatus::Ready !== $this->status || null === $this->downloadTokenHash) {
-            return false;
-        }
-
         // A Ready export must carry an expiry; a null expiry is an invalid
         // state and must never grant indefinite access.
-        if (null === $this->expiresAt || $this->isExpired()) {
+        return DataExportStatus::Ready === $this->status
+            && null !== $this->expiresAt
+            && !$this->isExpired();
+    }
+
+    public function isDownloadTokenValid(string $token): bool
+    {
+        if (!$this->isDownloadable() || null === $this->downloadTokenHash) {
             return false;
         }
 

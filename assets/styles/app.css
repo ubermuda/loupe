@@ -1741,6 +1741,11 @@
     .lp-comment-author {
         @apply text-ink font-bold text-sm;
     }
+    /* How long ago the comment was written, beside its author. Quiet enough that
+       a thread's ages read as a timeline rather than as competing labels. */
+    .lp-comment-age {
+        @apply text-fg-faint text-xs;
+    }
     .lp-comment-body {
         @apply text-fg text-sm leading-relaxed;
     }
@@ -1892,6 +1897,10 @@
     }
     .lp-verdict-bar__detail {
         @apply text-ink text-sm;
+    }
+    /* Pushed to the far end of the bar, away from the verdict it takes back. */
+    .lp-verdict-bar__undo {
+        @apply ml-auto shrink-0;
     }
 
     /* ── App shell (sidebar + content) ──────────────────────────────── */

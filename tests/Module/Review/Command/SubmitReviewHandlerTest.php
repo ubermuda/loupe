@@ -108,6 +108,33 @@ final class SubmitReviewHandlerTest extends KernelTestCase
         self::assertSame(DocumentStatus::Approved, $freshDoc->status);
     }
 
+    /**
+     * 'withdrawn' is a real Verdict case, so tryFrom accepts it and the form DTO
+     * only checks the field is non-blank — this route is the only thing standing
+     * between a hand-crafted POST and a withdrawal with none of undo's checks.
+     */
+    public function test_withdrawn_cannot_be_submitted_as_a_verdict(): void
+    {
+        self::bootKernel();
+        $em = self::getContainer()->get(EntityManagerInterface::class);
+
+        /** @var User $reviewer */
+        /** @var Document $doc */
+        [$reviewer, $doc] = $this->createUserAndDocument($em, '4');
+
+        /** @var SubmitReviewHandler $handler */
+        $handler = self::getContainer()->get(SubmitReviewHandler::class);
+
+        try {
+            $handler(new SubmitReviewCommand($reviewer, $doc, Verdict::Withdrawn->value));
+            self::fail('Withdrawn is written by undo, never submitted');
+        } catch (DomainErrors $e) {
+            self::assertContains('review.document.flash.verdict_invalid', $e->errors);
+        }
+
+        self::assertSame(DocumentStatus::InReview, $doc->status);
+    }
+
     public function test_an_unrecognised_verdict_value_throws_domain_errors(): void
     {
         self::bootKernel();

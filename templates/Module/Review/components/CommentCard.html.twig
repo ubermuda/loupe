@@ -1,6 +1,6 @@
 {#
   Props:  @comment-budget-ignore
-    domId, author, status, kind, quote, prefix, suffix, replacement, body,
+    domId, author, age, status, kind, quote, prefix, suffix, replacement, body,
     orphaned, replies — see CommentCardComponent for what each carries.
 
   The card's markup and every class on it live here so the review margin and the
@@ -20,9 +20,11 @@
     data-action="mouseenter->comment-anchor#focusThread mouseleave->comment-anchor#blurThread"
 >
     <div class="lp-comment-thread__header">
-        {# The design puts the comment's age beside the author. Comment carries no
-           timestamp column, so there is nothing to render — see docs/NEXT_STEPS.md. #}
         <span class="lp-comment-author">{{ this.author }}</span>
+        {# Blank for comments written before the timestamp column existed. #}
+        {% if this.age != '' %}
+        <span class="lp-comment-age">{{ this.age }}</span>
+        {% endif %}
         <span class="lp-comment-status lp-comment-status--{{ this.statusLabel }}">{{ ('review.document.status.' ~ this.statusLabel)|trans }}</span>
     </div>
 
@@ -56,6 +58,9 @@
         <div class="lp-comment--reply">
             <div class="lp-comment-reply__head">
                 <span class="lp-comment-author">{{ reply.author }}</span>
+                {% if reply.age != '' %}
+                <span class="lp-comment-age">{{ reply.age }}</span>
+                {% endif %}
             </div>
             <div class="lp-comment-body">{{ reply.body }}</div>
         </div>
