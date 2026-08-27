@@ -5,10 +5,23 @@ description: Use when adding, editing, or closing entries in docs/NEXT_STEPS.md 
 
 # NEXT_STEPS.md — the open-work tracker
 
-`docs/NEXT_STEPS.md` is the committed tracker for open work: TODOs, follow-ups,
-known issues, deferred decisions, product ideas. It is the ONLY sanctioned place
-for such notes — never in code comments (gamache's `NoTodosCheck` enforces that
-side).
+`docs/NEXT_STEPS.md` is the committed tracker for **open work only**: TODOs,
+follow-ups, known issues, product ideas not yet committed to. It is the ONLY
+sanctioned place for such notes — never in code comments (gamache's
+`NoTodosCheck` enforces that side).
+
+**An entry that asks nothing of anyone does not belong here.** A decision
+already taken, a finding checked and dismissed, a do-not-fix note, a runbook for
+a known-quiet failure — these are observations, and observations live in the
+relevant skill or in `docs/`, where the person who needs them will be reading
+anyway. Putting them in the tracker means every future scan of the file re-reads
+and re-dismisses them, and it buries the work that is actually waiting.
+
+The test is whether the entry has an addressee. "Someone should do X" is an
+entry. "We decided X and here is why" is a skill or a doc. When you catch
+yourself writing a `Status:` that will never change, you are writing the wrong
+kind of note — move it, and cross-reference from wherever the work would
+otherwise have been rediscovered.
 
 **The repository is public, so every entry is published the moment it is
 pushed.** Write accordingly: no secrets, no customer names, no venting about

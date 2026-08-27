@@ -39,11 +39,12 @@ final readonly class SetDocumentHighlightsHandler
 
         $highlighted = [];
         $skipped = [];
+        $collapsedHighlights = [];
 
         foreach ($command->quotes as $original) {
             // Surrounding whitespace is never part of the passage a reader sees
-            // tinted, and a newline carried over from a Markdown source would stop
-            // the quote matching at all.
+            // tinted. Interior whitespace needs no such treatment: fromQuote()
+            // matches a whitespace run against any other.
             $quote = trim($original);
 
             // Every skip echoes the caller's own string rather than the trimmed
@@ -56,7 +57,10 @@ final readonly class SetDocumentHighlightsHandler
 
             // The same quote always resolves to the same occurrence, so a repeat
             // would paint a span already painted rather than reach a second one.
-            if (\in_array($quote, $highlighted, true)) {
+            // Compared collapsed, because two quotes that differ only in how they
+            // were wrapped now reach that same span.
+            $collapsed = (string) preg_replace('~\s+~', ' ', $quote);
+            if (\in_array($collapsed, $collapsedHighlights, true)) {
                 $skipped[] = ['quote' => $original, 'reason' => 'duplicate'];
                 continue;
             }
@@ -69,6 +73,7 @@ final readonly class SetDocumentHighlightsHandler
 
             $version->highlights->add(new Highlight($version, $anchor));
             $highlighted[] = $quote;
+            $collapsedHighlights[] = $collapsed;
         }
 
         $this->em->flush();

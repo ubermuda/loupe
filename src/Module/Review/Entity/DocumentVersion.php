@@ -75,9 +75,9 @@ class DocumentVersion
      *     would desync from this basis).
      *
      * Offsets and context windows are counted in characters on both sides. PHP
-     * counts codepoints and JavaScript counts UTF-16 code units, so the two agree
-     * throughout the Basic Multilingual Plane — including accented Latin, Greek,
-     * Cyrillic and CJK — and diverge only on astral characters such as emoji.
+     * counts codepoints natively and the JS controller iterates them explicitly,
+     * because a plain JS string index counts UTF-16 code units and would drift
+     * past any astral character such as an emoji.
      */
     public function plainText(): string
     {
