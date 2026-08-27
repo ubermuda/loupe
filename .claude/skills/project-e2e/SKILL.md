@@ -76,6 +76,14 @@ Tests that use Mailpit (register, delete account) search by recipient address ra
 
 `getLatestEmailTo()` is safe only for per-run-unique addresses with a single expected message. For everything else, mark-then-wait: capture `latestEmailIdWithSubject(...)` **before** the triggering action and pass it to `getEmailWithSubject(subject, afterId)` (Mailpit subject search is case-insensitive substring). Registration in fixtures uses this pattern; the authenticated fixture self-heals a registered-but-unverified account via real product surfaces (resend → verify) rather than failing.
 
+## The suite needs no messenger consumer, and two jobs run inline as a result
+
+`PlaywrightSyncMiddleware` stamps **every** envelope dispatched during a request carrying `X-Playwright`, not just mail, so there is no worker to start and none to forget. It is registered under `when@dev` only, so production dispatch is untouched.
+
+The accepted cost, decided 2026-08-16: `CancelSubscriptionMessage` and `GenerateDataExportMessage` are handled inline too, which puts their handlers inside the request's Doctrine transaction. Account deletion can therefore call Stripe with the transaction still open, and a Stripe failure rolls the deletion back instead of entering Messenger's retry flow. A Codex review argued for excluding those two; it was declined deliberately, because removing the worker as a variable from e2e was the point.
+
+What this means when you write specs: **a green suite does not exercise the real async path for those two jobs**, so a bug living only there will not be caught here. Cover it with a functional test instead. Revisit the exclusion if either job grows behaviour that depends on the surrounding transaction having committed.
+
 ## Guest test scoping
 
 Tests that exercise guest (unauthenticated) flows should use `test.use({ storageState: { cookies: [], origins: [] } })` at the describe block level to ensure no session cookie is carried in. Do not rely on the absence of a `createTest` call — make the intent explicit.
