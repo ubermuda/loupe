@@ -32,6 +32,26 @@ parameters:
     # Name of the MCP server as it appears in the connect-agent install snippet
     # and the `claude mcp add` command.
     app.mcp.server_name: 'loupe'
+    # The MCP tools, listed on the landing page. Keep in step with the
+    # `#[McpTool]` classes under src/Module/*/Mcp/ — the landing copy names the
+    # count, so a tool added here without one added there is a wrong claim.
+    app.mcp.tool_names:
+        - document_create
+        - document_revise
+        - document_get_review
+        - document_get
+        - document_list
+        - document_rename
+        - document_archive
+        - document_unarchive
+        - document_highlight
+        - document_set_tags
+        - document_set_references
+        - document_reply_to_comment
+        - document_mark_comment_addressed
+        - site_review_get
+        - site_review_mark_comment_addressed
+        - tag_list
     # Documentation site, linked from the landing page.
     app.docs_url: 'https://ubermuda.github.io/loupe'
     # One-container demo, offered on the landing page as the way to try Loupe

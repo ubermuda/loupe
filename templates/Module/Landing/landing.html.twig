@@ -95,23 +95,34 @@
                 <a href="{{ app_docs_url }}/using/site-review/" class="lp-landing-link--on-chrome">{{ 'landing.tech.widget_docs_link'|trans }}</a>
             </p>
 
-            <div class="lp-landing-columns">
-                <div class="lp-landing-column">
-                    <h3 class="lp-landing-column__title">{{ 'landing.tech.tools.title'|trans }}</h3>
-                    {# Tool names are API identifiers, so they are translation units of
-                       their own and the punctuation between them rides on the phrases —
-                       nothing here may become bare text in the template. #}
-                    <p class="lp-landing-column__text">
-                        {{ 'landing.tech.tools.submit'|trans }} <code>{{ 'landing.tech.tools.tool_create'|trans }}</code>{{ 'landing.tech.tools.read'|trans }} <code>{{ 'landing.tech.tools.tool_review'|trans }}</code>{{ 'landing.tech.tools.revise'|trans }} <code>{{ 'landing.tech.tools.tool_revise'|trans }}</code>{{ 'landing.tech.tools.end'|trans }}
-                    </p>
+            <div class="lp-landing-tabs" data-controller="landing-tabs">
+                <div class="lp-landing-tabs__controls" role="tablist" aria-orientation="vertical"
+                     aria-label="{{ 'landing.tech.tablist'|trans }}">
+                    {% for panel in ['tools', 'markdown', 'widget'] %}
+                    <button type="button" class="lp-landing-tab" role="tab"
+                            id="tech-tab-{{ panel }}" aria-controls="tech-panel-{{ panel }}"
+                            aria-selected="{{ loop.first ? 'true' : 'false' }}"
+                            data-landing-tabs-target="tab"
+                            data-action="landing-tabs#select">
+                        <span class="lp-landing-tab__title">{{ ('landing.tech.' ~ panel ~ '.title')|trans }}</span>
+                        <span class="lp-landing-tab__text">{{ ('landing.tech.' ~ panel ~ '.text')|trans }}</span>
+                    </button>
+                    {% endfor %}
                 </div>
-                <div class="lp-landing-column">
-                    <h3 class="lp-landing-column__title">{{ 'landing.tech.markdown.title'|trans }}</h3>
-                    <p class="lp-landing-column__text">{{ 'landing.tech.markdown.text'|trans }}</p>
-                </div>
-                <div class="lp-landing-column">
-                    <h3 class="lp-landing-column__title">{{ 'landing.tech.widget.title'|trans }}</h3>
-                    <p class="lp-landing-column__text">{{ 'landing.tech.widget.text'|trans }}</p>
+
+                <div class="lp-landing-tabs__stage">
+                    <div class="lp-landing-tabs__panel" role="tabpanel" id="tech-panel-tools"
+                         aria-labelledby="tech-tab-tools" data-landing-tabs-target="panel">
+                        {% include '@Landing/landing/_tech_tools.html.twig' with {tools: mcpToolNames} only %}
+                    </div>
+                    <div class="lp-landing-tabs__panel" role="tabpanel" id="tech-panel-markdown"
+                         aria-labelledby="tech-tab-markdown" data-landing-tabs-target="panel" hidden>
+                        {% include '@Landing/landing/_tech_markdown.html.twig' only %}
+                    </div>
+                    <div class="lp-landing-tabs__panel" role="tabpanel" id="tech-panel-widget"
+                         aria-labelledby="tech-tab-widget" data-landing-tabs-target="panel" hidden>
+                        {% include '@Landing/landing/_tech_widget.html.twig' only %}
+                    </div>
                 </div>
             </div>
         </div>

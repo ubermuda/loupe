@@ -3465,17 +3465,9 @@
                 <source>landing.tech.tools.title</source>
                 <target>Sixteen tools</target>
             </trans-unit>
-            <trans-unit id="landing.tech.tools.submit">
-                <source>landing.tech.tools.submit</source>
-                <target>Submit with</target>
-            </trans-unit>
-            <trans-unit id="landing.tech.tools.read">
-                <source>landing.tech.tools.read</source>
-                <target>, read the verdict with</target>
-            </trans-unit>
-            <trans-unit id="landing.tech.tools.revise">
-                <source>landing.tech.tools.revise</source>
-                <target>, revise with</target>
+            <trans-unit id="landing.tech.tools.text">
+                <source>landing.tech.tools.text</source>
+                <target>One MCP server. Your agent submits a document, reads the verdict and the open threads back, and revises — without you copying anything between windows.</target>
             </trans-unit>
             <trans-unit id="landing.tech.markdown.title">
                 <source>landing.tech.markdown.title</source>
@@ -3492,6 +3484,58 @@
             <trans-unit id="landing.tech.widget.text">
                 <source>landing.tech.widget.text</source>
                 <target>Drop the site review widget into your app and the same select-and-comment flow works on a live page. Your agent reads those comments back over MCP.</target>
+            </trans-unit>
+            <trans-unit id="landing.tech.tablist">
+                <source>landing.tech.tablist</source>
+                <target>How Loupe plugs in</target>
+            </trans-unit>
+            <trans-unit id="landing.tech.still.call_arrow">
+                <source>landing.tech.still.call_arrow</source>
+                <target>&#8594;</target>
+            </trans-unit>
+            <trans-unit id="landing.tech.still.verdict">
+                <source>landing.tech.still.verdict</source>
+                <target>Changes requested</target>
+            </trans-unit>
+            <trans-unit id="landing.tech.still.threads">
+                <source>landing.tech.still.threads</source>
+                <target>&#183; 3 open threads, 1 suggestion</target>
+            </trans-unit>
+            <trans-unit id="landing.tech.still.version">
+                <source>landing.tech.still.version</source>
+                <target>v2</target>
+            </trans-unit>
+            <trans-unit id="landing.tech.still.reanchored">
+                <source>landing.tech.still.reanchored</source>
+                <target>Re-anchored</target>
+            </trans-unit>
+            <trans-unit id="landing.tech.still.orphaned">
+                <source>landing.tech.still.orphaned</source>
+                <target>Passage gone</target>
+            </trans-unit>
+            <trans-unit id="landing.tech.still.orphaned_body">
+                <source>landing.tech.still.orphaned_body</source>
+                <target>The paragraph this thread quoted is not in v2. Flagged rather than dropped.</target>
+            </trans-unit>
+            <trans-unit id="landing.tech.still.url">
+                <source>landing.tech.still.url</source>
+                <target>your-app.com/pricing</target>
+            </trans-unit>
+            <trans-unit id="landing.tech.still.page_heading">
+                <source>landing.tech.still.page_heading</source>
+                <target>Simple pricing</target>
+            </trans-unit>
+            <trans-unit id="landing.tech.still.page_cta">
+                <source>landing.tech.still.page_cta</source>
+                <target>Start free</target>
+            </trans-unit>
+            <trans-unit id="landing.tech.still.note">
+                <source>landing.tech.still.note</source>
+                <target>This button says one thing and the heading above it says another.</target>
+            </trans-unit>
+            <trans-unit id="landing.tech.still.launcher">
+                <source>landing.tech.still.launcher</source>
+                <target>Review</target>
             </trans-unit>
             <trans-unit id="landing.demo.author">
                 <source>landing.demo.author</source>
@@ -3571,7 +3615,7 @@
             </trans-unit>
             <trans-unit id="landing.pricing.title">
                 <source>landing.pricing.title</source>
-                <target>Run it yourself, or let us run it.</target>
+                <target>Your machine, or ours.</target>
             </trans-unit>
             <trans-unit id="landing.pricing.self_host.name">
                 <source>landing.pricing.self_host.name</source>
@@ -3796,10 +3840,6 @@
             <trans-unit id="landing.tech.tools.tool_revise">
                 <source>landing.tech.tools.tool_revise</source>
                 <target>document_revise</target>
-            </trans-unit>
-            <trans-unit id="landing.tech.tools.end">
-                <source>landing.tech.tools.end</source>
-                <target>.</target>
             </trans-unit>
             <trans-unit id="landing.mock.body.aggregate">
                 <source>landing.mock.body.aggregate</source>

@@ -3001,20 +3001,175 @@
         @apply text-fg-mute m-0 text-sm leading-relaxed;
     }
 
-    .lp-landing-columns {
-        @apply grid gap-7 md:grid-cols-3;
+    /* ── How it plugs in ────────────────────────────────────────────────
+       Three claims down the left, the still that backs the selected one on the
+       right. The stage is a fixed height so a swap — clicked or on the timer —
+       never reflows the page under a reader. */
+    .lp-landing-tabs {
+        @apply grid gap-7 items-start md:grid-cols-3;
     }
-    .lp-landing-column {
+    .lp-landing-tabs__controls {
         @apply flex flex-col gap-2;
     }
-    .lp-landing-column__title {
-        @apply text-white m-0 text-base font-bold;
+    .lp-landing-tab {
+        @apply flex flex-col gap-1.5 rounded-xl border-0 border-l-2 border-transparent bg-transparent cursor-pointer text-left pl-4 pr-2 py-3 transition-colors;
     }
-    .lp-landing-column__text {
+    .lp-landing-tab:hover {
+        @apply bg-chrome-raised;
+    }
+    .lp-landing-tab[aria-selected='true'] {
+        @apply border-accent bg-chrome-raised;
+    }
+    .lp-landing-tab__title {
+        @apply text-chrome-mute text-base font-bold transition-colors;
+    }
+    .lp-landing-tab[aria-selected='true'] .lp-landing-tab__title {
+        @apply text-white;
+    }
+    .lp-landing-tab__text {
         @apply text-chrome-mute m-0 text-sm leading-relaxed;
     }
-    .lp-landing-column__text code {
-        @apply font-mono rounded-md bg-chrome-raised text-accent py-0.5 px-1.5;
+
+    .lp-landing-tabs__stage {
+        @apply relative h-104 overflow-hidden rounded-2xl bg-chrome-raised md:col-span-2;
+    }
+    .lp-landing-tabs__panel {
+        @apply absolute inset-0;
+    }
+    .lp-tech-still {
+        @apply flex h-full flex-col gap-4 overflow-hidden p-6 select-none;
+    }
+
+    /* Tools: the whole surface, then one call through it. */
+    .lp-tech-tools {
+        @apply grid grid-cols-2 gap-x-4 gap-y-2 content-start;
+    }
+    .lp-tech-tools__name {
+        @apply font-mono text-chrome-mute text-xs leading-relaxed truncate;
+    }
+    .lp-tech-tools__name--lit {
+        @apply text-accent;
+    }
+    .lp-tech-call {
+        @apply mt-auto flex flex-col gap-1.5 rounded-xl bg-chrome px-4 py-3.5;
+    }
+    .lp-tech-call__line {
+        @apply flex items-center gap-2 m-0 text-sm;
+    }
+    .lp-tech-call__arrow {
+        @apply font-mono text-chrome-mute text-xs;
+    }
+    .lp-tech-call__line code {
+        @apply font-mono rounded-md bg-chrome-control text-accent py-0.5 px-1.5 text-xs;
+    }
+    .lp-tech-call__result {
+        @apply text-chrome-mute m-0 text-xs;
+    }
+    .lp-tech-call__verdict {
+        @apply text-white font-semibold;
+    }
+
+    /* Markdown: prose on the left, the threads that survived the revision. */
+    .lp-tech-doc {
+        @apply flex flex-col gap-3 rounded-xl bg-app px-5 py-4;
+    }
+    .lp-tech-doc__head {
+        @apply flex items-center gap-2.5;
+    }
+    .lp-tech-doc__title {
+        @apply font-display font-extrabold text-ink text-base tracking-tight;
+    }
+    .lp-tech-doc__prose {
+        @apply flex flex-col gap-2;
+    }
+    .lp-tech-doc__prose h3 {
+        @apply font-display font-extrabold text-ink m-0 text-sm tracking-tight;
+    }
+    .lp-tech-doc__prose p {
+        @apply text-fg-mute m-0 text-xs leading-relaxed;
+    }
+    .lp-tech-doc__prose code {
+        @apply font-mono rounded-md bg-tint-strong text-ink py-0.5 px-1;
+    }
+    .lp-tech-threads {
+        @apply flex flex-col gap-2.5;
+    }
+    .lp-tech-thread {
+        @apply flex flex-col gap-1.5 rounded-xl border border-line bg-app px-4 py-3;
+    }
+    .lp-tech-thread--lit {
+        @apply border-accent-border bg-accent-faint;
+    }
+    .lp-tech-thread__head {
+        @apply flex items-center justify-between gap-3;
+    }
+    .lp-tech-thread__author {
+        @apply text-ink text-xs font-semibold;
+    }
+    .lp-tech-thread__status {
+        @apply text-accent-ink text-xs font-semibold;
+    }
+    .lp-tech-thread__status--gone {
+        @apply text-fg-dim;
+    }
+    .lp-tech-thread__quote {
+        @apply m-0 rounded-md bg-surface-2 text-fg-mute px-2.5 py-1.5 text-xs leading-relaxed;
+    }
+    .lp-tech-thread__body {
+        @apply text-ink text-xs leading-relaxed;
+    }
+
+    /* Widget: somebody else's page, with the launcher on it. */
+    .lp-tech-browser {
+        @apply flex h-full flex-col overflow-hidden rounded-xl bg-app;
+    }
+    .lp-tech-browser__bar {
+        @apply flex items-center gap-1.5 bg-surface-2 px-4 py-2.5;
+    }
+    .lp-tech-browser__dot {
+        @apply w-2 h-2 rounded-full bg-line-strong;
+    }
+    .lp-tech-browser__url {
+        @apply ml-2 font-mono text-fg-dim text-xs truncate;
+    }
+    .lp-tech-browser__page {
+        @apply relative flex flex-1 flex-col items-start gap-3 px-6 py-6;
+    }
+    .lp-tech-browser__heading {
+        @apply font-display font-extrabold text-ink text-xl tracking-tight;
+    }
+    .lp-tech-browser__line {
+        @apply h-2 w-full rounded-full bg-surface-3;
+    }
+    .lp-tech-browser__line--short {
+        @apply w-3/5;
+    }
+    .lp-tech-browser__cta {
+        @apply inline-flex items-center h-8 px-4 rounded-full bg-accent text-ink text-xs font-semibold;
+    }
+    .lp-tech-browser__note {
+        @apply flex flex-col gap-1 self-end max-w-3/5 rounded-xl border border-accent-border bg-accent-faint px-3.5 py-2.5;
+    }
+    .lp-tech-browser__note-author {
+        @apply text-accent-ink text-xs font-semibold;
+    }
+    .lp-tech-browser__note-body {
+        @apply text-ink text-xs leading-relaxed;
+    }
+    .lp-tech-launcher {
+        @apply absolute right-5 bottom-5 flex items-center gap-2.5 h-10 pl-3.5 pr-2.5 rounded-full bg-chrome;
+    }
+    .lp-tech-launcher__icon {
+        @apply w-4 h-4 shrink-0 text-chrome-mute;
+    }
+    .lp-tech-launcher__divider {
+        @apply w-px h-5 bg-chrome-line;
+    }
+    .lp-tech-launcher__label {
+        @apply text-white text-xs font-semibold;
+    }
+    .lp-tech-launcher__count {
+        @apply inline-flex items-center justify-center w-5 h-5 rounded-full bg-accent text-ink text-xs font-bold;
     }
 
     .lp-landing-stack {

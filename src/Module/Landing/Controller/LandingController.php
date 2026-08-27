@@ -28,6 +28,10 @@ class LandingController extends AppController
         #[Autowire(param: 'app.compose_excerpt')]
         private readonly string $composeExcerpt,
 
+        /** @var list<string> */
+        #[Autowire(param: 'app.mcp.tool_names')]
+        private readonly array $mcpToolNames,
+
         #[Autowire(param: 'app.hosted_price')]
         private readonly string $hostedPrice,
     ) {
@@ -48,6 +52,7 @@ class LandingController extends AppController
             return $this->render('@Landing/landing.html.twig', [
                 'demoCommand' => $this->demoCommand,
                 'composeExcerpt' => $this->composeExcerpt,
+                'mcpToolNames' => $this->mcpToolNames,
                 'hostedPrice' => $this->hostedPrice,
             ]);
         }

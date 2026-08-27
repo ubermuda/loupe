@@ -1,0 +1,41 @@
+{#
+  Still of a revised document: prose the agent submitted as Markdown, one
+  thread that followed its passage into the new version and one whose passage
+  is gone. Sample data, decorative — hence aria-hidden.
+#}
+<div class="lp-tech-still" aria-hidden="true">
+    <div class="lp-tech-doc">
+        <div class="lp-tech-doc__head">
+            <span class="lp-tech-doc__title">{{ 'landing.mock.document.title'|trans }}</span>
+            <span class="lp-version-pill">{{ 'landing.tech.still.version'|trans }}</span>
+        </div>
+        <div class="lp-tech-doc__prose">
+            <h3>{{ 'landing.mock.body.heading'|trans }}</h3>
+            <p>
+                {{ 'landing.mock.body.paragraph1_before'|trans }}
+                <code>{{ 'landing.mock.body.aggregate'|trans }}</code>
+                {{ 'landing.mock.body.paragraph1_middle'|trans }}
+                <span class="lp-anchor">{{ 'landing.mock.comment.quote'|trans }}</span>.
+            </p>
+        </div>
+    </div>
+
+    <div class="lp-tech-threads">
+        <div class="lp-tech-thread lp-tech-thread--lit">
+            <div class="lp-tech-thread__head">
+                <span class="lp-tech-thread__author">{{ 'landing.mock.reviewer'|trans }}</span>
+                <span class="lp-tech-thread__status">{{ 'landing.tech.still.reanchored'|trans }}</span>
+            </div>
+            <blockquote class="lp-tech-thread__quote">{{ 'landing.mock.comment.quote'|trans }}</blockquote>
+            <span class="lp-tech-thread__body">{{ 'landing.mock.comment.body'|trans }}</span>
+        </div>
+
+        <div class="lp-tech-thread">
+            <div class="lp-tech-thread__head">
+                <span class="lp-tech-thread__author">{{ 'landing.mock.reviewer'|trans }}</span>
+                <span class="lp-tech-thread__status lp-tech-thread__status--gone">{{ 'landing.tech.still.orphaned'|trans }}</span>
+            </div>
+            <span class="lp-tech-thread__body">{{ 'landing.tech.still.orphaned_body'|trans }}</span>
+        </div>
+    </div>
+</div>
