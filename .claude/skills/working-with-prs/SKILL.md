@@ -173,8 +173,12 @@ is how you tell which one a run got.
    unions of two individually-clean branches produce fixer drift that otherwise
    lands on whichever branch syncs next.
 4. Tear down a merged branch's worktree only **after** `gh pr merge` is
-   confirmed — never in the same command chain. A failed merge with the
-   worktree already destroyed forces a rebuild from origin.
+   confirmed — never in the same command chain, and confirm it by reading the
+   result rather than by the command having been issued. A merge can fail for a
+   reason that is not a conflict (mergeability still computing, a check that
+   flipped), and destroying the tree first turns a retry into a rebuild from
+   origin. Nothing is actually lost while the branch is still on origin, which
+   is the thing to verify before anything else.
 5. **A conflict-free merge is not a correct merge.** When one branch renames a
    class, a *new* file on another branch merges cleanly while still importing
    the old name — git sees no conflict because the file never existed on both
@@ -195,6 +199,20 @@ is how you tell which one a run got.
    newer branch's **content** at the other branch's **path**.
 7. **"Pull Request is not mergeable" right after `git push`** usually means
    GitHub has not recomputed mergeability yet. Wait a few seconds and retry.
+8. **Read the checks against the head you are about to merge.** After syncing a
+   branch, the rollup can still describe the *previous* head for a while, so an
+   all-green reading is not evidence about the commit in front of you — it is
+   evidence about a commit that no longer matters. Key the wait on
+   `headRefOid`, require the full set of required checks to be present, and
+   only then treat green as green:
+
+   ```bash
+   gh pr view <n> --json headRefOid,statusCheckRollup \
+     -q '"\(.headRefOid) \([.statusCheckRollup[]|(.conclusion//.state//"PENDING")]|join(","))"'
+   ```
+
+   A rollup with fewer entries than the ruleset requires means runs have not
+   registered yet, which reads identically to "nothing left to wait for".
 
 ## What the ruleset actually requires
 
@@ -225,8 +243,18 @@ A job that runs in CI but is not in that list cannot block anything. Adding one
 is a repository setting, so a branch cannot do it — if you add a CI job, say in
 the PR body that requiring it is still owed, or the job is decoration.
 
-**Never approve your own work**, and never merge on the owner's behalf without
-being asked. Autonomous work ends at a queue of green PRs.
+**Never approve your own work.** That is the one thing that stays with a human,
+because it is the review itself.
+
+**Merging is not.** A PR that is *approved* and has *all required checks green*
+is good to merge — go ahead and merge it without asking. The approval already
+carried the decision; waiting for a second confirmation just parks finished work
+in a queue. Follow the merge protocol below when you do: sync with current main,
+let the checks re-run on the synced head, merge, then `just cs` on main.
+
+So the shape of autonomous work is: open the PR, and merge it once the owner has
+approved it and CI is green. What you must not do is merge something unapproved,
+merge past a failing or pending check, or use `--admin` to bypass either.
 
 ## Running several branches at once
 

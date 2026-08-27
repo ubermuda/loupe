@@ -12,6 +12,26 @@ description: "What to verify after a deploy, and what each check can and cannot 
    database, so it answers 200 as soon as PHP runs. It is what a platform
    health check should point at until the database is reachable — it proves
    the container is alive and nothing else.
+
+   **To prove *which build* went live, send `HEALTH_PROBE_TOKEN` as an
+   `X-Probe-Token` header.** `/healthz` then adds a `version` field:
+
+   ```console
+   $ curl -s -H "X-Probe-Token: $HEALTH_PROBE_TOKEN" https://<host>/healthz
+   {"status":"ok","version":"31bf5dd"}
+   ```
+
+   Compare that to the commit you built from. This is the check that actually
+   closes a deploy: a 200 only says *something* is serving, and a rollout can
+   report ACTIVE while an old container still answers. Do not substitute
+   grepping the HTML for a string the new build introduced — it works, but it
+   is indirect, silently wrong when a page is cached, and needs a fresh guess
+   at what changed on every deploy.
+
+   Unset, the field never appears — the default a self-hosted instance
+   inherits, since an instance must not advertise its build to anyone who asks.
+   The token goes in the header, never a query parameter: those are recorded in
+   access logs and forwarded in `Referer`.
 2. `POST /mcp` with no credentials returns **401, not 404**. A 404 means the
    route did not register; a 401 means it registered and the firewall rejected
    you. A **403** is different again: that is the DNS-rebinding guard, and the
