@@ -42,11 +42,16 @@ class DownloadDataExportController extends AppController
             throw new \LogicException(\sprintf('%s reached without an authenticated User (got %s); this route must stay behind the ROLE_USER catch-all.', self::class, get_debug_type($user)));
         }
 
+        // Ownership is what authorises the download, so the signed-in owner needs no
+        // token — the emailed link's token stays honoured, and stays wrong when it
+        // does not match. The 48-hour window is a gate of its own either way.
         $token = (string) $request->query->get('token', '');
+        $tokenAccepted = '' === $token || $export->isDownloadTokenValid($token);
 
         if (null === $export->user->id || null === $user->id
             || !$export->user->id->equals($user->id)
-            || !$export->isDownloadTokenValid($token)) {
+            || !$export->isDownloadable()
+            || !$tokenAccepted) {
             $this->logger->info('account.data_export.download_denied', [
                 'id' => (string) $export->id,
             ]);

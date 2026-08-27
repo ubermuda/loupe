@@ -189,6 +189,22 @@
     return line.length > 44 ? line.slice(0, 43).trim() + '…' : line;
   };
 
+  // Where a comment was made, as a short path. The reviewer only needs to tell one
+  // page from another, so the origin is dropped and the raw string is the fallback
+  // when the URL will not parse — a label beats none.
+  const pageLabel = (raw) => {
+    const value = String(raw || '');
+    let label;
+    try {
+      const parsed = new URL(value, location.href);
+      label = parsed.pathname + parsed.search;
+    } catch {
+      label = value;
+    }
+    if (!label) return '';
+    return label.length > 32 ? label.slice(0, 31).trim() + '…' : label;
+  };
+
   // --- Design tokens: the app's Chartreuse palette, restated as literals. ---
   // The widget is embedded on other people's sites, so it may load nothing from
   // Loupe but itself: no @font-face, and no app font names either, since a
@@ -288,6 +304,7 @@
       ),
     close: (s) =>
       svg(s, '<line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/>', 2),
+    arrowOut: (s) => svg(s, '<path d="M7 17 17 7"/><polyline points="8 7 17 7 17 16"/>', 2),
     chevron: (s) => svg(s, '<polyline points="6 9 12 15 18 9"/>', 2.2),
     trash: (s) =>
       svg(
@@ -461,7 +478,12 @@
       .lp-badge.general{border-radius:50%;border:1.5px dashed var(--faint);color:var(--faint)}
       .lp-item-body{flex:1;min-width:0}
       .lp-item-text{font-size:13px;line-height:1.5;color:var(--text);word-break:break-word}
-      .lp-chip{display:inline-flex;align-items:center;gap:4px;margin-top:6px;height:19px;padding:0 9px;background:var(--chip-bg);color:var(--chip-text);border-radius:999px;font-size:10.5px;font-weight:600;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+      .lp-chip{display:inline-flex;align-items:center;gap:4px;margin-top:6px;height:19px;padding:0 9px;background:var(--chip-bg);color:var(--chip-text);border-radius:999px;font-size:10.5px;font-weight:600;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-right:6px}
+      /* Chip-shaped but a real button: it says which page the comment was made on
+         and goes there. Only rendered when that page is not the current one. */
+      .lp-item-page{display:inline-flex;align-items:center;gap:4px;margin-top:6px;height:19px;padding:0 9px;background:transparent;border:1px solid var(--hairline);color:var(--muted);border-radius:999px;font-family:inherit;font-size:10.5px;font-weight:600;max-width:100%;cursor:pointer}
+      .lp-item-page:hover{background:var(--chip-bg);color:var(--accent-ink)}
+      .lp-item-page-label{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
       .lp-edit{flex:0 0 auto;width:24px;height:24px;border:0;background:transparent;color:var(--faint);border-radius:999px;display:flex;align-items:center;justify-content:center;cursor:pointer;opacity:.55;transition:opacity .12s ease}
       .lp-edit:hover{opacity:1;background:var(--chip-bg);color:var(--accent-ink)}
       .lp-del{flex:0 0 auto;width:24px;height:24px;border:0;background:transparent;color:var(--faint);border-radius:999px;display:flex;align-items:center;justify-content:center;cursor:pointer;opacity:.55;transition:opacity .12s ease}
@@ -1126,7 +1148,9 @@
         row.className = 'lp-item';
         row.innerHTML =
           `<span class="lp-badge"></span>` +
-          `<div class="lp-item-body"><div class="lp-item-text"></div><span class="lp-chip" style="display:none"></span></div>` +
+          `<div class="lp-item-body"><div class="lp-item-text"></div><span class="lp-chip" style="display:none"></span>` +
+          `<button class="lp-item-page" style="display:none" aria-label="Go to the page this comment was made on">` +
+          `${ICON.arrowOut(11)}<span class="lp-item-page-label"></span></button></div>` +
           `<button class="lp-edit" aria-label="Edit comment">${ICON.edit(14)}</button>` +
           `<button class="lp-del" aria-label="Delete comment">${ICON.trash(14)}</button>`;
         row.addEventListener('mouseenter', () => {
@@ -1137,6 +1161,10 @@
         row.addEventListener('mouseleave', () => {
           state.hoverId = null;
           updateHighlight();
+        });
+        row.querySelector('.lp-item-page').addEventListener('click', () => {
+          const target = comments[index];
+          if (target && target.url) location.href = target.url;
         });
         row.querySelector('.lp-edit').addEventListener('click', () => openEditComposer(index));
         row.querySelector('.lp-del').addEventListener('click', () => {
@@ -1156,6 +1184,12 @@
       const showChip = isElement ? !!label : true;
       chipEl.style.display = showChip ? '' : 'none';
       if (showChip) chipEl.textContent = isElement ? label : 'General comment';
+      // Only cross-page comments get the affordance: on the current page the row
+      // already highlights its element, and a label saying "here" is noise.
+      const pageEl = row.querySelector('.lp-item-page');
+      const offPage = !!comment.url && comment.url !== location.href;
+      pageEl.style.display = offPage ? '' : 'none';
+      if (offPage) pageEl.querySelector('.lp-item-page-label').textContent = pageLabel(comment.url);
       // Toggle the confirm overlay in place (slide in on arm, slide out on cancel).
       const confirming = state.confirmDeleteId === index;
       const liveConfirm = row.querySelector('.lp-item-confirm:not([data-exiting])');

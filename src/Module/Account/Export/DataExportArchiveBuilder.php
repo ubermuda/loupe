@@ -16,6 +16,8 @@ use Symfony\Component\Uid\Uuid;
 
 readonly class DataExportArchiveBuilder
 {
+    private const int JSON_FLAGS = \JSON_THROW_ON_ERROR | \JSON_PRETTY_PRINT | \JSON_UNESCAPED_SLASHES;
+
     public function __construct(
         /** @var iterable<UserDataExporterInterface> */
         #[AutowireIterator('app.user_data_exporter')]
@@ -58,8 +60,8 @@ readonly class DataExportArchiveBuilder
 
         // Each payload goes to a temp file and is added by path, not by string:
         // addFromString() holds its data until close(), so every exporter's JSON
-        // was resident at once and the peak was their sum. addFile() reads from
-        // disk while the archive is written, so the peak is one payload.
+        // was resident at once. Rows are streamed into that file one at a time,
+        // so no payload is ever whole in memory either.
         $payloadPaths = [];
 
         try {
@@ -70,13 +72,7 @@ readonly class DataExportArchiveBuilder
                 }
                 $payloadPaths[] = $payloadPath;
 
-                $written = file_put_contents(
-                    $payloadPath,
-                    json_encode($exporter->export($user), \JSON_THROW_ON_ERROR | \JSON_PRETTY_PRINT | \JSON_UNESCAPED_SLASHES),
-                );
-                if (false === $written) {
-                    throw new \RuntimeException(sprintf('Cannot write the "%s" export payload.', $exporter->filename()));
-                }
+                $this->writePayload($payloadPath, $exporter, $user);
 
                 if (!$zip->addFile($payloadPath, $exporter->filename())) {
                     throw new \RuntimeException(sprintf('Cannot write "%s" into export archive "%s".', $exporter->filename(), $localPath));
@@ -95,6 +91,59 @@ readonly class DataExportArchiveBuilder
             foreach ($payloadPaths as $payloadPath) {
                 @unlink($payloadPath);
             }
+        }
+    }
+
+    /**
+     * Writes an exporter's rows as one pretty-printed JSON document, encoding
+     * and flushing each row on its own. The bytes match a single json_encode of
+     * the whole payload: pretty-print indents purely by nesting depth, so a row
+     * encoded alone and shifted four spaces sits exactly where it would have.
+     */
+    private function writePayload(string $path, UserDataExporterInterface $exporter, User $user): void
+    {
+        $handle = fopen($path, 'w');
+        if (false === $handle) {
+            throw new \RuntimeException(sprintf('Cannot write the "%s" export payload.', $exporter->filename()));
+        }
+
+        try {
+            $container = null;
+            foreach ($exporter->export($user) as $key => $row) {
+                $encoded = json_encode($row, self::JSON_FLAGS);
+
+                if (null === $container) {
+                    // The first key decides the shape, so a row-shaped payload
+                    // opens an array and a field-shaped one an object.
+                    $container = \is_int($key) ? ['[', ']'] : ['{', '}'];
+                    $this->writeChunk($handle, $container[0]."\n", $exporter);
+                } else {
+                    $this->writeChunk($handle, ",\n", $exporter);
+                }
+
+                $shifted = str_replace("\n", "\n    ", $encoded);
+                $this->writeChunk(
+                    $handle,
+                    '{' === $container[0]
+                        ? '    '.json_encode((string) $key, self::JSON_FLAGS).': '.$shifted
+                        : '    '.$shifted,
+                    $exporter,
+                );
+            }
+
+            // An exporter with nothing to say writes an empty array whatever
+            // shape it would otherwise have had.
+            $this->writeChunk($handle, null === $container ? '[]' : "\n".$container[1], $exporter);
+        } finally {
+            fclose($handle);
+        }
+    }
+
+    /** @param resource $handle */
+    private function writeChunk(mixed $handle, string $chunk, UserDataExporterInterface $exporter): void
+    {
+        if (strlen($chunk) !== fwrite($handle, $chunk)) {
+            throw new \RuntimeException(sprintf('Cannot write the "%s" export payload.', $exporter->filename()));
         }
     }
 

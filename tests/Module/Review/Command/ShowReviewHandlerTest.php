@@ -383,6 +383,27 @@ final class ShowReviewHandlerTest extends KernelTestCase
     }
 
     /**
+     * A withdrawal is a row in the verdict log, not an outcome, so it must not reach
+     * the field an agent reads as one. The version reads exactly as it did before the
+     * verdict: no standing verdict, still in review.
+     */
+    public function test_a_withdrawn_verdict_reports_as_no_verdict_at_all(): void
+    {
+        $doc = new Document(owner: $this->owner, project: $this->project, title: 'Withdrawn Verdict');
+        $version = $doc->addVersion('Some content.', '<p>Some content.</p>');
+
+        $this->em->persist($doc);
+        $this->em->persist(new Review($version, Verdict::Approved, $this->owner, sequence: 1));
+        $this->em->persist(new Review($version, Verdict::Withdrawn, $this->owner, sequence: 2));
+        $this->em->flush();
+
+        $result = ($this->getReview)(new ShowReviewCommand($doc));
+
+        self::assertNull($result['verdict']);
+        self::assertSame('in-review', $result['status']);
+    }
+
+    /**
      * Every decision is reported, answered or not — an agent has to be able to
      * tell "still waiting" from "answered", and a payload holding only answers
      * cannot express the first.

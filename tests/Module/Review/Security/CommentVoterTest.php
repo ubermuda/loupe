@@ -102,6 +102,7 @@ final class CommentVoterTest extends TestCase
         $token = $this->makeToken($owner);
 
         self::assertSame(VoterInterface::ACCESS_GRANTED, $this->voter->vote($token, $comment, [CommentVoter::RESOLVE]));
+        self::assertSame(VoterInterface::ACCESS_GRANTED, $this->voter->vote($token, $comment, [CommentVoter::REOPEN]));
         self::assertSame(VoterInterface::ACCESS_GRANTED, $this->voter->vote($token, $comment, [CommentVoter::REPLY]));
     }
 
@@ -113,6 +114,7 @@ final class CommentVoterTest extends TestCase
         $token = $this->makeToken($other);
 
         self::assertSame(VoterInterface::ACCESS_DENIED, $this->voter->vote($token, $comment, [CommentVoter::RESOLVE]));
+        self::assertSame(VoterInterface::ACCESS_DENIED, $this->voter->vote($token, $comment, [CommentVoter::REOPEN]));
         self::assertSame(VoterInterface::ACCESS_DENIED, $this->voter->vote($token, $comment, [CommentVoter::REPLY]));
     }
 

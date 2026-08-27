@@ -24,7 +24,7 @@ final class SiteReviewExporterTest extends TestCase
         $repo = $this->createStub(SiteReviewCommentRepository::class);
         $repo->method('findByOwner')->willReturn([$comment]);
 
-        $rows = new SiteReviewExporter($repo)->export($owner);
+        $rows = iterator_to_array(new SiteReviewExporter($repo)->export($owner));
 
         self::assertCount(1, $rows);
         self::assertSame('My project', $rows[0]['project']);

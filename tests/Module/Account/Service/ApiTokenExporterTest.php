@@ -23,7 +23,7 @@ final class ApiTokenExporterTest extends TestCase
         $repo = $this->createStub(ApiTokenRepository::class);
         $repo->method('findBy')->willReturn([$token]);
 
-        $rows = new ApiTokenExporter($repo)->export($user);
+        $rows = iterator_to_array(new ApiTokenExporter($repo)->export($user));
 
         self::assertCount(1, $rows);
         self::assertSame('My agent', $rows[0]['label']);

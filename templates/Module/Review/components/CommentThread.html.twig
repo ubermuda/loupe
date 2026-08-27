@@ -22,6 +22,7 @@
 <twig:CommentCard
     domId="{{ comment.id }}"
     author="{{ comment.author.fullName }}"
+    age="{{ comment.createdAt ? comment.createdAt|relative_time : '' }}"
     status="{{ status }}"
     kind="{{ kind }}"
     quote="{{ comment.anchor.quote }}"
@@ -30,7 +31,7 @@
     :replacement="comment.replacement ?? ''"
     body="{{ comment.body }}"
     :orphaned="comment.orphaned"
-    :replies="replies|map(reply => {author: reply.author.fullName, body: reply.body})"
+    :replies="replies|map(reply => {author: reply.author.fullName, body: reply.body, age: reply.createdAt ? reply.createdAt|relative_time : ''})"
 >
     {# On an earlier version there is nothing to act on: every one of these posts
        resolves its target through the comment's own id, but the reviewer is
@@ -67,7 +68,14 @@
         {{ form_end(replyForm) }}
     </div>
     {% else %}
+    {# Fieldless reopen form — the inverse of resolve, offered only once the thread
+       is closed, so a thread resolved by mistake need not be deleted. #}
+    <form id="reopen-form-{{ comment.id }}" action="{{ path('app_comment_reopen', {id: comment.id}) }}" method="post" hidden>
+        <input type="hidden" name="_csrf_token" value="{{ csrf_token('comment-action') }}">
+    </form>
+
     <div class="lp-comment-actions">
+        <button type="submit" form="reopen-form-{{ comment.id }}" class="lp-btn lp-btn--on-card lp-btn--sm">{{ 'review.document.comment.reopen'|trans }}</button>
         <button type="submit" form="delete-form-{{ comment.id }}" class="lp-btn lp-btn--danger-ghost lp-btn--sm lp-comment-actions__delete">{{ 'review.document.comment.delete'|trans }}</button>
     </div>
     {% endif %}

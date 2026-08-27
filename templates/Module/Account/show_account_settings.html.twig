@@ -46,6 +46,14 @@
                     {% endif %}
                 </span>
             </span>
+            {# Same gate the controller applies, so a rendered link never 404s.
+               Turbo off: the response is a streamed ZIP, and a prefetch on hover
+               would pull the whole archive down. #}
+            {% if export.isDownloadable %}
+            <a href="{{ path('app_account_export_download', {id: export.id}) }}"
+               class="lp-btn lp-btn--ghost"
+               data-turbo="false" data-turbo-prefetch="false">{{ 'account.settings.export.download_link'|trans }}</a>
+            {% endif %}
         </div>
         {% endfor %}
 
