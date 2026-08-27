@@ -9,61 +9,66 @@ use Doctrine\Migrations\AbstractMigration;
 
 /**
  * AnchorService used to write Anchor::$offsetHint as a byte offset into a
- * version's plain text and now writes a character offset. The two are equal for
- * ASCII, so this converts nothing on most installs — it exists so a database
- * that does carry multi-byte text is not left holding both units at once, which
- * misorders the comment sidebar and can pull a re-anchored quote to the wrong
- * occurrence.
+ * version's plain text and now writes a character offset. Nothing on the row
+ * says which unit it holds, and a database can carry both — so this repairs by
+ * verification rather than by conversion: a hint is rewritten only when the
+ * quote is NOT where it currently points and IS where reading it as a byte
+ * offset would put it.
+ *
+ * A row that is already correct therefore cannot be moved, whichever unit wrote
+ * it, and a row neither reading explains — an orphaned comment, a version
+ * revised underneath it — is left for `app:review:rerender-versions --reanchor`.
  */
 final class Version20260826205346 extends AbstractMigration
 {
     #[\Override]
     public function getDescription(): string
     {
-        return 'Convert comments.anchor_offset_hint from byte to character offsets';
+        return 'Repair comments.anchor_offset_hint rows still holding a byte offset';
     }
 
     public function up(Schema $schema): void
     {
-        $this->reoffset(static fn (string $text, int $hint): int => mb_strlen(substr($text, 0, $hint), 'UTF-8'));
+        $rows = $this->connection->fetchAllAssociative(
+            'SELECT c.id, c.anchor_offset_hint AS hint, c.anchor_quote AS quote, v.rendered_html AS html
+             FROM comments c
+             INNER JOIN document_versions v ON v.id = c.version_id
+             WHERE c.anchor_offset_hint > 0 AND c.anchor_quote <> \'\'',
+        );
+
+        foreach ($rows as $row) {
+            $hint = (int) $row['hint'];
+            $quote = (string) $row['quote'];
+            // Inlined rather than taken from DocumentVersion: a migration has to
+            // keep meaning what it meant when it ran, and an entity may change.
+            $text = html_entity_decode(strip_tags((string) $row['html']), \ENT_QUOTES | \ENT_HTML5, 'UTF-8');
+
+            if ($this->holdsQuote($text, $hint, $quote)) {
+                continue;
+            }
+
+            $asCharacters = mb_strlen(substr($text, 0, $hint), 'UTF-8');
+            if (!$this->holdsQuote($text, $asCharacters, $quote)) {
+                continue;
+            }
+
+            $this->addSql(
+                'UPDATE comments SET anchor_offset_hint = :hint WHERE id = :id',
+                ['hint' => $asCharacters, 'id' => (string) $row['id']],
+            );
+        }
     }
 
     #[\Override]
     public function down(Schema $schema): void
     {
-        $this->reoffset(static fn (string $text, int $hint): int => \strlen(mb_substr($text, 0, $hint, 'UTF-8')));
+        // Nothing to undo: up() only rewrote hints that pointed at the wrong span,
+        // and which rows those were is not recorded anywhere to put back.
     }
 
-    /**
-     * Rewrites every anchored comment's offset hint against its OWN version's
-     * plain text, since the same offset means a different position in each.
-     *
-     * The derivation is inlined rather than taken from DocumentVersion: a
-     * migration has to keep meaning what it meant when it ran, and an entity is
-     * free to change.
-     *
-     * @param callable(string, int): int $convert
-     */
-    private function reoffset(callable $convert): void
+    /** Whether $text really does read as $quote from character offset $at. */
+    private function holdsQuote(string $text, int $at, string $quote): bool
     {
-        $rows = $this->connection->fetchAllAssociative(
-            'SELECT c.id, c.anchor_offset_hint AS hint, v.rendered_html AS html
-             FROM comments c
-             INNER JOIN document_versions v ON v.id = c.version_id
-             WHERE c.anchor_offset_hint > 0',
-        );
-
-        foreach ($rows as $row) {
-            $hint = (int) $row['hint'];
-            $text = html_entity_decode(strip_tags((string) $row['html']), \ENT_QUOTES | \ENT_HTML5, 'UTF-8');
-            $converted = $convert($text, $hint);
-
-            if ($converted !== $hint) {
-                $this->addSql(
-                    'UPDATE comments SET anchor_offset_hint = :hint WHERE id = :id',
-                    ['hint' => $converted, 'id' => (string) $row['id']],
-                );
-            }
-        }
+        return mb_substr($text, $at, mb_strlen($quote, 'UTF-8'), 'UTF-8') === $quote;
     }
 }
