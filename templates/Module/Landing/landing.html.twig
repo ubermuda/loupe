@@ -27,7 +27,7 @@
         <nav class="lp-landing-nav__links">
             <a href="#how" class="lp-landing-nav__link">{{ 'landing.nav.how'|trans }}</a>
             <a href="#features" class="lp-landing-nav__link">{{ 'landing.nav.features'|trans }}</a>
-            <a href="#try" class="lp-landing-nav__link">{{ 'landing.nav.try'|trans }}</a>
+            <a href="#selfhost" class="lp-landing-nav__link">{{ 'landing.nav.selfhost'|trans }}</a>
             <a href="#pricing" class="lp-landing-nav__link">{{ 'landing.nav.pricing'|trans }}</a>
             <a href="#faq" class="lp-landing-nav__link">{{ 'landing.nav.faq'|trans }}</a>
             <a href="{{ path('app_login') }}" class="lp-landing-nav__link lp-landing-nav__link--wide">{{ 'landing.nav.login'|trans }}</a>
@@ -44,7 +44,7 @@
             <p class="lp-landing-hero__lead">{{ 'landing.hero.lead'|trans }}</p>
             <div class="lp-landing-hero__actions">
                 <a href="{{ path('app_register') }}" class="lp-btn lp-btn--primary lp-btn--lg">{{ 'landing.cta.signup'|trans }}</a>
-                <a href="#try" class="lp-btn lp-btn--outline lp-btn--lg">{{ 'landing.cta.demo'|trans }}</a>
+                <a href="#selfhost" class="lp-btn lp-btn--outline lp-btn--lg">{{ 'landing.cta.selfhost'|trans }}</a>
             </div>
             <p class="lp-landing-hero__note">{{ 'landing.hero.note'|trans }}</p>
         </div>
@@ -117,25 +117,55 @@
         </div>
     </section>
 
-    <section id="try" class="lp-landing-section">
-        <div class="lp-landing-inner lp-landing-split">
-            <div class="lp-landing-split__text">
-                <h2 class="lp-landing-title lp-landing-title--sm">{{ 'landing.try.title'|trans }}</h2>
-                <p class="lp-landing-lead lp-landing-lead--flush">{{ 'landing.try.lead'|trans }}</p>
-                <p class="lp-landing-note">
-                    {{ 'landing.try.note'|trans }}
-                    <a href="{{ app_docs_url }}/getting-started/demo/" class="lp-landing-link">{{ 'landing.try.docs_link'|trans }}</a>
-                </p>
-            </div>
-            <div class="lp-code-dark" data-controller="clipboard"
-                 data-clipboard-text-value="{{ demoCommand }}"
-                 data-clipboard-copied-label-value="{{ 'landing.try.copied'|trans }}">
-                <div class="lp-code-dark__header">
-                    <span class="lp-code-dark__label">{{ 'landing.try.shell'|trans }}</span>
-                    <button type="button" class="lp-code-dark__copy" data-clipboard-target="button"
-                            data-action="clipboard#copy">{{ 'landing.try.copy'|trans }}</button>
+    <section id="selfhost" class="lp-landing-section">
+        <div class="lp-landing-inner lp-landing-stack">
+            <h2 class="lp-landing-title lp-landing-title--sm">{{ 'landing.selfhost.title'|trans }}</h2>
+            <p class="lp-landing-lead lp-landing-lead--flush">{{ 'landing.selfhost.lead'|trans }}</p>
+
+            <div class="lp-landing-paths">
+                <div class="lp-landing-path lp-landing-path--wide">
+                    <div class="lp-landing-path__head">
+                        <h3 class="lp-landing-path__title">{{ 'landing.selfhost.run.title'|trans }}</h3>
+                        <p class="lp-landing-path__text">{{ 'landing.selfhost.run.text'|trans }}</p>
+                    </div>
+
+                    <div class="lp-code-dark">
+                        <div class="lp-code-dark__header">
+                            <span class="lp-code-dark__label">{{ 'landing.selfhost.compose_file'|trans }}</span>
+                        </div>
+                        <pre class="lp-code-dark__body"><code>{{ composeExcerpt }}</code></pre>
+                    </div>
+
+                    <p class="lp-landing-note">
+                        {{ 'landing.selfhost.run.note'|trans }}
+                        <a href="{{ app_docs_url }}/getting-started/docker-compose/" class="lp-landing-link">{{ 'landing.selfhost.docs_link'|trans }}</a>
+                    </p>
+
+                    <div class="lp-landing-actions">
+                        {% include '_source_link.html.twig' with {class: 'lp-btn'} only %}
+                        <a href="{{ app_docs_url }}/getting-started/docker-compose/" class="lp-btn lp-btn--ghost">{{ 'landing.selfhost.install_action'|trans }}</a>
+                    </div>
                 </div>
-                <pre class="lp-code-dark__body"><code>{{ demoCommand }}</code></pre>
+
+                <div class="lp-landing-path lp-landing-path--sunken">
+                    <div class="lp-landing-path__head">
+                        <h3 class="lp-landing-path__title">{{ 'landing.selfhost.demo.title'|trans }}</h3>
+                        <p class="lp-landing-path__text">{{ 'landing.selfhost.demo.text'|trans }}</p>
+                    </div>
+
+                    <div class="lp-code-plain" data-controller="clipboard"
+                         data-clipboard-text-value="{{ demoCommand }}"
+                         data-clipboard-copied-label-value="{{ 'landing.selfhost.copied'|trans }}">
+                        <pre class="lp-code-plain__body"><code>{{ demoCommand }}</code></pre>
+                        <button type="button" class="lp-btn lp-btn--sm" data-clipboard-target="button"
+                                data-action="clipboard#copy">{{ 'landing.selfhost.copy'|trans }}</button>
+                    </div>
+
+                    <p class="lp-landing-note">
+                        {{ 'landing.selfhost.demo.note'|trans }}
+                        <a href="{{ app_docs_url }}/getting-started/demo/" class="lp-landing-link">{{ 'landing.selfhost.demo_docs_link'|trans }}</a>
+                    </p>
+                </div>
             </div>
         </div>
     </section>

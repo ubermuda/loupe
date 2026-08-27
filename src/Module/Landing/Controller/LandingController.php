@@ -25,6 +25,9 @@ class LandingController extends AppController
         #[Autowire(param: 'app.demo_command')]
         private readonly string $demoCommand,
 
+        #[Autowire(param: 'app.compose_excerpt')]
+        private readonly string $composeExcerpt,
+
         #[Autowire(param: 'app.hosted_price')]
         private readonly string $hostedPrice,
     ) {
@@ -44,6 +47,7 @@ class LandingController extends AppController
 
             return $this->render('@Landing/landing.html.twig', [
                 'demoCommand' => $this->demoCommand,
+                'composeExcerpt' => $this->composeExcerpt,
                 'hostedPrice' => $this->hostedPrice,
             ]);
         }

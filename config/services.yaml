@@ -37,6 +37,23 @@ parameters:
     # One-container demo, offered on the landing page as the way to try Loupe
     # without provisioning anything.
     app.demo_command: "docker run --rm -p 127.0.0.1:8080:80 ghcr.io/ubermuda/loupe:demo"
+    # Abridged docker/compose/prod.yaml, shown on the landing page so a reader
+    # can see the single-host topology without opening the repository. Keep it
+    # in step with the real file's service names and images.
+    app.compose_excerpt: |-
+        services:
+          web:
+            image: ghcr.io/ubermuda/loupe:prod
+            ports: ["127.0.0.1:8080:80"]
+            depends_on: [database]
+
+          worker:
+            image: ghcr.io/ubermuda/loupe:prod
+            command: php bin/console messenger:consume scheduler_default async
+
+          database:
+            image: postgres:16-alpine
+            volumes: [database_data:/var/lib/postgresql/data]
     # Revision of the terms of service, as the date they took effect. Bumping it
     # re-prompts every account for acceptance on their next HTML navigation.
     app.terms.version: '2026-08-20'

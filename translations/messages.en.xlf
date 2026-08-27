@@ -3325,9 +3325,9 @@
                 <source>landing.nav.features</source>
                 <target>Features</target>
             </trans-unit>
-            <trans-unit id="landing.nav.try">
-                <source>landing.nav.try</source>
-                <target>Try it</target>
+            <trans-unit id="landing.nav.selfhost">
+                <source>landing.nav.selfhost</source>
+                <target>Self-host</target>
             </trans-unit>
             <trans-unit id="landing.nav.pricing">
                 <source>landing.nav.pricing</source>
@@ -3345,9 +3345,9 @@
                 <source>landing.cta.signup</source>
                 <target>Sign up free</target>
             </trans-unit>
-            <trans-unit id="landing.cta.demo">
-                <source>landing.cta.demo</source>
-                <target>Run the demo</target>
+            <trans-unit id="landing.cta.selfhost">
+                <source>landing.cta.selfhost</source>
+                <target>Host it yourself</target>
             </trans-unit>
             <trans-unit id="landing.hero.title_before">
                 <source>landing.hero.title_before</source>
@@ -3513,33 +3513,61 @@
                 <source>landing.demo.widget_hint</source>
                 <target>Point it at anything on the page.</target>
             </trans-unit>
-            <trans-unit id="landing.try.title">
-                <source>landing.try.title</source>
-                <target>Try it in one command.</target>
+            <trans-unit id="landing.selfhost.title">
+                <source>landing.selfhost.title</source>
+                <target>Host it yourself.</target>
             </trans-unit>
-            <trans-unit id="landing.try.lead">
-                <source>landing.try.lead</source>
-                <target>Point an agent at it and run a real review before you decide anything. Everything is in one container, already set up and signed in, so there is nothing to clone, provision or configure.</target>
+            <trans-unit id="landing.selfhost.lead">
+                <source>landing.selfhost.lead</source>
+                <target>Loupe is AGPL-3.0, and the whole thing fits on one machine. Read the source, or run it — both start in the same place.</target>
             </trans-unit>
-            <trans-unit id="landing.try.note">
-                <source>landing.try.note</source>
-                <target>Made for trying Loupe out rather than running it, so keep it on localhost.</target>
-            </trans-unit>
-            <trans-unit id="landing.try.docs_link">
-                <source>landing.try.docs_link</source>
-                <target>Demo docs.</target>
-            </trans-unit>
-            <trans-unit id="landing.try.shell">
-                <source>landing.try.shell</source>
-                <target>bash</target>
-            </trans-unit>
-            <trans-unit id="landing.try.copy">
-                <source>landing.try.copy</source>
+            <trans-unit id="landing.selfhost.copy">
+                <source>landing.selfhost.copy</source>
                 <target>Copy</target>
             </trans-unit>
-            <trans-unit id="landing.try.copied">
-                <source>landing.try.copied</source>
+            <trans-unit id="landing.selfhost.copied">
+                <source>landing.selfhost.copied</source>
                 <target>Copied</target>
+            </trans-unit>
+            <trans-unit id="landing.selfhost.compose_file">
+                <source>landing.selfhost.compose_file</source>
+                <target>docker/compose/prod.yaml (abridged)</target>
+            </trans-unit>
+            <trans-unit id="landing.selfhost.run.title">
+                <source>landing.selfhost.run.title</source>
+                <target>Run it for real</target>
+            </trans-unit>
+            <trans-unit id="landing.selfhost.run.text">
+                <source>landing.selfhost.run.text</source>
+                <target>One compose file runs the production image as three services — web, worker and Postgres — with no cloud account of any kind.</target>
+            </trans-unit>
+            <trans-unit id="landing.selfhost.run.note">
+                <source>landing.selfhost.run.note</source>
+                <target>Fill in the env file first: an install token, an SMTP server and a reverse proxy in front. Nothing starts half-configured — a missing setting aborts the run.</target>
+            </trans-unit>
+            <trans-unit id="landing.selfhost.docs_link">
+                <source>landing.selfhost.docs_link</source>
+                <target>Single-host install docs.</target>
+            </trans-unit>
+            <trans-unit id="landing.selfhost.install_action">
+                <source>landing.selfhost.install_action</source>
+                <target>Read the install docs</target>
+            </trans-unit>
+            <trans-unit id="landing.selfhost.demo.title">
+                <source>landing.selfhost.demo.title</source>
+                <target>Just look at it</target>
+            </trans-unit>
+            <trans-unit id="landing.selfhost.demo.text">
+                <source>landing.selfhost.demo.text</source>
+                <target>One container, already set up and signed in. Nothing to clone or configure.</target>
+            </trans-unit>
+            <trans-unit id="landing.selfhost.demo.note">
+                <source>landing.selfhost.demo.note</source>
+                <target>Keep it on localhost — it is built for trying Loupe, not running it.</target>
+            </trans-unit>
+            <trans-unit id="landing.selfhost.demo_docs_link">
+                <source>landing.selfhost.demo_docs_link</source>
+                <target>Demo docs.</target>
             </trans-unit>
             <trans-unit id="landing.pricing.title">
                 <source>landing.pricing.title</source>
