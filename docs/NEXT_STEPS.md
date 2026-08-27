@@ -1,6 +1,10 @@
 # Next steps
 
-Open work and observations worth revisiting. Delete items entirely once resolved.
+Open work only. Delete items entirely once resolved.
+
+Observations, decisions and reference notes do not belong here — they live in
+the relevant skill or in `docs/`. An entry that asks nothing of anyone is not a
+tracker entry.
 
 Entries are ordered by priority (high → medium → low); insert new entries at
 the end of their priority band. Format and rules: `project-next-steps` skill.
@@ -2322,6 +2326,55 @@ where the template names an outcome better than the action does, and fix the
 rule where the rule is wrong. Do it as its own PR so that triage is visible
 rather than buried.
 
+## `ReviewRepository::findByReviewer` is unbounded and needs streaming
+
+**Author:** Claude · **Type:** bug · **Priority:** medium · **Status:** pending
+
+`ReviewRepository::findByReviewer` loads every review for a reviewer in one
+query. Its only consumer is `ReviewExporter`, a full-export service that is
+supposed to read everything, so there is nothing to attach pagination controls
+to — the fix is to stream rather than page.
+
+Everything else in this area is already bounded: PR #79 paginated the projects
+list and the per-project documents list, the MCP `document_list` tool has its
+own `page`/`perPage`/`hasMore` backed by
+`DocumentRepository::findPaginatedByProject`, and the site-review page moved to
+a flat per-project comment list (`SiteReviewCommentRepository::findForProject`).
+
+Convert the export path to an iterator — Doctrine's `toIterable()` over the
+query, with the exporter writing as it reads — so memory stays flat regardless
+of how many reviews a reviewer accumulates.
+
+## Backfill `comments.anchor_offset_hint` to character offsets
+
+**Author:** Geoffrey · **Type:** bug · **Priority:** medium · **Status:** pending
+
+`AnchorService` used to write `Anchor::$offsetHint` as a byte offset into
+`DocumentVersion::plainText()` and now writes a character offset. The column was
+never migrated, on the grounds that no historical data existed at the time.
+
+Decided 2026-08-26: backfill rather than accept a settling period. The danger is
+a **mixed** version — some rows written before the switch, some after — not old
+rows on their own, and both consequences are invisible until someone reads the
+sidebar:
+
+- `CommentRepository` orders threads by `offsetHint`. Byte offsets are monotonic
+  in character offsets row-by-row, so a version that is entirely one unit still
+  sorts correctly; a version holding both does not, and the sidebar reading
+  order is wrong until that version is revised.
+- `AnchorService::resolve()` weighs proximity to `offsetHint` when a revised
+  document repeats a quote, so a stale byte offset can pull the match to the
+  wrong occurrence. That pick is **permanent**: `create()` then writes a
+  confident character offset for the wrong span, and nothing afterwards can tell
+  it was ever wrong.
+
+The conversion is `offsetHint = mb_strlen(substr(plainText, 0, offsetHint))` per
+comment, against its own version's text — the same arithmetic `AnchorService`
+already documents around its byte-to-character helper. First step is to
+establish whether any production row predates the switch; if none does, the
+migration is insurance that costs one no-op pass, which is the point of doing it
+before real data arrives rather than after.
+
 ## The listeners' `/logout` exemptions are dead in production but live in their unit tests
 
 **Author:** Claude · **Type:** tooling · **Priority:** low · **Status:** pending
@@ -2687,20 +2740,6 @@ notion of 402, so an agent hitting a paywalled account sees a transport-level
 error rather than a JSON-RPC one; if that turns out to be confusing in practice,
 give the MCP endpoint a JSON-RPC-shaped error body of its own.
 
-## Billing DomainErrors keys have no translations, by design
-
-
-
-
-**Author:** Claude · **Type:** docs · **Priority:** low · **Status:** pending
-
-`billing.error.disabled`, `billing.error.no_active_price` and
-`billing.error.no_customer` are `DomainErrors` payload values only — the
-checkout/portal endpoints are fieldless buttons, so nothing renders them; the
-controllers flash `billing.flash.checkout_unavailable` /
-`billing.flash.portal_unavailable` instead. They are intentionally absent from
-`translations/messages.en.xlf`; do not "fix" them by adding trans-units.
-
 ## Product idea (long horizon): whole-codebase review, not diff review
 
 
@@ -2820,25 +2859,6 @@ next reader does not repeat the search.
 
 Re-check after any `symfony/mercure-bundle` or `symfony/ux-turbo` release; both
 are removals scheduled for the next majors, so they cannot be ignored forever.
-
-## One user-facing list query is still unbounded
-
-
-**Author:** Claude · **Type:** bug · **Priority:** low · **Status:** pending
-
-PR #79 paginated the projects list and the per-project documents list. The MCP
-`document_list` tool (`Mcp/DocumentListTool`) has since gained its own
-pagination too (`page`/`perPage`/`hasMore`, backed by
-`DocumentRepository::findPaginatedByProject`), and the site-review page moved
-to a flat per-project comment list (`SiteReviewCommentRepository::findForProject`),
-which removed the cross-review comment-numbering problem that used to block
-paginating it.
-
-What remains unbounded: `ReviewRepository::findByReviewer`. No page renders
-it — its only consumer is `ReviewExporter`, a full-export service that is
-supposed to read everything, so there is nothing to attach pagination controls
-to. Bound it only if exports start running out of memory, and then by
-streaming, not paging.
 
 ## Arbitrary Tailwind values remain in the vendored ubermuda bundles
 
@@ -2962,37 +2982,6 @@ agree completely, closing this entry rather than narrowing it.
 Wave C already edits that controller for strike, suggest and agent highlights, so
 that is the natural moment.
 
-## `comments.anchor_offset_hint` changed units with no backfill
-
-
-**Author:** Claude · **Type:** bug · **Priority:** low · **Status:** pending
-
-`AnchorService` used to write `Anchor::$offsetHint` as a byte offset into
-`DocumentVersion::plainText()` and now writes a character offset. The column was
-deliberately not migrated: there was no historical data at the time — the owner
-confirmed it, `SeedDevDataCommand` creates no comments, and e2e rows are created
-fresh per run. Nothing to do today; this exists so a future deploy over real
-data does not rediscover it.
-
-If that ever changes, the danger is a **mixed** version — some rows written
-before the switch, some after — not old rows on their own. Two consequences,
-both invisible until someone reads the sidebar:
-
-- `CommentRepository` orders threads by `offsetHint`. Byte offsets are monotonic
-  in character offsets row-by-row, so a version that is entirely one unit still
-  sorts correctly; a version holding both does not, and the sidebar reading
-  order is wrong until that version is revised.
-- `AnchorService::resolve()` weighs proximity to `offsetHint` when a revised
-  document repeats a quote, so a stale byte offset can pull the match to the
-  wrong occurrence. That pick is **permanent**: `create()` then writes a
-  confident character offset for the wrong span, and nothing afterwards can tell
-  it was ever wrong.
-
-Either backfill (`offsetHint = mb_strlen(substr(plainText, 0, offsetHint))` per
-comment, against its own version's text) or accept a one-revision settling
-period, but decide it before the first deploy that carries real comments across
-the change.
-
 ## Version diff loses word marks when a revision changes a line and adds one beside it
 
 
@@ -3027,60 +3016,6 @@ on the document review page, so comparing v1 with v4 means editing the URL. A
 reviewer who left comments on v1 and comes back after three revisions wants
 exactly that comparison. Needs a version picker on the diff view itself, not
 another set of links in the switcher.
-
-## No table of contents on document versions rendered before headings had ids
-
-
-**Author:** Claude · **Type:** bug · **Priority:** low · **Status:** pending
-
-`App\Module\Review\Service\HeadingExtractor` reads heading ids back out of
-`DocumentVersion::$renderedHtml`. A version rendered before `MarkdownRenderer`
-began emitting those ids carries none, so nothing is extracted and the review
-screen shows no contents panel for it. New and revised versions are unaffected.
-
-Nothing needs doing on deploy, and no migration was written on purpose: this app
-does not keep backward compatibility for stored renderings. The failure is also
-quiet in the right direction — a version with no ids shows no panel at all,
-rather than a panel of links that go nowhere.
-
-The remedy for a given document is `app:review:rerender-versions`, with one
-caveat worth knowing before reaching for it. That command refuses to run when
-re-rendering would leave an existing comment unable to resolve, unless
-`--accept-comment-orphaning` is passed. Adding heading ids does not itself move
-any text — ids live in attributes, which `plainText()` never sees — so a version
-that predates only that change re-renders cleanly. A version old enough to
-predate a renderer change that *did* move text is the one where the guard fires,
-and where the choice is between a table of contents and stranded comments.
-
-What removes that choice is the re-anchoring pass now shipped as
-`bin/console app:review:rerender-versions --reanchor`: with it, an old version
-can be brought forward and its comments re-resolved in the same motion.
-
-## Referencing a document changes a page the referrer may not write to
-
-
-**Author:** Claude · **Type:** security · **Priority:** low · **Status:** pending
-
-Creating a reference requires `McpBoundProjectVoter::DOCUMENT_WRITE` on the
-source document and only `DOCUMENT_READ` on the target
-(`ReviewSubjectResolver::requireReferences()`), yet the target's rendered page
-visibly changes: its "Referenced by" list grows.
-
-Not reachable, and the premise is weaker than it reads — checked 2026-08-25.
-`McpBoundProjectVoter` ignores the attribute entirely and returns
-`$boundProject === $subjectProject` for all four of its constants, so READ and
-WRITE are the same check and no read-only principal exists: anyone who can pass
-`requireReferences` already has write on the target and could revise it outright.
-Cross-project is blocked twice over, at the resolver and again by
-`DocumentReferenceValidator`. And a project has one owner with no member
-collection, so "several users with differentiated grants" has no referent yet.
-
-It becomes a graffiti vector the day per-document grants exist. Requiring WRITE
-on the target is the wrong fix: it would break pointing at something you are
-allowed to read, which is the normal case. Bounded even then — the incoming list
-renders as escaped title links plus an archived badge
-(`templates/Module/Review/show_document.html.twig`), so it is a backlink listing
-rather than content injection. Revisit with per-document grants.
 
 ## Bump `.skeleton.json` once the Turbo-prefetch PR merges
 
@@ -3501,27 +3436,6 @@ not an acceptance of this entry as now written. Per-reviewer tokens close both
 halves; see 'Personal reviewer tokens as an identity layer for the widget'.
 
 
-## Transactional jobs run inline in e2e under `X-Playwright`
-
-**Author:** Geoffrey · **Type:** tooling · **Priority:** low · **Status:** pending
-
-Owner decision (2026-08-16): `PlaywrightSyncMiddleware` stamps every envelope
-dispatched during a request carrying `X-Playwright`, not just mail, so the e2e
-suite needs no messenger consumer at all.
-
-A Codex review argued for excluding `CancelSubscriptionMessage` and
-`GenerateDataExportMessage`, because handling them inline puts their handlers
-inside the request's Doctrine transaction: account deletion can call Stripe with
-the transaction still open, and a Stripe failure then rolls the deletion back
-instead of entering Messenger's retry flow.
-
-Declined deliberately — removing the worker as a variable from e2e was the
-point, and the middleware is registered under `when@dev` only, so production
-semantics are untouched. The accepted cost is that e2e exercises inline rather
-than queued delivery for those two jobs, so a bug in their real async path would
-not be caught by a green suite. Revisit if either grows behaviour that depends
-on the surrounding transaction having committed.
-
 ## An account export still holds one payload in memory twice
 
 **Author:** Claude · **Type:** bug · **Priority:** low · **Status:** pending
@@ -3608,43 +3522,6 @@ request is harmless. `WebProfilerBundle` is registered for `dev` and `test` only
 0.12.0 and `mcp/sdk` 0.7.1 are installed. Re-check when either publishes a
 release whose notes mention tool-list delivery or session handling; both are
 pre-1.0 and moving.
-
-## Terraform state keeps production secrets on the operator's machine, accepted for now
-
-**Author:** Geoffrey · **Type:** security · **Priority:** low · **Status:** pending
-
-`terraform/versions.tf` has its `backend "s3"` block commented out, so state is
-local. `terraform/terraform.tfstate` and `.tfstate.backup` hold live production
-credentials in cleartext on whichever machine last ran `apply`: everything the
-app spec marks `"type":"SECRET"`, plus the managed-database URI and the Spaces
-keys, all stored plaintext in state whatever the spec calls them. Provider
-credentials are not persisted in state; they sit beside it in
-`terraform/terraform.tfvars`. Same machine, same blast radius, different file.
-
-**This is not a repository exposure and should not be triaged as one.** All of
-them are covered by `terraform/.gitignore` and none has ever been committed —
-verified against full history on 2026-08-20 and again on 2026-08-25. The
-exposure is everything that copies a home directory: system backups, cloud
-sync, a support bundle, a stolen laptop.
-
-**Decided on 2026-08-20: keep state local, change nothing.** With one operator
-on one machine, a remote backend adds a bucket, a lock table and another
-credential to hold, against a risk that is currently bounded by that machine's
-own security. Graded low on that basis rather than closed, because the
-reasoning is about today's circumstances and not about the exposure being
-acceptable in general.
-
-Revisit when any of these becomes true: a second person runs `apply`, CI runs
-it, or the operator's machine stops being a single trusted one. At that point
-the work is the encrypted backend the file already documents,
-`terraform init -migrate-state`, and deleting the local copies.
-
-The repository going public was a fourth trigger, and it fired on 2026-08-26.
-**Re-decided the same day: keep state local, still change nothing.** Publishing
-moves none of these files — they are gitignored and have never been committed —
-so nothing about the exposure changed; only the cost of a future mistake did.
-The three triggers above still stand.
-
 
 ## Watch an agent work, rather than reading what it finished
 

@@ -36,6 +36,14 @@ Two files serve different purposes — always use the correct one:
 
 Putting a constraint message key in `messages.en.xlf` will silently fail — the Symfony Validator reads `validators.*`, not `messages.*`.
 
+## Some `DomainErrors` keys are deliberately untranslated
+
+A `DomainErrors` key is only user-facing if something renders it. Where the form has no field to attach the error to, the key is a payload value the controller inspects and never displays — so it has no trans-unit, on purpose.
+
+The Billing keys are the standing example: `billing.error.disabled`, `billing.error.no_active_price` and `billing.error.no_customer` are absent from `messages.en.xlf` because the checkout and portal endpoints are fieldless buttons. Those controllers flash `billing.flash.checkout_unavailable` and `billing.flash.portal_unavailable` instead, and those keys *are* translated.
+
+**Do not "fix" a missing trans-unit by adding one.** Check first whether anything renders the key; if nothing does, the gap is the design.
+
 ## Pluralization
 
 Use Symfony interval syntax (not ICU). Two required gotchas:
