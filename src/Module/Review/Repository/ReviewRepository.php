@@ -30,6 +30,16 @@ class ReviewRepository extends ServiceEntityRepository
         return $results[0] ?? null;
     }
 
+    /**
+     * Every verdict on a version, newest first.
+     *
+     * @return list<Review>
+     */
+    public function findByVersionNewestFirst(DocumentVersion $version): array
+    {
+        return $this->findBy(['version' => $version], ['submittedAt' => 'DESC']);
+    }
+
     /** @return list<Review> */
     public function findByReviewer(User $reviewer): array
     {

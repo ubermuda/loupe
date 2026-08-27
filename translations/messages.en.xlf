@@ -885,6 +885,10 @@
                 <source>account.settings.export.link_hint</source>
                 <target>The download link was sent to your email.</target>
             </trans-unit>
+            <trans-unit id="account.settings.export.download_link">
+                <source>account.settings.export.download_link</source>
+                <target>Download</target>
+            </trans-unit>
             <trans-unit id="account.settings.export.status.pending">
                 <source>account.settings.export.status.pending</source>
                 <target>Preparing…</target>
@@ -1181,6 +1185,10 @@
                 <source>review.document.verdict.request_changes</source>
                 <target>Request changes</target>
             </trans-unit>
+            <trans-unit id="review.document.verdict.undo">
+                <source>review.document.verdict.undo</source>
+                <target>Undo</target>
+            </trans-unit>
             <trans-unit id="review.document.verdict.approved">
                 <source>review.document.verdict.approved</source>
                 <target>Approved</target>
@@ -1381,6 +1389,10 @@
                 <source>review.document.comment.resolve</source>
                 <target>Resolve</target>
             </trans-unit>
+            <trans-unit id="review.document.comment.reopen">
+                <source>review.document.comment.reopen</source>
+                <target>Reopen</target>
+            </trans-unit>
             <trans-unit id="review.document.comment.delete">
                 <source>review.document.comment.delete</source>
                 <target>Delete</target>
@@ -1477,6 +1489,14 @@
                 <source>comment.error.resolve_reply</source>
                 <target>Only the top-level comment of a thread can be resolved.</target>
             </trans-unit>
+            <trans-unit id="comment.error.reopen_reply">
+                <source>comment.error.reopen_reply</source>
+                <target>Only the top-level comment of a thread can be reopened.</target>
+            </trans-unit>
+            <trans-unit id="comment.error.reopen_not_resolved">
+                <source>comment.error.reopen_not_resolved</source>
+                <target>This thread is already open.</target>
+            </trans-unit>
 
             <!-- Document review flash messages -->
             <trans-unit id="review.document.flash.verdict_submitted">
@@ -1486,6 +1506,14 @@
             <trans-unit id="review.document.flash.verdict_invalid">
                 <source>review.document.flash.verdict_invalid</source>
                 <target>Invalid verdict value submitted.</target>
+            </trans-unit>
+            <trans-unit id="review.document.flash.verdict_undone">
+                <source>review.document.flash.verdict_undone</source>
+                <target>Your verdict has been withdrawn. The document is back in review.</target>
+            </trans-unit>
+            <trans-unit id="review.document.flash.verdict_none">
+                <source>review.document.flash.verdict_none</source>
+                <target>There is no verdict on this version to undo.</target>
             </trans-unit>
 
             <!-- Navigation bar -->

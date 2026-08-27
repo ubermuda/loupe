@@ -18,6 +18,9 @@ use Symfony\UX\TwigComponent\Attribute\AsTwigComponent;
  *   domId        string              Value for the element id; also what a Turbo
  *                                    Stream targets. Empty on the prototype.
  *   author       string              Display name shown in the header.
+ *   age          string              Pre-formatted relative age ("2h ago"). Empty
+ *                                    when the comment predates the timestamp
+ *                                    column, and on the prototype.
  *   status       string              pending | addressed | resolved.
  *   kind         string              comment | suggestion | strike.
  *   quote        string              The anchored passage.
@@ -26,7 +29,7 @@ use Symfony\UX\TwigComponent\Attribute\AsTwigComponent;
  *   replacement  string              Proposed wording; only read for a suggestion.
  *   body         string              The comment itself; empty for a strike.
  *   orphaned     bool                The passage is gone from this version.
- *   replies      list<array{author: string, body: string}>
+ *   replies      list<array{author: string, body: string, age: string}>
  */
 #[AsTwigComponent(name: 'CommentCard')]
 final class CommentCardComponent
@@ -34,6 +37,8 @@ final class CommentCardComponent
     public string $domId = '';
 
     public string $author = '';
+
+    public string $age = '';
 
     public string $status = 'pending';
 
@@ -51,7 +56,7 @@ final class CommentCardComponent
 
     public bool $orphaned = false;
 
-    /** @var list<array{author: string, body: string}> */
+    /** @var list<array{author: string, body: string, age: string}> */
     public array $replies = [];
 
     /**
