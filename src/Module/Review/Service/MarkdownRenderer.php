@@ -16,8 +16,8 @@ use League\CommonMark\Extension\Table\TableExtension;
 use League\CommonMark\MarkdownConverter;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\HtmlSanitizer\HtmlSanitizer;
+use Symfony\Component\HtmlSanitizer\HtmlSanitizerAction;
 use Symfony\Component\HtmlSanitizer\HtmlSanitizerConfig;
-use Symfony\Component\HtmlSanitizer\Reference\W3CReference;
 
 final readonly class MarkdownRenderer
 {
@@ -27,6 +27,9 @@ final readonly class MarkdownRenderer
      * plausible heading and a real Turbo stream target).
      */
     private const string HEADING_ID_PREFIX = 'heading-';
+
+    /** How League\CommonMark's FrontMatterParser recognises a block, mirrored so an untabulated one can be cut back out. */
+    private const string FRONT_MATTER_PATTERN = '~^---\R.*?\R---\R~s';
 
     private MarkdownConverter $converter;
 
@@ -114,6 +117,16 @@ final readonly class MarkdownRenderer
         // attribute set rather than merging into it, so a bare allowElement('h2')
         // after that call silently revoked everything it had just granted.
         $config = new HtmlSanitizerConfig()
+            // Blocked, not dropped: the tag goes, its text stays. That text is the
+            // basis plainText() measures every comment anchor against, so an
+            // element this list did not anticipate — `<foobar>` included — must not
+            // take a paragraph with it. `details`/`summary` are blocked deliberately,
+            // so a collapsed section cannot hide comments anchored inside it.
+            ->defaultAction(HtmlSanitizerAction::Block)
+            // The exceptions: text that is code, not prose. `style` and `title`
+            // cannot be named here at all and are removed before this config sees
+            // them (see HeadElementStrippingParser).
+            ->dropElement('script')
             // The sanitizer truncates silently past this length, so any finite
             // value drops a long document's tail with no error — and can cut the
             // markers carrying an HTML comment's text, making the same source
@@ -188,19 +201,7 @@ final readonly class MarkdownRenderer
             ->allowElement('q', ['cite'])
             ->allowElement('cite');
 
-        // Blocked, not dropped: the tag goes, its text stays. That text is the
-        // basis plainText() measures every comment anchor against, so an element
-        // this list did not anticipate must not take a paragraph with it.
-        // `details`/`summary` are blocked deliberately, so a collapsed section
-        // cannot hide comments anchored inside it.
-        $rendered = $config->getAllowedElements();
-        foreach (array_keys(array_filter(W3CReference::BODY_ELEMENTS)) as $element) {
-            if (!isset($rendered[$element])) {
-                $config = $config->blockElement($element);
-            }
-        }
-
-        $this->sanitizer = new HtmlSanitizer($config);
+        $this->sanitizer = new HtmlSanitizer($config, new HeadElementStrippingParser());
     }
 
     public function render(string $markdown): string
@@ -227,11 +228,8 @@ final readonly class MarkdownRenderer
             $reason = 'unparseable YAML: '.$e->getMessage();
         }
 
-        // Three ways an opening `---` block fails to become a table, and in all
-        // of them the extension has already lifted it out of the body — so
-        // rendering again without the extension is what keeps the text on the
-        // page. Logged because a document that silently takes this path renders
-        // fine and looks fine, and would otherwise be invisible in a batch run.
+        // Logged because a document that silently takes this path renders fine
+        // and looks fine, and would otherwise be invisible in a batch run.
         if (null !== $reason) {
             $this->logger->warning('review.markdown.front_matter_not_tabulated', [
                 'reason' => $reason,
@@ -239,8 +237,15 @@ final readonly class MarkdownRenderer
             ]);
         }
 
+        // Three ways an opening `---` block fails to become a table. The block is
+        // then shown verbatim rather than parsed: as Markdown its closing `---`
+        // makes a setext heading of the lines above it, which the table of
+        // contents would list as a section the document never wrote.
+        $literal = '';
         if (null === $rendered || (null === $table && $rendered instanceof RenderedContentWithFrontMatter)) {
-            $rendered = $this->plainConverter->convert($markdown);
+            [$block, $body] = $this->splitFrontMatter($markdown);
+            $literal = null === $block ? '' : $this->literalBlock($block);
+            $rendered = $this->plainConverter->convert($body);
         }
 
         // toControls() innermost, so the decision markup exists before notes and
@@ -253,7 +258,37 @@ final readonly class MarkdownRenderer
             ),
         );
 
-        return ($table ?? '').$html;
+        return ($table ?? $literal).$html;
+    }
+
+    /**
+     * The leading `---` block and the Markdown following it, or a null block when
+     * the document opens with none.
+     *
+     * @return array{?string, string}
+     */
+    private function splitFrontMatter(string $markdown): array
+    {
+        if (1 !== preg_match(self::FRONT_MATTER_PATTERN, $markdown, $matches)) {
+            return [null, $markdown];
+        }
+
+        return [$matches[0], substr($markdown, \strlen($matches[0]))];
+    }
+
+    /**
+     * Renders a front-matter block that could not be tabulated as the text it is.
+     *
+     * Built outside the sanitizer like the table is, so no attribute it emits can
+     * be confused with one a document wrote — and escaped here, since nothing
+     * downstream will do it.
+     */
+    private function literalBlock(string $block): string
+    {
+        return sprintf(
+            "<pre><code>%s</code></pre>\n",
+            htmlspecialchars(rtrim($block, "\r\n"), \ENT_QUOTES | \ENT_SUBSTITUTE, 'UTF-8'),
+        );
     }
 
     private function buildEnvironment(bool $withFrontMatter): Environment

@@ -128,6 +128,39 @@ final class SetDocumentHighlightsHandlerTest extends KernelTestCase
         self::assertCount(2, $document->currentVersion()->highlights);
     }
 
+    public function test_a_quote_the_source_wrapped_across_lines_still_anchors(): void
+    {
+        // CommonMark keeps a paragraph's soft wraps, so the plain text holds a
+        // newline exactly where a caller quoting the rendered page sends a space.
+        $document = $this->document(
+            'highlight-wrapped@example.com',
+            "<p>We will issue short-lived JWTs signed\nwith a rotating key.</p>",
+        );
+
+        $result = ($this->handler)(new SetDocumentHighlightsCommand($document, ['JWTs signed with a rotating key']));
+
+        self::assertSame([], $result['skipped']);
+        $highlight = array_first($document->currentVersion()->highlights->toArray());
+        self::assertInstanceOf(Highlight::class, $highlight);
+        self::assertSame("JWTs signed\nwith a rotating key", $highlight->anchor->quote);
+    }
+
+    public function test_two_quotes_that_differ_only_in_wrapping_are_one_highlight(): void
+    {
+        // They reach the same span now, so the duplicate check has to compare them
+        // collapsed or the second one repaints what the first already painted.
+        $document = $this->document('highlight-rewrapped@example.com');
+
+        $result = ($this->handler)(new SetDocumentHighlightsCommand($document, [
+            'short-lived JWTs',
+            "short-lived\nJWTs",
+        ]));
+
+        self::assertSame(['short-lived JWTs'], $result['highlighted']);
+        self::assertSame([['quote' => "short-lived\nJWTs", 'reason' => 'duplicate']], $result['skipped']);
+        self::assertCount(1, $document->currentVersion()->highlights);
+    }
+
     public function test_a_revision_leaves_its_highlights_on_the_version_they_were_written_for(): void
     {
         $document = $this->document('highlight-revision@example.com');
@@ -152,7 +185,7 @@ final class SetDocumentHighlightsHandlerTest extends KernelTestCase
     }
 
     /** @param non-empty-string $email */
-    private function document(string $email): Document
+    private function document(string $email, string $html = self::HTML): Document
     {
         $owner = new User(fullName: 'U', email: $email, password: 'hashed');
         $this->em->persist($owner);
@@ -161,7 +194,7 @@ final class SetDocumentHighlightsHandlerTest extends KernelTestCase
         $this->em->persist($project);
 
         $document = new Document(owner: $owner, project: $project, title: 'Key rotation');
-        $document->addVersion('# Key rotation', self::HTML);
+        $document->addVersion('# Key rotation', $html);
         $this->em->persist($document);
         $this->em->flush();
 
