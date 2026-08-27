@@ -29,6 +29,11 @@
        to: a reviewer who commented on v1 and comes back three revisions later
        wants exactly that comparison, and used to have to edit the URL. #}
     {% if versions|length > 1 %}
+    {# A diff runs forwards, so the newest version can never be the earlier side
+       and the oldest never the later one. Leaving them out is what keeps every
+       selectable pair a pair the route answers. #}
+    {% set latestVersion = versions|first.versionNumber %}
+    {% set earliestVersion = versions|last.versionNumber %}
     <form class="lp-filter-form mb-8"
           data-controller="version-compare"
           data-version-compare-url-value="{{ path('app_document_review_diff', {projectId: document.project.id, documentId: document.id, fromVersionNumber: diffFromVersion, toVersionNumber: version.versionNumber}) }}"
@@ -38,7 +43,7 @@
                 name="from"
                 class="lp-input lp-select lp-filter-select"
                 data-version-compare-target="from">
-            {% for meta in versions|reverse %}
+            {% for meta in versions|reverse|filter(meta => meta.versionNumber < latestVersion) %}
                 <option value="{{ meta.versionNumber }}"{{ meta.versionNumber == diffFromVersion ? ' selected' : '' }}>{{ 'v' ~ meta.versionNumber }}</option>
             {% endfor %}
         </select>
@@ -50,7 +55,7 @@
                 name="to"
                 class="lp-input lp-select lp-filter-select"
                 data-version-compare-target="to">
-            {% for meta in versions|reverse %}
+            {% for meta in versions|reverse|filter(meta => meta.versionNumber > earliestVersion) %}
                 <option value="{{ meta.versionNumber }}"{{ meta.versionNumber == version.versionNumber ? ' selected' : '' }}>{{ 'v' ~ meta.versionNumber }}</option>
             {% endfor %}
         </select>

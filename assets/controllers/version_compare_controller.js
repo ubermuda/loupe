@@ -42,6 +42,12 @@ export default class extends Controller {
     compare(event) {
         event.preventDefault();
 
+        // Unreachable while the selects offer only comparable versions, and the
+        // guard is what keeps it that way: the route answers 404, not a page.
+        if (this.toTarget.selectedOptions[0]?.disabled) {
+            return;
+        }
+
         // The two version numbers are the route's last two path segments, so the
         // page's own URL doubles as the template and nothing here has to know
         // how the rest of the path is built.

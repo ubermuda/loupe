@@ -360,10 +360,14 @@ final class DiffDocumentVersionsControllerTest extends WebTestCase
         $picker = $crawler->filter('[data-controller="version-compare"]');
         self::assertCount(1, $picker);
         self::assertSame($base.'3/4', $picker->attr('data-version-compare-url-value'));
-        // Every version in both selects: which pairs are comparable is settled in
-        // the browser, and the route already answers 404 for the rest.
-        self::assertCount(4, $crawler->filter('[data-version-compare-target="from"] option'));
-        self::assertCount(4, $crawler->filter('[data-version-compare-target="to"] option'));
+        // The newest version is never an earlier side and the oldest never a
+        // later one, so neither appears in the select it could only 404 from.
+        self::assertSame(['1', '2', '3'], $crawler->filter('[data-version-compare-target="from"] option')->each(
+            static fn (Crawler $node): string => (string) $node->attr('value'),
+        ));
+        self::assertSame(['2', '3', '4'], $crawler->filter('[data-version-compare-target="to"] option')->each(
+            static fn (Crawler $node): string => (string) $node->attr('value'),
+        ));
         self::assertSame('3', $crawler->filter('[data-version-compare-target="from"] option[selected]')->attr('value'));
         self::assertSame('4', $crawler->filter('[data-version-compare-target="to"] option[selected]')->attr('value'));
 
