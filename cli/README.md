@@ -19,6 +19,23 @@ just cli-build linux amd64     # any GOOS/GOARCH pair
 
 Put the resulting binary somewhere on your `PATH` (e.g. `~/bin/loupe`).
 
+`just cli-test` also runs as its own leg of CI, so a broken CLI fails a pull
+request the same way broken PHP does.
+
+## Release
+
+`.goreleaser.yaml` builds the full matrix — darwin, linux and windows on both
+amd64 and arm64 — as static binaries, archives them, and drafts a GitHub
+release. Run it from this directory, against a tag:
+
+```bash
+goreleaser release --clean                    # needs GITHUB_TOKEN and a tag
+goreleaser release --snapshot --clean         # local dry run, no tag needed
+```
+
+The release is drafted rather than published: tags live on the application
+repository, so a human confirms the CLI is what changed before it ships.
+
 ## Requirements
 
 - **tmux** on your `PATH` — the bridge injects into a tmux session.
@@ -42,9 +59,16 @@ LOUPE_TOKEN=<token> loupe login               # or via the environment
 loupe login --url https://loupe.example.com   # defaults to https://loupe.dev.localhost
 ```
 
-Credentials are written to `loupe/config.json` inside your OS config directory
-(`~/Library/Application Support` on macOS, `$XDG_CONFIG_HOME` or `~/.config` on
-Linux), with the directory at `0700` and the file at `0600`.
+The prompt does not echo what you type.
+
+The token goes to your **OS keychain** (Keychain Access on macOS, the Secret
+Service on Linux, Credential Manager on Windows), keyed by the Loupe base URL so
+two instances can coexist. The base URL itself is written to `loupe/config.json`
+inside your OS config directory (`~/Library/Application Support` on macOS,
+`$XDG_CONFIG_HOME` or `~/.config` on Linux), with the directory at `0700`.
+
+Where no keychain is reachable — a container, or a Linux box with no D-Bus
+session — the token falls back into that same file at `0600`.
 
 ## `loupe bridge run`
 
