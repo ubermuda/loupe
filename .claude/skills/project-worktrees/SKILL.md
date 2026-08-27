@@ -60,9 +60,18 @@ absolute path as the **last line of stdout**. A non-zero exit or a missing path
 fails the creation, so everything else the script says goes to stderr. It puts
 the tree at `.claude/worktrees/<name>` on a branch of the same name, cut from
 `main` rather than the current branch. If bootstrap then fails it removes what
-it just created before exiting non-zero: a worktree that cannot run `just ci` is
-the problem the hook exists to remove, and an orphaned directory plus branch
-would be a second one.
+it created before exiting non-zero: a worktree that cannot run `just ci` is the
+problem the hook exists to remove, and an orphaned directory plus branch would
+be a second one.
+
+**"What it created" is exact, and getting it wrong loses commits.** Provisioning
+an *existing* branch creates only the worktree — the branch was already there —
+so the rollback tracks the two facts separately and deletes the branch only when
+it made the branch *and* the ref still points where it put it. An earlier version
+tracked one flag for both, so a failed bootstrap against an existing unmerged
+branch (Docker down, say) deleted that branch and its commits. Anything added to
+this rollback needs the same test: does this undo something that predated the
+run?
 
 `WorktreeRemove` **cannot block** — its exit code is only logged in debug mode —
 so that script is best-effort and idempotent, and leaves the `git worktree

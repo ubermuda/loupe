@@ -46,7 +46,9 @@ esac
 main=$(git -C "$cwd" worktree list --porcelain | awk '/^worktree /{print $2; exit}')
 root="$main/.claude/worktrees/$name"
 
-created=0
+created_worktree=0
+created_branch=0
+branch_created_at=
 if git -C "$main" worktree list --porcelain | grep -qxF "worktree $root"; then
     echo "worktree-create hook: '$name' already exists; re-provisioning it." >&2
 elif [ -e "$root" ]; then
@@ -54,24 +56,31 @@ elif [ -e "$root" ]; then
     echo "Remove the leftover directory and retry." >&2
     exit 1
 elif git -C "$main" show-ref --verify --quiet "refs/heads/$name"; then
+    # The branch predates this run, so only the worktree is ours to undo.
     git -C "$main" worktree add "$root" "$name" >&2
-    created=1
+    created_worktree=1
 else
     # Off main deliberately, never the current branch: a worktree cut from a
     # sibling feature branch inherits work it never meant to carry.
     git -C "$main" worktree add -b "$name" "$root" main >&2
-    created=1
+    created_worktree=1
+    created_branch=1
+    branch_created_at=$(git -C "$main" rev-parse "refs/heads/$name")
 fi
 
 if ! "$bin/worktree-bootstrap.sh" "$name" >&2; then
     echo "worktree-create hook: could not provision '$name' (reason above)." >&2
     echo "Most often the stack is down — run 'just up' in $main, then retry." >&2
-    # Leave nothing behind, but only undo what this run created: a worktree that
-    # cannot be gated is the problem the hook exists to remove, and an orphaned
-    # directory plus branch is a second one.
-    if [ "$created" = 1 ]; then
-        git -C "$main" worktree remove "$root" --force >&2 2>/dev/null || true
-        git -C "$main" branch -D "$name" >&2 2>/dev/null || true
+    # Undo strictly what this run created. Removing a worktree we added is
+    # right; deleting a branch we merely checked out would destroy commits that
+    # were never ours, so the branch goes only if we made it AND nothing has
+    # moved it since.
+    if [ "$created_worktree" = 1 ]; then
+        git -C "$main" worktree remove "$root" --force >&2 || true
+    fi
+    if [ "$created_branch" = 1 ] \
+        && [ "$(git -C "$main" rev-parse "refs/heads/$name" 2>/dev/null)" = "$branch_created_at" ]; then
+        git -C "$main" branch -D "$name" >&2 || true
     fi
     exit 1
 fi
