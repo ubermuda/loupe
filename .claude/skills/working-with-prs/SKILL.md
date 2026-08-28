@@ -17,12 +17,18 @@ there is no path that skips this.
 2. **`just ci`** — check-only. It reports style and rector violations but never
    rewrites files; `just cs` is the step that applies them. Fix every failure,
    including ones that pre-date your change.
-3. **`just e2e`** — fix every failure, including pre-existing ones. See
-   "Gating a branch you have not checked out" below, which has a destructive
-   side effect worth knowing before you run it.
-4. **A Codex review** — `mcp__codex-cli__review` with `model: "gpt-5.6-sol"`.
+3. **A Codex review** — `mcp__codex-cli__review` with `model: "gpt-5.6-sol"`.
    Always pass the model explicitly; whatever the tool picks by default is
    rejected by this Codex account.
+
+**e2e is not in the local gate.** The `e2e` required check on the PR is what
+gates the suite, and it runs the same `just e2e` on a disposable runner. Push,
+then read that check. Fix every failure it reports, including pre-existing
+ones — the rule did not move, only where it is enforced.
+
+Running the full suite locally before opening is no longer expected, and is
+usually worse than not running it. See "Gating locally is debugging, not
+gating" below for why, and for the cases that still want a local run.
 
 Review against `origin/main`, never `main` — a worktree's local `main` is often
 stale, and reviewing against it reports findings for code that is already
@@ -43,8 +49,9 @@ codex exec -c model="gpt-5.6-sol" "Review the diff of this branch against origin
 
 ## Documentation-only branches run steps 1 and 2 only
 
-Skip `just e2e` and the Codex review, and **say so in the PR body** so the
-record shows the gate was reduced deliberately rather than forgotten.
+Skip the Codex review, and **say so in the PR body** so the record shows the
+gate was reduced deliberately rather than forgotten. CI still runs its own
+checks including `e2e`; you are skipping the review, not suppressing them.
 
 The test is the diff, not the intent — every changed file must end in `.md`.
 Check it, do not assume:
@@ -65,10 +72,10 @@ wearing a `.md` suffix, so gate it fully. A `SKILL.md` sits at the edge: it is
 read by an agent rather than parsed by a script, so the reduced gate applies,
 but say in the body that you made that call.
 
-The reason is proportion rather than speed. `just e2e` is a serial four minutes
-(`workers: 1`), and running it to prove a paragraph of prose did not break a
-browser test is cost with no signal — while the habit of running a gate that can
-never fail is what teaches a reader to stop trusting gate results.
+The reason is proportion rather than speed. Asking a reviewer model to read a
+paragraph of prose for correctness bugs is cost with no signal — and the habit
+of running a gate that can never fail is what teaches a reader to stop trusting
+gate results.
 
 ## Write the body for two readers
 
@@ -130,10 +137,38 @@ reviewer did not spot. Ask for the failure to be reproduced against the
 pre-fix code, so you know the new test discriminates rather than passing
 vacuously.
 
-## Gating a branch you have not checked out
+## Running the suite locally is debugging, not gating
 
-Aiming the suite at a sibling worktree is the right tool for gating a branch
-without disturbing your own checkout. **Set both variables:**
+**CI's `e2e` check is the gate.** It runs the same `just e2e` against a
+disposable stack on an isolated runner, with both `E2E_BASE_URL` and
+`MAILPIT_URL` set correctly — see `.github/workflows/ci.yml`.
+
+Locally the same suite is slower, destructive, and measurably less truthful.
+Across one wave of five branches, every local e2e problem was environmental and
+none was a real defect: three runs lost to the `MAILPIT_URL` omission below,
+one lost to cross-worktree contention that CI then cleared, and an hour of one
+agent's time spent serialising runs so they would stop interfering. CI passed
+all five. A gate that fails for reasons unrelated to the diff is worse than no
+local gate, because someone has to spend judgement deciding which failures to
+believe.
+
+So: push, then read the check. Fix every failure it reports, pre-existing ones
+included.
+
+**Run it locally when you are working on a spec, not when you are finishing a
+branch.** Two cases earn it:
+
+1. **A named spec you are changing or debugging** — `just e2e
+   tests/<area>/<spec>.spec.ts`. Fast, and the only way to iterate.
+2. **A branch you cannot push yet**, or one whose CI run you need to pre-empt
+   for a reason you can state.
+
+Neither is the full suite before opening a PR.
+
+### Aiming a local run at a sibling worktree
+
+Still the right tool for the two cases above when the branch lives in another
+tree. **Set both variables:**
 
 ```bash
 E2E_BASE_URL=https://<slug>.loupe.dev.localhost \
