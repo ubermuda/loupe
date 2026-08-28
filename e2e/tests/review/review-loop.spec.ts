@@ -1,22 +1,18 @@
 /**
- * End-to-end test for the full document review loop:
- * seed a user + document → select text → add a comment → request changes → verify persistence.
+ * Browser coverage for the document review loop: anchoring a comment to selected
+ * text, replying, resolving, deleting, and recording a verdict.
  *
- * User creation uses a dev-only endpoint (/dev/register-and-verify) that registers and
- * immediately marks the email as verified, bypassing the email confirmation flow.
- *
- * Document seeding uses a dev-only POST endpoint (/dev/seed/document).
- * Quote read-back uses a dev-only GET endpoint (/dev/review/{id}/state).
- * The status badge is asserted on the project dashboard (/projects/{projectId}/documents) after verdict submission.
+ * Every test drives its own user and document through the dev-only endpoints —
+ * /dev/register-and-verify (registers and verifies in one call), /dev/seed/document
+ * (seeds the document), /dev/review/{id}/state (reads the stored anchors back).
+ * The status badge is asserted on the project dashboard (/projects/{projectId}/documents).
  */
 
-import { test, expect, type Page } from '@playwright/test';
+import { test as base, expect, type Page } from '@playwright/test';
 import { suppressToolbar, suppressWidget } from '../fixtures';
 
-// Guest by default — make the unauthenticated starting state explicit.
-test.use({ storageState: { cookies: [], origins: [] } });
-
 const RUN = Date.now();
+const PASSWORD = 'E2eReviewLoop1!';
 
 const KNOWN_PHRASE = 'sample phrase for selection';
 const DOCUMENT_MARKDOWN = `# E2E Review Test Document
@@ -25,6 +21,11 @@ This paragraph contains a ${KNOWN_PHRASE} in this review.`;
 
 const COMMENT_BODY = 'This is an e2e test comment on the selected text.';
 const REPLY_BODY = 'This is an e2e reply to the comment.';
+
+const DOC = '[data-comment-anchor-target="doc"]';
+const TOOLBAR = '[data-comment-anchor-target="toolbar"]';
+const COMPOSER = '[data-comment-anchor-target="composer"]';
+const COMPOSER_BODY = '[data-comment-anchor-target="composerBody"]';
 
 /** Register a user via the dev endpoint and immediately mark them as verified. */
 async function devRegisterAndVerify(
@@ -78,6 +79,51 @@ async function seedDocument(
         projectId: body.projectId as string,
     };
 }
+
+interface SeededReview {
+    documentId: string;
+    projectId: string;
+    reviewUrl: string;
+    dashboardUrl: string;
+}
+
+/**
+ * Registers a user, logs in, seeds a document and opens its review page. Runs
+ * for every test in this file; tests that need the ids destructure `review`.
+ * Each test gets its own user and document, so nothing here can disturb a
+ * sibling test's state.
+ */
+const test = base.extend<{ review: SeededReview }>({
+    review: [
+        async ({ page }, use, testInfo) => {
+            await suppressToolbar(page);
+            await suppressWidget(page);
+
+            const tag = testInfo.testId.replace(/[^a-z0-9]/gi, '');
+            const email = `e2e+review+${tag}+${RUN}@example.com`;
+
+            await devRegisterAndVerify(page, email, PASSWORD);
+            await login(page, email, PASSWORD);
+
+            const { documentId, projectId } = await seedDocument(page);
+            const reviewUrl = `/projects/${projectId}/documents/${documentId}/review`;
+
+            await page.goto(reviewUrl);
+            await expect(page.locator(DOC)).toBeVisible();
+
+            await use({
+                documentId,
+                projectId,
+                reviewUrl,
+                dashboardUrl: `/projects/${projectId}/documents`,
+            });
+        },
+        { auto: true },
+    ],
+});
+
+// Guest by default — make the unauthenticated starting state explicit.
+test.use({ storageState: { cookies: [], origins: [] } });
 
 /**
  * Drive text selection inside [data-comment-anchor-target="doc"] by
@@ -134,50 +180,38 @@ async function selectKnownPhrase(page: Page, phrase: string): Promise<void> {
     }, phrase);
 }
 
-test('full review loop: comment, request changes, reload persistence', async ({
+/**
+ * Select the known phrase and open the composer over it. Selecting text shows a
+ * floating toolbar rather than the composer, so selecting/copying isn't hijacked;
+ * clicking "Comment" opens the composer. Exact match, so it doesn't also pick up
+ * the sidebar's "Add comment" (untargeted) button.
+ */
+async function openComposer(page: Page): Promise<void> {
+    await selectKnownPhrase(page, KNOWN_PHRASE);
+    await expect(page.locator(TOOLBAR)).toBeVisible({ timeout: 5000 });
+    await page.getByRole('button', { name: 'Comment', exact: true }).click();
+    await expect(page.locator(COMPOSER)).toBeVisible({ timeout: 5000 });
+}
+
+/**
+ * Post a comment anchored to the known phrase, returning once the Turbo Stream
+ * has replaced the thread list — the composer hides and the thread is rendered.
+ */
+async function postComment(page: Page): Promise<void> {
+    await openComposer(page);
+    await page.locator(COMPOSER_BODY).fill(COMMENT_BODY);
+    await page.getByRole('button', { name: 'Post' }).click();
+    await expect(page.locator(COMPOSER)).toBeHidden({ timeout: 10000 });
+    await expect(page.locator('.lp-comment-body').first()).toBeVisible({
+        timeout: 10000,
+    });
+}
+
+test('posting a comment disables the submitter and renders the thread in the sidebar', async ({
     page,
 }) => {
-    await suppressToolbar(page);
-    await suppressWidget(page);
-
-    const email = `e2e+review+${RUN}@example.com`;
-    const password = 'E2eReviewLoop1!';
-
-    // Step 1: Register and verify a fresh user for this test run via the dev endpoint
-    // (bypasses email confirmation — mailpit is not accessible via traefik in this project).
-    await devRegisterAndVerify(page, email, password);
-
-    // Step 2: Log in.
-    await login(page, email, password);
-
-    // Step 3: Seed a fresh document for this test run.
-    const { documentId, projectId } = await seedDocument(page);
-    const reviewUrl = `/projects/${projectId}/documents/${documentId}/review`;
-    const dashboardUrl = `/projects/${projectId}/documents`;
-
-    // Step 4: Open the review page.
-    await page.goto(reviewUrl);
-    await expect(
-        page.locator('[data-comment-anchor-target="doc"]'),
-    ).toBeVisible();
-
-    // Step 5: Select the known phrase. Selecting text now shows a floating
-    // toolbar (not the composer, so selecting/copying isn't hijacked); clicking
-    // "Comment" opens the composer. Use exact match so it doesn't also pick up
-    // the sidebar's "Add comment" (untargeted) button.
-    await selectKnownPhrase(page, KNOWN_PHRASE);
-    await expect(
-        page.locator('[data-comment-anchor-target="toolbar"]'),
-    ).toBeVisible({ timeout: 5000 });
-    await page.getByRole('button', { name: 'Comment', exact: true }).click();
-    await expect(
-        page.locator('[data-comment-anchor-target="composer"]'),
-    ).toBeVisible({ timeout: 5000 });
-
-    // Step 6: Fill the comment body and post.
-    await page
-        .locator('[data-comment-anchor-target="composerBody"]')
-        .fill(COMMENT_BODY);
+    await openComposer(page);
+    await page.locator(COMPOSER_BODY).fill(COMMENT_BODY);
 
     // Turbo disables the form's submitter for the length of the request, which
     // is what stops a second click posting the same comment twice. It can only
@@ -200,26 +234,31 @@ test('full review loop: comment, request changes, reload persistence', async ({
     // The composer is a plain form submitted through Turbo; the controller returns
     // a Turbo Stream that replaces the thread list in place (no reload). The
     // composer hides on success and the new thread appears in the sidebar.
-    await expect(
-        page.locator('[data-comment-anchor-target="composer"]'),
-    ).toBeHidden({ timeout: 10000 });
+    await expect(page.locator(COMPOSER)).toBeHidden({ timeout: 10000 });
 
-    // Step 7: Assert the comment appears in the sidebar.
     const commentBody = page.locator('.lp-comment-body').first();
     await expect(commentBody).toBeVisible({ timeout: 10000 });
     await expect(commentBody).toContainText(COMMENT_BODY);
 
-    // Step 7b: the thread renders the anchored document text as a quote.
+    // The thread renders the anchored document text as a quote.
     await expect(page.locator('.lp-comment-quote').first()).toContainText(
         KNOWN_PHRASE,
     );
+});
 
-    // Step 8: Read the review payload back and assert the quote is the selected
-    // phrase. The endpoint reports the quote widened to word edges rather than the
-    // stored one, and KNOWN_PHRASE is whitespace-delimited in the document, so this
-    // proves the anchor round-tripped through capture, storage and reporting without
+test('the stored anchor keeps the quote and the whitespace around it', async ({
+    page,
+    review,
+}) => {
+    await postComment(page);
+
+    // The endpoint reports the quote widened to word edges rather than the stored
+    // one, and KNOWN_PHRASE is whitespace-delimited in the document, so this proves
+    // the anchor round-tripped through capture, storage and reporting without
     // picking up neighbouring words — not that the stored quote is byte-identical.
-    const stateRes = await page.request.get(`/dev/review/${documentId}/state`);
+    const stateRes = await page.request.get(
+        `/dev/review/${review.documentId}/state`,
+    );
     expect(stateRes.status()).toBe(200);
     const state = (await stateRes.json()) as {
         comments: Array<{ quote: string; body: string }>;
@@ -244,6 +283,12 @@ test('full review loop: comment, request changes, reload persistence', async ({
     expect(anchor.prefix).toContain('contains a');
     expect(anchor.suffix).toMatch(/^ /);
     expect(anchor.suffix).toContain('in this review');
+});
+
+test('replying to a thread and resolving it re-render it in place', async ({
+    page,
+}) => {
+    await postComment(page);
 
     // Asserting both status and content type guards the whole path: CSRF, the
     // {id:comment} entity mapping, and the stream wiring — a wrong content type
@@ -265,8 +310,8 @@ test('full review loop: comment, request changes, reload persistence', async ({
         page.locator('.lp-comment--reply .lp-comment-body'),
     ).toContainText(REPLY_BODY, { timeout: 10000 });
 
-    // Step 8c: Resolve the thread. Same form + Turbo Stream path; the thread is
-    // replaced in place and gains the resolved modifier.
+    // Same form + Turbo Stream path; the thread is replaced in place and gains
+    // the resolved modifier.
     const resolveResponsePromise = page.waitForResponse(
         (r) => r.url().includes('/resolve') && r.request().method() === 'POST',
     );
@@ -278,8 +323,12 @@ test('full review loop: comment, request changes, reload persistence', async ({
     await expect(page.locator('.lp-comment-thread--resolved')).toBeVisible({
         timeout: 10000,
     });
+});
 
-    // Step 9: Submit the "Request changes" verdict.
+test('requesting changes shows the verdict on the project dashboard', async ({
+    page,
+    review,
+}) => {
     await page.getByRole('button', { name: 'Request changes' }).click();
 
     // The form POSTs (Turbo Drive) and redirects back to the *same* review URL,
@@ -290,46 +339,49 @@ test('full review loop: comment, request changes, reload persistence', async ({
         timeout: 10000,
     });
 
-    // Step 10: Assert the status badge on the dashboard (scoped to THIS document's row).
-    await page.goto(dashboardUrl);
-    const badge = page.locator(`[data-document-id="${documentId}"] .lp-badge`);
+    // Scoped to THIS document's row.
+    await page.goto(review.dashboardUrl);
+    const badge = page.locator(
+        `[data-document-id="${review.documentId}"] .lp-badge`,
+    );
     await expect(badge).toBeVisible({ timeout: 5000 });
     await expect(badge).toHaveText('Changes requested');
 
-    // Step 11: Reload the review page and assert the comment is still present.
-    await page.goto(reviewUrl);
-    await expect(
-        page.locator('[data-comment-anchor-target="doc"]'),
-    ).toBeVisible();
+    // Leave and come back: the verdict is stored, not a property of the response
+    // that happened to follow the POST.
+    await page.goto(review.reviewUrl);
+    await page.goto(review.dashboardUrl);
+    await expect(badge).toHaveText('Changes requested');
+});
+
+test('a resolved comment survives a reload and can then be deleted for good', async ({
+    page,
+    review,
+}) => {
+    await postComment(page);
+
+    await page.getByRole('button', { name: 'Resolve' }).click();
+    await expect(page.locator('.lp-comment-thread--resolved')).toBeVisible({
+        timeout: 10000,
+    });
+
+    await page.goto(review.reviewUrl);
+    await expect(page.locator(DOC)).toBeVisible();
     const persistedCommentBody = page.locator('.lp-comment-body').first();
     await expect(persistedCommentBody).toBeVisible({ timeout: 5000 });
     await expect(persistedCommentBody).toContainText(COMMENT_BODY);
+    await expect(page.locator('.lp-comment-thread')).toHaveCount(1);
 
-    // Step 12: Re-check the status is still "Changes requested" on the dashboard.
-    await page.goto(dashboardUrl);
-    const reloadedBadge = page.locator(
-        `[data-document-id="${documentId}"] .lp-badge`,
-    );
-    await expect(reloadedBadge).toHaveText('Changes requested');
-
-    // Step 13: Delete the (resolved) comment. Delete is a fieldless form guarded
-    // by a data-turbo-confirm dialog; accept it, then the Turbo Stream re-renders
-    // the thread list without the comment.
-    await page.goto(reviewUrl);
-    await expect(page.locator('.lp-comment-thread')).toHaveCount(1, {
-        timeout: 5000,
-    });
+    // Delete is a fieldless form guarded by a data-turbo-confirm dialog; accept
+    // it, then the Turbo Stream re-renders the thread list without the comment.
     page.on('dialog', (dialog) => dialog.accept());
     await page.getByRole('button', { name: 'Delete' }).click();
     await expect(page.locator('.lp-comment-thread')).toHaveCount(0, {
         timeout: 10000,
     });
 
-    // Step 14: Reload and confirm the deletion persisted.
-    await page.goto(reviewUrl);
-    await expect(
-        page.locator('[data-comment-anchor-target="doc"]'),
-    ).toBeVisible();
+    await page.goto(review.reviewUrl);
+    await expect(page.locator(DOC)).toBeVisible();
     await expect(page.locator('.lp-comment-thread')).toHaveCount(0);
 });
 
@@ -340,28 +392,10 @@ test('full review loop: comment, request changes, reload persistence', async ({
  * elsewhere, so press Control+Enter too: the controller accepts either, and
  * this keeps the spec honest on a Linux CI runner.
  */
-test('composer submits on Ctrl/Cmd+Enter', async ({ page }) => {
-    await suppressToolbar(page);
-    await suppressWidget(page);
+test('the composer submits on Ctrl/Cmd+Enter', async ({ page, review }) => {
+    await openComposer(page);
 
-    const email = `e2e+reviewkbd+${RUN}@example.com`;
-    const password = 'E2eReviewKeys1!';
-
-    await devRegisterAndVerify(page, email, password);
-    await login(page, email, password);
-
-    const { documentId, projectId } = await seedDocument(page);
-    await page.goto(`/projects/${projectId}/documents/${documentId}/review`);
-    await expect(
-        page.locator('[data-comment-anchor-target="doc"]'),
-    ).toBeVisible();
-
-    await selectKnownPhrase(page, KNOWN_PHRASE);
-    await page.getByRole('button', { name: 'Comment', exact: true }).click();
-    const composer = page.locator('[data-comment-anchor-target="composer"]');
-    await expect(composer).toBeVisible({ timeout: 5000 });
-
-    const body = page.locator('[data-comment-anchor-target="composerBody"]');
+    const body = page.locator(COMPOSER_BODY);
     await body.fill(COMMENT_BODY);
 
     // Submit from inside the textarea — the action is bound on the form and
@@ -370,14 +404,16 @@ test('composer submits on Ctrl/Cmd+Enter', async ({ page }) => {
 
     // Same success signal the click path asserts: the Turbo Stream comes back,
     // the composer hides, and the thread appears.
-    await expect(composer).toBeHidden({ timeout: 10000 });
+    await expect(page.locator(COMPOSER)).toBeHidden({ timeout: 10000 });
     const commentBody = page.locator('.lp-comment-body').first();
     await expect(commentBody).toBeVisible({ timeout: 10000 });
     await expect(commentBody).toContainText(COMMENT_BODY);
 
     // Guard against a double submit: the keydown must not also trigger the
     // form's default newline-then-submit behaviour.
-    const stateRes = await page.request.get(`/dev/review/${documentId}/state`);
+    const stateRes = await page.request.get(
+        `/dev/review/${review.documentId}/state`,
+    );
     expect(stateRes.status()).toBe(200);
     const state = (await stateRes.json()) as {
         comments: Array<{ quote: string; body: string }>;
@@ -393,25 +429,7 @@ test('composer submits on Ctrl/Cmd+Enter', async ({ page }) => {
 test('hovering an anchored passage activates its comment card', async ({
     page,
 }) => {
-    await suppressToolbar(page);
-    await suppressWidget(page);
-
-    const email = `e2e+hover+${RUN}@example.com`;
-    const password = 'E2eReviewHover1!';
-
-    await devRegisterAndVerify(page, email, password);
-    await login(page, email, password);
-
-    const { documentId, projectId } = await seedDocument(page);
-    const reviewUrl = `/projects/${projectId}/documents/${documentId}/review`;
-
-    await page.goto(reviewUrl);
-    await selectKnownPhrase(page, KNOWN_PHRASE);
-    await page.getByRole('button', { name: 'Comment', exact: true }).click();
-    await page
-        .locator('[data-comment-anchor-target="composerBody"]')
-        .fill(COMMENT_BODY);
-    await page.getByRole('button', { name: 'Post' }).click();
+    await postComment(page);
 
     const thread = page
         .locator('[data-comment-anchor-target="thread"]')
