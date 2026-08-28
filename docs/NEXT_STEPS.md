@@ -94,29 +94,26 @@ One cost of deferring rather than declaring the app desktop-only: a phone
 currently gets a broken layout instead of an honest "not supported here" notice.
 If this stays deferred for long, that notice is the cheap interim step.
 
-## A single-host deployment has no database backup at all
+## No database restore has ever been rehearsed
 
 **Author:** Claude · **Type:** tooling · **Priority:** high · **Status:** pending
 
-`docker/compose/prod.yaml` keeps Postgres in a local `database_data` volume.
-No dump job, no WAL archiving, no off-host copy exists anywhere in `docker/`,
-the `justfile` or `docs/`. Disk loss on that host is total, permanent data
-loss.
+Nobody has restored a Loupe database from a dump, on either deployment path.
+`docs/operating/restoring.md` is a runbook written from how the stack is built,
+not from a drill somebody ran, and both it and `docs/operating/backups.md` say
+so. An unrehearsed restore is not a backup; this entry closes by proving one on
+a scratch instance and correcting whatever the runbook gets wrong.
 
-The DigitalOcean path is better but not covered: `terraform/main.tf` provisions
-a managed cluster, so DigitalOcean's own daily backups apply, but nothing adds
-an independent copy or a retention window beyond the platform default. There is
-no second location and no second custodian.
+The single-host stack now takes dumps: the `backup` service in
+`docker/compose/prod.yaml`, behind `--profile backup`, runs
+`pg_dump --format=custom` on an interval, uploads to S3-compatible storage and
+prunes past a retention window. What remains untested is putting one back.
 
-**No restore has been rehearsed on either path.** `docs/operating/backups.md`
-states this outright — "Loupe schedules nothing, ships no backup command" and
-"Your restore is yours to prove". An unrehearsed restore is not a backup, and
-this is the entry that should close by proving one. Note that
-`docs/operating/recovering.md` is administrator-account recovery despite the
-name; there is no database restore runbook.
-
-The data-export feature is a per-user GDPR export, not a backup, and must not
-be mistaken for one.
+The DigitalOcean path is still uncovered: `terraform/main.tf` provisions a
+managed cluster, so DigitalOcean's own daily backups apply, but nothing adds an
+independent copy or a retention window beyond the platform default. There is no
+second location and no second custodian, and the compose backup job does not run
+there.
 
 Found by an audit on 2026-08-20.
 
@@ -522,9 +519,9 @@ Three specific misplacements to fix while here, each confirmed at source:
 - **Project depends on the two modules that depend on it** — the `ListProjectsHandler`
   imports above.
 
-`src/Module/Diagnostics/` (added 2026-08-17) is the worked example of the target
-shape: it imports nothing from any module, and Billing and Account contribute
-their own tagged checks to it.
+The diagnostics report is the worked example of the target shape: the
+aggregation lives in `ubermuda/health-check-bundle`, imports nothing from any
+module, and Billing and Account contribute their own tagged checks to it.
 
 Two pieces of work, in order:
 
@@ -1357,8 +1354,8 @@ already applies to site-review comment bodies.
 
 **Author:** Claude · **Type:** feature · **Priority:** medium · **Status:** pending
 
-The `worker` check on `/admin/status`
-(`src/Module/Diagnostics/Check/WorkerCheck.php`) can only prove the *failure*
+The `worker` check on `/admin/status` (`WorkerCheck` in
+`ubermuda/health-check-bundle`) can only prove the *failure*
 case: it measures the age of the oldest available-and-unclaimed row in
 `messenger_messages`, so a
 backlog nobody has touched for a minute means nothing is consuming. An empty
@@ -1424,42 +1421,6 @@ within about 5 minutes and tolerates roughly one poll a minute, so a periodic
 refresh fits it well); and each source needs a read credential the deployment
 does not currently carry, so it interacts with the `extra_env` wiring in
 `terraform/main.tf`.
-
-## Decide whether health checks stay hand-rolled, move to a third-party package, or become our own
-
-
-**Author:** Geoffrey · **Type:** idea · **Priority:** medium · **Status:** pending
-
-The health and status surface is currently hand-rolled and lives entirely in
-this app: `App\Controller\ShowHealthController` serves `/healthz`, and
-`src/Module/Diagnostics/` runs the seven checks behind `/admin/status` and the
-install wizard's status step. Since 2026-08-17 those checks are one tagged
-class each behind `DiagnosticInterface`, so the seam a third-party package
-would need already exists and adopting one is now a swap rather than a rewrite.
-Three options are worth weighing rather than letting the hand-rolled version
-become the answer by default:
-
-1. **Adopt an existing open-source package.** `liip/monitor-bundle` is the
-   long-standing Symfony option and ships checks for Doctrine connections,
-   disk space, memory, and a readiness endpoint. The question is whether its
-   check abstraction can express the two checks that carry the actual value
-   here — a real SMTP `start()`/`stop()` against the configured transport, and
-   a backlog query that distinguishes an unclaimed message from one claimed by
-   a worker that has since died — or whether wrapping them in someone else's
-   interface costs more than it saves.
-2. **Extract our own `ubermuda/*` package**, alongside the other first-party
-   bundles. Attractive only if a second application actually needs it;
-   otherwise it adds a release to every change (see the bundle-pinning
-   protocol in `CLAUDE.md`).
-3. **Keep it in-app.** Cheapest today, and the checks are unusually
-   opinionated about *this* application's failure modes.
-
-What should drive the decision is whether the honesty of the current checks
-survives the move. The worker check deliberately never reports "ok" — an idle
-queue cannot prove a consumer is running — and a generic package that reports
-green for "no errors" would reintroduce exactly the false reassurance the
-check was written to avoid. Related: "Worker heartbeat, so 'is a worker
-running?' can be answered positively".
 
 ## An agent highlight is invisible to a screen reader
 

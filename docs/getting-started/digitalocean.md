@@ -155,5 +155,16 @@ default `image_tag` is a fixed `prod` — there is no per-release tag, so "the
 previous image" is only recoverable through App Platform's own deployment
 history. Building with
 `LOUPE_PROD_IMAGE=<registry>/loupe:$(git rev-parse --short HEAD)` and setting
-`image_tag` to match would make rollback a one-command operation.
+`image_tag` to match would make rolling the *code* back a one-command
+operation.
+
+**The schema is the other half, and it does not go back.** With
+`enable_predeploy_migrations = true` the migration job runs on the rollback
+deploy as well, and it never migrates down — the database stays at the newest
+schema it has reached. So a rollback is safe across releases that only
+*expanded* the schema, and unsafe across one that dropped, renamed or narrowed
+something: the old image would run against a schema missing what it reads.
+[Running migrations](../operating/migrations.md#a-release-may-only-expand-the-schema)
+carries the rule releases are written to follow, and the two options when you
+need to go back past a release that broke it.
 
