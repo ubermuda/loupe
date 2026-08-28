@@ -5,13 +5,13 @@ declare(strict_types=1);
 namespace App\Tests\Module\Diagnostics\Controller\Admin;
 
 use App\Module\Account\Entity\User;
-use App\Module\Diagnostics\Command\RunDiagnosticsHandler;
 use App\Tests\Support\AcceptedTerms;
 use App\Tests\Support\Diagnostics;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
+use Ubermuda\HealthCheckBundle\Command\RunDiagnosticsHandler;
 
 final class ShowDiagnosticsControllerTest extends WebTestCase
 {
@@ -28,6 +28,20 @@ final class ShowDiagnosticsControllerTest extends WebTestCase
         self::assertSame('System status — Loupe', $crawler->filter('title')->text());
         self::assertGreaterThan(0, $crawler->filter('[data-system-check="mailer"]')->count());
         self::assertGreaterThan(0, $crawler->filter('[data-system-check="failed_messages"]')->count());
+        // A bundle check resolves its label in the bundle catalogue and an
+        // application check in the application's, both from the same row.
+        self::assertSame(
+            'Mail transport',
+            $crawler->filter('[data-system-check="mailer"] .status-check-label')->text(),
+        );
+        self::assertSame(
+            'Agent account',
+            $crawler->filter('[data-system-check="agent_account"] .status-check-label')->text(),
+        );
+        self::assertStringContainsString(
+            'Failed',
+            $crawler->filter('[data-system-check="mailer"] .status-check-badge')->text(),
+        );
         // The failed transport is otherwise undiscoverable, so the page names
         // the commands that inspect and re-queue it.
         self::assertStringContainsString('messenger:failed:show', $crawler->filter('body')->text());

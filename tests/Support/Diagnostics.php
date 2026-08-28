@@ -6,12 +6,6 @@ namespace App\Tests\Support;
 
 use App\Module\Account\Diagnostics\AgentAccountCheck;
 use App\Module\Billing\Diagnostics\StripeCheck;
-use App\Module\Diagnostics\Check\FailedMessagesCheck;
-use App\Module\Diagnostics\Check\MailerSenderCheck;
-use App\Module\Diagnostics\Check\MailerTransportCheck;
-use App\Module\Diagnostics\Check\MercureCheck;
-use App\Module\Diagnostics\Check\WorkerCheck;
-use App\Module\Diagnostics\Command\RunDiagnosticsHandler;
 use Doctrine\DBAL\Connection;
 use Psr\Log\NullLogger;
 use Symfony\Component\HttpClient\MockHttpClient;
@@ -21,22 +15,28 @@ use Symfony\Component\Mailer\Transport\SendmailTransportFactory;
 use Symfony\Component\Mailer\Transport\Smtp\EsmtpTransportFactory;
 use Symfony\Contracts\HttpClient\HttpClientInterface;
 use Ubermuda\FeatureFlagsBundle\FeatureFlagService;
+use Ubermuda\HealthCheckBundle\Check\FailedMessagesCheck;
+use Ubermuda\HealthCheckBundle\Check\MailerSenderCheck;
+use Ubermuda\HealthCheckBundle\Check\MailerTransportCheck;
+use Ubermuda\HealthCheckBundle\Check\MercureCheck;
+use Ubermuda\HealthCheckBundle\Check\WorkerCheck;
+use Ubermuda\HealthCheckBundle\Command\RunDiagnosticsHandler;
 
 /**
  * Builds a real RunDiagnosticsHandler wired to values a test controls, with the
  * checks in the order the container gives them so a test sees the real report.
  *
- * The handler is `final readonly`, so it cannot be mocked; controller tests
- * substitute a genuine instance instead. The defaults are the combination that
- * touches no network at all — a null mail transport and no Mercure hub — so a
- * test that does not care about the checks still cannot hang on a socket.
+ * The bundle ships an equivalent helper, but only under its `autoload-dev`, so
+ * a consumer cannot reach it. The defaults are the combination that touches no
+ * network at all — a null mail transport and no Mercure hub — so a test that
+ * does not care about the checks still cannot hang on a socket.
  */
 final class Diagnostics
 {
     public static function handler(
         Connection $connection,
-        string $mailerDsn = 'null://null',
-        string $mailerFromAddress = 'noreply@localhost',
+        ?string $mailerDsn = 'null://null',
+        ?string $mailerFromAddress = 'noreply@localhost',
         ?string $mercureUrl = null,
         ?string $mercureJwtSecret = null,
         ?string $stripeSecretKey = null,

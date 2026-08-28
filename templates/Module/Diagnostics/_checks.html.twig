@@ -2,7 +2,11 @@
     System-status check list, shared by the install wizard and the admin area.
 
     Props:  @comment-budget-ignore
-      - checks: list of App\Module\Diagnostics\Diagnostic
+      - checks: list of Ubermuda\HealthCheckBundle\Diagnostic
+
+    A check's label and detail resolve in its own domain, so an application
+    check keeps its keys in `messages`; the four state names only ever exist in
+    the bundle's catalogue.
 
     The icon per state is written out branch by branch rather than looked up
     from a map because `bin/console ux:icons:lock` only imports icon names it
@@ -21,11 +25,11 @@
                 {% else %}
                     <twig:UX:Icon name="lucide:circle-help" class="w-3.5 h-3.5 shrink-0" />
                 {% endif %}
-                {{ ('account.system_status.state.' ~ check.state.value)|trans }}
+                {{ ('state.' ~ check.state.value)|trans({}, 'ubermuda_health_check') }}
             </span>
             <span class="status-check-text">
-                <span class="status-check-label">{{ ('account.system_status.check.' ~ check.key ~ '.label')|trans }}</span>
-                <span class="status-check-detail">{{ check.detail|trans(check.detailParameters) }}</span>
+                <span class="status-check-label">{{ ('check.' ~ check.key ~ '.label')|trans({}, check.domain) }}</span>
+                <span class="status-check-detail">{{ check.detail|trans(check.detailParameters, check.domain) }}</span>
             </span>
         </li>
     {% endfor %}

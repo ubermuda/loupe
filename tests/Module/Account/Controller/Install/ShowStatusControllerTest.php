@@ -5,12 +5,12 @@ declare(strict_types=1);
 namespace App\Tests\Module\Account\Controller\Install;
 
 use App\Module\Account\Entity\User;
-use App\Module\Diagnostics\Command\RunDiagnosticsHandler;
 use App\Tests\Support\Diagnostics;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use Symfony\Component\HttpFoundation\Request;
+use Ubermuda\HealthCheckBundle\Command\RunDiagnosticsHandler;
 
 final class ShowStatusControllerTest extends WebTestCase
 {

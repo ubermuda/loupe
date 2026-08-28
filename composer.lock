@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "f33c1220b8aeb981cf9385a98df5c1a1",
+    "content-hash": "70a560146f5d5db68641d00a223f80a9",
     "packages": [
         {
             "name": "async-aws/core",
@@ -12192,6 +12192,63 @@
             "time": "2026-08-24T21:16:07+00:00"
         },
         {
+            "name": "ubermuda/health-check-bundle",
+            "version": "dev-main",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/ubermuda/health-check-bundle.git",
+                "reference": "3a59280a8b8e90881bc95db3bf7d5137ec504b8c"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/ubermuda/health-check-bundle/zipball/3a59280a8b8e90881bc95db3bf7d5137ec504b8c",
+                "reference": "3a59280a8b8e90881bc95db3bf7d5137ec504b8c",
+                "shasum": ""
+            },
+            "require": {
+                "doctrine/dbal": "^4.0",
+                "doctrine/doctrine-bundle": "^3.2",
+                "php": ">=8.5",
+                "psr/log": "^3.0",
+                "symfony/config": "^8.1",
+                "symfony/console": "^8.1",
+                "symfony/dependency-injection": "^8.1",
+                "symfony/framework-bundle": "^8.1",
+                "symfony/http-client": "^8.1",
+                "symfony/http-foundation": "^8.1",
+                "symfony/http-kernel": "^8.1",
+                "symfony/mailer": "^8.1",
+                "symfony/routing": "^8.1",
+                "symfony/translation": "^8.1"
+            },
+            "require-dev": {
+                "phpstan/phpstan": "^2.0",
+                "phpunit/phpunit": "^13.0",
+                "symfony/phpunit-bridge": "^8.0"
+            },
+            "default-branch": true,
+            "type": "symfony-bundle",
+            "autoload": {
+                "psr-4": {
+                    "Ubermuda\\HealthCheckBundle\\": "src/"
+                }
+            },
+            "autoload-dev": {
+                "psr-4": {
+                    "Ubermuda\\HealthCheckBundle\\Test\\": "test/"
+                }
+            },
+            "license": [
+                "MIT"
+            ],
+            "description": "Infrastructure diagnostics and a liveness endpoint for Symfony: honest four-state checks an operator can act on, and a /healthz a load balancer can poll.",
+            "support": {
+                "source": "https://github.com/ubermuda/health-check-bundle/tree/main",
+                "issues": "https://github.com/ubermuda/health-check-bundle/issues"
+            },
+            "time": "2026-08-28T14:05:40+00:00"
+        },
+        {
             "name": "ubermuda/symfony-extra",
             "version": "dev-main",
             "source": {
@@ -16276,6 +16333,7 @@
         "ubermuda/doctrine-extra": 20,
         "ubermuda/feature-flags-bundle": 20,
         "ubermuda/gamache": 20,
+        "ubermuda/health-check-bundle": 20,
         "ubermuda/symfony-extra": 20
     },
     "prefer-stable": true,

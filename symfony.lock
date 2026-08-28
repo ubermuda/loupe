@@ -477,6 +477,9 @@
     "ubermuda/feature-flags-bundle": {
         "version": "dev-main"
     },
+    "ubermuda/health-check-bundle": {
+        "version": "dev-initial-extraction"
+    },
     "ubermuda/symfony-extra": {
         "version": "dev-feat/csrf-attribute-and-e2e-subscribers"
     },

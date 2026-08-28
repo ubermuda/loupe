@@ -37,7 +37,7 @@ description: "What to verify after a deploy, and what each check can and cannot 
    you. A **403** is different again: that is the DNS-rebinding guard, and the
    body names `MCP_ALLOWED_HOSTS` and echoes the host it rejected.
 3. `bin/console doctrine:migrations:status` reports no pending migrations.
-4. Run **`bin/console app:system-status`**, or open **`/admin/status`** — same
+4. Run **`bin/console health-check:status`**, or open **`/admin/status`** — same
    checks, same wording. The command exits non-zero when any check has failed,
    so a deploy script can end with it; add `--strict` to fail on warnings too.
    Either one reports, for this instance, whether the mail

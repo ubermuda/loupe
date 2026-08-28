@@ -1,0 +1,2 @@
+ubermuda_health_check:
+    resource: '@UbermudaHealthCheckBundle/config/routes.php'
