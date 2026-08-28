@@ -6,11 +6,9 @@ namespace App\Module\Account\Controller;
 
 use App\Controller\AppController;
 use App\Module\Account\Entity\User;
-use App\Routing\PaywallExempt;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
 
-#[PaywallExempt]
 #[Route(
     '/account/suspended',
     name: 'app_account_suspended',

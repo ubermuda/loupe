@@ -9,7 +9,6 @@ use App\Exception\DomainErrors;
 use App\Module\Account\Entity\User;
 use App\Module\Billing\Command\StartCheckoutCommand;
 use App\Module\Billing\Command\StartCheckoutHandler;
-use App\Routing\PaywallExempt;
 use Symfony\Component\HttpFoundation\RedirectResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -19,7 +18,6 @@ use Symfony\Contracts\Translation\TranslatorInterface;
 use Ubermuda\SymfonyExtra\Csrf\Attribute\CsrfToken;
 
 #[CsrfToken('billing-checkout')]
-#[PaywallExempt]
 #[Route(
     '/billing/checkout',
     name: 'app_billing_checkout',

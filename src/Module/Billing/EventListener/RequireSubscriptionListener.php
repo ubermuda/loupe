@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace App\Module\Billing\EventListener;
 
 use App\Module\Account\Entity\User;
+use App\Module\Billing\Service\PaywallExemptions;
 use App\Module\Billing\Service\PaywallGate;
-use App\Routing\PaywallExempt;
 use Symfony\Component\EventDispatcher\Attribute\AsEventListener;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\RedirectResponse;
@@ -20,10 +20,6 @@ use Symfony\Component\Security\Core\Authentication\Token\Storage\TokenStorageInt
 #[AsEventListener(priority: 4)]
 final readonly class RequireSubscriptionListener
 {
-    private const string ADMIN_ROUTE_PREFIX = 'app_admin_';
-
-    private const string FEATURE_FLAGS_ROUTE_PREFIX = 'ubermuda_feature_flags_';
-
     /**
      * Machine clients authenticate against the stateless token firewalls with an
      * API token. They are gated exactly like the UI, but an HTML 302 to the
@@ -35,6 +31,7 @@ final readonly class RequireSubscriptionListener
     public function __construct(
         private TokenStorageInterface $tokenStorage,
         private PaywallGate $gate,
+        private PaywallExemptions $exemptions,
         private UrlGeneratorInterface $urlGenerator,
     ) {
     }
@@ -55,14 +52,7 @@ final readonly class RequireSubscriptionListener
 
         if (!$isMachineRequest) {
             $route = $request->attributes->get('_route');
-            // `_paywallExempt` is a route default set from the #[PaywallExempt]
-            // attribute. Read here rather than from a route-name allowlist, so
-            // the exemption travels with the route and cannot silently stop
-            // protecting one that gets renamed.
-            if (!is_string($route)
-                || true === $request->attributes->get(PaywallExempt::ROUTE_DEFAULT)
-                || str_starts_with($route, self::ADMIN_ROUTE_PREFIX)
-                || str_starts_with($route, self::FEATURE_FLAGS_ROUTE_PREFIX)) {
+            if (!is_string($route) || $this->exemptions->exempts($route)) {
                 return;
             }
         }

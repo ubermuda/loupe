@@ -8,14 +8,12 @@ use App\Controller\AppController;
 use App\Module\Account\Command\RequestAccountDeletionCommand;
 use App\Module\Account\Command\RequestAccountDeletionHandler;
 use App\Module\Account\Entity\User;
-use App\Routing\PaywallExempt;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Contracts\Translation\TranslatorInterface;
 use Ubermuda\SymfonyExtra\Csrf\Attribute\CsrfToken;
 
 #[CsrfToken('request-account-deletion')]
-#[PaywallExempt]
 #[Route(
     '/account/delete/request',
     name: 'app_account_delete_request',

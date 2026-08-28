@@ -10,13 +10,11 @@ use App\Module\Account\Command\UpdateProfileHandler;
 use App\Module\Account\Entity\User;
 use App\Module\Account\Form\ProfileFormType;
 use App\Module\Account\Form\ProfileRequest;
-use App\Routing\PaywallExempt;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Contracts\Translation\TranslatorInterface;
 
-#[PaywallExempt]
 #[Route(
     '/account/profile',
     name: 'app_account_profile',
