@@ -154,12 +154,15 @@ identity, a credential or third-party code goes to the human. That control is
 load-bearing — an agent tested without it applied a link-destination change and
 a support-email change on its own judgement.
 
-**Rejected alternative: a per-project origin allowlist.** It was designed and
-set aside. Cross-project access is already blocked by the token binding and
-`Origin` is forgeable by any non-browser caller, so an allowlist would only stop
-a browser page on an unregistered origin — bought with a column, a migration, a
-backfill over a free-text field, and every widget going dark whenever the
-allowlist is wrong. `LogWidgetOriginMismatch` records the mismatch instead.
+**Deferred alternative: a per-project origin allowlist.** It was designed in
+full and deferred rather than ruled out. Cross-project access is already blocked
+by the token binding and `Origin` is forgeable by any non-browser caller, so an
+allowlist would only stop a browser page on an unregistered origin — bought with
+a column, a migration, a backfill over a free-text field, and every widget going
+dark whenever the allowlist is wrong. `LogWidgetOriginMismatch` records the
+mismatch instead. Do not re-design it from scratch if the trade ever looks
+worth revisiting: the finished plan is a document in Loupe named 'Per-project
+allowed origins for the site-review widget'.
 
 **What would actually close it** is per-reviewer identity, which arrives with
 the OAuth work rather than on its own. Both are deferred; see
