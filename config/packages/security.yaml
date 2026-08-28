@@ -78,7 +78,8 @@ security:
         # The OAuth start and callback URLs must be reachable unauthenticated.
         # Each route is additionally gated by its provider's feature flag.
         # Liveness probe for load balancers, which cannot authenticate. It
-        # returns a fixed ok/error body and nothing else — see ShowHealthController.
+        # returns a fixed ok/error body and nothing else, and is served by
+        # ubermuda/health-check-bundle.
         - { path: ^/healthz$,        roles: PUBLIC_ACCESS }
         # Carries the AGPL source offer, which a network user must be able to
         # reach without an account.
