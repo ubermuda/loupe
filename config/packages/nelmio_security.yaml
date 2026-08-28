@@ -51,5 +51,7 @@ when@prod:
                 # font or stylesheet origins are needed.
                 style-src: ["'self'", "'unsafe-inline'"]
                 font-src: ["'self'"]
-                img-src: ["'self'", 'data:', 'https:']
+                # No wholesale 'https:': a rendered document's remote <img>
+                # would otherwise turn the reviewer's browser into an egress channel.
+                img-src: ["'self'", 'data:']
                 connect-src: ["'self'", "%env(default:app.csp_origin_fallback:ANALYTICS_ORIGIN)%", "%env(default:app.csp_origin_fallback:SITE_REVIEW_WIDGET_BACKEND)%"]

