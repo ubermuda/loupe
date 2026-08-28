@@ -266,7 +266,7 @@ suspecting the branch.
 | Layout looks like an older design; a hover/position spec fails but the page logs nothing | Different cause from the row above, same symptom family. `just worktree-up` builds `var/tailwind/app.built.css` **once** and nothing rebuilds it, so a worktree alive across a merge of `main` serves the CSS its branch had at provision time while its PHP, Twig and JS are current. `just e2e` now rebuilds it before every worktree run; for a browser session, `bin/worktrees/compose-exec.sh bin/console tailwind:build` (under a second) or `just worktree-tailwind` to watch. Diff the compiled sheet for a class the design introduced before blaming the branch. |
 | The site-review widget shows its rejected-token state (a red `!` on the launcher) | `SITE_REVIEW_WIDGET_TOKEN` does not resolve **at the backend the widget actually talks to**, which is `SITE_REVIEW_WIDGET_BACKEND`, not the host serving the page. Bootstrap reissues a *local* token; if the backend still points at production, that token is rejected there. See "Which backend the widget talks to". |
 | The widget does not appear **at all** — no launcher, no error badge | The `<script>` failed to load, so nothing ever ran. A rejected token still renders the widget; an unreachable script renders nothing. Check the backend host resolves and serves `/site-review/widget.js`: a `SERVFAIL` on `loupe.ac` from the machine's own resolver produces exactly this, while the same request succeeds through `1.1.1.1`. |
-| Mail-asserting specs read another run's messages | Was the shared Mailpit; each worktree now has its own sidecar. Suspect a run launched without `just e2e` (which exports `MAILPIT_URL`) or with `E2E_BASE_URL` set, which deliberately falls back to the shared instance. `bin/e2e-target.sh` prints the Mailpit URL it resolved as its fourth line. |
+| Mail-asserting specs never see their message, or read another run's | Each worktree has its own sidecar, so a run must be pointed at it. Suspect a run launched without `just e2e` (which exports `MAILPIT_URL`) or with `E2E_BASE_URL` set alone, which falls back to the shared instance: the worktree's app then sends where nothing is reading, every registration/login/verification spec times out, and it looks like an auth regression rather than a wiring one. Set `MAILPIT_URL=https://mailpit-<slug>.<project>.dev.localhost` alongside it. `bin/e2e-target.sh` prints the Mailpit URL it resolved as its fourth line. |
 | A spec fails, then passes on a quiet re-run | Something else was loading the shared php-fpm — a sibling agent running `just ci` or `composer install`. Check what is in flight **before** investigating the branch; this produced a false "regression" that was nearly filed against a clean PR. |
 | `worktree-up` fails with an "Unrecognized option" or missing-class error | The new worktree seeded its `vendor/` from the main checkout, and the main checkout is stale. Fast-forwarding the main checkout does **not** update its `vendor/`, so every worktree created afterwards inherits dependencies from the old commit. Run `composer install` in the main checkout, then re-run `just worktree-up`. |
 | Every e2e spec fails on a **new** worktree host with `ERR_CERT_AUTHORITY_INVALID`, while existing hosts stay fine | The `traefik-dnsmasq-1` container (in the separate `traefik` stack) is down. It holds `address=/dev.localhost/172.20.0.2`, the wildcard that lets step-ca resolve a host to validate ACME; without it `tls-alpn-01` fails with "could not connect to validation target" and Traefik serves its default cert. Hosts already in `certs/acme.json` keep working, which is what makes this look worktree-specific. `restart: unless-stopped` does **not** revive it after an exit 255. Fix: `( cd ../traefik && docker compose up -d dnsmasq )`, then **restart Traefik too** — it otherwise keeps polling the already-failed authorization instead of opening a fresh order. Verify with `curl -o /dev/null -w '%{ssl_verify_result}'` (0 = good) before blaming the branch. |
@@ -405,9 +405,15 @@ worktree as its **cwd for that call only**. Wrap each one in a subshell:
 A bare `cd` persists across later tool calls and turns "run this one command
 there" into "move the session in", which CLAUDE.md forbids for the main session
 — see "The main session never moves into a worktree" for why that bites.
-3. **A quiet stack**: no worktree provisioning, `composer install`, or sibling
-   `just ci` during the run — they share php-fpm and skew timings past
-   Playwright's timeouts.
+3. **A quiet stack**: no worktree provisioning, `composer install`, sibling
+   `just ci`, or **a sibling worktree's e2e suite** during the run. A worktree
+   gets its own nginx and Mailpit and nothing else — `php-fpm`, `mercure` and
+   `database` are shared — so any of these skew timings past Playwright's
+   timeouts. Per-worktree databases and mail sidecars make two suites *correct*
+   together, not *reliable* together: the specs that fall over are the
+   live-update and debounced ones (comment counters, the sliding-confirm
+   overlay, search), and they fail looking like real regressions. Before
+   accepting any such failure, re-run the suite on a quiet stack.
 4. **A current stylesheet.** `just e2e` now runs `tailwind:build` for the
    detected worktree before starting Playwright, so this is automatic — but a
    run started any other way (`npx playwright test` directly, or an explicit
