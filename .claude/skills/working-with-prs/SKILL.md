@@ -143,10 +143,12 @@ just e2e --workers=1
 
 `E2E_BASE_URL` alone suppresses worktree detection, so the run reads the
 *shared* Mailpit while the worktree's app sends to its own sidecar. Nothing
-collides and nothing warns — the assertions simply never see a message, and
-about two dozen registration, login and verification specs time out looking
-like an auth regression. Diagnose it by running `bin/e2e-target.sh` with and
-without the variable and diffing the fourth line, not by re-running.
+collides and nothing warns — the assertions simply never see a message. About
+two dozen registration, login and verification specs then fail in a way that
+reads as broken auth rather than broken mail: each registration *succeeds*,
+times out waiting for mail that went elsewhere, and its retry fails as a
+duplicate email. Diagnose it by running `bin/e2e-target.sh` with and without
+the variable and diffing the fourth line, not by re-running.
 
 Warm its cache first:
 

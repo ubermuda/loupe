@@ -405,9 +405,15 @@ worktree as its **cwd for that call only**. Wrap each one in a subshell:
 A bare `cd` persists across later tool calls and turns "run this one command
 there" into "move the session in", which CLAUDE.md forbids for the main session
 — see "The main session never moves into a worktree" for why that bites.
-3. **A quiet stack**: no worktree provisioning, `composer install`, or sibling
-   `just ci` during the run — they share php-fpm and skew timings past
-   Playwright's timeouts.
+3. **A quiet stack**: no worktree provisioning, `composer install`, sibling
+   `just ci`, or **a sibling worktree's e2e suite** during the run. A worktree
+   gets its own nginx and Mailpit and nothing else — `php-fpm`, `mercure` and
+   `database` are shared — so any of these skew timings past Playwright's
+   timeouts. Per-worktree databases and mail sidecars make two suites *correct*
+   together, not *reliable* together: the specs that fall over are the
+   live-update and debounced ones (comment counters, the sliding-confirm
+   overlay, search), and they fail looking like real regressions. Before
+   accepting any such failure, re-run the suite on a quiet stack.
 4. **A current stylesheet.** `just e2e` now runs `tailwind:build` for the
    detected worktree before starting Playwright, so this is automatic — but a
    run started any other way (`npx playwright test` directly, or an explicit
