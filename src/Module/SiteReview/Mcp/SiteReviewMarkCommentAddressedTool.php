@@ -4,10 +4,9 @@ declare(strict_types=1);
 
 namespace App\Module\SiteReview\Mcp;
 
-use App\Mcp\ResolvesBoundProject;
-use App\Module\Project\Security\AuthenticatedProjectResolver;
 use App\Module\SiteReview\Entity\SiteReviewCommentStatus;
 use App\Module\SiteReview\Repository\SiteReviewCommentRepository;
+use App\Module\SiteReview\Security\SiteReviewMcpBoundProjectVoter;
 use Doctrine\ORM\EntityManagerInterface;
 use Mcp\Capability\Attribute\McpTool;
 use Mcp\Exception\ToolCallException;
@@ -17,28 +16,24 @@ use Symfony\Component\Uid\Uuid;
  * The agent's only write: Pending → Addressed. Resolved is reserved for the
  * human in the web UI.
  *
- * What keeps it that way is routing and firewall configuration, not
- * authorization. An MCP request authenticates *as the project owner*, and
- * SiteReviewCommentVoter's entire rule is `$subject->project->owner ===
- * $token->getUser()` — so the voter would grant the resolve attribute to a
- * tool call. Two other things stop it: no tool calls the resolve path, and
- * ApiTokenAuthenticator is registered only on the `mcp` and `api` firewalls,
- * so a Bearer token cannot authenticate against the resolve route on `main`
- * at all (that route additionally carries a session-backed CSRF token).
+ * What keeps it that way is routing and firewall configuration: no tool calls
+ * the resolve path, and ApiTokenAuthenticator is registered only on the `mcp`
+ * and `api` firewalls, so a Bearer token cannot authenticate against the
+ * resolve route at all (that route additionally carries a session-backed CSRF
+ * token). SiteReviewCommentVoter would not stop one — an MCP request
+ * authenticates as the project owner, which is its entire rule.
  *
- * The consequence for anyone adding a tool: every ownership-based voter in
- * this app returns true for an MCP request by construction, so a voter result
- * is not a meaningful check on what an agent may do.
+ * Which project a comment id may belong to is a separate question, and
+ * SiteReviewSubjectResolver answers it against the token's binding rather than
+ * against ownership.
  */
 #[McpTool(name: 'site_review_mark_comment_addressed', description: 'Mark site-review comments as addressed after fixing them. Accepts the comment ids returned by site_review_get. Comments that are unknown, already addressed, or resolved are skipped, not fatal.')]
 final readonly class SiteReviewMarkCommentAddressedTool
 {
-    use ResolvesBoundProject;
-
     public function __construct(
         private SiteReviewCommentRepository $siteReviewComments,
         private EntityManagerInterface $em,
-        private AuthenticatedProjectResolver $projectResolver,
+        private SiteReviewSubjectResolver $subjects,
     ) {
     }
 
@@ -57,12 +52,14 @@ final readonly class SiteReviewMarkCommentAddressedTool
         $skipped = [];
 
         try {
-            $project = $this->requireBoundProject($this->projectResolver);
+            // An unbound token is rejected once, rather than as one "unknown"
+            // per id — and even when the batch is empty.
+            $this->subjects->requireProject();
 
             // One transaction for the batch: each id is now written as it is
             // decided, so without this a failure partway through would leave
             // the earlier ids addressed while the call reports an error.
-            $this->em->wrapInTransaction(function () use ($commentIds, $project, &$addressed, &$skipped): void {
+            $this->em->wrapInTransaction(function () use ($commentIds, &$addressed, &$skipped): void {
                 foreach ($commentIds as $id) {
                     try {
                         $uuid = Uuid::fromString($id);
@@ -71,7 +68,7 @@ final readonly class SiteReviewMarkCommentAddressedTool
                         continue;
                     }
 
-                    $comment = $this->siteReviewComments->findOneForProject($uuid, $project);
+                    $comment = $this->subjects->findComment($uuid, SiteReviewMcpBoundProjectVoter::WRITE);
                     if (null === $comment) {
                         $skipped[] = ['id' => $id, 'reason' => 'unknown'];
                         continue;
