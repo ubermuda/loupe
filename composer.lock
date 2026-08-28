@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "e8396970762fcc5e2ab623961a3c31e0",
+    "content-hash": "bbf493af08dbf949233724e9a1a46a7e",
     "packages": [
         {
             "name": "async-aws/core",
@@ -12197,12 +12197,12 @@
             "source": {
                 "type": "git",
                 "url": "https://github.com/ubermuda/health-check-bundle.git",
-                "reference": "de146f9873684469ab71f1b386ea7f079fa079b0"
+                "reference": "dacf874c2aeaf2f48ef7b0c3d1a22f7aad0f4352"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/ubermuda/health-check-bundle/zipball/de146f9873684469ab71f1b386ea7f079fa079b0",
-                "reference": "de146f9873684469ab71f1b386ea7f079fa079b0",
+                "url": "https://api.github.com/repos/ubermuda/health-check-bundle/zipball/dacf874c2aeaf2f48ef7b0c3d1a22f7aad0f4352",
+                "reference": "dacf874c2aeaf2f48ef7b0c3d1a22f7aad0f4352",
                 "shasum": ""
             },
             "require": {
@@ -12246,7 +12246,7 @@
                 "source": "https://github.com/ubermuda/health-check-bundle/tree/main",
                 "issues": "https://github.com/ubermuda/health-check-bundle/issues"
             },
-            "time": "2026-08-28T14:52:41+00:00"
+            "time": "2026-08-28T15:21:39+00:00"
         },
         {
             "name": "ubermuda/symfony-extra",

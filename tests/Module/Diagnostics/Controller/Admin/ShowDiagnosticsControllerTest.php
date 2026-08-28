@@ -30,15 +30,25 @@ final class ShowDiagnosticsControllerTest extends WebTestCase
         self::assertSame('System status — Loupe', $crawler->filter('title')->text());
         self::assertGreaterThan(0, $crawler->filter('[data-system-check="mailer"]')->count());
         self::assertGreaterThan(0, $crawler->filter('[data-system-check="failed_messages"]')->count());
-        // A bundle check resolves its label and its state name in the bundle's
-        // catalogue.
+        // One report, two catalogues: a bundle check resolves its label in the
+        // bundle's, an application check in the application's.
         self::assertSame(
             'Mail transport',
             $crawler->filter('[data-system-check="mailer"] .status-check-label')->text(),
         );
+        self::assertSame(
+            'Agent account',
+            $crawler->filter('[data-system-check="agent_account"] .status-check-label')->text(),
+        );
         self::assertStringContainsString(
             'Failed',
             $crawler->filter('[data-system-check="mailer"] .status-check-badge')->text(),
+        );
+        // Guard: the instance's own sender address is the undeliverable
+        // default, so only the replacement can report this one as ok.
+        self::assertSame(
+            'ok',
+            $crawler->filter('[data-system-check="mailer_sender"]')->attr('data-system-check-state'),
         );
         // The failed transport is otherwise undiscoverable, so the page names
         // the commands that inspect and re-queue it.
@@ -46,33 +56,6 @@ final class ShowDiagnosticsControllerTest extends WebTestCase
         self::assertStringContainsString('messenger:failed:retry', $crawler->filter('body')->text());
         // Sidebar entry, so an operator can find the page without knowing the URL.
         self::assertGreaterThan(0, $crawler->filter('a[href="/admin/status"]')->count());
-    }
-
-    /**
-     * An application's own check keeps its keys in the application catalogue,
-     * so the page has to resolve two domains at once.
-     */
-    public function test_an_application_check_is_labelled_from_the_application_catalogue(): void
-    {
-        $client = static::createClient();
-        $admin = $this->seedUser('system-status-domains@admin-test.example.com', ['ROLE_ADMIN']);
-        $connection = self::getContainer()->get(EntityManagerInterface::class)->getConnection();
-        self::getContainer()->set(
-            RunDiagnosticsHandler::class,
-            new RunDiagnosticsHandler([new AgentAccountCheck($connection, new NullLogger())]),
-        );
-
-        $client->loginUser($admin);
-        $crawler = $client->request(Request::METHOD_GET, '/admin/status');
-
-        self::assertResponseIsSuccessful();
-        // Guard: the replacement carries this one check and no other, so a
-        // container that ignored the swap would still show the mailer row.
-        self::assertSame(0, $crawler->filter('[data-system-check="mailer"]')->count());
-        self::assertSame(
-            'Agent account',
-            $crawler->filter('[data-system-check="agent_account"] .status-check-label')->text(),
-        );
     }
 
     public function test_logged_in_non_admin_gets_403(): void
@@ -105,7 +88,10 @@ final class ShowDiagnosticsControllerTest extends WebTestCase
         $connection = self::getContainer()->get(EntityManagerInterface::class)->getConnection();
         self::getContainer()->set(
             RunDiagnosticsHandler::class,
-            HealthChecks::handler($connection),
+            new RunDiagnosticsHandler([
+                ...HealthChecks::checks($connection, mailerFromAddress: 'ops@example.com'),
+                new AgentAccountCheck($connection, new NullLogger()),
+            ]),
         );
     }
 
