@@ -13,10 +13,6 @@ use Mcp\Exception\ToolCallException;
 /**
  * Fetch a document's current Markdown source and status by id.
  *
- * The payload shape is imported rather than restated: this tool is a thin
- * delegation to ShowDocumentDataHandler, and two copies of the same array shape drift the
- * moment a key is added to one of them.
- *
  * @phpstan-import-type DocumentPayload from ShowDocumentDataHandler
  */
 #[McpTool(name: 'document_get', description: 'Fetch a document\'s current Markdown source, title, status, archive state and reason, version number, that version\'s description, and the documents it references.')]

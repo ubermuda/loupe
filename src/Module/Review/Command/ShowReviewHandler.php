@@ -13,6 +13,15 @@ use App\Module\Review\Repository\ReviewRepository;
 use App\Module\Review\Service\DecisionBlockService;
 use App\Module\Review\ValueObject\Anchor;
 
+/**
+ * @phpstan-type ReviewPayload array{
+ *     status: string,
+ *     verdict: string|null,
+ *     version: int,
+ *     comments: list<array{id: string, quote: string, body: string, replacement: string|null, author: 'agent'|'human', status: string, orphaned: bool, thread: list<array{id: string, quote: string, body: string, author: 'agent'|'human', orphaned: bool}>}>,
+ *     decisions: list<array{id: string, options: list<string>, selected: string|null, selected_index: int|null, answered_at: string|null, answered_at_version: int|null}>
+ * }
+ */
 final readonly class ShowReviewHandler
 {
     public function __construct(
@@ -56,13 +65,7 @@ final readonly class ShowReviewHandler
      * at that index, so a reworded or reordered block cannot rewrite the answer;
      * `answered_at_version` says which version they were reading at the time.
      *
-     * @return array{
-     *     status: string,
-     *     verdict: string|null,
-     *     version: int,
-     *     comments: list<array{id: string, quote: string, body: string, replacement: string|null, author: 'agent'|'human', status: string, orphaned: bool, thread: list<array{id: string, quote: string, body: string, author: 'agent'|'human', orphaned: bool}>}>,
-     *     decisions: list<array{id: string, options: list<string>, selected: string|null, selected_index: int|null, answered_at: string|null, answered_at_version: int|null}>
-     * }
+     * @return ReviewPayload
      */
     public function __invoke(ShowReviewCommand $command): array
     {

@@ -12,6 +12,8 @@ use Mcp\Exception\ToolCallException;
 
 /**
  * Fetch the current review state (verdict, status, comments) for a document.
+ *
+ * @phpstan-import-type ReviewPayload from ShowReviewHandler
  */
 #[McpTool(name: 'document_get_review', description: 'Fetch the review state (verdict, status, threaded comments, and answered decision blocks) for a document\'s current version. Every comment and reply reports whether an agent or a human wrote it, and a comment may carry a replacement for the text it quotes.')]
 final readonly class DocumentGetReviewTool
@@ -55,7 +57,7 @@ final readonly class DocumentGetReviewTool
      * Each decision's `id` is the one the document declared in its fence, and it is permanent:
      * changing it in a revision discards the answer keyed to the old one
      *
-     * @return array{status: string, verdict: string|null, version: int, comments: list<array{id: string, quote: string, body: string, replacement: string|null, author: 'agent'|'human', status: string, orphaned: bool, thread: list<array{id: string, quote: string, body: string, author: 'agent'|'human', orphaned: bool}>}>, decisions: list<array{id: string, options: list<string>, selected: string|null, selected_index: int|null, answered_at: string|null, answered_at_version: int|null}>}
+     * @return ReviewPayload
      */
     public function __invoke(string $documentId): array
     {
