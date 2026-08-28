@@ -5,10 +5,8 @@ declare(strict_types=1);
 namespace App\Module\Account\Controller;
 
 use App\Controller\AppController;
-use App\Routing\PaywallExempt;
 use Symfony\Component\Routing\Attribute\Route;
 
-#[PaywallExempt]
 #[Route('/logout', name: 'app_logout')]
 class LogoutController extends AppController
 {

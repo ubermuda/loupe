@@ -5,10 +5,10 @@ declare(strict_types=1);
 namespace App\Module\Diagnostics\Controller\Admin;
 
 use App\Controller\AppController;
-use App\Module\Diagnostics\Command\RunDiagnosticsHandler;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
+use Ubermuda\HealthCheckBundle\Command\RunDiagnosticsHandler;
 
 /**
  * The install wizard's status page, kept reachable for the rest of the

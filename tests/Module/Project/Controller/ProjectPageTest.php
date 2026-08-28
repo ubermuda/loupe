@@ -74,10 +74,16 @@ final class ProjectPageTest extends WebTestCase
         self::assertSame(ApiTokenScope::SiteReview, $fresh->widgetToken->scope);
 
         // The embed snippet must render as escaped text, never as a live <script> tag.
-        $client->followRedirect();
+        $crawler = $client->followRedirect();
         $content = (string) $client->getResponse()->getContent();
         self::assertStringContainsString('&lt;script', $content);
         self::assertStringNotContainsString('data-token="YOUR_TOKEN"></script>', $content);
+
+        // The token row identifies the token by its stored tail, not by its label.
+        self::assertStringContainsString(
+            '••••••••••••'.$fresh->widgetToken->tokenTail,
+            $crawler->filter('[data-testid="widget-token-identity"]')->text(),
+        );
     }
 
     public function test_second_mint_is_rejected(): void

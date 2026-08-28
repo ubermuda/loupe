@@ -4,8 +4,7 @@ declare(strict_types=1);
 
 namespace App\Tests\Module\Billing\EventListener;
 
-use App\Module\Billing\Controller\Dev\SeedBillingStateController;
-use App\Routing\PaywallExempt;
+use App\Module\Billing\Service\PaywallExemptions;
 use App\Tests\Support\BillingScenario;
 use PHPUnit\Framework\Attributes\DataProvider;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
@@ -131,73 +130,43 @@ final class PaywallRedirectTest extends WebTestCase
         self::assertResponseIsSuccessful();
     }
 
-    /**
-     * The 17 escape routes registered outside dev — every route previously
-     * named in RequireSubscriptionListener::ALLOWED_ROUTES except
-     * app_dev_billing_state, which is #[When('dev')] and so absent from the
-     * `test` environment's route collection entirely (verified separately,
-     * by reflection, below).
-     *
-     * @return iterable<string, array{string}>
-     */
-    public static function routesThatMustExistToday(): iterable
+    /** @return iterable<string, array{string}> */
+    public static function exemptRoutes(): iterable
     {
-        foreach ([
-            'app_billing_subscribe',
-            'app_billing_checkout',
-            'app_billing_checkout_success',
-            'app_billing_portal',
-            'app_login',
-            'app_logout',
-            'app_register_check_email',
-            'app_register_resend',
-            'app_verify_email',
-            'app_waitlist_join',
-            'app_account_settings',
-            'app_account_export_request',
-            'app_account_export_download',
-            'app_account_delete_request',
-            'app_account_delete_confirm',
-            'app_account_delete_execute',
-            'app_account_deleted',
-        ] as $route) {
+        foreach (PaywallExemptions::ROUTES as $route) {
             yield $route => [$route];
         }
     }
 
     /**
-     * Each escape route must both still exist under this name AND carry the
-     * `_paywallExempt` route default PaywallExemptRouteLoader sets from the
-     * controller's #[PaywallExempt] attribute — the mechanism
-     * RequireSubscriptionListener now reads instead of a route-name allowlist.
-     * A rename on either side (route name, or a dropped #[PaywallExempt])
-     * surfaces here.
+     * The exemption list is a set of route names, so a rename or a deletion
+     * leaves a name behind that silently exempts nothing. Every entry must
+     * still resolve against the real router.
      */
-    #[DataProvider('routesThatMustExistToday')]
-    public function test_escape_routes_exist_and_are_paywall_exempt(string $route): void
+    #[DataProvider('exemptRoutes')]
+    public function test_every_exempt_route_still_exists(string $route): void
     {
         self::bootKernel();
         $router = static::getContainer()->get(RouterInterface::class);
 
-        $compiledRoute = $router->getRouteCollection()->get($route);
-        self::assertNotNull($compiledRoute, $route);
-        self::assertTrue($compiledRoute->getDefault(PaywallExempt::ROUTE_DEFAULT), $route);
+        self::assertNotNull($router->getRouteCollection()->get($route), $route);
     }
 
     /**
-     * app_dev_billing_state is #[When('dev')] and therefore does not exist in
-     * the `test` environment's route collection at all (confirmed above by its
-     * absence from routesThatMustExistToday()) — so the router cannot prove
-     * its exemption here. Its controller attribute is the only thing that can
-     * be checked in this environment; the route actually reaching a paywalled
-     * session is exercised by the billing e2e specs, which call
-     * /dev/billing-state from a paywalled account in the dev environment.
+     * The dev-only escape route cannot be checked the same way: it is
+     * #[When('dev')], so it is absent from this environment's route collection
+     * — which is what puts it in a separate list. A paywalled session actually
+     * reaching it is exercised by the billing e2e specs, which call
+     * /dev/billing-state from an expired trial in the dev environment.
      */
-    public function test_dev_billing_state_controller_is_paywall_exempt(): void
+    public function test_the_dev_only_escape_route_is_exempt_and_outside_this_environment(): void
     {
-        $attributes = new \ReflectionClass(SeedBillingStateController::class)
-            ->getAttributes(PaywallExempt::class);
+        self::bootKernel();
+        $router = static::getContainer()->get(RouterInterface::class);
 
-        self::assertNotEmpty($attributes);
+        foreach (PaywallExemptions::DEV_ROUTES as $route) {
+            self::assertTrue(new PaywallExemptions()->exempts($route), $route);
+            self::assertNull($router->getRouteCollection()->get($route), $route);
+        }
     }
 }

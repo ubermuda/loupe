@@ -8,9 +8,9 @@ use App\Module\Account\Entity\User;
 use App\Module\Billing\Entity\BillingProfile;
 use App\Module\Billing\EventListener\RequireSubscriptionListener;
 use App\Module\Billing\Repository\BillingProfileRepository;
+use App\Module\Billing\Service\PaywallExemptions;
 use App\Module\Billing\Service\PaywallGate;
 use App\Module\Billing\Service\TrialProvisioner;
-use App\Routing\PaywallExempt;
 use App\Tests\Support\FeatureFlags;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -60,7 +60,7 @@ final class RequireSubscriptionListenerTest extends TestCase
         $urlGenerator = $this->createStub(UrlGeneratorInterface::class);
         $urlGenerator->method('generate')->willReturn(self::SUBSCRIBE_URL);
 
-        return new RequireSubscriptionListener($tokenStorage, $gate, $urlGenerator);
+        return new RequireSubscriptionListener($tokenStorage, $gate, new PaywallExemptions(), $urlGenerator);
     }
 
     private function expiredProfile(?User $user = null): BillingProfile
@@ -68,13 +68,10 @@ final class RequireSubscriptionListenerTest extends TestCase
         return new BillingProfile($user ?? $this->user(), trialEndsAt: new \DateTimeImmutable('-1 day'));
     }
 
-    private function event(string $route, string $path = '/projects', bool $paywallExempt = false): RequestEvent
+    private function event(string $route, string $path = '/projects'): RequestEvent
     {
         $request = Request::create($path);
         $request->attributes->set('_route', $route);
-        if ($paywallExempt) {
-            $request->attributes->set(PaywallExempt::ROUTE_DEFAULT, true);
-        }
 
         return new RequestEvent($this->createStub(HttpKernelInterface::class), $request, HttpKernelInterface::MAIN_REQUEST);
     }
@@ -196,20 +193,27 @@ final class RequireSubscriptionListenerTest extends TestCase
     }
 
     /**
-     * The listener's own honoring of the `_paywallExempt` route default, in
-     * isolation from routing. Which real routes actually carry that default —
-     * i.e. whether all 18 previously hard-coded route names are still exempt —
-     * is verified against the real router in PaywallRedirectTest, since a stub
-     * request here cannot prove anything about #[PaywallExempt] placement on
-     * an actual controller.
+     * The listener's own honoring of PaywallExemptions, in isolation from
+     * routing. Whether every name it lists is still a real route is verified
+     * against the router in PaywallRedirectTest.
      */
-    public function test_a_route_marked_paywall_exempt_is_never_paywalled(): void
+    public function test_a_route_listed_as_exempt_is_never_paywalled(): void
     {
         $user = $this->user();
-        $event = $this->event('app_some_exempt_route', paywallExempt: true);
+        $event = $this->event('app_account_delete_request', '/account/delete');
 
         $this->listener($user, $this->expiredProfile($user))($event);
 
         self::assertNull($event->getResponse());
+    }
+
+    public function test_a_route_absent_from_the_exemption_list_is_blocked(): void
+    {
+        $user = $this->user();
+        $event = $this->event('app_account_delete_request_not_a_real_route', '/account/delete');
+
+        $this->listener($user, $this->expiredProfile($user))($event);
+
+        self::assertNotNull($event->getResponse());
     }
 }

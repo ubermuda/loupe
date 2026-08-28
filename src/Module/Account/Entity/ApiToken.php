@@ -33,6 +33,15 @@ class ApiToken
         #[ORM\Column(length: 64, unique: true)]
         public readonly string $tokenHash,
 
+        /**
+         * The last four characters of the raw token, so the UI can show which token
+         * a project is using. Sixty of the sixty-four hex characters stay unknown,
+         * but it is still part of the secret: keep it out of exports, logs and API
+         * payloads. Null on rows issued before the column existed.
+         */
+        #[ORM\Column(length: 4, nullable: true)]
+        public readonly ?string $tokenTail = null,
+
         #[ORM\Column]
         public readonly \DateTimeImmutable $createdAt = new \DateTimeImmutable(),
     ) {
@@ -68,7 +77,7 @@ class ApiToken
     {
         $raw = bin2hex(random_bytes(32));
 
-        return [new self($owner, $label, $scope, hash('sha256', $raw)), $raw];
+        return [new self($owner, $label, $scope, hash('sha256', $raw), substr($raw, -4)), $raw];
     }
 
     public function matches(string $rawToken): bool

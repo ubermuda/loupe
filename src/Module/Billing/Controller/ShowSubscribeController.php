@@ -8,14 +8,12 @@ use App\Controller\AppController;
 use App\Module\Account\Entity\User;
 use App\Module\Billing\Command\ShowSubscribeCommand;
 use App\Module\Billing\Command\ShowSubscribeHandler;
-use App\Routing\PaywallExempt;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
 
 // No #[IsGranted]: there is no resource subject here, and the `^/` access_control
 // catch-all already requires ROLE_USER — same posture as the project list.
-#[PaywallExempt]
 #[Route(
     '/billing/subscribe',
     name: 'app_billing_subscribe',

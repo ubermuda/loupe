@@ -160,6 +160,7 @@ final class ConnectAgentControllerTest extends WebTestCase
         $project->mcpToken = $token;
         $em->persist($token);
         $em->flush();
+        $tail = (string) $token->tokenTail;
         $em->clear();
 
         $client->loginUser($owner);
@@ -167,9 +168,14 @@ final class ConnectAgentControllerTest extends WebTestCase
 
         self::assertResponseIsSuccessful();
 
-        // Token bound → label displayed, a revoke form present, and no way to
-        // create a second one.
-        self::assertStringContainsString('MCP: connect-site-b', $crawler->text());
+        // Token bound → the masked value identifies it, a revoke form is present,
+        // and there is no way to create a second one. The label is what the screen
+        // fell back to before a tail was stored; it is no longer shown.
+        self::assertStringContainsString(
+            '••••••••••••'.$tail,
+            $crawler->filter('[data-testid="mcp-token-identity"]')->text(),
+        );
+        self::assertStringNotContainsString('MCP: connect-site-b', $crawler->text());
         self::assertGreaterThanOrEqual(1, $crawler->filter('form[action*="/revoke"]')->count());
         self::assertCount(0, $crawler->filter('form[action$="/mcp-token"]'));
 
@@ -219,6 +225,7 @@ final class ConnectAgentControllerTest extends WebTestCase
         $em->flush();
         $projectId = $project->id;
         $tokenId = $token->id;
+        $tail = (string) $token->tokenTail;
         $em->clear();
 
         $client->loginUser($owner);
@@ -238,10 +245,52 @@ final class ConnectAgentControllerTest extends WebTestCase
 
         // Revoked → the token row still exists but is no longer bound to the
         // project, so the page reverts to the mint form exactly as if no token had
-        // ever been minted: no label, no revoke form.
+        // ever been minted: no masked value, no label, no revoke form.
+        self::assertStringNotContainsString('••••••••••••'.$tail, $crawler->text());
         self::assertStringNotContainsString('MCP: connect-site-d', $crawler->text());
         self::assertCount(1, $crawler->filter('form[action$="/mcp-token"]'));
         self::assertCount(0, $crawler->filter('form[action*="/revoke"]'));
+    }
+
+    /**
+     * A token issued before token_tail existed has no recoverable tail, so the
+     * screen must keep working from its label rather than rendering a mask with a
+     * hole in it.
+     */
+    public function test_a_token_with_no_stored_tail_falls_back_to_its_label(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+
+        $owner = $this->user($em, 'connect-e@example.com');
+        $project = new Project($owner, 'connect-site-e');
+        $em->persist($project);
+
+        [$token] = ApiToken::issue($owner, 'MCP: connect-site-e', ApiTokenScope::Mcp);
+        $project->mcpToken = $token;
+        $em->persist($token);
+        $em->flush();
+
+        // issue() always records a tail and the property is readonly, so a
+        // pre-migration row can only be reproduced in SQL.
+        $em->getConnection()->executeStatement(
+            'UPDATE api_tokens SET token_tail = NULL WHERE id = ?',
+            [(string) $token->id],
+        );
+        $em->clear();
+
+        $client->loginUser($owner);
+        $crawler = $client->request(Request::METHOD_GET, '/projects/'.$project->id.'/connect');
+
+        self::assertResponseIsSuccessful();
+        $identity = $crawler->filter('[data-testid="mcp-token-identity"]');
+        self::assertCount(1, $identity);
+        self::assertStringContainsString('MCP: connect-site-e', $identity->text());
+        self::assertStringNotContainsString('••••', $identity->text());
+        // The rest of the step still renders, so the fallback is a working page
+        // rather than one that stopped short of the token row.
+        self::assertGreaterThanOrEqual(1, $crawler->filter('form[action*="/revoke"]')->count());
+        self::assertCount(3, $crawler->filter('.lp-code-dark'));
     }
 
     public function test_non_owner_is_denied(): void

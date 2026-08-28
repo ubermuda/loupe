@@ -7,6 +7,7 @@ description: Use when writing, fixing, or debugging Playwright e2e tests under `
 
 ## General rules
 
+- **CI's `e2e` check gates the suite; run it locally only to work on a spec.** Push and read the check rather than running the full suite before opening a PR — locally it is slower, destructive, and prone to failures that belong to the environment rather than the diff (see `working-with-prs`). Locally you want one spec: `just e2e tests/<area>/<spec>.spec.ts`.
 - Never fix a failing test by manipulating the database (resetting passwords, deleting rows, etc.). If the test relies on a specific DB state, the test itself must create that state. A "fix" that requires a one-time DB operation will break again on the next fresh environment.
 
 ## Turbo Drive navigation

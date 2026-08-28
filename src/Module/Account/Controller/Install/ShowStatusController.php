@@ -6,10 +6,10 @@ namespace App\Module\Account\Controller\Install;
 
 use App\Controller\AppController;
 use App\Module\Account\Service\InstallAccessGuard;
-use App\Module\Diagnostics\Command\RunDiagnosticsHandler;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
+use Ubermuda\HealthCheckBundle\Command\RunDiagnosticsHandler;
 
 /**
  * Sits between the feature-flag step and admin creation, so the checks it runs
