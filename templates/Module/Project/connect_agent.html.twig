@@ -50,8 +50,12 @@
             {% endif %}
             <div class="lp-connect-field">
                 <twig:ux:icon name="lucide:key-round" class="lp-connect-field__glyph w-4 h-4" />
-                <span class="lp-connect-field__value">
-                    {{ project.mcpToken.label }}
+                <span class="lp-connect-field__value" data-testid="mcp-token-identity">
+                    {%- if project.mcpToken.tokenTail -%}
+                        {{ 'project.connect.token.mask'|trans({'%tail%': project.mcpToken.tokenTail}) }}
+                    {%- else -%}
+                        {{ project.mcpToken.label }}
+                    {%- endif %}
                     <span class="lp-connect-field__meta">{{ 'project.connect.token.meta'|trans({'%date%': project.mcpToken.createdAt|date('M j, Y')}) }}</span>
                 </span>
                 <form method="POST" action="{{ path('app_project_mcp_token_regenerate', {id: project.id}) }}">
@@ -128,8 +132,12 @@
             {% endif %}
             <div class="lp-connect-field">
                 <twig:ux:icon name="lucide:key-round" class="lp-connect-field__glyph w-4 h-4" />
-                <span class="lp-connect-field__value">
-                    {{ project.widgetToken.label }}
+                <span class="lp-connect-field__value" data-testid="widget-token-identity">
+                    {%- if project.widgetToken.tokenTail -%}
+                        {{ 'project.connect.token.mask'|trans({'%tail%': project.widgetToken.tokenTail}) }}
+                    {%- else -%}
+                        {{ project.widgetToken.label }}
+                    {%- endif %}
                     <span class="lp-connect-field__meta">{{ 'project.connect.widget_token.meta'|trans({'%date%': project.widgetToken.createdAt|date('M j, Y')}) }}</span>
                 </span>
                 <form method="POST" action="{{ path('app_project_widget_token_regenerate', {id: project.id}) }}">

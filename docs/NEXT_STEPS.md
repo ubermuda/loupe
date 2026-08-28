@@ -2451,28 +2451,29 @@ file out of prettier's scope deliberately (it is hand-formatted, dense, and
 in a commit that changes nothing else, then add `public/` to the prettier
 recipes in the `justfile` so it stays formatted.
 
-## Connect cannot mask a token, because no part of the raw value is stored
+## Connect's code panels still emit the literal `YOUR_TOKEN`
 
 **Author:** Claude · **Type:** feature · **Priority:** medium · **Status:** pending
 
-The Connect screen is meant to show a masked token — `loupe_••••••••••••8f2a`,
-where the last four characters are the real tail — so an operator can tell which
-token a project is using without the value being readable over a shoulder.
+On the Connect screen, `templates/Module/Project/_connect_instructions.html.twig`
+and `templates/Module/Project/_widget_snippet.html.twig` fall back to the string
+`YOUR_TOKEN` whenever the page is loaded without having just minted a token. So
+the CLI one-liner, the plugin install, the `.mcp.json` block and the widget
+`<script>` tag are all copyable but not runnable: the reader has to substitute a
+value they no longer have.
 
-It cannot today. `App\Module\Account\Entity\ApiToken` persists only a sha256
-`tokenHash`; the raw value is `bin2hex(random_bytes(32))` and is handed to the
-caller once at creation and never stored. There is nothing to mask, and showing
-four characters of the hash would display a string that is not part of the
-token. The screen renders the token's label and its creation date instead.
+`ApiToken` now stores a four-character `tokenTail`, which is enough to *identify*
+a token on that screen but nowhere near enough to reconstruct one. A working
+snippet needs the whole 64-hex value, and only the request that issued the token
+ever held it — `ApiToken::issue()` returns the raw string once and persists only
+`sha256(raw)` plus the tail.
 
-The same gap is why both code panels on that screen still emit the literal
-`YOUR_TOKEN` on an ordinary page load rather than the configured value: the
-snippet needs the token, and only the request that created it ever had one.
-
-Closing it means storing a non-secret tail at issue time — a `tokenTail` column
-written alongside `tokenHash` — and a migration. Four characters of a 64-hex
-token leaves 60 unknown, so the tail is not usefully brute-forceable, but that
-is a decision to take deliberately rather than assume.
+So there is no cheap fix. Storing the token reversibly would close it and was
+rejected: it puts a decryptable credential at rest, which is a security-posture
+change rather than a feature. The open options are all UI-side — keep the
+placeholder but say plainly in copy that the reader must paste their own token,
+or move the snippets behind a "regenerate to see this filled in" affordance that
+is honest about destroying the old token.
 
 ## A decision card cannot show its own recorded answer
 

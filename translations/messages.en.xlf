@@ -3071,6 +3071,10 @@
                 <source>project.connect.step.widget.purpose_no_domain</source>
                 <target>So you can comment on live pages of your site, anchored to what you clicked.</target>
             </trans-unit>
+            <trans-unit id="project.connect.token.mask">
+                <source>project.connect.token.mask</source>
+                <target>••••••••••••%tail%</target>
+            </trans-unit>
             <trans-unit id="project.connect.token.meta">
                 <source>project.connect.token.meta</source>
                 <target>Created %date% · project scoped</target>
