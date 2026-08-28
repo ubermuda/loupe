@@ -1,0 +1,18 @@
+{#
+  The Connect screen's agent-tools list, same rows and same copy.
+  Sample data, decorative — hence aria-hidden.
+  Props: tools — list of {name, descriptionKey}.
+#}
+<div class="lp-tech-still" aria-hidden="true">
+    <div class="lp-tech-panel">
+        <p class="lp-eyebrow">{{ 'project.connect.tools.summary'|trans({'%count%': tools|length}) }}</p>
+        <div class="lp-tools">
+            {% for tool in tools %}
+            <div class="lp-tools__row">
+                <code class="lp-tools__name">{{ tool.name }}</code>
+                <p class="lp-tools__desc">{{ tool.descriptionKey|trans }}</p>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>

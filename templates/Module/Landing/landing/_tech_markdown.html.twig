@@ -1,0 +1,38 @@
+{#
+  The review screen, cropped: the same panel, head, meta bar, prose and margin
+  thread the app renders. Sample data, decorative — hence aria-hidden.
+#}
+<div class="lp-tech-still" aria-hidden="true">
+    <div class="lp-tech-panel">
+        <div class="lp-review-doc__head">
+            <h1 class="lp-review-doc__title">{{ 'landing.tech.still.doc_title'|trans }}</h1>
+            <p class="lp-review-doc__byline">{{ 'landing.tech.still.byline'|trans }}</p>
+        </div>
+
+        <div class="lp-doc-meta">
+            <span class="lp-doc-meta__tab">{{ 'review.document.meta.versions'|trans }} <span class="lp-doc-meta__count">2</span></span>
+            <span class="lp-doc-meta__tab">{{ 'review.document.contents.label'|trans }} <span class="lp-doc-meta__count">3</span></span>
+        </div>
+
+        <div class="lp-tech-panel__body">
+            <div class="lp-review-doc__prose">
+                <h3>{{ 'landing.tech.still.doc_heading'|trans }}</h3>
+                <p>
+                    {{ 'landing.tech.still.doc_before'|trans }}
+                    <span class="lp-anchor">{{ 'landing.tech.still.doc_quote'|trans }}</span>{{ 'landing.tech.still.doc_after'|trans }}
+                </p>
+            </div>
+
+            <div class="lp-tech-panel__margin">
+                <div class="lp-comment-thread lp-comment-thread--active">
+                    <div class="lp-comment-thread__header">
+                        <span class="lp-comment-author">{{ 'landing.mock.reviewer'|trans }}</span>
+                        <span class="lp-comment-status">{{ 'landing.tech.still.reanchored'|trans }}</span>
+                    </div>
+                    <blockquote class="lp-comment-quote">{{ 'landing.tech.still.doc_quote'|trans }}</blockquote>
+                    <div class="lp-comment-body">{{ 'landing.tech.still.comment_body'|trans }}</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

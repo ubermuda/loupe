@@ -8,6 +8,7 @@ use App\Controller\AppController;
 use App\Module\Account\Entity\User;
 use App\Module\Project\Command\ShowHomeCommand;
 use App\Module\Project\Command\ShowHomeHandler;
+use App\Module\Project\Mcp\AdvertisedTools;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
@@ -21,9 +22,13 @@ class LandingController extends AppController
     public function __construct(
         private readonly ShowHomeHandler $showHome,
         private readonly FeatureFlagService $featureFlags,
+        private readonly AdvertisedTools $advertisedTools,
 
         #[Autowire(param: 'app.demo_command')]
         private readonly string $demoCommand,
+
+        #[Autowire(param: 'app.compose_excerpt')]
+        private readonly string $composeExcerpt,
 
         #[Autowire(param: 'app.hosted_price')]
         private readonly string $hostedPrice,
@@ -44,6 +49,8 @@ class LandingController extends AppController
 
             return $this->render('@Landing/landing.html.twig', [
                 'demoCommand' => $this->demoCommand,
+                'composeExcerpt' => $this->composeExcerpt,
+                'mcpTools' => $this->advertisedTools->enabled(),
                 'hostedPrice' => $this->hostedPrice,
             ]);
         }

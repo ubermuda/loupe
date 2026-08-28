@@ -1,0 +1,53 @@
+{#
+  The widget mid-comment on somebody else's page: the picker outlining an
+  element, the composer holding it. Sample data, decorative — hence aria-hidden.
+#}
+<div class="lp-tech-still" aria-hidden="true">
+    <div class="lp-tech-browser">
+        <div class="lp-tech-browser__bar">
+            <span class="lp-tech-browser__dot"></span>
+            <span class="lp-tech-browser__dot"></span>
+            <span class="lp-tech-browser__dot"></span>
+            <span class="lp-tech-browser__url">{{ 'landing.tech.still.url'|trans }}</span>
+        </div>
+
+        <div class="lp-tech-browser__page">
+            <span class="lp-tech-target">
+                <span class="lp-tech-target__label">{{ 'landing.tech.still.target_label'|trans }}</span>
+                <span class="lp-tech-browser__heading">{{ 'landing.tech.still.page_heading'|trans }}</span>
+            </span>
+
+            <span class="lp-tech-browser__line"></span>
+            <span class="lp-tech-browser__line lp-tech-browser__line--short"></span>
+            <span class="lp-tech-browser__cta">{{ 'landing.tech.still.page_cta'|trans }}</span>
+            <span class="lp-tech-browser__line"></span>
+
+            <div class="lp-tech-composer">
+                <div class="lp-tech-composer__head">
+                    <span class="lp-tech-composer__title">{{ 'landing.tech.still.composer_title'|trans }}</span>
+                </div>
+                <div class="lp-tech-composer__body">
+                    <span class="lp-tech-composer__chip">
+                        <twig:ux:icon name="loupe:glyph" class="w-3 h-3 shrink-0" />
+                        {{ 'landing.tech.still.target_label'|trans }}
+                    </span>
+                    <span class="lp-tech-composer__field">{{ 'landing.tech.still.composer_body'|trans }}</span>
+                    <div class="lp-tech-composer__foot">
+                        <span class="lp-tech-composer__hint">{{ 'landing.tech.still.composer_hint'|trans }}</span>
+                        <span class="lp-tech-composer__send">{{ 'landing.tech.still.composer_send'|trans }}</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="lp-tech-launcher">
+                <span class="lp-tech-launcher__action"><twig:ux:icon name="loupe:comment" class="w-4 h-4 shrink-0" /></span>
+                <span class="lp-tech-launcher__action lp-tech-launcher__action--on"><twig:ux:icon name="loupe:target" class="w-4 h-4 shrink-0" /></span>
+                <span class="lp-tech-launcher__divider"></span>
+                <span class="lp-tech-launcher__main">
+                    {{ 'landing.tech.still.launcher'|trans }}
+                    <span class="lp-tech-launcher__count">1</span>
+                </span>
+            </div>
+        </div>
+    </div>
+</div>

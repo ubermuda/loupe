@@ -3325,9 +3325,9 @@
                 <source>landing.nav.features</source>
                 <target>Features</target>
             </trans-unit>
-            <trans-unit id="landing.nav.try">
-                <source>landing.nav.try</source>
-                <target>Try it</target>
+            <trans-unit id="landing.nav.selfhost">
+                <source>landing.nav.selfhost</source>
+                <target>Self-host</target>
             </trans-unit>
             <trans-unit id="landing.nav.pricing">
                 <source>landing.nav.pricing</source>
@@ -3345,9 +3345,9 @@
                 <source>landing.cta.signup</source>
                 <target>Sign up free</target>
             </trans-unit>
-            <trans-unit id="landing.cta.demo">
-                <source>landing.cta.demo</source>
-                <target>Run the demo</target>
+            <trans-unit id="landing.cta.selfhost">
+                <source>landing.cta.selfhost</source>
+                <target>Host it yourself</target>
             </trans-unit>
             <trans-unit id="landing.hero.title_before">
                 <source>landing.hero.title_before</source>
@@ -3463,19 +3463,11 @@
             </trans-unit>
             <trans-unit id="landing.tech.tools.title">
                 <source>landing.tech.tools.title</source>
-                <target>Sixteen tools</target>
+                <target>One MCP server</target>
             </trans-unit>
-            <trans-unit id="landing.tech.tools.submit">
-                <source>landing.tech.tools.submit</source>
-                <target>Submit with</target>
-            </trans-unit>
-            <trans-unit id="landing.tech.tools.read">
-                <source>landing.tech.tools.read</source>
-                <target>, read the verdict with</target>
-            </trans-unit>
-            <trans-unit id="landing.tech.tools.revise">
-                <source>landing.tech.tools.revise</source>
-                <target>, revise with</target>
+            <trans-unit id="landing.tech.tools.text">
+                <source>landing.tech.tools.text</source>
+                <target>%count% tools. Your agent submits a document, reads the verdict and the open threads back, and revises — without you copying anything between windows.</target>
             </trans-unit>
             <trans-unit id="landing.tech.markdown.title">
                 <source>landing.tech.markdown.title</source>
@@ -3492,6 +3484,78 @@
             <trans-unit id="landing.tech.widget.text">
                 <source>landing.tech.widget.text</source>
                 <target>Drop the site review widget into your app and the same select-and-comment flow works on a live page. Your agent reads those comments back over MCP.</target>
+            </trans-unit>
+            <trans-unit id="landing.tech.tablist">
+                <source>landing.tech.tablist</source>
+                <target>How Loupe plugs in</target>
+            </trans-unit>
+            <trans-unit id="landing.tech.still.reanchored">
+                <source>landing.tech.still.reanchored</source>
+                <target>Re-anchored</target>
+            </trans-unit>
+            <trans-unit id="landing.tech.still.doc_title">
+                <source>landing.tech.still.doc_title</source>
+                <target>Comment re-anchoring on revision</target>
+            </trans-unit>
+            <trans-unit id="landing.tech.still.byline">
+                <source>landing.tech.still.byline</source>
+                <target>Version 2 &#183; reviewed by Geoffrey &#183; updated 2w ago</target>
+            </trans-unit>
+            <trans-unit id="landing.tech.still.doc_heading">
+                <source>landing.tech.still.doc_heading</source>
+                <target>Orphans</target>
+            </trans-unit>
+            <trans-unit id="landing.tech.still.doc_before">
+                <source>landing.tech.still.doc_before</source>
+                <target>A comment whose quote is gone is</target>
+            </trans-unit>
+            <trans-unit id="landing.tech.still.doc_quote">
+                <source>landing.tech.still.doc_quote</source>
+                <target>marked orphaned rather than deleted</target>
+            </trans-unit>
+            <trans-unit id="landing.tech.still.doc_after">
+                <source>landing.tech.still.doc_after</source>
+                <target>. The reviewer said something; losing it because the author rewrote the sentence is the wrong trade.</target>
+            </trans-unit>
+            <trans-unit id="landing.tech.still.comment_body">
+                <source>landing.tech.still.comment_body</source>
+                <target>Good. Say what the reviewer sees when that happens — a flag on the thread, or a separate list?</target>
+            </trans-unit>
+            <trans-unit id="landing.tech.still.url">
+                <source>landing.tech.still.url</source>
+                <target>your-app.com/pricing</target>
+            </trans-unit>
+            <trans-unit id="landing.tech.still.page_heading">
+                <source>landing.tech.still.page_heading</source>
+                <target>Simple pricing</target>
+            </trans-unit>
+            <trans-unit id="landing.tech.still.page_cta">
+                <source>landing.tech.still.page_cta</source>
+                <target>Start free</target>
+            </trans-unit>
+            <trans-unit id="landing.tech.still.launcher">
+                <source>landing.tech.still.launcher</source>
+                <target>Review</target>
+            </trans-unit>
+            <trans-unit id="landing.tech.still.target_label">
+                <source>landing.tech.still.target_label</source>
+                <target>Simple pricing</target>
+            </trans-unit>
+            <trans-unit id="landing.tech.still.composer_title">
+                <source>landing.tech.still.composer_title</source>
+                <target>Add a comment</target>
+            </trans-unit>
+            <trans-unit id="landing.tech.still.composer_body">
+                <source>landing.tech.still.composer_body</source>
+                <target>This promises a free tier the pricing table does not have.</target>
+            </trans-unit>
+            <trans-unit id="landing.tech.still.composer_hint">
+                <source>landing.tech.still.composer_hint</source>
+                <target>Sent to your agent</target>
+            </trans-unit>
+            <trans-unit id="landing.tech.still.composer_send">
+                <source>landing.tech.still.composer_send</source>
+                <target>Comment</target>
             </trans-unit>
             <trans-unit id="landing.demo.author">
                 <source>landing.demo.author</source>
@@ -3513,37 +3577,65 @@
                 <source>landing.demo.widget_hint</source>
                 <target>Point it at anything on the page.</target>
             </trans-unit>
-            <trans-unit id="landing.try.title">
-                <source>landing.try.title</source>
-                <target>Try it in one command.</target>
+            <trans-unit id="landing.selfhost.title">
+                <source>landing.selfhost.title</source>
+                <target>Host it yourself.</target>
             </trans-unit>
-            <trans-unit id="landing.try.lead">
-                <source>landing.try.lead</source>
-                <target>Point an agent at it and run a real review before you decide anything. Everything is in one container, already set up and signed in, so there is nothing to clone, provision or configure.</target>
+            <trans-unit id="landing.selfhost.lead">
+                <source>landing.selfhost.lead</source>
+                <target>Loupe is AGPL-3.0, and the whole thing fits on one machine. Read the source, or run it — both start in the same place.</target>
             </trans-unit>
-            <trans-unit id="landing.try.note">
-                <source>landing.try.note</source>
-                <target>Made for trying Loupe out rather than running it, so keep it on localhost.</target>
-            </trans-unit>
-            <trans-unit id="landing.try.docs_link">
-                <source>landing.try.docs_link</source>
-                <target>Demo docs.</target>
-            </trans-unit>
-            <trans-unit id="landing.try.shell">
-                <source>landing.try.shell</source>
-                <target>bash</target>
-            </trans-unit>
-            <trans-unit id="landing.try.copy">
-                <source>landing.try.copy</source>
+            <trans-unit id="landing.selfhost.copy">
+                <source>landing.selfhost.copy</source>
                 <target>Copy</target>
             </trans-unit>
-            <trans-unit id="landing.try.copied">
-                <source>landing.try.copied</source>
+            <trans-unit id="landing.selfhost.copied">
+                <source>landing.selfhost.copied</source>
                 <target>Copied</target>
+            </trans-unit>
+            <trans-unit id="landing.selfhost.compose_file">
+                <source>landing.selfhost.compose_file</source>
+                <target>docker/compose/prod.yaml (abridged)</target>
+            </trans-unit>
+            <trans-unit id="landing.selfhost.run.title">
+                <source>landing.selfhost.run.title</source>
+                <target>Run it for real</target>
+            </trans-unit>
+            <trans-unit id="landing.selfhost.run.text">
+                <source>landing.selfhost.run.text</source>
+                <target>One compose file runs the production image as three services — web, worker and Postgres — with no cloud account of any kind.</target>
+            </trans-unit>
+            <trans-unit id="landing.selfhost.run.note">
+                <source>landing.selfhost.run.note</source>
+                <target>Fill in the env file first: an install token, an SMTP server and a reverse proxy in front. Nothing starts half-configured — a missing setting aborts the run.</target>
+            </trans-unit>
+            <trans-unit id="landing.selfhost.docs_link">
+                <source>landing.selfhost.docs_link</source>
+                <target>Single-host install docs.</target>
+            </trans-unit>
+            <trans-unit id="landing.selfhost.install_action">
+                <source>landing.selfhost.install_action</source>
+                <target>Read the install docs</target>
+            </trans-unit>
+            <trans-unit id="landing.selfhost.demo.title">
+                <source>landing.selfhost.demo.title</source>
+                <target>Just look at it</target>
+            </trans-unit>
+            <trans-unit id="landing.selfhost.demo.text">
+                <source>landing.selfhost.demo.text</source>
+                <target>One container, already set up and signed in. Nothing to clone or configure.</target>
+            </trans-unit>
+            <trans-unit id="landing.selfhost.demo.note">
+                <source>landing.selfhost.demo.note</source>
+                <target>Keep it on localhost — it is built for trying Loupe, not running it.</target>
+            </trans-unit>
+            <trans-unit id="landing.selfhost.demo_docs_link">
+                <source>landing.selfhost.demo_docs_link</source>
+                <target>Demo docs.</target>
             </trans-unit>
             <trans-unit id="landing.pricing.title">
                 <source>landing.pricing.title</source>
-                <target>Run it yourself, or let us run it.</target>
+                <target>Your machine, or ours.</target>
             </trans-unit>
             <trans-unit id="landing.pricing.self_host.name">
                 <source>landing.pricing.self_host.name</source>
@@ -3768,10 +3860,6 @@
             <trans-unit id="landing.tech.tools.tool_revise">
                 <source>landing.tech.tools.tool_revise</source>
                 <target>document_revise</target>
-            </trans-unit>
-            <trans-unit id="landing.tech.tools.end">
-                <source>landing.tech.tools.end</source>
-                <target>.</target>
             </trans-unit>
             <trans-unit id="landing.mock.body.aggregate">
                 <source>landing.mock.body.aggregate</source>
