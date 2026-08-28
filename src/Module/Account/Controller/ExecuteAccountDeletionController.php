@@ -8,7 +8,6 @@ use App\Controller\AppController;
 use App\Exception\DomainErrors;
 use App\Module\Account\Command\DeleteAccountCommand;
 use App\Module\Account\Command\DeleteAccountHandler;
-use App\Routing\PaywallExempt;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -17,7 +16,6 @@ use Symfony\Contracts\Translation\TranslatorInterface;
 use Ubermuda\SymfonyExtra\Csrf\Attribute\CsrfToken;
 
 #[CsrfToken('confirm-account-deletion')]
-#[PaywallExempt]
 #[Route(
     '/account/delete/confirm',
     name: 'app_account_delete_execute',

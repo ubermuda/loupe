@@ -5,11 +5,11 @@ declare(strict_types=1);
 namespace App\Module\Account\Diagnostics;
 
 use App\Module\Account\Entity\User;
-use App\Module\Diagnostics\Diagnostic;
-use App\Module\Diagnostics\DiagnosticInterface;
-use App\Module\Diagnostics\DiagnosticState;
 use Doctrine\DBAL\Connection;
 use Psr\Log\LoggerInterface;
+use Ubermuda\HealthCheckBundle\Diagnostic;
+use Ubermuda\HealthCheckBundle\DiagnosticInterface;
+use Ubermuda\HealthCheckBundle\DiagnosticState;
 
 /**
  * Every comment an agent writes over MCP is authored by one singleton user row,

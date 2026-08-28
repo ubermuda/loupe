@@ -105,6 +105,7 @@ export default defineConfig({
             { slug: 'operating/failed-messages' },
             { slug: 'operating/recovering' },
             { slug: 'operating/backups' },
+            { slug: 'operating/restoring' },
           ],
         },
         {

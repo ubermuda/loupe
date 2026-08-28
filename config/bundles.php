@@ -21,12 +21,10 @@ return [
     Ubermuda\SymfonyExtra\UbermudaSymfonyExtraBundle::class => ['all' => true],
     Symfony\AI\McpBundle\McpBundle::class => ['all' => true],
     Symfony\Bundle\MercureBundle\MercureBundle::class => ['all' => true],
-    // Everywhere, but only prod sends any header — see nelmio_security.yaml.
-    // Dev and test load it solely so `csp_nonce()` exists in Twig; a template
-    // calling a function that only exists in prod would fatal on every page.
     Nelmio\SecurityBundle\NelmioSecurityBundle::class => ['all' => true],
     Ubermuda\AdminBundle\UbermudaAdminBundle::class => ['all' => true],
     Ubermuda\FeatureFlagsBundle\UbermudaFeatureFlagsBundle::class => ['all' => true],
     KnpU\OAuth2ClientBundle\KnpUOAuth2ClientBundle::class => ['all' => true],
     League\FlysystemBundle\FlysystemBundle::class => ['all' => true],
+    Ubermuda\HealthCheckBundle\UbermudaHealthCheckBundle::class => ['all' => true],
 ];

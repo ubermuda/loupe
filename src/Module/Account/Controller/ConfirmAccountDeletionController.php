@@ -7,12 +7,10 @@ namespace App\Module\Account\Controller;
 use App\Controller\AppController;
 use App\Module\Account\Command\ConfirmAccountDeletionCommand;
 use App\Module\Account\Command\ConfirmAccountDeletionHandler;
-use App\Routing\PaywallExempt;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
 
-#[PaywallExempt]
 #[Route(
     '/account/delete/confirm',
     name: 'app_account_delete_confirm',

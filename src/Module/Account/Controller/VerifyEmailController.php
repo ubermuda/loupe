@@ -8,14 +8,12 @@ use App\Controller\AppController;
 use App\Module\Account\Command\VerifyEmailCommand;
 use App\Module\Account\Command\VerifyEmailHandler;
 use App\Module\Account\Entity\User;
-use App\Routing\PaywallExempt;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Contracts\Translation\TranslatorInterface;
 
-#[PaywallExempt]
 #[Route('/register/verify', name: 'app_verify_email')]
 class VerifyEmailController extends AppController
 {
