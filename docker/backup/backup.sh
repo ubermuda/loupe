@@ -44,9 +44,13 @@ case "$retention" in
 esac
 [ "$retention" -ge 1 ] || fail 'BACKUP_RETENTION_DAYS must be at least 1.'
 
-case "${interval%[smhd]}" in
+interval_count=${interval%[smhd]}
+case "$interval_count" in
     '' | *[!0-9]*) fail "BACKUP_INTERVAL must be a number, optionally suffixed s, m, h or d, got '$interval'." ;;
 esac
+# Zero would make `sleep` return at once, turning the schedule into a continuous
+# loop of dumps and uploads.
+[ "$interval_count" -ge 1 ] || fail "BACKUP_INTERVAL must be at least 1, got '$interval'."
 
 if [ -n "$prefix" ]; then
     remote="s3:$bucket/${prefix%/}"
@@ -65,8 +69,12 @@ preflight() {
         rclone deletefile "$remote/.preflight"
 }
 
-preflight ||
+if ! preflight; then
+    # Whichever step failed, the marker may already be in the bucket, and the
+    # prune below never looks at anything but its own dumps.
+    rclone deletefile "$remote/.preflight" >/dev/null 2>&1 || true
     fail "cannot put, list and delete under $remote — check the bucket name, endpoint, region, credentials and the key's grants."
+fi
 
 while true; do
     name="loupe-$(date -u '+%Y%m%dT%H%M%SZ').dump"
