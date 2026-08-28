@@ -51,10 +51,13 @@ dc --profile backup run --rm -T --entrypoint sh backup -c \
 ```
 
 **2. Stop everything that writes.** The app must not be running against the
-database while it is replaced.
+database while it is replaced — and neither must the backup job, which would
+otherwise be killed mid-dump by step 4 and could upload a dump of a half-restored
+database on its next tick. Drop `backup` from the command if you never enabled
+the profile.
 
 ```bash
-dc stop web worker
+dc --profile backup stop web worker backup
 ```
 
 **3. Put `APP_ENCRYPTION_KEY` back in `docker/compose/prod.env`,** matching the
@@ -81,10 +84,11 @@ under a newer release leaves the schema behind the code:
 dc run --rm web docker/prod/release.sh
 ```
 
-**6. Start the app.**
+**6. Start the app.** Carry the same profiles you normally run with, or the
+services you stopped in step 2 stay stopped.
 
 ```bash
-dc up -d
+dc --profile backup up -d
 ```
 
 ## Verifying
