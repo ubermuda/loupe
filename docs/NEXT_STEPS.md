@@ -536,9 +536,9 @@ Three specific misplacements to fix while here, each confirmed at source:
 - **Project depends on the two modules that depend on it** — the `ListProjectsHandler`
   imports above.
 
-`src/Module/Diagnostics/` (added 2026-08-17) is the worked example of the target
-shape: it imports nothing from any module, and Billing and Account contribute
-their own tagged checks to it.
+The diagnostics report is the worked example of the target shape: the
+aggregation lives in `ubermuda/health-check-bundle`, imports nothing from any
+module, and Billing and Account contribute their own tagged checks to it.
 
 Two pieces of work, in order:
 
@@ -1368,8 +1368,8 @@ already applies to site-review comment bodies.
 
 **Author:** Claude · **Type:** feature · **Priority:** medium · **Status:** pending
 
-The `worker` check on `/admin/status`
-(`src/Module/Diagnostics/Check/WorkerCheck.php`) can only prove the *failure*
+The `worker` check on `/admin/status` (`WorkerCheck` in
+`ubermuda/health-check-bundle`) can only prove the *failure*
 case: it measures the age of the oldest available-and-unclaimed row in
 `messenger_messages`, so a
 backlog nobody has touched for a minute means nothing is consuming. An empty
@@ -1435,42 +1435,6 @@ within about 5 minutes and tolerates roughly one poll a minute, so a periodic
 refresh fits it well); and each source needs a read credential the deployment
 does not currently carry, so it interacts with the `extra_env` wiring in
 `terraform/main.tf`.
-
-## Decide whether health checks stay hand-rolled, move to a third-party package, or become our own
-
-
-**Author:** Geoffrey · **Type:** idea · **Priority:** medium · **Status:** pending
-
-The health and status surface is currently hand-rolled and lives entirely in
-this app: `App\Controller\ShowHealthController` serves `/healthz`, and
-`src/Module/Diagnostics/` runs the seven checks behind `/admin/status` and the
-install wizard's status step. Since 2026-08-17 those checks are one tagged
-class each behind `DiagnosticInterface`, so the seam a third-party package
-would need already exists and adopting one is now a swap rather than a rewrite.
-Three options are worth weighing rather than letting the hand-rolled version
-become the answer by default:
-
-1. **Adopt an existing open-source package.** `liip/monitor-bundle` is the
-   long-standing Symfony option and ships checks for Doctrine connections,
-   disk space, memory, and a readiness endpoint. The question is whether its
-   check abstraction can express the two checks that carry the actual value
-   here — a real SMTP `start()`/`stop()` against the configured transport, and
-   a backlog query that distinguishes an unclaimed message from one claimed by
-   a worker that has since died — or whether wrapping them in someone else's
-   interface costs more than it saves.
-2. **Extract our own `ubermuda/*` package**, alongside the other first-party
-   bundles. Attractive only if a second application actually needs it;
-   otherwise it adds a release to every change (see the bundle-pinning
-   protocol in `CLAUDE.md`).
-3. **Keep it in-app.** Cheapest today, and the checks are unusually
-   opinionated about *this* application's failure modes.
-
-What should drive the decision is whether the honesty of the current checks
-survives the move. The worker check deliberately never reports "ok" — an idle
-queue cannot prove a consumer is running — and a generic package that reports
-green for "no errors" would reintroduce exactly the false reassurance the
-check was written to avoid. Related: "Worker heartbeat, so 'is a worker
-running?' can be answered positively".
 
 ## An agent highlight is invisible to a screen reader
 
