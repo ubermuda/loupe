@@ -108,6 +108,63 @@ Widget tokens are **project-bound and public** (they ship in page source).
 Account-level tokens are rejected from widget-scoped endpoints and vice versa;
 `/stream` refuses widget tokens outright.
 
+## Accepted: a widget token reads, edits and deletes every pending comment
+
+This is a **standing accepted exposure**, decided by the owner. It is not an
+open finding: do not re-file it in `docs/NEXT_STEPS.md`, do not report it as a
+new discovery in an audit, and do not narrow `findOnePending()` or the CORS
+policy to "fix" it without a maintainer decision.
+
+**What is accepted, exactly.** Any holder of a widget token can read, edit and
+delete every **pending** comment in that token's project, whether or not they
+wrote it — `GET /api/site-review/review` returns bodies, URLs, selectors and
+quoted page text for the whole project rather than the current page, and `PATCH`
+/ `DELETE /api/site-review/comments/{id}` accept any pending id. The token is a
+`data-token` attribute in page HTML, so that means anyone who can view an
+instrumented page. Accepted **within the staging-and-preview-only deployment
+model** and no further: a deployment that serves the widget to the public has
+handed out all of that, and is outside what was accepted.
+
+**Why it is possible.** `SiteReviewComment` has no author column —
+`AddCommentController` resolves a *project* from the token and stores nothing
+about who submitted the comment — so nothing can scope a mutation to its writer.
+`UpdateCommentHandler` and `DeleteCommentHandler` both resolve through
+`findOnePending($commentId, $project)`, which is project scope only.
+`SiteReviewCorsSubscriber` reflects the request `Origin`, so it works from any
+page, not only an instrumented one.
+
+**What bounds it.** Policy first: the widget is documented as staging and
+preview only in `docs/using/site-review.md`, on the Connect page and in
+`ApiToken`'s own docblock, so everyone who can see the token is already entitled
+to those comments. Then code: `Addressed` and `Resolved` comments are immune;
+widget tokens are rejected by `/api/site-review/sites` and
+`/api/site-review/stream`, so there is no project enumeration and no Mercure
+JWT; `RateLimitSiteReviewWrites` slows churn, though not a targeted delete; and
+the app's own instance ships `SITE_REVIEW_WIDGET_TOKEN` empty in `.env` with
+`templates/layout_base.html.twig` gating the widget behind
+`site_review_widget_public or is_granted('ROLE_ADMIN')`.
+
+**The attribution half is accepted too**, and was accepted first — the two are
+easy to confuse, so treat this paragraph as covering only attribution and the
+one above as covering read/edit/delete. A comment carries no author, so
+`site_review_get` cannot tell an agent whether the owner or a passing visitor
+wrote it. The compensating control is categorical escalation in the
+`loupe-site-review` skill: anything that would change a destination, an
+identity, a credential or third-party code goes to the human. That control is
+load-bearing — an agent tested without it applied a link-destination change and
+a support-email change on its own judgement.
+
+**Rejected alternative: a per-project origin allowlist.** It was designed and
+set aside. Cross-project access is already blocked by the token binding and
+`Origin` is forgeable by any non-browser caller, so an allowlist would only stop
+a browser page on an unregistered origin — bought with a column, a migration, a
+backfill over a free-text field, and every widget going dark whenever the
+allowlist is wrong. `LogWidgetOriginMismatch` records the mismatch instead.
+
+**What would actually close it** is per-reviewer identity, which arrives with
+the OAuth work rather than on its own. Both are deferred; see
+`docs/NEXT_STEPS.md`.
+
 ## The dev harness
 
 `/dev/site-review-harness?email=<user>` renders a page with the widget loaded

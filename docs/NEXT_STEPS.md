@@ -401,23 +401,6 @@ tool persist the reply body, and render it in
 `templates/Module/SiteReview/show_site_review.html.twig` (a placeholder comment
 marks where it goes).
 
-## Unbound legacy MCP tokens look like a connection failure to agents
-
-
-
-
-**Author:** Claude · **Type:** feature · **Priority:** medium · **Status:** pending
-
-`mcp`-scoped tokens minted before the Project entity existed (pre-2026-07-03)
-authenticate fine but resolve no project, so every tool call fails with "MCP
-token is not bound to a project" — which agents surface as "can't connect".
-A 2026-07-10 session debugged this; the three affected local tokens were fixed
-by creating projects and binding them directly in the dev DB. Product follow-ups
-to consider: reject unbound `mcp`-scope tokens at authentication time (clear 401
-instead of per-call errors), and/or purge orphan unbound tokens (the dev DB has
-~500 unbound e2e-harness tokens accumulating — see also whether e2e should clean
-up after itself).
-
 ## Gamache rule: catch skills that document tooling which no longer exists
 
 
@@ -1238,15 +1221,16 @@ decision as a voter for the view layer".
 
 ## OAuth for the MCP and site-review widget, with project selection at consent
 
-
-
-
 **Author:** Geoffrey · **Type:** feature · **Priority:** medium · **Status:** pending
 
-Owner idea (2026-07-27): let the MCP endpoint and the site-review widget
-authenticate by OAuth rather than by a pasted API token, with the consent
-screen offering project selection — and project *creation* — at authorization
-time.
+**Deferred by owner decision: pasted API tokens stay, and nobody should start
+this now.** The entry survives the decision because the strategic case below is
+unchanged and the work may still be picked up — but nothing waits on it, and two
+other entries are parked behind it rather than being worked around it.
+
+The idea: let the MCP endpoint and the site-review widget authenticate by OAuth
+rather than by a pasted API token, with the consent screen offering project
+selection — and project *creation* — at authorization time.
 
 What this replaces: both surfaces today use `ApiToken` rows minted per project
 and bound to it (`mcp` and `site_review` scopes), pasted into an agent's MCP
@@ -1255,17 +1239,19 @@ config or embedded in the widget snippet built by
 mint time, so switching project means minting a new token, and the widget's
 credential is visible in page source.
 
-Things this would interact with: the per-token agent-forwarding flag that
-already ships (`ApiToken::$forwardsToAgent` — an OAuth scope is the natural
-home for it, and the opt-in must survive the migration rather than being
-granted by default); "Personal reviewer tokens as an identity layer for the
-widget" (OAuth largely subsumes it, and gives per-reviewer identity for free);
-"Unbound legacy MCP tokens look like a connection failure to agents" (consent-
-time project selection removes the unbound state by construction); and the
-deny-by-default `^/api` rule in `config/packages/security.yaml`, since OAuth
-scopes would need the same per-scope `access_control` discipline. Note `symfony/mcp-bundle` is on 0.12 and
-tracks the MCP protocol's own authorization spec — check what it provides
-before hand-rolling a server.
+Things this would interact with. The per-token agent-forwarding flag that
+already ships (`ApiToken::$forwardsToAgent`) — an OAuth scope is the natural
+home for it, and the opt-in must survive the migration rather than being granted
+by default. "Personal reviewer tokens as an identity layer for the widget",
+which is no longer an independent track: per-reviewer identity for the widget
+arrives with OAuth and not before, so that entry is folded into this one and
+waits on it. "Revisit: migrate API auth to Symfony's `access_token`
+authenticator", which is parked for the same reason — OAuth would rewrite that
+layer anyway, so migrating the authenticator first is doing the work twice. And
+the deny-by-default `^/api` rule in `config/packages/security.yaml`, since OAuth
+scopes would need the same per-scope `access_control` discipline. Note
+`symfony/mcp-bundle` is on 0.12 and tracks the MCP protocol's own authorization
+spec — check what it provides before hand-rolling a server.
 
 ## Decision controls: multi-select, and whether a choice should carry a comment
 
@@ -1514,10 +1500,8 @@ Worktrees make this routine rather than occasional: every
 `codex-cli` going missing from worktree sessions for exactly this reason.
 
 Nothing is broken; it is repetition with no propagation. Rotating or revoking
-the token means finding every copy by hand, and a stale copy surfaces as "can't
-connect" rather than as an obviously expired credential — see "Unbound legacy
-MCP tokens look like a connection failure to agents" for how that reads to an
-agent.
+the token means finding every copy by hand, and a stale copy surfaces to an
+agent as "can't connect" rather than as an obviously expired credential.
 
 Worth deciding the shape of the fix before building one. The cheap version is
 presentational: offer the `-s user` form (or both, labelled) in the connect
@@ -2288,18 +2272,22 @@ a path/origin allowlist — so CORS policy lives in one place.
 
 ## Revisit: migrate API auth to Symfony's `access_token` authenticator
 
-
-
-
 **Author:** Claude · **Type:** tooling · **Priority:** low · **Status:** pending
+
+**Parked by owner decision: the custom `ApiTokenAuthenticator` stays as it is,
+and this is revisited only if the OAuth work lands.** The reason is that OAuth
+replaces how both API surfaces authenticate, so it rewrites this layer anyway —
+migrating the authenticator first means doing the same work twice. The OAuth
+entry is "OAuth for the MCP and site-review widget, with project selection at
+consent", and it is itself deferred, so the practical answer for now is: leave
+this alone.
 
 We hand-roll `ApiTokenAuthenticator` (custom `AbstractAuthenticator`). Symfony's
 built-in `access_token` firewall + an `AccessTokenHandler` is the more idiomatic
-mechanism. Deferred during the site-review work — decided to extend the custom
-authenticator for now and revisit later. Note: `access_token` has **no** native
-scope→role mapping (verified against current Symfony docs), so the migration is
-a modernization, not a scope win; per-token scope roles are slightly more
-awkward there (you don't own `createToken()`), so weigh that when revisiting.
+mechanism. Note: `access_token` has **no** native scope→role mapping (verified
+against current Symfony docs), so the migration is a modernization, not a scope
+win; per-token scope roles are slightly more awkward there (you don't own
+`createToken()`), so weigh that when revisiting.
 
 ## Site-review widget: surface per-comment save errors more granularly
 
@@ -2363,76 +2351,24 @@ entries? MCP tool the agent polls, like document_get_review?).
 
 ## Personal reviewer tokens as an identity layer for the widget
 
-
-
-
 **Author:** Geoffrey · **Type:** idea · **Priority:** low · **Status:** pending
 
-Long-horizon alternative/complement to the site-review widget's shared
-site-wide token: per-reviewer tokens minted via invite links and held in the
-reviewer's browser, instead of a credential embedded in page markup. Buys
-accountable identity on every submitted review, per-reviewer revocation, and
-removes the token from page source. Costs the zero-friction "anyone on the
-staging site can comment" UX (reviewers must redeem an invite first), and
-needs a lightweight reviewer identity without full accounts plus a tokenless
-widget bootstrap mode. Only worth picking up if per-reviewer accountability
-becomes a product need — the cheaper mitigation for the exposure concern has
-already shipped: `ApiToken::$forwardsToAgent` makes agent forwarding opt-in per
-widget token, so a leaked token collects comments but cannot drive the agent.
+**Folded by owner decision into "OAuth for the MCP and site-review widget, with
+project selection at consent".** Per-reviewer identity for the widget arrives
+with OAuth, so this stopped being a track of its own: do not start it as a
+standalone piece of work, and pick it up as part of the OAuth work or not at
+all. That work is itself deferred, so in practice this waits.
 
-## Expose the paywall decision as a voter for the view layer
-
-
-
-
-**Author:** Geoffrey · **Type:** tooling · **Priority:** low · **Status:** pending
-
-Owner question (2026-07-26), raised while reviewing the `#[PaywallExempt]`
-change: should paywall exemption be expressed through `#[IsGranted]` voters
-instead of a route attribute?
-
-Decided **no** for enforcement. `RequireSubscriptionListener` is
-deny-by-default (every route is paywalled unless marked exempt), whereas
-`#[IsGranted]` on controllers is allow-by-default. Inverting it would turn a
-forgotten annotation from "user is wrongly blocked" (loud, user-reported,
-revenue-safe) into "feature is silently free" (invisible revenue leak) — the
-wrong failure mode for a paywall. Three further blockers: the listener exempts
-third-party bundle routes by prefix (`ubermuda_feature_flags_*`,
-`app_admin_*`) whose controllers cannot carry our attribute; it performs
-content negotiation a voter cannot (302 to the subscribe page for UI, `402`
-with a JSON body for `/api/` and `/mcp`), so an exception listener would be
-needed anyway and the decision would end up split across two files; and `/mcp`
-is a single endpoint dispatching many tools, so per-controller granularity
-does not map onto it.
-
-What is still worth doing, additively: `PaywallGate::allows()` is reachable
-only from the listener today, so a template wanting to show a "subscribe" CTA
-has to re-derive the condition. Add a thin voter delegating to `PaywallGate`
-so `is_granted('billing.active')` works in Twig. Scope is the *decision*, not
-the exemption list — do not change the listener's deny-by-default polarity.
-Confirm a template actually needs it before building it; no current caller was
-identified. Attribute-naming and voter-shape conventions live in the
-`symfony-authorization` skill.
-
-## Deleting an API token (as distinct from revoking it)
-
-
-
-
-**Author:** Geoffrey · **Type:** feature · **Priority:** low · **Status:** pending
-
-Owner decision (2026-07-26): the existing action becomes a true revocation —
-`RevokeApiTokenHandler` sets `revokedAt` and keeps the row so the
-`account.api_token.revoked` audit entry still points at something real, rather
-than hard-deleting it. That leaves no way to actually remove a token row.
-
-Add a separate delete action for when a user wants the record gone rather than
-merely disabled. Decide when picking it up: whether deletion is offered in the
-UI at all or only as a retention job (revoked rows are audit evidence, so
-purging them on demand partly defeats the point of keeping them); and whether
-it should instead be a time-based purge of long-revoked tokens. Related code:
-`src/Module/Account/Command/RevokeApiTokenHandler.php` and the token list on
-the project connect page.
+The shape, kept here for whoever picks OAuth up. Per-reviewer tokens minted via
+invite links and held in the reviewer's browser, instead of the site-review
+widget's shared site-wide credential embedded in page markup. Buys accountable
+identity on every submitted review, per-reviewer revocation, and removes the
+token from page source. Costs the zero-friction "anyone on the staging site can
+comment" UX (reviewers must redeem an invite first), and needs a lightweight
+reviewer identity without full accounts plus a tokenless widget bootstrap mode.
+The cheaper mitigation for the exposure concern has already shipped:
+`ApiToken::$forwardsToAgent` makes agent forwarding opt-in per widget token, so
+a leaked token collects comments but cannot drive the agent.
 
 ## Three container-build deprecations remain, all inside vendor bundles
 
@@ -2755,66 +2691,6 @@ both rules from `app.css`.
 
 Landed 2026-08-22 in PR #241 (admin user page redesign), in response to a
 site-review comment asking for a fixed admin menu.
-
-## The site-review widget token can read, edit and delete any pending comment in its project
-
-**Author:** Claude · **Type:** security · **Priority:** medium · **Status:** pending
-
-`SiteReviewComment` has no author column. Every comment arrives through
-`AddCommentController`, which resolves a *project* from the widget token and
-stores nothing about who submitted it. Two consequences follow; only the second
-was tracked before 2026-08-25.
-
-**Authorization.** With no author, nothing can scope a mutation to the person who
-wrote the comment. Holding only the widget token — a `data-token` attribute in
-page HTML, public by design, as `ApiToken` itself notes ("anyone who can view the
-page holds the credential") — and no session, a visitor can `GET
-/api/site-review/review` for every pending comment in the project (bodies, URLs,
-selectors, quoted page text, not merely the current page's), and `PATCH` or
-`DELETE /api/site-review/comments/{id}` against any of them: `UpdateCommentHandler`
-and `DeleteCommentHandler` both resolve via `findOnePending($commentId, $project)`,
-project scope only. `SiteReviewCorsSubscriber` reflects the request `Origin`, so
-it works from any page, not just an instrumented one.
-
-Bounded by policy first: PR #252 states the staging-and-preview-only deployment
-model in `docs/using/site-review.md` and in `ApiToken`'s docblock, matching what
-the Connect page already said, so everyone who can see the token is someone
-already entitled to those comments. That is what took this off `high` — the
-reach itself is unchanged.
-
-Bounded three ways in code as well: Pending comments only (`Addressed` and `Resolved` are immune),
-one project (widget tokens are rejected by `/api/site-review/sites` and
-`/api/site-review/stream`, so no project enumeration and no Mercure JWT), and
-throttled by `RateLimitSiteReviewWrites` — which slows churn but not a targeted
-delete. Not exposed on loupe.ac: `.env` ships `SITE_REVIEW_WIDGET_TOKEN` empty and
-`templates/layout_base.html.twig` gates it behind `site_review_widget_public or
-is_granted('ROLE_ADMIN')`. It bites any deployment that serves the widget to
-untrusted visitors — which is the case the widget exists for.
-
-**Attribution.** `site_review_get` (`src/Module/SiteReview/Mcp/SiteReviewGetTool.php`)
-carries `id`, `url`, `selector`, `text`, `body`, `status` and `createdAt`, and
-cannot say who wrote any of them, so a visitor's comment and the owner's are
-indistinguishable to an agent. `loupe-site-review` therefore escalates
-categorically: any comment that would change a destination, an identity, a
-credential or third-party code goes to the human. Verified 2026-08-15 by testing
-an agent against comments of exactly that shape — it applied a link-destination
-change and a support-email change on its own judgement when the skill was absent.
-
-An enforcing per-project origin allowlist was designed and deferred on
-2026-08-25: cross-project access is already blocked by the token binding and
-`Origin` is forgeable by any non-browser caller, so it would only stop a browser
-page on an unregistered origin — against a column, a migration, a backfill over
-a free-text field, and widgets going dark under fail-closed. `LogWidgetOriginMismatch`
-records the mismatch instead. The plan is in Loupe as 'Per-project allowed
-origins for the site-review widget' if the trade is ever worth revisiting.
-
-Owner decision 2026-08-19 accepted the escalation tax, reasoning that one
-project-scoped token is the only credential and a Loupe session cookie is never
-sent with widget requests from a page the app does not serve, so nothing
-distinguishes an owner from a visitor. **That decision covered injection, not
-tampering** — it predates the read/edit/delete reach above being traced, so it is
-not an acceptance of this entry as now written. Per-reviewer tokens close both
-halves; see 'Personal reviewer tokens as an identity layer for the widget'.
 
 ## A recorded decision cannot be undone
 
