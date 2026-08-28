@@ -9,11 +9,13 @@ of any kind. It is the same production image, run as three services: `web`
 (nginx + php-fpm), `worker` (the messenger consumer, which also runs everything
 on the schedule) and `database` (Postgres).
 
-A fourth, `mercure` (the hub), sits behind a compose profile and stays off
-unless you ask for it — site-review push is the only thing that needs it. To
-enable it, set `MERCURE_JWT_SECRET` and `MERCURE_PUBLIC_URL` in
-`docker/compose/prod.env`, give the hub's hostname a route in your reverse proxy, and
-add `--profile mercure` to every `docker compose` command for this stack.
+Two more sit behind compose profiles and stay off unless you ask for them, so
+that the default stack makes no outbound connection of its own. `mercure` (the
+hub) is needed only for site-review push: set `MERCURE_JWT_SECRET` and
+`MERCURE_PUBLIC_URL` in `docker/compose/prod.env`, give the hub's hostname a route
+in your reverse proxy, and add `--profile mercure` to every `docker compose`
+command for this stack. `backup` takes scheduled database dumps and uploads them
+to a bucket you supply — see [Backing up](../operating/backups.md).
 
 ```bash
 cp docker/compose/prod.env.example docker/compose/prod.env      # then fill it in
@@ -56,7 +58,12 @@ What you still have to provide:
   registration does not work without one.
 - **A hostname for the hub.** `MERCURE_PUBLIC_URL` is a separate host that the
   bridge CLI subscribes to directly; route it to the `mercure` service.
-- **Backups** of the `database_data` and `exports` volumes.
+- **A bucket for backups.** A `backup` service takes scheduled `pg_dump`s and
+  uploads them off this host, but it is off until you set the `BACKUP_S3_*`
+  variables and add `--profile backup` to every compose command for this stack.
+  Nothing else copies `database_data` anywhere. [Backing up](../operating/backups.md)
+  covers it, and [Restoring the database](../operating/restoring.md) covers
+  putting a dump back — which needs `APP_ENCRYPTION_KEY` as well as the dump.
 
 Unlike App Platform, this topology *can* share a filesystem, so `EXPORT_STORAGE`
 stays at `local` and both containers mount the same `exports` volume. That is

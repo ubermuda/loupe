@@ -7,7 +7,6 @@ namespace App\Module\Account\Controller;
 use App\Controller\AppController;
 use App\Module\Account\Entity\DataExport;
 use App\Module\Account\Entity\User;
-use App\Routing\PaywallExempt;
 use League\Flysystem\FilesystemException;
 use League\Flysystem\FilesystemOperator;
 use Monolog\Attribute\WithMonologChannel;
@@ -19,7 +18,6 @@ use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 use Symfony\Component\Routing\Attribute\Route;
 
-#[PaywallExempt]
 #[Route(
     '/account/exports/{id:export}/download',
     name: 'app_account_export_download',

@@ -27,4 +27,13 @@ final class ApiTokenTest extends TestCase
         self::assertTrue($token->matches($raw));
         self::assertFalse($token->matches('wrong'));
     }
+
+    public function test_issue_records_the_last_four_characters_as_the_tail(): void
+    {
+        [$token, $raw] = ApiToken::issue($this->user(), 'CI agent', ApiTokenScope::Mcp);
+
+        self::assertSame(substr($raw, -4), $token->tokenTail);
+        self::assertSame(4, \strlen((string) $token->tokenTail));
+        self::assertStringEndsWith((string) $token->tokenTail, $raw);
+    }
 }

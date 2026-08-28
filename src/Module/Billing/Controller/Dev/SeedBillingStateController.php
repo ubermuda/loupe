@@ -8,7 +8,6 @@ use App\Controller\AppController;
 use App\Module\Account\Entity\User;
 use App\Module\Billing\Command\SeedBillingStateCommand;
 use App\Module\Billing\Command\SeedBillingStateHandler;
-use App\Routing\PaywallExempt;
 use Symfony\Component\DependencyInjection\Attribute\When;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -19,8 +18,8 @@ use Symfony\Component\Routing\Attribute\Route;
  * `billing.enabled` flag, seeds the authenticated user's billing profile into
  * a named lifecycle state, and, on request, runs the trial-end sweep. Used
  * exclusively by Playwright e2e tests — not available in production
- * (When('dev')). The route is allowlisted in RequireSubscriptionListener so a
- * paywalled session can still call it to switch billing back off.
+ * (When('dev')). The route is listed in PaywallExemptions so a paywalled
+ * session can still call it to switch billing back off.
  *
  * `state` values (each fully re-seeds the profile, so states can be applied
  * in any order):
@@ -33,7 +32,6 @@ use Symfony\Component\Routing\Attribute\Route;
  * feature-flag reader is request-cached, so flip `enabled` and run the sweep
  * in separate requests — a same-request flip may be invisible to the sweeper.
  */
-#[PaywallExempt]
 #[Route(
     '/dev/billing-state',
     name: 'app_dev_billing_state',

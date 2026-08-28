@@ -6,12 +6,10 @@ namespace App\Module\Account\Controller;
 
 use App\Controller\AppController;
 use App\Module\Account\Service\RegistrationGate;
-use App\Routing\PaywallExempt;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Http\Authentication\AuthenticationUtils;
 
-#[PaywallExempt]
 #[Route('/login', name: 'app_login')]
 class LoginController extends AppController
 {
