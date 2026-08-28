@@ -73,8 +73,17 @@ config**, not authorization: no tool calls the resolve path, and
 `ApiTokenAuthenticator` is registered only on the `mcp` and `api` firewalls, so
 a Bearer token cannot reach the resolve route on `main` at all.
 
-**A voter result is not a meaningful check on what an agent may do.** Adding a
-tool? Do not reason "the voter will stop it."
+**An ownership voter's result is not a meaningful check on what an agent may
+do.** Adding a tool? Do not reason "`SiteReviewCommentVoter` will stop it."
+
+The one voter that does constrain an agent is
+`SiteReviewMcpBoundProjectVoter` (`site_review.mcp_read` /
+`site_review.mcp_write`): it compares the subject's project against the project
+the *token* is bound to, which is narrower than ownership — a token minted for
+project A cannot reach project B even though one user owns both. Every
+caller-supplied site or comment id reaching an MCP tool goes through
+`SiteReviewSubjectResolver`, which asks that voter and nothing else. A new tool
+should resolve its ids there rather than re-deriving the scope.
 
 ## The push subsystem has no producer
 
@@ -157,7 +166,7 @@ carrying `X-Playwright: 1` are handled inline.
 |---|---|
 | Applying `project-frontend`'s token rules to `widget.js` | It is standalone; raw hex and px are correct there. |
 | Running prettier on `widget.js` | ~1400-line phantom diff. |
-| Trusting a voter to stop an agent | Ownership voters return true for every MCP call. |
+| Trusting an ownership voter to stop an agent | Ownership voters return true for every MCP call; `SiteReviewMcpBoundProjectVoter` is the one that does not. |
 | Assuming a comment is private until "sent" | There is no send step. It is live on save. |
 | Adding a `Draft` branch | The status no longer exists. |
 | Wiring a Mercure trigger to "fix" the empty outbox | Producer-less is a decision, not a bug. |

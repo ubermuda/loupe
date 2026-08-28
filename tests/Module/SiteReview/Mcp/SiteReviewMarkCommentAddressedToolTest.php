@@ -209,6 +209,31 @@ final class SiteReviewMarkCommentAddressedToolTest extends KernelTestCase
         self::assertSame(SiteReviewCommentStatus::Resolved, $refetched->status);
     }
 
+    public function test_a_comment_in_another_project_of_the_same_owner_is_skipped_as_unknown(): void
+    {
+        [$project, $comments] = $this->projectWithPendingComments('addr-sibling@example.com', 'addr-sibling-site');
+
+        $commentId = $comments[0]->id;
+        self::assertNotNull($commentId);
+
+        $sibling = new Project($project->owner, 'addr-sibling-other');
+        $this->em->persist($sibling);
+        $this->em->flush();
+
+        // The owner is the same person, so ownership grants this. Only the
+        // token's binding to one project does not.
+        $this->actAsMcpTokenBoundTo($sibling);
+        $result = ($this->tool)([(string) $commentId]);
+
+        self::assertSame([], $result['addressed']);
+        self::assertSame([['id' => (string) $commentId, 'reason' => 'unknown']], $result['skipped']);
+
+        $this->em->clear();
+        $refetched = $this->em->find(SiteReviewComment::class, $commentId);
+        self::assertNotNull($refetched);
+        self::assertSame(SiteReviewCommentStatus::Pending, $refetched->status);
+    }
+
     public function test_another_users_comment_is_skipped_as_unknown(): void
     {
         $ownerEmail = 'addr-owner@example.com';

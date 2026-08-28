@@ -146,18 +146,6 @@ class SiteReviewCommentRepository extends ServiceEntityRepository
             ->getOneOrNullResult();
     }
 
-    /** Project-scoped lookup for the MCP addressing tool. */
-    public function findOneForProject(Uuid $id, Project $project): ?SiteReviewComment
-    {
-        return $this->createQueryBuilder('c')
-            ->andWhere('c.id = :id')
-            ->andWhere('c.project = :project')
-            ->setParameter('id', $id)
-            ->setParameter('project', $project)
-            ->getQuery()
-            ->getOneOrNullResult();
-    }
-
     /**
      * The project's comments in one status, oldest first. Kept beside
      * {@see findForProject} rather than folded into it: the agent's queue is a

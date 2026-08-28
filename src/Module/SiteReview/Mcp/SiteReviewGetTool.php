@@ -4,9 +4,6 @@ declare(strict_types=1);
 
 namespace App\Module\SiteReview\Mcp;
 
-use App\Mcp\ResolvesBoundProject;
-use App\Module\Project\Repository\ProjectRepository;
-use App\Module\Project\Security\AuthenticatedProjectResolver;
 use App\Module\SiteReview\Entity\SiteReviewComment;
 use App\Module\SiteReview\Entity\SiteReviewCommentStatus;
 use App\Module\SiteReview\Repository\SiteReviewCommentRepository;
@@ -16,12 +13,9 @@ use Mcp\Exception\ToolCallException;
 #[McpTool(name: 'site_review_get', description: 'Fetch site-review comments (DOM-anchored feedback captured in the browser) for the project bound to your MCP token. Returns the unaddressed ones by default. Address each comment, then mark it with site_review_mark_comment_addressed; pass status to read back the ones you already addressed, which the default view no longer shows.')]
 final readonly class SiteReviewGetTool
 {
-    use ResolvesBoundProject;
-
     public function __construct(
-        private ProjectRepository $projects,
         private SiteReviewCommentRepository $siteReviewComments,
-        private AuthenticatedProjectResolver $projectResolver,
+        private SiteReviewSubjectResolver $subjects,
     ) {
     }
 
@@ -34,15 +28,7 @@ final readonly class SiteReviewGetTool
     public function __invoke(?string $site = null, ?string $status = null): array
     {
         try {
-            $project = $this->requireBoundProject($this->projectResolver);
-
-            if (null !== $site) {
-                $resolved = $this->projects->findOneByIdOrNameForOwner($site, $project->owner);
-
-                if ($resolved !== $project) {
-                    throw new ToolCallException(\sprintf('Site "%s" not found or not accessible.', $site));
-                }
-            }
+            $project = $this->subjects->requireProject($site);
 
             // Marking a comment addressed used to put it beyond every read path
             // in this server, so an agent could not report on, or revisit, its

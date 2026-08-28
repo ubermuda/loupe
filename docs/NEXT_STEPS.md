@@ -1528,39 +1528,6 @@ consent", which replaces the pasted token entirely — but that still authorizes
 per directory unless the resulting credential is stored user-wide, so the scope
 question outlives the token question and should be answered on its own.
 
-## Ownership voters grant everything to an MCP request, and nothing says so at the voter
-
-**Author:** Claude · **Type:** security · **Priority:** medium · **Status:** pending
-
-An MCP request authenticates **as the project owner**: `ApiTokenAuthenticator`
-builds its passport with
-`new UserBadge($token->owner->getUserIdentifier(), fn () => $token->owner)`.
-Every ownership-based voter in the app compares the subject's owner against the
-authenticated user — `SiteReviewCommentVoter`'s entire rule is
-`$subject->project->owner === $token->getUser()` — so **every one of them
-returns true for a tool call by construction**.
-
-Nothing is exploitable, re-confirmed 2026-08-25 by tracing every tool: no MCP
-tool consults an ownership voter at all, and `ApiTokenAuthenticator` is
-registered only on the `mcp` and `api` firewalls, so a Bearer token cannot reach
-the `main` firewall's routes.
-
-**The Review half is already structural.** `McpBoundProjectVoter` compares the
-token's bound project to the subject's project, which is *narrower* than
-ownership — a token minted for project A cannot read project B even though one
-user owns both — and its docblock says exactly that, with
-`McpBoundProjectVoterTest` behind it. Every Review tool goes through
-`ReviewSubjectResolver`, which only ever asks that voter.
-
-**SiteReview is what is still open.** Its two tools consult no voter, relying
-instead on project-scoped repository lookups (`findOneForProject`,
-`findPendingForProject`). That is correct today but incidental rather than
-stated, and a future SiteReview tool that asks `SiteReviewCommentVoter` and reads
-the answer as a meaningful check would be wrong with nothing at the voter to warn
-its author. Closing it means either giving SiteReview an equivalent of
-`McpBoundProjectVoter`, or writing the boundary into `project-authz` and
-accepting that a real invariant lives only in prose.
-
 ## The actor model is unsettled — no audit trail, and an agent's writes look like the owner's
 
 
