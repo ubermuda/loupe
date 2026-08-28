@@ -185,7 +185,15 @@ From inside the php-fpm container (`just shell`), use the `database` Docker serv
 
 **The full suite runs against the dedicated e2e target, not a worktree and never the dev host.** `just e2e-up` creates a disposable `app_e2e` database and an nginx sidecar at `e2e.<project>.dev.localhost` serving **this checkout** — so it gates whatever branch you have checked out, with no worktree involved. `just e2e` defaults there and refuses to start if it is not up. Tear down with `just e2e-down`.
 
-Why the dev host is not an option: the suite is destructive by design. The `install-reset` project **truncates every table**, and `trial-end-lifecycle` flips global feature flags and disables every expired-trial account — so one run against `loupe.dev.localhost` wipes your development database. Pointing e2e at a worktree still works (`E2E_BASE_URL=https://<slug>.loupe.dev.localhost just e2e --workers=1`) and remains the right tool when you need to gate a branch *without* checking it out; it is no longer the only one. The DB-free static gate (`just cs`, `just phpstan`, `just lint`, `just arkitect`, `just gamache`) is always safe to run in parallel.
+Why the dev host is not an option: the suite is destructive by design. The `install-reset` project **truncates every table**, and `trial-end-lifecycle` flips global feature flags and disables every expired-trial account — so one run against `loupe.dev.localhost` wipes your development database. Pointing e2e at a worktree still works and remains the right tool when you need to gate a branch *without* checking it out; it is no longer the only one. **It needs both variables**, because `E2E_BASE_URL` on its own suppresses worktree detection and falls back to the shared Mailpit while the worktree's app sends to its own sidecar — so no assertion ever sees a message, and roughly two dozen registration, login and verification specs time out looking exactly like an auth regression:
+
+```bash
+E2E_BASE_URL=https://<slug>.loupe.dev.localhost \
+MAILPIT_URL=https://mailpit-<slug>.loupe.dev.localhost \
+just e2e --workers=1
+```
+
+From inside the worktree, plain `just e2e` resolves both and is the better command. `bin/e2e-target.sh` prints the Mailpit URL it resolved as its fourth line, which is how you check which instance a run got. The DB-free static gate (`just cs`, `just phpstan`, `just lint`, `just arkitect`, `just gamache`) is always safe to run in parallel.
 
 **Before every worktree e2e run, warm the dev cache and leave it alone for the duration:**
 

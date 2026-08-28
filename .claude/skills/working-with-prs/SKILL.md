@@ -132,9 +132,23 @@ vacuously.
 
 ## Gating a branch you have not checked out
 
-`E2E_BASE_URL=https://<slug>.loupe.dev.localhost just e2e --workers=1` runs the
-suite against a sibling worktree, which is the right tool for gating a branch
-without disturbing your own checkout. Warm its cache first:
+Aiming the suite at a sibling worktree is the right tool for gating a branch
+without disturbing your own checkout. **Set both variables:**
+
+```bash
+E2E_BASE_URL=https://<slug>.loupe.dev.localhost \
+MAILPIT_URL=https://mailpit-<slug>.loupe.dev.localhost \
+just e2e --workers=1
+```
+
+`E2E_BASE_URL` alone suppresses worktree detection, so the run reads the
+*shared* Mailpit while the worktree's app sends to its own sidecar. Nothing
+collides and nothing warns — the assertions simply never see a message, and
+about two dozen registration, login and verification specs time out looking
+like an auth regression. Diagnose it by running `bin/e2e-target.sh` with and
+without the variable and diffing the fourth line, not by re-running.
+
+Warm its cache first:
 
 ```bash
 ( cd .claude/worktrees/<name> && bin/worktrees/compose-exec.sh bin/console cache:warmup )
@@ -154,12 +168,12 @@ Use bootstrap rather than a bare `app:dev:seed`: `install-reset` also drops the
 project the widget token belongs to, and bootstrap is what notices the token in
 `.env.local` no longer resolves and reissues it.
 
-**Two runs launched this way cannot overlap.** Each worktree has its own Mailpit
-sidecar, so runs started with plain `just e2e` in different worktrees are
-isolated — but a run with an explicit `E2E_BASE_URL` deliberately falls back to
-the *shared* instance, so two of those read each other's mail. Serialise them.
-`bin/e2e-target.sh` prints the Mailpit URL it resolved as its fourth line, which
-is how you tell which one a run got.
+**Two runs that omit `MAILPIT_URL` cannot overlap.** Each worktree has its own
+Mailpit sidecar, so runs started with plain `just e2e` in different worktrees
+are isolated, and so are runs that set both variables above. Two runs that set
+only `E2E_BASE_URL` both fall back to the *shared* instance and read each
+other's mail — serialise those, or give each its own `MAILPIT_URL` and stop
+having the problem.
 
 ## Merging
 
