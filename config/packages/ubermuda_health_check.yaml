@@ -1,5 +1,4 @@
 ubermuda_health_check:
-    # `default::` resolves an unset or blank variable to null, which the bundle
-    # types as a string, so the cast is load-bearing. Blank means /healthz
-    # reports no sensitive metadata to anyone.
-    probe_token: '%env(string:default::HEALTH_PROBE_TOKEN)%'
+    # Blank means /healthz reports no sensitive metadata to anyone, which is
+    # what a self-hosted instance gets unless its operator opts in.
+    probe_token: '%env(default::HEALTH_PROBE_TOKEN)%'

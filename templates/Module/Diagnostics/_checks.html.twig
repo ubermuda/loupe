@@ -5,8 +5,8 @@
       - checks: list of Ubermuda\HealthCheckBundle\Diagnostic
 
     A check's label and detail resolve in its own domain, so an application
-    check keeps its keys in `messages`; the four state names only ever exist in
-    the bundle's catalogue.
+    check keeps its keys in `messages`; a state carries its own key and domain,
+    which are the bundle's whoever contributed the row.
 
     The icon per state is written out branch by branch rather than looked up
     from a map because `bin/console ux:icons:lock` only imports icon names it
@@ -25,7 +25,7 @@
                 {% else %}
                     <twig:UX:Icon name="lucide:circle-help" class="w-3.5 h-3.5 shrink-0" />
                 {% endif %}
-                {{ ('state.' ~ check.state.value)|trans({}, 'ubermuda_health_check') }}
+                {{ check.state.translationKey|trans({}, check.state.translationDomain) }}
             </span>
             <span class="status-check-text">
                 <span class="status-check-label">{{ ('check.' ~ check.key ~ '.label')|trans({}, check.domain) }}</span>
