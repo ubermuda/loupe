@@ -94,29 +94,26 @@ One cost of deferring rather than declaring the app desktop-only: a phone
 currently gets a broken layout instead of an honest "not supported here" notice.
 If this stays deferred for long, that notice is the cheap interim step.
 
-## A single-host deployment has no database backup at all
+## No database restore has ever been rehearsed
 
 **Author:** Claude · **Type:** tooling · **Priority:** high · **Status:** pending
 
-`docker/compose/prod.yaml` keeps Postgres in a local `database_data` volume.
-No dump job, no WAL archiving, no off-host copy exists anywhere in `docker/`,
-the `justfile` or `docs/`. Disk loss on that host is total, permanent data
-loss.
+Nobody has restored a Loupe database from a dump, on either deployment path.
+`docs/operating/restoring.md` is a runbook written from how the stack is built,
+not from a drill somebody ran, and both it and `docs/operating/backups.md` say
+so. An unrehearsed restore is not a backup; this entry closes by proving one on
+a scratch instance and correcting whatever the runbook gets wrong.
 
-The DigitalOcean path is better but not covered: `terraform/main.tf` provisions
-a managed cluster, so DigitalOcean's own daily backups apply, but nothing adds
-an independent copy or a retention window beyond the platform default. There is
-no second location and no second custodian.
+The single-host stack now takes dumps: the `backup` service in
+`docker/compose/prod.yaml`, behind `--profile backup`, runs
+`pg_dump --format=custom` on an interval, uploads to S3-compatible storage and
+prunes past a retention window. What remains untested is putting one back.
 
-**No restore has been rehearsed on either path.** `docs/operating/backups.md`
-states this outright — "Loupe schedules nothing, ships no backup command" and
-"Your restore is yours to prove". An unrehearsed restore is not a backup, and
-this is the entry that should close by proving one. Note that
-`docs/operating/recovering.md` is administrator-account recovery despite the
-name; there is no database restore runbook.
-
-The data-export feature is a per-user GDPR export, not a backup, and must not
-be mistaken for one.
+The DigitalOcean path is still uncovered: `terraform/main.tf` provisions a
+managed cluster, so DigitalOcean's own daily backups apply, but nothing adds an
+independent copy or a retention window beyond the platform default. There is no
+second location and no second custodian, and the compose backup job does not run
+there.
 
 Found by an audit on 2026-08-20.
 
