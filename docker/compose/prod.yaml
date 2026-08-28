@@ -1,6 +1,7 @@
 # Reference production topology: a single-host Docker Compose deployment of
 # Loupe. It is a complete, runnable stack — web, messenger worker and Postgres,
-# plus an opt-in Mercure hub behind `--profile mercure` — not an illustration.
+# plus two opt-in services behind profiles: a Mercure hub (`--profile mercure`)
+# and a database backup job (`--profile backup`) — not an illustration.
 # `compose.yaml` next to it is the development stack and shares nothing with this
 # file: it bind-mounts the source tree, builds a development PHP image and
 # expects an external Traefik network.
@@ -190,6 +191,45 @@ services:
     volumes:
       - database_data:/var/lib/postgresql/data:rw
 
+  # Scheduled pg_dump to S3-compatible storage, with pruning. Opt-in, because a
+  # self-hosted instance must work with no egress out of the box: without
+  # `--profile backup` this container never starts and nothing about the stack
+  # changes. Its settings are validated by the job itself rather than by the
+  # abort-on-empty guards used above, which Compose applies to every command
+  # including the ones that do not select this profile.  @comment-budget-ignore
+  backup:
+    profiles: ["backup"]
+    build:
+      context: ../backup
+      args:
+        POSTGRES_VERSION: ${POSTGRES_VERSION:-16}
+    image: ${LOUPE_BACKUP_IMAGE:-loupe-backup:${POSTGRES_VERSION:-16}}
+    restart: unless-stopped
+    environment:
+      PGHOST: database
+      PGPORT: "5432"
+      PGUSER: ${POSTGRES_USER:-loupe}
+      PGPASSWORD: "${POSTGRES_PASSWORD:?set it in docker/compose/prod.env}"
+      PGDATABASE: ${POSTGRES_DB:-loupe}
+
+      BACKUP_INTERVAL: "${BACKUP_INTERVAL:-24h}"
+      BACKUP_RETENTION_DAYS: "${BACKUP_RETENTION_DAYS:-14}"
+      BACKUP_S3_BUCKET: "${BACKUP_S3_BUCKET:-}"
+      BACKUP_S3_PREFIX: "${BACKUP_S3_PREFIX:-database-backups}"
+
+      # rclone reads its whole configuration from these; there is no config file.
+      RCLONE_CONFIG_S3_PROVIDER: "${BACKUP_S3_PROVIDER:-Other}"
+      RCLONE_CONFIG_S3_ACCESS_KEY_ID: "${BACKUP_S3_KEY:-}"
+      RCLONE_CONFIG_S3_SECRET_ACCESS_KEY: "${BACKUP_S3_SECRET:-}"
+      RCLONE_CONFIG_S3_ENDPOINT: "${BACKUP_S3_ENDPOINT:-}"
+      RCLONE_CONFIG_S3_REGION: "${BACKUP_S3_REGION:-}"
+      RCLONE_CONFIG_S3_FORCE_PATH_STYLE: "${BACKUP_S3_USE_PATH_STYLE:-true}"
+    volumes:
+      - backup_scratch:/scratch
+    depends_on:
+      database:
+        condition: service_healthy
+
   # Site-review push. The only subscriber is the Go bridge CLI, not a browser, so
   # no CORS config is needed. The hub keeps updates in memory, so a restart drops
   # undelivered ones — the outbox plus Last-Event-ID make replay authoritative.
@@ -218,3 +258,6 @@ volumes:
   # Generated data-export archives, shared between the worker that writes and
   # purges them and the web container that serves them.
   exports:
+  # Holds one dump at a time, between pg_dump writing it and the upload
+  # succeeding. Size the host for a compressed copy of the database.
+  backup_scratch:

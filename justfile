@@ -535,6 +535,22 @@ push-demo:
 demo port="8080": build-demo
     docker run --rm -it -p 127.0.0.1:{{port}}:80 -e DEFAULT_URI=http://localhost:{{port}} {{demo_image}}
 
+# Demo first: its build covers two architectures and `deploy` then blocks on the
+# rollout, so the slow half starts earliest. The dirty-tree refusal is because
+# both images stamp APP_VERSION from `git describe --dirty` — an uncommitted
+# change ships an image whose /about cannot be traced back to a commit.
+
+# Publish the demo and prod images, then roll production out.
+release:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    if [ -n "$(git status --porcelain)" ]; then
+        echo "release: working tree is dirty. Commit or stash first — otherwise both images report APP_VERSION as -dirty." >&2
+        exit 1
+    fi
+    just push-demo
+    just deploy
+
 # --- Terraform (infra lives in terraform/) ---
 
 # Initialise the working dir / fetch the module + provider.
