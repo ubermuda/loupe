@@ -9,7 +9,6 @@ use App\Module\Account\Command\AcceptTermsCommand;
 use App\Module\Account\Command\AcceptTermsHandler;
 use App\Module\Account\Entity\User;
 use App\Module\Account\EventListener\RequireTermsAcceptanceListener;
-use App\Routing\PaywallExempt;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
@@ -19,7 +18,6 @@ use Ubermuda\SymfonyExtra\Csrf\Attribute\CsrfToken;
 // ValidateCsrfTokenListener checks #[CsrfToken] on every method the controller
 // answers — a GET sharing this class would 403 before it could render the form.
 #[CsrfToken('accept-terms')]
-#[PaywallExempt]
 #[Route(
     '/account/accept-terms',
     name: 'app_account_accept_terms_submit',

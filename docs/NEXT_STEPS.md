@@ -1184,38 +1184,6 @@ Related decisions already recorded: CLAUDE.md notes that if the project goes
 public, `docs/` should stop shipping and open work moves to GitHub issues —
 that choice interacts with this.
 
-## Encapsulate Billing: replace #[PaywallExempt] with a firewall-level rule
-
-
-
-
-**Author:** Geoffrey · **Type:** tooling · **Priority:** medium · **Status:** pending
-
-Owner idea (2026-07-27): explore relaxing the `#[PaywallExempt]` attribute in
-favour of a firewall/access-control-level rule, with the goal of making Billing
-completely encapsulated — no dependency on it from anywhere else in the PHP
-code.
-
-Today the paywall reaches outward in two directions. `RequireSubscriptionListener`
-(Billing) inspects every request and needs to know which routes are exempt, and
-the exemption marker `App\Routing\PaywallExempt` is applied to ~18 controllers
-across Account and Billing, so those modules carry a Billing-motivated
-attribute. Expressing the exemption as configuration — an `access_control`
-entry, a firewall rule, or a route-prefix convention — would remove the
-attribute from every controller and leave Billing owning its own policy.
-
-Points to work through when picking this up: the listener does content
-negotiation config cannot express on its own (302 to the subscribe page for UI,
-`402` with a JSON body for `/api/` and `/mcp`); it exempts third-party bundle
-routes by prefix (`ubermuda_feature_flags_*`, `app_admin_*`) whose controllers
-cannot carry our attribute either way; `/mcp` is a single endpoint dispatching
-many tools, so per-route granularity does not map onto it; and whatever replaces
-the marker must preserve the current deny-by-default polarity — a forgotten
-exemption must fail closed (user wrongly blocked, loud) rather than open
-(feature silently free). Keep `RequireSubscriptionListenerTest` and
-`PaywallRedirectTest` green across the conversion. Related: "Expose the paywall
-decision as a voter for the view layer".
-
 ## OAuth for the MCP and site-review widget, with project selection at consent
 
 **Author:** Geoffrey · **Type:** feature · **Priority:** medium · **Status:** pending
@@ -1941,8 +1909,10 @@ would be silently reverted by the next trial sweep. That design added a separate
 `suspendedAt` the admin owns — correct, but it leaves two "this account is
 inactive" flags on one entity, each owned by a different module.
 
-Related: 'Encapsulate Billing: replace #[PaywallExempt] with a firewall-level
-rule', which chases the same encapsulation goal from the control-flow side.
+The control-flow half of the same encapsulation goal is already done: the
+paywall's exemption list moved into `App\Module\Billing\Service\PaywallExemptions`,
+so no module outside Billing carries a Billing-motivated marker any more. This
+column is what is left.
 
 ## The `cli-test` CI check is not required, so a broken CLI cannot block a merge
 
@@ -2051,13 +2021,11 @@ strand an instance with no way back in — the `AdminUserGuard` G4 rule. Its
 correctness rests on two facts it cannot see, and neither is asserted anywhere.
 
 **It ignores `disabled_at` on purpose.** A billing-disabled admin still counts as
-a recovery path, because `RequireSubscriptionListener` returns early for any
-route beginning `app_admin_`, so the paywall never blocks the admin area. That
-exemption is in the Billing module. If it is ever removed — and there is a
-tracker entry proposing exactly that, "Encapsulate Billing: replace
-#[PaywallExempt] with a firewall-level rule" — then a disabled admin can no
-longer reach the admin area, and the query needs `AND disabled_at IS NULL` or G4
-stops protecting anything.
+a recovery path, because the paywall exempts every route beginning `app_admin_`,
+so it never blocks the admin area. That exemption is the `app_admin_` prefix in
+`App\Module\Billing\Service\PaywallExemptions`. If it is ever removed, a disabled
+admin can no longer reach the admin area, and the query needs
+`AND disabled_at IS NULL` or G4 stops protecting anything.
 
 **It matches `ROLE_ADMIN` literally**, via `jsonb_exists(roles::jsonb, 'ROLE_ADMIN')`.
 There is no `role_hierarchy` configured in `config/` today, so the literal is the
