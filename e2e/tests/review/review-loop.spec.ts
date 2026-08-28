@@ -329,6 +329,14 @@ test('requesting changes shows the verdict on the project dashboard', async ({
     page,
     review,
 }) => {
+    // A verdict is reached on a document that has been commented on, so the
+    // thread is part of the state under test, not incidental setup.
+    await postComment(page);
+    await page.getByRole('button', { name: 'Resolve' }).click();
+    await expect(page.locator('.lp-comment-thread--resolved')).toBeVisible({
+        timeout: 10000,
+    });
+
     await page.getByRole('button', { name: 'Request changes' }).click();
 
     // The form POSTs (Turbo Drive) and redirects back to the *same* review URL,
