@@ -2280,101 +2280,9 @@
                 <source>account.system_status.subtitle</source>
                 <target>What this instance can reach right now. Checks run when the page loads.</target>
             </trans-unit>
-            <trans-unit id="account.system_status.state.ok">
-                <source>account.system_status.state.ok</source>
-                <target>OK</target>
-            </trans-unit>
-            <trans-unit id="account.system_status.state.warning">
-                <source>account.system_status.state.warning</source>
-                <target>Check</target>
-            </trans-unit>
-            <trans-unit id="account.system_status.state.unknown">
-                <source>account.system_status.state.unknown</source>
-                <target>Unknown</target>
-            </trans-unit>
-            <trans-unit id="account.system_status.state.failed">
-                <source>account.system_status.state.failed</source>
-                <target>Failed</target>
-            </trans-unit>
-            <trans-unit id="account.system_status.check.mailer.label">
-                <source>account.system_status.check.mailer.label</source>
-                <target>Mail transport</target>
-            </trans-unit>
-            <trans-unit id="account.system_status.check.mailer_sender.label">
-                <source>account.system_status.check.mailer_sender.label</source>
-                <target>Sender address</target>
-            </trans-unit>
-            <trans-unit id="account.system_status.check.worker.label">
-                <source>account.system_status.check.worker.label</source>
-                <target>Background worker</target>
-            </trans-unit>
-            <trans-unit id="account.system_status.check.failed_messages.label">
-                <source>account.system_status.check.failed_messages.label</source>
-                <target>Failed messages</target>
-            </trans-unit>
-            <trans-unit id="account.system_status.check.mercure.label">
-                <source>account.system_status.check.mercure.label</source>
-                <target>Mercure hub</target>
-            </trans-unit>
-            <trans-unit id="account.system_status.check.stripe.label">
-                <source>account.system_status.check.stripe.label</source>
+            <trans-unit id="check.stripe.label">
+                <source>check.stripe.label</source>
                 <target>Stripe credentials</target>
-            </trans-unit>
-            <trans-unit id="account.system_status.mailer.unset">
-                <source>account.system_status.mailer.unset</source>
-                <target>MAILER_DSN is not set, so no email can be sent at all.</target>
-            </trans-unit>
-            <trans-unit id="account.system_status.mailer.invalid">
-                <source>account.system_status.mailer.invalid</source>
-                <target>MAILER_DSN could not be understood. Check its syntax, and that the transport it names is installed.</target>
-            </trans-unit>
-            <trans-unit id="account.system_status.mailer.null_transport">
-                <source>account.system_status.mailer.null_transport</source>
-                <target>MAILER_DSN is the shipped default null://null. It reports every message as sent and delivers none, so verification and password-reset email will silently vanish.</target>
-            </trans-unit>
-            <trans-unit id="account.system_status.mailer.unverifiable">
-                <source>account.system_status.mailer.unverifiable</source>
-                <target>A transport is configured, but it is not SMTP, so it cannot be verified without sending a real message. Send yourself one to confirm it works.</target>
-            </trans-unit>
-            <trans-unit id="account.system_status.mailer.smtp_unreachable">
-                <source>account.system_status.mailer.smtp_unreachable</source>
-                <target>The SMTP host in MAILER_DSN did not accept a connection. Check the host, port, credentials and any firewall between them.</target>
-            </trans-unit>
-            <trans-unit id="account.system_status.mailer.smtp_reachable">
-                <source>account.system_status.mailer.smtp_reachable</source>
-                <target>The SMTP host accepted a connection. That proves it is reachable and willing to talk, not that it will accept or deliver your mail.</target>
-            </trans-unit>
-            <trans-unit id="account.system_status.mailer_sender.placeholder">
-                <source>account.system_status.mailer_sender.placeholder</source>
-                <target>MAILER_FROM_ADDRESS is still on the placeholder domain localhost. Real mail servers reject it, and email verification is mandatory, so nobody can finish registering. Set it to an address on a domain you control.</target>
-            </trans-unit>
-            <trans-unit id="account.system_status.mailer_sender.configured">
-                <source>account.system_status.mailer_sender.configured</source>
-                <target>Mail is sent as %address%. Deliverability also needs SPF, DKIM and DMARC published for that domain.</target>
-            </trans-unit>
-            <trans-unit id="account.system_status.worker.queue_unreadable">
-                <source>account.system_status.worker.queue_unreadable</source>
-                <target>The message queue could not be read, so nothing can be said about the worker.</target>
-            </trans-unit>
-            <trans-unit id="account.system_status.worker.queue_empty">
-                <source>account.system_status.worker.queue_empty</source>
-                <target>The queue is empty. An idle queue cannot prove a worker is running — confirm with "bin/console messenger:stats", or watch this page after the next email is queued.</target>
-            </trans-unit>
-            <trans-unit id="account.system_status.worker.backlog_stale">
-                <source>account.system_status.worker.backlog_stale</source>
-                <target>{0}Nothing has been waiting in the queue.|{1}One message has been waiting %seconds% seconds without being processed. Nothing is consuming the queue: start a worker with "bin/console messenger:consume scheduler_default async".|]1,Inf[%count% messages have been waiting %seconds% seconds without being processed. Nothing is consuming the queue: start a worker with "bin/console messenger:consume scheduler_default async".</target>
-            </trans-unit>
-            <trans-unit id="account.system_status.worker.claimed_in_flight">
-                <source>account.system_status.worker.claimed_in_flight</source>
-                <target>{0}No messages are claimed by a worker.|{1}One message is claimed by a worker and not finished. That is normal while it is being processed — but if that worker has died, it will not be offered to another one until the redelivery timeout expires an hour after the claim.|]1,Inf[%count% messages are claimed by a worker and not finished. That is normal while they are being processed — but if that worker has died, they will not be offered to another one until the redelivery timeout expires an hour after the claim.</target>
-            </trans-unit>
-            <trans-unit id="account.system_status.worker.backlog_fresh">
-                <source>account.system_status.worker.backlog_fresh</source>
-                <target>{0}Nothing is queued.|{1}One message is queued and was enqueued moments ago. Too soon to tell whether anything is consuming it — reload in a minute.|]1,Inf[%count% messages are queued and were enqueued moments ago. Too soon to tell whether anything is consuming them — reload in a minute.</target>
-            </trans-unit>
-            <trans-unit id="account.system_status.failed_messages.unreadable">
-                <source>account.system_status.failed_messages.unreadable</source>
-                <target>The failed-message queue could not be read.</target>
             </trans-unit>
             <trans-unit id="account.system_status.agent_account.present">
                 <source>account.system_status.agent_account.present</source>
@@ -2388,29 +2296,9 @@
                 <source>account.system_status.agent_account.unreadable</source>
                 <target>The agent account could not be read. The database rejected the query; the error has been logged.</target>
             </trans-unit>
-            <trans-unit id="account.system_status.check.agent_account.label">
-                <source>account.system_status.check.agent_account.label</source>
+            <trans-unit id="check.agent_account.label">
+                <source>check.agent_account.label</source>
                 <target>Agent account</target>
-            </trans-unit>
-            <trans-unit id="account.system_status.failed_messages.none">
-                <source>account.system_status.failed_messages.none</source>
-                <target>Nothing in the failed transport. Messages that exhaust their retries land there; inspect them with "bin/console messenger:failed:show" and re-queue them with "bin/console messenger:failed:retry".</target>
-            </trans-unit>
-            <trans-unit id="account.system_status.failed_messages.present">
-                <source>account.system_status.failed_messages.present</source>
-                <target>{0}No messages are parked in the failed transport.|{1}One message exhausted its retries and is parked in the failed transport. Inspect it with "bin/console messenger:failed:show" and re-queue it with "bin/console messenger:failed:retry".|]1,Inf[%count% messages exhausted their retries and are parked in the failed transport. Inspect them with "bin/console messenger:failed:show" and re-queue them with "bin/console messenger:failed:retry".</target>
-            </trans-unit>
-            <trans-unit id="account.system_status.mercure.unconfigured">
-                <source>account.system_status.mercure.unconfigured</source>
-                <target>No Mercure hub is configured (MERCURE_URL and MERCURE_JWT_SECRET). Site reviews are still saved, but they never reach a connected agent in real time.</target>
-            </trans-unit>
-            <trans-unit id="account.system_status.mercure.unreachable">
-                <source>account.system_status.mercure.unreachable</source>
-                <target>The configured Mercure hub did not answer. Site reviews are still saved, but real-time delivery is off until it does.</target>
-            </trans-unit>
-            <trans-unit id="account.system_status.mercure.reachable">
-                <source>account.system_status.mercure.reachable</source>
-                <target>The Mercure hub answered (HTTP %status%). Any answer proves a hub is listening; it does not prove the shared secret matches.</target>
             </trans-unit>
             <trans-unit id="account.system_status.stripe.configured">
                 <source>account.system_status.stripe.configured</source>

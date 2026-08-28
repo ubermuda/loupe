@@ -4,11 +4,11 @@ declare(strict_types=1);
 
 namespace App\Module\Billing\Diagnostics;
 
-use App\Module\Diagnostics\Diagnostic;
-use App\Module\Diagnostics\DiagnosticInterface;
-use App\Module\Diagnostics\DiagnosticState;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Ubermuda\FeatureFlagsBundle\FeatureFlagService;
+use Ubermuda\HealthCheckBundle\Diagnostic;
+use Ubermuda\HealthCheckBundle\DiagnosticInterface;
+use Ubermuda\HealthCheckBundle\DiagnosticState;
 
 /**
  * Presence only. Validating the keys would mean calling Stripe from a page an

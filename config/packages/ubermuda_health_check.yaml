@@ -1,0 +1,4 @@
+ubermuda_health_check:
+    # Blank means /healthz reports no sensitive metadata to anyone, which is
+    # what a self-hosted instance gets unless its operator opts in.
+    probe_token: '%env(default::HEALTH_PROBE_TOKEN)%'

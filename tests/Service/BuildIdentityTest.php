@@ -48,4 +48,17 @@ final class BuildIdentityTest extends TestCase
 
         self::assertNull(new BuildIdentity($this->projectDir)->version);
     }
+
+    public function test_it_contributes_the_version_to_the_health_endpoint(): void
+    {
+        file_put_contents($this->projectDir.'/var/build-version', 'v1.4.0');
+
+        self::assertSame(['version' => 'v1.4.0'], new BuildIdentity($this->projectDir)->fields());
+    }
+
+    /** Which build is live tells an attacker which advisories apply to it. */
+    public function test_the_version_is_sensitive_so_only_a_probe_token_sees_it(): void
+    {
+        self::assertTrue(new BuildIdentity($this->projectDir)->sensitive());
+    }
 }
