@@ -13,6 +13,7 @@ use Gamache\Check\SelfContainedCommentsCheck;
 use Gamache\Check\ServicesYamlCheck;
 use Gamache\Check\ServiceTagNamesCheck;
 use Gamache\Check\Severity;
+use Gamache\Check\SkillReferenceCheck;
 use Gamache\Check\TranslationCheck;
 use Gamache\Check\TranslationParityCheck;
 use Gamache\Check\TurboStreamTargetsCheck;
@@ -30,6 +31,7 @@ return (new GamacheConfig())->registerChecks([
     new NoArbitraryValuesCheck(),
     new NoTodosCheck(),
     new SelfContainedCommentsCheck(),
+    new SkillReferenceCheck(),
     new DeploymentConfigParityCheck(
         moduleProvidedEnvKeys: [
             /*
