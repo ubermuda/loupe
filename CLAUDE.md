@@ -34,9 +34,11 @@ Submit a long-form document to the Loupe app through the `loupe` MCP, with `docu
 
 This applies only to a document meant for considered review. Keep ordinary conversation in the terminal: a clarifying question, a quick confirmation, a short summary, or options you are discussing inline. The test is simple. If the user would sit down and read it, send it to Loupe. If it is a turn in a discussion, keep it in the chat.
 
-## Notes for later
+## Tracking open work
 
-Append anything worth remembering for a future session to `docs/NEXT_STEPS.md`: a follow-up, a known issue, or a design decision to revisit. Invoke the `project-next-steps` skill first, because the entry format needs an author, type and priority line. Never leave such a note in a code comment.
+`docs/NEXT_STEPS.md` holds open work that has an addressee. Add an entry when someone must do something later: a follow-up, a known issue, or a design decision to revisit. An observation asks nothing of anyone. Put an observation in the relevant skill or in `docs/` instead.
+
+Invoke the `project-next-steps` skill before you append, because the entry format needs an author, type and priority line. Never leave such a note in a code comment.
 
 `docs/NEXT_STEPS.md` is committed, because a tracker only one checkout can see is a tracker the next session cannot read. That also makes it branch content. Two parallel branches that both append will conflict, and the resolution is always to keep both entries.
 
