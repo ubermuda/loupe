@@ -90,8 +90,10 @@ separated by ` · `:
   of work, split it.
 - **Cross-reference, don't duplicate.** Related entries link by title
   ("see 'Entry title'"). An automation candidate — a convention worth enforcing
-  by a gamache rule, a lint or a hook rather than by review — is an ordinary
-  entry here typed `tooling`; there is no separate list for those.
+  by a gamache rule, a lint or a hook rather than by review — belongs here as a
+  `tooling` entry once it is work someone should pick up. Rawer ones collect in
+  `docs/AUTOMATIONS.md`, which is gitignored and local to a single checkout, so
+  point at it only alongside enough detail to stand without it.
 - When an entry's premise goes stale (e.g. "production has no worker" after a
   worker ships), fix the body in place — a tracker that lies is worse than
   none.
