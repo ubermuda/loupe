@@ -143,6 +143,37 @@ final class AuditChannelBusTest extends TestCase
         self::assertSame([], $this->auditContext->ambientContext);
     }
 
+    /**
+     * A scheduler tick is produced by its transport and never passes through the
+     * dispatch side, so it reaches the worker with no channel stamp at all.
+     */
+    public function test_an_unstamped_message_off_the_scheduler_transport_is_a_cron_tick(): void
+    {
+        $bus = $this->bus([$this->outerMessage::class => [fn () => $this->auditor->info('trial_sweep.completed')]]);
+
+        $this->transport->send(new Envelope($this->outerMessage));
+        $this->runWorker($bus, 1, receiver: 'scheduler_default');
+
+        self::assertSame(AuditChannel::Cron->value, $this->recordedEvent()->channel);
+        self::assertSame(['async' => true], $this->recordedEvent()->context);
+    }
+
+    /**
+     * Everything else arriving unstamped — queued before this shipped, replayed
+     * from `failed`, sent straight to a transport — has provenance nothing here
+     * can recover, and must not be filed as a cron tick.
+     */
+    public function test_an_unstamped_message_off_any_other_transport_has_unknown_provenance(): void
+    {
+        $bus = $this->bus([$this->outerMessage::class => [fn () => $this->auditor->info('export.generated')]]);
+
+        $this->transport->send(new Envelope($this->outerMessage));
+        $this->runWorker($bus, 1);
+
+        self::assertSame(AuditChannel::System->value, $this->recordedEvent()->channel);
+        self::assertSame(['async' => true], $this->recordedEvent()->context);
+    }
+
     public function test_inline_handling_through_the_sync_transport_is_not_async(): void
     {
         $this->signIn();
@@ -184,7 +215,7 @@ final class AuditChannelBusTest extends TestCase
         ]);
     }
 
-    private function runWorker(MessageBusInterface $bus, int $messages, bool $retrying = false): void
+    private function runWorker(MessageBusInterface $bus, int $messages, bool $retrying = false, string $receiver = 'async'): void
     {
         $dispatcher = new EventDispatcher();
         $dispatcher->addSubscriber(new StopWorkerOnMessageLimitListener($messages));
@@ -196,7 +227,7 @@ final class AuditChannelBusTest extends TestCase
             ));
         }
 
-        new Worker(['async' => $this->transport], $bus, $dispatcher)->run(['sleep' => 0]);
+        new Worker([$receiver => $this->transport], $bus, $dispatcher)->run(['sleep' => 0]);
     }
 
     private function provider(ApiTokenRepository $apiTokens): LoupeAuditActorProvider
