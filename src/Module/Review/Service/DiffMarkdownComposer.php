@@ -31,6 +31,36 @@ final readonly class DiffMarkdownComposer
 
     private const string INDENTED_CODE_PATTERN = '~^(?: {4}|\t)~';
 
+    /** A line that defines a link's destination for the references elsewhere that name it. */
+    private const string REFERENCE_DEFINITION_PATTERN = '~^ {0,3}\[[^\]]*\]:~';
+
+    /**
+     * Markdown syntax an inline mark may not cut into, since a mark that opened
+     * inside one of these and closed outside it leaves the construct unparseable
+     * — a destination becomes literal text rather than a link. Prose *within*
+     * these constructs is deliberately absent: a link's label and an emphasised
+     * word stay markable, because only their delimiters are syntax. An image is
+     * listed whole, since its label renders into the `alt` attribute, where a
+     * mark would be escaped and shown as its own markup.
+     */
+    private const string SYNTAX_PATTERN = <<<'REGEX'
+        ~
+            (?P<tick>`+) .*? (?P=tick)                  # code span, literal throughout
+          | < [^<>]* >                                  # raw HTML tag, or an autolink
+          | ! \[ [^\]]* \] (?: \( [^)]* \) | \[ [^\]]* \] )?   # image, label included
+          | \] \( [^)]* \)                              # inline link or image destination
+          | \] \[ [^\]]* \]                             # reference link
+          | \] : .* $                                   # link reference definition
+          | \[                                          # link opener
+          | \]                                          # shortcut reference closer
+          | \*+                                         # emphasis delimiters
+          | (?<![\p{L}\p{N}]) _+                        # underscore emphasis, never intra-word
+          | _+ (?![\p{L}\p{N}])
+          | \\ [^\p{L}\p{N}\s]                          # backslash escape
+          | & (?: \#\d{1,7} | \#[xX][0-9a-fA-F]{1,6} | [a-zA-Z][a-zA-Z0-9]{1,31} ) ;
+        ~xu
+        REGEX;
+
     public function compose(DocumentDiff $diff, string $nonce): string
     {
         $lines = $diff->lines;
@@ -252,6 +282,16 @@ final readonly class DiffMarkdownComposer
                 continue;
             }
 
+            // A marked definition stops being one, and every reference naming it
+            // then renders as the literal text of its own brackets.
+            if (1 === preg_match(self::REFERENCE_DEFINITION_PATTERN, $this->text($line))) {
+                if ($line->kind->isInNew()) {
+                    $out[] = $this->text($line);
+                }
+
+                continue;
+            }
+
             $next = $lines[$index + 1] ?? null;
             $merged = DiffKind::Deleted === $line->kind && null !== $next && DiffKind::Inserted === $next->kind
                 ? $this->mergedLine($line, $next, $nonce)
@@ -289,21 +329,21 @@ final readonly class DiffMarkdownComposer
         $old = $deleted->segments;
         $new = $inserted->segments;
         $merged = '';
+        $plain = '';
         $leading = '';
-        $marked = false;
+        $marks = [];
 
         for ($i = 0, $j = 0; $i < \count($old) || $j < \count($new);) {
             if ($i < \count($old) && DiffKind::Deleted === $old[$i]->kind) {
-                $merged .= $this->wrapInline($old[$i]->text, 'del', $nonce);
-                $marked = true;
+                [$merged, $plain, $marks] = $this->appendMark($old[$i]->text, 'del', $nonce, $merged, $plain, $marks);
                 ++$i;
             } elseif ($j < \count($new) && DiffKind::Inserted === $new[$j]->kind) {
-                $merged .= $this->wrapInline($new[$j]->text, 'ins', $nonce);
-                $marked = true;
+                [$merged, $plain, $marks] = $this->appendMark($new[$j]->text, 'ins', $nonce, $merged, $plain, $marks);
                 ++$j;
             } else {
                 $merged .= $old[$i]->text;
-                if (!$marked) {
+                $plain .= $old[$i]->text;
+                if ([] === $marks) {
                     $leading .= $old[$i]->text;
                 }
                 ++$i;
@@ -312,8 +352,50 @@ final readonly class DiffMarkdownComposer
         }
 
         $marker = max($this->markerLength($this->text($deleted)), $this->markerLength($this->text($inserted)));
+        if (\strlen($leading) < $marker || $this->marksCutIntoSyntax($plain, $marks)) {
+            return null;
+        }
 
-        return \strlen($leading) >= $marker ? $merged : null;
+        return $merged;
+    }
+
+    /**
+     * Appends one marked run, recording where it lands in the line the parser
+     * will read — which is the merged text, not either version's own.
+     *
+     * @param list<array{int, int}> $marks
+     *
+     * @return array{string, string, list<array{int, int}>}
+     */
+    private function appendMark(string $text, string $tag, string $nonce, string $merged, string $plain, array $marks): array
+    {
+        $marks[] = [\strlen($plain), \strlen($plain) + \strlen($text)];
+
+        return [$merged.$this->wrapInline($text, $tag, $nonce), $plain.$text, $marks];
+    }
+
+    /**
+     * Whether any mark overlaps Markdown syntax without covering it whole.
+     *
+     * A pattern that cannot be scanned counts as a cut, so malformed input falls
+     * back to marking the line rather than being emitted unchecked.
+     *
+     * @param list<array{int, int}> $marks
+     */
+    private function marksCutIntoSyntax(string $line, array $marks): bool
+    {
+        $found = preg_match_all(self::SYNTAX_PATTERN, $line, $matches, \PREG_OFFSET_CAPTURE);
+        if (false === $found) {
+            return true;
+        }
+
+        /** @var list<array{string, int}> $spans */
+        $spans = $matches[0];
+
+        return array_any($spans, static fn (array $span): bool => array_any(
+            $marks,
+            static fn (array $mark): bool => $mark[0] < $span[1] + \strlen($span[0]) && $span[1] < $mark[1],
+        ));
     }
 
     /** Marks a whole line, leaving whatever opens its block outside the mark. */
@@ -331,17 +413,20 @@ final readonly class DiffMarkdownComposer
     }
 
     /**
-     * Wraps marked text, split at every `|` so that no mark spans a table cell
-     * boundary — one that did would open in one cell and close in another.
+     * Wraps marked text, split at every unescaped `|` so that no mark spans a
+     * table cell boundary — one that did would open in one cell and close in
+     * another. An escaped `\|` is cell content, and splitting there would cut
+     * the escape in half.
      */
     private function wrapInline(string $text, string $tag, string $nonce): string
     {
         $open = $this->openTag($tag, $nonce);
         $close = sprintf('</%s>', $tag);
+        $parts = preg_split('~(?<!\\\\)\|~', $text);
 
         return implode('|', array_map(
             static fn (string $part): string => '' === trim($part) ? $part : $open.$part.$close,
-            explode('|', $text),
+            false === $parts ? [$text] : $parts,
         ));
     }
 

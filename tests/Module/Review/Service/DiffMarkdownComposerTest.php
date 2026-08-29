@@ -253,6 +253,165 @@ final class DiffMarkdownComposerTest extends TestCase
         );
     }
 
+    public function test_a_changed_link_destination_stays_a_link(): void
+    {
+        $html = $this->renderDiff(
+            "See [site](https://old.example) now.\n",
+            "See [site](https://new.example) now.\n",
+        );
+
+        self::assertStringContainsString('<a href="https://old.example">site</a>', $html);
+        self::assertStringContainsString('<a href="https://new.example">site</a>', $html);
+        self::assertStringNotContainsString('[site]', $html);
+    }
+
+    public function test_a_changed_link_label_is_still_marked_inside_the_link(): void
+    {
+        $html = $this->renderDiff(
+            "See [old site](https://a.example) now.\n",
+            "See [new site](https://a.example) now.\n",
+        );
+
+        self::assertStringContainsString(
+            '<a href="https://a.example">'.$this->del('old').$this->ins('new').' site</a>',
+            $html,
+        );
+    }
+
+    public function test_a_changed_link_title_stays_a_link(): void
+    {
+        $html = $this->renderDiff(
+            "See [s](https://a.example \"Old\") now.\n",
+            "See [s](https://a.example \"New\") now.\n",
+        );
+
+        self::assertStringContainsString('<a href="https://a.example" title="Old">s</a>', $html);
+        self::assertStringContainsString('<a href="https://a.example" title="New">s</a>', $html);
+    }
+
+    public function test_a_changed_code_span_stays_a_code_span(): void
+    {
+        $html = $this->renderDiff("Call `oldName()` first.\n", "Call `newName()` first.\n");
+
+        self::assertStringContainsString('<code>oldName()</code>', $html);
+        self::assertStringContainsString('<code>newName()</code>', $html);
+    }
+
+    public function test_a_change_beside_a_code_span_is_still_marked_inline(): void
+    {
+        $html = $this->renderDiff("Call `same()` first here.\n", "Call `same()` second here.\n");
+
+        self::assertStringContainsString(
+            '<code>same()</code> '.$this->del('first').$this->ins('second').' here.',
+            $html,
+        );
+    }
+
+    public function test_a_changed_image_stays_an_image(): void
+    {
+        $html = $this->renderDiff("![old alt](same.png)\n", "![new alt](same.png)\n");
+
+        // An image's label renders into `alt`, where a mark would be escaped.
+        self::assertStringContainsString('alt="old alt"', $html);
+        self::assertStringContainsString('alt="new alt"', $html);
+        self::assertStringNotContainsString('loupe-diff-', $html);
+    }
+
+    public function test_a_changed_reference_label_is_still_marked_inside_the_link(): void
+    {
+        $html = $this->renderDiff(
+            "Read [the old spec][spec].\n\n[spec]: https://a.example\n",
+            "Read [the new spec][spec].\n\n[spec]: https://a.example\n",
+        );
+
+        self::assertStringContainsString(
+            '<a href="https://a.example">the '.$this->del('old').$this->ins('new').' spec</a>',
+            $html,
+        );
+    }
+
+    public function test_a_changed_reference_definition_keeps_the_reference_resolving(): void
+    {
+        $html = $this->renderDiff(
+            "Read [it][spec].\n\n[spec]: https://old.example\n",
+            "Read [it][spec].\n\n[spec]: https://new.example\n",
+        );
+
+        // A marked definition stops being one, and the reference naming it would
+        // then render as its own brackets.
+        self::assertStringContainsString('<a href="https://new.example">it</a>', $html);
+        self::assertStringNotContainsString('[spec]', $html);
+    }
+
+    public function test_a_changed_autolink_stays_a_link(): void
+    {
+        $html = $this->renderDiff("Try <https://old.example> now.\n", "Try <https://new.example> now.\n");
+
+        self::assertStringContainsString('<a href="https://old.example">https://old.example</a>', $html);
+        self::assertStringContainsString('<a href="https://new.example">https://new.example</a>', $html);
+    }
+
+    public function test_changed_emphasis_delimiters_still_emphasise(): void
+    {
+        $html = $this->renderDiff("This *word* here.\n", "This **word** here.\n");
+
+        self::assertStringContainsString('<em>word</em>', $html);
+        self::assertStringContainsString('<strong>word</strong>', $html);
+    }
+
+    public function test_a_change_inside_emphasis_is_still_marked_inline(): void
+    {
+        $html = $this->renderDiff("This **bold** here.\n", "This **bald** here.\n");
+
+        self::assertStringContainsString(
+            '<strong>'.$this->del('bold').$this->ins('bald').'</strong>',
+            $html,
+        );
+    }
+
+    public function test_a_changed_raw_html_tag_is_not_cut_in_half(): void
+    {
+        $html = $this->renderDiff(
+            "A <span title=\"old\">x</span> here.\n",
+            "A <span title=\"new\">x</span> here.\n",
+        );
+
+        self::assertSame(2, substr_count($html, '<span>x</span>'));
+        self::assertStringNotContainsString('&lt;span', $html);
+    }
+
+    public function test_changed_backslash_escapes_stay_escapes(): void
+    {
+        $html = $this->renderDiff("Literal \\*x\\* here.\n", "Literal \\_x\\_ here.\n");
+
+        self::assertStringContainsString($this->del('Literal *x* here.'), $html);
+        self::assertStringContainsString($this->ins('Literal _x_ here.'), $html);
+        self::assertStringNotContainsString('<em>', $html);
+    }
+
+    public function test_a_changed_link_inside_a_table_cell_stays_a_link(): void
+    {
+        $html = $this->renderDiff(
+            "| a | b |\n|---|---|\n| 1 | [s](https://old.example) |\n",
+            "| a | b |\n|---|---|\n| 1 | [s](https://new.example) |\n",
+        );
+
+        self::assertStringContainsString('<a href="https://old.example">s</a>', $html);
+        self::assertStringContainsString('<a href="https://new.example">s</a>', $html);
+    }
+
+    public function test_an_escaped_pipe_survives_a_marked_row(): void
+    {
+        $html = $this->renderDiff(
+            "| a | b |\n|---|---|\n| 1 | 2 |\n| x \\| y | z |\n",
+            "| a | b |\n|---|---|\n| 1 | 2 |\n",
+        );
+
+        // Splitting the mark at the escaped pipe would cut the escape in half.
+        self::assertStringContainsString('<td>'.$this->del('x | y ').'</td>', $html);
+        self::assertStringContainsString('<td>'.$this->del(' z ').'</td>', $html);
+    }
+
     private function renderDiff(string $old, string $new): string
     {
         return $this->renderer->renderDiff($this->diff($old, $new));
