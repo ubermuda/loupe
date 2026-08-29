@@ -10,7 +10,6 @@ use App\Module\Review\Command\ReviseDocumentCommand;
 use App\Module\Review\Command\ReviseDocumentHandler;
 use App\Module\Review\Entity\Comment;
 use App\Module\Review\Entity\Document;
-use App\Module\Review\Entity\DocumentVersion;
 use App\Module\Review\ValueObject\Anchor;
 use App\Tests\Support\AcceptedTerms;
 use Doctrine\ORM\EntityManagerInterface;
@@ -32,9 +31,9 @@ final class ShowDocumentLastSeenVersionTest extends WebTestCase
 
     /**
      * The comment is written on v1 and two revisions follow, so v2 and v3 each
-     * carry a copy of it that inherits the original's createdAt. A watermark
-     * keyed on the version a comment sits on would therefore resolve to v3 —
-     * the current version — and the banner would never appear.
+     * carry a copy of it that inherits the original's createdAt. The watermark
+     * is the lowest of those three versions; taking the highest would resolve to
+     * v3 — the current version — and the banner would never appear.
      */
     public function test_the_banner_offers_the_diff_since_the_version_the_reader_commented_on(): void
     {
@@ -46,14 +45,7 @@ final class ShowDocumentLastSeenVersionTest extends WebTestCase
         $em->persist($project);
 
         $document = new Document(owner: $owner, project: $project, title: 'Revised Doc');
-        $firstVersion = new DocumentVersion(
-            $document,
-            1,
-            'The plan mentions JWTs.',
-            '<p>The plan mentions JWTs.</p>',
-            createdAt: new \DateTimeImmutable('-3 hours'),
-        );
-        $document->versions->add($firstVersion);
+        $firstVersion = $document->addVersion('The plan mentions JWTs.', '<p>The plan mentions JWTs.</p>');
         $em->persist($document);
         $em->flush();
 
@@ -62,7 +54,6 @@ final class ShowDocumentLastSeenVersionTest extends WebTestCase
             author: $owner,
             body: 'Which signing algorithm?',
             anchor: new Anchor('JWTs', 'mentions ', '.', 18),
-            createdAt: new \DateTimeImmutable('-2 hours'),
         ));
         $em->flush();
 
@@ -103,14 +94,7 @@ final class ShowDocumentLastSeenVersionTest extends WebTestCase
         $em->persist($project);
 
         $document = new Document(owner: $owner, project: $project, title: 'Untouched Doc');
-        $firstVersion = new DocumentVersion(
-            $document,
-            1,
-            'The plan mentions JWTs.',
-            '<p>The plan mentions JWTs.</p>',
-            createdAt: new \DateTimeImmutable('-3 hours'),
-        );
-        $document->versions->add($firstVersion);
+        $firstVersion = $document->addVersion('The plan mentions JWTs.', '<p>The plan mentions JWTs.</p>');
         $em->persist($document);
         $em->flush();
 
@@ -119,7 +103,6 @@ final class ShowDocumentLastSeenVersionTest extends WebTestCase
             author: $other,
             body: 'Which signing algorithm?',
             anchor: new Anchor('JWTs', 'mentions ', '.', 18),
-            createdAt: new \DateTimeImmutable('-2 hours'),
         ));
         $em->flush();
 

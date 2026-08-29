@@ -10,6 +10,7 @@ use App\Module\Review\Entity\CommentStatus;
 use App\Module\Review\Entity\Document;
 use App\Module\Review\Entity\DocumentVersion;
 use App\Module\Review\ValueObject\Anchor;
+use App\Module\Review\ValueObject\Watermark;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\Persistence\ManagerRegistry;
 
@@ -151,18 +152,18 @@ class CommentRepository extends ServiceEntityRepository
     }
 
     /**
-     * When this author last commented on any version of a document, or null if
-     * they never have.
+     * This author's most recent comment on a document, and the version they were
+     * looking at when they wrote it. Null if they never commented on it.
      *
-     * On time rather than on the version foreign key: a revision copies every
-     * open comment onto the new version and the copy inherits the original's
-     * createdAt, so "the highest version I have a comment on" is always the
-     * current one.
+     * The version is the LOWEST of the rows sharing that createdAt, not the
+     * highest: a revision copies every open comment onto the new version and the
+     * copy inherits the original's createdAt, so one comment written on v3 exists
+     * as rows on v3, v4 and v5. The earliest of them is where it was written.
      */
-    public function findLatestCreatedAtByDocumentAndAuthor(Document $document, User $author): ?\DateTimeImmutable
+    public function findWatermarkByDocumentAndAuthor(Document $document, User $author): ?Watermark
     {
         $row = $this->createQueryBuilder('c')
-            ->select('c.createdAt AS createdAt')
+            ->select('c.createdAt AS createdAt', 'v.versionNumber AS versionNumber')
             ->join('c.version', 'v')
             ->andWhere('v.document = :document')
             ->andWhere('c.author = :author')
@@ -172,6 +173,7 @@ class CommentRepository extends ServiceEntityRepository
             ->setParameter('document', $document)
             ->setParameter('author', $author)
             ->orderBy('c.createdAt', 'DESC')
+            ->addOrderBy('v.versionNumber', 'ASC')
             ->setMaxResults(1)
             ->getQuery()
             ->getOneOrNullResult();
@@ -181,10 +183,12 @@ class CommentRepository extends ServiceEntityRepository
         }
 
         $createdAt = $row['createdAt'];
+        $versionNumber = $row['versionNumber'];
 
-        return $createdAt instanceof \DateTimeImmutable
-            ? $createdAt
-            : throw new \LogicException('createdAt must be a DateTimeImmutable.');
+        return new Watermark(
+            $createdAt instanceof \DateTimeImmutable ? $createdAt : throw new \LogicException('createdAt must be a DateTimeImmutable.'),
+            is_int($versionNumber) ? $versionNumber : throw new \LogicException('versionNumber must be an int.'),
+        );
     }
 
     /**

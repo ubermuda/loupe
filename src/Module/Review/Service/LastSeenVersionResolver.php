@@ -7,21 +7,25 @@ namespace App\Module\Review\Service;
 use App\Module\Account\Entity\User;
 use App\Module\Review\Entity\Document;
 use App\Module\Review\Repository\CommentRepository;
-use App\Module\Review\Repository\DocumentVersionRepository;
 use App\Module\Review\Repository\ReviewRepository;
+use App\Module\Review\ValueObject\Watermark;
 
 /**
  * Which version of a document a reader last engaged with, derived from their own
  * comments and verdicts. Nothing records a read, so engagement is the signal —
  * and it is the reader's own, which is why an agent reply on their behalf moves
  * the agent account's watermark rather than theirs.
+ *
+ * The version comes off the engagement rows themselves. Resolving a timestamp
+ * against version creation times cannot work: every column involved is
+ * TIMESTAMP(0), so a revision written in the same second as a comment would
+ * count as already seen and its changes would never be offered.
  */
 final readonly class LastSeenVersionResolver
 {
     public function __construct(
         private CommentRepository $comments,
         private ReviewRepository $reviews,
-        private DocumentVersionRepository $documentVersions,
     ) {
     }
 
@@ -32,22 +36,27 @@ final readonly class LastSeenVersionResolver
             return null;
         }
 
-        $watermark = $this->latestOf(
-            $this->comments->findLatestCreatedAtByDocumentAndAuthor($document, $reader),
-            $this->reviews->findLatestSubmittedAtByDocumentAndReviewer($document, $reader),
+        return $this->later(
+            $this->comments->findWatermarkByDocumentAndAuthor($document, $reader),
+            $this->reviews->findWatermarkByDocumentAndReviewer($document, $reader),
         );
-
-        return null === $watermark
-            ? null
-            : $this->documentVersions->findLatestNumberCreatedAtOrBefore($document, $watermark);
     }
 
-    private function latestOf(?\DateTimeImmutable $first, ?\DateTimeImmutable $second): ?\DateTimeImmutable
+    /** On an exact tie, the higher version: both events are the reader's own, so they saw both. */
+    private function later(?Watermark $comment, ?Watermark $verdict): ?int
     {
-        if (null === $first) {
-            return $second;
+        if (null === $comment) {
+            return $verdict?->versionNumber;
         }
 
-        return null === $second || $first > $second ? $first : $second;
+        if (null === $verdict) {
+            return $comment->versionNumber;
+        }
+
+        return match (true) {
+            $comment->at > $verdict->at => $comment->versionNumber,
+            $verdict->at > $comment->at => $verdict->versionNumber,
+            default => max($comment->versionNumber, $verdict->versionNumber),
+        };
     }
 }
