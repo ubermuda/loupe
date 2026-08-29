@@ -398,47 +398,33 @@ tool persist the reply body, and render it in
 `templates/Module/SiteReview/show_site_review.html.twig` (a placeholder comment
 marks where it goes).
 
-## Gamache rule: catch skills that document tooling which no longer exists
-
-
-
+## Gamache rule: catch skills that cite shell functions which no longer exist
 
 **Author:** Claude · **Type:** tooling · **Priority:** medium · **Status:** pending
 
-`.claude/skills/**/SKILL.md` cites `just` recipes, repo-relative paths and shell
-helper functions, and nothing verifies those still resolve. When the
-`wt-tailwind` recipe was renamed to `worktree-tailwind` (2026-07-25), two
-references inside `project-worktrees` were left dangling and were only caught by
-grepping by hand. The same hand-check was needed when the skill was written
-(8 recipes, 3 `slug.sh` helpers, `compose-exec.sh`) — that is exactly the work
-worth automating, because it stops being done the moment someone is in a hurry.
+`SkillReferenceCheck` covers two of the three kinds of reference a `SKILL.md`
+carries, and is registered in `gamache.php` at error severity: a `just <recipe>`
+must name a recipe the justfile defines, and a repo-relative path under one of
+the configured prefixes must exist on disk.
 
-Proposal — `SkillReferencesCheck` in the `src/Check/` layer of
-`ubermuda/gamache` (textual analysis over markdown, so it cannot be a PHPStan
-rule: that layer only sees files in PHPStan's `paths:`). It scans every
-`SKILL.md` and asserts:
+The third kind is still unchecked — a shell function named alongside the `.sh`
+file that defines it, as `project-worktrees` cites `worktree_slug` and
+`worktree_slug_index` from `bin/worktrees/slug.sh`. Rename one and the skill
+sends the next session to a function that is not there. That is the same rot the
+other two halves were built for: when the `wt-tailwind` recipe became
+`worktree-tailwind` (2026-07-25), two references inside `project-worktrees` were
+left dangling and only a hand grep found them.
 
-- `` `just <recipe>` `` — the recipe exists in the justfile
-- repo-relative paths in backticks (`bin/worktrees/slug.sh`,
-  `compose.worktree.yaml`) — the file exists
-- shell function names named alongside a `.sh` path (`worktree_slug`,
-  `worktree_slug_index`) — the function is defined in that file
+It is the hardest of the three and the least certain to pay for itself. It means
+parsing function definitions out of a shell script, and then deciding which bare
+word inside a code span is a function name rather than prose — a judgement the
+recipe and path halves never have to make, because `just` prefixes one and a
+directory prefix anchors the other. Worth building if a rename bites again;
+not before.
 
-Should **fail**, not be advisory. `TranslationCheck` is advisory because it
-scores heuristics and guesses wrong; this one is objective — a recipe either
-exists or it does not — so it belongs with `NoTodosCheck`.
-
-Main false-positive risk is skills naming non-project commands
-(`git worktree remove`, `docker compose up`). Matching only `just <x>` plus
-repo-relative paths avoids most of it; add a constructor-injected ignore list
-for the rest, following the `TranslationCheck(ignoredCallSites: [...])`
-precedent in `gamache.php`.
-
-Two PRs: the rule in `github.com/ubermuda/gamache`, then one line wiring it in
-this repo's `gamache.php` (rule classes must not be added directly here).
-
-Generalises past worktrees — every `project-*` skill cites recipes and paths,
-and all of them rot the same way.
+Gamache is an external package, so it is a pull request on
+https://github.com/ubermuda/gamache, then a constructor option in this repo's
+`gamache.php` if the rule needs one.
 
 ## ProjectDeleter misreports a stale entity when looped without clearing
 
@@ -971,30 +957,6 @@ human's accepted rewording should be visible to the agent that wrote the
 document, and an agent should plausibly be able to *make* suggestions on a human
 edit. Neither needs building first, but the comment model should not make them
 awkward later.
-
-## Gamache rule: an MCP tool class name must match its tool name
-
-
-**Author:** Geoffrey · **Type:** tooling · **Priority:** medium · **Status:** pending
-
-The convention is that a class carrying `#[McpTool(name: 'document_create')]`
-is named `DocumentCreateTool` — the tool name in PascalCase, plus a `Tool`
-suffix. It was caught in review on the `feat/mcp-scoped-authz` pull request and
-enforced by hand across all seven tools; nothing enforces it now, so the next
-tool added can violate it silently.
-
-No rule for it exists in any of the five gamache layers — checked `src/Check/`,
-`src/PHPStan/`, `src/Rector/`, `src/PhpCsFixer/` and `src/TwigCsFixer/` in the
-`ubermuda/gamache` package, none of which mentions MCP at all. The PHPStan
-layer is where it belongs: it already holds several name-agreement rules that
-compare a class name against something else (`ControllerTemplateNameRule`,
-`DtoRequestSuffixRule`, `MessengerHandlerNamespaceRule`), and reading an
-attribute argument off a class node is the same shape as those.
-
-Gamache is an external package, so this is a pull request on
-https://github.com/ubermuda/gamache, not a class added under `src/`. Consider
-covering the paired test class in the same rule (`DocumentCreateToolTest`),
-since that half drifts just as easily.
 
 ## Two patterns now exist for fieldless POST actions — converge them
 
@@ -1621,37 +1583,6 @@ Check the existing feature-flag bundle before building a second mechanism —
 flags already have an admin UI and are already how other capabilities are
 gated. The open question is whether a per-project override fits that model or
 needs its own storage.
-
-## Gamache rule: a delegating MCP tool should not restate its query's array shape
-
-**Author:** Claude · **Type:** tooling · **Priority:** medium · **Status:** pending
-
-`DocumentGetTool` and `ShowDocumentDataHandler` each carried a full
-`@return array{...}` for the same payload, so adding a key to the query alone
-left the two disagreeing. That pair is fixed — the query declares a `@phpstan-type
-DocumentPayload` alias and the tool imports it with `@phpstan-import-type` —
-but only that pair, by hand, and nothing stops the next tool from restating a
-shape again.
-
-The failure mode is worth restating because it does not look like what it is.
-Found on 2026-08-04 while adding `tags` and `referencedBy`: the query was
-updated, and phpstan reported four `offsetAccess.notFound` errors against the
-*tests* rather than against the stale annotation on the tool — which reads as a
-broken test. It is caught at all only because the tests happen to index every
-key.
-
-What is still open is the general rule: a gamache PHPStan rule asserting that a
-tool whose body is a single delegation declares the same shape as what it
-delegates to. Same family as the existing name-agreement rules
-(`ControllerTemplateNameRule`, `MessengerHandlerNamespaceRule`). Gamache is an
-external package, so this is a pull request on
-https://github.com/ubermuda/gamache, not a class under `src/`.
-
-Worth noting for whoever writes it: changing a tool's `@return` is safe with
-respect to the published MCP schema, which is not obvious. The SDK builds
-`inputSchema` from `@param` docblock tags only, and emits an `outputSchema`
-solely when one is passed explicitly to `#[McpTool]` — verified in
-`vendor/mcp/sdk/src/Capability/Discovery/SchemaGenerator.php`.
 
 ## MCP tool: hand the human a list of what needs their attention
 
@@ -2677,3 +2608,23 @@ the outbox, `DrainOutboxHandler`, the Mercure hub and the `site_review.push`
 flag — but nothing writes an event any more (see 'The site-review push
 subsystem has no producer left'). Any work here starts by deciding what an
 agent would announce, not by building transport.
+
+## McpToolNameRule does not check the paired test class
+
+**Author:** Geoffrey · **Type:** tooling · **Priority:** low · **Status:** pending
+
+`McpToolNameRule` asserts that a class carrying `#[McpTool(name: 'x_y')]` is
+named `XYTool`, but says nothing about the test beside it, so
+`DocumentCreateToolTest` could end up covering `DocumentReviseTool` and no gate
+would notice. All 16 tools and their 16 tests agree today; nothing holds them
+there.
+
+Low value on purpose. A misnamed test misleads whoever opens it and nothing
+else — it ships no wrong behaviour to callers, and the drift is obvious the
+moment someone reads the file. Extending the rule also means deciding where a
+tool's test is allowed to live, which the rule currently has no reason to know.
+The reason to keep it in view at all is that the same question applies well
+past MCP tools: nothing anywhere asserts a test class names the class it tests.
+
+Gamache is an external package, so it is a pull request on
+https://github.com/ubermuda/gamache.
