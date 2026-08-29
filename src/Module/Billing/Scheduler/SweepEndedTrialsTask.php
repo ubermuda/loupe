@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Module\Billing\Scheduler;
 
+use App\Audit\AuditChannel;
+use App\Audit\AuditContext;
 use App\Module\Billing\Command\RunTrialSweepCommand;
 use App\Module\Billing\Command\RunTrialSweepHandler;
 use Psr\Log\LoggerInterface;
@@ -21,12 +23,15 @@ final readonly class SweepEndedTrialsTask
 {
     public function __construct(
         private RunTrialSweepHandler $runTrialSweep,
+        private AuditContext $auditContext,
         private LoggerInterface $logger,
     ) {
     }
 
     public function __invoke(): void
     {
+        $this->auditContext->channel = AuditChannel::Cron;
+
         $result = ($this->runTrialSweep)(new RunTrialSweepCommand());
 
         // One line per tick makes scheduler liveness greppable in the worker logs.

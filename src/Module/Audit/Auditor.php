@@ -85,7 +85,9 @@ final readonly class Auditor
             $actor->credential,
             $actor->channel,
             $subject,
-            $context,
+            // Union, not array_merge: the caller's keys win, and neither side's
+            // keys are renumbered.
+            $context + $actor->context,
             $this->clock->now(),
         );
     }

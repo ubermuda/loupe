@@ -14,7 +14,9 @@ framework:
         default_bus: messenger.bus.default
 
         buses:
-            messenger.bus.default: []
+            messenger.bus.default:
+                middleware:
+                    - App\Messenger\Middleware\AuditChannelMiddleware
 
         routing:
             Symfony\Component\Mailer\Messenger\SendEmailMessage: async
@@ -34,9 +36,12 @@ when@dev:
             transports:
                 sync: 'sync://'
 
+            # `middleware` does not deep-merge, so this list replaces the one
+            # above outright: the audit entry has to be repeated here.
             buses:
                 messenger.bus.default:
                     middleware:
+                        - App\Messenger\Middleware\AuditChannelMiddleware
                         - App\Messenger\Middleware\PlaywrightSyncMiddleware
 
 when@test:
