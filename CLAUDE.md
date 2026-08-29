@@ -111,6 +111,24 @@ Custom slash commands go in `.claude/commands/` in this repository — not in us
 - **Never approve your own work** — the review stays with a human. **Merging does not:** a PR that is approved with all required checks green is good to merge, without asking. Never merge one that is unapproved, has a failing or pending check, or would need `--admin`.
 - A green gate is not evidence the change is correct. Read the diff.
 
+## Writing style
+
+Write everything a human or another agent reads in ASD-STE100 Simplified Technical English, and remove the AI writing tells. This covers chat replies, commit messages, PR bodies, Loupe documents, skills, and `docs/NEXT_STEPS.md`. It does not cover code, which follows the conventions above.
+
+Apply the STE writing rules, not the approved word list. Technical names and technical verbs stay as they are.
+
+- Use the active voice.
+- Use a maximum of 20 words in an instruction, and 25 words in a descriptive sentence.
+- Write one instruction per sentence.
+- Use a maximum of six sentences in a paragraph.
+- Use the simple present tense, or the imperative.
+- Do not use a noun cluster of more than three words.
+- Keep articles and subjects. Full short sentences are the target. Telegraphic fragments are not.
+
+Remove these tells: negative parallelism ("it is not X, it is Y"); a preamble that announces the answer before it gives it; stakes inflation; a summary of a section inside that section; a count before a list; bold lead-ins on bullets; em dashes and arrows; and magic adverbs such as "quietly", "deeply" and "seamlessly".
+
+An existing file keeps its old prose until a rewrite touches it. The `compressing-skills` skill carries the full tell list and the procedure for a rewrite pass. `~/.claude/skills/ai-writing-tells/check.py` finds many tells mechanically, and its output is advice, not a gate.
+
 ## Recommendations and the quality bar
 
 ### The owner sets the bar, not the agent
