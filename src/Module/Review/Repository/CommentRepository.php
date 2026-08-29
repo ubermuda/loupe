@@ -7,6 +7,7 @@ namespace App\Module\Review\Repository;
 use App\Module\Account\Entity\User;
 use App\Module\Review\Entity\Comment;
 use App\Module\Review\Entity\CommentStatus;
+use App\Module\Review\Entity\Document;
 use App\Module\Review\Entity\DocumentVersion;
 use App\Module\Review\ValueObject\Anchor;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
@@ -147,6 +148,43 @@ class CommentRepository extends ServiceEntityRepository
     public function findByAuthor(User $author): array
     {
         return $this->findBy(['author' => $author]);
+    }
+
+    /**
+     * When this author last commented on any version of a document, or null if
+     * they never have.
+     *
+     * On time rather than on the version foreign key: a revision copies every
+     * open comment onto the new version and the copy inherits the original's
+     * createdAt, so "the highest version I have a comment on" is always the
+     * current one.
+     */
+    public function findLatestCreatedAtByDocumentAndAuthor(Document $document, User $author): ?\DateTimeImmutable
+    {
+        $row = $this->createQueryBuilder('c')
+            ->select('c.createdAt AS createdAt')
+            ->join('c.version', 'v')
+            ->andWhere('v.document = :document')
+            ->andWhere('c.author = :author')
+            // Load-bearing: createdAt is nullable for comments written before the
+            // column existed, and Postgres orders NULLS FIRST on a DESC sort.
+            ->andWhere('c.createdAt IS NOT NULL')
+            ->setParameter('document', $document)
+            ->setParameter('author', $author)
+            ->orderBy('c.createdAt', 'DESC')
+            ->setMaxResults(1)
+            ->getQuery()
+            ->getOneOrNullResult();
+
+        if (!is_array($row)) {
+            return null;
+        }
+
+        $createdAt = $row['createdAt'];
+
+        return $createdAt instanceof \DateTimeImmutable
+            ? $createdAt
+            : throw new \LogicException('createdAt must be a DateTimeImmutable.');
     }
 
     /**

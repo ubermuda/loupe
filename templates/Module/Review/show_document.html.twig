@@ -69,6 +69,19 @@
     </div>
     {% endif %}
 
+    {# Only on the current version: the diff this offers ends at it, and on an
+       older one the reader is already looking at a specific point in the
+       history. #}
+    {% if not diffMode and not readOnly and lastSeenVersionNumber is not null and lastSeenVersionNumber < version.versionNumber %}
+    <div class="lp-version-banner lp-version-banner--unread">
+        <twig:ux:icon name="lucide:git-compare" class="w-4 h-4 shrink-0" />
+        <span>{{ 'review.document.since_last_visit.banner'|trans({'%from%': lastSeenVersionNumber, '%to%': version.versionNumber}) }}</span>
+        <a class="lp-btn lp-btn--ghost lp-btn--sm" href="{{ path('app_document_review_diff', {projectId: document.project.id, documentId: document.id, fromVersionNumber: lastSeenVersionNumber, toVersionNumber: version.versionNumber}) }}">
+            {{ 'review.document.since_last_visit.link'|trans }}
+        </a>
+    </div>
+    {% endif %}
+
     {# In diff mode the comment-anchor controller is not attached at all rather
        than told to stay quiet: its highlight painting runs on every layout
        regardless of readOnly, and the pane it walks no longer holds

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Module\Review\Controller;
 
 use App\Controller\AppController;
+use App\Module\Account\Entity\User;
 use App\Module\Project\Entity\Project;
 use App\Module\Review\Command\ShowDocumentCommand;
 use App\Module\Review\Command\ShowDocumentHandler;
@@ -52,7 +53,12 @@ final class ShowDocumentController extends AppController
         #[MapEntity(expr: 'repository.findOneByIdAndProjectId(documentId, projectId)')] Document $document,
         ?int $versionNumber = null,
     ): Response {
-        $view = ($this->showDocument)(new ShowDocumentCommand($document, $versionNumber));
+        $reader = $this->getUser();
+        $view = ($this->showDocument)(new ShowDocumentCommand(
+            $document,
+            $versionNumber,
+            $reader instanceof User ? $reader : null,
+        ));
 
         $routeParameters = [
             'projectId' => (string) $project->id,
@@ -100,6 +106,7 @@ final class ShowDocumentController extends AppController
             'selectDecisionForm' => $selectDecisionForm,
             'decisions' => $view->decisions,
             'decisionMarkedHtml' => $view->decisionMarkedHtml,
+            'lastSeenVersionNumber' => $view->lastSeenVersionNumber,
         ]);
     }
 }

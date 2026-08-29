@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Module\Review\Repository;
 
 use App\Module\Account\Entity\User;
+use App\Module\Review\Entity\Document;
 use App\Module\Review\Entity\DocumentVersion;
 use App\Module\Review\Entity\Review;
 use App\Module\Review\Entity\Verdict;
@@ -57,6 +58,38 @@ class ReviewRepository extends ServiceEntityRepository
         $newest = $this->findNewestByVersion($version);
 
         return null === $newest ? 1 : $newest->sequence + 1;
+    }
+
+    /**
+     * When this reviewer last submitted a verdict on any version of a document,
+     * or null if they never have.
+     *
+     * A withdrawal counts like any other row: it is still the reviewer engaging
+     * with that version.
+     */
+    public function findLatestSubmittedAtByDocumentAndReviewer(Document $document, User $reviewer): ?\DateTimeImmutable
+    {
+        $row = $this->createQueryBuilder('review')
+            ->select('review.submittedAt AS submittedAt')
+            ->join('review.version', 'v')
+            ->andWhere('v.document = :document')
+            ->andWhere('review.reviewer = :reviewer')
+            ->setParameter('document', $document)
+            ->setParameter('reviewer', $reviewer)
+            ->orderBy('review.submittedAt', 'DESC')
+            ->setMaxResults(1)
+            ->getQuery()
+            ->getOneOrNullResult();
+
+        if (!is_array($row)) {
+            return null;
+        }
+
+        $submittedAt = $row['submittedAt'];
+
+        return $submittedAt instanceof \DateTimeImmutable
+            ? $submittedAt
+            : throw new \LogicException('submittedAt must be a DateTimeImmutable.');
     }
 
     /**

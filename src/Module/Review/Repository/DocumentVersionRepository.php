@@ -47,6 +47,37 @@ class DocumentVersionRepository extends ServiceEntityRepository
     }
 
     /**
+     * The number of the newest version of a document that existed at $instant,
+     * or null when the document had none yet.
+     *
+     * Ordered by number rather than by timestamp: versions are numbered in
+     * creation order, and createdAt is second-precision so two can tie.
+     */
+    public function findLatestNumberCreatedAtOrBefore(Document $document, \DateTimeImmutable $instant): ?int
+    {
+        $row = $this->createQueryBuilder('v')
+            ->select('v.versionNumber AS versionNumber')
+            ->andWhere('v.document = :document')
+            ->andWhere('v.createdAt <= :instant')
+            ->setParameter('document', $document)
+            ->setParameter('instant', $instant)
+            ->orderBy('v.versionNumber', 'DESC')
+            ->setMaxResults(1)
+            ->getQuery()
+            ->getOneOrNullResult();
+
+        if (!is_array($row)) {
+            return null;
+        }
+
+        $versionNumber = $row['versionNumber'];
+
+        return is_int($versionNumber)
+            ? $versionNumber
+            : throw new \LogicException('versionNumber must be an int.');
+    }
+
+    /**
      * Every version of one document, newest first, as the metadata a version
      * switcher needs — never the markdown or rendered HTML. A document's
      * revision history is unbounded and each row carries both in full, so
