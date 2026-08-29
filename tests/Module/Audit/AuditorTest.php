@@ -5,12 +5,12 @@ declare(strict_types=1);
 namespace App\Tests\Module\Audit;
 
 use App\Module\Audit\AuditActorContext;
-use App\Module\Audit\AuditActorInterface;
 use App\Module\Audit\AuditActorProviderInterface;
-use App\Module\Audit\AuditCredentialInterface;
 use App\Module\Audit\AuditLevel;
 use App\Module\Audit\Auditor;
 use App\Module\Audit\AuditSubject;
+use App\Tests\Support\FakeAuditActor;
+use App\Tests\Support\FakeAuditCredential;
 use App\Tests\Support\FakeAuditSink;
 use App\Tests\Support\RecordingLogger;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -35,8 +35,8 @@ final class AuditorTest extends TestCase
     #[DataProvider('levels')]
     public function test_each_level_builds_an_event_from_its_arguments_and_the_actor_context(AuditLevel $expected): void
     {
-        $actor = new class implements AuditActorInterface {};
-        $credential = new class implements AuditCredentialInterface {};
+        $actor = new FakeAuditActor('Riley Chen', 'user-1');
+        $credential = new FakeAuditCredential('token-1');
         $subject = new AuditSubject('document', 'doc-1');
         $sink = new FakeAuditSink();
 
@@ -66,9 +66,40 @@ final class AuditorTest extends TestCase
         self::assertSame(['from' => 'a', 'to' => 'b'], $event->context);
         self::assertSame($subject, $event->subject);
         self::assertSame($actor, $event->actor);
+        self::assertSame('Riley Chen', $event->actorLabel);
         self::assertSame($credential, $event->credential);
         self::assertSame('mcp', $event->channel);
         self::assertSame(self::NOW, $event->occurredAt->format('Y-m-d H:i:s'));
+    }
+
+    public function test_the_label_is_read_from_the_actor_on_every_record_rather_than_snapshotted_once(): void
+    {
+        $actor = new FakeAuditActor('Riley Chen', 'user-1');
+        $sink = new FakeAuditSink();
+
+        $auditor = new Auditor(
+            [$sink],
+            $this->actorProvider(new AuditActorContext($actor, null, 'session')),
+            new RecordingLogger(),
+            new MockClock(self::NOW),
+        );
+
+        $auditor->info('review.document.created');
+        $actor->label = 'Riley Chen-Okafor';
+        $auditor->info('review.document.renamed');
+
+        self::assertSame('Riley Chen', $sink->events[0]->actorLabel);
+        self::assertSame('Riley Chen-Okafor', $sink->events[1]->actorLabel);
+    }
+
+    public function test_an_unattributed_record_carries_no_label(): void
+    {
+        $sink = new FakeAuditSink();
+
+        $this->auditor(new RecordingLogger(), $sink)->info('review.document.created');
+
+        self::assertNull($sink->events[0]->actor);
+        self::assertNull($sink->events[0]->actorLabel);
     }
 
     public function test_category_defaults_to_domain_and_context_to_empty(): void

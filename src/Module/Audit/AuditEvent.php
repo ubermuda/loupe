@@ -17,6 +17,8 @@ final readonly class AuditEvent
         public AuditLevel $level,
         public string $category,
         public ?AuditActorInterface $actor,
+        /** Resolved once, at record time, so the row keeps a name after the account is gone. */
+        public ?string $actorLabel,
         public ?AuditCredentialInterface $credential,
         public string $channel,
         public ?AuditSubject $subject,

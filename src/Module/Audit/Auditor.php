@@ -93,6 +93,7 @@ final readonly class Auditor
             $level,
             $category,
             $actor->actor,
+            $actor->actor?->auditLabel(),
             $actor->credential,
             $actor->channel,
             $subject,
