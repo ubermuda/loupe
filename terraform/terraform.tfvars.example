@@ -66,10 +66,13 @@ db_server_version = "18" # the cluster's actual PG major version
 # Unset is this one; point it elsewhere to review this deployment from another.
 # site_review_widget_backend = "https://loupe.ac"
 # --- Analytics (Umami) ---
-# All three, plus the analytics.enabled feature flag, before any tag is emitted.
-# analytics_script_url = "https://cloud.umami.is/script.js"
-# analytics_website_id = "00000000-0000-0000-0000-000000000000"
-# analytics_origin     = "https://cloud.umami.is"
+# The first two, plus the analytics.enabled feature flag, before any tag is
+# emitted. The origins go in the policy: the script's in script-src, the one
+# events post to in connect-src. Umami Cloud splits them; self-hosted does not.
+# analytics_script_url     = "https://cloud.umami.is/script.js"
+# analytics_website_id     = "00000000-0000-0000-0000-000000000000"
+# analytics_origin         = "https://cloud.umami.is"
+# analytics_collect_origin = "https://gateway.umami.is"
 
 # --- Optional: custom domain ---
 # Omit both and the app serves only on its assigned *.ondigitalocean.app

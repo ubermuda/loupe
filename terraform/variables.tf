@@ -216,7 +216,13 @@ variable "analytics_website_id" {
 variable "analytics_origin" {
   type        = string
   default     = ""
-  description = "ANALYTICS_ORIGIN: the origin of analytics_script_url, allowed in the content security policy. Separate because the policy is static and cannot parse a URL. Empty leaves the policy unchanged."
+  description = "ANALYTICS_ORIGIN: the origin of analytics_script_url, allowed in the policy's script-src. Separate because the policy is static and cannot parse a URL. Empty leaves the policy unchanged."
+}
+
+variable "analytics_collect_origin" {
+  type        = string
+  default     = ""
+  description = "ANALYTICS_COLLECT_ORIGIN: the origin events are posted to, allowed in the policy's connect-src. Umami Cloud serves its script from cloud.umami.is and collects on gateway.umami.is, so this differs from analytics_origin there; a self-hosted Umami uses the same value for both. Empty leaves the policy unchanged, which blocks collection when the two origins differ."
 }
 
 variable "health_probe_token" {

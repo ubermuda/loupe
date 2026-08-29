@@ -134,6 +134,7 @@ module "app" {
     var.analytics_script_url == "" ? {} : { ANALYTICS_SCRIPT_URL = { value = var.analytics_script_url } },
     var.analytics_website_id == "" ? {} : { ANALYTICS_WEBSITE_ID = { value = var.analytics_website_id } },
     var.analytics_origin == "" ? {} : { ANALYTICS_ORIGIN = { value = var.analytics_origin } },
+    var.analytics_collect_origin == "" ? {} : { ANALYTICS_COLLECT_ORIGIN = { value = var.analytics_collect_origin } },
 
     # The AGPL source offer. Conditional like the rest, but for a different
     # reason: everywhere else an empty value and an absent key mean the same
