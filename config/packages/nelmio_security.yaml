@@ -54,4 +54,6 @@ when@prod:
                 # No wholesale 'https:': a rendered document's remote <img>
                 # would otherwise turn the reviewer's browser into an egress channel.
                 img-src: ["'self'", 'data:']
-                connect-src: ["'self'", "%env(default:app.csp_origin_fallback:ANALYTICS_ORIGIN)%", "%env(default:app.csp_origin_fallback:SITE_REVIEW_WIDGET_BACKEND)%"]
+                # Umami Cloud loads its script from one origin and posts events to
+                # another, so the collect origin is listed separately.
+                connect-src: ["'self'", "%env(default:app.csp_origin_fallback:ANALYTICS_ORIGIN)%", "%env(default:app.csp_origin_fallback:ANALYTICS_COLLECT_ORIGIN)%", "%env(default:app.csp_origin_fallback:SITE_REVIEW_WIDGET_BACKEND)%"]
