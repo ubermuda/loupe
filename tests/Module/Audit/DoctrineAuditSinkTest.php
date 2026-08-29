@@ -127,6 +127,35 @@ final class DoctrineAuditSinkTest extends TestCase
         self::assertSame(1, $attempts);
     }
 
+    public function test_a_rejected_chunk_does_not_take_the_untried_chunks_with_it(): void
+    {
+        $rowsPerStatement = intdiv(65535, self::COLUMNS);
+        $failing = $this->createStub(Connection::class);
+        $attempts = 0;
+        $failing->method('executeStatement')->willReturnCallback(
+            static function () use (&$attempts): int {
+                if (1 === ++$attempts) {
+                    throw new \RuntimeException('one row in this chunk was rejected');
+                }
+
+                return 1;
+            },
+        );
+
+        $sink = new DoctrineAuditSink($failing, $this->createStub(EntityManagerInterface::class), 'info');
+        for ($i = 0; $i < $rowsPerStatement + 1; ++$i) {
+            $sink->write($this->event());
+        }
+
+        try {
+            $sink->flush();
+            self::fail('A drain failure must still reach the caller, which is what reports it.');
+        } catch (\RuntimeException) {
+        }
+
+        self::assertSame(2, $attempts, 'The chunk behind the failing one must still be attempted.');
+    }
+
     #[DataProvider('levelsAgainstAnInfoFloor')]
     public function test_the_configured_floor_decides_what_reaches_the_table(AuditLevel $level, bool $expectedToBeStored): void
     {

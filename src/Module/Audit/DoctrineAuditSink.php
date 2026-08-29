@@ -81,6 +81,10 @@ final class DoctrineAuditSink implements AuditSinkInterface, ResetInterface
      * bad would otherwise carry one message's events into every message after
      * it. The same events are already in the log stream, and the exception
      * reaches Auditor, which reports it.
+     *
+     * Each chunk is attempted even after one fails, so a single rejected row —
+     * an over-length operation, say — costs its own chunk and not the ones
+     * behind it.
      */
     #[\Override]
     public function flush(): void
@@ -92,8 +96,18 @@ final class DoctrineAuditSink implements AuditSinkInterface, ResetInterface
         $rows = $this->rows;
         $this->rows = [];
 
+        $failure = null;
+
         foreach (array_chunk($rows, max(1, intdiv(self::MAX_BIND_PARAMETERS, count(self::COLUMNS)))) as $chunk) {
-            $this->insert($chunk);
+            try {
+                $this->insert($chunk);
+            } catch (\Throwable $e) {
+                $failure ??= $e;
+            }
+        }
+
+        if (null !== $failure) {
+            throw $failure;
         }
     }
 

@@ -21,7 +21,12 @@ use Symfony\Component\HttpKernel\KernelEvents;
 use Symfony\Component\Messenger\Envelope;
 use Symfony\Component\Messenger\Event\WorkerMessageFailedEvent;
 use Symfony\Component\Messenger\Event\WorkerMessageHandledEvent;
+use Symfony\Component\Messenger\Event\WorkerMessageReceivedEvent;
+use Symfony\Component\Messenger\Event\WorkerRunningEvent;
+use Symfony\Component\Messenger\MessageBus;
 use Symfony\Component\Messenger\Stamp\SentToFailureTransportStamp;
+use Symfony\Component\Messenger\Transport\InMemory\InMemoryTransport;
+use Symfony\Component\Messenger\Worker;
 
 /**
  * One test per event because each is the only end-of-work signal in its own
@@ -47,11 +52,7 @@ final class FlushAuditSinksListenerTest extends KernelTestCase
     {
         $this->recordAndAssertStillBuffered();
 
-        $this->dispatcher->dispatch(new TerminateEvent(
-            self::$kernel ?? throw new \LogicException('The kernel is booted in setUp.'),
-            new Request(),
-            new Response(),
-        ), KernelEvents::TERMINATE);
+        $this->dispatcher->dispatch($this->terminateEvent(), KernelEvents::TERMINATE);
 
         self::assertSame(1, $this->recordCount());
     }
@@ -60,12 +61,7 @@ final class FlushAuditSinksListenerTest extends KernelTestCase
     {
         $this->recordAndAssertStillBuffered();
 
-        $this->dispatcher->dispatch(new ConsoleTerminateEvent(
-            new Command('app:whatever'),
-            new ArrayInput([]),
-            new NullOutput(),
-            Command::SUCCESS,
-        ), ConsoleEvents::TERMINATE);
+        $this->dispatcher->dispatch($this->consoleTerminateEvent(), ConsoleEvents::TERMINATE);
 
         self::assertSame(1, $this->recordCount());
     }
@@ -87,15 +83,65 @@ final class FlushAuditSinksListenerTest extends KernelTestCase
     {
         $this->recordAndAssertStillBuffered();
 
-        $this->dispatcher->dispatch(new WorkerMessageFailedEvent(
-            // Stamped as already routed to `failed`, so Messenger's own
-            // listeners do not re-dispatch the envelope during the test.
-            new Envelope(new \stdClass(), [new SentToFailureTransportStamp('failed')]),
-            'async',
-            new \RuntimeException('the handler blew up'),
-        ));
+        $this->dispatcher->dispatch($this->messageFailedEvent());
 
         self::assertSame(1, $this->recordCount());
+    }
+
+    /**
+     * The drain has to be the last listener on each of these events: one below
+     * it records into a buffer that has already been emptied. Symfony
+     * Scheduler's own post-run dispatch is such a listener, and Loupe runs cron
+     * tasks through the scheduler.
+     */
+    public function test_the_drain_runs_after_a_listener_registered_below_the_default_priority(): void
+    {
+        $late = [
+            KernelEvents::TERMINATE => 'terminate.late',
+            ConsoleEvents::TERMINATE => 'console.late',
+            WorkerMessageHandledEvent::class => 'handled.late',
+            WorkerMessageFailedEvent::class => 'failed.late',
+        ];
+
+        foreach ($late as $event => $operation) {
+            $this->dispatcher->addListener($event, fn () => $this->auditor->info($operation), -100);
+        }
+
+        $this->dispatcher->dispatch($this->terminateEvent(), KernelEvents::TERMINATE);
+        $this->dispatcher->dispatch($this->consoleTerminateEvent(), ConsoleEvents::TERMINATE);
+        $this->dispatcher->dispatch(new WorkerMessageHandledEvent(new Envelope(new \stdClass()), 'async'));
+        $this->dispatcher->dispatch($this->messageFailedEvent());
+
+        self::assertSame(array_values($late), $this->operations());
+    }
+
+    /**
+     * A message a WorkerMessageReceivedEvent listener declines emits neither a
+     * handled nor a failed event — Worker::handleMessage() returns before
+     * either — so the per-message WorkerRunningEvent is the only drain that path
+     * has. Driven through a real Worker, because the claim is about Messenger's
+     * own ordering rather than about this listener.
+     */
+    public function test_a_declined_message_still_drains_what_was_recorded_while_receiving_it(): void
+    {
+        $this->dispatcher->addListener(
+            WorkerMessageReceivedEvent::class,
+            function (WorkerMessageReceivedEvent $event): void {
+                $this->auditor->info('message.declined');
+                $event->shouldHandle(false);
+            },
+        );
+        $this->dispatcher->addListener(
+            WorkerRunningEvent::class,
+            static fn (WorkerRunningEvent $event) => $event->getWorker()->stop(),
+        );
+
+        $transport = new InMemoryTransport();
+        $transport->send(new Envelope(new \stdClass()));
+
+        new Worker(['async' => $transport], new MessageBus(), $this->dispatcher)->run(['sleep' => 0]);
+
+        self::assertSame(['message.declined'], $this->operations());
     }
 
     private function recordAndAssertStillBuffered(): void
@@ -105,8 +151,41 @@ final class FlushAuditSinksListenerTest extends KernelTestCase
         self::assertSame(0, $this->recordCount(), 'Nothing may reach the table before the drain.');
     }
 
+    private function terminateEvent(): TerminateEvent
+    {
+        return new TerminateEvent(
+            self::$kernel ?? throw new \LogicException('The kernel is booted in setUp.'),
+            new Request(),
+            new Response(),
+        );
+    }
+
+    private function consoleTerminateEvent(): ConsoleTerminateEvent
+    {
+        return new ConsoleTerminateEvent(new Command('app:whatever'), new ArrayInput([]), new NullOutput(), Command::SUCCESS);
+    }
+
+    private function messageFailedEvent(): WorkerMessageFailedEvent
+    {
+        return new WorkerMessageFailedEvent(
+            // Stamped as already routed to `failed`, so Messenger's own
+            // listeners do not re-dispatch the envelope during the test.
+            new Envelope(new \stdClass(), [new SentToFailureTransportStamp('failed')]),
+            'async',
+            new \RuntimeException('the handler blew up'),
+        );
+    }
+
     private function recordCount(): int
     {
         return (int) $this->connection->fetchOne('SELECT COUNT(*) FROM audit_log');
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function operations(): array
+    {
+        return $this->connection->fetchFirstColumn('SELECT operation FROM audit_log ORDER BY occurred_at, id');
     }
 }
