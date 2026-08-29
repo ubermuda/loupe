@@ -1,18 +1,18 @@
 ---
 name: project-comments
-description: Use when writing, reviewing, or editing code comments and docblocks anywhere in this repository — including when you are about to explain a tricky fix, justify a design choice, or document why an approach was rejected.
+description: "Use when writing, reviewing, or editing code comments and docblocks anywhere in this repository, including when you are about to explain a tricky fix, justify a design choice, or document why an approach was rejected."
 ---
 
 # Code comments
 
-## Overview
+## Principle
 
-A comment earns its place only if it records something a competent reader
-**cannot recover** from the code, its tests, or `git log`. Everything else is
-narration, and narration is a cost paid on every future read.
+A comment earns its place only if it records something a competent reader cannot
+recover from the code, its tests, or `git log`. You pay for narration on every
+future read.
 
-**The default is no comment.** The code says what it does. The test says what it
-guarantees. The commit message says why it changed. A comment is for the fourth
+The default is no comment. The code says what it does. The test says what it
+guarantees. The commit message says why it changed. A comment covers the fourth
 thing: a constraint that is invisible at the call site and expensive to
 rediscover.
 
@@ -25,30 +25,33 @@ rediscover.
 | 3–5 lines | Two interacting constraints, or a rejected alternative that a reader would otherwise retry. |
 | 6+ lines | Almost always wrong. Move it to the commit message or the PR body. |
 
-If you are writing a sixth line, stop and ask what the reader must know **at
-this line of code** to avoid breaking something. Write only that.
+At a sixth line, stop. Ask what the reader must know **at this line of code** to
+avoid breaking something. Write only that.
 
-## Keep vs cut
+## Keep
 
-**Keep** — invisible constraints:
-- Ordering/coupling that the type system cannot express
+Keep a comment that records an invisible constraint:
+- Ordering or coupling that the type system cannot express
   (*"must run first; it calls `EntityManager::clear()` as it iterates"*)
 - Concurrency and transaction boundaries
-- Why the obvious approach was **not** used, when a reader would otherwise
-  try it and revert your work
-- External contracts you do not control (an API's undocumented behaviour)
+- Why you did not use the obvious approach, when a reader would otherwise try
+  it and revert your work
+- External contracts you do not control, such as an API's undocumented behaviour
 
-**Cut** — recoverable from elsewhere:
-- Restating what the next line does
-- Tutorials on framework behaviour — link the concept, don't teach it
-- The investigation you ran to reach the fix → commit message
-- Benchmark numbers and measurements → PR body
-- Design-decision logs and alternatives considered → PR body
-- Follow-up work → `docs/NEXT_STEPS.md` (never a `TODO` comment)
+## Cut
+
+Cut what the reader recovers from elsewhere:
+- A restatement of what the next line does
+- A tutorial on framework behaviour; link the concept instead
+- The investigation behind the fix, which belongs in the commit message
+- Benchmark numbers and measurements, which belong in the PR body
+- Design-decision logs and alternatives considered, which belong in the PR body
+- Follow-up work, which belongs in `docs/NEXT_STEPS.md` and never in a `TODO`
+  comment
 
 ## Example
 
-Real, from this repo. Ten lines shipped on a branch:
+Ten lines shipped on a branch in this repo:
 
 ```php
 // The hourly sweep runs three candidate queries (BillingProfileRepository),
@@ -63,44 +66,35 @@ Real, from this repo. Ten lines shipped on a branch:
 // composite index is the one that round-trips cleanly.
 ```
 
-Most of that is a decision log, and it belongs in the PR. What survives is the
-one fact that stops the next person "improving" this into a partial index:
+Most of it is a decision log, and it belongs in the PR. One fact survives: what
+stops the next person from "improving" this into a partial index.
 
 ```php
 // Partial indexes don't round-trip through DBAL's comparator (Postgres
 // rewrites the predicate), so migrate-diff never settles. Keep these plain.
 ```
 
-Two lines. The reader learns the trap; the reasoning lives in the PR that
-introduced it.
+Two lines. The reader learns the trap, and the reasoning lives in the PR.
 
 ## Also enforced mechanically
 
-- **No `TODO` / `FIXME` / `XXX`** — `NoTodosCheck` (`just gamache`) fails on
-  them. Follow-ups go in `docs/NEXT_STEPS.md`.
-- **Comments must be self-contained** — `SelfContainedCommentsCheck` fails on
-  references to tasks, phases, spec sections, handoff docs or dated decisions.
-  State the underlying fact instead.
+Three checks are hard failures. This skill is the judgment layer above all
+three: passing every check does not make a 17-line comment worth keeping.
 
-Both are hard failures, and so is the third check behind the budget above.
-`CommentBudgetCheck` fails on any run of **6 or more** consecutive comment
-lines — in PHP, Twig, JS, CSS, YAML, the justfile and `.env` alike.
+- `NoTodosCheck` (`just gamache`) fails on `TODO`, `FIXME` and `XXX`.
+  Follow-ups go in `docs/NEXT_STEPS.md`.
+- `SelfContainedCommentsCheck` fails on references to tasks, phases, spec
+  sections, handoff docs or dated decisions. State the underlying fact instead.
+- `CommentBudgetCheck` fails on any run of **6 or more** consecutive comment
+  lines, in PHP, Twig, JS, CSS, YAML, the justfile and `.env` alike.
 
-**It used to warn without failing, and that is exactly why it now fails.** A
-line count cannot tell a good six-line comment from a bad one, so for a while it
-was not given the power to stop a build. What that produced was a check nobody
-read: three over-budget blocks once shipped through three consecutive green
-gates, on a branch that had just merged a comment-budget sweep. A check that
-cannot fail is a check whose green result carries no information.
+The budget check fails instead of warning, because a check that cannot fail is a
+check whose green result carries no information.
 
-`@comment-budget-ignore` is what supplies the judgment the count lacks. When a
-long block genuinely earns its length — a file header documenting a distributed
-artefact, say — mark it on one of its lines and the run stays green. Marking is
-a decision you are making on the record; leaving a block unmarked says it was
-not worth one.
-
-This skill remains the judgment layer above all three: passing every check does
-not make a 17-line comment worth keeping.
+`@comment-budget-ignore` supplies the judgment the line count lacks. Mark one
+line of a block that earns its length, such as a file header for a distributed
+artefact, and the run stays green. The mark is a decision on the record. An
+unmarked block says it was not worth one.
 
 ## Red flags
 
@@ -111,4 +105,4 @@ You are writing narration if the comment:
 - Repeats a name that is already in the signature
 - Is longer than the function it describes
 
-**All of these mean: cut it, or move it to the commit message.**
+Cut every one of these, or move it to the commit message.

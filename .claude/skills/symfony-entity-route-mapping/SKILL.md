@@ -1,24 +1,18 @@
 ---
 name: symfony-entity-route-mapping
-description: Use when writing or changing Symfony routes that resolve entities from URL parameters — `{param:variable}` notation, `#[MapEntity]`, expr-based lookups, or multi-entity routes. Covers the alias/request-attribute pitfall, raw-string expr semantics, and org-scoped lookups.
+description: "Use when writing or changing Symfony routes that resolve entities from URL parameters, with `{param:variable}` notation, `#[MapEntity]`, expr-based lookups, or multi-entity routes. Covers the alias/request-attribute pitfall, raw-string expr semantics, and org-scoped lookups."
 ---
 
-# Entity ↔ Route Mapping (Symfony EntityValueResolver)
+# Entity and route mapping (Symfony EntityValueResolver)
 
-How URL parameters become entities in controller signatures, and the three
-pitfalls that repeatedly cause bugs: alias renaming, raw strings in `expr`,
-and unscoped multi-entity lookups.
+## `{param:variable}` declares the mapping in the path
 
-## `{param:variable}` — declare the mapping in the path
+Declare the mapping in the route path with `{param:variable}`. `variable` is the
+controller method parameter name. Type-hint that parameter as the entity class.
+`EntityValueResolver` then resolves it and returns 404 when no entity matches.
 
-When a route parameter corresponds to an entity, declare the mapping in the
-route path itself with `{param:variable}`, where `variable` is the controller
-method parameter name, and type-hint the parameter as the entity class.
-Symfony's `EntityValueResolver` resolves it automatically and returns 404 when
-no entity matches.
-
-When the route param name matches the entity field name, no `#[MapEntity]`
-attribute is needed:
+When the route parameter name matches the entity field name, you need no
+`#[MapEntity]` attribute:
 
 ```php
 // Route param "slug" matches Organization::$slug — auto-resolved
@@ -26,14 +20,13 @@ attribute is needed:
 public function __invoke(Organization $org): Response
 ```
 
-(Snippets here show `#[Route]` inline next to `__invoke()` for brevity — in
-real controllers it goes on the **class**; gamache's
-`ControllerRouteAttributeRule` fails a controller whose only `#[Route]` is
-method-level.)
+The snippets here put `#[Route]` next to `__invoke()` for brevity. In a real
+controller it goes on the **class**. Gamache's `ControllerRouteAttributeRule`
+fails a controller whose only `#[Route]` is method-level.
 
-When the names differ, add `#[MapEntity]` to declare the field mapping. (When
-the param resolves directly to the entity's `id`, prefer the colon-alias form
-`{id:workspace}`, which auto-resolves with no `mapping:` bridge.)
+When the names differ, add `#[MapEntity]` to declare the field mapping. When the
+parameter resolves to the entity's `id`, prefer the colon-alias form
+`{id:workspace}`, which auto-resolves with no `mapping:` bridge.
 
 ```php
 #[Route('/workspace/{workspaceId}/status')]
@@ -42,34 +35,34 @@ public function __invoke(
 ): JsonResponse
 ```
 
-Never inject a repository into a controller just to do a slug lookup — entity
+Never inject a repository into a controller only to do a slug lookup. Entity
 mapping exists for that.
 
-## Pitfall 1 — `{param:alias}` renames the request attribute
+## Pitfall 1: `{param:alias}` renames the request attribute
 
-`{projectSlug:project}` stores the URL value in request attributes under
-`project` (the alias). The original name `projectSlug` **disappears** as a
-top-level request attribute — it is not available in `#[MapEntity(expr:)]`
-expressions or to anything else reading `$request->attributes` directly (it
-survives only inside the `_route_params` attribute).
+`{projectSlug:project}` stores the URL value under the alias `project`. The
+original name `projectSlug` **disappears** as a top-level request attribute. It
+is not available in `#[MapEntity(expr:)]` expressions, or to anything that reads
+`$request->attributes` directly. It survives only inside the `_route_params`
+attribute.
 
-Consequence: if you need the raw slug in an `expr` (or in a Twig component
-reading request attributes), use a **plain** route param without an alias
-(`{projectSlug}`) and rely on `#[MapEntity]` on the controller argument for
-entity resolution. That is why project routes look like
-`/{slug:org}/{projectSlug}/...`: `slug` is aliased (auto-resolution is enough
-for the org), while `projectSlug` stays plain because the project lookup needs
-it in an expression.
+When you need the raw slug in an `expr`, or in a Twig component that reads
+request attributes, use a **plain** route parameter with no alias. Resolve the
+entity with `#[MapEntity]` on the controller argument. Project routes therefore
+look like `/{slug:org}/{projectSlug}/...`. Auto-resolution is enough for the org,
+so `slug` is aliased. The project lookup needs the raw value in an expression, so
+`projectSlug` stays plain.
 
-## Pitfall 2 — `expr` variables are raw strings, not resolved entities
+## Pitfall 2: `expr` variables are raw strings, not resolved entities
 
-`EntityValueResolver` passes the resolved entity to the controller argument but
-**does not write it back to request attributes**. Every variable inside an
-`#[MapEntity(expr: ...)]` expression is whatever the router stored — always a
-raw string, even when another controller argument resolves that same parameter
-to an entity. Repository methods used in `expr` must therefore not expect
-**entity objects** — scalar parameters are fine (the ExpressionLanguage call
-site is not strict-typed, so `'42'` coerces into an `int $seq` parameter):
+`EntityValueResolver` passes the resolved entity to the controller argument.
+It **does not write it back to request attributes**. Every variable inside an
+`#[MapEntity(expr: ...)]` expression is the raw string the router stored, even
+when another controller argument resolves that same parameter to an entity.
+
+Repository methods used in `expr` must not expect **entity objects**. Scalar
+parameters are fine. The ExpressionLanguage call site is not strict-typed, so
+`'42'` coerces into an `int $seq` parameter.
 
 ```php
 // WRONG — 'org' here is the string slug, not an Organization entity
@@ -79,16 +72,16 @@ site is not strict-typed, so `'42'` coerces into an `int $seq` parameter):
 #[MapEntity(expr: 'repository.findByOrgSlugAndSlug(org, projectSlug)')]
 ```
 
-Inside the expression, `repository` is the entity's own repository (the one for
-the type-hinted argument class).
+Inside the expression, `repository` is the repository of the type-hinted
+argument class.
 
-## Pitfall 3 — multi-entity lookups must be scoped to their parent
+## Pitfall 3: scope a multi-entity lookup to its parent
 
-A bare `#[MapEntity(mapping: ['projectSlug' => 'slug'])]` looks the project up
-**globally** — another org's project with the same slug would match, a
-cross-tenant access hole. Any entity whose uniqueness is scoped to a parent
-(project slug per org, issue seq per project) must be resolved through a
-repository method that JOINs through the parent chain:
+A bare `#[MapEntity(mapping: ['projectSlug' => 'slug'])]` looks the project
+up **globally**. Another org's project with the same slug then matches, which
+is a cross-tenant access hole. An entity whose uniqueness is scoped to a parent must
+resolve through a repository method that JOINs the parent chain. Project slug per
+org and issue seq per project are both such entities.
 
 ```php
 #[Route(
@@ -118,26 +111,25 @@ public function findByOrgSlugAndSlug(string $orgSlug, string $projectSlug): ?Pro
 }
 ```
 
-Resolving the parent (`$org`) as its own argument and *also* scoping the child
-lookup by the parent's slug is intentional, not redundant: each argument is
-resolved independently (Pitfall 2), so the child expression cannot reuse the
-resolved parent.
+The parent `$org` resolves as its own argument, and the child lookup also takes
+the parent's slug. That is intentional. Each argument resolves independently
+(Pitfall 2), so the child expression cannot reuse the resolved parent.
 
 ## Project conventions
 
-- **Use `{slug:org}` (not `{organizationSlug}`) for the org parameter** unless
-  the route already has another `slug` parameter. When two entities with the
-  same field name appear in one route, keep the full descriptive name for the
-  second one.
-- **Parameter names are camelCase** (gamache's PHPStan `route.paramNotCamelCase`
-  rule enforces this) **and spelled out in full by convention** — `{projectSlug}`,
-  not `{project_slug}` or `{projSlug}`. This matches the camelCase of the
-  controller argument / `expr` variable that reads the param.
-- Always add `requirements:` regexes for slug/seq parameters.
+- Use `{slug:org}` for the org parameter, not `{organizationSlug}`. When the
+  route already carries another `slug` parameter, keep the full descriptive name
+  for the second entity.
+- Write parameter names in camelCase. Gamache's PHPStan
+  `route.paramNotCamelCase` rule enforces this.
+- Spell parameter names out in full: `{projectSlug}`, not `{project_slug}` or
+  `{projSlug}`. This matches the camelCase controller argument, or `expr`
+  variable, that reads the parameter.
+- Always add `requirements:` regexes for slug and seq parameters.
 
-The controllers and repository above are illustrative examples, not files that
-ship in this skeleton.
+The controllers and repository above are illustrative examples. They are not
+files that ship in this skeleton.
 
-For the surrounding controller conventions see `project-backend`; for access
-control on resolved entities (`#[IsGranted]` subjects are resolved by this
-mechanism) see `symfony-authorization` and `project-authz`.
+For the surrounding controller conventions see `project-backend`. For access
+control on resolved entities see `symfony-authorization` and `project-authz`.
+`#[IsGranted]` subjects resolve through this mechanism.

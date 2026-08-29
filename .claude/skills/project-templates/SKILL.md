@@ -3,22 +3,23 @@ name: project-templates
 description: Use when working on `.html.twig` files, Twig components, or Turbo stream templates.
 ---
 
-# Templates — Twig, Twig Components, Form Theme
+# Templates, Twig components and form theme
 
-## Twig Templates
+## Twig templates
 
-- All `{% include %}` calls must pass variables explicitly using `with { ... } only`. No implicit context cascading.
-- When extracting a shared partial, identify every variable the partial reads and pass them all explicitly at every include site.
-- Turbo stream templates must also pass all variables explicitly — they run in a different controller context and do not inherit page variables automatically.
-- Turbo stream templates reference target element IDs directly (e.g., `<turbo-stream target="event-hero-title">`). When you modify a template and change or remove an element's `id`, search for stream templates that target that ID and update them too — they live in a different file and won't cause a compile error if they're wrong.
+- Every `{% include %}` passes its variables explicitly with `with { ... } only`. Context does not cascade.
+- When you extract a shared partial, list every variable it reads. Pass them all at every include site.
+- Turbo stream templates run in a different controller context and inherit no page variables. Pass every variable explicitly.
+- Turbo stream templates target element IDs directly, for example `<turbo-stream target="event-hero-title">`. When you change or remove an element `id`, search the stream templates for that ID and update them. They live in another file, and a wrong ID raises no compile error.
+- Hard-reload (`ignoreCache: true`) before you inspect the live DOM with DevTools or the Chrome MCP. Turbo's page cache serves snapshots with stale class names.
 
-**Turbo page cache and DOM inspection:** When inspecting the live DOM via DevTools or the Chrome MCP, always hard-reload (`ignoreCache: true`) first. Turbo's page cache can serve a snapshot with stale class names that don't reflect recent template edits.
+### The authenticated layout owns `project`
 
-**The authenticated base layout owns the `project` variable.** `base.html.twig` sets `{% set project = current_project() %}` before yielding `block body`, so on any route without a project `{id}` param it resolves to null and **silently clobbers a controller-passed variable named `project`**. Never pass `project` to a template rendered inside the authenticated layout from a param-less route — use a distinct name (`wizardProject`, …) or forward the raw id string so `current_project()` can resolve it.
+`base.html.twig` runs `{% set project = current_project() %}` before it yields `block body`. On a route with no project `{id}` param it resolves to null and silently clobbers a controller-passed variable named `project`. Never pass `project` from a param-less route to a template inside the authenticated layout. Use a distinct name (`wizardProject`), or forward the raw id string so `current_project()` resolves it.
 
 ## Module template namespaces
 
-Module templates are referenced through a per-module Twig namespace, **not** the plain `Module/<Module>/...` path. Each module's `templates/Module/<Module>/` directory is registered as `@<Module>` in `config/packages/twig.yaml` under `twig.paths`:
+Each module's `templates/Module/<Module>/` directory is registered as `@<Module>` in `config/packages/twig.yaml` under `twig.paths`. Reference module templates by that namespace, never by the plain `Module/<Module>/...` path.
 
 ```yaml
 twig:
@@ -26,22 +27,21 @@ twig:
         '%kernel.project_dir%/templates/Module/Account': 'Account'
 ```
 
-Reference them as `@Account/security/login.html.twig` everywhere — PHP (`render()`, `->htmlTemplate()`, `->textTemplate()`) and Twig (`extends`, `include`, `embed`, `from`, `import`). The namespace name is the module name verbatim.
+Write `@Account/security/login.html.twig` everywhere: in PHP (`render()`, `->htmlTemplate()`, `->textTemplate()`) and in Twig (`extends`, `include`, `embed`, `from`, `import`). The namespace name is the module name verbatim.
 
-- **Plain `templates/`-root templates stay un-namespaced** (`base.html.twig`, `form/...`, `email/...`).
-- **`twig_component.yaml` directory mappings are unrelated** — those map component PHP namespaces to scan directories (`Module/<Module>/components/`) and stay as plain paths; components are referenced by `<twig:Name>`, never by `@`-path.
-- **Adding a new module?** Register its `@<Module>` namespace in `twig.yaml` in the same change, or every template reference 404s at render time.
-- **Dynamic template paths** must build the namespace form too — any builder that assembles a template path from a class's module segment must emit `@<Module>/...`, not `Module/<Module>/...`.
-- Verify registration with `bin/console debug:twig` (lists all loader namespaces).
+- Templates in the `templates/` root stay un-namespaced: `base.html.twig`, `form/...`, `email/...`.
+- `twig_component.yaml` directory mappings are unrelated. They map component PHP namespaces to scan directories (`Module/<Module>/components/`) and stay plain paths. Components are referenced by `<twig:Name>`, never by an `@`-path.
+- When you add a module, register its `@<Module>` namespace in `twig.yaml` in the same change. Otherwise every template reference 404s at render time.
+- A builder that assembles a template path from a class's module segment must emit `@<Module>/...`, not `Module/<Module>/...`.
+- Verify registration with `bin/console debug:twig`, which lists all loader namespaces.
 
-**Verifying a template-path refactor:** `lint:twig` only validates *syntax*, not whether `extends`/`include` targets resolve. The real safety net is `bin/console debug:twig` (confirms namespaces are registered) plus the e2e suite (catches render-time resolution failures) — a green `lint:twig` alone does not prove the paths resolve.
+`lint:twig` validates syntax only. It does not check that `extends` and `include` targets resolve, so a green `lint:twig` does not prove a template-path refactor is correct. Verify with `bin/console debug:twig` for namespace registration, and with the e2e suite for render-time resolution failures.
 
-## Twig Components
+## Twig components
 
-- Component templates are resolved by namespace prefix via `config/packages/twig_component.yaml`. The `defaults` entries must end in `\` — per-component overrides are not supported in the config.
-- When a component's template needs to live outside its namespace-mapped directory, set the path explicitly on the attribute: `#[AsTwigComponent(template: 'path/to/Component.html.twig')]`.
-
-**PHP class location:** Component PHP classes live in their owning module, under `Module/<Name>/Twig/Components/` (namespace `App\Module\<Name>\Twig\Components\`) — never in a central `src/Twig/Components/`. Each module registers its own namespace→directory mapping in `config/packages/twig_component.yaml`:
+- `config/packages/twig_component.yaml` resolves component templates by namespace prefix. Each `defaults` entry must end in `\`. The config supports no per-component override.
+- For a template outside its namespace-mapped directory, set the path on the attribute: `#[AsTwigComponent(template: 'path/to/Component.html.twig')]`.
+- Component PHP classes live in their owning module, under `Module/<Name>/Twig/Components/` (namespace `App\Module\<Name>\Twig\Components\`). Never use a central `src/Twig/Components/`. Each module registers its own namespace to directory mapping:
 
 ```yaml
 twig_component:
@@ -51,9 +51,9 @@ twig_component:
         App\Module\Poll\Twig\Components\: 'Module/Poll/components/'
 ```
 
-Usage: `<twig:ComponentName prop="{{ value }}" />`. To pass a PHP object (not a string), use the colon-prefix syntax — `:prop="someObject"` evaluates the Twig expression; without the colon the value is a literal string.
+Use `<twig:ComponentName prop="{{ value }}" />`. To pass a PHP object, prefix the prop with a colon: `:prop="someObject"` evaluates the Twig expression. Without the colon the value is a literal string.
 
-**Self-contained components that need an entity must inject a repository and resolve from the raw route attribute** rather than receiving the entity as a prop. `EntityValueResolver` does not write the resolved entity back to request attributes, so `$request->attributes->get('param')` always returns the raw string from the URL — the component must do its own repository lookup. See `symfony-entity-route-mapping`.
+A self-contained component that needs an entity injects a repository and resolves the entity from the raw route attribute. It does not take the entity as a prop. `EntityValueResolver` does not write the resolved entity back to the request attributes, so `$request->attributes->get('param')` always returns the raw string from the URL. See `symfony-entity-route-mapping`.
 
 ```php
 public function mount(): void
@@ -67,22 +67,22 @@ public function mount(): void
 }
 ```
 
-**Component template header comments must stay in sync with `mount()`.** When a component template starts with a header comment documenting its props, those documented props must match the component's `mount()` signature. When you change `mount()` (add, remove, or rename a parameter), update that comment in the same commit. Stale comments are worse than no comments.
+When a component template starts with a header comment that documents its props, those props must match the component's `mount()` signature. When you add, remove or rename a `mount()` parameter, update the comment in the same commit. A stale comment is worse than no comment.
 
-## Turbo Frames and active state
+## Turbo frames and active state
 
-Never use server-rendered active state on links inside Turbo frames — only the frame content re-renders on navigation, so the sidebar stays stale. Derive active state client-side (e.g., match `window.location.pathname` against each link's `href` on `turbo:load`). Use a dedicated Stimulus controller for this pattern.
+Never render active state on the server for links inside a Turbo frame. Only the frame content re-renders on navigation, so the sidebar stays stale. Derive the active state client-side, for example match `window.location.pathname` against each link's `href` on `turbo:load`. Use a dedicated Stimulus controller for this pattern.
 
 ## Template naming
 
-**Template file names must match the controller's verb prefix.** A controller named `CreateFooController` renders `create_foo.html.twig`; `new_foo.html.twig` is wrong. The verb (create, list, view, edit, delete) must be identical in both names. When you create or rename a controller, rename the template to match in the same commit. Enforced by gamache's `ControllerTemplateNameRule`, which mirrors the controller → template path.
+A template file name must match the controller's verb prefix. `CreateFooController` renders `create_foo.html.twig`; `new_foo.html.twig` is wrong. The verb (create, list, view, edit, delete) is identical in both names. When you create or rename a controller, rename its template in the same commit. Gamache's `ControllerTemplateNameRule` enforces this, and mirrors the controller path to the template path.
 
 ## Page titles
 
-A page `{% block title %}` must compose **two translated strings** — the page-specific part and the brand — never one key with the brand baked in:
+A page `{% block title %}` composes two translated strings, the page-specific part and the brand. Never use one key with the brand baked in.
 
 ```twig
 {% block title %}{{ 'account.login.page.title'|trans }} — {{ 'app.name'|trans }}{% endblock %}
 ```
 
-The page-title trans-unit holds only the page part (`account.login.page.title` → `Sign in`). `app.name` is the single source of truth for the brand name in titles — do not write `Sign in — Loupe` into the title key. This keeps the brand changeable in one place and is what review expects.
+The page-title trans-unit holds only the page part: `account.login.page.title` gives `Sign in`. `app.name` is the single source of truth for the brand name in titles. Do not write `Sign in — Loupe` into the title key. The brand then changes in one place, and review expects it.

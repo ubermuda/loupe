@@ -1,13 +1,13 @@
 ---
 name: project-testing
-description: Use when writing or modifying PHPUnit tests — unit tests, integration tests, WebTestCase controller tests, or mock setup.
+description: Use when writing or modifying PHPUnit tests, unit tests, integration tests, WebTestCase controller tests, or mock setup.
 ---
 
-# Testing — PHPUnit Patterns
+# Testing, PHPUnit patterns
 
-## WebTestCase — mocking services across multiple requests
+## WebTestCase, mocking services across multiple requests
 
-**Call `$client->disableReboot()` whenever a mock must survive a GET → POST sequence.** Symfony shuts down the kernel after each `$client->request()` call by default, which discards any `getContainer()->set(ServiceClass::class, $mock)` override. A subsequent `submitForm()` call boots a fresh kernel and uses the real service. Add `disableReboot()` before the first request in any test that both mocks a service AND makes two or more HTTP requests:
+Call `$client->disableReboot()` whenever a mock must survive a GET then POST sequence. Symfony shuts the kernel down after each `$client->request()` call, which discards any `getContainer()->set(ServiceClass::class, $mock)` override. The next `submitForm()` call boots a fresh kernel and uses the real service. Add `disableReboot()` before the first request in any test that both mocks a service and makes two or more HTTP requests.
 
 ```php
 $client = static::createClient();
@@ -17,11 +17,11 @@ $client->request('GET', '/confirm?id=123');
 $client->submitForm('Save', [...]);
 ```
 
-This is only needed when the handler (not just the controller) calls the mocked service — e.g. after moving an API call from the controller's GET prefill into the command handler's POST flow.
+You need this only when the handler, and not just the controller, calls the mocked service. Moving an API call from the controller's GET prefill into the command handler's POST flow is the usual trigger.
 
-## Controller integration tests — assert DB state
+## Controller integration tests, assert DB state
 
-For POST endpoints (create, update, delete, attach, detach), controller integration tests must assert the database outcome — not just the redirect. After following the redirect:
+For POST endpoints (create, update, delete, attach, detach), assert the database outcome, not only the redirect. A test that asserts only `assertResponseRedirects(...)` tests routing. Assert after you follow the redirect.
 
 ```php
 $em->clear(); // discard identity-map cache
@@ -31,11 +31,11 @@ self::assertNull($fetched); // for a delete
 self::assertNotNull($fetched->repository); // for an attach
 ```
 
-A test that only asserts `assertResponseRedirects(...)` is not a full integration test — it only tests routing.
+### Stale identity-map state in test setup
 
-**Doctrine identity-map stale state in test setup:** When a test persists an entity that is the *inverse* side of a relationship (e.g. `new GitHubRepository($project, ...)` sets `repo.project = $project` but leaves `project.repository = null` in memory), the in-memory owning entity is not updated automatically. If a subsequent `$client->request()` causes the controller to load that owning entity via `MapEntity`, Doctrine returns the stale cached object from the identity map — not a fresh SQL fetch — so the relationship property is still null, and any handler that reads it will silently no-op.
+A test that persists the *inverse* side of a relationship does not update the owning entity. `new GitHubRepository($project, ...)` sets `repo.project = $project`, but leaves `project.repository = null` in memory. If a later `$client->request()` makes the controller load that owning entity through `MapEntity`, Doctrine returns the cached object instead of a fresh SQL fetch. The property is still null, so any handler that reads it silently does nothing.
 
-**Fix:** call `$em->clear()` after all setup writes and before the first `$client->request()`:
+Call `$em->clear()` after all setup writes and before the first `$client->request()`.
 
 ```php
 $em->persist($repo);
@@ -48,10 +48,10 @@ $client->request(...);
 
 ## PHPUnit mock discipline
 
-PHPUnit 13 emits an `N` ("PHPUnit Notice") for every `createMock()` call where no `expects()` assertion is ever configured.
+PHPUnit 13 emits an `N` ("PHPUnit Notice") for every `createMock()` call that never configures `expects()`.
 
-- Use **`createStub()`** for any dependency that only needs return value configuration — no call verification. Declare the property as `Foo&Stub`.
-- Use **`createMock()`** only when verifying method calls via `expects($this->once())` etc. Declare the property as `Foo&MockObject`.
+- Use `createStub()` for a dependency that only needs return values, with no call verification. Declare the property as `Foo&Stub`.
+- Use `createMock()` only when you verify calls with `expects($this->once())` or similar. Declare the property as `Foo&MockObject`.
 
 ```php
 // ✗ createMock() without expects() → PHPUnit 13 notice
@@ -68,24 +68,22 @@ $this->repo = $this->createMock(UserRepository::class);
 $this->repo->expects($this->once())->method('findOneByEmail')->willReturn(null);
 ```
 
-Update the `use` import to match: `use PHPUnit\Framework\MockObject\Stub;` or `use PHPUnit\Framework\MockObject\MockObject;`. Watch for `N` characters in test output and the "OK, but there were issues!" summary line — these are framework-level notices separate from PHP `E_NOTICE`.
+Update the `use` import to match: `use PHPUnit\Framework\MockObject\Stub;` or `use PHPUnit\Framework\MockObject\MockObject;`. Watch for `N` characters in the test output and for the "OK, but there were issues!" summary line. These are framework-level notices, separate from PHP `E_NOTICE`.
 
-## WebTestCase — assert on stable hooks, not markup structure
+## WebTestCase, assert on stable hooks, not markup structure
 
-`WebTestCase` crawler assertions are coupled to the rendered markup, so a visual refactor silently breaks them — `assertCount(1, $crawler->filter('tbody tr'))` fails the moment a `<table>` becomes `.lp-doc-row` divs. Prefer **stable hooks** over structural/positional selectors:
+`WebTestCase` crawler assertions couple to the rendered markup, so a visual refactor breaks them silently. `assertCount(1, $crawler->filter('tbody tr'))` fails the moment a `<table>` becomes `.lp-doc-row` divs. Prefer stable hooks over structural or positional selectors.
 
-- ✓ `$crawler->filter('[data-document-id]')`, `'.lp-doc-row'`, `'[data-controller="…"]'` — a `data-*` attribute, a route-bound `id`, or a `.lp-*` component class.
-- ✗ `'tbody tr'`, `'table td'`, `'div > span:first-child'` — tree position and raw HTML tags that a template redesign will move.
+- ✓ `$crawler->filter('[data-document-id]')`, `'.lp-doc-row'`, `'[data-controller="…"]'`: a `data-*` attribute, a route-bound `id`, or a `.lp-*` component class.
+- ✗ `'tbody tr'`, `'table td'`, `'div > span:first-child'`: tree position and raw HTML tags that a template redesign moves.
 
-This mirrors the Playwright selector-scoping rule in `project-e2e`: assert on intent-carrying hooks the markup is unlikely to drop.
+This mirrors the Playwright selector-scoping rule in `project-e2e`. Assert on intent-carrying hooks that the markup is unlikely to drop.
 
 ## A test that cannot fail is worse than no test
 
-Two shapes pass vacuously if written carelessly.
-
-**Negative assertions** — "no query was issued", "no email was sent", "this list
-is empty". These pass trivially when the operation under test never ran at all.
-Assert first that it happened, *then* that the specific effect is absent:
+Negative assertions say "no query was issued", "no email was sent", or "this list
+is empty". They pass trivially when the operation under test never ran at all.
+Assert first that it happened, *then* that the specific effect is absent.
 
 ```php
 // Guard: without this, the assertion below also passes on a request that
@@ -97,20 +95,19 @@ self::assertSame([], array_values(array_filter(
 )));
 ```
 
-**Tests for an optimization** — when the change is "do less work", the test must
-fail when the optimization is removed. Verify that explicitly: temporarily
-revert the guard, watch the test fail, restore it. Say in the commit message
-that you did.
+A test for an optimization must fail when the optimization is removed. Verify
+that explicitly: temporarily revert the guard, watch the test fail, restore it.
+Say in the commit message that you did.
 
 Collected-query assertions use the profiler, which is off by default in `test`
-(`framework.profiler.collect: false`): call `$client->enableProfiler()` before
+(`framework.profiler.collect: false`). Call `$client->enableProfiler()` before
 the request, then `$client->getProfile()`. Narrow the result with
-`assertInstanceOf(Profile::class, ...)` — `assertNotFalse()` does not narrow
-`null`, and phpstan will reject the subsequent method call.
+`assertInstanceOf(Profile::class, ...)`. `assertNotFalse()` does not narrow
+`null`, so phpstan rejects the subsequent method call.
 
 ## Rate limiters
 
-**Every rate limiter needs a `when@test` high-limit override, and its throttle is tested with a hand-built factory.** When you add a limiter under `framework.rate_limiter` in `config/packages/framework.yaml`, add a matching entry under the file's `when@test` block with a high limit (e.g. 1000) so the rest of the suite is never throttled. Test the throttling in isolation with a low-limit factory built directly:
+Every rate limiter needs a `when@test` high-limit override, and you test its throttle with a hand-built factory. When you add a limiter under `framework.rate_limiter` in `config/packages/framework.yaml`, add a matching entry under the `when@test` block of that file with a high limit (for example 1000). The rest of the suite is then never throttled. Test the throttling in isolation with a low-limit factory built directly.
 
 ```php
 $factory = new RateLimiterFactory(
@@ -121,12 +118,12 @@ $factory = new RateLimiterFactory(
 
 ## Terms acceptance in a WebTestCase
 
-**A fixture `User` has not accepted the terms, so an authenticated HTML request
-is diverted to the interstitial by `RequireTermsAcceptanceListener`.** The
-symptom is an unexplained `302` to `/terms/accept` in a test that has nothing
-to do with terms — usually read as a broken redirect or a lost session.
+A fixture `User` has not accepted the terms, so `RequireTermsAcceptanceListener`
+diverts an authenticated HTML request to the interstitial. The symptom is an
+unexplained `302` to `/terms/accept` in a test that has nothing to do with
+terms. Readers usually mistake it for a broken redirect or a lost session.
 
-Stamp the fixture:
+Stamp the fixture.
 
 ```php
 $user = new User(fullName: 'Riley Chen', email: 'riley@example.com', password: 'x');
@@ -137,9 +134,9 @@ $em->persist($user);
 `App\Tests\Support\AcceptedTerms` reads `app.terms.version`, so a bump to that
 parameter does not invalidate the fixtures.
 
-The gate stays live in the test environment on purpose. Making it inert there
-would be three lines instead of a stamp per fixture, but the rest of the suite
-would then run a configuration production never uses, and a regression where
-the gate fires when it should not would pass unnoticed. The tests that *are*
-about the gate — `RequireTermsAcceptanceListenerTest`, `AcceptTermsControllerTest`
-— build their users without the stamp.
+The gate stays live in the test environment on purpose. Making it inert costs
+three lines instead of a stamp per fixture, but the rest of the suite would then
+run a configuration production never uses, and a regression where the gate fires
+when it should not would pass unnoticed. The tests that *are* about the gate,
+`RequireTermsAcceptanceListenerTest` and `AcceptTermsControllerTest`, build their
+users without the stamp.

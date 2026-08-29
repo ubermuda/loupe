@@ -91,8 +91,8 @@ or `admin@loupe.test` / `password` for the admin area.
 - Always branch off `main`, not the current feature branch
 - Tear down with `just worktree-down <name>`, never a bare `git worktree remove`
 - **Invoke the `project-worktrees` skill** before provisioning, debugging or
-  writing tooling for a worktree. It covers the commands, the symptom→cause
-  table (404 vs 502, unstyled CSS, rejected widget token), and the two rules
+  writing tooling for a worktree. It covers the commands, the symptoms and
+  causes table (404 vs 502, unstyled CSS, rejected widget token), and the two rules
   that prevent real damage: never run bare `docker compose` from a worktree, and
   never match worktrees by directory name instead of slug.
 - **Serena's edit tools do not work from a worktree.** The Serena MCP server is bound to the main checkout, so `replace_symbol_body` / `insert_*_symbol` / `replace_content` silently write to the **main checkout**, not your worktree — leaving your branch unchanged and the main tree dirty. When working in a worktree (e.g. a subagent implementing a PR), use the built-in **Edit/Write** tools for all edits. Serena **read** tools (`get_symbols_overview`, `find_symbol`, `find_referencing_symbols`) are safe from anywhere.
