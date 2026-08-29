@@ -15,6 +15,9 @@ parameters:
 
     gamache:
         controllerBaseClass: 'App\Controller\AppController'
+        # Migrations older than this are deployed everywhere and no rollback will
+        # ever land before them, so their schema shape is settled and unenforced.
+        migrationsEnforcedFrom: '20260827014419'
         controllerTemplates:
             namespacePattern: '#^App\\Module\\([^\\]+)\\Controller\\#'
             templateDirectory: 'templates/Module'

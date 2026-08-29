@@ -89,8 +89,11 @@ separated by ` · `:
 - **One concern per entry.** If a body accumulates a second independent piece
   of work, split it.
 - **Cross-reference, don't duplicate.** Related entries link by title
-  ("see 'Entry title'"). Automation candidates additionally live in
-  `docs/AUTOMATIONS.md`; an entry may point there rather than restating.
+  ("see 'Entry title'"). An automation candidate — a convention worth enforcing
+  by a gamache rule, a lint or a hook rather than by review — belongs here as a
+  `tooling` entry once it is work someone should pick up. Rawer ones collect in
+  `docs/AUTOMATIONS.md`, which is gitignored and local to a single checkout, so
+  point at it only alongside enough detail to stand without it.
 - When an entry's premise goes stale (e.g. "production has no worker" after a
   worker ships), fix the body in place — a tracker that lies is worse than
   none.

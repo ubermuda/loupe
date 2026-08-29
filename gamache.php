@@ -13,6 +13,7 @@ use Gamache\Check\SelfContainedCommentsCheck;
 use Gamache\Check\ServicesYamlCheck;
 use Gamache\Check\ServiceTagNamesCheck;
 use Gamache\Check\Severity;
+use Gamache\Check\SkillReferenceCheck;
 use Gamache\Check\TranslationCheck;
 use Gamache\Check\TranslationParityCheck;
 use Gamache\Check\TurboStreamTargetsCheck;
@@ -30,6 +31,28 @@ return (new GamacheConfig())->registerChecks([
     new NoArbitraryValuesCheck(),
     new NoTodosCheck(),
     new SelfContainedCommentsCheck(),
+    new SkillReferenceCheck(
+        /*
+         * Replaces the check's defaults rather than adding to them, so this
+         * restates them and appends the top-level directories this project has
+         * that they do not cover. `src/` and `tests/` stay out: skills cite
+         * paths there to illustrate naming, not to point at real files.
+         */
+        pathPrefixes: [
+            'assets/',
+            'bin/',
+            'cli/',
+            'config/',
+            'docker/',
+            'docs/',
+            'e2e/',
+            'migrations/',
+            'public/',
+            'templates/',
+            'terraform/',
+            'translations/',
+        ],
+    ),
     new DeploymentConfigParityCheck(
         moduleProvidedEnvKeys: [
             /*
