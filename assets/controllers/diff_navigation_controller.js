@@ -85,9 +85,10 @@ export default class extends Controller {
         this.clearCurrent();
         hunk.classList.add('lp-diff__hunk--current');
         hunk.focus({ preventScroll: true });
-        // Instant, not smooth: a browser with smooth scrolling switched off
-        // drops the request silently, leaving the jump with no scroll at all.
-        hunk.scrollIntoView({ block: 'center', behavior: 'auto' });
+        // 'instant', not 'auto': 'auto' defers to the scroller's CSS
+        // scroll-behavior, and a smooth scroll is dropped silently by a browser
+        // with smooth scrolling off — leaving the jump with no scroll at all.
+        hunk.scrollIntoView({ block: 'center', behavior: 'instant' });
 
         if (this.hasCounterTarget) {
             this.counterTarget.textContent = this.positionValue.replace(
