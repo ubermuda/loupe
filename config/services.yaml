@@ -108,6 +108,10 @@ services:
                 accessKeySecret: '%env(default::EXPORT_STORAGE_SECRET)%'
                 pathStyleEndpoint: '%env(default::EXPORT_STORAGE_USE_PATH_STYLE)%'
 
+    # Audit events carry no actor until the application supplies a provider that
+    # resolves one. Repoint this alias to swap in that implementation.
+    App\Module\Audit\AuditActorProviderInterface: '@App\Module\Audit\NullAuditActorProvider'
+
 # Command handlers are private services; expose them in the test container so
 # KernelTestCase can fetch them directly without relying on a dependent service
 # (e.g. an MCP tool) keeping them reachable.
