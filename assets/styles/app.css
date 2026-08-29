@@ -1388,8 +1388,10 @@
     .lp-diff__hunk {
         @apply block scroll-mt-16 rounded-lg outline-none;
     }
+    /* outline-solid is load-bearing: the base sets --tw-outline-style to none,
+       which outline-2 then resolves to, leaving a 2px ring nothing draws. */
     .lp-diff__hunk--current {
-        @apply outline-2 outline-offset-2 outline-accent;
+        @apply outline-solid outline-2 outline-offset-2 outline-accent;
     }
 
     /* What the author said a revision changed, sitting directly above what it
