@@ -98,6 +98,28 @@ Point at the running instance. Every worktree serves its own branch at
 Verify it responds before you write it down. Say plainly when a branch has no
 worktree or nothing to click, rather than pasting a link that goes nowhere.
 
+**Every such URL must be clickable, and that means one whole absolute URL in
+plain text.** A bare host followed by paths in backticks — the shape a body
+falls into naturally when there are several pages to point at — renders as
+unclickable code spans, and the reviewer has to assemble each URL by hand. That
+is enough friction to lose the click the seeding was for. So: no backticks
+around a URL, no relative paths under a host given once, no `<slug>` or other
+placeholder left for the reader to substitute. Write the full
+`https://<slug>.loupe.dev.localhost/projects/…/review` per destination, even
+when that repeats the host five times, and paste one into a browser before
+opening the PR.
+
+The same rule covers a branch with no worktree of its own: link the page on
+whatever instance does serve it, rather than describing the route and leaving
+the reader to construct it.
+
+"Nothing to click" is a claim about the reviewer's options, not about routing.
+A branch that adds no route can still produce reviewable output — HTML from a
+renderer, a generated report, a file — and saying it has nothing to look at
+because nothing is wired up is wrong, and reads as though the work cannot be
+judged until a later branch lands. Publish the output as an artifact and link
+it, and be clear about which questions it answers and which it defers.
+
 Seed the data the change needs. `bin/console app:dev:seed` creates a user, an
 admin and a project, and no documents, comments, verdicts or exports. A diff
 feature is untestable without a document carrying several versions. Create
