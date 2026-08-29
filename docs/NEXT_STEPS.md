@@ -2580,3 +2580,18 @@ the outbox, `DrainOutboxHandler`, the Mercure hub and the `site_review.push`
 flag — but nothing writes an event any more (see 'The site-review push
 subsystem has no producer left'). Any work here starts by deciding what an
 agent would announce, not by building transport.
+
+## A rendered diff cannot show that the front matter changed
+
+**Author:** Claude · **Type:** feature · **Priority:** low · **Status:** pending
+
+`DiffMarkdownComposer` (`src/Module/Review/Service/`) emits the new version's
+front-matter block verbatim and drops the old one, because the block only
+parses at byte zero and so can neither be wrapped in a `<del>` HTML block nor
+carry an inline mark. A revision that only changes a front-matter value
+therefore renders as an unmarked table, identical to one that changed nothing.
+
+Showing it needs a decision about UI that this has deliberately not made: a
+per-row mark inside the `lp-front-matter` table the renderer builds outside the
+sanitizer, or a banner above the pane. The composer would have to report which
+keys changed alongside the merged Markdown for either.
