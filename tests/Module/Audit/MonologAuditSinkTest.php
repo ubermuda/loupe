@@ -94,27 +94,21 @@ final class MonologAuditSinkTest extends TestCase
         ]], $this->domainLogger->records);
     }
 
-    public function test_the_actor_and_credential_are_named_by_class_and_never_passed_as_objects(): void
+    public function test_the_actor_and_credential_never_reach_the_log_line(): void
     {
-        $actor = new class implements AuditActorInterface {};
-        $credential = new class implements AuditCredentialInterface {};
-
         $this->sink->write(new AuditEvent(
             'document.deleted',
             AuditLevel::Info,
             Auditor::CATEGORY_DOMAIN,
-            $actor,
-            $credential,
+            new class implements AuditActorInterface {},
+            new class implements AuditCredentialInterface {},
             'mcp',
             null,
             [],
             new \DateTimeImmutable('2026-08-29 12:00:00'),
         ));
 
-        self::assertSame(
-            ['channel' => 'mcp', 'actor' => $actor::class, 'credential' => $credential::class],
-            $this->domainLogger->records[0]['context'],
-        );
+        self::assertSame(['channel' => 'mcp'], $this->domainLogger->records[0]['context']);
     }
 
     public function test_flush_writes_nothing_because_the_sink_already_did(): void

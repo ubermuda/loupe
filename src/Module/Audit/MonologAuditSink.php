@@ -40,17 +40,10 @@ final readonly class MonologAuditSink implements AuditSinkInterface
         $context = $event->context;
         $context['channel'] = $event->channel;
 
-        // The actor and credential markers carry no readable identity, so the
-        // class is all there is to record. Never the object: Monolog would
-        // normalize a User, password hash included, into the log line.
-        if (null !== $event->actor) {
-            $context['actor'] = $event->actor::class;
-        }
-
-        if (null !== $event->credential) {
-            $context['credential'] = $event->credential::class;
-        }
-
+        // No actor or credential key: the marker interfaces are empty, so there
+        // is nothing readable to record, and the objects themselves must never
+        // reach Monolog — it would normalize a User, password hash included,
+        // into the log line.
         if (null !== $event->subject) {
             $context['subjectType'] = $event->subject->type;
             $context['subjectId'] = $event->subject->id;

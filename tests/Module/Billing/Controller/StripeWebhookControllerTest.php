@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Tests\Module\Billing\Controller;
 
+use App\Audit\AuditChannel;
+use App\Audit\AuditContext;
 use App\Module\Billing\Entity\BillingStatus;
 use App\Tests\Support\BillingScenario;
 use Doctrine\ORM\EntityManagerInterface;
@@ -102,6 +104,26 @@ final class StripeWebhookControllerTest extends WebTestCase
         self::assertSame(BillingStatus::Active->value, $stored['status']);
         self::assertSame('sub_webhook', $stored['stripe_subscription_id']);
         self::assertNotNull($stored['ends_at']);
+    }
+
+    /**
+     * `webhook` is declared here and nowhere else: detection cannot tell this
+     * endpoint from registration or password reset, which are anonymous too.
+     */
+    public function test_the_controller_declares_the_webhook_audit_channel(): void
+    {
+        $client = static::createClient();
+        $client->disableReboot();
+        $this->seedProfile();
+
+        $auditContext = static::getContainer()->get(AuditContext::class);
+        self::assertInstanceOf(AuditContext::class, $auditContext);
+        self::assertNull($auditContext->channel);
+
+        $this->post($client, $this->payload('customer.subscription.updated', $this->classicSubscription(), time()));
+
+        self::assertResponseIsSuccessful();
+        self::assertSame(AuditChannel::Webhook, $auditContext->channel);
     }
 
     public function test_a_tampered_signature_is_rejected_and_writes_nothing(): void

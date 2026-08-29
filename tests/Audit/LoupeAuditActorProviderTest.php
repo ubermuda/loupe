@@ -20,34 +20,29 @@ use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Event\ConsoleCommandEvent;
 use Symfony\Component\Console\Input\ArrayInput;
 use Symfony\Component\Console\Output\NullOutput;
-use Symfony\Component\HttpFoundation\Request;
-use Symfony\Component\HttpFoundation\RequestStack;
 use Symfony\Component\Security\Core\Authentication\Token\Storage\TokenStorage;
 use Symfony\Component\Security\Core\Authentication\Token\TokenInterface;
 use Symfony\Component\Uid\Uuid;
 
 /**
  * One test per channel: getting a channel wrong changes nothing else, so a
- * shared case would hide which of the six regressed.
+ * shared case would hide which of them regressed.
  */
 final class LoupeAuditActorProviderTest extends TestCase
 {
     private TokenStorage $tokenStorage;
-    private RequestStack $requestStack;
     private AuditContext $auditContext;
     private User $user;
 
     protected function setUp(): void
     {
         $this->tokenStorage = new TokenStorage();
-        $this->requestStack = new RequestStack();
         $this->auditContext = new AuditContext();
         $this->user = new User('Riley Chen', 'riley@example.com', 'x');
     }
 
     public function test_a_session_request_is_attributed_to_the_signed_in_user(): void
     {
-        $this->requestStack->push(Request::create('/projects'));
         $this->tokenStorage->setToken($this->securityTokenWithoutApiToken());
 
         $actor = $this->provider()->currentActor();
@@ -60,7 +55,6 @@ final class LoupeAuditActorProviderTest extends TestCase
     public function test_an_mcp_token_is_its_own_channel(): void
     {
         $apiToken = $this->apiTokenWithScope(ApiTokenScope::Mcp);
-        $this->requestStack->push(Request::create('/mcp'));
         $this->tokenStorage->setToken($this->securityTokenWithApiToken());
 
         $actor = $this->provider($apiToken)->currentActor();
@@ -73,7 +67,6 @@ final class LoupeAuditActorProviderTest extends TestCase
     public function test_a_site_review_token_is_the_widget_channel(): void
     {
         $apiToken = $this->apiTokenWithScope(ApiTokenScope::SiteReview);
-        $this->requestStack->push(Request::create('/api/site-review/batches'));
         $this->tokenStorage->setToken($this->securityTokenWithApiToken());
 
         $actor = $this->provider($apiToken)->currentActor();
@@ -82,13 +75,16 @@ final class LoupeAuditActorProviderTest extends TestCase
         self::assertSame($apiToken, $actor->credential);
     }
 
-    public function test_an_unauthenticated_request_is_the_webhook_channel(): void
+    /**
+     * Registration, OAuth login, password reset and the install flow are all
+     * anonymous writes. Detection reports what the security token says and
+     * nothing more, so an unattributed record beats guessing `webhook` at them.
+     */
+    public function test_an_anonymous_request_is_unattributed_rather_than_guessed_at(): void
     {
-        $this->requestStack->push(Request::create('/webhooks/stripe'));
-
         $actor = $this->provider()->currentActor();
 
-        self::assertSame(AuditChannel::Webhook->value, $actor->channel);
+        self::assertSame(AuditChannel::System->value, $actor->channel);
         self::assertNull($actor->actor);
         self::assertNull($actor->credential);
     }
@@ -112,13 +108,12 @@ final class LoupeAuditActorProviderTest extends TestCase
         self::assertSame(AuditChannel::Cron->value, $this->provider()->currentActor()->channel);
     }
 
-    public function test_the_ambient_channel_wins_over_a_signed_in_session(): void
+    public function test_a_declared_channel_beats_a_detected_one(): void
     {
-        $this->requestStack->push(Request::create('/projects'));
         $this->tokenStorage->setToken($this->securityTokenWithoutApiToken());
-        $this->auditContext->channel = AuditChannel::Cron;
+        $this->auditContext->channel = AuditChannel::Webhook;
 
-        self::assertSame(AuditChannel::Cron->value, $this->provider()->currentActor()->channel);
+        self::assertSame(AuditChannel::Webhook->value, $this->provider()->currentActor()->channel);
     }
 
     public function test_the_ambient_context_travels_with_the_actor(): void
@@ -136,7 +131,6 @@ final class LoupeAuditActorProviderTest extends TestCase
         return new LoupeAuditActorProvider(
             $this->tokenStorage,
             new AuthenticatedApiTokenResolver($this->tokenStorage, $apiTokens),
-            $this->requestStack,
             $this->auditContext,
         );
     }

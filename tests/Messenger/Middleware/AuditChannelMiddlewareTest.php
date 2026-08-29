@@ -18,8 +18,6 @@ use App\Tests\Support\FakeAuditSink;
 use PHPUnit\Framework\TestCase;
 use Psr\Clock\ClockInterface;
 use Psr\Log\NullLogger;
-use Symfony\Component\HttpFoundation\Request;
-use Symfony\Component\HttpFoundation\RequestStack;
 use Symfony\Component\Messenger\Envelope;
 use Symfony\Component\Messenger\Middleware\MiddlewareInterface;
 use Symfony\Component\Messenger\Middleware\StackInterface;
@@ -31,7 +29,6 @@ use Symfony\Component\Security\Core\Authentication\Token\TokenInterface;
 final class AuditChannelMiddlewareTest extends TestCase
 {
     private TokenStorage $tokenStorage;
-    private RequestStack $requestStack;
     private AuditContext $auditContext;
     private FakeAuditSink $sink;
     private Auditor $auditor;
@@ -40,7 +37,6 @@ final class AuditChannelMiddlewareTest extends TestCase
     protected function setUp(): void
     {
         $this->tokenStorage = new TokenStorage();
-        $this->requestStack = new RequestStack();
         $this->auditContext = new AuditContext();
         $this->sink = new FakeAuditSink();
 
@@ -50,7 +46,6 @@ final class AuditChannelMiddlewareTest extends TestCase
         $provider = new LoupeAuditActorProvider(
             $this->tokenStorage,
             new AuthenticatedApiTokenResolver($this->tokenStorage, $apiTokens),
-            $this->requestStack,
             $this->auditContext,
         );
 
@@ -84,13 +79,28 @@ final class AuditChannelMiddlewareTest extends TestCase
         self::assertSame(['async' => true], $this->recordedEvent()->context);
     }
 
-    public function test_an_unstamped_message_in_a_worker_is_a_cron_tick(): void
+    public function test_an_unstamped_message_off_the_scheduler_transport_is_a_cron_tick(): void
     {
         $envelope = new Envelope(new \stdClass(), [new ReceivedStamp('scheduler_default'), new ConsumedByWorkerStamp()]);
 
         $this->middleware->handle($envelope, $this->stackRunning(fn () => $this->auditor->info('trial_sweep.completed')));
 
         self::assertSame(AuditChannel::Cron->value, $this->recordedEvent()->channel);
+        self::assertSame(['async' => true], $this->recordedEvent()->context);
+    }
+
+    /**
+     * A message queued before this middleware shipped, replayed from `failed`,
+     * or sent straight to a transport arrives unstamped too. Only the scheduler
+     * transport makes an unstamped message a cron tick.
+     */
+    public function test_an_unstamped_message_off_any_other_transport_has_unknown_provenance(): void
+    {
+        $envelope = new Envelope(new \stdClass(), [new ReceivedStamp('async'), new ConsumedByWorkerStamp()]);
+
+        $this->middleware->handle($envelope, $this->stackRunning(fn () => $this->auditor->info('export.generated')));
+
+        self::assertSame(AuditChannel::System->value, $this->recordedEvent()->channel);
         self::assertSame(['async' => true], $this->recordedEvent()->context);
     }
 
@@ -138,8 +148,6 @@ final class AuditChannelMiddlewareTest extends TestCase
 
     private function signIn(): void
     {
-        $this->requestStack->push(Request::create('/exports'));
-
         $securityToken = $this->createStub(TokenInterface::class);
         $securityToken->method('hasAttribute')->willReturn(false);
         $securityToken->method('getUser')->willReturn(new User('Riley Chen', 'riley@example.com', 'x'));

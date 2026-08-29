@@ -24,6 +24,9 @@ use Symfony\Component\Messenger\Stamp\ReceivedStamp;
  */
 final readonly class AuditChannelMiddleware implements MiddlewareInterface
 {
+    /** The transport the scheduler delivers its ticks on. */
+    private const string SCHEDULER_TRANSPORT = 'scheduler_default';
+
     public function __construct(
         private AuditContext $auditContext,
         private LoupeAuditActorProvider $actorProvider,
@@ -49,11 +52,7 @@ final readonly class AuditChannelMiddleware implements MiddlewareInterface
         $channel = $this->auditContext->channel;
         $ambientContext = $this->auditContext->ambientContext;
 
-        $stamp = $envelope->last(AuditChannelStamp::class);
-
-        // No stamp means the message never went through the dispatch side above:
-        // it came off the scheduler transport as a cron tick.
-        $this->auditContext->channel = $stamp instanceof AuditChannelStamp ? $stamp->channel : AuditChannel::Cron;
+        $this->auditContext->channel = $this->channelOf($envelope);
         $this->auditContext->ambientContext = ['async' => true] + $ambientContext;
 
         try {
@@ -62,5 +61,23 @@ final readonly class AuditChannelMiddleware implements MiddlewareInterface
             $this->auditContext->channel = $channel;
             $this->auditContext->ambientContext = $ambientContext;
         }
+    }
+
+    private function channelOf(Envelope $envelope): AuditChannel
+    {
+        $stamp = $envelope->last(AuditChannelStamp::class);
+        if ($stamp instanceof AuditChannelStamp) {
+            return $stamp->channel;
+        }
+
+        // An unstamped message never went through the dispatch side, and only
+        // the scheduler transport says why: everything else arriving unstamped —
+        // queued before this shipped, replayed from `failed`, sent straight to a
+        // transport — has provenance nothing here can recover.
+        $received = $envelope->last(ReceivedStamp::class);
+
+        return $received instanceof ReceivedStamp && self::SCHEDULER_TRANSPORT === $received->getTransportName()
+            ? AuditChannel::Cron
+            : AuditChannel::System;
     }
 }
