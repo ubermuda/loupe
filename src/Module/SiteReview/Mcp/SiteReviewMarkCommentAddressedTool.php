@@ -4,10 +4,11 @@ declare(strict_types=1);
 
 namespace App\Module\SiteReview\Mcp;
 
-use App\Module\SiteReview\Entity\SiteReviewCommentStatus;
-use App\Module\SiteReview\Repository\SiteReviewCommentRepository;
+use App\Module\SiteReview\Command\MarkSiteReviewCommentAddressedOutcome;
+use App\Module\SiteReview\Command\MarkSiteReviewCommentsAddressedCommand;
+use App\Module\SiteReview\Command\MarkSiteReviewCommentsAddressedHandler;
+use App\Module\SiteReview\Entity\SiteReviewComment;
 use App\Module\SiteReview\Security\SiteReviewMcpBoundProjectVoter;
-use Doctrine\ORM\EntityManagerInterface;
 use Mcp\Capability\Attribute\McpTool;
 use Mcp\Exception\ToolCallException;
 use Symfony\Component\Uid\Uuid;
@@ -31,8 +32,7 @@ use Symfony\Component\Uid\Uuid;
 final readonly class SiteReviewMarkCommentAddressedTool
 {
     public function __construct(
-        private SiteReviewCommentRepository $siteReviewComments,
-        private EntityManagerInterface $em,
+        private MarkSiteReviewCommentsAddressedHandler $markCommentsAddressed,
         private SiteReviewSubjectResolver $subjects,
     ) {
     }
@@ -56,46 +56,51 @@ final readonly class SiteReviewMarkCommentAddressedTool
             // per id — and even when the batch is empty.
             $this->subjects->requireProject();
 
-            // One transaction for the batch: each id is now written as it is
-            // decided, so without this a failure partway through would leave
-            // the earlier ids addressed while the call reports an error.
-            $this->em->wrapInTransaction(function () use ($commentIds, &$addressed, &$skipped): void {
-                foreach ($commentIds as $id) {
-                    try {
-                        $uuid = Uuid::fromString($id);
-                    } catch (\InvalidArgumentException) {
-                        $skipped[] = ['id' => $id, 'reason' => 'invalid_id'];
-                        continue;
-                    }
+            /** @var list<array{id: string, reason: ?string}> $plan one entry per id, in the order given */
+            $plan = [];
+            /** @var list<SiteReviewComment> $comments the ids that resolved, in the same order */
+            $comments = [];
 
-                    $comment = $this->subjects->findComment($uuid, SiteReviewMcpBoundProjectVoter::WRITE);
-                    if (null === $comment) {
-                        $skipped[] = ['id' => $id, 'reason' => 'unknown'];
-                        continue;
-                    }
-                    if (SiteReviewCommentStatus::Pending !== $comment->status) {
-                        $skipped[] = ['id' => $id, 'reason' => match ($comment->status) {
-                            SiteReviewCommentStatus::Addressed => 'already_addressed',
-                            default => 'resolved',
-                        }];
-                        continue;
-                    }
-
-                    // The status check above is advisory: it produces the precise
-                    // skip reason, but a human can click Resolve between it and the
-                    // write. Only the conditional UPDATE decides.
-                    if (!$this->siteReviewComments->markAddressedIfPending($comment)) {
-                        $skipped[] = ['id' => $id, 'reason' => match ($this->siteReviewComments->currentStatus($comment)) {
-                            SiteReviewCommentStatus::Addressed => 'already_addressed',
-                            SiteReviewCommentStatus::Resolved => 'resolved',
-                            default => 'unknown',
-                        }];
-                        continue;
-                    }
-
-                    $addressed[] = $id;
+            foreach ($commentIds as $id) {
+                try {
+                    $uuid = Uuid::fromString($id);
+                } catch (\InvalidArgumentException) {
+                    $plan[] = ['id' => $id, 'reason' => 'invalid_id'];
+                    continue;
                 }
-            });
+
+                $comment = $this->subjects->findComment($uuid, SiteReviewMcpBoundProjectVoter::WRITE);
+                if (null === $comment) {
+                    $plan[] = ['id' => $id, 'reason' => 'unknown'];
+                    continue;
+                }
+
+                $comments[] = $comment;
+                $plan[] = ['id' => $id, 'reason' => null];
+            }
+
+            $outcomes = ($this->markCommentsAddressed)(new MarkSiteReviewCommentsAddressedCommand($comments));
+
+            $next = 0;
+            foreach ($plan as $entry) {
+                $reason = $entry['reason'];
+
+                if (null === $reason) {
+                    $reason = match ($outcomes[$next++] ?? throw new \LogicException('handler returned fewer outcomes than comments')) {
+                        MarkSiteReviewCommentAddressedOutcome::Addressed => null,
+                        MarkSiteReviewCommentAddressedOutcome::AlreadyAddressed => 'already_addressed',
+                        MarkSiteReviewCommentAddressedOutcome::AlreadyResolved => 'resolved',
+                        MarkSiteReviewCommentAddressedOutcome::NotFound => 'unknown',
+                    };
+                }
+
+                if (null === $reason) {
+                    $addressed[] = $entry['id'];
+                    continue;
+                }
+
+                $skipped[] = ['id' => $entry['id'], 'reason' => $reason];
+            }
         } catch (ToolCallException $e) {
             throw $e;
         } catch (\Throwable $e) {
