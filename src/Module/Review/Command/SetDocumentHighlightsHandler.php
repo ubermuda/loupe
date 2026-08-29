@@ -9,6 +9,9 @@ use App\Module\Review\Repository\DocumentVersionRepository;
 use App\Module\Review\Service\AnchorService;
 use Doctrine\ORM\EntityManagerInterface;
 
+/**
+ * @phpstan-type HighlightSummary array{highlighted: list<string>, skipped: list<array{quote: string, reason: string}>}
+ */
 final readonly class SetDocumentHighlightsHandler
 {
     public function __construct(
@@ -26,7 +29,7 @@ final readonly class SetDocumentHighlightsHandler
      * text, so one passage carrying inline markup must not cost it the rest of
      * the set.
      *
-     * @return array{highlighted: list<string>, skipped: list<array{quote: string, reason: string}>}
+     * @return HighlightSummary
      */
     public function __invoke(SetDocumentHighlightsCommand $command): array
     {

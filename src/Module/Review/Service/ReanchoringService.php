@@ -7,6 +7,9 @@ namespace App\Module\Review\Service;
 use App\Module\Review\Entity\Comment;
 use App\Module\Review\Entity\DocumentVersion;
 
+/**
+ * @phpstan-type ReanchoringSummary array{carried: int, orphaned: int}
+ */
 final readonly class ReanchoringService
 {
     public function __construct(
@@ -27,7 +30,7 @@ final readonly class ReanchoringService
      *
      * @param list<Comment> $openComments
      *
-     * @return array{carried: int, orphaned: int}
+     * @return ReanchoringSummary
      */
     public function reanchor(array $openComments, DocumentVersion $newVersion): array
     {

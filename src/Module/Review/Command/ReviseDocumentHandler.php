@@ -17,6 +17,9 @@ use App\Module\Review\Service\ReanchoringService;
 use Doctrine\DBAL\LockMode;
 use Doctrine\ORM\EntityManagerInterface;
 
+/**
+ * @phpstan-import-type ReanchoringSummary from ReanchoringService
+ */
 final readonly class ReviseDocumentHandler
 {
     public function __construct(
@@ -31,7 +34,7 @@ final readonly class ReviseDocumentHandler
     }
 
     /**
-     * @return array{carried: int, orphaned: int}
+     * @return ReanchoringSummary
      */
     public function __invoke(ReviseDocumentCommand $command): array
     {

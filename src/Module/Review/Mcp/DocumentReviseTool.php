@@ -14,6 +14,8 @@ use Mcp\Exception\ToolCallException;
 /**
  * Submit a revised Markdown document. Unresolved comments are carried forward by fuzzy re-anchoring;
  * comments whose quoted text no longer appears are flagged orphaned. Returns the re-anchoring summary.
+ *
+ * @phpstan-import-type ReanchoringSummary from ReviseDocumentHandler
  */
 #[McpTool(name: 'document_revise', description: 'Submit a new Markdown version of a document, described by what changed in it. Open comments are re-anchored onto the new version; those whose quoted text no longer appears are flagged orphaned. Pass title to correct the document title at the same time, and references to replace the documents this one points at.')]
 final readonly class DocumentReviseTool
@@ -32,7 +34,7 @@ final readonly class DocumentReviseTool
      * @param string|null        $title       A corrected title for the document; omit to keep the current one
      * @param array<string>|null $references  The complete set of document ids this one points at, replacing the current set; omit to keep it, pass an empty list to clear it
      *
-     * @return array{carried: int, orphaned: int}
+     * @return ReanchoringSummary
      */
     public function __invoke(string $documentId, string $markdown, string $description, ?string $title = null, ?array $references = null): array
     {
