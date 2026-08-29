@@ -398,34 +398,6 @@ tool persist the reply body, and render it in
 `templates/Module/SiteReview/show_site_review.html.twig` (a placeholder comment
 marks where it goes).
 
-## Gamache rule: catch skills that cite shell functions which no longer exist
-
-**Author:** Claude · **Type:** tooling · **Priority:** medium · **Status:** pending
-
-`SkillReferenceCheck` covers two of the three kinds of reference a `SKILL.md`
-carries, and is registered in `gamache.php` at error severity: a `just <recipe>`
-must name a recipe the justfile defines, and a repo-relative path under one of
-the configured prefixes must exist on disk.
-
-The third kind is still unchecked — a shell function named alongside the `.sh`
-file that defines it, as `project-worktrees` cites `worktree_slug` and
-`worktree_slug_index` from `bin/worktrees/slug.sh`. Rename one and the skill
-sends the next session to a function that is not there. That is the same rot the
-other two halves were built for: when the `wt-tailwind` recipe became
-`worktree-tailwind` (2026-07-25), two references inside `project-worktrees` were
-left dangling and only a hand grep found them.
-
-It is the hardest of the three and the least certain to pay for itself. It means
-parsing function definitions out of a shell script, and then deciding which bare
-word inside a code span is a function name rather than prose — a judgement the
-recipe and path halves never have to make, because `just` prefixes one and a
-directory prefix anchors the other. Worth building if a rename bites again;
-not before.
-
-Gamache is an external package, so it is a pull request on
-https://github.com/ubermuda/gamache, then a constructor option in this repo's
-`gamache.php` if the rule needs one.
-
 ## ProjectDeleter misreports a stale entity when looped without clearing
 
 
@@ -2608,23 +2580,3 @@ the outbox, `DrainOutboxHandler`, the Mercure hub and the `site_review.push`
 flag — but nothing writes an event any more (see 'The site-review push
 subsystem has no producer left'). Any work here starts by deciding what an
 agent would announce, not by building transport.
-
-## McpToolNameRule does not check the paired test class
-
-**Author:** Geoffrey · **Type:** tooling · **Priority:** low · **Status:** pending
-
-`McpToolNameRule` asserts that a class carrying `#[McpTool(name: 'x_y')]` is
-named `XYTool`, but says nothing about the test beside it, so
-`DocumentCreateToolTest` could end up covering `DocumentReviseTool` and no gate
-would notice. All 16 tools and their 16 tests agree today; nothing holds them
-there.
-
-Low value on purpose. A misnamed test misleads whoever opens it and nothing
-else — it ships no wrong behaviour to callers, and the drift is obvious the
-moment someone reads the file. Extending the rule also means deciding where a
-tool's test is allowed to live, which the rule currently has no reason to know.
-The reason to keep it in view at all is that the same question applies well
-past MCP tools: nothing anywhere asserts a test class names the class it tests.
-
-Gamache is an external package, so it is a pull request on
-https://github.com/ubermuda/gamache.
