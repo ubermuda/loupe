@@ -8,6 +8,7 @@ use App\Audit\EventListener\FlushAuditSinksListener;
 use App\Module\Audit\Auditor;
 use Doctrine\DBAL\Connection;
 use Doctrine\ORM\EntityManagerInterface;
+use PHPUnit\Framework\Attributes\DataProvider;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\ConsoleEvents;
@@ -153,22 +154,36 @@ final class FlushAuditSinksListenerTest extends KernelTestCase
      *
      * messenger:consume adds that listener at runtime, so it is absent from the
      * compiled dispatcher and this test has to add it the same way.
+     *
+     * @param class-string $event
      */
-    public function test_the_drain_runs_before_messenger_resets_the_services(): void
+    #[DataProvider('eventsMessengerResetsServicesOn')]
+    public function test_the_drain_runs_before_messenger_resets_the_services(string $event): void
     {
-        $reset = new ResetServicesListener(static::getContainer()->get('services_resetter'));
-        $this->dispatcher->addSubscriber($reset);
+        $this->dispatcher->addSubscriber(new ResetServicesListener(static::getContainer()->get('services_resetter')));
 
         self::assertGreaterThan(
-            $this->priorityOf(WorkerRunningEvent::class, ResetServicesListener::class),
-            $this->priorityOf(WorkerRunningEvent::class, FlushAuditSinksListener::class),
-            'A drain at or below the reset writes nothing: the reset empties the buffer first.',
+            $this->priorityOf($event, ResetServicesListener::class),
+            $this->priorityOf($event, FlushAuditSinksListener::class),
+            sprintf('A drain at or below the reset writes nothing on "%s": the reset empties the buffer first.', $event),
         );
 
         $this->recordAndAssertStillBuffered();
-        $this->dispatcher->dispatch(new WorkerRunningEvent($this->worker(), false));
+        $this->dispatcher->dispatch($this->workerEvent($event));
 
-        self::assertSame(1, $this->recordCount());
+        self::assertSame(1, $this->recordCount(), sprintf('The record was reset away before "%s" drained it.', $event));
+    }
+
+    /**
+     * ResetServicesListener subscribes to these two separately, so a regression
+     * on one says nothing about the other.
+     *
+     * @return iterable<string, array{class-string}>
+     */
+    public static function eventsMessengerResetsServicesOn(): iterable
+    {
+        yield 'after each message' => [WorkerRunningEvent::class];
+        yield 'at worker shutdown' => [WorkerStoppedEvent::class];
     }
 
     /**
@@ -235,6 +250,16 @@ final class FlushAuditSinksListenerTest extends KernelTestCase
     private function worker(): Worker
     {
         return new Worker([], new MessageBus(), $this->dispatcher);
+    }
+
+    /** @param class-string $event */
+    private function workerEvent(string $event): object
+    {
+        return match ($event) {
+            WorkerRunningEvent::class => new WorkerRunningEvent($this->worker(), false),
+            WorkerStoppedEvent::class => new WorkerStoppedEvent($this->worker()),
+            default => throw new \LogicException(sprintf('No factory for "%s".', $event)),
+        };
     }
 
     /**
