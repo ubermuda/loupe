@@ -10,7 +10,7 @@ use App\Module\Review\Entity\Document;
 use App\Module\Review\Repository\CommentRepository;
 use App\Module\Review\Repository\ReviewRepository;
 use App\Module\Review\Service\LastSeenVersionResolver;
-use App\Module\Review\ValueObject\Watermark;
+use App\Module\Review\ValueObject\Engagement;
 use PHPUnit\Framework\MockObject\Stub;
 use PHPUnit\Framework\TestCase;
 
@@ -30,27 +30,27 @@ final class LastSeenVersionResolverTest extends TestCase
         $this->reader = new User(fullName: 'Riley Chen', email: 'riley@example.com', password: 'hashed');
         $this->document = new Document(
             owner: $this->reader,
-            project: new Project($this->reader, 'p-watermark'),
-            title: 'Watermarked',
+            project: new Project($this->reader, 'p-engagement'),
+            title: 'Engaged Doc',
         );
     }
 
-    public function test_an_anonymous_reader_has_no_watermark(): void
+    public function test_an_anonymous_reader_resolves_to_nothing(): void
     {
         self::assertNull($this->resolver()->versionNumberFor($this->document, null));
     }
 
-    public function test_a_reader_who_never_engaged_has_no_watermark(): void
+    public function test_a_reader_who_never_engaged_resolves_to_nothing(): void
     {
-        $this->engagement(comment: null, verdict: null);
+        $this->signals(comment: null, verdict: null);
 
         self::assertNull($this->resolver()->versionNumberFor($this->document, $this->reader));
     }
 
     public function test_a_comment_alone_is_signal_enough(): void
     {
-        $this->engagement(
-            comment: new Watermark(new \DateTimeImmutable('2026-01-02 10:00:00'), 1),
+        $this->signals(
+            comment: new Engagement(new \DateTimeImmutable('2026-01-02 10:00:00'), 1),
             verdict: null,
         );
 
@@ -59,9 +59,9 @@ final class LastSeenVersionResolverTest extends TestCase
 
     public function test_a_verdict_alone_is_signal_enough(): void
     {
-        $this->engagement(
+        $this->signals(
             comment: null,
-            verdict: new Watermark(new \DateTimeImmutable('2026-01-05 10:00:00'), 2),
+            verdict: new Engagement(new \DateTimeImmutable('2026-01-05 10:00:00'), 2),
         );
 
         self::assertSame(2, $this->resolver()->versionNumberFor($this->document, $this->reader));
@@ -69,9 +69,9 @@ final class LastSeenVersionResolverTest extends TestCase
 
     public function test_the_later_engagement_wins(): void
     {
-        $this->engagement(
-            comment: new Watermark(new \DateTimeImmutable('2026-01-02 10:00:00'), 1),
-            verdict: new Watermark(new \DateTimeImmutable('2026-01-05 10:00:00'), 4),
+        $this->signals(
+            comment: new Engagement(new \DateTimeImmutable('2026-01-02 10:00:00'), 1),
+            verdict: new Engagement(new \DateTimeImmutable('2026-01-05 10:00:00'), 4),
         );
 
         self::assertSame(4, $this->resolver()->versionNumberFor($this->document, $this->reader));
@@ -79,9 +79,9 @@ final class LastSeenVersionResolverTest extends TestCase
 
     public function test_the_later_engagement_wins_whichever_side_it_is_on(): void
     {
-        $this->engagement(
-            comment: new Watermark(new \DateTimeImmutable('2026-01-05 10:00:00'), 4),
-            verdict: new Watermark(new \DateTimeImmutable('2026-01-02 10:00:00'), 1),
+        $this->signals(
+            comment: new Engagement(new \DateTimeImmutable('2026-01-05 10:00:00'), 4),
+            verdict: new Engagement(new \DateTimeImmutable('2026-01-02 10:00:00'), 1),
         );
 
         self::assertSame(4, $this->resolver()->versionNumberFor($this->document, $this->reader));
@@ -91,18 +91,18 @@ final class LastSeenVersionResolverTest extends TestCase
     public function test_two_engagements_in_the_same_second_resolve_to_the_higher_version(): void
     {
         $sameSecond = new \DateTimeImmutable('2026-01-05 10:00:00');
-        $this->engagement(
-            comment: new Watermark($sameSecond, 2),
-            verdict: new Watermark($sameSecond, 5),
+        $this->signals(
+            comment: new Engagement($sameSecond, 2),
+            verdict: new Engagement($sameSecond, 5),
         );
 
         self::assertSame(5, $this->resolver()->versionNumberFor($this->document, $this->reader));
     }
 
-    private function engagement(?Watermark $comment, ?Watermark $verdict): void
+    private function signals(?Engagement $comment, ?Engagement $verdict): void
     {
-        $this->comments->method('findWatermarkByDocumentAndAuthor')->willReturn($comment);
-        $this->reviews->method('findWatermarkByDocumentAndReviewer')->willReturn($verdict);
+        $this->comments->method('findLatestEngagementByDocumentAndAuthor')->willReturn($comment);
+        $this->reviews->method('findLatestEngagementByDocumentAndReviewer')->willReturn($verdict);
     }
 
     private function resolver(): LastSeenVersionResolver

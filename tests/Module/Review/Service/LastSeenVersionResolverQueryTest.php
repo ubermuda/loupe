@@ -41,7 +41,7 @@ final class LastSeenVersionResolverQueryTest extends KernelTestCase
         $project = new Project($this->reader, 'p-'.uniqid());
         $this->em->persist($project);
 
-        $this->document = new Document(owner: $this->reader, project: $project, title: 'Watermarked');
+        $this->document = new Document(owner: $this->reader, project: $project, title: 'Engaged Doc');
         $this->document->addVersion('The plan mentions JWTs.', '<p>The plan mentions JWTs.</p>');
         $this->em->persist($this->document);
         $this->em->flush();
@@ -108,7 +108,7 @@ final class LastSeenVersionResolverQueryTest extends KernelTestCase
         self::assertSame(1, $this->resolve());
     }
 
-    public function test_a_reader_who_never_engaged_has_no_watermark(): void
+    public function test_a_reader_who_never_engaged_resolves_to_nothing(): void
     {
         $this->revise('The plan mentions JWTs and rotation.');
 

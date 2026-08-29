@@ -10,7 +10,7 @@ use App\Module\Review\Entity\CommentStatus;
 use App\Module\Review\Entity\Document;
 use App\Module\Review\Entity\DocumentVersion;
 use App\Module\Review\ValueObject\Anchor;
-use App\Module\Review\ValueObject\Watermark;
+use App\Module\Review\ValueObject\Engagement;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\Persistence\ManagerRegistry;
 
@@ -160,7 +160,7 @@ class CommentRepository extends ServiceEntityRepository
      * copy inherits the original's createdAt, so one comment written on v3 exists
      * as rows on v3, v4 and v5. The earliest of them is where it was written.
      */
-    public function findWatermarkByDocumentAndAuthor(Document $document, User $author): ?Watermark
+    public function findLatestEngagementByDocumentAndAuthor(Document $document, User $author): ?Engagement
     {
         $row = $this->createQueryBuilder('c')
             ->select('c.createdAt AS createdAt', 'v.versionNumber AS versionNumber')
@@ -185,7 +185,7 @@ class CommentRepository extends ServiceEntityRepository
         $createdAt = $row['createdAt'];
         $versionNumber = $row['versionNumber'];
 
-        return new Watermark(
+        return new Engagement(
             $createdAt instanceof \DateTimeImmutable ? $createdAt : throw new \LogicException('createdAt must be a DateTimeImmutable.'),
             is_int($versionNumber) ? $versionNumber : throw new \LogicException('versionNumber must be an int.'),
         );

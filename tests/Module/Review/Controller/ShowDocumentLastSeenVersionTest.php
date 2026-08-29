@@ -31,8 +31,8 @@ final class ShowDocumentLastSeenVersionTest extends WebTestCase
 
     /**
      * The comment is written on v1 and two revisions follow, so v2 and v3 each
-     * carry a copy of it that inherits the original's createdAt. The watermark
-     * is the lowest of those three versions; taking the highest would resolve to
+     * carry a copy of it that inherits the original's createdAt. The version
+     * resolved is the lowest of those three; taking the highest would resolve to
      * v3 — the current version — and the banner would never appear.
      */
     public function test_the_banner_offers_the_diff_since_the_version_the_reader_commented_on(): void
@@ -40,7 +40,7 @@ final class ShowDocumentLastSeenVersionTest extends WebTestCase
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
 
-        $owner = $this->createUser($em, 'Riley Chen', 'watermark-owner@example.com');
+        $owner = $this->createUser($em, 'Riley Chen', 'engagement-owner@example.com');
         $project = new Project($owner, 'p-'.uniqid());
         $em->persist($project);
 
@@ -81,15 +81,15 @@ final class ShowDocumentLastSeenVersionTest extends WebTestCase
 
     /**
      * An agent replying through the MCP writes as the agent account, so it is
-     * that account's watermark it moves — never the human's.
+     * that account's engagement it records — never the human's.
      */
-    public function test_a_comment_by_someone_else_does_not_give_the_reader_a_watermark(): void
+    public function test_a_comment_by_someone_else_is_not_the_readers_engagement(): void
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
 
-        $owner = $this->createUser($em, 'Riley Chen', 'watermark-reader@example.com');
-        $other = $this->createUser($em, 'Claude', 'watermark-agent@example.com');
+        $owner = $this->createUser($em, 'Riley Chen', 'engagement-reader@example.com');
+        $other = $this->createUser($em, 'Claude', 'engagement-agent@example.com');
         $project = new Project($owner, 'p-'.uniqid());
         $em->persist($project);
 
@@ -120,7 +120,7 @@ final class ShowDocumentLastSeenVersionTest extends WebTestCase
         self::assertResponseIsSuccessful();
         // The revision landed, so the page really is at a later version than the
         // one the other account commented on — the banner is absent because the
-        // reader has no watermark, not because there is nothing to compare.
+        // reader has never engaged with it, not because there is nothing to compare.
         self::assertCount(2, $crawler->filter('.lp-version-entry'));
         self::assertSelectorNotExists('.lp-version-banner--unread');
     }

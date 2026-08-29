@@ -9,7 +9,7 @@ use App\Module\Review\Entity\Document;
 use App\Module\Review\Entity\DocumentVersion;
 use App\Module\Review\Entity\Review;
 use App\Module\Review\Entity\Verdict;
-use App\Module\Review\ValueObject\Watermark;
+use App\Module\Review\ValueObject\Engagement;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\Persistence\ManagerRegistry;
 
@@ -69,7 +69,7 @@ class ReviewRepository extends ServiceEntityRepository
      * with that version. Verdicts are never carried onto a new version, so the
      * row's own version is the answer.
      */
-    public function findWatermarkByDocumentAndReviewer(Document $document, User $reviewer): ?Watermark
+    public function findLatestEngagementByDocumentAndReviewer(Document $document, User $reviewer): ?Engagement
     {
         $row = $this->createQueryBuilder('review')
             ->select('review.submittedAt AS submittedAt', 'v.versionNumber AS versionNumber')
@@ -93,7 +93,7 @@ class ReviewRepository extends ServiceEntityRepository
         $submittedAt = $row['submittedAt'];
         $versionNumber = $row['versionNumber'];
 
-        return new Watermark(
+        return new Engagement(
             $submittedAt instanceof \DateTimeImmutable ? $submittedAt : throw new \LogicException('submittedAt must be a DateTimeImmutable.'),
             is_int($versionNumber) ? $versionNumber : throw new \LogicException('versionNumber must be an int.'),
         );

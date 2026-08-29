@@ -8,13 +8,13 @@ use App\Module\Account\Entity\User;
 use App\Module\Review\Entity\Document;
 use App\Module\Review\Repository\CommentRepository;
 use App\Module\Review\Repository\ReviewRepository;
-use App\Module\Review\ValueObject\Watermark;
+use App\Module\Review\ValueObject\Engagement;
 
 /**
  * Which version of a document a reader last engaged with, derived from their own
  * comments and verdicts. Nothing records a read, so engagement is the signal —
- * and it is the reader's own, which is why an agent reply on their behalf moves
- * the agent account's watermark rather than theirs.
+ * and it is the reader's own, which is why an agent reply on their behalf counts
+ * as the agent account's engagement rather than theirs.
  *
  * The version comes off the engagement rows themselves. Resolving a timestamp
  * against version creation times cannot work: every column involved is
@@ -37,13 +37,13 @@ final readonly class LastSeenVersionResolver
         }
 
         return $this->later(
-            $this->comments->findWatermarkByDocumentAndAuthor($document, $reader),
-            $this->reviews->findWatermarkByDocumentAndReviewer($document, $reader),
+            $this->comments->findLatestEngagementByDocumentAndAuthor($document, $reader),
+            $this->reviews->findLatestEngagementByDocumentAndReviewer($document, $reader),
         );
     }
 
     /** On an exact tie, the higher version: both events are the reader's own, so they saw both. */
-    private function later(?Watermark $comment, ?Watermark $verdict): ?int
+    private function later(?Engagement $comment, ?Engagement $verdict): ?int
     {
         if (null === $comment) {
             return $verdict?->versionNumber;
