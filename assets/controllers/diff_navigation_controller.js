@@ -1,5 +1,9 @@
 import { Controller } from '@hotwired/stimulus';
 
+const MINIMUM_SCROLL_DURATION = 250;
+const MAXIMUM_SCROLL_DURATION = 400;
+const SCROLL_MILLISECONDS_PER_PIXEL = 0.08;
+
 /**
  * Jumps a reviewer between the changed hunks of a version diff, by button or by
  * `j` / `k`. The shortcuts are document-level so they work wherever the reader
@@ -20,12 +24,14 @@ export default class extends Controller {
 
     connect() {
         this.currentIndex = -1;
+        this.animationFrame = null;
         this.onKeydown = this.handleKeydown.bind(this);
         document.addEventListener('keydown', this.onKeydown);
     }
 
     disconnect() {
         document.removeEventListener('keydown', this.onKeydown);
+        this.cancelScroll();
         // Turbo caches the page as it stands, so a marker left here would come
         // back on the restored snapshot with nothing driving it.
         this.clearCurrent();
@@ -85,10 +91,7 @@ export default class extends Controller {
         this.clearCurrent();
         hunk.classList.add('lp-diff__hunk--current');
         hunk.focus({ preventScroll: true });
-        // 'instant', not 'auto': 'auto' defers to the scroller's CSS
-        // scroll-behavior, and a smooth scroll is dropped silently by a browser
-        // with smooth scrolling off — leaving the jump with no scroll at all.
-        hunk.scrollIntoView({ block: 'center', behavior: 'instant' });
+        this.scrollToHunk(hunk);
 
         if (this.hasCounterTarget) {
             this.counterTarget.textContent = this.positionValue.replace(
@@ -96,6 +99,98 @@ export default class extends Controller {
                 String(this.currentIndex + 1),
             );
         }
+    }
+
+    /**
+     * Eases the hunk to the middle of its scroller, so the reader sees where
+     * they were taken rather than arriving with no sense of the distance.
+     *
+     * Hand-rolled rather than `behavior: 'smooth'` because a browser with
+     * smooth scrolling switched off drops that request entirely and never
+     * moves; writing `scrollTop` per frame is unaffected by that setting.
+     */
+    scrollToHunk(hunk) {
+        // Each press restarts from wherever the last animation reached, so
+        // holding `j` tracks the newest target instead of queueing behind it.
+        this.cancelScroll();
+
+        const scroller = this.scrollerFor(hunk);
+        const from = scroller.scrollTop;
+        const target = this.centeredScrollTop(scroller, hunk);
+        const distance = Math.abs(target - from);
+
+        if (distance < 1 || this.prefersReducedMotion()) {
+            scroller.scrollTop = target;
+
+            return;
+        }
+
+        const duration = Math.min(
+            MAXIMUM_SCROLL_DURATION,
+            MINIMUM_SCROLL_DURATION + distance * SCROLL_MILLISECONDS_PER_PIXEL,
+        );
+        const startedAt = performance.now();
+
+        const step = (now) => {
+            const progress = Math.min(1, (now - startedAt) / duration);
+            const eased = 1 - Math.pow(1 - progress, 3);
+            scroller.scrollTop = from + (target - from) * eased;
+            this.animationFrame =
+                progress < 1 ? requestAnimationFrame(step) : null;
+        };
+
+        this.animationFrame = requestAnimationFrame(step);
+    }
+
+    cancelScroll() {
+        if (null !== this.animationFrame) {
+            cancelAnimationFrame(this.animationFrame);
+            this.animationFrame = null;
+        }
+    }
+
+    prefersReducedMotion() {
+        return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    }
+
+    scrollerFor(element) {
+        for (
+            let node = element.parentElement;
+            node;
+            node = node.parentElement
+        ) {
+            const overflowY = window.getComputedStyle(node).overflowY;
+            if (
+                ('auto' === overflowY || 'scroll' === overflowY) &&
+                node.scrollHeight > node.clientHeight
+            ) {
+                return node;
+            }
+        }
+
+        return document.scrollingElement ?? document.documentElement;
+    }
+
+    centeredScrollTop(scroller, element) {
+        // The document scroller has no box of its own to measure against: its
+        // rect top moves with the scroll, while the viewport's stays at zero.
+        const isDocumentScroller =
+            scroller === document.scrollingElement ||
+            scroller === document.documentElement;
+        const scrollerTop = isDocumentScroller
+            ? 0
+            : scroller.getBoundingClientRect().top;
+
+        const offset = element.getBoundingClientRect().top - scrollerTop;
+        const centered =
+            scroller.scrollTop +
+            offset -
+            (scroller.clientHeight - element.offsetHeight) / 2;
+
+        return Math.max(
+            0,
+            Math.min(centered, scroller.scrollHeight - scroller.clientHeight),
+        );
     }
 
     clearCurrent() {
