@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Tests\Audit;
 
+use App\Audit\EventListener\FlushAuditSinksListener;
 use App\Module\Audit\Auditor;
 use Doctrine\DBAL\Connection;
 use Doctrine\ORM\EntityManagerInterface;
@@ -23,6 +24,8 @@ use Symfony\Component\Messenger\Event\WorkerMessageFailedEvent;
 use Symfony\Component\Messenger\Event\WorkerMessageHandledEvent;
 use Symfony\Component\Messenger\Event\WorkerMessageReceivedEvent;
 use Symfony\Component\Messenger\Event\WorkerRunningEvent;
+use Symfony\Component\Messenger\Event\WorkerStoppedEvent;
+use Symfony\Component\Messenger\EventListener\ResetServicesListener;
 use Symfony\Component\Messenger\MessageBus;
 use Symfony\Component\Messenger\Stamp\SentToFailureTransportStamp;
 use Symfony\Component\Messenger\Transport\InMemory\InMemoryTransport;
@@ -89,30 +92,83 @@ final class FlushAuditSinksListenerTest extends KernelTestCase
     }
 
     /**
-     * The drain has to be the last listener on each of these events: one below
-     * it records into a buffer that has already been emptied. Symfony
-     * Scheduler's own post-run dispatch is such a listener, and Loupe runs cron
-     * tasks through the scheduler.
+     * A listener below the drain records into a buffer that has already been
+     * emptied. -1022 is the latest a producer can be and still be served: one
+     * step later ties with Messenger's services reset, which no drain priority
+     * can sit both after and before.
      */
-    public function test_the_drain_runs_after_a_listener_registered_below_the_default_priority(): void
+    public function test_the_drain_runs_after_the_latest_listener_that_can_still_record(): void
     {
-        $late = [
-            KernelEvents::TERMINATE => 'terminate.late',
-            ConsoleEvents::TERMINATE => 'console.late',
-            WorkerMessageHandledEvent::class => 'handled.late',
-            WorkerMessageFailedEvent::class => 'failed.late',
+        $cases = [
+            'terminate.late' => [
+                KernelEvents::TERMINATE,
+                fn () => $this->dispatcher->dispatch($this->terminateEvent(), KernelEvents::TERMINATE),
+            ],
+            'console.late' => [
+                ConsoleEvents::TERMINATE,
+                fn () => $this->dispatcher->dispatch($this->consoleTerminateEvent(), ConsoleEvents::TERMINATE),
+            ],
+            'handled.late' => [
+                WorkerMessageHandledEvent::class,
+                fn () => $this->dispatcher->dispatch(new WorkerMessageHandledEvent(new Envelope(new \stdClass()), 'async')),
+            ],
+            'failed.late' => [
+                WorkerMessageFailedEvent::class,
+                fn () => $this->dispatcher->dispatch($this->messageFailedEvent()),
+            ],
+            'running.late' => [
+                WorkerRunningEvent::class,
+                fn () => $this->dispatcher->dispatch(new WorkerRunningEvent($this->worker(), false)),
+            ],
+            'stopped.late' => [
+                WorkerStoppedEvent::class,
+                fn () => $this->dispatcher->dispatch(new WorkerStoppedEvent($this->worker())),
+            ],
         ];
 
-        foreach ($late as $event => $operation) {
-            $this->dispatcher->addListener($event, fn () => $this->auditor->info($operation), -100);
+        foreach ($cases as $operation => [$event]) {
+            $this->dispatcher->addListener(
+                $event,
+                fn () => $this->auditor->info($operation),
+                FlushAuditSinksListener::BEFORE_SERVICES_RESET + 1,
+            );
         }
 
-        $this->dispatcher->dispatch($this->terminateEvent(), KernelEvents::TERMINATE);
-        $this->dispatcher->dispatch($this->consoleTerminateEvent(), ConsoleEvents::TERMINATE);
-        $this->dispatcher->dispatch(new WorkerMessageHandledEvent(new Envelope(new \stdClass()), 'async'));
-        $this->dispatcher->dispatch($this->messageFailedEvent());
+        // Asserted after each dispatch, not once at the end: a later event's
+        // drain would otherwise cover for an earlier event's missing one.
+        $recorded = [];
+        foreach ($cases as $operation => [, $dispatch]) {
+            $dispatch();
+            $recorded[] = $operation;
 
-        self::assertSame(array_values($late), $this->operations());
+            self::assertSame($recorded, $this->operations(), sprintf('"%s" was still buffered after its own event.', $operation));
+        }
+    }
+
+    /**
+     * The other deadline. ResetServicesListener empties the sink through the
+     * services resetter, so the drain has to be strictly earlier — and equal
+     * priorities resolve by registration order, which would make that an
+     * accident of compilation rather than a decision.
+     *
+     * messenger:consume adds that listener at runtime, so it is absent from the
+     * compiled dispatcher and this test has to add it the same way.
+     */
+    public function test_the_drain_runs_before_messenger_resets_the_services(): void
+    {
+        $reset = new ResetServicesListener(static::getContainer()->get('services_resetter'));
+        $this->dispatcher->addSubscriber($reset);
+
+        self::assertGreaterThan(
+            $this->priorityOf(WorkerRunningEvent::class, ResetServicesListener::class),
+            $this->priorityOf(WorkerRunningEvent::class, FlushAuditSinksListener::class),
+            'A drain at or below the reset writes nothing: the reset empties the buffer first.',
+        );
+
+        $this->recordAndAssertStillBuffered();
+        $this->dispatcher->dispatch(new WorkerRunningEvent($this->worker(), false));
+
+        self::assertSame(1, $this->recordCount());
     }
 
     /**
@@ -174,6 +230,30 @@ final class FlushAuditSinksListenerTest extends KernelTestCase
             'async',
             new \RuntimeException('the handler blew up'),
         );
+    }
+
+    private function worker(): Worker
+    {
+        return new Worker([], new MessageBus(), $this->dispatcher);
+    }
+
+    /**
+     * The priority a listener is really registered at. Matched against what the
+     * dispatcher itself lists, because getListenerPriority() answers null for a
+     * callable rebuilt by hand rather than taken from getListeners().
+     *
+     * @param class-string $listenerClass
+     */
+    private function priorityOf(string $event, string $listenerClass): int
+    {
+        foreach ($this->dispatcher->getListeners($event) as $listener) {
+            if (\is_array($listener) && $listener[0] instanceof $listenerClass) {
+                return $this->dispatcher->getListenerPriority($event, $listener)
+                    ?? throw new \LogicException(sprintf('"%s" was listed on "%s" but has no priority.', $listenerClass, $event));
+            }
+        }
+
+        throw new \LogicException(sprintf('No "%s" listener is registered on "%s".', $listenerClass, $event));
     }
 
     private function recordCount(): int
