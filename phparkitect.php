@@ -44,7 +44,17 @@ return static function (Config $config): void {
                 'App\Module\Audit',
                 'Psr\Clock',
                 'Psr\Log',
+                // A package may depend on Doctrine; it may not depend on Loupe.
+                // The sink owns a table, so it needs the ORM to declare it, the
+                // DBAL to write it and Uid for its identifiers.
+                'Doctrine\Bundle\DoctrineBundle\Repository',
+                'Doctrine\DBAL',
+                'Doctrine\ORM',
+                'Doctrine\Persistence',
+                'Symfony\Bridge\Doctrine\Types',
                 'Symfony\Component\DependencyInjection\Attribute',
+                'Symfony\Component\Uid',
+                'Symfony\Contracts\Service',
             ]))
             ->because('Audit is destined for a standalone package: it must depend on nothing in this application'),
     );

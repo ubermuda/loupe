@@ -42,6 +42,13 @@ doctrine:
                 # arguments with StringPrimary(), which only accepts a nested
                 # function if it is registered as one returning a string.
                 WEBSEARCH_TO_TSQUERY: MartinGeorgiev\Doctrine\ORM\Query\AST\Functions\WebsearchToTsquery
+        # The audit package holds an actor and a credential as marker interfaces
+        # so it never learns what this application calls a user. Doctrine cannot
+        # load metadata for an unresolved interface, so an audit_log association
+        # only maps once these are declared.
+        resolve_target_entities:
+            App\Module\Audit\AuditActorInterface: App\Module\Account\Entity\User
+            App\Module\Audit\AuditCredentialInterface: App\Module\Account\Entity\ApiToken
         mappings:
             App:
                 type: attribute

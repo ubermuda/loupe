@@ -12,6 +12,12 @@ final readonly class AuditActorContext
      */
     public function __construct(
         public ?AuditActorInterface $actor,
+        /**
+         * How to name the actor in a listing. Supplied by the consuming
+         * application, because the package cannot ask an empty marker interface
+         * what a person is called.
+         */
+        public ?string $actorLabel,
         public ?AuditCredentialInterface $credential,
         public string $channel,
         public array $context = [],

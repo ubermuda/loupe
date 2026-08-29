@@ -29,7 +29,7 @@ final class AuditorTest extends TestCase
         $sink = new FakeAuditSink();
         $auditor = new Auditor(
             [$sink],
-            $this->actorProvider(new AuditActorContext(null, null, 'session')),
+            $this->actorProvider(new AuditActorContext(null, null, null, 'session')),
             new RecordingLogger(),
             new MockClock(self::NOW),
         );
@@ -45,7 +45,7 @@ final class AuditorTest extends TestCase
         $sink = new FakeAuditSink();
         $auditor = new Auditor(
             [$sink],
-            $this->actorProvider(new AuditActorContext(null, null, 'session')),
+            $this->actorProvider(new AuditActorContext(null, null, null, 'session')),
             new RecordingLogger(),
             new MockClock(self::NOW),
         );
@@ -65,7 +65,7 @@ final class AuditorTest extends TestCase
 
         $auditor = new Auditor(
             [$sink],
-            $this->actorProvider(new AuditActorContext($actor, $credential, 'mcp')),
+            $this->actorProvider(new AuditActorContext($actor, 'Riley Chen', $credential, 'mcp')),
             new RecordingLogger(),
             new MockClock(self::NOW),
         );
@@ -322,7 +322,7 @@ final class AuditorTest extends TestCase
 
         $auditor = new Auditor(
             $sinks,
-            $this->actorProvider(new AuditActorContext(null, null, 'web')),
+            $this->actorProvider(new AuditActorContext(null, null, null, 'web')),
             new RecordingLogger(),
             new MockClock(self::NOW),
         );
@@ -341,7 +341,7 @@ final class AuditorTest extends TestCase
     {
         return new Auditor(
             $sinks,
-            $this->actorProvider(new AuditActorContext(null, null, 'web')),
+            $this->actorProvider(new AuditActorContext(null, null, null, 'web')),
             $logger,
             new MockClock(self::NOW),
         );

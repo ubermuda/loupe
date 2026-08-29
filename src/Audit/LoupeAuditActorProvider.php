@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Audit;
 
 use App\Module\Account\Entity\ApiTokenScope;
+use App\Module\Account\Entity\User;
 use App\Module\Account\Security\AuthenticatedApiTokenResolver;
 use App\Module\Audit\AuditActorContext;
 use App\Module\Audit\AuditActorInterface;
@@ -50,6 +51,9 @@ final readonly class LoupeAuditActorProvider implements AuditActorProviderInterf
 
         return new AuditActorContext(
             $user instanceof AuditActorInterface ? $user : null,
+            // The display name rather than the email: a record already carries
+            // the actor id for identity, and the label exists to be read.
+            $user instanceof User ? $user->fullName : null,
             $apiToken,
             $channel->value,
             $this->auditContext->ambientContext,
