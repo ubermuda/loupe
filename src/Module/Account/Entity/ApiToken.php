@@ -90,4 +90,10 @@ class ApiToken implements AuditCredentialInterface
     {
         $this->revokedAt = new \DateTimeImmutable();
     }
+
+    #[\Override]
+    public function auditIdentifier(): ?string
+    {
+        return $this->id?->toRfc4122();
+    }
 }

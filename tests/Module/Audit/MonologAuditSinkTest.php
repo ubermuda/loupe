@@ -4,14 +4,14 @@ declare(strict_types=1);
 
 namespace App\Tests\Module\Audit;
 
-use App\Module\Audit\AuditActorInterface;
-use App\Module\Audit\AuditCredentialInterface;
 use App\Module\Audit\AuditEvent;
 use App\Module\Audit\AuditLevel;
 use App\Module\Audit\AuditLoggerRegistryInterface;
 use App\Module\Audit\Auditor;
 use App\Module\Audit\AuditSubject;
 use App\Module\Audit\MonologAuditSink;
+use App\Tests\Support\FakeAuditActor;
+use App\Tests\Support\FakeAuditCredential;
 use App\Tests\Support\RecordingLogger;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\LoggerInterface;
@@ -94,14 +94,15 @@ final class MonologAuditSinkTest extends TestCase
         ]], $this->domainLogger->records);
     }
 
-    public function test_the_actor_and_credential_never_reach_the_log_line(): void
+    public function test_the_actor_credential_and_label_never_reach_the_log_line(): void
     {
         $this->sink->write(new AuditEvent(
             'document.deleted',
             AuditLevel::Info,
             Auditor::CATEGORY_DOMAIN,
-            new class implements AuditActorInterface {},
-            new class implements AuditCredentialInterface {},
+            new FakeAuditActor('Riley Chen', 'user-1'),
+            'Riley Chen',
+            new FakeAuditCredential('token-1'),
             'mcp',
             null,
             [],
@@ -125,6 +126,7 @@ final class MonologAuditSinkTest extends TestCase
             'document.deleted',
             AuditLevel::Warning,
             $category,
+            null,
             null,
             null,
             'mcp',

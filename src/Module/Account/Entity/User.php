@@ -162,6 +162,19 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface, AdminPr
         return $this->email;
     }
 
+    /** The display name rather than the email: the trail already carries the id for identity. */
+    #[\Override]
+    public function auditLabel(): ?string
+    {
+        return $this->fullName;
+    }
+
+    #[\Override]
+    public function auditIdentifier(): ?string
+    {
+        return $this->id?->toRfc4122();
+    }
+
     public function isVerified(): bool
     {
         return null !== $this->emailVerifiedAt;
