@@ -9,15 +9,16 @@ use App\Module\Audit\AuditLevel;
 use App\Module\Audit\Auditor;
 use App\Module\Audit\AuditSubject;
 use App\Module\Audit\DoctrineAuditSink;
+use App\Tests\Support\FakeAuditActor;
+use App\Tests\Support\FakeAuditCredential;
 use Doctrine\DBAL\Connection;
-use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\MockObject\Stub;
 use PHPUnit\Framework\TestCase;
 
 /**
  * The statement-shape half of the sink. What it does to a real database — and
- * to a rolled-back transaction — is in DoctrineAuditSinkPersistenceTest.
+ * to a rolled-back transaction — is in App\Tests\Audit\AuditTrailPersistenceTest.
  */
 final class DoctrineAuditSinkTest extends TestCase
 {
@@ -113,7 +114,7 @@ final class DoctrineAuditSinkTest extends TestCase
             },
         );
 
-        $sink = new DoctrineAuditSink($failing, $this->createStub(EntityManagerInterface::class), 'info');
+        $sink = new DoctrineAuditSink($failing, 'info');
         $sink->write($this->event());
 
         try {
@@ -142,7 +143,7 @@ final class DoctrineAuditSinkTest extends TestCase
             },
         );
 
-        $sink = new DoctrineAuditSink($failing, $this->createStub(EntityManagerInterface::class), 'info');
+        $sink = new DoctrineAuditSink($failing, 'info');
         for ($i = 0; $i < $rowsPerStatement + 1; ++$i) {
             $sink->write($this->event());
         }
@@ -208,6 +209,39 @@ final class DoctrineAuditSinkTest extends TestCase
         self::assertSame('2026-08-29 12:00:00.123456', $occurredAt);
     }
 
+    public function test_the_identifier_columns_carry_what_the_actor_and_the_credential_report(): void
+    {
+        $sink = $this->sink();
+        $sink->write($this->event(
+            actor: new FakeAuditActor('Riley Chen', 'user-1'),
+            credential: new FakeAuditCredential('token-1'),
+        ));
+        $sink->flush();
+
+        [, , , , , $actorId, , $credentialId] = $this->statements[0]['params'];
+
+        self::assertSame('user-1', $actorId);
+        self::assertSame('token-1', $credentialId);
+    }
+
+    /**
+     * An actor Doctrine has not assigned an id to yet says so, and the record is
+     * still written: the trail keeps the label, which is the part a reader needs.
+     */
+    public function test_an_actor_with_no_identifier_still_gets_a_row(): void
+    {
+        $sink = $this->sink();
+        $sink->write($this->event(actor: new FakeAuditActor('Riley Chen')));
+        $sink->flush();
+
+        self::assertCount(1, $this->statements);
+
+        [, , , , , $actorId, $actorLabel] = $this->statements[0]['params'];
+
+        self::assertNull($actorId);
+        self::assertSame('Riley Chen', $actorLabel);
+    }
+
     /** So `context->>'key'` keeps working on a row that happened to carry nothing. */
     public function test_an_empty_context_is_stored_as_an_object_rather_than_an_array(): void
     {
@@ -220,18 +254,21 @@ final class DoctrineAuditSinkTest extends TestCase
 
     private function sink(): DoctrineAuditSink
     {
-        return new DoctrineAuditSink($this->connection, $this->createStub(EntityManagerInterface::class), 'info');
+        return new DoctrineAuditSink($this->connection, 'info');
     }
 
-    private function event(AuditLevel $level = AuditLevel::Info): AuditEvent
-    {
+    private function event(
+        AuditLevel $level = AuditLevel::Info,
+        ?FakeAuditActor $actor = null,
+        ?FakeAuditCredential $credential = null,
+    ): AuditEvent {
         return new AuditEvent(
             'document.deleted',
             $level,
             Auditor::CATEGORY_DOMAIN,
-            null,
-            null,
-            null,
+            $actor,
+            $actor?->auditLabel(),
+            $credential,
             'session',
             null,
             [],

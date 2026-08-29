@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Module\Audit;
 
 use Doctrine\DBAL\Connection;
-use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\Uid\Uuid;
 use Symfony\Contracts\Service\ResetInterface;
@@ -41,8 +40,6 @@ final class DoctrineAuditSink implements AuditSinkInterface, ResetInterface
 
     public function __construct(
         private readonly Connection $connection,
-        /** Metadata only: the identifier of an actor the package knows solely as a marker interface. */
-        private readonly EntityManagerInterface $entityManager,
 
         #[Autowire(param: 'app.audit.minimum_level')]
         string $minimumLevel,
@@ -65,9 +62,9 @@ final class DoctrineAuditSink implements AuditSinkInterface, ResetInterface
             $event->level->value,
             $event->category,
             $event->channel,
-            $this->identifierOf($event->actor),
+            $event->actor?->auditIdentifier(),
             $event->actorLabel,
-            $this->identifierOf($event->credential),
+            $event->credential?->auditIdentifier(),
             $event->subject?->type,
             $event->subject?->id,
             json_encode($event->context, \JSON_THROW_ON_ERROR | \JSON_FORCE_OBJECT),
@@ -129,16 +126,5 @@ final class DoctrineAuditSink implements AuditSinkInterface, ResetInterface
                 .implode(', ', array_fill(0, count($rows), $row)),
             array_merge(...$rows),
         );
-    }
-
-    private function identifierOf(?object $entity): ?string
-    {
-        if (null === $entity) {
-            return null;
-        }
-
-        $identifier = $this->entityManager->getClassMetadata($entity::class)->getIdentifierValues($entity);
-
-        return [] === $identifier ? null : (string) reset($identifier);
     }
 }

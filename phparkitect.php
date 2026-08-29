@@ -45,11 +45,11 @@ return static function (Config $config): void {
                 'Psr\Clock',
                 'Psr\Log',
                 // A package may depend on Doctrine; it may not depend on Loupe.
-                // The sink owns a table, so it needs the ORM to declare it, the
-                // DBAL to write it and Uid for its identifiers.
+                // Mapping only, never the rest of the ORM: the sink writes
+                // through the DBAL so its rows survive a rolled-back transaction.
                 'Doctrine\Bundle\DoctrineBundle\Repository',
                 'Doctrine\DBAL',
-                'Doctrine\ORM',
+                'Doctrine\ORM\Mapping',
                 'Doctrine\Persistence',
                 'Symfony\Bridge\Doctrine\Types',
                 'Symfony\Component\DependencyInjection\Attribute',

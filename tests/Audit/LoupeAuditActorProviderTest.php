@@ -49,7 +49,6 @@ final class LoupeAuditActorProviderTest extends TestCase
 
         self::assertSame(AuditChannel::Session->value, $actor->channel);
         self::assertSame($this->user, $actor->actor);
-        self::assertSame('Riley Chen', $actor->actorLabel);
         self::assertNull($actor->credential);
     }
 
@@ -87,7 +86,6 @@ final class LoupeAuditActorProviderTest extends TestCase
 
         self::assertSame(AuditChannel::System->value, $actor->channel);
         self::assertNull($actor->actor);
-        self::assertNull($actor->actorLabel);
         self::assertNull($actor->credential);
     }
 

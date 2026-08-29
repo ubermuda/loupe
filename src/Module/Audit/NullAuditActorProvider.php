@@ -11,6 +11,6 @@ final readonly class NullAuditActorProvider implements AuditActorProviderInterfa
     #[\Override]
     public function currentActor(): AuditActorContext
     {
-        return new AuditActorContext(null, null, null, self::CHANNEL);
+        return new AuditActorContext(null, null, self::CHANNEL);
     }
 }
