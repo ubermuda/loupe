@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Module\Review\Service;
 
+use App\Module\Review\ValueObject\DocumentDiff;
 use League\CommonMark\Environment\Environment;
 use League\CommonMark\Event\DocumentParsedEvent;
 use League\CommonMark\Extension\CommonMark\CommonMarkCoreExtension;
@@ -28,6 +29,14 @@ final readonly class MarkdownRenderer
      */
     private const string HEADING_ID_PREFIX = 'heading-';
 
+    /**
+     * Marks every `ins`/`del` this class wrote for a diff, and nothing a document
+     * wrote itself. Anything reading the rendered diff's text — the comment
+     * anchor walker above all — keys on it to skip removed text without dropping
+     * text the document meant to strike.
+     */
+    public const string DIFF_MARK_CLASS = 'lp-diff__mark';
+
     /** How League\CommonMark's FrontMatterParser recognises a block, mirrored so an untabulated one can be cut back out. */
     private const string FRONT_MATTER_PATTERN = '~^---\R.*?\R---\R~s';
 
@@ -50,6 +59,16 @@ final readonly class MarkdownRenderer
 
     /** Matches one wrapped comment, capturing block-vs-inline and the text. */
     private string $notePattern;
+
+    /**
+     * Carried on a diff mark as `datetime` — the one attribute the sanitizer
+     * keeps on `ins`/`del`, and one no document's own `<del>` has reason to
+     * hold. Minted per instance like the note markers, so it cannot be forged.
+     */
+    private string $diffNonce;
+
+    /** Matches one diff mark's opening tag, capturing `ins` or `del`. */
+    private string $diffMarkPattern;
 
     /**
      * Ceiling on the HTML one front-matter block may produce.
@@ -100,6 +119,7 @@ final readonly class MarkdownRenderer
     public function __construct(
         private LoggerInterface $logger,
         private DecisionBlockService $decisions = new DecisionBlockService(),
+        private DiffMarkdownComposer $diffComposer = new DiffMarkdownComposer(),
     ) {
         $nonce = bin2hex(random_bytes(8));
         $this->noteBlockOpen = sprintf('[loupe-note-%s-block]', $nonce);
@@ -108,6 +128,9 @@ final readonly class MarkdownRenderer
         // Hex digits and the literal parts are all regex-inert, so the markers
         // go in unquoted; `s` lets a multi-line comment match.
         $this->notePattern = sprintf('~\[loupe-note-%s-(block|inline)\](.*?)\[/loupe-note-%s\]~s', $nonce, $nonce);
+
+        $this->diffNonce = sprintf('loupe-diff-%s', bin2hex(random_bytes(8)));
+        $this->diffMarkPattern = sprintf('~<(ins|del) datetime="%s">~', $this->diffNonce);
 
         $this->converter = new MarkdownConverter($this->buildEnvironment(withFrontMatter: true));
         $this->plainConverter = new MarkdownConverter($this->buildEnvironment(withFrontMatter: false));
@@ -259,6 +282,40 @@ final readonly class MarkdownRenderer
         );
 
         return ($table ?? $literal).$html;
+    }
+
+    /**
+     * Renders a diff as the whole document with its changes marked.
+     *
+     * One render of one merged source, so the pass that dedupes heading ids sees
+     * both versions at once and a heading kept across them cannot collide with
+     * itself.
+     */
+    public function renderDiff(DocumentDiff $diff): string
+    {
+        return $this->withDiffMarkClasses($this->render($this->diffComposer->compose($diff, $this->diffNonce)));
+    }
+
+    /**
+     * Swaps each mark's nonce for the class the rendered diff is read by.
+     *
+     * Runs after sanitization, which allows `class` on no element the composer
+     * emits: every diff class in the output is therefore one this method put
+     * there, and a document's own `<ins>` keeps none.
+     */
+    private function withDiffMarkClasses(string $html): string
+    {
+        return preg_replace_callback(
+            $this->diffMarkPattern,
+            /** @param array<int, string> $matches */
+            static fn (array $matches): string => sprintf(
+                '<%1$s class="%2$s %2$s--%3$s">',
+                $matches[1],
+                self::DIFF_MARK_CLASS,
+                'ins' === $matches[1] ? 'inserted' : 'deleted',
+            ),
+            $html,
+        ) ?? throw new \RuntimeException('Diff mark class injection failed: '.preg_last_error_msg().'.');
     }
 
     /**

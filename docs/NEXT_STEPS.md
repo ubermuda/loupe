@@ -2592,3 +2592,39 @@ the outbox, `DrainOutboxHandler`, the Mercure hub and the `site_review.push`
 flag — but nothing writes an event any more (see 'The site-review push
 subsystem has no producer left'). Any work here starts by deciding what an
 agent would announce, not by building transport.
+
+## A rendered diff cannot mark every change it contains
+
+**Author:** Claude · **Type:** feature · **Priority:** low · **Status:** pending
+
+`DiffMarkdownComposer` (`src/Module/Review/Service/`) shows a change by
+injecting `<ins>`/`<del>` into one merged Markdown source. Three constructs
+cannot carry that injection, because marking them stops them being what they
+are. The composer leaves each alone, and the change goes unreported.
+
+**Front matter.** The block only parses at byte zero, so it can neither be
+wrapped in a `<del>` HTML block nor marked inline. The new version's block is
+emitted verbatim and the old one dropped, so a revision that changes only a
+front-matter value renders as an unmarked table — indistinguishable from a
+revision that changed nothing.
+
+**Link reference definitions** (`[spec]: https://example.test/spec`). A marked
+definition is no longer a definition, and every reference naming it then renders
+as its own literal brackets — which corrupts prose the revision never touched.
+Same treatment for that reason: the new side is emitted unmarked and the old
+side dropped, so a revision that changes only a definition's URL also renders
+identically to no change.
+
+**Setext heading underlines.** Changing a `Title` underlined with `======` to
+one underlined with `------` gives a delete/insert pair sharing no text, so each
+line is marked whole. A `<del>` around the underline demotes the heading: the
+reader sees `Title` as ordinary body text with a struck row of `=` beneath it.
+This one degrades rather than corrupting — the same shape as a deleted `---`
+thematic break, which the composer already accepts — so leaving it as it is
+remains a legitimate answer.
+
+Closing the first two needs a UI decision deliberately not taken here: a per-row
+mark inside the `lp-front-matter` table the renderer builds outside the
+sanitizer, a banner above the pane, or something else. Either way the composer
+would have to report what changed alongside the merged Markdown, since the
+merged source itself has nowhere to say it.
