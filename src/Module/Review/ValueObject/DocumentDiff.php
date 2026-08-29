@@ -27,6 +27,42 @@ final readonly class DocumentDiff
         return array_any($this->lines, fn ($line) => DiffKind::Unchanged !== $line->kind);
     }
 
+    /**
+     * The lines partitioned into alternating changed and unchanged runs, in
+     * document order.
+     *
+     * @return list<DiffGroup>
+     */
+    public function groups(): array
+    {
+        $groups = [];
+        $current = [];
+        $changed = false;
+
+        foreach ($this->lines as $line) {
+            $lineChanged = DiffKind::Unchanged !== $line->kind;
+            if ([] !== $current && $lineChanged !== $changed) {
+                $groups[] = new DiffGroup($changed, $current);
+                $current = [];
+            }
+
+            $changed = $lineChanged;
+            $current[] = $line;
+        }
+
+        if ([] !== $current) {
+            $groups[] = new DiffGroup($changed, $current);
+        }
+
+        return $groups;
+    }
+
+    /** How many separate runs of changed lines the diff holds. */
+    public function changeCount(): int
+    {
+        return count(array_filter($this->groups(), static fn (DiffGroup $group): bool => $group->changed));
+    }
+
     /** The older version's Markdown source, rebuilt from the diff. */
     public function oldSource(): string
     {

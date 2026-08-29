@@ -75,6 +75,16 @@ final class DiffDocumentVersionsControllerTest extends WebTestCase
             static fn (Crawler $node): string => $node->text(),
         ));
 
+        // Every changed run is a numbered jump target, and the lines stay
+        // inside it — the navigation and the round-trip both read that nesting.
+        self::assertSame(
+            ['diff-hunk-1'],
+            $crawler->filter('[data-diff-navigation-target="hunk"]')->each(
+                static fn (Crawler $node): string => (string) $node->attr('id'),
+            ),
+        );
+        self::assertCount(2, $crawler->filter('#diff-hunk-1 .lp-diff__line'));
+
         // What the author claims changed, read next to what actually did.
         self::assertSelectorTextContains('.lp-diff-notes', 'Phased the rollout.');
         self::assertStringNotContainsString('The original brief.', $crawler->filter('.lp-diff-notes')->text());

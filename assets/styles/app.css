@@ -1376,6 +1376,21 @@
     .lp-diff__mark--inserted {
         @apply bg-status-ok-border text-status-ok-ink no-underline;
     }
+    /* Jump-to-change bar. Sticky at the top of the scroller because the page's
+       own top bar is not, so nothing else is competing for that band. */
+    .lp-diff-nav {
+        @apply sticky top-0 z-10 flex items-center gap-2 max-w-215 mb-4 py-2 bg-app;
+    }
+    .lp-diff-nav__count {
+        @apply mr-auto font-mono text-fg-dim text-xs uppercase tracking-widest;
+    }
+    /* scroll-margin keeps a hunk clear of the bar that scrolled it into view. */
+    .lp-diff__hunk {
+        @apply block scroll-mt-16 rounded-lg outline-none;
+    }
+    .lp-diff__hunk--current {
+        @apply outline-2 outline-offset-2 outline-accent;
+    }
 
     /* What the author said a revision changed, sitting directly above what it
        actually changed. */
