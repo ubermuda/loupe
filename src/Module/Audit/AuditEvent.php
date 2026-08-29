@@ -19,7 +19,13 @@ final readonly class AuditEvent
         public ?AuditActorInterface $actor,
         /** Resolved once, at record time, so the row keeps a name after the account is gone. */
         public ?string $actorLabel,
+        /**
+         * Also resolved at record time, so every sink reads one moment. The cost
+         * is that an actor not yet flushed then records null for good.
+         */
+        public ?string $actorIdentifier,
         public ?AuditCredentialInterface $credential,
+        public ?string $credentialIdentifier,
         public string $channel,
         public ?AuditSubject $subject,
         public array $context,

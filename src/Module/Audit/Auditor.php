@@ -86,20 +86,12 @@ final readonly class Auditor
      */
     private function record(AuditLevel $level, string $operation, array $context, ?AuditSubject $subject, string $category): void
     {
-        $actor = $this->actorProvider->currentActor();
-
-        $event = new AuditEvent(
-            $operation,
-            $level,
-            $category,
-            $actor->actor,
-            $actor->actor?->auditLabel(),
-            $actor->credential,
-            $actor->channel,
-            $subject,
-            $context,
-            $this->clock->now(),
-        );
+        try {
+            $event = $this->buildEvent($level, $operation, $context, $subject, $category);
+        } catch (\Throwable $e) {
+            $this->report('audit.actor_unresolved', ['operation' => $operation, 'exception' => $e]);
+            $event = $this->unattributedEvent($level, $operation, $context, $subject, $category);
+        }
 
         foreach ($this->sinks as $sink) {
             try {
@@ -110,13 +102,75 @@ final readonly class Auditor
         }
     }
 
+    /**
+     * @param array<string, scalar|null> $context
+     */
+    private function buildEvent(AuditLevel $level, string $operation, array $context, ?AuditSubject $subject, string $category): AuditEvent
+    {
+        $actor = $this->actorProvider->currentActor();
+
+        return new AuditEvent(
+            $operation,
+            $level,
+            $category,
+            $actor->actor,
+            $actor->actor?->auditLabel(),
+            $actor->actor?->auditIdentifier(),
+            $actor->credential,
+            $actor->credential?->auditIdentifier(),
+            $actor->channel,
+            $subject,
+            $context,
+            $this->clock->now(),
+        );
+    }
+
+    /**
+     * Stands in when the identity cannot be resolved: dropping the record would
+     * make an audited operation look like one that never happened. The marker
+     * overrides a caller's key of the same name because it describes the record,
+     * and the clock is not asked again because it is one of the things that throws.
+     *
+     * @param array<string, scalar|null> $context
+     */
+    private function unattributedEvent(AuditLevel $level, string $operation, array $context, ?AuditSubject $subject, string $category): AuditEvent
+    {
+        return new AuditEvent(
+            $operation,
+            $level,
+            $category,
+            null,
+            null,
+            null,
+            null,
+            null,
+            NullAuditActorProvider::CHANNEL,
+            $subject,
+            ['actorUnresolved' => true] + $context,
+            new \DateTimeImmutable(),
+        );
+    }
+
     private function reportSinkFailure(AuditSinkInterface $sink, string $stage, \Throwable $e, ?string $operation = null): void
     {
-        $this->logger->error('audit.sink_failed', [
+        $this->report('audit.sink_failed', [
             'sink' => $sink::class,
             'stage' => $stage,
             'operation' => $operation,
             'exception' => $e,
         ]);
+    }
+
+    /**
+     * @param array<string, mixed> $context
+     */
+    private function report(string $event, array $context): void
+    {
+        try {
+            $this->logger->error($event, $context);
+        } catch (\Throwable) {
+            // A logger reaching the backend that just failed must not turn a
+            // contained failure into one that interrupts the fan-out.
+        }
     }
 }
