@@ -7,6 +7,7 @@ namespace App\Tests\Module\SiteReview\EventListener;
 use App\Module\Account\Entity\ApiToken;
 use App\Module\Account\Entity\User;
 use App\Module\Account\Repository\ApiTokenRepository;
+use App\Module\Account\Security\AuthenticatedApiTokenResolver;
 use App\Module\Project\Entity\Project;
 use App\Module\Project\Repository\ProjectRepository;
 use App\Module\Project\Security\AuthenticatedProjectResolver;
@@ -115,7 +116,7 @@ final class LogWidgetOriginMismatchTest extends TestCase
         };
 
         $listener = new LogWidgetOriginMismatch(
-            new AuthenticatedProjectResolver($tokenStorage, $apiTokens, $projects),
+            new AuthenticatedProjectResolver(new AuthenticatedApiTokenResolver($tokenStorage, $apiTokens), $projects),
             $seen ?? new ArrayAdapter(),
             $logger,
         );

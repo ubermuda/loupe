@@ -51,14 +51,16 @@ final readonly class Auditor
 
     /**
      * @param array<string, scalar|null> $context
+     * @param ?string                    $channel stated by the caller when it knows its own channel;
+     *                                            null defers to the actor provider
      */
-    public function record(string $operation, AuditOutcome $outcome, array $context = [], ?AuditSubject $subject = null, string $category = self::CATEGORY_DOMAIN): void
+    public function record(string $operation, AuditOutcome $outcome, array $context = [], ?AuditSubject $subject = null, string $category = self::CATEGORY_DOMAIN, ?string $channel = null): void
     {
         try {
-            $event = $this->buildEvent($operation, $outcome, $context, $subject, $category);
+            $event = $this->buildEvent($operation, $outcome, $context, $subject, $category, $channel);
         } catch (\Throwable $e) {
             $this->report('audit.actor_unresolved', ['operation' => $operation, 'exception' => $e]);
-            $event = $this->unattributedEvent($operation, $outcome, $context, $subject, $category);
+            $event = $this->unattributedEvent($operation, $outcome, $context, $subject, $category, $channel);
         }
 
         foreach ($this->sinks as $sink) {
@@ -73,7 +75,7 @@ final readonly class Auditor
     /**
      * @param array<string, scalar|null> $context
      */
-    private function buildEvent(string $operation, AuditOutcome $outcome, array $context, ?AuditSubject $subject, string $category): AuditEvent
+    private function buildEvent(string $operation, AuditOutcome $outcome, array $context, ?AuditSubject $subject, string $category, ?string $channel): AuditEvent
     {
         $actor = $this->actorProvider->currentActor();
 
@@ -83,9 +85,11 @@ final readonly class Auditor
             $category,
             $actor->actor,
             $actor->credential,
-            $actor->channel,
+            $channel ?? $actor->channel,
             $subject,
-            $context,
+            // Union, not array_merge: the caller's keys win, and neither side's
+            // keys are renumbered.
+            $context + $actor->context,
             $this->clock->now(),
         );
     }
@@ -98,7 +102,7 @@ final readonly class Auditor
      *
      * @param array<string, scalar|null> $context
      */
-    private function unattributedEvent(string $operation, AuditOutcome $outcome, array $context, ?AuditSubject $subject, string $category): AuditEvent
+    private function unattributedEvent(string $operation, AuditOutcome $outcome, array $context, ?AuditSubject $subject, string $category, ?string $channel): AuditEvent
     {
         return new AuditEvent(
             $operation,
@@ -106,7 +110,7 @@ final readonly class Auditor
             $category,
             null,
             null,
-            NullAuditActorProvider::CHANNEL,
+            $channel ?? NullAuditActorProvider::CHANNEL,
             $subject,
             ['actorUnresolved' => true] + $context,
             new \DateTimeImmutable(),

@@ -1,0 +1,54 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Module\Audit;
+
+use Psr\Log\LoggerInterface;
+
+/**
+ * Writes every event straight to the logger its category maps to, so audit
+ * records keep their place in the log stream — which is why flush() has nothing
+ * left to do.
+ */
+final readonly class MonologAuditSink implements AuditSinkInterface
+{
+    public function __construct(
+        private AuditLoggerRegistryInterface $loggers,
+        private LoggerInterface $fallbackLogger,
+    ) {
+    }
+
+    #[\Override]
+    public function write(AuditEvent $event): void
+    {
+        $logger = $this->loggers->loggerFor($event->category) ?? $this->fallbackLogger;
+
+        $logger->info($event->operation, $this->contextFor($event));
+    }
+
+    #[\Override]
+    public function flush(): void
+    {
+    }
+
+    /**
+     * @return array<string, scalar|null>
+     */
+    private function contextFor(AuditEvent $event): array
+    {
+        $context = $event->context;
+        $context['outcome'] = $event->outcome->value;
+        $context['channel'] = $event->channel;
+
+        // Nothing about the actor or the credential — not the objects, which
+        // Monolog would normalize a password hash out of, and not the name or
+        // the ids, which do not belong in a stream with no erasure path.
+        if (null !== $event->subject) {
+            $context['subjectType'] = $event->subject->type;
+            $context['subjectId'] = $event->subject->id;
+        }
+
+        return $context;
+    }
+}

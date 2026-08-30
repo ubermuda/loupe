@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Module\Billing\Controller;
 
+use App\Audit\AuditChannel;
+use App\Audit\AuditContext;
 use App\Controller\AppController;
 use App\Module\Billing\Command\SyncStripeSubscriptionCommand;
 use App\Module\Billing\Command\SyncStripeSubscriptionHandler;
@@ -44,6 +46,7 @@ final class StripeWebhookController extends AppController
     public function __construct(
         private readonly SyncStripeSubscriptionHandler $syncSubscription,
         private readonly LoggerInterface $logger,
+        private readonly AuditContext $auditContext,
 
         #[Autowire(env: 'STRIPE_WEBHOOK_SECRET')]
         private readonly string $webhookSecret,
@@ -52,6 +55,10 @@ final class StripeWebhookController extends AppController
 
     public function __invoke(Request $request): Response
     {
+        // Declared, never detected: an anonymous request is not evidence of a
+        // webhook — registration and password reset are anonymous too.
+        $this->auditContext->channel = AuditChannel::Webhook;
+
         try {
             $event = Webhook::constructEvent(
                 $request->getContent(),

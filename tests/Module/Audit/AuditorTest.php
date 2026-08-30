@@ -24,6 +24,38 @@ final class AuditorTest extends TestCase
 {
     private const string NOW = '2026-08-29 10:11:12';
 
+    public function test_a_channel_stated_at_the_call_site_beats_the_actor_context(): void
+    {
+        $sink = new FakeAuditSink();
+        $auditor = new Auditor(
+            [$sink],
+            $this->actorProvider(new AuditActorContext(null, null, 'session')),
+            new RecordingLogger(),
+            new MockClock(self::NOW),
+        );
+
+        $auditor->record('billing.webhook.received', AuditOutcome::Success, channel: 'webhook');
+
+        self::assertCount(1, $sink->events);
+        self::assertSame('webhook', $sink->events[0]->channel);
+    }
+
+    public function test_without_a_stated_channel_the_actor_context_still_decides(): void
+    {
+        $sink = new FakeAuditSink();
+        $auditor = new Auditor(
+            [$sink],
+            $this->actorProvider(new AuditActorContext(null, null, 'session')),
+            new RecordingLogger(),
+            new MockClock(self::NOW),
+        );
+
+        $auditor->record('billing.webhook.received', AuditOutcome::Success);
+
+        self::assertCount(1, $sink->events);
+        self::assertSame('session', $sink->events[0]->channel);
+    }
+
     public function test_the_event_is_built_from_the_arguments_and_the_actor_context(): void
     {
         $actor = new FakeAuditActor('Riley Chen', 'user-1');
