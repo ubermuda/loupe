@@ -85,8 +85,17 @@
     {# In diff mode the comment-anchor controller is not attached at all rather
        than told to stay quiet: its highlight painting runs on every layout
        regardless of readOnly, and the pane it walks no longer holds
-       DocumentVersion::plainText(). #}
-    <div class="lp-review-block"{% if not diffMode %} data-controller="comment-anchor"{% endif %}>
+       DocumentVersion::plainText(). The diff's controller takes its place here,
+       above both the jump bar and the marks it moves between. #}
+    {% set diffNavigation = diffMode and diffChangeCount is not null %}
+    {# The one state where the page misleads rather than merely simplifies: the
+       two versions do differ, and the rendered view marked none of it, so the
+       count says "No changes" about a revision that changed something. A null
+       count is a refusal or two identical versions, and both say so already. #}
+    {% set diffUnmarked = diffNavigation and diffView.value == 'rendered' and diffChangeCount == 0 %}
+    <div class="lp-review-block"
+        {%- if diffNavigation %} data-controller="diff-navigation" data-diff-navigation-position-value="{{ 'review.document.diff.nav.position'|trans({'%total%': diffChangeCount}) }}"
+        {%- elseif not diffMode %} data-controller="comment-anchor"{% endif %}>
         {# .lp-review-doc is position:relative: the offset parent the floating
            composer and toolbar are placed against, and the frame the comment
            margin is measured within. The inner [data-comment-anchor-target="doc"]
@@ -126,7 +135,7 @@
                used to push the first paragraph below the fold.
                A sibling of the head, not a child: the bar is sticky, and a
                sticky element cannot outlive its containing block. #}
-            {% if showVersions or showContents or referenceCount > 0 or decisionRows|length > 0 or document.tags|length > 0 %}
+            {% if showVersions or showContents or referenceCount > 0 or decisionRows|length > 0 or document.tags|length > 0 or diffNavigation %}
             <div class="lp-doc-meta-bar" data-controller="metadata-tabs">
                     <div class="lp-doc-meta">
                         {% if showVersions %}
@@ -187,6 +196,53 @@
                    empty rather than omitted — a live region must be in the
                    accessibility tree before its text arrives. #}
                 <p id="decision-status" class="lp-decision-status" aria-live="polite"></p>
+                {% endif %}
+
+                {# Two views of one comparison, as plain links so each is
+                   addressable and neither needs JavaScript. The rendered one
+                   cannot mark front matter, a link reference definition or a
+                   setext underline, so the way to check any of those is to read
+                   the same pair as Markdown. #}
+                {% if diffNavigation %}
+                {% set viewParams = {projectId: document.project.id, documentId: document.id, fromVersionNumber: diffFromVersion, toVersionNumber: version.versionNumber} %}
+                <nav class="lp-diff-views" aria-label="{{ 'review.document.diff.view.label'|trans }}">
+                    <a class="lp-diff-views__link"
+                       href="{{ path('app_document_review_diff', viewParams|merge({view: 'rendered'})) }}"
+                       {% if diffView.value == 'rendered' %}aria-current="page"{% endif %}
+                    >{{ 'review.document.diff.view.rendered'|trans }}</a>
+                    {# describedby rather than a second link: the notice below says
+                       why this view is worth opening, and this is the control that
+                       opens it. #}
+                    <a class="lp-diff-views__link"
+                       href="{{ path('app_document_review_diff', viewParams|merge({view: 'source'})) }}"
+                       {% if diffView.value == 'source' %}aria-current="page"{% endif %}
+                       {% if diffUnmarked %}aria-describedby="diff-unmarked-notice"{% endif %}
+                    >{{ 'review.document.diff.view.source'|trans }}</a>
+                </nav>
+                {% endif %}
+
+                {# A row of the sticky bar rather than a bar of its own: two
+                   elements stuck to the same edge overlap, and the count has to
+                   stay readable while the reader jumps down the diff. #}
+                {% if diffNavigation %}
+                <div class="lp-diff-nav">
+                    <p class="lp-diff-nav__count" aria-live="polite" data-diff-navigation-target="counter">{{ 'review.document.diff.nav.count'|trans({'%count%': diffChangeCount}) }}</p>
+                    <button type="button" class="lp-btn lp-btn--sm" data-action="diff-navigation#previous">
+                        <twig:ux:icon name="lucide:arrow-up" class="w-4 h-4 shrink-0" />
+                        {{ 'review.document.diff.nav.previous'|trans }}
+                    </button>
+                    <button type="button" class="lp-btn lp-btn--sm" data-action="diff-navigation#next">
+                        <twig:ux:icon name="lucide:arrow-down" class="w-4 h-4 shrink-0" />
+                        {{ 'review.document.diff.nav.next'|trans }}
+                    </button>
+                </div>
+                {% endif %}
+
+                {% if diffUnmarked %}
+                <p id="diff-unmarked-notice" class="lp-diff-notice">
+                    <twig:ux:icon name="lucide:info" class="w-4 h-4 shrink-0 mt-0.5" />
+                    <span>{{ 'review.document.diff.unmarked_notice'|trans }}</span>
+                </p>
                 {% endif %}
 
                 {% if showVersions %}
@@ -315,8 +371,8 @@
             {% endif %}
 
             {# The one part the diff view replaces — see diff_document_versions.html.twig.
-               Everything else on this page is the same in both modes, which is why
-               the diff is a block override rather than a page of its own. #}
+               Everything else on this page reads the same in both modes, which is
+               why the diff overrides this block instead of being a page of its own. #}
             {% block documentPane %}
             <div class="prose lp-prose lp-review-doc__prose" data-comment-anchor-target="doc">{{ decisionMarkedHtml|raw }}</div>
             {% endblock %}

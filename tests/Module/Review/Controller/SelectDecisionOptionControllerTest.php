@@ -425,16 +425,17 @@ final class SelectDecisionOptionControllerTest extends WebTestCase
     }
 
     /**
-     * A diff replaces the document pane with Markdown source lines, so the
-     * radios the form serves are not on the page at all — leaving a status line
-     * with nothing to report and a form with no control to fill it.
+     * A diff renders the document, decision blocks included, so a revision that
+     * reworded an option is readable. It cannot be answered there: an answer
+     * belongs to one version and a diff is looking at two, so the block is
+     * disabled and the form that would carry the answer is not built.
      *
-     * Omitted structurally rather than left to render harmlessly: the diff
-     * controller passes neither `decisions` nor `selectDecisionForm`, and
-     * `strict_variables` is on, so without the guard this is a 500 rather than a
-     * cosmetic gap.
+     * The form is omitted structurally rather than left to render harmlessly:
+     * the diff controller passes neither `decisions` nor `selectDecisionForm`,
+     * and `strict_variables` is on, so without the guard this is a 500 rather
+     * than a cosmetic gap.
      */
-    public function test_the_decision_controls_are_absent_from_a_diff(): void
+    public function test_a_diff_shows_the_decision_block_but_cannot_answer_it(): void
     {
         $client = static::createClient();
         [$owner, $document] = $this->seed($client);
@@ -454,13 +455,15 @@ final class SelectDecisionOptionControllerTest extends WebTestCase
         self::assertResponseIsSuccessful();
         self::assertSelectorNotExists('[data-decision-target="form"]');
         self::assertSelectorNotExists('#decision-status');
-        self::assertSelectorNotExists('[data-decision-option]');
+        self::assertSelectorExists('fieldset.lp-decision[disabled]');
+        self::assertSelectorNotExists('fieldset.lp-decision:not([disabled])');
 
-        // And the same document still shows them on the review page, so the
-        // absence above is the diff's doing rather than a broken fixture.
+        // And the same document still answers them on the review page, so the
+        // absences above are the diff's doing rather than a broken fixture.
         $client->request(Request::METHOD_GET, $this->reviewPath($document));
         self::assertSelectorExists('[data-decision-target="form"]');
         self::assertSelectorExists('[data-decision-option]');
+        self::assertSelectorNotExists('fieldset.lp-decision[disabled]');
     }
 
     /**
