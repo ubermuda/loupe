@@ -8,9 +8,11 @@ use App\Module\Account\Repository\UserRepository;
 use App\Module\Account\Service\RegistrationGate;
 use App\Module\Billing\Entity\BillingProfile;
 use App\Module\Billing\Entity\BillingStatus;
+use App\Module\Billing\Entity\SubscriptionKind;
 use App\Module\Billing\Repository\BillingProfileRepository;
 use App\Module\Billing\Service\PriceView;
 use App\Module\Billing\Service\StripeGatewayInterface;
+use App\Tests\Support\BillingGrants;
 use App\Tests\Support\BillingScenario;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
@@ -74,7 +76,9 @@ final class ShowSubscribeControllerTest extends WebTestCase
         $em->clear();
         $profile = static::getContainer()->get(BillingProfileRepository::class)->findOneBy(['user' => $user->id]);
         self::assertInstanceOf(BillingProfile::class, $profile);
-        self::assertGreaterThan(new \DateTimeImmutable(), $profile->trialEndsAt);
+        $trial = $profile->latestSubscriptionOfKind(SubscriptionKind::Trial);
+        self::assertNotNull($trial);
+        self::assertGreaterThan(new \DateTimeImmutable(), $trial->endsAt);
     }
 
     public function test_an_expired_trial_shows_the_paywall_state_without_redirecting(): void
@@ -101,9 +105,7 @@ final class ShowSubscribeControllerTest extends WebTestCase
         $scenario->enableBilling();
         $user = $scenario->verifiedUser('subscribed');
         $profile = $scenario->profile($user, new \DateTimeImmutable('-30 days'));
-        $profile->status = BillingStatus::Active;
-        $profile->stripeSubscriptionId = 'sub_123';
-        static::getContainer()->get(EntityManagerInterface::class)->flush();
+        $scenario->grant(BillingGrants::stripe($profile, BillingStatus::Active, new \DateTimeImmutable('+30 days'), 'sub_123'));
 
         $client->loginUser($user);
         $crawler = $client->request(Request::METHOD_GET, '/billing/subscribe');
@@ -121,9 +123,7 @@ final class ShowSubscribeControllerTest extends WebTestCase
         $scenario->enableBilling();
         $user = $scenario->verifiedUser('pastdue');
         $profile = $scenario->profile($user, new \DateTimeImmutable('-30 days'));
-        $profile->status = BillingStatus::PastDue;
-        $profile->stripeSubscriptionId = 'sub_pastdue';
-        static::getContainer()->get(EntityManagerInterface::class)->flush();
+        $scenario->grant(BillingGrants::stripe($profile, BillingStatus::PastDue, new \DateTimeImmutable('-1 day'), 'sub_pastdue'));
 
         $client->loginUser($user);
         $crawler = $client->request(Request::METHOD_GET, '/billing/subscribe');

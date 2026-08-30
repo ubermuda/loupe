@@ -17,7 +17,7 @@ use App\Module\Account\Entity\DataExport;
 use App\Module\Account\Entity\SocialProvider;
 use App\Module\Account\Entity\User;
 use App\Module\Account\Repository\UserRepository;
-use App\Module\Billing\Entity\BillingProfile;
+use App\Module\Billing\Entity\BillingStatus;
 use App\Module\Billing\Messenger\CancelSubscriptionMessage;
 use App\Module\Project\Entity\Project;
 use App\Module\Review\Entity\Comment;
@@ -29,6 +29,7 @@ use App\Module\Review\Entity\Tag;
 use App\Module\Review\Entity\Verdict;
 use App\Module\Review\ValueObject\Anchor;
 use App\Module\SiteReview\Entity\SiteReviewComment;
+use App\Tests\Support\BillingGrants;
 use Doctrine\DBAL\Connection;
 use Doctrine\ORM\EntityManagerInterface;
 use League\Flysystem\FilesystemOperator;
@@ -336,10 +337,13 @@ final class DeleteAccountHandlerTest extends KernelTestCase
         $export = new DataExport($owner);
         $em->persist($export);
 
-        $profile = new BillingProfile($owner, new \DateTimeImmutable('+14 days'));
+        $profile = BillingGrants::profileWithTrial($owner, new \DateTimeImmutable('+14 days'));
         $profile->stripeCustomerId = 'cus_delete_me';
-        $profile->stripeSubscriptionId = 'sub_delete_me';
         $em->persist($profile);
+        foreach ($profile->subscriptions as $subscription) {
+            $em->persist($subscription);
+        }
+        $em->persist(BillingGrants::stripe($profile, BillingStatus::Active, new \DateTimeImmutable('+30 days'), 'sub_delete_me'));
 
         $em->flush();
 

@@ -10,6 +10,7 @@ use App\Module\Billing\Entity\BillingStatus;
 use App\Module\Billing\Repository\BillingProfileRepository;
 use App\Module\Billing\Service\PaywallGate;
 use App\Module\Billing\Service\TrialProvisioner;
+use App\Tests\Support\BillingGrants;
 use App\Tests\Support\FeatureFlags;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\TestCase;
@@ -62,75 +63,64 @@ final class PaywallGateTest extends TestCase
     {
         $user = $this->user();
 
-        self::assertTrue($this->gate(true, new BillingProfile($user, trialEndsAt: new \DateTimeImmutable('+5 days')))->allows($user));
+        self::assertTrue($this->gate(true, BillingGrants::profileWithTrial($user, new \DateTimeImmutable('+5 days')))->allows($user));
     }
 
-    public function test_expired_trial_without_subscription_is_blocked(): void
+    public function test_expired_trial_without_any_other_grant_is_blocked(): void
     {
         $user = $this->user();
 
-        self::assertFalse($this->gate(true, new BillingProfile($user, trialEndsAt: new \DateTimeImmutable('-1 day')))->allows($user));
+        self::assertFalse($this->gate(true, BillingGrants::profileWithTrial($user, new \DateTimeImmutable('-1 day')))->allows($user));
     }
 
-    public function test_active_subscription_after_the_trial_is_allowed(): void
+    public function test_a_running_stripe_subscription_after_the_trial_is_allowed(): void
     {
         $user = $this->user();
-        $profile = new BillingProfile($user, trialEndsAt: new \DateTimeImmutable('-30 days'));
-        $profile->status = BillingStatus::Active;
+        $profile = BillingGrants::profileWithTrial($user, new \DateTimeImmutable('-30 days'));
+        BillingGrants::stripe($profile, BillingStatus::Active, new \DateTimeImmutable('+20 days'));
 
         self::assertTrue($this->gate(true, $profile)->allows($user));
     }
 
-    public function test_past_due_subscription_after_the_trial_is_blocked(): void
+    public function test_a_stripe_subscription_past_its_period_is_blocked(): void
     {
         $user = $this->user();
-        $profile = new BillingProfile($user, trialEndsAt: new \DateTimeImmutable('-30 days'));
-        $profile->status = BillingStatus::PastDue;
+        $profile = BillingGrants::profileWithTrial($user, new \DateTimeImmutable('-30 days'));
+        BillingGrants::stripe($profile, BillingStatus::PastDue, new \DateTimeImmutable('-1 day'));
 
         self::assertFalse($this->gate(true, $profile)->allows($user));
     }
 
-    /**
-     * A mid-period cancel: the customer already paid through `currentPeriodEnd`,
-     * so the paywall must not lock them out before that date — see
-     * BillingProfile::isCurrent().
-     */
-    public function test_canceled_subscription_with_a_future_period_end_is_allowed(): void
+    public function test_a_comp_with_no_end_date_is_allowed_on_its_own(): void
     {
         $user = $this->user();
-        $profile = new BillingProfile($user, trialEndsAt: new \DateTimeImmutable('-30 days'));
-        $profile->status = BillingStatus::Canceled;
-        $profile->currentPeriodEnd = new \DateTimeImmutable('+5 days');
-        $profile->lastStripeEventType = BillingProfile::SUBSCRIPTION_DELETED_EVENT_TYPE;
+        $profile = BillingGrants::profileWithTrial($user, new \DateTimeImmutable('-30 days'));
+        BillingGrants::comp($profile);
 
         self::assertTrue($this->gate(true, $profile)->allows($user));
     }
 
-    public function test_canceled_subscription_with_a_lapsed_period_end_is_blocked(): void
+    public function test_a_comp_survives_a_canceled_stripe_subscription(): void
     {
         $user = $this->user();
-        $profile = new BillingProfile($user, trialEndsAt: new \DateTimeImmutable('-30 days'));
-        $profile->status = BillingStatus::Canceled;
-        $profile->currentPeriodEnd = new \DateTimeImmutable('-1 day');
-        $profile->lastStripeEventType = BillingProfile::SUBSCRIPTION_DELETED_EVENT_TYPE;
+        $profile = BillingGrants::profileWithTrial($user, new \DateTimeImmutable('-30 days'));
+        BillingGrants::stripe($profile, BillingStatus::Canceled, new \DateTimeImmutable('-1 day'));
+        BillingGrants::comp($profile);
 
-        self::assertFalse($this->gate(true, $profile)->allows($user));
+        self::assertTrue($this->gate(true, $profile)->allows($user));
     }
 
     /**
-     * A subscription that never went live (an `incomplete` Stripe status
-     * folds into `Canceled` — see BillingStatus::fromStripeStatus()) must not
-     * pass the paywall merely because Stripe already set a future
-     * `current_period_end` on it.
+     * A mid-period cancel: the customer already paid through the period end, so
+     * the grant runs to that date and stops on its own.
      */
-    public function test_canceled_subscription_with_a_future_period_end_but_no_deletion_event_is_blocked(): void
+    public function test_a_mid_period_cancel_keeps_access_until_the_period_end(): void
     {
         $user = $this->user();
-        $profile = new BillingProfile($user, trialEndsAt: new \DateTimeImmutable('-30 days'));
-        $profile->status = BillingStatus::Canceled;
-        $profile->currentPeriodEnd = new \DateTimeImmutable('+5 days');
-        $profile->lastStripeEventType = 'customer.subscription.updated';
+        $profile = BillingGrants::profileWithTrial($user, new \DateTimeImmutable('-30 days'));
+        $canceled = BillingGrants::stripe($profile, BillingStatus::Canceled, new \DateTimeImmutable('+5 days'));
 
-        self::assertFalse($this->gate(true, $profile)->allows($user));
+        self::assertTrue($this->gate(true, $profile)->allows($user));
+        self::assertFalse($canceled->isCurrent(new \DateTimeImmutable('+6 days')));
     }
 }

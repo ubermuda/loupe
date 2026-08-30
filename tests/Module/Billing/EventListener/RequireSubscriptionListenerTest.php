@@ -11,6 +11,7 @@ use App\Module\Billing\Repository\BillingProfileRepository;
 use App\Module\Billing\Service\PaywallExemptions;
 use App\Module\Billing\Service\PaywallGate;
 use App\Module\Billing\Service\TrialProvisioner;
+use App\Tests\Support\BillingGrants;
 use App\Tests\Support\FeatureFlags;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -65,7 +66,7 @@ final class RequireSubscriptionListenerTest extends TestCase
 
     private function expiredProfile(?User $user = null): BillingProfile
     {
-        return new BillingProfile($user ?? $this->user(), trialEndsAt: new \DateTimeImmutable('-1 day'));
+        return BillingGrants::profileWithTrial($user ?? $this->user(), new \DateTimeImmutable('-1 day'));
     }
 
     private function event(string $route, string $path = '/projects'): RequestEvent
@@ -93,7 +94,7 @@ final class RequireSubscriptionListenerTest extends TestCase
         $user = $this->user();
         $event = $this->event('app_project_list');
 
-        $this->listener($user, new BillingProfile($user, trialEndsAt: new \DateTimeImmutable('+2 days')))($event);
+        $this->listener($user, BillingGrants::profileWithTrial($user, new \DateTimeImmutable('+2 days')))($event);
 
         self::assertNull($event->getResponse());
     }
@@ -187,7 +188,7 @@ final class RequireSubscriptionListenerTest extends TestCase
         $user = $this->user();
         $event = $this->event('api_site_review_submit', $path);
 
-        $this->listener($user, new BillingProfile($user, trialEndsAt: new \DateTimeImmutable('+2 days')))($event);
+        $this->listener($user, BillingGrants::profileWithTrial($user, new \DateTimeImmutable('+2 days')))($event);
 
         self::assertNull($event->getResponse());
     }
