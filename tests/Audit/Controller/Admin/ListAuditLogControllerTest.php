@@ -162,6 +162,85 @@ final class ListAuditLogControllerTest extends WebTestCase
         self::assertCount(1, $crawler->filter(sprintf('[data-audit-log-id="%s"]', $lateInTheDay->id)));
     }
 
+    /**
+     * A wildcard typed into either box is text, not a pattern. An operator
+     * filters an audit log to answer a specific question, and a filter that
+     * quietly matches more than it was asked for is worse than one that
+     * matches nothing.
+     */
+    public function test_a_wildcard_typed_into_a_text_filter_matches_itself_literally(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $admin = $this->seedAdmin($em, 'audit-wildcard@admin-test.example.com');
+
+        $literalPercent = $this->seedLog($em, 'document.created', actorLabel: 'Ada 100% Lovelace');
+        $plainLabel = $this->seedLog($em, 'document.created', actorLabel: 'Ada Lovelace');
+        // Reachable only through the wildcard reading of the %: it contains
+        // "100" but not "100%".
+        $bareNumber = $this->seedLog($em, 'document.created', actorLabel: 'Ada 1000 Lovelace');
+        $literalUnderscore = $this->seedLog($em, 'report_export.started', actorLabel: 'Ada Lovelace');
+        $differsAtTheUnderscore = $this->seedLog($em, 'reportXexport.started', actorLabel: 'Ada Lovelace');
+        $em->flush();
+
+        $client->loginUser($admin);
+
+        $crawler = $client->request(Request::METHOD_GET, self::URL.'?q='.rawurlencode('100%'));
+        $this->assertResponseIsSuccessful();
+        self::assertCount(1, $crawler->filter(sprintf('[data-audit-log-id="%s"]', $literalPercent->id)));
+        self::assertCount(0, $crawler->filter(sprintf('[data-audit-log-id="%s"]', $plainLabel->id)));
+        self::assertCount(0, $crawler->filter(sprintf('[data-audit-log-id="%s"]', $bareNumber->id)));
+
+        $crawler = $client->request(Request::METHOD_GET, self::URL.'?operation='.rawurlencode('report_export'));
+        $this->assertResponseIsSuccessful();
+        self::assertCount(1, $crawler->filter(sprintf('[data-audit-log-id="%s"]', $literalUnderscore->id)));
+        self::assertCount(0, $crawler->filter(sprintf('[data-audit-log-id="%s"]', $differsAtTheUnderscore->id)));
+    }
+
+    /**
+     * The escape character is typeable, so it must survive as text next to a
+     * wildcard. Searching for the pair pins the replacement order too: escaping
+     * % before the escape character doubles the wrong bangs, and the row that
+     * was searched for stops matching itself.
+     */
+    public function test_the_escape_character_survives_beside_a_wildcard(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $admin = $this->seedAdmin($em, 'audit-escapechar@admin-test.example.com');
+
+        $literal = $this->seedLog($em, 'document.created', actorLabel: 'Ada!%Lovelace');
+        // Reachable only where the % is still a wildcard.
+        $wildcardOnly = $this->seedLog($em, 'document.created', actorLabel: 'Ada!ZZZLovelace');
+        $em->flush();
+
+        $client->loginUser($admin);
+        $crawler = $client->request(Request::METHOD_GET, self::URL.'?q='.rawurlencode('ada!%lovelace'));
+
+        $this->assertResponseIsSuccessful();
+        self::assertCount(1, $crawler->filter(sprintf('[data-audit-log-id="%s"]', $literal->id)));
+        self::assertCount(0, $crawler->filter(sprintf('[data-audit-log-id="%s"]', $wildcardOnly->id)));
+    }
+
+    /**
+     * An out-of-range page redirects whether or not the filters matched
+     * anything. ListPagePagination::clampPage answers null on an empty result
+     * set, so the empty case needs its own answer.
+     */
+    public function test_an_out_of_range_page_is_clamped_even_when_the_filters_match_nothing(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $admin = $this->seedAdmin($em, 'audit-emptyclamp@admin-test.example.com');
+        $this->seedLog($em, 'document.created');
+        $em->flush();
+
+        $client->loginUser($admin);
+        $client->request(Request::METHOD_GET, self::URL.'?q=nothingmatchesthis&page=99');
+
+        $this->assertResponseRedirects(self::URL.'?q=nothingmatchesthis&page=1');
+    }
+
     public function test_pagination_walks_the_pages_and_clamps_an_out_of_range_one(): void
     {
         $client = static::createClient();

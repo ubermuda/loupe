@@ -28,6 +28,9 @@ use Symfony\Component\Uid\Uuid;
  */
 class AuditLogRepository extends ServiceEntityRepository
 {
+    /** Declared on every LIKE rather than left to the platform default, which is not portable. */
+    private const string LIKE_ESCAPE = '!';
+
     public function __construct(ManagerRegistry $registry)
     {
         parent::__construct($registry, AuditLog::class);
@@ -116,13 +119,13 @@ class AuditLogRepository extends ServiceEntityRepository
         $parameters = [];
 
         if (null !== $actorLabel) {
-            $conditions[] = 'LOWER(a.actorLabel) LIKE :actorLabel';
-            $parameters['actorLabel'] = '%'.mb_strtolower($actorLabel).'%';
+            $conditions[] = "LOWER(a.actorLabel) LIKE :actorLabel ESCAPE '".self::LIKE_ESCAPE."'";
+            $parameters['actorLabel'] = '%'.self::escapeLike(mb_strtolower($actorLabel)).'%';
         }
 
         if (null !== $operationPrefix) {
-            $conditions[] = 'a.operation LIKE :operationPrefix';
-            $parameters['operationPrefix'] = $operationPrefix.'%';
+            $conditions[] = "a.operation LIKE :operationPrefix ESCAPE '".self::LIKE_ESCAPE."'";
+            $parameters['operationPrefix'] = self::escapeLike($operationPrefix).'%';
         }
 
         if (null !== $channel) {
@@ -141,5 +144,19 @@ class AuditLogRepository extends ServiceEntityRepository
         }
 
         return [$conditions, $parameters];
+    }
+
+    /**
+     * Neutralises the wildcards in a user-typed fragment so it matches as the
+     * literal text it was typed as. The escape character goes first, or the one
+     * this adds would be escaped again by the passes after it.
+     */
+    private static function escapeLike(string $value): string
+    {
+        return str_replace(
+            [self::LIKE_ESCAPE, '%', '_'],
+            [self::LIKE_ESCAPE.self::LIKE_ESCAPE, self::LIKE_ESCAPE.'%', self::LIKE_ESCAPE.'_'],
+            $value,
+        );
     }
 }

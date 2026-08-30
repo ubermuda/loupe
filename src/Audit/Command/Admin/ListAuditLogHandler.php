@@ -83,7 +83,10 @@ final readonly class ListAuditLogHandler
             pageList: $this->pagination->buildPageList($command->page, $totalPages),
             filters: $filters,
             channels: $channels,
-            clampedPage: $this->pagination->clampPage('audit_log', $command->page, $total, self::PER_PAGE, $filters),
+            // clampPage answers null on an empty result set, so a filter that
+            // matches nothing would otherwise render an empty page 99.
+            clampedPage: $this->pagination->clampPage('audit_log', $command->page, $total, self::PER_PAGE, $filters)
+                ?? ($command->page > $totalPages ? $totalPages : null),
         );
     }
 
