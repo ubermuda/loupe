@@ -13,11 +13,14 @@ use Symfony\Contracts\Translation\TranslatorInterface;
  * is served neither the tint nor the strike-through, and makes the document's
  * own decision controls inert.
  *
- * A change is a run of marks with no unchanged text between them, which is the
- * grouping the eye already makes: a deleted heading and the paragraph under it
- * are two block wrappers and one change, and a reworded phrase is a `del` next
- * to an `ins` and one change. DocumentDiff's lines do not describe this, since
- * a paragraph reflowed across them renders as one block.
+ * A change is a run of marks with nothing unchanged drawn between them, which
+ * is the grouping the eye already makes: a deleted heading and the paragraph
+ * under it are two block wrappers and one change, and a reworded phrase is a
+ * `del` next to an `ins` and one change. Unchanged text ends a run, and so does
+ * an unchanged element that draws itself, such as a rule or an image, which a
+ * reader sees between the two changes as plainly as a word.
+ * DocumentDiff's lines do not describe this, since a paragraph reflowed across
+ * them renders as one block.
  *
  * Runs over the renderer's output rather than inside it, so every other caller
  * of the renderer keeps the HTML it has today.
@@ -79,10 +82,29 @@ final readonly class RenderedDiffBuilder
                     $open = true;
                     $this->openHunk($node, ++$count);
                 }
+            } elseif (!$insideMark && $this->drawsItsOwnContent($node)) {
+                $open = false;
             }
 
             $this->visit($node, $insideMark || $isMark, $count, $open);
         }
+    }
+
+    /**
+     * Whether an unmarked element puts something on the page by itself, which
+     * separates two runs the way unchanged text does. A rule, an image and a
+     * radio all do. An element that merely happens to be empty does not, and
+     * its box is not content the document wrote.
+     *
+     * The test is voidness, read from the serializer rather than from a list of
+     * tag names that would go stale: a void element takes no children, so what
+     * it draws can only be itself. An element that has children is never void,
+     * and its own descendants answer for it during the walk.
+     */
+    private function drawsItsOwnContent(\Dom\Element $element): bool
+    {
+        return 0 === $element->childNodes->length
+            && !str_ends_with($element->outerHTML, '</'.strtolower($element->tagName).'>');
     }
 
     /**

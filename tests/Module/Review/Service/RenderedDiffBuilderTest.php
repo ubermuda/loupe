@@ -71,6 +71,55 @@ final class RenderedDiffBuilderTest extends TestCase
         self::assertStringContainsString('id="diff-hunk-2"', $marked->html);
     }
 
+    /**
+     * A thematic break carries no text, so a rule that reads text alone joins
+     * the removals on either side of it into one change and hides the second
+     * from `j`. A reader sees the rule between them as plainly as a word.
+     */
+    public function test_an_unchanged_rule_between_two_changes_separates_them(): void
+    {
+        $marked = $this->mark(
+            "Kept intro.\n\nRemoved alpha.\n\n---\n\nRemoved beta.\n\nKept outro.\n",
+            "Kept intro.\n\n---\n\nKept outro.\n",
+        );
+
+        self::assertStringContainsString('<hr>', $marked->html);
+        self::assertSame(2, $marked->changeCount);
+        self::assertSame(2, substr_count($marked->html, 'data-diff-navigation-target="hunk"'));
+        self::assertStringContainsString('id="diff-hunk-2"', $marked->html);
+    }
+
+    /** An image puts its content in an attribute, so it too has no text of its own. */
+    public function test_an_unchanged_image_between_two_changes_separates_them(): void
+    {
+        $marked = $this->mark(
+            "Kept intro.\n\nRemoved alpha.\n\n![a diagram](https://example.com/d.png)\n\nRemoved beta.\n\nKept outro.\n",
+            "Kept intro.\n\n![a diagram](https://example.com/d.png)\n\nKept outro.\n",
+        );
+
+        self::assertStringContainsString('<img src="https://example.com/d.png"', $marked->html);
+        self::assertSame(2, $marked->changeCount);
+        self::assertSame(2, substr_count($marked->html, 'data-diff-navigation-target="hunk"'));
+    }
+
+    /**
+     * The other half of the rule, and the one it is easy to break while fixing
+     * the first: an element that merely happens to be empty draws nothing the
+     * document wrote, so it leaves the run open. Written as markup, because a
+     * document cannot reliably produce an empty paragraph through the renderer.
+     */
+    public function test_an_empty_element_that_draws_nothing_keeps_a_run_open(): void
+    {
+        $mark = static fn (string $text): string => sprintf(
+            '<del class="lp-diff__mark lp-diff__mark--deleted">%s</del>',
+            $text,
+        );
+
+        $marked = $this->builder->build($mark('Alpha.')."\n<p></p>\n<span></span>\n".$mark('Beta.'));
+
+        self::assertSame(1, $marked->changeCount);
+    }
+
     public function test_every_mark_names_itself_and_only_the_first_of_a_run_is_a_target(): void
     {
         $marked = $this->mark("One word here.\n", "Two words here.\n");
