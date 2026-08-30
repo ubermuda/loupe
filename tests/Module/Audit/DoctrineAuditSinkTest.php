@@ -184,10 +184,7 @@ final class DoctrineAuditSinkTest extends TestCase
             'document.deleted',
             AuditLevel::Warning,
             Auditor::CATEGORY_SECURITY,
-            null,
-            'Riley Chen',
-            null,
-            null,
+            new FakeAuditActor('Riley Chen'),
             null,
             'mcp',
             new AuditSubject('document', 'doc-1'),
@@ -227,27 +224,21 @@ final class DoctrineAuditSinkTest extends TestCase
     }
 
     /**
-     * The snapshot is what the row records, not the objects it came from: those
-     * are still live, and asking them again would date the id differently from
-     * the label beside it.
+     * The row records what the event captured when it was built, not what its
+     * objects say later: they are still live, and asking them again would date
+     * the id differently from the label beside it.
      */
     public function test_the_row_follows_the_snapshot_rather_than_the_live_objects(): void
     {
+        $actor = new FakeAuditActor('Riley Chen', 'user-1');
+        $credential = new FakeAuditCredential('token-1');
+        $event = $this->event(actor: $actor, credential: $credential);
+
+        $actor->identifier = 'user-2';
+        $credential->identifier = 'token-2';
+
         $sink = $this->sink();
-        $sink->write(new AuditEvent(
-            'document.deleted',
-            AuditLevel::Info,
-            Auditor::CATEGORY_DOMAIN,
-            new FakeAuditActor('Riley Chen', 'user-2'),
-            'Riley Chen',
-            'user-1',
-            new FakeAuditCredential('token-2'),
-            'token-1',
-            'session',
-            null,
-            [],
-            new \DateTimeImmutable('2026-08-29 12:00:00'),
-        ));
+        $sink->write($event);
         $sink->flush();
 
         [, , , , , $actorId, , $credentialId] = $this->statements[0]['params'];
@@ -299,10 +290,7 @@ final class DoctrineAuditSinkTest extends TestCase
             $level,
             Auditor::CATEGORY_DOMAIN,
             $actor,
-            $actor?->auditLabel(),
-            $actor?->auditIdentifier(),
             $credential,
-            $credential?->auditIdentifier(),
             'session',
             null,
             [],
