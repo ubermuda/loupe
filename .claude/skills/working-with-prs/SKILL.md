@@ -210,9 +210,9 @@ this invocation. Repair it yourself:
 bin/worktrees/worktree-bootstrap.sh <worktree-name>   # from the main checkout
 ```
 
-Use bootstrap rather than a bare `app:dev:seed`. `install-reset` also drops the
-project the widget token belongs to, and bootstrap is what notices the token in
-`.env.local` no longer resolves and reissues it.
+Use bootstrap rather than a bare `app:dev:seed`. Bootstrap re-seeds and also
+re-runs the migrations, restores the per-worktree `.env.local` values and
+rebuilds the stylesheet.
 
 Two runs that omit `MAILPIT_URL` cannot overlap. Each worktree has its own
 Mailpit sidecar, so runs started with plain `just e2e` in different worktrees

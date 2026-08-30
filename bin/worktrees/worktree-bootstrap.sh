@@ -237,31 +237,11 @@ fi
 
 in_worktree bin/console doctrine:migrations:migrate --no-interaction --allow-no-migration >/dev/null
 
-# The seed prints the raw widget token exactly once, on the run that mints it.
-# The token copied from main's .env.local matches no row in this fresh
-# database, so without this the annotation widget loads into its
-# rejected-token fatal state on every page.
-# Raw token values are unrecoverable (only sha256 is stored), so the only way
-# to know whether the configured token still works here is to hash it and look
-# for that hash in THIS database. It won't be there on a first run, nor when
-# .env.local was re-copied from main — main's token refers to a row in main's
-# database, and leaving it in place would park the widget in its rejected
-# state forever. Ask for a fresh token in exactly those cases.
-seed_args="--reissue-widget-token"
-current_token=$(grep -E '^SITE_REVIEW_WIDGET_TOKEN=' "$root/.env.local" 2>/dev/null | head -1 | cut -d= -f2- || true)
-if [ -n "${current_token:-}" ]; then
-    current_hash=$(printf '%s' "$current_token" | shasum -a 256 | cut -d' ' -f1)
-    if docker compose exec -T database psql -U app -d "$dev_db" -tAc \
-            "SELECT 1 FROM api_tokens WHERE token_hash = '$current_hash'" 2>/dev/null | grep -q 1; then
-        seed_args=""
-    fi
-fi
-# shellcheck disable=SC2086 # deliberate word splitting: empty means no flag
-seed_output=$(in_worktree bin/console app:dev:seed $seed_args)
-widget_token=$(printf '%s' "$seed_output" | grep -E '^SITE_REVIEW_WIDGET_TOKEN=' | head -1 | cut -d= -f2- || true)
-if [ -n "${widget_token:-}" ]; then
-    set_env "$root/.env.local" SITE_REVIEW_WIDGET_TOKEN "$widget_token"
-fi
+# SITE_REVIEW_WIDGET_BACKEND stays at production, so the widget token must be
+# one production knows. That is the main checkout's token, copied with
+# .env.local above. Do not reissue it here: a token minted in this worktree's
+# database exists nowhere else, and production answers 401.
+in_worktree bin/console app:dev:seed >/dev/null
 
 # Build this worktree's own CSS now that var/tailwind is local to it.
 in_worktree bin/console tailwind:build >/dev/null

@@ -2898,6 +2898,58 @@
                 <source>billing.flash.portal_unavailable</source>
                 <target>The billing portal is unavailable right now. Please try again later.</target>
             </trans-unit>
+            <trans-unit id="billing.admin.comp.title">
+                <source>billing.admin.comp.title</source>
+                <target>Complimentary access</target>
+            </trans-unit>
+            <trans-unit id="billing.admin.comp.subtitle">
+                <source>billing.admin.comp.subtitle</source>
+                <target>A comp lets this account use the app for free. It never expires, and it stacks with a paid subscription.</target>
+            </trans-unit>
+            <trans-unit id="billing.admin.comp.status.comped">
+                <source>billing.admin.comp.status.comped</source>
+                <target>Comped</target>
+            </trans-unit>
+            <trans-unit id="billing.admin.comp.status.not_comped">
+                <source>billing.admin.comp.status.not_comped</source>
+                <target>Not comped</target>
+            </trans-unit>
+            <trans-unit id="billing.admin.comp.help.grant">
+                <source>billing.admin.comp.help.grant</source>
+                <target>Give this account free access until you revoke it.</target>
+            </trans-unit>
+            <trans-unit id="billing.admin.comp.help.granted_by">
+                <source>billing.admin.comp.help.granted_by</source>
+                <target>Granted by %admin% on %date%.</target>
+            </trans-unit>
+            <trans-unit id="billing.admin.comp.help.granted_on">
+                <source>billing.admin.comp.help.granted_on</source>
+                <target>Granted on %date%.</target>
+            </trans-unit>
+            <trans-unit id="billing.admin.comp.grant.button">
+                <source>billing.admin.comp.grant.button</source>
+                <target>Grant comp</target>
+            </trans-unit>
+            <trans-unit id="billing.admin.comp.revoke.button">
+                <source>billing.admin.comp.revoke.button</source>
+                <target>Revoke comp</target>
+            </trans-unit>
+            <trans-unit id="billing.admin.comp.flash.granted">
+                <source>billing.admin.comp.flash.granted</source>
+                <target>This account is now comped.</target>
+            </trans-unit>
+            <trans-unit id="billing.admin.comp.flash.revoked">
+                <source>billing.admin.comp.flash.revoked</source>
+                <target>The comp is revoked.</target>
+            </trans-unit>
+            <trans-unit id="billing.admin.comp.error.already_comped">
+                <source>billing.admin.comp.error.already_comped</source>
+                <target>This account already holds a comp.</target>
+            </trans-unit>
+            <trans-unit id="billing.admin.comp.error.not_comped">
+                <source>billing.admin.comp.error.not_comped</source>
+                <target>This account holds no comp to revoke.</target>
+            </trans-unit>
             <trans-unit id="billing.flash.capacity_full">
                 <source>billing.flash.capacity_full</source>
                 <target>We are at capacity right now, so checkout is unavailable. Join the waitlist and we will invite you back as soon as a spot frees up.</target>
