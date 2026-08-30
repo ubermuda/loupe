@@ -23,3 +23,7 @@ twig:
 when@test:
     twig:
         strict_variables: true
+        paths:
+            # Backs AdminUserPanelFixture. A fixture template must not sit under
+            # templates/Module/, which is production markup.
+            '%kernel.project_dir%/tests/Support/templates': 'TestFixtures'

@@ -230,3 +230,13 @@ when@test:
         App\Module\Account\Command\CreateInstallAdminHandler:
             autowire: true
             public: true
+
+        # Declared in the reverse of their #[AsTaggedItem] priority, so the
+        # priority sort puts them in order rather than registration order.
+        # autoconfigure is load-bearing: Symfony reads #[AsTaggedItem] only on
+        # an autoconfigured definition.
+        App\Tests\Support\SecondAdminUserPanelFixture:
+            autoconfigure: true
+
+        App\Tests\Support\FirstAdminUserPanelFixture:
+            autoconfigure: true
