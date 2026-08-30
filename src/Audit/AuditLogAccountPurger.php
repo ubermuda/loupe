@@ -6,6 +6,7 @@ namespace App\Audit;
 
 use App\Module\Account\Deletion\AccountDataPurgerInterface;
 use App\Module\Account\Deletion\AccountDeletionCleanup;
+use App\Module\Account\Deletion\AccountDeletionPreparerInterface;
 use App\Module\Account\Entity\User;
 use Doctrine\ORM\EntityManagerInterface;
 
@@ -19,14 +20,32 @@ use Doctrine\ORM\EntityManagerInterface;
  * departed account to scrub, and nulling its label would erase an admin's name
  * from exactly the records a later reader came for.
  */
-final readonly class AuditLogAccountPurger implements AccountDataPurgerInterface
+final readonly class AuditLogAccountPurger implements AccountDataPurgerInterface, AccountDeletionPreparerInterface
 {
     public function __construct(
         private EntityManagerInterface $em,
     ) {
     }
 
-    /** Before ApiTokenAccountPurger at 40, while audit_log.credential_id still resolves to a token. */
+    /**
+     * A record made with the account's API token names no actor of its own, so
+     * only the credential identifies it. audit_log.credential_id is ON DELETE
+     * SET NULL, and ProjectAccountPurger deletes each project's bound tokens at
+     * the first slot, so the link is gone before any purger runs. This is the
+     * last moment it still resolves.
+     */
+    #[\Override]
+    public function prepare(User $user, AccountDeletionCleanup $cleanup): void
+    {
+        $id = (string) ($user->id ?? throw new \LogicException('a persisted user always has an id'));
+
+        $this->em->getConnection()->executeStatement(
+            'DELETE FROM audit_log WHERE credential_id IN (SELECT id FROM api_tokens WHERE owner_id = :id)',
+            ['id' => $id],
+        );
+    }
+
+    /** No ordering constraint of its own: the credential work happens in prepare(). */
     #[\Override]
     public function deletionOrder(): int
     {
@@ -45,14 +64,6 @@ final readonly class AuditLogAccountPurger implements AccountDataPurgerInterface
         $connection = $this->em->getConnection();
 
         $connection->executeStatement('DELETE FROM audit_log WHERE actor_id = :id', ['id' => $id]);
-
-        // Before ApiTokenAccountPurger at 40, which hard-deletes the tokens and
-        // leaves this foreign key null: after it runs there is nothing left to
-        // resolve a record that names only the credential it was made with.
-        $connection->executeStatement(
-            'DELETE FROM audit_log WHERE credential_id IN (SELECT id FROM api_tokens WHERE owner_id = :id)',
-            ['id' => $id],
-        );
 
         if (null !== $label) {
             // The label and the id are written independently, so a record can

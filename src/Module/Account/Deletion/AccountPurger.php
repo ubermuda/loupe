@@ -32,7 +32,13 @@ final readonly class AccountPurger
     /** @var list<AccountDataPurgerInterface> */
     private array $purgers;
 
-    /** @param iterable<AccountDataPurgerInterface> $purgers */
+    /** @var list<AccountDeletionPreparerInterface> */
+    private array $preparers;
+
+    /**
+     * @param iterable<AccountDataPurgerInterface>       $purgers
+     * @param iterable<AccountDeletionPreparerInterface> $preparers
+     */
     public function __construct(
         private MessageBusInterface $bus,
         private EntityManagerInterface $em,
@@ -43,10 +49,14 @@ final readonly class AccountPurger
 
         #[AutowireIterator('app.account_data_purger')]
         iterable $purgers,
+
+        #[AutowireIterator('app.account_deletion_preparer')]
+        iterable $preparers,
     ) {
         $ordered = iterator_to_array($purgers, false);
         usort($ordered, static fn (AccountDataPurgerInterface $a, AccountDataPurgerInterface $b): int => $a->deletionOrder() <=> $b->deletionOrder());
         $this->purgers = $ordered;
+        $this->preparers = iterator_to_array($preparers, false);
     }
 
     public function purge(User $user): void
@@ -56,6 +66,13 @@ final readonly class AccountPurger
         $cleanup = new AccountDeletionCleanup();
 
         $this->em->wrapInTransaction(function () use ($user, $userId, $cleanup): void {
+            // Before the purgers, not among them: a preparer exists for the row
+            // whose owner stops being identifiable once ProjectAccountPurger has
+            // run, and that purger has to keep the lowest deletionOrder().
+            foreach ($this->preparers as $preparer) {
+                $preparer->prepare($user, $cleanup);
+            }
+
             foreach ($this->purgers as $purger) {
                 $purger->purge($user, $cleanup);
             }

@@ -10,7 +10,8 @@ use App\Module\Account\Deletion\AccountPurger;
 use App\Module\Account\Entity\ApiToken;
 use App\Module\Account\Entity\ApiTokenScope;
 use App\Module\Account\Entity\User;
-use App\Module\Account\Service\ApiTokenAccountPurger;
+use App\Module\Project\Entity\Project;
+use App\Module\Project\Service\ProjectDeleter;
 use Doctrine\DBAL\Connection;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
@@ -105,28 +106,84 @@ final class AuditLogAccountPurgerTest extends KernelTestCase
 
         self::assertSame(['audit.by_another_token', 'audit.by_the_departing_token'], $this->operations());
 
-        $this->purge($departing);
+        $this->prepare($departing);
 
         self::assertSame(['audit.by_another_token'], $this->operations());
     }
 
     /**
-     * The correctness of the credential sweep rests entirely on running before
-     * slot 40, and a constant nobody reads back is not a guarantee.
+     * The whole ordered chain, because the interaction that breaks the
+     * credential sweep is three classes away from it. ProjectAccountPurger at
+     * slot 10 deletes each project's bound tokens through ProjectDeleter, and
+     * ON DELETE SET NULL blanks credential_id — so by slot 35 a record written
+     * with a project's token names nobody at all.
      */
-    public function test_it_is_registered_and_ordered_before_the_api_token_purger(): void
+    public function test_the_ordered_chain_removes_a_record_written_with_a_project_bound_token(): void
+    {
+        $departing = $this->user('chain', 'Departing Person');
+
+        $token = $this->token($departing);
+        $project = new Project($departing, 'chain-project');
+        $project->widgetToken = $token;
+        $this->em->persist($project);
+        $this->em->flush();
+
+        $this->record('audit.by_the_widget_token', null, null, credential: $token);
+
+        self::assertSame(['audit.by_the_widget_token'], $this->operations());
+
+        $accountPurger = static::getContainer()->get(AccountPurger::class);
+        self::assertInstanceOf(AccountPurger::class, $accountPurger);
+        $accountPurger->purge($departing);
+
+        self::assertSame([], $this->operations());
+    }
+
+    /**
+     * The property that rules out a preRemove listener on ApiToken. A live user
+     * who deletes one project keeps their trail: the record loses the link to
+     * the token, and nothing else.
+     */
+    public function test_ordinary_project_deletion_leaves_the_trail_alone(): void
+    {
+        $owner = $this->user('live', 'Live Person');
+
+        $token = $this->token($owner);
+        $project = new Project($owner, 'live-project');
+        $project->widgetToken = $token;
+        $this->em->persist($project);
+        $this->em->flush();
+
+        $this->record('audit.by_the_widget_token', null, null, credential: $token);
+
+        $projectDeleter = static::getContainer()->get(ProjectDeleter::class);
+        self::assertInstanceOf(ProjectDeleter::class, $projectDeleter);
+        $projectDeleter->delete($project);
+
+        self::assertSame(['audit.by_the_widget_token'], $this->operations());
+        self::assertNull($this->row('audit.by_the_widget_token')['credential_id']);
+    }
+
+    /** A purger that is not tagged never runs, and no test of its statements would notice. */
+    public function test_it_is_registered_as_an_account_data_purger(): void
     {
         $ordered = array_map(
             static fn (object $purger): string => $purger::class,
             $this->registeredPurgers(),
         );
 
-        $audit = array_search(AuditLogAccountPurger::class, $ordered, true);
-        $apiToken = array_search(ApiTokenAccountPurger::class, $ordered, true);
+        self::assertContains(AuditLogAccountPurger::class, $ordered);
+    }
 
-        self::assertIsInt($audit, 'The audit purger must be tagged as an account data purger.');
-        self::assertIsInt($apiToken);
-        self::assertLessThan($apiToken, $audit, 'The credential sweep needs api_tokens rows to still exist.');
+    /** The preparer phase is separate wiring, and an untagged preparer is silently skipped. */
+    public function test_it_is_registered_as_an_account_deletion_preparer(): void
+    {
+        $preparers = array_map(
+            static fn (object $preparer): string => $preparer::class,
+            $this->registeredPreparers(),
+        );
+
+        self::assertContains(AuditLogAccountPurger::class, $preparers);
     }
 
     /**
@@ -153,11 +210,23 @@ final class AuditLogAccountPurgerTest extends KernelTestCase
     /** @return list<object> */
     private function registeredPurgers(): array
     {
-        $accountPurger = static::getContainer()->get(AccountPurger::class);
-        $purgers = new \ReflectionProperty(AccountPurger::class, 'purgers')->getValue($accountPurger);
-        self::assertIsArray($purgers);
+        return $this->registered('purgers');
+    }
 
-        return array_values(array_filter($purgers, is_object(...)));
+    /** @return list<object> */
+    private function registeredPreparers(): array
+    {
+        return $this->registered('preparers');
+    }
+
+    /** @return list<object> */
+    private function registered(string $property): array
+    {
+        $accountPurger = static::getContainer()->get(AccountPurger::class);
+        $services = new \ReflectionProperty(AccountPurger::class, $property)->getValue($accountPurger);
+        self::assertIsArray($services);
+
+        return array_values(array_filter($services, is_object(...)));
     }
 
     private function token(User $owner): ApiToken
@@ -172,6 +241,11 @@ final class AuditLogAccountPurgerTest extends KernelTestCase
     private function purge(User $user): void
     {
         new AuditLogAccountPurger($this->em)->purge($user, new AccountDeletionCleanup());
+    }
+
+    private function prepare(User $user): void
+    {
+        new AuditLogAccountPurger($this->em)->prepare($user, new AccountDeletionCleanup());
     }
 
     private function user(string $handle, string $fullName): User
