@@ -17,8 +17,6 @@ Read the code before you state a fact about it. Never write a count from memory.
 
 One audit design stated five wrong numbers. It claimed 11 security call sites, and the code had 14. It claimed 22 silent handlers, and the code had 27. It claimed one privacy violation, and the code had 26. It also described a renaming workstream that did not exist, because every operation name was already correct.
 
-The same document gave two instructions that no branch can ship. Gamache rejects the first one. A Doctrine deprecation rejects the second one.
-
 Run the search. Count the result. Put the number in the document.
 
 Say what you could not verify. Silence reads as confidence.
