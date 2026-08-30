@@ -148,22 +148,22 @@ final readonly class SyncStripeSubscriptionHandler
 
         $subscription = $this->subscriptions->findOneByStripeSubscriptionId($command->stripeSubscriptionId);
         if (null === $subscription) {
-            try {
-                $subscription = new Subscription($profile, SubscriptionKind::Stripe, $now);
-            } catch (\LogicException $e) {
-                // Nothing is stamped and nothing is flushed. The controller
-                // answers 200, so Stripe stops retrying, and the ordering
-                // fields keep describing the last event that took effect.
+            $concurrent = $profile->currentSubscriptionOfKind(SubscriptionKind::Stripe, $now);
+            if (null !== $concurrent) {
+                // wrapInTransaction still flushes on the way out of this return,
+                // with an empty changeset. The controller answers 200, so Stripe
+                // stops retrying an event this handler refuses every time.
                 $this->logger->error('billing.webhook.concurrent_grant', [
                     'stripeCustomerId' => $command->stripeCustomerId,
                     'stripeSubscriptionId' => $command->stripeSubscriptionId,
                     'eventId' => $command->stripeEventId,
-                    'error' => $e->getMessage(),
+                    'currentStripeSubscriptionId' => $concurrent->stripeSubscriptionId,
                 ]);
 
                 return;
             }
 
+            $subscription = new Subscription($profile, SubscriptionKind::Stripe, $now);
             $subscription->stripeSubscriptionId = $command->stripeSubscriptionId;
             $this->em->persist($subscription);
         }
