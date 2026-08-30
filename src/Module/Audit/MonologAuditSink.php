@@ -40,9 +40,9 @@ final readonly class MonologAuditSink implements AuditSinkInterface
         $context = $event->context;
         $context['channel'] = $event->channel;
 
-        // No actor or credential key. The objects must never reach Monolog — it
-        // would normalize a User, password hash included, into the log line —
-        // and a name does not belong in a stream with no erasure path.
+        // Nothing about the actor or the credential — not the objects, which
+        // Monolog would normalize a password hash out of, and not the name or
+        // the ids, which do not belong in a stream with no erasure path.
         if (null !== $event->subject) {
             $context['subjectType'] = $event->subject->type;
             $context['subjectId'] = $event->subject->id;

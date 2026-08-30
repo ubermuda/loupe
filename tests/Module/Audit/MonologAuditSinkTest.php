@@ -94,7 +94,7 @@ final class MonologAuditSinkTest extends TestCase
         ]], $this->domainLogger->records);
     }
 
-    public function test_the_actor_credential_and_label_never_reach_the_log_line(): void
+    public function test_no_part_of_the_acting_identity_reaches_the_log_line(): void
     {
         $this->sink->write(new AuditEvent(
             'document.deleted',
@@ -102,7 +102,9 @@ final class MonologAuditSinkTest extends TestCase
             Auditor::CATEGORY_DOMAIN,
             new FakeAuditActor('Riley Chen', 'user-1'),
             'Riley Chen',
+            'user-1',
             new FakeAuditCredential('token-1'),
+            'token-1',
             'mcp',
             null,
             [],
@@ -126,6 +128,8 @@ final class MonologAuditSinkTest extends TestCase
             'document.deleted',
             AuditLevel::Warning,
             $category,
+            null,
+            null,
             null,
             null,
             null,
