@@ -6,6 +6,8 @@ namespace App\Module\Billing\Service;
 
 use App\Module\Account\Entity\User;
 use App\Module\Billing\Entity\BillingProfile;
+use App\Module\Billing\Entity\Subscription;
+use App\Module\Billing\Entity\SubscriptionKind;
 use App\Module\Billing\Repository\BillingProfileRepository;
 use Doctrine\ORM\EntityManagerInterface;
 use Ubermuda\FeatureFlagsBundle\FeatureFlagService;
@@ -13,7 +15,8 @@ use Ubermuda\FeatureFlagsBundle\FeatureFlagService;
 /**
  * The single place a trial is created. Every entry point that needs a billing
  * profile — the paywall gate, the subscribe page, checkout — goes through here,
- * so a user gets exactly one trial no matter which door they came in by.
+ * so a user gets exactly one trial no matter which door they came in by. The
+ * profile and its trial grant are created together.
  */
 final readonly class TrialProvisioner
 {
@@ -49,9 +52,16 @@ final readonly class TrialProvisioner
             }
 
             $days = max(1, $this->featureFlags->getIntValue('billing.trial_days', self::DEFAULT_TRIAL_DAYS));
-            $profile = new BillingProfile($user, trialEndsAt: new \DateTimeImmutable(sprintf('+%d days', $days)));
+            $now = new \DateTimeImmutable();
+            $profile = new BillingProfile($user);
 
             $this->em->persist($profile);
+            $this->em->persist(new Subscription(
+                $profile,
+                SubscriptionKind::Trial,
+                $now,
+                $now->modify(sprintf('+%d days', $days)),
+            ));
             $this->em->flush();
 
             return $profile;

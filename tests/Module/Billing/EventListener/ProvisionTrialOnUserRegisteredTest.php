@@ -6,10 +6,10 @@ namespace App\Tests\Module\Billing\EventListener;
 
 use App\Module\Account\Entity\User;
 use App\Module\Account\Event\UserRegistered;
-use App\Module\Billing\Entity\BillingProfile;
 use App\Module\Billing\EventListener\ProvisionTrialOnUserRegistered;
 use App\Module\Billing\Repository\BillingProfileRepository;
 use App\Module\Billing\Service\TrialProvisioner;
+use App\Tests\Support\BillingGrants;
 use App\Tests\Support\FeatureFlags;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\TestCase;
@@ -25,7 +25,7 @@ final class ProvisionTrialOnUserRegisteredTest extends TestCase
     public function test_it_ensures_a_billing_profile_for_the_registered_user(): void
     {
         $user = $this->user();
-        $profile = new BillingProfile($user, trialEndsAt: new \DateTimeImmutable('+14 days'));
+        $profile = BillingGrants::profileWithTrial($user, new \DateTimeImmutable('+14 days'));
 
         $profiles = $this->createMock(BillingProfileRepository::class);
         $profiles->expects($this->once())->method('findOneByUser')->with($user)->willReturn($profile);

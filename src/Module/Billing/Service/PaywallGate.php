@@ -27,6 +27,6 @@ final readonly class PaywallGate
             return true;
         }
 
-        return $this->trialProvisioner->ensureProfile($user)->isCurrent(new \DateTimeImmutable());
+        return $this->trialProvisioner->ensureProfile($user)->hasCurrentSubscription(new \DateTimeImmutable());
     }
 }

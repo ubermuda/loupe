@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace App\Tests\Module\Billing\Service;
 
 use App\Module\Account\Entity\User;
+use App\Module\Billing\Entity\BillingProfile;
+use App\Module\Billing\Entity\SubscriptionKind;
 use App\Module\Billing\Repository\BillingProfileRepository;
 use App\Module\Billing\Service\TrialProvisioner;
 use App\Tests\Support\FeatureFlags;
@@ -42,9 +44,11 @@ final class TrialProvisionerTest extends KernelTestCase
         $profile = $this->provisioner(30)->ensureProfile($user);
 
         self::assertSame($user, $profile->user);
-        self::assertGreaterThan(new \DateTimeImmutable('+29 days'), $profile->trialEndsAt);
-        self::assertLessThan(new \DateTimeImmutable('+31 days'), $profile->trialEndsAt);
+        $trialEndsAt = $this->trialEndsAt($profile);
+        self::assertGreaterThan(new \DateTimeImmutable('+29 days'), $trialEndsAt);
+        self::assertLessThan(new \DateTimeImmutable('+31 days'), $trialEndsAt);
         self::assertSame(1, $this->countProfiles());
+        self::assertSame(1, $this->countSubscriptions());
     }
 
     public function test_second_call_returns_the_same_profile_and_creates_no_row(): void
@@ -73,8 +77,21 @@ final class TrialProvisionerTest extends KernelTestCase
         $profile = $provisioner->ensureProfile($user);
 
         $expected = new \DateTimeImmutable(sprintf('+%d days', TrialProvisioner::DEFAULT_TRIAL_DAYS));
-        self::assertGreaterThan($expected->modify('-1 day'), $profile->trialEndsAt);
-        self::assertLessThan($expected->modify('+1 day'), $profile->trialEndsAt);
+        self::assertGreaterThan($expected->modify('-1 day'), $this->trialEndsAt($profile));
+        self::assertLessThan($expected->modify('+1 day'), $this->trialEndsAt($profile));
+    }
+
+    private function trialEndsAt(BillingProfile $profile): \DateTimeImmutable
+    {
+        return $profile->latestSubscriptionOfKind(SubscriptionKind::Trial)->endsAt
+            ?? throw new \LogicException('a provisioned profile always has a trial grant');
+    }
+
+    private function countSubscriptions(): int
+    {
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+
+        return (int) $em->getConnection()->fetchOne('SELECT COUNT(*) FROM subscriptions');
     }
 
     /**

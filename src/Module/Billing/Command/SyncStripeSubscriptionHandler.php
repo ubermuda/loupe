@@ -7,7 +7,10 @@ namespace App\Module\Billing\Command;
 use App\Module\Account\Repository\WaitlistEntryRepository;
 use App\Module\Billing\Entity\BillingProfile;
 use App\Module\Billing\Entity\BillingStatus;
+use App\Module\Billing\Entity\Subscription;
+use App\Module\Billing\Entity\SubscriptionKind;
 use App\Module\Billing\Repository\BillingProfileRepository;
+use App\Module\Billing\Repository\SubscriptionRepository;
 use App\Module\Billing\Service\StripeGatewayInterface;
 use App\Module\Billing\Service\SubscriptionView;
 use Doctrine\DBAL\LockMode;
@@ -18,6 +21,7 @@ final readonly class SyncStripeSubscriptionHandler
 {
     public function __construct(
         private BillingProfileRepository $billingProfiles,
+        private SubscriptionRepository $subscriptions,
         private StripeGatewayInterface $stripe,
         private WaitlistEntryRepository $waitlistEntries,
         private EntityManagerInterface $em,
@@ -139,9 +143,19 @@ final readonly class SyncStripeSubscriptionHandler
             ]);
         }
 
-        $profile->stripeSubscriptionId = $command->stripeSubscriptionId;
-        $profile->status = BillingStatus::fromStripeStatus($stripeStatus);
-        $profile->currentPeriodEnd = $currentPeriodEnd;
+        $now = new \DateTimeImmutable();
+        $status = BillingStatus::fromStripeStatus($stripeStatus);
+
+        $subscription = $this->subscriptions->findOneByStripeSubscriptionId($command->stripeSubscriptionId);
+        if (null === $subscription) {
+            $subscription = new Subscription($profile, SubscriptionKind::Stripe, $now);
+            $subscription->stripeSubscriptionId = $command->stripeSubscriptionId;
+            $this->em->persist($subscription);
+        }
+
+        $subscription->stripeStatus = $status;
+        $subscription->endsAt = $this->endsAt($command, $status, $currentPeriodEnd, $now);
+
         $profile->lastStripeEventAt = $command->eventCreatedAt;
         $profile->lastStripeEventId = $command->stripeEventId;
         $profile->lastStripeEventType = $command->stripeEventType;
@@ -151,24 +165,22 @@ final readonly class SyncStripeSubscriptionHandler
         if ($profile->hasLiveSubscription() && null !== $user->disabledAt) {
             // They paid — re-enable unconditionally, even if the cap has
             // filled meanwhile (slight over-cap is the accepted trade-off).
-            // The cancel-survey marker resets so a later cancellation of THIS
+            // The survey marker resets so a later cancellation of THIS
             // subscription can be surveyed in its own right.
             $user->disabledAt = null;
-            $profile->cancelSurveySentAt = null;
+            $subscription->surveySentAt = null;
             $this->logger->info('billing.account.reenabled', ['userId' => (string) $user->id]);
 
             $this->waitlistEntries->findOneByEmail($user->email)?->markConverted();
         }
 
-        if (BillingStatus::Canceled === $profile->status
-            && null === $user->disabledAt
-            && (null === $profile->currentPeriodEnd || $profile->currentPeriodEnd < new \DateTimeImmutable())) {
-            // The paid-for period is over (Stripe fires `deleted` at period end
-            // for a cancel-at-period-end; only an immediate mid-period cancel
-            // carries a future currentPeriodEnd — that account keeps access
-            // until the sweep disables it after the date lapses). The sweep
-            // also owns the cancellation survey; this handler never emails.
-            $user->disabledAt = new \DateTimeImmutable();
+        if (BillingStatus::Canceled === $status && null === $user->disabledAt && !$profile->hasCurrentSubscription($now)) {
+            // The subscription is gone and nothing else grants access. A trial
+            // or a comp that still runs keeps the account enabled, and a
+            // mid-period cancel keeps its access until the paid period lapses,
+            // which the sweep settles. The sweep also owns the cancellation
+            // survey; this handler never emails.
+            $user->disabledAt = $now;
             $this->logger->info('billing.account.disabled_on_cancel', ['userId' => (string) $user->id]);
         }
 
@@ -177,7 +189,23 @@ final readonly class SyncStripeSubscriptionHandler
         $this->logger->info('billing.subscription.synced', [
             'stripeCustomerId' => $command->stripeCustomerId,
             'stripeSubscriptionId' => $command->stripeSubscriptionId,
-            'status' => $profile->status->value,
+            'status' => $status->value,
         ]);
+    }
+
+    /**
+     * When this grant stops. `active` with no known period end runs on until
+     * Stripe says otherwise. A `canceled` status also covers `incomplete`, which
+     * never went live, so only a real deletion honours its paid period.
+     */
+    private function endsAt(SyncStripeSubscriptionCommand $command, BillingStatus $status, ?\DateTimeImmutable $currentPeriodEnd, \DateTimeImmutable $now): ?\DateTimeImmutable
+    {
+        return match ($status) {
+            BillingStatus::Active, BillingStatus::Trialing => $currentPeriodEnd,
+            BillingStatus::PastDue => $currentPeriodEnd ?? $now,
+            BillingStatus::Canceled => BillingProfile::SUBSCRIPTION_DELETED_EVENT_TYPE === $command->stripeEventType
+                ? $currentPeriodEnd ?? $now
+                : $now,
+        };
     }
 }

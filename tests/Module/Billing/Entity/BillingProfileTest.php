@@ -7,88 +7,83 @@ namespace App\Tests\Module\Billing\Entity;
 use App\Module\Account\Entity\User;
 use App\Module\Billing\Entity\BillingProfile;
 use App\Module\Billing\Entity\BillingStatus;
+use App\Module\Billing\Entity\SubscriptionKind;
+use App\Tests\Support\BillingGrants;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
 final class BillingProfileTest extends TestCase
 {
-    private function user(): User
+    private function profile(): BillingProfile
     {
-        return new User(fullName: 'Alice A', email: 'alice@example.com', password: 'irrelevant');
+        return new BillingProfile(new User(fullName: 'Alice A', email: 'alice@example.com', password: 'irrelevant'));
     }
 
-    public function test_trialing_profile_is_current_until_trial_ends(): void
+    public function test_a_profile_with_no_grant_allows_nothing(): void
     {
-        $profile = new BillingProfile($this->user(), trialEndsAt: new \DateTimeImmutable('+3 days'));
-
-        self::assertTrue($profile->isCurrent(new \DateTimeImmutable()));
-        self::assertFalse($profile->isCurrent(new \DateTimeImmutable('+4 days')));
+        self::assertFalse($this->profile()->hasCurrentSubscription(new \DateTimeImmutable()));
     }
 
-    public function test_active_subscription_is_current_even_after_trial_end(): void
+    public function test_any_current_grant_allows_access(): void
     {
-        $profile = new BillingProfile($this->user(), trialEndsAt: new \DateTimeImmutable('-1 day'));
-        $profile->status = BillingStatus::Active;
+        $profile = $this->profile();
+        BillingGrants::trial($profile, new \DateTimeImmutable('-30 days'));
+        BillingGrants::comp($profile);
 
-        self::assertTrue($profile->isCurrent(new \DateTimeImmutable()));
-    }
-
-    public function test_past_due_is_not_current_after_trial(): void
-    {
-        $profile = new BillingProfile($this->user(), trialEndsAt: new \DateTimeImmutable('-1 day'));
-        $profile->status = BillingStatus::PastDue;
-
-        self::assertFalse($profile->isCurrent(new \DateTimeImmutable()));
-    }
-
-    public function test_canceled_without_a_period_end_is_not_current(): void
-    {
-        $profile = new BillingProfile($this->user(), trialEndsAt: new \DateTimeImmutable('-1 day'));
-        $profile->status = BillingStatus::Canceled;
-
-        self::assertFalse($profile->isCurrent(new \DateTimeImmutable()));
-    }
-
-    public function test_canceled_with_a_lapsed_period_end_is_not_current(): void
-    {
-        $profile = new BillingProfile($this->user(), trialEndsAt: new \DateTimeImmutable('-30 days'));
-        $profile->status = BillingStatus::Canceled;
-        $profile->currentPeriodEnd = new \DateTimeImmutable('-1 day');
-
-        self::assertFalse($profile->isCurrent(new \DateTimeImmutable()));
+        self::assertTrue($profile->hasCurrentSubscription(new \DateTimeImmutable()));
     }
 
     /**
-     * A mid-period cancel: Stripe already fired `deleted`, but the customer
-     * paid through `currentPeriodEnd`. `SyncStripeSubscriptionHandler` and the
-     * trial sweep both keep the account enabled until that date lapses, so
-     * the paywall must agree.
+     * The double-billing bug this model exists to make impossible: a comped
+     * subscriber reported as having no subscription would be offered Checkout
+     * and billed a second time.
      */
-    public function test_canceled_with_a_future_period_end_is_current(): void
+    public function test_a_comp_never_hides_a_live_stripe_subscription(): void
     {
-        $profile = new BillingProfile($this->user(), trialEndsAt: new \DateTimeImmutable('-30 days'));
-        $profile->status = BillingStatus::Canceled;
-        $profile->currentPeriodEnd = new \DateTimeImmutable('+5 days');
-        $profile->lastStripeEventType = BillingProfile::SUBSCRIPTION_DELETED_EVENT_TYPE;
+        $profile = $this->profile();
+        BillingGrants::stripe($profile, BillingStatus::Active, new \DateTimeImmutable('+30 days'));
+        BillingGrants::comp($profile);
 
-        self::assertTrue($profile->isCurrent(new \DateTimeImmutable()));
+        self::assertTrue($profile->hasLiveSubscription());
+        self::assertTrue($profile->hasCurrentSubscription(new \DateTimeImmutable()));
     }
 
-    /**
-     * BillingStatus::fromStripeStatus() also folds `incomplete`,
-     * `incomplete_expired`, and any status Stripe adds later into `Canceled` —
-     * none of those subscriptions ever went live, so a future
-     * `currentPeriodEnd` on one of them must not grant access. Only a genuine
-     * `customer.subscription.deleted` (the mid-period-cancel case above) may.
-     */
-    public function test_canceled_with_a_future_period_end_but_no_deletion_event_is_not_current(): void
+    public function test_a_comp_alone_is_not_a_live_stripe_subscription(): void
     {
-        $profile = new BillingProfile($this->user(), trialEndsAt: new \DateTimeImmutable('-30 days'));
-        $profile->status = BillingStatus::Canceled;
-        $profile->currentPeriodEnd = new \DateTimeImmutable('+5 days');
-        $profile->lastStripeEventType = 'customer.subscription.updated';
+        $profile = $this->profile();
+        BillingGrants::comp($profile);
 
-        self::assertFalse($profile->isCurrent(new \DateTimeImmutable()));
+        self::assertFalse($profile->hasLiveSubscription());
+    }
+
+    #[DataProvider('liveStatuses')]
+    public function test_stripe_grants_stripe_still_holds_are_live(BillingStatus $status, bool $expected): void
+    {
+        $profile = $this->profile();
+        BillingGrants::stripe($profile, $status, new \DateTimeImmutable('+30 days'));
+
+        self::assertSame($expected, $profile->hasLiveSubscription());
+    }
+
+    /** @return iterable<string, array{BillingStatus, bool}> */
+    public static function liveStatuses(): iterable
+    {
+        yield 'active' => [BillingStatus::Active, true];
+
+        yield 'past due is still a subscription to manage' => [BillingStatus::PastDue, true];
+
+        yield 'canceled' => [BillingStatus::Canceled, false];
+    }
+
+    public function test_the_latest_grant_of_a_kind_is_the_most_recently_created(): void
+    {
+        $profile = $this->profile();
+        $old = BillingGrants::stripe($profile, BillingStatus::Canceled, new \DateTimeImmutable('-1 day'), 'sub_old');
+        $old->createdAt = new \DateTimeImmutable('-60 days');
+        $new = BillingGrants::stripe($profile, BillingStatus::Active, new \DateTimeImmutable('+30 days'), 'sub_new');
+
+        self::assertSame($new, $profile->latestSubscriptionOfKind(SubscriptionKind::Stripe));
+        self::assertNull($profile->latestSubscriptionOfKind(SubscriptionKind::Comp));
     }
 
     #[DataProvider('stripeStatuses')]

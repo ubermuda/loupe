@@ -4,9 +4,10 @@ declare(strict_types=1);
 
 namespace App\Module\Billing\Command;
 
-use App\Module\Billing\Entity\BillingProfile;
 use App\Module\Billing\Entity\BillingStatus;
-use App\Module\Billing\Repository\BillingProfileRepository;
+use App\Module\Billing\Entity\Subscription;
+use App\Module\Billing\Entity\SubscriptionKind;
+use App\Module\Billing\Repository\SubscriptionRepository;
 use App\Module\Billing\Service\CancelSurveyEmailSender;
 use App\Module\Billing\Service\TrialEndSurveyEmailSender;
 use Doctrine\DBAL\LockMode;
@@ -16,15 +17,16 @@ use Ubermuda\FeatureFlagsBundle\FeatureFlagService;
 
 /**
  * The end-of-subscription lifecycle, run hourly. Every action is guarded by a
- * nullable-timestamp marker committed under a row lock, so duplicate or missed
- * runs are harmless: a second pass re-selects nothing. Emails are enqueued
- * after the marker commits — delivery failures are the messenger worker's
- * problem (retries, then the failed transport), never a reason to re-send.
+ * nullable-timestamp marker committed under a lock on the billing profile, so
+ * duplicate or missed runs are harmless: a second pass re-selects nothing.
+ * Emails are enqueued after the marker commits — delivery failures are the
+ * messenger worker's problem (retries, then the failed transport), never a
+ * reason to re-send.
  */
 final readonly class RunTrialSweepHandler
 {
     public function __construct(
-        private BillingProfileRepository $billingProfiles,
+        private SubscriptionRepository $subscriptions,
         private TrialEndSurveyEmailSender $trialSurveys,
         private CancelSurveyEmailSender $cancelSurveys,
         private FeatureFlagService $featureFlags,
@@ -46,145 +48,123 @@ final readonly class RunTrialSweepHandler
         $now = $command->now;
         $disabled = $churned = $subscriber = $cancel = $failed = 0;
 
-        foreach ($this->billingProfiles->findExpiredTrials($now) as $profile) {
+        foreach ($this->subscriptions->findEndedTrialsToSurvey($now) as $trial) {
             try {
-                [$disabledNow, $churnedNow] = $this->endExpiredTrial($profile, $now);
+                [$disabledNow, $churnedNow, $subscriberNow] = $this->endTrial($trial, $now);
                 $disabled += $disabledNow;
                 $churned += $churnedNow;
+                $subscriber += $subscriberNow;
             } catch (\Throwable $e) {
                 ++$failed;
-                $this->logFailure($profile, $e);
+                $this->logFailure($trial, $e);
             }
         }
 
-        foreach ($this->billingProfiles->findTrialEndedSubscribers($now) as $profile) {
+        foreach ($this->subscriptions->findCanceledStripeSubscriptionsToSettle($now) as $subscription) {
             try {
-                if ($this->surveySubscriber($profile, $now)) {
-                    ++$subscriber;
-                }
-            } catch (\Throwable $e) {
-                ++$failed;
-                $this->logFailure($profile, $e);
-            }
-        }
-
-        foreach ($this->billingProfiles->findCanceledPastPeriod($now) as $profile) {
-            try {
-                [$disabledNow, $surveyNow] = $this->settleCanceled($profile, $now);
+                [$disabledNow, $surveyNow] = $this->settleCanceled($subscription, $now);
                 $disabled += $disabledNow;
                 $cancel += $surveyNow;
             } catch (\Throwable $e) {
                 ++$failed;
-                $this->logFailure($profile, $e);
+                $this->logFailure($subscription, $e);
             }
         }
 
         return new TrialSweepResult($disabled, $churned, $subscriber, $cancel, $failed);
     }
 
-    /** @return array{int, int} [newly disabled, churned surveys marked] */
-    private function endExpiredTrial(BillingProfile $profile, \DateTimeImmutable $now): array
+    /** @return array{int, int, int} [newly disabled, churned surveys marked, subscriber surveys marked] */
+    private function endTrial(Subscription $trial, \DateTimeImmutable $now): array
     {
+        $profile = $trial->billingProfile;
+        $user = $profile->user;
+
         // DBAL-level transaction, not EntityManager::wrapInTransaction(): a
         // failure there closes the shared EntityManager and would abort every
         // remaining row of the batch.
-        [$disabledNow, $churnedNow] = $this->em->getConnection()->transactional(function () use ($profile, $now): array {
+        [$disabledNow, $churnedNow, $subscriberNow] = $this->em->getConnection()->transactional(function () use ($trial, $profile, $user, $now): array {
+            // The profile row is the lock every billing writer takes, so the
+            // re-check below sees whatever a racing webhook committed.
             $this->em->lock($profile, LockMode::PESSIMISTIC_WRITE);
             $this->em->refresh($profile);
+            $this->em->refresh($trial);
 
-            // Re-check under the lock: the Stripe webhook may have activated
-            // this subscription between the candidate query and here.
-            if (BillingStatus::Trialing !== $profile->status || $now < $profile->trialEndsAt || null !== $profile->surveySentAt) {
-                $this->logger->debug('billing.trial_sweep.skipped_after_lock', ['userId' => (string) $profile->user->id, 'pass' => 'expired_trials']);
+            if (null === $trial->endsAt || $now < $trial->endsAt || null !== $trial->surveySentAt) {
+                $this->logger->debug('billing.trial_sweep.skipped_after_lock', ['userId' => (string) $profile->user->id, 'pass' => 'ended_trials']);
 
-                return [0, 0];
+                return [0, 0, 0];
+            }
+
+            $trial->surveySentAt = $now;
+
+            if ($profile->hasLiveSubscription()) {
+                $this->em->flush();
+
+                return [0, 0, 1];
+            }
+
+            // They reached Stripe and left again. The cancellation pass owns
+            // that ending and its survey, so this one only marks the trial.
+            if (null !== $profile->latestSubscriptionOfKind(SubscriptionKind::Stripe)) {
+                $this->em->flush();
+
+                return [0, 0, 0];
             }
 
             $disabledNow = 0;
-            if (null === $profile->user->disabledAt) {
-                $profile->user->disabledAt = $now;
+            if (null === $user->disabledAt && !$profile->hasCurrentSubscription($now)) {
+                $user->disabledAt = $now;
                 $disabledNow = 1;
             }
-            $profile->surveySentAt = $now;
             $this->em->flush();
 
-            return [$disabledNow, 1];
+            return [$disabledNow, 1, 0];
         });
-
-        if (0 === $churnedNow) {
-            return [0, 0];
-        }
 
         if (1 === $disabledNow) {
-            $this->logger->info('billing.trial_sweep.disabled', ['userId' => (string) $profile->user->id, 'reason' => 'trial_expired']);
+            $this->logger->info('billing.trial_sweep.disabled', ['userId' => (string) $user->id, 'reason' => 'trial_expired']);
         }
-        if ($this->trialSurveys->send($profile->user, subscribed: false)) {
-            $this->logger->info('billing.trial_sweep.survey_sent', ['userId' => (string) $profile->user->id, 'variant' => 'churned']);
+        if (1 === $churnedNow && $this->trialSurveys->send($user, subscribed: false)) {
+            $this->logger->info('billing.trial_sweep.survey_sent', ['userId' => (string) $user->id, 'variant' => 'churned']);
         }
-
-        return [$disabledNow, $churnedNow];
-    }
-
-    private function surveySubscriber(BillingProfile $profile, \DateTimeImmutable $now): bool
-    {
-        $acted = $this->em->getConnection()->transactional(function () use ($profile, $now): bool {
-            $this->em->lock($profile, LockMode::PESSIMISTIC_WRITE);
-            $this->em->refresh($profile);
-
-            if (!in_array($profile->status, [BillingStatus::Active, BillingStatus::PastDue], true)
-                || $now < $profile->trialEndsAt
-                || null !== $profile->surveySentAt) {
-                $this->logger->debug('billing.trial_sweep.skipped_after_lock', ['userId' => (string) $profile->user->id, 'pass' => 'trial_ended_subscribers']);
-
-                return false;
-            }
-
-            $profile->surveySentAt = $now;
-            $this->em->flush();
-
-            return true;
-        });
-
-        if (!$acted) {
-            return false;
+        if (1 === $subscriberNow && $this->trialSurveys->send($user, subscribed: true)) {
+            $this->logger->info('billing.trial_sweep.survey_sent', ['userId' => (string) $user->id, 'variant' => 'subscribed']);
         }
 
-        if ($this->trialSurveys->send($profile->user, subscribed: true)) {
-            $this->logger->info('billing.trial_sweep.survey_sent', ['userId' => (string) $profile->user->id, 'variant' => 'subscribed']);
-        }
-
-        return true;
+        return [$disabledNow, $churnedNow, $subscriberNow];
     }
 
     /** @return array{int, int} [newly disabled, cancel surveys marked] */
-    private function settleCanceled(BillingProfile $profile, \DateTimeImmutable $now): array
+    private function settleCanceled(Subscription $subscription, \DateTimeImmutable $now): array
     {
-        [$disabledNow, $surveyNow] = $this->em->getConnection()->transactional(function () use ($profile, $now): array {
+        $profile = $subscription->billingProfile;
+        $user = $profile->user;
+
+        [$disabledNow, $surveyNow] = $this->em->getConnection()->transactional(function () use ($subscription, $profile, $user, $now): array {
             $this->em->lock($profile, LockMode::PESSIMISTIC_WRITE);
             $this->em->refresh($profile);
+            $this->em->refresh($subscription);
 
-            // fromStripeStatus() folds `incomplete` into Canceled, so an abandoned
-            // 3D Secure prompt looks identical to a real cancellation here. A user
-            // still inside their trial has lost nothing yet, and disabling them —
-            // with a cancellation survey — within the hour is wrong. Once the trial
-            // lapses they have no subscription and no trial, so the pass applies.
-            if (BillingStatus::Canceled !== $profile->status
-                || (null !== $profile->currentPeriodEnd && $now < $profile->currentPeriodEnd)
-                || (BillingProfile::SUBSCRIPTION_DELETED_EVENT_TYPE !== $profile->lastStripeEventType && $now < $profile->trialEndsAt)) {
-                $this->logger->debug('billing.trial_sweep.skipped_after_lock', ['userId' => (string) $profile->user->id, 'pass' => 'canceled_past_period']);
+            // Any other grant still running — a trial the user has not used up,
+            // a comp — keeps the account alive and postpones the survey.
+            if (BillingStatus::Canceled !== $subscription->stripeStatus
+                || (null !== $subscription->endsAt && $now < $subscription->endsAt)
+                || $profile->hasCurrentSubscription($now)) {
+                $this->logger->debug('billing.trial_sweep.skipped_after_lock', ['userId' => (string) $user->id, 'pass' => 'canceled_stripe']);
 
                 return [0, 0];
             }
 
             $disabledNow = 0;
-            if (null === $profile->user->disabledAt) {
-                $profile->user->disabledAt = $now;
+            if (null === $user->disabledAt) {
+                $user->disabledAt = $now;
                 $disabledNow = 1;
             }
 
             $surveyNow = 0;
-            if (null === $profile->cancelSurveySentAt) {
-                $profile->cancelSurveySentAt = $now;
+            if (null === $subscription->surveySentAt) {
+                $subscription->surveySentAt = $now;
                 $surveyNow = 1;
             }
 
@@ -196,20 +176,20 @@ final readonly class RunTrialSweepHandler
         });
 
         if (1 === $disabledNow) {
-            $this->logger->info('billing.trial_sweep.disabled', ['userId' => (string) $profile->user->id, 'reason' => 'subscription_canceled']);
+            $this->logger->info('billing.trial_sweep.disabled', ['userId' => (string) $user->id, 'reason' => 'subscription_canceled']);
         }
-        if (1 === $surveyNow && $this->cancelSurveys->send($profile->user)) {
-            $this->logger->info('billing.trial_sweep.cancel_survey_sent', ['userId' => (string) $profile->user->id]);
+        if (1 === $surveyNow && $this->cancelSurveys->send($user)) {
+            $this->logger->info('billing.trial_sweep.cancel_survey_sent', ['userId' => (string) $user->id]);
         }
 
         return [$disabledNow, $surveyNow];
     }
 
-    private function logFailure(BillingProfile $profile, \Throwable $e): void
+    private function logFailure(Subscription $subscription, \Throwable $e): void
     {
         $this->logger->error('billing.trial_sweep.row_failed', [
-            'profileId' => (string) $profile->id,
-            'userId' => (string) $profile->user->id,
+            'subscriptionId' => (string) $subscription->id,
+            'userId' => (string) $subscription->billingProfile->user->id,
             'error' => $e->getMessage(),
         ]);
     }
