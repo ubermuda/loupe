@@ -17,11 +17,11 @@ final class Version20260830152618 extends AbstractMigration
 
     public function up(Schema $schema): void
     {
-        // Each branch reproduces the access the old status-based rule gave.
-        // An `active` profile with no usable period end becomes open-ended, so
-        // it keeps its access until the next webhook writes a real end. Only a
+        // Each branch reproduces the access the old status-based rule gave. An
+        // `active` profile with no usable period end becomes open-ended. Only a
         // real deletion honours a canceled profile's paid period, because
-        // `incomplete` also stores as `canceled` and never went live.
+        // `incomplete` also stores as `canceled` and never went live. Truncate
+        // the now value, because a timestamp(0) column rounds a half second up.
         $this->addSql(<<<'SQL'
             INSERT INTO subscriptions (
                 id, billing_profile_id, kind, starts_at, ends_at,
@@ -46,7 +46,7 @@ final class Version20260830152618 extends AbstractMigration
                 CASE WHEN p.status = 'trialing' THEN p.survey_sent_at ELSE p.cancel_survey_sent_at END,
                 p.created_at
             FROM billing_profiles p
-            CROSS JOIN (SELECT NOW() AT TIME ZONE 'UTC' AS at) n
+            CROSS JOIN (SELECT date_trunc('second', NOW() AT TIME ZONE 'UTC') AS at) n
             SQL);
     }
 
