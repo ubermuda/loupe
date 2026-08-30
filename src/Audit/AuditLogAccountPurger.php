@@ -13,16 +13,14 @@ use Doctrine\ORM\EntityManagerInterface;
  * Removes the departed account from the audit trail. It lives on this side of
  * the boundary because the audit package cannot know about account deletion.
  *
- * Records of what the user did go. Records about the user stay, because the
- * trail of an action taken on an account is the account's own evidence that it
- * happened; only the stored label goes, which is the one place a name survives
- * a row whose actor association is set to null rather than deleted.
+ * Records of what the account did go, and records about it stay whole. A record
+ * about the account names it as a subject type and an id, never as a name, and
+ * carries the acting party's name instead — so it holds nothing of the
+ * departed account to scrub, and nulling its label would erase an admin's name
+ * from exactly the records a later reader came for.
  */
 final readonly class AuditLogAccountPurger implements AccountDataPurgerInterface
 {
-    /** How the trail names a user as the thing an event happened to. */
-    public const string USER_SUBJECT_TYPE = 'user';
-
     public function __construct(
         private EntityManagerInterface $em,
     ) {
@@ -39,15 +37,25 @@ final readonly class AuditLogAccountPurger implements AccountDataPurgerInterface
     public function purge(User $user, AccountDeletionCleanup $cleanup): void
     {
         // ProjectAccountPurger runs first and calls EntityManager::clear(), so
-        // $user may be detached: read the id as a scalar, never query by object.
+        // $user may be detached: read both keys as scalars up front, and never
+        // query by the object.
         $id = (string) ($user->id ?? throw new \LogicException('a persisted user always has an id'));
+        $label = $user->auditLabel();
 
         $connection = $this->em->getConnection();
 
         $connection->executeStatement('DELETE FROM audit_log WHERE actor_id = :id', ['id' => $id]);
-        $connection->executeStatement(
-            'UPDATE audit_log SET actor_label = NULL WHERE subject_type = :type AND subject_id = :id',
-            ['type' => self::USER_SUBJECT_TYPE, 'id' => $id],
-        );
+
+        if (null !== $label) {
+            // The label and the id are written independently, so a record can
+            // carry the name with no id and outlive the delete above. A name is
+            // not unique: two accounts sharing one lose each other's
+            // unattributable records. Over-deletion, and there is nothing
+            // narrower to key on.
+            $connection->executeStatement(
+                'DELETE FROM audit_log WHERE actor_id IS NULL AND actor_label = :label',
+                ['label' => $label],
+            );
+        }
     }
 }
