@@ -40,10 +40,22 @@ final readonly class BillingProfileAccountPurger implements AccountDataPurgerInt
 
         $connection = $this->em->getConnection();
         $profile = $connection->fetchAssociative(
-            'SELECT stripe_subscription_id, stripe_customer_id FROM billing_profiles WHERE user_id = :id', // @translation-check-ignore
+            <<<'SQL'
+                SELECT s.stripe_subscription_id, p.stripe_customer_id
+                FROM billing_profiles p
+                LEFT JOIN subscriptions s
+                    ON s.billing_profile_id = p.id AND s.stripe_subscription_id IS NOT NULL
+                WHERE p.user_id = :id
+                ORDER BY s.created_at DESC
+                LIMIT 1
+                SQL, // @translation-check-ignore
             ['id' => $id],
         );
 
+        $connection->executeStatement(
+            'DELETE FROM subscriptions WHERE billing_profile_id IN (SELECT id FROM billing_profiles WHERE user_id = :id)', // @translation-check-ignore
+            ['id' => $id],
+        );
         $connection->executeStatement('DELETE FROM billing_profiles WHERE user_id = :id', ['id' => $id]);
 
         $subscriptionId = false === $profile ? null : $profile['stripe_subscription_id'];

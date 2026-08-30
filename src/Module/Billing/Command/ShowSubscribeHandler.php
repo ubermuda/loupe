@@ -7,6 +7,7 @@ namespace App\Module\Billing\Command;
 use App\Module\Account\Repository\WaitlistEntryRepository;
 use App\Module\Account\Service\RegistrationGate;
 use App\Module\Billing\Entity\BillingProfile;
+use App\Module\Billing\Entity\SubscriptionKind;
 use App\Module\Billing\Repository\BillingProfileRepository;
 use App\Module\Billing\Service\ActivePriceProvider;
 use App\Module\Billing\Service\TrialProvisioner;
@@ -37,7 +38,7 @@ final readonly class ShowSubscribeHandler
             : $this->billingProfiles->findOneByUser($command->user);
 
         $now = new \DateTimeImmutable();
-        $subscribed = null !== $profile && null !== $profile->stripeSubscriptionId && $profile->isCurrent($now);
+        $subscribed = null !== $profile && null !== $profile->currentSubscriptionOfKind(SubscriptionKind::Stripe, $now);
 
         // Mirrors the gate in StartCheckoutHandler so the page never offers a
         // checkout button the POST would reject.
@@ -51,7 +52,7 @@ final readonly class ShowSubscribeHandler
             billingEnabled: $billingEnabled,
             subscribed: $subscribed,
             hasLiveSubscription: null !== $profile && $profile->hasLiveSubscription(),
-            trialing: !$subscribed && null !== $profile && $profile->isCurrent($now),
+            trialing: !$subscribed && null !== $profile && $profile->hasCurrentSubscription($now),
             trialDaysLeft: null === $profile ? 0 : $this->daysLeft($profile, $now),
             accountDisabled: $accountDisabled,
             capFull: $capFull,
@@ -80,10 +81,11 @@ final readonly class ShowSubscribeHandler
 
     private function daysLeft(BillingProfile $profile, \DateTimeImmutable $now): int
     {
-        if ($now >= $profile->trialEndsAt) {
+        $trialEndsAt = $profile->latestSubscriptionOfKind(SubscriptionKind::Trial)?->endsAt;
+        if (null === $trialEndsAt || $now >= $trialEndsAt) {
             return 0;
         }
 
-        return (int) ceil(($profile->trialEndsAt->getTimestamp() - $now->getTimestamp()) / self::SECONDS_PER_DAY);
+        return (int) ceil(($trialEndsAt->getTimestamp() - $now->getTimestamp()) / self::SECONDS_PER_DAY);
     }
 }

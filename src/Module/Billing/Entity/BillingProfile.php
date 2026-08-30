@@ -6,23 +6,26 @@ namespace App\Module\Billing\Entity;
 
 use App\Module\Account\Entity\User;
 use App\Module\Billing\Repository\BillingProfileRepository;
+use Doctrine\Common\Collections\ArrayCollection;
+use Doctrine\Common\Collections\Collection;
 use Doctrine\ORM\Mapping as ORM;
 use Symfony\Bridge\Doctrine\Types\UuidType;
 use Symfony\Component\Uid\Uuid;
 
+/**
+ * The customer record. It holds Stripe's identity for this user and the
+ * bookkeeping that applies webhooks in order. Every grant of access lives in a
+ * Subscription row instead.
+ */
 #[ORM\Entity(repositoryClass: BillingProfileRepository::class)]
-// Partial indexes don't round-trip through DBAL's comparator (Postgres
-// rewrites the predicate), so migrate-diff never settles. Keep these plain.
-#[ORM\Index(name: 'idx_billing_profiles_status_trial_ends_at', columns: ['status', 'trial_ends_at'])]
-#[ORM\Index(name: 'idx_billing_profiles_status_current_period_end', columns: ['status', 'current_period_end'])]
 #[ORM\Table(name: 'billing_profiles')]
 class BillingProfile
 {
     /**
      * Stripe event type that terminates a subscription. The single source of
-     * truth for the literal, referenced both here (see isCurrent()) and by
-     * SyncStripeSubscriptionHandler/StripeWebhookController, which are the
-     * only writers of $lastStripeEventType.
+     * truth for the literal, referenced by SyncStripeSubscriptionHandler and
+     * StripeWebhookController, which are the only writers of
+     * $lastStripeEventType.
      */
     public const string SUBSCRIPTION_DELETED_EVENT_TYPE = 'customer.subscription.deleted';
 
@@ -32,17 +35,8 @@ class BillingProfile
     #[ORM\Id]
     public private(set) ?Uuid $id = null;
 
-    #[ORM\Column(length: 20, enumType: BillingStatus::class)]
-    public BillingStatus $status = BillingStatus::Trialing;
-
     #[ORM\Column(length: 255, nullable: true)]
     public ?string $stripeCustomerId = null;
-
-    #[ORM\Column(length: 255, nullable: true)]
-    public ?string $stripeSubscriptionId = null;
-
-    #[ORM\Column(nullable: true)]
-    public ?\DateTimeImmutable $currentPeriodEnd = null;
 
     /**
      * `created` of the last Stripe event applied. Stripe guarantees neither
@@ -70,22 +64,9 @@ class BillingProfile
     #[ORM\Column(length: 255, nullable: true)]
     public ?string $lastStripeEventType = null;
 
-    /**
-     * When the end-of-trial survey email (churned or subscriber variant) was
-     * handed to the mailer — or deliberately skipped because no survey URL is
-     * configured. One per profile: a trial ends exactly once.
-     */
-    #[ORM\Column(nullable: true)]
-    public ?\DateTimeImmutable $surveySentAt = null;
-
-    /**
-     * Same marker for the cancellation survey. Separate from $surveySentAt
-     * because a subscriber who later cancels has already consumed that one at
-     * trial end. Reset when a subscription re-activates, so each subscription
-     * lifetime can survey its own ending.
-     */
-    #[ORM\Column(nullable: true)]
-    public ?\DateTimeImmutable $cancelSurveySentAt = null;
+    /** @var Collection<int, Subscription> */
+    #[ORM\OneToMany(targetEntity: Subscription::class, mappedBy: 'billingProfile')]
+    public Collection $subscriptions;
 
     // Note: no `readonly` on the constructor-promoted columns below. The billing
     // handlers re-read this row under a pessimistic lock, and EntityManager::refresh()
@@ -99,56 +80,54 @@ class BillingProfile
         public User $user,
 
         #[ORM\Column]
-        public \DateTimeImmutable $trialEndsAt,
-
-        #[ORM\Column]
         public \DateTimeImmutable $createdAt = new \DateTimeImmutable(),
     ) {
+        $this->subscriptions = new ArrayCollection();
+    }
+
+    /** Whether any grant of any kind allows the user in right now. */
+    public function hasCurrentSubscription(\DateTimeImmutable $now): bool
+    {
+        return array_any(
+            $this->subscriptions->toArray(),
+            static fn (Subscription $subscription): bool => $subscription->isCurrent($now),
+        );
+    }
+
+    public function currentSubscriptionOfKind(SubscriptionKind $kind, \DateTimeImmutable $now): ?Subscription
+    {
+        return array_find(
+            $this->subscriptions->toArray(),
+            static fn (Subscription $subscription): bool => $kind === $subscription->kind && $subscription->isCurrent($now),
+        );
+    }
+
+    /** The most recently created grant of one kind, current or not. */
+    public function latestSubscriptionOfKind(SubscriptionKind $kind): ?Subscription
+    {
+        $matches = array_values(array_filter(
+            $this->subscriptions->toArray(),
+            static fn (Subscription $subscription): bool => $kind === $subscription->kind,
+        ));
+        usort($matches, static fn (Subscription $a, Subscription $b): int => $a->createdAt <=> $b->createdAt);
+
+        return array_slice($matches, -1)[0] ?? null;
     }
 
     /**
      * Stripe still holds a subscription for this customer. `PastDue` counts:
      * an unpaid subscription is still a subscription, so the answer is "manage
      * the one you have", never "start a second one" — a second Checkout would
-     * create a parallel subscription and bill the user twice once the overdue
-     * invoice settles.
+     * create a parallel subscription and bill the user twice. A comp never
+     * changes this answer, because a comp is not a Stripe subscription.
      */
     public function hasLiveSubscription(): bool
     {
-        return null !== $this->stripeSubscriptionId
-            && in_array($this->status, [BillingStatus::Active, BillingStatus::PastDue], true);
-    }
-
-    /**
-     * A `Canceled` profile whose last applied event was an actual
-     * `customer.subscription.deleted`, with a future `currentPeriodEnd`, is a
-     * mid-period cancel: the customer already paid through that date.
-     * `SyncStripeSubscriptionHandler` never disables the account while that
-     * date is still ahead, and the sweep (`RunTrialSweepHandler::settleCanceled()`)
-     * deliberately waits for it to lapse before disabling and surveying — this
-     * mirrors that intent so the paywall doesn't lock the user out before
-     * either of them do.
-     *
-     * The event-type check matters: `BillingStatus::fromStripeStatus()` also
-     * folds `incomplete`, `incomplete_expired`, and any status Stripe adds
-     * later into `Canceled` — none of those ever had a live subscription, so
-     * without this check a subscription that never completed payment (but
-     * whose `current_period_end` Stripe already set) would wrongly pass the
-     * paywall.
-     */
-    public function isCurrent(\DateTimeImmutable $now): bool
-    {
-        if (BillingStatus::Active === $this->status) {
-            return true;
-        }
-
-        if (BillingStatus::Trialing === $this->status) {
-            return $now < $this->trialEndsAt;
-        }
-
-        return BillingStatus::Canceled === $this->status
-            && self::SUBSCRIPTION_DELETED_EVENT_TYPE === $this->lastStripeEventType
-            && null !== $this->currentPeriodEnd
-            && $now < $this->currentPeriodEnd;
+        return array_any(
+            $this->subscriptions->toArray(),
+            static fn (Subscription $subscription): bool => SubscriptionKind::Stripe === $subscription->kind
+                && null !== $subscription->stripeSubscriptionId
+                && in_array($subscription->stripeStatus, [BillingStatus::Active, BillingStatus::PastDue], true),
+        );
     }
 }

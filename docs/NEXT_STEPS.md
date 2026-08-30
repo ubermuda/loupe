@@ -2259,6 +2259,21 @@ bundle templates and any class a bundle applies from JavaScript, which is what
 made `admin-badge-off` look dead. The check itself belongs in `ubermuda/gamache`
 rather than here.
 
+## Reserve the comp audit event names for when an audit subsystem lands
+
+**Author:** Claude · **Type:** feature · **Priority:** low · **Status:** pending
+
+The subscription model in `src/Module/Billing/Entity/Subscription.php` supports a
+comp: a grant of kind `comp` with no end date, which an admin gives and later
+revokes. Granting one gives an account a paid product for free, and revoking one
+takes it away, so both are worth an audit record.
+
+This repository has no audit subsystem yet, so there is nothing to write the
+record to. Reserve the two names now, and use them unchanged when one arrives:
+`billing.comp.granted` and `billing.comp.revoked`. Revoking a comp sets `endsAt`
+rather than deleting the row, so the row itself already keeps a trail; the event
+names are for the actor and the time.
+
 ## Bump `.skeleton.json` once the Turbo-prefetch PR merges
 
 **Author:** Claude · **Type:** tooling · **Priority:** low · **Status:** pending
