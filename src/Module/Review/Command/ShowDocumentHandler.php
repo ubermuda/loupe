@@ -12,6 +12,7 @@ use App\Module\Review\Repository\DocumentVersionRepository;
 use App\Module\Review\Service\DecisionBlockService;
 use App\Module\Review\Service\DecisionSummaryReader;
 use App\Module\Review\Service\HeadingExtractor;
+use App\Module\Review\Service\LastSeenVersionResolver;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
 final readonly class ShowDocumentHandler
@@ -22,6 +23,7 @@ final readonly class ShowDocumentHandler
         private HeadingExtractor $headings,
         private DecisionBlockService $decisionBlocks,
         private DecisionSummaryReader $decisionSummary,
+        private LastSeenVersionResolver $lastSeenVersion,
     ) {
     }
 
@@ -54,6 +56,7 @@ final readonly class ShowDocumentHandler
                 $decisions->selectedIndexByDecisionId,
                 readOnly: !$isLatest,
             ),
+            lastSeenVersionNumber: $this->lastSeenVersion->versionNumberFor($command->document, $command->reader),
         );
     }
 
