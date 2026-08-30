@@ -24,7 +24,7 @@ final readonly class MonologAuditSink implements AuditSinkInterface
     {
         $logger = $this->loggers->loggerFor($event->category) ?? $this->fallbackLogger;
 
-        $logger->log($event->level->psrLogLevel(), $event->operation, $this->contextFor($event));
+        $logger->info($event->operation, $this->contextFor($event));
     }
 
     #[\Override]

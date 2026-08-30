@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Tests\Module\Audit;
 
 use App\Module\Audit\AuditEvent;
-use App\Module\Audit\AuditLevel;
 use App\Module\Audit\AuditLoggerRegistryInterface;
 use App\Module\Audit\Auditor;
 use App\Module\Audit\AuditSubject;
@@ -78,12 +77,12 @@ final class MonologAuditSinkTest extends TestCase
         self::assertSame([], $this->securityLogger->records);
     }
 
-    public function test_the_record_carries_the_operation_at_the_event_level_with_its_context(): void
+    public function test_the_record_carries_the_operation_at_info_with_its_context(): void
     {
         $this->sink->write($this->event(Auditor::CATEGORY_DOMAIN));
 
         self::assertSame([[
-            'level' => LogLevel::WARNING,
+            'level' => LogLevel::INFO,
             'message' => 'document.deleted',
             'context' => [
                 'documentId' => '42',
@@ -98,7 +97,6 @@ final class MonologAuditSinkTest extends TestCase
     {
         $this->sink->write(new AuditEvent(
             'document.deleted',
-            AuditLevel::Info,
             Auditor::CATEGORY_DOMAIN,
             new FakeAuditActor('Riley Chen', 'user-1'),
             new FakeAuditCredential('token-1'),
@@ -123,7 +121,6 @@ final class MonologAuditSinkTest extends TestCase
     {
         return new AuditEvent(
             'document.deleted',
-            AuditLevel::Warning,
             $category,
             null,
             null,

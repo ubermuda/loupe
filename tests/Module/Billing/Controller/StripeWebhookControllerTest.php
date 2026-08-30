@@ -136,7 +136,7 @@ final class StripeWebhookControllerTest extends WebTestCase
 
                 public function onFlush(): void
                 {
-                    $this->auditor->info('billing.subscription.synced');
+                    $this->auditor->record('billing.subscription.synced');
                 }
             },
         );
