@@ -60,6 +60,11 @@ final class BackfillSubscriptionsTest extends KernelTestCase
             false,
         ];
 
+        yield 'an unpaid subscription with no known period end' => [
+            ['status' => 'past-due', 'trial_ends_at' => '-30 days'],
+            false,
+        ];
+
         yield 'a mid-period cancel' => [
             [
                 'status' => 'canceled',
@@ -75,6 +80,15 @@ final class BackfillSubscriptionsTest extends KernelTestCase
                 'status' => 'canceled',
                 'trial_ends_at' => '-30 days',
                 'current_period_end' => '-1 day',
+                'last_stripe_event_type' => BillingProfile::SUBSCRIPTION_DELETED_EVENT_TYPE,
+            ],
+            false,
+        ];
+
+        yield 'a cancellation with no known period end' => [
+            [
+                'status' => 'canceled',
+                'trial_ends_at' => '-30 days',
                 'last_stripe_event_type' => BillingProfile::SUBSCRIPTION_DELETED_EVENT_TYPE,
             ],
             false,
