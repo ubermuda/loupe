@@ -3196,6 +3196,22 @@
                 <source>review.document.diff.picker.submit</source>
                 <target>Compare</target>
             </trans-unit>
+            <trans-unit id="review.document.diff.nav.count">
+                <source>review.document.diff.nav.count</source>
+                <target>{0}No changes|{1}1 change|]1,Inf[%count% changes</target>
+            </trans-unit>
+            <trans-unit id="review.document.diff.nav.position">
+                <source>review.document.diff.nav.position</source>
+                <target>Change %current% of %total%</target>
+            </trans-unit>
+            <trans-unit id="review.document.diff.nav.previous">
+                <source>review.document.diff.nav.previous</source>
+                <target>Previous change</target>
+            </trans-unit>
+            <trans-unit id="review.document.diff.nav.next">
+                <source>review.document.diff.nav.next</source>
+                <target>Next change</target>
+            </trans-unit>
 
             <trans-unit id="landing.meta.description">
                 <source>landing.meta.description</source>
