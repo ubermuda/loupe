@@ -124,6 +124,23 @@ when@test:
             alias: 'export.storage'
             public: true
 
+        # The audit facade and its Doctrine sink have one consumer each, so the
+        # compiler inlines them and a test cannot reach the drained instance.
+        App\Module\Audit\Auditor:
+            autowire: true
+            autoconfigure: true
+            public: true
+
+        App\Module\Audit\DoctrineAuditSink:
+            autowire: true
+            autoconfigure: true
+            public: true
+
+        App\Module\Audit\Repository\AuditLogRepository:
+            autowire: true
+            autoconfigure: true
+            public: true
+
         App\Module\Review\Command\CreateDocumentHandler:
             autowire: true
             public: true
