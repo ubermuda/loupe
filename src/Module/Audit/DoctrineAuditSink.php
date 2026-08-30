@@ -24,7 +24,7 @@ final class DoctrineAuditSink implements AuditSinkInterface, ResetInterface
 
     /** @var list<string> */
     private const array COLUMNS = [
-        'id', 'operation', 'category', 'channel', 'actor_id',
+        'id', 'operation', 'outcome', 'category', 'channel', 'actor_id',
         'actor_label', 'credential_id', 'subject_type', 'subject_id',
         'context', 'occurred_at',
     ];
@@ -48,6 +48,7 @@ final class DoctrineAuditSink implements AuditSinkInterface, ResetInterface
             // and prunes in time order, and a v7 identifier already is that order.
             (string) Uuid::v7(),
             $event->operation,
+            $event->outcome->value,
             $event->category,
             $event->channel,
             $event->actorIdentifier,

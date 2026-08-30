@@ -6,6 +6,7 @@ namespace App\Tests\Audit;
 
 use App\Module\Account\Entity\User;
 use App\Module\Audit\Auditor;
+use App\Module\Audit\AuditOutcome;
 use App\Module\Audit\AuditSubject;
 use App\Module\Audit\Entity\AuditLog;
 use App\Module\Audit\Repository\AuditLogRepository;
@@ -38,7 +39,7 @@ final class AuditTrailPersistenceTest extends KernelTestCase
     public function test_a_record_made_inside_a_rolled_back_transaction_still_reaches_the_table(): void
     {
         $this->connection->beginTransaction();
-        $this->auditor->record('document.deleted', ['documentId' => 'doc-1'], new AuditSubject('document', 'doc-1'));
+        $this->auditor->record('document.deleted', AuditOutcome::Success, ['documentId' => 'doc-1'], new AuditSubject('document', 'doc-1'));
         $this->connection->rollBack();
 
         $this->auditor->flush();
@@ -55,7 +56,7 @@ final class AuditTrailPersistenceTest extends KernelTestCase
     {
         $user = $this->signIn();
 
-        $this->auditor->record('document.created');
+        $this->auditor->record('document.created', AuditOutcome::Success);
         $this->auditor->flush();
 
         $record = static::getContainer()->get(AuditLogRepository::class)->findOneBy(['operation' => 'document.created']);
@@ -67,11 +68,27 @@ final class AuditTrailPersistenceTest extends KernelTestCase
         self::assertSame('session', $record->channel);
     }
 
+    /** A refusal is the row a reader goes looking for, so it must survive the round trip. */
+    public function test_a_refusal_reaches_the_column_as_a_refusal(): void
+    {
+        $this->auditor->record('document.access_denied', AuditOutcome::Refused);
+        $this->auditor->record('document.created', AuditOutcome::Success);
+        $this->auditor->flush();
+
+        $rows = $this->rows();
+        self::assertSame(['refused', 'success'], array_column($rows, 'outcome'));
+
+        $record = static::getContainer()->get(AuditLogRepository::class)->findOneBy(['operation' => 'document.access_denied']);
+
+        self::assertInstanceOf(AuditLog::class, $record);
+        self::assertSame(AuditOutcome::Refused, $record->outcome);
+    }
+
     public function test_deleting_the_actor_keeps_the_record_and_its_label(): void
     {
         $user = $this->signIn();
 
-        $this->auditor->record('document.created');
+        $this->auditor->record('document.created', AuditOutcome::Success);
         $this->auditor->flush();
 
         static::getContainer()->get(TokenStorageInterface::class)->setToken(null);
@@ -85,12 +102,12 @@ final class AuditTrailPersistenceTest extends KernelTestCase
 
     public function test_the_container_reset_discards_a_buffer_the_next_unit_of_work_must_not_inherit(): void
     {
-        $this->auditor->record('document.created');
+        $this->auditor->record('document.created', AuditOutcome::Success);
         $this->auditor->flush();
 
         self::assertCount(1, $this->rows());
 
-        $this->auditor->record('document.deleted');
+        $this->auditor->record('document.deleted', AuditOutcome::Success);
         static::getContainer()->get('services_resetter')->reset();
         $this->auditor->flush();
 

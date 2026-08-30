@@ -6,6 +6,7 @@ namespace App\Module\Audit\Entity;
 
 use App\Module\Audit\AuditActorInterface;
 use App\Module\Audit\AuditCredentialInterface;
+use App\Module\Audit\AuditOutcome;
 use App\Module\Audit\Repository\AuditLogRepository;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
@@ -45,6 +46,9 @@ class AuditLog
     public function __construct(
         #[ORM\Column(length: self::MAX_OPERATION_LENGTH)]
         public string $operation,
+
+        #[ORM\Column(length: 20, enumType: AuditOutcome::class)]
+        public AuditOutcome $outcome,
 
         #[ORM\Column(length: 20)]
         public string $category,

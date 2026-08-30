@@ -6,6 +6,7 @@ namespace App\Tests\Module\Audit;
 
 use App\Module\Audit\AuditEvent;
 use App\Module\Audit\Auditor;
+use App\Module\Audit\AuditOutcome;
 use App\Module\Audit\AuditSubject;
 use App\Module\Audit\DoctrineAuditSink;
 use App\Tests\Support\FakeAuditActor;
@@ -21,7 +22,7 @@ use PHPUnit\Framework\TestCase;
 final class DoctrineAuditSinkTest extends TestCase
 {
     /** Columns per row, so a parameter count says how many rows a statement carried. */
-    private const int COLUMNS = 11;
+    private const int COLUMNS = 12;
 
     private Connection&Stub $connection;
 
@@ -160,6 +161,7 @@ final class DoctrineAuditSinkTest extends TestCase
         $sink = $this->sink();
         $sink->write(new AuditEvent(
             'document.deleted',
+            AuditOutcome::Refused,
             Auditor::CATEGORY_SECURITY,
             new FakeAuditActor('Riley Chen'),
             null,
@@ -170,9 +172,10 @@ final class DoctrineAuditSinkTest extends TestCase
         ));
         $sink->flush();
 
-        [, $operation, $category, $channel, $actorId, $actorLabel, $credentialId, $subjectType, $subjectId, $context, $occurredAt] = $this->statements[0]['params'];
+        [, $operation, $outcome, $category, $channel, $actorId, $actorLabel, $credentialId, $subjectType, $subjectId, $context, $occurredAt] = $this->statements[0]['params'];
 
         self::assertSame('document.deleted', $operation);
+        self::assertSame('refused', $outcome);
         self::assertSame(Auditor::CATEGORY_SECURITY, $category);
         self::assertSame('mcp', $channel);
         self::assertNull($actorId);
@@ -193,7 +196,7 @@ final class DoctrineAuditSinkTest extends TestCase
         ));
         $sink->flush();
 
-        [, , , , $actorId, , $credentialId] = $this->statements[0]['params'];
+        [, , , , , $actorId, , $credentialId] = $this->statements[0]['params'];
 
         self::assertSame('user-1', $actorId);
         self::assertSame('token-1', $credentialId);
@@ -217,7 +220,7 @@ final class DoctrineAuditSinkTest extends TestCase
         $sink->write($event);
         $sink->flush();
 
-        [, , , , $actorId, , $credentialId] = $this->statements[0]['params'];
+        [, , , , , $actorId, , $credentialId] = $this->statements[0]['params'];
 
         self::assertSame('user-1', $actorId);
         self::assertSame('token-1', $credentialId);
@@ -235,7 +238,7 @@ final class DoctrineAuditSinkTest extends TestCase
 
         self::assertCount(1, $this->statements);
 
-        [, , , , $actorId, $actorLabel] = $this->statements[0]['params'];
+        [, , , , , $actorId, $actorLabel] = $this->statements[0]['params'];
 
         self::assertNull($actorId);
         self::assertSame('Riley Chen', $actorLabel);
@@ -248,7 +251,7 @@ final class DoctrineAuditSinkTest extends TestCase
         $sink->write($this->event());
         $sink->flush();
 
-        self::assertSame('{}', $this->statements[0]['params'][9]);
+        self::assertSame('{}', $this->statements[0]['params'][10]);
     }
 
     private function sink(): DoctrineAuditSink
@@ -257,11 +260,13 @@ final class DoctrineAuditSinkTest extends TestCase
     }
 
     private function event(
+        AuditOutcome $outcome = AuditOutcome::Success,
         ?FakeAuditActor $actor = null,
         ?FakeAuditCredential $credential = null,
     ): AuditEvent {
         return new AuditEvent(
             'document.deleted',
+            $outcome,
             Auditor::CATEGORY_DOMAIN,
             $actor,
             $credential,

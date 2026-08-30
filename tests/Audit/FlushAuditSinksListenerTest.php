@@ -6,6 +6,7 @@ namespace App\Tests\Audit;
 
 use App\Audit\EventListener\FlushAuditSinksListener;
 use App\Module\Audit\Auditor;
+use App\Module\Audit\AuditOutcome;
 use Doctrine\DBAL\Connection;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -130,7 +131,7 @@ final class FlushAuditSinksListenerTest extends KernelTestCase
         foreach ($cases as $operation => [$event]) {
             $this->dispatcher->addListener(
                 $event,
-                fn () => $this->auditor->record($operation),
+                fn () => $this->auditor->record($operation, AuditOutcome::Success),
                 FlushAuditSinksListener::BEFORE_SERVICES_RESET + 1,
             );
         }
@@ -198,7 +199,7 @@ final class FlushAuditSinksListenerTest extends KernelTestCase
         $this->dispatcher->addListener(
             WorkerMessageReceivedEvent::class,
             function (WorkerMessageReceivedEvent $event): void {
-                $this->auditor->record('message.declined');
+                $this->auditor->record('message.declined', AuditOutcome::Success);
                 $event->shouldHandle(false);
             },
         );
@@ -217,7 +218,7 @@ final class FlushAuditSinksListenerTest extends KernelTestCase
 
     private function recordAndAssertStillBuffered(): void
     {
-        $this->auditor->record('document.deleted');
+        $this->auditor->record('document.deleted', AuditOutcome::Success);
 
         self::assertSame(0, $this->recordCount(), 'Nothing may reach the table before the drain.');
     }
