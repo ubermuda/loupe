@@ -174,6 +174,9 @@ final class DiffDocumentVersionsControllerTest extends WebTestCase
         self::assertCount(1, $rendered->filter('.lp-diff-doc'));
         self::assertCount(0, $rendered->filter('.lp-diff-doc .lp-diff__mark'));
         self::assertSelectorTextContains('.lp-diff-nav__count', 'No changes');
+        // The way out of the state this view cannot describe. Gating the toggle
+        // on a count above zero would strand the reader exactly here.
+        self::assertCount(2, $rendered->filter('.lp-diff-views__link'));
 
         $source = $client->request(Request::METHOD_GET, $base.'?view=source');
         self::assertResponseIsSuccessful();
