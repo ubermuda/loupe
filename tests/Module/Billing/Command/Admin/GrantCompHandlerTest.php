@@ -76,6 +76,29 @@ final class GrantCompHandlerTest extends KernelTestCase
         self::assertSame('sub_comped', $profile->latestSubscriptionOfKind(SubscriptionKind::Stripe)?->stripeSubscriptionId);
     }
 
+    /**
+     * A comp grants access, so it must also lift the disabled marker the trial
+     * sweep left. Otherwise the account keeps a registration-cap spot free and
+     * reads as disabled in the admin list while it has live access.
+     */
+    public function test_it_re_enables_an_account_the_trial_sweep_disabled(): void
+    {
+        self::bootKernel();
+        $scenario = new BillingScenario(static::getContainer());
+        [$admin, $target] = $this->actors('grantfive');
+        $scenario->profile($target, new \DateTimeImmutable('-1 day'));
+        $target->disabledAt = new \DateTimeImmutable('-1 hour');
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $em->flush();
+
+        $this->handler()(new GrantCompCommand($target, $admin));
+
+        $em->clear();
+        $reloaded = $em->find(User::class, $target->id ?? throw new \LogicException('a flushed user has an id'));
+        self::assertInstanceOf(User::class, $reloaded);
+        self::assertNull($reloaded->disabledAt);
+    }
+
     /** @return array{User, User} */
     private function actors(string $prefix): array
     {

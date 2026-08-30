@@ -10,8 +10,11 @@ use App\Module\Billing\Command\Admin\GrantCompCommand;
 use App\Module\Billing\Command\Admin\GrantCompHandler;
 use App\Module\Billing\Command\Admin\RevokeCompCommand;
 use App\Module\Billing\Command\Admin\RevokeCompHandler;
+use App\Module\Billing\Entity\BillingStatus;
 use App\Module\Billing\Entity\Subscription;
 use App\Module\Billing\Entity\SubscriptionKind;
+use App\Tests\Support\BillingGrants;
+use App\Tests\Support\BillingScenario;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 
@@ -61,6 +64,48 @@ final class RevokeCompHandlerTest extends KernelTestCase
         $second = $grant(new GrantCompCommand($target, $admin));
 
         self::assertTrue($second->isCurrent(new \DateTimeImmutable()));
+    }
+
+    /**
+     * The mirror of the re-enable on grant. Nothing else grants access after
+     * the comp ends, so the account returns to the state the sweep left it in.
+     */
+    public function test_revoking_the_last_grant_disables_the_account(): void
+    {
+        self::bootKernel();
+        $scenario = new BillingScenario(static::getContainer());
+        [$admin, $target] = $this->actors('revokefour');
+        $scenario->profile($target, new \DateTimeImmutable('-1 day'));
+        static::getContainer()->get(GrantCompHandler::class)(new GrantCompCommand($target, $admin));
+
+        $this->handler()(new RevokeCompCommand($target, $admin));
+
+        self::assertNotNull($this->reload($target)->disabledAt);
+    }
+
+    /** A live Stripe subscription still grants access, so the account stays enabled. */
+    public function test_revoking_leaves_a_stripe_subscriber_enabled(): void
+    {
+        self::bootKernel();
+        $scenario = new BillingScenario(static::getContainer());
+        [$admin, $target] = $this->actors('revokefive');
+        $profile = $scenario->profile($target, new \DateTimeImmutable('-1 day'));
+        $scenario->grant(BillingGrants::stripe($profile, BillingStatus::Active, new \DateTimeImmutable('+30 days'), 'sub_revoke'));
+        static::getContainer()->get(GrantCompHandler::class)(new GrantCompCommand($target, $admin));
+
+        $this->handler()(new RevokeCompCommand($target, $admin));
+
+        self::assertNull($this->reload($target)->disabledAt);
+    }
+
+    private function reload(User $user): User
+    {
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $em->clear();
+        $reloaded = $em->find(User::class, $user->id ?? throw new \LogicException('a flushed user has an id'));
+        self::assertInstanceOf(User::class, $reloaded);
+
+        return $reloaded;
     }
 
     /** @return array{User, User} */
