@@ -26,7 +26,7 @@ final readonly class AuditLogAccountPurger implements AccountDataPurgerInterface
     ) {
     }
 
-    /** Before ApiTokenAccountPurger at 40, so a record still names the credential it was made with. */
+    /** Before ApiTokenAccountPurger at 40, while audit_log.credential_id still resolves to a token. */
     #[\Override]
     public function deletionOrder(): int
     {
@@ -45,6 +45,14 @@ final readonly class AuditLogAccountPurger implements AccountDataPurgerInterface
         $connection = $this->em->getConnection();
 
         $connection->executeStatement('DELETE FROM audit_log WHERE actor_id = :id', ['id' => $id]);
+
+        // Before ApiTokenAccountPurger at 40, which hard-deletes the tokens and
+        // leaves this foreign key null: after it runs there is nothing left to
+        // resolve a record that names only the credential it was made with.
+        $connection->executeStatement(
+            'DELETE FROM audit_log WHERE credential_id IN (SELECT id FROM api_tokens WHERE owner_id = :id)',
+            ['id' => $id],
+        );
 
         if (null !== $label) {
             // The label and the id are written independently, so a record can

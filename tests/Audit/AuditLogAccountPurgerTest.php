@@ -6,7 +6,11 @@ namespace App\Tests\Audit;
 
 use App\Audit\AuditLogAccountPurger;
 use App\Module\Account\Deletion\AccountDeletionCleanup;
+use App\Module\Account\Deletion\AccountPurger;
+use App\Module\Account\Entity\ApiToken;
+use App\Module\Account\Entity\ApiTokenScope;
 use App\Module\Account\Entity\User;
+use App\Module\Account\Service\ApiTokenAccountPurger;
 use Doctrine\DBAL\Connection;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
@@ -87,6 +91,45 @@ final class AuditLogAccountPurgerTest extends KernelTestCase
     }
 
     /**
+     * ApiTokenAccountPurger at 40 hard-deletes the tokens, and the foreign key
+     * is ON DELETE SET NULL: a record naming only the credential it was made
+     * with would survive with nothing left to resolve it.
+     */
+    public function test_it_removes_a_record_attributed_only_to_the_departed_accounts_token(): void
+    {
+        $departing = $this->user('credential', 'Departing Person');
+        $other = $this->user('other-owner', 'Other Person');
+
+        $this->record('audit.by_the_departing_token', null, null, credential: $this->token($departing));
+        $this->record('audit.by_another_token', null, null, credential: $this->token($other));
+
+        self::assertSame(['audit.by_another_token', 'audit.by_the_departing_token'], $this->operations());
+
+        $this->purge($departing);
+
+        self::assertSame(['audit.by_another_token'], $this->operations());
+    }
+
+    /**
+     * The correctness of the credential sweep rests entirely on running before
+     * slot 40, and a constant nobody reads back is not a guarantee.
+     */
+    public function test_it_is_registered_and_ordered_before_the_api_token_purger(): void
+    {
+        $ordered = array_map(
+            static fn (object $purger): string => $purger::class,
+            $this->registeredPurgers(),
+        );
+
+        $audit = array_search(AuditLogAccountPurger::class, $ordered, true);
+        $apiToken = array_search(ApiTokenAccountPurger::class, $ordered, true);
+
+        self::assertIsInt($audit, 'The audit purger must be tagged as an account data purger.');
+        self::assertIsInt($apiToken);
+        self::assertLessThan($apiToken, $audit, 'The credential sweep needs api_tokens rows to still exist.');
+    }
+
+    /**
      * ProjectAccountPurger runs first and calls EntityManager::clear(), so slot
      * 35 always receives a detached user, and both keys are read off it.
      */
@@ -107,6 +150,25 @@ final class AuditLogAccountPurgerTest extends KernelTestCase
         self::assertSame([], $this->operations());
     }
 
+    /** @return list<object> */
+    private function registeredPurgers(): array
+    {
+        $accountPurger = static::getContainer()->get(AccountPurger::class);
+        $purgers = new \ReflectionProperty(AccountPurger::class, 'purgers')->getValue($accountPurger);
+        self::assertIsArray($purgers);
+
+        return array_values(array_filter($purgers, is_object(...)));
+    }
+
+    private function token(User $owner): ApiToken
+    {
+        [$token] = ApiToken::issue($owner, 'tok', ApiTokenScope::Mcp);
+        $this->em->persist($token);
+        $this->em->flush();
+
+        return $token;
+    }
+
     private function purge(User $user): void
     {
         new AuditLogAccountPurger($this->em)->purge($user, new AccountDeletionCleanup());
@@ -121,11 +183,11 @@ final class AuditLogAccountPurgerTest extends KernelTestCase
         return $user;
     }
 
-    private function record(string $operation, ?User $actor, string $actorLabel, ?Uuid $subjectId = null): void
+    private function record(string $operation, ?User $actor, ?string $actorLabel, ?Uuid $subjectId = null, ?ApiToken $credential = null): void
     {
         $this->connection->executeStatement(
-            'INSERT INTO audit_log (id, operation, outcome, category, channel, occurred_at, context, actor_id, actor_label, subject_type, subject_id)'
-                .' VALUES (:id, :operation, :outcome, :category, :channel, :occurredAt, :context, :actorId, :actorLabel, :subjectType, :subjectId)',
+            'INSERT INTO audit_log (id, operation, outcome, category, channel, occurred_at, context, actor_id, actor_label, credential_id, subject_type, subject_id)'
+                .' VALUES (:id, :operation, :outcome, :category, :channel, :occurredAt, :context, :actorId, :actorLabel, :credentialId, :subjectType, :subjectId)',
             [
                 'id' => (string) Uuid::v7(),
                 'operation' => $operation,
@@ -136,6 +198,7 @@ final class AuditLogAccountPurgerTest extends KernelTestCase
                 'context' => '{}',
                 'actorId' => null === $actor ? null : (string) $actor->id,
                 'actorLabel' => $actorLabel,
+                'credentialId' => null === $credential ? null : (string) $credential->id,
                 'subjectType' => null === $subjectId ? null : 'user',
                 'subjectId' => null === $subjectId ? null : (string) $subjectId,
             ],
