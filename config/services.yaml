@@ -231,18 +231,12 @@ when@test:
             autowire: true
             public: true
 
-        # Declared in the reverse of their panelOrder(), so ShowUserHandler's
-        # sort is what puts them in order rather than registration order.
-        app.tests.admin_user_panel_fixture_second:
-            class: App\Tests\Support\AdminUserPanelFixture
+        # Declared in the reverse of their #[AsTaggedItem] priority, so the
+        # priority sort puts them in order rather than registration order.
+        # autoconfigure is load-bearing: Symfony reads #[AsTaggedItem] only on
+        # an autoconfigured definition.
+        App\Tests\Support\SecondAdminUserPanelFixture:
             autoconfigure: true
-            arguments:
-                $order: 20
-                $label: 'second'
 
-        app.tests.admin_user_panel_fixture_first:
-            class: App\Tests\Support\AdminUserPanelFixture
+        App\Tests\Support\FirstAdminUserPanelFixture:
             autoconfigure: true
-            arguments:
-                $order: 10
-                $label: 'first'

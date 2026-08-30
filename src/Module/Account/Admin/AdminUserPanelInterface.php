@@ -13,16 +13,13 @@ use Symfony\Component\DependencyInjection\Attribute\AutoconfigureTag;
  * iteration while each module owns its own panel. The dependency points a
  * module at Account, never Account at a module.
  *
- * Symfony's tagged_iterator does not guarantee a stable iteration order, so
- * position is explicit through panelOrder(), the same way
- * AccountDataPurgerInterface orders its purgers.
+ * An implementation declares its position with #[AsTaggedItem(priority: N)].
+ * A higher priority renders first. Symfony sorts the tagged iterator by that
+ * priority, so ShowUserHandler consumes the panels in order.
  */
 #[AutoconfigureTag('app.admin_user_panel')]
 interface AdminUserPanelInterface
 {
-    /** Lower numbers render first. */
-    public function panelOrder(): int;
-
     /** Returns null when this module has nothing to show for $user. */
     public function panelFor(User $user): ?AdminUserPanel;
 }

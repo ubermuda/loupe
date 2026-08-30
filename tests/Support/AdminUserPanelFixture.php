@@ -12,22 +12,15 @@ use App\Module\Account\Entity\User;
  * A panel contributor registered only in the test environment, so that the
  * admin user detail page stays panel-free for every other test and for
  * production. It abstains unless the account's email carries MARKER.
+ *
+ * Each subclass carries its own #[AsTaggedItem] priority, because one class
+ * cannot declare two different priorities.
  */
-final readonly class AdminUserPanelFixture implements AdminUserPanelInterface
+abstract class AdminUserPanelFixture implements AdminUserPanelInterface
 {
     public const string MARKER = 'panel-fixture';
 
-    public function __construct(
-        private int $order,
-        private string $label,
-    ) {
-    }
-
-    #[\Override]
-    public function panelOrder(): int
-    {
-        return $this->order;
-    }
+    abstract public string $label { get; }
 
     #[\Override]
     public function panelFor(User $user): ?AdminUserPanel

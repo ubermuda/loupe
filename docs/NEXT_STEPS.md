@@ -2592,3 +2592,22 @@ the outbox, `DrainOutboxHandler`, the Mercure hub and the `site_review.push`
 flag — but nothing writes an event any more (see 'The site-review push
 subsystem has no producer left'). Any work here starts by deciding what an
 agent would announce, not by building transport.
+
+## Account purgers still hand-roll an order that Symfony can supply
+
+**Author:** Claude · **Type:** docs · **Priority:** low · **Status:** pending
+
+`src/Module/Account/Deletion/AccountDataPurgerInterface.php` says that Symfony's
+tagged iterator gives no stable order. That claim is false. Symfony sorts a
+tagged iterator by tag priority, and `#[AsTaggedItem(priority: N)]` on an
+implementation sets it. A higher priority runs first.
+
+So `deletionOrder()` and the `usort` in `AccountPurger` duplicate a built-in
+feature. Replace them with `#[AsTaggedItem]` on each purger, and correct the
+docblock. Mind the direction flip: `deletionOrder()` runs the lowest number
+first, and priority runs the highest number first. `ProjectAccountPurger` must
+keep running first, so give it the highest priority.
+
+The admin user panel extension point took this route in
+https://github.com/ubermuda/loupe/pull/309. The purgers stayed untouched there,
+because they were outside that branch's diff.

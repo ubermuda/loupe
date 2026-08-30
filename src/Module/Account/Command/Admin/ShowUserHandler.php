@@ -13,9 +13,6 @@ use Symfony\Component\DependencyInjection\Attribute\AutowireIterator;
 
 final readonly class ShowUserHandler
 {
-    /** @var list<AdminUserPanelInterface> */
-    private array $panelContributors;
-
     /** @param iterable<AdminUserPanelInterface> $panelContributors */
     public function __construct(
         private ConnectedAccountRepository $connectedAccounts,
@@ -23,11 +20,8 @@ final readonly class ShowUserHandler
         private DataExportRepository $dataExports,
 
         #[AutowireIterator('app.admin_user_panel')]
-        iterable $panelContributors,
+        private iterable $panelContributors,
     ) {
-        $ordered = iterator_to_array($panelContributors, false);
-        usort($ordered, static fn (AdminUserPanelInterface $a, AdminUserPanelInterface $b): int => $a->panelOrder() <=> $b->panelOrder());
-        $this->panelContributors = $ordered;
     }
 
     public function __invoke(ShowUserCommand $command): UserDetailView

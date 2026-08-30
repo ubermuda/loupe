@@ -24,15 +24,20 @@ final class ShowUserHandlerTest extends TestCase
         self::assertSame([], $view->panels);
     }
 
-    public function test_panels_arrive_in_their_declared_position(): void
+    /**
+     * The container sorts the tagged iterator by #[AsTaggedItem] priority, so
+     * the handler must add no ordering of its own. Feeding it 'second' before
+     * 'first' fails if anyone puts a sort back.
+     */
+    public function test_panels_keep_the_order_the_iterator_hands_over(): void
     {
         $view = $this->handle([
-            $this->panel(20, 'second'),
-            $this->panel(10, 'first'),
+            $this->panel('second'),
+            $this->panel('first'),
         ]);
 
         self::assertSame(
-            ['first', 'second'],
+            ['second', 'first'],
             array_map(static fn (AdminUserPanel $panel): string => (string) $panel->context['label'], $view->panels),
         );
     }
@@ -40,28 +45,21 @@ final class ShowUserHandlerTest extends TestCase
     public function test_a_contributor_that_abstains_adds_no_panel(): void
     {
         $view = $this->handle([
-            $this->panel(10, 'first'),
-            $this->panel(20, 'second', abstains: true),
+            $this->panel('first'),
+            $this->panel('second', abstains: true),
         ]);
 
         self::assertCount(1, $view->panels);
         self::assertSame('first', $view->panels[0]->context['label']);
     }
 
-    private function panel(int $order, string $label, bool $abstains = false): AdminUserPanelInterface
+    private function panel(string $label, bool $abstains = false): AdminUserPanelInterface
     {
-        return new readonly class($order, $label, $abstains) implements AdminUserPanelInterface {
+        return new readonly class($label, $abstains) implements AdminUserPanelInterface {
             public function __construct(
-                private int $order,
                 private string $label,
                 private bool $abstains,
             ) {
-            }
-
-            #[\Override]
-            public function panelOrder(): int
-            {
-                return $this->order;
             }
 
             #[\Override]

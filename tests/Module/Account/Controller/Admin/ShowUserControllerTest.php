@@ -258,7 +258,7 @@ final class ShowUserControllerTest extends WebTestCase
         self::assertContains('ROLE_ADMIN', $reloaded->roles);
     }
 
-    public function test_a_contributed_panel_renders_in_its_declared_position(): void
+    public function test_contributed_panels_render_in_their_tagged_priority_order(): void
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
