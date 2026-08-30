@@ -1393,6 +1393,61 @@
     .lp-diff-doc > .lp-diff__mark:has(+ .lp-diff__mark) {
         @apply mb-0 rounded-b-none;
     }
+    /* ── Version diff, source view ──────────────────────────────────────
+       The same pair as Markdown. It shows what the rendered view cannot mark:
+       front matter, a link reference definition, a setext underline. pre-wrap
+       keeps source breaks, so the template emits no indentation inside a line. */
+    .lp-diff {
+        @apply text-fg;
+    }
+    /* Added and removed lines are <ins>/<del>, whose default underline and
+       strike would otherwise run across the whole line. */
+    .lp-diff__line {
+        @apply block no-underline whitespace-pre-wrap break-words rounded-lg py-1 px-3 text-base leading-relaxed;
+    }
+    /* Gutter marker: the cue that survives colour blindness, on the view where
+       added-versus-removed IS the content. Generated content, so it never
+       reaches textContent and cannot leak into a reconstructed source. It also
+       gives a blank line its height, which an empty box would collapse away,
+       and a blank line is a paragraph break in Markdown. */
+    .lp-diff__line::before {
+        @apply inline-block w-5 select-none text-fg-dim;
+        content: '\00a0';
+    }
+    .lp-diff__line--deleted::before {
+        content: '−';
+    }
+    .lp-diff__line--inserted::before {
+        content: '+';
+    }
+    .lp-diff__line--deleted {
+        @apply bg-status-danger-bg text-fg-mute;
+    }
+    .lp-diff__line--inserted {
+        @apply bg-status-ok-bg;
+    }
+    /* A source line already carries its own marker and tint, so a mark inside
+       one needs neither the strike nor the underline the rendered view uses. */
+    .lp-diff__line .lp-diff__mark {
+        @apply no-underline;
+    }
+    .lp-diff .lp-diff__hunk {
+        @apply block rounded-lg;
+    }
+
+    /* The two views of one comparison, as links rather than a control: each is
+       addressable, and switching is a plain navigation. */
+    .lp-diff-views {
+        @apply flex items-center gap-1 py-2;
+    }
+    .lp-diff-views__link {
+        @apply rounded-md no-underline text-fg-dim text-xs py-1 px-2 transition-colors hover:bg-tint hover:text-fg;
+    }
+    /* Weight and tint together, so the current view is not colour alone. */
+    .lp-diff-views__link[aria-current] {
+        @apply font-semibold bg-tint text-ink;
+    }
+
     /* Jump-to-change row of the document metadata bar, which is what makes it
        sticky: two bars pinned to the same edge would overlap. */
     .lp-diff-nav {

@@ -87,9 +87,9 @@
        regardless of readOnly, and the pane it walks no longer holds
        DocumentVersion::plainText(). The diff's controller takes its place here,
        above both the jump bar and the marks it moves between. #}
-    {% set diffNavigation = diffMode and renderedDiff is not null %}
+    {% set diffNavigation = diffMode and diffChangeCount is not null %}
     <div class="lp-review-block"
-        {%- if diffNavigation %} data-controller="diff-navigation" data-diff-navigation-position-value="{{ 'review.document.diff.nav.position'|trans({'%total%': renderedDiff.changeCount}) }}"
+        {%- if diffNavigation %} data-controller="diff-navigation" data-diff-navigation-position-value="{{ 'review.document.diff.nav.position'|trans({'%total%': diffChangeCount}) }}"
         {%- elseif not diffMode %} data-controller="comment-anchor"{% endif %}>
         {# .lp-review-doc is position:relative: the offset parent the floating
            composer and toolbar are placed against, and the frame the comment
@@ -193,12 +193,31 @@
                 <p id="decision-status" class="lp-decision-status" aria-live="polite"></p>
                 {% endif %}
 
+                {# Two views of one comparison, as plain links so each is
+                   addressable and neither needs JavaScript. The rendered one
+                   cannot mark front matter, a link reference definition or a
+                   setext underline, so the way to check any of those is to read
+                   the same pair as Markdown. #}
+                {% if diffNavigation %}
+                {% set viewParams = {projectId: document.project.id, documentId: document.id, fromVersionNumber: diffFromVersion, toVersionNumber: version.versionNumber} %}
+                <nav class="lp-diff-views" aria-label="{{ 'review.document.diff.view.label'|trans }}">
+                    <a class="lp-diff-views__link"
+                       href="{{ path('app_document_review_diff', viewParams|merge({view: 'rendered'})) }}"
+                       {% if diffView.value == 'rendered' %}aria-current="page"{% endif %}
+                    >{{ 'review.document.diff.view.rendered'|trans }}</a>
+                    <a class="lp-diff-views__link"
+                       href="{{ path('app_document_review_diff', viewParams|merge({view: 'source'})) }}"
+                       {% if diffView.value == 'source' %}aria-current="page"{% endif %}
+                    >{{ 'review.document.diff.view.source'|trans }}</a>
+                </nav>
+                {% endif %}
+
                 {# A row of the sticky bar rather than a bar of its own: two
                    elements stuck to the same edge overlap, and the count has to
                    stay readable while the reader jumps down the diff. #}
                 {% if diffNavigation %}
                 <div class="lp-diff-nav">
-                    <p class="lp-diff-nav__count" aria-live="polite" data-diff-navigation-target="counter">{{ 'review.document.diff.nav.count'|trans({'%count%': renderedDiff.changeCount}) }}</p>
+                    <p class="lp-diff-nav__count" aria-live="polite" data-diff-navigation-target="counter">{{ 'review.document.diff.nav.count'|trans({'%count%': diffChangeCount}) }}</p>
                     <button type="button" class="lp-btn lp-btn--sm" data-action="diff-navigation#previous">
                         <twig:ux:icon name="lucide:arrow-up" class="w-4 h-4 shrink-0" />
                         {{ 'review.document.diff.nav.previous'|trans }}

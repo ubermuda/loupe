@@ -13,6 +13,7 @@ use App\Module\Review\Service\MarkdownDiffer;
 use App\Module\Review\Service\MarkdownRenderer;
 use App\Module\Review\Service\RenderedDiffBuilder;
 use App\Module\Review\ValueObject\DiffRefusal;
+use App\Module\Review\ValueObject\DiffView;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
@@ -36,10 +37,10 @@ final readonly class DiffDocumentVersionsHandler
             $version->markdownSource,
         );
 
-        // Null on both sides means the two versions read the same, which the page
-        // says rather than showing a comparison with nothing in it.
+        $diff = null;
         $renderedDiff = null;
         $diffRefusal = null;
+        $changeCount = null;
         if ($result instanceof DiffRefusal) {
             $diffRefusal = $result;
             $this->logger->info('review.document.diff_refused', [
@@ -48,8 +49,20 @@ final readonly class DiffDocumentVersionsHandler
                 'to' => $command->toVersionNumber,
                 'reason' => $result->value,
             ]);
-        } elseif ($result->hasChanges()) {
-            $renderedDiff = $this->renderedDiffs->build($this->markdownRenderer->renderDiff($result));
+        } else {
+            $diff = $result;
+        }
+
+        // Only the showing view is built. Rendering the other one costs a whole
+        // Markdown pass, and its count would then be on the page describing jump
+        // targets that are not.
+        if (null !== $diff && $diff->hasChanges()) {
+            if (DiffView::Source === $command->view) {
+                $changeCount = $diff->changeCount();
+            } else {
+                $renderedDiff = $this->renderedDiffs->build($this->markdownRenderer->renderDiff($diff));
+                $changeCount = $renderedDiff->changeCount;
+            }
         }
 
         // A diff never accepts a comment or a verdict: its pane holds the text of
@@ -60,8 +73,11 @@ final readonly class DiffDocumentVersionsHandler
 
         return new DiffDocumentVersionsView(
             version: $version,
+            view: $command->view,
+            diff: $diff,
             renderedDiff: $renderedDiff,
             diffRefusal: $diffRefusal,
+            changeCount: $changeCount,
             comments: $comments,
             versions: $this->documentVersions->findAllMetaByDocument($command->document),
             orphanedCount: count(array_filter($comments, static fn (Comment $c) => $c->orphaned)),

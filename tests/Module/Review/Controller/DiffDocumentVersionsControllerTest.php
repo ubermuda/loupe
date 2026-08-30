@@ -141,6 +141,227 @@ final class DiffDocumentVersionsControllerTest extends WebTestCase
         self::assertSame('Removed', $crawler->filter('#diff-hunk-2')->attr('data-diff-label'));
     }
 
+    /**
+     * The rendered view cannot mark front matter, a link reference definition or
+     * a setext underline, because none of them has a place of its own in the
+     * output. A revision that changes only one of those shows as no change at
+     * all, so the source view is the way to see it. Front matter is the case
+     * used here, since it is the one an author writes most.
+     */
+    public function test_the_source_view_shows_a_change_the_rendered_view_cannot_mark(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+
+        $owner = $this->createUser($em, 'owner-diff-views', 'owner-diff-views@example.com');
+        $project = $this->project($em, $owner);
+
+        $doc = new Document(owner: $owner, project: $project, title: 'Front Matter Doc');
+        $doc->addVersion("---\nstatus: draft\n---\n\nThe body never changes.\n", '<p>v1</p>');
+        $doc->addVersion("---\nstatus: final\n---\n\nThe body never changes.\n", '<p>v2</p>');
+        $em->persist($doc);
+        $em->flush();
+
+        $projectId = (string) $project->id;
+        $id = (string) $doc->id;
+        $em->clear();
+
+        $client->loginUser($owner);
+        $base = '/projects/'.$projectId.'/documents/'.$id.'/review/diff/1/2';
+
+        $rendered = $client->request(Request::METHOD_GET, $base);
+        self::assertResponseIsSuccessful();
+        self::assertCount(1, $rendered->filter('.lp-diff-doc'));
+        self::assertCount(0, $rendered->filter('.lp-diff-doc .lp-diff__mark'));
+        self::assertSelectorTextContains('.lp-diff-nav__count', 'No changes');
+
+        $source = $client->request(Request::METHOD_GET, $base.'?view=source');
+        self::assertResponseIsSuccessful();
+        self::assertCount(1, $source->filter('.lp-diff'));
+        self::assertCount(0, $source->filter('.lp-diff-doc'));
+        self::assertSame(['status: draft'], $source->filter('.lp-diff__line--deleted')->each(
+            static fn (Crawler $node): string => $node->text(),
+        ));
+        self::assertSame(['status: final'], $source->filter('.lp-diff__line--inserted')->each(
+            static fn (Crawler $node): string => $node->text(),
+        ));
+        self::assertSelectorTextContains('.lp-diff-nav__count', '1 change');
+    }
+
+    /**
+     * Only one view may be in the page at a time. The navigation controller reads
+     * every `hunk` target it can see, so two sets would give it a count that is
+     * wrong for whichever the reader is looking at.
+     */
+    public function test_each_view_carries_its_own_jump_targets_and_count(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+
+        $owner = $this->createUser($em, 'owner-diff-counts', 'owner-diff-counts@example.com');
+        $project = $this->project($em, $owner);
+
+        $doc = new Document(owner: $owner, project: $project, title: 'Two Views');
+        $doc->addVersion("Intro stays put.\n\n## Doomed\n\nThe doomed paragraph.\n\nThe tail says one thing about it.\n", '<p>v1</p>');
+        $doc->addVersion("Intro stays put.\n\nThe tail says another thing about it.\n", '<p>v2</p>');
+        $em->persist($doc);
+        $em->flush();
+
+        $projectId = (string) $project->id;
+        $id = (string) $doc->id;
+        $em->clear();
+
+        $client->loginUser($owner);
+        $base = '/projects/'.$projectId.'/documents/'.$id.'/review/diff/1/2';
+
+        // The source view groups by line, and the revision deleted the blank
+        // lines too, so every changed line is one contiguous run. The rendered
+        // view groups by what is drawn, where the unchanged words of the tail
+        // sentence stand between the removed section and the reworded phrase.
+        foreach ([$base => [2, '2 changes'], $base.'?view=source' => [1, '1 change']] as $url => [$hunks, $counter]) {
+            $crawler = $client->request(Request::METHOD_GET, $url);
+
+            self::assertResponseIsSuccessful();
+            self::assertCount($hunks, $crawler->filter('[data-diff-navigation-target="hunk"]'));
+            self::assertSame($counter, trim($crawler->filter('.lp-diff-nav__count')->text()));
+            self::assertSame(
+                'Change %current% of '.$hunks,
+                $crawler->filter('[data-controller="diff-navigation"]')->attr('data-diff-navigation-position-value'),
+            );
+        }
+    }
+
+    public function test_an_unknown_view_falls_back_to_the_rendered_one(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+
+        $owner = $this->createUser($em, 'owner-diff-bogus', 'owner-diff-bogus@example.com');
+        $project = $this->project($em, $owner);
+
+        $doc = new Document(owner: $owner, project: $project, title: 'Bogus View');
+        $doc->addVersion("The rollout takes one step.\n", '<p>v1</p>');
+        $doc->addVersion("The rollout takes three steps.\n", '<p>v2</p>');
+        $em->persist($doc);
+        $em->flush();
+
+        $projectId = (string) $project->id;
+        $id = (string) $doc->id;
+        $em->clear();
+
+        $client->loginUser($owner);
+        $base = '/projects/'.$projectId.'/documents/'.$id.'/review/diff/1/2';
+
+        foreach (['?view=raw', '?view=', '?view[]=source'] as $query) {
+            $crawler = $client->request(Request::METHOD_GET, $base.$query);
+
+            self::assertResponseIsSuccessful();
+            self::assertCount(1, $crawler->filter('.lp-diff-doc'));
+            self::assertCount(0, $crawler->filter('.lp-diff'));
+        }
+    }
+
+    /**
+     * Two links rather than a control, so each view is addressable and switching
+     * needs no JavaScript. The current one is marked for a screen reader as well
+     * as tinted.
+     */
+    public function test_each_view_links_to_the_other_and_marks_itself_current(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+
+        $owner = $this->createUser($em, 'owner-diff-toggle', 'owner-diff-toggle@example.com');
+        $project = $this->project($em, $owner);
+
+        $doc = new Document(owner: $owner, project: $project, title: 'Toggle Doc');
+        $doc->addVersion("The rollout takes one step.\n", '<p>v1</p>');
+        $doc->addVersion("The rollout takes three steps.\n", '<p>v2</p>');
+        $em->persist($doc);
+        $em->flush();
+
+        $projectId = (string) $project->id;
+        $id = (string) $doc->id;
+        $em->clear();
+
+        $client->loginUser($owner);
+        $base = '/projects/'.$projectId.'/documents/'.$id.'/review/diff/1/2';
+
+        $rendered = $client->request(Request::METHOD_GET, $base);
+        self::assertCount(2, $rendered->filter('.lp-diff-views__link'));
+        self::assertSame(
+            'As the document reads',
+            $rendered->filter('.lp-diff-views__link[aria-current]')->text(),
+        );
+        self::assertStringContainsString('view=source', (string) $rendered->filter('.lp-diff-views__link')->eq(1)->attr('href'));
+
+        $source = $client->request(Request::METHOD_GET, $base.'?view=source');
+        self::assertSame(
+            'As the Markdown reads',
+            $source->filter('.lp-diff-views__link[aria-current]')->text(),
+        );
+        // The picker keeps the view, so comparing another pair does not silently
+        // send the reader back to the rendered one.
+        self::assertStringContainsString(
+            'view=source',
+            (string) $source->filter('[data-controller="version-compare"]')->attr('data-version-compare-url-value'),
+        );
+    }
+
+    /**
+     * DocumentDiff::oldSource()/newSource() and _version_diff.html.twig walk the
+     * same structure, but nothing makes them agree. A separator between segments,
+     * a `<br>`, one more wrapping element, and the reconstruction would still pass
+     * its own unit test while no longer describing the page. This reads the two
+     * sides back out of the rendered pane instead: a line that is not inserted
+     * belongs to the old version in full, one that is not deleted to the new
+     * version in full, because a line's segments never span both sides.
+     */
+    public function test_both_sources_are_recoverable_from_the_source_view(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+
+        $owner = $this->createUser($em, 'owner-roundtrip', 'owner-roundtrip@example.com');
+        $project = $this->project($em, $owner);
+
+        $old = "# Plan & scope\n\n\tWe ship in **one** step, on Monday.\n\nUnchanged tail — naïve café 🎉\n\n- alpha\n- beta\n";
+        $new = "# Plan & scope\n\n\tWe ship in **three** steps, starting Monday.\n\nAn <entirely> new paragraph.\n\nUnchanged tail — naïve café 🎉\n\n- alpha\n- gamma\n";
+
+        $doc = new Document(owner: $owner, project: $project, title: 'Round Trip');
+        $doc->addVersion($old, '<h1>Plan</h1>');
+        $doc->addVersion($new, '<h1>Plan</h1>');
+        $em->persist($doc);
+        $em->flush();
+
+        $projectId = (string) $project->id;
+        $id = (string) $doc->id;
+        $em->clear();
+
+        $client->loginUser($owner);
+        $crawler = $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/documents/'.$id.'/review/diff/1/2?view=source');
+
+        self::assertResponseIsSuccessful();
+
+        $oldLines = [];
+        $newLines = [];
+        foreach ($crawler->filter('.lp-diff__line') as $node) {
+            $line = new Crawler($node);
+            $classes = (string) $line->attr('class');
+            $text = $line->text(null, false);
+
+            if (!str_contains($classes, 'lp-diff__line--inserted')) {
+                $oldLines[] = $text;
+            }
+            if (!str_contains($classes, 'lp-diff__line--deleted')) {
+                $newLines[] = $text;
+            }
+        }
+
+        self::assertSame($old, implode("\n", $oldLines));
+        self::assertSame($new, implode("\n", $newLines));
+    }
+
     public function test_a_diff_accepts_no_comment_and_leaves_anchoring_unattached(): void
     {
         $client = static::createClient();
