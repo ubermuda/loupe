@@ -99,8 +99,8 @@ final class AuditorTest extends TestCase
 
     public function test_an_identifier_that_changes_after_the_record_does_not_change_the_event(): void
     {
-        $actor = new FakeAuditActor('Riley Chen', null);
-        $credential = new FakeAuditCredential(null);
+        $actor = new FakeAuditActor('Riley Chen', 'user-1');
+        $credential = new FakeAuditCredential('token-1');
         $sink = new FakeAuditSink();
 
         $auditor = new Auditor(
@@ -111,11 +111,11 @@ final class AuditorTest extends TestCase
         );
 
         $auditor->info('review.document.created');
-        $actor->identifier = 'user-1';
-        $credential->identifier = 'token-1';
+        $actor->identifier = 'user-2';
+        $credential->identifier = 'token-2';
 
-        self::assertNull($sink->events[0]->actorIdentifier);
-        self::assertNull($sink->events[0]->credentialIdentifier);
+        self::assertSame('user-1', $sink->events[0]->actorIdentifier);
+        self::assertSame('token-1', $sink->events[0]->credentialIdentifier);
     }
 
     /** An actor the application declines to name is not the same as no actor at all. */
@@ -211,6 +211,7 @@ final class AuditorTest extends TestCase
         self::assertNull($event->actorLabel);
         self::assertNull($event->actorIdentifier);
         self::assertNull($event->credential);
+        self::assertNull($event->credentialIdentifier);
         self::assertSame(NullAuditActorProvider::CHANNEL, $event->channel);
         self::assertTrue($event->context['actorUnresolved']);
         self::assertSame('doc-1', $event->context['documentId']);
