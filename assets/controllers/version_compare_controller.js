@@ -50,9 +50,10 @@ export default class extends Controller {
 
         // The two version numbers are the route's last two path segments, so the
         // page's own URL doubles as the template and nothing here has to know
-        // how the rest of the path is built.
+        // how the rest of the path is built. The lookahead is what lets that URL
+        // carry a query string, which is where the choice of diff view lives.
         const url = this.urlValue.replace(
-            /\/\d+\/\d+$/,
+            /\/\d+\/\d+(?=\?|$)/,
             `/${this.fromTarget.value}/${this.toTarget.value}`,
         );
 

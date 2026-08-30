@@ -57,7 +57,12 @@ final readonly class DocumentDiff
         return $groups;
     }
 
-    /** How many separate runs of changed lines the diff holds. */
+    /**
+     * How many separate runs of changed lines the diff holds.
+     *
+     * This is the source view's count. The rendered view partitions the same
+     * edit differently, and RenderedDiffBuilder counts that one.
+     */
     public function changeCount(): int
     {
         return count(array_filter($this->groups(), static fn (DiffGroup $group): bool => $group->changed));

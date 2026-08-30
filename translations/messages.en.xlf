@@ -3212,6 +3212,30 @@
                 <source>review.document.diff.nav.next</source>
                 <target>Next change</target>
             </trans-unit>
+            <trans-unit id="review.document.diff.unmarked_notice">
+                <source>review.document.diff.unmarked_notice</source>
+                <target>Something changed here that this view cannot show. Read it as the Markdown instead.</target>
+            </trans-unit>
+            <trans-unit id="review.document.diff.view.label">
+                <source>review.document.diff.view.label</source>
+                <target>Diff view</target>
+            </trans-unit>
+            <trans-unit id="review.document.diff.view.rendered">
+                <source>review.document.diff.view.rendered</source>
+                <target>As the document reads</target>
+            </trans-unit>
+            <trans-unit id="review.document.diff.view.source">
+                <source>review.document.diff.view.source</source>
+                <target>As the Markdown reads</target>
+            </trans-unit>
+            <trans-unit id="review.document.diff.mark.inserted">
+                <source>review.document.diff.mark.inserted</source>
+                <target>Added</target>
+            </trans-unit>
+            <trans-unit id="review.document.diff.mark.deleted">
+                <source>review.document.diff.mark.deleted</source>
+                <target>Removed</target>
+            </trans-unit>
 
             <trans-unit id="landing.meta.description">
                 <source>landing.meta.description</source>

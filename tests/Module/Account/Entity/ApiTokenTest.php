@@ -36,4 +36,12 @@ final class ApiTokenTest extends TestCase
         self::assertSame(4, \strlen((string) $token->tokenTail));
         self::assertStringEndsWith((string) $token->tokenTail, $raw);
     }
+
+    /** The identifier is Doctrine's, so a token that was never flushed has none to give. */
+    public function test_an_unflushed_token_reports_no_audit_identifier(): void
+    {
+        [$token] = ApiToken::issue($this->user(), 'CI agent', ApiTokenScope::Mcp);
+
+        self::assertNull($token->auditIdentifier());
+    }
 }

@@ -4,14 +4,10 @@ declare(strict_types=1);
 
 namespace App\Module\Project\Security;
 
-use App\Module\Account\Entity\ApiToken;
-use App\Module\Account\Repository\ApiTokenRepository;
-use App\Module\Account\Security\ApiTokenAuthenticator;
+use App\Module\Account\Security\AuthenticatedApiTokenResolver;
 use App\Module\Project\Entity\Project;
 use App\Module\Project\Repository\ProjectRepository;
-use Symfony\Component\Security\Core\Authentication\Token\Storage\TokenStorageInterface;
 use Symfony\Component\Security\Core\Authentication\Token\TokenInterface;
-use Symfony\Component\Uid\Uuid;
 
 /**
  * Resolves the Project the current request is acting for: the Project bound to
@@ -21,8 +17,7 @@ use Symfony\Component\Uid\Uuid;
 final readonly class AuthenticatedProjectResolver
 {
     public function __construct(
-        private TokenStorageInterface $tokenStorage,
-        private ApiTokenRepository $apiTokens,
+        private AuthenticatedApiTokenResolver $apiTokens,
         private ProjectRepository $projects,
     ) {
     }
@@ -30,7 +25,7 @@ final readonly class AuthenticatedProjectResolver
     /** The project whose site-review widget token authenticated this request. */
     public function resolveWidgetProject(): ?Project
     {
-        $apiToken = $this->apiTokenFor($this->tokenStorage->getToken());
+        $apiToken = $this->apiTokens->current();
 
         return null === $apiToken ? null : $this->projects->findOneByWidgetToken($apiToken);
     }
@@ -38,7 +33,9 @@ final readonly class AuthenticatedProjectResolver
     /** The project whose MCP token authenticated this request. */
     public function resolveMcpProject(): ?Project
     {
-        return $this->resolveMcpProjectFor($this->tokenStorage->getToken());
+        $apiToken = $this->apiTokens->current();
+
+        return null === $apiToken ? null : $this->projects->findOneByMcpToken($apiToken);
     }
 
     /**
@@ -50,26 +47,8 @@ final readonly class AuthenticatedProjectResolver
      */
     public function resolveMcpProjectFor(?TokenInterface $securityToken): ?Project
     {
-        $apiToken = $this->apiTokenFor($securityToken);
+        $apiToken = $this->apiTokens->forSecurityToken($securityToken);
 
         return null === $apiToken ? null : $this->projects->findOneByMcpToken($apiToken);
-    }
-
-    private function apiTokenFor(?TokenInterface $securityToken): ?ApiToken
-    {
-        if (null === $securityToken) {
-            return null;
-        }
-
-        if (!$securityToken->hasAttribute(ApiTokenAuthenticator::API_TOKEN_ID_ATTR)) {
-            return null;
-        }
-
-        $apiTokenId = $securityToken->getAttribute(ApiTokenAuthenticator::API_TOKEN_ID_ATTR);
-        if (!is_string($apiTokenId)) {
-            return null;
-        }
-
-        return $this->apiTokens->find(Uuid::fromString($apiTokenId));
     }
 }
