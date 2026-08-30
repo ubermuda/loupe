@@ -76,6 +76,22 @@ A bare `cd .claude/worktrees/<name> && just worktree-up` looks identical and is 
 
 Custom slash commands go in `.claude/commands/` in this repository. Do not put them in a user-level (`~/.claude/commands/`) or system-level directory.
 
+## Planning and shipping a feature
+
+Check three things every time you plan or build a feature. Decide each one at planning time, and say in the plan which of them the change needs. Each is easy to skip, and nobody notices a miss until a user does.
+
+**Documentation.** Ask whether the change alters what a user or an operator does, sees or configures. If it does, update the page that covers it under `docs/`: `docs/using/` for product behaviour, `docs/reference/` for commands and environment variables, `docs/operating/` for deployment and running, `docs/getting-started/` for setup, and `docs/extending/` for the plugin and MCP surface. A feature that ships with no doc change is a claim that nothing observable changed, so make that claim deliberately.
+
+**Changelog.** Add an entry to `docs/CHANGELOG.md` under `[Unreleased]`, newest first. One entry per merged pull request, one line, tagged `Added`, `Changed`, `Removed` or `Fixed`. Write a single sentence that says what changed from the reader's side, and leave the reasoning to the PR body. The entry anchors to the first-parent squash commit on `main` and names its PR, in the form:
+
+```
+- `0406b9c` (#209) — **Fixed:** what changed, from the reader's side.
+```
+
+That SHA exists only after the merge, so the entry cannot ride the pull request it describes. Add it immediately after you merge, in the next documentation pull request. Tracker churn in `docs/NEXT_STEPS.md` earns no entry.
+
+**Landing page.** Ask whether the change adds, removes or alters a capability the landing page claims, or should now claim. The page is `templates/Module/Landing/landing.html.twig` with its partials in `templates/Module/Landing/landing/`, and the marketing footer is `templates/_marketing_footer.html.twig`. A landing page that describes a product one release behind is worse than one that says less.
+
 ## Pull requests
 
 Invoke the `working-with-prs` skill before you open, gate or merge a pull request. It carries the full gate, the merge protocol, the ruleset facts and the wave rules. This is the irreducible summary, so that a session which skips the skill still does the right thing:
