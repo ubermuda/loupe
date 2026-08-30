@@ -7,6 +7,7 @@ namespace App\Tests\Module\Audit;
 use App\Module\Audit\AuditEvent;
 use App\Module\Audit\AuditLoggerRegistryInterface;
 use App\Module\Audit\Auditor;
+use App\Module\Audit\AuditOutcome;
 use App\Module\Audit\AuditSubject;
 use App\Module\Audit\MonologAuditSink;
 use App\Tests\Support\FakeAuditActor;
@@ -86,6 +87,7 @@ final class MonologAuditSinkTest extends TestCase
             'message' => 'document.deleted',
             'context' => [
                 'documentId' => '42',
+                'outcome' => 'refused',
                 'channel' => 'mcp',
                 'subjectType' => 'document',
                 'subjectId' => '42',
@@ -97,6 +99,7 @@ final class MonologAuditSinkTest extends TestCase
     {
         $this->sink->write(new AuditEvent(
             'document.deleted',
+            AuditOutcome::Success,
             Auditor::CATEGORY_DOMAIN,
             new FakeAuditActor('Riley Chen', 'user-1'),
             new FakeAuditCredential('token-1'),
@@ -106,7 +109,7 @@ final class MonologAuditSinkTest extends TestCase
             new \DateTimeImmutable('2026-08-29 12:00:00'),
         ));
 
-        self::assertSame(['channel' => 'mcp'], $this->domainLogger->records[0]['context']);
+        self::assertSame(['outcome' => 'success', 'channel' => 'mcp'], $this->domainLogger->records[0]['context']);
     }
 
     public function test_flush_writes_nothing_because_the_sink_already_did(): void
@@ -121,6 +124,7 @@ final class MonologAuditSinkTest extends TestCase
     {
         return new AuditEvent(
             'document.deleted',
+            AuditOutcome::Refused,
             $category,
             null,
             null,

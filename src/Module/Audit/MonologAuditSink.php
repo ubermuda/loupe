@@ -38,6 +38,7 @@ final readonly class MonologAuditSink implements AuditSinkInterface
     private function contextFor(AuditEvent $event): array
     {
         $context = $event->context;
+        $context['outcome'] = $event->outcome->value;
         $context['channel'] = $event->channel;
 
         // Nothing about the actor or the credential — not the objects, which

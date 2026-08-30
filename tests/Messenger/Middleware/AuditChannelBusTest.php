@@ -14,6 +14,7 @@ use App\Module\Account\Repository\ApiTokenRepository;
 use App\Module\Account\Security\AuthenticatedApiTokenResolver;
 use App\Module\Audit\AuditEvent;
 use App\Module\Audit\Auditor;
+use App\Module\Audit\AuditOutcome;
 use App\Tests\Support\FakeAuditSink;
 use PHPUnit\Framework\TestCase;
 use Psr\Clock\ClockInterface;
@@ -76,7 +77,7 @@ final class AuditChannelBusTest extends TestCase
     public function test_a_message_queued_by_a_signed_in_person_is_handled_as_theirs(): void
     {
         $this->signIn();
-        $bus = $this->bus([$this->outerMessage::class => [fn () => $this->auditor->record('export.generated')]]);
+        $bus = $this->bus([$this->outerMessage::class => [fn () => $this->auditor->record('export.generated', AuditOutcome::Success)]]);
 
         $bus->dispatch($this->outerMessage);
         $this->tokenStorage->setToken(null);
@@ -93,7 +94,7 @@ final class AuditChannelBusTest extends TestCase
         $attempts = 0;
         $bus = $this->bus([$this->outerMessage::class => [function () use (&$attempts): void {
             ++$attempts;
-            $this->auditor->record('export.generated');
+            $this->auditor->record('export.generated', AuditOutcome::Success);
 
             if (1 === $attempts) {
                 throw new \RuntimeException('transient');
@@ -120,7 +121,7 @@ final class AuditChannelBusTest extends TestCase
                 self::assertInstanceOf(MessageBusInterface::class, $bus);
                 $bus->dispatch($this->innerMessage);
 
-                $this->auditor->record('export.generated');
+                $this->auditor->record('export.generated', AuditOutcome::Success);
             }],
             $this->innerMessage::class => [static function (): void {}],
         ]);
@@ -149,7 +150,7 @@ final class AuditChannelBusTest extends TestCase
      */
     public function test_an_unstamped_message_off_the_scheduler_transport_is_a_cron_tick(): void
     {
-        $bus = $this->bus([$this->outerMessage::class => [fn () => $this->auditor->record('trial_sweep.completed')]]);
+        $bus = $this->bus([$this->outerMessage::class => [fn () => $this->auditor->record('trial_sweep.completed', AuditOutcome::Success)]]);
 
         $this->transport->send(new Envelope($this->outerMessage));
         $this->runWorker($bus, 1, receiver: 'scheduler_default');
@@ -165,7 +166,7 @@ final class AuditChannelBusTest extends TestCase
      */
     public function test_an_unstamped_message_off_any_other_transport_has_unknown_provenance(): void
     {
-        $bus = $this->bus([$this->outerMessage::class => [fn () => $this->auditor->record('export.generated')]]);
+        $bus = $this->bus([$this->outerMessage::class => [fn () => $this->auditor->record('export.generated', AuditOutcome::Success)]]);
 
         $this->transport->send(new Envelope($this->outerMessage));
         $this->runWorker($bus, 1);
@@ -189,7 +190,7 @@ final class AuditChannelBusTest extends TestCase
             new AuditChannelMiddleware($this->auditContext, $this->provider($this->createStub(ApiTokenRepository::class))),
             new SendMessageMiddleware(new SendersLocator([$this->outerMessage::class => ['sync']], $senders)),
             new HandleMessageMiddleware(new HandlersLocator([
-                $this->outerMessage::class => [fn () => $this->auditor->record('mail.sent')],
+                $this->outerMessage::class => [fn () => $this->auditor->record('mail.sent', AuditOutcome::Success)],
             ])),
         ]);
 

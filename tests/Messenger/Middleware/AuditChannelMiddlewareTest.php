@@ -14,6 +14,7 @@ use App\Module\Account\Repository\ApiTokenRepository;
 use App\Module\Account\Security\AuthenticatedApiTokenResolver;
 use App\Module\Audit\AuditEvent;
 use App\Module\Audit\Auditor;
+use App\Module\Audit\AuditOutcome;
 use App\Tests\Support\FakeAuditSink;
 use PHPUnit\Framework\TestCase;
 use Psr\Clock\ClockInterface;
@@ -73,7 +74,7 @@ final class AuditChannelMiddlewareTest extends TestCase
             new ConsumedByWorkerStamp(),
         ]);
 
-        $this->middleware->handle($envelope, $this->stackRunning(fn () => $this->auditor->record('export.generated')));
+        $this->middleware->handle($envelope, $this->stackRunning(fn () => $this->auditor->record('export.generated', AuditOutcome::Success)));
 
         self::assertSame(AuditChannel::Session->value, $this->recordedEvent()->channel);
         self::assertSame(['async' => true], $this->recordedEvent()->context);
@@ -83,7 +84,7 @@ final class AuditChannelMiddlewareTest extends TestCase
     {
         $envelope = new Envelope(new \stdClass(), [new ReceivedStamp('scheduler_default'), new ConsumedByWorkerStamp()]);
 
-        $this->middleware->handle($envelope, $this->stackRunning(fn () => $this->auditor->record('trial_sweep.completed')));
+        $this->middleware->handle($envelope, $this->stackRunning(fn () => $this->auditor->record('trial_sweep.completed', AuditOutcome::Success)));
 
         self::assertSame(AuditChannel::Cron->value, $this->recordedEvent()->channel);
         self::assertSame(['async' => true], $this->recordedEvent()->context);
@@ -98,7 +99,7 @@ final class AuditChannelMiddlewareTest extends TestCase
     {
         $envelope = new Envelope(new \stdClass(), [new ReceivedStamp('async'), new ConsumedByWorkerStamp()]);
 
-        $this->middleware->handle($envelope, $this->stackRunning(fn () => $this->auditor->record('export.generated')));
+        $this->middleware->handle($envelope, $this->stackRunning(fn () => $this->auditor->record('export.generated', AuditOutcome::Success)));
 
         self::assertSame(AuditChannel::System->value, $this->recordedEvent()->channel);
         self::assertSame(['async' => true], $this->recordedEvent()->context);
@@ -108,7 +109,7 @@ final class AuditChannelMiddlewareTest extends TestCase
     {
         $envelope = new Envelope(new \stdClass(), [new ReceivedStamp('async'), new ConsumedByWorkerStamp()]);
 
-        $this->middleware->handle($envelope, $this->stackRunning(fn () => $this->auditor->record('x', ['async' => false])));
+        $this->middleware->handle($envelope, $this->stackRunning(fn () => $this->auditor->record('x', AuditOutcome::Success, ['async' => false])));
 
         self::assertSame(['async' => false], $this->recordedEvent()->context);
     }
@@ -133,7 +134,7 @@ final class AuditChannelMiddlewareTest extends TestCase
         $this->signIn();
         $envelope = new Envelope(new \stdClass(), [new ReceivedStamp('sync')]);
 
-        $this->middleware->handle($envelope, $this->stackRunning(fn () => $this->auditor->record('mail.sent')));
+        $this->middleware->handle($envelope, $this->stackRunning(fn () => $this->auditor->record('mail.sent', AuditOutcome::Success)));
 
         self::assertSame(AuditChannel::Session->value, $this->recordedEvent()->channel);
         self::assertSame([], $this->recordedEvent()->context);

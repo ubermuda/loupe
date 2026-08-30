@@ -9,6 +9,7 @@ use App\Audit\AuditContext;
 use App\Module\Audit\AuditActorProviderInterface;
 use App\Module\Audit\AuditEvent;
 use App\Module\Audit\Auditor;
+use App\Module\Audit\AuditOutcome;
 use App\Module\Billing\Entity\BillingStatus;
 use App\Tests\Support\BillingScenario;
 use App\Tests\Support\FakeAuditSink;
@@ -136,7 +137,7 @@ final class StripeWebhookControllerTest extends WebTestCase
 
                 public function onFlush(): void
                 {
-                    $this->auditor->record('billing.subscription.synced');
+                    $this->auditor->record('billing.subscription.synced', AuditOutcome::Success);
                 }
             },
         );
