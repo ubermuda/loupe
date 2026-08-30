@@ -27,6 +27,8 @@ final readonly class ShowDocumentView
         public int $orphanedCount,
         public DecisionSummary $decisions,
         public string $decisionMarkedHtml,
+        /** The version this reader last engaged with, or null when there is no signal. */
+        public ?int $lastSeenVersionNumber,
     ) {
     }
 }

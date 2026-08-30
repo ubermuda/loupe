@@ -5,9 +5,11 @@ declare(strict_types=1);
 namespace App\Module\Review\Repository;
 
 use App\Module\Account\Entity\User;
+use App\Module\Review\Entity\Document;
 use App\Module\Review\Entity\DocumentVersion;
 use App\Module\Review\Entity\Review;
 use App\Module\Review\Entity\Verdict;
+use App\Module\Review\ValueObject\Engagement;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\Persistence\ManagerRegistry;
 
@@ -57,6 +59,44 @@ class ReviewRepository extends ServiceEntityRepository
         $newest = $this->findNewestByVersion($version);
 
         return null === $newest ? 1 : $newest->sequence + 1;
+    }
+
+    /**
+     * This reviewer's most recent verdict on a document, and the version it was
+     * given on. Null if they never gave one.
+     *
+     * A withdrawal counts like any other row: it is still the reviewer engaging
+     * with that version. Verdicts are never carried onto a new version, so the
+     * row's own version is the answer.
+     */
+    public function findLatestEngagementByDocumentAndReviewer(Document $document, User $reviewer): ?Engagement
+    {
+        $row = $this->createQueryBuilder('review')
+            ->select('review.submittedAt AS submittedAt', 'v.versionNumber AS versionNumber')
+            ->join('review.version', 'v')
+            ->andWhere('v.document = :document')
+            ->andWhere('review.reviewer = :reviewer')
+            ->setParameter('document', $document)
+            ->setParameter('reviewer', $reviewer)
+            ->orderBy('review.submittedAt', 'DESC')
+            // submittedAt is TIMESTAMP(0), so two verdicts can tie. Both are this
+            // reviewer's own, which means they saw the later version.
+            ->addOrderBy('v.versionNumber', 'DESC')
+            ->setMaxResults(1)
+            ->getQuery()
+            ->getOneOrNullResult();
+
+        if (!is_array($row)) {
+            return null;
+        }
+
+        $submittedAt = $row['submittedAt'];
+        $versionNumber = $row['versionNumber'];
+
+        return new Engagement(
+            $submittedAt instanceof \DateTimeImmutable ? $submittedAt : throw new \LogicException('submittedAt must be a DateTimeImmutable.'),
+            is_int($versionNumber) ? $versionNumber : throw new \LogicException('versionNumber must be an int.'),
+        );
     }
 
     /**

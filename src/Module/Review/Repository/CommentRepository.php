@@ -7,8 +7,10 @@ namespace App\Module\Review\Repository;
 use App\Module\Account\Entity\User;
 use App\Module\Review\Entity\Comment;
 use App\Module\Review\Entity\CommentStatus;
+use App\Module\Review\Entity\Document;
 use App\Module\Review\Entity\DocumentVersion;
 use App\Module\Review\ValueObject\Anchor;
+use App\Module\Review\ValueObject\Engagement;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\Persistence\ManagerRegistry;
 
@@ -147,6 +149,46 @@ class CommentRepository extends ServiceEntityRepository
     public function findByAuthor(User $author): array
     {
         return $this->findBy(['author' => $author]);
+    }
+
+    /**
+     * This author's most recent comment on a document, and the version they were
+     * looking at when they wrote it. Null if they never commented on it.
+     *
+     * The version is the LOWEST of the rows sharing that createdAt, not the
+     * highest: a revision copies every open comment onto the new version and the
+     * copy inherits the original's createdAt, so one comment written on v3 exists
+     * as rows on v3, v4 and v5. The earliest of them is where it was written.
+     */
+    public function findLatestEngagementByDocumentAndAuthor(Document $document, User $author): ?Engagement
+    {
+        $row = $this->createQueryBuilder('c')
+            ->select('c.createdAt AS createdAt', 'v.versionNumber AS versionNumber')
+            ->join('c.version', 'v')
+            ->andWhere('v.document = :document')
+            ->andWhere('c.author = :author')
+            // Load-bearing: createdAt is nullable for comments written before the
+            // column existed, and Postgres orders NULLS FIRST on a DESC sort.
+            ->andWhere('c.createdAt IS NOT NULL')
+            ->setParameter('document', $document)
+            ->setParameter('author', $author)
+            ->orderBy('c.createdAt', 'DESC')
+            ->addOrderBy('v.versionNumber', 'ASC')
+            ->setMaxResults(1)
+            ->getQuery()
+            ->getOneOrNullResult();
+
+        if (!is_array($row)) {
+            return null;
+        }
+
+        $createdAt = $row['createdAt'];
+        $versionNumber = $row['versionNumber'];
+
+        return new Engagement(
+            $createdAt instanceof \DateTimeImmutable ? $createdAt : throw new \LogicException('createdAt must be a DateTimeImmutable.'),
+            is_int($versionNumber) ? $versionNumber : throw new \LogicException('versionNumber must be an int.'),
+        );
     }
 
     /**
