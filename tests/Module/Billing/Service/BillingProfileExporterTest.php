@@ -9,6 +9,7 @@ use App\Module\Billing\Entity\BillingProfile;
 use App\Module\Billing\Entity\BillingStatus;
 use App\Module\Billing\Repository\BillingProfileRepository;
 use App\Module\Billing\Service\BillingProfileExporter;
+use App\Tests\Support\BillingGrants;
 use PHPUnit\Framework\MockObject\Stub;
 use PHPUnit\Framework\TestCase;
 
@@ -17,22 +18,25 @@ final class BillingProfileExporterTest extends TestCase
     public function test_exports_the_stripe_identifiers_and_dates(): void
     {
         $user = new User('Alice A', 'alice@example.com', 'x');
-        $profile = new BillingProfile($user, new \DateTimeImmutable('2026-01-31T00:00:00+00:00'));
-        $profile->status = BillingStatus::Active;
+        $profile = BillingGrants::profileWithTrial($user, new \DateTimeImmutable('2026-01-31T00:00:00+00:00'));
         $profile->stripeCustomerId = 'cus_123';
-        $profile->stripeSubscriptionId = 'sub_123';
-        $profile->currentPeriodEnd = new \DateTimeImmutable('2026-02-28T00:00:00+00:00');
+        BillingGrants::stripe($profile, BillingStatus::Active, new \DateTimeImmutable('2026-02-28T00:00:00+00:00'), 'sub_123');
         $profile->lastStripeEventId = 'evt_secret';
 
         $row = iterator_to_array(new BillingProfileExporter($this->repositoryReturning($profile))->export($user));
 
-        self::assertSame('active', $row['status']);
         self::assertSame('cus_123', $row['stripeCustomerId']);
-        self::assertSame('sub_123', $row['stripeSubscriptionId']);
-        self::assertSame('2026-01-31T00:00:00+00:00', $row['trialEndsAt']);
-        self::assertSame('2026-02-28T00:00:00+00:00', $row['currentPeriodEnd']);
         self::assertArrayHasKey('createdAt', $row);
         self::assertArrayNotHasKey('lastStripeEventId', $row);
+
+        self::assertIsArray($row['subscriptions']);
+        self::assertCount(2, $row['subscriptions']);
+        self::assertSame('trial', $row['subscriptions'][0]['kind']);
+        self::assertSame('2026-01-31T00:00:00+00:00', $row['subscriptions'][0]['endsAt']);
+        self::assertSame('stripe', $row['subscriptions'][1]['kind']);
+        self::assertSame('sub_123', $row['subscriptions'][1]['stripeSubscriptionId']);
+        self::assertSame('active', $row['subscriptions'][1]['stripeStatus']);
+        self::assertSame('2026-02-28T00:00:00+00:00', $row['subscriptions'][1]['endsAt']);
     }
 
     public function test_exports_nothing_when_the_user_has_no_profile(): void

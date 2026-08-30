@@ -84,6 +84,7 @@ final class ShowUserController extends AppController
             'connectedAccounts' => $view->connectedAccounts,
             'apiTokenCount' => $view->apiTokenCount,
             'dataExports' => $view->dataExports,
+            'panels' => $view->panels,
         ]);
     }
 

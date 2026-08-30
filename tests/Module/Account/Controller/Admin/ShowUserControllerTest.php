@@ -6,6 +6,7 @@ namespace App\Tests\Module\Account\Controller\Admin;
 
 use App\Module\Account\Entity\User;
 use App\Tests\Support\AcceptedTerms;
+use App\Tests\Support\AdminUserPanelFixture;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use Symfony\Component\DomCrawler\Field\ChoiceFormField;
@@ -16,6 +17,9 @@ use Symfony\Component\HttpFoundation\Response;
 final class ShowUserControllerTest extends WebTestCase
 {
     private const string KNOWN_HASH = '$2y$13$xNOTAREALHASHxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx';
+
+    /** Edit form, actions and danger zone. A contributed panel adds one each. */
+    private const int MAIN_COLUMN_CARDS = 3;
 
     public function test_admin_gets_200(): void
     {
@@ -252,6 +256,41 @@ final class ShowUserControllerTest extends WebTestCase
         $reloaded = $em->find(User::class, $admin->id);
         self::assertInstanceOf(User::class, $reloaded);
         self::assertContains('ROLE_ADMIN', $reloaded->roles);
+    }
+
+    public function test_contributed_panels_render_in_their_tagged_priority_order(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $admin = $this->seedUser($em, 'detail-panel-admin@admin-test.example.com', ['ROLE_ADMIN']);
+        $target = $this->seedUser($em, 'detail-'.AdminUserPanelFixture::MARKER.'@admin-test.example.com');
+
+        $client->loginUser($admin);
+        $crawler = $client->request(Request::METHOD_GET, '/admin/users/'.$target->id);
+
+        $this->assertResponseIsSuccessful();
+        self::assertSame(
+            ['first', 'second'],
+            $crawler->filter('[data-testid="admin-user-panel"]')->each(
+                static fn ($node): string => (string) $node->attr('data-panel-label'),
+            ),
+        );
+        self::assertCount(self::MAIN_COLUMN_CARDS + 2, $crawler->filter('.admin-edit-form > div'));
+    }
+
+    public function test_a_page_with_no_contributed_panels_renders_unchanged(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $admin = $this->seedUser($em, 'detail-no-panel-admin@admin-test.example.com', ['ROLE_ADMIN']);
+        $target = $this->seedUser($em, 'detail-no-panel@admin-test.example.com');
+
+        $client->loginUser($admin);
+        $crawler = $client->request(Request::METHOD_GET, '/admin/users/'.$target->id);
+
+        $this->assertResponseIsSuccessful();
+        $this->assertSelectorNotExists('[data-testid="admin-user-panel"]');
+        self::assertCount(self::MAIN_COLUMN_CARDS, $crawler->filter('.admin-edit-form > div'));
     }
 
     private function checkbox(Form $form, string $name): ChoiceFormField

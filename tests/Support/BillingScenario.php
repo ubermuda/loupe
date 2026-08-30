@@ -6,6 +6,7 @@ namespace App\Tests\Support;
 
 use App\Module\Account\Entity\User;
 use App\Module\Billing\Entity\BillingProfile;
+use App\Module\Billing\Entity\Subscription;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 use Ubermuda\FeatureFlagsBundle\Entity\FeatureFlag;
@@ -41,15 +42,26 @@ final readonly class BillingScenario
         return $user;
     }
 
+    /** A profile whose trial grant ends on the given date. */
     public function profile(User $user, \DateTimeImmutable $trialEndsAt): BillingProfile
     {
-        $profile = new BillingProfile($user, trialEndsAt: $trialEndsAt);
+        $profile = BillingGrants::profileWithTrial($user, $trialEndsAt);
 
         $em = $this->em();
         $em->persist($profile);
+        $em->persist($profile->subscriptions->first() ?: throw new \LogicException('the trial grant was just added'));
         $em->flush();
 
         return $profile;
+    }
+
+    public function grant(Subscription $subscription): Subscription
+    {
+        $em = $this->em();
+        $em->persist($subscription);
+        $em->flush();
+
+        return $subscription;
     }
 
     public function enableBilling(bool $enabled = true): void

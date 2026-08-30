@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace App\Tests\Module\Billing\Twig\Components;
 
 use App\Module\Billing\Entity\BillingStatus;
+use App\Tests\Support\BillingGrants;
 use App\Tests\Support\BillingScenario;
-use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use Symfony\Component\HttpFoundation\Request;
 
@@ -53,9 +53,7 @@ final class BillingSummaryComponentTest extends WebTestCase
         $scenario->enableBilling();
         $user = $scenario->verifiedUser('subaccount');
         $profile = $scenario->profile($user, new \DateTimeImmutable('-30 days'));
-        $profile->status = BillingStatus::Active;
-        $profile->stripeSubscriptionId = 'sub_account';
-        static::getContainer()->get(EntityManagerInterface::class)->flush();
+        $scenario->grant(BillingGrants::stripe($profile, BillingStatus::Active, new \DateTimeImmutable('+30 days'), 'sub_account'));
 
         $client->loginUser($user);
         $crawler = $client->request(Request::METHOD_GET, '/account');

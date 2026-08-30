@@ -22,6 +22,7 @@ use App\Module\Account\Service\SocialLoginOutcome;
 use App\Module\Account\Service\SocialLoginRace;
 use App\Module\Account\Service\SocialProfile;
 use App\Module\Account\Service\UnverifiedProviderEmail;
+use App\Module\Billing\Entity\SubscriptionKind;
 use App\Module\Billing\Repository\BillingProfileRepository;
 use App\Module\Billing\Service\TrialProvisioner;
 use App\Tests\Support\InstalledInstance;
@@ -404,9 +405,11 @@ final class ResolveSocialLoginHandlerTest extends KernelTestCase
         self::assertNotNull($profile);
 
         // No billing.trial_days flag row exists in the test DB → default applies.
+        $trialEndsAt = $profile->latestSubscriptionOfKind(SubscriptionKind::Trial)?->endsAt;
+        self::assertNotNull($trialEndsAt);
         $expected = new \DateTimeImmutable(sprintf('+%d days', TrialProvisioner::DEFAULT_TRIAL_DAYS));
-        self::assertGreaterThan($expected->modify('-1 hour'), $profile->trialEndsAt);
-        self::assertLessThan($expected->modify('+1 hour'), $profile->trialEndsAt);
+        self::assertGreaterThan($expected->modify('-1 hour'), $trialEndsAt);
+        self::assertLessThan($expected->modify('+1 hour'), $trialEndsAt);
     }
 
     public function test_existing_identity_and_auto_link_logins_dispatch_no_event(): void

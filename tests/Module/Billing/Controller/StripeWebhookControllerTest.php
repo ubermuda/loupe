@@ -79,7 +79,12 @@ final class StripeWebhookControllerTest extends WebTestCase
         $em->clear();
 
         return $em->getConnection()->fetchAssociative(
-            'SELECT status, stripe_subscription_id, current_period_end, last_stripe_event_at FROM billing_profiles WHERE stripe_customer_id = ?',
+            <<<'SQL'
+                SELECT s.stripe_status AS status, s.stripe_subscription_id, s.ends_at, p.last_stripe_event_at
+                FROM billing_profiles p
+                LEFT JOIN subscriptions s ON s.billing_profile_id = p.id AND s.kind = 'stripe'
+                WHERE p.stripe_customer_id = ?
+                SQL,
             [self::CUSTOMER_ID],
         );
     }
@@ -96,7 +101,7 @@ final class StripeWebhookControllerTest extends WebTestCase
         self::assertIsArray($stored);
         self::assertSame(BillingStatus::Active->value, $stored['status']);
         self::assertSame('sub_webhook', $stored['stripe_subscription_id']);
-        self::assertNotNull($stored['current_period_end']);
+        self::assertNotNull($stored['ends_at']);
     }
 
     public function test_a_tampered_signature_is_rejected_and_writes_nothing(): void
@@ -109,7 +114,8 @@ final class StripeWebhookControllerTest extends WebTestCase
         self::assertResponseStatusCodeSame(Response::HTTP_BAD_REQUEST);
         $stored = $this->storedProfile();
         self::assertIsArray($stored);
-        self::assertSame(BillingStatus::Trialing->value, $stored['status']);
+        // No Stripe grant was ever written, so the left join yields nothing.
+        self::assertNull($stored['status']);
         self::assertNull($stored['stripe_subscription_id']);
     }
 
@@ -150,7 +156,7 @@ final class StripeWebhookControllerTest extends WebTestCase
         self::assertResponseIsSuccessful();
         $stored = $this->storedProfile();
         self::assertIsArray($stored);
-        self::assertNotNull($stored['current_period_end']);
+        self::assertNotNull($stored['ends_at']);
     }
 
     public function test_a_payload_with_no_period_end_at_all_is_accepted(): void
@@ -166,7 +172,7 @@ final class StripeWebhookControllerTest extends WebTestCase
         self::assertResponseIsSuccessful();
         $stored = $this->storedProfile();
         self::assertIsArray($stored);
-        self::assertNull($stored['current_period_end']);
+        self::assertNull($stored['ends_at']);
     }
 
     public function test_a_deletion_cancels_the_subscription(): void

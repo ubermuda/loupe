@@ -6,6 +6,7 @@ namespace App\Module\Billing\Service;
 
 use App\Module\Account\Entity\User;
 use App\Module\Account\Export\UserDataExporterInterface;
+use App\Module\Billing\Entity\Subscription;
 use App\Module\Billing\Repository\BillingProfileRepository;
 
 final readonly class BillingProfileExporter implements UserDataExporterInterface
@@ -29,11 +30,17 @@ final readonly class BillingProfileExporter implements UserDataExporterInterface
             return;
         }
 
-        yield 'status' => $profile->status->value;
         yield 'stripeCustomerId' => $profile->stripeCustomerId;
-        yield 'stripeSubscriptionId' => $profile->stripeSubscriptionId;
-        yield 'trialEndsAt' => $profile->trialEndsAt->format(\DateTimeInterface::ATOM);
-        yield 'currentPeriodEnd' => $profile->currentPeriodEnd?->format(\DateTimeInterface::ATOM);
         yield 'createdAt' => $profile->createdAt->format(\DateTimeInterface::ATOM);
+        yield 'subscriptions' => array_values(array_map(
+            static fn (Subscription $subscription): array => [
+                'kind' => $subscription->kind->value,
+                'startsAt' => $subscription->startsAt->format(\DateTimeInterface::ATOM),
+                'endsAt' => $subscription->endsAt?->format(\DateTimeInterface::ATOM),
+                'stripeSubscriptionId' => $subscription->stripeSubscriptionId,
+                'stripeStatus' => $subscription->stripeStatus?->value,
+            ],
+            $profile->subscriptions->toArray(),
+        ));
     }
 }

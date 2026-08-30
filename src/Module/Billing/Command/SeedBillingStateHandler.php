@@ -7,6 +7,8 @@ namespace App\Module\Billing\Command;
 use App\Module\Account\Entity\User;
 use App\Module\Billing\Entity\BillingProfile;
 use App\Module\Billing\Entity\BillingStatus;
+use App\Module\Billing\Entity\Subscription;
+use App\Module\Billing\Entity\SubscriptionKind;
 use App\Module\Billing\Repository\BillingProfileRepository;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\HttpKernel\Exception\BadRequestHttpException;
@@ -60,51 +62,56 @@ final readonly class SeedBillingStateHandler
     {
         $profile = $this->billingProfiles->findOneByUser($user);
         if (null === $profile) {
-            $profile = new BillingProfile($user, trialEndsAt: new \DateTimeImmutable('+14 days'));
+            $profile = new BillingProfile($user);
             $this->em->persist($profile);
         }
 
-        // Baseline: wipe everything a previous state (or a previous run's
-        // sweep) may have left behind, then let the named state set what it
-        // needs. This is what makes states order-independent.
+        // Baseline: wipe every grant and every Stripe marker a previous state
+        // (or a previous run's sweep) may have left behind, then let the named
+        // state build what it needs. This makes states order-independent.
+        foreach ($profile->subscriptions as $subscription) {
+            $this->em->remove($subscription);
+        }
+        $profile->subscriptions->clear();
+
         $profile->stripeCustomerId = null;
-        $profile->stripeSubscriptionId = null;
-        $profile->currentPeriodEnd = null;
         $profile->lastStripeEventAt = null;
         $profile->lastStripeEventId = null;
         $profile->lastStripeEventType = null;
-        $profile->surveySentAt = null;
-        $profile->cancelSurveySentAt = null;
         $user->disabledAt = null;
 
         $now = new \DateTimeImmutable();
 
         switch ($state) {
             case 'fresh-trial':
-                $profile->status = BillingStatus::Trialing;
-                $profile->trialEndsAt = $now->modify('+14 days');
+                $this->em->persist(new Subscription($profile, SubscriptionKind::Trial, $now, $now->modify('+14 days')));
                 break;
             case 'expired-trial':
-                $profile->status = BillingStatus::Trialing;
-                $profile->trialEndsAt = $now->modify('-1 day');
+                $this->em->persist(new Subscription($profile, SubscriptionKind::Trial, $now->modify('-15 days'), $now->modify('-1 day')));
                 break;
             case 'canceled-past-period':
-                $profile->status = BillingStatus::Canceled;
-                $profile->trialEndsAt = $now->modify('-30 days');
-                $profile->currentPeriodEnd = $now->modify('-1 day');
-                // Matches what a real cancellation webhook leaves behind —
-                // BillingProfile::isCurrent() requires this event type before
-                // it will honor currentPeriodEnd for a Canceled profile.
+                $this->em->persist(new Subscription($profile, SubscriptionKind::Trial, $now->modify('-44 days'), $now->modify('-30 days')));
+                $this->em->persist($this->canceledStripeGrant($profile, $now));
+                $profile->stripeCustomerId = 'cus_seeded';
                 $profile->lastStripeEventType = BillingProfile::SUBSCRIPTION_DELETED_EVENT_TYPE;
                 break;
             case 'disabled':
-                $profile->status = BillingStatus::Trialing;
-                $profile->trialEndsAt = $now->modify('-1 day');
-                $profile->surveySentAt = $now;
+                $trial = new Subscription($profile, SubscriptionKind::Trial, $now->modify('-15 days'), $now->modify('-1 day'));
+                $trial->surveySentAt = $now;
+                $this->em->persist($trial);
                 $user->disabledAt = $now;
                 break;
             default:
                 throw new BadRequestHttpException(sprintf('Unknown billing state "%s".', $state));
         }
+    }
+
+    private function canceledStripeGrant(BillingProfile $profile, \DateTimeImmutable $now): Subscription
+    {
+        $grant = new Subscription($profile, SubscriptionKind::Stripe, $now->modify('-30 days'), $now->modify('-1 day'));
+        $grant->stripeSubscriptionId = sprintf('sub_seeded_%s', $profile->user->id);
+        $grant->stripeStatus = BillingStatus::Canceled;
+
+        return $grant;
     }
 }
