@@ -3,6 +3,7 @@
 namespace App\Module\Account\Entity;
 
 use App\Module\Account\Repository\UserRepository;
+use App\Module\Audit\AuditActorInterface;
 use Doctrine\ORM\Mapping as ORM;
 use Symfony\Bridge\Doctrine\Types\UuidType;
 use Symfony\Component\Security\Core\User\PasswordAuthenticatedUserInterface;
@@ -12,7 +13,7 @@ use Ubermuda\AdminBundle\Security\AdminPromotableUser;
 
 #[ORM\Entity(repositoryClass: UserRepository::class)]
 #[ORM\Table(name: 'users')]
-class User implements UserInterface, PasswordAuthenticatedUserInterface, AdminPromotableUser
+class User implements UserInterface, PasswordAuthenticatedUserInterface, AdminPromotableUser, AuditActorInterface
 {
     /**
      * The one account that authors everything an agent writes, so a machine
@@ -159,6 +160,19 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface, AdminPr
     public function getUserIdentifier(): string
     {
         return $this->email;
+    }
+
+    /** The display name rather than the email: the trail already carries the id for identity. */
+    #[\Override]
+    public function auditLabel(): ?string
+    {
+        return $this->fullName;
+    }
+
+    #[\Override]
+    public function auditIdentifier(): ?string
+    {
+        return $this->id?->toRfc4122();
     }
 
     public function isVerified(): bool

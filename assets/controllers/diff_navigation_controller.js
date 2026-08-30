@@ -10,13 +10,16 @@ const SCROLL_MILLISECONDS_PER_PIXEL = 0.08;
  * has scrolled, and are inert while a field has focus — a diff view can carry a
  * comment composer, and a bare `j` typed there must reach it.
  *
+ * A hunk target is whatever the server marked as the start of a run of
+ * changes, which on the rendered diff is an <ins>/<del> that may be inline.
+ *
  * Usage:
  *   <div data-controller="diff-navigation"
  *        data-diff-navigation-position-value="Change %current% of 12">
  *     <p data-diff-navigation-target="counter">12 changes</p>
  *     <button data-action="diff-navigation#previous">…</button>
  *     <button data-action="diff-navigation#next">…</button>
- *     <div data-diff-navigation-target="hunk" tabindex="-1"> … </div>
+ *     <del data-diff-navigation-target="hunk" tabindex="-1"> … </del>
  */
 export default class extends Controller {
     static targets = ['hunk', 'counter'];

@@ -5,13 +5,14 @@ declare(strict_types=1);
 namespace App\Module\Account\Entity;
 
 use App\Module\Account\Repository\ApiTokenRepository;
+use App\Module\Audit\AuditCredentialInterface;
 use Doctrine\ORM\Mapping as ORM;
 use Symfony\Bridge\Doctrine\Types\UuidType;
 use Symfony\Component\Uid\Uuid;
 
 #[ORM\Entity(repositoryClass: ApiTokenRepository::class)]
 #[ORM\Table(name: 'api_tokens')]
-class ApiToken
+class ApiToken implements AuditCredentialInterface
 {
     #[ORM\Column(type: UuidType::NAME, unique: true)]
     #[ORM\CustomIdGenerator(class: 'doctrine.uuid_generator')]
@@ -88,5 +89,11 @@ class ApiToken
     public function revoke(): void
     {
         $this->revokedAt = new \DateTimeImmutable();
+    }
+
+    #[\Override]
+    public function auditIdentifier(): ?string
+    {
+        return $this->id?->toRfc4122();
     }
 }

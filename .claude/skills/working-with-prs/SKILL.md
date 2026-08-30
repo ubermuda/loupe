@@ -271,6 +271,18 @@ other's mail. Serialise those, or give each its own `MAILPIT_URL`.
    A rollup with fewer entries than the ruleset requires means runs have not
    registered yet, which reads identically to "nothing left to wait for".
 
+## After the merge, write the changelog entry
+
+Every merged pull request earns one line in `docs/CHANGELOG.md`, under `[Unreleased]`, newest first. Tag it `Added`, `Changed`, `Removed` or `Fixed`. Write one sentence saying what changed from the reader's side, and leave the reasoning to the PR body, which the SHA and the PR number both point at.
+
+```
+- `0406b9c` (#209) — **Fixed:** what changed, from the reader's side.
+```
+
+The entry anchors to the first-parent squash commit on `main`, which is what `git log --first-parent` shows. That commit does not exist until you merge, so the entry cannot ride the pull request it describes. Write it immediately after the merge, in the next documentation pull request.
+
+One entry per pull request, not one per branch. A branch that shipped six features earns six lines, because a reader looking for when tags arrived should find a line about tags rather than a paragraph about the wave that contained them. Tracker churn in `docs/NEXT_STEPS.md` earns no entry.
+
 ## What the ruleset actually requires
 
 `main` allows `--squash` only. A plain `gh pr merge` fails with
