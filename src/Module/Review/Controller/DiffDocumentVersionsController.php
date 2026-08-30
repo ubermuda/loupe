@@ -16,8 +16,9 @@ use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
 
 // Re-reviewing a revised document otherwise means reading all of it again. This
-// shows the delta between two versions instead, in place of the document rather
-// than beside it.
+// shows the delta between two versions instead: the review page with the
+// document pane holding the diff, so the version list, the references and the
+// reading measure are the ones the reviewer already knows.
 #[IsGranted(DocumentVoter::VIEW, subject: 'document')]
 #[Route(
     '/projects/{projectId}/documents/{documentId}/review/diff/{fromVersionNumber}/{toVersionNumber}',
@@ -53,9 +54,11 @@ final class DiffDocumentVersionsController extends AppController
             'version' => $view->version,
             'versions' => $view->versions,
             'diffMode' => true,
-            'diff' => $view->diff,
+            'renderedDiff' => $view->renderedDiff,
             'diffRefusal' => $view->diffRefusal,
             'diffFromVersion' => $fromVersionNumber,
+            // A diff has no text basis to anchor a quote against and describes no
+            // single version, so nothing that writes to one is offered here.
             'readOnly' => true,
             'comments' => $view->comments,
             'orphanedCount' => $view->orphanedCount,

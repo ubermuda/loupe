@@ -42,7 +42,12 @@ final class DiffDocumentVersionsControllerTest extends WebTestCase
         return $project;
     }
 
-    public function test_the_diff_replaces_the_document_and_marks_what_changed(): void
+    /**
+     * The diff is the review page with one pane swapped, so the apparatus around
+     * that pane has to still be there — and the pane itself has to hold the
+     * document as it reads rather than the Markdown it is written in.
+     */
+    public function test_the_diff_is_the_review_page_with_the_document_pane_comparing_two_versions(): void
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
@@ -64,26 +69,25 @@ final class DiffDocumentVersionsControllerTest extends WebTestCase
         $crawler = $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/documents/'.$id.'/review/diff/1/2');
 
         self::assertResponseIsSuccessful();
-        self::assertCount(1, $crawler->filter('.lp-diff'));
-        self::assertCount(0, $crawler->filter('.lp-review-doc__prose'), 'the diff stands in for the document, not beside it');
+        self::assertCount(1, $crawler->filter('.lp-review-doc'));
+        self::assertCount(1, $crawler->filter('.lp-doc-meta'));
+        self::assertSelectorTextContains('.lp-review-doc__title', 'Diffed Doc');
+
+        // Rendered HTML, not Markdown source: the heading is an <h1>, and the
+        // line-per-line source view this replaced is gone.
+        $pane = $crawler->filter('.lp-diff-doc');
+        self::assertCount(1, $pane);
+        self::assertCount(1, $pane->filter('h1'));
+        self::assertCount(0, $crawler->filter('.lp-diff__line'));
+
         // "one step" and "three steps" are single runs, not four: adjacent changed
         // words separated by nothing but a space are glued into one mark.
-        self::assertSame(['one step'], $crawler->filter('.lp-diff__mark--deleted')->each(
+        self::assertSame(['one step'], $pane->filter('.lp-diff__mark--deleted')->each(
             static fn (Crawler $node): string => $node->text(),
         ));
-        self::assertSame(['three steps'], $crawler->filter('.lp-diff__mark--inserted')->each(
+        self::assertSame(['three steps'], $pane->filter('.lp-diff__mark--inserted')->each(
             static fn (Crawler $node): string => $node->text(),
         ));
-
-        // Every changed run is a numbered jump target, and the lines stay
-        // inside it — the navigation and the round-trip both read that nesting.
-        self::assertSame(
-            ['diff-hunk-1'],
-            $crawler->filter('[data-diff-navigation-target="hunk"]')->each(
-                static fn (Crawler $node): string => (string) $node->attr('id'),
-            ),
-        );
-        self::assertCount(2, $crawler->filter('#diff-hunk-1 .lp-diff__line'));
 
         // What the author claims changed, read next to what actually did.
         self::assertSelectorTextContains('.lp-diff-notes', 'Phased the rollout.');
@@ -91,28 +95,21 @@ final class DiffDocumentVersionsControllerTest extends WebTestCase
     }
 
     /**
-     * DocumentDiff::oldSource()/newSource() and _version_diff.html.twig walk the
-     * same structure, but nothing makes them agree — a separator between
-     * segments, a `<br>`, one more wrapping element, and the reconstruction would
-     * still pass its own unit test while no longer describing the page. This
-     * reads the two sides back out of the rendered pane instead: a line that is
-     * not inserted belongs to the old version in full, one that is not deleted to
-     * the new version in full, because a line's segments never span both sides.
+     * A rendered diff has no lines, so a change is a run of marks with nothing
+     * unchanged between them. A section removed whole is one such run across two
+     * block wrappers, and the count the bar reports is the number of runs.
      */
-    public function test_both_sources_are_recoverable_from_the_rendered_diff(): void
+    public function test_every_run_of_changes_is_one_numbered_jump_target(): void
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
 
-        $owner = $this->createUser($em, 'owner-roundtrip', 'owner-roundtrip@example.com');
+        $owner = $this->createUser($em, 'owner-diff-nav', 'owner-diff-nav@example.com');
         $project = $this->project($em, $owner);
 
-        $old = "# Plan & scope\n\n\tWe ship in **one** step, on Monday.\n\nUnchanged tail — naïve café 🎉\n\n- alpha\n- beta\n";
-        $new = "# Plan & scope\n\n\tWe ship in **three** steps, starting Monday.\n\nAn <entirely> new paragraph.\n\nUnchanged tail — naïve café 🎉\n\n- alpha\n- gamma\n";
-
-        $doc = new Document(owner: $owner, project: $project, title: 'Round Trip');
-        $doc->addVersion($old, '<h1>Plan</h1>');
-        $doc->addVersion($new, '<h1>Plan</h1>');
+        $doc = new Document(owner: $owner, project: $project, title: 'Navigable Diff');
+        $doc->addVersion("Intro stays put.\n\n## Doomed\n\nThe doomed paragraph.\n\nThe tail says one thing about it.\n", '<p>v1</p>');
+        $doc->addVersion("Intro stays put.\n\nThe tail says another thing about it.\n", '<p>v2</p>');
         $em->persist($doc);
         $em->flush();
 
@@ -124,24 +121,24 @@ final class DiffDocumentVersionsControllerTest extends WebTestCase
         $crawler = $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/documents/'.$id.'/review/diff/1/2');
 
         self::assertResponseIsSuccessful();
+        self::assertCount(1, $crawler->filter('[data-controller="diff-navigation"]'));
 
-        $oldLines = [];
-        $newLines = [];
-        foreach ($crawler->filter('.lp-diff__line') as $node) {
-            $line = new Crawler($node);
-            $classes = (string) $line->attr('class');
-            $text = $line->text(null, false);
+        // Four marks and two runs: the removed heading and the removed paragraph
+        // are two block wrappers with nothing unchanged between them, so they are
+        // one change, while the reworded word in the tail is another.
+        self::assertCount(4, $crawler->filter('.lp-diff-doc .lp-diff__mark'));
+        self::assertSame(
+            ['diff-hunk-1', 'diff-hunk-2'],
+            $crawler->filter('[data-diff-navigation-target="hunk"]')->each(
+                static fn (Crawler $node): string => (string) $node->attr('id'),
+            ),
+        );
+        // Focusable, because the controller focuses the hunk it moves to.
+        self::assertSame('-1', $crawler->filter('#diff-hunk-1')->attr('tabindex'));
+        self::assertSelectorTextContains('.lp-diff-nav__count', '2 changes');
 
-            if (!str_contains($classes, 'lp-diff__line--inserted')) {
-                $oldLines[] = $text;
-            }
-            if (!str_contains($classes, 'lp-diff__line--deleted')) {
-                $newLines[] = $text;
-            }
-        }
-
-        self::assertSame($old, implode("\n", $oldLines));
-        self::assertSame($new, implode("\n", $newLines));
+        // Named for a reader served neither the tint nor the strike-through.
+        self::assertSame('Removed', $crawler->filter('#diff-hunk-2')->attr('data-diff-label'));
     }
 
     public function test_a_diff_accepts_no_comment_and_leaves_anchoring_unattached(): void
@@ -167,11 +164,10 @@ final class DiffDocumentVersionsControllerTest extends WebTestCase
         $diff = $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/documents/'.$id.'/review/diff/1/2');
 
         self::assertResponseIsSuccessful();
-        // A diff is a page of its own, and none of the review page's apparatus
-        // applies to it: what it shows is diff markup rather than
-        // DocumentVersion::plainText(), so every anchor carrier would be holding a
-        // quote to be re-located against text that is not there, and every write
-        // control would act on a version the reader is not looking at.
+        // Commenting on a diff is a feature of its own, and this is not it: the
+        // pane's text belongs to two versions at once, so every anchor carrier
+        // would be re-locating a quote against text that is not there, and every
+        // write control would act on a version the reader is not looking at.
         self::assertCount(0, $diff->filter('[data-controller="comment-anchor"]'));
         self::assertCount(0, $diff->filter('[data-comment-anchor-target="doc"]'));
         self::assertCount(0, $diff->filter('[data-comment-anchor-target="agentHighlight"]'));
@@ -223,7 +219,7 @@ final class DiffDocumentVersionsControllerTest extends WebTestCase
         $crawler = $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/documents/'.$id.'/review/diff/1/2');
 
         self::assertResponseIsSuccessful();
-        self::assertCount(0, $crawler->filter('.lp-diff'));
+        self::assertCount(0, $crawler->filter('.lp-diff-doc'));
         self::assertSelectorTextContains('.lp-empty', 'too large to compare');
         // The versions themselves are still readable, which is what the message
         // points the reviewer at.
@@ -256,18 +252,44 @@ final class DiffDocumentVersionsControllerTest extends WebTestCase
         $crawler = $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/documents/'.$id.'/review/diff/1/2');
 
         self::assertResponseIsSuccessful();
-        self::assertCount(0, $crawler->filter('.lp-diff'));
+        self::assertCount(0, $crawler->filter('.lp-diff-doc'));
         self::assertSelectorTextContains('.lp-empty', 'cannot handle');
     }
 
+    public function test_two_versions_that_read_the_same_say_so_rather_than_show_an_empty_diff(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+
+        $owner = $this->createUser($em, 'owner-diff-same', 'owner-diff-same@example.com');
+        $project = $this->project($em, $owner);
+
+        $doc = new Document(owner: $owner, project: $project, title: 'Unchanged Doc');
+        $doc->addVersion("# Plan\n\nUnchanged body.\n", '<h1>Plan</h1>');
+        $doc->addVersion("# Plan\n\nUnchanged body.\n", '<h1>Plan</h1>');
+        $em->persist($doc);
+        $em->flush();
+
+        $projectId = (string) $project->id;
+        $id = (string) $doc->id;
+        $em->clear();
+
+        $client->loginUser($owner);
+        $crawler = $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/documents/'.$id.'/review/diff/1/2');
+
+        self::assertResponseIsSuccessful();
+        self::assertCount(0, $crawler->filter('.lp-diff-doc'));
+        self::assertCount(0, $crawler->filter('[data-controller="diff-navigation"]'));
+        self::assertSelectorTextContains('.lp-empty', 'identical');
+    }
+
     /**
-     * The contents panel is built from heading ids that live in the rendered HTML,
-     * and diff mode replaces that markup with the Markdown source — so every entry
-     * would point at an element no longer on the page. Neither branch that met here
-     * could catch it alone: the panel's tests never render a diff, and the diff's
-     * never had a panel.
+     * The contents panel lists a version's own headings, and a diff's headings
+     * belong to two versions: a heading reworded across them appears once,
+     * carrying both texts and an id derived from the pair. So the panel stays
+     * off, while the ids themselves remain for a document's own in-page links.
      */
-    public function test_a_diff_renders_no_contents_panel_and_no_heading_targets(): void
+    public function test_a_diff_renders_no_contents_panel(): void
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
@@ -275,8 +297,6 @@ final class DiffDocumentVersionsControllerTest extends WebTestCase
         $owner = $this->createUser($em, 'owner-diff-toc', 'owner-diff-toc@example.com');
         $project = $this->project($em, $owner);
 
-        // Rendered for real: the ids the panel links to exist only in
-        // MarkdownRenderer's output, not in the Markdown the diff shows.
         $renderer = new MarkdownRenderer(new NullLogger());
         $old = "## First\n\nBody.\n\n## Second\n\nMore.\n";
         $new = "## First\n\nRevised body.\n\n## Second\n\nMore.\n";
@@ -296,15 +316,11 @@ final class DiffDocumentVersionsControllerTest extends WebTestCase
 
         self::assertResponseIsSuccessful();
         self::assertCount(0, $diff->filter('.lp-review-contents'));
-        // A panel entry pointing into replaced markup would be a broken link rather
-        // than a missing feature, so the targets must be gone too.
-        self::assertCount(0, $diff->filter('[id^="heading-"]'));
 
-        // The review page for the same document, so neither assertion can pass
+        // The review page for the same document, so the assertion cannot pass
         // merely because this document never had a contents panel.
         $latest = $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/documents/'.$id.'/review');
         self::assertCount(1, $latest->filter('.lp-review-contents'));
-        self::assertCount(2, $latest->filter('[id^="heading-"]'));
     }
 
     public function test_a_diff_that_does_not_run_forwards_is_not_found(): void
@@ -384,7 +400,7 @@ final class DiffDocumentVersionsControllerTest extends WebTestCase
         // The non-adjacent pair the picker exists to reach.
         $spanning = $client->request(Request::METHOD_GET, $base.'1/4');
         self::assertResponseIsSuccessful();
-        self::assertCount(1, $spanning->filter('.lp-diff'));
+        self::assertCount(1, $spanning->filter('.lp-diff-doc'));
         self::assertSame($base.'1/4', $spanning->filter('[data-controller="version-compare"]')->attr('data-version-compare-url-value'));
     }
 

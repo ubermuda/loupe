@@ -1335,58 +1335,76 @@
     }
 
     /* ── Version diff ───────────────────────────────────────────────────
-       Shows the Markdown SOURCE: a reflowed paragraph changes nothing in the
-       rendered HTML, so diffing that output would hide the edit. pre-wrap keeps
-       source breaks, so the template must emit no indentation inside a line. */
-    .lp-diff {
-        @apply max-w-215 text-fg;
-    }
-    /* Added and removed lines are <ins>/<del>, whose default underline and
-       strike would otherwise run across the whole line. */
-    .lp-diff__line {
-        @apply block no-underline whitespace-pre-wrap break-words rounded-lg py-1 px-3 text-base leading-relaxed;
-    }
-    /* Gutter marker: the cue that survives colour blindness, on the view where
-       added-versus-removed IS the content. Generated content, so it never
-       reaches textContent and cannot leak into a reconstructed source. It also
-       gives a blank line its height, which an empty box would collapse away —
-       and a blank line is a paragraph break in Markdown. */
-    .lp-diff__line::before {
-        @apply inline-block w-5 select-none text-fg-dim;
-        content: '\00a0';
-    }
-    .lp-diff__line--deleted::before {
-        content: '−';
-    }
-    .lp-diff__line--inserted::before {
-        content: '+';
-    }
-    .lp-diff__line--deleted {
-        @apply bg-status-danger-bg text-fg-mute;
-    }
-    .lp-diff__line--inserted {
-        @apply bg-status-ok-bg;
-    }
+       The document as the newer version reads it, with the revision marked in
+       place. Colour is the third cue rather than the only one: an inline mark
+       is struck or underlined, a whole marked block carries a gutter sign, and
+       every mark names itself for a screen reader. */
     .lp-diff__mark {
         @apply rounded-sm;
     }
+    /* The name for a reader served neither the tint nor the strike. Generated
+       content, so it reaches the accessibility tree without joining the text
+       the page copies out. */
+    .lp-diff__mark::before {
+        @apply sr-only;
+        content: attr(data-diff-label);
+    }
     .lp-diff__mark--deleted {
-        @apply bg-status-danger-border text-status-danger-deep no-underline;
+        @apply bg-status-danger-border text-status-danger-deep line-through decoration-1;
     }
     .lp-diff__mark--inserted {
-        @apply bg-status-ok-border text-status-ok-ink no-underline;
+        @apply bg-status-ok-border text-status-ok-ink underline decoration-1 underline-offset-2;
     }
-    /* Jump-to-change bar. Sticky at the top of the scroller because the page's
-       own top bar is not, so nothing else is competing for that band. */
+    /* A whole block added or removed. Only a block wrapper is a direct child of
+       the pane, because an inline mark always sits inside the element it
+       changed — which is what makes this selector the block/inline split. */
+    .lp-diff-doc > .lp-diff__mark {
+        @apply relative block my-6 py-2 pl-7 pr-3 rounded-lg border-l-4 no-underline;
+    }
+    /* Prose margins would otherwise push the block off its own tint. */
+    .lp-diff-doc > .lp-diff__mark > :first-child {
+        @apply mt-0;
+    }
+    .lp-diff-doc > .lp-diff__mark > :last-child {
+        @apply mb-0;
+    }
+    .lp-diff-doc > .lp-diff__mark--deleted {
+        @apply bg-status-danger-bg border-status-danger-border;
+    }
+    .lp-diff-doc > .lp-diff__mark--inserted {
+        @apply bg-status-ok-bg border-status-ok-border;
+    }
+    /* Gutter sign, in place of a strike-through that a reader has to see past to
+       read the paragraph it crosses. */
+    .lp-diff-doc > .lp-diff__mark::after {
+        @apply absolute left-2 top-2 select-none font-mono text-sm text-fg-dim;
+    }
+    .lp-diff-doc > .lp-diff__mark--deleted::after {
+        content: '−';
+    }
+    .lp-diff-doc > .lp-diff__mark--inserted::after {
+        content: '+';
+    }
+    /* Blocks split on blank lines, so a removed section is one wrapper per
+       block. Adjacent wrappers close up into the single change they are. */
+    .lp-diff-doc > .lp-diff__mark + .lp-diff__mark {
+        @apply mt-0 rounded-t-none;
+    }
+    .lp-diff-doc > .lp-diff__mark:has(+ .lp-diff__mark) {
+        @apply mb-0 rounded-b-none;
+    }
+    /* Jump-to-change row of the document metadata bar, which is what makes it
+       sticky: two bars pinned to the same edge would overlap. */
     .lp-diff-nav {
-        @apply sticky top-0 z-10 flex items-center gap-2 max-w-215 mb-4 py-2 bg-app;
+        @apply flex items-center gap-2 py-2 border-b border-line;
     }
     .lp-diff-nav__count {
         @apply mr-auto font-mono text-fg-dim text-xs uppercase tracking-widest;
     }
-    /* scroll-margin keeps a hunk clear of the bar that scrolled it into view. */
+    /* A hunk is the first mark of a run, so it takes no display of its own —
+       an inline one has to stay inline. */
     .lp-diff__hunk {
-        @apply block scroll-mt-16 rounded-lg outline-none;
+        @apply scroll-mt-24 outline-none;
     }
     /* outline-solid is load-bearing: the base sets --tw-outline-style to none,
        which outline-2 then resolves to, leaving a 2px ring nothing draws. */

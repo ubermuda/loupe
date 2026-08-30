@@ -7,7 +7,7 @@ namespace App\Module\Review\Command;
 use App\Module\Review\Entity\Comment;
 use App\Module\Review\Entity\DocumentVersion;
 use App\Module\Review\ValueObject\DiffRefusal;
-use App\Module\Review\ValueObject\DocumentDiff;
+use App\Module\Review\ValueObject\RenderedDiff;
 
 final readonly class DiffDocumentVersionsView
 {
@@ -17,7 +17,7 @@ final readonly class DiffDocumentVersionsView
      */
     public function __construct(
         public DocumentVersion $version,
-        public ?DocumentDiff $diff,
+        public ?RenderedDiff $renderedDiff,
         public ?DiffRefusal $diffRefusal,
         public array $comments,
         public array $versions,
