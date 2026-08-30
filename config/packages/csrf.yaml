@@ -34,3 +34,5 @@ framework:
             - admin-user-unsuspend
             - admin-user-delete
             - admin-user-resend-verification
+            - billing-comp-grant
+            - billing-comp-revoke
