@@ -11,9 +11,13 @@ use App\Module\Billing\Command\SyncStripeSubscriptionCommand;
 use App\Module\Billing\Command\SyncStripeSubscriptionHandler;
 use App\Module\Billing\Entity\BillingProfile;
 use App\Module\Billing\Entity\BillingStatus;
+use App\Module\Billing\Entity\Subscription;
+use App\Module\Billing\Entity\SubscriptionKind;
 use App\Module\Billing\Repository\BillingProfileRepository;
+use App\Module\Billing\Repository\SubscriptionRepository;
 use App\Module\Billing\Service\StripeGatewayInterface;
 use App\Module\Billing\Service\SubscriptionView;
+use App\Tests\Support\BillingGrants;
 use App\Tests\Support\RecordingLogger;
 use App\Tests\Support\TransactionalEntityManagerStub;
 use Doctrine\ORM\EntityManagerInterface;
@@ -27,10 +31,34 @@ final class SyncStripeSubscriptionHandlerTest extends TestCase
     private function profile(): BillingProfile
     {
         $user = new User(fullName: 'Synced User', email: 'synced@example.com', password: 'irrelevant');
-        $profile = new BillingProfile($user, trialEndsAt: new \DateTimeImmutable('-1 day'));
+        $profile = BillingGrants::profileWithTrial($user, new \DateTimeImmutable('-1 day'));
         $profile->stripeCustomerId = 'cus_123';
 
         return $profile;
+    }
+
+    /** The grant the webhook writes. The handler creates it on the first event. */
+    private function grant(BillingProfile $profile): Subscription
+    {
+        return $profile->latestSubscriptionOfKind(SubscriptionKind::Stripe)
+            ?? throw new \LogicException('the handler should have created a Stripe grant');
+    }
+
+    /**
+     * The repository resolves out of the in-memory profile, so a second event
+     * finds the grant the first one created rather than starting another.
+     */
+    private function subscriptionRepository(?BillingProfile $profile): SubscriptionRepository
+    {
+        $subscriptions = $this->createStub(SubscriptionRepository::class);
+        $subscriptions->method('findOneByStripeSubscriptionId')->willReturnCallback(
+            static fn (string $id): ?Subscription => null === $profile ? null : array_find(
+                $profile->subscriptions->toArray(),
+                static fn (Subscription $subscription): bool => $id === $subscription->stripeSubscriptionId,
+            ),
+        );
+
+        return $subscriptions;
     }
 
     private function handler(
@@ -54,6 +82,7 @@ final class SyncStripeSubscriptionHandlerTest extends TestCase
 
         return new SyncStripeSubscriptionHandler(
             $profiles,
+            $this->subscriptionRepository($profile),
             $stripe,
             $waitlistEntries,
             TransactionalEntityManagerStub::configure($this->createStub(EntityManagerInterface::class)),
@@ -92,16 +121,48 @@ final class SyncStripeSubscriptionHandlerTest extends TestCase
     }
 
     #[DataProvider('statuses')]
-    public function test_subscription_state_is_written_onto_the_profile(string $stripeStatus, BillingStatus $expected): void
+    public function test_subscription_state_is_written_onto_a_stripe_grant(string $stripeStatus, BillingStatus $expected): void
     {
         $profile = $this->profile();
 
         ($this->handler($profile))($this->command($stripeStatus));
 
-        self::assertSame($expected, $profile->status);
-        self::assertSame('sub_123', $profile->stripeSubscriptionId);
-        self::assertNotNull($profile->currentPeriodEnd);
+        $grant = $this->grant($profile);
+        self::assertSame($expected, $grant->stripeStatus);
+        self::assertSame('sub_123', $grant->stripeSubscriptionId);
+        self::assertNotNull($grant->endsAt);
         self::assertNotNull($profile->lastStripeEventAt);
+    }
+
+    public function test_a_second_event_updates_the_grant_rather_than_adding_one(): void
+    {
+        $profile = $this->profile();
+        $handler = $this->handler($profile);
+
+        $handler($this->command('active', '2026-07-25 12:00:05', 'evt_first'));
+        $handler($this->command('past_due', '2026-07-25 12:00:06', 'evt_second'));
+
+        self::assertCount(2, $profile->subscriptions);
+        self::assertSame(BillingStatus::PastDue, $this->grant($profile)->stripeStatus);
+    }
+
+    /**
+     * A comp is not stored where Stripe writes, so no guard is needed to keep
+     * a webhook off it.
+     */
+    public function test_a_webhook_leaves_a_comp_untouched(): void
+    {
+        $profile = $this->profile();
+        $comp = BillingGrants::comp($profile);
+
+        ($this->handler($profile))($this->command('canceled', eventType: 'customer.subscription.deleted', currentPeriodEnd: '-1 hour'));
+
+        self::assertSame(SubscriptionKind::Comp, $comp->kind);
+        self::assertNull($comp->endsAt);
+        self::assertNull($comp->stripeStatus);
+        self::assertTrue($comp->isCurrent(new \DateTimeImmutable()));
+        // The comp still grants access, so the cancellation disables nothing.
+        self::assertNull($profile->user->disabledAt);
     }
 
     public function test_an_unknown_customer_is_ignored_without_throwing(): void
@@ -119,7 +180,7 @@ final class SyncStripeSubscriptionHandlerTest extends TestCase
         $handler($this->command('canceled', '2026-07-25 12:00:05', 'evt_deleted', 'customer.subscription.deleted'));
         $handler($this->command('active', '2026-07-25 12:00:01', 'evt_older_update'));
 
-        self::assertSame(BillingStatus::Canceled, $profile->status);
+        self::assertSame(BillingStatus::Canceled, $this->grant($profile)->stripeStatus);
     }
 
     public function test_a_replayed_event_is_a_no_op(): void
@@ -130,7 +191,7 @@ final class SyncStripeSubscriptionHandlerTest extends TestCase
         $handler($this->command('active', '2026-07-25 12:00:05', 'evt_same'));
         $handler($this->command('canceled', '2026-07-25 12:00:05', 'evt_same'));
 
-        self::assertSame(BillingStatus::Active, $profile->status);
+        self::assertSame(BillingStatus::Active, $this->grant($profile)->stripeStatus);
     }
 
     /**
@@ -146,7 +207,7 @@ final class SyncStripeSubscriptionHandlerTest extends TestCase
         $handler($this->command('incomplete', '2026-07-25 12:00:05', 'evt_created'));
         $handler($this->command('active', '2026-07-25 12:00:05', 'evt_updated'));
 
-        self::assertSame(BillingStatus::Active, $profile->status);
+        self::assertSame(BillingStatus::Active, $this->grant($profile)->stripeStatus);
     }
 
     /**
@@ -162,7 +223,7 @@ final class SyncStripeSubscriptionHandlerTest extends TestCase
         $handler($this->command('canceled', '2026-07-25 12:00:05', 'evt_deleted', 'customer.subscription.deleted'));
         $handler($this->command('active', '2026-07-25 12:00:05', 'evt_stale_update'));
 
-        self::assertSame(BillingStatus::Canceled, $profile->status);
+        self::assertSame(BillingStatus::Canceled, $this->grant($profile)->stripeStatus);
     }
 
     /**
@@ -181,8 +242,9 @@ final class SyncStripeSubscriptionHandlerTest extends TestCase
         $handler($this->command('active', '2026-07-25 12:00:05', 'evt_updated'));
         $handler($this->command('incomplete', '2026-07-25 12:00:05', 'evt_created'));
 
-        self::assertSame(BillingStatus::Active, $profile->status);
-        self::assertEquals(new \DateTimeImmutable('2026-08-25 12:00:00'), $profile->currentPeriodEnd);
+        $grant = $this->grant($profile);
+        self::assertSame(BillingStatus::Active, $grant->stripeStatus);
+        self::assertEquals(new \DateTimeImmutable('2026-08-25 12:00:00'), $grant->endsAt);
     }
 
     /** An unreachable Stripe leaves the previous arrival-order behaviour intact. */
@@ -194,7 +256,7 @@ final class SyncStripeSubscriptionHandlerTest extends TestCase
         $handler($this->command('active', '2026-07-25 12:00:05', 'evt_updated'));
         $handler($this->command('incomplete', '2026-07-25 12:00:05', 'evt_created'));
 
-        self::assertSame(BillingStatus::Canceled, $profile->status);
+        self::assertSame(BillingStatus::Canceled, $this->grant($profile)->stripeStatus);
     }
 
     /** A lone event is not a tie, so it costs no Stripe call. */
@@ -209,6 +271,7 @@ final class SyncStripeSubscriptionHandlerTest extends TestCase
 
         $handler = new SyncStripeSubscriptionHandler(
             $profiles,
+            $this->subscriptionRepository($profile),
             $stripe,
             $this->createStub(WaitlistEntryRepository::class),
             TransactionalEntityManagerStub::configure($this->createStub(EntityManagerInterface::class)),
@@ -217,7 +280,7 @@ final class SyncStripeSubscriptionHandlerTest extends TestCase
 
         $handler($this->command('active', '2026-07-25 12:00:05', 'evt_only'));
 
-        self::assertSame(BillingStatus::Active, $profile->status);
+        self::assertSame(BillingStatus::Active, $this->grant($profile)->stripeStatus);
     }
 
     public function test_a_newer_event_is_applied(): void
@@ -228,20 +291,21 @@ final class SyncStripeSubscriptionHandlerTest extends TestCase
         $handler($this->command('active', '2026-07-25 12:00:05', 'evt_first'));
         $handler($this->command('canceled', '2026-07-25 12:00:06', 'evt_second'));
 
-        self::assertSame(BillingStatus::Canceled, $profile->status);
+        self::assertSame(BillingStatus::Canceled, $this->grant($profile)->stripeStatus);
     }
 
-    public function test_activation_of_a_disabled_account_reenables_it_and_resets_the_cancel_survey_marker(): void
+    public function test_activation_of_a_disabled_account_reenables_it_and_resets_the_survey_marker(): void
     {
         $profile = $this->profile();
         $profile->user->disabledAt = new \DateTimeImmutable('-2 days');
-        $profile->cancelSurveySentAt = new \DateTimeImmutable('-1 day');
+        $grant = BillingGrants::stripe($profile, BillingStatus::Canceled, new \DateTimeImmutable('-1 day'), 'sub_123');
+        $grant->surveySentAt = new \DateTimeImmutable('-1 day');
         $logger = new RecordingLogger();
 
         ($this->handler($profile, logger: $logger))($this->command('active'));
 
         self::assertNull($profile->user->disabledAt);
-        self::assertNull($profile->cancelSurveySentAt);
+        self::assertNull($grant->surveySentAt);
         $reenabled = array_values(array_filter($logger->records, static fn (array $record): bool => 'billing.account.reenabled' === $record['message']));
         self::assertCount(1, $reenabled);
         self::assertSame((string) $profile->user->id, $reenabled[0]['context']['userId']);
@@ -285,7 +349,7 @@ final class SyncStripeSubscriptionHandlerTest extends TestCase
         $logger = new RecordingLogger();
 
         ($this->handler($profile, logger: $logger))(
-            $this->command('canceled', currentPeriodEnd: $currentPeriodEnd),
+            $this->command('canceled', eventType: 'customer.subscription.deleted', currentPeriodEnd: $currentPeriodEnd),
         );
 
         self::assertNotNull($profile->user->disabledAt);
@@ -297,25 +361,43 @@ final class SyncStripeSubscriptionHandlerTest extends TestCase
     /**
      * The re-enable block must be gated on the account actually being
      * disabled — an ordinary update event for an active account must not
-     * wipe the cancel-survey marker.
+     * wipe the survey marker.
      */
-    public function test_activation_of_an_enabled_account_leaves_the_cancel_survey_marker_alone(): void
+    public function test_activation_of_an_enabled_account_leaves_the_survey_marker_alone(): void
     {
         $profile = $this->profile();
         $marker = new \DateTimeImmutable('-1 day');
-        $profile->cancelSurveySentAt = $marker;
+        $grant = BillingGrants::stripe($profile, BillingStatus::Active, new \DateTimeImmutable('+30 days'), 'sub_123');
+        $grant->surveySentAt = $marker;
 
         ($this->handler($profile))($this->command('active'));
 
-        self::assertSame($marker, $profile->cancelSurveySentAt);
+        self::assertSame($marker, $grant->surveySentAt);
     }
 
     public function test_a_cancellation_with_a_future_period_end_keeps_the_account_enabled(): void
     {
         $profile = $this->profile();
 
-        ($this->handler($profile))($this->command('canceled', currentPeriodEnd: '+10 days'));
+        ($this->handler($profile))(
+            $this->command('canceled', eventType: 'customer.subscription.deleted', currentPeriodEnd: '+10 days'),
+        );
 
         self::assertNull($profile->user->disabledAt);
+        self::assertTrue($profile->hasCurrentSubscription(new \DateTimeImmutable()));
+    }
+
+    /**
+     * An abandoned 3D Secure prompt leaves an `incomplete` subscription, which
+     * stores as `canceled`. Stripe may already have stamped a period end on it,
+     * and that period was never paid for, so it grants nothing.
+     */
+    public function test_an_incomplete_subscription_grants_no_access_despite_a_future_period_end(): void
+    {
+        $profile = $this->profile();
+
+        ($this->handler($profile))($this->command('incomplete', currentPeriodEnd: '+10 days'));
+
+        self::assertFalse($profile->hasCurrentSubscription(new \DateTimeImmutable()));
     }
 }
