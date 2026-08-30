@@ -1456,6 +1456,12 @@
     .lp-diff-nav__count {
         @apply mr-auto font-mono text-fg-dim text-xs uppercase tracking-widest;
     }
+    /* Says what this view cannot show, so it reads as a note about the view
+       rather than as something the reader got wrong. Muted like the count it
+       qualifies, not tinted like a failure. */
+    .lp-diff-notice {
+        @apply flex items-start gap-2 m-0 pb-2 text-sm text-fg-mute;
+    }
     /* A hunk is the first mark of a run, so it takes no display of its own —
        an inline one has to stay inline. */
     .lp-diff__hunk {

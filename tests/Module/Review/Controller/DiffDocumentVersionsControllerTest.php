@@ -192,6 +192,84 @@ final class DiffDocumentVersionsControllerTest extends WebTestCase
     }
 
     /**
+     * The notice is worth nothing if it cries wolf, so all three states are here
+     * together. It belongs to the one state where the page misleads: the versions
+     * differ and the rendered view marked none of it, so the count says "No
+     * changes" about a revision that changed something. Where the rendered view
+     * marked something the count is already true, and where the versions are
+     * identical the pane says so, which a second notice would contradict.
+     */
+    public function test_the_unmarked_notice_appears_only_where_the_count_would_mislead(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+
+        $owner = $this->createUser($em, 'owner-diff-notice', 'owner-diff-notice@example.com');
+        $project = $this->project($em, $owner);
+
+        // Front matter, because it is the construct an author writes most and the
+        // condition has to be the real one rather than a shape invented here.
+        $unmarked = new Document(owner: $owner, project: $project, title: 'Front Matter Only');
+        $unmarked->addVersion("---\nstatus: draft\n---\n\nThe body never changes.\n", '<p>v1</p>');
+        $unmarked->addVersion("---\nstatus: final\n---\n\nThe body never changes.\n", '<p>v2</p>');
+
+        $marked = new Document(owner: $owner, project: $project, title: 'Marked Change');
+        $marked->addVersion("The rollout takes one step.\n", '<p>v1</p>');
+        $marked->addVersion("The rollout takes three steps.\n", '<p>v2</p>');
+
+        $identical = new Document(owner: $owner, project: $project, title: 'No Change At All');
+        $identical->addVersion("The body never changes.\n", '<p>v1</p>');
+        $identical->addVersion("The body never changes.\n", '<p>v2</p>');
+
+        foreach ([$unmarked, $marked, $identical] as $document) {
+            $em->persist($document);
+        }
+        $em->flush();
+
+        $projectId = (string) $project->id;
+        $paths = array_map(
+            static fn (Document $document): string => '/projects/'.$projectId.'/documents/'.$document->id.'/review/diff/1/2',
+            ['unmarked' => $unmarked, 'marked' => $marked, 'identical' => $identical],
+        );
+        $em->clear();
+
+        $client->loginUser($owner);
+
+        $crawler = $client->request(Request::METHOD_GET, $paths['unmarked']);
+        self::assertResponseIsSuccessful();
+        self::assertSelectorTextContains('.lp-diff-nav__count', 'No changes');
+        self::assertSelectorTextContains(
+            '#diff-unmarked-notice',
+            'Something changed here that this view cannot show. Read it as the Markdown instead.',
+        );
+        // The notice explains the link rather than duplicating it, so the toggle
+        // stays the only way across and carries the explanation to a reader who
+        // reaches it by keyboard.
+        self::assertSame(
+            'diff-unmarked-notice',
+            $crawler->filter('.lp-diff-views__link')->eq(1)->attr('aria-describedby'),
+        );
+        self::assertCount(2, $crawler->filter('.lp-diff-views__link'));
+
+        // The same pair as Markdown omits nothing, so it needs no caveat.
+        $client->request(Request::METHOD_GET, $paths['unmarked'].'?view=source');
+        self::assertResponseIsSuccessful();
+        self::assertSelectorTextContains('.lp-diff-nav__count', '1 change');
+        self::assertSelectorNotExists('#diff-unmarked-notice');
+
+        $client->request(Request::METHOD_GET, $paths['marked']);
+        self::assertResponseIsSuccessful();
+        self::assertSelectorTextContains('.lp-diff-nav__count', '1 change');
+        self::assertSelectorNotExists('#diff-unmarked-notice');
+        self::assertSelectorNotExists('[aria-describedby="diff-unmarked-notice"]');
+
+        $client->request(Request::METHOD_GET, $paths['identical']);
+        self::assertResponseIsSuccessful();
+        self::assertSelectorTextContains('.lp-empty', 'identical');
+        self::assertSelectorNotExists('#diff-unmarked-notice');
+    }
+
+    /**
      * Only one view may be in the page at a time. The navigation controller reads
      * every `hunk` target it can see, so two sets would give it a count that is
      * wrong for whichever the reader is looking at.

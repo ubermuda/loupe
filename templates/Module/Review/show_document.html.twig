@@ -88,6 +88,11 @@
        DocumentVersion::plainText(). The diff's controller takes its place here,
        above both the jump bar and the marks it moves between. #}
     {% set diffNavigation = diffMode and diffChangeCount is not null %}
+    {# The one state where the page misleads rather than merely simplifies: the
+       two versions do differ, and the rendered view marked none of it, so the
+       count says "No changes" about a revision that changed something. A null
+       count is a refusal or two identical versions, and both say so already. #}
+    {% set diffUnmarked = diffNavigation and diffView.value == 'rendered' and diffChangeCount == 0 %}
     <div class="lp-review-block"
         {%- if diffNavigation %} data-controller="diff-navigation" data-diff-navigation-position-value="{{ 'review.document.diff.nav.position'|trans({'%total%': diffChangeCount}) }}"
         {%- elseif not diffMode %} data-controller="comment-anchor"{% endif %}>
@@ -205,9 +210,13 @@
                        href="{{ path('app_document_review_diff', viewParams|merge({view: 'rendered'})) }}"
                        {% if diffView.value == 'rendered' %}aria-current="page"{% endif %}
                     >{{ 'review.document.diff.view.rendered'|trans }}</a>
+                    {# describedby rather than a second link: the notice below says
+                       why this view is worth opening, and this is the control that
+                       opens it. #}
                     <a class="lp-diff-views__link"
                        href="{{ path('app_document_review_diff', viewParams|merge({view: 'source'})) }}"
                        {% if diffView.value == 'source' %}aria-current="page"{% endif %}
+                       {% if diffUnmarked %}aria-describedby="diff-unmarked-notice"{% endif %}
                     >{{ 'review.document.diff.view.source'|trans }}</a>
                 </nav>
                 {% endif %}
@@ -227,6 +236,13 @@
                         {{ 'review.document.diff.nav.next'|trans }}
                     </button>
                 </div>
+                {% endif %}
+
+                {% if diffUnmarked %}
+                <p id="diff-unmarked-notice" class="lp-diff-notice">
+                    <twig:ux:icon name="lucide:info" class="w-4 h-4 shrink-0 mt-0.5" />
+                    <span>{{ 'review.document.diff.unmarked_notice'|trans }}</span>
+                </p>
                 {% endif %}
 
                 {% if showVersions %}
