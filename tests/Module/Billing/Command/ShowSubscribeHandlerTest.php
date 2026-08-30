@@ -17,6 +17,7 @@ use App\Module\Billing\Repository\BillingProfileRepository;
 use App\Module\Billing\Service\ActivePriceProvider;
 use App\Module\Billing\Service\StripeGatewayInterface;
 use App\Module\Billing\Service\TrialProvisioner;
+use App\Tests\Support\BillingGrants;
 use App\Tests\Support\FeatureFlags;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\TestCase;
@@ -62,7 +63,7 @@ final class ShowSubscribeHandlerTest extends TestCase
     {
         $user = $this->user();
         $user->disabledAt = new \DateTimeImmutable();
-        $profile = new BillingProfile($user, trialEndsAt: new \DateTimeImmutable('-30 days'));
+        $profile = BillingGrants::profileWithTrial($user, new \DateTimeImmutable('-30 days'));
 
         $view = ($this->handler($profile, self::CAP_CLOSED_FLAGS))(new ShowSubscribeCommand($user));
 
@@ -76,7 +77,7 @@ final class ShowSubscribeHandlerTest extends TestCase
     {
         $user = $this->user();
         $user->disabledAt = new \DateTimeImmutable();
-        $profile = new BillingProfile($user, trialEndsAt: new \DateTimeImmutable('-30 days'));
+        $profile = BillingGrants::profileWithTrial($user, new \DateTimeImmutable('-30 days'));
 
         $flags = self::CAP_CLOSED_FLAGS + [RegistrationGate::ENABLED_FLAG => false];
         $view = ($this->handler($profile, $flags))(new ShowSubscribeCommand($user));
@@ -89,7 +90,7 @@ final class ShowSubscribeHandlerTest extends TestCase
     {
         $user = $this->user();
         $user->disabledAt = new \DateTimeImmutable();
-        $profile = new BillingProfile($user, trialEndsAt: new \DateTimeImmutable('-30 days'));
+        $profile = BillingGrants::profileWithTrial($user, new \DateTimeImmutable('-30 days'));
 
         $view = ($this->handler($profile))(new ShowSubscribeCommand($user));
 
@@ -101,7 +102,7 @@ final class ShowSubscribeHandlerTest extends TestCase
     {
         $user = $this->user();
         $user->disabledAt = new \DateTimeImmutable();
-        $profile = new BillingProfile($user, trialEndsAt: new \DateTimeImmutable('-30 days'));
+        $profile = BillingGrants::profileWithTrial($user, new \DateTimeImmutable('-30 days'));
 
         $entry = new WaitlistEntry('viewer@example.com');
         $token = $entry->issueInviteToken();
@@ -117,7 +118,7 @@ final class ShowSubscribeHandlerTest extends TestCase
     public function test_an_enabled_user_is_never_cap_gated(): void
     {
         $user = $this->user();
-        $profile = new BillingProfile($user, trialEndsAt: new \DateTimeImmutable('+3 days'));
+        $profile = BillingGrants::profileWithTrial($user, new \DateTimeImmutable('+3 days'));
 
         $view = ($this->handler($profile, self::CAP_CLOSED_FLAGS))(new ShowSubscribeCommand($user));
 
@@ -129,7 +130,7 @@ final class ShowSubscribeHandlerTest extends TestCase
     {
         $user = $this->user();
         $user->disabledAt = new \DateTimeImmutable();
-        $profile = new BillingProfile($user, trialEndsAt: new \DateTimeImmutable('-30 days'));
+        $profile = BillingGrants::profileWithTrial($user, new \DateTimeImmutable('-30 days'));
 
         // The default repository stub resolves no entry: the token is unknown.
         $view = ($this->handler($profile, self::CAP_CLOSED_FLAGS))(new ShowSubscribeCommand($user, inviteToken: 'bogus-token'));
@@ -142,7 +143,7 @@ final class ShowSubscribeHandlerTest extends TestCase
     {
         $user = $this->user();
         $user->disabledAt = new \DateTimeImmutable();
-        $profile = new BillingProfile($user, trialEndsAt: new \DateTimeImmutable('-30 days'));
+        $profile = BillingGrants::profileWithTrial($user, new \DateTimeImmutable('-30 days'));
 
         $entry = new WaitlistEntry('someone-else@example.com');
         $token = $entry->issueInviteToken();

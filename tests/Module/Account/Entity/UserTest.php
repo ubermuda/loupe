@@ -129,4 +129,15 @@ final class UserTest extends TestCase
 
         self::assertTrue($user->isSuspended());
     }
+
+    public function test_the_audit_label_is_the_display_name_rather_than_the_email(): void
+    {
+        self::assertSame('Test User', $this->makeUser()->auditLabel());
+    }
+
+    /** The identifier is Doctrine's, so an account that was never flushed has none to give. */
+    public function test_an_unflushed_account_reports_no_audit_identifier(): void
+    {
+        self::assertNull($this->makeUser()->auditIdentifier());
+    }
 }

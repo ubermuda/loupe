@@ -2259,6 +2259,21 @@ bundle templates and any class a bundle applies from JavaScript, which is what
 made `admin-badge-off` look dead. The check itself belongs in `ubermuda/gamache`
 rather than here.
 
+## Reserve the comp audit event names for when an audit subsystem lands
+
+**Author:** Claude · **Type:** feature · **Priority:** low · **Status:** pending
+
+The subscription model in `src/Module/Billing/Entity/Subscription.php` supports a
+comp: a grant of kind `comp` with no end date, which an admin gives and later
+revokes. Granting one gives an account a paid product for free, and revoking one
+takes it away, so both are worth an audit record.
+
+This repository has no audit subsystem yet, so there is nothing to write the
+record to. Reserve the two names now, and use them unchanged when one arrives:
+`billing.comp.granted` and `billing.comp.revoked`. Revoking a comp sets `endsAt`
+rather than deleting the row, so the row itself already keeps a trail; the event
+names are for the actor and the time.
+
 ## Bump `.skeleton.json` once the Turbo-prefetch PR merges
 
 **Author:** Claude · **Type:** tooling · **Priority:** low · **Status:** pending
@@ -2592,3 +2607,22 @@ the outbox, `DrainOutboxHandler`, the Mercure hub and the `site_review.push`
 flag — but nothing writes an event any more (see 'The site-review push
 subsystem has no producer left'). Any work here starts by deciding what an
 agent would announce, not by building transport.
+
+## Account purgers still hand-roll an order that Symfony can supply
+
+**Author:** Claude · **Type:** docs · **Priority:** low · **Status:** pending
+
+`src/Module/Account/Deletion/AccountDataPurgerInterface.php` says that Symfony's
+tagged iterator gives no stable order. That claim is false. Symfony sorts a
+tagged iterator by tag priority, and `#[AsTaggedItem(priority: N)]` on an
+implementation sets it. A higher priority runs first.
+
+So `deletionOrder()` and the `usort` in `AccountPurger` duplicate a built-in
+feature. Replace them with `#[AsTaggedItem]` on each purger, and correct the
+docblock. Mind the direction flip: `deletionOrder()` runs the lowest number
+first, and priority runs the highest number first. `ProjectAccountPurger` must
+keep running first, so give it the highest priority.
+
+The admin user panel extension point took this route in
+https://github.com/ubermuda/loupe/pull/309. The purgers stayed untouched there,
+because they were outside that branch's diff.

@@ -389,10 +389,10 @@ e2e *args:
     # later as "the login does not work". The suite's exit code is preserved:
     # a re-seed must never turn a red run green.
     if [ -n "$worktree" ]; then
-        # worktree-up rather than a bare seed: install-reset drops the project
-        # the widget token belongs to, and bootstrap is what notices the token
-        # in .env.local no longer resolves and reissues it. Run from main, where
-        # the bare compose calls inside it resolve correctly.
+        # worktree-up rather than a bare seed: bootstrap re-seeds and also
+        # re-runs the migrations, restores the per-worktree .env.local values
+        # and rebuilds the stylesheet. Run from main, where the bare compose
+        # calls inside it resolve correctly.
         echo "e2e: repairing $worktree (install-reset truncates its dev data)"
         ( cd "$main" && bin/worktrees/worktree-bootstrap.sh "$worktree" >/dev/null )
     fi
@@ -427,10 +427,10 @@ e2e-coverage *args:
     # a worktree's dev data, and `set -e` would otherwise skip the repair on
     # exactly the failing runs that leave the tree in the worst state.
     if [ -n "$worktree" ]; then
-        # worktree-up rather than a bare seed: install-reset drops the project
-        # the widget token belongs to, and bootstrap is what notices the token
-        # in .env.local no longer resolves and reissues it. Run from main, where
-        # the bare compose calls inside it resolve correctly.
+        # worktree-up rather than a bare seed: bootstrap re-seeds and also
+        # re-runs the migrations, restores the per-worktree .env.local values
+        # and rebuilds the stylesheet. Run from main, where the bare compose
+        # calls inside it resolve correctly.
         echo "e2e: repairing $worktree (install-reset truncates its dev data)"
         ( cd "$main" && bin/worktrees/worktree-bootstrap.sh "$worktree" >/dev/null )
     fi

@@ -5,7 +5,9 @@ declare(strict_types=1);
 namespace App\Tests\Module\Review\ValueObject;
 
 use App\Module\Review\ValueObject\DiffGroup;
+use App\Module\Review\ValueObject\DiffKind;
 use App\Module\Review\ValueObject\DiffLine;
+use App\Module\Review\ValueObject\DiffSegment;
 use App\Module\Review\ValueObject\DocumentDiff;
 use PHPUnit\Framework\TestCase;
 
@@ -84,6 +86,39 @@ final class DocumentDiffTest extends TestCase
         }
 
         self::assertSame($lines, $regrouped);
+    }
+
+    public function test_a_diff_reports_whether_it_holds_a_change(): void
+    {
+        self::assertFalse(new DocumentDiff([])->hasChanges());
+        self::assertFalse(new DocumentDiff([DiffLine::unchanged('alpha')])->hasChanges());
+        self::assertTrue(new DocumentDiff([DiffLine::deleted('alpha')])->hasChanges());
+    }
+
+    /**
+     * A rewritten line appears once per side, so reading one side back means
+     * keeping the lines of that side and, within them, the segments of that
+     * side. Taking whole lines or whole segments alone gives neither version.
+     */
+    public function test_each_side_reads_back_as_its_own_source(): void
+    {
+        $diff = new DocumentDiff([
+            DiffLine::unchanged('# Plan'),
+            DiffLine::unchanged(''),
+            new DiffLine(DiffKind::Deleted, [
+                new DiffSegment(DiffKind::Unchanged, 'We ship in '),
+                new DiffSegment(DiffKind::Deleted, 'one step'),
+                new DiffSegment(DiffKind::Unchanged, '.'),
+            ]),
+            new DiffLine(DiffKind::Inserted, [
+                new DiffSegment(DiffKind::Unchanged, 'We ship in '),
+                new DiffSegment(DiffKind::Inserted, 'three steps'),
+                new DiffSegment(DiffKind::Unchanged, '.'),
+            ]),
+        ]);
+
+        self::assertSame("# Plan\n\nWe ship in one step.", $diff->oldSource());
+        self::assertSame("# Plan\n\nWe ship in three steps.", $diff->newSource());
     }
 
     /**

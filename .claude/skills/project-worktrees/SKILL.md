@@ -224,8 +224,8 @@ before any gate is meaningful:
    rendering an icon, and 31 e2e specs failed from that one stale cache.
 3. `bin/console doctrine:migrations:status`. A migration from the previous branch
    shows as *executed but unavailable*. If it does, reset the dev database (drop,
-   create, migrate) then run `just worktree-up` to re-seed and re-issue the widget
-   token, or e2e runs against another branch's schema.
+   create, migrate) then run `just worktree-up` to re-seed it, or e2e runs
+   against another branch's schema.
 
 When a gate fails right after a branch switch, suspect this list before you
 suspect the branch.
@@ -239,7 +239,7 @@ suspect the branch.
 | nginx exits with `host not found in upstream "php-fpm"` | The container reached the shared network *after* start. Attach every network at creation; this is why the sidecar is a compose file, not `docker run` + `docker network connect`. |
 | A class added in the worktree renders unstyled | `var/tailwind` must be a real directory per worktree, not a symlink to main's. `just worktree-up` fixes it; `just worktree-tailwind` watches. |
 | Layout looks like an older design; a hover/position spec fails but the page logs nothing | Different cause from the row above. `just worktree-up` builds `var/tailwind/app.built.css` **once** and nothing rebuilds it, so a worktree alive across a merge of `main` serves its provision-time CSS while its PHP, Twig and JS are current. `just e2e` rebuilds it before every worktree run; for a browser session use `bin/worktrees/compose-exec.sh bin/console tailwind:build` (under a second) or `just worktree-tailwind` to watch. Diff the compiled sheet for a class the design introduced before blaming the branch. |
-| The site-review widget shows its rejected-token state (a red `!` on the launcher) | `SITE_REVIEW_WIDGET_TOKEN` does not resolve **at the backend the widget actually talks to**, which is `SITE_REVIEW_WIDGET_BACKEND`, not the host serving the page. Bootstrap reissues a *local* token; if the backend still points at production, that token is rejected there. See "Which backend the widget talks to". |
+| The site-review widget shows its rejected-token state (a red `!` on the launcher) | `SITE_REVIEW_WIDGET_TOKEN` does not resolve **at the backend the widget actually talks to**, which is `SITE_REVIEW_WIDGET_BACKEND`, not the host serving the page. A worktree keeps the main checkout's token, which production knows, so suspect an `.env.local` that carries no token, one copied before production regenerated its token, or a widget branch pointed at its own tree with a token it never minted. See "Which backend the widget talks to". |
 | The widget does not appear **at all**, no launcher and no error badge | The `<script>` failed to load, so nothing ever ran. A rejected token still renders the widget; an unreachable script renders nothing. Check the backend host resolves and serves `/site-review/widget.js`: a `SERVFAIL` on `loupe.ac` from the machine's own resolver produces exactly this, while the same request succeeds through `1.1.1.1`. |
 | Mail-asserting specs never see their message, or read another run's | Each worktree has its own sidecar, so a run must be pointed at it. Suspect a run launched without `just e2e` (which exports `MAILPIT_URL`) or with `E2E_BASE_URL` set alone, which falls back to the shared instance: the worktree's app then sends where nothing is reading, every registration/login/verification spec times out, and it looks like an auth regression. Set `MAILPIT_URL=https://mailpit-<slug>.<project>.dev.localhost` alongside it. `bin/e2e-target.sh` prints the Mailpit URL it resolved as its fourth line. |
 | A spec fails, then passes on a quiet re-run | Something else was loading the shared php-fpm, such as a sibling agent running `just ci` or `composer install`. Check what is in flight **before** investigating the branch; this produced a false "regression" nearly filed against a clean PR. |
@@ -283,24 +283,35 @@ exercised:
 
 ```
 SITE_REVIEW_WIDGET_BACKEND=https://<slug>.loupe.dev.localhost
-SITE_REVIEW_WIDGET_TOKEN=<the local token bootstrap minted>
+SITE_REVIEW_WIDGET_TOKEN=<a local token you mint by hand, see below>
 ```
 
 Judge that by what the diff touches, not by the branch name. A change to
 `SiteReviewExporter` is not a widget change; a change to `widget.js` is.
 
-### Bootstrap leaves these two out of step
+### Bootstrap keeps the pair in step
 
-`worktree-bootstrap.sh` mints a fresh **local** widget token into the worktree's
-`.env.local`, because a token copied from the main checkout refers to a row in
-another database. It copies `SITE_REVIEW_WIDGET_BACKEND` across unchanged, so a
-worktree inherits `https://loupe.ac` and holds a token production has never seen.
-Every worktree is therefore born with a widget that authenticates against
-nothing, and it happens again on every re-provision.
+`worktree-bootstrap.sh` copies `.env.local` from the main checkout and leaves
+both `SITE_REVIEW_WIDGET_BACKEND` and `SITE_REVIEW_WIDGET_TOKEN` as it found
+them. A worktree therefore talks to production with the token production knows,
+and a worktree page's site-review comments land in the real project. That is the
+point: you annotate the branch you are working on, and read the comments back
+over MCP like any other site.
 
-Until bootstrap reconciles the pair, fix the worktree's `.env.local` by hand
-after provisioning, following the rule above. To diagnose, check the pair
-together and test the token against the backend the page actually names:
+Bootstrap mints no local token. The seed still creates one for the worktree's
+own database, but nothing captures the raw value.
+
+A widget branch needs both values changed by hand after provisioning, because
+bootstrap restores neither. Point the backend at the worktree host, then mint a
+local token and read the raw value from the output:
+
+```bash
+( cd .claude/worktrees/<name> \
+  && bin/worktrees/compose-exec.sh bin/console app:dev:seed --reissue-widget-token )
+```
+
+To diagnose a rejected token, check the pair together and test the token against
+the backend the page actually names:
 
 ```bash
 tag=$(curl -sk https://<slug>.loupe.dev.localhost/login \

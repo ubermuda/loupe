@@ -19,6 +19,7 @@ use App\Module\Billing\Repository\BillingProfileRepository;
 use App\Module\Billing\Service\ActivePriceProvider;
 use App\Module\Billing\Service\StripeGatewayInterface;
 use App\Module\Billing\Service\TrialProvisioner;
+use App\Tests\Support\BillingGrants;
 use App\Tests\Support\FeatureFlags;
 use App\Tests\Support\TransactionalEntityManagerStub;
 use Doctrine\ORM\EntityManagerInterface;
@@ -73,7 +74,7 @@ final class StartCheckoutHandlerTest extends TestCase
     public function test_first_checkout_creates_the_stripe_customer_and_stores_its_id(): void
     {
         $user = $this->user();
-        $profile = new BillingProfile($user, trialEndsAt: new \DateTimeImmutable('+3 days'));
+        $profile = BillingGrants::profileWithTrial($user, new \DateTimeImmutable('+3 days'));
 
         $stripe = $this->createMock(StripeGatewayInterface::class);
         $stripe->expects($this->once())->method('createCustomer')->willReturn('cus_123');
@@ -91,7 +92,7 @@ final class StartCheckoutHandlerTest extends TestCase
     public function test_an_existing_customer_id_is_reused(): void
     {
         $user = $this->user();
-        $profile = new BillingProfile($user, trialEndsAt: new \DateTimeImmutable('+3 days'));
+        $profile = BillingGrants::profileWithTrial($user, new \DateTimeImmutable('+3 days'));
         $profile->stripeCustomerId = 'cus_existing';
 
         $stripe = $this->createMock(StripeGatewayInterface::class);
@@ -115,7 +116,7 @@ final class StartCheckoutHandlerTest extends TestCase
 
         $handler = $this->handler(
             $stripe,
-            new BillingProfile($user, trialEndsAt: new \DateTimeImmutable('+3 days')),
+            BillingGrants::profileWithTrial($user, new \DateTimeImmutable('+3 days')),
             ['billing.enabled' => true],
         );
 
@@ -130,10 +131,9 @@ final class StartCheckoutHandlerTest extends TestCase
     public function test_a_customer_with_a_live_subscription_is_never_sent_to_checkout_again(): void
     {
         $user = $this->user();
-        $profile = new BillingProfile($user, trialEndsAt: new \DateTimeImmutable('-30 days'));
+        $profile = BillingGrants::profileWithTrial($user, new \DateTimeImmutable('-30 days'));
         $profile->stripeCustomerId = 'cus_existing';
-        $profile->stripeSubscriptionId = 'sub_existing';
-        $profile->status = BillingStatus::PastDue;
+        BillingGrants::stripe($profile, BillingStatus::PastDue, new \DateTimeImmutable('-1 day'), 'sub_existing');
 
         $stripe = $this->createMock(StripeGatewayInterface::class);
         $stripe->expects($this->never())->method('createCheckoutSession');
@@ -149,7 +149,7 @@ final class StartCheckoutHandlerTest extends TestCase
     public function test_a_stripe_failure_becomes_a_domain_error_instead_of_a_crash(): void
     {
         $user = $this->user();
-        $profile = new BillingProfile($user, trialEndsAt: new \DateTimeImmutable('+3 days'));
+        $profile = BillingGrants::profileWithTrial($user, new \DateTimeImmutable('+3 days'));
         $profile->stripeCustomerId = 'cus_existing';
 
         $stripe = $this->createStub(StripeGatewayInterface::class);
@@ -172,7 +172,7 @@ final class StartCheckoutHandlerTest extends TestCase
 
         $handler = $this->handler(
             $stripe,
-            new BillingProfile($user, trialEndsAt: new \DateTimeImmutable('+3 days')),
+            BillingGrants::profileWithTrial($user, new \DateTimeImmutable('+3 days')),
             ['billing.enabled' => false, 'billing.stripe_price_id' => 'price_123'],
         );
 
@@ -195,7 +195,7 @@ final class StartCheckoutHandlerTest extends TestCase
 
         $handler = $this->handler(
             $stripe,
-            new BillingProfile($user, trialEndsAt: new \DateTimeImmutable('-30 days')),
+            BillingGrants::profileWithTrial($user, new \DateTimeImmutable('-30 days')),
             self::CAP_CLOSED_FLAGS,
         );
 
@@ -211,7 +211,7 @@ final class StartCheckoutHandlerTest extends TestCase
     {
         $user = $this->user();
         $user->disabledAt = new \DateTimeImmutable();
-        $profile = new BillingProfile($user, trialEndsAt: new \DateTimeImmutable('-30 days'));
+        $profile = BillingGrants::profileWithTrial($user, new \DateTimeImmutable('-30 days'));
         $profile->stripeCustomerId = 'cus_existing';
 
         $entry = new WaitlistEntry('payer@example.com');
@@ -231,7 +231,7 @@ final class StartCheckoutHandlerTest extends TestCase
     {
         $user = $this->user();
         $user->disabledAt = new \DateTimeImmutable();
-        $profile = new BillingProfile($user, trialEndsAt: new \DateTimeImmutable('-30 days'));
+        $profile = BillingGrants::profileWithTrial($user, new \DateTimeImmutable('-30 days'));
         $profile->stripeCustomerId = 'cus_existing';
 
         $stripe = $this->createMock(StripeGatewayInterface::class);
@@ -245,7 +245,7 @@ final class StartCheckoutHandlerTest extends TestCase
     public function test_the_cap_never_gates_an_enabled_user(): void
     {
         $user = $this->user();
-        $profile = new BillingProfile($user, trialEndsAt: new \DateTimeImmutable('+3 days'));
+        $profile = BillingGrants::profileWithTrial($user, new \DateTimeImmutable('+3 days'));
         $profile->stripeCustomerId = 'cus_existing';
 
         $stripe = $this->createMock(StripeGatewayInterface::class);
@@ -271,7 +271,7 @@ final class StartCheckoutHandlerTest extends TestCase
 
         $handler = $this->handler(
             $stripe,
-            new BillingProfile($user, trialEndsAt: new \DateTimeImmutable('-30 days')),
+            BillingGrants::profileWithTrial($user, new \DateTimeImmutable('-30 days')),
             self::CAP_CLOSED_FLAGS,
             $waitlistEntries,
         );

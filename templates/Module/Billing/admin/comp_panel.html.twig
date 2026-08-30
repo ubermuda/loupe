@@ -1,0 +1,42 @@
+<div class="admin-card p-6 flex flex-col gap-4" data-testid="comp-panel">
+    <div>
+        <h2 class="admin-section-title">{{ 'billing.admin.comp.title'|trans }}</h2>
+        <p class="admin-section-subtitle">{{ 'billing.admin.comp.subtitle'|trans }}</p>
+    </div>
+
+    <div>
+        <div class="admin-action-item admin-action-row">
+            <div class="grow">
+                <div class="admin-action-title mb-1.5">
+                    {% if comped %}
+                        <span class="admin-badge admin-badge-on" data-testid="comp-status">{{ 'billing.admin.comp.status.comped'|trans }}</span>
+                    {% else %}
+                        <span class="admin-badge admin-badge-neutral" data-testid="comp-status">{{ 'billing.admin.comp.status.not_comped'|trans }}</span>
+                    {% endif %}
+                </div>
+                <p class="admin-action-help">
+                    {% if not comped %}
+                        {{ 'billing.admin.comp.help.grant'|trans }}
+                    {% elseif grantedBy %}
+                        {{ 'billing.admin.comp.help.granted_by'|trans({'%admin%': grantedBy, '%date%': grantedAt|date('j M Y')}) }}
+                    {% else %}
+                        {{ 'billing.admin.comp.help.granted_on'|trans({'%date%': grantedAt|date('j M Y')}) }}
+                    {% endif %}
+                </p>
+            </div>
+            {% if comped %}
+                <form method="post" action="{{ path('app_admin_users_comp_revoke', {id: targetUserId}) }}" class="shrink-0">
+                    <input type="hidden" name="_csrf_token" value="{{ csrf_token('billing-comp-revoke') }}">
+                    <input type="hidden" name="returnTo" value="{{ app.request.requestUri }}">
+                    <button type="submit" class="admin-button-secondary admin-button-small" data-testid="comp-revoke">{{ 'billing.admin.comp.revoke.button'|trans }}</button>
+                </form>
+            {% else %}
+                <form method="post" action="{{ path('app_admin_users_comp_grant', {id: targetUserId}) }}" class="shrink-0">
+                    <input type="hidden" name="_csrf_token" value="{{ csrf_token('billing-comp-grant') }}">
+                    <input type="hidden" name="returnTo" value="{{ app.request.requestUri }}">
+                    <button type="submit" class="admin-button-secondary admin-button-small" data-testid="comp-grant">{{ 'billing.admin.comp.grant.button'|trans }}</button>
+                </form>
+            {% endif %}
+        </div>
+    </div>
+</div>

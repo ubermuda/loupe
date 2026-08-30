@@ -96,6 +96,8 @@ final class ShowDocumentController extends AppController
             // document or a comparison of two; here it is always the document.
             'diffMode' => false,
             'diffFromVersion' => null,
+            'diffView' => null,
+            'diffChangeCount' => null,
             'readOnly' => $view->readOnly,
             'comments' => $view->comments,
             'headings' => $view->headings,
