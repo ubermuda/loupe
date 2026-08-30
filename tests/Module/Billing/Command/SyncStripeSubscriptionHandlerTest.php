@@ -165,6 +165,38 @@ final class SyncStripeSubscriptionHandlerTest extends TestCase
         self::assertNull($profile->user->disabledAt);
     }
 
+    /**
+     * A profile may hold only one current Stripe grant, so a webhook about a
+     * second one cannot be applied. It must not raise, because a 500 makes
+     * Stripe redeliver an event that fails the same way every time.
+     */
+    public function test_a_second_concurrent_stripe_grant_is_logged_and_not_created(): void
+    {
+        $profile = $this->profile();
+        $endsAt = new \DateTimeImmutable('+30 days');
+        $existing = BillingGrants::stripe($profile, BillingStatus::Active, $endsAt, 'sub_other');
+        $logger = new RecordingLogger();
+
+        ($this->handler($profile, logger: $logger))($this->command('canceled', eventType: 'customer.subscription.deleted'));
+
+        self::assertCount(2, $profile->subscriptions);
+        self::assertSame(BillingStatus::Active, $existing->stripeStatus);
+        self::assertSame($endsAt, $existing->endsAt);
+
+        $refused = array_values(array_filter($logger->records, static fn (array $record): bool => 'billing.webhook.concurrent_grant' === $record['message']));
+        self::assertCount(1, $refused);
+        self::assertSame('error', $refused[0]['level']);
+        self::assertSame('cus_123', $refused[0]['context']['stripeCustomerId']);
+        self::assertSame('sub_123', $refused[0]['context']['stripeSubscriptionId']);
+        self::assertSame('evt_1', $refused[0]['context']['eventId']);
+
+        // The event never took effect, so the ordering bookkeeping must not
+        // claim it did.
+        self::assertNull($profile->lastStripeEventId);
+        self::assertNull($profile->lastStripeEventAt);
+        self::assertNull($profile->lastStripeEventType);
+    }
+
     public function test_an_unknown_customer_is_ignored_without_throwing(): void
     {
         ($this->handler(null))($this->command('active'));
