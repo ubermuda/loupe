@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Module\Audit;
 
 use Doctrine\DBAL\Connection;
-use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\Uid\Uuid;
 use Symfony\Contracts\Service\ResetInterface;
 
@@ -25,7 +24,7 @@ final class DoctrineAuditSink implements AuditSinkInterface, ResetInterface
 
     /** @var list<string> */
     private const array COLUMNS = [
-        'id', 'operation', 'level', 'category', 'channel', 'actor_id',
+        'id', 'operation', 'category', 'channel', 'actor_id',
         'actor_label', 'credential_id', 'subject_type', 'subject_id',
         'context', 'occurred_at',
     ];
@@ -33,33 +32,22 @@ final class DoctrineAuditSink implements AuditSinkInterface, ResetInterface
     /** Postgres binds at most 65535 parameters per statement, and each row spends one per column. */
     private const int MAX_BIND_PARAMETERS = 65535;
 
-    private readonly AuditLevel $minimumLevel;
-
     /** @var list<list<?string>> */
     private array $rows = [];
 
     public function __construct(
         private readonly Connection $connection,
-
-        #[Autowire(param: 'app.audit.minimum_level')]
-        string $minimumLevel,
     ) {
-        $this->minimumLevel = AuditLevel::from($minimumLevel);
     }
 
     #[\Override]
     public function write(AuditEvent $event): void
     {
-        if (!$event->level->isAtLeast($this->minimumLevel)) {
-            return;
-        }
-
         $this->rows[] = [
             // v7 rather than the entity's generator: an append-only table reads
             // and prunes in time order, and a v7 identifier already is that order.
             (string) Uuid::v7(),
             $event->operation,
-            $event->level->value,
             $event->category,
             $event->channel,
             $event->actorIdentifier,

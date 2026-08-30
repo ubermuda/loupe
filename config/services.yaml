@@ -57,10 +57,6 @@ parameters:
     # Revision of the terms of service, as the date they took effect. Bumping it
     # re-prompts every account for acceptance on their next HTML navigation.
     app.terms.version: '2026-08-20'
-    # Floor for what the Doctrine audit sink writes. `info` matches the level
-    # the production Monolog config floors the app channel at, so both audit
-    # sinks record the same events.
-    app.audit.minimum_level: 'info'
     # Monthly price of the hosted plan during beta, in whole dollars. Shown on
     # the landing page only — Stripe remains the source of truth for what is
     # actually charged.

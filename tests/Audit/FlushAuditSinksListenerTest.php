@@ -130,7 +130,7 @@ final class FlushAuditSinksListenerTest extends KernelTestCase
         foreach ($cases as $operation => [$event]) {
             $this->dispatcher->addListener(
                 $event,
-                fn () => $this->auditor->info($operation),
+                fn () => $this->auditor->record($operation),
                 FlushAuditSinksListener::BEFORE_SERVICES_RESET + 1,
             );
         }
@@ -198,7 +198,7 @@ final class FlushAuditSinksListenerTest extends KernelTestCase
         $this->dispatcher->addListener(
             WorkerMessageReceivedEvent::class,
             function (WorkerMessageReceivedEvent $event): void {
-                $this->auditor->info('message.declined');
+                $this->auditor->record('message.declined');
                 $event->shouldHandle(false);
             },
         );
@@ -217,7 +217,7 @@ final class FlushAuditSinksListenerTest extends KernelTestCase
 
     private function recordAndAssertStillBuffered(): void
     {
-        $this->auditor->info('document.deleted');
+        $this->auditor->record('document.deleted');
 
         self::assertSame(0, $this->recordCount(), 'Nothing may reach the table before the drain.');
     }

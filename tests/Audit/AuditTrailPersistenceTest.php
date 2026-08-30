@@ -38,7 +38,7 @@ final class AuditTrailPersistenceTest extends KernelTestCase
     public function test_a_record_made_inside_a_rolled_back_transaction_still_reaches_the_table(): void
     {
         $this->connection->beginTransaction();
-        $this->auditor->info('document.deleted', ['documentId' => 'doc-1'], new AuditSubject('document', 'doc-1'));
+        $this->auditor->record('document.deleted', ['documentId' => 'doc-1'], new AuditSubject('document', 'doc-1'));
         $this->connection->rollBack();
 
         $this->auditor->flush();
@@ -55,7 +55,7 @@ final class AuditTrailPersistenceTest extends KernelTestCase
     {
         $user = $this->signIn();
 
-        $this->auditor->info('document.created');
+        $this->auditor->record('document.created');
         $this->auditor->flush();
 
         $record = static::getContainer()->get(AuditLogRepository::class)->findOneBy(['operation' => 'document.created']);
@@ -71,7 +71,7 @@ final class AuditTrailPersistenceTest extends KernelTestCase
     {
         $user = $this->signIn();
 
-        $this->auditor->info('document.created');
+        $this->auditor->record('document.created');
         $this->auditor->flush();
 
         static::getContainer()->get(TokenStorageInterface::class)->setToken(null);
@@ -83,27 +83,14 @@ final class AuditTrailPersistenceTest extends KernelTestCase
         self::assertSame('Riley Chen', $rows[0]['actor_label']);
     }
 
-    /**
-     * The floor is the wired parameter rather than the sink's own default, so a
-     * change to `app.audit.minimum_level` is what this pins.
-     */
-    public function test_a_debug_event_stays_out_of_the_table_while_an_info_event_reaches_it(): void
-    {
-        $this->auditor->debug('document.rendered');
-        $this->auditor->info('document.created');
-        $this->auditor->flush();
-
-        self::assertSame(['document.created'], array_column($this->rows(), 'operation'));
-    }
-
     public function test_the_container_reset_discards_a_buffer_the_next_unit_of_work_must_not_inherit(): void
     {
-        $this->auditor->info('document.created');
+        $this->auditor->record('document.created');
         $this->auditor->flush();
 
         self::assertCount(1, $this->rows());
 
-        $this->auditor->info('document.deleted');
+        $this->auditor->record('document.deleted');
         static::getContainer()->get('services_resetter')->reset();
         $this->auditor->flush();
 
