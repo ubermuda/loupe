@@ -26,7 +26,6 @@ final readonly class AuditEvent
      */
     public function __construct(
         public string $operation,
-        public AuditLevel $level,
         public string $category,
         public ?AuditActorInterface $actor,
         public ?AuditCredentialInterface $credential,

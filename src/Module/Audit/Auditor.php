@@ -9,9 +9,9 @@ use Psr\Log\LoggerInterface;
 use Symfony\Component\DependencyInjection\Attribute\AutowireIterator;
 
 /**
- * Application code injects this and never a sink. It mirrors PSR-3 without
- * implementing it: LoggerInterface has no room for a typed subject, and
- * implementing it would collide with Monolog during autowiring.
+ * Application code injects this and never a sink. Deliberately not a
+ * LoggerInterface: that has no room for a typed subject, and implementing it
+ * would collide with Monolog during autowiring.
  */
 final readonly class Auditor
 {
@@ -38,38 +38,6 @@ final readonly class Auditor
         $this->sinks = $sinks instanceof \Traversable ? iterator_to_array($sinks, false) : $sinks;
     }
 
-    /**
-     * @param array<string, scalar|null> $context
-     */
-    public function debug(string $operation, array $context = [], ?AuditSubject $subject = null, string $category = self::CATEGORY_DOMAIN): void
-    {
-        $this->record(AuditLevel::Debug, $operation, $context, $subject, $category);
-    }
-
-    /**
-     * @param array<string, scalar|null> $context
-     */
-    public function info(string $operation, array $context = [], ?AuditSubject $subject = null, string $category = self::CATEGORY_DOMAIN): void
-    {
-        $this->record(AuditLevel::Info, $operation, $context, $subject, $category);
-    }
-
-    /**
-     * @param array<string, scalar|null> $context
-     */
-    public function warning(string $operation, array $context = [], ?AuditSubject $subject = null, string $category = self::CATEGORY_DOMAIN): void
-    {
-        $this->record(AuditLevel::Warning, $operation, $context, $subject, $category);
-    }
-
-    /**
-     * @param array<string, scalar|null> $context
-     */
-    public function error(string $operation, array $context = [], ?AuditSubject $subject = null, string $category = self::CATEGORY_DOMAIN): void
-    {
-        $this->record(AuditLevel::Error, $operation, $context, $subject, $category);
-    }
-
     public function flush(): void
     {
         foreach ($this->sinks as $sink) {
@@ -84,13 +52,13 @@ final readonly class Auditor
     /**
      * @param array<string, scalar|null> $context
      */
-    private function record(AuditLevel $level, string $operation, array $context, ?AuditSubject $subject, string $category): void
+    public function record(string $operation, array $context = [], ?AuditSubject $subject = null, string $category = self::CATEGORY_DOMAIN): void
     {
         try {
-            $event = $this->buildEvent($level, $operation, $context, $subject, $category);
+            $event = $this->buildEvent($operation, $context, $subject, $category);
         } catch (\Throwable $e) {
             $this->report('audit.actor_unresolved', ['operation' => $operation, 'exception' => $e]);
-            $event = $this->unattributedEvent($level, $operation, $context, $subject, $category);
+            $event = $this->unattributedEvent($operation, $context, $subject, $category);
         }
 
         foreach ($this->sinks as $sink) {
@@ -105,13 +73,12 @@ final readonly class Auditor
     /**
      * @param array<string, scalar|null> $context
      */
-    private function buildEvent(AuditLevel $level, string $operation, array $context, ?AuditSubject $subject, string $category): AuditEvent
+    private function buildEvent(string $operation, array $context, ?AuditSubject $subject, string $category): AuditEvent
     {
         $actor = $this->actorProvider->currentActor();
 
         return new AuditEvent(
             $operation,
-            $level,
             $category,
             $actor->actor,
             $actor->credential,
@@ -130,11 +97,10 @@ final readonly class Auditor
      *
      * @param array<string, scalar|null> $context
      */
-    private function unattributedEvent(AuditLevel $level, string $operation, array $context, ?AuditSubject $subject, string $category): AuditEvent
+    private function unattributedEvent(string $operation, array $context, ?AuditSubject $subject, string $category): AuditEvent
     {
         return new AuditEvent(
             $operation,
-            $level,
             $category,
             null,
             null,

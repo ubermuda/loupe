@@ -7,7 +7,6 @@ namespace App\Tests\Module\Audit;
 use App\Module\Audit\AuditActorContext;
 use App\Module\Audit\AuditActorInterface;
 use App\Module\Audit\AuditActorProviderInterface;
-use App\Module\Audit\AuditLevel;
 use App\Module\Audit\Auditor;
 use App\Module\Audit\AuditSubject;
 use App\Module\Audit\NullAuditActorProvider;
@@ -24,19 +23,7 @@ final class AuditorTest extends TestCase
 {
     private const string NOW = '2026-08-29 10:11:12';
 
-    /**
-     * @return iterable<string, array{AuditLevel}>
-     */
-    public static function levels(): iterable
-    {
-        yield 'debug' => [AuditLevel::Debug];
-        yield 'info' => [AuditLevel::Info];
-        yield 'warning' => [AuditLevel::Warning];
-        yield 'error' => [AuditLevel::Error];
-    }
-
-    #[DataProvider('levels')]
-    public function test_each_level_builds_an_event_from_its_arguments_and_the_actor_context(AuditLevel $expected): void
+    public function test_the_event_is_built_from_the_arguments_and_the_actor_context(): void
     {
         $actor = new FakeAuditActor('Riley Chen', 'user-1');
         $credential = new FakeAuditCredential('token-1');
@@ -53,18 +40,12 @@ final class AuditorTest extends TestCase
         $operation = 'review.document.renamed';
         $context = ['from' => 'a', 'to' => 'b'];
 
-        match ($expected) {
-            AuditLevel::Debug => $auditor->debug($operation, $context, $subject, Auditor::CATEGORY_SECURITY),
-            AuditLevel::Info => $auditor->info($operation, $context, $subject, Auditor::CATEGORY_SECURITY),
-            AuditLevel::Warning => $auditor->warning($operation, $context, $subject, Auditor::CATEGORY_SECURITY),
-            AuditLevel::Error => $auditor->error($operation, $context, $subject, Auditor::CATEGORY_SECURITY),
-        };
+        $auditor->record($operation, $context, $subject, Auditor::CATEGORY_SECURITY);
 
         self::assertCount(1, $sink->events);
         $event = $sink->events[0];
 
         self::assertSame('review.document.renamed', $event->operation);
-        self::assertSame($expected, $event->level);
         self::assertSame(Auditor::CATEGORY_SECURITY, $event->category);
         self::assertSame(['from' => 'a', 'to' => 'b'], $event->context);
         self::assertSame($subject, $event->subject);
@@ -89,9 +70,9 @@ final class AuditorTest extends TestCase
             new MockClock(self::NOW),
         );
 
-        $auditor->info('review.document.created');
+        $auditor->record('review.document.created');
         $actor->label = 'Riley Chen-Okafor';
-        $auditor->info('review.document.renamed');
+        $auditor->record('review.document.renamed');
 
         self::assertSame('Riley Chen', $sink->events[0]->actorLabel);
         self::assertSame('Riley Chen-Okafor', $sink->events[1]->actorLabel);
@@ -110,7 +91,7 @@ final class AuditorTest extends TestCase
             new MockClock(self::NOW),
         );
 
-        $auditor->info('review.document.created');
+        $auditor->record('review.document.created');
         $actor->identifier = 'user-2';
         $credential->identifier = 'token-2';
 
@@ -131,7 +112,7 @@ final class AuditorTest extends TestCase
             new MockClock(self::NOW),
         );
 
-        $auditor->info('review.document.created');
+        $auditor->record('review.document.created');
 
         self::assertSame($actor, $sink->events[0]->actor);
         self::assertNull($sink->events[0]->actorLabel);
@@ -142,7 +123,7 @@ final class AuditorTest extends TestCase
     {
         $sink = new FakeAuditSink();
 
-        $this->auditor(new RecordingLogger(), $sink)->info('review.document.created');
+        $this->auditor(new RecordingLogger(), $sink)->record('review.document.created');
 
         self::assertNull($sink->events[0]->actor);
         self::assertNull($sink->events[0]->actorLabel);
@@ -153,7 +134,7 @@ final class AuditorTest extends TestCase
         $sink = new FakeAuditSink();
         $auditor = $this->auditor(new RecordingLogger(), $sink);
 
-        $auditor->info('review.document.created');
+        $auditor->record('review.document.created');
 
         self::assertSame(Auditor::CATEGORY_DOMAIN, $sink->events[0]->category);
         self::assertSame([], $sink->events[0]->context);
@@ -201,7 +182,7 @@ final class AuditorTest extends TestCase
         $logger = new RecordingLogger();
 
         new Auditor([$sink], $provider, $logger, new MockClock(self::NOW))
-            ->info('review.document.created', ['actorUnresolved' => false, 'documentId' => 'doc-1']);
+            ->record('review.document.created', ['actorUnresolved' => false, 'documentId' => 'doc-1']);
 
         self::assertCount(1, $sink->events);
         $event = $sink->events[0];
@@ -242,7 +223,7 @@ final class AuditorTest extends TestCase
             new MockClock(self::NOW),
         );
 
-        $auditor->info('review.document.created');
+        $auditor->record('review.document.created');
         $auditor->flush();
 
         self::assertCount(1, $healthy->events);
@@ -255,7 +236,7 @@ final class AuditorTest extends TestCase
         $healthy = new FakeAuditSink();
         $logger = new RecordingLogger();
 
-        $this->auditor($logger, $failing, $healthy)->info('review.document.created');
+        $this->auditor($logger, $failing, $healthy)->record('review.document.created');
 
         self::assertSame([], $failing->events);
         self::assertCount(1, $healthy->events);
@@ -311,8 +292,8 @@ final class AuditorTest extends TestCase
             new MockClock(self::NOW),
         );
 
-        $auditor->info('review.document.created');
-        $auditor->info('review.document.renamed');
+        $auditor->record('review.document.created');
+        $auditor->record('review.document.renamed');
         $auditor->flush();
 
         self::assertCount(2, $first->events);
