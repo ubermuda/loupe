@@ -20,6 +20,7 @@ These skills hold the detailed conventions for one area each. Invoke the relevan
 | `project-translations` | UI strings, translation keys, or adding a new locale |
 | `project-site-review` | The site-review widget (`public/site-review/widget.js`), `src/Module/SiteReview/`, its API routes, dev harness or e2e specs |
 | `loupe-documents` | Writing or revising any document submitted to the Loupe app through the `loupe` MCP |
+| `project-tech-design` | A technical design that settles an architecture, an entity model, a module boundary, or a subsystem |
 | `loupe-site-review` | Acting on site-review feedback through the `loupe` MCP: `site_review_get`, fixing comments, marking them addressed |
 | `symfony-authorization` | Generic Symfony authorization mechanics: Voter classes, attribute naming, `#[IsGranted]` placement, `subject:` resolution, `is_granted()` in Twig |
 | `symfony-entity-route-mapping` | Routes that resolve entities from URL parameters: `{param:variable}` notation, `#[MapEntity]`, multi-entity routes |
@@ -30,7 +31,7 @@ A subagent does not inherit the skills you have loaded. When you delegate PHP, e
 
 ## Getting feedback on long documents
 
-Submit a long-form document to the Loupe app through the `loupe` MCP, with `document_create` or `document_revise`, and give the user the review URL. This covers an implementation plan, a design spec, an RFC, an architecture write-up, or anything substantial the user reads at their own pace. That is what the app is for, so dogfood it. Invoke the `loupe-documents` skill before you write the document, because it carries the formatting rules for the review UI.
+Submit a long-form document to the Loupe app through the `loupe` MCP, with `document_create` or `document_revise`, and give the user the review URL. This covers an implementation plan, a design spec, an RFC, an architecture write-up, or anything substantial the user reads at their own pace. That is what the app is for, so dogfood it. Invoke the `loupe-documents` skill before you write the document, because it carries the formatting rules for the review UI. Invoke `project-tech-design` as well when the document settles an architecture rather than a task list.
 
 This applies only to a document meant for considered review. Keep ordinary conversation in the terminal: a clarifying question, a quick confirmation, a short summary, or options you are discussing inline. The test is simple. If the user would sit down and read it, send it to Loupe. If it is a turn in a discussion, keep it in the chat.
 
