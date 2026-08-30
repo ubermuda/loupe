@@ -230,3 +230,19 @@ when@test:
         App\Module\Account\Command\CreateInstallAdminHandler:
             autowire: true
             public: true
+
+        # Declared in the reverse of their panelOrder(), so ShowUserHandler's
+        # sort is what puts them in order rather than registration order.
+        app.tests.admin_user_panel_fixture_second:
+            class: App\Tests\Support\AdminUserPanelFixture
+            autoconfigure: true
+            arguments:
+                $order: 20
+                $label: 'second'
+
+        app.tests.admin_user_panel_fixture_first:
+            class: App\Tests\Support\AdminUserPanelFixture
+            autoconfigure: true
+            arguments:
+                $order: 10
+                $label: 'first'
