@@ -187,6 +187,8 @@ final class DoctrineAuditSinkTest extends TestCase
             null,
             'Riley Chen',
             null,
+            null,
+            null,
             'mcp',
             new AuditSubject('document', 'doc-1'),
             ['documentId' => 'doc-1'],
@@ -209,12 +211,42 @@ final class DoctrineAuditSinkTest extends TestCase
         self::assertSame('2026-08-29 12:00:00.123456', $occurredAt);
     }
 
-    public function test_the_identifier_columns_carry_what_the_actor_and_the_credential_report(): void
+    public function test_the_identifier_columns_carry_the_identifiers_the_event_snapshotted(): void
     {
         $sink = $this->sink();
         $sink->write($this->event(
             actor: new FakeAuditActor('Riley Chen', 'user-1'),
             credential: new FakeAuditCredential('token-1'),
+        ));
+        $sink->flush();
+
+        [, , , , , $actorId, , $credentialId] = $this->statements[0]['params'];
+
+        self::assertSame('user-1', $actorId);
+        self::assertSame('token-1', $credentialId);
+    }
+
+    /**
+     * The snapshot is what the row records, not the objects it came from: those
+     * are still live, and asking them again would date the id differently from
+     * the label beside it.
+     */
+    public function test_the_row_follows_the_snapshot_rather_than_the_live_objects(): void
+    {
+        $sink = $this->sink();
+        $sink->write(new AuditEvent(
+            'document.deleted',
+            AuditLevel::Info,
+            Auditor::CATEGORY_DOMAIN,
+            new FakeAuditActor('Riley Chen', 'user-2'),
+            'Riley Chen',
+            'user-1',
+            new FakeAuditCredential('token-2'),
+            'token-1',
+            'session',
+            null,
+            [],
+            new \DateTimeImmutable('2026-08-29 12:00:00'),
         ));
         $sink->flush();
 
@@ -268,7 +300,9 @@ final class DoctrineAuditSinkTest extends TestCase
             Auditor::CATEGORY_DOMAIN,
             $actor,
             $actor?->auditLabel(),
+            $actor?->auditIdentifier(),
             $credential,
+            $credential?->auditIdentifier(),
             'session',
             null,
             [],
