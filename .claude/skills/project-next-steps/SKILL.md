@@ -1,41 +1,42 @@
 ---
 name: project-next-steps
-description: Use when adding, editing, or closing entries in docs/NEXT_STEPS.md — the local open-work tracker. Covers the required entry format (author, type, priority), attribution rules, and the delete-when-resolved discipline.
+description: Use when adding, editing, or closing entries in docs/NEXT_STEPS.md, the local open-work tracker. Covers the required entry format (author, type, priority), attribution rules, and the delete-when-resolved discipline.
 ---
 
-# NEXT_STEPS.md — the open-work tracker
+# NEXT_STEPS.md, the open-work tracker
 
-`docs/NEXT_STEPS.md` is the committed tracker for **open work only**: TODOs,
-follow-ups, known issues, product ideas not yet committed to. It is the ONLY
-sanctioned place for such notes — never in code comments (gamache's
-`NoTodosCheck` enforces that side).
+`docs/NEXT_STEPS.md` is the committed tracker for open work only: TODOs,
+follow-ups, known issues, and product ideas not yet committed to. It is the ONLY
+sanctioned place for such notes. Never put them in code comments. Gamache's
+`NoTodosCheck` enforces that side.
 
-**An entry that asks nothing of anyone does not belong here.** A decision
-already taken, a finding checked and dismissed, a do-not-fix note, a runbook for
-a known-quiet failure — these are observations, and observations live in the
-relevant skill or in `docs/`, where the person who needs them will be reading
-anyway. Putting them in the tracker means every future scan of the file re-reads
-and re-dismisses them, and it buries the work that is actually waiting.
+## What does not belong
+
+An entry that asks nothing of anyone does not belong here. A decision already
+taken, a finding checked and dismissed, a do-not-fix note, or a runbook for a
+known-quiet failure is an observation. Observations go in the relevant skill or
+in `docs/`, where the person who needs them already reads. In the tracker, every
+future scan re-reads and re-dismisses them, and they bury the work that waits.
 
 The test is whether the entry has an addressee. "Someone should do X" is an
-entry. "We decided X and here is why" is a skill or a doc. When you catch
-yourself writing a `Status:` that will never change, you are writing the wrong
-kind of note — move it, and cross-reference from wherever the work would
-otherwise have been rediscovered.
+entry. "We decided X and here is why" is a skill or a doc. A `Status:` that will
+never change means you write the wrong kind of note. Move it, then
+cross-reference it from wherever the work would otherwise be rediscovered.
 
-**The repository is public, so every entry is published the moment it is
-pushed.** Write accordingly: no secrets, no customer names, no venting about
-people. Deleting an entry later does not unpublish it — it stays in git history.
+## The repository is public
 
-**It is tracked, so it is branch content.** Two consequences:
+Every entry is published the moment you push it. Write no secrets, no customer
+names, and no venting about people. A later deletion does not unpublish an
+entry, because it stays in git history.
 
-- Edit it in whatever worktree you are working in, like any other file. It used
-  to be gitignored, which meant it existed only in the main checkout — and a
-  session bound to a worktree could not write it with `Edit` at all.
-- Parallel branches that both append land in the same region and **conflict**.
-  Resolve by keeping both entries, never by taking one side: each is somebody's
-  note, and "resolved" the conflict by dropping one is how a tracked item
-  silently disappears.
+## The file is branch content
+
+Git tracks the file, so two consequences follow.
+
+- Edit it in whatever worktree you work in, like any other file.
+- Parallel branches that both append land in the same region and conflict.
+  Resolve the conflict by keeping both entries. Never take one side: each entry
+  is somebody's note, and dropping one makes a tracked item disappear silently.
 
 ## Entry format
 
@@ -57,50 +58,51 @@ the route, the file, "the account-deletion work"). Durable, globally
 resolvable references (PR numbers, issue links) are fine.
 ```
 
-The metadata line is mandatory, first after the heading, exactly four fields
-separated by ` · `:
+The metadata line is mandatory. It comes first after the heading. It holds
+exactly four fields, separated by ` · `.
 
-- **Author** — who originated the item, not who typed it. An item the owner
-  dictated or decided is `Geoffrey` even when an agent wrote it down. An item
-  an agent discovered on its own is `Claude`. **Unknown or unattributable →
-  `Claude`** (agents absorb the ambiguity, never the owner).
-- **Type** — one of:
-  - `feature` — new or extended app/product capability
-  - `bug` — something behaves incorrectly today (including latent bugs)
-  - `security` — exposure, hardening, or credential/access concern
-  - `tooling` — dev environment, CI gates, scripts, skills, build
-  - `docs` — documentation-only work, including "do not fix" clarifications
-  - `idea` — long-horizon product thinking, no commitment yet
-- **Priority** — `high` (blocks or degrades real work/users; gate-integrity
-  and security exposures default here), `medium` (worth scheduling), `low`
-  (opportunistic / cosmetic / only-if-it-bites).
-- **Status** — `pending` (default for new entries) or `in-progress` (a branch,
-  worktree, or session is actively working it — name it in the body when
-  setting this). There is no `done`: resolved entries are deleted.
+- **Author**: who originated the item, not who typed it. An item the owner
+  dictated or decided is `Geoffrey`, even when an agent wrote it down. An item
+  an agent found on its own is `Claude`. An unknown or unattributable item is
+  also `Claude`, because agents absorb the ambiguity, never the owner.
+- **Type**: one of these six values.
+  - `feature`: new or extended app/product capability
+  - `bug`: something behaves incorrectly today, including latent bugs
+  - `security`: exposure, hardening, or credential/access concern
+  - `tooling`: dev environment, CI gates, scripts, skills, build
+  - `docs`: documentation-only work, including "do not fix" clarifications
+  - `idea`: long-horizon product thinking, no commitment yet
+- **Priority**: `high` (blocks or degrades real work or users; gate-integrity
+  and security exposures default here), `medium` (worth scheduling), or `low`
+  (opportunistic, cosmetic, or only-if-it-bites).
+- **Status**: `pending` (the default for a new entry) or `in-progress` (a
+  branch, worktree, or session works it now; name that in the body). There is
+  no `done`, because you delete a resolved entry.
 
 ## Lifecycle rules
 
-- **Entries are ordered by priority band** — all `high` first, then `medium`,
-  then `low`. Insert a new entry at the END of its band; when re-grading an
-  entry's priority, move it to its new band.
-- **Delete resolved entries entirely.** No "CLOSED" markers, no resolution
-  notes, no archive section. If part of an entry is resolved, rewrite it to
-  contain only what is still open.
-- **One concern per entry.** If a body accumulates a second independent piece
-  of work, split it.
-- **Cross-reference, don't duplicate.** Related entries link by title
-  ("see 'Entry title'"). An automation candidate — a convention worth enforcing
-  by a gamache rule, a lint or a hook rather than by review — belongs here as a
-  `tooling` entry once it is work someone should pick up. Rawer ones collect in
-  `docs/AUTOMATIONS.md`, which is gitignored and local to a single checkout, so
-  point at it only alongside enough detail to stand without it.
-- When an entry's premise goes stale (e.g. "production has no worker" after a
-  worker ships), fix the body in place — a tracker that lies is worse than
-  none.
+- Order entries by priority band: all `high` first, then `medium`, then `low`.
+  Insert a new entry at the END of its band. When you re-grade an entry's
+  priority, move it to its new band.
+- Delete a resolved entry entirely. Write no "CLOSED" marker, no resolution
+  note, and no archive section. When part of an entry is resolved, rewrite the
+  entry to hold only what is still open.
+- Keep one concern per entry. Split the entry when its body collects a second
+  independent piece of work.
+- Cross-reference, do not duplicate. A related entry links by title (see 'Entry
+  title').
+- An automation candidate is a convention worth enforcing by a gamache rule, a
+  lint, or a hook rather than by review. It belongs here as a `tooling` entry
+  once it is work someone should pick up. Rawer candidates collect in
+  `docs/AUTOMATIONS.md`, which is gitignored and local to one checkout. Point at
+  that file only alongside enough detail to stand without it.
+- When an entry's premise goes stale (for example "production has no worker"
+  after a worker ships), fix the body in place. A tracker that lies is worse
+  than none.
 
 ## Attribution when appending
 
-Agents appending on the owner's behalf write `**Author:** Geoffrey` only when
-the item is the owner's explicit note/request/decision from the conversation.
-Everything else — including items the owner's question merely inspired — is
-`**Author:** Claude`.
+An agent that appends on the owner's behalf writes `**Author:** Geoffrey` only
+when the item is the owner's explicit note, request, or decision from the
+conversation. Everything else is `**Author:** Claude`, including an item that
+the owner's question merely inspired.

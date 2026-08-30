@@ -1786,6 +1786,18 @@ PR merges — it lands when this project's pin moves. Three are in flight:
 After any of these merges, repoint the pin per the `ubermuda/*` pinning rule in
 `CLAUDE.md` and only then delete the corresponding entry here.
 
+## A site-review comment on a worktree preview does not know which pull request it belongs to
+
+**Author:** Geoffrey · **Type:** feature · **Priority:** medium · **Status:** pending
+
+Every worktree serves its branch at `https://<slug>.loupe.dev.localhost`, and the site-review widget works there like anywhere else. A comment left on that preview lands against the project, with nothing recording that it was made against a branch under review. The reviewer then has to carry the connection by hand, and the agent picking the feedback up through `site_review_get` cannot tell which branch the comment is about.
+
+The wanted behaviour is that a comment made on a worktree preview attaches to that branch's pull request. What "attaches" means is open, and the options differ a lot in cost: store the branch or PR number on the comment so `site_review_get` reports it, post the comment to the PR as a review comment, or link the two so the widget shows the PR and the PR shows the comments.
+
+Resolving the PR from the request is the first question to answer. The widget knows the host it is loaded on, `bin/worktrees/` resolves a slug to a worktree, and `gh pr view --json number` resolves a branch to a PR, so the chain exists but nothing joins it up today. Note that a worktree can exist before its PR does.
+
+Relevant code: `public/site-review/widget.js`, `src/Module/SiteReview/`, and the site-review API routes. See also "Site-review comments have no agent-reply data model" and "Let the agent close the loop when a human approves the work".
+
 ## The listeners' `/logout` exemptions are dead in production but live in their unit tests
 
 **Author:** Claude · **Type:** tooling · **Priority:** low · **Status:** pending

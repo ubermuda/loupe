@@ -3,55 +3,51 @@ name: project-frontend
 description: Use when working on `assets/styles/app.css`, Stimulus controllers, Turbo patterns, modal components, or any frontend visual behaviour.
 ---
 
-# Frontend — CSS, Stimulus, Turbo, and Animations
+# Frontend: CSS, Stimulus, Turbo, and animations
 
 ## Semantic CSS class layer
 
-If the project defines a semantic class layer in `app.css`, all component styles should be defined there using `@apply` with Tailwind utilities internally. Templates should use these semantic classes — not raw Tailwind utilities or inline styles scattered across templates.
+Define every component style in the semantic class layer in `app.css`, with `@apply` and Tailwind utilities inside the class. Templates use those semantic classes, never raw Tailwind utilities or inline styles.
 
-When a new visual pattern is needed that isn't covered by an existing class, search `app.css` for an existing class first before adding one. New component classes should go inside `@layer components` with a doc comment describing what the class is and when to use it. Use `@apply` for standard Tailwind utilities; use raw CSS only for things with no `@apply` equivalent (multi-layer backgrounds with CSS variables, pseudo-elements, `-webkit-appearance`, SVG data URIs).
+Search `app.css` for an existing class before you add one. Put new component classes in `@layer components` with a doc comment that says what the class is and when to use it. Use raw CSS only where `@apply` has no equivalent: multi-layer backgrounds with CSS variables, pseudo-elements, `-webkit-appearance`, and SVG data URIs.
 
-CSS design tokens (colors, gradients, backgrounds) should live as CSS custom properties in `:root` and be referenced inside class definitions, not hardcoded in templates.
+Keep design tokens (colors, gradients, backgrounds) as custom properties in `:root` and reference them inside class definitions. Do not hardcode them in templates.
 
-## Tailwind v4 — known quirks and constraints
+## Tailwind v4 quirks and constraints
 
-**CSS cascade order for modifier classes:** Modifier classes (e.g. a size or icon variant of a button) must be defined **after** the base class they modify in `app.css`. Within `@layer components`, later definitions win on conflicting properties at equal specificity. A modifier defined before its base class will be silently overridden.
+Define a modifier class (a size or icon variant of a button) after the base class it modifies. Inside `@layer components` the later definition wins at equal specificity, so a modifier defined first is silently overridden.
 
-**Viewport-relative values:** Tailwind's `@apply` does not support `vh`/`vw`/`dvh` units. Use `@apply` for all standard utilities and add a raw CSS line for the viewport-relative value alongside it.
+`@apply` does not support `vh`/`vw`/`dvh` units. Add a raw CSS line for the viewport-relative value beside the `@apply`.
 
-**Dynamic Tailwind classes — keep a "hint" div:** Tailwind v4 only emits CSS for classes it can statically see in templates. When a Twig template interpolates a class name (e.g. `class="alert-{{ severity }}"`, `class="rounded-{{ token }}"`), the generated permutations may never appear in any single template literal, so Tailwind silently drops them. The escape hatch is a `<div class="hidden ...">` near the bottom of `templates/base.html.twig` — list every dynamically-interpolated class there. Don't scatter "safelist" hacks across templates; keep this div the single source of truth.
+Tailwind v4 emits CSS only for class names it sees statically. A template that interpolates a class name (`class="alert-{{ severity }}"`, `class="rounded-{{ token }}"`) builds permutations no template literal contains, so Tailwind silently drops them. List every interpolated class in the `<div class="hidden ...">` hint div near the bottom of `templates/base.html.twig`. Keep that div the single source of truth, and do not scatter safelist hacks across templates.
 
-**`--radius-full` is not emitted by Tailwind v4:** Every other `rounded-{token}` produces a `--radius-{token}` custom property in the built CSS — except `rounded-full`, which compiles directly to `border-radius: calc(infinity * 1px)`. So `var(--radius-full)` resolves to nothing in any inline style or custom property that depends on it. If you need `var(--radius-full)` to work, declare it explicitly in `@theme` in `app.css`:
+Tailwind v4 does not emit `--radius-full`. Every other `rounded-{token}` produces a `--radius-{token}` custom property, but `rounded-full` compiles straight to `border-radius: calc(infinity * 1px)`, so `var(--radius-full)` resolves to nothing. Declare it in `@theme` in `app.css` when you need it:
 
 ```css
 --radius-full: calc(infinity * 1px);
 ```
 
-Adding `rounded-full` to the hint div does **not** fix this — only the `@theme` declaration does.
+Adding `rounded-full` to the hint div does not fix this. Only the `@theme` declaration does.
 
-**Tailwind scans documentation, not just templates.** v4's automatic source detection walks every non-gitignored file in the repo, *in addition to* the explicit `@source` list. So any utility class merely **named** in `CLAUDE.md`, a `SKILL.md` or a design note is compiled into the shipped stylesheet. This is not hypothetical: after every real use of `blur-[1.25rem]` was removed, the class stayed in `app.built.css` because this very skill cites it as an example of a value to convert.
+Tailwind scans documentation, not only templates. Source detection walks every non-gitignored file in addition to the `@source` list, so a utility class merely named in `CLAUDE.md`, a `SKILL.md` or a design note is compiled into the shipped stylesheet. `blur-[1.25rem]` stayed in `app.built.css` after every real use was removed, because this skill cites it as an example. `app.css` therefore carries `@source not "../../.claude"` and `@source not "../../docs"`. Keep them. Without them, prose inflates the CSS bundle and invalidates any verification that reads the compiled output, because a class you just deleted still appears there.
 
-`app.css` therefore carries `@source not "../../.claude"` and `@source not "../../docs"`. Keep them. Without them, prose inflates the CSS bundle *and* silently invalidates any verification that reads the compiled output — a class you just deleted still appears there.
-
-**`@layer` cascade order:** Unlayered CSS in `app.css` always wins over layered rules (e.g. `@layer components`, or layers from any CSS library) regardless of specificity — use unlayered declarations to override library component styles without fighting specificity.
+Unlayered CSS in `app.css` always wins over layered rules at any specificity, `@layer components` and library layers included. Use unlayered declarations to override library component styles.
 
 ## General CSS patterns
 
-**Flex alignment overrides via auto-margins:** Do not try to override a `justify-*` set inside a component class with another `justify-*` utility on the same element — results are unreliable. Instead use an auto-margin on a child: `mr-auto` on the first child pushes subsequent siblings right; `ml-auto` on the last child pushes it right. This sidesteps `justify-content` entirely.
+Do not override a component class's `justify-*` with another `justify-*` utility on the same element; the result is unreliable. Use an auto-margin on a child instead. `mr-auto` on the first child pushes the later siblings right. `ml-auto` on the last child pushes it right. This sidesteps `justify-content` entirely.
 
-**Layout max-width consistency:** Keep all layout container max-widths in sync using the Tailwind scale — never hardcode pixel values. Mismatched max-widths cause horizontal misalignment between anchored dropdowns and page-body elements.
+Keep every layout container max-width in sync on the Tailwind scale, and never hardcode pixel values. Mismatched max-widths misalign anchored dropdowns against page-body elements.
 
-**Form action rows:** Wrap submit buttons in a flex row (`flex items-center justify-end gap-3 pt-2`) as the last child of the form. When the row also contains a secondary link, place the link first with `mr-auto` — it pins to the left while the button stays right.
+Wrap form submit buttons in a flex row as the form's last child: `flex items-center justify-end gap-3 pt-2`. Put a secondary link first in that row with `mr-auto`, which pins it left while the button stays right. Use responsive flexbox utilities when the row must stack on mobile. Use `sm:order-1` and `sm:order-2` when the DOM order must differ between mobile and desktop, and do not duplicate elements.
 
-When a form action row needs to stack vertically on mobile and be side-by-side on desktop, use responsive flexbox utilities. If the DOM order must differ between mobile and desktop (e.g. button first on mobile, link first on desktop), use `sm:order-1` / `sm:order-2` on the children — do not duplicate elements.
+An absolutely positioned child's containing block is the parent's padding box, and that box includes the padding. So `right: 0` puts the child's right edge level with the parent's border, and the parent's `padding-right` does not inset it. Restate the padding on the child to line a panel up with the padded content (`right-7` under a `px-7` parent). This entry once claimed the opposite and was measured wrong, so verify with `getBoundingClientRect()`.
 
-**Absolutely-positioned panels anchored to a padded parent:** an absolutely positioned child's containing block is the parent's *padding box*, and the padding box **includes** the padding — it runs out to the inner border edge. So `right: 0` puts the child's right edge level with the parent's border, and the parent's `padding-right` does **not** inset it. To line a panel up with the padded content instead, restate the padding on the child (`right-7` under a `px-7` parent). This entry previously claimed the opposite; it was measured wrong. Verify with `getBoundingClientRect()` rather than reasoning it out.
+Style an open `<details>` with `details[open] > .child-class { ... }` in `app.css`. No Stimulus controller or JS is needed.
 
-**`details[open]` CSS for open-state styling:** Use `details[open] > .child-class { ... }` in `app.css` to style elements differently when a `<details>` is open — no Stimulus controller or JS needed.
+For tab bars and toolbars that overflow on small screens, add `overflow-x: auto`, `scrollbar-width: none` and `::-webkit-scrollbar { display: none }`. Add `scroll-padding-inline: 1rem` so `scrollIntoView` leaves room at the edges. Add `white-space: nowrap` when items must not wrap.
 
-**Horizontally scrollable containers on mobile:** For tab bars and toolbars that overflow on small screens, add `overflow-x: auto; scrollbar-width: none;` and `::-webkit-scrollbar { display: none }` to hide the scrollbar across browsers. Add `scroll-padding-inline: 1rem` so `scrollIntoView` leaves breathing room at the edges. Use `white-space: nowrap` when items must not wrap.
-
-**Keyboard focus on custom controls wrapping hidden inputs:** When a component hides a native input (`opacity-0 w-0 h-0`) and uses a label as the visual target, add a focus ring via `:has(input:focus-visible)` on the wrapper — not `:focus` (which fires on mouse click too). Example:
+When a component hides a native input (`opacity-0 w-0 h-0`) and uses a label as the visual target, put the focus ring on the wrapper with `:has(input:focus-visible)`. Do not use `:focus`, which fires on a mouse click too.
 
 ```css
 .my-custom-control:has(input:focus-visible) {
@@ -59,47 +55,53 @@ When a form action row needs to stack vertically on mobile and be side-by-side o
 }
 ```
 
-This pattern applies to any custom control that visually replaces a native input.
+This applies to any custom control that visually replaces a native input.
 
-**Button `:active` press effect:** When adding a button variant, always add a matching `:active` block (e.g. `translate-y-px scale-97` with a darkened background or reduced shadow). The base class must also include `transition` so the press animates — omitting it produces a jarring snap.
+Give every button variant a matching `:active` block, such as `translate-y-px scale-97` with a darkened background or a reduced shadow. Include `transition` in the base class, or the press snaps.
 
-**Distinguishing irreversible from recoverable destructive actions:** Use a visually distinct "danger zone" treatment (e.g. a striped or heavily bordered card with a solid red button) for permanent/irreversible actions such as account deletion. Use a softer destructive style (e.g. a ghost or outline button in orange) only for recoverable destructive actions (removing an integration, deleting a recoverable record). The distinction — permanent vs. reversible — should be visible at a glance.
+Show the difference between irreversible and recoverable destructive actions at a glance. A permanent action such as account deletion gets a danger-zone treatment: a striped or heavily bordered card with a solid red button. A recoverable action such as removing an integration or deleting a recoverable record gets a softer style: a ghost or outline button in orange. Use an inline `<details><summary>` disclosure as the confirmation step for recoverable destructive actions on settings pages. Reserve `<dialog>` modals for irreversible actions.
 
-**Inline `<details>/<summary>` for recoverable destructive actions:** Use a `<details><summary>` disclosure pattern as the inline confirmation step for reversible destructive actions on settings pages (e.g. detaching an integration). Reserve `<dialog>` modals for irreversible actions. Use `details[open] > .child-class` for open-state styling — no Stimulus controller needed.
-
-**Reading CSS custom properties in JavaScript:** Read CSS custom properties applied to `<body>` or any ancestor with `getComputedStyle(element).getPropertyValue('--my-var').trim()` in a Stimulus controller to feed theme-matched values into canvas drawing or WAAPI animations.
+Read CSS custom properties from `<body>` or any ancestor with `getComputedStyle(element).getPropertyValue('--my-var').trim()` in a Stimulus controller. This feeds theme-matched values into canvas drawing and WAAPI animations.
 
 ## Modals
 
-Use a Stimulus controller to open `<dialog>` modals.
+Open a `<dialog>` modal from a Stimulus controller.
 
-- Wrap the trigger and dialog together in a `data-controller="modal"` div.
+- Wrap the trigger and the dialog together in a `data-controller="modal"` div.
 - Add `data-modal-target="dialog"` on the `<dialog>` element.
 - Add `data-action="click->modal#open"` on the trigger button or link.
-- To close with the slide-out animation, use `data-action="click->modal#close"` — never call `dialog.close()` directly, never use `<form method="dialog">` (even with the Stimulus action, the browser still calls `dialog.close()` natively), and never use `<a href="...">` as a cancel trigger (Turbo fires the navigation mid-animation). Cancel buttons must always be `<button type="button" data-action="click->modal#close">`.
-- Never use inline `onclick` to call `showModal()` directly.
+- Close with `data-action="click->modal#close"`, which runs the slide-out animation.
+- Never call `dialog.close()` directly.
+- Never use `<form method="dialog">`. The browser still calls `dialog.close()` natively, even with the Stimulus action.
+- Never use `<a href="...">` as a cancel trigger. Turbo fires the navigation mid-animation.
+- Write every cancel button as `<button type="button" data-action="click->modal#close">`.
+- Never call `showModal()` from an inline `onclick`.
 
-**Modal animations:** Animate the dialog element via WAAPI in the controller — not CSS animations. Only the `::backdrop` should use CSS animations.
+Animate the dialog element with WAAPI in the controller, not CSS animations. Only the `::backdrop` uses CSS animations.
 
-**`csrf_protection_controller.js` must stay eager** (`/* stimulusFetch: 'eager' */`): login and other forms use `input[name="_csrf_token"]` directly without a `data-controller` attribute, so a lazily-loaded controller would never activate and its document-level `submit` listener would never register. Do not change it to `'lazy'`.
+Keep `csrf_protection_controller.js` eager (`/* stimulusFetch: 'eager' */`). Login and other forms use `input[name="_csrf_token"]` with no `data-controller` attribute, so a lazily loaded controller never activates and its document-level `submit` listener never registers. Do not change it to `'lazy'`.
 
-**Lazy Stimulus controllers and CSS entry animations:** Controllers marked `/* stimulusFetch: 'lazy' */` are fetched asynchronously — there is a gap between DOM render and `connect()`. An element that relies solely on a WAAPI entry animation in `connect()` will flash at full opacity before the animation runs. Fix: add a CSS `animation` with `animation-fill-mode: both` on the element's base class — CSS handles entry, WAAPI handles exit only.
+A controller marked `/* stimulusFetch: 'lazy' */` is fetched asynchronously, which leaves a gap between DOM render and `connect()`. An element that relies only on a WAAPI entry animation in `connect()` flashes at full opacity first. Add a CSS `animation` with `animation-fill-mode: both` on its base class, so CSS handles entry and WAAPI handles exit only.
 
-## General JS conventions
+## JavaScript conventions
 
-Always use full descriptive variable names in JavaScript and TypeScript — never abbreviate. `this._resizeObserver` not `this._ro`, `context` not `ctx`, `devicePixelRatio` not `dpr`, `remaining` not `rem`. The code is minified for production; source readability takes priority.
+Use full descriptive variable names in JavaScript and TypeScript, and never abbreviate. Write `this._resizeObserver` not `this._ro`, `context` not `ctx`, `devicePixelRatio` not `dpr`, `remaining` not `rem`. The code is minified for production, so source readability takes priority.
 
 ## Stimulus patterns
 
-**`isMobile()` breakpoint check:** When a controller needs different behaviour on mobile vs desktop (e.g. different WAAPI keyframes), use `const isMobile = () => window.innerWidth < 640` — matching Tailwind's `sm:` breakpoint. Evaluate it at interaction time (inside the event handler), not at `connect()`, so it responds correctly after orientation changes.
+When a controller needs different behaviour on mobile and desktop, such as different WAAPI keyframes, use `const isMobile = () => window.innerWidth < 640`, matching Tailwind's `sm:` breakpoint. Evaluate it at interaction time inside the event handler, not in `connect()`, so it stays correct after an orientation change.
 
-**`<details>` animations:** CSS `max-height` transitions work for simple one-shot disclosure. For repeated open/close, use WAAPI in a Stimulus controller — CSS transitions silently stop working after the first cycle. To clip the animation cleanly, wrap the collapsible content in a `rounded-xl overflow-hidden` container.
+A CSS `max-height` transition animates a `<details>` for a simple one-shot disclosure. Use WAAPI in a Stimulus controller for repeated open and close, because CSS transitions silently stop working after the first cycle. Wrap the collapsible content in a `rounded-xl overflow-hidden` container to clip the animation.
+
+`connect()` fires via MutationObserver before the browser computes layout during Turbo navigation, so `getBoundingClientRect()` returns `(0, 0)`. Never do geometry-dependent setup synchronously in `connect()`. Use a `ResizeObserver`: its initial callback always fires after layout, so it is the correct entry point for size-dependent canvas or element initialization.
+
+Setting `canvas.width` clears the canvas. ResizeObserver callbacks fire after `requestAnimationFrame` in the rendering pipeline, so a resize inside the callback leaves a blank canvas in the paint queue until the next rAF. Call your draw function immediately after you resize the canvas inside the callback, rather than waiting for the next frame.
 
 ## Turbo patterns
 
-**Never submit through `fetch()`/JS — always use a form.** Mutations go through a plain HTML `<form method="POST">` or (preferred) a Symfony form, and Turbo handles the async submit and in-place update. Do not hand-roll `fetch()` POSTs in a Stimulus controller: it bypasses the eager document-level `submit` listener in `csrf_protection_controller.js` (so you have to re-implement the stateless double-submit CSRF dance by hand — a recurring source of silent 403s) and it duplicates error handling Turbo gives for free. The only acceptable reason to reach for `fetch()` is a genuine non-form interaction with no good Turbo equivalent — and that bar is high. A fieldless action (e.g. "resolve") is still a `<form>` (a submit button + CSRF token), just without a Symfony FormType. For in-place updates without a full-page visit, return a Turbo Stream (or scope the form to a `<turbo-frame>`).
+Never submit through `fetch()` or JS. Send every mutation through a plain `<form method="POST">`, or a Symfony form, which is preferred, and Turbo handles the async submit and the in-place update. A hand-rolled `fetch()` POST in a Stimulus controller bypasses the eager document-level `submit` listener in `csrf_protection_controller.js`, so you must re-implement the stateless double-submit CSRF dance by hand, a recurring source of silent 403s. It also duplicates the error handling Turbo gives you free. Reach for `fetch()` only for a genuine non-form interaction with no good Turbo equivalent, and that bar is high. A fieldless action such as "resolve" is still a `<form>` with a submit button and a CSRF token, only without a Symfony FormType. Return a Turbo Stream for an in-place update without a full-page visit, or scope the form to a `<turbo-frame>`.
 
-**Returning a Turbo Stream from a controller — inline, no bespoke responder.** When a form-backed action updates the page in place, return the stream directly from the controller; do not extract a "responder" / "stream builder" service. The established pattern:
+Return the Turbo Stream directly from the controller. Do not extract a responder or stream builder service.
 
 ```php
 if (TurboBundle::STREAM_FORMAT !== $request->getPreferredFormat()) {
@@ -109,77 +111,62 @@ $html = $this->renderView('area/_thing.stream.html.twig', [...]);
 return new Response($html, $status, ['Content-Type' => TurboBundle::STREAM_MEDIA_TYPE]);
 ```
 
-- Always provide the redirect fallback (Post/Redirect/Get) for non-Turbo requests.
-- Name stream templates `_<name>.stream.html.twig`. The leading `_` marks them partials so gamache's `ControllerTemplateNameRule` skips the controller; `.stream.` documents intent.
-- A stream template wraps content in `<turbo-stream action="replace|update|append" target="dom-id">…</turbo-stream>`; the targeted element must render its own matching `id` so the stream can find it.
-- Minor per-controller duplication of the format check + redirect is acceptable — it is the conventional shape and reads more clearly than a shared abstraction.
+- Always provide the Post/Redirect/Get fallback for non-Turbo requests.
+- Name stream templates `_<name>.stream.html.twig`. The leading `_` marks them partials, so gamache's `ControllerTemplateNameRule` skips the controller, and `.stream.` documents intent.
+- Wrap stream content in `<turbo-stream action="replace|update|append" target="dom-id">…</turbo-stream>`. The targeted element must render its own matching `id`.
+- Accept the minor per-controller duplication of the format check and redirect. It is the conventional shape and reads more clearly than a shared abstraction.
 
-**Successful top-level form POSTs must redirect (PRG) — never render a 200.** Turbo Drive enforces `requestMustRedirect`: a 200 HTML response to a non-frame form submission is *discarded* with a console error and the page silently does nothing — while WebTestCase sees a perfectly valid response, so only e2e catches it. Success → redirect (302); validation failure → 422 re-render (next rule). Rendering a confirmation view directly on POST success is always a bug — redirect to a route that renders the confirmation instead.
+Turbo Drive discards a 200 HTML response to a form submission. It reads the 200 as a successful navigation, so the browser stays on the current page and renders nothing. On a non-frame submission Turbo enforces `requestMustRedirect` and discards the response with a console error. WebTestCase sees a perfectly valid response, so only e2e catches it.
 
-**Forms inside a `<turbo-frame>` that redirect page-level need `data-turbo-frame="_top"`.** Without it the redirect is frame-scoped: the frame morphs in place and flash messages rendered outside the frame are silently dropped. The vendor admin-bundle list frames set this on their own forms; any form you add inside a frame must do the same unless you genuinely want an in-frame update.
-
-**Turbo Drive form submissions require a 4xx/5xx response to re-render:** When Turbo intercepts a form POST, a 200 response is treated as a successful navigation and silently discarded — the browser stays on the current page without re-rendering anything. Only 4xx/5xx responses cause Turbo to render the response body in place. When a controller handles a form submission and needs to re-display the form with errors, always return HTTP 422. The Symfony pattern:
+- A successful top-level form POST must redirect with a 302. Rendering a confirmation view directly on POST success is always a bug, so redirect to a route that renders the confirmation.
+- A validation failure must re-render with HTTP 422, because only a 4xx or 5xx response makes Turbo render the body in place.
 
 ```php
 return $this->forward(SomeController::class, $params)
     ->setStatusCode(Response::HTTP_UNPROCESSABLE_ENTITY);
 ```
 
-**Turbo Stream animations (opt-in):** Hook `turbo:before-stream-render` globally to fade elements in/out. Add a `data-` attribute to any target element to opt it in.
+Add `data-turbo-frame="_top"` to a form inside a `<turbo-frame>` that redirects page-level. Without it the redirect is frame-scoped: the frame morphs in place and flash messages rendered outside the frame are silently dropped. The vendor admin-bundle list frames set this on their own forms, and any form you add inside a frame must do the same, unless an in-frame update is what you want.
 
-**Disable prefetch on side-effecting GET links:** Turbo 8 prefetches links on hover by default (it issues a real GET to the `href`). For a link whose GET has side effects — `logout` being the canonical case, but also any "magic" GET that mutates state — that prefetch fires just from hovering, e.g. silently logging the user out. Add `data-turbo-prefetch="false"` to such links:
+Turbo Stream animations are opt-in. Hook `turbo:before-stream-render` globally to fade elements in and out, and add a `data-` attribute to opt a target element in.
+
+Turbo 8 prefetches links on hover by default, issuing a real GET to the `href`. That prefetch fires the side effect of any "magic" GET that mutates state, and `logout` is the canonical case: a hover silently logs the user out. Add `data-turbo-prefetch="false"` to such links.
 
 ```twig
 <a href="{{ path('app_logout') }}" data-turbo-prefetch="false">Log out</a>
 ```
 
-Prefer making state changes POST endpoints; when a GET link with side effects is unavoidable, it must opt out of prefetch.
+Prefer a POST endpoint for a state change. An unavoidable GET link with side effects must opt out of prefetch.
 
-## Stimulus `connect()` timing and layout
+## Design system
 
-**`connect()` fires before layout is computed:** During Turbo navigation, `connect()` fires via MutationObserver before the browser has computed layout — `getBoundingClientRect()` returns `(0, 0)`. Never do geometry-dependent setup synchronously in `connect()`. Use a `ResizeObserver` instead: its initial callback always fires after layout, making it the correct entry point for size-dependent canvas or element initialization.
+Never use arbitrary CSS var values in markup: no `[var(--accent)]` or other bracketed `var(...)` value in a template. Use the named design-token and semantic Tailwind classes instead, because every token is exposed as a named utility. gamache's `NoArbitraryValuesCheck` enforces this.
 
-**Canvas resize and ResizeObserver repaint:** Setting `canvas.width` clears the canvas. ResizeObserver callbacks fire *after* `requestAnimationFrame` in the browser's rendering pipeline, so resizing in a ResizeObserver callback leaves a blank canvas sitting in the paint queue until the next rAF. Fix: always call your draw function immediately after resizing the canvas inside the ResizeObserver callback — do not wait for the next frame.
+Use no arbitrary values in `app.css` either. Every size, colour and spacing value must resolve to a named Tailwind token. Bracket values such as `w-[45rem]` and `blur-[1.25rem]` are not acceptable in `@apply` or as bare CSS properties. Round to the nearest named token.
 
-## Design System
+Some conversions are exact and some are not, and the difference matters when you report the change. `w-[45rem]` gives `w-180` and `-top-[12.5rem]` gives `-top-50`, both exact, because the spacing scale is `0.25rem × n`. `blur-[1.25rem]` gives `blur-xl`, which is not exact: the blur scale has no 1.25rem step, so 20px becomes 24px. Accepting that change is correct. Presenting it as equivalent is not.
 
-**Never use arbitrary CSS var values in markup** (e.g. no `[var(--accent)]` or other bracketed `var(...)` values in templates). Use the defined design-token / semantic Tailwind classes instead — every token should be exposed as a named utility. (gamache's `NoArbitraryValuesCheck` enforces this.)
+Treat a custom value as a mistake to fix, not a token to add. Do not invent a `@theme` token to preserve an off-scale value, and do not fall back to an arbitrary value. Snap to the nearest existing token and accept the pixel change. A custom token is the same problem as a bracket value wearing a different hat. `app.css` currently has zero custom `@theme` size entries, zero custom `@utility` blocks and zero literal `px`/`rem` outside the design-token blocks. Keep it that way.
 
-**No arbitrary values in `app.css`.** All sizes, colours, and spacing must resolve to named Tailwind tokens. Bracket arbitrary values (`w-[45rem]`, `blur-[1.25rem]`) are not acceptable in `@apply` or as bare CSS properties — round to the nearest named token instead.
+Several installed user-level design skills hand you literal arbitrary utilities: `beautiful-shadows` gives three `shadow-[0px_2px_3px_-1px_rgba(...)…]` strings, and `glass-dark-ui` one more. Pasting those into a template fails `NoArbitraryValuesCheck`. They are still worth using, because a six-layer box-shadow is genuinely non-expressible as a single utility, like the multi-layer `background:` gradients carved out above. Land the value as a `--shadow-*` entry in the `@theme` design-token block and reference it from a semantic class in `@layer components`. Never write it as a bracket utility in Twig, and never as a one-off literal inside the class body. Snapping such a shadow to `shadow-md` instead is also legitimate.
 
-Some of those conversions are exact and some are not, and the difference matters when you report the change: `w-[45rem]` → `w-180` and `-top-[12.5rem]` → `-top-50` are exact (the spacing scale is `0.25rem × n`), but `blur-[1.25rem]` → `blur-xl` is **not** — the blur scale has no 1.25rem step, so 20px becomes 24px. Accepting that change is correct; presenting it as equivalent is not.
+Prefer the named scale over numeric spacing multiples: `max-w-sm` and `max-w-5xl`, not `max-w-102` and `max-w-270`, even though the numeric forms are exact and the named ones are not. Proportion consistency matters more than preserving a hand-picked width.
 
-**Custom values are mistakes to fix, not tokens to add.** When a value does not sit on the scale, do not invent a `@theme` token to preserve it, and do not fall back to an arbitrary value — snap to the nearest existing token and accept the pixel change. A custom token is the same problem as a bracket value wearing a different hat. `app.css` currently has zero custom `@theme` size entries, zero custom `@utility` blocks and zero literal `px`/`rem` outside the design-token blocks; keep it that way.
+A `text-*` utility carries a bundled `line-height`, so place it before `leading-none` inside `@apply`, or the size overrides the leading.
 
-**Design skills that ship exact bracket values.** Several installed user-level
-skills hand you literal arbitrary utilities — `beautiful-shadows` gives three
-`shadow-[0px_2px_3px_-1px_rgba(...)…]` strings, `glass-dark-ui` one more.
-Pasting those into a template fails `NoArbitraryValuesCheck`. They are still
-worth using: a six-layer box-shadow is genuinely non-expressible as a single
-utility, like the multi-layer `background:` gradients already carved out above.
-Land the value as a `--shadow-*` entry in the `@theme` design-token block and
-reference it from a semantic class in `@layer components` — never as a bracket
-utility in Twig, and never as a one-off literal inside the class body. Snapping
-such a shadow to `shadow-md` instead is also a legitimate answer; what is not
-legitimate is the bracket form in markup.
+Derive the value from the Tailwind spacing token when a CSS property has no utility equivalent, such as `grid-template-columns` or `background-size`: `calc(var(--spacing) * n)`. This keeps the value on the scale without a raw literal.
 
-**Prefer the named scale over numeric spacing multiples.** `max-w-sm` / `max-w-5xl`, not `max-w-102` / `max-w-270` — even though the numeric forms are exact and the named ones are not. Proportion consistency matters more than preserving a hand-picked width.
+The only acceptable raw CSS in `@layer components` is genuinely non-expressible as utilities: multi-layer `background:` gradients that reference CSS variables, `mask-image` and `-webkit-mask-image`, and the viewport-relative lengths (`vh`/`dvh`) that `@apply` cannot emit.
 
-**Ordering inside `@apply`:** a `text-*` utility carries a bundled `line-height`, so place it **before** `leading-none`, or the size will override the leading.
+A semantic color token in `@theme` that maps to a Tailwind palette color uses `var(--color-{palette}-{shade})`, not a raw hex value: `--color-danger: var(--color-red-700)`, not `--color-danger: #c83a3a`. Brand palette tokens are the exception, because the values in `:root`, `.theme-light` and `.theme-dark` define the source of truth and may use raw hex or rgba.
 
-When a CSS property has no Tailwind utility equivalent (e.g. `grid-template-columns`, `background-size`), derive the value from the Tailwind spacing token: `calc(var(--spacing) * n)`. This keeps the value on the Tailwind scale without a raw literal.
+Do not add new element style rules to `@layer base`. Tailwind's preflight handles the HTML reset for every element, `dialog` included, and component-specific styles belong in `@layer components` or as utilities in templates. An existing `@layer base` rule may have its raw CSS values converted to `@apply` during a normalisation pass, because converting is not the same as adding a new rule.
 
-The only acceptable raw CSS in `@layer components` is genuinely non-expressible as utilities: multi-layer `background:` gradients referencing CSS variables, `mask-image` / `-webkit-mask-image`, and viewport-relative lengths (`vh`/`dvh`) which `@apply` cannot emit.
-
-**Semantic color tokens in `@theme`** that map to a Tailwind palette color should use `var(--color-{palette}-{shade})` rather than a raw hex value (e.g. `--color-danger: var(--color-red-700)`, not `--color-danger: #c83a3a`). Brand palette tokens (the values in `:root`, `.theme-light`, `.theme-dark`) are the exception — they define the source of truth and may use raw hex/rgba.
-
-**Do not add new element style rules to `@layer base`.** Tailwind's preflight handles the HTML reset for all elements including `dialog`. Component-specific styles belong in `@layer components` or as Tailwind utilities in templates. Existing rules in `@layer base` may have their raw CSS values converted to `@apply` during a normalisation pass — converting is not the same as adding a new rule.
-
-**CSS semantic class names: no abbreviations.** Semantic and utility class names must spell out every word in full — `.sidebar-item`, not `.sb-item`; `.sidebar-footer`, not `.sb-foot`. This applies both to `app.css` definitions and to usages in templates.
+Spell out every word in a CSS semantic or utility class name: `.sidebar-item` not `.sb-item`, and `.sidebar-footer` not `.sb-foot`. This applies to the `app.css` definitions and to the usages in templates.
 
 ### Icons
 
-All icons must use the Symfony UX Icons bundle with Lucide. Never embed inline SVG. Prefer the Twig component form; `ux_icon()` is acceptable as an alternative.
+Use the Symfony UX Icons bundle with Lucide for every icon, and never embed inline SVG. Prefer the Twig component form. `ux_icon()` is an acceptable alternative.
 
 ```twig
 <twig:UX:Icon name="lucide:x" class="w-3.5 h-3.5 shrink-0 mt-px" />
@@ -187,10 +174,10 @@ All icons must use the Symfony UX Icons bundle with Lucide. Never embed inline S
 {{ ux_icon('lucide:x', {'class': 'w-3.5 h-3.5 shrink-0 mt-px'}) }}
 ```
 
-`assets/icons/` is **committed**. A self-hosted instance must render its UI with no egress, so the SVGs ship in the repo and therefore in the production image; `iconify.on_demand` is **off in prod** so a production instance never calls `api.iconify.design`. It stays on in dev and test, so a newly used icon still renders immediately while you work — but it is then only in your local cache, and the build would ship without it.
+`assets/icons/` is committed. A self-hosted instance must render its UI with no egress, so the SVGs ship in the repo and therefore in the production image. `iconify.on_demand` is off in prod, so a production instance never calls `api.iconify.design`. It stays on in dev and test, so a newly used icon renders immediately while you work, but that icon is then only in your local cache and the build would ship without it.
 
-**So: after adding a new icon, run `bin/console ux:icons:lock` and commit what appears under `assets/icons/`.** The command scans the project and imports what it finds. Do **not** `git rm --cached` these files; earlier guidance said to, and it now breaks production rendering.
+So run `bin/console ux:icons:lock` after you add a new icon, and commit what appears under `assets/icons/`. The command scans the project and imports what it finds. Do not `git rm --cached` these files. Earlier guidance said to, and it now breaks production rendering.
 
-`ux:icons:lock` only sees icon names it can read as literals. A name built at runtime — e.g. `<twig:UX:Icon name="simple-icons:{{ provider }}" />` in `templates/Module/Account/security/_social_buttons.html.twig` — is invisible to the scan, so those icons must be imported by hand (`bin/console ux:icons:import simple-icons:google simple-icons:github`) and will otherwise be missing in prod with no error, because `ignore_not_found: true` renders nothing. If you add a dynamically-named icon, import its full set of possible values explicitly.
+`ux:icons:lock` only sees icon names it can read as literals. A name built at runtime is invisible to the scan, for example `<twig:UX:Icon name="simple-icons:{{ provider }}" />` in `templates/Module/Account/security/_social_buttons.html.twig`. Import those by hand with `bin/console ux:icons:import simple-icons:google simple-icons:github`. Otherwise they are missing in prod with no error, because `ignore_not_found: true` renders nothing. When you add a dynamically-named icon, import its full set of possible values explicitly.
 
-**Stroke colour:** Imported Lucide SVGs use `stroke="currentColor"`. Control the stroke colour via a text colour class on the icon or its parent — never hardcode `stroke="white"` as an attribute.
+Imported Lucide SVGs use `stroke="currentColor"`. Control the stroke colour with a text colour class on the icon or its parent, and never hardcode `stroke="white"` as an attribute.
