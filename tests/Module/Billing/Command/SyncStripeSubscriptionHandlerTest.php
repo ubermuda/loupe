@@ -20,8 +20,11 @@ use App\Module\Billing\Service\SubscriptionView;
 use App\Tests\Support\BillingGrants;
 use App\Tests\Support\RecordingLogger;
 use App\Tests\Support\TransactionalEntityManagerStub;
+use Doctrine\Common\Collections\Collection;
 use Doctrine\ORM\EntityManagerInterface;
+use Doctrine\ORM\ORMInvalidArgumentException;
 use PHPUnit\Framework\Attributes\DataProvider;
+use PHPUnit\Framework\MockObject\Stub;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\LoggerInterface;
 use Psr\Log\NullLogger;
@@ -195,6 +198,35 @@ final class SyncStripeSubscriptionHandlerTest extends TestCase
         self::assertNull($profile->lastStripeEventId);
         self::assertNull($profile->lastStripeEventAt);
         self::assertNull($profile->lastStripeEventType);
+    }
+
+    /**
+     * ORMInvalidArgumentException is a \LogicException, so a catch around the
+     * construction path would file a Doctrine fault as a duplicate grant.
+     */
+    public function test_a_doctrine_fault_while_creating_a_grant_is_not_reported_as_a_duplicate(): void
+    {
+        $profile = $this->profile();
+        $logger = new RecordingLogger();
+        $fault = ORMInvalidArgumentException::scheduleInsertTwice($profile);
+
+        /** @var Collection<int, Subscription>&Stub $subscriptions */
+        $subscriptions = $this->createStub(Collection::class);
+        $subscriptions->method('toArray')->willReturn($profile->subscriptions->toArray());
+        $subscriptions->method('add')->willThrowException($fault);
+        $profile->subscriptions = $subscriptions;
+
+        try {
+            ($this->handler($profile, logger: $logger))($this->command('active'));
+            self::fail('the Doctrine fault must propagate out of the handler');
+        } catch (ORMInvalidArgumentException $caught) {
+            self::assertSame($fault, $caught);
+        }
+
+        self::assertSame([], array_values(array_filter(
+            $logger->records,
+            static fn (array $record): bool => 'billing.webhook.concurrent_grant' === $record['message'],
+        )));
     }
 
     public function test_an_unknown_customer_is_ignored_without_throwing(): void
