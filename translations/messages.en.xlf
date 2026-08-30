@@ -1303,6 +1303,14 @@
                 <source>review.document.diff.link</source>
                 <target>What changed since v%from%</target>
             </trans-unit>
+            <trans-unit id="review.document.since_last_visit.banner">
+                <source>review.document.since_last_visit.banner</source>
+                <target>You last commented on or reviewed version %from% of this document. It is now at version %to%.</target>
+            </trans-unit>
+            <trans-unit id="review.document.since_last_visit.link">
+                <source>review.document.since_last_visit.link</source>
+                <target>See what changed</target>
+            </trans-unit>
             <trans-unit id="review.document.diff.notes_title">
                 <source>review.document.diff.notes_title</source>
                 <target>What the author said changed</target>

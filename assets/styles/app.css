@@ -1441,6 +1441,11 @@
     .lp-version-banner {
         @apply flex flex-wrap items-center gap-2.5 px-4 py-3 mb-4 rounded-lg border text-sm bg-surface-2 border-line text-fg-mute;
     }
+    /* Tinted apart from the plain banner: this one invites a click rather than
+       explaining what the page is showing. */
+    .lp-version-banner--unread {
+        @apply bg-accent-faint-2 border-accent-border text-ink;
+    }
     .lp-review-doc__byline {
         @apply text-fg-dim m-0 text-sm;
     }
