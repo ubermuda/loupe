@@ -3857,6 +3857,100 @@
                 <source>landing.mock.body.aggregate</source>
                 <target>Cart</target>
             </trans-unit>
+
+            <!-- Audit log (admin) -->
+            <trans-unit id="audit.admin.log.page.title">
+                <source>audit.admin.log.page.title</source>
+                <target>Audit log</target>
+            </trans-unit>
+            <trans-unit id="audit.admin.log.title">
+                <source>audit.admin.log.title</source>
+                <target>Audit log</target>
+            </trans-unit>
+            <trans-unit id="audit.admin.log.unit">
+                <source>audit.admin.log.unit</source>
+                <target>record</target>
+            </trans-unit>
+            <trans-unit id="audit.admin.log.unit_plural">
+                <source>audit.admin.log.unit_plural</source>
+                <target>records</target>
+            </trans-unit>
+            <trans-unit id="audit.admin.log.empty">
+                <source>audit.admin.log.empty</source>
+                <target>No audit records match these filters.</target>
+            </trans-unit>
+            <trans-unit id="audit.admin.log.filter.search_placeholder">
+                <source>audit.admin.log.filter.search_placeholder</source>
+                <target>Search by actor</target>
+            </trans-unit>
+            <trans-unit id="audit.admin.log.filter.operation">
+                <source>audit.admin.log.filter.operation</source>
+                <target>Operation</target>
+            </trans-unit>
+            <trans-unit id="audit.admin.log.filter.operation_placeholder">
+                <source>audit.admin.log.filter.operation_placeholder</source>
+                <target>Operation starts with</target>
+            </trans-unit>
+            <trans-unit id="audit.admin.log.filter.channel">
+                <source>audit.admin.log.filter.channel</source>
+                <target>Channel</target>
+            </trans-unit>
+            <trans-unit id="audit.admin.log.filter.channel_any">
+                <source>audit.admin.log.filter.channel_any</source>
+                <target>Any channel</target>
+            </trans-unit>
+            <trans-unit id="audit.admin.log.filter.from">
+                <source>audit.admin.log.filter.from</source>
+                <target>From date</target>
+            </trans-unit>
+            <trans-unit id="audit.admin.log.filter.to">
+                <source>audit.admin.log.filter.to</source>
+                <target>To date</target>
+            </trans-unit>
+            <trans-unit id="audit.admin.log.column.time">
+                <source>audit.admin.log.column.time</source>
+                <target>Time</target>
+            </trans-unit>
+            <trans-unit id="audit.admin.log.column.actor">
+                <source>audit.admin.log.column.actor</source>
+                <target>Actor</target>
+            </trans-unit>
+            <trans-unit id="audit.admin.log.column.operation">
+                <source>audit.admin.log.column.operation</source>
+                <target>Operation</target>
+            </trans-unit>
+            <trans-unit id="audit.admin.log.column.outcome">
+                <source>audit.admin.log.column.outcome</source>
+                <target>Outcome</target>
+            </trans-unit>
+            <trans-unit id="audit.admin.log.column.subject">
+                <source>audit.admin.log.column.subject</source>
+                <target>Subject</target>
+            </trans-unit>
+            <trans-unit id="audit.admin.log.column.channel">
+                <source>audit.admin.log.column.channel</source>
+                <target>Channel</target>
+            </trans-unit>
+            <trans-unit id="audit.admin.log.column.context">
+                <source>audit.admin.log.column.context</source>
+                <target>Context</target>
+            </trans-unit>
+            <trans-unit id="audit.admin.log.actor_none">
+                <source>audit.admin.log.actor_none</source>
+                <target>No actor</target>
+            </trans-unit>
+            <trans-unit id="audit.admin.log.outcome.success">
+                <source>audit.admin.log.outcome.success</source>
+                <target>Success</target>
+            </trans-unit>
+            <trans-unit id="audit.admin.log.outcome.refused">
+                <source>audit.admin.log.outcome.refused</source>
+                <target>Refused</target>
+            </trans-unit>
+            <trans-unit id="audit.admin.log.context.show">
+                <source>audit.admin.log.context.show</source>
+                <target>Show</target>
+            </trans-unit>
         </body>
     </file>
 </xliff>
