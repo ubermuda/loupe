@@ -52,13 +52,13 @@ final readonly class Auditor
     /**
      * @param array<string, scalar|null> $context
      */
-    public function record(string $operation, array $context = [], ?AuditSubject $subject = null, string $category = self::CATEGORY_DOMAIN): void
+    public function record(string $operation, AuditOutcome $outcome, array $context = [], ?AuditSubject $subject = null, string $category = self::CATEGORY_DOMAIN): void
     {
         try {
-            $event = $this->buildEvent($operation, $context, $subject, $category);
+            $event = $this->buildEvent($operation, $outcome, $context, $subject, $category);
         } catch (\Throwable $e) {
             $this->report('audit.actor_unresolved', ['operation' => $operation, 'exception' => $e]);
-            $event = $this->unattributedEvent($operation, $context, $subject, $category);
+            $event = $this->unattributedEvent($operation, $outcome, $context, $subject, $category);
         }
 
         foreach ($this->sinks as $sink) {
@@ -73,12 +73,13 @@ final readonly class Auditor
     /**
      * @param array<string, scalar|null> $context
      */
-    private function buildEvent(string $operation, array $context, ?AuditSubject $subject, string $category): AuditEvent
+    private function buildEvent(string $operation, AuditOutcome $outcome, array $context, ?AuditSubject $subject, string $category): AuditEvent
     {
         $actor = $this->actorProvider->currentActor();
 
         return new AuditEvent(
             $operation,
+            $outcome,
             $category,
             $actor->actor,
             $actor->credential,
@@ -97,10 +98,11 @@ final readonly class Auditor
      *
      * @param array<string, scalar|null> $context
      */
-    private function unattributedEvent(string $operation, array $context, ?AuditSubject $subject, string $category): AuditEvent
+    private function unattributedEvent(string $operation, AuditOutcome $outcome, array $context, ?AuditSubject $subject, string $category): AuditEvent
     {
         return new AuditEvent(
             $operation,
+            $outcome,
             $category,
             null,
             null,
