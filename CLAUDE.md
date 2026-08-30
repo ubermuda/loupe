@@ -86,6 +86,34 @@ Decide two things at planning time, and say in the plan which of them the change
 
 The third check, the changelog entry, happens after the merge. `working-with-prs` carries it, because its entry anchors to a commit that does not exist until then.
 
+### What a new entity or feature must also register
+
+Each row below fails silently. Nothing errors, no test goes red, and the miss surfaces later as wrong behaviour. Walk the table when a feature adds an entity, a route, an external call or a flag.
+
+| Add an implementation of | When | If you forget |
+|---|---|---|
+| `Account/Deletion/AccountDataPurgerInterface` | the feature stores rows keyed to a user | account deletion leaves the data behind |
+| `Account/Export/UserDataExporterInterface` | the same | the user's data export omits it |
+| `Account/Install/InstallFlagDefaultsInterface` | the feature has a flag | a fresh install has no flag row |
+| a `Project/Event/ProjectDeleting` listener | the module owns project-scoped rows | orphan rows outlive the project |
+| `Project/Stats/ProjectStatsProviderInterface` | the entity is worth counting | project stats undercount |
+| `Mcp/FlagGatedToolInterface` | an MCP tool is flag-gated | see below, it stays callable |
+| `AdminMenuItemInterface` (admin bundle) | the feature adds an `/admin/` page | the page exists with no link to it |
+| `DiagnosticInterface` (health-check bundle) | the feature calls an external service | a misconfiguration shows only as a user-facing failure |
+
+Two of those carry an extra rule. A purger must read `$user->id` as a scalar, because the entity may be detached, and its `deletionOrder()` must run after `ProjectAccountPurger`. A flag-gated MCP tool must re-check its flag inside `__invoke`: the tag only filters `tools/list`, so a tool that skips the self-check is hidden and still fully callable.
+
+Four more that no registry covers:
+
+1. **A new flag does not reach an instance that is already installed.** Seeding runs from the install wizard and from `app:account:seed-install-flags`, and `docker/prod/release.sh` runs migrations only. `FeatureFlagService::isEnabled()` then falls back to the coded default, so the feature ships invisible. `bin/console app:dev:seed` seeds no flags either, so dev reads the same defaults.
+2. **A new messenger transport or schedule name must reach the worker command in two files**, `worker_command` in `terraform/main.tf` and the `worker` service in `docker/compose/prod.yaml`. Otherwise the transport fills and nothing drains it. A message class missing from `config/packages/messenger.yaml` is handled inside the web request instead, which works and is in the wrong process.
+3. **CSP is enforced in prod and empty in dev and test.** A feature that loads a new script, font, image or XHR origin works locally, passes e2e, and is blocked in production. Declare the origin in `config/packages/nelmio_security.yaml` with the `%env(default:app.csp_origin_fallback:VAR)%` shape, so an unset variable resolves to `'self'`.
+4. **Navigation is hand-written in three places**: the app sidebar in `templates/base.html.twig`, the docs sidebar in `website/astro.config.mjs`, and the tool order in `Project/Mcp/AdvertisedTools`. A page or tool that is not listed is reachable only by typing its URL.
+
+Security surfaces that fail loudly need no checklist entry. A new `/api/` route with no rule above `allow_if: 'false'` in `config/packages/security.yaml` is denied, and a missing `ApiTokenScope` case is a PHP error. Rate limiting is the exception: `config/packages/rate_limiter.yaml` is hand-declared, so a new token-authenticated write endpoint has none by default.
+
+CI catches the rest. `DeploymentConfigParityCheck` cross-checks a new environment variable across `.env`, Terraform and the prod compose files, though `docs/reference/environment.md` is still yours to update.
+
 ## Pull requests
 
 Invoke the `working-with-prs` skill before you open, gate or merge a pull request. It carries the full gate, the merge protocol, the ruleset facts and the wave rules. This is the irreducible summary, so that a session which skips the skill still does the right thing:
