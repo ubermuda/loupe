@@ -61,6 +61,8 @@ parameters:
     # the landing page only — Stripe remains the source of truth for what is
     # actually charged.
     app.hosted_price: '10'
+    # How long an audit record is kept. The hourly purge deletes anything older.
+    app.audit.retention_days: 180
 
 services:
     # A vendor class, so it cannot carry our attributes. Built by a factory

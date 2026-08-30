@@ -52,6 +52,9 @@ return static function (Config $config): void {
                 'Doctrine\ORM\Mapping',
                 'Doctrine\Persistence',
                 'Symfony\Bridge\Doctrine\Types',
+                // The purge command is part of the package: a standalone audit
+                // package still owes its operator a manual seam.
+                'Symfony\Component\Console',
                 'Symfony\Component\DependencyInjection\Attribute',
                 'Symfony\Component\Uid',
                 'Symfony\Contracts\Service',
