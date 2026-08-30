@@ -28,15 +28,15 @@ use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
  * and look at the app.
  *
  * This exists for per-worktree databases, which start empty: without a user
- * there is nothing to see, and without a widget token matching
- * SITE_REVIEW_WIDGET_TOKEN the annotation widget loads straight into its
- * rejected-token fatal state.
+ * there is nothing to see. The project also needs a widget token before the
+ * annotation widget can talk to this database, which a worktree does only when
+ * SITE_REVIEW_WIDGET_BACKEND points at the worktree itself.
  *
  * Tokens are stored as sha256(raw) and ApiToken::issue() generates its own
  * random value, so a token with a predetermined raw value cannot be created
  * without adding a backdoor to production code. Instead this mints a fresh one
- * and prints it; worktree-bootstrap.sh captures that and writes it into the
- * worktree's .env.local.
+ * and prints it, and you copy that raw value into SITE_REVIEW_WIDGET_TOKEN
+ * yourself.
  *
  * Lives in the root namespace rather than a module because it spans two of
  * them (Account and Project), and modules must not depend on each other.
@@ -113,8 +113,8 @@ final class SeedDevDataCommand extends Command
         }
 
         if (null !== $rawToken) {
-            // The ONLY line the caller parses — bootstrap reads it to populate
-            // SITE_REVIEW_WIDGET_TOKEN. Keep the prefix stable.
+            // Printed for a human to copy into SITE_REVIEW_WIDGET_TOKEN. No
+            // caller parses it, so the prefix is for readers only.
             $output->writeln('SITE_REVIEW_WIDGET_TOKEN='.$rawToken);
         }
 
