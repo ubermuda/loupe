@@ -116,6 +116,52 @@ final class RequestDataExportHandlerTest extends TestCase
         self::assertSame([], $audit->operations());
     }
 
+    /**
+     * The dispatch shares the transaction, so a failing one rolls the export
+     * row back. A record written inside that closure would outlive the
+     * rollback and state a request the database never kept.
+     */
+    public function test_a_dispatch_failure_rolls_the_request_back_and_records_nothing(): void
+    {
+        $user = new User('Alice A', 'alice@example.com', 'x');
+
+        /** @var DataExportRepository&Stub $dataExports */
+        $dataExports = $this->createStub(DataExportRepository::class);
+        $dataExports->method('findOnePendingByUser')->willReturn(null);
+
+        /** @var EntityManagerInterface&Stub $em */
+        $em = $this->createStub(EntityManagerInterface::class);
+        $em->method('persist')->willReturnCallback(static function (object $export): void {
+            new \ReflectionProperty(DataExport::class, 'id')->setValue($export, Uuid::v7());
+        });
+        // Runs the closure, then throws as a rollback does: whatever the closure
+        // did to the database is undone by the time the caller sees this.
+        $em->method('wrapInTransaction')->willReturnCallback(static function (callable $fn): never {
+            try {
+                $fn();
+            } catch (\RuntimeException $e) {
+                throw $e;
+            }
+
+            throw new \RuntimeException('the transaction rolled back');
+        });
+
+        /** @var MessageBusInterface&Stub $bus */
+        $bus = $this->createStub(MessageBusInterface::class);
+        $bus->method('dispatch')->willThrowException(new \RuntimeException('the transport is gone'));
+
+        $audit = new RecordingAuditor(new NullAuditActorProvider());
+        $handler = new RequestDataExportHandler($dataExports, $em, $bus, $audit->auditor);
+
+        try {
+            $handler(new RequestDataExportCommand($user));
+            self::fail('Expected the rollback to reach the caller.');
+        } catch (\RuntimeException) {
+        }
+
+        self::assertSame([], $audit->operations());
+    }
+
     public function test_a_concurrent_request_surfaces_the_domain_error_not_a_500(): void
     {
         // Both requests pass the pre-check (no pending row exists yet); one of
