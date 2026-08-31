@@ -5,6 +5,9 @@ declare(strict_types=1);
 namespace App\Tests\Module\SiteReview\Command;
 
 use App\Module\Account\Entity\User;
+use App\Module\Audit\AuditActorProviderInterface;
+use App\Module\Audit\Auditor;
+use App\Module\Audit\AuditOutcome;
 use App\Module\Project\Entity\Project;
 use App\Module\SiteReview\Command\AddCommentCommand;
 use App\Module\SiteReview\Command\AddCommentHandler;
@@ -13,6 +16,9 @@ use App\Module\SiteReview\Command\UpdateCommentCommand;
 use App\Module\SiteReview\Command\UpdateCommentHandler;
 use App\Module\SiteReview\Entity\SiteReviewComment;
 use App\Module\SiteReview\Entity\SiteReviewCommentStatus;
+use App\Module\SiteReview\Repository\SiteReviewCommentRepository;
+use App\Tests\Support\DirectLogging;
+use App\Tests\Support\RecordingAuditor;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 
@@ -21,6 +27,7 @@ final class UpdateCommentHandlerTest extends KernelTestCase
     private EntityManagerInterface $em;
     private AddCommentHandler $addHandler;
     private UpdateCommentHandler $handler;
+    private RecordingAuditor $audit;
 
     protected function setUp(): void
     {
@@ -31,9 +38,12 @@ final class UpdateCommentHandlerTest extends KernelTestCase
         $addHandler = self::getContainer()->get(AddCommentHandler::class);
         self::assertInstanceOf(AddCommentHandler::class, $addHandler);
         $this->addHandler = $addHandler;
-        $handler = self::getContainer()->get(UpdateCommentHandler::class);
-        self::assertInstanceOf(UpdateCommentHandler::class, $handler);
-        $this->handler = $handler;
+        $comments = self::getContainer()->get(SiteReviewCommentRepository::class);
+        self::assertInstanceOf(SiteReviewCommentRepository::class, $comments);
+        $actors = self::getContainer()->get(AuditActorProviderInterface::class);
+        self::assertInstanceOf(AuditActorProviderInterface::class, $actors);
+        $this->audit = new RecordingAuditor($actors);
+        $this->handler = new UpdateCommentHandler($comments, $this->em, $this->audit->auditor);
     }
 
     public function test_edits_a_pending_comment_body(): void
@@ -69,6 +79,50 @@ final class UpdateCommentHandlerTest extends KernelTestCase
 
         $this->expectException(CommentNotFound::class);
         ($this->handler)(new UpdateCommentCommand($siteB, $comment->id ?? throw new \LogicException('comment id must not be null'), 'edited'));
+    }
+
+    public function test_an_edited_comment_is_recorded_on_the_domain_channel(): void
+    {
+        $project = $this->project('upd-audit@example.com');
+        $comment = ($this->addHandler)(new AddCommentCommand($project, 'orig', '', '', 'https://app/x'));
+        $commentId = $comment->id ?? throw new \LogicException('comment id must not be null');
+
+        ($this->handler)(new UpdateCommentCommand($project, $commentId, 'edited'));
+
+        $record = $this->audit->record('site_review.comment.updated');
+        self::assertSame(AuditOutcome::Success, $record->outcome);
+        self::assertSame(Auditor::CATEGORY_DOMAIN, $record->category);
+        self::assertNotNull($record->subject);
+        self::assertSame('site_review_comment', $record->subject->type);
+        self::assertSame((string) $commentId, $record->subject->id);
+        self::assertSame([
+            'projectId' => (string) $project->id,
+            'commentId' => (string) $commentId,
+        ], $record->context);
+
+        self::assertSame(['site_review.comment.updated'], $this->audit->domainLogLines());
+        self::assertSame([], $this->audit->securityLogLines());
+    }
+
+    public function test_an_unknown_comment_records_nothing(): void
+    {
+        $siteA = $this->project('upd-audit-miss-a@example.com', 'site-a');
+        $siteB = $this->project('upd-audit-miss-b@example.com', 'site-b');
+        $comment = ($this->addHandler)(new AddCommentCommand($siteA, 'orig', '', '', 'https://app/x'));
+        $commentId = $comment->id ?? throw new \LogicException('comment id must not be null');
+
+        try {
+            ($this->handler)(new UpdateCommentCommand($siteB, $commentId, 'edited'));
+            self::fail('Expected CommentNotFound for a comment of another project.');
+        } catch (CommentNotFound) {
+        }
+
+        self::assertSame([], $this->audit->operations());
+    }
+
+    public function test_the_handler_keeps_no_logger_beside_the_auditor(): void
+    {
+        DirectLogging::assertRemovedFrom(UpdateCommentHandler::class);
     }
 
     /** @param non-empty-string $email */

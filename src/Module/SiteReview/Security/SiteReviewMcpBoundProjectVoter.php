@@ -4,11 +4,12 @@ declare(strict_types=1);
 
 namespace App\Module\SiteReview\Security;
 
+use App\Module\Audit\Auditor;
+use App\Module\Audit\AuditOutcome;
+use App\Module\Audit\AuditSubject;
 use App\Module\Project\Entity\Project;
 use App\Module\Project\Security\AuthenticatedProjectResolver;
 use App\Module\SiteReview\Entity\SiteReviewComment;
-use Monolog\Attribute\WithMonologChannel;
-use Psr\Log\LoggerInterface;
 use Symfony\Component\Security\Core\Authentication\Token\TokenInterface;
 use Symfony\Component\Security\Core\Authorization\Voter\Vote;
 use Symfony\Component\Security\Core\Authorization\Voter\Voter;
@@ -29,7 +30,6 @@ use Symfony\Component\Security\Core\Authorization\Voter\Voter;
  *
  * @extends Voter<'site_review.mcp_read'|'site_review.mcp_write', Project|SiteReviewComment>
  */
-#[WithMonologChannel('app_security')]
 final class SiteReviewMcpBoundProjectVoter extends Voter
 {
     public const string READ = 'site_review.mcp_read';
@@ -42,7 +42,7 @@ final class SiteReviewMcpBoundProjectVoter extends Voter
 
     public function __construct(
         private readonly AuthenticatedProjectResolver $projectResolver,
-        private readonly LoggerInterface $logger,
+        private readonly Auditor $auditor,
     ) {
     }
 
@@ -63,12 +63,18 @@ final class SiteReviewMcpBoundProjectVoter extends Voter
             return true;
         }
 
-        $this->logger->info('site_review.mcp.access_denied', [
-            'attribute' => $attribute,
-            'subjectId' => (string) $subject->id,
-            'subjectProjectId' => (string) $subjectProject->id,
-            'boundProjectId' => null === $boundProject ? null : (string) $boundProject->id,
-        ]);
+        $this->auditor->record(
+            'site_review.mcp.access_denied',
+            AuditOutcome::Refused,
+            [
+                'attribute' => $attribute,
+                'subjectId' => (string) $subject->id,
+                'subjectProjectId' => (string) $subjectProject->id,
+                'boundProjectId' => null === $boundProject ? null : (string) $boundProject->id,
+            ],
+            new AuditSubject($subject instanceof Project ? 'project' : 'site_review_comment', (string) $subject->id),
+            Auditor::CATEGORY_SECURITY,
+        );
 
         return false;
     }

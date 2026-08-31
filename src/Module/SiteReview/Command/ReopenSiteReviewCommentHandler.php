@@ -4,15 +4,17 @@ declare(strict_types=1);
 
 namespace App\Module\SiteReview\Command;
 
+use App\Module\Audit\Auditor;
+use App\Module\Audit\AuditOutcome;
+use App\Module\Audit\AuditSubject;
 use App\Module\SiteReview\Entity\SiteReviewCommentStatus;
 use Doctrine\ORM\EntityManagerInterface;
-use Psr\Log\LoggerInterface;
 
 final readonly class ReopenSiteReviewCommentHandler
 {
     public function __construct(
         private EntityManagerInterface $em,
-        private LoggerInterface $logger,
+        private Auditor $auditor,
     ) {
     }
 
@@ -21,8 +23,11 @@ final readonly class ReopenSiteReviewCommentHandler
         $command->comment->status = SiteReviewCommentStatus::Pending;
         $this->em->flush();
 
-        $this->logger->info('site_review.comment.reopened', [
-            'commentId' => (string) $command->comment->id,
-        ]);
+        $this->auditor->record(
+            'site_review.comment.reopened',
+            AuditOutcome::Success,
+            ['commentId' => (string) $command->comment->id],
+            new AuditSubject('site_review_comment', (string) $command->comment->id),
+        );
     }
 }
