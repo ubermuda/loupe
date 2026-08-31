@@ -7,6 +7,7 @@ twig:
         app_source_url: '%app.source_url%'
         app_docs_url: '%app.docs_url%'
     paths:
+        '%kernel.project_dir%/templates/Audit': 'Audit'
         '%kernel.project_dir%/templates/Module/Analytics': 'Analytics'
         '%kernel.project_dir%/templates/Module/Account': 'Account'
         '%kernel.project_dir%/templates/Module/Admin': 'Admin'
