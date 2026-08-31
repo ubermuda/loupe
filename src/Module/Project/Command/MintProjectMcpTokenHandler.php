@@ -35,38 +35,49 @@ final readonly class MintProjectMcpTokenHandler
         // token, leaving the losing one valid but bound to no project. Re-check
         // against committed state (not the possibly-stale in-memory
         // association) once the lock is held.
-        return $this->em->wrapInTransaction(function () use ($project): string {
-            $this->em->lock($project, LockMode::PESSIMISTIC_WRITE);
+        [$raw, $tokenId] = $this->em->wrapInTransaction(
+            /** @return array{non-empty-string, string} */
+            function () use ($project): array {
+                $this->em->lock($project, LockMode::PESSIMISTIC_WRITE);
 
-            if ($this->projects->hasCommittedMcpToken($project)) {
-                $this->auditor->record(
-                    'project.mcp_token_mint_rejected',
-                    AuditOutcome::Refused,
-                    ['projectId' => (string) $project->id],
-                    new AuditSubject('project', (string) $project->id),
-                    Auditor::CATEGORY_SECURITY,
-                );
-                throw new DomainErrors(['token' => 'project.error.mcp_token_already_minted']);
-            }
+                if ($this->projects->hasCommittedMcpToken($project)) {
+                    // Recorded inside the transaction on purpose. The refusal
+                    // changes no state, so the rollback this throw causes has
+                    // nothing to contradict, and the record stays true.
+                    $this->auditor->record(
+                        'project.mcp_token_mint_rejected',
+                        AuditOutcome::Refused,
+                        ['projectId' => (string) $project->id],
+                        new AuditSubject('project', (string) $project->id),
+                        Auditor::CATEGORY_SECURITY,
+                    );
+                    throw new DomainErrors(['token' => 'project.error.mcp_token_already_minted']);
+                }
 
-            // ApiToken.label is a 100-char column while Project.name allows 100 — truncate to fit.
-            [$token, $raw] = ApiToken::issue($project->owner, 'MCP: '.mb_substr($project->name, 0, 95), ApiTokenScope::Mcp);
-            $project->mcpToken = $token;
-            $this->em->persist($token);
-            $this->em->flush();
+                // ApiToken.label is a 100-char column while Project.name allows 100 — truncate to fit.
+                [$token, $raw] = ApiToken::issue($project->owner, 'MCP: '.mb_substr($project->name, 0, 95), ApiTokenScope::Mcp);
+                $project->mcpToken = $token;
+                $this->em->persist($token);
+                $this->em->flush();
 
-            $this->auditor->record(
-                'project.mcp_token_minted',
-                AuditOutcome::Success,
-                [
-                    'projectId' => (string) $project->id,
-                    'tokenId' => (string) $token->id,
-                ],
-                new AuditSubject('api_token', (string) $token->id),
-                Auditor::CATEGORY_SECURITY,
-            );
+                return [$raw, (string) $token->id];
+            },
+        );
 
-            return $raw;
-        });
+        // Recorded after the commit, never inside it. The audit sink drains
+        // outside the business transaction on purpose, so a record written in
+        // there would outlive a rollback and claim a token nobody can use.
+        $this->auditor->record(
+            'project.mcp_token_minted',
+            AuditOutcome::Success,
+            [
+                'projectId' => (string) $project->id,
+                'tokenId' => $tokenId,
+            ],
+            new AuditSubject('api_token', $tokenId),
+            Auditor::CATEGORY_SECURITY,
+        );
+
+        return $raw;
     }
 }

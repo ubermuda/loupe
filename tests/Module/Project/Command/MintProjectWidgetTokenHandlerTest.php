@@ -23,6 +23,7 @@ final class MintProjectWidgetTokenHandlerTest extends KernelTestCase
 {
     private EntityManagerInterface $em;
     private MintProjectWidgetTokenHandler $handler;
+    private ProjectRepository $projects;
     private RecordingAuditor $audit;
 
     protected function setUp(): void
@@ -33,6 +34,7 @@ final class MintProjectWidgetTokenHandlerTest extends KernelTestCase
         $this->em = $em;
         $projects = self::getContainer()->get(ProjectRepository::class);
         self::assertInstanceOf(ProjectRepository::class, $projects);
+        $this->projects = $projects;
         $actors = self::getContainer()->get(AuditActorProviderInterface::class);
         self::assertInstanceOf(AuditActorProviderInterface::class, $actors);
         $this->audit = new RecordingAuditor($actors);
@@ -106,6 +108,45 @@ final class MintProjectWidgetTokenHandlerTest extends KernelTestCase
     public function test_the_handler_keeps_no_logger_beside_the_auditor(): void
     {
         DirectLogging::assertRemovedFrom(MintProjectWidgetTokenHandler::class);
+    }
+
+    /**
+     * The sink drains outside the business transaction, so a record made inside
+     * one outlives its rollback. A commit that fails after the mint must
+     * therefore leave no record claiming a token was minted.
+     */
+    public function test_a_commit_that_fails_after_the_mint_records_nothing(): void
+    {
+        $project = $this->project('mint-widget-rollback@example.com', 'rolled-back');
+        $handler = new MintProjectWidgetTokenHandler($this->failingCommitEntityManager(), $this->projects, $this->audit->auditor);
+
+        try {
+            $handler(new MintProjectWidgetTokenCommand($project));
+            self::fail('a failed commit must propagate');
+        } catch (\RuntimeException $e) {
+            self::assertSame('commit failed', $e->getMessage());
+        }
+
+        self::assertSame([], $this->audit->operations());
+        self::assertSame([], $this->audit->securityLogLines());
+    }
+
+    /**
+     * Runs the closure, then throws as a failing flush or commit would: the
+     * state change has happened in memory and nothing was kept.
+     */
+    private function failingCommitEntityManager(): EntityManagerInterface
+    {
+        $em = $this->createStub(EntityManagerInterface::class);
+        $em->method('wrapInTransaction')->willReturnCallback(
+            static function (callable $callback) use ($em): never {
+                $callback($em);
+
+                throw new \RuntimeException('commit failed');
+            },
+        );
+
+        return $em;
     }
 
     /** @param non-empty-string $email */

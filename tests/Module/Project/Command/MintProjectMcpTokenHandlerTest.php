@@ -144,6 +144,45 @@ final class MintProjectMcpTokenHandlerTest extends KernelTestCase
         DirectLogging::assertRemovedFrom(MintProjectMcpTokenHandler::class);
     }
 
+    /**
+     * The sink drains outside the business transaction, so a record made inside
+     * one outlives its rollback. A commit that fails after the mint must
+     * therefore leave no record claiming a token was minted.
+     */
+    public function test_a_commit_that_fails_after_the_mint_records_nothing(): void
+    {
+        $project = $this->project('mint-mcp-rollback@example.com', 'rolled-back');
+        $handler = new MintProjectMcpTokenHandler($this->failingCommitEntityManager(), $this->projects, $this->audit->auditor);
+
+        try {
+            $handler(new MintProjectMcpTokenCommand($project));
+            self::fail('a failed commit must propagate');
+        } catch (\RuntimeException $e) {
+            self::assertSame('commit failed', $e->getMessage());
+        }
+
+        self::assertSame([], $this->audit->operations());
+        self::assertSame([], $this->audit->securityLogLines());
+    }
+
+    /**
+     * Runs the closure, then throws as a failing flush or commit would: the
+     * state change has happened in memory and nothing was kept.
+     */
+    private function failingCommitEntityManager(): EntityManagerInterface
+    {
+        $em = $this->createStub(EntityManagerInterface::class);
+        $em->method('wrapInTransaction')->willReturnCallback(
+            static function (callable $callback) use ($em): never {
+                $callback($em);
+
+                throw new \RuntimeException('commit failed');
+            },
+        );
+
+        return $em;
+    }
+
     /** @param non-empty-string $email */
     private function project(string $email, string $name): Project
     {
