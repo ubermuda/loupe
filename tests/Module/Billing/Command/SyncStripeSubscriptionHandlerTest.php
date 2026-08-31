@@ -642,4 +642,33 @@ final class SyncStripeSubscriptionHandlerTest extends TestCase
 
         return $em;
     }
+
+    /**
+     * A filtered event changed nothing, so it must claim nothing. Each of the
+     * paths that leave `apply()` early reports no state change of its own.
+     */
+    public function test_a_replayed_event_records_nothing_beyond_the_first(): void
+    {
+        $profile = $this->profile();
+        $profile->user->disabledAt = new \DateTimeImmutable('-2 days');
+        $handler = $this->handler($profile);
+
+        $handler($this->command('active', '2026-07-25 12:00:05', 'evt_same'));
+        $this->audit->forget();
+        $handler($this->command('active', '2026-07-25 12:00:05', 'evt_same'));
+
+        self::assertSame([], $this->audit->operations());
+    }
+
+    public function test_a_stale_event_records_nothing(): void
+    {
+        $profile = $this->profile();
+        $handler = $this->handler($profile);
+
+        $handler($this->command('canceled', '2026-07-25 12:00:06', 'evt_new', 'customer.subscription.deleted', '-1 hour'));
+        $this->audit->forget();
+        $handler($this->command('active', '2026-07-25 12:00:05', 'evt_old'));
+
+        self::assertSame([], $this->audit->operations());
+    }
 }
