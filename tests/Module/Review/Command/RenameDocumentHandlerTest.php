@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Tests\Module\Review\Command;
 
+use App\Audit\AuditChannel;
 use App\Exception\DomainErrors;
 use App\Module\Account\Entity\User;
 use App\Module\Audit\Auditor;
@@ -146,6 +147,28 @@ final class RenameDocumentHandlerTest extends KernelTestCase
         }
 
         self::assertSame([], $this->audit->operations());
+    }
+
+    /**
+     * The whole log line, not only its message. Asserting the record alone
+     * leaves what the sink emits unpinned, and the log stream is where the
+     * titles used to be.
+     */
+    public function test_the_log_line_carries_the_record_and_nothing_a_person_wrote(): void
+    {
+        $document = $this->document('rename-log-line@example.com', 'Salary review — Dana');
+
+        ($this->handler)(new RenameDocumentCommand($document, 'Salary review — Dana Q3'));
+
+        self::assertCount(1, $this->audit->domainChannel->records);
+        self::assertSame([
+            'documentId' => (string) $document->id,
+            'projectId' => (string) $document->project->id,
+            'outcome' => 'success',
+            'channel' => AuditChannel::System->value,
+            'subjectType' => 'document',
+            'subjectId' => (string) $document->id,
+        ], $this->audit->domainChannel->records[0]['context']);
     }
 
     public function test_the_handler_keeps_no_logger_beside_the_auditor(): void
