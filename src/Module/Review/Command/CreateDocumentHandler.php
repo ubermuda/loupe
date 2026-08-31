@@ -60,13 +60,9 @@ final readonly class CreateDocumentHandler
         $this->em->persist($document);
         ($this->setTags)(new SetDocumentTagsCommand($document, $command->tagNames));
 
-        // After setTags, because that is the flush: the indexer reads the rows
-        // back over SQL, so it sees nothing until they exist.
-        $this->searchIndexer->index($document);
-
-        // After setTags, which owns the only flush: before it the document has
-        // no committed id, and a failed flush would leave a record for a
-        // document that was never written.
+        // Between the flush and the index. Before the flush the document has no
+        // committed id, and after the index a throwing indexer would leave the
+        // document written with no record that it was created.
         $this->auditor->record(
             'review.document.created',
             AuditOutcome::Success,
@@ -78,6 +74,10 @@ final readonly class CreateDocumentHandler
             ],
             new AuditSubject('document', (string) $document->id),
         );
+
+        // After setTags, because that is the flush: the indexer reads the rows
+        // back over SQL, so it sees nothing until they exist.
+        $this->searchIndexer->index($document);
 
         return $document;
     }

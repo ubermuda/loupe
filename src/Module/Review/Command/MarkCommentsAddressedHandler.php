@@ -7,6 +7,7 @@ namespace App\Module\Review\Command;
 use App\Module\Audit\Auditor;
 use App\Module\Audit\AuditOutcome;
 use App\Module\Audit\AuditSubject;
+use App\Module\Review\Entity\Comment;
 use App\Module\Review\Entity\CommentStatus;
 use App\Module\Review\Repository\CommentRepository;
 use App\Module\Review\Repository\DocumentVersionRepository;
@@ -27,7 +28,8 @@ final readonly class MarkCommentsAddressedHandler
     }
 
     /**
-     * @return list<MarkCommentAddressedOutcome> one outcome per comment, in the order given
+     * @return list<MarkCommentAddressedOutcome> one outcome per comment, in the
+     *                                           order given; a comment named more than once shares one outcome
      */
     public function __invoke(MarkCommentsAddressedCommand $command): array
     {
@@ -36,64 +38,33 @@ final readonly class MarkCommentsAddressedHandler
         /** @var array<string, string> $currentVersionIds latest version id, keyed by document id */
         $currentVersionIds = [];
 
+        /** @var array<string, array{Comment, MarkCommentAddressedOutcome}> $decided keyed by comment id */
+        $decided = [];
+
         // One transaction for the batch: each comment is written as it is
         // decided, so without this a failure partway through would leave the
         // earlier ones addressed while the call reports an error.
-        $this->em->wrapInTransaction(function () use ($command, &$currentVersionIds, &$outcomes): void {
+        $this->em->wrapInTransaction(function () use ($command, &$currentVersionIds, &$decided, &$outcomes): void {
             foreach ($command->comments as $comment) {
-                // Checked first, because a superseded comment is wrong in a way the
-                // other reasons mask: a pre-revision id still resolves and still
-                // looks pending, but flipping it moves a row nobody reads while
-                // the live thread stays open.
-                $documentId = (string) $comment->version->document->id;
-                $currentVersionIds[$documentId] ??= (string) $this->documentVersions->findLatest($comment->version->document)->id;
-                if ($currentVersionIds[$documentId] !== (string) $comment->version->id) {
-                    $outcomes[] = MarkCommentAddressedOutcome::Superseded;
-                    continue;
+                $commentId = (string) $comment->id;
+
+                // A comment named twice in one batch is still one comment.
+                // Deciding it twice would address it and then find it already
+                // addressed, so the call would answer one question two
+                // different ways and record both.
+                if (!isset($decided[$commentId])) {
+                    $decided[$commentId] = [$comment, $this->decide($comment, $currentVersionIds)];
                 }
 
-                // Status lives on the thread root, so a reply has no status of
-                // its own to move. Checked before the status branch below:
-                // threadStatus reads through to the root and would make a reply
-                // in a pending thread look eligible.
-                if (null !== $comment->parent) {
-                    $outcomes[] = MarkCommentAddressedOutcome::IsReply;
-                    continue;
-                }
-
-                if (CommentStatus::Pending !== $comment->status) {
-                    // No default arm: a status added later must be an unhandled
-                    // match here rather than be silently reported as resolved.
-                    $outcomes[] = match ($comment->status) {
-                        CommentStatus::Addressed => MarkCommentAddressedOutcome::AlreadyAddressed,
-                        CommentStatus::Resolved => MarkCommentAddressedOutcome::AlreadyResolved,
-                    };
-                    continue;
-                }
-
-                // The status check above is advisory: it produces the precise
-                // outcome, but a human can click Resolve between it and the
-                // write. Only the conditional UPDATE decides.
-                if (!$this->comments->markAddressedIfPending($comment)) {
-                    $outcomes[] = match ($this->comments->currentStatus($comment)) {
-                        CommentStatus::Addressed => MarkCommentAddressedOutcome::AlreadyAddressed,
-                        CommentStatus::Resolved => MarkCommentAddressedOutcome::AlreadyResolved,
-                        default => MarkCommentAddressedOutcome::NotFound,
-                    };
-                    continue;
-                }
-
-                $outcomes[] = MarkCommentAddressedOutcome::Addressed;
+                $outcomes[] = $decided[$commentId][1];
             }
         });
 
-        // One record per comment, not one per call. The batch produces six
-        // different per-comment outcomes, which a single summary record cannot
-        // carry. Written after the transaction commits, so a rolled-back batch
-        // records nothing at all.
-        foreach ($command->comments as $index => $comment) {
-            $outcome = $outcomes[$index];
-
+        // One record per comment, not one per call and not one per id given.
+        // The batch produces six different per-comment outcomes, which a single
+        // summary record cannot carry. Written after the transaction commits,
+        // so a rolled-back batch records nothing at all.
+        foreach ($decided as [$comment, $outcome]) {
             $this->auditor->record(
                 'review.comment.addressed',
                 MarkCommentAddressedOutcome::Addressed === $outcome ? AuditOutcome::Success : AuditOutcome::Refused,
@@ -108,5 +79,51 @@ final readonly class MarkCommentsAddressedHandler
         }
 
         return $outcomes;
+    }
+
+    /**
+     * @param array<string, string> $currentVersionIds latest version id, keyed by document id
+     */
+    private function decide(Comment $comment, array &$currentVersionIds): MarkCommentAddressedOutcome
+    {
+        // Checked first, because a superseded comment is wrong in a way the
+        // other reasons mask: a pre-revision id still resolves and still
+        // looks pending, but flipping it moves a row nobody reads while
+        // the live thread stays open.
+        $documentId = (string) $comment->version->document->id;
+        $currentVersionIds[$documentId] ??= (string) $this->documentVersions->findLatest($comment->version->document)->id;
+        if ($currentVersionIds[$documentId] !== (string) $comment->version->id) {
+            return MarkCommentAddressedOutcome::Superseded;
+        }
+
+        // Status lives on the thread root, so a reply has no status of its own
+        // to move. Checked before the status branch below: threadStatus reads
+        // through to the root and would make a reply in a pending thread look
+        // eligible.
+        if (null !== $comment->parent) {
+            return MarkCommentAddressedOutcome::IsReply;
+        }
+
+        if (CommentStatus::Pending !== $comment->status) {
+            // No default arm: a status added later must be an unhandled
+            // match here rather than be silently reported as resolved.
+            return match ($comment->status) {
+                CommentStatus::Addressed => MarkCommentAddressedOutcome::AlreadyAddressed,
+                CommentStatus::Resolved => MarkCommentAddressedOutcome::AlreadyResolved,
+            };
+        }
+
+        // The status check above is advisory: it produces the precise outcome,
+        // but a human can click Resolve between it and the write. Only the
+        // conditional UPDATE decides.
+        if (!$this->comments->markAddressedIfPending($comment)) {
+            return match ($this->comments->currentStatus($comment)) {
+                CommentStatus::Addressed => MarkCommentAddressedOutcome::AlreadyAddressed,
+                CommentStatus::Resolved => MarkCommentAddressedOutcome::AlreadyResolved,
+                default => MarkCommentAddressedOutcome::NotFound,
+            };
+        }
+
+        return MarkCommentAddressedOutcome::Addressed;
     }
 }

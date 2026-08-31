@@ -30,12 +30,18 @@ final readonly class ResolveCommentHandler
             throw new DomainErrors(['comment' => 'comment.error.resolve_reply']);
         }
 
+        // Read before the assignment below overwrites it.
+        $alreadyResolved = CommentStatus::Resolved === $command->comment->status;
+
         $command->comment->status = CommentStatus::Resolved;
         $this->em->flush();
 
         $this->auditor->record(
             'review.comment.resolved',
-            AuditOutcome::Success,
+            // Refused when the thread was already resolved: no status moved,
+            // and MarkCommentsAddressedHandler already reports that same fact
+            // as a refusal rather than a success.
+            $alreadyResolved ? AuditOutcome::Refused : AuditOutcome::Success,
             [
                 'commentId' => (string) $command->comment->id,
                 'documentId' => (string) $command->comment->version->document->id,

@@ -200,4 +200,32 @@ final class ResolveCommentHandlerTest extends KernelTestCase
 
         return [$owner, $document, $comment];
     }
+
+    /**
+     * A second Resolve moves nothing, so recording it as a success would build
+     * a trail of resolutions that never happened. MarkCommentsAddressedHandler
+     * already calls this same fact a refusal.
+     */
+    public function test_resolving_an_already_resolved_comment_is_recorded_as_refused(): void
+    {
+        self::bootKernel();
+        $audit = RecordingAuditor::installedIn(self::getContainer());
+        [, $document, $comment] = $this->seedForAudit('resolve-audit-twice@example.com');
+        $audit->forget();
+
+        $handler = self::getContainer()->get(ResolveCommentHandler::class);
+        self::assertInstanceOf(ResolveCommentHandler::class, $handler);
+
+        $handler(new ResolveCommentCommand(comment: $comment));
+        $handler(new ResolveCommentCommand(comment: $comment));
+
+        $records = $audit->records('review.comment.resolved');
+        self::assertCount(2, $records);
+        self::assertSame(AuditOutcome::Success, $records[0]->outcome);
+        self::assertSame(AuditOutcome::Refused, $records[1]->outcome);
+        self::assertSame([
+            'commentId' => (string) $comment->id,
+            'documentId' => (string) $document->id,
+        ], $records[1]->context);
+    }
 }

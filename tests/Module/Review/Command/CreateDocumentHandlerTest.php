@@ -13,7 +13,9 @@ use App\Module\Review\Command\CreateDocumentCommand;
 use App\Module\Review\Command\CreateDocumentHandler;
 use App\Module\Review\Entity\DocumentStatus;
 use App\Module\Review\Entity\Tag;
+use App\Module\Review\Service\DocumentSearchIndexer;
 use App\Tests\Support\RecordingAuditor;
+use Doctrine\DBAL\Connection;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\DataProvider;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
@@ -263,5 +265,51 @@ final class CreateDocumentHandlerTest extends KernelTestCase
         }
 
         self::assertSame([], $audit->operations());
+    }
+
+    /**
+     * The document is committed by the time the indexer runs, so a trail that
+     * held the nested tags-update and no creation would describe a document
+     * that appeared from nowhere.
+     */
+    public function test_a_throwing_indexer_still_leaves_a_creation_record(): void
+    {
+        self::bootKernel();
+        $em = self::getContainer()->get(EntityManagerInterface::class);
+        self::assertInstanceOf(EntityManagerInterface::class, $em);
+        $user = new User(fullName: 'Agent', email: 'create-audit-index@example.com', password: 'hashed-placeholder');
+        $em->persist($user);
+        $project = new Project($user, 'p-'.uniqid());
+        $em->persist($project);
+        $em->flush();
+
+        $audit = RecordingAuditor::installedIn(self::getContainer());
+
+        $connection = self::createStub(Connection::class);
+        $connection->method('executeStatement')->willThrowException(new \RuntimeException('index is down'));
+        self::getContainer()->set(DocumentSearchIndexer::class, new DocumentSearchIndexer($connection));
+
+        $handler = self::getContainer()->get(CreateDocumentHandler::class);
+        self::assertInstanceOf(CreateDocumentHandler::class, $handler);
+
+        try {
+            $handler(new CreateDocumentCommand($project, 'Auth PRD', '# Auth', tagNames: ['design']));
+            self::fail('the indexer must have thrown');
+        } catch (\RuntimeException $e) {
+            self::assertSame('index is down', $e->getMessage());
+        }
+
+        // The row is really there, which is what makes the missing record a lie.
+        self::assertSame(1, (int) $em->getConnection()->fetchOne(
+            'SELECT count(*) FROM documents WHERE project_id = :id',
+            ['id' => (string) $project->id],
+        ));
+
+        $record = $audit->record('review.document.created');
+        self::assertSame(AuditOutcome::Success, $record->outcome);
+        self::assertSame(
+            ['review.document.tags_updated', 'review.document.created'],
+            $audit->domainLogLines(),
+        );
     }
 }

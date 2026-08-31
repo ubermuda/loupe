@@ -230,4 +230,64 @@ final class MarkCommentsAddressedHandlerTest extends KernelTestCase
             static fn (string|int|float|bool|null $value): bool => \is_string($value) && str_contains($value, 'Please fix'),
         ));
     }
+
+    /**
+     * The MCP tool accepts a list of ids and resolves each occurrence to the
+     * same row, so the same comment can reach the batch twice. Deciding it
+     * twice addressed it and then found it already addressed, which put two
+     * disagreeing records against one comment.
+     */
+    public function test_the_same_comment_named_twice_is_decided_and_recorded_once(): void
+    {
+        $comment = $this->comment();
+
+        $outcomes = ($this->handler)(new MarkCommentsAddressedCommand([$comment, $comment]));
+
+        self::assertSame(
+            [MarkCommentAddressedOutcome::Addressed, MarkCommentAddressedOutcome::Addressed],
+            $outcomes,
+        );
+        self::assertCount(1, $this->audit->records('review.comment.addressed'));
+        $record = $this->audit->record('review.comment.addressed');
+        self::assertSame(AuditOutcome::Success, $record->outcome);
+        self::assertSame('Addressed', $record->context['result']);
+        self::assertSame((string) $comment->id, $record->subject?->id);
+    }
+
+    /** Every occurrence gets the one answer, so the caller reads no contradiction either. */
+    public function test_a_repeated_comment_returns_the_same_outcome_for_every_occurrence(): void
+    {
+        $comment = $this->comment();
+        $other = $this->comment('more of it below');
+
+        $outcomes = ($this->handler)(new MarkCommentsAddressedCommand([$comment, $other, $comment]));
+
+        self::assertSame([
+            MarkCommentAddressedOutcome::Addressed,
+            MarkCommentAddressedOutcome::Addressed,
+            MarkCommentAddressedOutcome::Addressed,
+        ], $outcomes);
+        self::assertCount(2, $this->audit->records('review.comment.addressed'));
+    }
+
+    /** A repeat of a comment the batch refuses is refused once, not twice. */
+    public function test_a_repeated_refusal_is_recorded_once(): void
+    {
+        $root = $this->comment();
+        $replyHandler = self::getContainer()->get(ReplyToCommentHandler::class);
+        self::assertInstanceOf(ReplyToCommentHandler::class, $replyHandler);
+        $reply = $replyHandler(new ReplyToCommentCommand(actor: $this->owner, parent: $root, body: 'A reply'));
+        $this->audit->forget();
+
+        $outcomes = ($this->handler)(new MarkCommentsAddressedCommand([$reply, $reply]));
+
+        self::assertSame(
+            [MarkCommentAddressedOutcome::IsReply, MarkCommentAddressedOutcome::IsReply],
+            $outcomes,
+        );
+        $records = $this->audit->records('review.comment.addressed');
+        self::assertCount(1, $records);
+        self::assertSame(AuditOutcome::Refused, $records[0]->outcome);
+        self::assertSame('IsReply', $records[0]->context['result']);
+    }
 }
