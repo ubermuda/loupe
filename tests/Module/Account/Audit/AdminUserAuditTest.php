@@ -18,6 +18,7 @@ use App\Module\Audit\AuditOutcome;
 use App\Tests\Support\DirectLogging;
 use App\Tests\Support\RecordingAuditor;
 use Doctrine\ORM\EntityManagerInterface;
+use PHPUnit\Framework\Attributes\DataProvider;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 
 /**
@@ -126,6 +127,64 @@ final class AdminUserAuditTest extends KernelTestCase
             'audit-update-moved@example.com',
             json_encode($this->audit->domainChannel->records, \JSON_THROW_ON_ERROR),
         );
+    }
+
+    /**
+     * Doctrine flushes an empty unit of work for a resubmitted form, so nothing
+     * downstream notices; the record would be the only thing claiming a change.
+     */
+    public function test_an_update_that_changes_nothing_records_nothing(): void
+    {
+        $this->boot();
+        $handler = $this->handler(UpdateUserHandler::class);
+        $actor = $this->seedUser('audit-noop-actor@example.com', ['ROLE_ADMIN']);
+        $target = $this->seedUser('audit-noop-target@example.com');
+        $target->emailVerifiedAt = new \DateTimeImmutable();
+        $this->em->flush();
+
+        $handler(new UpdateUserCommand(
+            target: $target,
+            actor: $actor,
+            fullName: 'Audit User',
+            email: 'audit-noop-target@example.com',
+            isAdmin: false,
+            isVerified: true,
+        ));
+
+        self::assertSame([], $this->audit->operations());
+    }
+
+    /** @return iterable<string, array{string, string, bool, bool}> */
+    public static function singleFieldChanges(): iterable
+    {
+        yield 'name' => ['Renamed', 'keep@example.com', false, false];
+        yield 'email' => ['Audit User', 'moved@example.com', false, false];
+        yield 'role' => ['Audit User', 'keep@example.com', true, false];
+        yield 'verification' => ['Audit User', 'keep@example.com', false, true];
+    }
+
+    #[DataProvider('singleFieldChanges')]
+    public function test_changing_one_field_still_records_the_update(
+        string $fullName,
+        string $email,
+        bool $isAdmin,
+        bool $isVerified,
+    ): void {
+        $this->boot();
+        $handler = $this->handler(UpdateUserHandler::class);
+        $actor = $this->seedUser('audit-one-field-actor-'.md5($fullName.$email).'@example.com', ['ROLE_ADMIN']);
+        $target = $this->seedUser('keep@example.com');
+
+        $handler(new UpdateUserCommand(
+            target: $target,
+            actor: $actor,
+            fullName: $fullName,
+            email: $email,
+            isAdmin: $isAdmin,
+            isVerified: $isVerified,
+        ));
+
+        self::assertSame(['account.admin.user_updated'], $this->audit->operations());
     }
 
     public function test_an_admin_deletion_records_both_the_admin_action_and_the_deletion(): void

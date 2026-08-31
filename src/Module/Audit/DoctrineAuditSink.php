@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Module\Audit;
 
-use Doctrine\DBAL\ArrayParameterType;
 use Doctrine\DBAL\Connection;
 use Doctrine\ORM\Mapping\ClassMetadata;
 use Doctrine\Persistence\ManagerRegistry;
@@ -86,13 +85,12 @@ final class DoctrineAuditSink implements AuditSinkInterface, ResetInterface
         $rows = $this->rows;
         $this->rows = [];
 
-        $this->nullMissingReferences($rows);
-
+        $template = $this->rowTemplate();
         $failure = null;
 
         foreach (array_chunk($rows, max(1, intdiv(self::MAX_BIND_PARAMETERS, count(self::COLUMNS)))) as $chunk) {
             try {
-                $this->insert($chunk);
+                $this->insert($template, $chunk);
             } catch (\Throwable $e) {
                 $failure ??= $e;
             }
@@ -107,62 +105,6 @@ final class DoctrineAuditSink implements AuditSinkInterface, ResetInterface
     public function reset(): void
     {
         $this->rows = [];
-    }
-
-    /**
-     * An account is deleted before the record of its own deletion drains, and
-     * the foreign key would then reject the whole chunk. Nulling the reference
-     * reaches the same end state as the column's ON DELETE SET NULL, one insert
-     * later. Checked rather than caught: inside a wrapping transaction the
-     * rejected insert has already aborted it, so there is nothing left to retry.
-     *
-     * @param list<list<?string>> $rows
-     */
-    private function nullMissingReferences(array &$rows): void
-    {
-        foreach ([
-            'actor_id' => AuditActorInterface::class,
-            'credential_id' => AuditCredentialInterface::class,
-        ] as $column => $target) {
-            $index = array_search($column, self::COLUMNS, true);
-            if (!is_int($index)) {
-                continue;
-            }
-
-            $ids = array_values(array_unique(array_filter(
-                array_column($rows, $index),
-                static fn (?string $id): bool => null !== $id,
-            )));
-            $table = [] === $ids ? null : $this->identityTableFor($target);
-            if (null === $table) {
-                continue;
-            }
-
-            $missing = array_diff($ids, $this->presentIds($table, $ids));
-            foreach ($rows as $position => $row) {
-                if (in_array($row[$index], $missing, true)) {
-                    $rows[$position][$index] = null;
-                }
-            }
-        }
-    }
-
-    /**
-     * @param array{string, string} $table the table and its identifier column
-     * @param list<string>          $ids
-     *
-     * @return list<string>
-     */
-    private function presentIds(array $table, array $ids): array
-    {
-        /** @var list<string> $present */
-        $present = $this->connection->fetchFirstColumn(
-            sprintf('SELECT %1$s FROM %2$s WHERE %1$s IN (?)', $table[1], $table[0]),
-            [$ids],
-            [ArrayParameterType::STRING],
-        );
-
-        return $present;
     }
 
     /**
@@ -187,15 +129,41 @@ final class DoctrineAuditSink implements AuditSinkInterface, ResetInterface
     }
 
     /**
+     * An account can be deleted before the record of its own deletion drains,
+     * and the foreign key would then reject the whole chunk. Each reference is
+     * resolved by the insert itself rather than by a lookup before it, so a row
+     * that has gone lands as NULL — the end state the column's ON DELETE SET
+     * NULL already declares — with no window in between for it to go missing.
+     */
+    private function rowTemplate(): string
+    {
+        $references = [
+            'actor_id' => AuditActorInterface::class,
+            'credential_id' => AuditCredentialInterface::class,
+        ];
+
+        $placeholders = [];
+        foreach (self::COLUMNS as $column) {
+            $table = isset($references[$column]) ? $this->identityTableFor($references[$column]) : null;
+
+            // One placeholder either way, so a row still spends exactly one
+            // bind parameter per column and the chunk size stays correct.
+            $placeholders[] = null === $table
+                ? '?'
+                : sprintf('(SELECT %1$s FROM %2$s WHERE %1$s = ?)', $table[1], $table[0]);
+        }
+
+        return '('.implode(', ', $placeholders).')';
+    }
+
+    /**
      * @param non-empty-list<list<?string>> $rows
      */
-    private function insert(array $rows): void
+    private function insert(string $template, array $rows): void
     {
-        $row = '('.implode(', ', array_fill(0, count(self::COLUMNS), '?')).')';
-
         $this->connection->executeStatement(
             'INSERT INTO '.self::TABLE.' ('.implode(', ', self::COLUMNS).') VALUES '
-                .implode(', ', array_fill(0, count($rows), $row)),
+                .implode(', ', array_fill(0, count($rows), $template)),
             array_merge(...$rows),
         );
     }

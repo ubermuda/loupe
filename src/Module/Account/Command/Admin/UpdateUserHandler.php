@@ -40,13 +40,24 @@ final readonly class UpdateUserHandler
         if ('' === $email) {
             throw new \LogicException('Email is required; the form must reject a blank one before reaching here.');
         }
+        $fullName = trim($command->fullName);
         $emailChanged = $email !== $target->email;
+
+        // Compared before anything is assigned: a resubmitted form that changes
+        // no field is accepted, not refused, and must not leave a record
+        // claiming a transition the database never made.
+        if (!$emailChanged
+            && $fullName === $target->fullName
+            && $roles === $target->roles
+            && $command->isVerified === $target->isVerified()) {
+            return $target;
+        }
 
         if ($emailChanged && null !== $this->users->findOneByEmail($email)) {
             throw new DomainErrors(['email' => 'account.admin.users.error.email_taken']);
         }
 
-        $target->fullName = trim($command->fullName);
+        $target->fullName = $fullName;
         $target->roles = $roles;
 
         if ($emailChanged) {

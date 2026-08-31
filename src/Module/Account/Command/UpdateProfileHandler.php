@@ -21,7 +21,15 @@ final readonly class UpdateProfileHandler
     public function __invoke(UpdateProfileCommand $command): User
     {
         $user = $command->user;
-        $user->fullName = trim($command->fullName);
+        $fullName = trim($command->fullName);
+
+        // A submit that changes nothing is accepted, not refused — and an audit
+        // record would claim a transition the database never made.
+        if ($fullName === $user->fullName) {
+            return $user;
+        }
+
+        $user->fullName = $fullName;
         $this->em->flush();
 
         $this->auditor->record(

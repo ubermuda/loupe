@@ -81,6 +81,29 @@ final class AccountLifecycleAuditTest extends KernelTestCase
         );
     }
 
+    /** Same reasoning as the admin update: an unchanged name is not a transition. */
+    public function test_a_profile_update_that_changes_nothing_records_nothing(): void
+    {
+        $this->boot();
+        $user = $this->seedUser('audit-profile-noop@example.com');
+
+        $this->handler(UpdateProfileHandler::class)(new UpdateProfileCommand($user, 'Audit User'));
+
+        self::assertSame([], $this->audit->operations());
+        self::assertSame('Audit User', $user->fullName);
+    }
+
+    /** Trimming is what decides, so surrounding whitespace is still no change. */
+    public function test_a_profile_update_that_only_adds_whitespace_records_nothing(): void
+    {
+        $this->boot();
+        $user = $this->seedUser('audit-profile-space@example.com');
+
+        $this->handler(UpdateProfileHandler::class)(new UpdateProfileCommand($user, '  Audit User  '));
+
+        self::assertSame([], $this->audit->operations());
+    }
+
     public function test_a_completed_password_reset_is_recorded(): void
     {
         $this->boot();
