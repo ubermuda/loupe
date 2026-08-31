@@ -4,10 +4,15 @@ declare(strict_types=1);
 
 namespace App\Tests\Module\Account\Controller;
 
+use App\Module\Account\Controller\DownloadDataExportController;
 use App\Module\Account\Entity\DataExport;
 use App\Module\Account\Entity\User;
 use App\Module\Account\Export\DataExportArchiveBuilder;
+use App\Module\Audit\Auditor;
+use App\Module\Audit\AuditOutcome;
 use App\Tests\Support\AcceptedTerms;
+use App\Tests\Support\DirectLogging;
+use App\Tests\Support\RecordingAuditor;
 use Doctrine\ORM\EntityManagerInterface;
 use League\Flysystem\FilesystemOperator;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
@@ -215,6 +220,45 @@ final class DownloadDataExportControllerTest extends WebTestCase
         $client->request(Request::METHOD_GET, sprintf('/account/exports/%s/download?token=%s', $exportId, $rawToken));
 
         self::assertResponseStatusCodeSame(404);
+    }
+
+    public function test_a_refused_download_is_recorded_on_the_security_category(): void
+    {
+        $client = static::createClient();
+        $audit = RecordingAuditor::installedIn(static::getContainer());
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $owner = $this->createVerifiedUser($em, 'carol', 'carol-audit@example.com');
+        $other = $this->createVerifiedUser($em, 'dave', 'dave-audit@example.com');
+
+        $export = new DataExport($owner);
+        $rawToken = $export->complete();
+        $em->persist($export);
+        $em->flush();
+        $exportId = $export->id;
+        self::assertNotNull($exportId);
+        $em->clear();
+        $audit->forget();
+
+        $client->loginUser($other);
+        $client->request(Request::METHOD_GET, sprintf('/account/exports/%s/download?token=%s', $exportId, $rawToken));
+
+        self::assertResponseStatusCodeSame(404);
+
+        $record = $audit->record('account.data_export.download_denied');
+        self::assertSame(AuditOutcome::Refused, $record->outcome);
+        self::assertSame(Auditor::CATEGORY_SECURITY, $record->category);
+        self::assertSame(['id' => (string) $exportId], $record->context);
+        self::assertNotNull($record->subject);
+        self::assertSame('data_export', $record->subject->type);
+        self::assertSame((string) $exportId, $record->subject->id);
+
+        self::assertSame(['account.data_export.download_denied'], $audit->securityLogLines());
+        self::assertSame([], $audit->domainLogLines());
+    }
+
+    public function test_the_controller_keeps_no_logger_beside_the_auditor(): void
+    {
+        DirectLogging::assertRemovedFrom(DownloadDataExportController::class);
     }
 
     public function test_a_wrong_token_gets_404(): void

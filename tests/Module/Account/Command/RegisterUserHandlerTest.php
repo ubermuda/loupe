@@ -18,11 +18,14 @@ use App\Module\Audit\NullAuditActorProvider;
 use App\Module\Billing\Entity\SubscriptionKind;
 use App\Module\Billing\Repository\BillingProfileRepository;
 use App\Module\Billing\Service\TrialProvisioner;
+use App\Tests\Support\DirectLogging;
 use App\Tests\Support\InstalledInstance;
 use App\Tests\Support\RecordingAuditor;
+use App\Tests\Support\RecordingLogger;
 use Doctrine\DBAL\Driver\PDO\Exception as PdoDriverException;
 use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
 use Doctrine\ORM\EntityManagerInterface;
+use Psr\Log\LoggerInterface;
 use Psr\Log\NullLogger;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
@@ -82,6 +85,26 @@ final class RegisterUserHandlerTest extends KernelTestCase
 
         self::assertContains('account.registered', $audit->domainLogLines());
         self::assertSame([], $audit->securityLogLines());
+    }
+
+    /**
+     * The class keeps its logger for the listener-failure warning, so the
+     * registration itself must reach the log stream through the sink alone.
+     */
+    public function test_the_registration_is_not_logged_beside_the_record(): void
+    {
+        $audit = new RecordingAuditor(new NullAuditActorProvider());
+        $logger = new RecordingLogger();
+        $handler = $this->handlerWith($this->createStub(EventDispatcherInterface::class), $audit->auditor, $logger);
+
+        $handler(new RegisterUserCommand(
+            email: 'registered-direct@example.com',
+            fullName: 'Registered Direct',
+            plainPassword: 'SecurePassword1!',
+        ));
+
+        self::assertSame(['account.registered'], $audit->operations());
+        DirectLogging::assertOperationNotLoggedBy($logger, 'account.registered');
     }
 
     /** A refused registration creates nothing, so it states nothing. */
@@ -396,7 +419,7 @@ final class RegisterUserHandlerTest extends KernelTestCase
     }
 
     /** Container-wired collaborators with only the dispatcher swapped out. */
-    private function handlerWith(EventDispatcherInterface $dispatcher, ?Auditor $auditor = null): RegisterUserHandler
+    private function handlerWith(EventDispatcherInterface $dispatcher, ?Auditor $auditor = null, ?LoggerInterface $logger = null): RegisterUserHandler
     {
         $container = self::getContainer();
         $users = $container->get(UserRepository::class);
@@ -416,7 +439,7 @@ final class RegisterUserHandlerTest extends KernelTestCase
             registrationGate: $gate,
             waitlistEntries: $this->entries,
             eventDispatcher: $dispatcher,
-            logger: new NullLogger(),
+            logger: $logger ?? new NullLogger(),
             auditor: $auditor ?? new RecordingAuditor(new NullAuditActorProvider())->auditor,
             termsVersion: $this->currentTermsVersion(),
         );

@@ -16,23 +16,26 @@ use App\Module\Account\Repository\ConnectedAccountRepository;
 use App\Module\Account\Repository\UserRepository;
 use App\Module\Account\Repository\WaitlistEntryRepository;
 use App\Module\Account\Service\DisplayNameDeriver;
-use App\Module\Audit\Auditor;
-use App\Module\Audit\AuditOutcome;
-use App\Module\Audit\NullAuditActorProvider;
 use App\Module\Account\Service\InstallationState;
 use App\Module\Account\Service\RegistrationGate;
 use App\Module\Account\Service\SocialLoginOutcome;
 use App\Module\Account\Service\SocialLoginRace;
 use App\Module\Account\Service\SocialProfile;
 use App\Module\Account\Service\UnverifiedProviderEmail;
+use App\Module\Audit\Auditor;
+use App\Module\Audit\AuditOutcome;
+use App\Module\Audit\NullAuditActorProvider;
 use App\Module\Billing\Entity\SubscriptionKind;
 use App\Module\Billing\Repository\BillingProfileRepository;
 use App\Module\Billing\Service\TrialProvisioner;
+use App\Tests\Support\DirectLogging;
 use App\Tests\Support\InstalledInstance;
 use App\Tests\Support\RecordingAuditor;
+use App\Tests\Support\RecordingLogger;
 use Doctrine\DBAL\Driver\PDO\Exception as PdoDriverException;
 use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
 use Doctrine\ORM\EntityManagerInterface;
+use Psr\Log\LoggerInterface;
 use Psr\Log\NullLogger;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Symfony\Contracts\EventDispatcher\EventDispatcherInterface;
@@ -69,7 +72,7 @@ final class ResolveSocialLoginHandlerTest extends KernelTestCase
         );
     }
 
-    private function buildHandler(RegistrationGate $gate, EventDispatcherInterface $dispatcher, ?Auditor $auditor = null): ResolveSocialLoginHandler
+    private function buildHandler(RegistrationGate $gate, EventDispatcherInterface $dispatcher, ?Auditor $auditor = null, ?LoggerInterface $logger = null): ResolveSocialLoginHandler
     {
         $joinWaitlist = self::getContainer()->get(JoinWaitlistHandler::class);
         self::assertInstanceOf(JoinWaitlistHandler::class, $joinWaitlist);
@@ -81,7 +84,7 @@ final class ResolveSocialLoginHandlerTest extends KernelTestCase
             $gate,
             $joinWaitlist,
             $this->waitlistEntries,
-            new NullLogger(),
+            $logger ?? new NullLogger(),
             $dispatcher,
             new DisplayNameDeriver(),
             $auditor ?? new RecordingAuditor(new NullAuditActorProvider())->auditor,
@@ -382,6 +385,31 @@ final class ResolveSocialLoginHandlerTest extends KernelTestCase
 
         self::assertSame(['account.registered'], $audit->domainLogLines());
         self::assertSame([], $audit->securityLogLines());
+    }
+
+    /**
+     * The class keeps its logger for the OAuth-diversion and listener-failure
+     * diagnostics, so both migrated operations must reach the log stream
+     * through the sink alone.
+     */
+    public function test_the_migrated_operations_are_not_logged_beside_their_records(): void
+    {
+        $audit = new RecordingAuditor(new NullAuditActorProvider());
+        $logger = new RecordingLogger();
+        $handler = $this->buildHandler(
+            new RegistrationGate($this->openFlags(), $this->users, new InstallationState($this->users)),
+            $this->createStub(EventDispatcherInterface::class),
+            $audit->auditor,
+            $logger,
+        );
+
+        $handler(new ResolveSocialLoginCommand(
+            new SocialProfile(SocialProvider::Github, 'gh-direct', 'social-direct@example.com', 'Direct', emailVerified: true),
+        ));
+
+        self::assertSame(['account.registered'], $audit->operations());
+        DirectLogging::assertOperationNotLoggedBy($logger, 'account.registered');
+        DirectLogging::assertOperationNotLoggedBy($logger, 'account.social.registration_closed');
     }
 
     /** A login that only reuses an identity creates nothing, so it records nothing. */

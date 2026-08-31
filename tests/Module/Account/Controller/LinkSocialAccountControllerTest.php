@@ -4,11 +4,16 @@ declare(strict_types=1);
 
 namespace App\Tests\Module\Account\Controller;
 
+use App\Module\Account\Controller\LinkSocialAccountController;
 use App\Module\Account\Entity\SocialProvider;
 use App\Module\Account\Entity\User;
 use App\Module\Account\Repository\ConnectedAccountRepository;
 use App\Module\Account\Repository\UserRepository;
+use App\Module\Audit\Auditor;
+use App\Module\Audit\AuditOutcome;
 use App\Tests\Support\AcceptedTerms;
+use App\Tests\Support\DirectLogging;
+use App\Tests\Support\RecordingAuditor;
 use App\Tests\Support\SocialLoginScenario;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
@@ -99,6 +104,76 @@ final class LinkSocialAccountControllerTest extends WebTestCase
         // The pending identity is consumed: replaying the POST falls back to login.
         $client->request(Request::METHOD_POST, '/oauth/link');
         self::assertResponseRedirects('/login');
+    }
+
+    public function test_a_completed_link_is_recorded_against_the_account(): void
+    {
+        $client = static::createClient();
+        $audit = RecordingAuditor::installedIn($client->getContainer());
+        $client->disableReboot();
+        $user = $this->seedUser($client, verified: false);
+        $this->setProviderFlag($client, SocialProvider::Google, true);
+        $this->primePending($client, $user);
+        $audit->forget();
+
+        $client->request(Request::METHOD_GET, '/oauth/link');
+        $client->submitForm('Link account and sign in', $this->passwordField($client, self::PASSWORD));
+
+        self::assertResponseRedirects();
+
+        $record = $audit->record('account.social.linked');
+        self::assertSame(AuditOutcome::Success, $record->outcome);
+        self::assertSame(Auditor::CATEGORY_DOMAIN, $record->category);
+        self::assertSame(
+            ['provider' => 'google', 'userId' => (string) $user->id],
+            $record->context,
+        );
+        self::assertNotNull($record->subject);
+        self::assertSame('user', $record->subject->type);
+        self::assertSame((string) $user->id, $record->subject->id);
+
+        self::assertContains('account.social.linked', $audit->domainLogLines());
+        self::assertSame([], $audit->securityLogLines());
+    }
+
+    public function test_a_throttled_link_attempt_is_recorded_as_a_refusal(): void
+    {
+        $client = static::createClient();
+        $audit = RecordingAuditor::installedIn($client->getContainer());
+        $client->disableReboot();
+        $user = $this->seedUser($client);
+        $this->setProviderFlag($client, SocialProvider::Google, true);
+        $this->primePending($client, $user);
+
+        $client->getContainer()->set('limiter.oauth_link', new RateLimiterFactory(
+            ['id' => 'oauth_link', 'policy' => 'fixed_window', 'limit' => 1, 'interval' => '1 minute'],
+            new InMemoryStorage(),
+        ));
+
+        $client->request(Request::METHOD_GET, '/oauth/link');
+        $client->submitForm('Link account and sign in', $this->passwordField($client, 'wrong-password'));
+        $audit->forget();
+        $client->submitForm('Link account and sign in', $this->passwordField($client, self::PASSWORD));
+
+        self::assertResponseStatusCodeSame(Response::HTTP_TOO_MANY_REQUESTS);
+
+        $record = $audit->record('account.social.link_throttled');
+        self::assertSame(AuditOutcome::Refused, $record->outcome);
+        self::assertSame(Auditor::CATEGORY_DOMAIN, $record->category);
+        self::assertSame(
+            ['provider' => 'google', 'userId' => (string) $user->id],
+            $record->context,
+        );
+        self::assertNotNull($record->subject);
+        self::assertSame('user', $record->subject->type);
+        self::assertSame((string) $user->id, $record->subject->id);
+
+        self::assertContains('account.social.link_throttled', $audit->domainLogLines());
+    }
+
+    public function test_the_controller_keeps_no_logger_beside_the_auditor(): void
+    {
+        DirectLogging::assertRemovedFrom(LinkSocialAccountController::class);
     }
 
     public function test_the_account_email_changing_after_the_callback_rejects_the_link(): void

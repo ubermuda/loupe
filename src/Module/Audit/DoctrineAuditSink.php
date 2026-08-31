@@ -4,7 +4,10 @@ declare(strict_types=1);
 
 namespace App\Module\Audit;
 
+use Doctrine\DBAL\ArrayParameterType;
 use Doctrine\DBAL\Connection;
+use Doctrine\ORM\Mapping\ClassMetadata;
+use Doctrine\Persistence\ManagerRegistry;
 use Symfony\Component\Uid\Uuid;
 use Symfony\Contracts\Service\ResetInterface;
 
@@ -37,6 +40,7 @@ final class DoctrineAuditSink implements AuditSinkInterface, ResetInterface
 
     public function __construct(
         private readonly Connection $connection,
+        private readonly ManagerRegistry $managers,
     ) {
     }
 
@@ -82,6 +86,8 @@ final class DoctrineAuditSink implements AuditSinkInterface, ResetInterface
         $rows = $this->rows;
         $this->rows = [];
 
+        $this->nullMissingReferences($rows);
+
         $failure = null;
 
         foreach (array_chunk($rows, max(1, intdiv(self::MAX_BIND_PARAMETERS, count(self::COLUMNS)))) as $chunk) {
@@ -101,6 +107,83 @@ final class DoctrineAuditSink implements AuditSinkInterface, ResetInterface
     public function reset(): void
     {
         $this->rows = [];
+    }
+
+    /**
+     * An account is deleted before the record of its own deletion drains, and
+     * the foreign key would then reject the whole chunk. Nulling the reference
+     * reaches the same end state as the column's ON DELETE SET NULL, one insert
+     * later. Checked rather than caught: inside a wrapping transaction the
+     * rejected insert has already aborted it, so there is nothing left to retry.
+     *
+     * @param list<list<?string>> $rows
+     */
+    private function nullMissingReferences(array &$rows): void
+    {
+        foreach ([
+            'actor_id' => AuditActorInterface::class,
+            'credential_id' => AuditCredentialInterface::class,
+        ] as $column => $target) {
+            $index = array_search($column, self::COLUMNS, true);
+            if (!is_int($index)) {
+                continue;
+            }
+
+            $ids = array_values(array_unique(array_filter(
+                array_column($rows, $index),
+                static fn (?string $id): bool => null !== $id,
+            )));
+            $table = [] === $ids ? null : $this->identityTableFor($target);
+            if (null === $table) {
+                continue;
+            }
+
+            $missing = array_diff($ids, $this->presentIds($table, $ids));
+            foreach ($rows as $position => $row) {
+                if (in_array($row[$index], $missing, true)) {
+                    $rows[$position][$index] = null;
+                }
+            }
+        }
+    }
+
+    /**
+     * @param array{string, string} $table the table and its identifier column
+     * @param list<string>          $ids
+     *
+     * @return list<string>
+     */
+    private function presentIds(array $table, array $ids): array
+    {
+        /** @var list<string> $present */
+        $present = $this->connection->fetchFirstColumn(
+            sprintf('SELECT %1$s FROM %2$s WHERE %1$s IN (?)', $table[1], $table[0]),
+            [$ids],
+            [ArrayParameterType::STRING],
+        );
+
+        return $present;
+    }
+
+    /**
+     * The table and identifier column the interface resolves to, or null when
+     * the consuming application maps no implementation for it.
+     *
+     * @param class-string $target
+     *
+     * @return ?array{string, string}
+     */
+    private function identityTableFor(string $target): ?array
+    {
+        try {
+            $metadata = $this->managers->getManager()->getClassMetadata($target);
+        } catch (\Throwable) {
+            return null;
+        }
+
+        return $metadata instanceof ClassMetadata
+            ? [$metadata->getTableName(), $metadata->getSingleIdentifierColumnName()]
+            : null;
     }
 
     /**

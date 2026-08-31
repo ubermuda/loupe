@@ -33,7 +33,9 @@ use App\Module\Review\Entity\Verdict;
 use App\Module\Review\ValueObject\Anchor;
 use App\Module\SiteReview\Entity\SiteReviewComment;
 use App\Tests\Support\BillingGrants;
+use App\Tests\Support\DirectLogging;
 use App\Tests\Support\RecordingAuditor;
+use App\Tests\Support\RecordingLogger;
 use Doctrine\DBAL\Connection;
 use Doctrine\ORM\EntityManagerInterface;
 use League\Flysystem\FilesystemOperator;
@@ -104,6 +106,35 @@ final class DeleteAccountHandlerTest extends KernelTestCase
 
         self::assertSame(['account.deleted', 'account.deletion.confirmed'], $audit->domainLogLines());
         self::assertSame([], $audit->securityLogLines());
+    }
+
+    /**
+     * AccountPurger keeps its logger for the archive-unlink warning, so the
+     * reflection check cannot apply — the deletion itself must reach the log
+     * stream through the sink alone.
+     */
+    public function test_the_purger_does_not_log_the_deletion_beside_the_record(): void
+    {
+        $user = new User('Del Direct', 'del-direct@example.com', 'hash');
+        new \ReflectionProperty(User::class, 'id')->setValue($user, Uuid::v4());
+
+        $em = $this->createStub(EntityManagerInterface::class);
+        $em->method('wrapInTransaction')->willReturnCallback(static fn (callable $fn) => $fn());
+        $em->method('getConnection')->willReturn($this->createStub(Connection::class));
+
+        $audit = new RecordingAuditor(new NullAuditActorProvider());
+        $logger = new RecordingLogger();
+        new AccountPurger(
+            $this->createStub(MessageBusInterface::class),
+            $em,
+            $logger,
+            $audit->auditor,
+            $this->createStub(FilesystemOperator::class),
+            [],
+        )->purge($user);
+
+        self::assertSame(['account.deleted'], $audit->operations());
+        DirectLogging::assertOperationNotLoggedBy($logger, 'account.deleted');
     }
 
     /** An invalid token deletes nothing, so it must state nothing either. */

@@ -12,6 +12,9 @@ use App\Module\Audit\DoctrineAuditSink;
 use App\Tests\Support\FakeAuditActor;
 use App\Tests\Support\FakeAuditCredential;
 use Doctrine\DBAL\Connection;
+use Doctrine\ORM\EntityManagerInterface;
+use Doctrine\ORM\Mapping\ClassMetadata;
+use Doctrine\Persistence\ManagerRegistry;
 use PHPUnit\Framework\MockObject\Stub;
 use PHPUnit\Framework\TestCase;
 
@@ -39,6 +42,33 @@ final class DoctrineAuditSinkTest extends TestCase
 
                 return count($params);
             });
+        // Every referenced identity is present unless a test says otherwise.
+        $this->connection->method('fetchFirstColumn')
+            ->willReturnCallback(static fn (string $sql, array $params): array => $params[0]);
+    }
+
+    /**
+     * An account can be deleted before the record of its own deletion drains.
+     * The row must still land, with the reference nulled and the label kept.
+     */
+    public function test_a_reference_to_a_deleted_identity_is_nulled_rather_than_rejected(): void
+    {
+        $connection = $this->createStub(Connection::class);
+        $connection->method('executeStatement')
+            ->willReturnCallback(function (string $sql, array $params): int {
+                $this->statements[] = ['sql' => $sql, 'params' => array_values($params)];
+
+                return count($params);
+            });
+        $connection->method('fetchFirstColumn')->willReturn([]);
+
+        $sink = new DoctrineAuditSink($connection, $this->managerRegistry());
+        $sink->write($this->event(actor: new FakeAuditActor('Riley Chen', 'user-gone')));
+        $sink->flush();
+
+        self::assertCount(1, $this->statements);
+        self::assertNull($this->statements[0]['params'][5], 'the actor reference must be nulled');
+        self::assertSame('Riley Chen', $this->statements[0]['params'][6], 'the label must survive');
     }
 
     public function test_writing_issues_no_statement_until_the_drain(): void
@@ -113,7 +143,7 @@ final class DoctrineAuditSinkTest extends TestCase
             },
         );
 
-        $sink = new DoctrineAuditSink($failing);
+        $sink = new DoctrineAuditSink($failing, $this->managerRegistry());
         $sink->write($this->event());
 
         try {
@@ -142,7 +172,7 @@ final class DoctrineAuditSinkTest extends TestCase
             },
         );
 
-        $sink = new DoctrineAuditSink($failing);
+        $sink = new DoctrineAuditSink($failing, $this->managerRegistry());
         for ($i = 0; $i < $rowsPerStatement + 1; ++$i) {
             $sink->write($this->event());
         }
@@ -256,7 +286,22 @@ final class DoctrineAuditSinkTest extends TestCase
 
     private function sink(): DoctrineAuditSink
     {
-        return new DoctrineAuditSink($this->connection);
+        return new DoctrineAuditSink($this->connection, $this->managerRegistry());
+    }
+
+    private function managerRegistry(): ManagerRegistry&Stub
+    {
+        $metadata = $this->createStub(ClassMetadata::class);
+        $metadata->method('getTableName')->willReturn('users');
+        $metadata->method('getSingleIdentifierColumnName')->willReturn('id');
+
+        $em = $this->createStub(EntityManagerInterface::class);
+        $em->method('getClassMetadata')->willReturn($metadata);
+
+        $registry = $this->createStub(ManagerRegistry::class);
+        $registry->method('getManager')->willReturn($em);
+
+        return $registry;
     }
 
     private function event(

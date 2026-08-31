@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Tests\Audit;
 
+use App\Module\Account\Deletion\AccountPurger;
 use App\Module\Account\Entity\User;
 use App\Module\Audit\Auditor;
 use App\Module\Audit\AuditOutcome;
@@ -112,6 +113,36 @@ final class AuditTrailPersistenceTest extends KernelTestCase
         $this->auditor->flush();
 
         self::assertSame(['document.created'], array_column($this->rows(), 'operation'));
+    }
+
+    /**
+     * Self-service deletion is the one flow whose actor is gone before the
+     * record of it drains. The row must land anyway, keeping the name the
+     * deleted account went by.
+     */
+    public function test_a_record_whose_actor_was_deleted_still_reaches_the_table(): void
+    {
+        $user = $this->signIn();
+        $userId = (string) $user->id;
+
+        $this->auditor->record(
+            'account.deleted',
+            AuditOutcome::Success,
+            ['userId' => $userId],
+            new AuditSubject('user', $userId),
+        );
+
+        static::getContainer()->get(AccountPurger::class)->purge($user);
+        $this->auditor->flush();
+
+        $rows = $this->rows();
+        self::assertCount(2, $rows);
+        foreach ($rows as $row) {
+            self::assertSame('account.deleted', $row['operation']);
+            self::assertNull($row['actor_id'], 'the reference to the deleted account must be nulled');
+            self::assertSame('Riley Chen', $row['actor_label'], 'the label must outlive the account');
+            self::assertSame($userId, $row['subject_id']);
+        }
     }
 
     private function signIn(): User
