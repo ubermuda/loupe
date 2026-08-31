@@ -7,15 +7,17 @@ namespace App\Module\Account\Command\Admin;
 use App\Exception\DomainErrors;
 use App\Module\Account\Admin\AdminUserGuard;
 use App\Module\Account\Entity\User;
+use App\Module\Audit\Auditor;
+use App\Module\Audit\AuditOutcome;
+use App\Module\Audit\AuditSubject;
 use Doctrine\ORM\EntityManagerInterface;
-use Psr\Log\LoggerInterface;
 
 final readonly class SuspendUserHandler
 {
     public function __construct(
         private AdminUserGuard $guard,
         private EntityManagerInterface $em,
-        private LoggerInterface $logger,
+        private Auditor $auditor,
     ) {
     }
 
@@ -35,12 +37,16 @@ final readonly class SuspendUserHandler
         $this->em->flush();
 
         // The reason itself is free-form admin prose about a person and stays
-        // out of the log; whether one was given is what the record needs.
-        $this->logger->info('account.admin.user_suspended', [
-            'targetId' => (string) $target->id,
-            'actorId' => (string) $command->actor->id,
-            'hasReason' => null !== $target->suspendedReason,
-        ]);
+        // out of the record; whether one was given is what the record needs.
+        $this->auditor->record(
+            'account.admin.user_suspended',
+            AuditOutcome::Success,
+            [
+                'userId' => (string) $target->id,
+                'hasReason' => null !== $target->suspendedReason,
+            ],
+            new AuditSubject('user', (string) $target->id),
+        );
 
         return $target;
     }

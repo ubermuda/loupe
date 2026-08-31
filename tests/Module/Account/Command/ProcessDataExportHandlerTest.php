@@ -13,15 +13,23 @@ use App\Module\Account\Export\DataExportArchiveBuilder;
 use App\Module\Account\Repository\DataExportRepository;
 use App\Module\Account\Service\DataExportEmailSender;
 use App\Module\Account\Service\ExpiredExportPurger;
+use App\Module\Audit\Auditor;
+use App\Module\Audit\AuditOutcome;
+use App\Module\Audit\NullAuditActorProvider;
+use App\Tests\Support\DirectLogging;
+use App\Tests\Support\RecordingAuditor;
+use App\Tests\Support\RecordingLogger;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\MockObject\Stub;
 use PHPUnit\Framework\TestCase;
-use Psr\Log\NullLogger;
 use Symfony\Component\Uid\Uuid;
 
 final class ProcessDataExportHandlerTest extends TestCase
 {
+    private RecordingAuditor $audit;
+    private RecordingLogger $directLogger;
+
     private function persistedExport(): DataExport
     {
         $user = new User('Alice A', 'alice@example.com', 'x');
@@ -63,11 +71,59 @@ final class ProcessDataExportHandlerTest extends TestCase
         $purger->expects(self::once())->method('purge');
 
         $em = $this->createStub(EntityManagerInterface::class);
-        $handler = new ProcessDataExportHandler($exports, $builder, $emailSender, $purger, $em, new NullLogger());
+        $this->audit = new RecordingAuditor(new NullAuditActorProvider());
+        $this->directLogger = new RecordingLogger();
+        $handler = new ProcessDataExportHandler($exports, $builder, $emailSender, $purger, $em, $this->directLogger, $this->audit->auditor);
 
         $handler(new ProcessDataExportCommand((string) $export->id));
 
         self::assertSame(DataExportStatus::Ready, $export->status);
+
+        $record = $this->audit->record('account.data_export.completed');
+        self::assertSame(AuditOutcome::Success, $record->outcome);
+        self::assertSame(Auditor::CATEGORY_DOMAIN, $record->category);
+        self::assertSame(['id' => (string) $export->id], $record->context);
+        self::assertNotNull($record->subject);
+        self::assertSame('data_export', $record->subject->type);
+        self::assertSame((string) $export->id, $record->subject->id);
+
+        self::assertSame(['account.data_export.completed'], $this->audit->domainLogLines());
+        self::assertSame([], $this->audit->securityLogLines());
+        DirectLogging::assertOperationNotLoggedBy($this->directLogger, 'account.data_export.completed');
+    }
+
+    /**
+     * Neither has an actor whose action it records, so both stay diagnostics
+     * on the logger this class keeps beside the Auditor.
+     */
+    public function test_the_skip_and_purge_failure_branches_stay_diagnostics(): void
+    {
+        $export = $this->persistedExport();
+        $export->fail();
+
+        /** @var DataExportRepository&Stub $exports */
+        $exports = $this->createStub(DataExportRepository::class);
+        $exports->method('find')->willReturn($export);
+
+        $audit = new RecordingAuditor(new NullAuditActorProvider());
+        $logger = new RecordingLogger();
+        $handler = new ProcessDataExportHandler(
+            $exports,
+            $this->createStub(DataExportArchiveBuilder::class),
+            $this->createStub(DataExportEmailSender::class),
+            $this->createStub(ExpiredExportPurger::class),
+            $this->createStub(EntityManagerInterface::class),
+            $logger,
+            $audit->auditor,
+        );
+
+        $handler(new ProcessDataExportCommand((string) $export->id));
+
+        self::assertSame([], $audit->operations());
+        self::assertSame(
+            ['account.data_export.skipped'],
+            array_map(static fn (array $record): string => $record['message'], $logger->records),
+        );
     }
 
     public function test_a_failing_purge_does_not_fail_the_export(): void
@@ -91,7 +147,9 @@ final class ProcessDataExportHandlerTest extends TestCase
         $purger->expects(self::once())->method('purge')->willThrowException(new \RuntimeException('purge boom'));
 
         $em = $this->createStub(EntityManagerInterface::class);
-        $handler = new ProcessDataExportHandler($exports, $builder, $emailSender, $purger, $em, new NullLogger());
+        $this->audit = new RecordingAuditor(new NullAuditActorProvider());
+        $this->directLogger = new RecordingLogger();
+        $handler = new ProcessDataExportHandler($exports, $builder, $emailSender, $purger, $em, $this->directLogger, $this->audit->auditor);
 
         $handler(new ProcessDataExportCommand((string) $export->id));
 
@@ -117,7 +175,9 @@ final class ProcessDataExportHandlerTest extends TestCase
         $purger->expects(self::never())->method('purge');
 
         $em = $this->createStub(EntityManagerInterface::class);
-        $handler = new ProcessDataExportHandler($exports, $builder, $emailSender, $purger, $em, new NullLogger());
+        $this->audit = new RecordingAuditor(new NullAuditActorProvider());
+        $this->directLogger = new RecordingLogger();
+        $handler = new ProcessDataExportHandler($exports, $builder, $emailSender, $purger, $em, $this->directLogger, $this->audit->auditor);
 
         $handler(new ProcessDataExportCommand((string) Uuid::v7()));
     }
@@ -144,7 +204,9 @@ final class ProcessDataExportHandlerTest extends TestCase
         $purger->expects(self::never())->method('purge');
 
         $em = $this->createStub(EntityManagerInterface::class);
-        $handler = new ProcessDataExportHandler($exports, $builder, $emailSender, $purger, $em, new NullLogger());
+        $this->audit = new RecordingAuditor(new NullAuditActorProvider());
+        $this->directLogger = new RecordingLogger();
+        $handler = new ProcessDataExportHandler($exports, $builder, $emailSender, $purger, $em, $this->directLogger, $this->audit->auditor);
 
         $handler(new ProcessDataExportCommand((string) $export->id));
     }
@@ -172,7 +234,9 @@ final class ProcessDataExportHandlerTest extends TestCase
         $purger->expects(self::once())->method('purge');
 
         $em = $this->createStub(EntityManagerInterface::class);
-        $handler = new ProcessDataExportHandler($exports, $builder, $emailSender, $purger, $em, new NullLogger());
+        $this->audit = new RecordingAuditor(new NullAuditActorProvider());
+        $this->directLogger = new RecordingLogger();
+        $handler = new ProcessDataExportHandler($exports, $builder, $emailSender, $purger, $em, $this->directLogger, $this->audit->auditor);
 
         $handler(new ProcessDataExportCommand((string) $export->id));
 
@@ -201,7 +265,9 @@ final class ProcessDataExportHandlerTest extends TestCase
         $purger->expects(self::never())->method('purge');
 
         $em = $this->createStub(EntityManagerInterface::class);
-        $handler = new ProcessDataExportHandler($exports, $builder, $emailSender, $purger, $em, new NullLogger());
+        $this->audit = new RecordingAuditor(new NullAuditActorProvider());
+        $this->directLogger = new RecordingLogger();
+        $handler = new ProcessDataExportHandler($exports, $builder, $emailSender, $purger, $em, $this->directLogger, $this->audit->auditor);
 
         $this->expectException(\RuntimeException::class);
         $this->expectExceptionMessage('disk full');
@@ -234,7 +300,9 @@ final class ProcessDataExportHandlerTest extends TestCase
         $purger->expects(self::never())->method('purge');
 
         $em = $this->createStub(EntityManagerInterface::class);
-        $handler = new ProcessDataExportHandler($exports, $builder, $emailSender, $purger, $em, new NullLogger());
+        $this->audit = new RecordingAuditor(new NullAuditActorProvider());
+        $this->directLogger = new RecordingLogger();
+        $handler = new ProcessDataExportHandler($exports, $builder, $emailSender, $purger, $em, $this->directLogger, $this->audit->auditor);
 
         $this->expectException(\RuntimeException::class);
         $this->expectExceptionMessage('smtp down');

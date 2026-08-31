@@ -16,6 +16,9 @@ use App\Module\Account\Repository\ConnectedAccountRepository;
 use App\Module\Account\Repository\UserRepository;
 use App\Module\Account\Repository\WaitlistEntryRepository;
 use App\Module\Account\Service\DisplayNameDeriver;
+use App\Module\Audit\Auditor;
+use App\Module\Audit\AuditOutcome;
+use App\Module\Audit\NullAuditActorProvider;
 use App\Module\Account\Service\InstallationState;
 use App\Module\Account\Service\RegistrationGate;
 use App\Module\Account\Service\SocialLoginOutcome;
@@ -26,6 +29,7 @@ use App\Module\Billing\Entity\SubscriptionKind;
 use App\Module\Billing\Repository\BillingProfileRepository;
 use App\Module\Billing\Service\TrialProvisioner;
 use App\Tests\Support\InstalledInstance;
+use App\Tests\Support\RecordingAuditor;
 use Doctrine\DBAL\Driver\PDO\Exception as PdoDriverException;
 use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
 use Doctrine\ORM\EntityManagerInterface;
@@ -65,7 +69,7 @@ final class ResolveSocialLoginHandlerTest extends KernelTestCase
         );
     }
 
-    private function buildHandler(RegistrationGate $gate, EventDispatcherInterface $dispatcher): ResolveSocialLoginHandler
+    private function buildHandler(RegistrationGate $gate, EventDispatcherInterface $dispatcher, ?Auditor $auditor = null): ResolveSocialLoginHandler
     {
         $joinWaitlist = self::getContainer()->get(JoinWaitlistHandler::class);
         self::assertInstanceOf(JoinWaitlistHandler::class, $joinWaitlist);
@@ -80,6 +84,7 @@ final class ResolveSocialLoginHandlerTest extends KernelTestCase
             new NullLogger(),
             $dispatcher,
             new DisplayNameDeriver(),
+            $auditor ?? new RecordingAuditor(new NullAuditActorProvider())->auditor,
         );
     }
 
@@ -349,6 +354,86 @@ final class ResolveSocialLoginHandlerTest extends KernelTestCase
         self::assertNotNull($this->connectedAccounts->findOneByProviderAndProviderUserId(SocialProvider::Github, 'gh-fresh'));
     }
 
+    /** The social half of the pair: same operation, told apart by `provider`. */
+    public function test_a_social_registration_is_recorded_with_its_provider(): void
+    {
+        $audit = new RecordingAuditor(new NullAuditActorProvider());
+        $handler = $this->buildHandler(
+            new RegistrationGate($this->openFlags(), $this->users, new InstallationState($this->users)),
+            $this->createStub(EventDispatcherInterface::class),
+            $audit->auditor,
+        );
+
+        $outcome = $handler(new ResolveSocialLoginCommand(
+            new SocialProfile(SocialProvider::Github, 'gh-audit', 'social-audit@example.com', 'Social Audit', emailVerified: true),
+        ));
+        $user = $this->resolvedUser($outcome);
+
+        $record = $audit->record('account.registered');
+        self::assertSame(AuditOutcome::Success, $record->outcome);
+        self::assertSame(Auditor::CATEGORY_DOMAIN, $record->category);
+        self::assertSame(
+            ['userId' => (string) $user->id, 'provider' => 'github'],
+            $record->context,
+        );
+        self::assertNotNull($record->subject);
+        self::assertSame('user', $record->subject->type);
+        self::assertSame((string) $user->id, $record->subject->id);
+
+        self::assertSame(['account.registered'], $audit->domainLogLines());
+        self::assertSame([], $audit->securityLogLines());
+    }
+
+    /** A login that only reuses an identity creates nothing, so it records nothing. */
+    public function test_an_existing_identity_login_records_no_registration(): void
+    {
+        $audit = new RecordingAuditor(new NullAuditActorProvider());
+        $handler = $this->buildHandler(
+            new RegistrationGate($this->openFlags(), $this->users, new InstallationState($this->users)),
+            $this->createStub(EventDispatcherInterface::class),
+            $audit->auditor,
+        );
+        $profile = new SocialProfile(SocialProvider::Github, 'gh-twice', 'social-twice@example.com', 'Twice', emailVerified: true);
+        $handler(new ResolveSocialLoginCommand($profile));
+        $audit->forget();
+
+        $handler(new ResolveSocialLoginCommand($profile));
+
+        self::assertSame([], $audit->operations());
+    }
+
+    /**
+     * A switched-off instance refuses the account outright. No subject: no
+     * account exists for the refusal to be about.
+     */
+    public function test_a_closed_instance_records_the_refusal(): void
+    {
+        $flags = $this->createStub(FeatureFlagService::class);
+        $flags->method('getIntValue')->willReturn(0);
+        $flags->method('isEnabled')->willReturn(false);
+
+        $audit = new RecordingAuditor(new NullAuditActorProvider());
+        $handler = $this->buildHandler(
+            new RegistrationGate($flags, $this->users, new InstallationState($this->users)),
+            $this->neverDispatches(),
+            $audit->auditor,
+        );
+
+        $outcome = $handler(new ResolveSocialLoginCommand(
+            new SocialProfile(SocialProvider::Google, 'g-closed', 'closed-audit@example.com', 'Closed', emailVerified: true),
+        ));
+
+        self::assertTrue($outcome->registrationClosed);
+
+        $record = $audit->record('account.social.registration_closed');
+        self::assertSame(AuditOutcome::Refused, $record->outcome);
+        self::assertSame(Auditor::CATEGORY_DOMAIN, $record->category);
+        self::assertNull($record->subject);
+        self::assertSame(['provider' => 'google'], $record->context);
+
+        self::assertSame(['account.social.registration_closed'], $audit->domainLogLines());
+    }
+
     public function test_creating_an_account_converts_a_matching_waitlist_row(): void
     {
         // The address joined the waitlist earlier (directly, or via a
@@ -501,6 +586,7 @@ final class ResolveSocialLoginHandlerTest extends KernelTestCase
             new NullLogger(),
             $this->neverDispatches(),
             new DisplayNameDeriver(),
+            new RecordingAuditor(new NullAuditActorProvider())->auditor,
         );
 
         $this->expectException(SocialLoginRace::class);

@@ -5,6 +5,9 @@ declare(strict_types=1);
 namespace App\Module\Account\Deletion;
 
 use App\Module\Account\Entity\User;
+use App\Module\Audit\Auditor;
+use App\Module\Audit\AuditOutcome;
+use App\Module\Audit\AuditSubject;
 use Doctrine\ORM\EntityManagerInterface;
 use League\Flysystem\FilesystemException;
 use League\Flysystem\FilesystemOperator;
@@ -37,6 +40,7 @@ final readonly class AccountPurger
         private MessageBusInterface $bus,
         private EntityManagerInterface $em,
         private LoggerInterface $logger,
+        private Auditor $auditor,
 
         #[Target('export.storage')]
         private FilesystemOperator $exportStorage,
@@ -81,6 +85,11 @@ final readonly class AccountPurger
             }
         }
 
-        $this->logger->info('account.deleted', ['userId' => (string) $userId]);
+        $this->auditor->record(
+            'account.deleted',
+            AuditOutcome::Success,
+            ['userId' => (string) $userId],
+            new AuditSubject('user', (string) $userId),
+        );
     }
 }

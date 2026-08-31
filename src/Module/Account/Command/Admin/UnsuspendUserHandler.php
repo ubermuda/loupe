@@ -7,15 +7,17 @@ namespace App\Module\Account\Command\Admin;
 use App\Exception\DomainErrors;
 use App\Module\Account\Admin\AdminUserGuard;
 use App\Module\Account\Entity\User;
+use App\Module\Audit\Auditor;
+use App\Module\Audit\AuditOutcome;
+use App\Module\Audit\AuditSubject;
 use Doctrine\ORM\EntityManagerInterface;
-use Psr\Log\LoggerInterface;
 
 final readonly class UnsuspendUserHandler
 {
     public function __construct(
         private AdminUserGuard $guard,
         private EntityManagerInterface $em,
-        private LoggerInterface $logger,
+        private Auditor $auditor,
     ) {
     }
 
@@ -34,10 +36,12 @@ final readonly class UnsuspendUserHandler
 
         $this->em->flush();
 
-        $this->logger->info('account.admin.user_unsuspended', [
-            'targetId' => (string) $target->id,
-            'actorId' => (string) $command->actor->id,
-        ]);
+        $this->auditor->record(
+            'account.admin.user_unsuspended',
+            AuditOutcome::Success,
+            ['userId' => (string) $target->id],
+            new AuditSubject('user', (string) $target->id),
+        );
 
         return $target;
     }

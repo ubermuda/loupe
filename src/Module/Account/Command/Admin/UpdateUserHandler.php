@@ -9,8 +9,10 @@ use App\Module\Account\Admin\AdminUserGuard;
 use App\Module\Account\Entity\User;
 use App\Module\Account\Repository\UserRepository;
 use App\Module\Account\Service\VerificationEmailSender;
+use App\Module\Audit\Auditor;
+use App\Module\Audit\AuditOutcome;
+use App\Module\Audit\AuditSubject;
 use Doctrine\ORM\EntityManagerInterface;
-use Psr\Log\LoggerInterface;
 
 final readonly class UpdateUserHandler
 {
@@ -19,7 +21,7 @@ final readonly class UpdateUserHandler
         private UserRepository $users,
         private EntityManagerInterface $em,
         private VerificationEmailSender $verificationEmails,
-        private LoggerInterface $logger,
+        private Auditor $auditor,
     ) {
     }
 
@@ -62,11 +64,17 @@ final readonly class UpdateUserHandler
             $this->verificationEmails->send($target);
         }
 
-        $this->logger->info('account.admin.user_updated', [
-            'targetId' => (string) $target->id,
-            'actorId' => (string) $command->actor->id,
-            'emailChanged' => $emailChanged,
-        ]);
+        // The admin is the actor the Auditor resolves from the security token,
+        // so naming them again in the context would only let the two drift.
+        $this->auditor->record(
+            'account.admin.user_updated',
+            AuditOutcome::Success,
+            [
+                'userId' => (string) $target->id,
+                'emailChanged' => $emailChanged,
+            ],
+            new AuditSubject('user', (string) $target->id),
+        );
 
         return $target;
     }

@@ -11,7 +11,8 @@ use App\Module\Account\Command\CreateInstallAdminHandler;
 use App\Module\Account\Form\InstallAdminFormType;
 use App\Module\Account\Form\InstallAdminRequest;
 use App\Module\Account\Service\InstallAccessGuard;
-use Psr\Log\LoggerInterface;
+use App\Module\Audit\Auditor;
+use App\Module\Audit\AuditOutcome;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
@@ -26,7 +27,7 @@ final class CreateAdminController extends AppController
     public function __construct(
         private readonly InstallAccessGuard $installAccessGuard,
         private readonly CreateInstallAdminHandler $createInstallAdminHandler,
-        private readonly LoggerInterface $logger,
+        private readonly Auditor $auditor,
     ) {
     }
 
@@ -56,7 +57,7 @@ final class CreateAdminController extends AppController
                     fullName: $fullName,
                     plainPassword: $data->plainPassword ?: throw new \LogicException('plainPassword required after validation'),
                 ));
-                $this->logger->info('account.install.admin_created', []);
+                $this->auditor->record('account.install.admin_created', AuditOutcome::Success);
                 $request->getSession()->remove(SeedFlagsController::SESSION_FLAGS_SEEDED);
                 $request->getSession()->set(ShowDoneController::SESSION_INSTALL_COMPLETED, true);
 

@@ -7,14 +7,16 @@ namespace App\Module\Account\Command\Admin;
 use App\Exception\DomainErrors;
 use App\Module\Account\Admin\AdminUserGuard;
 use App\Module\Account\Deletion\AccountPurger;
-use Psr\Log\LoggerInterface;
+use App\Module\Audit\Auditor;
+use App\Module\Audit\AuditOutcome;
+use App\Module\Audit\AuditSubject;
 
 final readonly class DeleteUserHandler
 {
     public function __construct(
         private AdminUserGuard $guard,
         private AccountPurger $purger,
-        private LoggerInterface $logger,
+        private Auditor $auditor,
     ) {
     }
 
@@ -37,9 +39,11 @@ final readonly class DeleteUserHandler
 
         $this->purger->purge($target);
 
-        $this->logger->info('account.admin.user_deleted', [
-            'targetId' => $targetId,
-            'actorId' => (string) $command->actor->id,
-        ]);
+        $this->auditor->record(
+            'account.admin.user_deleted',
+            AuditOutcome::Success,
+            ['userId' => $targetId],
+            new AuditSubject('user', $targetId),
+        );
     }
 }

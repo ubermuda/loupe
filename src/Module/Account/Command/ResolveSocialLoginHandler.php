@@ -16,6 +16,9 @@ use App\Module\Account\Service\SocialLoginOutcome;
 use App\Module\Account\Service\SocialLoginRace;
 use App\Module\Account\Service\SocialProfile;
 use App\Module\Account\Service\UnverifiedProviderEmail;
+use App\Module\Audit\Auditor;
+use App\Module\Audit\AuditOutcome;
+use App\Module\Audit\AuditSubject;
 use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
 use Doctrine\ORM\EntityManagerInterface;
 use Psr\Log\LoggerInterface;
@@ -33,6 +36,7 @@ final readonly class ResolveSocialLoginHandler
         private LoggerInterface $logger,
         private EventDispatcherInterface $eventDispatcher,
         private DisplayNameDeriver $displayNameDeriver,
+        private Auditor $auditor,
     ) {
     }
 
@@ -81,7 +85,11 @@ final readonly class ResolveSocialLoginHandler
         // No waitlist diversion either — a switched-off instance is not merely
         // full, so there is nothing an entry could be waiting for.
         if (!$this->registrationGate->allowsNewAccounts()) {
-            $this->logger->info('account.social.registration_closed', ['provider' => $profile->provider->value]);
+            $this->auditor->record(
+                'account.social.registration_closed',
+                AuditOutcome::Refused,
+                ['provider' => $profile->provider->value],
+            );
 
             return SocialLoginOutcome::registrationClosed();
         }
@@ -131,6 +139,18 @@ final readonly class ResolveSocialLoginHandler
 
             return SocialLoginOutcome::waitlisted();
         }
+
+        // Recorded after the transaction commits, so a rollback cannot leave a
+        // record claiming an account that does not exist.
+        $this->auditor->record(
+            'account.registered',
+            AuditOutcome::Success,
+            [
+                'userId' => (string) $user->id,
+                'provider' => $profile->provider->value,
+            ],
+            new AuditSubject('user', (string) $user->id),
+        );
 
         // Listeners run outside the committed creation transaction, so their
         // failures cannot roll the account back — and must not surface: an error

@@ -11,13 +11,17 @@ use App\Module\Account\Entity\DataExport;
 use App\Module\Account\Entity\User;
 use App\Module\Account\Messenger\GenerateDataExportMessage;
 use App\Module\Account\Repository\DataExportRepository;
+use App\Module\Audit\Auditor;
+use App\Module\Audit\AuditOutcome;
+use App\Module\Audit\NullAuditActorProvider;
+use App\Tests\Support\DirectLogging;
+use App\Tests\Support\RecordingAuditor;
 use Doctrine\DBAL\Driver\PDO\Exception as PdoDriverException;
 use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\MockObject\Stub;
 use PHPUnit\Framework\TestCase;
-use Psr\Log\NullLogger;
 use Symfony\Component\Messenger\Envelope;
 use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Uid\Uuid;
@@ -57,11 +61,28 @@ final class RequestDataExportHandlerTest extends TestCase
             ->with(self::isInstanceOf(GenerateDataExportMessage::class))
             ->willReturnCallback(static fn (object $message): Envelope => new Envelope($message));
 
-        $handler = new RequestDataExportHandler($dataExports, $em, $bus, new NullLogger());
+        $audit = new RecordingAuditor(new NullAuditActorProvider());
+        $handler = new RequestDataExportHandler($dataExports, $em, $bus, $audit->auditor);
 
         $export = $handler(new RequestDataExportCommand($user));
 
         self::assertSame($user, $export->user);
+
+        $record = $audit->record('account.data_export.requested');
+        self::assertSame(AuditOutcome::Success, $record->outcome);
+        self::assertSame(Auditor::CATEGORY_DOMAIN, $record->category);
+        self::assertSame(['id' => (string) $export->id], $record->context);
+        self::assertNotNull($record->subject);
+        self::assertSame('data_export', $record->subject->type);
+        self::assertSame((string) $export->id, $record->subject->id);
+
+        self::assertSame(['account.data_export.requested'], $audit->domainLogLines());
+        self::assertSame([], $audit->securityLogLines());
+    }
+
+    public function test_the_handler_keeps_no_logger_beside_the_auditor(): void
+    {
+        DirectLogging::assertRemovedFrom(RequestDataExportHandler::class);
     }
 
     public function test_a_pending_export_is_rejected(): void
@@ -82,7 +103,8 @@ final class RequestDataExportHandlerTest extends TestCase
         $bus = $this->createMock(MessageBusInterface::class);
         $bus->expects(self::never())->method('dispatch');
 
-        $handler = new RequestDataExportHandler($dataExports, $em, $bus, new NullLogger());
+        $audit = new RecordingAuditor(new NullAuditActorProvider());
+        $handler = new RequestDataExportHandler($dataExports, $em, $bus, $audit->auditor);
 
         try {
             $handler(new RequestDataExportCommand($user));
@@ -90,6 +112,8 @@ final class RequestDataExportHandlerTest extends TestCase
         } catch (DomainErrors $e) {
             self::assertSame(['export' => 'account.settings.export.error.already_pending'], $e->errors);
         }
+
+        self::assertSame([], $audit->operations());
     }
 
     public function test_a_concurrent_request_surfaces_the_domain_error_not_a_500(): void
@@ -117,7 +141,8 @@ final class RequestDataExportHandlerTest extends TestCase
         $bus = $this->createMock(MessageBusInterface::class);
         $bus->expects(self::never())->method('dispatch');
 
-        $handler = new RequestDataExportHandler($dataExports, $em, $bus, new NullLogger());
+        $audit = new RecordingAuditor(new NullAuditActorProvider());
+        $handler = new RequestDataExportHandler($dataExports, $em, $bus, $audit->auditor);
 
         try {
             $handler(new RequestDataExportCommand($user));
@@ -125,5 +150,9 @@ final class RequestDataExportHandlerTest extends TestCase
         } catch (DomainErrors $e) {
             self::assertSame(['export' => 'account.settings.export.error.already_pending'], $e->errors);
         }
+
+        // The lost race rolls the transaction back, so a record here would
+        // state a request the database never kept.
+        self::assertSame([], $audit->operations());
     }
 }

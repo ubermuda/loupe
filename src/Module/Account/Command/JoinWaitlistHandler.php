@@ -7,6 +7,9 @@ namespace App\Module\Account\Command;
 use App\Module\Account\Entity\WaitlistEntry;
 use App\Module\Account\Repository\UserRepository;
 use App\Module\Account\Repository\WaitlistEntryRepository;
+use App\Module\Audit\Auditor;
+use App\Module\Audit\AuditOutcome;
+use App\Module\Audit\AuditSubject;
 use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
 use Doctrine\ORM\EntityManagerInterface;
 use Psr\Log\LoggerInterface;
@@ -18,6 +21,7 @@ final readonly class JoinWaitlistHandler
         private UserRepository $users,
         private EntityManagerInterface $em,
         private LoggerInterface $logger,
+        private Auditor $auditor,
     ) {
     }
 
@@ -36,7 +40,7 @@ final readonly class JoinWaitlistHandler
                     $existingEntry->reopen();
                     $this->em->flush();
 
-                    $this->logger->info('account.waitlist.rejoined', ['entryId' => self::entryId($existingEntry)]);
+                    $this->record('account.waitlist.rejoined', $existingEntry);
 
                     return;
                 }
@@ -74,7 +78,19 @@ final readonly class JoinWaitlistHandler
             return;
         }
 
-        $this->logger->info('account.waitlist.joined', ['entryId' => self::entryId($entry)]);
+        $this->record('account.waitlist.joined', $entry);
+    }
+
+    private function record(string $operation, WaitlistEntry $entry): void
+    {
+        $entryId = self::entryId($entry);
+
+        $this->auditor->record(
+            $operation,
+            AuditOutcome::Success,
+            ['entryId' => $entryId],
+            new AuditSubject('waitlist_entry', $entryId),
+        );
     }
 
     private static function entryId(WaitlistEntry $entry): string

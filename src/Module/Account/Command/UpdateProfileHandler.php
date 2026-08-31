@@ -5,14 +5,16 @@ declare(strict_types=1);
 namespace App\Module\Account\Command;
 
 use App\Module\Account\Entity\User;
+use App\Module\Audit\Auditor;
+use App\Module\Audit\AuditOutcome;
+use App\Module\Audit\AuditSubject;
 use Doctrine\ORM\EntityManagerInterface;
-use Psr\Log\LoggerInterface;
 
 final readonly class UpdateProfileHandler
 {
     public function __construct(
         private EntityManagerInterface $em,
-        private LoggerInterface $logger,
+        private Auditor $auditor,
     ) {
     }
 
@@ -22,7 +24,12 @@ final readonly class UpdateProfileHandler
         $user->fullName = trim($command->fullName);
         $this->em->flush();
 
-        $this->logger->info('account.profile.updated', ['userId' => (string) $user->id]);
+        $this->auditor->record(
+            'account.profile.updated',
+            AuditOutcome::Success,
+            ['userId' => (string) $user->id],
+            new AuditSubject('user', (string) $user->id),
+        );
 
         return $user;
     }

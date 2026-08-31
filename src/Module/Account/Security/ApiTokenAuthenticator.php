@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace App\Module\Account\Security;
 
 use App\Module\Account\Repository\ApiTokenRepository;
+use App\Module\Audit\Auditor;
+use App\Module\Audit\AuditOutcome;
 use Monolog\Attribute\WithMonologChannel;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\HttpFoundation\Request;
@@ -34,6 +36,7 @@ final class ApiTokenAuthenticator extends AbstractAuthenticator implements Authe
     public function __construct(
         private readonly ApiTokenRepository $apiTokens,
         private readonly LoggerInterface $logger,
+        private readonly Auditor $auditor,
     ) {
     }
 
@@ -92,6 +95,17 @@ final class ApiTokenAuthenticator extends AbstractAuthenticator implements Authe
     #[\Override]
     public function onAuthenticationFailure(Request $request, AuthenticationException $exception): Response
     {
+        // The one site that writes both, and the split is the reason: the audit
+        // record states that an API call was refused, while `ip` (personal data)
+        // and the framework's exception string stay diagnostics. Neither belongs
+        // in a trail with no erasure path. No subject either — no token resolved.
+        $this->auditor->record(
+            'account.api_token.authentication_failed',
+            AuditOutcome::Refused,
+            ['path' => $request->getPathInfo()],
+            category: Auditor::CATEGORY_SECURITY,
+        );
+
         // Deliberately no token material, not even a prefix: these records go to
         // stderr in production, where a guessed-token log becomes the leak.
         $this->logger->warning('account.api_token.authentication_failed', [

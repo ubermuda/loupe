@@ -17,6 +17,9 @@ use App\Module\Account\Entity\DataExport;
 use App\Module\Account\Entity\SocialProvider;
 use App\Module\Account\Entity\User;
 use App\Module\Account\Repository\UserRepository;
+use App\Module\Audit\Auditor;
+use App\Module\Audit\AuditOutcome;
+use App\Module\Audit\NullAuditActorProvider;
 use App\Module\Billing\Entity\BillingStatus;
 use App\Module\Billing\Messenger\CancelSubscriptionMessage;
 use App\Module\Project\Entity\Project;
@@ -30,6 +33,7 @@ use App\Module\Review\Entity\Verdict;
 use App\Module\Review\ValueObject\Anchor;
 use App\Module\SiteReview\Entity\SiteReviewComment;
 use App\Tests\Support\BillingGrants;
+use App\Tests\Support\RecordingAuditor;
 use Doctrine\DBAL\Connection;
 use Doctrine\ORM\EntityManagerInterface;
 use League\Flysystem\FilesystemOperator;
@@ -63,6 +67,60 @@ final class DeleteAccountHandlerTest extends KernelTestCase
 
         $em->clear();
         self::assertNotNull($em->find(User::class, $userId));
+    }
+
+    /**
+     * Two records, and the pair is the point: `account.deleted` names the
+     * account the purger removed, while only `account.deletion.confirmed` says
+     * the owner clicked the emailed link themselves.
+     */
+    public function test_a_confirmed_deletion_records_both_the_confirmation_and_the_deletion(): void
+    {
+        self::bootKernel();
+        $audit = RecordingAuditor::installedIn(self::getContainer());
+        $em = self::getContainer()->get(EntityManagerInterface::class);
+        self::assertInstanceOf(EntityManagerInterface::class, $em);
+        $user = new User('Del Audit', 'del-audit@example.com', 'hash');
+        $em->persist($user);
+        $token = $user->generateAccountDeletionToken();
+        $em->flush();
+        $userId = (string) $user->id;
+
+        $handler = self::getContainer()->get(DeleteAccountHandler::class);
+        self::assertInstanceOf(DeleteAccountHandler::class, $handler);
+        $handler(new DeleteAccountCommand($token));
+
+        self::assertSame(['account.deleted', 'account.deletion.confirmed'], $audit->operations());
+
+        foreach (['account.deleted', 'account.deletion.confirmed'] as $operation) {
+            $record = $audit->record($operation);
+            self::assertSame(AuditOutcome::Success, $record->outcome);
+            self::assertSame(Auditor::CATEGORY_DOMAIN, $record->category);
+            self::assertSame(['userId' => $userId], $record->context);
+            self::assertNotNull($record->subject);
+            self::assertSame('user', $record->subject->type);
+            self::assertSame($userId, $record->subject->id);
+        }
+
+        self::assertSame(['account.deleted', 'account.deletion.confirmed'], $audit->domainLogLines());
+        self::assertSame([], $audit->securityLogLines());
+    }
+
+    /** An invalid token deletes nothing, so it must state nothing either. */
+    public function test_an_invalid_token_records_nothing(): void
+    {
+        self::bootKernel();
+        $audit = RecordingAuditor::installedIn(self::getContainer());
+        $handler = self::getContainer()->get(DeleteAccountHandler::class);
+        self::assertInstanceOf(DeleteAccountHandler::class, $handler);
+
+        try {
+            $handler(new DeleteAccountCommand('not-a-token'));
+            self::fail('expected DomainErrors');
+        } catch (DomainErrors) {
+        }
+
+        self::assertSame([], $audit->operations());
     }
 
     public function test_valid_token_deletes_the_full_owned_graph_and_spares_other_users(): void
@@ -194,7 +252,12 @@ final class DeleteAccountHandlerTest extends KernelTestCase
         $bus = $this->createMock(MessageBusInterface::class);
         $bus->expects(self::never())->method('dispatch');
 
-        $handler = new DeleteAccountHandler($users, new AccountPurger($bus, $em, new NullLogger(), $this->createStub(FilesystemOperator::class), []));
+        $audit = new RecordingAuditor(new NullAuditActorProvider());
+        $handler = new DeleteAccountHandler(
+            $users,
+            new AccountPurger($bus, $em, new NullLogger(), $audit->auditor, $this->createStub(FilesystemOperator::class), []),
+            $audit->auditor,
+        );
 
         $this->expectException(\RuntimeException::class);
         $this->expectExceptionMessage('simulated transaction failure');
@@ -241,7 +304,12 @@ final class DeleteAccountHandlerTest extends KernelTestCase
 
         $purgers = [$makePurger(80), $makePurger(10), $makePurger(30)];
 
-        $handler = new DeleteAccountHandler($users, new AccountPurger($this->createStub(MessageBusInterface::class), $em, new NullLogger(), $this->createStub(FilesystemOperator::class), $purgers));
+        $audit = new RecordingAuditor(new NullAuditActorProvider());
+        $handler = new DeleteAccountHandler(
+            $users,
+            new AccountPurger($this->createStub(MessageBusInterface::class), $em, new NullLogger(), $audit->auditor, $this->createStub(FilesystemOperator::class), $purgers),
+            $audit->auditor,
+        );
         $handler(new DeleteAccountCommand($token));
 
         self::assertSame([10, 30, 80], $calls->getArrayCopy());
