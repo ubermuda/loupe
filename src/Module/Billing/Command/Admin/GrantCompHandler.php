@@ -5,19 +5,21 @@ declare(strict_types=1);
 namespace App\Module\Billing\Command\Admin;
 
 use App\Exception\DomainErrors;
+use App\Module\Audit\Auditor;
+use App\Module\Audit\AuditOutcome;
+use App\Module\Audit\AuditSubject;
 use App\Module\Billing\Entity\Subscription;
 use App\Module\Billing\Entity\SubscriptionKind;
 use App\Module\Billing\Service\TrialProvisioner;
 use Doctrine\DBAL\LockMode;
 use Doctrine\ORM\EntityManagerInterface;
-use Psr\Log\LoggerInterface;
 
 final readonly class GrantCompHandler
 {
     public function __construct(
         private TrialProvisioner $trialProvisioner,
         private EntityManagerInterface $em,
-        private LoggerInterface $logger,
+        private Auditor $auditor,
     ) {
     }
 
@@ -62,14 +64,25 @@ final readonly class GrantCompHandler
         );
 
         if ($reenabled) {
-            $this->logger->info('billing.account.reenabled', ['userId' => (string) $command->target->id]);
+            $this->record('billing.account.reenabled', $command);
         }
 
-        $this->logger->info('billing.comp.granted', [
-            'targetId' => (string) $command->target->id,
-            'actorId' => (string) $command->actor->id,
-        ]);
+        $this->record('billing.comp.granted', $command);
 
         return $comp;
+    }
+
+    /**
+     * The comped account, never the admin: the admin is the actor, and the
+     * Auditor resolves that from the security token by itself.
+     */
+    private function record(string $operation, GrantCompCommand $command): void
+    {
+        $this->auditor->record(
+            $operation,
+            AuditOutcome::Success,
+            ['userId' => (string) $command->target->id],
+            new AuditSubject('user', (string) $command->target->id),
+        );
     }
 }
