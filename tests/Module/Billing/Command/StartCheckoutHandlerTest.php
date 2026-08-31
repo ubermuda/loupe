@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Tests\Module\Billing\Command;
 
+use App\Audit\AuditChannel;
 use App\Exception\DomainErrors;
 use App\Module\Account\Entity\User;
 use App\Module\Account\Entity\WaitlistEntry;
@@ -11,6 +12,9 @@ use App\Module\Account\Repository\UserRepository;
 use App\Module\Account\Repository\WaitlistEntryRepository;
 use App\Module\Account\Service\InstallationState;
 use App\Module\Account\Service\RegistrationGate;
+use App\Module\Audit\Auditor;
+use App\Module\Audit\AuditOutcome;
+use App\Module\Audit\NullAuditActorProvider;
 use App\Module\Billing\Command\StartCheckoutCommand;
 use App\Module\Billing\Command\StartCheckoutHandler;
 use App\Module\Billing\Entity\BillingProfile;
@@ -20,12 +24,16 @@ use App\Module\Billing\Service\ActivePriceProvider;
 use App\Module\Billing\Service\StripeGatewayInterface;
 use App\Module\Billing\Service\TrialProvisioner;
 use App\Tests\Support\BillingGrants;
+use App\Tests\Support\DirectLogging;
 use App\Tests\Support\FeatureFlags;
+use App\Tests\Support\RecordingAuditor;
+use App\Tests\Support\RecordingLogger;
 use App\Tests\Support\TransactionalEntityManagerStub;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\NullLogger;
 use Symfony\Component\Cache\Adapter\ArrayAdapter;
+use Symfony\Component\Uid\Uuid;
 
 final class StartCheckoutHandlerTest extends TestCase
 {
@@ -34,9 +42,23 @@ final class StartCheckoutHandlerTest extends TestCase
     /** One active user against a cap of one: the gate is closed. */
     private const array CAP_CLOSED_FLAGS = ['billing.enabled' => true, 'billing.stripe_price_id' => 'price_123', 'registration.cap' => 1];
 
+    private RecordingAuditor $audit;
+
+    private RecordingLogger $logger;
+
+    #[\Override]
+    protected function setUp(): void
+    {
+        $this->audit = new RecordingAuditor(new NullAuditActorProvider());
+        $this->logger = new RecordingLogger();
+    }
+
     private function user(): User
     {
-        return new User(fullName: 'Paying User', email: 'payer@example.com', password: 'irrelevant');
+        $user = new User(fullName: 'Paying User', email: 'payer@example.com', password: 'irrelevant');
+        new \ReflectionProperty(User::class, 'id')->setValue($user, Uuid::v4());
+
+        return $user;
     }
 
     private function command(User $user, ?string $inviteToken = null): StartCheckoutCommand
@@ -65,9 +87,10 @@ final class StartCheckoutHandlerTest extends TestCase
             $stripe,
             FeatureFlags::service($flags),
             TransactionalEntityManagerStub::configure($this->createStub(EntityManagerInterface::class)),
-            new NullLogger(),
+            $this->logger,
             new RegistrationGate(FeatureFlags::service($flags), $users, new InstallationState($users)),
             $waitlistEntries ?? $this->createStub(WaitlistEntryRepository::class),
+            $this->audit->auditor,
         );
     }
 
@@ -282,5 +305,114 @@ final class StartCheckoutHandlerTest extends TestCase
         } catch (DomainErrors $e) {
             self::assertContains('billing.error.capacity_full', $e->errors);
         }
+    }
+
+    public function test_a_started_checkout_is_recorded_against_the_user(): void
+    {
+        $user = $this->user();
+        $profile = BillingGrants::profileWithTrial($user, new \DateTimeImmutable('+3 days'));
+        $profile->stripeCustomerId = 'cus_existing';
+
+        $stripe = $this->createStub(StripeGatewayInterface::class);
+        $stripe->method('createCheckoutSession')->willReturn(self::CHECKOUT_URL);
+
+        ($this->handler($stripe, $profile))($this->command($user));
+
+        $record = $this->audit->record('billing.checkout.started');
+        self::assertSame(AuditOutcome::Success, $record->outcome);
+        self::assertSame(Auditor::CATEGORY_DOMAIN, $record->category);
+        self::assertNotNull($record->subject);
+        self::assertSame('user', $record->subject->type);
+        self::assertSame((string) $user->id, $record->subject->id);
+        self::assertSame(['userId' => (string) $user->id], $record->context);
+
+        self::assertSame(['billing.checkout.started'], $this->audit->domainLogLines());
+        self::assertSame([], $this->audit->securityLogLines());
+    }
+
+    /** A Stripe price id names an object in someone else's system. */
+    public function test_the_record_carries_no_stripe_price_identifier(): void
+    {
+        $user = $this->user();
+        $profile = BillingGrants::profileWithTrial($user, new \DateTimeImmutable('+3 days'));
+        $profile->stripeCustomerId = 'cus_existing';
+
+        $stripe = $this->createStub(StripeGatewayInterface::class);
+        $stripe->method('createCheckoutSession')->willReturn(self::CHECKOUT_URL);
+
+        ($this->handler($stripe, $profile))($this->command($user));
+
+        $context = $this->audit->record('billing.checkout.started')->context;
+        self::assertArrayNotHasKey('priceId', $context);
+        self::assertSame([], array_filter(
+            $context,
+            static fn (string|int|float|bool|null $value): bool => \is_string($value) && str_starts_with($value, 'price_'),
+        ));
+    }
+
+    public function test_a_stripe_failure_stays_a_diagnostic_and_records_nothing(): void
+    {
+        $user = $this->user();
+        $profile = BillingGrants::profileWithTrial($user, new \DateTimeImmutable('+3 days'));
+        $profile->stripeCustomerId = 'cus_existing';
+
+        $stripe = $this->createStub(StripeGatewayInterface::class);
+        $stripe->method('createCheckoutSession')->willThrowException(new \RuntimeException('stripe is down'));
+
+        try {
+            ($this->handler($stripe, $profile))($this->command($user));
+            self::fail('expected DomainErrors');
+        } catch (DomainErrors) {
+        }
+
+        self::assertSame([], $this->audit->operations());
+        self::assertSame(
+            ['billing.checkout.stripe_failed'],
+            array_map(static fn (array $entry): string => $entry['message'], $this->logger->records),
+        );
+    }
+
+    /**
+     * The handler keeps its logger for the Stripe-failure diagnostic, so the
+     * reflection check cannot apply. The started operation must still reach
+     * the log stream through the sink alone.
+     */
+    public function test_the_started_operation_is_never_logged_directly(): void
+    {
+        $user = $this->user();
+        $profile = BillingGrants::profileWithTrial($user, new \DateTimeImmutable('+3 days'));
+        $profile->stripeCustomerId = 'cus_existing';
+
+        $stripe = $this->createStub(StripeGatewayInterface::class);
+        $stripe->method('createCheckoutSession')->willReturn(self::CHECKOUT_URL);
+
+        ($this->handler($stripe, $profile))($this->command($user));
+
+        DirectLogging::assertOperationNotLoggedBy($this->logger, 'billing.checkout.started');
+    }
+
+    /**
+     * The whole log line, not only its message: the sink is what puts the
+     * record back into the log stream, and the price id used to be there.
+     */
+    public function test_the_log_line_the_sink_emits_carries_the_record(): void
+    {
+        $user = $this->user();
+        $profile = BillingGrants::profileWithTrial($user, new \DateTimeImmutable('+3 days'));
+        $profile->stripeCustomerId = 'cus_existing';
+
+        $stripe = $this->createStub(StripeGatewayInterface::class);
+        $stripe->method('createCheckoutSession')->willReturn(self::CHECKOUT_URL);
+
+        ($this->handler($stripe, $profile))($this->command($user));
+
+        self::assertCount(1, $this->audit->domainChannel->records);
+        self::assertSame([
+            'userId' => (string) $user->id,
+            'outcome' => 'success',
+            'channel' => AuditChannel::System->value,
+            'subjectType' => 'user',
+            'subjectId' => (string) $user->id,
+        ], $this->audit->domainChannel->records[0]['context']);
     }
 }

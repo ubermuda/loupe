@@ -4,6 +4,10 @@ declare(strict_types=1);
 
 namespace App\Module\Billing\Command;
 
+use App\Module\Account\Entity\User;
+use App\Module\Audit\Auditor;
+use App\Module\Audit\AuditOutcome;
+use App\Module\Audit\AuditSubject;
 use App\Module\Billing\Entity\BillingStatus;
 use App\Module\Billing\Entity\Subscription;
 use App\Module\Billing\Entity\SubscriptionKind;
@@ -32,6 +36,7 @@ final readonly class RunTrialSweepHandler
         private FeatureFlagService $featureFlags,
         private EntityManagerInterface $em,
         private LoggerInterface $logger,
+        private Auditor $auditor,
     ) {
     }
 
@@ -123,7 +128,7 @@ final readonly class RunTrialSweepHandler
         });
 
         if (1 === $disabledNow) {
-            $this->logger->info('billing.trial_sweep.disabled', ['userId' => (string) $user->id, 'reason' => 'trial_expired']);
+            $this->recordDisabled($user, 'trial_expired');
         }
         if (1 === $churnedNow && $this->trialSurveys->send($user, subscribed: false)) {
             $this->logger->info('billing.trial_sweep.survey_sent', ['userId' => (string) $user->id, 'variant' => 'churned']);
@@ -176,13 +181,27 @@ final readonly class RunTrialSweepHandler
         });
 
         if (1 === $disabledNow) {
-            $this->logger->info('billing.trial_sweep.disabled', ['userId' => (string) $user->id, 'reason' => 'subscription_canceled']);
+            $this->recordDisabled($user, 'subscription_canceled');
         }
         if (1 === $surveyNow && $this->cancelSurveys->send($user)) {
             $this->logger->info('billing.trial_sweep.cancel_survey_sent', ['userId' => (string) $user->id]);
         }
 
         return [$disabledNow, $surveyNow];
+    }
+
+    /**
+     * Both passes disable an account, and only `reason` tells them apart, so
+     * the two records are built in one place.
+     */
+    private function recordDisabled(User $user, string $reason): void
+    {
+        $this->auditor->record(
+            'billing.trial_sweep.disabled',
+            AuditOutcome::Success,
+            ['userId' => (string) $user->id, 'reason' => $reason],
+            new AuditSubject('user', (string) $user->id),
+        );
     }
 
     private function logFailure(Subscription $subscription, \Throwable $e): void

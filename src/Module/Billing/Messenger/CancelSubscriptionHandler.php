@@ -4,8 +4,10 @@ declare(strict_types=1);
 
 namespace App\Module\Billing\Messenger;
 
+use App\Module\Audit\Auditor;
+use App\Module\Audit\AuditOutcome;
+use App\Module\Audit\AuditSubject;
 use App\Module\Billing\Service\StripeGatewayInterface;
-use Psr\Log\LoggerInterface;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
 
 /**
@@ -20,16 +22,23 @@ final readonly class CancelSubscriptionHandler
 {
     public function __construct(
         private StripeGatewayInterface $stripeGateway,
-        private LoggerInterface $logger,
+        private Auditor $auditor,
     ) {
     }
 
     public function __invoke(CancelSubscriptionMessage $message): void
     {
         $this->stripeGateway->cancelSubscription($message->stripeSubscriptionId);
-        $this->logger->info('account.deletion.stripe_subscription_canceled', [
-            'userId' => $message->deletedUserId,
-            'stripeSubscriptionId' => $message->stripeSubscriptionId,
-        ]);
+
+        // The Stripe subscription id stays out: it names a Stripe object, and
+        // an audit context carries this app's own identifiers only. The user
+        // the subscription belonged to is the subject, which is what the
+        // record has to say.
+        $this->auditor->record(
+            'account.deletion.stripe_subscription_canceled',
+            AuditOutcome::Success,
+            ['userId' => $message->deletedUserId],
+            new AuditSubject('user', $message->deletedUserId),
+        );
     }
 }

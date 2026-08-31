@@ -5,6 +5,9 @@ declare(strict_types=1);
 namespace App\Module\Billing\Command;
 
 use App\Module\Account\Repository\WaitlistEntryRepository;
+use App\Module\Audit\Auditor;
+use App\Module\Audit\AuditOutcome;
+use App\Module\Audit\AuditSubject;
 use App\Module\Billing\Entity\BillingProfile;
 use App\Module\Billing\Entity\BillingStatus;
 use App\Module\Billing\Entity\Subscription;
@@ -26,6 +29,7 @@ final readonly class SyncStripeSubscriptionHandler
         private WaitlistEntryRepository $waitlistEntries,
         private EntityManagerInterface $em,
         private LoggerInterface $logger,
+        private Auditor $auditor,
     ) {
     }
 
@@ -184,7 +188,12 @@ final readonly class SyncStripeSubscriptionHandler
             // subscription can be surveyed in its own right.
             $user->disabledAt = null;
             $subscription->surveySentAt = null;
-            $this->logger->info('billing.account.reenabled', ['userId' => (string) $user->id]);
+            $this->auditor->record(
+                'billing.account.reenabled',
+                AuditOutcome::Success,
+                ['userId' => (string) $user->id],
+                new AuditSubject('user', (string) $user->id),
+            );
 
             $this->waitlistEntries->findOneByEmail($user->email)?->markConverted();
         }
@@ -196,7 +205,12 @@ final readonly class SyncStripeSubscriptionHandler
             // which the sweep settles. The sweep also owns the cancellation
             // survey; this handler never emails.
             $user->disabledAt = $now;
-            $this->logger->info('billing.account.disabled_on_cancel', ['userId' => (string) $user->id]);
+            $this->auditor->record(
+                'billing.account.disabled_on_cancel',
+                AuditOutcome::Success,
+                ['userId' => (string) $user->id],
+                new AuditSubject('user', (string) $user->id),
+            );
         }
 
         $this->em->flush();
