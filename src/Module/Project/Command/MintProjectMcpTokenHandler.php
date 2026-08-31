@@ -7,19 +7,19 @@ namespace App\Module\Project\Command;
 use App\Exception\DomainErrors;
 use App\Module\Account\Entity\ApiToken;
 use App\Module\Account\Entity\ApiTokenScope;
+use App\Module\Audit\Auditor;
+use App\Module\Audit\AuditOutcome;
+use App\Module\Audit\AuditSubject;
 use App\Module\Project\Repository\ProjectRepository;
 use Doctrine\DBAL\LockMode;
 use Doctrine\ORM\EntityManagerInterface;
-use Monolog\Attribute\WithMonologChannel;
-use Psr\Log\LoggerInterface;
 
-#[WithMonologChannel('app_security')]
 final readonly class MintProjectMcpTokenHandler
 {
     public function __construct(
         private EntityManagerInterface $em,
         private ProjectRepository $projects,
-        private LoggerInterface $logger,
+        private Auditor $auditor,
     ) {
     }
 
@@ -39,9 +39,13 @@ final readonly class MintProjectMcpTokenHandler
             $this->em->lock($project, LockMode::PESSIMISTIC_WRITE);
 
             if ($this->projects->hasCommittedMcpToken($project)) {
-                $this->logger->info('project.mcp_token_mint_rejected', [
-                    'projectId' => (string) $project->id,
-                ]);
+                $this->auditor->record(
+                    'project.mcp_token_mint_rejected',
+                    AuditOutcome::Refused,
+                    ['projectId' => (string) $project->id],
+                    new AuditSubject('project', (string) $project->id),
+                    Auditor::CATEGORY_SECURITY,
+                );
                 throw new DomainErrors(['token' => 'project.error.mcp_token_already_minted']);
             }
 
@@ -51,10 +55,16 @@ final readonly class MintProjectMcpTokenHandler
             $this->em->persist($token);
             $this->em->flush();
 
-            $this->logger->info('project.mcp_token_minted', [
-                'projectId' => (string) $project->id,
-                'tokenId' => (string) $token->id,
-            ]);
+            $this->auditor->record(
+                'project.mcp_token_minted',
+                AuditOutcome::Success,
+                [
+                    'projectId' => (string) $project->id,
+                    'tokenId' => (string) $token->id,
+                ],
+                new AuditSubject('api_token', (string) $token->id),
+                Auditor::CATEGORY_SECURITY,
+            );
 
             return $raw;
         });

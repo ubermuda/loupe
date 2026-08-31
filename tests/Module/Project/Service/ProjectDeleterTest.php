@@ -7,6 +7,9 @@ namespace App\Tests\Module\Project\Service;
 use App\Module\Account\Entity\ApiToken;
 use App\Module\Account\Entity\ApiTokenScope;
 use App\Module\Account\Entity\User;
+use App\Module\Audit\AuditActorProviderInterface;
+use App\Module\Audit\Auditor;
+use App\Module\Audit\AuditOutcome;
 use App\Module\Project\Entity\Project;
 use App\Module\Project\Event\ProjectDeleting;
 use App\Module\Project\Service\ProjectDeleter;
@@ -20,8 +23,11 @@ use App\Module\Review\Entity\Verdict;
 use App\Module\Review\ValueObject\Anchor;
 use App\Module\SiteReview\Entity\SiteReviewComment;
 use App\Module\SiteReview\Entity\SiteReviewEvent;
+use App\Tests\Support\DirectLogging;
+use App\Tests\Support\RecordingAuditor;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
+use Symfony\Contracts\EventDispatcher\EventDispatcherInterface;
 
 final class ProjectDeleterTest extends KernelTestCase
 {
@@ -142,6 +148,42 @@ final class ProjectDeleterTest extends KernelTestCase
         self::assertSame(2, (int) $conn->fetchOne('SELECT count(*) FROM documents WHERE project_id = :id', ['id' => (string) $projectId]));
         self::assertSame(1, (int) $conn->fetchOne('SELECT count(*) FROM site_review_comments WHERE project_id = :id', ['id' => (string) $projectId]));
         self::assertSame(1, (int) $conn->fetchOne('SELECT count(*) FROM tags WHERE project_id = :id', ['id' => (string) $projectId]));
+    }
+
+    public function test_a_deletion_is_recorded_on_the_domain_channel(): void
+    {
+        self::bootKernel();
+        $em = self::getContainer()->get(EntityManagerInterface::class);
+        self::assertInstanceOf(EntityManagerInterface::class, $em);
+        $dispatcher = self::getContainer()->get('event_dispatcher');
+        self::assertInstanceOf(EventDispatcherInterface::class, $dispatcher);
+        $actors = self::getContainer()->get(AuditActorProviderInterface::class);
+        self::assertInstanceOf(AuditActorProviderInterface::class, $actors);
+
+        $owner = $this->makeUser($em, 'audited-deleter-owner');
+        $project = new Project(owner: $owner, name: 'audited');
+        $em->persist($project);
+        $em->flush();
+        $projectId = (string) $project->id;
+
+        $audit = new RecordingAuditor($actors);
+        new ProjectDeleter($em, $dispatcher, $audit->auditor)->delete($project);
+
+        $record = $audit->record('project.deleted');
+        self::assertSame(AuditOutcome::Success, $record->outcome);
+        self::assertSame(Auditor::CATEGORY_DOMAIN, $record->category);
+        self::assertNotNull($record->subject);
+        self::assertSame('project', $record->subject->type);
+        self::assertSame($projectId, $record->subject->id);
+        self::assertSame(['projectId' => $projectId], $record->context);
+
+        self::assertSame(['project.deleted'], $audit->domainLogLines());
+        self::assertSame([], $audit->securityLogLines());
+    }
+
+    public function test_the_deleter_keeps_no_logger_beside_the_auditor(): void
+    {
+        DirectLogging::assertRemovedFrom(ProjectDeleter::class);
     }
 
     private function makeUser(EntityManagerInterface $em, string $slug): User

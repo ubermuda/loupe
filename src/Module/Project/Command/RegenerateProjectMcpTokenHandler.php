@@ -6,19 +6,19 @@ namespace App\Module\Project\Command;
 
 use App\Module\Account\Entity\ApiToken;
 use App\Module\Account\Entity\ApiTokenScope;
+use App\Module\Audit\Auditor;
+use App\Module\Audit\AuditOutcome;
+use App\Module\Audit\AuditSubject;
 use App\Module\Project\Repository\ProjectRepository;
 use Doctrine\DBAL\LockMode;
 use Doctrine\ORM\EntityManagerInterface;
-use Monolog\Attribute\WithMonologChannel;
-use Psr\Log\LoggerInterface;
 
-#[WithMonologChannel('app_security')]
 final readonly class RegenerateProjectMcpTokenHandler
 {
     public function __construct(
         private EntityManagerInterface $em,
         private ProjectRepository $projects,
-        private LoggerInterface $logger,
+        private Auditor $auditor,
     ) {
     }
 
@@ -51,11 +51,18 @@ final readonly class RegenerateProjectMcpTokenHandler
             $this->em->persist($token);
             $this->em->flush();
 
-            $this->logger->info('project.mcp_token_regenerated', [
-                'projectId' => (string) $project->id,
-                'tokenId' => (string) $token->id,
-                'previousTokenId' => null !== $previous ? (string) $previous->id : null,
-            ]);
+            $this->auditor->record(
+                'project.mcp_token_regenerated',
+                AuditOutcome::Success,
+                [
+                    'projectId' => (string) $project->id,
+                    'tokenId' => (string) $token->id,
+                    // Not $previous->id: Doctrine nulls a deleted entity's identifier on flush.
+                    'previousTokenId' => null !== $previous ? $previousId : null,
+                ],
+                new AuditSubject('api_token', (string) $token->id),
+                Auditor::CATEGORY_SECURITY,
+            );
 
             return $raw;
         });

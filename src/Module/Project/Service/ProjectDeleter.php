@@ -4,10 +4,12 @@ declare(strict_types=1);
 
 namespace App\Module\Project\Service;
 
+use App\Module\Audit\Auditor;
+use App\Module\Audit\AuditOutcome;
+use App\Module\Audit\AuditSubject;
 use App\Module\Project\Entity\Project;
 use App\Module\Project\Event\ProjectDeleting;
 use Doctrine\ORM\EntityManagerInterface;
-use Psr\Log\LoggerInterface;
 use Symfony\Contracts\EventDispatcher\EventDispatcherInterface;
 
 /**
@@ -21,7 +23,7 @@ final readonly class ProjectDeleter
     public function __construct(
         private EntityManagerInterface $em,
         private EventDispatcherInterface $eventDispatcher,
-        private LoggerInterface $logger,
+        private Auditor $auditor,
     ) {
     }
 
@@ -44,6 +46,11 @@ final readonly class ProjectDeleter
             $this->em->flush();
         });
 
-        $this->logger->info('project.deleted', ['projectId' => $projectId]);
+        $this->auditor->record(
+            'project.deleted',
+            AuditOutcome::Success,
+            ['projectId' => $projectId],
+            new AuditSubject('project', $projectId),
+        );
     }
 }
