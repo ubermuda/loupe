@@ -243,11 +243,11 @@ final class MarkCommentsAddressedHandlerTest extends KernelTestCase
 
         $outcomes = ($this->handler)(new MarkCommentsAddressedCommand([$comment, $comment]));
 
+        self::assertCount(1, $this->audit->records('review.comment.addressed'));
         self::assertSame(
             [MarkCommentAddressedOutcome::Addressed, MarkCommentAddressedOutcome::Addressed],
             $outcomes,
         );
-        self::assertCount(1, $this->audit->records('review.comment.addressed'));
         $record = $this->audit->record('review.comment.addressed');
         self::assertSame(AuditOutcome::Success, $record->outcome);
         self::assertSame('Addressed', $record->context['result']);
