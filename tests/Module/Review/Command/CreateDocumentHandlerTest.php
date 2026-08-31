@@ -6,11 +6,14 @@ namespace App\Tests\Module\Review\Command;
 
 use App\Exception\DomainErrors;
 use App\Module\Account\Entity\User;
+use App\Module\Audit\Auditor;
+use App\Module\Audit\AuditOutcome;
 use App\Module\Project\Entity\Project;
 use App\Module\Review\Command\CreateDocumentCommand;
 use App\Module\Review\Command\CreateDocumentHandler;
 use App\Module\Review\Entity\DocumentStatus;
 use App\Module\Review\Entity\Tag;
+use App\Tests\Support\RecordingAuditor;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\DataProvider;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
@@ -161,5 +164,104 @@ final class CreateDocumentHandlerTest extends KernelTestCase
         $conn = $em->getConnection();
         self::assertSame(0, (int) $conn->fetchOne('SELECT count(*) FROM documents WHERE project_id = :id', ['id' => (string) $project->id]));
         self::assertSame(0, (int) $conn->fetchOne('SELECT count(*) FROM document_versions'));
+    }
+
+    public function test_a_created_document_is_recorded_on_the_domain_channel(): void
+    {
+        self::bootKernel();
+        $em = self::getContainer()->get(EntityManagerInterface::class);
+        self::assertInstanceOf(EntityManagerInterface::class, $em);
+        $user = new User(fullName: 'Agent', email: 'create-audit@example.com', password: 'hashed-placeholder');
+        $em->persist($user);
+        $project = new Project($user, 'p-'.uniqid());
+        $em->persist($project);
+        $em->flush();
+
+        $audit = RecordingAuditor::installedIn(self::getContainer());
+        $handler = self::getContainer()->get(CreateDocumentHandler::class);
+        self::assertInstanceOf(CreateDocumentHandler::class, $handler);
+
+        $document = $handler(new CreateDocumentCommand(
+            project: $project,
+            title: 'Auth PRD',
+            markdown: '# Auth',
+            tagNames: ['design', 'security'],
+        ));
+
+        $record = $audit->record('review.document.created');
+        self::assertSame(AuditOutcome::Success, $record->outcome);
+        self::assertSame(Auditor::CATEGORY_DOMAIN, $record->category);
+        self::assertNotNull($record->subject);
+        self::assertSame('document', $record->subject->type);
+        self::assertSame((string) $document->id, $record->subject->id);
+        self::assertSame([
+            'documentId' => (string) $document->id,
+            'projectId' => (string) $project->id,
+            'tagCount' => 2,
+            'referenceCount' => 0,
+        ], $record->context);
+
+        // Two records, because the tag set is written by its own handler, which
+        // records the write it performs.
+        self::assertSame(
+            ['review.document.tags_updated', 'review.document.created'],
+            $audit->domainLogLines(),
+        );
+        self::assertSame([], $audit->securityLogLines());
+    }
+
+    /** Neither the title nor the body reaches the trail. */
+    public function test_the_creation_record_carries_no_document_text(): void
+    {
+        self::bootKernel();
+        $em = self::getContainer()->get(EntityManagerInterface::class);
+        self::assertInstanceOf(EntityManagerInterface::class, $em);
+        $user = new User(fullName: 'Agent', email: 'create-audit-text@example.com', password: 'hashed-placeholder');
+        $em->persist($user);
+        $project = new Project($user, 'p-'.uniqid());
+        $em->persist($project);
+        $em->flush();
+
+        $audit = RecordingAuditor::installedIn(self::getContainer());
+        $handler = self::getContainer()->get(CreateDocumentHandler::class);
+        self::assertInstanceOf(CreateDocumentHandler::class, $handler);
+
+        $handler(new CreateDocumentCommand(
+            project: $project,
+            title: 'Grievance about Dana',
+            markdown: '# Dana said',
+        ));
+
+        $context = $audit->record('review.document.created')->context;
+        self::assertArrayNotHasKey('title', $context);
+        self::assertArrayNotHasKey('markdown', $context);
+        self::assertSame([], array_filter(
+            $context,
+            static fn (string|int|float|bool|null $value): bool => \is_string($value) && str_contains($value, 'Dana'),
+        ));
+    }
+
+    public function test_a_rejected_creation_records_nothing(): void
+    {
+        self::bootKernel();
+        $em = self::getContainer()->get(EntityManagerInterface::class);
+        self::assertInstanceOf(EntityManagerInterface::class, $em);
+        $user = new User(fullName: 'Agent', email: 'create-audit-refused@example.com', password: 'hashed-placeholder');
+        $em->persist($user);
+        $project = new Project($user, 'p-'.uniqid());
+        $em->persist($project);
+        $em->flush();
+
+        $audit = RecordingAuditor::installedIn(self::getContainer());
+        $handler = self::getContainer()->get(CreateDocumentHandler::class);
+        self::assertInstanceOf(CreateDocumentHandler::class, $handler);
+
+        try {
+            $handler(new CreateDocumentCommand(project: $project, title: '   ', markdown: '# Auth'));
+            self::fail('a blank title must be rejected');
+        } catch (DomainErrors) {
+        }
+
+        self::assertSame([], $audit->operations());
     }
 }

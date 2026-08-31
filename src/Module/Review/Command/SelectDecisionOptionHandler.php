@@ -5,13 +5,15 @@ declare(strict_types=1);
 namespace App\Module\Review\Command;
 
 use App\Exception\DomainErrors;
+use App\Module\Audit\Auditor;
+use App\Module\Audit\AuditOutcome;
+use App\Module\Audit\AuditSubject;
 use App\Module\Review\Entity\DecisionSelection;
 use App\Module\Review\Repository\DecisionSelectionRepository;
 use App\Module\Review\Repository\DocumentVersionRepository;
 use App\Module\Review\Service\DecisionBlockService;
 use Doctrine\DBAL\LockMode;
 use Doctrine\ORM\EntityManagerInterface;
-use Psr\Log\LoggerInterface;
 
 final readonly class SelectDecisionOptionHandler
 {
@@ -20,7 +22,7 @@ final readonly class SelectDecisionOptionHandler
         private DecisionSelectionRepository $decisionSelections,
         private DecisionBlockService $decisionBlocks,
         private EntityManagerInterface $em,
-        private LoggerInterface $logger,
+        private Auditor $auditor,
     ) {
     }
 
@@ -77,12 +79,19 @@ final readonly class SelectDecisionOptionHandler
 
             $this->em->flush();
 
-            $this->logger->info('review.decision.selected', [
-                'document_id' => (string) $command->document->id,
-                'decision_id' => $command->decisionId,
-                'option_index' => $command->optionIndex,
-                'version_number' => $version->versionNumber,
-            ]);
+            // The chosen label stays out: it is a phrase the document's author
+            // wrote, and the index plus the version number locate it exactly.
+            $this->auditor->record(
+                'review.decision.selected',
+                AuditOutcome::Success,
+                [
+                    'documentId' => (string) $command->document->id,
+                    'decisionId' => $command->decisionId,
+                    'optionIndex' => $command->optionIndex,
+                    'versionNumber' => $version->versionNumber,
+                ],
+                new AuditSubject('document', (string) $command->document->id),
+            );
 
             return $selection;
         });

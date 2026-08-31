@@ -5,6 +5,9 @@ declare(strict_types=1);
 namespace App\Module\Review\Command;
 
 use App\Exception\DomainErrors;
+use App\Module\Audit\Auditor;
+use App\Module\Audit\AuditOutcome;
+use App\Module\Audit\AuditSubject;
 use App\Module\Review\Entity\Document;
 use App\Module\Review\Entity\DocumentStatus;
 use App\Module\Review\Entity\DocumentVersion;
@@ -30,6 +33,7 @@ final readonly class ReviseDocumentHandler
         private DocumentVersionRepository $documentVersions,
         private DocumentReferenceValidator $referenceValidator,
         private DocumentSearchIndexer $searchIndexer,
+        private Auditor $auditor,
     ) {
     }
 
@@ -126,6 +130,21 @@ final readonly class ReviseDocumentHandler
             // Inside the transaction: a revision that rolls back must not leave
             // the vector describing a version that no longer exists.
             $this->searchIndexer->index($document);
+
+            $this->auditor->record(
+                'review.document.revised',
+                AuditOutcome::Success,
+                [
+                    'documentId' => (string) $document->id,
+                    'projectId' => (string) $document->project->id,
+                    'versionNumber' => $newVersion->versionNumber,
+                    'titleChanged' => null !== $title,
+                    'referencesReplaced' => null !== $references,
+                    'commentsCarried' => $summary['carried'],
+                    'commentsOrphaned' => $summary['orphaned'],
+                ],
+                new AuditSubject('document', (string) $document->id),
+            );
 
             return $summary;
         });

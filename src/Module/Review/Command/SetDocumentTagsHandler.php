@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace App\Module\Review\Command;
 
+use App\Module\Audit\Auditor;
+use App\Module\Audit\AuditOutcome;
+use App\Module\Audit\AuditSubject;
 use App\Module\Review\Entity\Tag;
 use App\Module\Review\Repository\TagRepository;
 use Doctrine\ORM\EntityManagerInterface;
@@ -25,6 +28,7 @@ final readonly class SetDocumentTagsHandler
     public function __construct(
         private EntityManagerInterface $em,
         private TagRepository $tags,
+        private Auditor $auditor,
     ) {
     }
 
@@ -46,6 +50,18 @@ final readonly class SetDocumentTagsHandler
         }
 
         $this->em->flush();
+
+        // A count, not the names: a tag name is a phrase a person typed.
+        $this->auditor->record(
+            'review.document.tags_updated',
+            AuditOutcome::Success,
+            [
+                'documentId' => (string) $document->id,
+                'projectId' => (string) $document->project->id,
+                'tagCount' => \count($applied),
+            ],
+            new AuditSubject('document', (string) $document->id),
+        );
 
         return $applied;
     }

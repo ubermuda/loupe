@@ -5,6 +5,9 @@ declare(strict_types=1);
 namespace App\Module\Review\Command;
 
 use App\Exception\DomainErrors;
+use App\Module\Audit\Auditor;
+use App\Module\Audit\AuditOutcome;
+use App\Module\Audit\AuditSubject;
 use App\Module\Review\Entity\Document;
 use App\Module\Review\Entity\Tag;
 use App\Module\Review\Service\DocumentReferenceValidator;
@@ -20,6 +23,7 @@ final readonly class CreateDocumentHandler
         private SetDocumentTagsHandler $setTags,
         private DocumentReferenceValidator $referenceValidator,
         private DocumentSearchIndexer $searchIndexer,
+        private Auditor $auditor,
     ) {
     }
 
@@ -59,6 +63,21 @@ final readonly class CreateDocumentHandler
         // After setTags, because that is the flush: the indexer reads the rows
         // back over SQL, so it sees nothing until they exist.
         $this->searchIndexer->index($document);
+
+        // After setTags, which owns the only flush: before it the document has
+        // no committed id, and a failed flush would leave a record for a
+        // document that was never written.
+        $this->auditor->record(
+            'review.document.created',
+            AuditOutcome::Success,
+            [
+                'documentId' => (string) $document->id,
+                'projectId' => (string) $command->project->id,
+                'tagCount' => \count($document->tags),
+                'referenceCount' => \count($command->references),
+            ],
+            new AuditSubject('document', (string) $document->id),
+        );
 
         return $document;
     }

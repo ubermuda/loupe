@@ -6,6 +6,8 @@ namespace App\Tests\Module\Review\Command;
 
 use App\Exception\DomainErrors;
 use App\Module\Account\Entity\User;
+use App\Module\Audit\Auditor;
+use App\Module\Audit\AuditOutcome;
 use App\Module\Project\Entity\Project;
 use App\Module\Review\Command\AddCommentCommand;
 use App\Module\Review\Command\AddCommentHandler;
@@ -17,6 +19,7 @@ use App\Module\Review\Entity\Document;
 use App\Module\Review\Form\AddCommentFormType;
 use App\Module\Review\Form\AddCommentRequest;
 use App\Module\Review\Service\AnchorService;
+use App\Tests\Support\RecordingAuditor;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Symfony\Component\Form\FormFactoryInterface;
@@ -339,5 +342,115 @@ final class AddCommentHandlerTest extends KernelTestCase
         self::assertInstanceOf(AddCommentRequest::class, $data);
 
         return $data;
+    }
+
+    public function test_an_added_comment_is_recorded_on_the_domain_channel(): void
+    {
+        self::bootKernel();
+        $audit = RecordingAuditor::installedIn(self::getContainer());
+        [$owner, $document] = $this->seedForAudit('add-audit@example.com');
+        $audit->forget();
+
+        $handler = self::getContainer()->get(AddCommentHandler::class);
+        self::assertInstanceOf(AddCommentHandler::class, $handler);
+        $comment = $handler(new AddCommentCommand($owner, $document, 'body text here', '', '', 'Great point!'));
+
+        $record = $audit->record('review.comment.added');
+        self::assertSame(AuditOutcome::Success, $record->outcome);
+        self::assertSame(Auditor::CATEGORY_DOMAIN, $record->category);
+        self::assertNotNull($record->subject);
+        self::assertSame('comment', $record->subject->type);
+        self::assertSame((string) $comment->id, $record->subject->id);
+        self::assertSame([
+            'commentId' => (string) $comment->id,
+            'documentId' => (string) $document->id,
+            'versionId' => (string) $document->currentVersion()->id,
+            'orphaned' => false,
+            'suggested' => false,
+        ], $record->context);
+
+        self::assertSame(['review.comment.added'], $audit->domainLogLines());
+        self::assertSame([], $audit->securityLogLines());
+    }
+
+    /** The body, the quote and the replacement are all text a person wrote. */
+    public function test_the_record_carries_no_comment_text(): void
+    {
+        self::bootKernel();
+        $audit = RecordingAuditor::installedIn(self::getContainer());
+        [$owner, $document] = $this->seedForAudit('add-audit-text@example.com');
+        $audit->forget();
+
+        $handler = self::getContainer()->get(AddCommentHandler::class);
+        self::assertInstanceOf(AddCommentHandler::class, $handler);
+        $handler(new AddCommentCommand($owner, $document, 'body text here', '', '', 'Ask Dana about this', 'Dana Okafor'));
+
+        $context = $audit->record('review.comment.added')->context;
+        self::assertTrue($context['suggested']);
+        self::assertSame([], array_filter(
+            $context,
+            static fn (string|int|float|bool|null $value): bool => \is_string($value) && str_contains($value, 'Dana'),
+        ));
+    }
+
+    public function test_an_unlocatable_quote_is_recorded_as_orphaned(): void
+    {
+        self::bootKernel();
+        $audit = RecordingAuditor::installedIn(self::getContainer());
+        [$owner, $document] = $this->seedForAudit('add-audit-orphan@example.com');
+        $audit->forget();
+
+        $handler = self::getContainer()->get(AddCommentHandler::class);
+        self::assertInstanceOf(AddCommentHandler::class, $handler);
+        $handler(new AddCommentCommand($owner, $document, 'nowhere in this document', '', '', 'stale'));
+
+        self::assertTrue($audit->record('review.comment.added')->context['orphaned']);
+    }
+
+    public function test_a_refused_comment_records_nothing(): void
+    {
+        self::bootKernel();
+        $audit = RecordingAuditor::installedIn(self::getContainer());
+        [, $document] = $this->seedForAudit('add-audit-refused@example.com');
+
+        $stranger = new User(fullName: 'Stranger', email: 'add-audit-stranger@example.com', password: 'hashed');
+        $em = self::getContainer()->get(EntityManagerInterface::class);
+        self::assertInstanceOf(EntityManagerInterface::class, $em);
+        $em->persist($stranger);
+        $em->flush();
+        $audit->forget();
+
+        $handler = self::getContainer()->get(AddCommentHandler::class);
+        self::assertInstanceOf(AddCommentHandler::class, $handler);
+
+        try {
+            $handler(new AddCommentCommand($stranger, $document, null, null, null, 'not mine'));
+            self::fail('a non-owner must be rejected');
+        } catch (DomainErrors) {
+        }
+
+        self::assertSame([], $audit->operations());
+    }
+
+    /**
+     * @param non-empty-string $email
+     *
+     * @return array{User, Document}
+     */
+    private function seedForAudit(string $email): array
+    {
+        $em = self::getContainer()->get(EntityManagerInterface::class);
+        self::assertInstanceOf(EntityManagerInterface::class, $em);
+
+        $owner = new User(fullName: 'Owner', email: $email, password: 'hashed');
+        $em->persist($owner);
+        $project = new Project($owner, 'p-'.uniqid());
+        $em->persist($project);
+        $em->flush();
+
+        $create = self::getContainer()->get(CreateDocumentHandler::class);
+        self::assertInstanceOf(CreateDocumentHandler::class, $create);
+
+        return [$owner, $create(new CreateDocumentCommand($project, 'Doc', "# Hello\n\nThis is the body text here for the comment."))];
     }
 }

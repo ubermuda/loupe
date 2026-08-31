@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace App\Module\Review\Command;
 
+use App\Module\Audit\Auditor;
+use App\Module\Audit\AuditOutcome;
+use App\Module\Audit\AuditSubject;
 use App\Module\Review\Entity\CommentStatus;
 use App\Module\Review\Repository\CommentRepository;
 use App\Module\Review\Repository\DocumentVersionRepository;
@@ -19,6 +22,7 @@ final readonly class MarkCommentsAddressedHandler
         private CommentRepository $comments,
         private DocumentVersionRepository $documentVersions,
         private EntityManagerInterface $em,
+        private Auditor $auditor,
     ) {
     }
 
@@ -82,6 +86,26 @@ final readonly class MarkCommentsAddressedHandler
                 $outcomes[] = MarkCommentAddressedOutcome::Addressed;
             }
         });
+
+        // One record per comment, not one per call. The batch produces six
+        // different per-comment outcomes, which a single summary record cannot
+        // carry. Written after the transaction commits, so a rolled-back batch
+        // records nothing at all.
+        foreach ($command->comments as $index => $comment) {
+            $outcome = $outcomes[$index];
+
+            $this->auditor->record(
+                'review.comment.addressed',
+                MarkCommentAddressedOutcome::Addressed === $outcome ? AuditOutcome::Success : AuditOutcome::Refused,
+                [
+                    'commentId' => (string) $comment->id,
+                    'documentId' => (string) $comment->version->document->id,
+                    // The enum is not backed, so the case name is the value.
+                    'result' => $outcome->name,
+                ],
+                new AuditSubject('comment', (string) $comment->id),
+            );
+        }
 
         return $outcomes;
     }

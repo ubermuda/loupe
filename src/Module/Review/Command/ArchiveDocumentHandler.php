@@ -5,18 +5,20 @@ declare(strict_types=1);
 namespace App\Module\Review\Command;
 
 use App\Exception\DomainErrors;
+use App\Module\Audit\Auditor;
+use App\Module\Audit\AuditOutcome;
+use App\Module\Audit\AuditSubject;
 use App\Module\Review\Entity\Document;
 use App\Module\Review\Repository\DocumentRepository;
 use Doctrine\DBAL\LockMode;
 use Doctrine\ORM\EntityManagerInterface;
-use Psr\Log\LoggerInterface;
 
 final readonly class ArchiveDocumentHandler
 {
     public function __construct(
         private DocumentRepository $documents,
         private EntityManagerInterface $em,
-        private LoggerInterface $logger,
+        private Auditor $auditor,
     ) {
     }
 
@@ -68,10 +70,17 @@ final readonly class ArchiveDocumentHandler
             $document->archiveReason = $reason;
             $this->em->flush();
 
-            $this->logger->info('review.document.archived', [
-                'document' => (string) $document->id,
-                'project' => (string) $document->project->id,
-            ]);
+            // The reason stays out, as it did out of the log line: it is a
+            // sentence a reviewer wrote, and the context carries ids only.
+            $this->auditor->record(
+                'review.document.archived',
+                AuditOutcome::Success,
+                [
+                    'documentId' => (string) $document->id,
+                    'projectId' => (string) $document->project->id,
+                ],
+                new AuditSubject('document', (string) $document->id),
+            );
 
             return $document;
         });
