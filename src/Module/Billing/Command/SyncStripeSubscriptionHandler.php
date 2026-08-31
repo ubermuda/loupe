@@ -58,17 +58,42 @@ final readonly class SyncStripeSubscriptionHandler
         // otherwise read the same profile, pass their ordering checks and race
         // to flush — the loser's older snapshot winning. The whole
         // check-then-write runs under a write lock on the row instead.
-        $this->em->wrapInTransaction(function () use ($command, $profile, $authoritative, $observedEventId): void {
-            $this->em->lock($profile, LockMode::PESSIMISTIC_WRITE);
-            // lock() takes the row but does not refresh what is in memory; the
-            // ordering checks must see what a racing request committed.
-            $this->em->refresh($profile);
+        [$reenabled, $disabledOnCancel] = $this->em->wrapInTransaction(
+            /** @return array{bool, bool} */
+            function () use ($command, $profile, $authoritative, $observedEventId): array {
+                $this->em->lock($profile, LockMode::PESSIMISTIC_WRITE);
+                // lock() takes the row but does not refresh what is in memory; the
+                // ordering checks must see what a racing request committed.
+                $this->em->refresh($profile);
 
-            // A racing request that committed after the lookup knows something
-            // the lookup could not, so its answer is dropped rather than allowed
-            // to overwrite newer state with an older reading.
-            $this->apply($command, $profile, $profile->lastStripeEventId === $observedEventId ? $authoritative : null);
-        });
+                // A racing request that committed after the lookup knows something
+                // the lookup could not, so its answer is dropped rather than allowed
+                // to overwrite newer state with an older reading.
+                return $this->apply($command, $profile, $profile->lastStripeEventId === $observedEventId ? $authoritative : null);
+            },
+        );
+
+        // Recorded after the commit, never inside it. The audit sink drains
+        // outside the business transaction on purpose, so a record written in
+        // here would outlive a rollback and state a change the database never
+        // kept.
+        $userId = (string) $profile->user->id;
+        if ($reenabled) {
+            $this->record('billing.account.reenabled', $userId);
+        }
+        if ($disabledOnCancel) {
+            $this->record('billing.account.disabled_on_cancel', $userId);
+        }
+    }
+
+    private function record(string $operation, string $userId): void
+    {
+        $this->auditor->record(
+            $operation,
+            AuditOutcome::Success,
+            ['userId' => $userId],
+            new AuditSubject('user', $userId),
+        );
     }
 
     /** A distinct event Stripe stamped in the same second as the last one applied. */
@@ -83,8 +108,10 @@ final readonly class SyncStripeSubscriptionHandler
      * Stripe guarantees neither ordering nor exactly-once delivery, so two
      * things must be filtered out here, and only those two — then a same-second
      * pair, which no timestamp can order, is settled by what Stripe holds now.
+     *
+     * @return array{bool, bool} [the account was re-enabled, the account was disabled by a cancellation]
      */
-    private function apply(SyncStripeSubscriptionCommand $command, BillingProfile $profile, ?SubscriptionView $authoritative): void
+    private function apply(SyncStripeSubscriptionCommand $command, BillingProfile $profile, ?SubscriptionView $authoritative): array
     {
         // A strictly older event is a stale snapshot (an `updated` arriving
         // after `deleted`) and must not overwrite newer state.
@@ -96,7 +123,7 @@ final readonly class SyncStripeSubscriptionHandler
                 'lastStripeEventAt' => $profile->lastStripeEventAt->format(\DATE_ATOM),
             ]);
 
-            return;
+            return [false, false];
         }
 
         // A deletion is terminal until something strictly newer supersedes it,
@@ -113,7 +140,7 @@ final readonly class SyncStripeSubscriptionHandler
                 'reason' => 'not newer than the deletion already applied',
             ]);
 
-            return;
+            return [false, false];
         }
 
         // The same event delivered twice is a replay. Timestamps cannot detect
@@ -127,7 +154,7 @@ final readonly class SyncStripeSubscriptionHandler
                 'eventId' => $command->stripeEventId,
             ]);
 
-            return;
+            return [false, false];
         }
 
         // Within one second `created` cannot order two events, so whichever
@@ -164,7 +191,7 @@ final readonly class SyncStripeSubscriptionHandler
                     'currentStripeSubscriptionId' => $concurrent->stripeSubscriptionId,
                 ]);
 
-                return;
+                return [false, false];
             }
 
             $subscription = new Subscription($profile, SubscriptionKind::Stripe, $now);
@@ -180,6 +207,8 @@ final readonly class SyncStripeSubscriptionHandler
         $profile->lastStripeEventType = $command->stripeEventType;
 
         $user = $profile->user;
+        $reenabled = false;
+        $disabledOnCancel = false;
 
         if ($profile->hasLiveSubscription() && null !== $user->disabledAt) {
             // They paid — re-enable unconditionally, even if the cap has
@@ -188,12 +217,7 @@ final readonly class SyncStripeSubscriptionHandler
             // subscription can be surveyed in its own right.
             $user->disabledAt = null;
             $subscription->surveySentAt = null;
-            $this->auditor->record(
-                'billing.account.reenabled',
-                AuditOutcome::Success,
-                ['userId' => (string) $user->id],
-                new AuditSubject('user', (string) $user->id),
-            );
+            $reenabled = true;
 
             $this->waitlistEntries->findOneByEmail($user->email)?->markConverted();
         }
@@ -205,12 +229,7 @@ final readonly class SyncStripeSubscriptionHandler
             // which the sweep settles. The sweep also owns the cancellation
             // survey; this handler never emails.
             $user->disabledAt = $now;
-            $this->auditor->record(
-                'billing.account.disabled_on_cancel',
-                AuditOutcome::Success,
-                ['userId' => (string) $user->id],
-                new AuditSubject('user', (string) $user->id),
-            );
+            $disabledOnCancel = true;
         }
 
         $this->em->flush();
@@ -220,6 +239,8 @@ final readonly class SyncStripeSubscriptionHandler
             'stripeSubscriptionId' => $command->stripeSubscriptionId,
             'status' => $status->value,
         ]);
+
+        return [$reenabled, $disabledOnCancel];
     }
 
     /**

@@ -85,6 +85,7 @@ final class SyncStripeSubscriptionHandlerTest extends TestCase
         ?WaitlistEntry $waitlistEntry = null,
         ?LoggerInterface $logger = null,
         ?SubscriptionView $stripeState = null,
+        ?EntityManagerInterface $em = null,
     ): SyncStripeSubscriptionHandler {
         $profiles = $this->createStub(BillingProfileRepository::class);
         $profiles->method('findOneByStripeCustomerId')->willReturn($profile);
@@ -104,7 +105,7 @@ final class SyncStripeSubscriptionHandlerTest extends TestCase
             $this->subscriptionRepository($profile),
             $stripe,
             $waitlistEntries,
-            TransactionalEntityManagerStub::configure($this->createStub(EntityManagerInterface::class)),
+            $em ?? TransactionalEntityManagerStub::configure($this->createStub(EntityManagerInterface::class)),
             $logger ?? new NullLogger(),
             $this->audit->auditor,
         );
@@ -582,5 +583,63 @@ final class SyncStripeSubscriptionHandlerTest extends TestCase
             static fn (string|int|float|bool|null $value): bool => \is_string($value)
                 && (str_starts_with($value, 'cus_') || str_starts_with($value, 'sub_') || str_starts_with($value, 'evt_')),
         ));
+    }
+
+    /**
+     * The sink drains outside the business transaction, so a record made
+     * inside one outlives its rollback. A commit that fails after the
+     * re-enable must therefore leave no record claiming the account was
+     * re-enabled.
+     */
+    public function test_a_commit_that_fails_after_the_re_enable_records_nothing(): void
+    {
+        $profile = $this->profile();
+        $profile->user->disabledAt = new \DateTimeImmutable('-2 days');
+
+        $handler = $this->handler($profile, em: $this->failingCommitEntityManager());
+
+        try {
+            $handler($this->command('active'));
+            self::fail('a failed commit must propagate');
+        } catch (\RuntimeException $e) {
+            self::assertSame('commit failed', $e->getMessage());
+        }
+
+        self::assertSame([], $this->audit->operations());
+        self::assertSame([], $this->audit->domainLogLines());
+    }
+
+    /** The mirror of the re-enable case, on the cancellation path. */
+    public function test_a_commit_that_fails_after_the_cancel_disable_records_nothing(): void
+    {
+        $profile = $this->profile();
+
+        $handler = $this->handler($profile, em: $this->failingCommitEntityManager());
+
+        try {
+            $handler($this->command('canceled', eventType: 'customer.subscription.deleted', currentPeriodEnd: '-1 hour'));
+            self::fail('a failed commit must propagate');
+        } catch (\RuntimeException) {
+        }
+
+        self::assertSame([], $this->audit->operations());
+    }
+
+    /**
+     * Runs the closure, then throws as a failing flush or commit would: the
+     * state change has happened in memory and nothing was kept.
+     */
+    private function failingCommitEntityManager(): EntityManagerInterface
+    {
+        $em = $this->createStub(EntityManagerInterface::class);
+        $em->method('wrapInTransaction')->willReturnCallback(
+            static function (callable $callback) use ($em): never {
+                $callback($em);
+
+                throw new \RuntimeException('commit failed');
+            },
+        );
+
+        return $em;
     }
 }
