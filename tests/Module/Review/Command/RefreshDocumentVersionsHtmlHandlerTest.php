@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace App\Tests\Module\Review\Command;
 
 use App\Module\Account\Entity\User;
+use App\Module\Audit\Auditor;
+use App\Module\Audit\AuditOutcome;
 use App\Module\Project\Entity\Project;
 use App\Module\Review\Command\CreateDocumentCommand;
 use App\Module\Review\Command\CreateDocumentHandler;
@@ -13,6 +15,7 @@ use App\Module\Review\Command\RefreshDocumentVersionsHtmlHandler;
 use App\Module\Review\Entity\Comment;
 use App\Module\Review\Service\MarkdownRenderer;
 use App\Module\Review\ValueObject\Anchor;
+use App\Tests\Support\RecordingAuditor;
 use Doctrine\DBAL\Connection;
 use Doctrine\ORM\EntityManagerInterface;
 use Psr\Container\ContainerInterface;
@@ -289,6 +292,65 @@ final class RefreshDocumentVersionsHtmlHandlerTest extends KernelTestCase
     }
 
     /**
+     * One record for the whole sweep. Not one per comment, which would put a row
+     * in the trail for every comment in the database, and not none, which left
+     * the only operation that rewrites every version unrecorded.
+     */
+    public function test_the_sweep_is_recorded_as_one_batch_record(): void
+    {
+        self::bootKernel();
+        $audit = RecordingAuditor::installedIn(self::getContainer());
+        $this->seedStrandingVersion('audit-batch');
+        $audit->forget();
+
+        $handler = self::getContainer()->get(RefreshDocumentVersionsHtmlHandler::class);
+        self::assertInstanceOf(RefreshDocumentVersionsHtmlHandler::class, $handler);
+        $result = $handler(new RefreshDocumentVersionsHtmlCommand(reanchor: true));
+
+        self::assertSame(1, $result->orphaned);
+        self::assertGreaterThanOrEqual(1, $result->changed);
+
+        self::assertSame(['review.document_version.rerendered'], $audit->operations());
+
+        $record = $audit->record('review.document_version.rerendered');
+        self::assertSame(AuditOutcome::Success, $record->outcome);
+        self::assertSame(Auditor::CATEGORY_DOMAIN, $record->category);
+        self::assertNull($record->subject, 'the sweep walks the table, so no single row is its subject');
+        self::assertSame([
+            'total' => $result->total,
+            'changed' => $result->changed,
+            'reanchored' => $result->reanchored,
+            'orphaned' => $result->orphaned,
+            'atRisk' => $result->atRisk,
+        ], $record->context);
+    }
+
+    /** A refusal wrote nothing, so the record must not claim a sweep happened. */
+    public function test_a_refused_sweep_is_recorded_as_refused(): void
+    {
+        self::bootKernel();
+        $audit = RecordingAuditor::installedIn(self::getContainer());
+        $this->seedStrandingVersion('audit-refused');
+        $audit->forget();
+
+        $handler = self::getContainer()->get(RefreshDocumentVersionsHtmlHandler::class);
+        self::assertInstanceOf(RefreshDocumentVersionsHtmlHandler::class, $handler);
+        $result = $handler(new RefreshDocumentVersionsHtmlCommand());
+
+        self::assertTrue($result->refused);
+
+        $record = $audit->record('review.document_version.rerendered');
+        self::assertSame(AuditOutcome::Refused, $record->outcome);
+        self::assertSame([
+            'total' => 0,
+            'changed' => 0,
+            'reanchored' => 0,
+            'orphaned' => 0,
+            'atRisk' => 1,
+        ], $record->context);
+    }
+
+    /**
      * A version whose stored HTML no longer matches its Markdown, carrying one
      * comment with $quote as its anchor.
      *
@@ -315,7 +377,12 @@ final class RefreshDocumentVersionsHtmlHandlerTest extends KernelTestCase
      */
     private function seedVersion(string $slug, string $markdown, string $storedHtml, string $quote, bool $orphaned = false): array
     {
-        self::bootKernel();
+        // Only when the test has not booted already: rebooting would discard a
+        // service the test put in the container before it seeded.
+        if (null === self::$kernel) {
+            self::bootKernel();
+        }
+
         $container = self::getContainer();
         $em = $container->get(EntityManagerInterface::class);
         $connection = $container->get(Connection::class);
