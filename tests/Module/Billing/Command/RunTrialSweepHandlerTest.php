@@ -440,7 +440,7 @@ final class RunTrialSweepHandlerTest extends KernelTestCase
 
         $messages = array_map(static fn (array $entry): string => $entry['message'], $this->logger->records);
         self::assertContains('billing.trial_sweep.survey_sent', $messages);
-        DirectLogging::assertOperationNotLoggedBy($this->logger, 'billing.trial_sweep.disabled');
+        DirectLogging::assertOperationNotLoggedBy($this->audit, $this->logger, 'billing.trial_sweep.disabled');
     }
 
     /**

@@ -127,7 +127,7 @@ final class GrantCompHandlerTest extends KernelTestCase
     }
 
     /**
-     * The only shape in this wave where somebody acts on somebody else: the
+     * The Billing module's one shape where somebody acts on somebody else: the
      * admin is the actor the token resolves, and the comped account is the
      * subject. Neither may stand in for the other.
      */

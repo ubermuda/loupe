@@ -41,11 +41,21 @@ final class DirectLogging
 
     /**
      * For a class whose other call sites are diagnostics, so it keeps its
-     * logger and the reflection check above cannot apply. The migrated
-     * operation must reach the log stream through the sink alone.
+     * logger and the reflection check above cannot apply. The Auditor must
+     * hold the operation, and the log stream must get it through the sink
+     * alone. Without the first check, a call site that records nothing passes.
      */
-    public static function assertOperationNotLoggedBy(RecordingLogger $logger, string $operation): void
-    {
+    public static function assertOperationNotLoggedBy(
+        RecordingAuditor $audit,
+        RecordingLogger $logger,
+        string $operation,
+    ): void {
+        Assert::assertContains(
+            $operation,
+            $audit->operations(),
+            sprintf('"%s" must be recorded through the Auditor for this check to mean anything', $operation),
+        );
+
         $messages = array_map(
             static fn (array $entry): string => $entry['message'],
             $logger->records,

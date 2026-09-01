@@ -535,8 +535,8 @@ final class SyncStripeSubscriptionHandlerTest extends TestCase
             $this->audit->operations(),
         );
 
-        DirectLogging::assertOperationNotLoggedBy($logger, 'billing.account.reenabled');
-        DirectLogging::assertOperationNotLoggedBy($logger, 'billing.account.disabled_on_cancel');
+        DirectLogging::assertOperationNotLoggedBy($this->audit, $logger, 'billing.account.reenabled');
+        DirectLogging::assertOperationNotLoggedBy($this->audit, $logger, 'billing.account.disabled_on_cancel');
     }
 
     /** The sync line stays a diagnostic: it names Stripe objects and nothing else. */
