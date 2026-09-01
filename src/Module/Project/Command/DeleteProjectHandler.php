@@ -24,16 +24,18 @@ final readonly class DeleteProjectHandler
             throw new DomainErrors(['confirmName' => 'project.delete.error.name_mismatch']);
         }
 
+        $projectId = (string) $command->project->id;
+
+        $this->projectDeleter->delete($command->project);
+
         // Recorded here as well as in ProjectDeleter, which also runs under
         // account deletion and cannot tell a deliberate delete from a cascade.
-        $projectId = (string) $command->project->id;
+        // After the delete, because the record outlives a rolled-back delete.
         $this->auditor->record(
             'project.deletion_requested',
             AuditOutcome::Success,
             ['projectId' => $projectId],
             new AuditSubject('project', $projectId),
         );
-
-        $this->projectDeleter->delete($command->project);
     }
 }

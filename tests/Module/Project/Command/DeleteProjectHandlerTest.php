@@ -12,6 +12,7 @@ use App\Module\Audit\AuditOutcome;
 use App\Module\Project\Command\DeleteProjectCommand;
 use App\Module\Project\Command\DeleteProjectHandler;
 use App\Module\Project\Entity\Project;
+use App\Module\Project\Event\ProjectDeleting;
 use App\Module\Project\Service\ProjectDeleter;
 use App\Tests\Support\RecordingAuditor;
 use Doctrine\ORM\EntityManagerInterface;
@@ -83,6 +84,31 @@ final class DeleteProjectHandlerTest extends KernelTestCase
 
         self::assertSame(['project.deletion_requested'], $this->audit->domainLogLines());
         self::assertSame([], $this->audit->securityLogLines());
+    }
+
+    /**
+     * The record drains at kernel.terminate, so one written before the delete
+     * outlives the rollback that a failed delete causes.
+     */
+    public function test_a_failed_deletion_records_no_request(): void
+    {
+        [$em, $handler, $project] = $this->boot('real-name');
+        $projectId = $project->id;
+
+        $dispatcher = self::getContainer()->get('event_dispatcher');
+        $dispatcher->addListener(ProjectDeleting::class, static function (): void {
+            throw new \RuntimeException('boom');
+        }, -100);
+
+        try {
+            ($handler)(new DeleteProjectCommand(project: $project, confirmedName: 'real-name'));
+            self::fail('expected the listener exception to propagate');
+        } catch (\RuntimeException) {
+        }
+
+        $em->clear();
+        self::assertNotNull($em->find(Project::class, $projectId));
+        self::assertSame([], $this->audit->operations());
     }
 
     public function test_a_mismatched_name_records_no_request(): void
