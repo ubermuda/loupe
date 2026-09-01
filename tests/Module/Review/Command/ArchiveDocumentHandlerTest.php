@@ -15,6 +15,7 @@ use App\Module\Review\Command\UnarchiveDocumentCommand;
 use App\Module\Review\Command\UnarchiveDocumentHandler;
 use App\Module\Review\Entity\Document;
 use App\Module\Review\Entity\DocumentStatus;
+use App\Module\Review\Repository\DocumentRepository;
 use App\Tests\Support\DirectLogging;
 use App\Tests\Support\RecordingAuditor;
 use Doctrine\ORM\EntityManagerInterface;
@@ -279,6 +280,40 @@ final class ArchiveDocumentHandlerTest extends KernelTestCase
         } catch (DomainErrors) {
         }
 
+        self::assertSame([], $this->audit->operations());
+    }
+
+    /**
+     * The Doctrine sink drains at kernel.terminate, so a record written inside
+     * the transaction survives its rollback and then describes an archive that
+     * never reached the table.
+     */
+    public function test_a_transaction_that_fails_after_the_closure_records_nothing(): void
+    {
+        $document = $this->document('archive-audit-rollback@example.com');
+
+        $documents = self::getContainer()->get(DocumentRepository::class);
+        self::assertInstanceOf(DocumentRepository::class, $documents);
+
+        $failing = $this->createStub(EntityManagerInterface::class);
+        $failing->method('wrapInTransaction')->willReturnCallback(
+            static function (callable $work): never {
+                $work();
+
+                throw new \RuntimeException('the commit failed');
+            },
+        );
+
+        $handler = new ArchiveDocumentHandler($documents, $failing, $this->audit->auditor);
+
+        try {
+            $handler(new ArchiveDocumentCommand($document, null));
+            self::fail('the failing commit must propagate');
+        } catch (\RuntimeException $e) {
+            self::assertSame('the commit failed', $e->getMessage());
+        }
+
+        self::assertNotNull($document->archivedAt, 'the closure ran, so the guard below is not vacuous');
         self::assertSame([], $this->audit->operations());
     }
 

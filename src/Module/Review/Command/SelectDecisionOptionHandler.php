@@ -28,7 +28,7 @@ final readonly class SelectDecisionOptionHandler
 
     public function __invoke(SelectDecisionOptionCommand $command): DecisionSelection
     {
-        return $this->em->wrapInTransaction(function () use ($command): DecisionSelection {
+        $selection = $this->em->wrapInTransaction(function () use ($command): DecisionSelection {
             // Two overlapping answers would both find no row and both insert,
             // tripping the (document, decision) unique index. The document is
             // the only row existing before the first answer, so it serialises
@@ -79,21 +79,24 @@ final readonly class SelectDecisionOptionHandler
 
             $this->em->flush();
 
-            // The chosen label stays out: it is a phrase the document's author
-            // wrote, and the index plus the version number locate it exactly.
-            $this->auditor->record(
-                'review.decision.selected',
-                AuditOutcome::Success,
-                [
-                    'documentId' => (string) $command->document->id,
-                    'decisionId' => $command->decisionId,
-                    'optionIndex' => $command->optionIndex,
-                    'versionNumber' => $version->versionNumber,
-                ],
-                new AuditSubject('document', (string) $command->document->id),
-            );
-
             return $selection;
         });
+
+        // After the commit, never inside it: the sink drains at kernel.terminate,
+        // so a record written in the closure outlives a rollback. The chosen
+        // label stays out, because the document's author wrote it.
+        $this->auditor->record(
+            'review.decision.selected',
+            AuditOutcome::Success,
+            [
+                'documentId' => (string) $command->document->id,
+                'decisionId' => $command->decisionId,
+                'optionIndex' => $command->optionIndex,
+                'versionNumber' => $selection->versionNumber,
+            ],
+            new AuditSubject('document', (string) $command->document->id),
+        );
+
+        return $selection;
     }
 }

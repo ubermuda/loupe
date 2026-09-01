@@ -35,7 +35,9 @@ final readonly class ArchiveDocumentHandler
             throw new DomainErrors(['reason' => 'review.archive.error.reason_blank']);
         }
 
-        return $this->em->wrapInTransaction(function () use ($document, $reason): Document {
+        $archived = false;
+
+        $this->em->wrapInTransaction(function () use ($document, $reason, &$archived): void {
             // Serializes the check and the write on the row: two callers
             // archiving at once would both find it live, and the later flush
             // would replace the first caller's reason with its own. A reason is
@@ -63,15 +65,20 @@ final readonly class ArchiveDocumentHandler
                     $document->archiveReason = $stored['archiveReason'];
                 }
 
-                return $document;
+                return;
             }
 
             $document->archivedAt = new \DateTimeImmutable();
             $document->archiveReason = $reason;
             $this->em->flush();
 
-            // The reason stays out, as it did out of the log line: it is a
-            // sentence a reviewer wrote, and the context carries ids only.
+            $archived = true;
+        });
+
+        // After the commit, never inside it: the sink drains at kernel.terminate,
+        // so a record written in the closure outlives a rollback. The reason
+        // stays out, because it is a sentence a reviewer wrote.
+        if ($archived) {
             $this->auditor->record(
                 'review.document.archived',
                 AuditOutcome::Success,
@@ -81,8 +88,8 @@ final readonly class ArchiveDocumentHandler
                 ],
                 new AuditSubject('document', (string) $document->id),
             );
+        }
 
-            return $document;
-        });
+        return $document;
     }
 }
