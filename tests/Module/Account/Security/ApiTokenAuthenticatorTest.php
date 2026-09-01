@@ -91,10 +91,10 @@ final class ApiTokenAuthenticatorTest extends TestCase
 
     /**
      * The one call site in the migration that writes both. The record states
-     * the refusal; the address and the framework's exception string stay
-     * diagnostics and must never reach the trail.
+     * the refusal and nothing else. The path, the address and the framework's
+     * exception string stay diagnostics and must never reach the trail.
      */
-    public function test_the_refusal_is_recorded_without_the_address_or_the_framework_reason(): void
+    public function test_the_refusal_is_recorded_without_the_path_the_address_or_the_framework_reason(): void
     {
         $this->logger->expects($this->once())->method('warning');
 
@@ -108,7 +108,8 @@ final class ApiTokenAuthenticatorTest extends TestCase
         self::assertSame(Auditor::CATEGORY_SECURITY, $record->category);
         self::assertNull($record->subject);
         self::assertNull($record->actor);
-        self::assertSame(['path' => '/mcp'], $record->context);
+        self::assertSame([], $record->context);
+        self::assertArrayNotHasKey('path', $record->context);
         self::assertArrayNotHasKey('ip', $record->context);
         self::assertArrayNotHasKey('reason', $record->context);
 
@@ -137,9 +138,10 @@ final class ApiTokenAuthenticatorTest extends TestCase
             new AuthenticationException('Invalid API token.'),
         );
 
+        self::assertSame('/mcp', $context['path'] ?? null);
         self::assertSame('203.0.113.9', $context['ip'] ?? null);
         self::assertSame('Invalid API token.', $context['reason'] ?? null);
-        self::assertSame(['path' => '/mcp'], $this->audit->record('account.api_token.authentication_failed')->context);
+        self::assertSame([], $this->audit->record('account.api_token.authentication_failed')->context);
     }
 
     private function bearerRequest(string $path): Request

@@ -95,14 +95,14 @@ final class ApiTokenAuthenticator extends AbstractAuthenticator implements Authe
     #[\Override]
     public function onAuthenticationFailure(Request $request, AuthenticationException $exception): Response
     {
-        // The one site that writes both, and the split is the reason: the audit
-        // record states that an API call was refused, while `ip` (personal data)
-        // and the framework's exception string stay diagnostics. Neither belongs
-        // in a trail with no erasure path. No subject either — no token resolved.
+        // The one site that writes both, and the split is the reason: the
+        // record states only that an API call was refused. The path, the client
+        // IP and the framework's exception string are user-controlled or
+        // personal data, so they stay diagnostics in the log line beside it.
+        // The trail has no erasure path. No subject either, no token resolved.
         $this->auditor->record(
             'account.api_token.authentication_failed',
             AuditOutcome::Refused,
-            ['path' => $request->getPathInfo()],
             category: Auditor::CATEGORY_SECURITY,
         );
 
