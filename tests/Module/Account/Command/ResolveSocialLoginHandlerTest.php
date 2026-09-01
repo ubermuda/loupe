@@ -108,6 +108,15 @@ final class ResolveSocialLoginHandlerTest extends KernelTestCase
         return $flags;
     }
 
+    private function closedFlags(): FeatureFlagService
+    {
+        $flags = $this->createStub(FeatureFlagService::class);
+        $flags->method('getIntValue')->willReturn(0);
+        $flags->method('isEnabled')->willReturn(false); // registration switched off
+
+        return $flags;
+    }
+
     private function resolvedUser(SocialLoginOutcome $outcome): User
     {
         self::assertFalse($outcome->waitlisted);
@@ -390,7 +399,8 @@ final class ResolveSocialLoginHandlerTest extends KernelTestCase
     /**
      * The class keeps its logger for the OAuth-diversion and listener-failure
      * diagnostics, so both migrated operations must reach the log stream
-     * through the sink alone.
+     * through the sink alone. Each one needs the run that produces it: an open
+     * instance registers, and a closed instance refuses.
      */
     public function test_the_migrated_operations_are_not_logged_beside_their_records(): void
     {
@@ -408,8 +418,23 @@ final class ResolveSocialLoginHandlerTest extends KernelTestCase
         ));
 
         self::assertSame(['account.registered'], $audit->operations());
-        DirectLogging::assertOperationNotLoggedBy($logger, 'account.registered');
-        DirectLogging::assertOperationNotLoggedBy($logger, 'account.social.registration_closed');
+        DirectLogging::assertOperationNotLoggedBy($audit, $logger, 'account.registered');
+
+        $closedAudit = new RecordingAuditor(new NullAuditActorProvider());
+        $closedLogger = new RecordingLogger();
+        $closedHandler = $this->buildHandler(
+            new RegistrationGate($this->closedFlags(), $this->users, new InstallationState($this->users)),
+            $this->neverDispatches(),
+            $closedAudit->auditor,
+            $closedLogger,
+        );
+
+        $closedHandler(new ResolveSocialLoginCommand(
+            new SocialProfile(SocialProvider::Google, 'g-direct', 'closed-direct@example.com', 'Closed Direct', emailVerified: true),
+        ));
+
+        self::assertSame(['account.social.registration_closed'], $closedAudit->operations());
+        DirectLogging::assertOperationNotLoggedBy($closedAudit, $closedLogger, 'account.social.registration_closed');
     }
 
     /** A login that only reuses an identity creates nothing, so it records nothing. */
@@ -436,13 +461,9 @@ final class ResolveSocialLoginHandlerTest extends KernelTestCase
      */
     public function test_a_closed_instance_records_the_refusal(): void
     {
-        $flags = $this->createStub(FeatureFlagService::class);
-        $flags->method('getIntValue')->willReturn(0);
-        $flags->method('isEnabled')->willReturn(false);
-
         $audit = new RecordingAuditor(new NullAuditActorProvider());
         $handler = $this->buildHandler(
-            new RegistrationGate($flags, $this->users, new InstallationState($this->users)),
+            new RegistrationGate($this->closedFlags(), $this->users, new InstallationState($this->users)),
             $this->neverDispatches(),
             $audit->auditor,
         );

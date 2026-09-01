@@ -134,7 +134,7 @@ final class DeleteAccountHandlerTest extends KernelTestCase
         )->purge($user);
 
         self::assertSame(['account.deleted'], $audit->operations());
-        DirectLogging::assertOperationNotLoggedBy($logger, 'account.deleted');
+        DirectLogging::assertOperationNotLoggedBy($audit, $logger, 'account.deleted');
     }
 
     /** An invalid token deletes nothing, so it must state nothing either. */

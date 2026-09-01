@@ -66,7 +66,7 @@ final class WaitlistInviterTest extends TestCase
 
         self::assertSame(['account.waitlist.invited'], $this->audit->domainLogLines());
         self::assertSame([], $this->audit->securityLogLines());
-        DirectLogging::assertOperationNotLoggedBy($this->directLogger, 'account.waitlist.invited');
+        DirectLogging::assertOperationNotLoggedBy($this->audit, $this->directLogger, 'account.waitlist.invited');
     }
 
     /**

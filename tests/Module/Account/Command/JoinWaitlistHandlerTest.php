@@ -130,7 +130,7 @@ final class JoinWaitlistHandlerTest extends KernelTestCase
         self::assertSame((string) $reopened->id, $record->subject->id);
 
         self::assertSame(['account.waitlist.rejoined'], $audit->domainLogLines());
-        DirectLogging::assertOperationNotLoggedBy($logger, 'account.waitlist.rejoined');
+        DirectLogging::assertOperationNotLoggedBy($audit, $logger, 'account.waitlist.rejoined');
     }
 
     public function test_a_new_entry_is_recorded_against_the_waitlist_row(): void
@@ -162,7 +162,7 @@ final class JoinWaitlistHandlerTest extends KernelTestCase
 
         self::assertSame(['account.waitlist.joined'], $audit->domainLogLines());
         self::assertSame([], $audit->securityLogLines());
-        DirectLogging::assertOperationNotLoggedBy($logger, 'account.waitlist.joined');
+        DirectLogging::assertOperationNotLoggedBy($audit, $logger, 'account.waitlist.joined');
     }
 
     /**

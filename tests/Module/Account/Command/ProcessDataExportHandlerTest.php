@@ -89,7 +89,7 @@ final class ProcessDataExportHandlerTest extends TestCase
 
         self::assertSame(['account.data_export.completed'], $this->audit->domainLogLines());
         self::assertSame([], $this->audit->securityLogLines());
-        DirectLogging::assertOperationNotLoggedBy($this->directLogger, 'account.data_export.completed');
+        DirectLogging::assertOperationNotLoggedBy($this->audit, $this->directLogger, 'account.data_export.completed');
     }
 
     /**

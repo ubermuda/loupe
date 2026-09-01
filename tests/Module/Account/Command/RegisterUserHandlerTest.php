@@ -104,7 +104,7 @@ final class RegisterUserHandlerTest extends KernelTestCase
         ));
 
         self::assertSame(['account.registered'], $audit->operations());
-        DirectLogging::assertOperationNotLoggedBy($logger, 'account.registered');
+        DirectLogging::assertOperationNotLoggedBy($audit, $logger, 'account.registered');
     }
 
     /** A refused registration creates nothing, so it states nothing. */
