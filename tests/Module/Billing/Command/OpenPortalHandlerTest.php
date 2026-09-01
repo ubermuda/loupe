@@ -225,6 +225,6 @@ final class OpenPortalHandlerTest extends TestCase
 
         ($this->handler($stripe, $profile))(new OpenPortalCommand($user, returnUrl: 'https://app/billing'));
 
-        DirectLogging::assertOperationNotLoggedBy($this->logger, 'billing.portal.opened');
+        DirectLogging::assertOperationNotLoggedBy($this->audit, $this->logger, 'billing.portal.opened');
     }
 }

@@ -388,7 +388,7 @@ final class StartCheckoutHandlerTest extends TestCase
 
         ($this->handler($stripe, $profile))($this->command($user));
 
-        DirectLogging::assertOperationNotLoggedBy($this->logger, 'billing.checkout.started');
+        DirectLogging::assertOperationNotLoggedBy($this->audit, $this->logger, 'billing.checkout.started');
     }
 
     /**
