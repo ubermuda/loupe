@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Tests\Module\Review\Command;
 
 use App\Module\Account\Entity\User;
+use App\Module\Audit\AuditEvent;
 use App\Module\Audit\Auditor;
 use App\Module\Audit\AuditOutcome;
 use App\Module\Project\Entity\Project;
@@ -83,7 +84,10 @@ final class DeleteCommentHandlerTest extends KernelTestCase
         self::assertInstanceOf(DeleteCommentHandler::class, $handler);
         $handler(new DeleteCommentCommand(comment: $root));
 
-        $record = $audit->record('review.comment.deleted');
+        $records = $audit->records('review.comment.deleted');
+        self::assertCount(2, $records, 'the root and its one reply are each recorded');
+
+        $record = $records[0];
         self::assertSame(AuditOutcome::Success, $record->outcome);
         self::assertSame(Auditor::CATEGORY_DOMAIN, $record->category);
         self::assertNotNull($record->subject);
@@ -96,8 +100,70 @@ final class DeleteCommentHandlerTest extends KernelTestCase
         ], $record->context);
         self::assertNotSame('', $record->subject->id);
 
-        self::assertSame(['review.comment.deleted'], $audit->domainLogLines());
+        self::assertSame(
+            ['review.comment.deleted', 'review.comment.deleted'],
+            $audit->domainLogLines(),
+        );
         self::assertSame([], $audit->securityLogLines());
+    }
+
+    /**
+     * A reply is a row of its own, written by its own author. One record for the
+     * thread would leave nothing saying those ids existed or were removed.
+     */
+    public function test_every_deleted_reply_gets_its_own_record(): void
+    {
+        self::bootKernel();
+        $audit = RecordingAuditor::installedIn(self::getContainer());
+        [$owner, $document, $root] = $this->seedForAudit('delete-audit-replies@example.com');
+
+        $reply = self::getContainer()->get(ReplyToCommentHandler::class);
+        self::assertInstanceOf(ReplyToCommentHandler::class, $reply);
+
+        $replyIds = [];
+        foreach (['First reply', 'Second reply', 'Third reply'] as $body) {
+            $replyIds[] = (string) $reply(new ReplyToCommentCommand(actor: $owner, parent: $root, body: $body))->id;
+        }
+
+        $commentId = (string) $root->id;
+        $documentId = (string) $document->id;
+        $audit->forget();
+
+        $handler = self::getContainer()->get(DeleteCommentHandler::class);
+        self::assertInstanceOf(DeleteCommentHandler::class, $handler);
+        $handler(new DeleteCommentCommand(comment: $root));
+
+        $records = $audit->records('review.comment.deleted');
+        self::assertCount(4, $records, 'one record per deleted comment, root included');
+
+        $subjectIds = array_map(
+            static function (AuditEvent $record): string {
+                self::assertNotNull($record->subject);
+                self::assertSame('comment', $record->subject->type);
+
+                return $record->subject->id;
+            },
+            $records,
+        );
+
+        sort($replyIds);
+        $recordedReplyIds = \array_slice($subjectIds, 1);
+        sort($recordedReplyIds);
+
+        self::assertSame($commentId, $subjectIds[0]);
+        self::assertSame($replyIds, $recordedReplyIds);
+        self::assertNotContains('', $subjectIds, 'ids are read before the flush nulls them');
+
+        foreach (\array_slice($records, 1) as $replyRecord) {
+            self::assertSame(AuditOutcome::Success, $replyRecord->outcome);
+            self::assertSame(Auditor::CATEGORY_DOMAIN, $replyRecord->category);
+            self::assertNotNull($replyRecord->subject);
+            self::assertSame([
+                'commentId' => $replyRecord->subject->id,
+                'documentId' => $documentId,
+                'parentCommentId' => $commentId,
+            ], $replyRecord->context);
+        }
     }
 
     /**
