@@ -51,7 +51,8 @@ final readonly class CreateDocumentHandler
 
         // Also before persist(), for the same reason: this rejects a reference
         // the project may not point at.
-        foreach ($this->referenceValidator->validated($command->project, null, $command->references) as $reference) {
+        $references = $this->referenceValidator->validated($command->project, null, $command->references);
+        foreach ($references as $reference) {
             $document->addReference($reference);
         }
 
@@ -70,7 +71,9 @@ final readonly class CreateDocumentHandler
                 'documentId' => (string) $document->id,
                 'projectId' => (string) $command->project->id,
                 'tagCount' => \count($document->tags),
-                'referenceCount' => \count($command->references),
+                // The validated list, not what was asked for: it drops a target
+                // named twice, which is one link rather than two.
+                'referenceCount' => \count($references),
             ],
             new AuditSubject('document', (string) $document->id),
         );

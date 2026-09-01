@@ -213,6 +213,40 @@ final class CreateDocumentHandlerTest extends KernelTestCase
     }
 
     /** Neither the title nor the body reaches the trail. */
+    /**
+     * The validator drops a target named twice, because that is one link. The
+     * count has to follow it, or the record states a number of references the
+     * document never had.
+     */
+    public function test_the_creation_record_counts_references_after_deduplication(): void
+    {
+        self::bootKernel();
+        $em = self::getContainer()->get(EntityManagerInterface::class);
+        self::assertInstanceOf(EntityManagerInterface::class, $em);
+        $user = new User(fullName: 'Agent', email: 'create-audit-refs@example.com', password: 'hashed-placeholder');
+        $em->persist($user);
+        $project = new Project($user, 'p-'.uniqid());
+        $em->persist($project);
+        $em->flush();
+
+        $audit = RecordingAuditor::installedIn(self::getContainer());
+        $handler = self::getContainer()->get(CreateDocumentHandler::class);
+        self::assertInstanceOf(CreateDocumentHandler::class, $handler);
+
+        $target = $handler(new CreateDocumentCommand(project: $project, title: 'Target', markdown: '# Target'));
+        $audit->forget();
+
+        $document = $handler(new CreateDocumentCommand(
+            project: $project,
+            title: 'Pointer',
+            markdown: '# Pointer',
+            references: [$target, $target],
+        ));
+
+        self::assertCount(1, $document->references, 'the same target twice is one link');
+        self::assertSame(1, $audit->record('review.document.created')->context['referenceCount']);
+    }
+
     public function test_the_creation_record_carries_no_document_text(): void
     {
         self::bootKernel();
