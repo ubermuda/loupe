@@ -13,6 +13,7 @@ use App\Module\Account\Form\InstallAdminRequest;
 use App\Module\Account\Service\InstallAccessGuard;
 use App\Module\Audit\Auditor;
 use App\Module\Audit\AuditOutcome;
+use App\Module\Audit\AuditSubject;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
@@ -52,12 +53,16 @@ final class CreateAdminController extends AppController
             }
 
             try {
-                ($this->createInstallAdminHandler)(new CreateInstallAdminCommand(
+                $admin = ($this->createInstallAdminHandler)(new CreateInstallAdminCommand(
                     email: $data->email ?: throw new \LogicException('email required after validation'),
                     fullName: $fullName,
                     plainPassword: $data->plainPassword ?: throw new \LogicException('plainPassword required after validation'),
                 ));
-                $this->auditor->record('account.install.admin_created', AuditOutcome::Success);
+                $this->auditor->record(
+                    'account.install.admin_created',
+                    AuditOutcome::Success,
+                    subject: new AuditSubject('user', (string) $admin->id),
+                );
                 $request->getSession()->remove(SeedFlagsController::SESSION_FLAGS_SEEDED);
                 $request->getSession()->set(ShowDoneController::SESSION_INSTALL_COMPLETED, true);
 

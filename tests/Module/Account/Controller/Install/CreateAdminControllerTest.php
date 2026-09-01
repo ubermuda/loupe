@@ -8,6 +8,7 @@ use App\Module\Account\Controller\Install\CreateAdminController;
 use App\Module\Account\Repository\UserRepository;
 use App\Module\Audit\Auditor;
 use App\Module\Audit\AuditOutcome;
+use App\Module\Audit\AuditSubject;
 use App\Tests\Support\DirectLogging;
 use App\Tests\Support\RecordingAuditor;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
@@ -82,11 +83,16 @@ final class CreateAdminControllerTest extends WebTestCase
 
         self::assertResponseRedirects('/install/done');
 
+        $admin = self::getContainer()->get(UserRepository::class)->findOneByEmail('admin-audit@example.com');
+        self::assertNotNull($admin);
+
         $record = $audit->record('account.install.admin_created');
         self::assertSame(AuditOutcome::Success, $record->outcome);
         self::assertSame(Auditor::CATEGORY_DOMAIN, $record->category);
         self::assertSame([], $record->context);
-        self::assertNull($record->subject);
+        self::assertInstanceOf(AuditSubject::class, $record->subject);
+        self::assertSame('user', $record->subject->type);
+        self::assertSame((string) $admin->id, $record->subject->id);
 
         self::assertSame(['account.install.admin_created'], $audit->domainLogLines());
         self::assertSame([], $audit->securityLogLines());
