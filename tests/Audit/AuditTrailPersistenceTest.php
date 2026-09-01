@@ -84,7 +84,7 @@ final class AuditTrailPersistenceTest extends KernelTestCase
         self::assertSame(AuditOutcome::Refused, $record->outcome);
     }
 
-    public function test_deleting_the_actor_keeps_the_record_and_its_label(): void
+    public function test_a_deleted_user_row_nulls_the_actor_foreign_key_and_keeps_the_label(): void
     {
         $user = $this->signIn();
 
