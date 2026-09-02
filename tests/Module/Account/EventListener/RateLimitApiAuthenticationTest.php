@@ -108,11 +108,31 @@ final class RateLimitApiAuthenticationTest extends TestCase
         $listener($this->arriving('/api/site-review/comments', '203.0.113.7', method: Request::METHOD_GET));
     }
 
-    private function listener(): RateLimitApiAuthentication
+    /**
+     * Production runs sliding_window, and the two policies take different
+     * branches on a zero-token consume. Ten peeks against an allowance of one
+     * pass only if the peek spends nothing, and the charge below proves the
+     * limiter is live rather than inert.
+     */
+    public function test_the_peek_spends_nothing_under_the_production_policy(): void
+    {
+        $listener = $this->listener('sliding_window');
+
+        for ($i = 0; $i < 10; ++$i) {
+            $listener($this->arriving('/api/site-review/sites', '203.0.113.7', method: Request::METHOD_GET));
+        }
+
+        $listener->chargeFailure($this->failure('/api/site-review/sites', '203.0.113.7', method: Request::METHOD_GET));
+
+        $this->expectException(TooManyRequestsHttpException::class);
+        $listener($this->arriving('/api/site-review/sites', '203.0.113.7', method: Request::METHOD_GET));
+    }
+
+    private function listener(string $policy = 'fixed_window'): RateLimitApiAuthentication
     {
         return new RateLimitApiAuthentication(
             new RateLimiterFactory(
-                ['id' => 'api_authentication', 'policy' => 'fixed_window', 'limit' => 1, 'interval' => '1 minute'],
+                ['id' => 'api_authentication', 'policy' => $policy, 'limit' => 1, 'interval' => '1 minute'],
                 new InMemoryStorage(),
             ),
         );

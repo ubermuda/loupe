@@ -100,6 +100,28 @@ final class ApiTokenAuthenticationRateLimitTest extends WebTestCase
     }
 
     /**
+     * The other token firewall. Its name is a bare string in TOKEN_FIREWALLS, so
+     * a rename in security.yaml stops the charge and the limiter fails open with
+     * nothing to show for it.
+     */
+    public function test_a_failure_on_the_api_firewall_is_charged_too(): void
+    {
+        $client = static::createClient();
+        $client->disableReboot();
+        $this->useBucketOf(1);
+
+        $before = $this->failureRecords();
+
+        $this->callApiWithBadToken($client);
+        self::assertResponseStatusCodeSame(Response::HTTP_UNAUTHORIZED);
+        self::assertSame($before + 1, $this->failureRecords());
+
+        $this->callApiWithBadToken($client);
+        self::assertResponseStatusCodeSame(Response::HTTP_TOO_MANY_REQUESTS);
+        self::assertSame($before + 1, $this->failureRecords());
+    }
+
+    /**
      * The defect this listener fixes, asserted as the ordering it depends on: a
      * limiter below the firewall never sees a request the firewall answers.
      */
@@ -174,6 +196,16 @@ final class ApiTokenAuthenticationRateLimitTest extends WebTestCase
             '/mcp',
             server: ['HTTP_AUTHORIZATION' => 'Bearer not-a-real-token', 'CONTENT_TYPE' => 'application/json'],
             content: '{"jsonrpc":"2.0","id":1,"method":"tools/list"}',
+        );
+    }
+
+    /** A real route under the ^/api firewall pattern, so the api authenticator answers. */
+    private function callApiWithBadToken(KernelBrowser $client): void
+    {
+        $client->request(
+            Request::METHOD_GET,
+            '/api/site-review/sites',
+            server: ['HTTP_AUTHORIZATION' => 'Bearer not-a-real-token'],
         );
     }
 
