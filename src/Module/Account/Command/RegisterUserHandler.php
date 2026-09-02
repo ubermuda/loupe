@@ -10,6 +10,9 @@ use App\Module\Account\Repository\UserRepository;
 use App\Module\Account\Repository\WaitlistEntryRepository;
 use App\Module\Account\Service\RegistrationGate;
 use App\Module\Account\Service\VerificationEmailSender;
+use App\Module\Audit\Auditor;
+use App\Module\Audit\AuditOutcome;
+use App\Module\Audit\AuditSubject;
 use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
 use Doctrine\DBAL\LockMode;
 use Doctrine\ORM\EntityManagerInterface;
@@ -29,6 +32,7 @@ final readonly class RegisterUserHandler
         private WaitlistEntryRepository $waitlistEntries,
         private EventDispatcherInterface $eventDispatcher,
         private LoggerInterface $logger,
+        private Auditor $auditor,
 
         #[Autowire(param: 'app.terms.version')]
         private string $termsVersion,
@@ -104,6 +108,20 @@ final readonly class RegisterUserHandler
             // colliding field cannot be re-queried — email is the likely one.
             throw new DomainErrors(['email' => 'account.registration.error.email_duplicate']);
         }
+
+        // Recorded after the transaction commits, so a rollback cannot leave a
+        // record claiming an account that does not exist. `provider` is null on
+        // this path and names the provider on the social one, so both branches
+        // share the operation.
+        $this->auditor->record(
+            'account.registered',
+            AuditOutcome::Success,
+            [
+                'userId' => (string) $user->id,
+                'provider' => null,
+            ],
+            new AuditSubject('user', (string) $user->id),
+        );
 
         try {
             $this->verificationEmailSender->send($user);

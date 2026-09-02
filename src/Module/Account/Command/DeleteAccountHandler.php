@@ -8,6 +8,9 @@ use App\Exception\DomainErrors;
 use App\Module\Account\Deletion\AccountPurger;
 use App\Module\Account\Entity\User;
 use App\Module\Account\Repository\UserRepository;
+use App\Module\Audit\Auditor;
+use App\Module\Audit\AuditOutcome;
+use App\Module\Audit\AuditSubject;
 
 /**
  * Validates the emailed deletion token, then hands the user to AccountPurger,
@@ -19,6 +22,7 @@ final readonly class DeleteAccountHandler
     public function __construct(
         private UserRepository $users,
         private AccountPurger $purger,
+        private Auditor $auditor,
     ) {
     }
 
@@ -29,6 +33,18 @@ final readonly class DeleteAccountHandler
             throw new DomainErrors(['token' => 'account.delete.error.invalid_token']);
         }
 
+        // Read before the purge, which takes the row and the entity's id with
+        // it, and recorded after: `account.deleted` names the account, and only
+        // this one says the owner confirmed the emailed link themselves.
+        $userId = (string) ($user->id ?? throw new \LogicException('a persisted user always has an id'));
+
         $this->purger->purge($user);
+
+        $this->auditor->record(
+            'account.deletion.confirmed',
+            AuditOutcome::Success,
+            ['userId' => $userId],
+            new AuditSubject('user', $userId),
+        );
     }
 }

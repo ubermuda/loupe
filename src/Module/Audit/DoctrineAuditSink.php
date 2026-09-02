@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace App\Module\Audit;
 
 use Doctrine\DBAL\Connection;
+use Doctrine\ORM\Mapping\ClassMetadata;
+use Doctrine\Persistence\ManagerRegistry;
 use Symfony\Component\Uid\Uuid;
 use Symfony\Contracts\Service\ResetInterface;
 
@@ -37,6 +39,7 @@ final class DoctrineAuditSink implements AuditSinkInterface, ResetInterface
 
     public function __construct(
         private readonly Connection $connection,
+        private readonly ManagerRegistry $managers,
     ) {
     }
 
@@ -82,11 +85,12 @@ final class DoctrineAuditSink implements AuditSinkInterface, ResetInterface
         $rows = $this->rows;
         $this->rows = [];
 
+        $template = $this->rowTemplate();
         $failure = null;
 
         foreach (array_chunk($rows, max(1, intdiv(self::MAX_BIND_PARAMETERS, count(self::COLUMNS)))) as $chunk) {
             try {
-                $this->insert($chunk);
+                $this->insert($template, $chunk);
             } catch (\Throwable $e) {
                 $failure ??= $e;
             }
@@ -104,15 +108,62 @@ final class DoctrineAuditSink implements AuditSinkInterface, ResetInterface
     }
 
     /**
+     * The table and identifier column the interface resolves to, or null when
+     * the consuming application maps no implementation for it.
+     *
+     * @param class-string $target
+     *
+     * @return ?array{string, string}
+     */
+    private function identityTableFor(string $target): ?array
+    {
+        try {
+            $metadata = $this->managers->getManager()->getClassMetadata($target);
+        } catch (\Throwable) {
+            return null;
+        }
+
+        return $metadata instanceof ClassMetadata
+            ? [$metadata->getTableName(), $metadata->getSingleIdentifierColumnName()]
+            : null;
+    }
+
+    /**
+     * An account can be deleted before the record of its own deletion drains,
+     * and the foreign key would then reject the whole chunk. Each reference is
+     * resolved by the insert itself rather than by a lookup before it, so a row
+     * that has gone lands as NULL — the end state the column's ON DELETE SET
+     * NULL already declares — with no window in between for it to go missing.
+     */
+    private function rowTemplate(): string
+    {
+        $references = [
+            'actor_id' => AuditActorInterface::class,
+            'credential_id' => AuditCredentialInterface::class,
+        ];
+
+        $placeholders = [];
+        foreach (self::COLUMNS as $column) {
+            $table = isset($references[$column]) ? $this->identityTableFor($references[$column]) : null;
+
+            // One placeholder either way, so a row still spends exactly one
+            // bind parameter per column and the chunk size stays correct.
+            $placeholders[] = null === $table
+                ? '?'
+                : sprintf('(SELECT %1$s FROM %2$s WHERE %1$s = ?)', $table[1], $table[0]);
+        }
+
+        return '('.implode(', ', $placeholders).')';
+    }
+
+    /**
      * @param non-empty-list<list<?string>> $rows
      */
-    private function insert(array $rows): void
+    private function insert(string $template, array $rows): void
     {
-        $row = '('.implode(', ', array_fill(0, count(self::COLUMNS), '?')).')';
-
         $this->connection->executeStatement(
             'INSERT INTO '.self::TABLE.' ('.implode(', ', self::COLUMNS).') VALUES '
-                .implode(', ', array_fill(0, count($rows), $row)),
+                .implode(', ', array_fill(0, count($rows), $template)),
             array_merge(...$rows),
         );
     }

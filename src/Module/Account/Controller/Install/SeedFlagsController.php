@@ -10,7 +10,8 @@ use App\Module\Account\Command\SeedInstallFlagsHandler;
 use App\Module\Account\Form\InstallFlagsFormType;
 use App\Module\Account\Form\InstallFlagsRequest;
 use App\Module\Account\Service\InstallAccessGuard;
-use Psr\Log\LoggerInterface;
+use App\Module\Audit\Auditor;
+use App\Module\Audit\AuditOutcome;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
@@ -27,7 +28,7 @@ final class SeedFlagsController extends AppController
     public function __construct(
         private readonly InstallAccessGuard $installAccessGuard,
         private readonly SeedInstallFlagsHandler $seedInstallFlagsHandler,
-        private readonly LoggerInterface $logger,
+        private readonly Auditor $auditor,
     ) {
     }
 
@@ -49,7 +50,7 @@ final class SeedFlagsController extends AppController
                 authGoogleEnabled: $data->authGoogleEnabled,
             ));
             $request->getSession()->set(self::SESSION_FLAGS_SEEDED, true);
-            $this->logger->info('account.install.flags_seeded', []);
+            $this->auditor->record('account.install.flags_seeded', AuditOutcome::Success);
 
             return $this->redirectToRoute('app_install_status');
         }

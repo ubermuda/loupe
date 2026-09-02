@@ -9,8 +9,10 @@ use App\Module\Account\Entity\User;
 use App\Module\Account\Repository\UserRepository;
 use App\Module\Account\Service\AgentAccountInstaller;
 use App\Module\Account\Service\DisplayNameDeriver;
+use App\Module\Audit\Auditor;
+use App\Module\Audit\AuditOutcome;
+use App\Module\Audit\AuditSubject;
 use Doctrine\ORM\EntityManagerInterface;
-use Psr\Log\LoggerInterface;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 
@@ -29,7 +31,7 @@ final readonly class CreateAdminUserHandler
         private UserPasswordHasherInterface $passwordHasher,
         private PromoteUserToAdminHandler $promoteUserToAdmin,
         private MarkEmailVerifiedHandler $markEmailVerified,
-        private LoggerInterface $logger,
+        private Auditor $auditor,
         private DisplayNameDeriver $displayNameDeriver,
 
         #[Autowire(param: 'app.terms.version')]
@@ -80,7 +82,12 @@ final readonly class CreateAdminUserHandler
         $this->em->persist($user);
         $this->em->flush();
 
-        $this->logger->info('account.admin.created_from_console', ['userId' => (string) $user->id]);
+        $this->auditor->record(
+            'account.admin.created_from_console',
+            AuditOutcome::Success,
+            ['userId' => (string) $user->id],
+            new AuditSubject('user', (string) $user->id),
+        );
 
         return new CreateAdminUserResult(user: $user, created: true, promoted: false, verified: false);
     }

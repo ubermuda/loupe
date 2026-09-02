@@ -10,6 +10,11 @@ use App\Module\Account\Entity\User;
 use App\Module\Account\Entity\WaitlistEntry;
 use App\Module\Account\Repository\UserRepository;
 use App\Module\Account\Repository\WaitlistEntryRepository;
+use App\Module\Audit\AuditActorProviderInterface;
+use App\Module\Audit\Auditor;
+use App\Module\Audit\AuditOutcome;
+use App\Tests\Support\DirectLogging;
+use App\Tests\Support\RecordingAuditor;
 use App\Tests\Support\RecordingLogger;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
@@ -105,7 +110,8 @@ final class JoinWaitlistHandlerTest extends KernelTestCase
         $users = $container->get(UserRepository::class);
         self::assertInstanceOf(UserRepository::class, $users);
         $logger = new RecordingLogger();
-        $handler = new JoinWaitlistHandler($repo, $users, $em, $logger);
+        $audit = new RecordingAuditor($this->actorProvider());
+        $handler = new JoinWaitlistHandler($repo, $users, $em, $logger, $audit->auditor);
 
         $handler(new JoinWaitlistCommand('converted-disabled@example.com'));
 
@@ -115,12 +121,82 @@ final class JoinWaitlistHandlerTest extends KernelTestCase
         self::assertTrue($reopened->needsInvite());
         self::assertGreaterThan($originalCreatedAt, $reopened->createdAt);
 
-        $rejoined = array_values(array_filter(
-            $logger->records,
-            static fn (array $record): bool => 'account.waitlist.rejoined' === $record['message'],
-        ));
-        self::assertCount(1, $rejoined);
-        self::assertSame(['entryId' => (string) $reopened->id], $rejoined[0]['context']);
+        $record = $audit->record('account.waitlist.rejoined');
+        self::assertSame(AuditOutcome::Success, $record->outcome);
+        self::assertSame(Auditor::CATEGORY_DOMAIN, $record->category);
+        self::assertSame(['entryId' => (string) $reopened->id], $record->context);
+        self::assertNotNull($record->subject);
+        self::assertSame('waitlist_entry', $record->subject->type);
+        self::assertSame((string) $reopened->id, $record->subject->id);
+
+        self::assertSame(['account.waitlist.rejoined'], $audit->domainLogLines());
+        DirectLogging::assertOperationNotLoggedBy($audit, $logger, 'account.waitlist.rejoined');
+    }
+
+    public function test_a_new_entry_is_recorded_against_the_waitlist_row(): void
+    {
+        self::bootKernel();
+        $container = self::getContainer();
+        $em = $container->get(EntityManagerInterface::class);
+        self::assertInstanceOf(EntityManagerInterface::class, $em);
+        $repo = $container->get(WaitlistEntryRepository::class);
+        self::assertInstanceOf(WaitlistEntryRepository::class, $repo);
+        $users = $container->get(UserRepository::class);
+        self::assertInstanceOf(UserRepository::class, $users);
+        $logger = new RecordingLogger();
+        $audit = new RecordingAuditor($this->actorProvider());
+        $handler = new JoinWaitlistHandler($repo, $users, $em, $logger, $audit->auditor);
+
+        $handler(new JoinWaitlistCommand('recorded-join@example.com'));
+
+        $entry = $repo->findOneByEmail('recorded-join@example.com');
+        self::assertNotNull($entry);
+
+        $record = $audit->record('account.waitlist.joined');
+        self::assertSame(AuditOutcome::Success, $record->outcome);
+        self::assertSame(Auditor::CATEGORY_DOMAIN, $record->category);
+        self::assertSame(['entryId' => (string) $entry->id], $record->context);
+        self::assertNotNull($record->subject);
+        self::assertSame('waitlist_entry', $record->subject->type);
+        self::assertSame((string) $entry->id, $record->subject->id);
+
+        self::assertSame(['account.waitlist.joined'], $audit->domainLogLines());
+        self::assertSame([], $audit->securityLogLines());
+        DirectLogging::assertOperationNotLoggedBy($audit, $logger, 'account.waitlist.joined');
+    }
+
+    /**
+     * The two diagnostics that stay: neither has an actor whose action it
+     * records, so neither becomes an audit row.
+     */
+    public function test_the_duplicate_and_existing_account_branches_stay_diagnostics(): void
+    {
+        self::bootKernel();
+        $container = self::getContainer();
+        $em = $container->get(EntityManagerInterface::class);
+        self::assertInstanceOf(EntityManagerInterface::class, $em);
+        $em->persist(new User(fullName: 'Diag', email: 'diag-existing@example.com', password: 'x'));
+        $em->flush();
+        $repo = $container->get(WaitlistEntryRepository::class);
+        self::assertInstanceOf(WaitlistEntryRepository::class, $repo);
+        $users = $container->get(UserRepository::class);
+        self::assertInstanceOf(UserRepository::class, $users);
+        $logger = new RecordingLogger();
+        $audit = new RecordingAuditor($this->actorProvider());
+        $handler = new JoinWaitlistHandler($repo, $users, $em, $logger, $audit->auditor);
+
+        $handler(new JoinWaitlistCommand('diag-dupe@example.com'));
+        $audit->forget();
+        $logger->records = [];
+
+        $handler(new JoinWaitlistCommand('diag-dupe@example.com'));
+        $handler(new JoinWaitlistCommand('diag-existing@example.com'));
+
+        self::assertSame([], $audit->operations());
+        self::assertSame(
+            ['account.waitlist.duplicate_join', 'account.waitlist.join_skipped_existing_account'],
+            array_map(static fn (array $record): string => $record['message'], $logger->records),
+        );
     }
 
     public function test_no_log_line_carries_a_raw_email_address(): void
@@ -137,30 +213,43 @@ final class JoinWaitlistHandlerTest extends KernelTestCase
         $users = $container->get(UserRepository::class);
         self::assertInstanceOf(UserRepository::class, $users);
         $logger = new RecordingLogger();
-        $handler = new JoinWaitlistHandler($repo, $users, $em, $logger);
+        $audit = new RecordingAuditor($this->actorProvider());
+        $handler = new JoinWaitlistHandler($repo, $users, $em, $logger, $audit->auditor);
 
         $handler(new JoinWaitlistCommand('fresh@example.com'));
         $handler(new JoinWaitlistCommand('fresh@example.com'));
         $handler(new JoinWaitlistCommand('registered@example.com'));
 
-        self::assertCount(3, $logger->records);
-        $encoded = json_encode($logger->records, \JSON_THROW_ON_ERROR);
+        self::assertCount(2, $logger->records);
+        self::assertCount(1, $audit->sink->events);
+        $encoded = json_encode(
+            [$logger->records, $audit->sink->events, $audit->domainChannel->records],
+            \JSON_THROW_ON_ERROR,
+        );
         self::assertStringNotContainsString('fresh@example.com', $encoded);
         self::assertStringNotContainsString('registered@example.com', $encoded);
         self::assertStringNotContainsString('@example.com', $encoded);
 
         $entry = $repo->findOneByEmail('fresh@example.com');
         self::assertNotNull($entry);
+        self::assertSame(['entryId' => (string) $entry->id], $audit->record('account.waitlist.joined')->context);
         self::assertSame(['entryId' => (string) $entry->id], $logger->records[0]['context']);
-        self::assertSame(['entryId' => (string) $entry->id], $logger->records[1]['context']);
         // Named by the account rather than a digest of the address: a bare hash
         // correlates just as well while staying guessable from a wordlist.
         $registered = $users->findOneByEmail('registered@example.com');
         self::assertNotNull($registered);
         self::assertSame(
             ['userId' => (string) $registered->id],
-            $logger->records[2]['context'],
+            $logger->records[1]['context'],
         );
+    }
+
+    private function actorProvider(): AuditActorProviderInterface
+    {
+        $actors = self::getContainer()->get(AuditActorProviderInterface::class);
+        self::assertInstanceOf(AuditActorProviderInterface::class, $actors);
+
+        return $actors;
     }
 
     public function test_a_converted_row_stays_untouched_when_its_account_is_enabled(): void

@@ -5,6 +5,9 @@ declare(strict_types=1);
 namespace App\Module\Account\Service;
 
 use App\Module\Account\Entity\WaitlistEntry;
+use App\Module\Audit\Auditor;
+use App\Module\Audit\AuditOutcome;
+use App\Module\Audit\AuditSubject;
 use Doctrine\DBAL\LockMode;
 use Doctrine\ORM\EntityManagerInterface;
 use Psr\Log\LoggerInterface;
@@ -15,6 +18,7 @@ final readonly class WaitlistInviter
         private WaitlistInviteEmailSender $emailSender,
         private EntityManagerInterface $em,
         private LoggerInterface $logger,
+        private Auditor $auditor,
     ) {
     }
 
@@ -61,7 +65,12 @@ final readonly class WaitlistInviter
             return false;
         }
 
-        $this->logger->info('account.waitlist.invited', ['entryId' => (string) $entry->id]);
+        $this->auditor->record(
+            'account.waitlist.invited',
+            AuditOutcome::Success,
+            ['entryId' => (string) $entry->id],
+            new AuditSubject('waitlist_entry', (string) $entry->id),
+        );
 
         return true;
     }

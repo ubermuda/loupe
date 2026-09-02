@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Tests\Module\Audit;
 
+use App\Module\Audit\AuditCredentialInterface;
 use App\Module\Audit\AuditEvent;
 use App\Module\Audit\Auditor;
 use App\Module\Audit\AuditOutcome;
@@ -12,6 +13,9 @@ use App\Module\Audit\DoctrineAuditSink;
 use App\Tests\Support\FakeAuditActor;
 use App\Tests\Support\FakeAuditCredential;
 use Doctrine\DBAL\Connection;
+use Doctrine\ORM\EntityManagerInterface;
+use Doctrine\ORM\Mapping\ClassMetadata;
+use Doctrine\Persistence\ManagerRegistry;
 use PHPUnit\Framework\MockObject\Stub;
 use PHPUnit\Framework\TestCase;
 
@@ -39,6 +43,51 @@ final class DoctrineAuditSinkTest extends TestCase
 
                 return count($params);
             });
+    }
+
+    /**
+     * An account can be deleted before the record of its own deletion drains,
+     * and the foreign key would reject the whole chunk. The insert resolves the
+     * reference itself, so a row that has gone lands as NULL with no lookup —
+     * and therefore no window — before it.
+     */
+    public function test_a_reference_is_resolved_by_the_insert_rather_than_by_a_lookup(): void
+    {
+        $sink = $this->sink();
+        $sink->write($this->event(actor: new FakeAuditActor('Riley Chen', 'user-gone')));
+        $sink->flush();
+
+        self::assertCount(1, $this->statements, 'the drain must issue the insert and nothing else');
+        self::assertStringContainsString(
+            '(SELECT id FROM users WHERE id = ?)',
+            $this->statements[0]['sql'],
+        );
+        self::assertSame('user-gone', $this->statements[0]['params'][5]);
+        self::assertSame('Riley Chen', $this->statements[0]['params'][6], 'the label must survive');
+    }
+
+    /** Both reference columns resolve the same way; only one flow exercises the actor today. */
+    public function test_the_credential_reference_is_resolved_the_same_way(): void
+    {
+        $sink = $this->sink();
+        $sink->write($this->event(credential: new FakeAuditCredential('token-gone')));
+        $sink->flush();
+
+        self::assertStringContainsString(
+            '(SELECT id FROM api_tokens WHERE id = ?)',
+            $this->statements[0]['sql'],
+        );
+    }
+
+    /** A subquery placeholder still spends one bind parameter, so the chunk size holds. */
+    public function test_resolving_references_does_not_change_the_parameters_a_row_spends(): void
+    {
+        $sink = $this->sink();
+        $sink->write($this->event(actor: new FakeAuditActor('Riley Chen', 'user-1')));
+        $sink->write($this->event(actor: new FakeAuditActor('Riley Chen', 'user-2')));
+        $sink->flush();
+
+        self::assertCount(2 * self::COLUMNS, $this->statements[0]['params']);
     }
 
     public function test_writing_issues_no_statement_until_the_drain(): void
@@ -113,7 +162,7 @@ final class DoctrineAuditSinkTest extends TestCase
             },
         );
 
-        $sink = new DoctrineAuditSink($failing);
+        $sink = new DoctrineAuditSink($failing, $this->managerRegistry());
         $sink->write($this->event());
 
         try {
@@ -142,7 +191,7 @@ final class DoctrineAuditSinkTest extends TestCase
             },
         );
 
-        $sink = new DoctrineAuditSink($failing);
+        $sink = new DoctrineAuditSink($failing, $this->managerRegistry());
         for ($i = 0; $i < $rowsPerStatement + 1; ++$i) {
             $sink->write($this->event());
         }
@@ -256,7 +305,34 @@ final class DoctrineAuditSinkTest extends TestCase
 
     private function sink(): DoctrineAuditSink
     {
-        return new DoctrineAuditSink($this->connection);
+        return new DoctrineAuditSink($this->connection, $this->managerRegistry());
+    }
+
+    /** Stands in for what ResolveTargetEntityListener maps the two interfaces to. */
+    private function managerRegistry(): ManagerRegistry&Stub
+    {
+        $em = $this->createStub(EntityManagerInterface::class);
+        $em->method('getClassMetadata')->willReturnCallback(
+            /** @return ClassMetadata<object> */
+            fn (string $class): ClassMetadata => $this->metadata(
+                AuditCredentialInterface::class === $class ? 'api_tokens' : 'users',
+            ),
+        );
+
+        $registry = $this->createStub(ManagerRegistry::class);
+        $registry->method('getManager')->willReturn($em);
+
+        return $registry;
+    }
+
+    /** @return ClassMetadata<object>&Stub */
+    private function metadata(string $table): ClassMetadata&Stub
+    {
+        $metadata = $this->createStub(ClassMetadata::class);
+        $metadata->method('getTableName')->willReturn($table);
+        $metadata->method('getSingleIdentifierColumnName')->willReturn('id');
+
+        return $metadata;
     }
 
     private function event(

@@ -4,11 +4,16 @@ declare(strict_types=1);
 
 namespace App\Tests\Module\Account\Controller\Install;
 
+use App\Module\Account\Controller\Install\SeedFlagsController;
 use App\Module\Account\Entity\User;
 use App\Module\Account\Service\RegistrationGate;
 use App\Module\Analytics\Twig\AnalyticsScript;
+use App\Module\Audit\Auditor;
+use App\Module\Audit\AuditOutcome;
 use App\Module\Review\Mcp\DocumentHighlightTool;
 use App\Service\UpdateCheck;
+use App\Tests\Support\DirectLogging;
+use App\Tests\Support\RecordingAuditor;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
@@ -60,6 +65,34 @@ final class SeedFlagsControllerTest extends WebTestCase
         // Same reasoning as the update check: an install sends nothing to a
         // third party until someone decides it should.
         self::assertFalse($flags[AnalyticsScript::ENABLED_FLAG]->value);
+    }
+
+    public function test_seeding_the_flags_is_recorded(): void
+    {
+        $client = static::createClient();
+        $audit = RecordingAuditor::installedIn(static::getContainer());
+        $client->disableReboot();
+        $client->request(\Symfony\Component\HttpFoundation\Request::METHOD_GET, '/install');
+        $client->submitForm('Continue', [
+            'install_flags_form[registrationCap]' => 25,
+            'install_flags_form[billingTrialDays]' => 30,
+        ]);
+
+        self::assertResponseRedirects('/install/status');
+
+        $record = $audit->record('account.install.flags_seeded');
+        self::assertSame(AuditOutcome::Success, $record->outcome);
+        self::assertSame(Auditor::CATEGORY_DOMAIN, $record->category);
+        self::assertSame([], $record->context);
+        self::assertNull($record->subject);
+
+        self::assertSame(['account.install.flags_seeded'], $audit->domainLogLines());
+        self::assertSame([], $audit->securityLogLines());
+    }
+
+    public function test_the_controller_keeps_no_logger_beside_the_auditor(): void
+    {
+        DirectLogging::assertRemovedFrom(SeedFlagsController::class);
     }
 
     public function test_invalid_submit_returns_422(): void

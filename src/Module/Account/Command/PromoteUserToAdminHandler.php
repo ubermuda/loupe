@@ -6,8 +6,10 @@ namespace App\Module\Account\Command;
 
 use App\Exception\DomainErrors;
 use App\Module\Account\Repository\UserRepository;
+use App\Module\Audit\Auditor;
+use App\Module\Audit\AuditOutcome;
+use App\Module\Audit\AuditSubject;
 use Doctrine\ORM\EntityManagerInterface;
-use Psr\Log\LoggerInterface;
 
 /**
  * Grants ROLE_ADMIN to an existing account. This is the recovery path for an
@@ -19,7 +21,7 @@ final readonly class PromoteUserToAdminHandler
     public function __construct(
         private UserRepository $users,
         private EntityManagerInterface $em,
-        private LoggerInterface $logger,
+        private Auditor $auditor,
     ) {
     }
 
@@ -42,7 +44,12 @@ final readonly class PromoteUserToAdminHandler
         $user->roles[] = 'ROLE_ADMIN';
         $this->em->flush();
 
-        $this->logger->info('account.user.promoted_to_admin', ['userId' => (string) $user->id]);
+        $this->auditor->record(
+            'account.user.promoted_to_admin',
+            AuditOutcome::Success,
+            ['userId' => (string) $user->id],
+            new AuditSubject('user', (string) $user->id),
+        );
 
         return true;
     }

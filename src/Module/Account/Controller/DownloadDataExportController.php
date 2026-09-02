@@ -7,10 +7,11 @@ namespace App\Module\Account\Controller;
 use App\Controller\AppController;
 use App\Module\Account\Entity\DataExport;
 use App\Module\Account\Entity\User;
+use App\Module\Audit\Auditor;
+use App\Module\Audit\AuditOutcome;
+use App\Module\Audit\AuditSubject;
 use League\Flysystem\FilesystemException;
 use League\Flysystem\FilesystemOperator;
-use Monolog\Attribute\WithMonologChannel;
-use Psr\Log\LoggerInterface;
 use Symfony\Component\DependencyInjection\Attribute\Target;
 use Symfony\Component\HttpFoundation\HeaderUtils;
 use Symfony\Component\HttpFoundation\Request;
@@ -23,13 +24,12 @@ use Symfony\Component\Routing\Attribute\Route;
     name: 'app_account_export_download',
     methods: ['GET'],
 )]
-#[WithMonologChannel('app_security')]
 class DownloadDataExportController extends AppController
 {
     public function __construct(
         #[Target('export.storage')]
         private readonly FilesystemOperator $exportStorage,
-        private readonly LoggerInterface $logger,
+        private readonly Auditor $auditor,
     ) {
     }
 
@@ -50,9 +50,13 @@ class DownloadDataExportController extends AppController
             || !$export->user->id->equals($user->id)
             || !$export->isDownloadable()
             || !$tokenAccepted) {
-            $this->logger->info('account.data_export.download_denied', [
-                'id' => (string) $export->id,
-            ]);
+            $this->auditor->record(
+                'account.data_export.download_denied',
+                AuditOutcome::Refused,
+                ['id' => (string) $export->id],
+                new AuditSubject('data_export', (string) $export->id),
+                Auditor::CATEGORY_SECURITY,
+            );
 
             throw $this->createNotFoundException();
         }

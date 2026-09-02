@@ -4,7 +4,13 @@ declare(strict_types=1);
 
 namespace App\Tests\Module\Account\Controller\Install;
 
+use App\Module\Account\Controller\Install\CreateAdminController;
 use App\Module\Account\Repository\UserRepository;
+use App\Module\Audit\Auditor;
+use App\Module\Audit\AuditOutcome;
+use App\Module\Audit\AuditSubject;
+use App\Tests\Support\DirectLogging;
+use App\Tests\Support\RecordingAuditor;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 
@@ -59,6 +65,42 @@ final class CreateAdminControllerTest extends WebTestCase
         // visit (e.g. a page refresh) 404s just like every other install route.
         $client->request(\Symfony\Component\HttpFoundation\Request::METHOD_GET, '/install/done');
         self::assertResponseStatusCodeSame(404);
+    }
+
+    public function test_creating_the_first_admin_is_recorded(): void
+    {
+        $client = static::createClient();
+        $audit = RecordingAuditor::installedIn(static::getContainer());
+        $client->disableReboot();
+        $this->completeStepOne($client);
+        $audit->forget();
+        $client->request(\Symfony\Component\HttpFoundation\Request::METHOD_GET, '/install/admin');
+        $client->submitForm('Create admin account', [
+            'install_admin_form[email]' => 'admin-audit@example.com',
+            'install_admin_form[fullName]' => 'Ada Lovelace',
+            'install_admin_form[plainPassword]' => 'a-strong-password',
+        ]);
+
+        self::assertResponseRedirects('/install/done');
+
+        $admin = self::getContainer()->get(UserRepository::class)->findOneByEmail('admin-audit@example.com');
+        self::assertNotNull($admin);
+
+        $record = $audit->record('account.install.admin_created');
+        self::assertSame(AuditOutcome::Success, $record->outcome);
+        self::assertSame(Auditor::CATEGORY_DOMAIN, $record->category);
+        self::assertSame([], $record->context);
+        self::assertInstanceOf(AuditSubject::class, $record->subject);
+        self::assertSame('user', $record->subject->type);
+        self::assertSame((string) $admin->id, $record->subject->id);
+
+        self::assertSame(['account.install.admin_created'], $audit->domainLogLines());
+        self::assertSame([], $audit->securityLogLines());
+    }
+
+    public function test_the_controller_keeps_no_logger_beside_the_auditor(): void
+    {
+        DirectLogging::assertRemovedFrom(CreateAdminController::class);
     }
 
     public function test_dto_validation_failure_returns_422(): void

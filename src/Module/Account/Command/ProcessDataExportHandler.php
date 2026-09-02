@@ -9,6 +9,9 @@ use App\Module\Account\Export\DataExportArchiveBuilder;
 use App\Module\Account\Repository\DataExportRepository;
 use App\Module\Account\Service\DataExportEmailSender;
 use App\Module\Account\Service\ExpiredExportPurger;
+use App\Module\Audit\Auditor;
+use App\Module\Audit\AuditOutcome;
+use App\Module\Audit\AuditSubject;
 use Doctrine\ORM\EntityManagerInterface;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\Uid\Uuid;
@@ -22,6 +25,7 @@ final readonly class ProcessDataExportHandler
         private ExpiredExportPurger $purger,
         private EntityManagerInterface $em,
         private LoggerInterface $logger,
+        private Auditor $auditor,
     ) {
     }
 
@@ -46,7 +50,12 @@ final readonly class ProcessDataExportHandler
         $rawToken = $export->complete();
         $this->em->flush();
         $this->emailSender->send($export, $rawToken);
-        $this->logger->info('account.data_export.completed', ['id' => $command->dataExportId]);
+        $this->auditor->record(
+            'account.data_export.completed',
+            AuditOutcome::Success,
+            ['id' => $command->dataExportId],
+            new AuditSubject('data_export', $command->dataExportId),
+        );
 
         try {
             $this->purger->purge();
