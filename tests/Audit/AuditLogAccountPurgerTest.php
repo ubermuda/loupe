@@ -18,8 +18,8 @@ use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Symfony\Component\Uid\Uuid;
 
 /**
- * The deletion promise for the trail: every record carrying the departed name
- * goes, and the record of what was done to the account stays whole.
+ * The deletion promise for the trail: every record the departed account is the
+ * actor of goes, and the record of what was done to the account stays whole.
  */
 final class AuditLogAccountPurgerTest extends KernelTestCase
 {
@@ -71,24 +71,6 @@ final class AuditLogAccountPurgerTest extends KernelTestCase
         self::assertSame((string) $admin->id, (string) $kept['actor_id']);
         self::assertSame('user', $kept['subject_type']);
         self::assertSame((string) $departing->id, (string) $kept['subject_id']);
-    }
-
-    /**
-     * The label and the id are written independently, so a record with no id
-     * still names the account, and only the label can find it.
-     */
-    public function test_it_removes_an_unattributed_record_carrying_the_departed_name(): void
-    {
-        $departing = $this->user('unattributed', 'Departing Person');
-
-        $this->record('audit.unattributed_departing', null, 'Departing Person');
-        $this->record('audit.unattributed_other', null, 'Someone Else');
-
-        self::assertSame(['audit.unattributed_departing', 'audit.unattributed_other'], $this->operations());
-
-        $this->purge($departing);
-
-        self::assertSame(['audit.unattributed_other'], $this->operations());
     }
 
     /**
@@ -188,16 +170,15 @@ final class AuditLogAccountPurgerTest extends KernelTestCase
 
     /**
      * ProjectAccountPurger runs first and calls EntityManager::clear(), so slot
-     * 35 always receives a detached user, and both keys are read off it.
+     * 35 always receives a detached user, and the key is read off it.
      */
     public function test_it_purges_a_detached_user(): void
     {
         $departing = $this->user('detached', 'Departing Person');
 
         $this->record('audit.by_the_departing', $departing, 'Departing Person');
-        $this->record('audit.unattributed_departing', null, 'Departing Person');
 
-        self::assertSame(['audit.by_the_departing', 'audit.unattributed_departing'], $this->operations());
+        self::assertSame(['audit.by_the_departing'], $this->operations());
 
         $this->em->clear();
         self::assertFalse($this->em->getUnitOfWork()->isInIdentityMap($departing));

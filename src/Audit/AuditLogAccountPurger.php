@@ -56,25 +56,13 @@ final readonly class AuditLogAccountPurger implements AccountDataPurgerInterface
     public function purge(User $user, AccountDeletionCleanup $cleanup): void
     {
         // ProjectAccountPurger runs first and calls EntityManager::clear(), so
-        // $user may be detached: read both keys as scalars up front, and never
+        // $user may be detached: read the key as a scalar up front, and never
         // query by the object.
         $id = (string) ($user->id ?? throw new \LogicException('a persisted user always has an id'));
-        $label = $user->auditLabel();
 
-        $connection = $this->em->getConnection();
-
-        $connection->executeStatement('DELETE FROM audit_log WHERE actor_id = :id', ['id' => $id]);
-
-        if (null !== $label) {
-            // The label and the id are written independently, so a record can
-            // carry the name with no id and outlive the delete above. A name is
-            // not unique: two accounts sharing one lose each other's
-            // unattributable records. Over-deletion, and there is nothing
-            // narrower to key on.
-            $connection->executeStatement(
-                'DELETE FROM audit_log WHERE actor_id IS NULL AND actor_label = :label',
-                ['label' => $label],
-            );
-        }
+        $this->em->getConnection()->executeStatement(
+            'DELETE FROM audit_log WHERE actor_id = :id',
+            ['id' => $id],
+        );
     }
 }
