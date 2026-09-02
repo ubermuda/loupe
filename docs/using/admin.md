@@ -1,6 +1,6 @@
 ---
 title: "The admin area"
-description: "Instance status, feature flags, the waitlist and the site-review outbox. Requires ROLE_ADMIN."
+description: "Instance status, feature flags, the waitlist, the audit log and the site-review outbox. Requires ROLE_ADMIN."
 ---
 
 `/admin` is the dashboard. Everything below it needs `ROLE_ADMIN`, which
@@ -38,6 +38,38 @@ Some flags gate integrations rather than behaviour: `billing.enabled` decides
 whether the Stripe client is ever instantiated, and `auth.google.enabled` /
 `auth.github.enabled` decide whether a social provider is reachable at all — its
 credentials alone are not enough.
+
+## Audit log
+
+**`/admin/audit-log`** lists every recorded audit event on the instance, newest
+first. Each row carries the operation, the outcome, the actor, the channel the
+actor used, the subject and a context object. Filter by actor name, by operation
+prefix, by channel, and by a date range.
+
+### Retention
+
+The trail keeps **180 days**. An hourly scheduled task deletes every record
+older than that window, and `audit:purge` is the manual backstop. Like
+everything else on the schedule, it runs only if a worker is consuming. See
+[Commands](../reference/commands.md). `app.audit.retention_days` in
+`config/services.yaml` sets the window.
+
+Back up the audit table if you must keep records for longer than the window. The
+purge is a hard delete and it is not reversible.
+
+### What account deletion removes
+
+Deleting an account removes what that account did, and keeps what was done to
+it.
+
+- Records the account is the actor of are deleted.
+- Records written with the account's API tokens are deleted.
+- Records that only name the account as a subject are kept whole. Such a record
+  holds a subject type and an id, never a name, and it carries the acting
+  party's name instead. Deleting it would erase an admin's own record of what
+  they did.
+- The records the deletion itself writes carry no name for the account they
+  erase.
 
 ## Waitlist
 

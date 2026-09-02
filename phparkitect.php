@@ -45,10 +45,12 @@ return static function (Config $config): void {
                 'Psr\Clock',
                 'Psr\Log',
                 // A package may depend on Doctrine; it may not depend on Loupe.
-                // Mapping only, never the rest of the ORM: the sink writes
-                // through the DBAL so its rows survive a rolled-back transaction.
+                // The line is the ORM's write side: the sink writes through the
+                // DBAL, so nothing here may reach an EntityManager or a unit of
+                // work. Mapping and hydration modes are read-side, and allowed.
                 'Doctrine\Bundle\DoctrineBundle\Repository',
                 'Doctrine\DBAL',
+                'Doctrine\ORM\AbstractQuery',
                 'Doctrine\ORM\Mapping',
                 'Doctrine\Persistence',
                 'Symfony\Bridge\Doctrine\Types',

@@ -8,6 +8,7 @@ use App\Module\Audit\AuditActorInterface;
 use App\Module\Audit\AuditOutcome;
 use App\Module\Audit\Entity\AuditLog;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
+use Doctrine\ORM\AbstractQuery;
 use Doctrine\Persistence\ManagerRegistry;
 use Symfony\Component\Uid\Uuid;
 
@@ -38,21 +39,25 @@ class AuditLogRepository extends ServiceEntityRepository
     }
 
     /**
-     * Streams rather than returns a list: the caller is the account data
-     * export, which has no page to bound it, and the trail of a long-lived
-     * account is the largest set it touches.
+     * Streams plain rows: the caller is the account data export, which has no
+     * page to bound it. Array hydration keeps the trail out of the identity
+     * map, so peak memory stays flat and the caller's next flush computes no
+     * change set over rows it never edits.
      *
-     * @return iterable<AuditLog>
+     * @return iterable<AuditLogRowData>
      */
     public function streamByActor(AuditActorInterface $actor): iterable
     {
-        return $this->createQueryBuilder('a')
+        /** @var iterable<AuditLogRowData> $rows */
+        $rows = $this->createQueryBuilder('a')
             ->andWhere('a.actor = :actor')
             ->setParameter('actor', $actor)
             ->orderBy('a.occurredAt', 'DESC')
             ->addOrderBy('a.id', 'DESC')
             ->getQuery()
-            ->toIterable();
+            ->toIterable([], AbstractQuery::HYDRATE_ARRAY);
+
+        return $rows;
     }
 
     /**

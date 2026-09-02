@@ -123,16 +123,16 @@ final class MarkSiteReviewCommentsAddressedHandlerTest extends KernelTestCase
         self::assertArrayNotHasKey('body', $context);
         self::assertSame([], array_filter(
             $context,
-            static fn (string|int|float|bool|null $value): bool => \is_string($value) && str_contains($value, 'Fix this'),
+            static fn (mixed $value): bool => \is_string($value) && str_contains($value, 'Fix this'),
         ));
     }
 
     /**
      * The MCP tool takes a list of ids and resolves each occurrence to the same
-     * row, so one comment can reach the batch twice. Two records against one
-     * comment would disagree, because the second occurrence finds it addressed.
+     * row, so one comment can reach the batch twice. It maps the outcomes back
+     * positionally, so two answers for one id contradict each other.
      */
-    public function test_the_same_comment_named_twice_is_recorded_once(): void
+    public function test_the_same_comment_named_twice_is_decided_and_recorded_once(): void
     {
         $comment = $this->comment();
 
@@ -140,13 +140,40 @@ final class MarkSiteReviewCommentsAddressedHandlerTest extends KernelTestCase
 
         self::assertSame([
             MarkSiteReviewCommentAddressedOutcome::Addressed,
-            MarkSiteReviewCommentAddressedOutcome::AlreadyAddressed,
+            MarkSiteReviewCommentAddressedOutcome::Addressed,
         ], $outcomes);
 
         $records = $this->audit->records('site_review.comment.addressed');
         self::assertCount(1, $records);
         self::assertSame(AuditOutcome::Success, $records[0]->outcome);
         self::assertSame('Addressed', $records[0]->context['result']);
+        self::assertSame((string) $comment->id, $records[0]->subject?->id);
+    }
+
+    /**
+     * The tool zips the returned outcomes back onto its input ids by position,
+     * so deduplication must not shorten or reorder the list.
+     */
+    public function test_a_repeated_comment_returns_the_same_outcome_for_every_occurrence(): void
+    {
+        $comment = $this->comment();
+        $resolved = $this->comment(SiteReviewCommentStatus::Resolved);
+        $addressed = $this->comment(SiteReviewCommentStatus::Addressed);
+
+        $outcomes = ($this->handler)(new MarkSiteReviewCommentsAddressedCommand(
+            [$comment, $resolved, $comment, $addressed],
+        ));
+
+        // Four distinct positions, no two of which read the same forwards and
+        // backwards: a list that lost the repeat, or returned it out of order,
+        // fails here rather than matching by luck.
+        self::assertSame([
+            MarkSiteReviewCommentAddressedOutcome::Addressed,
+            MarkSiteReviewCommentAddressedOutcome::AlreadyResolved,
+            MarkSiteReviewCommentAddressedOutcome::Addressed,
+            MarkSiteReviewCommentAddressedOutcome::AlreadyAddressed,
+        ], $outcomes);
+        self::assertCount(3, $this->audit->records('site_review.comment.addressed'));
     }
 
     public function test_an_empty_batch_records_nothing(): void

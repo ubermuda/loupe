@@ -26,7 +26,8 @@ final readonly class MarkSiteReviewCommentsAddressedHandler
     }
 
     /**
-     * @return list<MarkSiteReviewCommentAddressedOutcome> one outcome per comment, in the order given
+     * @return list<MarkSiteReviewCommentAddressedOutcome> one outcome per comment, in the
+     *                                                     order given; a comment named more than once shares one outcome
      */
     public function __invoke(MarkSiteReviewCommentsAddressedCommand $command): array
     {
@@ -40,19 +41,24 @@ final readonly class MarkSiteReviewCommentsAddressedHandler
         // earlier ones addressed while the call reports an error.
         $this->em->wrapInTransaction(function () use ($command, &$decided, &$outcomes): void {
             foreach ($command->comments as $comment) {
-                $outcome = $this->decide($comment);
-                $outcomes[] = $outcome;
+                $commentId = (string) $comment->id;
 
-                // One comment named twice is still one comment, so the record
-                // keeps the decision that moved it and drops the echo.
-                $decided[(string) $comment->id] ??= [$comment, $outcome];
+                // A comment named twice in one batch is still one comment.
+                // Deciding it twice would address it and then find it already
+                // addressed, so the call would answer one question two
+                // different ways and record both.
+                if (!isset($decided[$commentId])) {
+                    $decided[$commentId] = [$comment, $this->decide($comment)];
+                }
+
+                $outcomes[] = $decided[$commentId][1];
             }
         });
 
-        // One record per comment, not one per call. The batch decides four
-        // different things and a single summary record carries none of them.
-        // Written after the transaction commits, so a rolled-back batch
-        // records nothing at all.
+        // One record per comment, not one per call and not one per id given.
+        // The batch decides four different things and a single summary record
+        // carries none of them. Written after the transaction commits, so a
+        // rolled-back batch records nothing at all.
         foreach ($decided as [$comment, $outcome]) {
             $this->auditor->record(
                 'site_review.comment.addressed',

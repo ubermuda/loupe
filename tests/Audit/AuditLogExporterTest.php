@@ -7,30 +7,29 @@ namespace App\Tests\Audit;
 use App\Audit\AuditLogExporter;
 use App\Module\Account\Entity\User;
 use App\Module\Audit\AuditOutcome;
-use App\Module\Audit\Entity\AuditLog;
 use App\Module\Audit\Repository\AuditLogRepository;
 use PHPUnit\Framework\MockObject\Stub;
 use PHPUnit\Framework\TestCase;
+use Symfony\Component\Uid\Uuid;
 
+/**
+ * @phpstan-import-type AuditLogRowData from AuditLogRepository
+ */
 final class AuditLogExporterTest extends TestCase
 {
     public function test_exports_flat_record_rows(): void
     {
         $actor = new User('Alice A', 'alice@example.com', 'x');
-        $record = new AuditLog(
+        $row = $this->row(
             operation: 'review.comment.addressed',
             outcome: AuditOutcome::Refused,
-            category: 'domain',
             channel: 'mcp',
-            occurredAt: new \DateTimeImmutable('2026-08-01 09:30:00'),
             context: ['commentId' => 'c-1', 'result' => 'AlreadyResolved'],
-            actor: $actor,
-            actorLabel: 'Alice A',
             subjectType: 'comment',
             subjectId: 'c-1',
         );
 
-        $rows = iterator_to_array(new AuditLogExporter($this->repository([$record]))->export($actor));
+        $rows = iterator_to_array(new AuditLogExporter($this->repository([$row]))->export($actor));
 
         self::assertCount(1, $rows);
         self::assertSame('review.comment.addressed', $rows[0]['operation']);
@@ -47,16 +46,9 @@ final class AuditLogExporterTest extends TestCase
     public function test_a_row_carries_no_actor_label(): void
     {
         $actor = new User('Alice A', 'alice@example.com', 'x');
-        $record = new AuditLog(
-            operation: 'account.user.suspended',
-            outcome: AuditOutcome::Success,
-            category: 'domain',
-            channel: 'session',
-            actor: $actor,
-            actorLabel: 'Alice A',
-        );
+        $row = $this->row(operation: 'account.user.suspended', outcome: AuditOutcome::Success);
 
-        $rows = iterator_to_array(new AuditLogExporter($this->repository([$record]))->export($actor));
+        $rows = iterator_to_array(new AuditLogExporter($this->repository([$row]))->export($actor));
 
         self::assertCount(1, $rows);
         self::assertArrayNotHasKey('actorLabel', $rows[0]);
@@ -72,13 +64,40 @@ final class AuditLogExporterTest extends TestCase
     }
 
     /**
-     * @param list<AuditLog> $records
+     * @param array<string, scalar|null> $context
+     *
+     * @return AuditLogRowData
      */
-    private function repository(array $records): AuditLogRepository
+    private function row(
+        string $operation,
+        AuditOutcome $outcome,
+        string $channel = 'session',
+        array $context = [],
+        ?string $subjectType = null,
+        ?string $subjectId = null,
+    ): array {
+        return [
+            'id' => Uuid::v7(),
+            'operation' => $operation,
+            'outcome' => $outcome,
+            'category' => 'domain',
+            'channel' => $channel,
+            'occurredAt' => new \DateTimeImmutable('2026-08-01 09:30:00'),
+            'context' => $context,
+            'actorLabel' => 'Alice A',
+            'subjectType' => $subjectType,
+            'subjectId' => $subjectId,
+        ];
+    }
+
+    /**
+     * @param list<AuditLogRowData> $rows
+     */
+    private function repository(array $rows): AuditLogRepository
     {
         /** @var AuditLogRepository&Stub $repo */
         $repo = $this->createStub(AuditLogRepository::class);
-        $repo->method('streamByActor')->willReturn($records);
+        $repo->method('streamByActor')->willReturn($rows);
 
         return $repo;
     }

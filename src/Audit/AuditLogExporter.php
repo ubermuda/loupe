@@ -29,16 +29,16 @@ final readonly class AuditLogExporter implements UserDataExporterInterface
     #[\Override]
     public function export(User $user): iterable
     {
-        foreach ($this->auditLogs->streamByActor($user) as $record) {
+        foreach ($this->auditLogs->streamByActor($user) as $row) {
             yield [
-                'occurredAt' => $record->occurredAt->format(\DateTimeInterface::ATOM),
-                'operation' => $record->operation,
-                'outcome' => $record->outcome->value,
-                'category' => $record->category,
-                'channel' => $record->channel,
-                'subjectType' => $record->subjectType,
-                'subjectId' => $record->subjectId,
-                'context' => $record->context,
+                'occurredAt' => $row['occurredAt']->format(\DateTimeInterface::ATOM),
+                'operation' => $row['operation'],
+                'outcome' => $row['outcome']->value,
+                'category' => $row['category'],
+                'channel' => $row['channel'],
+                'subjectType' => $row['subjectType'],
+                'subjectId' => $row['subjectId'],
+                'context' => $row['context'],
             ];
         }
     }
