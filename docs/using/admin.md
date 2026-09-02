@@ -53,11 +53,17 @@ record older than that window, and `audit:purge` is the manual backstop. Both
 read the same window. Like everything else on the schedule, the task runs only
 if a worker is consuming. See [Commands](../reference/commands.md).
 
-The `audit.retention_days` feature flag sets the window, so you change it in the
-admin area at **`/admin/feature-flags`** with no restart. An instance that has
-no row for the flag keeps 180 days, which is the value in
-`app.audit.retention_days` in `config/services.yaml`. A window below one day is
-read as one day.
+The `audit.retention_days` feature flag sets the window, and you change it in
+the admin area with no restart. An instance installed with the audit log already
+has the flag row. Edit it at **`/admin/feature-flags`**.
+
+An instance installed before the flag existed has no row for it. That instance
+keeps 180 days, which is the value of `app.audit.retention_days` in
+`config/services.yaml`. To change the window there, create the row at
+**`/admin/feature-flags/new`**. Set **Name** to `audit.retention_days`, set
+**Type** to `Int`, then put the number of days in **Value**.
+
+A window below one day is read as one day.
 
 Back up the audit table if you must keep records for longer than the window. The
 purge is a hard delete and it is not reversible.

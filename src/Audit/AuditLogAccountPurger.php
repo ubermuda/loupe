@@ -19,6 +19,11 @@ use Doctrine\ORM\EntityManagerInterface;
  * carries the acting party's name instead — so it holds nothing of the
  * departed account to scrub, and nulling its label would erase an admin's name
  * from exactly the records a later reader came for.
+ *
+ * The data export hands the user those same subject records, which reads as the
+ * opposite rule and is not one. Access and erasure are separate rights, so a
+ * record of what was done to an account is both readable by it and allowed to
+ * outlive it.
  */
 final readonly class AuditLogAccountPurger implements AccountDataPurgerInterface, AccountDeletionPreparerInterface
 {

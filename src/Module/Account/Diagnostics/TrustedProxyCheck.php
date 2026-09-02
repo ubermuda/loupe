@@ -20,7 +20,11 @@ use Ubermuda\HealthCheckBundle\DiagnosticState;
  * private ingress, which the PRIVATE_SUBNETS default already trusts, while a
  * public balancer or CDN further out is not. The peer is then trusted and the
  * resolved address is still the CDN's. Comparing the resolved address against
- * the head of X-Forwarded-For covers both hops.
+ * the head of X-Forwarded-For covers both hops. Gating on isFromTrustedProxy()
+ * would also silence a header a client sent to an instance with no proxy at
+ * all, and with it the genuine single untrusted hop, which looks the same from
+ * here. The warning stays, because the misconfiguration it misses collapses the
+ * limiter to one bucket for every caller.
  *
  * Only X-Forwarded-For is read. `trusted_headers` does not list the RFC 7239
  * `Forwarded` header, so a proxy that sends only that one is ignored whatever
@@ -76,8 +80,11 @@ final readonly class TrustedProxyCheck implements DiagnosticInterface
         foreach (explode(',', implode(',', $values)) as $hop) {
             $hop = trim($hop);
 
-            if (str_contains($hop, '.') && str_contains($hop, ':')) {
-                $hop = substr($hop, 0, (int) strpos($hop, ':'));
+            // A colon at position 0 opens the `::ffff:` prefix of an
+            // IPv4-mapped address, and Request reads it as no port at all.
+            $colon = strpos($hop, ':');
+            if (str_contains($hop, '.') && false !== $colon && 0 !== $colon) {
+                $hop = substr($hop, 0, $colon);
             } elseif (str_starts_with($hop, '[')) {
                 $hop = substr($hop, 1, (int) strpos($hop, ']', 1) - 1);
             }

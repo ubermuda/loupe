@@ -1343,10 +1343,11 @@ question outlives the token question and should be answered on its own.
 
 The audit trail now exists. `audit_log` records an operation, an outcome, an
 actor, a credential, a subject and a context for each recorded decision. An
-admin reads it at `/admin/audit-log`. `AuditLogPurger` holds it to a 180-day
-window. The trail settles provenance: an MCP write carries the API token in
-`credential_id`, so a reader can tell a token write from a click. Attribution in
-the data itself stays open.
+admin reads it at `/admin/audit-log`. `AuditLogPurger` holds it to the window
+the `audit.retention_days` flag sets, which is 180 days by default. The trail
+settles provenance: an MCP write carries the API token in `credential_id`, so a
+reader can tell a token write from a click. Attribution in the data itself stays
+open.
 
 This was three separate entries and is one question: **what is an actor here,
 and how is an agent acting through an owner's token distinguished from the

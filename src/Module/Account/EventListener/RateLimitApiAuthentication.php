@@ -61,7 +61,7 @@ final readonly class RateLimitApiAuthentication
      */
     private function key(Request $request): string
     {
-        return 'ip:'.((string) $request->getClientIp());
+        return 'ip:'.($request->getClientIp() ?? 'unknown');
     }
 
     /** The firewall patterns, rather than the narrower path each endpoint serves. */

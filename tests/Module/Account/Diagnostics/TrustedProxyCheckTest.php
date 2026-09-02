@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Tests\Module\Account\Diagnostics;
 
 use App\Module\Account\Diagnostics\TrustedProxyCheck;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\RequestStack;
@@ -88,6 +89,36 @@ final class TrustedProxyCheckTest extends TestCase
 
         self::assertNotNull($diagnostic);
         self::assertSame(DiagnosticState::Warning, $diagnostic->state);
+    }
+
+    /**
+     * The check compares its own head-of-chain against getClientIp(), so it
+     * must drop and strip exactly what Request drops and strips. Each case
+     * asserts Symfony's answer first, so the test anchors to Request rather
+     * than to the check's copy of it.
+     */
+    #[DataProvider('hopForms')]
+    public function test_a_hop_is_normalized_the_way_request_normalizes_it(string $hop, string $resolved): void
+    {
+        $request = self::requestFrom('10.0.0.1', $hop);
+        Request::setTrustedProxies(['10.0.0.0/8'], Request::HEADER_X_FORWARDED_FOR);
+
+        self::assertSame($resolved, $request->getClientIp());
+
+        $diagnostic = (new TrustedProxyCheck(self::stackFor($request)))();
+
+        self::assertNotNull($diagnostic);
+        self::assertSame(DiagnosticState::Ok, $diagnostic->state);
+    }
+
+    /** @return iterable<string, array{string, string}> */
+    public static function hopForms(): iterable
+    {
+        yield 'bare IPv4' => ['198.51.100.7', '198.51.100.7'];
+        yield 'IPv4 with a port' => ['198.51.100.7:41234', '198.51.100.7'];
+        yield 'bare IPv6' => ['2001:db8::a', '2001:db8::a'];
+        yield 'bracketed IPv6 with a port' => ['[2001:db8::a]:41234', '2001:db8::a'];
+        yield 'IPv4-mapped IPv6' => ['::ffff:198.51.100.7', '::ffff:198.51.100.7'];
     }
 
     private function checkFor(string $remoteAddress, ?string $forwardedFor): TrustedProxyCheck
