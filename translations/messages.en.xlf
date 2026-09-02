@@ -3947,6 +3947,10 @@
                 <source>audit.admin.log.outcome.refused</source>
                 <target>Refused</target>
             </trans-unit>
+            <trans-unit id="audit.admin.log.outcome.failed">
+                <source>audit.admin.log.outcome.failed</source>
+                <target>Failed</target>
+            </trans-unit>
             <trans-unit id="audit.admin.log.context.show">
                 <source>audit.admin.log.context.show</source>
                 <target>Show</target>

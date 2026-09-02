@@ -30,16 +30,23 @@ final readonly class ResendVerificationEmailHandler
             return;
         }
 
+        $outcome = AuditOutcome::Success;
+
         try {
             $this->verificationEmailSender->send($user);
         } catch (\Throwable) {
+            // The sender flushes the new token before it mails, so a failure
+            // still rotates the token and invalidates the old link. The record
+            // has to say the resend broke, or the trail claims a delivery the
+            // user never got. The transport error itself is the mailer's to log.
+            $outcome = AuditOutcome::Failed;
         }
 
         // Keyed on the internal id and written only where a user resolved, so
         // the record cannot answer "does this account exist" for anyone.
         $this->auditor->record(
             'account.email_verification.resent',
-            AuditOutcome::Success,
+            $outcome,
             ['userId' => (string) $user->id],
             new AuditSubject('user', (string) $user->id),
         );

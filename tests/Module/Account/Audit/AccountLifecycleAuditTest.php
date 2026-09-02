@@ -25,6 +25,7 @@ use App\Module\Account\Command\VerifyEmailHandler;
 use App\Module\Account\Entity\User;
 use App\Module\Account\Repository\UserRepository;
 use App\Module\Account\Service\PasswordResetEmailSender;
+use App\Module\Account\Service\VerificationEmailSender;
 use App\Module\Audit\Auditor;
 use App\Module\Audit\AuditOutcome;
 use App\Module\Audit\AuditSubject;
@@ -210,6 +211,30 @@ final class AccountLifecycleAuditTest extends KernelTestCase
         self::assertSame(Auditor::CATEGORY_DOMAIN, $record->category);
         self::assertSame(['userId' => (string) $user->id], $record->context);
         $this->assertUserSubject($record->subject, $user);
+    }
+
+    public function test_a_resend_whose_delivery_fails_is_recorded_as_failed(): void
+    {
+        $this->boot();
+        $user = $this->seedUser('audit-resend-failed@example.com');
+
+        $users = self::getContainer()->get(UserRepository::class);
+        self::assertInstanceOf(UserRepository::class, $users);
+
+        $sender = $this->createMock(VerificationEmailSender::class);
+        $sender->expects($this->once())
+            ->method('send')
+            ->willThrowException(new \RuntimeException('mail transport unavailable'));
+
+        new ResendVerificationEmailHandler($users, $sender, $this->audit->auditor)(
+            new ResendVerificationEmailCommand('audit-resend-failed@example.com'),
+        );
+
+        // The sender flushes the rotated token before it mails, so the resend
+        // is a real state change that failed, not a no-op.
+        $record = $this->audit->record('account.email_verification.resent');
+        self::assertSame(AuditOutcome::Failed, $record->outcome);
+        self::assertSame(['userId' => (string) $user->id], $record->context);
     }
 
     /** Pairs with the operator-side record, on the same category. */

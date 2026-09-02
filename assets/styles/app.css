@@ -2640,6 +2640,9 @@
     .admin-badge-on {
         @apply bg-status-ok-bg text-status-ok-deep;
     }
+    .admin-badge-danger {
+        @apply bg-status-danger-bg text-status-danger-deep;
+    }
     .admin-badge-neutral,
     .admin-badge-off {
         @apply bg-tint text-fg-dim;
