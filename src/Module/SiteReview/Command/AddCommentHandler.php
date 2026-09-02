@@ -4,18 +4,20 @@ declare(strict_types=1);
 
 namespace App\Module\SiteReview\Command;
 
+use App\Module\Audit\Auditor;
+use App\Module\Audit\AuditOutcome;
+use App\Module\Audit\AuditSubject;
 use App\Module\SiteReview\Entity\SiteReviewComment;
 use App\Module\SiteReview\Repository\SiteReviewCommentRepository;
 use Doctrine\DBAL\LockMode;
 use Doctrine\ORM\EntityManagerInterface;
-use Psr\Log\LoggerInterface;
 
 final readonly class AddCommentHandler
 {
     public function __construct(
         private SiteReviewCommentRepository $siteReviewComments,
         private EntityManagerInterface $em,
-        private LoggerInterface $logger,
+        private Auditor $auditor,
     ) {
     }
 
@@ -41,10 +43,15 @@ final readonly class AddCommentHandler
             return $comment;
         });
 
-        $this->logger->info('site_review.comment.added', [
-            'projectId' => (string) $command->project->id,
-            'commentId' => (string) $comment->id,
-        ]);
+        $this->auditor->record(
+            'site_review.comment.added',
+            AuditOutcome::Success,
+            [
+                'projectId' => (string) $command->project->id,
+                'commentId' => (string) $comment->id,
+            ],
+            new AuditSubject('site_review_comment', (string) $comment->id),
+        );
 
         return $comment;
     }

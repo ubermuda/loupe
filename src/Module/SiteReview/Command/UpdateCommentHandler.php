@@ -4,17 +4,19 @@ declare(strict_types=1);
 
 namespace App\Module\SiteReview\Command;
 
+use App\Module\Audit\Auditor;
+use App\Module\Audit\AuditOutcome;
+use App\Module\Audit\AuditSubject;
 use App\Module\SiteReview\Entity\SiteReviewComment;
 use App\Module\SiteReview\Repository\SiteReviewCommentRepository;
 use Doctrine\ORM\EntityManagerInterface;
-use Psr\Log\LoggerInterface;
 
 final readonly class UpdateCommentHandler
 {
     public function __construct(
         private SiteReviewCommentRepository $siteReviewComments,
         private EntityManagerInterface $em,
-        private LoggerInterface $logger,
+        private Auditor $auditor,
     ) {
     }
 
@@ -26,10 +28,15 @@ final readonly class UpdateCommentHandler
         $comment->body = $command->body;
         $this->em->flush();
 
-        $this->logger->info('site_review.comment.updated', [
-            'projectId' => (string) $command->project->id,
-            'commentId' => (string) $command->commentId,
-        ]);
+        $this->auditor->record(
+            'site_review.comment.updated',
+            AuditOutcome::Success,
+            [
+                'projectId' => (string) $command->project->id,
+                'commentId' => (string) $command->commentId,
+            ],
+            new AuditSubject('site_review_comment', (string) $command->commentId),
+        );
 
         return $comment;
     }
