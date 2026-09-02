@@ -131,6 +131,7 @@ final class DeleteAccountHandlerTest extends KernelTestCase
             $audit->auditor,
             $this->createStub(FilesystemOperator::class),
             [],
+            [],
         )->purge($user);
 
         self::assertSame(['account.deleted'], $audit->operations());
