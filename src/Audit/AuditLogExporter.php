@@ -6,15 +6,22 @@ namespace App\Audit;
 
 use App\Module\Account\Entity\User;
 use App\Module\Account\Export\UserDataExporterInterface;
+use App\Module\Audit\AuditSubject;
 use App\Module\Audit\Repository\AuditLogRepository;
 
 /**
- * Exports what the account did, which is the rows it is the actor of. A row
- * that only names it as a subject belongs to whoever wrote it, and carries that
- * person's name in actor_label.
+ * Exports what the account did and what was done to it: the rows it is the
+ * actor of, plus the rows that name it as the subject.
+ *
+ * A subject row was written by somebody else and carries that person's name in
+ * actor_label, so the exported shape drops the label. What stays of the writer
+ * is nothing: no other exported field names an actor.
  */
 final readonly class AuditLogExporter implements UserDataExporterInterface
 {
+    /** The subject type every record about an account uses. */
+    private const string USER_SUBJECT_TYPE = 'user';
+
     public function __construct(
         private AuditLogRepository $auditLogs,
     ) {
@@ -29,7 +36,12 @@ final readonly class AuditLogExporter implements UserDataExporterInterface
     #[\Override]
     public function export(User $user): iterable
     {
-        foreach ($this->auditLogs->streamByActor($user) as $row) {
+        $subject = new AuditSubject(
+            self::USER_SUBJECT_TYPE,
+            (string) ($user->id ?? throw new \LogicException('a persisted user always has an id')),
+        );
+
+        foreach ($this->auditLogs->streamByActorOrSubject($user, $subject) as $row) {
             yield [
                 'occurredAt' => $row['occurredAt']->format(\DateTimeInterface::ATOM),
                 'operation' => $row['operation'],

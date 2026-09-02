@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Tests\Module\Audit;
 
 use App\Module\Audit\AuditLogPurger;
+use App\Module\Audit\AuditRetentionPolicyInterface;
 use Doctrine\DBAL\Connection;
 use Doctrine\ORM\EntityManagerInterface;
 use Psr\Clock\ClockInterface;
@@ -73,7 +74,10 @@ final class AuditLogPurgerPersistenceTest extends KernelTestCase
         $clock = $this->createStub(ClockInterface::class);
         $clock->method('now')->willReturn(new \DateTimeImmutable(self::NOW));
 
-        return new AuditLogPurger($this->connection, $clock, self::RETENTION_DAYS);
+        $retention = $this->createStub(AuditRetentionPolicyInterface::class);
+        $retention->method('retentionDays')->willReturn(self::RETENTION_DAYS);
+
+        return new AuditLogPurger($this->connection, $clock, $retention);
     }
 
     private function cutoff(): \DateTimeImmutable

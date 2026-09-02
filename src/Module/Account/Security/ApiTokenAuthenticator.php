@@ -42,6 +42,17 @@ final class ApiTokenAuthenticator extends AbstractAuthenticator implements Authe
 
     public function supports(Request $request): bool
     {
+        return self::carriesBearerToken($request);
+    }
+
+    /**
+     * Shared with RateLimitApiAuthentication, which throttles exactly the
+     * requests that can reach authenticate() and record a failure there. Two
+     * copies of the same condition would drift apart without either side
+     * failing.
+     */
+    public static function carriesBearerToken(Request $request): bool
+    {
         return str_starts_with((string) $request->headers->get('Authorization', ''), 'Bearer ');
     }
 

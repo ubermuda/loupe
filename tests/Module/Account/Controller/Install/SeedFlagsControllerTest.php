@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Tests\Module\Account\Controller\Install;
 
+use App\Audit\FeatureFlagAuditRetentionPolicy;
 use App\Module\Account\Controller\Install\SeedFlagsController;
 use App\Module\Account\Entity\User;
 use App\Module\Account\Service\RegistrationGate;
@@ -57,7 +58,8 @@ final class SeedFlagsControllerTest extends WebTestCase
         // prefilled default, and that default has to be "on" or a freshly
         // installed instance cannot register anybody.
         self::assertTrue($flags[RegistrationGate::ENABLED_FLAG]->value);
-        self::assertCount(12, $flags);
+        self::assertCount(13, $flags);
+        self::assertSame(180, $flags[FeatureFlagAuditRetentionPolicy::FLAG]->value);
         // Seeded off: the update check is the app's only self-initiated
         // outbound request, so an install must not start making it unasked.
         self::assertFalse($flags[UpdateCheck::FLAG]->value);

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Tests\Module\Audit;
 
 use App\Module\Audit\AuditLogPurger;
+use App\Module\Audit\AuditRetentionPolicyInterface;
 use Doctrine\DBAL\Connection;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
@@ -66,6 +67,9 @@ final class AuditLogPurgerTest extends TestCase
         $clock = $this->createStub(ClockInterface::class);
         $clock->method('now')->willReturn(new \DateTimeImmutable($now));
 
-        return new AuditLogPurger($this->connection, $clock, $retentionDays);
+        $retention = $this->createStub(AuditRetentionPolicyInterface::class);
+        $retention->method('retentionDays')->willReturn($retentionDays);
+
+        return new AuditLogPurger($this->connection, $clock, $retention);
     }
 }

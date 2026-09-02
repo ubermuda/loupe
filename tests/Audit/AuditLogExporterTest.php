@@ -19,7 +19,7 @@ final class AuditLogExporterTest extends TestCase
 {
     public function test_exports_flat_record_rows(): void
     {
-        $actor = new User('Alice A', 'alice@example.com', 'x');
+        $actor = $this->persistedUser();
         $row = $this->row(
             operation: 'review.comment.addressed',
             outcome: AuditOutcome::Refused,
@@ -45,7 +45,7 @@ final class AuditLogExporterTest extends TestCase
     /** A row the user did not write names somebody else, so the label stays out. */
     public function test_a_row_carries_no_actor_label(): void
     {
-        $actor = new User('Alice A', 'alice@example.com', 'x');
+        $actor = $this->persistedUser();
         $row = $this->row(operation: 'account.user.suspended', outcome: AuditOutcome::Success);
 
         $rows = iterator_to_array(new AuditLogExporter($this->repository([$row]))->export($actor));
@@ -61,6 +61,15 @@ final class AuditLogExporterTest extends TestCase
     public function test_the_file_is_named_for_the_table(): void
     {
         self::assertSame('audit_log.json', new AuditLogExporter($this->repository([]))->filename());
+    }
+
+    /** The exporter reads the id to match subject rows, which Doctrine only sets on flush. */
+    private function persistedUser(): User
+    {
+        $user = new User('Alice A', 'alice@example.com', 'x');
+        new \ReflectionProperty(User::class, 'id')->setValue($user, Uuid::v4());
+
+        return $user;
     }
 
     /**
@@ -97,7 +106,7 @@ final class AuditLogExporterTest extends TestCase
     {
         /** @var AuditLogRepository&Stub $repo */
         $repo = $this->createStub(AuditLogRepository::class);
-        $repo->method('streamByActor')->willReturn($rows);
+        $repo->method('streamByActorOrSubject')->willReturn($rows);
 
         return $repo;
     }

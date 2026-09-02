@@ -48,11 +48,16 @@ prefix, by channel, and by a date range.
 
 ### Retention
 
-The trail keeps **180 days**. An hourly scheduled task deletes every record
-older than that window, and `audit:purge` is the manual backstop. Like
-everything else on the schedule, it runs only if a worker is consuming. See
-[Commands](../reference/commands.md). `app.audit.retention_days` in
-`config/services.yaml` sets the window.
+The trail keeps **180 days** by default. An hourly scheduled task deletes every
+record older than that window, and `audit:purge` is the manual backstop. Both
+read the same window. Like everything else on the schedule, the task runs only
+if a worker is consuming. See [Commands](../reference/commands.md).
+
+The `audit.retention_days` feature flag sets the window, so you change it in the
+admin area at **`/admin/feature-flags`** with no restart. An instance that has
+no row for the flag keeps 180 days, which is the value in
+`app.audit.retention_days` in `config/services.yaml`. A window below one day is
+read as one day.
 
 Back up the audit table if you must keep records for longer than the window. The
 purge is a hard delete and it is not reversible.

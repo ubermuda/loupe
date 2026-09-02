@@ -30,7 +30,7 @@ hand.
 | `app:purge-expired-exports` | Deletes expired data-export archives and rows. Hourly. |
 | `app:sweep-ended-trials` | Disables ended trials and cancellations, sends survey emails. |
 | `app:drain-site-review-outbox` | Publishes site-review events whose Mercure update never landed. Every five minutes; `--limit=<n>` to bound a manual pass. Safe to run alongside the worker — the claim is atomic. |
-| `audit:purge` | Deletes audit records past the retention window. Hourly, at minute 45. The window is 180 days; `app.audit.retention_days` in `config/services.yaml` sets it. |
+| `audit:purge` | Deletes audit records past the retention window. Hourly, at minute 45. The `audit.retention_days` feature flag sets the window, and both this command and the hourly task read it. It defaults to the 180 days in `app.audit.retention_days` in `config/services.yaml`. |
 
 ## Maintenance
 
