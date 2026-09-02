@@ -45,9 +45,11 @@ return static function (Config $config): void {
                 'Psr\Clock',
                 'Psr\Log',
                 // A package may depend on Doctrine; it may not depend on Loupe.
-                // The line is the ORM's write side: the sink writes through the
-                // DBAL, so nothing here may reach an EntityManager or a unit of
-                // work. Mapping and hydration modes are read-side, and allowed.
+                // The line is the ORM's write side: no class here names an
+                // EntityManager or a unit of work, and the sink writes through
+                // the DBAL. Mapping and hydration modes are read-side, so they
+                // are allowed. The rule matches imports, so it cannot see what
+                // a base class reaches transitively.
                 'Doctrine\Bundle\DoctrineBundle\Repository',
                 'Doctrine\DBAL',
                 'Doctrine\ORM\AbstractQuery',

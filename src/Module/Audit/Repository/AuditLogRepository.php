@@ -41,8 +41,9 @@ class AuditLogRepository extends ServiceEntityRepository
     /**
      * Streams plain rows: the caller is the account data export, which has no
      * page to bound it. Array hydration keeps the trail out of the identity
-     * map, so peak memory stays flat and the caller's next flush computes no
-     * change set over rows it never edits.
+     * map, so the caller's next flush computes no change set over rows it never
+     * edits. Not constant memory: ArrayHydrator still keeps one identifier per
+     * row for the length of the stream.
      *
      * @return iterable<AuditLogRowData>
      */
