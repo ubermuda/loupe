@@ -80,7 +80,7 @@ final readonly class ArchiveDocumentHandler
         // stays out, because it is a sentence a reviewer wrote.
         if ($archived) {
             $this->auditor->record(
-                'review.document.archived',
+                'review.document_archived',
                 AuditOutcome::Success,
                 [
                     'documentId' => (string) $document->id,

@@ -61,7 +61,7 @@ final readonly class ReplyToCommentHandler
         $this->em->flush();
 
         $this->auditor->record(
-            'review.comment.replied',
+            'review.comment_replied',
             AuditOutcome::Success,
             [
                 'commentId' => (string) $reply->id,

@@ -33,7 +33,7 @@ final readonly class UpdateProfileHandler
         $this->em->flush();
 
         $this->auditor->record(
-            'account.profile.updated',
+            'account.profile_updated',
             AuditOutcome::Success,
             ['userId' => (string) $user->id],
             new AuditSubject('user', (string) $user->id),

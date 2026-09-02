@@ -51,7 +51,7 @@ final class ReopenSiteReviewCommentHandlerTest extends KernelTestCase
 
         ($this->handler)(new ReopenSiteReviewCommentCommand($comment));
 
-        $record = $this->audit->record('site_review.comment.reopened');
+        $record = $this->audit->record('site_review.comment_reopened');
         self::assertSame(AuditOutcome::Success, $record->outcome);
         self::assertSame(Auditor::CATEGORY_DOMAIN, $record->category);
         self::assertNotNull($record->subject);
@@ -59,7 +59,7 @@ final class ReopenSiteReviewCommentHandlerTest extends KernelTestCase
         self::assertSame((string) $comment->id, $record->subject->id);
         self::assertSame(['commentId' => (string) $comment->id], $record->context);
 
-        self::assertSame(['site_review.comment.reopened'], $this->audit->domainLogLines());
+        self::assertSame(['site_review.comment_reopened'], $this->audit->domainLogLines());
         self::assertSame([], $this->audit->securityLogLines());
     }
 

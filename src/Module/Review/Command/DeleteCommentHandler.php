@@ -41,7 +41,7 @@ final readonly class DeleteCommentHandler
         // by its own author, and a single record for the thread leaves no trace
         // that those ids existed.
         $this->auditor->record(
-            'review.comment.deleted',
+            'review.comment_deleted',
             AuditOutcome::Success,
             [
                 'commentId' => $commentId,
@@ -53,7 +53,7 @@ final readonly class DeleteCommentHandler
 
         foreach ($replyIds as $replyId) {
             $this->auditor->record(
-                'review.comment.deleted',
+                'review.comment_deleted',
                 AuditOutcome::Success,
                 [
                     'commentId' => $replyId,

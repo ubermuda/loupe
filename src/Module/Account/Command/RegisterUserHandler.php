@@ -136,7 +136,7 @@ final readonly class RegisterUserHandler
         try {
             $this->eventDispatcher->dispatch(new UserRegistered($user));
         } catch (\Throwable $e) {
-            $this->logger->warning('account.registration.listener_failed', [
+            $this->logger->warning('account.registration_listener_failed', [
                 'userId' => (string) $user->id,
                 'error' => $e->getMessage(),
             ]);

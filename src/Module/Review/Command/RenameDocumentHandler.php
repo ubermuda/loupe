@@ -45,7 +45,7 @@ final readonly class RenameDocumentHandler
         // audit context carries ids, counts, flags and enum values only. The
         // document is the subject, so the record still says what was renamed.
         $this->auditor->record(
-            'review.document.renamed',
+            'review.document_renamed',
             AuditOutcome::Success,
             [
                 'documentId' => (string) $document->id,

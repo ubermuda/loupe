@@ -168,7 +168,7 @@ final class McpBoundProjectVoterTest extends KernelTestCase
 
         $audit = $this->auditedVote(McpBoundProjectVoter::DOCUMENT_READ, $document);
 
-        $record = $audit->record('review.mcp.access_denied');
+        $record = $audit->record('review.mcp_access_denied');
         self::assertSame(AuditOutcome::Refused, $record->outcome);
         self::assertSame(Auditor::CATEGORY_SECURITY, $record->category);
         self::assertNotNull($record->subject);
@@ -181,7 +181,7 @@ final class McpBoundProjectVoterTest extends KernelTestCase
             'boundProjectId' => (string) $projectB->id,
         ], $record->context);
 
-        self::assertSame(['review.mcp.access_denied'], $audit->securityLogLines());
+        self::assertSame(['review.mcp_access_denied'], $audit->securityLogLines());
         self::assertSame([], $audit->domainLogLines());
     }
 
@@ -196,7 +196,7 @@ final class McpBoundProjectVoterTest extends KernelTestCase
 
         $audit = $this->auditedVote(McpBoundProjectVoter::COMMENT_WRITE, $comment);
 
-        $record = $audit->record('review.mcp.access_denied');
+        $record = $audit->record('review.mcp_access_denied');
         self::assertNotNull($record->subject);
         self::assertSame('comment', $record->subject->type);
         self::assertSame((string) $comment->id, $record->subject->id);
@@ -216,7 +216,7 @@ final class McpBoundProjectVoterTest extends KernelTestCase
 
         $audit = $this->auditedVote(McpBoundProjectVoter::DOCUMENT_READ, $document);
 
-        self::assertNull($audit->record('review.mcp.access_denied')->context['boundProjectId']);
+        self::assertNull($audit->record('review.mcp_access_denied')->context['boundProjectId']);
     }
 
     public function test_a_granted_vote_records_nothing(): void

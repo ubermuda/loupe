@@ -54,7 +54,7 @@ final readonly class WaitlistInviter
             // follow-up write so the entry stays invitable instead of stuck
             // until the never-sent token expires, and report a skip instead of
             // throwing so one bad entry cannot abort a bulk invite.
-            $this->logger->warning('account.waitlist.invite_send_failed', [
+            $this->logger->warning('account.waitlist_invite_send_failed', [
                 'entryId' => (string) $entry->id,
                 'error' => $e->getMessage(),
             ]);
@@ -66,7 +66,7 @@ final readonly class WaitlistInviter
         }
 
         $this->auditor->record(
-            'account.waitlist.invited',
+            'account.waitlist_invited',
             AuditOutcome::Success,
             ['entryId' => (string) $entry->id],
             new AuditSubject('waitlist_entry', (string) $entry->id),

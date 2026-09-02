@@ -34,7 +34,7 @@ final class AuditLogExporterQueryTest extends KernelTestCase
         // Alice is both the actor and the subject here, which is the row a
         // second query would export twice.
         $em->persist(new AuditLog(
-            operation: 'account.profile.updated',
+            operation: 'account.profile_updated',
             outcome: AuditOutcome::Success,
             category: 'domain',
             channel: 'session',
@@ -44,7 +44,7 @@ final class AuditLogExporterQueryTest extends KernelTestCase
             subjectId: (string) $user->id,
         ));
         $em->persist(new AuditLog(
-            operation: 'account.admin.user_suspended',
+            operation: 'account.admin_user_suspended',
             outcome: AuditOutcome::Success,
             category: 'domain',
             channel: 'session',
@@ -76,7 +76,7 @@ final class AuditLogExporterQueryTest extends KernelTestCase
         // Two, not three: Alice is the actor and the subject of the first row,
         // and one query with an OR returns it once.
         self::assertCount(2, $rows);
-        self::assertSame(['account.admin.user_suspended', 'account.profile.updated'], $operations);
+        self::assertSame(['account.admin_user_suspended', 'account.profile_updated'], $operations);
     }
 
     public function test_a_record_about_somebody_else_stays_out_of_the_export(): void
@@ -92,7 +92,7 @@ final class AuditLogExporterQueryTest extends KernelTestCase
         $em->flush();
 
         $em->persist(new AuditLog(
-            operation: 'account.admin.user_suspended',
+            operation: 'account.admin_user_suspended',
             outcome: AuditOutcome::Success,
             category: 'domain',
             channel: 'session',
@@ -123,7 +123,7 @@ final class AuditLogExporterQueryTest extends KernelTestCase
         $em->flush();
 
         $em->persist(new AuditLog(
-            operation: 'account.admin.user_suspended',
+            operation: 'account.admin_user_suspended',
             outcome: AuditOutcome::Success,
             category: 'domain',
             channel: 'session',

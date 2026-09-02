@@ -65,7 +65,7 @@ final readonly class CreateDocumentHandler
         // committed id, and after the index a throwing indexer would leave the
         // document written with no record that it was created.
         $this->auditor->record(
-            'review.document.created',
+            'review.document_created',
             AuditOutcome::Success,
             [
                 'documentId' => (string) $document->id,

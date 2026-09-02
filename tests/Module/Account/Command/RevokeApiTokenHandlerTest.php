@@ -104,7 +104,7 @@ final class RevokeApiTokenHandlerTest extends KernelTestCase
 
         $handler(new RevokeApiTokenCommand($token));
 
-        $record = $audit->record('account.api_token.revoked');
+        $record = $audit->record('account.api_token_revoked');
         self::assertSame(AuditOutcome::Success, $record->outcome);
         self::assertSame(Auditor::CATEGORY_SECURITY, $record->category);
         self::assertSame(
@@ -116,7 +116,7 @@ final class RevokeApiTokenHandlerTest extends KernelTestCase
         self::assertSame('api_token', $record->subject->type);
         self::assertSame((string) $token->id, $record->subject->id);
 
-        self::assertSame(['account.api_token.revoked'], $audit->securityLogLines());
+        self::assertSame(['account.api_token_revoked'], $audit->securityLogLines());
         self::assertSame([], $audit->domainLogLines());
         self::assertStringNotContainsString(
             'a label naming a customer system',

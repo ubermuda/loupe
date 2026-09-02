@@ -40,7 +40,7 @@ final readonly class DeleteUserHandler
         $this->purger->purge($target);
 
         $this->auditor->record(
-            'account.admin.user_deleted',
+            'account.admin_user_deleted',
             AuditOutcome::Success,
             ['userId' => $targetId],
             new AuditSubject('user', $targetId),

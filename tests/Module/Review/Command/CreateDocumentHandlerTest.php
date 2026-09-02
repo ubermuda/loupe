@@ -190,7 +190,7 @@ final class CreateDocumentHandlerTest extends KernelTestCase
             tagNames: ['design', 'security'],
         ));
 
-        $record = $audit->record('review.document.created');
+        $record = $audit->record('review.document_created');
         self::assertSame(AuditOutcome::Success, $record->outcome);
         self::assertSame(Auditor::CATEGORY_DOMAIN, $record->category);
         self::assertNotNull($record->subject);
@@ -206,7 +206,7 @@ final class CreateDocumentHandlerTest extends KernelTestCase
         // Two records, because the tag set is written by its own handler, which
         // records the write it performs.
         self::assertSame(
-            ['review.document.tags_updated', 'review.document.created'],
+            ['review.document_tags_updated', 'review.document_created'],
             $audit->domainLogLines(),
         );
         self::assertSame([], $audit->securityLogLines());
@@ -244,7 +244,7 @@ final class CreateDocumentHandlerTest extends KernelTestCase
         ));
 
         self::assertCount(1, $document->references, 'the same target twice is one link');
-        self::assertSame(1, $audit->record('review.document.created')->context['referenceCount']);
+        self::assertSame(1, $audit->record('review.document_created')->context['referenceCount']);
     }
 
     public function test_the_creation_record_carries_no_document_text(): void
@@ -268,7 +268,7 @@ final class CreateDocumentHandlerTest extends KernelTestCase
             markdown: '# Dana said',
         ));
 
-        $context = $audit->record('review.document.created')->context;
+        $context = $audit->record('review.document_created')->context;
         self::assertArrayNotHasKey('title', $context);
         self::assertArrayNotHasKey('markdown', $context);
         self::assertSame([], array_filter(
@@ -339,10 +339,10 @@ final class CreateDocumentHandlerTest extends KernelTestCase
             ['id' => (string) $project->id],
         ));
 
-        $record = $audit->record('review.document.created');
+        $record = $audit->record('review.document_created');
         self::assertSame(AuditOutcome::Success, $record->outcome);
         self::assertSame(
-            ['review.document.tags_updated', 'review.document.created'],
+            ['review.document_tags_updated', 'review.document_created'],
             $audit->domainLogLines(),
         );
     }

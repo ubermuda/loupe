@@ -79,7 +79,7 @@ class LinkSocialAccountController extends AppController
             $limiter = $this->oauthLinkLimiter->create($request->getClientIp() ?? 'unknown');
             if (!$limiter->consume(1)->isAccepted()) {
                 $this->auditor->record(
-                    'account.social.link_throttled',
+                    'account.social_link_throttled',
                     AuditOutcome::Refused,
                     [
                         'provider' => $pending->profile->provider->value,
@@ -107,7 +107,7 @@ class LinkSocialAccountController extends AppController
                 // a wrong password must leave the user able to try again.
                 $this->pendingSocialLink->pull();
                 $this->auditor->record(
-                    'account.social.linked',
+                    'account.social_linked',
                     AuditOutcome::Success,
                     [
                         'provider' => $pending->profile->provider->value,

@@ -203,7 +203,7 @@ final class ArchiveDocumentHandlerTest extends KernelTestCase
 
         ($this->archive)(new ArchiveDocumentCommand($document, null));
 
-        $record = $this->audit->record('review.document.archived');
+        $record = $this->audit->record('review.document_archived');
         self::assertSame(AuditOutcome::Success, $record->outcome);
         self::assertSame(Auditor::CATEGORY_DOMAIN, $record->category);
         self::assertNotNull($record->subject);
@@ -214,7 +214,7 @@ final class ArchiveDocumentHandlerTest extends KernelTestCase
             'projectId' => (string) $document->project->id,
         ], $record->context);
 
-        self::assertSame(['review.document.archived'], $this->audit->domainLogLines());
+        self::assertSame(['review.document_archived'], $this->audit->domainLogLines());
         self::assertSame([], $this->audit->securityLogLines());
     }
 
@@ -225,7 +225,7 @@ final class ArchiveDocumentHandlerTest extends KernelTestCase
 
         ($this->archive)(new ArchiveDocumentCommand($document, 'superseded by Dana Okafor'));
 
-        $context = $this->audit->record('review.document.archived')->context;
+        $context = $this->audit->record('review.document_archived')->context;
         self::assertArrayNotHasKey('reason', $context);
         self::assertArrayNotHasKey('archiveReason', $context);
         self::assertSame('superseded by Dana Okafor', $document->archiveReason);
@@ -238,7 +238,7 @@ final class ArchiveDocumentHandlerTest extends KernelTestCase
 
         ($this->unarchive)(new UnarchiveDocumentCommand($document));
 
-        $record = $this->audit->record('review.document.unarchived');
+        $record = $this->audit->record('review.document_unarchived');
         self::assertSame(AuditOutcome::Success, $record->outcome);
         self::assertSame(Auditor::CATEGORY_DOMAIN, $record->category);
         self::assertNotNull($record->subject);
@@ -249,7 +249,7 @@ final class ArchiveDocumentHandlerTest extends KernelTestCase
         ], $record->context);
 
         self::assertSame(
-            ['review.document.archived', 'review.document.unarchived'],
+            ['review.document_archived', 'review.document_unarchived'],
             $this->audit->domainLogLines(),
         );
     }
@@ -267,7 +267,7 @@ final class ArchiveDocumentHandlerTest extends KernelTestCase
 
         ($this->archive)(new ArchiveDocumentCommand($document, null));
         ($this->archive)(new ArchiveDocumentCommand($document, null));
-        self::assertSame(['review.document.archived'], $this->audit->operations());
+        self::assertSame(['review.document_archived'], $this->audit->operations());
     }
 
     public function test_a_rejected_archive_records_nothing(): void

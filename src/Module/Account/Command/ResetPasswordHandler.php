@@ -37,7 +37,7 @@ final readonly class ResetPasswordHandler
         $this->em->flush();
 
         $this->auditor->record(
-            'account.password.reset',
+            'account.password_reset',
             AuditOutcome::Success,
             ['userId' => (string) $user->id],
             new AuditSubject('user', (string) $user->id),

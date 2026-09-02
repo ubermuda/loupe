@@ -42,7 +42,7 @@ final readonly class OpenPortalHandler
         } catch (\Throwable $e) {
             // Stripe being down is a bad minute, not a bug: surface it as a
             // domain failure so the user gets "try again later", not a 500.
-            $this->logger->error('billing.portal.stripe_failed', [
+            $this->logger->error('billing.portal_stripe_failed', [
                 'userId' => (string) $command->user->id,
                 'error' => $e->getMessage(),
             ]);
@@ -51,7 +51,7 @@ final readonly class OpenPortalHandler
         }
 
         $this->auditor->record(
-            'billing.portal.opened',
+            'billing.portal_opened',
             AuditOutcome::Success,
             ['userId' => (string) $command->user->id],
             new AuditSubject('user', (string) $command->user->id),

@@ -43,7 +43,7 @@ final readonly class DiffDocumentVersionsHandler
         $changeCount = null;
         if ($result instanceof DiffRefusal) {
             $diffRefusal = $result;
-            $this->logger->info('review.document.diff_refused', [
+            $this->logger->info('review.document_diff_refused', [
                 'documentId' => (string) $command->document->id,
                 'from' => $command->fromVersionNumber,
                 'to' => $command->toVersionNumber,

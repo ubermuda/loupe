@@ -310,9 +310,9 @@ final class RefreshDocumentVersionsHtmlHandlerTest extends KernelTestCase
         self::assertSame(1, $result->orphaned);
         self::assertGreaterThanOrEqual(1, $result->changed);
 
-        self::assertSame(['review.document_version.rerendered'], $audit->operations());
+        self::assertSame(['review.document_version_rerendered'], $audit->operations());
 
-        $record = $audit->record('review.document_version.rerendered');
+        $record = $audit->record('review.document_version_rerendered');
         self::assertSame(AuditOutcome::Success, $record->outcome);
         self::assertSame(Auditor::CATEGORY_DOMAIN, $record->category);
         self::assertNull($record->subject, 'the sweep walks the table, so no single row is its subject');
@@ -339,7 +339,7 @@ final class RefreshDocumentVersionsHtmlHandlerTest extends KernelTestCase
 
         self::assertTrue($result->refused);
 
-        $record = $audit->record('review.document_version.rerendered');
+        $record = $audit->record('review.document_version_rerendered');
         self::assertSame(AuditOutcome::Refused, $record->outcome);
         self::assertSame([
             'total' => 0,

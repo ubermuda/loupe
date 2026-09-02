@@ -189,7 +189,7 @@ final class SubmitReviewControllerTest extends WebTestCase
 
         self::assertResponseRedirects("/projects/$projectId/documents/$docId/review");
 
-        $record = $audit->record('review.document.verdict_submitted');
+        $record = $audit->record('review.document_verdict_submitted');
         self::assertSame(AuditOutcome::Success, $record->outcome);
         self::assertSame(Auditor::CATEGORY_DOMAIN, $record->category);
         self::assertNotNull($record->subject);
@@ -201,7 +201,7 @@ final class SubmitReviewControllerTest extends WebTestCase
             'reviewerId' => (string) $owner->id,
         ], $record->context);
 
-        self::assertSame(['review.document.verdict_submitted'], $audit->domainLogLines());
+        self::assertSame(['review.document_verdict_submitted'], $audit->domainLogLines());
         self::assertSame([], $audit->securityLogLines());
     }
 

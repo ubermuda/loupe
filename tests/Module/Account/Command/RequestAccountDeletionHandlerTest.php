@@ -27,7 +27,7 @@ final class RequestAccountDeletionHandlerTest extends TestCase
         $audit = new RecordingAuditor(new NullAuditActorProvider());
         new RequestAccountDeletionHandler($sender, $audit->auditor)(new RequestAccountDeletionCommand($user));
 
-        $record = $audit->record('account.deletion.requested');
+        $record = $audit->record('account.deletion_requested');
         self::assertSame(AuditOutcome::Success, $record->outcome);
         self::assertSame(Auditor::CATEGORY_DOMAIN, $record->category);
         self::assertSame(['userId' => (string) $user->id], $record->context);
@@ -35,7 +35,7 @@ final class RequestAccountDeletionHandlerTest extends TestCase
         self::assertSame('user', $record->subject->type);
         self::assertSame((string) $user->id, $record->subject->id);
 
-        self::assertSame(['account.deletion.requested'], $audit->domainLogLines());
+        self::assertSame(['account.deletion_requested'], $audit->domainLogLines());
         self::assertSame([], $audit->securityLogLines());
     }
 

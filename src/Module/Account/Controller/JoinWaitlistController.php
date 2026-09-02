@@ -44,7 +44,7 @@ final class JoinWaitlistController extends AppController
         // wizard still pending — /register 404s, so redirecting there would
         // dead-end and collecting addresses would promise nothing.
         if (!$this->gate->allowsNewAccounts()) {
-            $this->logger->info('account.waitlist.denied', ['path' => $request->getPathInfo()]);
+            $this->logger->info('account.waitlist_denied', ['path' => $request->getPathInfo()]);
 
             throw $this->createNotFoundException();
         }

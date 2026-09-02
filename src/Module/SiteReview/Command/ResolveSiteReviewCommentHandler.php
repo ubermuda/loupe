@@ -24,7 +24,7 @@ final readonly class ResolveSiteReviewCommentHandler
         $this->em->flush();
 
         $this->auditor->record(
-            'site_review.comment.resolved',
+            'site_review.comment_resolved',
             AuditOutcome::Success,
             ['commentId' => (string) $command->comment->id],
             new AuditSubject('site_review_comment', (string) $command->comment->id),

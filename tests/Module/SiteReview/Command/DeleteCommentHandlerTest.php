@@ -87,7 +87,7 @@ final class DeleteCommentHandlerTest extends KernelTestCase
 
         ($this->handler)(new DeleteCommentCommand($project, $commentId));
 
-        $record = $this->audit->record('site_review.comment.deleted');
+        $record = $this->audit->record('site_review.comment_deleted');
         self::assertSame(AuditOutcome::Success, $record->outcome);
         self::assertSame(Auditor::CATEGORY_DOMAIN, $record->category);
         self::assertNotNull($record->subject);
@@ -98,7 +98,7 @@ final class DeleteCommentHandlerTest extends KernelTestCase
             'commentId' => (string) $commentId,
         ], $record->context);
 
-        self::assertSame(['site_review.comment.deleted'], $this->audit->domainLogLines());
+        self::assertSame(['site_review.comment_deleted'], $this->audit->domainLogLines());
         self::assertSame([], $this->audit->securityLogLines());
     }
 

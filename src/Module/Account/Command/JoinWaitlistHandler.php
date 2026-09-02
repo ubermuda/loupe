@@ -40,13 +40,13 @@ final readonly class JoinWaitlistHandler
                     $existingEntry->reopen();
                     $this->em->flush();
 
-                    $this->record('account.waitlist.rejoined', $existingEntry);
+                    $this->record('account.waitlist_rejoined', $existingEntry);
 
                     return;
                 }
             }
 
-            $this->logger->info('account.waitlist.duplicate_join', ['entryId' => self::entryId($existingEntry)]);
+            $this->logger->info('account.waitlist_duplicate_join', ['entryId' => self::entryId($existingEntry)]);
 
             return;
         }
@@ -60,7 +60,7 @@ final readonly class JoinWaitlistHandler
             // Named by the account that made this path fire. A digest of the
             // address would do the same correlating job while staying guessable
             // from a wordlist, which is the thing being avoided here.
-            $this->logger->info('account.waitlist.join_skipped_existing_account', [
+            $this->logger->info('account.waitlist_join_skipped_existing_account', [
                 'userId' => (string) ($existingUser->id ?? throw new \LogicException('A persisted user always has an id.')),
             ]);
 
@@ -78,7 +78,7 @@ final readonly class JoinWaitlistHandler
             return;
         }
 
-        $this->record('account.waitlist.joined', $entry);
+        $this->record('account.waitlist_joined', $entry);
     }
 
     private function record(string $operation, WaitlistEntry $entry): void

@@ -48,7 +48,7 @@ final readonly class SetDocumentReferencesHandler
         $this->em->flush();
 
         $this->auditor->record(
-            'review.document.references_updated',
+            'review.document_references_updated',
             AuditOutcome::Success,
             [
                 'documentId' => (string) $document->id,

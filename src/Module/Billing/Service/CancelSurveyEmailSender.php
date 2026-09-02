@@ -45,7 +45,7 @@ class CancelSurveyEmailSender
         $surveyUrl = $this->featureFlags->getStringValue(self::URL_FLAG);
 
         if ('' === $surveyUrl) {
-            $this->logger->info('billing.survey.skipped_no_url', [
+            $this->logger->info('billing.survey_skipped_no_url', [
                 'userId' => (string) $user->id,
                 'flag' => self::URL_FLAG,
             ]);

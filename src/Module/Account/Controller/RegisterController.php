@@ -55,7 +55,7 @@ class RegisterController extends AppController
         // than a message, matching how the install wizard and every other
         // feature-flagged route disappear when switched off.
         if (!$this->registrationGate->allowsNewAccounts()) {
-            $this->logger->info('account.registration.denied', ['path' => $request->getPathInfo()]);
+            $this->logger->info('account.registration_denied', ['path' => $request->getPathInfo()]);
 
             throw $this->createNotFoundException();
         }

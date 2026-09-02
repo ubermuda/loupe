@@ -104,7 +104,7 @@ final readonly class AccountPurger
             try {
                 $this->exportStorage->delete($key);
             } catch (FilesystemException) {
-                $this->logger->warning('account.deletion.archive_unlink_failed', ['key' => $key]);
+                $this->logger->warning('account.deletion_archive_unlink_failed', ['key' => $key]);
             }
         }
 

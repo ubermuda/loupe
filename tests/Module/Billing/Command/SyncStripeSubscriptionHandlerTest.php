@@ -204,7 +204,7 @@ final class SyncStripeSubscriptionHandlerTest extends TestCase
         self::assertSame(BillingStatus::Active, $existing->stripeStatus);
         self::assertSame($endsAt, $existing->endsAt);
 
-        $refused = array_values(array_filter($logger->records, static fn (array $record): bool => 'billing.webhook.concurrent_grant' === $record['message']));
+        $refused = array_values(array_filter($logger->records, static fn (array $record): bool => 'billing.webhook_concurrent_grant' === $record['message']));
         self::assertCount(1, $refused);
         self::assertSame('error', $refused[0]['level']);
         self::assertSame('cus_123', $refused[0]['context']['stripeCustomerId']);
@@ -243,7 +243,7 @@ final class SyncStripeSubscriptionHandlerTest extends TestCase
 
         self::assertSame([], array_values(array_filter(
             $logger->records,
-            static fn (array $record): bool => 'billing.webhook.concurrent_grant' === $record['message'],
+            static fn (array $record): bool => 'billing.webhook_concurrent_grant' === $record['message'],
         )));
     }
 
@@ -389,14 +389,14 @@ final class SyncStripeSubscriptionHandlerTest extends TestCase
         self::assertNull($profile->user->disabledAt);
         self::assertNull($grant->surveySentAt);
 
-        $record = $this->audit->record('billing.account.reenabled');
+        $record = $this->audit->record('billing.account_reenabled');
         self::assertSame(AuditOutcome::Success, $record->outcome);
         self::assertSame(Auditor::CATEGORY_DOMAIN, $record->category);
         self::assertNotNull($record->subject);
         self::assertSame('user', $record->subject->type);
         self::assertSame((string) $profile->user->id, $record->subject->id);
         self::assertSame(['userId' => (string) $profile->user->id], $record->context);
-        self::assertSame(['billing.account.reenabled'], $this->audit->domainLogLines());
+        self::assertSame(['billing.account_reenabled'], $this->audit->domainLogLines());
         self::assertSame([], $this->audit->securityLogLines());
     }
 
@@ -442,7 +442,7 @@ final class SyncStripeSubscriptionHandlerTest extends TestCase
 
         self::assertNotNull($profile->user->disabledAt);
 
-        $record = $this->audit->record('billing.account.disabled_on_cancel');
+        $record = $this->audit->record('billing.account_disabled_on_cancel');
         self::assertSame(AuditOutcome::Success, $record->outcome);
         self::assertSame(Auditor::CATEGORY_DOMAIN, $record->category);
         self::assertNotNull($record->subject);
@@ -531,12 +531,12 @@ final class SyncStripeSubscriptionHandlerTest extends TestCase
         $handler($this->command('canceled', '2026-07-25 12:00:06', 'evt_second', 'customer.subscription.deleted', '-1 hour'));
 
         self::assertSame(
-            ['billing.account.reenabled', 'billing.account.disabled_on_cancel'],
+            ['billing.account_reenabled', 'billing.account_disabled_on_cancel'],
             $this->audit->operations(),
         );
 
-        DirectLogging::assertOperationNotLoggedBy($this->audit, $logger, 'billing.account.reenabled');
-        DirectLogging::assertOperationNotLoggedBy($this->audit, $logger, 'billing.account.disabled_on_cancel');
+        DirectLogging::assertOperationNotLoggedBy($this->audit, $logger, 'billing.account_reenabled');
+        DirectLogging::assertOperationNotLoggedBy($this->audit, $logger, 'billing.account_disabled_on_cancel');
     }
 
     /** The sync line stays a diagnostic: it names Stripe objects and nothing else. */
@@ -548,7 +548,7 @@ final class SyncStripeSubscriptionHandlerTest extends TestCase
         ($this->handler($profile, logger: $logger))($this->command('active'));
 
         $messages = array_map(static fn (array $entry): string => $entry['message'], $logger->records);
-        self::assertContains('billing.subscription.synced', $messages);
+        self::assertContains('billing.subscription_synced', $messages);
         self::assertSame([], $this->audit->operations());
     }
 
@@ -563,7 +563,7 @@ final class SyncStripeSubscriptionHandlerTest extends TestCase
 
         ($this->handler($profile))($this->command('active'));
 
-        $record = $this->audit->record('billing.account.reenabled');
+        $record = $this->audit->record('billing.account_reenabled');
         self::assertNull($record->actor);
         self::assertNull($record->actorIdentifier);
         self::assertNull($record->credential);
@@ -577,7 +577,7 @@ final class SyncStripeSubscriptionHandlerTest extends TestCase
 
         ($this->handler($profile))($this->command('active'));
 
-        $context = $this->audit->record('billing.account.reenabled')->context;
+        $context = $this->audit->record('billing.account_reenabled')->context;
         self::assertSame([], array_filter(
             $context,
             static fn (string|int|float|bool|null $value): bool => \is_string($value)

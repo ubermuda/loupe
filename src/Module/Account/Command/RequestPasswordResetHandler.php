@@ -43,7 +43,7 @@ final readonly class RequestPasswordResetHandler
             // was never issued. Keyed on the internal id, and no early-return
             // branch records, so nothing answers "does this account exist".
             $this->auditor->record(
-                'account.password_reset.requested',
+                'account.password_reset_requested',
                 AuditOutcome::Success,
                 ['userId' => (string) $user->id],
                 new AuditSubject('user', (string) $user->id),

@@ -82,13 +82,13 @@ final class SeedFlagsControllerTest extends WebTestCase
 
         self::assertResponseRedirects('/install/status');
 
-        $record = $audit->record('account.install.flags_seeded');
+        $record = $audit->record('account.install_flags_seeded');
         self::assertSame(AuditOutcome::Success, $record->outcome);
         self::assertSame(Auditor::CATEGORY_DOMAIN, $record->category);
         self::assertSame([], $record->context);
         self::assertNull($record->subject);
 
-        self::assertSame(['account.install.flags_seeded'], $audit->domainLogLines());
+        self::assertSame(['account.install_flags_seeded'], $audit->domainLogLines());
         self::assertSame([], $audit->securityLogLines());
     }
 

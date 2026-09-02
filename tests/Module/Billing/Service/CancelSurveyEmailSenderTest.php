@@ -30,7 +30,7 @@ final class CancelSurveyEmailSenderTest extends TestCase
         $logger->expects(self::once())
             ->method('info')
             ->with(
-                'billing.survey.skipped_no_url',
+                'billing.survey_skipped_no_url',
                 self::callback(
                     static fn (array $context): bool => CancelSurveyEmailSender::URL_FLAG === $context['flag']
                         && array_key_exists('userId', $context),

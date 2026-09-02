@@ -66,7 +66,7 @@ final class StripeWebhookController extends AppController
                 $this->webhookSecret,
             );
         } catch (SignatureVerificationException|StripeUnexpectedValueException $e) {
-            $this->logger->warning('billing.webhook.rejected', ['error' => $e->getMessage()]);
+            $this->logger->warning('billing.webhook_rejected', ['error' => $e->getMessage()]);
 
             return new JsonResponse(['error' => 'invalid signature'], Response::HTTP_BAD_REQUEST);
         }
@@ -81,7 +81,7 @@ final class StripeWebhookController extends AppController
         $customerId = is_string($subscription['customer'] ?? null) ? $subscription['customer'] : '';
         $subscriptionId = is_string($subscription['id'] ?? null) ? $subscription['id'] : '';
         if ('' === $eventType || '' === $eventId || '' === $customerId || '' === $subscriptionId) {
-            $this->logger->warning('billing.webhook.malformed', ['eventType' => $event->type]);
+            $this->logger->warning('billing.webhook_malformed', ['eventType' => $event->type]);
 
             return new JsonResponse(['received' => true]);
         }

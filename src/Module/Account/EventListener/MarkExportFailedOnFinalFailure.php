@@ -51,12 +51,12 @@ final readonly class MarkExportFailedOnFinalFailure
             try {
                 $this->exportStorage->delete(DataExport::computeArchiveKey($exportId));
             } catch (FilesystemException) {
-                $this->logger->warning('account.data_export.failed_archive_unlink_failed', ['id' => $message->dataExportId]);
+                $this->logger->warning('account.data_export_failed_archive_unlink_failed', ['id' => $message->dataExportId]);
             }
         }
 
         $export->fail();
         $this->em->flush();
-        $this->logger->warning('account.data_export.failed', ['id' => $message->dataExportId]);
+        $this->logger->warning('account.data_export_failed', ['id' => $message->dataExportId]);
     }
 }

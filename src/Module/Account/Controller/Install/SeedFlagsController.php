@@ -50,7 +50,7 @@ final class SeedFlagsController extends AppController
                 authGoogleEnabled: $data->authGoogleEnabled,
             ));
             $request->getSession()->set(self::SESSION_FLAGS_SEEDED, true);
-            $this->auditor->record('account.install.flags_seeded', AuditOutcome::Success);
+            $this->auditor->record('account.install_flags_seeded', AuditOutcome::Success);
 
             return $this->redirectToRoute('app_install_status');
         }

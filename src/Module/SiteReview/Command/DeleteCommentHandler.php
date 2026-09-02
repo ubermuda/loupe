@@ -28,7 +28,7 @@ final readonly class DeleteCommentHandler
         $this->em->flush();
 
         $this->auditor->record(
-            'site_review.comment.deleted',
+            'site_review.comment_deleted',
             AuditOutcome::Success,
             [
                 'projectId' => (string) $command->project->id,

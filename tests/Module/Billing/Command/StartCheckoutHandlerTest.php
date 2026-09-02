@@ -318,7 +318,7 @@ final class StartCheckoutHandlerTest extends TestCase
 
         ($this->handler($stripe, $profile))($this->command($user));
 
-        $record = $this->audit->record('billing.checkout.started');
+        $record = $this->audit->record('billing.checkout_started');
         self::assertSame(AuditOutcome::Success, $record->outcome);
         self::assertSame(Auditor::CATEGORY_DOMAIN, $record->category);
         self::assertNotNull($record->subject);
@@ -326,7 +326,7 @@ final class StartCheckoutHandlerTest extends TestCase
         self::assertSame((string) $user->id, $record->subject->id);
         self::assertSame(['userId' => (string) $user->id], $record->context);
 
-        self::assertSame(['billing.checkout.started'], $this->audit->domainLogLines());
+        self::assertSame(['billing.checkout_started'], $this->audit->domainLogLines());
         self::assertSame([], $this->audit->securityLogLines());
     }
 
@@ -342,7 +342,7 @@ final class StartCheckoutHandlerTest extends TestCase
 
         ($this->handler($stripe, $profile))($this->command($user));
 
-        $context = $this->audit->record('billing.checkout.started')->context;
+        $context = $this->audit->record('billing.checkout_started')->context;
         self::assertArrayNotHasKey('priceId', $context);
         self::assertSame([], array_filter(
             $context,
@@ -367,7 +367,7 @@ final class StartCheckoutHandlerTest extends TestCase
 
         self::assertSame([], $this->audit->operations());
         self::assertSame(
-            ['billing.checkout.stripe_failed'],
+            ['billing.checkout_stripe_failed'],
             array_map(static fn (array $entry): string => $entry['message'], $this->logger->records),
         );
     }
@@ -388,7 +388,7 @@ final class StartCheckoutHandlerTest extends TestCase
 
         ($this->handler($stripe, $profile))($this->command($user));
 
-        DirectLogging::assertOperationNotLoggedBy($this->audit, $this->logger, 'billing.checkout.started');
+        DirectLogging::assertOperationNotLoggedBy($this->audit, $this->logger, 'billing.checkout_started');
     }
 
     /**

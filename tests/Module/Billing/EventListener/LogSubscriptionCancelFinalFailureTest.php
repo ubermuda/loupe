@@ -19,7 +19,7 @@ final class LogSubscriptionCancelFinalFailureTest extends TestCase
         /** @var LoggerInterface&MockObject $logger */
         $logger = $this->createMock(LoggerInterface::class);
         $logger->expects(self::once())->method('error')->with(
-            'account.deletion.stripe_cancel_permanently_failed',
+            'account.deletion_stripe_cancel_permanently_failed',
             [
                 'userId' => 'user-id-123',
                 'stripeSubscriptionId' => 'sub_123',

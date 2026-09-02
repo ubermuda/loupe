@@ -78,7 +78,7 @@ final readonly class UpdateUserHandler
         // The admin is the actor the Auditor resolves from the security token,
         // so naming them again in the context would only let the two drift.
         $this->auditor->record(
-            'account.admin.user_updated',
+            'account.admin_user_updated',
             AuditOutcome::Success,
             [
                 'userId' => (string) $target->id,

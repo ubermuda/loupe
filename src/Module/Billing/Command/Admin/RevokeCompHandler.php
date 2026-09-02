@@ -65,10 +65,10 @@ final readonly class RevokeCompHandler
             },
         );
 
-        $this->record('billing.comp.revoked', $command);
+        $this->record('billing.comp_revoked', $command);
 
         if ($disabled) {
-            $this->record('billing.account.disabled_on_comp_revoke', $command);
+            $this->record('billing.account_disabled_on_comp_revoke', $command);
         }
 
         return $comp;

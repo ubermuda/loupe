@@ -36,7 +36,7 @@ final readonly class ProcessDataExportHandler
         // between the Ready flush and the email send — re-issuing the token
         // invalidates the old link and resends the mail (at-least-once safe).
         if (null === $export || DataExportStatus::Failed === $export->status) {
-            $this->logger->info('account.data_export.skipped', ['id' => $command->dataExportId]);
+            $this->logger->info('account.data_export_skipped', ['id' => $command->dataExportId]);
 
             return;
         }
@@ -51,7 +51,7 @@ final readonly class ProcessDataExportHandler
         $this->em->flush();
         $this->emailSender->send($export, $rawToken);
         $this->auditor->record(
-            'account.data_export.completed',
+            'account.data_export_completed',
             AuditOutcome::Success,
             ['id' => $command->dataExportId],
             new AuditSubject('data_export', $command->dataExportId),
@@ -62,7 +62,7 @@ final readonly class ProcessDataExportHandler
         } catch (\Throwable $e) {
             // A failed opportunistic purge must not fail the export itself —
             // the console command is the backstop for anything missed here.
-            $this->logger->warning('account.data_export.purge_failed', ['error' => $e->getMessage()]);
+            $this->logger->warning('account.data_export_purge_failed', ['error' => $e->getMessage()]);
         }
     }
 }

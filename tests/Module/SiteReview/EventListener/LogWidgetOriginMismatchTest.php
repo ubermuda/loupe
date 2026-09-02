@@ -35,7 +35,7 @@ final class LogWidgetOriginMismatchTest extends TestCase
         $records = $this->handle('https://evil.example', 'loupe.ac');
 
         self::assertCount(1, $records);
-        self::assertSame('site_review.widget.origin_mismatch', $records[0]['message']);
+        self::assertSame('site_review.widget_origin_mismatch', $records[0]['message']);
         self::assertSame('https://evil.example', $records[0]['context']['origin']);
     }
 

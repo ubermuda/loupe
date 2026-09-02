@@ -1024,7 +1024,7 @@ decided by `symfony/yaml`'s parser, and the two paths produce very different
 So a `symfony/yaml` upgrade that changes how any edge-case document parses will
 flip it between the two — moving every comment anchor below the block — with
 nothing to trigger a re-render and no signal that it happened. The renderer logs
-`review.markdown.front_matter_not_tabulated` whenever it takes the fallback,
+`review.markdown_front_matter_not_tabulated` whenever it takes the fallback,
 which is the hook to watch: a document that starts or stops logging it across a
 dependency bump has moved. Worth deciding whether the fallback path should be
 pinned by storing which path a version used, rather than recomputed.
@@ -2505,7 +2505,7 @@ List them with `grep -rn "logger->" src/`.
 Some of them describe an operation a person asked for that then broke.
 `AuditOutcome::Failed` exists for that case, so each of those lines can write a
 record beside its log line. `ResendVerificationEmailHandler` is the shape to
-copy. It records `account.email_verification.resent` with `Failed` when the mail
+copy. It records `account.email_verification_resent` with `Failed` when the mail
 transport rejects the message.
 
 Two rules hold for each migration. A `Failed` record names the operation that
@@ -2556,7 +2556,7 @@ names, and one pass costs the history one split instead of two.
 a trial grant for a user who has none. It writes no audit record. The trail
 therefore shows an account with a paid product and no event that gave it one.
 The comp path beside it is covered, because `GrantCompHandler` records
-`billing.comp.granted`.
+`billing.comp_granted`.
 
 Two things to settle when you pick this up. `PaywallGate` calls the method on
 every paywalled request, so the record must be written where the profile is
@@ -2717,15 +2717,15 @@ Rare in practice. An account deletion rolls back only when a purger throws.
 **Author:** Claude · **Type:** bug · **Priority:** low · **Status:** pending
 
 `CreateDocumentHandler` calls `SetDocumentTagsHandler`, which records
-`review.document.tags_updated`. The create then records
-`review.document.created`. One creation therefore writes two records, and the
+`review.document_tags_updated`. The create then records
+`review.document_created`. One creation therefore writes two records, and the
 first says a document was updated before it existed. Both classes are in
 `src/Module/Review/Command/`.
 
 Nobody has decided which record is right. Three answers are open. Let the sub
 handler record, because a caller that sets tags did set tags. Silence the sub
 handler when its caller records the creation, which needs the caller to say so.
-Keep both, and accept that a reader who filters `review.document.tags_updated`
+Keep both, and accept that a reader who filters `review.document_tags_updated`
 sees every creation as well.
 
 Decide this before anything consumes the tag record.
@@ -2735,7 +2735,7 @@ Decide this before anything consumes the tag record.
 **Author:** Claude · **Type:** bug · **Priority:** low · **Status:** pending
 
 `src/Module/Review/Command/ResolveCommentHandler.php` records
-`review.comment.resolved` with `AuditOutcome::Refused` when the thread is
+`review.comment_resolved` with `AuditOutcome::Refused` when the thread is
 already resolved. Nothing refused the user. The handler is idempotent, the user
 got the state they asked for, and the UI reports success. A reader who counts
 refusals counts these too.

@@ -74,7 +74,7 @@ final readonly class AddCommentHandler
         // No body, no quote and no replacement: all three are text a person
         // wrote. `suggested` says whether the comment carries a replacement.
         $this->auditor->record(
-            'review.comment.added',
+            'review.comment_added',
             AuditOutcome::Success,
             [
                 'commentId' => (string) $comment->id,

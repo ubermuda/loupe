@@ -105,7 +105,7 @@ final class RenameDocumentHandlerTest extends KernelTestCase
 
         ($this->handler)(new RenameDocumentCommand($document, 'After'));
 
-        $record = $this->audit->record('review.document.renamed');
+        $record = $this->audit->record('review.document_renamed');
         self::assertSame(AuditOutcome::Success, $record->outcome);
         self::assertSame(Auditor::CATEGORY_DOMAIN, $record->category);
         self::assertNotNull($record->subject);
@@ -116,7 +116,7 @@ final class RenameDocumentHandlerTest extends KernelTestCase
             'projectId' => (string) $document->project->id,
         ], $record->context);
 
-        self::assertSame(['review.document.renamed'], $this->audit->domainLogLines());
+        self::assertSame(['review.document_renamed'], $this->audit->domainLogLines());
         self::assertSame([], $this->audit->securityLogLines());
     }
 
@@ -127,7 +127,7 @@ final class RenameDocumentHandlerTest extends KernelTestCase
 
         ($this->handler)(new RenameDocumentCommand($document, 'Salary review — Dana Q3'));
 
-        $context = $this->audit->record('review.document.renamed')->context;
+        $context = $this->audit->record('review.document_renamed')->context;
         self::assertArrayNotHasKey('title', $context);
         self::assertArrayNotHasKey('previousTitle', $context);
         self::assertSame([], array_filter(

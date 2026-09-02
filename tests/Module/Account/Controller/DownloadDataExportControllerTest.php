@@ -244,7 +244,7 @@ final class DownloadDataExportControllerTest extends WebTestCase
 
         self::assertResponseStatusCodeSame(404);
 
-        $record = $audit->record('account.data_export.download_denied');
+        $record = $audit->record('account.data_export_download_denied');
         self::assertSame(AuditOutcome::Refused, $record->outcome);
         self::assertSame(Auditor::CATEGORY_SECURITY, $record->category);
         self::assertSame(['id' => (string) $exportId], $record->context);
@@ -252,7 +252,7 @@ final class DownloadDataExportControllerTest extends WebTestCase
         self::assertSame('data_export', $record->subject->type);
         self::assertSame((string) $exportId, $record->subject->id);
 
-        self::assertSame(['account.data_export.download_denied'], $audit->securityLogLines());
+        self::assertSame(['account.data_export_download_denied'], $audit->securityLogLines());
         self::assertSame([], $audit->domainLogLines());
     }
 

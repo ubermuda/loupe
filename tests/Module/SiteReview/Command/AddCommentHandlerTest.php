@@ -79,7 +79,7 @@ final class AddCommentHandlerTest extends KernelTestCase
 
         $comment = ($this->handler)(new AddCommentCommand($project, 'hello', '.a', 'A', 'https://app/x'));
 
-        $record = $this->audit->record('site_review.comment.added');
+        $record = $this->audit->record('site_review.comment_added');
         self::assertSame(AuditOutcome::Success, $record->outcome);
         self::assertSame(Auditor::CATEGORY_DOMAIN, $record->category);
         self::assertNotNull($record->subject);
@@ -90,7 +90,7 @@ final class AddCommentHandlerTest extends KernelTestCase
             'commentId' => (string) $comment->id,
         ], $record->context);
 
-        self::assertSame(['site_review.comment.added'], $this->audit->domainLogLines());
+        self::assertSame(['site_review.comment_added'], $this->audit->domainLogLines());
         self::assertSame([], $this->audit->securityLogLines());
     }
 

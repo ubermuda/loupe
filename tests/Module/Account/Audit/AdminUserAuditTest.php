@@ -40,7 +40,7 @@ final class AdminUserAuditTest extends KernelTestCase
 
         $handler(new SuspendUserCommand($target, $actor, 'Repeated spam from a named customer'));
 
-        $record = $this->audit->record('account.admin.user_suspended');
+        $record = $this->audit->record('account.admin_user_suspended');
         self::assertSame(AuditOutcome::Success, $record->outcome);
         self::assertSame(Auditor::CATEGORY_DOMAIN, $record->category);
         self::assertSame(
@@ -51,7 +51,7 @@ final class AdminUserAuditTest extends KernelTestCase
         self::assertSame('user', $record->subject->type);
         self::assertSame((string) $target->id, $record->subject->id);
 
-        self::assertSame(['account.admin.user_suspended'], $this->audit->domainLogLines());
+        self::assertSame(['account.admin_user_suspended'], $this->audit->domainLogLines());
         self::assertSame([], $this->audit->securityLogLines());
         self::assertStringNotContainsString(
             'Repeated spam from a named customer',
@@ -70,7 +70,7 @@ final class AdminUserAuditTest extends KernelTestCase
 
         self::assertSame(
             ['userId' => (string) $target->id, 'hasReason' => false],
-            $this->audit->record('account.admin.user_suspended')->context,
+            $this->audit->record('account.admin_user_suspended')->context,
         );
     }
 
@@ -84,7 +84,7 @@ final class AdminUserAuditTest extends KernelTestCase
 
         $this->handler(UnsuspendUserHandler::class)(new UnsuspendUserCommand($target, $actor));
 
-        $record = $this->audit->record('account.admin.user_unsuspended');
+        $record = $this->audit->record('account.admin_user_unsuspended');
         self::assertSame(AuditOutcome::Success, $record->outcome);
         self::assertSame(Auditor::CATEGORY_DOMAIN, $record->category);
         self::assertSame(['userId' => (string) $target->id], $record->context);
@@ -92,7 +92,7 @@ final class AdminUserAuditTest extends KernelTestCase
         self::assertSame('user', $record->subject->type);
         self::assertSame((string) $target->id, $record->subject->id);
 
-        self::assertSame(['account.admin.user_unsuspended'], $this->audit->domainLogLines());
+        self::assertSame(['account.admin_user_unsuspended'], $this->audit->domainLogLines());
     }
 
     public function test_an_update_records_the_target_and_whether_the_address_changed(): void
@@ -111,7 +111,7 @@ final class AdminUserAuditTest extends KernelTestCase
             isVerified: false,
         ));
 
-        $record = $this->audit->record('account.admin.user_updated');
+        $record = $this->audit->record('account.admin_user_updated');
         self::assertSame(AuditOutcome::Success, $record->outcome);
         self::assertSame(Auditor::CATEGORY_DOMAIN, $record->category);
         self::assertSame(
@@ -122,7 +122,7 @@ final class AdminUserAuditTest extends KernelTestCase
         self::assertSame('user', $record->subject->type);
         self::assertSame((string) $target->id, $record->subject->id);
 
-        self::assertSame(['account.admin.user_updated'], $this->audit->domainLogLines());
+        self::assertSame(['account.admin_user_updated'], $this->audit->domainLogLines());
         self::assertStringNotContainsString(
             'audit-update-moved@example.com',
             json_encode($this->audit->domainChannel->records, \JSON_THROW_ON_ERROR),
@@ -184,7 +184,7 @@ final class AdminUserAuditTest extends KernelTestCase
             isVerified: $isVerified,
         ));
 
-        self::assertSame(['account.admin.user_updated'], $this->audit->operations());
+        self::assertSame(['account.admin_user_updated'], $this->audit->operations());
     }
 
     public function test_an_admin_deletion_records_both_the_admin_action_and_the_deletion(): void
@@ -197,9 +197,9 @@ final class AdminUserAuditTest extends KernelTestCase
 
         $handler(new DeleteUserCommand($target, $actor, 'audit-delete-target@example.com'));
 
-        self::assertSame(['account.deleted', 'account.admin.user_deleted'], $this->audit->operations());
+        self::assertSame(['account.deleted', 'account.admin_user_deleted'], $this->audit->operations());
 
-        $record = $this->audit->record('account.admin.user_deleted');
+        $record = $this->audit->record('account.admin_user_deleted');
         self::assertSame(AuditOutcome::Success, $record->outcome);
         self::assertSame(Auditor::CATEGORY_DOMAIN, $record->category);
         self::assertSame(['userId' => $targetId], $record->context);
@@ -242,7 +242,7 @@ final class AdminUserAuditTest extends KernelTestCase
 
         self::assertCount(1, $this->audit->domainChannel->records);
         $line = $this->audit->domainChannel->records[0];
-        self::assertSame('account.admin.user_suspended', $line['message']);
+        self::assertSame('account.admin_user_suspended', $line['message']);
         self::assertSame([
             'userId' => (string) $target->id,
             'hasReason' => true,

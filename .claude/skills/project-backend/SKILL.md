@@ -145,7 +145,7 @@ What to log:
 
 Inject `LoggerInterface` through the constructor and call `$this->logger->info('event.name', ['key' => $value])`. This is the same in a controller and in a service. `AppController` has no logger helper.
 
-Name the event `<module>.<entity>.<outcome>`, for example `foo.created` or `bar.access_denied`. Always include entity IDs in the context, plus any flag or count that explains the decision.
+Name the event `<module>.<outcome>`: exactly two segments, the module first, one snake_case outcome phrase after it. For example `foo.created` or `foo.bar_access_denied`. Always include entity IDs in the context, plus any flag or count that explains the decision.
 
 ## DomainErrors, the command-to-controller bridge
 

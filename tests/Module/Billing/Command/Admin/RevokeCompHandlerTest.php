@@ -115,7 +115,7 @@ final class RevokeCompHandlerTest extends KernelTestCase
 
         $this->handler()(new RevokeCompCommand($target, $admin));
 
-        $record = $audit->record('billing.comp.revoked');
+        $record = $audit->record('billing.comp_revoked');
         self::assertSame(AuditOutcome::Success, $record->outcome);
         self::assertSame(Auditor::CATEGORY_DOMAIN, $record->category);
         self::assertNotNull($record->subject);
@@ -123,7 +123,7 @@ final class RevokeCompHandlerTest extends KernelTestCase
         self::assertSame((string) $target->id, $record->subject->id);
         self::assertSame(['userId' => (string) $target->id], $record->context);
 
-        self::assertSame(['billing.comp.revoked'], $audit->domainLogLines());
+        self::assertSame(['billing.comp_revoked'], $audit->domainLogLines());
         self::assertSame([], $audit->securityLogLines());
     }
 
@@ -139,7 +139,7 @@ final class RevokeCompHandlerTest extends KernelTestCase
 
         $this->handler()(new RevokeCompCommand($target, $admin));
 
-        $record = $audit->record('billing.comp.revoked');
+        $record = $audit->record('billing.comp_revoked');
         self::assertSame($admin, $record->actor);
         self::assertSame((string) $admin->id, $record->actorIdentifier);
         self::assertSame(AuditChannel::Session->value, $record->channel);
@@ -164,12 +164,12 @@ final class RevokeCompHandlerTest extends KernelTestCase
         $this->handler()(new RevokeCompCommand($target, $admin));
 
         self::assertSame(
-            ['billing.comp.revoked', 'billing.account.disabled_on_comp_revoke'],
+            ['billing.comp_revoked', 'billing.account_disabled_on_comp_revoke'],
             $audit->operations(),
         );
         self::assertSame(
             ['userId' => (string) $target->id],
-            $audit->record('billing.account.disabled_on_comp_revoke')->context,
+            $audit->record('billing.account_disabled_on_comp_revoke')->context,
         );
     }
 
@@ -187,7 +187,7 @@ final class RevokeCompHandlerTest extends KernelTestCase
 
         $this->handler()(new RevokeCompCommand($target, $admin));
 
-        self::assertSame(['billing.comp.revoked'], $audit->operations());
+        self::assertSame(['billing.comp_revoked'], $audit->operations());
     }
 
     public function test_a_refused_revocation_records_nothing(): void
@@ -219,7 +219,7 @@ final class RevokeCompHandlerTest extends KernelTestCase
 
         $this->handler()(new RevokeCompCommand($target, $admin));
 
-        $context = $audit->record('billing.comp.revoked')->context;
+        $context = $audit->record('billing.comp_revoked')->context;
         self::assertSame([], array_filter(
             $context,
             static fn (string|int|float|bool|null $value): bool => \is_string($value) && str_starts_with($value, 'sub_'),

@@ -56,7 +56,7 @@ final class WaitlistInviterTest extends TestCase
         self::assertTrue($this->inviter->invite($entry));
         self::assertTrue($entry->isInvited());
 
-        $record = $this->audit->record('account.waitlist.invited');
+        $record = $this->audit->record('account.waitlist_invited');
         self::assertSame(AuditOutcome::Success, $record->outcome);
         self::assertSame(Auditor::CATEGORY_DOMAIN, $record->category);
         self::assertSame(['entryId' => (string) $entry->id], $record->context);
@@ -64,9 +64,9 @@ final class WaitlistInviterTest extends TestCase
         self::assertSame('waitlist_entry', $record->subject->type);
         self::assertSame((string) $entry->id, $record->subject->id);
 
-        self::assertSame(['account.waitlist.invited'], $this->audit->domainLogLines());
+        self::assertSame(['account.waitlist_invited'], $this->audit->domainLogLines());
         self::assertSame([], $this->audit->securityLogLines());
-        DirectLogging::assertOperationNotLoggedBy($this->audit, $this->directLogger, 'account.waitlist.invited');
+        DirectLogging::assertOperationNotLoggedBy($this->audit, $this->directLogger, 'account.waitlist_invited');
     }
 
     /**
@@ -83,7 +83,7 @@ final class WaitlistInviterTest extends TestCase
 
         self::assertSame([], $this->audit->operations());
         self::assertSame(
-            ['account.waitlist.invite_send_failed'],
+            ['account.waitlist_invite_send_failed'],
             array_map(static fn (array $record): string => $record['message'], $this->directLogger->records),
         );
     }

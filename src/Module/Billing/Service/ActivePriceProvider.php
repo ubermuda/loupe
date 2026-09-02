@@ -45,7 +45,7 @@ final readonly class ActivePriceProvider
         } catch (\Throwable $e) {
             // A Stripe outage or a misconfigured price must not 500 the page:
             // it renders without an amount, and the flag stays inspectable.
-            $this->logger->warning('billing.price.fetch_failed', ['priceId' => $priceId, 'error' => $e->getMessage()]);
+            $this->logger->warning('billing.price_fetch_failed', ['priceId' => $priceId, 'error' => $e->getMessage()]);
 
             return null;
         }

@@ -38,7 +38,7 @@ final readonly class ReopenCommentHandler
         $this->em->flush();
 
         $this->auditor->record(
-            'review.comment.reopened',
+            'review.comment_reopened',
             AuditOutcome::Success,
             [
                 'commentId' => (string) $comment->id,

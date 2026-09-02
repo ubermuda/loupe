@@ -64,10 +64,10 @@ final readonly class GrantCompHandler
         );
 
         if ($reenabled) {
-            $this->record('billing.account.reenabled', $command);
+            $this->record('billing.account_reenabled', $command);
         }
 
-        $this->record('billing.comp.granted', $command);
+        $this->record('billing.comp_granted', $command);
 
         return $comp;
     }

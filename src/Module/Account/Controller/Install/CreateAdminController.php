@@ -59,7 +59,7 @@ final class CreateAdminController extends AppController
                     plainPassword: $data->plainPassword ?: throw new \LogicException('plainPassword required after validation'),
                 ));
                 $this->auditor->record(
-                    'account.install.admin_created',
+                    'account.install_admin_created',
                     AuditOutcome::Success,
                     subject: new AuditSubject('user', (string) $admin->id),
                 );

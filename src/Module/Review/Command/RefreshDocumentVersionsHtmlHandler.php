@@ -41,7 +41,7 @@ final readonly class RefreshDocumentVersionsHtmlHandler
         // One record for the sweep, not one per version or per comment: the run
         // walks the whole table, and its counts are what an operator reviews.
         $this->auditor->record(
-            'review.document_version.rerendered',
+            'review.document_version_rerendered',
             $result->refused ? AuditOutcome::Refused : AuditOutcome::Success,
             [
                 'total' => $result->total,

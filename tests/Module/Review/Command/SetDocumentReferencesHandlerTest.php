@@ -167,7 +167,7 @@ final class SetDocumentReferencesHandlerTest extends KernelTestCase
 
         ($this->handler)(new SetDocumentReferencesCommand($source, [$target]));
 
-        $record = $this->audit->record('review.document.references_updated');
+        $record = $this->audit->record('review.document_references_updated');
         self::assertSame(AuditOutcome::Success, $record->outcome);
         self::assertSame(Auditor::CATEGORY_DOMAIN, $record->category);
         self::assertNotNull($record->subject);
@@ -179,7 +179,7 @@ final class SetDocumentReferencesHandlerTest extends KernelTestCase
             'referenceCount' => 1,
         ], $record->context);
 
-        self::assertSame(['review.document.references_updated'], $this->audit->domainLogLines());
+        self::assertSame(['review.document_references_updated'], $this->audit->domainLogLines());
         self::assertSame([], $this->audit->securityLogLines());
     }
 
@@ -193,6 +193,6 @@ final class SetDocumentReferencesHandlerTest extends KernelTestCase
 
         ($this->handler)(new SetDocumentReferencesCommand($source, []));
 
-        self::assertSame(0, $this->audit->record('review.document.references_updated')->context['referenceCount']);
+        self::assertSame(0, $this->audit->record('review.document_references_updated')->context['referenceCount']);
     }
 }

@@ -64,7 +64,7 @@ final class SiteReviewMcpBoundProjectVoter extends Voter
         }
 
         $this->auditor->record(
-            'site_review.mcp.access_denied',
+            'site_review.mcp_access_denied',
             AuditOutcome::Refused,
             [
                 'attribute' => $attribute,

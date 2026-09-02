@@ -147,7 +147,7 @@ final class SiteReviewMcpBoundProjectVoterTest extends KernelTestCase
 
         $audit = $this->auditedVote(SiteReviewMcpBoundProjectVoter::READ, $projectB);
 
-        $record = $audit->record('site_review.mcp.access_denied');
+        $record = $audit->record('site_review.mcp_access_denied');
         self::assertSame(AuditOutcome::Refused, $record->outcome);
         self::assertSame(Auditor::CATEGORY_SECURITY, $record->category);
         self::assertNotNull($record->subject);
@@ -160,7 +160,7 @@ final class SiteReviewMcpBoundProjectVoterTest extends KernelTestCase
             'boundProjectId' => (string) $projectA->id,
         ], $record->context);
 
-        self::assertSame(['site_review.mcp.access_denied'], $audit->securityLogLines());
+        self::assertSame(['site_review.mcp_access_denied'], $audit->securityLogLines());
         self::assertSame([], $audit->domainLogLines());
     }
 
@@ -174,7 +174,7 @@ final class SiteReviewMcpBoundProjectVoterTest extends KernelTestCase
 
         $audit = $this->auditedVote(SiteReviewMcpBoundProjectVoter::WRITE, $commentInB);
 
-        $record = $audit->record('site_review.mcp.access_denied');
+        $record = $audit->record('site_review.mcp_access_denied');
         self::assertNotNull($record->subject);
         self::assertSame('site_review_comment', $record->subject->type);
         self::assertSame((string) $commentInB->id, $record->subject->id);
@@ -194,7 +194,7 @@ final class SiteReviewMcpBoundProjectVoterTest extends KernelTestCase
 
         $audit = $this->auditedVote(SiteReviewMcpBoundProjectVoter::READ, $project);
 
-        self::assertNull($audit->record('site_review.mcp.access_denied')->context['boundProjectId']);
+        self::assertNull($audit->record('site_review.mcp_access_denied')->context['boundProjectId']);
     }
 
     public function test_a_granted_vote_records_nothing(): void

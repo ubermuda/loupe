@@ -51,7 +51,7 @@ class DownloadDataExportController extends AppController
             || !$export->isDownloadable()
             || !$tokenAccepted) {
             $this->auditor->record(
-                'account.data_export.download_denied',
+                'account.data_export_download_denied',
                 AuditOutcome::Refused,
                 ['id' => (string) $export->id],
                 new AuditSubject('data_export', (string) $export->id),

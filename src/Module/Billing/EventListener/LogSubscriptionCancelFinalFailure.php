@@ -31,7 +31,7 @@ final readonly class LogSubscriptionCancelFinalFailure
             return;
         }
 
-        $this->logger->error('account.deletion.stripe_cancel_permanently_failed', [
+        $this->logger->error('account.deletion_stripe_cancel_permanently_failed', [
             'userId' => $message->deletedUserId,
             'stripeSubscriptionId' => $message->stripeSubscriptionId,
             'stripeCustomerId' => $message->stripeCustomerId,

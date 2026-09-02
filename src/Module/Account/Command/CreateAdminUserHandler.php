@@ -83,7 +83,7 @@ final readonly class CreateAdminUserHandler
         $this->em->flush();
 
         $this->auditor->record(
-            'account.admin.created_from_console',
+            'account.admin_created_from_console',
             AuditOutcome::Success,
             ['userId' => (string) $user->id],
             new AuditSubject('user', (string) $user->id),

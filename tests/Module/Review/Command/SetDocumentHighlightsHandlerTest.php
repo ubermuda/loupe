@@ -213,7 +213,7 @@ final class SetDocumentHighlightsHandlerTest extends KernelTestCase
 
         ($this->handler)(new SetDocumentHighlightsCommand($document, ['short-lived JWTs', 'nowhere in the text']));
 
-        $record = $this->audit->record('review.document.highlights_updated');
+        $record = $this->audit->record('review.document_highlights_updated');
         self::assertSame(AuditOutcome::Success, $record->outcome);
         self::assertSame(Auditor::CATEGORY_DOMAIN, $record->category);
         self::assertNotNull($record->subject);
@@ -226,7 +226,7 @@ final class SetDocumentHighlightsHandlerTest extends KernelTestCase
             'skippedCount' => 1,
         ], $record->context);
 
-        self::assertSame(['review.document.highlights_updated'], $this->audit->domainLogLines());
+        self::assertSame(['review.document_highlights_updated'], $this->audit->domainLogLines());
         self::assertSame([], $this->audit->securityLogLines());
     }
 
@@ -237,7 +237,7 @@ final class SetDocumentHighlightsHandlerTest extends KernelTestCase
 
         ($this->handler)(new SetDocumentHighlightsCommand($document, ['short-lived JWTs']));
 
-        $context = $this->audit->record('review.document.highlights_updated')->context;
+        $context = $this->audit->record('review.document_highlights_updated')->context;
         self::assertArrayNotHasKey('highlighted', $context);
         self::assertArrayNotHasKey('skipped', $context);
         self::assertSame([], array_filter(

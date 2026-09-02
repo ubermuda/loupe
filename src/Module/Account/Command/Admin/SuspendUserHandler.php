@@ -39,7 +39,7 @@ final readonly class SuspendUserHandler
         // The reason itself is free-form admin prose about a person and stays
         // out of the record; whether one was given is what the record needs.
         $this->auditor->record(
-            'account.admin.user_suspended',
+            'account.admin_user_suspended',
             AuditOutcome::Success,
             [
                 'userId' => (string) $target->id,

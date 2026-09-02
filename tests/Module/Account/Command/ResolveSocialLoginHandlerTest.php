@@ -433,8 +433,8 @@ final class ResolveSocialLoginHandlerTest extends KernelTestCase
             new SocialProfile(SocialProvider::Google, 'g-direct', 'closed-direct@example.com', 'Closed Direct', emailVerified: true),
         ));
 
-        self::assertSame(['account.social.registration_closed'], $closedAudit->operations());
-        DirectLogging::assertOperationNotLoggedBy($closedAudit, $closedLogger, 'account.social.registration_closed');
+        self::assertSame(['account.social_registration_closed'], $closedAudit->operations());
+        DirectLogging::assertOperationNotLoggedBy($closedAudit, $closedLogger, 'account.social_registration_closed');
     }
 
     /** A login that only reuses an identity creates nothing, so it records nothing. */
@@ -474,13 +474,13 @@ final class ResolveSocialLoginHandlerTest extends KernelTestCase
 
         self::assertTrue($outcome->registrationClosed);
 
-        $record = $audit->record('account.social.registration_closed');
+        $record = $audit->record('account.social_registration_closed');
         self::assertSame(AuditOutcome::Refused, $record->outcome);
         self::assertSame(Auditor::CATEGORY_DOMAIN, $record->category);
         self::assertNull($record->subject);
         self::assertSame(['provider' => 'google'], $record->context);
 
-        self::assertSame(['account.social.registration_closed'], $audit->domainLogLines());
+        self::assertSame(['account.social_registration_closed'], $audit->domainLogLines());
     }
 
     public function test_creating_an_account_converts_a_matching_waitlist_row(): void

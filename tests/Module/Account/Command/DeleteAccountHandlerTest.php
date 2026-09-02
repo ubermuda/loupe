@@ -74,7 +74,7 @@ final class DeleteAccountHandlerTest extends KernelTestCase
 
     /**
      * Two records, and the pair is the point: `account.deleted` names the
-     * account the purger removed, while only `account.deletion.confirmed` says
+     * account the purger removed, while only `account.deletion_confirmed` says
      * the owner clicked the emailed link themselves.
      */
     public function test_a_confirmed_deletion_records_both_the_confirmation_and_the_deletion(): void
@@ -93,9 +93,9 @@ final class DeleteAccountHandlerTest extends KernelTestCase
         self::assertInstanceOf(DeleteAccountHandler::class, $handler);
         $handler(new DeleteAccountCommand($token));
 
-        self::assertSame(['account.deleted', 'account.deletion.confirmed'], $audit->operations());
+        self::assertSame(['account.deleted', 'account.deletion_confirmed'], $audit->operations());
 
-        foreach (['account.deleted', 'account.deletion.confirmed'] as $operation) {
+        foreach (['account.deleted', 'account.deletion_confirmed'] as $operation) {
             $record = $audit->record($operation);
             self::assertSame(AuditOutcome::Success, $record->outcome);
             self::assertSame(Auditor::CATEGORY_DOMAIN, $record->category);
@@ -105,7 +105,7 @@ final class DeleteAccountHandlerTest extends KernelTestCase
             self::assertSame($userId, $record->subject->id);
         }
 
-        self::assertSame(['account.deleted', 'account.deletion.confirmed'], $audit->domainLogLines());
+        self::assertSame(['account.deleted', 'account.deletion_confirmed'], $audit->domainLogLines());
         self::assertSame([], $audit->securityLogLines());
     }
 

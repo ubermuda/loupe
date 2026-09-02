@@ -105,7 +105,7 @@ final class ReplyToCommentHandlerTest extends KernelTestCase
         self::assertInstanceOf(ReplyToCommentHandler::class, $handler);
         $reply = $handler(new ReplyToCommentCommand(actor: $owner, parent: $parent, body: 'Agreed, ask Dana'));
 
-        $record = $audit->record('review.comment.replied');
+        $record = $audit->record('review.comment_replied');
         self::assertSame(AuditOutcome::Success, $record->outcome);
         self::assertSame(Auditor::CATEGORY_DOMAIN, $record->category);
         self::assertNotNull($record->subject);
@@ -123,7 +123,7 @@ final class ReplyToCommentHandlerTest extends KernelTestCase
             static fn (string|int|float|bool|null $value): bool => \is_string($value) && str_contains($value, 'Dana'),
         ));
 
-        self::assertSame(['review.comment.replied'], $audit->domainLogLines());
+        self::assertSame(['review.comment_replied'], $audit->domainLogLines());
         self::assertSame([], $audit->securityLogLines());
     }
 

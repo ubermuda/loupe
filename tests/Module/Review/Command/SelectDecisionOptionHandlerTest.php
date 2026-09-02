@@ -188,7 +188,7 @@ final class SelectDecisionOptionHandlerTest extends KernelTestCase
 
         ($this->selectDecisionOption)(new SelectDecisionOptionCommand($document, 'deploy-target', 1, displayedVersionNumber: 1));
 
-        $record = $this->audit->record('review.decision.selected');
+        $record = $this->audit->record('review.decision_selected');
         self::assertSame(AuditOutcome::Success, $record->outcome);
         self::assertSame(Auditor::CATEGORY_DOMAIN, $record->category);
         self::assertNotNull($record->subject);
@@ -201,7 +201,7 @@ final class SelectDecisionOptionHandlerTest extends KernelTestCase
             'versionNumber' => 1,
         ], $record->context);
 
-        self::assertSame(['review.decision.selected'], $this->audit->domainLogLines());
+        self::assertSame(['review.decision_selected'], $this->audit->domainLogLines());
         self::assertSame([], $this->audit->securityLogLines());
     }
 
@@ -214,7 +214,7 @@ final class SelectDecisionOptionHandlerTest extends KernelTestCase
         $selection = ($this->selectDecisionOption)(new SelectDecisionOptionCommand($document, 'deploy-target', 1, displayedVersionNumber: 1));
 
         self::assertSame('Ship straight to production', $selection->optionLabel);
-        self::assertArrayNotHasKey('optionLabel', $this->audit->record('review.decision.selected')->context);
+        self::assertArrayNotHasKey('optionLabel', $this->audit->record('review.decision_selected')->context);
     }
 
     public function test_a_stale_version_records_nothing(): void

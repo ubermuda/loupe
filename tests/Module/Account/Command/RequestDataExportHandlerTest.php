@@ -68,7 +68,7 @@ final class RequestDataExportHandlerTest extends TestCase
 
         self::assertSame($user, $export->user);
 
-        $record = $audit->record('account.data_export.requested');
+        $record = $audit->record('account.data_export_requested');
         self::assertSame(AuditOutcome::Success, $record->outcome);
         self::assertSame(Auditor::CATEGORY_DOMAIN, $record->category);
         self::assertSame(['id' => (string) $export->id], $record->context);
@@ -76,7 +76,7 @@ final class RequestDataExportHandlerTest extends TestCase
         self::assertSame('data_export', $record->subject->type);
         self::assertSame((string) $export->id, $record->subject->id);
 
-        self::assertSame(['account.data_export.requested'], $audit->domainLogLines());
+        self::assertSame(['account.data_export_requested'], $audit->domainLogLines());
         self::assertSame([], $audit->securityLogLines());
     }
 

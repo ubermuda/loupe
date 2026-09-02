@@ -41,7 +41,7 @@ final readonly class DeleteAccountHandler
         $this->purger->purge($user);
 
         $this->auditor->record(
-            'account.deletion.confirmed',
+            'account.deletion_confirmed',
             AuditOutcome::Success,
             ['userId' => $userId],
             new AuditSubject('user', $userId),

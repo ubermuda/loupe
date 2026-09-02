@@ -37,7 +37,7 @@ final readonly class UnsuspendUserHandler
         $this->em->flush();
 
         $this->auditor->record(
-            'account.admin.user_unsuspended',
+            'account.admin_user_unsuspended',
             AuditOutcome::Success,
             ['userId' => (string) $target->id],
             new AuditSubject('user', (string) $target->id),

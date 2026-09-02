@@ -30,7 +30,7 @@ final readonly class RequestAccountDeletionHandler
         $this->emailSender->send($command->user);
 
         $this->auditor->record(
-            'account.deletion.requested',
+            'account.deletion_requested',
             AuditOutcome::Success,
             ['userId' => (string) $command->user->id],
             new AuditSubject('user', (string) $command->user->id),

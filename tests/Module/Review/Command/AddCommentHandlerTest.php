@@ -355,7 +355,7 @@ final class AddCommentHandlerTest extends KernelTestCase
         self::assertInstanceOf(AddCommentHandler::class, $handler);
         $comment = $handler(new AddCommentCommand($owner, $document, 'body text here', '', '', 'Great point!'));
 
-        $record = $audit->record('review.comment.added');
+        $record = $audit->record('review.comment_added');
         self::assertSame(AuditOutcome::Success, $record->outcome);
         self::assertSame(Auditor::CATEGORY_DOMAIN, $record->category);
         self::assertNotNull($record->subject);
@@ -369,7 +369,7 @@ final class AddCommentHandlerTest extends KernelTestCase
             'suggested' => false,
         ], $record->context);
 
-        self::assertSame(['review.comment.added'], $audit->domainLogLines());
+        self::assertSame(['review.comment_added'], $audit->domainLogLines());
         self::assertSame([], $audit->securityLogLines());
     }
 
@@ -385,7 +385,7 @@ final class AddCommentHandlerTest extends KernelTestCase
         self::assertInstanceOf(AddCommentHandler::class, $handler);
         $handler(new AddCommentCommand($owner, $document, 'body text here', '', '', 'Ask Dana about this', 'Dana Okafor'));
 
-        $context = $audit->record('review.comment.added')->context;
+        $context = $audit->record('review.comment_added')->context;
         self::assertTrue($context['suggested']);
         self::assertSame([], array_filter(
             $context,
@@ -404,7 +404,7 @@ final class AddCommentHandlerTest extends KernelTestCase
         self::assertInstanceOf(AddCommentHandler::class, $handler);
         $handler(new AddCommentCommand($owner, $document, 'nowhere in this document', '', '', 'stale'));
 
-        self::assertTrue($audit->record('review.comment.added')->context['orphaned']);
+        self::assertTrue($audit->record('review.comment_added')->context['orphaned']);
     }
 
     public function test_a_refused_comment_records_nothing(): void

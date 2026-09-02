@@ -42,7 +42,7 @@ final class ApiTokenAuthenticatorTest extends TestCase
         $this->logger->expects($this->once())
             ->method('warning')
             ->with(
-                'account.api_token.authentication_failed',
+                'account.api_token_authentication_failed',
                 $this->callback(static function (array $actual) use (&$context): bool {
                     $context = $actual;
 
@@ -103,7 +103,7 @@ final class ApiTokenAuthenticatorTest extends TestCase
             new AuthenticationException('Invalid API token.'),
         );
 
-        $record = $this->audit->record('account.api_token.authentication_failed');
+        $record = $this->audit->record('account.api_token_authenticated');
         self::assertSame(AuditOutcome::Refused, $record->outcome);
         self::assertSame(Auditor::CATEGORY_SECURITY, $record->category);
         self::assertNull($record->subject);
@@ -113,7 +113,7 @@ final class ApiTokenAuthenticatorTest extends TestCase
         self::assertArrayNotHasKey('ip', $record->context);
         self::assertArrayNotHasKey('reason', $record->context);
 
-        self::assertSame(['account.api_token.authentication_failed'], $this->audit->securityLogLines());
+        self::assertSame(['account.api_token_authenticated'], $this->audit->securityLogLines());
         self::assertSame([], $this->audit->domainLogLines());
     }
 
@@ -125,7 +125,7 @@ final class ApiTokenAuthenticatorTest extends TestCase
         $this->logger->expects($this->once())
             ->method('warning')
             ->with(
-                'account.api_token.authentication_failed',
+                'account.api_token_authentication_failed',
                 $this->callback(static function (array $actual) use (&$context): bool {
                     $context = $actual;
 
@@ -141,7 +141,7 @@ final class ApiTokenAuthenticatorTest extends TestCase
         self::assertSame('/mcp', $context['path'] ?? null);
         self::assertSame('203.0.113.9', $context['ip'] ?? null);
         self::assertSame('Invalid API token.', $context['reason'] ?? null);
-        self::assertSame([], $this->audit->record('account.api_token.authentication_failed')->context);
+        self::assertSame([], $this->audit->record('account.api_token_authenticated')->context);
     }
 
     private function bearerRequest(string $path): Request

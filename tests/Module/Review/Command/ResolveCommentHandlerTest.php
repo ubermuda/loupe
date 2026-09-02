@@ -136,7 +136,7 @@ final class ResolveCommentHandlerTest extends KernelTestCase
         self::assertInstanceOf(ResolveCommentHandler::class, $handler);
         $handler(new ResolveCommentCommand(comment: $comment));
 
-        $record = $audit->record('review.comment.resolved');
+        $record = $audit->record('review.comment_resolved');
         self::assertSame(AuditOutcome::Success, $record->outcome);
         self::assertSame(Auditor::CATEGORY_DOMAIN, $record->category);
         self::assertNotNull($record->subject);
@@ -147,7 +147,7 @@ final class ResolveCommentHandlerTest extends KernelTestCase
             'documentId' => (string) $document->id,
         ], $record->context);
 
-        self::assertSame(['review.comment.resolved'], $audit->domainLogLines());
+        self::assertSame(['review.comment_resolved'], $audit->domainLogLines());
         self::assertSame([], $audit->securityLogLines());
     }
 
@@ -219,7 +219,7 @@ final class ResolveCommentHandlerTest extends KernelTestCase
         $handler(new ResolveCommentCommand(comment: $comment));
         $handler(new ResolveCommentCommand(comment: $comment));
 
-        $records = $audit->records('review.comment.resolved');
+        $records = $audit->records('review.comment_resolved');
         self::assertCount(2, $records);
         self::assertSame(AuditOutcome::Success, $records[0]->outcome);
         self::assertSame(AuditOutcome::Refused, $records[1]->outcome);

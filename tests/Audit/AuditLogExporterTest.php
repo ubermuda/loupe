@@ -21,7 +21,7 @@ final class AuditLogExporterTest extends TestCase
     {
         $actor = $this->persistedUser();
         $row = $this->row(
-            operation: 'review.comment.addressed',
+            operation: 'review.comment_addressed',
             outcome: AuditOutcome::Refused,
             channel: 'mcp',
             context: ['commentId' => 'c-1', 'result' => 'AlreadyResolved'],
@@ -32,7 +32,7 @@ final class AuditLogExporterTest extends TestCase
         $rows = iterator_to_array(new AuditLogExporter($this->repository([$row]))->export($actor));
 
         self::assertCount(1, $rows);
-        self::assertSame('review.comment.addressed', $rows[0]['operation']);
+        self::assertSame('review.comment_addressed', $rows[0]['operation']);
         self::assertSame('refused', $rows[0]['outcome']);
         self::assertSame('domain', $rows[0]['category']);
         self::assertSame('mcp', $rows[0]['channel']);

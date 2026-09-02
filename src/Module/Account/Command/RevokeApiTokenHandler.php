@@ -41,7 +41,7 @@ final readonly class RevokeApiTokenHandler
         // No label: the user types it, so it is their prose about their own
         // systems and has no place in a trail with no erasure path.
         $this->auditor->record(
-            'account.api_token.revoked',
+            'account.api_token_revoked',
             AuditOutcome::Success,
             [
                 'userId' => null !== $token->owner->id ? (string) $token->owner->id : null,

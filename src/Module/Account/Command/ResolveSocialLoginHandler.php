@@ -86,7 +86,7 @@ final readonly class ResolveSocialLoginHandler
         // full, so there is nothing an entry could be waiting for.
         if (!$this->registrationGate->allowsNewAccounts()) {
             $this->auditor->record(
-                'account.social.registration_closed',
+                'account.social_registration_closed',
                 AuditOutcome::Refused,
                 ['provider' => $profile->provider->value],
             );
@@ -135,7 +135,7 @@ final readonly class ResolveSocialLoginHandler
 
         if (null === $user) {
             ($this->joinWaitlist)(new JoinWaitlistCommand($matchEmail));
-            $this->logger->info('account.waitlist.oauth_diverted', ['provider' => $profile->provider->value]);
+            $this->logger->info('account.waitlist_oauth_diverted', ['provider' => $profile->provider->value]);
 
             return SocialLoginOutcome::waitlisted();
         }
@@ -160,7 +160,7 @@ final readonly class ResolveSocialLoginHandler
         try {
             $this->eventDispatcher->dispatch(new UserRegistered($user));
         } catch (\Throwable $e) {
-            $this->logger->warning('account.registration.listener_failed', [
+            $this->logger->warning('account.registration_listener_failed', [
                 'userId' => (string) $user->id,
                 'error' => $e->getMessage(),
             ]);

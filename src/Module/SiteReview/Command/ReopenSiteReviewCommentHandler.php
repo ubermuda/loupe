@@ -24,7 +24,7 @@ final readonly class ReopenSiteReviewCommentHandler
         $this->em->flush();
 
         $this->auditor->record(
-            'site_review.comment.reopened',
+            'site_review.comment_reopened',
             AuditOutcome::Success,
             ['commentId' => (string) $command->comment->id],
             new AuditSubject('site_review_comment', (string) $command->comment->id),

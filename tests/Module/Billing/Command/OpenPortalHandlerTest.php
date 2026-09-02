@@ -150,7 +150,7 @@ final class OpenPortalHandlerTest extends TestCase
 
         ($this->handler($stripe, $profile))(new OpenPortalCommand($user, returnUrl: 'https://app/billing'));
 
-        $record = $this->audit->record('billing.portal.opened');
+        $record = $this->audit->record('billing.portal_opened');
         self::assertSame(AuditOutcome::Success, $record->outcome);
         self::assertSame(Auditor::CATEGORY_DOMAIN, $record->category);
         self::assertNotNull($record->subject);
@@ -158,7 +158,7 @@ final class OpenPortalHandlerTest extends TestCase
         self::assertSame((string) $user->id, $record->subject->id);
         self::assertSame(['userId' => (string) $user->id], $record->context);
 
-        self::assertSame(['billing.portal.opened'], $this->audit->domainLogLines());
+        self::assertSame(['billing.portal_opened'], $this->audit->domainLogLines());
         self::assertSame([], $this->audit->securityLogLines());
     }
 
@@ -204,7 +204,7 @@ final class OpenPortalHandlerTest extends TestCase
 
         self::assertSame([], $this->audit->operations());
         self::assertSame(
-            ['billing.portal.stripe_failed'],
+            ['billing.portal_stripe_failed'],
             array_map(static fn (array $entry): string => $entry['message'], $this->logger->records),
         );
     }
@@ -225,6 +225,6 @@ final class OpenPortalHandlerTest extends TestCase
 
         ($this->handler($stripe, $profile))(new OpenPortalCommand($user, returnUrl: 'https://app/billing'));
 
-        DirectLogging::assertOperationNotLoggedBy($this->audit, $this->logger, 'billing.portal.opened');
+        DirectLogging::assertOperationNotLoggedBy($this->audit, $this->logger, 'billing.portal_opened');
     }
 }

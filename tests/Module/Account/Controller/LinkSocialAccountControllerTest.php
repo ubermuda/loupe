@@ -121,7 +121,7 @@ final class LinkSocialAccountControllerTest extends WebTestCase
 
         self::assertResponseRedirects();
 
-        $record = $audit->record('account.social.linked');
+        $record = $audit->record('account.social_linked');
         self::assertSame(AuditOutcome::Success, $record->outcome);
         self::assertSame(Auditor::CATEGORY_DOMAIN, $record->category);
         self::assertSame(
@@ -132,7 +132,7 @@ final class LinkSocialAccountControllerTest extends WebTestCase
         self::assertSame('user', $record->subject->type);
         self::assertSame((string) $user->id, $record->subject->id);
 
-        self::assertContains('account.social.linked', $audit->domainLogLines());
+        self::assertContains('account.social_linked', $audit->domainLogLines());
         self::assertSame([], $audit->securityLogLines());
     }
 
@@ -157,7 +157,7 @@ final class LinkSocialAccountControllerTest extends WebTestCase
 
         self::assertResponseStatusCodeSame(Response::HTTP_TOO_MANY_REQUESTS);
 
-        $record = $audit->record('account.social.link_throttled');
+        $record = $audit->record('account.social_link_throttled');
         self::assertSame(AuditOutcome::Refused, $record->outcome);
         self::assertSame(Auditor::CATEGORY_DOMAIN, $record->category);
         self::assertSame(
@@ -168,7 +168,7 @@ final class LinkSocialAccountControllerTest extends WebTestCase
         self::assertSame('user', $record->subject->type);
         self::assertSame((string) $user->id, $record->subject->id);
 
-        self::assertContains('account.social.link_throttled', $audit->domainLogLines());
+        self::assertContains('account.social_link_throttled', $audit->domainLogLines());
     }
 
     public function test_the_controller_keeps_no_logger_beside_the_auditor(): void

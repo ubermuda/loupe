@@ -87,7 +87,7 @@ final readonly class SetDocumentHighlightsHandler
 
         // Counts, not the quotes: every one of them is document text.
         $this->auditor->record(
-            'review.document.highlights_updated',
+            'review.document_highlights_updated',
             AuditOutcome::Success,
             [
                 'documentId' => (string) $command->document->id,

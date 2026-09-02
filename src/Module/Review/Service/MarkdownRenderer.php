@@ -254,7 +254,7 @@ final readonly class MarkdownRenderer
         // Logged because a document that silently takes this path renders fine
         // and looks fine, and would otherwise be invisible in a batch run.
         if (null !== $reason) {
-            $this->logger->warning('review.markdown.front_matter_not_tabulated', [
+            $this->logger->warning('review.markdown_front_matter_not_tabulated', [
                 'reason' => $reason,
                 'markdown_bytes' => \strlen($markdown),
             ]);

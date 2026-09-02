@@ -28,7 +28,7 @@ use Symfony\Component\Security\Http\Firewall;
  */
 final class ApiTokenAuthenticationRateLimitTest extends WebTestCase
 {
-    private const string OPERATION = 'account.api_token.authentication_failed';
+    private const string OPERATION = 'account.api_token_authenticated';
 
     private const string INITIALIZE = '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"t","version":"1"}}}';
 

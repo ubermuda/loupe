@@ -150,7 +150,7 @@ final class ReopenCommentHandlerTest extends KernelTestCase
         self::assertInstanceOf(ReopenCommentHandler::class, $handler);
         $handler(new ReopenCommentCommand(comment: $comment));
 
-        $record = $audit->record('review.comment.reopened');
+        $record = $audit->record('review.comment_reopened');
         self::assertSame(AuditOutcome::Success, $record->outcome);
         self::assertSame(Auditor::CATEGORY_DOMAIN, $record->category);
         self::assertNotNull($record->subject);
@@ -161,7 +161,7 @@ final class ReopenCommentHandlerTest extends KernelTestCase
             'documentId' => (string) $document->id,
         ], $record->context);
 
-        self::assertSame(['review.comment.reopened'], $audit->domainLogLines());
+        self::assertSame(['review.comment_reopened'], $audit->domainLogLines());
         self::assertSame([], $audit->securityLogLines());
     }
 

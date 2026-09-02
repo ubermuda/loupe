@@ -70,7 +70,7 @@ final class UndoVerdictController extends AppController
         $this->addFlash('success', $this->translator->trans('review.document.flash.verdict_undone'));
 
         $this->auditor->record(
-            'review.document.verdict_undone',
+            'review.document_verdict_undone',
             AuditOutcome::Success,
             [
                 'documentId' => (string) $document->id,

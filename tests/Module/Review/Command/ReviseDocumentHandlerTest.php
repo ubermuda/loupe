@@ -603,7 +603,7 @@ final class ReviseDocumentHandlerTest extends KernelTestCase
 
         $revise(new ReviseDocumentCommand($document, 'use JWTs everywhere', 'tightened', 'Auth PRD v2'));
 
-        $record = $audit->record('review.document.revised');
+        $record = $audit->record('review.document_revised');
         self::assertSame(AuditOutcome::Success, $record->outcome);
         self::assertSame(Auditor::CATEGORY_DOMAIN, $record->category);
         self::assertNotNull($record->subject);
@@ -619,7 +619,7 @@ final class ReviseDocumentHandlerTest extends KernelTestCase
             'commentsOrphaned' => 0,
         ], $record->context);
 
-        self::assertSame(['review.document.revised'], $audit->domainLogLines());
+        self::assertSame(['review.document_revised'], $audit->domainLogLines());
         self::assertSame([], $audit->securityLogLines());
     }
 
@@ -648,7 +648,7 @@ final class ReviseDocumentHandlerTest extends KernelTestCase
         $revise(new ReviseDocumentCommand($document, 'Dana disagreed', 'Dana asked for this', 'Plan about Dana'));
 
         self::assertSame([], array_filter(
-            $audit->record('review.document.revised')->context,
+            $audit->record('review.document_revised')->context,
             static fn (string|int|float|bool|null $value): bool => \is_string($value) && str_contains($value, 'Dana'),
         ));
     }

@@ -45,7 +45,7 @@ final readonly class ResendVerificationEmailHandler
         // Keyed on the internal id and written only where a user resolved, so
         // the record cannot answer "does this account exist" for anyone.
         $this->auditor->record(
-            'account.email_verification.resent',
+            'account.email_verification_resent',
             $outcome,
             ['userId' => (string) $user->id],
             new AuditSubject('user', (string) $user->id),

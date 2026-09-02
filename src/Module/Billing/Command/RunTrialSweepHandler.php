@@ -45,7 +45,7 @@ final readonly class RunTrialSweepHandler
         // No paywall, no trial semantics: with billing dark nothing may be
         // disabled or surveyed, whatever the timestamps say.
         if (!$this->featureFlags->isEnabled('billing.enabled')) {
-            $this->logger->info('billing.trial_sweep.skipped_billing_disabled');
+            $this->logger->info('billing.trial_sweep_skipped_billing_disabled');
 
             return new TrialSweepResult();
         }
@@ -96,7 +96,7 @@ final readonly class RunTrialSweepHandler
             $this->em->refresh($trial);
 
             if (null === $trial->endsAt || $now < $trial->endsAt || null !== $trial->surveySentAt) {
-                $this->logger->debug('billing.trial_sweep.skipped_after_lock', ['userId' => (string) $profile->user->id, 'pass' => 'ended_trials']);
+                $this->logger->debug('billing.trial_sweep_skipped_after_lock', ['userId' => (string) $profile->user->id, 'pass' => 'ended_trials']);
 
                 return [0, 0, 0];
             }
@@ -131,10 +131,10 @@ final readonly class RunTrialSweepHandler
             $this->recordDisabled($user, 'trial_expired');
         }
         if (1 === $churnedNow && $this->trialSurveys->send($user, subscribed: false)) {
-            $this->logger->info('billing.trial_sweep.survey_sent', ['userId' => (string) $user->id, 'variant' => 'churned']);
+            $this->logger->info('billing.trial_sweep_survey_sent', ['userId' => (string) $user->id, 'variant' => 'churned']);
         }
         if (1 === $subscriberNow && $this->trialSurveys->send($user, subscribed: true)) {
-            $this->logger->info('billing.trial_sweep.survey_sent', ['userId' => (string) $user->id, 'variant' => 'subscribed']);
+            $this->logger->info('billing.trial_sweep_survey_sent', ['userId' => (string) $user->id, 'variant' => 'subscribed']);
         }
 
         return [$disabledNow, $churnedNow, $subscriberNow];
@@ -156,7 +156,7 @@ final readonly class RunTrialSweepHandler
             if (BillingStatus::Canceled !== $subscription->stripeStatus
                 || (null !== $subscription->endsAt && $now < $subscription->endsAt)
                 || $profile->hasCurrentSubscription($now)) {
-                $this->logger->debug('billing.trial_sweep.skipped_after_lock', ['userId' => (string) $user->id, 'pass' => 'canceled_stripe']);
+                $this->logger->debug('billing.trial_sweep_skipped_after_lock', ['userId' => (string) $user->id, 'pass' => 'canceled_stripe']);
 
                 return [0, 0];
             }
@@ -184,7 +184,7 @@ final readonly class RunTrialSweepHandler
             $this->recordDisabled($user, 'subscription_canceled');
         }
         if (1 === $surveyNow && $this->cancelSurveys->send($user)) {
-            $this->logger->info('billing.trial_sweep.cancel_survey_sent', ['userId' => (string) $user->id]);
+            $this->logger->info('billing.trial_sweep_cancel_survey_sent', ['userId' => (string) $user->id]);
         }
 
         return [$disabledNow, $surveyNow];
@@ -197,7 +197,7 @@ final readonly class RunTrialSweepHandler
     private function recordDisabled(User $user, string $reason): void
     {
         $this->auditor->record(
-            'billing.trial_sweep.disabled',
+            'billing.trial_sweep_disabled',
             AuditOutcome::Success,
             ['userId' => (string) $user->id, 'reason' => $reason],
             new AuditSubject('user', (string) $user->id),
@@ -206,7 +206,7 @@ final readonly class RunTrialSweepHandler
 
     private function logFailure(Subscription $subscription, \Throwable $e): void
     {
-        $this->logger->error('billing.trial_sweep.row_failed', [
+        $this->logger->error('billing.trial_sweep_row_failed', [
             'subscriptionId' => (string) $subscription->id,
             'userId' => (string) $subscription->billingProfile->user->id,
             'error' => $e->getMessage(),

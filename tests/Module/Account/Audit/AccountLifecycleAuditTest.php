@@ -54,13 +54,13 @@ final class AccountLifecycleAuditTest extends KernelTestCase
         $version = self::getContainer()->getParameter('app.terms.version');
         self::assertIsString($version);
 
-        $record = $this->audit->record('account.terms.accepted');
+        $record = $this->audit->record('account.terms_accepted');
         self::assertSame(AuditOutcome::Success, $record->outcome);
         self::assertSame(Auditor::CATEGORY_DOMAIN, $record->category);
         self::assertSame(['userId' => (string) $user->id, 'version' => $version], $record->context);
         $this->assertUserSubject($record->subject, $user);
 
-        self::assertSame(['account.terms.accepted'], $this->audit->domainLogLines());
+        self::assertSame(['account.terms_accepted'], $this->audit->domainLogLines());
         self::assertSame([], $this->audit->securityLogLines());
     }
 
@@ -71,13 +71,13 @@ final class AccountLifecycleAuditTest extends KernelTestCase
 
         $this->handler(UpdateProfileHandler::class)(new UpdateProfileCommand($user, 'A Named Person'));
 
-        $record = $this->audit->record('account.profile.updated');
+        $record = $this->audit->record('account.profile_updated');
         self::assertSame(AuditOutcome::Success, $record->outcome);
         self::assertSame(Auditor::CATEGORY_DOMAIN, $record->category);
         self::assertSame(['userId' => (string) $user->id], $record->context);
         $this->assertUserSubject($record->subject, $user);
 
-        self::assertSame(['account.profile.updated'], $this->audit->domainLogLines());
+        self::assertSame(['account.profile_updated'], $this->audit->domainLogLines());
         self::assertStringNotContainsString(
             'A Named Person',
             json_encode($this->audit->domainChannel->records, \JSON_THROW_ON_ERROR),
@@ -116,7 +116,7 @@ final class AccountLifecycleAuditTest extends KernelTestCase
 
         $this->handler(ResetPasswordHandler::class)(new ResetPasswordCommand($token, 'AnotherSecret1!'));
 
-        $record = $this->audit->record('account.password.reset');
+        $record = $this->audit->record('account.password_reset');
         self::assertSame(AuditOutcome::Success, $record->outcome);
         self::assertSame(Auditor::CATEGORY_DOMAIN, $record->category);
         self::assertSame(['userId' => (string) $user->id], $record->context);
@@ -142,7 +142,7 @@ final class AccountLifecycleAuditTest extends KernelTestCase
 
         $handler(new RequestPasswordResetCommand('audit-reset-request@example.com'));
 
-        $record = $this->audit->record('account.password_reset.requested');
+        $record = $this->audit->record('account.password_reset_requested');
         self::assertSame(AuditOutcome::Success, $record->outcome);
         self::assertSame(['userId' => (string) $user->id], $record->context);
         $this->assertUserSubject($record->subject, $user);
@@ -206,7 +206,7 @@ final class AccountLifecycleAuditTest extends KernelTestCase
         $handler(new ResendVerificationEmailCommand('nobody-at-all@example.com'));
         $handler(new ResendVerificationEmailCommand('audit-resend@example.com'));
 
-        $record = $this->audit->record('account.email_verification.resent');
+        $record = $this->audit->record('account.email_verification_resent');
         self::assertSame(AuditOutcome::Success, $record->outcome);
         self::assertSame(Auditor::CATEGORY_DOMAIN, $record->category);
         self::assertSame(['userId' => (string) $user->id], $record->context);
@@ -232,7 +232,7 @@ final class AccountLifecycleAuditTest extends KernelTestCase
 
         // The sender flushes the rotated token before it mails, so the resend
         // is a real state change that failed, not a no-op.
-        $record = $this->audit->record('account.email_verification.resent');
+        $record = $this->audit->record('account.email_verification_resent');
         self::assertSame(AuditOutcome::Failed, $record->outcome);
         self::assertSame(['userId' => (string) $user->id], $record->context);
     }
@@ -247,13 +247,13 @@ final class AccountLifecycleAuditTest extends KernelTestCase
 
         $this->handler(VerifyEmailHandler::class)(new VerifyEmailCommand($token));
 
-        $record = $this->audit->record('account.user.email_verified');
+        $record = $this->audit->record('account.user_email_verified');
         self::assertSame(AuditOutcome::Success, $record->outcome);
         self::assertSame(Auditor::CATEGORY_SECURITY, $record->category);
         self::assertSame(['userId' => (string) $user->id], $record->context);
         $this->assertUserSubject($record->subject, $user);
 
-        self::assertSame(['account.user.email_verified'], $this->audit->securityLogLines());
+        self::assertSame(['account.user_email_verified'], $this->audit->securityLogLines());
         self::assertSame([], $this->audit->domainLogLines());
     }
 
@@ -272,13 +272,13 @@ final class AccountLifecycleAuditTest extends KernelTestCase
 
         $this->handler(MarkEmailVerifiedHandler::class)(new MarkEmailVerifiedCommand('audit-operator-verify@example.com'));
 
-        $record = $this->audit->record('account.user.email_verified_by_operator');
+        $record = $this->audit->record('account.user_email_verified_by_operator');
         self::assertSame(AuditOutcome::Success, $record->outcome);
         self::assertSame(Auditor::CATEGORY_SECURITY, $record->category);
         self::assertSame(['userId' => (string) $user->id], $record->context);
         $this->assertUserSubject($record->subject, $user);
 
-        self::assertSame(['account.user.email_verified_by_operator'], $this->audit->securityLogLines());
+        self::assertSame(['account.user_email_verified_by_operator'], $this->audit->securityLogLines());
     }
 
     public function test_revoking_a_live_link_on_a_verified_account_is_recorded_on_its_own(): void
@@ -292,10 +292,10 @@ final class AccountLifecycleAuditTest extends KernelTestCase
         $this->handler(MarkEmailVerifiedHandler::class)(new MarkEmailVerifiedCommand('audit-operator-revoke@example.com'));
 
         self::assertSame(
-            ['account.user.verification_token_revoked_by_operator'],
+            ['account.user_verification_token_revoked_by_operator'],
             $this->audit->operations(),
         );
-        $record = $this->audit->record('account.user.verification_token_revoked_by_operator');
+        $record = $this->audit->record('account.user_verification_token_revoked_by_operator');
         self::assertSame(Auditor::CATEGORY_SECURITY, $record->category);
         self::assertSame(['userId' => (string) $user->id], $record->context);
     }
@@ -307,13 +307,13 @@ final class AccountLifecycleAuditTest extends KernelTestCase
 
         $this->handler(PromoteUserToAdminHandler::class)(new PromoteUserToAdminCommand('audit-promote@example.com'));
 
-        $record = $this->audit->record('account.user.promoted_to_admin');
+        $record = $this->audit->record('account.user_promoted_to_admin');
         self::assertSame(AuditOutcome::Success, $record->outcome);
         self::assertSame(Auditor::CATEGORY_DOMAIN, $record->category);
         self::assertSame(['userId' => (string) $user->id], $record->context);
         $this->assertUserSubject($record->subject, $user);
 
-        self::assertSame(['account.user.promoted_to_admin'], $this->audit->domainLogLines());
+        self::assertSame(['account.user_promoted_to_admin'], $this->audit->domainLogLines());
     }
 
     /** An account that already has the role changes nothing, so it states nothing. */
@@ -338,7 +338,7 @@ final class AccountLifecycleAuditTest extends KernelTestCase
         ));
 
         self::assertTrue($result->created);
-        $record = $this->audit->record('account.admin.created_from_console');
+        $record = $this->audit->record('account.admin_created_from_console');
         self::assertSame(AuditOutcome::Success, $record->outcome);
         self::assertSame(Auditor::CATEGORY_DOMAIN, $record->category);
         self::assertSame(['userId' => (string) $result->user->id], $record->context);

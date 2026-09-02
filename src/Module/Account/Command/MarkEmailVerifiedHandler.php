@@ -45,7 +45,7 @@ final readonly class MarkEmailVerifiedHandler
         if ($user->isVerified()) {
             if ($tokenRevoked) {
                 $this->em->flush();
-                $this->record('account.user.verification_token_revoked_by_operator', $user);
+                $this->record('account.user_verification_token_revoked_by_operator', $user);
             }
 
             return new MarkEmailVerifiedResult(verified: false, tokenRevoked: $tokenRevoked);
@@ -54,7 +54,7 @@ final readonly class MarkEmailVerifiedHandler
         $user->emailVerifiedAt = new \DateTimeImmutable();
         $this->em->flush();
 
-        $this->record('account.user.email_verified_by_operator', $user);
+        $this->record('account.user_email_verified_by_operator', $user);
 
         return new MarkEmailVerifiedResult(verified: true, tokenRevoked: $tokenRevoked);
     }

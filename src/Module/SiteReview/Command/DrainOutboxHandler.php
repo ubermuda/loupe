@@ -44,7 +44,7 @@ final readonly class DrainOutboxHandler
         // burning the retry budget on rows nobody asked to deliver, so that
         // turning push back on would find them backed off rather than ready.
         if (!$this->featureFlags->isEnabled(SiteReviewPush::FLAG)) {
-            $this->logger->debug('site_review.outbox.drain_skipped_push_disabled');
+            $this->logger->debug('site_review.outbox_drain_skipped_push_disabled');
 
             return new OutboxDrainResult(0, 0);
         }
@@ -65,7 +65,7 @@ final readonly class DrainOutboxHandler
             } catch (\Throwable $e) {
                 ++$failed;
                 $event->recordPublishFailure($e->getMessage(), $now);
-                $this->logger->warning('site_review.outbox.publish_failed', [
+                $this->logger->warning('site_review.outbox_publish_failed', [
                     'eventId' => (string) $event->id,
                     'projectId' => (string) $event->project->id,
                     'attempts' => $event->publishAttempts,
@@ -83,7 +83,7 @@ final readonly class DrainOutboxHandler
         $this->em->flush();
 
         if ($published > 0 || $failed > 0) {
-            $this->logger->info('site_review.outbox.drained', [
+            $this->logger->info('site_review.outbox_drained', [
                 'published' => $published,
                 'failed' => $failed,
             ]);

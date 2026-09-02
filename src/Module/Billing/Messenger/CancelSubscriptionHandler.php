@@ -35,7 +35,7 @@ final readonly class CancelSubscriptionHandler
         // the subscription belonged to is the subject, which is what the
         // record has to say.
         $this->auditor->record(
-            'account.deletion.stripe_subscription_canceled',
+            'account.deletion_stripe_subscription_canceled',
             AuditOutcome::Success,
             ['userId' => $message->deletedUserId],
             new AuditSubject('user', $message->deletedUserId),

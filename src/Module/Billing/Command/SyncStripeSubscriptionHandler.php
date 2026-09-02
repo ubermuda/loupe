@@ -40,7 +40,7 @@ final readonly class SyncStripeSubscriptionHandler
             // Someone else's Stripe account, or a customer created outside this
             // app. Nothing to write — the caller still acknowledges so Stripe
             // stops retrying.
-            $this->logger->warning('billing.webhook.unknown_customer', ['stripeCustomerId' => $command->stripeCustomerId]);
+            $this->logger->warning('billing.webhook_unknown_customer', ['stripeCustomerId' => $command->stripeCustomerId]);
 
             return;
         }
@@ -79,10 +79,10 @@ final readonly class SyncStripeSubscriptionHandler
         // kept.
         $userId = (string) $profile->user->id;
         if ($reenabled) {
-            $this->record('billing.account.reenabled', $userId);
+            $this->record('billing.account_reenabled', $userId);
         }
         if ($disabledOnCancel) {
-            $this->record('billing.account.disabled_on_cancel', $userId);
+            $this->record('billing.account_disabled_on_cancel', $userId);
         }
     }
 
@@ -116,7 +116,7 @@ final readonly class SyncStripeSubscriptionHandler
         // A strictly older event is a stale snapshot (an `updated` arriving
         // after `deleted`) and must not overwrite newer state.
         if (null !== $profile->lastStripeEventAt && $command->eventCreatedAt < $profile->lastStripeEventAt) {
-            $this->logger->info('billing.webhook.stale_event', [
+            $this->logger->info('billing.webhook_stale_event', [
                 'stripeCustomerId' => $command->stripeCustomerId,
                 'eventId' => $command->stripeEventId,
                 'eventCreatedAt' => $command->eventCreatedAt->format(\DATE_ATOM),
@@ -134,7 +134,7 @@ final readonly class SyncStripeSubscriptionHandler
         if (BillingProfile::SUBSCRIPTION_DELETED_EVENT_TYPE === $profile->lastStripeEventType
             && null !== $profile->lastStripeEventAt
             && $command->eventCreatedAt <= $profile->lastStripeEventAt) {
-            $this->logger->info('billing.webhook.stale_event', [
+            $this->logger->info('billing.webhook_stale_event', [
                 'stripeCustomerId' => $command->stripeCustomerId,
                 'eventId' => $command->stripeEventId,
                 'reason' => 'not newer than the deletion already applied',
@@ -149,7 +149,7 @@ final readonly class SyncStripeSubscriptionHandler
         // second — so the event id is what distinguishes them. Equal timestamps
         // with a different id are applied in arrival order.
         if (null !== $profile->lastStripeEventId && $command->stripeEventId === $profile->lastStripeEventId) {
-            $this->logger->info('billing.webhook.replayed_event', [
+            $this->logger->info('billing.webhook_replayed_event', [
                 'stripeCustomerId' => $command->stripeCustomerId,
                 'eventId' => $command->stripeEventId,
             ]);
@@ -166,7 +166,7 @@ final readonly class SyncStripeSubscriptionHandler
         if (null !== $authoritative && $this->sameSecondAs($command, $profile)) {
             $stripeStatus = $authoritative->status;
             $currentPeriodEnd = $authoritative->currentPeriodEnd;
-            $this->logger->info('billing.webhook.tie_broken_by_lookup', [
+            $this->logger->info('billing.webhook_tie_broken_by_lookup', [
                 'stripeCustomerId' => $command->stripeCustomerId,
                 'eventId' => $command->stripeEventId,
                 'eventStatus' => $command->stripeStatus,
@@ -184,7 +184,7 @@ final readonly class SyncStripeSubscriptionHandler
                 // wrapInTransaction still flushes on the way out of this return,
                 // with an empty changeset. The controller answers 200, so Stripe
                 // stops retrying an event this handler refuses every time.
-                $this->logger->error('billing.webhook.concurrent_grant', [
+                $this->logger->error('billing.webhook_concurrent_grant', [
                     'stripeCustomerId' => $command->stripeCustomerId,
                     'stripeSubscriptionId' => $command->stripeSubscriptionId,
                     'eventId' => $command->stripeEventId,
@@ -234,7 +234,7 @@ final readonly class SyncStripeSubscriptionHandler
 
         $this->em->flush();
 
-        $this->logger->info('billing.subscription.synced', [
+        $this->logger->info('billing.subscription_synced', [
             'stripeCustomerId' => $command->stripeCustomerId,
             'stripeSubscriptionId' => $command->stripeSubscriptionId,
             'status' => $status->value,

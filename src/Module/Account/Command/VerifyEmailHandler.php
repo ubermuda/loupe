@@ -38,7 +38,7 @@ final readonly class VerifyEmailHandler
         $this->em->flush();
 
         $this->auditor->record(
-            'account.user.email_verified',
+            'account.user_email_verified',
             AuditOutcome::Success,
             ['userId' => (string) $user->id],
             new AuditSubject('user', (string) $user->id),

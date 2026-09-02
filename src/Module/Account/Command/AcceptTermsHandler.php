@@ -29,7 +29,7 @@ final readonly class AcceptTermsHandler
         $this->em->flush();
 
         $this->auditor->record(
-            'account.terms.accepted',
+            'account.terms_accepted',
             AuditOutcome::Success,
             [
                 'userId' => (string) $command->user->id,

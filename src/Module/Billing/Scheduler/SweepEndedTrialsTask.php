@@ -30,7 +30,7 @@ final readonly class SweepEndedTrialsTask
         $result = ($this->runTrialSweep)(new RunTrialSweepCommand());
 
         // One line per tick makes scheduler liveness greppable in the worker logs.
-        $this->logger->info('billing.trial_sweep.completed', [
+        $this->logger->info('billing.trial_sweep_completed', [
             'disabled' => $result->disabled,
             'churnedSurveys' => $result->churnedSurveys,
             'subscriberSurveys' => $result->subscriberSurveys,

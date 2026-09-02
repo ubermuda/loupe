@@ -37,7 +37,7 @@ final readonly class ResolveCommentHandler
         $this->em->flush();
 
         $this->auditor->record(
-            'review.comment.resolved',
+            'review.comment_resolved',
             // Refused when the thread was already resolved: no status moved,
             // and MarkCommentsAddressedHandler already reports that same fact
             // as a refusal rather than a success.

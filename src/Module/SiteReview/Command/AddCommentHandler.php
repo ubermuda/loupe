@@ -44,7 +44,7 @@ final readonly class AddCommentHandler
         });
 
         $this->auditor->record(
-            'site_review.comment.added',
+            'site_review.comment_added',
             AuditOutcome::Success,
             [
                 'projectId' => (string) $command->project->id,

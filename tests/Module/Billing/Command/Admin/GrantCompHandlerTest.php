@@ -114,7 +114,7 @@ final class GrantCompHandlerTest extends KernelTestCase
 
         $this->handler()(new GrantCompCommand($target, $admin));
 
-        $record = $audit->record('billing.comp.granted');
+        $record = $audit->record('billing.comp_granted');
         self::assertSame(AuditOutcome::Success, $record->outcome);
         self::assertSame(Auditor::CATEGORY_DOMAIN, $record->category);
         self::assertNotNull($record->subject);
@@ -122,7 +122,7 @@ final class GrantCompHandlerTest extends KernelTestCase
         self::assertSame((string) $target->id, $record->subject->id);
         self::assertSame(['userId' => (string) $target->id], $record->context);
 
-        self::assertSame(['billing.comp.granted'], $audit->domainLogLines());
+        self::assertSame(['billing.comp_granted'], $audit->domainLogLines());
         self::assertSame([], $audit->securityLogLines());
     }
 
@@ -140,7 +140,7 @@ final class GrantCompHandlerTest extends KernelTestCase
 
         $this->handler()(new GrantCompCommand($target, $admin));
 
-        $record = $audit->record('billing.comp.granted');
+        $record = $audit->record('billing.comp_granted');
         self::assertSame($admin, $record->actor);
         self::assertSame((string) $admin->id, $record->actorIdentifier);
         self::assertSame(AuditChannel::Session->value, $record->channel);
@@ -159,7 +159,7 @@ final class GrantCompHandlerTest extends KernelTestCase
 
         $this->handler()(new GrantCompCommand($target, $admin));
 
-        $context = $audit->record('billing.comp.granted')->context;
+        $context = $audit->record('billing.comp_granted')->context;
         self::assertArrayNotHasKey('actorId', $context);
         self::assertNotContains((string) $admin->id, $context);
     }
@@ -177,12 +177,12 @@ final class GrantCompHandlerTest extends KernelTestCase
         $this->handler()(new GrantCompCommand($target, $admin));
 
         self::assertSame(
-            ['billing.account.reenabled', 'billing.comp.granted'],
+            ['billing.account_reenabled', 'billing.comp_granted'],
             $audit->operations(),
         );
         self::assertSame(
             ['userId' => (string) $target->id],
-            $audit->record('billing.account.reenabled')->context,
+            $audit->record('billing.account_reenabled')->context,
         );
     }
 
@@ -195,7 +195,7 @@ final class GrantCompHandlerTest extends KernelTestCase
 
         $this->handler()(new GrantCompCommand($target, $admin));
 
-        self::assertSame(['billing.comp.granted'], $audit->operations());
+        self::assertSame(['billing.comp_granted'], $audit->operations());
     }
 
     public function test_a_refused_second_comp_records_nothing(): void

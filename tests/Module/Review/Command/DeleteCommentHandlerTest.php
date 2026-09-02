@@ -84,7 +84,7 @@ final class DeleteCommentHandlerTest extends KernelTestCase
         self::assertInstanceOf(DeleteCommentHandler::class, $handler);
         $handler(new DeleteCommentCommand(comment: $root));
 
-        $records = $audit->records('review.comment.deleted');
+        $records = $audit->records('review.comment_deleted');
         self::assertCount(2, $records, 'the root and its one reply are each recorded');
 
         $record = $records[0];
@@ -101,7 +101,7 @@ final class DeleteCommentHandlerTest extends KernelTestCase
         self::assertNotSame('', $record->subject->id);
 
         self::assertSame(
-            ['review.comment.deleted', 'review.comment.deleted'],
+            ['review.comment_deleted', 'review.comment_deleted'],
             $audit->domainLogLines(),
         );
         self::assertSame([], $audit->securityLogLines());
@@ -133,7 +133,7 @@ final class DeleteCommentHandlerTest extends KernelTestCase
         self::assertInstanceOf(DeleteCommentHandler::class, $handler);
         $handler(new DeleteCommentCommand(comment: $root));
 
-        $records = $audit->records('review.comment.deleted');
+        $records = $audit->records('review.comment_deleted');
         self::assertCount(4, $records, 'one record per deleted comment, root included');
 
         $subjectIds = array_map(

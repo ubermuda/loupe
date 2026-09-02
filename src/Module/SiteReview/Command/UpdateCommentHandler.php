@@ -29,7 +29,7 @@ final readonly class UpdateCommentHandler
         $this->em->flush();
 
         $this->auditor->record(
-            'site_review.comment.updated',
+            'site_review.comment_updated',
             AuditOutcome::Success,
             [
                 'projectId' => (string) $command->project->id,

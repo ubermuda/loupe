@@ -30,7 +30,7 @@ final readonly class UnarchiveDocumentHandler
             $this->em->flush();
 
             $this->auditor->record(
-                'review.document.unarchived',
+                'review.document_unarchived',
                 AuditOutcome::Success,
                 [
                     'documentId' => (string) $document->id,

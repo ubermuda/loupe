@@ -89,7 +89,7 @@ final class SubmitReviewController extends AppController
         $this->addFlash('success', $this->translator->trans('review.document.flash.verdict_submitted'));
 
         $this->auditor->record(
-            'review.document.verdict_submitted',
+            'review.document_verdict_submitted',
             AuditOutcome::Success,
             [
                 'documentId' => (string) $document->id,

@@ -64,7 +64,7 @@ final class McpBoundProjectVoter extends Voter
         }
 
         $this->auditor->record(
-            'review.mcp.access_denied',
+            'review.mcp_access_denied',
             AuditOutcome::Refused,
             [
                 'attribute' => $attribute,

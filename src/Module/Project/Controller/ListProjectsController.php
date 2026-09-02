@@ -39,7 +39,7 @@ class ListProjectsController extends AppController
         $view = ($this->listProjects)(new ListProjectsCommand($user, $page));
 
         if (null !== $view->clampedPage) {
-            $this->logger->info('project.list.page_clamped', [
+            $this->logger->info('project.list_page_clamped', [
                 'user' => (string) $user->id,
                 'requestedPage' => $page,
                 'clampedPage' => $view->clampedPage,

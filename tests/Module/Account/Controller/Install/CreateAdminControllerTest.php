@@ -86,7 +86,7 @@ final class CreateAdminControllerTest extends WebTestCase
         $admin = self::getContainer()->get(UserRepository::class)->findOneByEmail('admin-audit@example.com');
         self::assertNotNull($admin);
 
-        $record = $audit->record('account.install.admin_created');
+        $record = $audit->record('account.install_admin_created');
         self::assertSame(AuditOutcome::Success, $record->outcome);
         self::assertSame(Auditor::CATEGORY_DOMAIN, $record->category);
         self::assertSame([], $record->context);
@@ -94,7 +94,7 @@ final class CreateAdminControllerTest extends WebTestCase
         self::assertSame('user', $record->subject->type);
         self::assertSame((string) $admin->id, $record->subject->id);
 
-        self::assertSame(['account.install.admin_created'], $audit->domainLogLines());
+        self::assertSame(['account.install_admin_created'], $audit->domainLogLines());
         self::assertSame([], $audit->securityLogLines());
     }
 

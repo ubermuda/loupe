@@ -106,7 +106,7 @@ final readonly class StartCheckoutHandler
             // Stripe being down or rejecting the call is a bad minute, not a
             // bug: surface it as a domain failure so the user gets the "try
             // again later" page instead of a 500.
-            $this->logger->error('billing.checkout.stripe_failed', [
+            $this->logger->error('billing.checkout_stripe_failed', [
                 'userId' => (string) $command->user->id,
                 'error' => $e->getMessage(),
             ]);
@@ -117,7 +117,7 @@ final readonly class StartCheckoutHandler
         // The price id stays out: it names a Stripe object, and an audit
         // context carries this app's own identifiers only.
         $this->auditor->record(
-            'billing.checkout.started',
+            'billing.checkout_started',
             AuditOutcome::Success,
             ['userId' => (string) $command->user->id],
             new AuditSubject('user', (string) $command->user->id),

@@ -45,7 +45,7 @@ final readonly class PromoteUserToAdminHandler
         $this->em->flush();
 
         $this->auditor->record(
-            'account.user.promoted_to_admin',
+            'account.user_promoted_to_admin',
             AuditOutcome::Success,
             ['userId' => (string) $user->id],
             new AuditSubject('user', (string) $user->id),

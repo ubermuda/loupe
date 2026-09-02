@@ -86,7 +86,7 @@ final readonly class SelectDecisionOptionHandler
         // so a record written in the closure outlives a rollback. The chosen
         // label stays out, because the document's author wrote it.
         $this->auditor->record(
-            'review.decision.selected',
+            'review.decision_selected',
             AuditOutcome::Success,
             [
                 'documentId' => (string) $command->document->id,

@@ -27,7 +27,7 @@ final readonly class CompleteWizardHandler
         $this->em->flush();
 
         $this->auditor->record(
-            'account.wizard.completed',
+            'account.wizard_completed',
             AuditOutcome::Success,
             ['userId' => (string) $command->user->id],
             new AuditSubject('user', (string) $command->user->id),

@@ -141,7 +141,7 @@ final readonly class ReviseDocumentHandler
         // After the commit, never inside it: the sink drains at kernel.terminate,
         // so a record written in the closure outlives a rollback.
         $this->auditor->record(
-            'review.document.revised',
+            'review.document_revised',
             AuditOutcome::Success,
             [
                 'documentId' => (string) $document->id,

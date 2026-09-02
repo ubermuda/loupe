@@ -58,7 +58,7 @@ final readonly class RequestDataExportHandler
         // After the commit, never inside it: the sink drains outside the
         // business transaction, so a record written in there survives a rollback.
         $this->auditor->record(
-            'account.data_export.requested',
+            'account.data_export_requested',
             AuditOutcome::Success,
             ['id' => (string) $export->id],
             new AuditSubject('data_export', (string) $export->id),

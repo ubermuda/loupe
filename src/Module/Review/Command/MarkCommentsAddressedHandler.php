@@ -66,7 +66,7 @@ final readonly class MarkCommentsAddressedHandler
         // so a rolled-back batch records nothing at all.
         foreach ($decided as [$comment, $outcome]) {
             $this->auditor->record(
-                'review.comment.addressed',
+                'review.comment_addressed',
                 MarkCommentAddressedOutcome::Addressed === $outcome ? AuditOutcome::Success : AuditOutcome::Refused,
                 [
                     'commentId' => (string) $comment->id,

@@ -78,7 +78,7 @@ final class CancelSubscriptionHandlerTest extends TestCase
 
         $handler(new CancelSubscriptionMessage('sub_123', 'cus_123', 'user-id-123'));
 
-        $record = $this->audit->record('account.deletion.stripe_subscription_canceled');
+        $record = $this->audit->record('account.deletion_stripe_subscription_canceled');
         self::assertSame(AuditOutcome::Success, $record->outcome);
         self::assertSame(Auditor::CATEGORY_DOMAIN, $record->category);
         self::assertNotNull($record->subject);
@@ -86,7 +86,7 @@ final class CancelSubscriptionHandlerTest extends TestCase
         self::assertSame('user-id-123', $record->subject->id);
         self::assertSame(['userId' => 'user-id-123'], $record->context);
 
-        self::assertSame(['account.deletion.stripe_subscription_canceled'], $this->audit->domainLogLines());
+        self::assertSame(['account.deletion_stripe_subscription_canceled'], $this->audit->domainLogLines());
         self::assertSame([], $this->audit->securityLogLines());
     }
 
@@ -100,7 +100,7 @@ final class CancelSubscriptionHandlerTest extends TestCase
 
         $handler(new CancelSubscriptionMessage('sub_123', 'cus_123', 'user-id-123'));
 
-        $record = $this->audit->record('account.deletion.stripe_subscription_canceled');
+        $record = $this->audit->record('account.deletion_stripe_subscription_canceled');
         self::assertNull($record->actor);
         self::assertNull($record->actorIdentifier);
         self::assertNull($record->credential);
@@ -114,7 +114,7 @@ final class CancelSubscriptionHandlerTest extends TestCase
 
         $handler(new CancelSubscriptionMessage('sub_123', 'cus_123', 'user-id-123'));
 
-        $context = $this->audit->record('account.deletion.stripe_subscription_canceled')->context;
+        $context = $this->audit->record('account.deletion_stripe_subscription_canceled')->context;
         self::assertArrayNotHasKey('stripeSubscriptionId', $context);
         self::assertArrayNotHasKey('stripeCustomerId', $context);
         self::assertSame([], array_filter(

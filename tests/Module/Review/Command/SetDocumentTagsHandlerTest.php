@@ -213,7 +213,7 @@ final class SetDocumentTagsHandlerTest extends KernelTestCase
 
         ($this->handler)(new SetDocumentTagsCommand($document, ['design', 'security']));
 
-        $record = $this->audit->record('review.document.tags_updated');
+        $record = $this->audit->record('review.document_tags_updated');
         self::assertSame(AuditOutcome::Success, $record->outcome);
         self::assertSame(Auditor::CATEGORY_DOMAIN, $record->category);
         self::assertNotNull($record->subject);
@@ -225,7 +225,7 @@ final class SetDocumentTagsHandlerTest extends KernelTestCase
             'tagCount' => 2,
         ], $record->context);
 
-        self::assertSame(['review.document.tags_updated'], $this->audit->domainLogLines());
+        self::assertSame(['review.document_tags_updated'], $this->audit->domainLogLines());
         self::assertSame([], $this->audit->securityLogLines());
     }
 
@@ -237,7 +237,7 @@ final class SetDocumentTagsHandlerTest extends KernelTestCase
         ($this->handler)(new SetDocumentTagsCommand($document, ['dana-okafor']));
 
         self::assertSame([], array_filter(
-            $this->audit->record('review.document.tags_updated')->context,
+            $this->audit->record('review.document_tags_updated')->context,
             static fn (string|int|float|bool|null $value): bool => \is_string($value) && str_contains($value, 'dana'),
         ));
     }

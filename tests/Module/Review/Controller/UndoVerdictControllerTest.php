@@ -76,7 +76,7 @@ final class UndoVerdictControllerTest extends WebTestCase
 
         self::assertResponseRedirects("/projects/$projectId/documents/$documentId/review");
 
-        $record = $audit->record('review.document.verdict_undone');
+        $record = $audit->record('review.document_verdict_undone');
         self::assertSame(AuditOutcome::Success, $record->outcome);
         self::assertSame(Auditor::CATEGORY_DOMAIN, $record->category);
         self::assertNotNull($record->subject);
@@ -87,7 +87,7 @@ final class UndoVerdictControllerTest extends WebTestCase
             'status' => DocumentStatus::InReview->value,
         ], $record->context);
 
-        self::assertSame(['review.document.verdict_undone'], $audit->domainLogLines());
+        self::assertSame(['review.document_verdict_undone'], $audit->domainLogLines());
         self::assertSame([], $audit->securityLogLines());
     }
 

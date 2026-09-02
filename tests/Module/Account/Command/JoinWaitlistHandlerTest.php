@@ -121,7 +121,7 @@ final class JoinWaitlistHandlerTest extends KernelTestCase
         self::assertTrue($reopened->needsInvite());
         self::assertGreaterThan($originalCreatedAt, $reopened->createdAt);
 
-        $record = $audit->record('account.waitlist.rejoined');
+        $record = $audit->record('account.waitlist_rejoined');
         self::assertSame(AuditOutcome::Success, $record->outcome);
         self::assertSame(Auditor::CATEGORY_DOMAIN, $record->category);
         self::assertSame(['entryId' => (string) $reopened->id], $record->context);
@@ -129,8 +129,8 @@ final class JoinWaitlistHandlerTest extends KernelTestCase
         self::assertSame('waitlist_entry', $record->subject->type);
         self::assertSame((string) $reopened->id, $record->subject->id);
 
-        self::assertSame(['account.waitlist.rejoined'], $audit->domainLogLines());
-        DirectLogging::assertOperationNotLoggedBy($audit, $logger, 'account.waitlist.rejoined');
+        self::assertSame(['account.waitlist_rejoined'], $audit->domainLogLines());
+        DirectLogging::assertOperationNotLoggedBy($audit, $logger, 'account.waitlist_rejoined');
     }
 
     public function test_a_new_entry_is_recorded_against_the_waitlist_row(): void
@@ -152,7 +152,7 @@ final class JoinWaitlistHandlerTest extends KernelTestCase
         $entry = $repo->findOneByEmail('recorded-join@example.com');
         self::assertNotNull($entry);
 
-        $record = $audit->record('account.waitlist.joined');
+        $record = $audit->record('account.waitlist_joined');
         self::assertSame(AuditOutcome::Success, $record->outcome);
         self::assertSame(Auditor::CATEGORY_DOMAIN, $record->category);
         self::assertSame(['entryId' => (string) $entry->id], $record->context);
@@ -160,9 +160,9 @@ final class JoinWaitlistHandlerTest extends KernelTestCase
         self::assertSame('waitlist_entry', $record->subject->type);
         self::assertSame((string) $entry->id, $record->subject->id);
 
-        self::assertSame(['account.waitlist.joined'], $audit->domainLogLines());
+        self::assertSame(['account.waitlist_joined'], $audit->domainLogLines());
         self::assertSame([], $audit->securityLogLines());
-        DirectLogging::assertOperationNotLoggedBy($audit, $logger, 'account.waitlist.joined');
+        DirectLogging::assertOperationNotLoggedBy($audit, $logger, 'account.waitlist_joined');
     }
 
     /**
@@ -194,7 +194,7 @@ final class JoinWaitlistHandlerTest extends KernelTestCase
 
         self::assertSame([], $audit->operations());
         self::assertSame(
-            ['account.waitlist.duplicate_join', 'account.waitlist.join_skipped_existing_account'],
+            ['account.waitlist_duplicate_join', 'account.waitlist_join_skipped_existing_account'],
             array_map(static fn (array $record): string => $record['message'], $logger->records),
         );
     }
@@ -232,7 +232,7 @@ final class JoinWaitlistHandlerTest extends KernelTestCase
 
         $entry = $repo->findOneByEmail('fresh@example.com');
         self::assertNotNull($entry);
-        self::assertSame(['entryId' => (string) $entry->id], $audit->record('account.waitlist.joined')->context);
+        self::assertSame(['entryId' => (string) $entry->id], $audit->record('account.waitlist_joined')->context);
         self::assertSame(['entryId' => (string) $entry->id], $logger->records[0]['context']);
         // Named by the account rather than a digest of the address: a bare hash
         // correlates just as well while staying guessable from a wordlist.

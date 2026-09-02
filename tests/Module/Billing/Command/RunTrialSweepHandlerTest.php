@@ -368,7 +368,7 @@ final class RunTrialSweepHandlerTest extends KernelTestCase
 
         ($this->handler())(new RunTrialSweepCommand($this->now));
 
-        $record = $this->audit->record('billing.trial_sweep.disabled');
+        $record = $this->audit->record('billing.trial_sweep_disabled');
         self::assertSame(AuditOutcome::Success, $record->outcome);
         self::assertSame(Auditor::CATEGORY_DOMAIN, $record->category);
         self::assertNotNull($record->subject);
@@ -379,7 +379,7 @@ final class RunTrialSweepHandlerTest extends KernelTestCase
             'reason' => 'trial_expired',
         ], $record->context);
 
-        self::assertSame(['billing.trial_sweep.disabled'], $this->audit->domainLogLines());
+        self::assertSame(['billing.trial_sweep_disabled'], $this->audit->domainLogLines());
         self::assertSame([], $this->audit->securityLogLines());
     }
 
@@ -390,7 +390,7 @@ final class RunTrialSweepHandlerTest extends KernelTestCase
 
         ($this->handler())(new RunTrialSweepCommand($this->now));
 
-        $record = $this->audit->record('billing.trial_sweep.disabled');
+        $record = $this->audit->record('billing.trial_sweep_disabled');
         self::assertNotNull($record->subject);
         self::assertSame((string) $profile->user->id, $record->subject->id);
         self::assertSame([
@@ -408,7 +408,7 @@ final class RunTrialSweepHandlerTest extends KernelTestCase
 
         ($this->handler())(new RunTrialSweepCommand($this->now));
 
-        $records = $this->audit->records('billing.trial_sweep.disabled');
+        $records = $this->audit->records('billing.trial_sweep_disabled');
         self::assertCount(2, $records);
         self::assertSame([
             ['userId' => (string) $churned->user->id, 'reason' => 'trial_expired'],
@@ -439,8 +439,8 @@ final class RunTrialSweepHandlerTest extends KernelTestCase
         ($this->handler())(new RunTrialSweepCommand($this->now));
 
         $messages = array_map(static fn (array $entry): string => $entry['message'], $this->logger->records);
-        self::assertContains('billing.trial_sweep.survey_sent', $messages);
-        DirectLogging::assertOperationNotLoggedBy($this->audit, $this->logger, 'billing.trial_sweep.disabled');
+        self::assertContains('billing.trial_sweep_survey_sent', $messages);
+        DirectLogging::assertOperationNotLoggedBy($this->audit, $this->logger, 'billing.trial_sweep_disabled');
     }
 
     /**
@@ -458,7 +458,7 @@ final class RunTrialSweepHandlerTest extends KernelTestCase
 
         ($this->handler())(new RunTrialSweepCommand($this->now));
 
-        $record = $this->audit->record('billing.trial_sweep.disabled');
+        $record = $this->audit->record('billing.trial_sweep_disabled');
         self::assertNull($record->actor);
         self::assertNull($record->credential);
         self::assertSame(AuditChannel::Cron->value, $record->channel);

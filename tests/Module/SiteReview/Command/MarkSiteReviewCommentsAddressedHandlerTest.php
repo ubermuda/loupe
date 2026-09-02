@@ -57,7 +57,7 @@ final class MarkSiteReviewCommentsAddressedHandlerTest extends KernelTestCase
 
         ($this->handler)(new MarkSiteReviewCommentsAddressedCommand([$comment]));
 
-        $record = $this->audit->record('site_review.comment.addressed');
+        $record = $this->audit->record('site_review.comment_addressed');
         self::assertSame(AuditOutcome::Success, $record->outcome);
         self::assertSame(Auditor::CATEGORY_DOMAIN, $record->category);
         self::assertNotNull($record->subject);
@@ -69,7 +69,7 @@ final class MarkSiteReviewCommentsAddressedHandlerTest extends KernelTestCase
             'result' => 'Addressed',
         ], $record->context);
 
-        self::assertSame(['site_review.comment.addressed'], $this->audit->domainLogLines());
+        self::assertSame(['site_review.comment_addressed'], $this->audit->domainLogLines());
         self::assertSame([], $this->audit->securityLogLines());
     }
 
@@ -96,7 +96,7 @@ final class MarkSiteReviewCommentsAddressedHandlerTest extends KernelTestCase
             MarkSiteReviewCommentAddressedOutcome::AlreadyResolved,
         ], $outcomes);
 
-        $records = $this->audit->records('site_review.comment.addressed');
+        $records = $this->audit->records('site_review.comment_addressed');
         self::assertCount(3, $records);
         self::assertSame(
             [AuditOutcome::Success, AuditOutcome::Refused, AuditOutcome::Refused],
@@ -119,7 +119,7 @@ final class MarkSiteReviewCommentsAddressedHandlerTest extends KernelTestCase
 
         ($this->handler)(new MarkSiteReviewCommentsAddressedCommand([$comment]));
 
-        $context = $this->audit->record('site_review.comment.addressed')->context;
+        $context = $this->audit->record('site_review.comment_addressed')->context;
         self::assertArrayNotHasKey('body', $context);
         self::assertSame([], array_filter(
             $context,
@@ -143,7 +143,7 @@ final class MarkSiteReviewCommentsAddressedHandlerTest extends KernelTestCase
             MarkSiteReviewCommentAddressedOutcome::Addressed,
         ], $outcomes);
 
-        $records = $this->audit->records('site_review.comment.addressed');
+        $records = $this->audit->records('site_review.comment_addressed');
         self::assertCount(1, $records);
         self::assertSame(AuditOutcome::Success, $records[0]->outcome);
         self::assertSame('Addressed', $records[0]->context['result']);
@@ -173,7 +173,7 @@ final class MarkSiteReviewCommentsAddressedHandlerTest extends KernelTestCase
             MarkSiteReviewCommentAddressedOutcome::Addressed,
             MarkSiteReviewCommentAddressedOutcome::AlreadyAddressed,
         ], $outcomes);
-        self::assertCount(3, $this->audit->records('site_review.comment.addressed'));
+        self::assertCount(3, $this->audit->records('site_review.comment_addressed'));
     }
 
     public function test_an_empty_batch_records_nothing(): void

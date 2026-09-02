@@ -53,7 +53,7 @@ final readonly class SetDocumentTagsHandler
 
         // A count, not the names: a tag name is a phrase a person typed.
         $this->auditor->record(
-            'review.document.tags_updated',
+            'review.document_tags_updated',
             AuditOutcome::Success,
             [
                 'documentId' => (string) $document->id,

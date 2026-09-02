@@ -32,7 +32,7 @@ final class CompleteWizardHandlerTest extends TestCase
 
         self::assertNotNull($user->wizardCompletedAt);
 
-        $record = $this->audit->record('account.wizard.completed');
+        $record = $this->audit->record('account.wizard_completed');
         self::assertSame(AuditOutcome::Success, $record->outcome);
         self::assertSame(Auditor::CATEGORY_DOMAIN, $record->category);
         self::assertSame(['userId' => (string) $user->id], $record->context);
@@ -40,7 +40,7 @@ final class CompleteWizardHandlerTest extends TestCase
         self::assertSame('user', $record->subject->type);
         self::assertSame((string) $user->id, $record->subject->id);
 
-        self::assertSame(['account.wizard.completed'], $this->audit->domainLogLines());
+        self::assertSame(['account.wizard_completed'], $this->audit->domainLogLines());
         self::assertSame([], $this->audit->securityLogLines());
     }
 
