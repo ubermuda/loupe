@@ -12,11 +12,18 @@ use Symfony\Component\HttpKernel\Event\RequestEvent;
 use Symfony\Component\HttpKernel\Exception\TooManyRequestsHttpException;
 use Symfony\Component\HttpKernel\KernelEvents;
 use Symfony\Component\RateLimiter\RateLimiterFactoryInterface;
+use Symfony\Component\Security\Http\Event\LoginFailureEvent;
 
 /**
- * Bounds bearer traffic to the two token firewalls, ^/api and ^/mcp, so an
- * unauthenticated flood cannot fill the audit table. Every failed API-token
- * authentication writes a durable record that the retention window keeps.
+ * Bounds failed API-token authentications on the two token firewalls, ^/api and
+ * ^/mcp, so a flood of rejected tokens cannot fill the audit table. Each such
+ * failure writes a durable record that the retention window keeps.
+ *
+ * Peek and charge are split, and both halves live here so the bucket key cannot
+ * drift between them. An arriving request only reads the bucket. A token is
+ * spent when an authentication fails, which is exactly when a record is written.
+ * The site-review widget token rides on every page view of a customer's site, so
+ * charging a successful read would throttle a whole NAT of unrelated visitors.
  *
  * The priority is the whole point. Symfony's Firewall subscribes to
  * kernel.request at 8, and a failed authentication answers through
@@ -27,6 +34,9 @@ use Symfony\Component\RateLimiter\RateLimiterFactoryInterface;
 #[AsEventListener(event: KernelEvents::REQUEST, priority: 12)]
 final readonly class RateLimitApiAuthentication
 {
+    /** The stateless firewalls ApiTokenAuthenticator serves, named as in security.yaml. */
+    private const array TOKEN_FIREWALLS = ['api', 'mcp'];
+
     public function __construct(
         #[Autowire(service: 'limiter.api_authentication')]
         private RateLimiterFactoryInterface $limiter,
@@ -46,16 +56,36 @@ final readonly class RateLimitApiAuthentication
             return;
         }
 
-        if (!$this->limiter->create($this->key($request))->consume()->isAccepted()) {
+        // consume(0) reads the bucket without spending a token, but the RateLimit
+        // it returns is accepted unconditionally, so read the remaining count.
+        // Between this peek and the charge below, concurrent failures can push
+        // the count a little past the limit. That is the price of not charging
+        // the successful requests that are nearly all of the bearer traffic.
+        if ($this->limiter->create($this->key($request))->consume(0)->getRemainingTokens() < 1) {
             throw new TooManyRequestsHttpException(message: 'Too many API authentication attempts. Please slow down.');
         }
     }
 
     /**
+     * ApiTokenAuthenticator::onAuthenticationFailure() writes the record this
+     * limit exists to bound, and the authenticator manager calls it immediately
+     * before it dispatches this event.
+     */
+    #[AsEventListener]
+    public function chargeFailure(LoginFailureEvent $event): void
+    {
+        if (!in_array($event->getFirewallName(), self::TOKEN_FIREWALLS, true)) {
+            return;
+        }
+
+        $this->limiter->create($this->key($event->getRequest()))->consume();
+    }
+
+    /**
      * The client address alone, where the two limiters that run after the
-     * firewall key per token. No token is resolved yet here, and a rejected one
-     * is chosen by whoever sent it, so keying on it would hand an attacker a
-     * fresh allowance for every guess.
+     * firewall key per token. No token is resolved yet at the peek, and a
+     * rejected one is chosen by whoever sent it, so keying on it would hand an
+     * attacker a fresh allowance for every guess.
      *
      * The cost is that one address covers every client behind one NAT.
      */

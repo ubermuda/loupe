@@ -17,10 +17,11 @@ framework:
             limit: 120
             interval: '1 minute'
 
-        # Bounds bearer traffic to the token firewalls, ^/api and ^/mcp, before
-        # the firewall runs, because a failed authentication writes a durable
-        # audit record. Keyed per client address alone, unlike the two above:
-        # no token is resolved this early, and a rejected one is attacker-chosen.
+        # Bounds failed authentications on the token firewalls, ^/api and ^/mcp,
+        # because each one writes a durable audit record. A successful bearer
+        # request spends nothing. Keyed per client address alone, unlike the two
+        # above: the check runs before any token is resolved, and a rejected
+        # token is attacker-chosen.
         api_authentication:
             policy: 'sliding_window'
             limit: 300
