@@ -6,19 +6,19 @@ namespace App\Module\Project\Command;
 
 use App\Module\Account\Entity\ApiToken;
 use App\Module\Account\Entity\ApiTokenScope;
+use App\Module\Audit\Auditor;
+use App\Module\Audit\AuditOutcome;
+use App\Module\Audit\AuditSubject;
 use App\Module\Project\Repository\ProjectRepository;
 use Doctrine\DBAL\LockMode;
 use Doctrine\ORM\EntityManagerInterface;
-use Monolog\Attribute\WithMonologChannel;
-use Psr\Log\LoggerInterface;
 
-#[WithMonologChannel('app_security')]
 final readonly class RegenerateProjectMcpTokenHandler
 {
     public function __construct(
         private EntityManagerInterface $em,
         private ProjectRepository $projects,
-        private LoggerInterface $logger,
+        private Auditor $auditor,
     ) {
     }
 
@@ -35,29 +35,44 @@ final readonly class RegenerateProjectMcpTokenHandler
         // would each delete what they read, orphaning the loser's token. The
         // lock alone is not enough — a request that loaded the project before
         // waiting still holds the stale association, so read the committed id.
-        return $this->em->wrapInTransaction(function () use ($project): string {
-            $this->em->lock($project, LockMode::PESSIMISTIC_WRITE);
+        [$raw, $tokenId, $revokedTokenId] = $this->em->wrapInTransaction(
+            /** @return array{non-empty-string, string, ?string} */
+            function () use ($project): array {
+                $this->em->lock($project, LockMode::PESSIMISTIC_WRITE);
 
-            $previousId = $this->projects->committedMcpTokenId($project);
-            $previous = null !== $previousId ? $this->em->find(ApiToken::class, $previousId) : null;
-            if (null !== $previous) {
-                $project->mcpToken = null;
-                $this->em->remove($previous);
-            }
+                $previousId = $this->projects->committedMcpTokenId($project);
+                $previous = null !== $previousId ? $this->em->find(ApiToken::class, $previousId) : null;
+                if (null !== $previous) {
+                    $project->mcpToken = null;
+                    $this->em->remove($previous);
+                }
 
-            // ApiToken.label is a 100-char column while Project.name allows 100 — truncate to fit.
-            [$token, $raw] = ApiToken::issue($project->owner, 'MCP: '.mb_substr($project->name, 0, 95), ApiTokenScope::Mcp);
-            $project->mcpToken = $token;
-            $this->em->persist($token);
-            $this->em->flush();
+                // ApiToken.label is a 100-char column while Project.name allows 100 — truncate to fit.
+                [$token, $raw] = ApiToken::issue($project->owner, 'MCP: '.mb_substr($project->name, 0, 95), ApiTokenScope::Mcp);
+                $project->mcpToken = $token;
+                $this->em->persist($token);
+                $this->em->flush();
 
-            $this->logger->info('project.mcp_token_regenerated', [
+                // Not $previous->id: Doctrine nulls a deleted entity's identifier on flush.
+                return [$raw, (string) $token->id, null !== $previous ? $previousId : null];
+            },
+        );
+
+        // Recorded after the commit, never inside it. The audit sink drains
+        // outside the business transaction on purpose, so a record written in
+        // there would outlive a rollback and claim a rotation that never landed.
+        $this->auditor->record(
+            'project.mcp_token_regenerated',
+            AuditOutcome::Success,
+            [
                 'projectId' => (string) $project->id,
-                'tokenId' => (string) $token->id,
-                'previousTokenId' => null !== $previous ? (string) $previous->id : null,
-            ]);
+                'tokenId' => $tokenId,
+                'previousTokenId' => $revokedTokenId,
+            ],
+            new AuditSubject('api_token', $tokenId),
+            Auditor::CATEGORY_SECURITY,
+        );
 
-            return $raw;
-        });
+        return $raw;
     }
 }

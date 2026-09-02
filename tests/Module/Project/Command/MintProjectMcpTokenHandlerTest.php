@@ -7,12 +7,16 @@ namespace App\Tests\Module\Project\Command;
 use App\Exception\DomainErrors;
 use App\Module\Account\Entity\ApiTokenScope;
 use App\Module\Account\Entity\User;
+use App\Module\Audit\AuditActorProviderInterface;
+use App\Module\Audit\Auditor;
+use App\Module\Audit\AuditOutcome;
 use App\Module\Project\Command\MintProjectMcpTokenCommand;
 use App\Module\Project\Command\MintProjectMcpTokenHandler;
 use App\Module\Project\Entity\Project;
 use App\Module\Project\Repository\ProjectRepository;
+use App\Tests\Support\DirectLogging;
+use App\Tests\Support\RecordingAuditor;
 use Doctrine\ORM\EntityManagerInterface;
-use Psr\Log\NullLogger;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 
 final class MintProjectMcpTokenHandlerTest extends KernelTestCase
@@ -20,6 +24,7 @@ final class MintProjectMcpTokenHandlerTest extends KernelTestCase
     private EntityManagerInterface $em;
     private MintProjectMcpTokenHandler $handler;
     private ProjectRepository $projects;
+    private RecordingAuditor $audit;
 
     protected function setUp(): void
     {
@@ -30,7 +35,10 @@ final class MintProjectMcpTokenHandlerTest extends KernelTestCase
         $projects = self::getContainer()->get(ProjectRepository::class);
         self::assertInstanceOf(ProjectRepository::class, $projects);
         $this->projects = $projects;
-        $this->handler = new MintProjectMcpTokenHandler($this->em, $this->projects, new NullLogger());
+        $actors = self::getContainer()->get(AuditActorProviderInterface::class);
+        self::assertInstanceOf(AuditActorProviderInterface::class, $actors);
+        $this->audit = new RecordingAuditor($actors);
+        $this->handler = new MintProjectMcpTokenHandler($this->em, $this->projects, $this->audit->auditor);
     }
 
     public function test_mints_mcp_token_bound_to_project(): void
@@ -79,6 +87,100 @@ final class MintProjectMcpTokenHandlerTest extends KernelTestCase
         self::assertNotNull($project->mcpToken);
         self::assertSame('MCP: '.str_repeat('n', 95), $project->mcpToken->label);
         self::assertLessThanOrEqual(100, mb_strlen($project->mcpToken->label));
+    }
+
+    public function test_a_minted_token_is_recorded_on_the_security_channel(): void
+    {
+        $project = $this->project('mint-mcp-audit@example.com', 'audited');
+
+        ($this->handler)(new MintProjectMcpTokenCommand($project));
+
+        $token = $project->mcpToken;
+        self::assertNotNull($token);
+
+        $record = $this->audit->record('project.mcp_token_minted');
+        self::assertSame(AuditOutcome::Success, $record->outcome);
+        self::assertSame(Auditor::CATEGORY_SECURITY, $record->category);
+        self::assertNotNull($record->subject);
+        self::assertSame('api_token', $record->subject->type);
+        self::assertSame((string) $token->id, $record->subject->id);
+        self::assertSame([
+            'projectId' => (string) $project->id,
+            'tokenId' => (string) $token->id,
+        ], $record->context);
+
+        self::assertSame(['project.mcp_token_minted'], $this->audit->securityLogLines());
+        self::assertSame([], $this->audit->domainLogLines());
+    }
+
+    public function test_a_rejected_second_mint_is_recorded_as_a_refusal(): void
+    {
+        $project = $this->project('mint-mcp-audit-refused@example.com', 'refused');
+        ($this->handler)(new MintProjectMcpTokenCommand($project));
+
+        try {
+            ($this->handler)(new MintProjectMcpTokenCommand($project));
+            self::fail('Expected DomainErrors for a second MCP token mint.');
+        } catch (DomainErrors) {
+        }
+
+        $record = $this->audit->record('project.mcp_token_mint_rejected');
+        self::assertSame(AuditOutcome::Refused, $record->outcome);
+        self::assertSame(Auditor::CATEGORY_SECURITY, $record->category);
+        self::assertNotNull($record->subject);
+        self::assertSame('project', $record->subject->type);
+        self::assertSame((string) $project->id, $record->subject->id);
+        self::assertSame(['projectId' => (string) $project->id], $record->context);
+
+        self::assertSame(
+            ['project.mcp_token_minted', 'project.mcp_token_mint_rejected'],
+            $this->audit->securityLogLines(),
+        );
+        self::assertSame([], $this->audit->domainLogLines());
+    }
+
+    public function test_the_handler_keeps_no_logger_beside_the_auditor(): void
+    {
+        DirectLogging::assertRemovedFrom(MintProjectMcpTokenHandler::class);
+    }
+
+    /**
+     * The sink drains outside the business transaction, so a record made inside
+     * one outlives its rollback. A commit that fails after the mint must
+     * therefore leave no record claiming a token was minted.
+     */
+    public function test_a_commit_that_fails_after_the_mint_records_nothing(): void
+    {
+        $project = $this->project('mint-mcp-rollback@example.com', 'rolled-back');
+        $handler = new MintProjectMcpTokenHandler($this->failingCommitEntityManager(), $this->projects, $this->audit->auditor);
+
+        try {
+            $handler(new MintProjectMcpTokenCommand($project));
+            self::fail('a failed commit must propagate');
+        } catch (\RuntimeException $e) {
+            self::assertSame('commit failed', $e->getMessage());
+        }
+
+        self::assertSame([], $this->audit->operations());
+        self::assertSame([], $this->audit->securityLogLines());
+    }
+
+    /**
+     * Runs the closure, then throws as a failing flush or commit would: the
+     * state change has happened in memory and nothing was kept.
+     */
+    private function failingCommitEntityManager(): EntityManagerInterface
+    {
+        $em = $this->createStub(EntityManagerInterface::class);
+        $em->method('wrapInTransaction')->willReturnCallback(
+            static function (callable $callback) use ($em): never {
+                $callback($em);
+
+                throw new \RuntimeException('commit failed');
+            },
+        );
+
+        return $em;
     }
 
     /** @param non-empty-string $email */

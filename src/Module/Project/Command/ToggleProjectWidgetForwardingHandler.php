@@ -5,14 +5,16 @@ declare(strict_types=1);
 namespace App\Module\Project\Command;
 
 use App\Exception\DomainErrors;
+use App\Module\Audit\Auditor;
+use App\Module\Audit\AuditOutcome;
+use App\Module\Audit\AuditSubject;
 use Doctrine\ORM\EntityManagerInterface;
-use Psr\Log\LoggerInterface;
 
 final readonly class ToggleProjectWidgetForwardingHandler
 {
     public function __construct(
         private EntityManagerInterface $em,
-        private LoggerInterface $logger,
+        private Auditor $auditor,
     ) {
     }
 
@@ -29,11 +31,16 @@ final readonly class ToggleProjectWidgetForwardingHandler
         $token->forwardsToAgent = !$token->forwardsToAgent;
         $this->em->flush();
 
-        $this->logger->info('project.widget_forwarding_toggled', [
-            'projectId' => (string) $command->project->id,
-            'tokenId' => (string) $token->id,
-            'forwardsToAgent' => $token->forwardsToAgent,
-        ]);
+        $this->auditor->record(
+            'project.widget_forwarding_toggled',
+            AuditOutcome::Success,
+            [
+                'projectId' => (string) $command->project->id,
+                'tokenId' => (string) $token->id,
+                'forwardsToAgent' => $token->forwardsToAgent,
+            ],
+            new AuditSubject('api_token', (string) $token->id),
+        );
 
         return $token->forwardsToAgent;
     }
