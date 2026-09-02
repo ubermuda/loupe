@@ -2503,6 +2503,76 @@ the option itself.
 
 Related: 'Decision controls: multi-select, and whether a choice should carry a comment'.
 
+## Diagnostic and failure log lines still write no audit record
+
+**Author:** Claude · **Type:** feature · **Priority:** medium · **Status:** pending
+
+The audit migration moved the domain decisions to `Auditor::record()`. It left
+the diagnostic and failure lines on `LoggerInterface`. 54 call sites remain.
+List them with `grep -rn "logger->" src/`.
+
+Some of them describe an operation a person asked for that then broke.
+`AuditOutcome::Failed` exists for that case, so each of those lines can write a
+record beside its log line. `ResendVerificationEmailHandler` is the shape to
+copy. It records `account.email_verification.resent` with `Failed` when the mail
+transport rejects the message.
+
+Two rules hold for each migration. A `Failed` record names the operation that
+broke and never why, because an exception message is unbounded text with no
+erasure path. A background diagnostic with no actor stays in the log, because a
+record that names nobody answers nobody.
+
+## Audit operation names have two shapes, and nothing keeps them to one
+
+**Author:** Claude · **Type:** tooling · **Priority:** medium · **Status:** pending
+
+The trail holds 78 operation names in two shapes. `project.created` and
+`account.deleted` have two segments. `review.comment.added` and
+`site_review.comment.resolved` have three. A reader who filters the admin screen
+by prefix must first know which shape the module chose.
+
+The plan is one shape for every name, `<module>.<outcome>`. A gamache PHPStan
+rule then reads the first argument of every `Auditor::record()` call and fails a
+name that does not match. Open a PR on https://github.com/ubermuda/gamache for
+the rule, because gamache is an external package.
+
+Do this before the table carries much history. A rename does not rewrite the
+rows already written, and the admin filter is a prefix `LIKE` on `operation`, so
+the old name and the new name read as two separate operations from that day on.
+
+## A failure deserves the base operation name and a Failed outcome, not a name of its own
+
+**Author:** Claude · **Type:** tooling · **Priority:** medium · **Status:** pending
+
+The outcome column already says whether an operation succeeded, was refused or
+broke. A name that ends in `_failed` says it a second time, and it splits one
+operation into two names that no filter joins. Collapse each failure-suffixed
+name into its base operation with `AuditOutcome::Failed`.
+
+`account.api_token.authentication_failed` is the only one in the trail today.
+The rest are still log lines. List them with `grep -rnE "[a-z_.]*failed'" src/`.
+Leave `audit.sink_failed` alone. That is the auditor reporting its own sink, and
+it never becomes a record.
+
+Do this in the same pass as the two-segment rename above. Both change stored
+names, and one pass costs the history one split instead of two.
+
+## `TrialProvisioner::ensureProfile` grants a trial and records nothing
+
+**Author:** Claude · **Type:** bug · **Priority:** medium · **Status:** pending
+
+`src/Module/Billing/Service/TrialProvisioner.php` creates a `BillingProfile` and
+a trial grant for a user who has none. It writes no audit record. The trail
+therefore shows an account with a paid product and no event that gave it one.
+The comp path beside it is covered, because `GrantCompHandler` records
+`billing.comp.granted`.
+
+Two things to settle when you pick this up. `PaywallGate` calls the method on
+every paywalled request, so the record must be written where the profile is
+created and never on a read that finds one. The creation also runs inside
+`EntityManagerInterface::wrapInTransaction()`, so record after that transaction
+commits, the way `MarkCommentsAddressedHandler` does.
+
 ## A mark-addressed skip reason is best-effort, because the re-read is not under the write's lock
 
 **Author:** Claude · **Type:** bug · **Priority:** low · **Status:** pending
@@ -2629,3 +2699,59 @@ because the source page can change or disappear.
 Worth doing before the launch rather than during it: most of these sites want a
 tagline, a description, screenshots and a category chosen in advance, and some
 gate submissions behind a queue measured in weeks.
+
+## `project.deleted` outlives an account deletion that rolls back
+
+**Author:** Claude · **Type:** bug · **Priority:** low · **Status:** pending
+
+`ProjectDeleter` records `project.deleted`. `AccountPurger` reaches it through
+`ProjectAccountPurger`, inside `EntityManagerInterface::wrapInTransaction()`.
+`DoctrineAuditSink` buffers its rows and drains them after the unit of work
+ends, which is what makes a record survive a rolled-back transaction the way a
+log line does. That is right for the trail in general and wrong here. An account
+deletion that rolls back leaves records that say the projects went, while the
+projects are still there.
+
+The fix wants a post-commit seam. A handler inside a transaction hands the
+auditor a record, and the sink drops it if the transaction rolls back. No such
+seam exists. DBAL 4 removed its event system, and the ORM has no post-commit
+event. So the work starts with a choice of mechanism. One option is a buffer
+that the outermost `wrapInTransaction` closure releases on commit. Another is a
+transaction-aware wrapper around the DBAL `Connection`.
+
+Rare in practice. An account deletion rolls back only when a purger throws.
+
+## Creating a document writes two records, and the first one says the document was updated
+
+**Author:** Claude · **Type:** bug · **Priority:** low · **Status:** pending
+
+`CreateDocumentHandler` calls `SetDocumentTagsHandler`, which records
+`review.document.tags_updated`. The create then records
+`review.document.created`. One creation therefore writes two records, and the
+first says a document was updated before it existed. Both classes are in
+`src/Module/Review/Command/`.
+
+Nobody has decided which record is right. Three answers are open. Let the sub
+handler record, because a caller that sets tags did set tags. Silence the sub
+handler when its caller records the creation, which needs the caller to say so.
+Keep both, and accept that a reader who filters `review.document.tags_updated`
+sees every creation as well.
+
+Decide this before anything consumes the tag record.
+
+## `ResolveCommentHandler` records `Refused` for a click the user saw succeed
+
+**Author:** Claude · **Type:** bug · **Priority:** low · **Status:** pending
+
+`src/Module/Review/Command/ResolveCommentHandler.php` records
+`review.comment.resolved` with `AuditOutcome::Refused` when the thread is
+already resolved. Nothing refused the user. The handler is idempotent, the user
+got the state they asked for, and the UI reports success. A reader who counts
+refusals counts these too.
+
+The handler states its reason. `MarkCommentsAddressedHandler` reports the same
+fact as a refusal. The two agree with each other, and they may both be wrong.
+The open question is what `Refused` means. One reading is that a policy said no.
+The other is that no state moved. Both handlers use the second reading today.
+
+Settle the meaning once, and apply the answer to both handlers.

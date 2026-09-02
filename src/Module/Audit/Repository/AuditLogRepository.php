@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Module\Audit\Repository;
 
+use App\Module\Audit\AuditActorInterface;
 use App\Module\Audit\AuditOutcome;
 use App\Module\Audit\Entity\AuditLog;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
@@ -34,6 +35,24 @@ class AuditLogRepository extends ServiceEntityRepository
     public function __construct(ManagerRegistry $registry)
     {
         parent::__construct($registry, AuditLog::class);
+    }
+
+    /**
+     * Streams rather than returns a list: the caller is the account data
+     * export, which has no page to bound it, and the trail of a long-lived
+     * account is the largest set it touches.
+     *
+     * @return iterable<AuditLog>
+     */
+    public function streamByActor(AuditActorInterface $actor): iterable
+    {
+        return $this->createQueryBuilder('a')
+            ->andWhere('a.actor = :actor')
+            ->setParameter('actor', $actor)
+            ->orderBy('a.occurredAt', 'DESC')
+            ->addOrderBy('a.id', 'DESC')
+            ->getQuery()
+            ->toIterable();
     }
 
     /**
