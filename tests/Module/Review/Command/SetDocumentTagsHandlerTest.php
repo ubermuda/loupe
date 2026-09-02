@@ -6,12 +6,15 @@ namespace App\Tests\Module\Review\Command;
 
 use App\Exception\DomainErrors;
 use App\Module\Account\Entity\User;
+use App\Module\Audit\Auditor;
+use App\Module\Audit\AuditOutcome;
 use App\Module\Project\Entity\Project;
 use App\Module\Review\Command\SetDocumentTagsCommand;
 use App\Module\Review\Command\SetDocumentTagsHandler;
 use App\Module\Review\Entity\Document;
 use App\Module\Review\Entity\Tag;
 use App\Module\Review\Repository\TagRepository;
+use App\Tests\Support\RecordingAuditor;
 use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
@@ -22,6 +25,7 @@ final class SetDocumentTagsHandlerTest extends KernelTestCase
     private EntityManagerInterface $em;
     private SetDocumentTagsHandler $handler;
     private TagRepository $tags;
+    private RecordingAuditor $audit;
 
     protected function setUp(): void
     {
@@ -30,6 +34,8 @@ final class SetDocumentTagsHandlerTest extends KernelTestCase
         $em = self::getContainer()->get(EntityManagerInterface::class);
         self::assertInstanceOf(EntityManagerInterface::class, $em);
         $this->em = $em;
+
+        $this->audit = RecordingAuditor::installedIn(self::getContainer());
 
         $handler = self::getContainer()->get(SetDocumentTagsHandler::class);
         self::assertInstanceOf(SetDocumentTagsHandler::class, $handler);
@@ -199,5 +205,53 @@ final class SetDocumentTagsHandlerTest extends KernelTestCase
         }
 
         self::assertSame([], $this->tags->findBy(['project' => $project]));
+    }
+
+    public function test_a_tag_set_is_recorded_on_the_domain_channel(): void
+    {
+        [$project, $document] = $this->seed('tags-audit');
+
+        ($this->handler)(new SetDocumentTagsCommand($document, ['design', 'security']));
+
+        $record = $this->audit->record('review.document.tags_updated');
+        self::assertSame(AuditOutcome::Success, $record->outcome);
+        self::assertSame(Auditor::CATEGORY_DOMAIN, $record->category);
+        self::assertNotNull($record->subject);
+        self::assertSame('document', $record->subject->type);
+        self::assertSame((string) $document->id, $record->subject->id);
+        self::assertSame([
+            'documentId' => (string) $document->id,
+            'projectId' => (string) $project->id,
+            'tagCount' => 2,
+        ], $record->context);
+
+        self::assertSame(['review.document.tags_updated'], $this->audit->domainLogLines());
+        self::assertSame([], $this->audit->securityLogLines());
+    }
+
+    /** A tag name is a phrase a person typed, so the record counts them. */
+    public function test_the_record_carries_no_tag_names(): void
+    {
+        [, $document] = $this->seed('tags-audit-names');
+
+        ($this->handler)(new SetDocumentTagsCommand($document, ['dana-okafor']));
+
+        self::assertSame([], array_filter(
+            $this->audit->record('review.document.tags_updated')->context,
+            static fn (string|int|float|bool|null $value): bool => \is_string($value) && str_contains($value, 'dana'),
+        ));
+    }
+
+    public function test_a_rejected_tag_set_records_nothing(): void
+    {
+        [, $document] = $this->seed('tags-audit-refused');
+
+        try {
+            ($this->handler)(new SetDocumentTagsCommand($document, [str_repeat('a', Tag::MAX_NAME_LENGTH + 1)]));
+            self::fail('expected DomainErrors');
+        } catch (DomainErrors) {
+        }
+
+        self::assertSame([], $this->audit->operations());
     }
 }

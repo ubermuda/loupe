@@ -7,12 +7,14 @@ namespace App\Module\Review\Controller;
 use App\Controller\AppController;
 use App\Exception\DomainErrors;
 use App\Module\Account\Entity\User;
+use App\Module\Audit\Auditor;
+use App\Module\Audit\AuditOutcome;
+use App\Module\Audit\AuditSubject;
 use App\Module\Project\Entity\Project;
 use App\Module\Review\Command\UndoVerdictCommand;
 use App\Module\Review\Command\UndoVerdictHandler;
 use App\Module\Review\Entity\Document;
 use App\Module\Review\Security\DocumentVoter;
-use Psr\Log\LoggerInterface;
 use Symfony\Bridge\Doctrine\Attribute\MapEntity;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
@@ -37,7 +39,7 @@ final class UndoVerdictController extends AppController
     public function __construct(
         private readonly UndoVerdictHandler $undoVerdict,
         private readonly TranslatorInterface $translator,
-        private readonly LoggerInterface $logger,
+        private readonly Auditor $auditor,
     ) {
     }
 
@@ -67,10 +69,15 @@ final class UndoVerdictController extends AppController
 
         $this->addFlash('success', $this->translator->trans('review.document.flash.verdict_undone'));
 
-        $this->logger->info('review.document.verdict_undone', [
-            'documentId' => (string) $document->id,
-            'status' => $document->status->value,
-        ]);
+        $this->auditor->record(
+            'review.document.verdict_undone',
+            AuditOutcome::Success,
+            [
+                'documentId' => (string) $document->id,
+                'status' => $document->status->value,
+            ],
+            new AuditSubject('document', (string) $document->id),
+        );
 
         return $this->redirectToRoute('app_document_review', $routeParameters);
     }

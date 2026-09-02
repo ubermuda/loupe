@@ -5,6 +5,9 @@ declare(strict_types=1);
 namespace App\Module\Review\Command;
 
 use App\Exception\DomainErrors;
+use App\Module\Audit\Auditor;
+use App\Module\Audit\AuditOutcome;
+use App\Module\Audit\AuditSubject;
 use App\Module\Review\Entity\CommentStatus;
 use Doctrine\ORM\EntityManagerInterface;
 
@@ -12,6 +15,7 @@ final readonly class ResolveCommentHandler
 {
     public function __construct(
         private EntityManagerInterface $em,
+        private Auditor $auditor,
     ) {
     }
 
@@ -26,7 +30,23 @@ final readonly class ResolveCommentHandler
             throw new DomainErrors(['comment' => 'comment.error.resolve_reply']);
         }
 
+        // Read before the assignment below overwrites it.
+        $alreadyResolved = CommentStatus::Resolved === $command->comment->status;
+
         $command->comment->status = CommentStatus::Resolved;
         $this->em->flush();
+
+        $this->auditor->record(
+            'review.comment.resolved',
+            // Refused when the thread was already resolved: no status moved,
+            // and MarkCommentsAddressedHandler already reports that same fact
+            // as a refusal rather than a success.
+            $alreadyResolved ? AuditOutcome::Refused : AuditOutcome::Success,
+            [
+                'commentId' => (string) $command->comment->id,
+                'documentId' => (string) $command->comment->version->document->id,
+            ],
+            new AuditSubject('comment', (string) $command->comment->id),
+        );
     }
 }

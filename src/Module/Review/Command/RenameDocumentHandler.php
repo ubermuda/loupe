@@ -5,16 +5,18 @@ declare(strict_types=1);
 namespace App\Module\Review\Command;
 
 use App\Exception\DomainErrors;
+use App\Module\Audit\Auditor;
+use App\Module\Audit\AuditOutcome;
+use App\Module\Audit\AuditSubject;
 use App\Module\Review\Entity\Document;
 use App\Module\Review\Service\DocumentSearchIndexer;
 use Doctrine\ORM\EntityManagerInterface;
-use Psr\Log\LoggerInterface;
 
 final readonly class RenameDocumentHandler
 {
     public function __construct(
         private EntityManagerInterface $em,
-        private LoggerInterface $logger,
+        private Auditor $auditor,
         private DocumentSearchIndexer $searchIndexer,
     ) {
     }
@@ -32,7 +34,6 @@ final readonly class RenameDocumentHandler
             throw new DomainErrors(['title' => 'review.rename.error.too_long']);
         }
 
-        $previousTitle = $document->title;
         $document->title = $title;
         $this->em->flush();
 
@@ -40,12 +41,18 @@ final readonly class RenameDocumentHandler
         // skipped this would keep matching the old title and miss the new one.
         $this->searchIndexer->index($document);
 
-        $this->logger->info('review.document.renamed', [
-            'document' => (string) $document->id,
-            'project' => (string) $document->project->id,
-            'previousTitle' => $previousTitle,
-            'title' => $title,
-        ]);
+        // Neither title is recorded. Both are text a person wrote, and the
+        // audit context carries ids, counts, flags and enum values only. The
+        // document is the subject, so the record still says what was renamed.
+        $this->auditor->record(
+            'review.document.renamed',
+            AuditOutcome::Success,
+            [
+                'documentId' => (string) $document->id,
+                'projectId' => (string) $document->project->id,
+            ],
+            new AuditSubject('document', (string) $document->id),
+        );
 
         return $document;
     }

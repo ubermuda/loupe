@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace App\Module\Review\Command;
 
+use App\Module\Audit\Auditor;
+use App\Module\Audit\AuditOutcome;
+use App\Module\Audit\AuditSubject;
 use App\Module\Review\Entity\Document;
 use App\Module\Review\Service\DocumentReferenceValidator;
 use Doctrine\ORM\EntityManagerInterface;
@@ -24,6 +27,7 @@ final readonly class SetDocumentReferencesHandler
     public function __construct(
         private EntityManagerInterface $em,
         private DocumentReferenceValidator $referenceValidator,
+        private Auditor $auditor,
     ) {
     }
 
@@ -42,6 +46,17 @@ final readonly class SetDocumentReferencesHandler
         }
 
         $this->em->flush();
+
+        $this->auditor->record(
+            'review.document.references_updated',
+            AuditOutcome::Success,
+            [
+                'documentId' => (string) $document->id,
+                'projectId' => (string) $document->project->id,
+                'referenceCount' => \count($references),
+            ],
+            new AuditSubject('document', (string) $document->id),
+        );
 
         return $references;
     }

@@ -5,10 +5,15 @@ declare(strict_types=1);
 namespace App\Tests\Module\Review\Controller;
 
 use App\Module\Account\Entity\User;
+use App\Module\Audit\Auditor;
+use App\Module\Audit\AuditOutcome;
 use App\Module\Project\Entity\Project;
+use App\Module\Review\Controller\SubmitReviewController;
 use App\Module\Review\Entity\Document;
 use App\Module\Review\Entity\DocumentStatus;
 use App\Tests\Support\AcceptedTerms;
+use App\Tests\Support\DirectLogging;
+use App\Tests\Support\RecordingAuditor;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use Symfony\Component\HttpFoundation\Request;
@@ -159,5 +164,71 @@ final class SubmitReviewControllerTest extends WebTestCase
         $freshDoc = static::getContainer()->get(EntityManagerInterface::class)->find(Document::class, $docId);
         self::assertInstanceOf(Document::class, $freshDoc);
         self::assertSame(DocumentStatus::InReview, $freshDoc->status);
+    }
+
+    public function test_a_submitted_verdict_is_recorded_on_the_domain_channel(): void
+    {
+        $client = static::createClient();
+        // The container must survive the POST, or the recording Auditor the
+        // request used is thrown away before it can be read.
+        $client->disableReboot();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        self::assertInstanceOf(EntityManagerInterface::class, $em);
+
+        [$owner, , $projectId, $docId] = $this->seedOwnerAndDocument($em, 'audit');
+        $audit = RecordingAuditor::installedIn(static::getContainer());
+
+        $client->loginUser($owner);
+        $client->request(Request::METHOD_GET, "/projects/$projectId/documents/$docId/review");
+        $audit->forget();
+
+        $client->request(Request::METHOD_POST, "/projects/$projectId/documents/$docId/review/submit", [
+            '_csrf_token' => 'csrf-token',
+            'submit_review_form' => ['verdict' => 'approved'],
+        ]);
+
+        self::assertResponseRedirects("/projects/$projectId/documents/$docId/review");
+
+        $record = $audit->record('review.document.verdict_submitted');
+        self::assertSame(AuditOutcome::Success, $record->outcome);
+        self::assertSame(Auditor::CATEGORY_DOMAIN, $record->category);
+        self::assertNotNull($record->subject);
+        self::assertSame('document', $record->subject->type);
+        self::assertSame($docId, $record->subject->id);
+        self::assertSame([
+            'documentId' => $docId,
+            'verdict' => 'approved',
+            'reviewerId' => (string) $owner->id,
+        ], $record->context);
+
+        self::assertSame(['review.document.verdict_submitted'], $audit->domainLogLines());
+        self::assertSame([], $audit->securityLogLines());
+    }
+
+    public function test_a_rejected_verdict_records_nothing(): void
+    {
+        $client = static::createClient();
+        $client->disableReboot();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        self::assertInstanceOf(EntityManagerInterface::class, $em);
+
+        [$owner, , $projectId, $docId] = $this->seedOwnerAndDocument($em, 'audit-refused');
+        $audit = RecordingAuditor::installedIn(static::getContainer());
+
+        $client->loginUser($owner);
+        $client->request(Request::METHOD_GET, "/projects/$projectId/documents/$docId/review");
+        $audit->forget();
+
+        $client->request(Request::METHOD_POST, "/projects/$projectId/documents/$docId/review/submit", [
+            '_csrf_token' => 'csrf-token',
+            'submit_review_form' => ['verdict' => 'withdrawn'],
+        ]);
+
+        self::assertSame([], $audit->operations());
+    }
+
+    public function test_the_controller_keeps_no_logger_beside_the_auditor(): void
+    {
+        DirectLogging::assertRemovedFrom(SubmitReviewController::class);
     }
 }

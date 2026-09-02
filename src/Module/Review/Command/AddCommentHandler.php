@@ -5,6 +5,9 @@ declare(strict_types=1);
 namespace App\Module\Review\Command;
 
 use App\Exception\DomainErrors;
+use App\Module\Audit\Auditor;
+use App\Module\Audit\AuditOutcome;
+use App\Module\Audit\AuditSubject;
 use App\Module\Review\Entity\Comment;
 use App\Module\Review\Repository\DocumentVersionRepository;
 use App\Module\Review\Service\AnchorService;
@@ -17,6 +20,7 @@ final readonly class AddCommentHandler
         private EntityManagerInterface $em,
         private AnchorService $anchorService,
         private DocumentVersionRepository $documentVersions,
+        private Auditor $auditor,
     ) {
     }
 
@@ -66,6 +70,21 @@ final readonly class AddCommentHandler
 
         $this->em->persist($comment);
         $this->em->flush();
+
+        // No body, no quote and no replacement: all three are text a person
+        // wrote. `suggested` says whether the comment carries a replacement.
+        $this->auditor->record(
+            'review.comment.added',
+            AuditOutcome::Success,
+            [
+                'commentId' => (string) $comment->id,
+                'documentId' => (string) $command->document->id,
+                'versionId' => (string) $version->id,
+                'orphaned' => $orphaned,
+                'suggested' => null !== $command->replacement,
+            ],
+            new AuditSubject('comment', (string) $comment->id),
+        );
 
         return $comment;
     }

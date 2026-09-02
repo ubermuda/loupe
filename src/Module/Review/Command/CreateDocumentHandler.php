@@ -5,6 +5,9 @@ declare(strict_types=1);
 namespace App\Module\Review\Command;
 
 use App\Exception\DomainErrors;
+use App\Module\Audit\Auditor;
+use App\Module\Audit\AuditOutcome;
+use App\Module\Audit\AuditSubject;
 use App\Module\Review\Entity\Document;
 use App\Module\Review\Entity\Tag;
 use App\Module\Review\Service\DocumentReferenceValidator;
@@ -20,6 +23,7 @@ final readonly class CreateDocumentHandler
         private SetDocumentTagsHandler $setTags,
         private DocumentReferenceValidator $referenceValidator,
         private DocumentSearchIndexer $searchIndexer,
+        private Auditor $auditor,
     ) {
     }
 
@@ -47,7 +51,8 @@ final readonly class CreateDocumentHandler
 
         // Also before persist(), for the same reason: this rejects a reference
         // the project may not point at.
-        foreach ($this->referenceValidator->validated($command->project, null, $command->references) as $reference) {
+        $references = $this->referenceValidator->validated($command->project, null, $command->references);
+        foreach ($references as $reference) {
             $document->addReference($reference);
         }
 
@@ -55,6 +60,23 @@ final readonly class CreateDocumentHandler
         // and its references are written together or not at all.
         $this->em->persist($document);
         ($this->setTags)(new SetDocumentTagsCommand($document, $command->tagNames));
+
+        // Between the flush and the index. Before the flush the document has no
+        // committed id, and after the index a throwing indexer would leave the
+        // document written with no record that it was created.
+        $this->auditor->record(
+            'review.document.created',
+            AuditOutcome::Success,
+            [
+                'documentId' => (string) $document->id,
+                'projectId' => (string) $command->project->id,
+                'tagCount' => \count($document->tags),
+                // The validated list, not what was asked for: it drops a target
+                // named twice, which is one link rather than two.
+                'referenceCount' => \count($references),
+            ],
+            new AuditSubject('document', (string) $document->id),
+        );
 
         // After setTags, because that is the flush: the indexer reads the rows
         // back over SQL, so it sees nothing until they exist.

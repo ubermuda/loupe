@@ -6,6 +6,8 @@ namespace App\Tests\Module\Review\Command;
 
 use App\Exception\DomainErrors;
 use App\Module\Account\Entity\User;
+use App\Module\Audit\Auditor;
+use App\Module\Audit\AuditOutcome;
 use App\Module\Project\Entity\Project;
 use App\Module\Review\Command\AddCommentCommand;
 use App\Module\Review\Command\AddCommentHandler;
@@ -20,6 +22,7 @@ use App\Module\Review\Command\ResolveCommentHandler;
 use App\Module\Review\Entity\Comment;
 use App\Module\Review\Entity\CommentStatus;
 use App\Module\Review\Entity\Document;
+use App\Tests\Support\RecordingAuditor;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 
@@ -130,5 +133,81 @@ final class ReopenCommentHandlerTest extends KernelTestCase
         }
 
         self::assertSame(CommentStatus::Resolved, $root->status, 'The thread stays closed');
+    }
+
+    public function test_a_reopened_comment_is_recorded_on_the_domain_channel(): void
+    {
+        self::bootKernel();
+        $audit = RecordingAuditor::installedIn(self::getContainer());
+        [, $document, $comment] = $this->seedForAudit('reopen-audit@example.com');
+
+        $resolve = self::getContainer()->get(ResolveCommentHandler::class);
+        self::assertInstanceOf(ResolveCommentHandler::class, $resolve);
+        $resolve(new ResolveCommentCommand(comment: $comment));
+        $audit->forget();
+
+        $handler = self::getContainer()->get(ReopenCommentHandler::class);
+        self::assertInstanceOf(ReopenCommentHandler::class, $handler);
+        $handler(new ReopenCommentCommand(comment: $comment));
+
+        $record = $audit->record('review.comment.reopened');
+        self::assertSame(AuditOutcome::Success, $record->outcome);
+        self::assertSame(Auditor::CATEGORY_DOMAIN, $record->category);
+        self::assertNotNull($record->subject);
+        self::assertSame('comment', $record->subject->type);
+        self::assertSame((string) $comment->id, $record->subject->id);
+        self::assertSame([
+            'commentId' => (string) $comment->id,
+            'documentId' => (string) $document->id,
+        ], $record->context);
+
+        self::assertSame(['review.comment.reopened'], $audit->domainLogLines());
+        self::assertSame([], $audit->securityLogLines());
+    }
+
+    public function test_reopening_a_pending_comment_records_nothing(): void
+    {
+        self::bootKernel();
+        $audit = RecordingAuditor::installedIn(self::getContainer());
+        [, , $comment] = $this->seedForAudit('reopen-audit-pending@example.com');
+        $audit->forget();
+
+        $handler = self::getContainer()->get(ReopenCommentHandler::class);
+        self::assertInstanceOf(ReopenCommentHandler::class, $handler);
+
+        try {
+            $handler(new ReopenCommentCommand(comment: $comment));
+            self::fail('a pending comment must not be reopenable');
+        } catch (DomainErrors) {
+        }
+
+        self::assertSame([], $audit->operations());
+    }
+
+    /**
+     * @param non-empty-string $email
+     *
+     * @return array{User, Document, Comment}
+     */
+    private function seedForAudit(string $email): array
+    {
+        $em = self::getContainer()->get(EntityManagerInterface::class);
+        self::assertInstanceOf(EntityManagerInterface::class, $em);
+
+        $owner = new User(fullName: 'Owner', email: $email, password: 'hashed');
+        $em->persist($owner);
+        $project = new Project($owner, 'p-'.uniqid());
+        $em->persist($project);
+        $em->flush();
+
+        $create = self::getContainer()->get(CreateDocumentHandler::class);
+        self::assertInstanceOf(CreateDocumentHandler::class, $create);
+        $document = $create(new CreateDocumentCommand($project, 'Doc', "# Hello\n\nSome content to comment on here."));
+
+        $add = self::getContainer()->get(AddCommentHandler::class);
+        self::assertInstanceOf(AddCommentHandler::class, $add);
+        $comment = $add(new AddCommentCommand($owner, $document, 'content to comment', '', '', 'Root comment'));
+
+        return [$owner, $document, $comment];
     }
 }

@@ -12,6 +12,7 @@ use App\Module\Audit\MonologAuditSink;
 use PHPUnit\Framework\Assert;
 use Psr\Log\NullLogger;
 use Symfony\Component\Clock\MockClock;
+use Symfony\Component\DependencyInjection\ContainerInterface;
 
 /**
  * An Auditor that keeps both what it recorded and the log line the Monolog sink
@@ -45,17 +46,55 @@ final class RecordingAuditor
         );
     }
 
+    /**
+     * Puts a recording Auditor in the container, for a call site whose own
+     * dependencies are too many to rebuild by hand. Call it before the service
+     * under test is fetched: the container hands out the replacement only to
+     * what it builds afterwards.
+     */
+    public static function installedIn(ContainerInterface $container): self
+    {
+        $actors = $container->get(AuditActorProviderInterface::class);
+        Assert::assertInstanceOf(AuditActorProviderInterface::class, $actors);
+
+        $audit = new self($actors);
+        $container->set(Auditor::class, $audit->auditor);
+
+        return $audit;
+    }
+
+    /**
+     * Drops everything recorded so far, for a test whose fixture setup runs a
+     * handler that records as well as the one under test.
+     */
+    public function forget(): void
+    {
+        $this->sink->events = [];
+        $this->domainChannel->records = [];
+        $this->securityChannel->records = [];
+    }
+
     /** The single record for an operation; fails when there is none or several. */
     public function record(string $operation): AuditEvent
     {
-        $matching = array_values(array_filter(
-            $this->sink->events,
-            static fn (AuditEvent $event): bool => $event->operation === $operation,
-        ));
+        $matching = $this->records($operation);
 
         Assert::assertCount(1, $matching, sprintf('expected exactly one "%s" audit record', $operation));
 
         return $matching[0];
+    }
+
+    /**
+     * Every record for an operation, in the order they were written.
+     *
+     * @return list<AuditEvent>
+     */
+    public function records(string $operation): array
+    {
+        return array_values(array_filter(
+            $this->sink->events,
+            static fn (AuditEvent $event): bool => $event->operation === $operation,
+        ));
     }
 
     /** @return list<string> */

@@ -5,17 +5,23 @@ declare(strict_types=1);
 namespace App\Tests\Module\Review\Security;
 
 use App\Module\Account\Entity\User;
+use App\Module\Audit\Auditor;
+use App\Module\Audit\AuditOutcome;
 use App\Module\Project\Entity\Project;
+use App\Module\Project\Security\AuthenticatedProjectResolver;
 use App\Module\Review\Entity\Comment;
 use App\Module\Review\Entity\Document;
 use App\Module\Review\Security\McpBoundProjectVoter;
 use App\Module\Review\ValueObject\Anchor;
+use App\Tests\Support\DirectLogging;
 use App\Tests\Support\McpTokenScenario;
+use App\Tests\Support\RecordingAuditor;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Symfony\Component\Security\Core\Authentication\Token\Storage\TokenStorageInterface;
 use Symfony\Component\Security\Core\Authentication\Token\UsernamePasswordToken;
 use Symfony\Component\Security\Core\Authorization\AuthorizationCheckerInterface;
+use Symfony\Component\Security\Core\Authorization\Voter\VoterInterface;
 
 final class McpBoundProjectVoterTest extends KernelTestCase
 {
@@ -149,5 +155,103 @@ final class McpBoundProjectVoterTest extends KernelTestCase
         $this->actAsMcpTokenBoundTo($projectB);
 
         self::assertFalse($this->authorization->isGranted(McpBoundProjectVoter::COMMENT_READ, $comment));
+    }
+
+    public function test_a_denied_document_is_recorded_on_the_security_channel(): void
+    {
+        $owner = $this->user('voter-audit-doc@example.com');
+        $document = $this->documentInNewProject($owner);
+        $projectB = new Project($owner, 'p-'.uniqid());
+        $this->em->persist($projectB);
+        $this->em->flush();
+        $this->actAsMcpTokenBoundTo($projectB);
+
+        $audit = $this->auditedVote(McpBoundProjectVoter::DOCUMENT_READ, $document);
+
+        $record = $audit->record('review.mcp.access_denied');
+        self::assertSame(AuditOutcome::Refused, $record->outcome);
+        self::assertSame(Auditor::CATEGORY_SECURITY, $record->category);
+        self::assertNotNull($record->subject);
+        self::assertSame('document', $record->subject->type);
+        self::assertSame((string) $document->id, $record->subject->id);
+        self::assertSame([
+            'attribute' => McpBoundProjectVoter::DOCUMENT_READ,
+            'subjectId' => (string) $document->id,
+            'subjectProjectId' => (string) $document->project->id,
+            'boundProjectId' => (string) $projectB->id,
+        ], $record->context);
+
+        self::assertSame(['review.mcp.access_denied'], $audit->securityLogLines());
+        self::assertSame([], $audit->domainLogLines());
+    }
+
+    public function test_a_denied_comment_is_recorded_against_the_comment_it_voted_on(): void
+    {
+        $owner = $this->user('voter-audit-cmt@example.com');
+        $comment = $this->commentOn($this->documentInNewProject($owner));
+        $projectB = new Project($owner, 'p-'.uniqid());
+        $this->em->persist($projectB);
+        $this->em->flush();
+        $this->actAsMcpTokenBoundTo($projectB);
+
+        $audit = $this->auditedVote(McpBoundProjectVoter::COMMENT_WRITE, $comment);
+
+        $record = $audit->record('review.mcp.access_denied');
+        self::assertNotNull($record->subject);
+        self::assertSame('comment', $record->subject->type);
+        self::assertSame((string) $comment->id, $record->subject->id);
+        self::assertSame([
+            'attribute' => McpBoundProjectVoter::COMMENT_WRITE,
+            'subjectId' => (string) $comment->id,
+            'subjectProjectId' => (string) $comment->version->document->project->id,
+            'boundProjectId' => (string) $projectB->id,
+        ], $record->context);
+    }
+
+    public function test_an_unbound_token_records_a_null_bound_project(): void
+    {
+        $owner = $this->user('voter-audit-unbound@example.com');
+        $document = $this->documentInNewProject($owner);
+        $this->actAsUnboundMcpToken($owner);
+
+        $audit = $this->auditedVote(McpBoundProjectVoter::DOCUMENT_READ, $document);
+
+        self::assertNull($audit->record('review.mcp.access_denied')->context['boundProjectId']);
+    }
+
+    public function test_a_granted_vote_records_nothing(): void
+    {
+        $document = $this->documentInNewProject($this->user('voter-audit-grant@example.com'));
+        $this->actAsMcpTokenBoundTo($document->project);
+
+        $audit = $this->auditedVote(McpBoundProjectVoter::DOCUMENT_READ, $document, VoterInterface::ACCESS_GRANTED);
+
+        self::assertSame([], $audit->operations());
+    }
+
+    public function test_the_voter_keeps_no_logger_beside_the_auditor(): void
+    {
+        DirectLogging::assertRemovedFrom(McpBoundProjectVoter::class);
+    }
+
+    /**
+     * Votes through a voter built on a recording Auditor. The container's own
+     * voter is behind the authorization checker, which offers no seam for one.
+     */
+    private function auditedVote(string $attribute, Comment|Document $subject, int $expected = VoterInterface::ACCESS_DENIED): RecordingAuditor
+    {
+        $resolver = self::getContainer()->get(AuthenticatedProjectResolver::class);
+        self::assertInstanceOf(AuthenticatedProjectResolver::class, $resolver);
+        $tokenStorage = self::getContainer()->get('security.token_storage');
+        self::assertInstanceOf(TokenStorageInterface::class, $tokenStorage);
+        $securityToken = $tokenStorage->getToken();
+        self::assertNotNull($securityToken);
+
+        $audit = RecordingAuditor::installedIn(self::getContainer());
+        $voter = new McpBoundProjectVoter($resolver, $audit->auditor);
+
+        self::assertSame($expected, $voter->vote($securityToken, $subject, [$attribute]));
+
+        return $audit;
     }
 }

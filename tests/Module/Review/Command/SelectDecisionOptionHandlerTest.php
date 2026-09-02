@@ -6,6 +6,8 @@ namespace App\Tests\Module\Review\Command;
 
 use App\Exception\DomainErrors;
 use App\Module\Account\Entity\User;
+use App\Module\Audit\Auditor;
+use App\Module\Audit\AuditOutcome;
 use App\Module\Project\Entity\Project;
 use App\Module\Review\Command\CreateDocumentCommand;
 use App\Module\Review\Command\CreateDocumentHandler;
@@ -15,6 +17,8 @@ use App\Module\Review\Command\SelectDecisionOptionCommand;
 use App\Module\Review\Command\SelectDecisionOptionHandler;
 use App\Module\Review\Entity\Document;
 use App\Module\Review\Repository\DecisionSelectionRepository;
+use App\Tests\Support\DirectLogging;
+use App\Tests\Support\RecordingAuditor;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 
@@ -35,6 +39,7 @@ final class SelectDecisionOptionHandlerTest extends KernelTestCase
     private SelectDecisionOptionHandler $selectDecisionOption;
     private DecisionSelectionRepository $selections;
     private Project $project;
+    private RecordingAuditor $audit;
 
     protected function setUp(): void
     {
@@ -43,6 +48,8 @@ final class SelectDecisionOptionHandlerTest extends KernelTestCase
         $em = self::getContainer()->get(EntityManagerInterface::class);
         self::assertInstanceOf(EntityManagerInterface::class, $em);
         $this->em = $em;
+
+        $this->audit = RecordingAuditor::installedIn(self::getContainer());
 
         $handler = self::getContainer()->get(SelectDecisionOptionHandler::class);
         self::assertInstanceOf(SelectDecisionOptionHandler::class, $handler);
@@ -171,6 +178,62 @@ final class SelectDecisionOptionHandlerTest extends KernelTestCase
 
         $this->expectException(DomainErrors::class);
         ($this->selectDecisionOption)(new SelectDecisionOptionCommand($document, 'deploy-target', 7, displayedVersionNumber: 1));
+    }
+
+    public function test_a_selection_is_recorded_on_the_domain_channel(): void
+    {
+        $document = $this->createDocument(self::MARKDOWN);
+        // The document's own creation records too, and it is not what this asserts.
+        $this->audit->forget();
+
+        ($this->selectDecisionOption)(new SelectDecisionOptionCommand($document, 'deploy-target', 1, displayedVersionNumber: 1));
+
+        $record = $this->audit->record('review.decision.selected');
+        self::assertSame(AuditOutcome::Success, $record->outcome);
+        self::assertSame(Auditor::CATEGORY_DOMAIN, $record->category);
+        self::assertNotNull($record->subject);
+        self::assertSame('document', $record->subject->type);
+        self::assertSame((string) $document->id, $record->subject->id);
+        self::assertSame([
+            'documentId' => (string) $document->id,
+            'decisionId' => 'deploy-target',
+            'optionIndex' => 1,
+            'versionNumber' => 1,
+        ], $record->context);
+
+        self::assertSame(['review.decision.selected'], $this->audit->domainLogLines());
+        self::assertSame([], $this->audit->securityLogLines());
+    }
+
+    /** The label is a phrase the document's author wrote. */
+    public function test_the_record_carries_the_option_index_and_not_its_label(): void
+    {
+        $document = $this->createDocument(self::MARKDOWN);
+        $this->audit->forget();
+
+        $selection = ($this->selectDecisionOption)(new SelectDecisionOptionCommand($document, 'deploy-target', 1, displayedVersionNumber: 1));
+
+        self::assertSame('Ship straight to production', $selection->optionLabel);
+        self::assertArrayNotHasKey('optionLabel', $this->audit->record('review.decision.selected')->context);
+    }
+
+    public function test_a_stale_version_records_nothing(): void
+    {
+        $document = $this->createDocument(self::MARKDOWN);
+        $this->audit->forget();
+
+        try {
+            ($this->selectDecisionOption)(new SelectDecisionOptionCommand($document, 'deploy-target', 1, displayedVersionNumber: 99));
+            self::fail('a stale version must be rejected');
+        } catch (DomainErrors) {
+        }
+
+        self::assertSame([], $this->audit->operations());
+    }
+
+    public function test_the_handler_keeps_no_logger_beside_the_auditor(): void
+    {
+        DirectLogging::assertRemovedFrom(SelectDecisionOptionHandler::class);
     }
 
     private function createDocument(string $markdown): Document

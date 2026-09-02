@@ -5,6 +5,9 @@ declare(strict_types=1);
 namespace App\Module\Review\Command;
 
 use App\Exception\DomainErrors;
+use App\Module\Audit\Auditor;
+use App\Module\Audit\AuditOutcome;
+use App\Module\Audit\AuditSubject;
 use App\Module\Review\Entity\CommentStatus;
 use Doctrine\ORM\EntityManagerInterface;
 
@@ -12,6 +15,7 @@ final readonly class ReopenCommentHandler
 {
     public function __construct(
         private EntityManagerInterface $em,
+        private Auditor $auditor,
     ) {
     }
 
@@ -32,5 +36,15 @@ final readonly class ReopenCommentHandler
 
         $comment->status = CommentStatus::Pending;
         $this->em->flush();
+
+        $this->auditor->record(
+            'review.comment.reopened',
+            AuditOutcome::Success,
+            [
+                'commentId' => (string) $comment->id,
+                'documentId' => (string) $comment->version->document->id,
+            ],
+            new AuditSubject('comment', (string) $comment->id),
+        );
     }
 }

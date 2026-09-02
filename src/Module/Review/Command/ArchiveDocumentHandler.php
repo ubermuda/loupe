@@ -5,18 +5,20 @@ declare(strict_types=1);
 namespace App\Module\Review\Command;
 
 use App\Exception\DomainErrors;
+use App\Module\Audit\Auditor;
+use App\Module\Audit\AuditOutcome;
+use App\Module\Audit\AuditSubject;
 use App\Module\Review\Entity\Document;
 use App\Module\Review\Repository\DocumentRepository;
 use Doctrine\DBAL\LockMode;
 use Doctrine\ORM\EntityManagerInterface;
-use Psr\Log\LoggerInterface;
 
 final readonly class ArchiveDocumentHandler
 {
     public function __construct(
         private DocumentRepository $documents,
         private EntityManagerInterface $em,
-        private LoggerInterface $logger,
+        private Auditor $auditor,
     ) {
     }
 
@@ -33,7 +35,9 @@ final readonly class ArchiveDocumentHandler
             throw new DomainErrors(['reason' => 'review.archive.error.reason_blank']);
         }
 
-        return $this->em->wrapInTransaction(function () use ($document, $reason): Document {
+        $archived = false;
+
+        $this->em->wrapInTransaction(function () use ($document, $reason, &$archived): void {
             // Serializes the check and the write on the row: two callers
             // archiving at once would both find it live, and the later flush
             // would replace the first caller's reason with its own. A reason is
@@ -61,19 +65,31 @@ final readonly class ArchiveDocumentHandler
                     $document->archiveReason = $stored['archiveReason'];
                 }
 
-                return $document;
+                return;
             }
 
             $document->archivedAt = new \DateTimeImmutable();
             $document->archiveReason = $reason;
             $this->em->flush();
 
-            $this->logger->info('review.document.archived', [
-                'document' => (string) $document->id,
-                'project' => (string) $document->project->id,
-            ]);
-
-            return $document;
+            $archived = true;
         });
+
+        // After the commit, never inside it: the sink drains at kernel.terminate,
+        // so a record written in the closure outlives a rollback. The reason
+        // stays out, because it is a sentence a reviewer wrote.
+        if ($archived) {
+            $this->auditor->record(
+                'review.document.archived',
+                AuditOutcome::Success,
+                [
+                    'documentId' => (string) $document->id,
+                    'projectId' => (string) $document->project->id,
+                ],
+                new AuditSubject('document', (string) $document->id),
+            );
+        }
+
+        return $document;
     }
 }
