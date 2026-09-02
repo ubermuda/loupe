@@ -43,7 +43,8 @@ description: "What to verify after a deploy, and what each check can and cannot 
    Either one reports, for this instance, whether the mail
    transport accepts a connection, whether the sender address is still the
    undeliverable default, whether the message queue is being drained, how many
-   messages have failed, whether the Mercure hub answers, and — when billing is
+   messages have failed, whether the Mercure hub answers, whether client
+   addresses survive your proxy (step 5), and — when billing is
    on — whether the Stripe keys are set. The install wizard shows the same page
    before it creates your administrator, so a broken mailer is visible *before*
    it can lock you out.
@@ -52,7 +53,42 @@ description: "What to verify after a deploy, and what each check can and cannot 
    leaves no lasting trace, so an empty queue is reported as **unknown**, not as
    healthy. What it can prove is the failure — messages sitting available and
    unclaimed for over a minute mean nothing is consuming them.
-5. Trigger something that queues async work (a data export) and confirm it
+5. **If a proxy sits in front of the app, open `/admin/status` in a browser and
+   read the *Trusted proxies* row.** Reach the page through the public URL your
+   API clients use. The check compares the client address the app resolves
+   against the caller named in `X-Forwarded-For`. A warning means the app
+   ignored that header, so every caller now resolves to the proxy.
+
+   `TRUSTED_PROXIES` lists the proxies whose `X-Forwarded-*` headers the app
+   accepts. Left empty, it falls back to `PRIVATE_SUBNETS`. That default already
+   covers Docker and any balancer on a private network, so most single-host
+   deployments need nothing.
+
+   Set it explicitly when a proxy reaches the app from a **public** address.
+   That is a managed load balancer, a CDN such as Cloudflare or Fastly, or an
+   API gateway outside your private network. On App Platform, set
+   `trusted_proxies` in `terraform.tfvars`. The module appends your range to the
+   private ranges rather than replacing them, because the nearest hop is always
+   the platform's own private ingress.
+
+   Two hops are the case that is easy to miss. A trusted private ingress in
+   front of an untrusted public CDN still resolves every caller to the CDN's
+   egress address. The check reads the whole chain, so it reports that case too.
+
+   **What breaks.** The app throttles `/api` and `/mcp` per client address, at
+   300 requests a minute, before the firewall runs. One address for every caller
+   turns that into a single bucket for the whole instance. Unrelated clients
+   then collect each other's 429s, and one busy integration is enough to lock
+   the rest out. Absolute URLs rendered in web pages also take their scheme and
+   host from these headers, so they come out wrong as well. Email is safe:
+   security-sensitive links take their host from `DEFAULT_URI` instead.
+
+   **Two limits of the check.** It needs an HTTP request, so
+   `bin/console health-check:status` omits the row altogether. It also reads
+   *your* request, so it proves the path your own browser took. A gateway that
+   only API clients pass through stays invisible to it, and you must confirm
+   that path from its own configuration.
+6. Trigger something that queues async work (a data export) and confirm it
    completes — that proves the worker is actually consuming, which step 4
    cannot. **Then follow the download link in the email and check you get a
    ZIP**: completion only proves the worker ran, while the download is what
