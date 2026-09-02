@@ -33,11 +33,16 @@ final readonly class AuditLogAccountPurger implements AccountDataPurgerInterface
     }
 
     /**
-     * A record made with the account's API token names no actor of its own, so
-     * only the credential identifies it. audit_log.credential_id is ON DELETE
-     * SET NULL, and ProjectAccountPurger deletes each project's bound tokens at
-     * the first slot, so the link is gone before any purger runs. This is the
-     * last moment it still resolves.
+     * Defensive, and deliberately kept. ApiTokenAuthenticator builds its
+     * passport from the token's owner, so every token-authenticated record
+     * carries that owner as its actor and purge() already removes it. Nothing
+     * writes a credential-only row today.
+     *
+     * It runs here rather than at slot 35 because the link would be gone by
+     * then: audit_log.credential_id is ON DELETE SET NULL, and
+     * ProjectAccountPurger deletes each project's bound tokens at the first
+     * slot. This is the last moment a credential still resolves, so a provider
+     * that did leave the actor null would still be covered.
      */
     #[\Override]
     public function prepare(User $user, AccountDeletionCleanup $cleanup): void
