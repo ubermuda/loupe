@@ -38,4 +38,33 @@ final class DirectLogging
             Assert::assertFalse($isLogger, sprintf('%s must not inject a logger beside the Auditor', $class));
         }
     }
+
+    /**
+     * For a class whose other call sites are diagnostics, so it keeps its
+     * logger and the reflection check above cannot apply. The Auditor must
+     * hold the operation, and the log stream must get it through the sink
+     * alone. Without the first check, a call site that records nothing passes.
+     */
+    public static function assertOperationNotLoggedBy(
+        RecordingAuditor $audit,
+        RecordingLogger $logger,
+        string $operation,
+    ): void {
+        Assert::assertContains(
+            $operation,
+            $audit->operations(),
+            sprintf('"%s" must be recorded through the Auditor for this check to mean anything', $operation),
+        );
+
+        $messages = array_map(
+            static fn (array $entry): string => $entry['message'],
+            $logger->records,
+        );
+
+        Assert::assertNotContains(
+            $operation,
+            $messages,
+            sprintf('"%s" is recorded through the Auditor: a direct log call beside it emits the operation twice', $operation),
+        );
+    }
 }

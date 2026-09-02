@@ -4,9 +4,13 @@ declare(strict_types=1);
 
 namespace App\Tests\Module\Billing\Command;
 
+use App\Audit\AuditChannel;
 use App\Module\Account\Entity\User;
 use App\Module\Account\Entity\WaitlistEntry;
 use App\Module\Account\Repository\WaitlistEntryRepository;
+use App\Module\Audit\Auditor;
+use App\Module\Audit\AuditOutcome;
+use App\Module\Audit\NullAuditActorProvider;
 use App\Module\Billing\Command\SyncStripeSubscriptionCommand;
 use App\Module\Billing\Command\SyncStripeSubscriptionHandler;
 use App\Module\Billing\Entity\BillingProfile;
@@ -18,6 +22,8 @@ use App\Module\Billing\Repository\SubscriptionRepository;
 use App\Module\Billing\Service\StripeGatewayInterface;
 use App\Module\Billing\Service\SubscriptionView;
 use App\Tests\Support\BillingGrants;
+use App\Tests\Support\DirectLogging;
+use App\Tests\Support\RecordingAuditor;
 use App\Tests\Support\RecordingLogger;
 use App\Tests\Support\TransactionalEntityManagerStub;
 use Doctrine\Common\Collections\Collection;
@@ -28,12 +34,22 @@ use PHPUnit\Framework\MockObject\Stub;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\LoggerInterface;
 use Psr\Log\NullLogger;
+use Symfony\Component\Uid\Uuid;
 
 final class SyncStripeSubscriptionHandlerTest extends TestCase
 {
+    private RecordingAuditor $audit;
+
+    #[\Override]
+    protected function setUp(): void
+    {
+        $this->audit = new RecordingAuditor(new NullAuditActorProvider());
+    }
+
     private function profile(): BillingProfile
     {
         $user = new User(fullName: 'Synced User', email: 'synced@example.com', password: 'irrelevant');
+        new \ReflectionProperty(User::class, 'id')->setValue($user, Uuid::v4());
         $profile = BillingGrants::profileWithTrial($user, new \DateTimeImmutable('-1 day'));
         $profile->stripeCustomerId = 'cus_123';
 
@@ -69,6 +85,7 @@ final class SyncStripeSubscriptionHandlerTest extends TestCase
         ?WaitlistEntry $waitlistEntry = null,
         ?LoggerInterface $logger = null,
         ?SubscriptionView $stripeState = null,
+        ?EntityManagerInterface $em = null,
     ): SyncStripeSubscriptionHandler {
         $profiles = $this->createStub(BillingProfileRepository::class);
         $profiles->method('findOneByStripeCustomerId')->willReturn($profile);
@@ -88,8 +105,9 @@ final class SyncStripeSubscriptionHandlerTest extends TestCase
             $this->subscriptionRepository($profile),
             $stripe,
             $waitlistEntries,
-            TransactionalEntityManagerStub::configure($this->createStub(EntityManagerInterface::class)),
+            $em ?? TransactionalEntityManagerStub::configure($this->createStub(EntityManagerInterface::class)),
             $logger ?? new NullLogger(),
+            $this->audit->auditor,
         );
     }
 
@@ -340,6 +358,7 @@ final class SyncStripeSubscriptionHandlerTest extends TestCase
             $this->createStub(WaitlistEntryRepository::class),
             TransactionalEntityManagerStub::configure($this->createStub(EntityManagerInterface::class)),
             new NullLogger(),
+            $this->audit->auditor,
         );
 
         $handler($this->command('active', '2026-07-25 12:00:05', 'evt_only'));
@@ -364,15 +383,21 @@ final class SyncStripeSubscriptionHandlerTest extends TestCase
         $profile->user->disabledAt = new \DateTimeImmutable('-2 days');
         $grant = BillingGrants::stripe($profile, BillingStatus::Canceled, new \DateTimeImmutable('-1 day'), 'sub_123');
         $grant->surveySentAt = new \DateTimeImmutable('-1 day');
-        $logger = new RecordingLogger();
 
-        ($this->handler($profile, logger: $logger))($this->command('active'));
+        ($this->handler($profile))($this->command('active'));
 
         self::assertNull($profile->user->disabledAt);
         self::assertNull($grant->surveySentAt);
-        $reenabled = array_values(array_filter($logger->records, static fn (array $record): bool => 'billing.account.reenabled' === $record['message']));
-        self::assertCount(1, $reenabled);
-        self::assertSame((string) $profile->user->id, $reenabled[0]['context']['userId']);
+
+        $record = $this->audit->record('billing.account.reenabled');
+        self::assertSame(AuditOutcome::Success, $record->outcome);
+        self::assertSame(Auditor::CATEGORY_DOMAIN, $record->category);
+        self::assertNotNull($record->subject);
+        self::assertSame('user', $record->subject->type);
+        self::assertSame((string) $profile->user->id, $record->subject->id);
+        self::assertSame(['userId' => (string) $profile->user->id], $record->context);
+        self::assertSame(['billing.account.reenabled'], $this->audit->domainLogLines());
+        self::assertSame([], $this->audit->securityLogLines());
     }
 
     public function test_activation_of_a_disabled_account_converts_a_matching_waitlist_entry(): void
@@ -410,16 +435,20 @@ final class SyncStripeSubscriptionHandlerTest extends TestCase
     public function test_a_cancellation_whose_paid_period_is_over_disables_the_account(?string $currentPeriodEnd): void
     {
         $profile = $this->profile();
-        $logger = new RecordingLogger();
 
-        ($this->handler($profile, logger: $logger))(
+        ($this->handler($profile))(
             $this->command('canceled', eventType: 'customer.subscription.deleted', currentPeriodEnd: $currentPeriodEnd),
         );
 
         self::assertNotNull($profile->user->disabledAt);
-        $disabled = array_values(array_filter($logger->records, static fn (array $record): bool => 'billing.account.disabled_on_cancel' === $record['message']));
-        self::assertCount(1, $disabled);
-        self::assertSame((string) $profile->user->id, $disabled[0]['context']['userId']);
+
+        $record = $this->audit->record('billing.account.disabled_on_cancel');
+        self::assertSame(AuditOutcome::Success, $record->outcome);
+        self::assertSame(Auditor::CATEGORY_DOMAIN, $record->category);
+        self::assertNotNull($record->subject);
+        self::assertSame('user', $record->subject->type);
+        self::assertSame((string) $profile->user->id, $record->subject->id);
+        self::assertSame(['userId' => (string) $profile->user->id], $record->context);
     }
 
     /**
@@ -463,5 +492,183 @@ final class SyncStripeSubscriptionHandlerTest extends TestCase
         ($this->handler($profile))($this->command('incomplete', currentPeriodEnd: '+10 days'));
 
         self::assertFalse($profile->hasCurrentSubscription(new \DateTimeImmutable()));
+    }
+
+    /**
+     * The whole log line, not only its message: the sink is what puts the
+     * record back into the log stream the handler used to write to directly.
+     */
+    public function test_the_log_line_the_sink_emits_carries_the_reenable_record(): void
+    {
+        $profile = $this->profile();
+        $profile->user->disabledAt = new \DateTimeImmutable('-2 days');
+
+        ($this->handler($profile))($this->command('active'));
+
+        self::assertCount(1, $this->audit->domainChannel->records);
+        self::assertSame([
+            'userId' => (string) $profile->user->id,
+            'outcome' => 'success',
+            'channel' => AuditChannel::System->value,
+            'subjectType' => 'user',
+            'subjectId' => (string) $profile->user->id,
+        ], $this->audit->domainChannel->records[0]['context']);
+    }
+
+    /**
+     * The handler keeps its logger for the webhook diagnostics, so the
+     * reflection check cannot apply. Both migrated operations must reach the
+     * log stream through the sink alone.
+     */
+    public function test_the_account_operations_are_never_logged_directly(): void
+    {
+        $profile = $this->profile();
+        $profile->user->disabledAt = new \DateTimeImmutable('-2 days');
+        $logger = new RecordingLogger();
+
+        $handler = $this->handler($profile, logger: $logger);
+        $handler($this->command('active', '2026-07-25 12:00:05', 'evt_first'));
+        $handler($this->command('canceled', '2026-07-25 12:00:06', 'evt_second', 'customer.subscription.deleted', '-1 hour'));
+
+        self::assertSame(
+            ['billing.account.reenabled', 'billing.account.disabled_on_cancel'],
+            $this->audit->operations(),
+        );
+
+        DirectLogging::assertOperationNotLoggedBy($this->audit, $logger, 'billing.account.reenabled');
+        DirectLogging::assertOperationNotLoggedBy($this->audit, $logger, 'billing.account.disabled_on_cancel');
+    }
+
+    /** The sync line stays a diagnostic: it names Stripe objects and nothing else. */
+    public function test_the_sync_diagnostic_still_logs_directly_and_is_not_recorded(): void
+    {
+        $profile = $this->profile();
+        $logger = new RecordingLogger();
+
+        ($this->handler($profile, logger: $logger))($this->command('active'));
+
+        $messages = array_map(static fn (array $entry): string => $entry['message'], $logger->records);
+        self::assertContains('billing.subscription.synced', $messages);
+        self::assertSame([], $this->audit->operations());
+    }
+
+    /**
+     * A webhook has no logged-in identity, so nothing resolves an actor. The
+     * record names the account it happened to and stops there.
+     */
+    public function test_a_webhook_record_names_no_actor(): void
+    {
+        $profile = $this->profile();
+        $profile->user->disabledAt = new \DateTimeImmutable('-2 days');
+
+        ($this->handler($profile))($this->command('active'));
+
+        $record = $this->audit->record('billing.account.reenabled');
+        self::assertNull($record->actor);
+        self::assertNull($record->actorIdentifier);
+        self::assertNull($record->credential);
+    }
+
+    /** Stripe ids belong to the diagnostics, never to a record. */
+    public function test_a_record_carries_no_stripe_identifier(): void
+    {
+        $profile = $this->profile();
+        $profile->user->disabledAt = new \DateTimeImmutable('-2 days');
+
+        ($this->handler($profile))($this->command('active'));
+
+        $context = $this->audit->record('billing.account.reenabled')->context;
+        self::assertSame([], array_filter(
+            $context,
+            static fn (string|int|float|bool|null $value): bool => \is_string($value)
+                && (str_starts_with($value, 'cus_') || str_starts_with($value, 'sub_') || str_starts_with($value, 'evt_')),
+        ));
+    }
+
+    /**
+     * The sink drains outside the business transaction, so a record made
+     * inside one outlives its rollback. A commit that fails after the
+     * re-enable must therefore leave no record claiming the account was
+     * re-enabled.
+     */
+    public function test_a_commit_that_fails_after_the_re_enable_records_nothing(): void
+    {
+        $profile = $this->profile();
+        $profile->user->disabledAt = new \DateTimeImmutable('-2 days');
+
+        $handler = $this->handler($profile, em: $this->failingCommitEntityManager());
+
+        try {
+            $handler($this->command('active'));
+            self::fail('a failed commit must propagate');
+        } catch (\RuntimeException $e) {
+            self::assertSame('commit failed', $e->getMessage());
+        }
+
+        self::assertSame([], $this->audit->operations());
+        self::assertSame([], $this->audit->domainLogLines());
+    }
+
+    /** The mirror of the re-enable case, on the cancellation path. */
+    public function test_a_commit_that_fails_after_the_cancel_disable_records_nothing(): void
+    {
+        $profile = $this->profile();
+
+        $handler = $this->handler($profile, em: $this->failingCommitEntityManager());
+
+        try {
+            $handler($this->command('canceled', eventType: 'customer.subscription.deleted', currentPeriodEnd: '-1 hour'));
+            self::fail('a failed commit must propagate');
+        } catch (\RuntimeException) {
+        }
+
+        self::assertSame([], $this->audit->operations());
+    }
+
+    /**
+     * Runs the closure, then throws as a failing flush or commit would: the
+     * state change has happened in memory and nothing was kept.
+     */
+    private function failingCommitEntityManager(): EntityManagerInterface
+    {
+        $em = $this->createStub(EntityManagerInterface::class);
+        $em->method('wrapInTransaction')->willReturnCallback(
+            static function (callable $callback) use ($em): never {
+                $callback($em);
+
+                throw new \RuntimeException('commit failed');
+            },
+        );
+
+        return $em;
+    }
+
+    /**
+     * A filtered event changed nothing, so it must claim nothing. Each of the
+     * paths that leave `apply()` early reports no state change of its own.
+     */
+    public function test_a_replayed_event_records_nothing_beyond_the_first(): void
+    {
+        $profile = $this->profile();
+        $profile->user->disabledAt = new \DateTimeImmutable('-2 days');
+        $handler = $this->handler($profile);
+
+        $handler($this->command('active', '2026-07-25 12:00:05', 'evt_same'));
+        $this->audit->forget();
+        $handler($this->command('active', '2026-07-25 12:00:05', 'evt_same'));
+
+        self::assertSame([], $this->audit->operations());
+    }
+
+    public function test_a_stale_event_records_nothing(): void
+    {
+        $profile = $this->profile();
+        $handler = $this->handler($profile);
+
+        $handler($this->command('canceled', '2026-07-25 12:00:06', 'evt_new', 'customer.subscription.deleted', '-1 hour'));
+        $this->audit->forget();
+        $handler($this->command('active', '2026-07-25 12:00:05', 'evt_old'));
+
+        self::assertSame([], $this->audit->operations());
     }
 }
