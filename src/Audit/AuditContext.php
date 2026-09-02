@@ -21,10 +21,20 @@ final class AuditContext implements ResetInterface
     /** @var array<string, scalar|null> */
     public array $ambientContext = [];
 
+    /**
+     * The actor being erased, if one is. Set for the rest of the request once
+     * an account deletion starts, so the records the deletion itself writes
+     * carry no name for the account they erase. The purger has already removed
+     * that account's rows by the time these are buffered, so nothing else would
+     * ever take the name back out.
+     */
+    public ?string $erasedActorId = null;
+
     #[\Override]
     public function reset(): void
     {
         $this->channel = null;
         $this->ambientContext = [];
+        $this->erasedActorId = null;
     }
 }

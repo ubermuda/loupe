@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Tests\Audit;
 
+use App\Audit\AuditContext;
 use App\Module\Account\Deletion\AccountPurger;
 use App\Module\Account\Entity\User;
 use App\Module\Audit\Auditor;
@@ -26,6 +27,11 @@ final class AuditTrailPersistenceTest extends KernelTestCase
     protected function setUp(): void
     {
         self::bootKernel();
+
+        // The context is a long-lived service that kernel.reset clears between
+        // units of work in production. Nothing clears it between tests, so one
+        // test's erased actor would otherwise silence the next one's.
+        static::getContainer()->get(AuditContext::class)->reset();
 
         $this->auditor = static::getContainer()->get(Auditor::class);
         $this->entityManager = static::getContainer()->get(EntityManagerInterface::class);
@@ -67,6 +73,42 @@ final class AuditTrailPersistenceTest extends KernelTestCase
         self::assertSame($user->id, $record->actor->id);
         self::assertSame('Riley Chen', $record->actorLabel);
         self::assertSame('session', $record->channel);
+    }
+
+    public function test_an_erased_actor_leaves_no_name_on_the_records_its_own_deletion_writes(): void
+    {
+        $user = $this->signIn();
+
+        // What the purger sets before it runs. The records the deletion writes
+        // are buffered until kernel.terminate, so they land after the purger
+        // has already removed every row this account was the actor of.
+        static::getContainer()->get(AuditContext::class)->erasedActorId = (string) $user->id;
+
+        $this->auditor->record('account.deleted', AuditOutcome::Success);
+        $this->auditor->flush();
+
+        $record = static::getContainer()->get(AuditLogRepository::class)->findOneBy(['operation' => 'account.deleted']);
+
+        self::assertInstanceOf(AuditLog::class, $record);
+        self::assertNull($record->actorLabel);
+        self::assertNull($record->actor);
+    }
+
+    public function test_erasing_one_actor_leaves_another_actors_name_alone(): void
+    {
+        $user = $this->signIn();
+
+        static::getContainer()->get(AuditContext::class)->erasedActorId = 'some-other-account';
+
+        $this->auditor->record('document.created', AuditOutcome::Success);
+        $this->auditor->flush();
+
+        $record = static::getContainer()->get(AuditLogRepository::class)->findOneBy(['operation' => 'document.created']);
+
+        self::assertInstanceOf(AuditLog::class, $record);
+        self::assertSame('Riley Chen', $record->actorLabel);
+        self::assertInstanceOf(User::class, $record->actor);
+        self::assertSame($user->id, $record->actor->id);
     }
 
     /** A refusal is the row a reader goes looking for, so it must survive the round trip. */
@@ -120,7 +162,7 @@ final class AuditTrailPersistenceTest extends KernelTestCase
      * record of it drains. The row must land anyway, keeping the name the
      * deleted account went by.
      */
-    public function test_a_record_whose_actor_was_deleted_still_reaches_the_table(): void
+    public function test_a_record_whose_actor_was_deleted_reaches_the_table_and_the_purgers_own_record_carries_no_name(): void
     {
         $user = $this->signIn();
         $userId = (string) $user->id;
@@ -137,12 +179,21 @@ final class AuditTrailPersistenceTest extends KernelTestCase
 
         $rows = $this->rows();
         self::assertCount(2, $rows);
+
         foreach ($rows as $row) {
             self::assertSame('account.deleted', $row['operation']);
             self::assertNull($row['actor_id'], 'the reference to the deleted account must be nulled');
-            self::assertSame('Riley Chen', $row['actor_label'], 'the label must outlive the account');
             self::assertSame($userId, $row['subject_id']);
         }
+
+        // The two rows differ, and the difference is the point. The first was
+        // recorded before the deletion began, so it keeps the name the account
+        // acted under. The purger's own record carries none: it is written
+        // after the purger has removed every row this account was the actor of,
+        // so a name on it would be the one thing the deletion could not erase.
+        $labels = array_column($rows, 'actor_label');
+        sort($labels);
+        self::assertSame([null, 'Riley Chen'], [$labels[0], $labels[1]]);
     }
 
     private function signIn(): User

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Tests\Module\Account\Command;
 
+use App\Audit\AuditContext;
 use App\Exception\DomainErrors;
 use App\Module\Account\Command\DeleteAccountCommand;
 use App\Module\Account\Command\DeleteAccountHandler;
@@ -129,6 +130,7 @@ final class DeleteAccountHandlerTest extends KernelTestCase
             $em,
             $logger,
             $audit->auditor,
+            new AuditContext(),
             $this->createStub(FilesystemOperator::class),
             [],
             [],
@@ -287,7 +289,7 @@ final class DeleteAccountHandlerTest extends KernelTestCase
         $audit = new RecordingAuditor(new NullAuditActorProvider());
         $handler = new DeleteAccountHandler(
             $users,
-            new AccountPurger($bus, $em, new NullLogger(), $audit->auditor, $this->createStub(FilesystemOperator::class), [], []),
+            new AccountPurger($bus, $em, new NullLogger(), $audit->auditor, new AuditContext(), $this->createStub(FilesystemOperator::class), [], []),
             $audit->auditor,
         );
 
@@ -339,7 +341,7 @@ final class DeleteAccountHandlerTest extends KernelTestCase
         $audit = new RecordingAuditor(new NullAuditActorProvider());
         $handler = new DeleteAccountHandler(
             $users,
-            new AccountPurger($this->createStub(MessageBusInterface::class), $em, new NullLogger(), $audit->auditor, $this->createStub(FilesystemOperator::class), $purgers, []),
+            new AccountPurger($this->createStub(MessageBusInterface::class), $em, new NullLogger(), $audit->auditor, new AuditContext(), $this->createStub(FilesystemOperator::class), $purgers, []),
             $audit->auditor,
         );
         $handler(new DeleteAccountCommand($token));

@@ -48,8 +48,18 @@ final readonly class LoupeAuditActorProvider implements AuditActorProviderInterf
             default => AuditChannel::System,
         };
 
+        $actor = $user instanceof AuditActorInterface ? $user : null;
+
+        // Named rather than anonymous: only the account being erased loses its
+        // actor, so an admin who deletes somebody else keeps theirs.
+        $erasedActorId = $this->auditContext->erasedActorId;
+
+        if (null !== $erasedActorId && null !== $actor && $actor->auditIdentifier() === $erasedActorId) {
+            $actor = null;
+        }
+
         return new AuditActorContext(
-            $user instanceof AuditActorInterface ? $user : null,
+            $actor,
             $apiToken,
             $channel->value,
             $this->auditContext->ambientContext,

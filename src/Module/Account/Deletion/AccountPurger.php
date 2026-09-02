@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Module\Account\Deletion;
 
+use App\Audit\AuditContext;
 use App\Module\Account\Entity\User;
 use App\Module\Audit\Auditor;
 use App\Module\Audit\AuditOutcome;
@@ -47,6 +48,7 @@ final readonly class AccountPurger
         private EntityManagerInterface $em,
         private LoggerInterface $logger,
         private Auditor $auditor,
+        private AuditContext $auditContext,
 
         #[Target('export.storage')]
         private FilesystemOperator $exportStorage,
@@ -68,6 +70,10 @@ final readonly class AccountPurger
         $userId = $user->id ?? throw new \LogicException('a persisted user always has an id');
 
         $cleanup = new AccountDeletionCleanup();
+
+        // Before the purgers run, because ProjectAccountPurger records a
+        // project deletion of its own at the first slot.
+        $this->auditContext->erasedActorId = (string) $userId;
 
         $this->em->wrapInTransaction(function () use ($user, $userId, $cleanup): void {
             // Before the purgers, not among them: a preparer exists for the row
