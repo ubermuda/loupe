@@ -2611,3 +2611,21 @@ keep running first, so give it the highest priority.
 The admin user panel extension point took this route in
 https://github.com/ubermuda/loupe/pull/309. The purgers stayed untouched there,
 because they were outside that branch's diff.
+
+## Collect the launch directories LocalDock lists, before announcing Loupe
+
+**Author:** Geoffrey · **Type:** idea · **Priority:** low · **Status:** pending
+
+The "featured on" section of https://www.localdock.dev/#faq lists a set of
+launch and directory sites. It is a ready-made starting list for announcing
+Loupe, rather than assembling one from scratch on the day.
+
+Work when this is picked up: read that section, write down which sites it names,
+and check each for whether it fits a self-hostable document-review tool with an
+MCP server — several launch directories are AI-product or developer-tool
+specific, and several want a paid slot. Record the shortlist somewhere durable,
+because the source page can change or disappear.
+
+Worth doing before the launch rather than during it: most of these sites want a
+tagline, a description, screenshots and a category chosen in advance, and some
+gate submissions behind a queue measured in weeks.
