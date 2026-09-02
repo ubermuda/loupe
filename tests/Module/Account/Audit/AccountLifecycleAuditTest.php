@@ -23,6 +23,8 @@ use App\Module\Account\Command\UpdateProfileHandler;
 use App\Module\Account\Command\VerifyEmailCommand;
 use App\Module\Account\Command\VerifyEmailHandler;
 use App\Module\Account\Entity\User;
+use App\Module\Account\Repository\UserRepository;
+use App\Module\Account\Service\PasswordResetEmailSender;
 use App\Module\Audit\Auditor;
 use App\Module\Audit\AuditOutcome;
 use App\Module\Audit\AuditSubject;
@@ -166,6 +168,32 @@ final class AccountLifecycleAuditTest extends KernelTestCase
         $handler(new RequestPasswordResetCommand('audit-reset-silent@example.com'));
 
         self::assertSame([], $this->audit->operations());
+    }
+
+    /**
+     * The sender clears the token and never flushes when the enqueue throws,
+     * so no reset was issued and the trail must not claim one. The `expects`
+     * is the guard: without it this passes on a run that never sent at all.
+     */
+    public function test_a_reset_request_records_nothing_when_the_send_fails(): void
+    {
+        $this->boot();
+        $this->seedUser('audit-reset-failed@example.com');
+
+        $users = self::getContainer()->get(UserRepository::class);
+        self::assertInstanceOf(UserRepository::class, $users);
+
+        $sender = $this->createMock(PasswordResetEmailSender::class);
+        $sender->expects($this->once())
+            ->method('send')
+            ->willThrowException(new \RuntimeException('mail transport unavailable'));
+
+        new RequestPasswordResetHandler($users, $sender, $this->audit->auditor)(
+            new RequestPasswordResetCommand('audit-reset-failed@example.com'),
+        );
+
+        self::assertSame([], $this->audit->operations());
+        self::assertSame([], $this->audit->domainLogLines());
     }
 
     public function test_a_resent_verification_email_records_only_where_a_user_resolved(): void

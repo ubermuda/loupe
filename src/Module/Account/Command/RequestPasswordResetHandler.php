@@ -37,17 +37,18 @@ final readonly class RequestPasswordResetHandler
 
         try {
             $this->passwordResetEmailSender->send($user);
+
+            // Inside the try: the sender clears the token and never flushes on
+            // a failed enqueue, so a record out here would claim a reset that
+            // was never issued. Keyed on the internal id, and no early-return
+            // branch records, so nothing answers "does this account exist".
+            $this->auditor->record(
+                'account.password_reset.requested',
+                AuditOutcome::Success,
+                ['userId' => (string) $user->id],
+                new AuditSubject('user', (string) $user->id),
+            );
         } catch (\Throwable) {
         }
-
-        // Keyed on the internal id and written only where a user resolved: the
-        // submitted address never enters the record, and no branch that returns
-        // early writes one, so nothing here can answer "does this account exist".
-        $this->auditor->record(
-            'account.password_reset.requested',
-            AuditOutcome::Success,
-            ['userId' => (string) $user->id],
-            new AuditSubject('user', (string) $user->id),
-        );
     }
 }
