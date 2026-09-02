@@ -60,6 +60,9 @@ final readonly class AuditLogAccountPurger implements AccountDataPurgerInterface
         // query by the object.
         $id = (string) ($user->id ?? throw new \LogicException('a persisted user always has an id'));
 
+        // Do not also match actor_label. A display name is not unique and it
+        // changes, so the match takes a namesake's records and misses the
+        // account's own records written under an older name.
         $this->em->getConnection()->executeStatement(
             'DELETE FROM audit_log WHERE actor_id = :id',
             ['id' => $id],
