@@ -30,6 +30,12 @@ entry.
 
 ## [Unreleased]
 
+- `1183917` (#325) — **Changed:** the audit trail now comes from the
+  `ubermuda/audit-bundle` package. The `/admin/audit-log` screen and the
+  `audit:purge` command work as before; the retention window moves from
+  `app.audit.retention_days` in `config/services.yaml` to `retention_days` in
+  `config/packages/ubermuda_audit.yaml`, which also carries the sweep's cron
+  expression.
 - `0406b9c` (#209) — **Fixed:** the admin area loads the application stylesheet
   again; it extends the bundle's layout rather than `layout_base.html.twig`, so
   it lost its only source of CSS when `assets/app.js` stopped importing the
