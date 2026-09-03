@@ -16,6 +16,7 @@ These skills hold the detailed conventions for one area each. Invoke the relevan
 | `project-frontend` | CSS in `assets/`, Stimulus controllers, Turbo patterns, icons, any frontend visual behaviour |
 | `project-templates` | `.html.twig` files or Twig component PHP classes |
 | `project-worktrees` | Git worktrees: provisioning, URLs, per-worktree databases, worktree tooling |
+| `project-deploy` | Deploying to production, `terraform apply`, verifying the live version |
 | `project-next-steps` | Adding, editing, or closing entries in `docs/NEXT_STEPS.md` |
 | `project-translations` | UI strings, translation keys, or adding a new locale |
 | `project-site-review` | The site-review widget (`public/site-review/widget.js`), `src/Module/SiteReview/`, its API routes, dev harness or e2e specs |
@@ -71,6 +72,7 @@ A bare `cd .claude/worktrees/<name> && just worktree-up` looks identical and is 
 - Always branch off `main`, never off the current feature branch.
 - Tear down with `just worktree-down <name>`, never with a bare `git worktree remove`.
 - Serena's edit tools do not work from a worktree. The Serena MCP server is bound to the main checkout, so `replace_symbol_body`, `insert_*_symbol` and `replace_content` write to the main checkout instead of your worktree. Your branch stays unchanged and the main tree goes dirty. Use the built-in Edit and Write tools from a worktree. Serena read tools (`get_symbols_overview`, `find_symbol`, `find_referencing_symbols`) are safe from anywhere.
+- Invoke the `project-deploy` skill before you deploy, run `terraform apply`, or report what version is live. It carries the trap that a `terraform apply` deployment does not re-pull the fixed `prod` tag, so the spec change ships and the code does not, and it names `/healthz` with `X-Probe-Token` as the only reliable way to read the running version.
 - Invoke the `project-worktrees` skill before you provision, debug or write tooling for a worktree. It carries the commands, the symptoms and causes table (404 against 502, unstyled CSS, a rejected widget token), and the two rules that prevent real damage: never run bare `docker compose` from a worktree, and never match worktrees by directory name instead of slug.
 
 ## Claude commands
