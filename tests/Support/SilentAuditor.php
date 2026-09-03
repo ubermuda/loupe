@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 namespace App\Tests\Support;
 
-use App\Module\Audit\Auditor;
-use App\Module\Audit\NullAuditActorProvider;
 use Psr\Log\NullLogger;
 use Symfony\Component\Clock\MockClock;
+use Ubermuda\AuditBundle\Auditor;
+use Ubermuda\AuditBundle\NullAuditActorProvider;
 
 /**
  * An Auditor with no sinks, for a construction site that has to supply one and

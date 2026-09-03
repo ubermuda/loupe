@@ -7,7 +7,6 @@ namespace App\Tests\Module\Account\Controller;
 use App\Module\Account\Controller\JoinWaitlistController;
 use App\Module\Account\Controller\RegisterController;
 use App\Module\Account\Service\RegistrationGate;
-use App\Module\Audit\AuditOutcome;
 use App\Tests\Support\DirectLogging;
 use App\Tests\Support\InstalledInstance;
 use App\Tests\Support\RecordingAuditor;
@@ -16,6 +15,7 @@ use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
+use Ubermuda\AuditBundle\AuditOutcome;
 use Ubermuda\FeatureFlagsBundle\Entity\FeatureFlag;
 use Ubermuda\FeatureFlagsBundle\Enum\FeatureFlagType;
 

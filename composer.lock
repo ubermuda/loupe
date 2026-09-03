@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "ae76cd40d7b29ceaae0b7fa64cb8b221",
+    "content-hash": "83fc394c2d07b8722b99adbc89d7fb0a",
     "packages": [
         {
             "name": "async-aws/core",
@@ -12087,6 +12087,75 @@
             "time": "2026-07-29T02:06:02+00:00"
         },
         {
+            "name": "ubermuda/audit-bundle",
+            "version": "dev-main",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/ubermuda/audit-bundle.git",
+                "reference": "50f6e01b8643322143d84849be525b0891aeeaf6"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/ubermuda/audit-bundle/zipball/50f6e01b8643322143d84849be525b0891aeeaf6",
+                "reference": "50f6e01b8643322143d84849be525b0891aeeaf6",
+                "shasum": ""
+            },
+            "require": {
+                "doctrine/dbal": "^4.0",
+                "doctrine/doctrine-bundle": "^3.2",
+                "doctrine/orm": "^3.6",
+                "doctrine/persistence": "^4.0",
+                "dragonmantank/cron-expression": "^3.4",
+                "php": ">=8.4",
+                "psr/clock": "^1.0",
+                "psr/log": "^3.0",
+                "symfony/console": "^7.2|^8.0",
+                "symfony/dependency-injection": "^7.2|^8.0",
+                "symfony/doctrine-bridge": "^7.2|^8.0",
+                "symfony/event-dispatcher": "^7.2|^8.0",
+                "symfony/framework-bundle": "^7.2|^8.0",
+                "symfony/messenger": "^7.2|^8.0",
+                "symfony/scheduler": "^7.2|^8.0",
+                "symfony/security-bundle": "^7.2|^8.0",
+                "symfony/translation": "^7.2|^8.0",
+                "symfony/twig-bundle": "^7.2|^8.0",
+                "symfony/uid": "^7.2|^8.0",
+                "twig/twig": "^3.10",
+                "ubermuda/admin-bundle": "dev-main@dev"
+            },
+            "require-dev": {
+                "dama/doctrine-test-bundle": "^8.0",
+                "phpstan/phpstan": "^2.0",
+                "phpunit/phpunit": "^11.5",
+                "symfony/browser-kit": "^7.2|^8.0",
+                "symfony/clock": "^7.2|^8.0",
+                "symfony/css-selector": "^7.2|^8.0",
+                "symfony/phpunit-bridge": "^7.2|^8.0",
+                "symfony/yaml": "^7.2|^8.0"
+            },
+            "default-branch": true,
+            "type": "symfony-bundle",
+            "autoload": {
+                "psr-4": {
+                    "Ubermuda\\AuditBundle\\": "src/"
+                }
+            },
+            "autoload-dev": {
+                "psr-4": {
+                    "Ubermuda\\AuditBundle\\Test\\": "test/"
+                }
+            },
+            "license": [
+                "proprietary"
+            ],
+            "description": "An append-only audit trail for Symfony: who did what, with pluggable sinks, a retention window and an admin screen built on ubermuda/admin-bundle.",
+            "support": {
+                "source": "https://github.com/ubermuda/audit-bundle/tree/main",
+                "issues": "https://github.com/ubermuda/audit-bundle/issues"
+            },
+            "time": "2026-09-03T17:38:47+00:00"
+        },
+        {
             "name": "ubermuda/doctrine-extra",
             "version": "dev-main",
             "source": {
@@ -16330,6 +16399,7 @@
     "minimum-stability": "dev",
     "stability-flags": {
         "ubermuda/admin-bundle": 20,
+        "ubermuda/audit-bundle": 20,
         "ubermuda/doctrine-extra": 20,
         "ubermuda/feature-flags-bundle": 20,
         "ubermuda/gamache": 20,

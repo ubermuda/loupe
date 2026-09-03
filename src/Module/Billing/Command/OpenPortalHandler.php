@@ -5,12 +5,12 @@ declare(strict_types=1);
 namespace App\Module\Billing\Command;
 
 use App\Exception\DomainErrors;
-use App\Module\Audit\Auditor;
-use App\Module\Audit\AuditOutcome;
-use App\Module\Audit\AuditSubject;
 use App\Module\Billing\Repository\BillingProfileRepository;
 use App\Module\Billing\Service\StripeGatewayInterface;
 use Psr\Log\LoggerInterface;
+use Ubermuda\AuditBundle\Auditor;
+use Ubermuda\AuditBundle\AuditOutcome;
+use Ubermuda\AuditBundle\AuditSubject;
 use Ubermuda\FeatureFlagsBundle\FeatureFlagService;
 
 final readonly class OpenPortalHandler

@@ -6,9 +6,6 @@ namespace App\Tests\Module\Account\Security;
 
 use App\Module\Account\Repository\ApiTokenRepository;
 use App\Module\Account\Security\ApiTokenAuthenticator;
-use App\Module\Audit\Auditor;
-use App\Module\Audit\AuditOutcome;
-use App\Module\Audit\NullAuditActorProvider;
 use App\Tests\Support\RecordingAuditor;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\MockObject\Stub;
@@ -17,6 +14,9 @@ use Psr\Log\LoggerInterface;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Security\Core\Exception\AuthenticationException;
+use Ubermuda\AuditBundle\Auditor;
+use Ubermuda\AuditBundle\AuditOutcome;
+use Ubermuda\AuditBundle\NullAuditActorProvider;
 
 final class ApiTokenAuthenticatorTest extends TestCase
 {

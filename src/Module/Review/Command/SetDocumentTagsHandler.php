@@ -4,12 +4,12 @@ declare(strict_types=1);
 
 namespace App\Module\Review\Command;
 
-use App\Module\Audit\Auditor;
-use App\Module\Audit\AuditOutcome;
-use App\Module\Audit\AuditSubject;
 use App\Module\Review\Entity\Tag;
 use App\Module\Review\Service\DocumentTagApplier;
 use Doctrine\ORM\EntityManagerInterface;
+use Ubermuda\AuditBundle\Auditor;
+use Ubermuda\AuditBundle\AuditOutcome;
+use Ubermuda\AuditBundle\AuditSubject;
 
 /**
  * Replaces a document's tags with the given set, creating any the project does

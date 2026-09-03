@@ -6,10 +6,6 @@ namespace App\Tests\Module\Billing\Command;
 
 use App\Audit\AuditChannel;
 use App\Audit\AuditContext;
-use App\Module\Audit\AuditActorProviderInterface;
-use App\Module\Audit\AuditEvent;
-use App\Module\Audit\Auditor;
-use App\Module\Audit\AuditOutcome;
 use App\Module\Billing\Command\RunTrialSweepCommand;
 use App\Module\Billing\Command\RunTrialSweepHandler;
 use App\Module\Billing\Command\TrialSweepResult;
@@ -36,6 +32,10 @@ use Symfony\Component\Mailer\Envelope;
 use Symfony\Component\Mailer\MailerInterface;
 use Symfony\Component\Mime\RawMessage;
 use Symfony\Contracts\Translation\TranslatorInterface;
+use Ubermuda\AuditBundle\AuditActorProviderInterface;
+use Ubermuda\AuditBundle\AuditEvent;
+use Ubermuda\AuditBundle\Auditor;
+use Ubermuda\AuditBundle\AuditOutcome;
 
 /**
  * The row locking (PESSIMISTIC_WRITE + refresh + re-check) needs the real

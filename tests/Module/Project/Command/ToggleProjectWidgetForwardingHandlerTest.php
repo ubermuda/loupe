@@ -8,9 +8,6 @@ use App\Exception\DomainErrors;
 use App\Module\Account\Entity\ApiToken;
 use App\Module\Account\Entity\ApiTokenScope;
 use App\Module\Account\Entity\User;
-use App\Module\Audit\AuditActorProviderInterface;
-use App\Module\Audit\Auditor;
-use App\Module\Audit\AuditOutcome;
 use App\Module\Project\Command\ToggleProjectWidgetForwardingCommand;
 use App\Module\Project\Command\ToggleProjectWidgetForwardingHandler;
 use App\Module\Project\Entity\Project;
@@ -18,6 +15,9 @@ use App\Tests\Support\DirectLogging;
 use App\Tests\Support\RecordingAuditor;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
+use Ubermuda\AuditBundle\AuditActorProviderInterface;
+use Ubermuda\AuditBundle\Auditor;
+use Ubermuda\AuditBundle\AuditOutcome;
 
 final class ToggleProjectWidgetForwardingHandlerTest extends KernelTestCase
 {

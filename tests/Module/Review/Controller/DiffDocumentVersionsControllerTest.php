@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Tests\Module\Review\Controller;
 
 use App\Module\Account\Entity\User;
-use App\Module\Audit\AuditOutcome;
 use App\Module\Project\Entity\Project;
 use App\Module\Review\Command\DiffDocumentVersionsHandler;
 use App\Module\Review\Entity\Comment;
@@ -21,6 +20,7 @@ use Psr\Log\NullLogger;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use Symfony\Component\DomCrawler\Crawler;
 use Symfony\Component\HttpFoundation\Request;
+use Ubermuda\AuditBundle\AuditOutcome;
 
 final class DiffDocumentVersionsControllerTest extends WebTestCase
 {

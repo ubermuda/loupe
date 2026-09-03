@@ -6,10 +6,10 @@ namespace App\Audit;
 
 use App\Module\Account\Entity\ApiTokenScope;
 use App\Module\Account\Security\AuthenticatedApiTokenResolver;
-use App\Module\Audit\AuditActorContext;
-use App\Module\Audit\AuditActorInterface;
-use App\Module\Audit\AuditActorProviderInterface;
 use Symfony\Component\Security\Core\Authentication\Token\Storage\TokenStorageInterface;
+use Ubermuda\AuditBundle\AuditActorContext;
+use Ubermuda\AuditBundle\AuditActorInterface;
+use Ubermuda\AuditBundle\AuditActorProviderInterface;
 
 /**
  * Reads the acting identity straight from TokenStorage, which nothing else in

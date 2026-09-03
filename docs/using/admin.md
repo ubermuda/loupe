@@ -58,8 +58,8 @@ the admin area with no restart. An instance installed with the audit log already
 has the flag row. Edit it at **`/admin/feature-flags`**.
 
 An instance installed before the flag existed has no row for it. That instance
-keeps 180 days, which is the value of `app.audit.retention_days` in
-`config/services.yaml`. To change the window there, create the row at
+keeps 180 days, which is the value of `retention_days` in
+`config/packages/ubermuda_audit.yaml`. To change the window there, create the row at
 **`/admin/feature-flags/new`**. Set **Name** to `audit.retention_days`, set
 **Type** to `Int`, then put the number of days in **Value**.
 

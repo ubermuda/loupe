@@ -6,11 +6,11 @@ namespace App\Tests\Audit;
 
 use App\Audit\AuditLogExporter;
 use App\Module\Account\Entity\User;
-use App\Module\Audit\AuditOutcome;
-use App\Module\Audit\Repository\AuditLogRepository;
 use PHPUnit\Framework\MockObject\Stub;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\Uid\Uuid;
+use Ubermuda\AuditBundle\AuditOutcome;
+use Ubermuda\AuditBundle\Repository\AuditLogRepository;
 
 /**
  * @phpstan-import-type AuditLogRowData from AuditLogRepository

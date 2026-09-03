@@ -12,9 +12,6 @@ use App\Module\Account\Repository\UserRepository;
 use App\Module\Account\Repository\WaitlistEntryRepository;
 use App\Module\Account\Service\InstallationState;
 use App\Module\Account\Service\RegistrationGate;
-use App\Module\Audit\Auditor;
-use App\Module\Audit\AuditOutcome;
-use App\Module\Audit\NullAuditActorProvider;
 use App\Module\Billing\Command\StartCheckoutCommand;
 use App\Module\Billing\Command\StartCheckoutHandler;
 use App\Module\Billing\Entity\BillingProfile;
@@ -35,6 +32,9 @@ use PHPUnit\Framework\TestCase;
 use Psr\Log\NullLogger;
 use Symfony\Component\Cache\Adapter\ArrayAdapter;
 use Symfony\Component\Uid\Uuid;
+use Ubermuda\AuditBundle\Auditor;
+use Ubermuda\AuditBundle\AuditOutcome;
+use Ubermuda\AuditBundle\NullAuditActorProvider;
 
 final class StartCheckoutHandlerTest extends TestCase
 {

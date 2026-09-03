@@ -6,13 +6,13 @@ namespace App\Tests\Module\Account\Controller\Install;
 
 use App\Module\Account\Controller\Install\CreateAdminController;
 use App\Module\Account\Repository\UserRepository;
-use App\Module\Audit\Auditor;
-use App\Module\Audit\AuditOutcome;
-use App\Module\Audit\AuditSubject;
 use App\Tests\Support\DirectLogging;
 use App\Tests\Support\RecordingAuditor;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
+use Ubermuda\AuditBundle\Auditor;
+use Ubermuda\AuditBundle\AuditOutcome;
+use Ubermuda\AuditBundle\AuditSubject;
 
 final class CreateAdminControllerTest extends WebTestCase
 {

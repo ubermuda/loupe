@@ -9,8 +9,6 @@ use App\Module\Account\Controller\Install\SeedFlagsController;
 use App\Module\Account\Entity\User;
 use App\Module\Account\Service\RegistrationGate;
 use App\Module\Analytics\Twig\AnalyticsScript;
-use App\Module\Audit\Auditor;
-use App\Module\Audit\AuditOutcome;
 use App\Module\Review\Mcp\DocumentHighlightTool;
 use App\Service\UpdateCheck;
 use App\Tests\Support\DirectLogging;
@@ -18,6 +16,8 @@ use App\Tests\Support\RecordingAuditor;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
+use Ubermuda\AuditBundle\Auditor;
+use Ubermuda\AuditBundle\AuditOutcome;
 use Ubermuda\FeatureFlagsBundle\Repository\FeatureFlagRepository;
 
 final class SeedFlagsControllerTest extends WebTestCase

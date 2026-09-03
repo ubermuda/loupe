@@ -5,8 +5,7 @@ declare(strict_types=1);
 namespace App\Tests\Audit;
 
 use App\Audit\FeatureFlagAuditRetentionPolicy;
-use App\Audit\Scheduler\PurgeAuditLogTask;
-use App\Module\Audit\AuditRetentionPolicyInterface;
+use App\Tests\Support\ScheduledTasks;
 use Doctrine\DBAL\Connection;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Console\Application;
@@ -14,6 +13,8 @@ use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Tester\CommandTester;
 use Symfony\Component\Uid\Uuid;
+use Ubermuda\AuditBundle\AuditRetentionPolicyInterface;
+use Ubermuda\AuditBundle\Scheduler\PurgeAuditLogTask;
 use Ubermuda\FeatureFlagsBundle\Entity\FeatureFlag;
 use Ubermuda\FeatureFlagsBundle\Enum\FeatureFlagType;
 
@@ -49,6 +50,20 @@ final class AuditRetentionPolicyWiringTest extends KernelTestCase
      * A ten-year-old record that the default window deletes, kept by a flag both
      * purge paths must read. Two windows would show up as one path removing it.
      */
+    /**
+     * The tick is an attribute in the bundle and a compiler pass here, so a
+     * schedule that loses it stops purging and nothing goes red.
+     */
+    public function test_the_bundle_task_reaches_this_application_schedule(): void
+    {
+        self::bootKernel();
+
+        self::assertSame(
+            '45 * * * *',
+            ScheduledTasks::cronExpressions(self::getContainer())[PurgeAuditLogTask::class] ?? null,
+        );
+    }
+
     public function test_the_hourly_sweep_and_the_manual_command_read_the_same_window(): void
     {
         $kernel = self::bootKernel();

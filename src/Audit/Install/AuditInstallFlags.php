@@ -18,7 +18,7 @@ use Ubermuda\FeatureFlagsBundle\Enum\FeatureFlagType;
 final readonly class AuditInstallFlags implements InstallFlagDefaultsInterface
 {
     public function __construct(
-        #[Autowire(param: 'app.audit.retention_days')]
+        #[Autowire(param: 'ubermuda_audit.retention_days')]
         private int $retentionDays,
     ) {
     }

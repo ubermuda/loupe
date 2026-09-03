@@ -27,4 +27,5 @@ return [
     KnpU\OAuth2ClientBundle\KnpUOAuth2ClientBundle::class => ['all' => true],
     League\FlysystemBundle\FlysystemBundle::class => ['all' => true],
     Ubermuda\HealthCheckBundle\UbermudaHealthCheckBundle::class => ['all' => true],
+    Ubermuda\AuditBundle\UbermudaAuditBundle::class => ['all' => true],
 ];

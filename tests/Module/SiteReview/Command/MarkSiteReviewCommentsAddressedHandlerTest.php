@@ -5,10 +5,6 @@ declare(strict_types=1);
 namespace App\Tests\Module\SiteReview\Command;
 
 use App\Module\Account\Entity\User;
-use App\Module\Audit\AuditActorProviderInterface;
-use App\Module\Audit\AuditEvent;
-use App\Module\Audit\Auditor;
-use App\Module\Audit\AuditOutcome;
 use App\Module\Project\Entity\Project;
 use App\Module\SiteReview\Command\MarkSiteReviewCommentAddressedOutcome;
 use App\Module\SiteReview\Command\MarkSiteReviewCommentsAddressedCommand;
@@ -19,6 +15,10 @@ use App\Module\SiteReview\Repository\SiteReviewCommentRepository;
 use App\Tests\Support\RecordingAuditor;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
+use Ubermuda\AuditBundle\AuditActorProviderInterface;
+use Ubermuda\AuditBundle\AuditEvent;
+use Ubermuda\AuditBundle\Auditor;
+use Ubermuda\AuditBundle\AuditOutcome;
 
 final class MarkSiteReviewCommentsAddressedHandlerTest extends KernelTestCase
 {

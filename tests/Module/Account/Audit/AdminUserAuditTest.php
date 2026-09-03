@@ -13,13 +13,13 @@ use App\Module\Account\Command\Admin\UnsuspendUserHandler;
 use App\Module\Account\Command\Admin\UpdateUserCommand;
 use App\Module\Account\Command\Admin\UpdateUserHandler;
 use App\Module\Account\Entity\User;
-use App\Module\Audit\Auditor;
-use App\Module\Audit\AuditOutcome;
 use App\Tests\Support\DirectLogging;
 use App\Tests\Support\RecordingAuditor;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\DataProvider;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
+use Ubermuda\AuditBundle\Auditor;
+use Ubermuda\AuditBundle\AuditOutcome;
 
 /**
  * The four admin handlers already logged an actor beside a target. The actor

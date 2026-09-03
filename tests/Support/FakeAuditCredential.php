@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Tests\Support;
 
-use App\Module\Audit\AuditCredentialInterface;
+use Ubermuda\AuditBundle\AuditCredentialInterface;
 
 /** Stands in for whatever the application calls an API token. */
 final class FakeAuditCredential implements AuditCredentialInterface

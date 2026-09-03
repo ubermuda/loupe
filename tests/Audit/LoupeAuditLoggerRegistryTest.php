@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 namespace App\Tests\Audit;
 
-use App\Module\Audit\AuditLoggerRegistryInterface;
-use App\Module\Audit\Auditor;
 use Monolog\Logger;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
+use Ubermuda\AuditBundle\AuditLoggerRegistryInterface;
+use Ubermuda\AuditBundle\Auditor;
 
 /**
  * The categories a migrated call site passes are the whole of its channel

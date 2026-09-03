@@ -1,0 +1,6 @@
+ubermuda_audit:
+    # How long an audit record is kept, as the default the `audit.retention_days`
+    # feature flag starts from. An instance with no flag row reads this number.
+    retention_days: 180
+    # Quarter to the hour keeps the sweep off the trial sweep and the export purge.
+    purge_schedule: '45 * * * *'

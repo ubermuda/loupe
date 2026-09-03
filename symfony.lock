@@ -471,6 +471,9 @@
     "ubermuda/admin-bundle": {
         "version": "dev-main"
     },
+    "ubermuda/audit-bundle": {
+        "version": "dev-feat/extract-audit-bundle"
+    },
     "ubermuda/doctrine-extra": {
         "version": "dev-feat/encrypted-string-type"
     },

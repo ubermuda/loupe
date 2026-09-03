@@ -7,8 +7,6 @@ namespace App\Tests\Module\Billing\Command\Admin;
 use App\Audit\AuditChannel;
 use App\Exception\DomainErrors;
 use App\Module\Account\Entity\User;
-use App\Module\Audit\Auditor;
-use App\Module\Audit\AuditOutcome;
 use App\Module\Billing\Command\Admin\GrantCompCommand;
 use App\Module\Billing\Command\Admin\GrantCompHandler;
 use App\Module\Billing\Entity\BillingStatus;
@@ -22,6 +20,8 @@ use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Symfony\Component\Security\Core\Authentication\Token\Storage\TokenStorageInterface;
 use Symfony\Component\Security\Core\Authentication\Token\UsernamePasswordToken;
+use Ubermuda\AuditBundle\Auditor;
+use Ubermuda\AuditBundle\AuditOutcome;
 
 final class GrantCompHandlerTest extends KernelTestCase
 {

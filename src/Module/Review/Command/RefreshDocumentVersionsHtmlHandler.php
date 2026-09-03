@@ -4,8 +4,6 @@ declare(strict_types=1);
 
 namespace App\Module\Review\Command;
 
-use App\Module\Audit\Auditor;
-use App\Module\Audit\AuditOutcome;
 use App\Module\Review\Entity\DocumentVersion;
 use App\Module\Review\Repository\CommentRepository;
 use App\Module\Review\Repository\DocumentVersionRepository;
@@ -13,6 +11,8 @@ use App\Module\Review\Service\AnchorService;
 use App\Module\Review\Service\MarkdownRenderer;
 use App\Module\Review\ValueObject\Anchor;
 use Doctrine\ORM\EntityManagerInterface;
+use Ubermuda\AuditBundle\Auditor;
+use Ubermuda\AuditBundle\AuditOutcome;
 
 /**
  * Re-renders the stored HTML of every document version from its Markdown

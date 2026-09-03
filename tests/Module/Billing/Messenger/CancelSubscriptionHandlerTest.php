@@ -5,9 +5,6 @@ declare(strict_types=1);
 namespace App\Tests\Module\Billing\Messenger;
 
 use App\Audit\AuditChannel;
-use App\Module\Audit\Auditor;
-use App\Module\Audit\AuditOutcome;
-use App\Module\Audit\NullAuditActorProvider;
 use App\Module\Billing\Messenger\CancelSubscriptionHandler;
 use App\Module\Billing\Messenger\CancelSubscriptionMessage;
 use App\Module\Billing\Service\StripeGatewayInterface;
@@ -16,6 +13,9 @@ use App\Tests\Support\RecordingAuditor;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\MockObject\Stub;
 use PHPUnit\Framework\TestCase;
+use Ubermuda\AuditBundle\Auditor;
+use Ubermuda\AuditBundle\AuditOutcome;
+use Ubermuda\AuditBundle\NullAuditActorProvider;
 
 final class CancelSubscriptionHandlerTest extends TestCase
 {

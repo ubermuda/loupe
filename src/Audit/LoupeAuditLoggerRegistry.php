@@ -4,11 +4,11 @@ declare(strict_types=1);
 
 namespace App\Audit;
 
-use App\Module\Audit\AuditLoggerRegistryInterface;
-use App\Module\Audit\Auditor;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\DependencyInjection\Attribute\AsAlias;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
+use Ubermuda\AuditBundle\AuditLoggerRegistryInterface;
+use Ubermuda\AuditBundle\Auditor;
 
 /**
  * Binds the package's two categories to this application's Monolog channels.

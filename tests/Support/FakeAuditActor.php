@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Tests\Support;
 
-use App\Module\Audit\AuditActorInterface;
+use Ubermuda\AuditBundle\AuditActorInterface;
 
 /** Stands in for whatever the application calls a user, with both answers writable. */
 final class FakeAuditActor implements AuditActorInterface

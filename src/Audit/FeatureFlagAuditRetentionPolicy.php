@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace App\Audit;
 
-use App\Module\Audit\AuditRetentionPolicyInterface;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
+use Ubermuda\AuditBundle\AuditRetentionPolicyInterface;
 use Ubermuda\FeatureFlagsBundle\FeatureFlagService;
 
 /**
@@ -24,7 +24,7 @@ final readonly class FeatureFlagAuditRetentionPolicy implements AuditRetentionPo
     public function __construct(
         private FeatureFlagService $featureFlags,
 
-        #[Autowire(param: 'app.audit.retention_days')]
+        #[Autowire(param: 'ubermuda_audit.retention_days')]
         private int $default,
     ) {
     }
