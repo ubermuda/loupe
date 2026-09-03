@@ -112,7 +112,7 @@ final class ApiTokenAuthenticator extends AbstractAuthenticator implements Authe
         // personal data, so they stay diagnostics in the log line beside it.
         // The trail has no erasure path. No subject either, no token resolved.
         $this->auditor->record(
-            'account.api_token_authenticated',
+            'account.api_token_authentication_failed',
             AuditOutcome::Refused,
             category: Auditor::CATEGORY_SECURITY,
         );

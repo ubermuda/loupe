@@ -2531,23 +2531,6 @@ Do this before the table carries much history. A rename does not rewrite the
 rows already written, and the admin filter is a prefix `LIKE` on `operation`, so
 the old name and the new name read as two separate operations from that day on.
 
-## A failure deserves the base operation name and a Failed outcome, not a name of its own
-
-**Author:** Claude · **Type:** tooling · **Priority:** medium · **Status:** pending
-
-The outcome column already says whether an operation succeeded, was refused or
-broke. A name that ends in `_failed` says it a second time, and it splits one
-operation into two names that no filter joins. Collapse each failure-suffixed
-name into its base operation with `AuditOutcome::Failed`.
-
-`account.api_token.authentication_failed` is the only one in the trail today.
-The rest are still log lines. List them with `grep -rnE "[a-z_.]*failed'" src/`.
-Leave `audit.sink_failed` alone. That is the auditor reporting its own sink, and
-it never becomes a record.
-
-Do this in the same pass as the two-segment rename above. Both change stored
-names, and one pass costs the history one split instead of two.
-
 ## `TrialProvisioner::ensureProfile` grants a trial and records nothing
 
 **Author:** Claude · **Type:** bug · **Priority:** medium · **Status:** pending
