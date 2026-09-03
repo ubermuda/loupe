@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "ced155a510985b009bd35226a9be3a6d",
+    "content-hash": "83fc394c2d07b8722b99adbc89d7fb0a",
     "packages": [
         {
             "name": "async-aws/core",
@@ -12088,16 +12088,16 @@
         },
         {
             "name": "ubermuda/audit-bundle",
-            "version": "dev-feat/extract-audit-bundle",
+            "version": "dev-main",
             "source": {
                 "type": "git",
                 "url": "https://github.com/ubermuda/audit-bundle.git",
-                "reference": "cc413afdd554eca5ea097b5bae3df6a03f5e12da"
+                "reference": "50f6e01b8643322143d84849be525b0891aeeaf6"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/ubermuda/audit-bundle/zipball/cc413afdd554eca5ea097b5bae3df6a03f5e12da",
-                "reference": "cc413afdd554eca5ea097b5bae3df6a03f5e12da",
+                "url": "https://api.github.com/repos/ubermuda/audit-bundle/zipball/50f6e01b8643322143d84849be525b0891aeeaf6",
+                "reference": "50f6e01b8643322143d84849be525b0891aeeaf6",
                 "shasum": ""
             },
             "require": {
@@ -12133,6 +12133,7 @@
                 "symfony/phpunit-bridge": "^7.2|^8.0",
                 "symfony/yaml": "^7.2|^8.0"
             },
+            "default-branch": true,
             "type": "symfony-bundle",
             "autoload": {
                 "psr-4": {
@@ -12149,10 +12150,10 @@
             ],
             "description": "An append-only audit trail for Symfony: who did what, with pluggable sinks, a retention window and an admin screen built on ubermuda/admin-bundle.",
             "support": {
-                "source": "https://github.com/ubermuda/audit-bundle/tree/feat/extract-audit-bundle",
+                "source": "https://github.com/ubermuda/audit-bundle/tree/main",
                 "issues": "https://github.com/ubermuda/audit-bundle/issues"
             },
-            "time": "2026-09-03T17:13:10+00:00"
+            "time": "2026-09-03T17:38:47+00:00"
         },
         {
             "name": "ubermuda/doctrine-extra",
@@ -16394,14 +16395,7 @@
             "time": "2026-06-29T15:22:14+00:00"
         }
     ],
-    "aliases": [
-        {
-            "package": "ubermuda/audit-bundle",
-            "version": "dev-feat/extract-audit-bundle",
-            "alias": "dev-main",
-            "alias_normalized": "dev-main"
-        }
-    ],
+    "aliases": [],
     "minimum-stability": "dev",
     "stability-flags": {
         "ubermuda/admin-bundle": 20,
