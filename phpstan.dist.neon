@@ -26,6 +26,8 @@ parameters:
             renderMethods: ['render', 'renderFormResponse']
         templateNamespaces:
             forbiddenPathPrefix: 'Module/'
+        auditOperations:
+            auditorClass: 'App\Module\Audit\Auditor'
         translationCallSites:
             - { class: App\Controller\AppController, method: addFlash, argumentIndex: 1 }
             - { class: Symfony\Component\Mime\Email, method: subject, argumentIndex: 0 }
